@@ -294,7 +294,7 @@ func (s *legacySuite) TestModelStatus(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 	s.Factory.MakeMachine(c, nil)
-	modelTag := s.State.ModelTag()
+	modelTag := s.IAASModel.ModelTag()
 	results, err := sysManager.ModelStatus(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{

@@ -199,12 +199,13 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		})
 		outputHeaders("Relation provider", "Requirer", "Interface", "Type", "Message")
 		for _, r := range fs.Relations {
-			status := ""
-			if r.Status != string(relation.Joined) {
-				status = r.Status
-			}
 			w.Print(r.Provider, r.Requirer, r.Interface, r.Type)
-			w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(status)), status)
+			if r.Status != string(relation.Joined) {
+				w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(r.Status)), r.Status)
+				if r.Message != "" {
+					w.Print(" - " + r.Message)
+				}
+			}
 			w.Println()
 		}
 	}

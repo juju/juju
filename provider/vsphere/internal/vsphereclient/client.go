@@ -4,6 +4,7 @@
 package vsphereclient
 
 import (
+	"context"
 	"net/url"
 	"path"
 	"strings"
@@ -15,10 +16,10 @@ import (
 	"github.com/vmware/govmomi/list"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/property"
+	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
-	"golang.org/x/net/context"
 )
 
 // Client encapsulates a vSphere client, exposing the subset of
@@ -51,9 +52,10 @@ func (c *Client) Close(ctx context.Context) error {
 	return c.client.Logout(ctx)
 }
 
-func (c *Client) recurser() *list.Recurser {
-	return &list.Recurser{
+func (c *Client) lister(ref types.ManagedObjectReference) *list.Lister {
+	return &list.Lister{
 		Collector: property.DefaultCollector(c.client.Client),
+		Reference: ref,
 		All:       true,
 	}
 }
@@ -165,10 +167,10 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	root := list.Element{Object: folders.HostFolder}
-	es, err := c.recurser().Recurse(ctx, root, []string{"*"})
+
+	es, err := c.lister(folders.HostFolder.Reference()).List(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	var cprs []*mo.ComputeResource
@@ -183,16 +185,42 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 	return cprs, nil
 }
 
-// EnsureVMFolder creates the a VM folder with the given path if it doesn't
-// already exist.
-func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string) error {
-	finder, datacenter, err := c.finder(ctx)
+// Datastores retuns list of all datastores in the system.
+func (c *Client) Datastores(ctx context.Context) ([]*mo.Datastore, error) {
+	_, datacenter, err := c.finder(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	folders, err := datacenter.Folders(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
+	}
+
+	es, err := c.lister(folders.DatastoreFolder.Reference()).List(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var datastores []*mo.Datastore
+	for _, e := range es {
+		switch o := e.Object.(type) {
+		case mo.Datastore:
+			datastores = append(datastores, &o)
+		}
+	}
+	return datastores, nil
+}
+
+// EnsureVMFolder creates the a VM folder with the given path if it doesn't
+// already exist.
+func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string) (*object.Folder, error) {
+	finder, datacenter, err := c.finder(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	folders, err := datacenter.Folders(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	createFolder := func(parent *object.Folder, name string) (*object.Folder, error) {
@@ -210,14 +238,14 @@ func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string) error {
 	for _, name := range strings.Split(folderPath, "/") {
 		folder, err := createFolder(parentFolder, name)
 		if err != nil {
-			return errors.Annotatef(
+			return nil, errors.Annotatef(
 				err, "creating folder %q in %q",
 				name, parentFolder.InventoryPath,
 			)
 		}
 		parentFolder = folder
 	}
-	return nil
+	return parentFolder, nil
 }
 
 // DestroyVMFolder destroys a folder rooted at the datacenter's base VM folder.
@@ -334,4 +362,132 @@ func (c *Client) UpdateVirtualMachineExtraConfig(
 		return errors.Annotate(err, "reconfiguring VM")
 	}
 	return nil
+}
+
+// DeleteDatastoreFile deletes a file or directory in the datastore.
+func (c *Client) DeleteDatastoreFile(ctx context.Context, datastorePath string) error {
+	_, datacenter, err := c.finder(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fileManager := object.NewFileManager(c.client.Client)
+	deleteTask, err := fileManager.DeleteDatastoreFile(ctx, datastorePath, datacenter)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := deleteTask.WaitForResult(ctx, nil); err != nil {
+		if types.IsFileNotFound(err) {
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (c *Client) destroyVM(
+	ctx context.Context,
+	vm *object.VirtualMachine,
+	taskWaiter *taskWaiter,
+) error {
+	task, err := vm.Destroy(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = taskWaiter.waitTask(ctx, task, "destroying VM")
+	return errors.Trace(err)
+}
+
+func (c *Client) cloneVM(
+	ctx context.Context,
+	srcVM *object.VirtualMachine,
+	dstName string,
+	vmFolder *object.Folder,
+	taskWaiter *taskWaiter,
+) (*object.VirtualMachine, error) {
+	task, err := srcVM.Clone(ctx, vmFolder, dstName, types.VirtualMachineCloneSpec{
+		Config:   &types.VirtualMachineConfigSpec{},
+		Location: types.VirtualMachineRelocateSpec{},
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	info, err := taskWaiter.waitTask(ctx, task, "cloning VM")
+	if err != nil {
+		return nil, err
+	}
+	return object.NewVirtualMachine(c.client.Client, info.Result.(types.ManagedObjectReference)), nil
+}
+
+func (c *Client) extendDisk(
+	ctx context.Context,
+	datacenter *object.Datacenter,
+	datastorePath string,
+	capacityKB int64,
+	taskWaiter *taskWaiter,
+) error {
+	// NOTE(axw) there's no ExtendVirtualDisk on the disk manager type,
+	// hence why we're dealing with request types directly. Send a patch
+	// to govmomi to add this to VirtualDiskManager.
+
+	diskManager := object.NewVirtualDiskManager(c.client.Client)
+	dcref := datacenter.Reference()
+	req := types.ExtendVirtualDisk_Task{
+		This:          diskManager.Reference(),
+		Name:          datastorePath,
+		Datacenter:    &dcref,
+		NewCapacityKb: capacityKB,
+	}
+
+	res, err := methods.ExtendVirtualDisk_Task(ctx, c.client.Client, &req)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	task := object.NewTask(c.client.Client, res.Returnval)
+	_, err = taskWaiter.waitTask(ctx, task, "extending disk")
+	return errors.Trace(err)
+}
+
+func (c *Client) detachDisk(
+	ctx context.Context,
+	vm *object.VirtualMachine,
+	taskWaiter *taskWaiter,
+) (string, error) {
+
+	var mo mo.VirtualMachine
+	if err := c.client.RetrieveOne(ctx, vm.Reference(), []string{"config.hardware"}, &mo); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	var spec types.VirtualMachineConfigSpec
+	var vmdkDatastorePath string
+	for _, dev := range mo.Config.Hardware.Device {
+		dev, ok := dev.(*types.VirtualDisk)
+		if !ok {
+			continue
+		}
+		backing, ok := dev.Backing.(types.BaseVirtualDeviceFileBackingInfo)
+		if !ok {
+			continue
+		}
+		vmdkDatastorePath = backing.GetVirtualDeviceFileBackingInfo().FileName
+		spec.DeviceChange = []types.BaseVirtualDeviceConfigSpec{
+			&types.VirtualDeviceConfigSpec{
+				Operation: types.VirtualDeviceConfigSpecOperationRemove,
+				Device:    dev,
+			},
+		}
+		break
+	}
+	if len(spec.DeviceChange) != 1 {
+		return "", errors.New("disk device not found")
+	}
+
+	task, err := vm.Reconfigure(ctx, spec)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if _, err := taskWaiter.waitTask(ctx, task, "detaching disk"); err != nil {
+		return "", errors.Trace(err)
+	}
+	return vmdkDatastorePath, nil
 }

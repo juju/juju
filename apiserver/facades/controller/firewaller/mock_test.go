@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -206,6 +207,7 @@ type mockRelation struct {
 	ruw       *mockRelationUnitsWatcher
 	ruwApp    string
 	inScope   set.Strings
+	status    status.StatusInfo
 }
 
 func newMockRelation(id int) *mockRelation {
@@ -225,6 +227,11 @@ func (r *mockRelation) WatchRelationIngressNetworks() state.StringsWatcher {
 	w := newMockStringsWatcher()
 	w.changes <- []string{"1.2.3.4/32"}
 	return w
+}
+
+func (r *mockRelation) SetStatus(info status.StatusInfo) error {
+	r.status = info
+	return nil
 }
 
 func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {

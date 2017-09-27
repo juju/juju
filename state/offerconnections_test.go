@@ -33,7 +33,7 @@ func (s *offerConnectionsSuite) TestAddOfferConnection(c *gc.C) {
 	c.Assert(oc.OfferUUID(), gc.Equals, "offer-uuid")
 	c.Assert(oc.UserName(), gc.Equals, "fred")
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
+	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
@@ -62,7 +62,7 @@ func (s *offerConnectionsSuite) TestAddOfferConnectionTwice(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
+	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
@@ -86,7 +86,7 @@ func (s *offerConnectionsSuite) TestOfferConnectionForRelation(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
+	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 

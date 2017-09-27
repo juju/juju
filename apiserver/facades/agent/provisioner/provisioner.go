@@ -51,6 +51,7 @@ type ProvisionerAPI struct {
 	*networkingcommon.NetworkConfigAPI
 
 	st                      *state.State
+	m                       *state.Model
 	resources               facade.Resources
 	authorizer              facade.Authorizer
 	storageProviderRegistry storage.ProviderRegistry
@@ -104,7 +105,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	if err != nil {
 		return nil, err
 	}
-	configGetter := stateenvirons.EnvironConfigGetter{st}
+	configGetter := stateenvirons.EnvironConfigGetter{st, model}
 	env, err := environs.GetEnviron(configGetter, environs.New)
 	if err != nil {
 		return nil, err
@@ -120,7 +121,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
 		StateAddresser:          common.NewStateAddresser(st),
 		APIAddresser:            common.NewAPIAddresser(st, resources),
-		ModelWatcher:            common.NewModelWatcher(st, resources, authorizer),
+		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
 		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI:     common.NewStateControllerConfig(st),
 		InstanceIdGetter:        common.NewInstanceIdGetter(st, getAuthFunc),
@@ -128,6 +129,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
 		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, getCanModify),
 		st:                      st,
+		m:                       model,
 		resources:               resources,
 		authorizer:              authorizer,
 		configGetter:            configGetter,
@@ -261,7 +263,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 // needed for container cloud-init.
 func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
-	config, err := p.st.ModelConfig()
+	config, err := p.m.ModelConfig()
 	if err != nil {
 		return result, err
 	}

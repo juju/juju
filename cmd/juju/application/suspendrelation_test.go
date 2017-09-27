@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/core/relation"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -23,7 +22,7 @@ type SuspendRelationSuite struct {
 func (s *SuspendRelationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mockAPI = &mockSuspendAPI{Stub: &testing.Stub{}, version: 6}
-	s.mockAPI.suspendRelationFunc = func(relationId int, status relation.Status) error {
+	s.mockAPI.setRelationSuspendedFunc = func(relationId int, suspended bool) error {
 		return s.mockAPI.NextErr()
 	}
 }
@@ -59,7 +58,7 @@ func (s *SuspendRelationSuite) TestSuspendRelationIdOldServer(c *gc.C) {
 func (s *SuspendRelationSuite) TestSuspendRelationSuccess(c *gc.C) {
 	err := s.runSuspendRelation(c, "123")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCall(c, 0, "SetRelationStatus", 123, relation.Suspended)
+	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", 123, true)
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -68,7 +67,7 @@ func (s *SuspendRelationSuite) TestSuspendRelationFail(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New(msg))
 	err := s.runSuspendRelation(c, "123")
 	c.Assert(err, gc.ErrorMatches, msg)
-	s.mockAPI.CheckCall(c, 0, "SetRelationStatus", 123, relation.Suspended)
+	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", 123, true)
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -76,14 +75,14 @@ func (s *SuspendRelationSuite) TestSuspendRelationBlocked(c *gc.C) {
 	s.mockAPI.SetErrors(common.OperationBlockedError("TestSuspendRelationBlocked"))
 	err := s.runSuspendRelation(c, "123")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestSuspendRelationBlocked.*")
-	s.mockAPI.CheckCall(c, 0, "SetRelationStatus", 123, relation.Suspended)
+	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", 123, true)
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 type mockSuspendAPI struct {
 	*testing.Stub
-	version             int
-	suspendRelationFunc func(relationId int, status relation.Status) error
+	version                  int
+	setRelationSuspendedFunc func(relationId int, suspended bool) error
 }
 
 func (s mockSuspendAPI) Close() error {
@@ -91,9 +90,9 @@ func (s mockSuspendAPI) Close() error {
 	return s.NextErr()
 }
 
-func (s mockSuspendAPI) SetRelationStatus(relationId int, status relation.Status) error {
-	s.MethodCall(s, "SetRelationStatus", relationId, status)
-	return s.suspendRelationFunc(relationId, status)
+func (s mockSuspendAPI) SetRelationSuspended(relationId int, suspended bool) error {
+	s.MethodCall(s, "SetRelationSuspended", relationId, suspended)
+	return s.setRelationSuspendedFunc(relationId, suspended)
 }
 
 func (s mockSuspendAPI) BestAPIVersion() int {

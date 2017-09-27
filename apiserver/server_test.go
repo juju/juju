@@ -79,7 +79,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 		Nonce:    "fake_nonce",
 		Addrs:    []string{address},
 		CACert:   coretesting.CACert,
-		ModelTag: s.State.ModelTag(),
+		ModelTag: s.IAASModel.ModelTag(),
 	}
 	st, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -124,7 +124,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 		Nonce:    "fake_nonce",
 		Addrs:    []string{net.JoinHostPort("127.0.0.1", portString)},
 		CACert:   coretesting.CACert,
-		ModelTag: s.State.ModelTag(),
+		ModelTag: s.IAASModel.ModelTag(),
 	}
 	ipv4State, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -210,7 +210,7 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.State.ModelTag(),
+		ControllerModelTag: s.IAASModel.ModelTag(),
 		MongoInfo:          mongoInfo,
 		MongoDialOpts:      dialOpts,
 	})

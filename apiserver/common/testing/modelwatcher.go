@@ -36,7 +36,10 @@ func NewModelWatcherTest(
 // envWatcher.  This allows other tests that embed this type to have
 // more than just the default test.
 func (s *ModelWatcherTest) AssertModelConfig(c *gc.C, envWatcher ModelWatcher) {
-	envConfig, err := s.st.ModelConfig()
+	model, err := s.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	envConfig, err := model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := envWatcher.ModelConfig()

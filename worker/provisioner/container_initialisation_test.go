@@ -96,8 +96,12 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 		RestartDelay:  jworker.RestartDelay,
 	})
 	pr := apiprovisioner.NewState(s.st)
-	machine, err := pr.Machine(tag)
+	result, err := pr.Machines(tag)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(result), gc.Equals, 1)
+	c.Assert(result[0].Err, gc.IsNil)
+	machine := result[0].Machine
+
 	err = machine.SetSupportedContainers(instance.ContainerTypes...)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := s.AgentConfigForTag(c, tag)

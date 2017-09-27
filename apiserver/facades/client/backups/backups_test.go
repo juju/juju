@@ -38,7 +38,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	tag := names.NewLocalUserTag("admin")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	var err error
-	s.api, err = backupsAPI.NewAPI(&stateShim{s.State}, s.resources, s.authorizer)
+	s.api, err = backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.meta = backupstesting.NewMetadataStarted()
 }
@@ -62,13 +62,13 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 }
 
 func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
-	_, err := backupsAPI.NewAPI(&stateShim{s.State}, s.resources, s.authorizer)
+	_, err := backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 	s.authorizer.Tag = names.NewApplicationTag("eggs")
-	_, err := backupsAPI.NewAPI(&stateShim{s.State}, s.resources, s.authorizer)
+	_, err := backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
 
 	c.Check(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
@@ -76,6 +76,8 @@ func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *gc.C) {
 	otherState := factory.NewFactory(s.State).MakeModel(c, nil)
 	defer otherState.Close()
-	_, err := backupsAPI.NewAPI(&stateShim{otherState}, s.resources, s.authorizer)
+	otherModel, err := otherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = backupsAPI.NewAPI(&stateShim{otherState, otherModel}, s.resources, s.authorizer)
 	c.Check(err, gc.ErrorMatches, "backups are not supported for hosted models")
 }

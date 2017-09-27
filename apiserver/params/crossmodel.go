@@ -62,12 +62,12 @@ type ApplicationOfferDetails struct {
 
 // OfferConnection holds details about a connection to an offer.
 type OfferConnection struct {
-	SourceModelTag string   `json:"source-model-tag"`
-	RelationId     int      `json:"relation-id"`
-	Username       string   `json:"username"`
-	Endpoint       string   `json:"endpoint"`
-	Status         string   `json:"status"`
-	IngressSubnets []string `json:"ingress-subnets"`
+	SourceModelTag string       `json:"source-model-tag"`
+	RelationId     int          `json:"relation-id"`
+	Username       string       `json:"username"`
+	Endpoint       string       `json:"endpoint"`
+	Status         EntityStatus `json:"status"`
+	IngressSubnets []string     `json:"ingress-subnets"`
 }
 
 // ListApplicationOffersResults is a result of listing application offers.
@@ -323,8 +323,8 @@ type RemoteRelationChangeEvent struct {
 	// Life is the current lifecycle state of the relation.
 	Life Life `json:"life"`
 
-	// Status is the current status of the relation.
-	Status RelationStatusValue `json:"status"`
+	// Suspended is the current suspended status of the relation.
+	Suspended *bool `json:"suspended,omitempty"`
 
 	// ChangedUnits maps unit tokens to relation unit changes.
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
@@ -337,30 +337,31 @@ type RemoteRelationChangeEvent struct {
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 }
 
-// RelationStatusChange describes the life and status of a relation.
-type RelationStatusChange struct {
+// RelationLifeSuspendedStatusChange describes the life
+// and suspended status of a relation.
+type RelationLifeSuspendedStatusChange struct {
 	// Key is the relation key of the changed relation.
 	Key string `json:"key"`
 
 	// Life is the life of the relation.
 	Life Life `json:"life"`
 
-	// Status is the status of the relation.
-	Status RelationStatusValue `json:"status"`
+	// Suspended is the suspended status of the relation.
+	Suspended bool `json:"suspended"`
 }
 
-// RelationStatusWatchResult holds a RelationStatusWatcher id, baseline state
+// RelationLifeSuspendedStatusWatchResult holds a RelationStatusWatcher id, baseline state
 // (in the Changes field), and an error (if any).
-type RelationStatusWatchResult struct {
-	RelationStatusWatcherId string                 `json:"watcher-id"`
-	Changes                 []RelationStatusChange `json:"changes"`
-	Error                   *Error                 `json:"error,omitempty"`
+type RelationLifeSuspendedStatusWatchResult struct {
+	RelationStatusWatcherId string                              `json:"watcher-id"`
+	Changes                 []RelationLifeSuspendedStatusChange `json:"changes"`
+	Error                   *Error                              `json:"error,omitempty"`
 }
 
 // RelationStatusWatchResults holds the results for any API call which ends up
 // returning a list of RelationStatusWatchers.
 type RelationStatusWatchResults struct {
-	Results []RelationStatusWatchResult `json:"results"`
+	Results []RelationLifeSuspendedStatusWatchResult `json:"results"`
 }
 
 // IngressNetworksChanges holds a set of IngressNetworksChangeEvent structures.

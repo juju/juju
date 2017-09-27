@@ -4,11 +4,12 @@
 package vsphere
 
 import (
+	"context"
 	"net/url"
 
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
-	"golang.org/x/net/context"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
@@ -22,8 +23,10 @@ type Client interface {
 	Close(context.Context) error
 	ComputeResources(context.Context) ([]*mo.ComputeResource, error)
 	CreateVirtualMachine(context.Context, vsphereclient.CreateVirtualMachineParams) (*mo.VirtualMachine, error)
+	Datastores(context.Context) ([]*mo.Datastore, error)
+	DeleteDatastoreFile(context.Context, string) error
 	DestroyVMFolder(context.Context, string) error
-	EnsureVMFolder(context.Context, string) error
+	EnsureVMFolder(context.Context, string) (*object.Folder, error)
 	MoveVMFolderInto(context.Context, string, string) error
 	MoveVMsInto(context.Context, string, ...types.ManagedObjectReference) error
 	RemoveVirtualMachines(context.Context, string) error

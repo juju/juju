@@ -397,9 +397,9 @@ func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.Remote
 	return w, nil
 }
 
-// WatchRelationStatus starts a RelationStatusWatcher for watching the life and
-// status of the specified relation in the remote model.
-func (c *Client) WatchRelationStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
+// WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the life and
+// suspended status of the specified relation in the remote model.
+func (c *Client) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{arg}}
 	// Use any previously cached discharge macaroons.
 	if ms, ok := c.getCachedMacaroon("watch relation status", arg.Token); ok {
@@ -408,7 +408,7 @@ func (c *Client) WatchRelationStatus(arg params.RemoteEntityArg) (watcher.Relati
 
 	var results params.RelationStatusWatchResults
 	apiCall := func() error {
-		if err := c.facade.FacadeCall("WatchRelationsStatus", args, &results); err != nil {
+		if err := c.facade.FacadeCall("WatchRelationsSuspendedStatus", args, &results); err != nil {
 			return errors.Trace(err)
 		}
 		if len(results.Results) != 1 {

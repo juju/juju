@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 )
@@ -22,12 +23,16 @@ type downloadSuite struct {
 var _ = gc.Suite(&downloadSuite{})
 
 func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
-	store := backups.NewStorage(s.State)
+	db := struct {
+		*state.State
+		*state.Model
+	}{s.State, s.IAASModel.Model}
+	store := backups.NewStorage(db)
 	defer store.Close()
 	backupsState := backups.NewBackups(store)
 
 	r := strings.NewReader("<compressed archive data>")
-	meta, err := backups.NewMetadataState(s.State, "0", "xenial")
+	meta, err := backups.NewMetadataState(db, "0", "xenial")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meta.CACert, gc.Equals, testing.CACert)
 	c.Assert(meta.CAPrivateKey, gc.Equals, testing.CAKey)

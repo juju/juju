@@ -110,9 +110,9 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	snapshot.Relations = make(map[int]RelationSnapshot)
 	for id, relationSnapshot := range w.current.Relations {
 		relationSnapshotCopy := RelationSnapshot{
-			Life:    relationSnapshot.Life,
-			Status:  relationSnapshot.Status,
-			Members: make(map[string]int64),
+			Life:      relationSnapshot.Life,
+			Suspended: relationSnapshot.Suspended,
+			Members:   make(map[string]int64),
 		}
 		for name, version := range relationSnapshot.Members {
 			relationSnapshotCopy.Members[name] = version
@@ -556,12 +556,12 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 			if _, ok := w.relations[relationTag]; ok {
 				relationSnapshot := w.current.Relations[rel.Id()]
 				relationSnapshot.Life = rel.Life()
-				relationSnapshot.Status = rel.Status()
+				relationSnapshot.Suspended = rel.Suspended()
 				w.current.Relations[rel.Id()] = relationSnapshot
-				if rel.Status() == params.Suspended {
-					// Relation has been revoked, so stop the listeners here.
+				if rel.Suspended() {
+					// Relation has been suspended, so stop the listeners here.
 					// The relation itself is retained in the current relations
-					// in the revoked state so that departed/broken hooks can run.
+					// in the suspended state so that departed/broken hooks can run.
 					if ruw, ok := w.relations[relationTag]; ok {
 						worker.Stop(ruw)
 						delete(w.relations, relationTag)
@@ -569,8 +569,8 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 				}
 				continue
 			}
-			// If the relation status is revoked, we don't need to watch it.
-			if rel.Status() == params.Suspended {
+			// If the relation is suspended, we don't need to watch it.
+			if rel.Suspended() {
 				continue
 			}
 			ruw, err := w.st.WatchRelationUnits(relationTag, w.unit.Tag())
@@ -598,9 +598,9 @@ func (w *RemoteStateWatcher) watchRelationUnits(
 	rel Relation, relationTag names.RelationTag, ruw watcher.RelationUnitsWatcher,
 ) error {
 	relationSnapshot := RelationSnapshot{
-		Life:    rel.Life(),
-		Status:  rel.Status(),
-		Members: make(map[string]int64),
+		Life:      rel.Life(),
+		Suspended: rel.Suspended(),
+		Members:   make(map[string]int64),
 	}
 	select {
 	case <-w.catacomb.Dying():

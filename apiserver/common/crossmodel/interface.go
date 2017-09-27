@@ -74,10 +74,15 @@ type Backend interface {
 
 	// ApplicationOfferForUUID returns the application offer for the UUID.
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
+
+	// FirewallRule returns the firewall rule for the specified service.
+	FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error)
 }
 
 // Relation provides access a relation in global state.
 type Relation interface {
+	status.StatusGetter
+	status.StatusSetter
 	// Destroy ensures that the relation will be removed at some point; if
 	// no units are currently in scope, it will be removed immediately.
 	Destroy() error
@@ -87,12 +92,6 @@ type Relation interface {
 
 	// Life returns the relation's current life state.
 	Life() state.Life
-
-	// Status returns the relation's current status.
-	Status() status.Status
-
-	// SetStatus updates the relation's status.
-	SetStatus(status.Status) error
 
 	// Tag returns the relation's tag.
 	Tag() names.Tag
@@ -114,9 +113,15 @@ type Relation interface {
 	// specified application in the relation.
 	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
 
-	// WatchStatus returns a watcher that notifies of changes to the life
-	// or status of the relation.
-	WatchStatus() state.StringsWatcher
+	// WatchLifeSuspendedStatus returns a watcher that notifies of changes to the life
+	// or suspended status of the relation.
+	WatchLifeSuspendedStatus() state.StringsWatcher
+
+	// Suspended returns the suspended status of the relation.
+	Suspended() bool
+
+	// SetSuspended sets the suspended status of the relation.
+	SetSuspended(bool) error
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,

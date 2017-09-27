@@ -576,3 +576,31 @@ func QuoteSpaces(vals []string) string {
 func QuoteSpaceSet(vals set.Strings) string {
 	return QuoteSpaces(vals.SortedValues())
 }
+
+// firstLastAddresses returns the first and last addresses of the subnet.
+func firstLastAddresses(subnet *net.IPNet) (net.IP, net.IP) {
+	firstIP := subnet.IP
+	lastIP := make([]byte, len(firstIP))
+	copy(lastIP, firstIP)
+
+	for i, b := range lastIP {
+		lastIP[i] = b ^ (^subnet.Mask[i])
+	}
+	return firstIP, lastIP
+}
+
+func cidrContains(cidr *net.IPNet, subnet *net.IPNet) bool {
+	first, last := firstLastAddresses(subnet)
+	return cidr.Contains(first) && cidr.Contains(last)
+}
+
+// SubnetInAnyRange returns true if the subnet's address range is fully
+// contained in any of the specified subnet blocks.
+func SubnetInAnyRange(cidrs []*net.IPNet, subnet *net.IPNet) bool {
+	for _, cidr := range cidrs {
+		if cidrContains(cidr, subnet) {
+			return true
+		}
+	}
+	return false
+}

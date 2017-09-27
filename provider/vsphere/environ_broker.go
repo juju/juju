@@ -5,8 +5,8 @@ package vsphere
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
+	"io"
+	"net/http"
 	"path"
 	"sync"
 	"time"
@@ -50,6 +50,12 @@ func modelFolderName(modelUUID, modelName string) string {
 		modelName = modelName[:modelNameLimit]
 	}
 	return fmt.Sprintf("Model %q (%s)", modelName, modelUUID)
+}
+
+// vmdkDirectoryName returns the name of the datastore directory in which
+// the base VMDKs are stored for the controller.
+func vmdkDirectoryName(controllerUUID string) string {
+	return fmt.Sprintf("juju-vmdks/%s", controllerUUID)
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
@@ -114,12 +120,14 @@ func (env *sessionEnviron) newRawInstance(
 	args environs.StartInstanceParams,
 	img *OvaFileMetadata,
 ) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
+
 	vmName, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
+	series := args.Tools.OneSeries()
+	cloudcfg, err := cloudinit.New(series)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -170,11 +178,14 @@ func (env *sessionEnviron) newRawInstance(
 	updateProgress := func(message string) {
 		args.StatusCallback(status.Provisioning, message, nil)
 	}
-	ovaDir, ovf, ovaCleanup, err := env.prepareOVA(img, args.InstanceConfig, updateProgress)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
+
+	readOVA := func() (string, io.ReadCloser, error) {
+		resp, err := http.Get(img.URL)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		return img.URL, resp.Body, nil
 	}
-	defer ovaCleanup()
 
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name: vmName,
@@ -182,8 +193,10 @@ func (env *sessionEnviron) newRawInstance(
 			controllerFolderName(args.ControllerUUID),
 			env.modelFolderName(),
 		),
-		OVADir:                 ovaDir,
-		OVF:                    string(ovf),
+		Series:                 series,
+		ReadOVA:                readOVA,
+		OVASHA256:              img.Sha256,
+		VMDKDirectory:          vmdkDirectoryName(args.ControllerUUID),
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
@@ -228,61 +241,6 @@ func (env *sessionEnviron) newRawInstance(
 		RootDisk: cons.RootDisk,
 	}
 	return vm, hw, err
-}
-
-// prepareOVA downloads and extracts the OVA, and reads the contents of the
-// .ovf file contained within it.
-func (env *environ) prepareOVA(
-	img *OvaFileMetadata,
-	instanceConfig *instancecfg.InstanceConfig,
-	updateProgress func(string),
-) (ovaDir, ovf string, cleanup func(), err error) {
-	fail := func(err error) (string, string, func(), error) {
-		return "", "", cleanup, errors.Trace(err)
-	}
-	defer func() {
-		if err != nil && cleanup != nil {
-			cleanup()
-		}
-	}()
-
-	var ovaBaseDir string
-	if instanceConfig.Bootstrap != nil {
-		ovaTempDir, err := ioutil.TempDir("", "juju-ova")
-		if err != nil {
-			return fail(errors.Trace(err))
-		}
-		cleanup = func() {
-			if err := os.RemoveAll(ovaTempDir); err != nil {
-				logger.Warningf("failed to remove temp directory: %s", err)
-			}
-		}
-		ovaBaseDir = ovaTempDir
-	} else {
-		// Lock the OVA cache directory for the remainder of the
-		// provisioning process. It's not enough to lock just
-		// around or in downloadOVA, because we refer to the
-		// contents after it returns.
-		unlock, err := env.provider.ovaCacheLocker.Lock()
-		if err != nil {
-			return fail(errors.Annotate(err, "locking OVA cache dir"))
-		}
-		cleanup = unlock
-		ovaBaseDir = env.provider.ovaCacheDir
-	}
-
-	ovaDir, ovfPath, err := downloadOVA(
-		ovaBaseDir, instanceConfig.Series, img, updateProgress,
-	)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-	ovfBytes, err := ioutil.ReadFile(ovfPath)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-
-	return ovaDir, string(ovfBytes), cleanup, nil
 }
 
 // AllInstances implements environs.InstanceBroker.

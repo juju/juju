@@ -85,7 +85,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 			Auth_:      anAuthoriser,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	controllerModelTag := s.State.ModelTag().String()
+	controllerModelTag := s.IAASModel.ModelTag().String()
 
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}},
@@ -111,8 +111,10 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	req := params.Entities{
-		Entities: []params.Entity{{Tag: st.ModelTag().String()}},
+		Entities: []params.Entity{{Tag: model.ModelTag().String()}},
 	}
 	_, err = endpoint.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,8 +169,11 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Charm: otherFactory.MakeCharm(c, nil),
 	})
 
-	controllerModelTag := s.State.ModelTag().String()
-	hostedModelTag := otherSt.ModelTag().String()
+	otherModel, err := otherSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerModelTag := s.IAASModel.ModelTag().String()
+	hostedModelTag := otherModel.ModelTag().String()
 
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},

@@ -249,8 +249,11 @@ func (s *Suite) TestAdoptResources(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = api.AdoptResources(params.AdoptResourcesArgs{
-		ModelTag:                st.ModelTag().String(),
+		ModelTag:                m.ModelTag().String(),
 		SourceControllerVersion: version.MustParse("3.2.1"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -278,8 +281,10 @@ func (s *Suite) TestCheckMachinesInstancesMissing(c *gc.C) {
 	}
 	api := s.mustNewAPIWithEnviron(c, &env)
 
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
-		params.ModelArgs{ModelTag: st.ModelTag().String()})
+		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -303,8 +308,10 @@ func (s *Suite) TestCheckMachinesExtraInstances(c *gc.C) {
 	}
 	api := s.mustNewAPIWithEnviron(c, &env)
 
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
-		params.ModelArgs{ModelTag: st.ModelTag().String()})
+		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -318,9 +325,10 @@ func (s *Suite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
 	env := mockEnviron{Stub: &testing.Stub{}}
 	env.SetErrors(errors.Errorf("kablooie"))
 	api := s.mustNewAPIWithEnviron(c, &env)
-
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
-		params.ModelArgs{ModelTag: st.ModelTag().String()})
+		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, gc.ErrorMatches, "kablooie")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
@@ -346,9 +354,10 @@ func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 		},
 	}
 	api := s.mustNewAPIWithEnviron(c, &env)
-
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
-		params.ModelArgs{ModelTag: st.ModelTag().String()})
+		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
@@ -368,9 +377,10 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 		instances: []*mockInstance{{id: "birds"}},
 	}
 	api := s.mustNewAPIWithEnviron(c, &env)
-
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
-		params.ModelArgs{ModelTag: st.ModelTag().String()})
+		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
@@ -393,8 +403,10 @@ func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
 	}
 	api := s.mustNewAPIWithEnviron(c, &env)
 
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
-		params.ModelArgs{ModelTag: st.ModelTag().String()})
+		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
@@ -441,7 +453,7 @@ func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 }
 
 func (s *Suite) controllerVersion(c *gc.C) version.Number {
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

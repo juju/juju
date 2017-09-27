@@ -2392,7 +2392,7 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	wpxWatcherC.AssertChange(relx.String())
 	wpxWatcherC.AssertNoChange()
 
-	err = relx.SetStatus(status.Suspended)
+	err = relx.SetSuspended(true)
 	c.Assert(err, jc.ErrorIsNil)
 	wpxWatcherC.AssertChange(relx.String())
 	wpxWatcherC.AssertNoChange()

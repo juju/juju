@@ -68,6 +68,11 @@ func NewControllerAPIv3(ctx facade.Context) (*ControllerAPIv3, error) {
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
 	st := ctx.State()
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &ControllerAPIv3{
 		ControllerConfigAPI: common.NewStateControllerConfig(st),
 		ModelStatusAPI: common.NewModelStatusAPI(
@@ -77,7 +82,7 @@ func NewControllerAPIv3(ctx facade.Context) (*ControllerAPIv3, error) {
 		),
 		CloudSpecAPI: cloudspec.NewCloudSpec(
 			cloudspec.MakeCloudSpecGetter(ctx.StatePool()),
-			common.AuthFuncForTag(st.ModelTag()),
+			common.AuthFuncForTag(m.ModelTag()),
 		),
 		state:      st,
 		statePool:  ctx.StatePool(),
@@ -498,7 +503,7 @@ func makeModelInfo(st, ctlrSt *state.State) (coremigration.ModelInfo, error) {
 	}
 
 	// Retrieve agent version for the model.
-	conf, err := st.ModelConfig()
+	conf, err := model.ModelConfig()
 	if err != nil {
 		return empty, errors.Trace(err)
 	}

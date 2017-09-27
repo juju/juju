@@ -27,7 +27,15 @@ func MakeCloudSpecGetter(pool Pool) func(names.ModelTag) (environs.CloudSpec, er
 			return environs.CloudSpec{}, errors.Trace(err)
 		}
 		defer release()
-		return stateenvirons.EnvironConfigGetter{st}.CloudSpec()
+
+		m, err := st.Model()
+		if err != nil {
+			return environs.CloudSpec{}, errors.Trace(err)
+		}
+		// TODO - CAAS(externalreality): Once cloud methods are migrated
+		// to model EnvironConfigGetter will no longer need to contain
+		// both state and model but only model.
+		return stateenvirons.EnvironConfigGetter{st, m}.CloudSpec()
 	}
 }
 
@@ -36,8 +44,13 @@ func MakeCloudSpecGetter(pool Pool) func(names.ModelTag) (environs.CloudSpec, er
 // any other model other than the one associated with the given
 // state.State results in an error.
 func MakeCloudSpecGetterForModel(st *state.State) func(names.ModelTag) (environs.CloudSpec, error) {
-	configGetter := stateenvirons.EnvironConfigGetter{st}
 	return func(tag names.ModelTag) (environs.CloudSpec, error) {
+		m, err := st.Model()
+		if err != nil {
+			return environs.CloudSpec{}, errors.Trace(err)
+		}
+		configGetter := stateenvirons.EnvironConfigGetter{st, m}
+
 		if tag.Id() != st.ModelUUID() {
 			return environs.CloudSpec{}, errors.New("cannot get cloud spec for this model")
 		}

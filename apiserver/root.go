@@ -46,6 +46,7 @@ type objectKey struct {
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
 	state     *state.State
+	model     *state.Model
 	rpcConn   *rpc.Conn
 	resources *common.Resources
 	entity    state.Entity
@@ -65,8 +66,13 @@ var _ = (*apiHandler)(nil)
 
 // newAPIHandler returns a new apiHandler.
 func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, serverHost string) (*apiHandler, error) {
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	r := &apiHandler{
 		state:      st,
+		model:      m,
 		resources:  common.NewResources(),
 		rpcConn:    rpcConn,
 		modelUUID:  modelUUID,

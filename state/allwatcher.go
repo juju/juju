@@ -122,7 +122,12 @@ func (e *backingModel) isNotFoundAndModelDead(err error) bool {
 }
 
 func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) error {
-	cfg, err := st.ModelConfig()
+	m, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	cfg, err := m.ModelConfig()
 	if e.isNotFoundAndModelDead(err) {
 		// Treat it as if the model is removed.
 		return e.removed(store, e.UUID, e.UUID, st)

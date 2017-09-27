@@ -6,6 +6,10 @@ package relation
 // Status describes the status of a relation.
 type Status string
 
+func (s Status) String() string {
+	return string(s)
+}
+
 const (
 	// Joined is the normal status for a healthy, alive relation.
 	Joined Status = "joined"
@@ -16,4 +20,7 @@ const (
 	// Suspended is used to signify that a relation is temporarily broken pending
 	// action to resume it.
 	Suspended Status = "suspended"
+
+	// Error is used to signify that the relation is in an error state.
+	Error Status = "error"
 )

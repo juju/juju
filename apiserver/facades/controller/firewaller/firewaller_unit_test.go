@@ -16,6 +16,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -103,4 +104,20 @@ func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(result.Results[0].Result, jc.DeepEquals, mac)
+}
+
+func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {
+	db2Relation := newMockRelation(123)
+	s.st.relations["remote-db2:db django:db"] = db2Relation
+	entity := names.NewRelationTag("remote-db2:db django:db")
+	result, err := s.api.SetRelationsStatus(
+		params.SetStatus{Entities: []params.EntityStatusArgs{{
+			Tag:    entity.String(),
+			Status: "suspended",
+			Info:   "a message",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(db2Relation.status, jc.DeepEquals, status.StatusInfo{Status: status.Suspended, Message: "a message"})
 }

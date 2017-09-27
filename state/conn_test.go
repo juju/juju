@@ -49,7 +49,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 
 	cs.StateSuite.SetUpTest(c)
 
-	cs.modelTag = cs.State.ModelTag()
+	cs.modelTag = cs.IAASModel.ModelTag()
 
 	jujuDB := cs.MgoSuite.Session.DB("juju")
 	cs.annotations = jujuDB.C("annotations")

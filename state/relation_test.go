@@ -6,10 +6,13 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
@@ -472,15 +475,10 @@ func (s *RelationSuite) TestRemoveNoFeatureFlag(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *RelationSuite) TestWatchLifeStatus(c *gc.C) {
-	// Create a pair of services and a relation between them.
-	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+func (s *RelationSuite) TestWatchLifeSuspendedStatus(c *gc.C) {
+	rel := s.setupRelationStatus(c)
+	mysql, err := s.State.Application("mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-
 	u, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	m := s.Factory.MakeMachine(c, &factory.MachineParams{})
@@ -491,14 +489,14 @@ func (s *RelationSuite) TestWatchLifeStatus(c *gc.C) {
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := rel.WatchStatus()
+	w := rel.WatchLifeSuspendedStatus()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	// Initial event.
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
 
-	err = rel.SetStatus(status.Suspended)
+	err = rel.SetSuspended(true)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
@@ -509,7 +507,7 @@ func (s *RelationSuite) TestWatchLifeStatus(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *RelationSuite) TestWatchLifeStatusDead(c *gc.C) {
+func (s *RelationSuite) TestWatchLifeSuspendedStatusDead(c *gc.C) {
 	// Create a pair of services and a relation between them.
 	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -518,7 +516,7 @@ func (s *RelationSuite) TestWatchLifeStatusDead(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := rel.WatchStatus()
+	w := rel.WatchLifeSuspendedStatus()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(rel.Tag().Id())
@@ -529,7 +527,7 @@ func (s *RelationSuite) TestWatchLifeStatusDead(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *RelationSuite) TestStatus(c *gc.C) {
+func (s *RelationSuite) setupRelationStatus(c *gc.C) *state.Relation {
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
@@ -538,12 +536,94 @@ func (s *RelationSuite) TestStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, jc.ErrorIsNil)
-	relStatus := rel.Status()
-	c.Assert(relStatus, gc.Equals, status.Joined)
-	err = rel.SetStatus(status.Suspended)
+	relStatus, err := rel.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.Refresh()
+	c.Assert(relStatus.Status, gc.Equals, status.Joining)
+	ao := state.NewApplicationOffers(s.State)
+	offer, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Owner:           s.Owner.Id(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	relStatus = rel.Status()
-	c.Assert(relStatus, gc.Equals, status.Suspended)
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "fred", Access: permission.WriteAccess})
+	err = s.State.CreateOfferAccess(
+		names.NewApplicationOfferTag("hosted-mysql"), user.UserTag(), permission.ConsumeAccess)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: utils.MustNewUUID().String(),
+		OfferUUID:       offer.OfferUUID,
+		RelationKey:     rel.Tag().Id(),
+		RelationId:      rel.Id(),
+		Username:        user.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return rel
+}
+
+func (s *RelationSuite) TestStatus(c *gc.C) {
+	rel := s.setupRelationStatus(c)
+	err := rel.SetStatus(status.StatusInfo{
+		Status:  status.Suspended,
+		Message: "for a while",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	relStatus, err := rel.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relStatus.Since, gc.NotNil)
+	relStatus.Since = nil
+	c.Assert(relStatus, jc.DeepEquals, status.StatusInfo{
+		Status:  status.Suspended,
+		Message: "for a while",
+		Data:    map[string]interface{}{},
+	})
+}
+
+func (s *RelationSuite) TestInvalidStatus(c *gc.C) {
+	rel := s.setupRelationStatus(c)
+
+	err := rel.SetStatus(status.StatusInfo{
+		Status: status.Status("invalid"),
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "invalid"`)
+}
+
+func (s *RelationSuite) TestSetSuspend(c *gc.C) {
+	rel := s.setupRelationStatus(c)
+	// Suspend doesn't need an offer connection to be there.
+	state.RemoveOfferConnectionsForRelation(c, rel)
+	c.Assert(rel.Suspended(), jc.IsFalse)
+	err := rel.SetSuspended(true)
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err = s.State.Relation(rel.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rel.Suspended(), jc.IsTrue)
+}
+
+func (s *RelationSuite) TestResumeRelationNoConsumeAccess(c *gc.C) {
+	rel := s.setupRelationStatus(c)
+	err := rel.SetSuspended(true)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.UpdateOfferAccess(
+		names.NewApplicationOfferTag("hosted-mysql"), names.NewUserTag("fred"), permission.ReadAccess)
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.SetSuspended(false)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot resume relation "wordpress:db mysql:server" where user "fred" does not have consume permission`)
+}
+
+func (s *RelationSuite) TestResumeRelationNoConsumeAccessRace(c *gc.C) {
+	rel := s.setupRelationStatus(c)
+	err := rel.SetSuspended(true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.UpdateOfferAccess(
+			names.NewApplicationOfferTag("hosted-mysql"), names.NewUserTag("fred"), permission.ReadAccess)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = rel.SetSuspended(false)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot resume relation "wordpress:db mysql:server" where user "fred" does not have consume permission`)
 }

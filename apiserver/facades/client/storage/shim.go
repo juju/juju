@@ -168,6 +168,8 @@ var getState = func(st *state.State) (storageAccess, error) {
 	return stateShim{State: st, IAASModel: im}, nil
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
 	*state.IAASModel
@@ -191,7 +193,7 @@ func (s stateShim) UnitAssignedMachine(tag names.UnitTag) (names.MachineTag, err
 // ModelName returns the name of Juju environment,
 // or an error if environment configuration is not retrievable.
 func (s stateShim) ModelName() (string, error) {
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.IAASModel.ModelConfig()
 	if err != nil {
 		return "", errors.Trace(err)
 	}

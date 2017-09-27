@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/common/cloudspec"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/watcher"
 	"gopkg.in/macaroon.v1"
 )
@@ -53,7 +54,7 @@ func (c *Client) ModelTag() (names.ModelTag, bool) {
 
 // life requests the life cycle of the given entity from the server.
 func (c *Client) life(tag names.Tag) (params.Life, error) {
-	return common.Life(c.facade, tag)
+	return common.OneLife(c.facade, tag)
 }
 
 // Unit provides access to methods of a state.Unit through the facade.
@@ -221,4 +222,19 @@ func (c *Client) MacaroonForRelation(relationKey string) (*macaroon.Macaroon, er
 		return nil, result.Error
 	}
 	return result.Result, nil
+}
+
+// SetRelationStatus sets the status for a given relation.
+func (c *Client) SetRelationStatus(relationKey string, status relation.Status, message string) error {
+	relationTag := names.NewRelationTag(relationKey)
+	args := params.SetStatus{Entities: []params.EntityStatusArgs{
+		{Tag: relationTag.String(), Status: status.String(), Info: message},
+	}}
+
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("SetRelationsStatus", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
 }

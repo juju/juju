@@ -47,6 +47,8 @@ func GetBackend(st *state.State) stateShim {
 	return stateShim{State: st, Model: model}
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
 	*state.Model
@@ -152,6 +154,11 @@ func (s stateShim) SaveIngressNetworks(relationKey string, cidrs []string) (stat
 func (s stateShim) IngressNetworks(relationKey string) (state.RelationNetworks, error) {
 	api := state.NewRelationIngressNetworks(s.State)
 	return api.Networks(relationKey)
+}
+
+func (s stateShim) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
+	api := state.NewFirewallRules(s.State)
+	return api.Rule(service)
 }
 
 type relationShim struct {

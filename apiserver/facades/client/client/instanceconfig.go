@@ -23,7 +23,11 @@ import (
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
-	modelConfig, err := st.ModelConfig()
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting state model")
+	}
+	modelConfig, err := model.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model config")
 	}
@@ -48,12 +52,8 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	if !ok {
 		return nil, errors.New("no agent version set in model configuration")
 	}
-	environment, err := st.Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting state model")
-	}
-	urlGetter := common.NewToolsURLGetter(environment.UUID(), st)
-	configGetter := stateenvirons.EnvironConfigGetter{st}
+	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
+	configGetter := stateenvirons.EnvironConfigGetter{st, model}
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
 	findToolsResult, err := toolsFinder.FindTools(params.FindToolsParams{
 		Number:       agentVersion,
@@ -84,7 +84,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	apiInfo := &api.Info{
 		Addrs:    apiAddrs.SortedValues(),
 		CACert:   st.CACert(),
-		ModelTag: st.ModelTag(),
+		ModelTag: model.ModelTag(),
 	}
 
 	auth := authentication.NewAuthenticator(st.MongoConnectionInfo(), apiInfo)

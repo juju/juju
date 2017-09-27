@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -12,14 +14,16 @@ import (
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 type ContextRelationSuite struct {
 	testing.JujuConnSuite
-	svc *state.Application
+	app *state.Application
 	rel *state.Relation
 	ru  *state.RelationUnit
 
@@ -42,12 +46,12 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch := s.AddTestingCharm(c, "riak")
-	s.svc = s.AddTestingApplication(c, "u", ch)
-	rels, err := s.svc.Relations()
+	s.app = s.AddTestingApplication(c, "u", ch)
+	rels, err := s.app.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rels, gc.HasLen, 1)
 	s.rel = rels[0]
-	unit, err := s.svc.AddUnit(state.AddUnitParams{})
+	unit, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	s.ru, err = s.rel.Unit(unit)
@@ -73,7 +77,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
-	unit, err := s.svc.AddUnit(state.AddUnitParams{})
+	unit, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := s.rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,7 +109,7 @@ func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
 }
 
 func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
-	unit, err := s.svc.AddUnit(state.AddUnitParams{})
+	unit, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := s.rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -175,4 +179,30 @@ func convertMap(settingsMap map[string]interface{}) params.Settings {
 		result[k] = v.(string)
 	}
 	return result
+}
+
+func (s *ContextRelationSuite) TestSuspended(c *gc.C) {
+	_, err := s.app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.rel.SetSuspended(true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := context.NewContextRelation(s.apiRelUnit, nil)
+	err = s.apiRelUnit.Relation().Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Suspended(), jc.IsTrue)
+}
+
+func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {
+	_, err := s.app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.LeadershipClaimer().ClaimLeadership("u", "u/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := context.NewContextRelation(s.apiRelUnit, nil)
+	err = ctx.SetStatus(relation.Suspended)
+	c.Assert(err, jc.ErrorIsNil)
+	relStatus, err := s.rel.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relStatus.Status, gc.Equals, status.Suspended)
 }

@@ -316,10 +316,10 @@ func (m *mockRemoteRelationsFacade) relationsStatusWatcher(key string) (*mockRel
 	return w, ok
 }
 
-func (m *mockRemoteRelationsFacade) WatchRelationStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
+func (m *mockRemoteRelationsFacade) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.stub.MethodCall(m, "WatchRelationStatus", arg.Token, arg.Macaroons)
+	m.stub.MethodCall(m, "WatchRelationSuspendedStatus", arg.Token, arg.Macaroons)
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
 	}

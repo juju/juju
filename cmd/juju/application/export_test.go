@@ -83,16 +83,16 @@ func NewUpdateSeriesCommandForTest(
 }
 
 // NewSuspendRelationCommandForTest returns a SuspendRelationCommand with the api provided as specified.
-func NewSuspendRelationCommandForTest(api SetRelationStatusAPI) modelcmd.ModelCommand {
-	cmd := &suspendRelationCommand{newAPIFunc: func() (SetRelationStatusAPI, error) {
+func NewSuspendRelationCommandForTest(api SetRelationSuspendedAPI) modelcmd.ModelCommand {
+	cmd := &suspendRelationCommand{newAPIFunc: func() (SetRelationSuspendedAPI, error) {
 		return api, nil
 	}}
 	return modelcmd.Wrap(cmd)
 }
 
 // NewResumeRelationCommandForTest returns a ResumeRelationCommand with the api provided as specified.
-func NewResumeRelationCommandForTest(api SetRelationStatusAPI) modelcmd.ModelCommand {
-	cmd := &resumeRelationCommand{newAPIFunc: func() (SetRelationStatusAPI, error) {
+func NewResumeRelationCommandForTest(api SetRelationSuspendedAPI) modelcmd.ModelCommand {
+	cmd := &resumeRelationCommand{newAPIFunc: func() (SetRelationSuspendedAPI, error) {
 		return api, nil
 	}}
 	return modelcmd.Wrap(cmd)

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
@@ -488,13 +487,13 @@ func (c *Client) DestroyRelationId(relationId int) error {
 	return c.facade.FacadeCall("DestroyRelation", params, nil)
 }
 
-// SetRelationStatus updates the status of the relation with the specified id.
-func (c *Client) SetRelationStatus(relationId int, status relation.Status) error {
-	args := params.RelationStatusArgs{
-		Args: []params.RelationStatusArg{{RelationId: relationId, Status: params.RelationStatusValue(status)}},
+// SetRelationSuspended updates the suspended status of the relation with the specified id.
+func (c *Client) SetRelationSuspended(relationId int, suspended bool) error {
+	args := params.RelationSuspendedArgs{
+		Args: []params.RelationSuspendedArg{{RelationId: relationId, Suspended: suspended}},
 	}
 	var results params.ErrorResults
-	if err := c.facade.FacadeCall("SetRelationStatus", args, &results); err != nil {
+	if err := c.facade.FacadeCall("SetRelationsSuspended", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()

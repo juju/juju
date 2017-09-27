@@ -278,4 +278,5 @@ type relationStatus struct {
 	Interface string
 	Type      string
 	Status    string
+	Message   string
 }

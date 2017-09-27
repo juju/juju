@@ -353,7 +353,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		}
 
 		// Check expected changes to environ/state.
-		cfg, err := s.State.ModelConfig()
+		cfg, err := s.IAASModel.ModelConfig()
 		c.Check(err, jc.ErrorIsNil)
 		agentVersion, ok := cfg.AgentVersion()
 		c.Check(ok, jc.IsTrue)
@@ -607,7 +607,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check agent version doesn't change
-		cfg, err := s.State.ModelConfig()
+		cfg, err := s.IAASModel.ModelConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		agentVer, ok := cfg.AgentVersion()
 		c.Assert(ok, jc.IsTrue)
@@ -755,7 +755,7 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		}
 
 		// Check agent version doesn't change
-		cfg, err := s.State.ModelConfig()
+		cfg, err := s.IAASModel.ModelConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		agentVer, ok := cfg.AgentVersion()
 		c.Assert(ok, jc.IsTrue)
@@ -889,9 +889,13 @@ func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
 		Series: series.MustHostSeries(),
 	}
 	nextVersion.Minor++
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	return &fakeUpgradeJujuAPI{
 		c:           c,
 		st:          st,
+		m:           m,
 		nextVersion: nextVersion,
 	}
 }
@@ -899,6 +903,7 @@ func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
 type fakeUpgradeJujuAPI struct {
 	c                         *gc.C
 	st                        *state.State
+	m                         *state.Model
 	nextVersion               version.Binary
 	setVersionErr             error
 	abortCurrentUpgradeCalled bool
@@ -940,7 +945,8 @@ func (a *fakeUpgradeJujuAPI) addTools(tools ...string) {
 }
 
 func (a *fakeUpgradeJujuAPI) ModelGet() (map[string]interface{}, error) {
-	config, err := a.st.ModelConfig()
+
+	config, err := a.m.ModelConfig()
 	if err != nil {
 		return make(map[string]interface{}), err
 	}

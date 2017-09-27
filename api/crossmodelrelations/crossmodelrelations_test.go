@@ -430,10 +430,10 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(arg, jc.DeepEquals, params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
 			Token: remoteRelationToken, Macaroons: macaroon.Slice{mac}}}})
-		c.Check(request, gc.Equals, "WatchRelationsStatus")
+		c.Check(request, gc.Equals, "WatchRelationsSuspendedStatus")
 		c.Assert(result, gc.FitsTypeOf, &params.RelationStatusWatchResults{})
 		*(result.(*params.RelationStatusWatchResults)) = params.RelationStatusWatchResults{
-			Results: []params.RelationStatusWatchResult{{
+			Results: []params.RelationLifeSuspendedStatusWatchResult{{
 				Error: &params.Error{Message: "FAIL"},
 			}},
 		}
@@ -441,7 +441,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	_, err = client.WatchRelationStatus(params.RemoteEntityArg{
+	_, err = client.WatchRelationSuspendedStatus(params.RemoteEntityArg{
 		Token:     remoteRelationToken,
 		Macaroons: macaroon.Slice{mac},
 	})
@@ -451,7 +451,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 	different, err := macaroon.New(nil, "different", "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
-	_, err = client.WatchRelationStatus(params.RemoteEntityArg{
+	_, err = client.WatchRelationSuspendedStatus(params.RemoteEntityArg{
 		Token:     remoteRelationToken,
 		Macaroons: macaroon.Slice{different},
 	})
@@ -483,7 +483,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *g
 			dischargeMac = argParam.Args[0].Macaroons
 		}
 		*(result.(*params.RelationStatusWatchResults)) = params.RelationStatusWatchResults{
-			Results: []params.RelationStatusWatchResult{{Error: resultErr}},
+			Results: []params.RelationLifeSuspendedStatusWatchResult{{Error: resultErr}},
 		}
 		callCount++
 		return nil
@@ -491,7 +491,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *g
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchRelationStatus(params.RemoteEntityArg{Token: "token"})
+	_, err := client.WatchRelationSuspendedStatus(params.RemoteEntityArg{Token: "token"})
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Assert(dischargeMac, gc.HasLen, 2)

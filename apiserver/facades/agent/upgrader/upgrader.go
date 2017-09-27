@@ -61,6 +61,7 @@ type UpgraderAPI struct {
 	*common.ToolsSetter
 
 	st         *state.State
+	m          *state.Model
 	resources  facade.Resources
 	authorizer facade.Authorizer
 }
@@ -82,11 +83,12 @@ func NewUpgraderAPI(
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
-	configGetter := stateenvirons.EnvironConfigGetter{st}
+	configGetter := stateenvirons.EnvironConfigGetter{st, env}
 	return &UpgraderAPI{
 		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
 		st:          st,
+		m:           env,
 		resources:   resources,
 		authorizer:  authorizer,
 	}, nil
@@ -105,7 +107,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 		}
 		err = common.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
-			watch := u.st.WatchForModelConfigChanges()
+			watch := u.m.WatchForModelConfigChanges()
 			// Consume the initial event. Technically, API
 			// calls to Watch 'transmit' the initial event
 			// in the Watch response. But NotifyWatchers
@@ -124,7 +126,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 
 func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, error) {
 	// Get the Agent Version requested in the Environment Config
-	cfg, err := u.st.ModelConfig()
+	cfg, err := u.m.ModelConfig()
 	if err != nil {
 		return version.Number{}, nil, err
 	}

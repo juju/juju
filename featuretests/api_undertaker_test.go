@@ -19,6 +19,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/watcher/watchertest"
+	"gopkg.in/juju/names.v2"
 )
 
 // TODO(fwereade) 2016-03-17 lp:1558668
@@ -183,7 +184,7 @@ func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) 
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
-	info.ModelTag = otherState.ModelTag()
+	info.ModelTag = names.NewModelTag(otherState.ModelUUID())
 
 	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)

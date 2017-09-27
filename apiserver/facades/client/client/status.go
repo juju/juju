@@ -809,8 +809,9 @@ func (context *statusContext) processRelations() []params.RelationStatus {
 			Interface: relationInterface,
 			Scope:     string(scope),
 			Endpoints: eps,
-			Status:    relation.Status().String(),
 		}
+		rStatus, err := relation.Status()
+		populateStatusFromStatusInfoAndErr(&relStatus.Status, rStatus, err)
 		out = append(out, relStatus)
 	}
 	return out

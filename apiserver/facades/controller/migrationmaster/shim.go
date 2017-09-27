@@ -55,7 +55,12 @@ func (s *backendShim) ModelOwner() (names.UserTag, error) {
 
 // AgentVersion implements Backend.
 func (s *backendShim) AgentVersion() (version.Number, error) {
-	cfg, err := s.ModelConfig()
+	m, err := s.Model()
+	if err != nil {
+		return version.Zero, errors.Trace(err)
+	}
+
+	cfg, err := m.ModelConfig()
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}

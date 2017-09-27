@@ -230,7 +230,8 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	) state.NewPolicyFunc {
 		return nil
 	})
-	st, err = newStateConnection(st.ControllerTag(), st.ModelTag(), statetesting.NewMongoInfo())
+
+	st, err = newStateConnection(st.ControllerTag(), names.NewModelTag(st.ModelUUID()), statetesting.NewMongoInfo())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }

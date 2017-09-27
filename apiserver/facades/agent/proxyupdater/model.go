@@ -10,5 +10,9 @@ import (
 
 // NewAPI creates a new API server-side facade with a state.State backing.
 func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*ProxyUpdaterAPI, error) {
-	return NewAPIWithBacking(&stateShim{st: st}, res, auth)
+	m, err := st.Model()
+	if err != nil {
+		return nil, err
+	}
+	return NewAPIWithBacking(&stateShim{st: st, m: m}, res, auth)
 }

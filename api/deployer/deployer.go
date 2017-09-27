@@ -32,7 +32,7 @@ func NewState(caller base.APICaller) *State {
 
 // unitLife returns the lifecycle state of the given unit.
 func (st *State) unitLife(tag names.UnitTag) (params.Life, error) {
-	return common.Life(st.facade, tag)
+	return common.OneLife(st.facade, tag)
 }
 
 // Unit returns the unit with the given tag.

@@ -46,16 +46,20 @@ type CrossModelRelationsAPI struct {
 // backed by global state.
 func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
+	model, err := ctx.State().Model()
+	if err != nil {
+		return nil, err
+	}
 
 	return NewCrossModelRelationsAPI(
 		stateShim{
 			st:      ctx.State(),
 			Backend: commoncrossmodel.GetBackend(ctx.State()),
 		},
-		firewall.StateShim(ctx.State()),
+		firewall.StateShim(ctx.State(), model),
 		ctx.Resources(), ctx.Auth(), authCtxt.(*commoncrossmodel.AuthContext),
 		firewall.WatchEgressAddressesForRelations,
-		watchRelationStatus,
+		watchRelationLifeSuspendedStatus,
 	)
 }
 
@@ -345,21 +349,21 @@ func (api *CrossModelRelationsAPI) RelationUnitSettings(relationUnits params.Rem
 	return results, nil
 }
 
-func watchRelationStatus(st CrossModelRelationsState, tag names.RelationTag) (state.StringsWatcher, error) {
+func watchRelationLifeSuspendedStatus(st CrossModelRelationsState, tag names.RelationTag) (state.StringsWatcher, error) {
 	relation, err := st.KeyRelation(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return relation.WatchStatus(), nil
+	return relation.WatchLifeSuspendedStatus(), nil
 }
 
-// WatchRelationsStatus starts a RelationStatusWatcher for
-// watching the life and status of a relation.
-func (api *CrossModelRelationsAPI) WatchRelationsStatus(
+// WatchRelationsSuspendedStatus starts a RelationStatusWatcher for
+// watching the life and suspended status of a relation.
+func (api *CrossModelRelationsAPI) WatchRelationsSuspendedStatus(
 	remoteRelationArgs params.RemoteEntityArgs,
 ) (params.RelationStatusWatchResults, error) {
 	results := params.RelationStatusWatchResults{
-		Results: make([]params.RelationStatusWatchResult, len(remoteRelationArgs.Args)),
+		Results: make([]params.RelationLifeSuspendedStatusWatchResult, len(remoteRelationArgs.Args)),
 	}
 
 	for i, arg := range remoteRelationArgs.Args {
@@ -383,9 +387,9 @@ func (api *CrossModelRelationsAPI) WatchRelationsStatus(
 			continue
 		}
 		results.Results[i].RelationStatusWatcherId = api.resources.Register(w)
-		changesParams := make([]params.RelationStatusChange, len(changes))
+		changesParams := make([]params.RelationLifeSuspendedStatusChange, len(changes))
 		for j, key := range changes {
-			change, err := commoncrossmodel.GetRelationStatusChange(api.st, key)
+			change, err := commoncrossmodel.GetRelationLifeSuspendedStatusChange(api.st, key)
 			if err != nil {
 				results.Results[i].Error = common.ServerError(err)
 				changesParams = nil

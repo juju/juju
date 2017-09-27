@@ -643,6 +643,8 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 			blockId := st.docID("0")
 			blockType := DestroyBlock.ToParams()
 			blockMsg := "woot"
+			m, err := st.Model()
+			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
 				about: "no change if block is not in backing",
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
@@ -650,7 +652,7 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 					Id:        blockId,
 					Type:      blockType,
 					Message:   blockMsg,
-					Tag:       st.ModelTag().String(),
+					Tag:       m.ModelTag().String(),
 				}},
 				change: watcher.Change{
 					C:  blocksC,
@@ -661,7 +663,7 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 					Id:        blockId,
 					Type:      blockType,
 					Message:   blockMsg,
-					Tag:       st.ModelTag().String(),
+					Tag:       m.ModelTag().String(),
 				}},
 			}
 		},
@@ -672,7 +674,8 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(found, jc.IsTrue)
 			blockId := b.Id()
-
+			m, err := st.Model()
+			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
 				about: "block is added if it's in backing but not in Store",
 				change: watcher.Change{
@@ -685,7 +688,7 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 						Id:        st.localID(blockId),
 						Type:      b.Type().ToParams(),
 						Message:   b.Message(),
-						Tag:       st.ModelTag().String(),
+						Tag:       m.ModelTag().String(),
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -1602,7 +1605,10 @@ func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 	setModelConfigAttr(c, s.state, "http-proxy", "http://invalid")
 	setModelConfigAttr(c, s.state, "foo", "bar")
 
-	cfg, err := s.state.ModelConfig()
+	m, err := s.state.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedModelSettings := cfg.AllAttrs()
 	expectedModelSettings["http-proxy"] = "http://invalid"

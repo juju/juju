@@ -340,11 +340,16 @@ func (p *containerProvisioner) getMachine() (*apiprovisioner.Machine, error) {
 		if !ok {
 			return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 		}
-		var err error
-		if p.machine, err = p.st.Machine(machineTag); err != nil {
+		result, err := p.st.Machines(machineTag)
+		if err != nil {
+			logger.Errorf("error retrieving %s from state", machineTag)
+			return nil, err
+		}
+		if result[0].Err != nil {
 			logger.Errorf("%s is not in state", machineTag)
 			return nil, err
 		}
+		p.machine = result[0].Machine
 	}
 	return p.machine, nil
 }

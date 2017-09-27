@@ -19,8 +19,12 @@ import (
 	"github.com/juju/juju/state/backups"
 )
 
-var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
-	stor := backups.NewStorage(st)
+var newBackups = func(st *state.State, m *state.Model) (backups.Backups, io.Closer) {
+	backend := struct {
+		*state.State
+		*state.Model
+	}{st, m}
+	stor := backups.NewStorage(backend)
 	return backups.NewBackups(stor), stor
 }
 
@@ -39,7 +43,13 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	}
 	defer releaser()
 
-	backups, closer := newBackups(st)
+	m, err := st.Model()
+	if err != nil {
+		h.sendError(resp, err)
+		return
+	}
+
+	backups, closer := newBackups(st, m)
 	defer closer.Close()
 
 	switch req.Method {

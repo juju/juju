@@ -231,8 +231,12 @@ LXC_BRIDGE="ignored"`[1:])
 
 	// Check that controller model configuration has been added, and
 	// model constraints set.
-	newModelCfg, err := st.ModelConfig()
+	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+
+	newModelCfg, err := model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Add in the cloud attributes.
 	expectedCfg, err := config.New(config.UseDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -259,7 +263,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
 	c.Assert(hostedModel.CloudRegion(), gc.Equals, "dummy-region")
 	c.Assert(hostedModel.EnvironVersion(), gc.Equals, 123)
-	hostedCfg, err := hostedModelSt.ModelConfig()
+	hostedCfg, err := hostedModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
 	c.Assert(hasUnexpected, jc.IsFalse)

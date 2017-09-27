@@ -176,7 +176,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
-		{"WatchRelationStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
+		{"WatchRelationSuspendedStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 
@@ -367,12 +367,14 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDyingConsumes(c *gc.C) {
 		Life: life.Dying,
 	}}
 
+	suspended := false
 	expected := []jujutesting.StubCall{
 		{"ConsumeRemoteRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				Life:             params.Dying,
 				ApplicationToken: "token-offer-db2-uuid",
 				RelationToken:    "token-db2:db django:db",
+				Suspended:        &suspended,
 			},
 		}},
 	}

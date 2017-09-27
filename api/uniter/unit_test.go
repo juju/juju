@@ -658,25 +658,32 @@ func (s *unitSuite) TestApplicationNameAndTag(c *gc.C) {
 	c.Assert(s.apiUnit.ApplicationTag(), gc.Equals, s.wordpressApplication.Tag())
 }
 
-func (s *unitSuite) TestJoinedRelations(c *gc.C) {
-	joinedRelations, err := s.apiUnit.JoinedRelations()
+func (s *unitSuite) TestRelationSuspended(c *gc.C) {
+	relationStatus, err := s.apiUnit.RelationsStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(joinedRelations, gc.HasLen, 0)
+	c.Assert(relationStatus, gc.HasLen, 0)
 
 	rel1, _, _ := s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
-	joinedRelations, err = s.apiUnit.JoinedRelations()
+	relationStatus, err = s.apiUnit.RelationsStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(joinedRelations, gc.DeepEquals, []names.RelationTag{
-		rel1.Tag().(names.RelationTag),
-	})
+	c.Assert(relationStatus, gc.DeepEquals, []uniter.RelationStatus{{
+		Tag:       rel1.Tag().(names.RelationTag),
+		InScope:   true,
+		Suspended: false,
+	}})
 
-	rel2, _, _ := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
-	joinedRelations, err = s.apiUnit.JoinedRelations()
+	rel2 := s.addRelationSuspended(c, "wordpress", "logging", s.wordpressUnit)
+	relationStatus, err = s.apiUnit.RelationsStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(joinedRelations, jc.SameContents, []names.RelationTag{
-		rel1.Tag().(names.RelationTag),
-		rel2.Tag().(names.RelationTag),
-	})
+	c.Assert(relationStatus, jc.SameContents, []uniter.RelationStatus{{
+		Tag:       rel1.Tag().(names.RelationTag),
+		InScope:   true,
+		Suspended: false,
+	}, {
+		Tag:       rel2.Tag().(names.RelationTag),
+		InScope:   false,
+		Suspended: true,
+	}})
 }
 
 func (s *unitSuite) TestWatchAddresses(c *gc.C) {

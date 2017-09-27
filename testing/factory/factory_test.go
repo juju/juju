@@ -96,7 +96,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
 	c.Assert(savedLastLogin, gc.Equals, lastLogin)
 
-	_, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	_, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -131,7 +131,7 @@ func (s *factorySuite) TestMakeUserNoModelUser(c *gc.C) {
 
 	_, err := s.State.User(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	_, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -172,7 +172,7 @@ func (s *factorySuite) TestMakeModelUserParams(c *gc.C) {
 		DisplayName: "Foo Bar",
 	})
 
-	saved, err := s.State.UserAccess(modelUser.UserTag, s.State.ModelTag())
+	saved, err := s.State.UserAccess(modelUser.UserTag, s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Object.Id(), gc.Equals, modelUser.Object.Id())
 	c.Assert(saved.UserName, gc.Equals, "foobar")
@@ -189,7 +189,7 @@ func (s *factorySuite) TestMakeModelUserInvalidCreatedBy(c *gc.C) {
 	}
 
 	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
-	saved, err := s.State.UserAccess(names.NewLocalUserTag("bob"), s.State.ModelTag())
+	saved, err := s.State.UserAccess(names.NewLocalUserTag("bob"), s.IAASModel.ModelTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(saved, gc.DeepEquals, permission.UserAccess{})
 }
@@ -202,7 +202,7 @@ func (s *factorySuite) TestMakeModelUserNonLocalUser(c *gc.C) {
 		CreatedBy:   creator.UserTag(),
 	})
 
-	saved, err := s.State.UserAccess(modelUser.UserTag, s.State.ModelTag())
+	saved, err := s.State.UserAccess(modelUser.UserTag, s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Object.Id(), gc.Equals, modelUser.Object.Id())
 	c.Assert(saved.UserName, gc.Equals, "foobar@ubuntuone")
@@ -509,7 +509,10 @@ func (s *factorySuite) TestMakeModelNil(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Owner(), gc.Equals, origEnv.Owner())
 
-	cfg, err := st.ModelConfig()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "xenial")
 }
@@ -533,7 +536,9 @@ func (s *factorySuite) TestMakeModel(c *gc.C) {
 	c.Assert(env.UUID() == s.State.ModelUUID(), jc.IsFalse)
 	c.Assert(env.Owner(), gc.Equals, owner.UserTag())
 
-	cfg, err := st.ModelConfig()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "precise")
 }
