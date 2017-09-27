@@ -102,7 +102,8 @@ def wait_for_storage_detach(client, storage_id, interval, timeout):
         time.sleep(interval)
         storage_output = json.loads(client.list_storage())
         try:
-            index = [elem for elem in storage_output['volumes'].keys()
+            index = [
+                elem for elem in storage_output['volumes'].keys()
                 if storage_output['volumes'][elem]['storage'] == storage_id][0]
         except IndexError:
             log.info('Volume index for {} cannot be found.'.format(storage_id))

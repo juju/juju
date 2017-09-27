@@ -495,7 +495,8 @@ def migrate_model_to_controller(
         try:
             source_client.juju(
                 'show-model',
-                get_full_model_name(migration_target_client, include_user_name),
+                get_full_model_name(
+                    migration_target_client, include_user_name),
                 include_e=False)
         except:
             log.info('Ignoring failed output.')

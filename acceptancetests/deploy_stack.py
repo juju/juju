@@ -47,7 +47,6 @@ from remote import (
     winrm,
 )
 from substrate import (
-    destroy_job_instances,
     has_nova_instance,
     LIBVIRT_DOMAIN_RUNNING,
     resolve_remote_dns_names,

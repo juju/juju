@@ -160,8 +160,8 @@ def check_expected_backup(key, logprefix, action_output):
     size = int(log["size"])
     if size > 30:
         raise LogRotateError(
-            "Backup log '%s' should be less than 30MB (as gzipped), but is %sMB." %
-            (log_name, size))
+            "Backup log '%s' should be less than 30MB (as gzipped), "
+            "but is %sMB." % (log_name, size))
 
     dt = matches.groups()[0]
     dt_pattern = "%Y-%m-%dT%H-%M-%S.%f"

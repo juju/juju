@@ -14,5 +14,6 @@ def main():
     status_msg = stop_libvirt_domain(args.URI, args.domain)
     print("%s" % status_msg)
 
+
 if __name__ == '__main__':
     main()

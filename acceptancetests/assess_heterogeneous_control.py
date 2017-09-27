@@ -163,6 +163,7 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         other.remove_machine(container_holder)
         wait_until_removed(other, container_holder)
 
+
 # suppress nosetests
 test_control_heterogeneous.__test__ = False
 
