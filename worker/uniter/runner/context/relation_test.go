@@ -184,7 +184,7 @@ func convertMap(settingsMap map[string]interface{}) params.Settings {
 func (s *ContextRelationSuite) TestSuspended(c *gc.C) {
 	_, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.rel.SetSuspended(true)
+	err = s.rel.SetSuspended(true, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := context.NewContextRelation(s.apiRelUnit, nil)

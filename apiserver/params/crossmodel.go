@@ -327,6 +327,8 @@ type RemoteRelationChangeEvent struct {
 	// Suspended is the current suspended status of the relation.
 	Suspended *bool `json:"suspended,omitempty"`
 
+	SuspendedReason string `json:"suspended-reason,omitempty"`
+
 	// ChangedUnits maps unit tokens to relation unit changes.
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
 
@@ -349,6 +351,9 @@ type RelationLifeSuspendedStatusChange struct {
 
 	// Suspended is the suspended status of the relation.
 	Suspended bool `json:"suspended"`
+
+	// SuspendedReason is an optional message to explain why suspended is true.
+	SuspendedReason string `json:"suspended-reason"`
 }
 
 // RelationLifeSuspendedStatusWatchResult holds a RelationStatusWatcher id, baseline state
