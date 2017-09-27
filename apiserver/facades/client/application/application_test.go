@@ -2518,18 +2518,40 @@ func (s *applicationSuite) TestBlockChangesSetApplicationConstraints(c *gc.C) {
 }
 
 func (s *applicationSuite) TestClientGetApplicationConstraints(c *gc.C) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	fooConstraints := constraints.MustParse("mem=4G")
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:        "foo",
+		Constraints: fooConstraints,
+	})
+	barConstraints := constraints.MustParse("mem=128G", "cores=64")
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:        "bar",
+		Constraints: barConstraints,
+	})
 
-	// Set constraints for the application.
-	cons, err := constraints.Parse("mem=4096", "cores=2")
+	results, err := s.applicationAPI.GetConstraints(params.Entities{
+		Entities: []params.Entity{
+			{"wat"}, {"machine-0"}, {"user-foo"},
+			{"application-foo"}, {"application-bar"}, {"application-wat"},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = application.SetConstraints(cons)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check we can get the constraints.
-	result, err := s.applicationAPI.GetConstraints(params.GetApplicationConstraints{"dummy"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Constraints, gc.DeepEquals, cons)
+	c.Assert(results, jc.DeepEquals, params.ApplicationGetConstraintsResults{
+		Results: []params.ApplicationConstraint{
+			{
+				Error: &params.Error{Message: `"wat" is not a valid tag`},
+			}, {
+				Error: &params.Error{Message: `unexpected tag type, expected application, got machine`},
+			}, {
+				Error: &params.Error{Message: `unexpected tag type, expected application, got user`},
+			}, {
+				Constraints: fooConstraints,
+			}, {
+				Constraints: barConstraints,
+			}, {
+				Error: &params.Error{Message: `application "wat" not found`, Code: "not found"},
+			},
+		}})
 }
 
 func (s *applicationSuite) checkEndpoints(c *gc.C, mysqlAppName string, endpoints map[string]params.CharmRelation) {

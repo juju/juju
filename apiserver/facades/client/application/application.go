@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -477,11 +478,7 @@ func (api *API) getConfig(entity string) (map[string]interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		settings, err := app.ConfigSettings()
-		if err != nil {
-			return nil, err
-		}
-		return settings, nil
+		return app.ConfigSettings()
 	default:
 		return nil, errors.Errorf("unexpected tag type, expected application, got %s", kind)
 	}
@@ -959,16 +956,36 @@ func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicat
 }
 
 // GetConstraints returns the constraints for a given application.
-func (api *API) GetConstraints(args params.GetApplicationConstraints) (params.GetConstraintsResults, error) {
+func (api *API) GetConstraints(args params.Entities) (params.ApplicationGetConstraintsResults, error) {
 	if err := api.checkCanRead(); err != nil {
-		return params.GetConstraintsResults{}, errors.Trace(err)
+		return params.ApplicationGetConstraintsResults{}, errors.Trace(err)
 	}
-	app, err := api.backend.Application(args.ApplicationName)
+	results := params.ApplicationGetConstraintsResults{
+		Results: make([]params.ApplicationConstraint, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		cons, err := api.getConstraints(arg.Tag)
+		results.Results[i].Constraints = cons
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (api *API) getConstraints(entity string) (constraints.Value, error) {
+	tag, err := names.ParseTag(entity)
 	if err != nil {
-		return params.GetConstraintsResults{}, errors.Trace(err)
+		return constraints.Value{}, err
 	}
-	cons, err := app.Constraints()
-	return params.GetConstraintsResults{cons}, errors.Trace(err)
+	switch kind := tag.Kind(); kind {
+	case names.ApplicationTagKind:
+		app, err := api.backend.Application(tag.Id())
+		if err != nil {
+			return constraints.Value{}, err
+		}
+		return app.Constraints()
+	default:
+		return constraints.Value{}, errors.Errorf("unexpected tag type, expected application, got %s", kind)
+	}
 }
 
 // SetConstraints sets the constraints for a given application.
@@ -1302,3 +1319,16 @@ func (u *APIv4) UpdateApplicationSeries(_, _ struct{}) {}
 
 // GetConfig isn't on the V4 API.
 func (u *APIv4) GetConfig(_, _ struct{}) {}
+
+// GetConstraints returns the v4 implementation of GetConstraints.
+func (api *APIv4) GetConstraints(args params.GetApplicationConstraints) (params.GetConstraintsResults, error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.GetConstraintsResults{}, errors.Trace(err)
+	}
+	app, err := api.backend.Application(args.ApplicationName)
+	if err != nil {
+		return params.GetConstraintsResults{}, errors.Trace(err)
+	}
+	cons, err := app.Constraints()
+	return params.GetConstraintsResults{cons}, errors.Trace(err)
+}
