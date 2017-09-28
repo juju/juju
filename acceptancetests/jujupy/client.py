@@ -51,7 +51,6 @@ from jujupy.configuration import (
     get_selected_environment,
     )
 from jujupy.utility import (
-    ensure_dir,
     get_timeout_path,
     is_ipv6_address,
     JujuResourceTimeout,
@@ -318,21 +317,19 @@ class JujuData:
     def make_config_copy(self):
         return deepcopy(self._config)
 
-    # XXX rename, jes isn't used.
     @contextmanager
-    def make_jes_home(self, juju_home, dir_name, new_config):
+    def make_juju_home(self, juju_home, dir_name):
         """Make a JUJU_HOME/DATA directory to avoid conflicts.
 
         :param juju_home: Current JUJU_HOME/DATA directory, used as a
             base path for the new directory.
         :param dir_name: Name of sub-directory to make the home in.
-        :param new_config: Dictionary representing the contents of
-            the environments.yaml configuation file."""
+        """
         home_path = jes_home_path(juju_home, dir_name)
         with skip_on_missing_file():
             shutil.rmtree(home_path)
         os.makedirs(home_path)
-        self.dump_yaml(home_path, new_config)
+        self.dump_yaml(home_path)
         # For extention: Add all files carried over to the list.
         for file_name in ['public-clouds.yaml']:
             src_path = os.path.join(juju_home, file_name)
@@ -447,12 +444,8 @@ class JujuData:
         data.load_yaml()
         return data
 
-    def dump_yaml(self, path, config):
-        """Dump the configuration files to the specified path.
-
-        config is unused, but is accepted for compatibility with
-        SimpleEnvironment and make_jes_home().
-        """
+    def dump_yaml(self, path):
+        """Dump the configuration files to the specified path."""
         with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
             yaml.safe_dump(self.credentials, f)
         self.write_clouds(path, self.clouds)
@@ -2909,7 +2902,7 @@ class ModelClient:
             user_client.env.user_name = user_name
             user_client.env.environment = qualified_model_name(
                 user_client.env.environment, self.env.user_name)
-        user_client.env.dump_yaml(user_client.env.juju_home, None)
+        user_client.env.dump_yaml(user_client.env.juju_home)
         # New user names the controller.
         user_client.env.controller = Controller(controller_name)
         return user_client
@@ -3120,7 +3113,7 @@ def make_safe_config(client):
 
 
 @contextmanager
-def temp_bootstrap_env(juju_home, client, set_home=True):
+def temp_bootstrap_env(juju_home, client):
     """Create a temporary environment for bootstrapping.
 
     This involves creating a temporary juju home directory and returning its
@@ -3131,11 +3124,8 @@ def temp_bootstrap_env(juju_home, client, set_home=True):
     :param set_home: Set JUJU_HOME to match the temporary home in this
         context.  If False, juju_home should be supplied to bootstrap.
     """
-    new_config = {
-        'environments': {client.env.environment: make_safe_config(client)}}
     # Always bootstrap a matching environment.
-    context = client.env.make_jes_home(
-        juju_home, client.env.environment, new_config)
+    context = client.env.make_juju_home(juju_home, client.env.environment)
     with context as temp_juju_home:
         client.env.juju_home = temp_juju_home
         yield temp_juju_home

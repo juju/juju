@@ -233,7 +233,7 @@ def assess_all_clouds(client, cloud_specs):
                 succeeded.add(cloud_spec.label)
         finally:
             client.env.clouds = {'clouds': {}}
-            client.env.dump_yaml(client.env.juju_home, {})
+            client.env.dump_yaml(client.env.juju_home)
     return succeeded, xfailed, failed
 
 

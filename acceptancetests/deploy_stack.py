@@ -870,8 +870,7 @@ class BootstrapManager:
             if os.path.isfile(cache_path):
                 self.controller_strategy.prepare()
                 torn_down = True
-        with temp_bootstrap_env(
-                self.client.env.juju_home, self.client, set_home=False):
+        with temp_bootstrap_env(self.client.env.juju_home, self.client):
             with self.handle_bootstrap_exceptions():
                 if not torn_down:
                     self.controller_strategy.prepare()

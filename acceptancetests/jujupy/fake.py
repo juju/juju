@@ -392,7 +392,7 @@ class AutoloadCredentials(FakeExpectChild):
                 'password': self.extra_env['OS_PASSWORD'],
                 'tenant-name': self.extra_env['OS_TENANT_NAME'],
                 }}})
-        juju_data.dump_yaml(self.juju_home, {})
+        juju_data.dump_yaml(self.juju_home)
         return False
 
     def eof(self):

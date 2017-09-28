@@ -3771,7 +3771,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         client = self.get_client(env)
         os.environ['JUJU_HOME'] = 'foo'
         os.environ['JUJU_DATA'] = 'bar'
-        with temp_bootstrap_env(self.home_dir, client, set_home=False):
+        with temp_bootstrap_env(self.home_dir, client):
             self.assertEqual(os.environ['JUJU_HOME'], 'foo')
             self.assertEqual(os.environ['JUJU_DATA'], 'bar')
 
@@ -4858,7 +4858,7 @@ class TestJujuData(TestCase):
             data_writer = JujuData('foo', {}, juju_home)
             data_writer.clouds = {'clouds': {'foo': {}}}
             data_writer.credentials = {'credentials': {'bar': {}}}
-            data_writer.dump_yaml(juju_home, {})
+            data_writer.dump_yaml(juju_home)
             data_reader = JujuData.from_cloud_region('bar', region, {}, {
                 'clouds': {'bar': {'type': provider_type, 'endpoint': 'x'}},
                 }, juju_home)
@@ -5191,7 +5191,7 @@ class TestJujuData(TestCase):
         data.clouds = dict(cloud_dict)
         data.credentials = dict(credential_dict)
         with temp_dir() as path:
-            data.dump_yaml(path, {})
+            data.dump_yaml(path)
             self.assertItemsEqual(
                 ['clouds.yaml', 'credentials.yaml'], os.listdir(path))
             with open(os.path.join(path, 'clouds.yaml')) as f:
