@@ -22,7 +22,7 @@ type AvailabilityZone interface {
 // ZonedEnviron is an environs.Environ that has support for
 // availability zones.
 type ZonedEnviron interface {
-	environs.Environ
+	environs.IAASEnviron
 
 	// AvailabilityZones returns all availability zones in the environment.
 	AvailabilityZones() ([]AvailabilityZone, error)

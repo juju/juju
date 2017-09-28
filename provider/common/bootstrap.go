@@ -43,7 +43,7 @@ var logger = loggo.GetLogger("juju.provider.common")
 // Bootstrap is a common implementation of the Bootstrap method defined on
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
-func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
+func Bootstrap(ctx environs.BootstrapContext, env environs.IAASEnviron, args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
 	result, series, finalizer, err := BootstrapInstance(ctx, env, args)
 	if err != nil {
@@ -65,7 +65,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 // the tools and installing the initial Juju controller.
 // This method is called by Bootstrap above, which implements environs.Bootstrap, but
 // is also exported so that providers can manipulate the started instance.
-func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
+func BootstrapInstance(ctx environs.BootstrapContext, env environs.IAASEnviron, args environs.BootstrapParams,
 ) (_ *environs.StartInstanceResult, selectedSeries string, _ environs.BootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
@@ -246,7 +246,7 @@ func formatMemory(m uint64) string {
 var FinishBootstrap = func(
 	ctx environs.BootstrapContext,
 	client ssh.Client,
-	env environs.Environ,
+	env environs.IAASEnviron,
 	inst instance.Instance,
 	instanceConfig *instancecfg.InstanceConfig,
 	opts environs.BootstrapDialOpts,
@@ -430,7 +430,7 @@ type InstanceRefresher interface {
 
 type RefreshableInstance struct {
 	instance.Instance
-	Env environs.Environ
+	Env environs.IAASEnviron
 }
 
 // Refresh refreshes the addresses for the instance.

@@ -39,7 +39,7 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
-			var environ environs.Environ
+			var environ environs.IAASEnviron
 			if err := context.Get(config.EnvironName, &environ); err != nil {
 				return nil, errors.Trace(err)
 			}

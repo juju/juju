@@ -222,7 +222,11 @@ type ConfigGetter interface {
 	Config() *config.Config
 }
 
-// An Environ represents a Juju environment.
+// An Environ or IAASEnviron represents a Juju environment.
+//
+// IAASEnviron defines the full functionality of IAAS providers, while
+// Environ is a minimal interface that is implemented by CAAS
+// providers.
 //
 // Due to the limitations of some providers (for example ec2), the
 // results of the Environ methods may not be fully sequentially
@@ -236,6 +240,42 @@ type ConfigGetter interface {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
+	// Create creates the environment for a new hosted model.
+	//
+	// This will be called before any workers begin operating on the
+	// Environ, to give an Environ a chance to perform operations that
+	// are required for further use.
+	//
+	// Create is not called for the initial controller model; it is
+	// the Bootstrap method's job to create the controller model.
+	Create(CreateParams) error
+
+	// ConfigGetter allows the retrieval of the configuration data.
+	ConfigGetter
+
+	// SetConfig updates the Environ's configuration.
+	//
+	// Calls to SetConfig do not affect the configuration of
+	// values previously obtained from Storage.
+	SetConfig(cfg *config.Config) error
+
+	// Provider returns the EnvironProvider that created this Environ.
+	Provider() EnvironProvider
+
+	// Destroy shuts down all known machines and destroys the
+	// rest of the environment. Note that on some providers,
+	// very recently started instances may not be destroyed
+	// because they are not yet visible.
+	//
+	// When Destroy has been called, any Environ referring to the
+	// same remote environment may become invalid.
+	Destroy() error
+}
+
+type IAASEnviron interface {
+	// Environ implements common functionality for all providers
+	Environ
+
 	// Environ implements storage.ProviderRegistry for acquiring
 	// environ-scoped storage providers supported by the Environ.
 	// StorageProviders returned from Environ.StorageProvider will
@@ -264,16 +304,6 @@ type Environ interface {
 	// architecture.
 	Bootstrap(ctx BootstrapContext, params BootstrapParams) (*BootstrapResult, error)
 
-	// Create creates the environment for a new hosted model.
-	//
-	// This will be called before any workers begin operating on the
-	// Environ, to give an Environ a chance to perform operations that
-	// are required for further use.
-	//
-	// Create is not called for the initial controller model; it is
-	// the Bootstrap method's job to create the controller model.
-	Create(CreateParams) error
-
 	// AdoptResources is called when the model is moved from one
 	// controller to another using model migration. Some providers tag
 	// instances, disks, and cloud storage with the controller UUID to
@@ -291,18 +321,9 @@ type Environ interface {
 	// instances.
 	InstanceBroker
 
-	// ConfigGetter allows the retrieval of the configuration data.
-	ConfigGetter
-
 	// ConstraintsValidator returns a Validator instance which
 	// is used to validate and merge constraints.
 	ConstraintsValidator() (constraints.Validator, error)
-
-	// SetConfig updates the Environ's configuration.
-	//
-	// Calls to SetConfig do not affect the configuration of
-	// values previously obtained from Storage.
-	SetConfig(cfg *config.Config) error
 
 	// Instances returns a slice of instances corresponding to the
 	// given instance ids.  If no instances were found, but there
@@ -319,15 +340,6 @@ type Environ interface {
 	// then ErrNotBootstrapped should be returned instead.
 	ControllerInstances(controllerUUID string) ([]instance.Id, error)
 
-	// Destroy shuts down all known machines and destroys the
-	// rest of the environment. Note that on some providers,
-	// very recently started instances may not be destroyed
-	// because they are not yet visible.
-	//
-	// When Destroy has been called, any Environ referring to the
-	// same remote environment may become invalid.
-	Destroy() error
-
 	// DestroyController is similar to Destroy() in that it destroys
 	// the model, which in this case will be the controller model.
 	//
@@ -336,9 +348,6 @@ type Environ interface {
 	// This ensures that "kill-controller" can clean up hosted models
 	// when the Juju controller process is unavailable.
 	DestroyController(controllerUUID string) error
-
-	// Provider returns the EnvironProvider that created this Environ.
-	Provider() EnvironProvider
 
 	InstancePrechecker
 

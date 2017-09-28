@@ -16,7 +16,7 @@ import (
 // Destroy is a common implementation of the Destroy method defined on
 // environs.Environ; we strongly recommend that this implementation be
 // used when writing a new provider.
-func Destroy(env environs.Environ) error {
+func Destroy(env environs.IAASEnviron) error {
 	logger.Infof("destroying model %q", env.Config().Name())
 	if err := destroyInstances(env); err != nil {
 		return errors.Annotate(err, "destroying instances")
@@ -27,7 +27,7 @@ func Destroy(env environs.Environ) error {
 	return nil
 }
 
-func destroyInstances(env environs.Environ) error {
+func destroyInstances(env environs.IAASEnviron) error {
 	logger.Infof("destroying instances")
 	instances, err := env.AllInstances()
 	switch err {
@@ -51,7 +51,7 @@ func destroyInstances(env environs.Environ) error {
 // to destroy persistent storage. Trying to include it in the storage
 // source abstraction doesn't work well with dynamic, non-persistent
 // storage like tmpfs, rootfs, etc.
-func destroyStorage(env environs.Environ) error {
+func destroyStorage(env environs.IAASEnviron) error {
 	logger.Infof("destroying storage")
 	storageProviderTypes, err := env.StorageProviderTypes()
 	if err != nil {

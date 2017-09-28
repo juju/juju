@@ -55,10 +55,19 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 	if !ok {
 		return errors.Errorf("expected *environ.Tracker, got %T", in)
 	}
-	outEnviron, ok := out.(*environs.Environ)
+	outEnviron, ok := out.(*environs.IAASEnviron)
 	if !ok {
-		return errors.Errorf("expected *environs.Environ, got %T", out)
+		outEnviron, ok := out.(*environs.Environ)
+		if !ok {
+			return errors.Errorf("expected *environs.Environ or *environs.IAASEnviron, got %T", out)
+		}
+		*outEnviron = inTracker.Environ()
 	}
-	*outEnviron = inTracker.Environ()
+	inEnv := inTracker.Environ()
+	inIAASEnv, ok := inEnv.(environs.IAASEnviron)
+	if !ok {
+		return errors.Errorf("could not cast Tracker's environ into an IAASEnviron")
+	}
+	*outEnviron = inIAASEnv
 	return nil
 }

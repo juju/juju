@@ -180,7 +180,7 @@ func withDefaultControllerConstraints(cons constraints.Value) constraints.Value 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
+func Bootstrap(ctx environs.BootstrapContext, environ environs.IAASEnviron, args BootstrapParams) error {
 	if err := args.Validate(); err != nil {
 		return errors.Annotate(err, "validating bootstrap parameters")
 	}

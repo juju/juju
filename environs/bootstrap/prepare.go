@@ -140,7 +140,7 @@ func prepare(
 	ctx environs.BootstrapContext,
 	p environs.EnvironProvider,
 	args PrepareParams,
-) (environs.Environ, prepareDetails, error) {
+) (environs.IAASEnviron, prepareDetails, error) {
 	var details prepareDetails
 
 	cfg, err := config.New(config.NoDefaults, args.ModelConfig)
@@ -152,10 +152,14 @@ func prepare(
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}
-	env, err := p.Open(environs.OpenParams{
+	maybeIAASEnv, err := p.Open(environs.OpenParams{
 		Cloud:  args.Cloud,
 		Config: cfg,
 	})
+	env, ok := maybeIAASEnv.(environs.IAASEnviron)
+	if !ok {
+		return nil, details, errors.Errorf("Bootstrap not supported for provider %v", p)
+	}
 	if err != nil {
 		return nil, details, errors.Trace(err)
 	}
