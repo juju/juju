@@ -295,11 +295,11 @@ class TestAddBasicTestingArguments(TestCase):
         self.assertIs(None, args.deadline)
 
     def test_positional_args(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest']
+        cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest']
         parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
         args = parser.parse_args(cmd_line)
         expected = Namespace(
-            agent_url=None, debug=False, env='local', temp_env_name='testtest',
+            agent_url=None, debug=False, env='lxd', temp_env_name='testtest',
             juju_bin='/foo/juju', logs='/tmp/logs', series=None,
             verbose=logging.INFO, agent_stream=None, keep_env=False,
             upload_tools=False, bootstrap_host=None, machine=[], region=None,
@@ -307,13 +307,13 @@ class TestAddBasicTestingArguments(TestCase):
         self.assertEqual(args, expected)
 
     def test_positional_args_add_juju_bin_name(self):
-        cmd_line = ['local', '/juju', '/tmp/logs', 'testtest']
+        cmd_line = ['lxd', '/juju', '/tmp/logs', 'testtest']
         parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.juju_bin, '/juju')
 
     def test_positional_args_accepts_juju_exe(self):
-        cmd_line = ['local', 'c:\\juju.exe', '/tmp/logs', 'testtest']
+        cmd_line = ['lxd', 'c:\\juju.exe', '/tmp/logs', 'testtest']
         parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.juju_bin, 'c:\\juju.exe')
@@ -322,7 +322,7 @@ class TestAddBasicTestingArguments(TestCase):
         with warnings.catch_warnings(record=True) as warned:
             with temp_dir() as log_dir:
                 open(os.path.join(log_dir, "existing.log"), "w").close()
-                cmd_line = ['local', '/a/juju', log_dir, 'testtest']
+                cmd_line = ['lxd', '/a/juju', log_dir, 'testtest']
                 parser = add_basic_testing_arguments(ArgumentParser())
                 parser.parse_args(cmd_line)
             self.assertEqual(len(warned), 1)
@@ -336,7 +336,7 @@ class TestAddBasicTestingArguments(TestCase):
         with warnings.catch_warnings(record=True) as warned:
             with temp_dir() as log_dir:
                 open(os.path.join(log_dir, "empty"), "w").close()
-                cmd_line = ['local', '/a/juju', log_dir, 'testtest']
+                cmd_line = ['lxd', '/a/juju', log_dir, 'testtest']
                 parser = add_basic_testing_arguments(ArgumentParser())
                 parser.parse_args(cmd_line)
             self.assertEqual(warned, [])
@@ -358,7 +358,7 @@ class TestAddBasicTestingArguments(TestCase):
         with warnings.catch_warnings(record=True) as warned:
             log_dir = mkdtemp()
             os.rmdir(log_dir)
-            cmd_line = ['local', '/foo/juju', log_dir, 'testtest']
+            cmd_line = ['lxd', '/foo/juju', log_dir, 'testtest']
             parser = add_basic_testing_arguments(ArgumentParser())
             parser.parse_args(cmd_line)
             self.assertEqual(len(warned), 1)
@@ -368,47 +368,47 @@ class TestAddBasicTestingArguments(TestCase):
             self.assertEqual("", self.log_stream.getvalue())
 
     def test_debug(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--debug']
+        cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest', '--debug']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.debug, True)
 
     def test_verbose_logging(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--verbose']
+        cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest', '--verbose']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.verbose, logging.DEBUG)
 
     def test_agent_url(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+        cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest',
                     '--agent-url', 'http://example.org']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.agent_url, 'http://example.org')
 
     def test_agent_stream(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+        cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest',
                     '--agent-stream', 'testing']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.agent_stream, 'testing')
 
     def test_series(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest', '--series',
+        cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest', '--series',
                     'vivid']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.series, 'vivid')
 
     def test_upload_tools(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+        cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest',
                     '--upload-tools']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertTrue(args.upload_tools)
 
     def test_using_jes_upload_tools(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+        cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest',
                     '--upload-tools']
         parser = add_basic_testing_arguments(ArgumentParser(), using_jes=True)
         with patch.object(parser, 'error') as mock_error:
@@ -417,28 +417,28 @@ class TestAddBasicTestingArguments(TestCase):
             'unrecognized arguments: --upload-tools')
 
     def test_bootstrap_host(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+        cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest',
                     '--bootstrap-host', 'bar']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.bootstrap_host, 'bar')
 
     def test_machine(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+        cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest',
                     '--machine', 'bar', '--machine', 'baz']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.machine, ['bar', 'baz'])
 
     def test_keep_env(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+        cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest',
                     '--keep-env']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)
         self.assertTrue(args.keep_env)
 
     def test_region(self):
-        cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest',
+        cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest',
                     '--region', 'foo-bar']
         parser = add_basic_testing_arguments(ArgumentParser())
         args = parser.parse_args(cmd_line)

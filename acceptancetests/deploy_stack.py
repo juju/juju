@@ -9,7 +9,6 @@ try:
 except ImportError:
     from contextlib import ExitStack as nested
 import errno
-import glob
 import logging
 import os
 import random
@@ -30,16 +29,12 @@ from jujupy import (
     client_for_existing,
     FakeBackend,
     fake_juju_client,
-    get_juju_home,
     get_machine_dns_name,
     jes_home_path,
     NoProvider,
     JujuData,
     temp_bootstrap_env,
     )
-from jujupy.client import (
-    get_local_root,
-)
 from remote import (
     remote_from_address,
     remote_from_unit,
@@ -58,7 +53,6 @@ from utility import (
     generate_default_clean_dir,
     add_basic_testing_arguments,
     configure_logging,
-    ensure_deleted,
     ensure_dir,
     logged_exception,
     LoggedException,
@@ -202,24 +196,21 @@ def dump_env_logs_known_hosts(client, artifacts_dir, runtime_config=None,
                               known_hosts=None):
     if known_hosts is None:
         known_hosts = {}
-    if client.env.local:
-        logging.info("Retrieving logs for local environment")
-        copy_local_logs(client.env, artifacts_dir)
-    else:
-        remote_machines = get_remote_machines(client, known_hosts)
+    remote_machines = get_remote_machines(client, known_hosts)
 
-        for machine_id in sorted(remote_machines, key=int):
-            remote = remote_machines[machine_id]
-            if not _can_run_ssh() and not remote.is_windows():
-                logging.info("No ssh, skipping logs for machine-%s using %r",
-                             machine_id, remote)
-                continue
-            logging.info("Retrieving logs for machine-%s using %r", machine_id,
-                         remote)
-            machine_dir = os.path.join(artifacts_dir,
-                                       "machine-%s" % machine_id)
-            ensure_dir(machine_dir)
-            copy_remote_logs(remote, machine_dir)
+    for machine_id in sorted(remote_machines, key=int):
+        remote = remote_machines[machine_id]
+        if not _can_run_ssh() and not remote.is_windows():
+            logging.info(
+                "No ssh, skipping logs for machine-%s using %r",
+                machine_id, remote)
+            continue
+        logging.info(
+            "Retrieving logs for machine-%s using %r",
+            machine_id, remote)
+        machine_dir = os.path.join(artifacts_dir, "machine-%s" % machine_id)
+        ensure_dir(machine_dir)
+        copy_remote_logs(remote, machine_dir)
     archive_logs(artifacts_dir)
     retain_config(runtime_config, artifacts_dir)
 
@@ -297,19 +288,6 @@ def is_log(file_name):
 
 
 lxc_template_glob = '/var/lib/juju/containers/juju-*-lxc-template/*.log'
-
-
-def copy_local_logs(env, directory):
-    """Copy logs for all machines in local environment."""
-    local = get_local_root(get_juju_home(), env)
-    log_names = [os.path.join(local, 'cloud-init-output.log')]
-    log_names.extend(glob.glob(os.path.join(local, 'log', '*.log')))
-    log_names.extend(glob.glob(lxc_template_glob))
-    try:
-        subprocess.check_call(['sudo', 'chmod', 'go+r'] + log_names)
-        subprocess.check_call(['cp'] + log_names + [directory])
-    except subprocess.CalledProcessError as e:
-        logging.warning("Could not retrieve local logs: %s", e)
 
 
 def copy_remote_logs(remote, directory):

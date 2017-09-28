@@ -32,7 +32,6 @@ from deploy_stack import (
     boot_context,
     BootstrapManager,
     check_token,
-    copy_local_logs,
     copy_remote_logs,
     CreateController,
     ExistingController,
@@ -217,7 +216,7 @@ class DeployStackTestCase(FakeHomeTestCase):
         self.assertEqual(file_data, expected)
 
     def test_check_token(self):
-        env = JujuData('foo', {'type': 'local'})
+        env = JujuData('foo', {'type': 'lxd'})
         client = ModelClient(env, None, None)
         status = Status.from_text("""\
             applications:
@@ -246,7 +245,7 @@ class DeployStackTestCase(FakeHomeTestCase):
             self.log_stream.getvalue().splitlines())
 
     def test_check_token_not_found(self):
-        env = JujuData('foo', {'type': 'local'})
+        env = JujuData('foo', {'type': 'lxd'})
         client = ModelClient(env, None, None)
         status = Status.from_text("""\
             applications:
@@ -280,7 +279,7 @@ class DeployStackTestCase(FakeHomeTestCase):
             self.log_stream.getvalue().splitlines())
 
     def test_check_token_not_found_juju_ssh_broken(self):
-        env = JujuData('foo', {'type': 'local'})
+        env = JujuData('foo', {'type': 'lxd'})
         client = ModelClient(env, None, None)
         status = Status.from_text("""\
             applications:
@@ -499,24 +498,6 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
              'INFO Retrieving logs for machine-2 using ' + repr(self.r2)],
             self.log_stream.getvalue().splitlines())
 
-    def test_dump_env_logs_local_env(self):
-        env = JujuData('foo', {'type': 'local'})
-        client = ModelClient(env, '1.234-76', None)
-        with temp_dir() as artifacts_dir:
-            with patch('deploy_stack.get_remote_machines',
-                       autospec=True) as grm_mock:
-                with patch('deploy_stack.copy_local_logs',
-                           autospec=True) as cll_mock:
-                    with patch('deploy_stack.archive_logs',
-                               autospec=True) as al_mock:
-                        dump_env_logs(client, '10.10.0.1', artifacts_dir)
-            cll_mock.assert_called_with(env, artifacts_dir)
-            al_mock.assert_called_once_with(artifacts_dir)
-        self.assertEqual(grm_mock.call_args_list, [])
-        self.assertEqual(
-            ['INFO Retrieving logs for local environment'],
-            self.log_stream.getvalue().splitlines())
-
     def test_archive_logs(self):
         with temp_dir() as log_dir:
             with open(os.path.join(log_dir, 'fake.log'), 'w') as f:
@@ -571,49 +552,6 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             self.assertEqual(0, len(call_kwargs))
             self.assertEqual(gzip_args[:3], ['gzip', '--best', '-f'])
             self.assertEqual(set(gzip_args[3:]), set(log_paths))
-
-    def test_copy_local_logs(self):
-        # Relevent local log files are copied, after changing their permissions
-        # to allow access by non-root user.
-        env = JujuData('a-local', {'type': 'local'})
-        with temp_dir() as juju_home_dir:
-            log_dir = os.path.join(juju_home_dir, "a-local", "log")
-            os.makedirs(log_dir)
-            open(os.path.join(log_dir, "all-machines.log"), "w").close()
-            template_dir = os.path.join(juju_home_dir, "templates")
-            os.mkdir(template_dir)
-            open(os.path.join(template_dir, "container.log"), "w").close()
-            with patch('deploy_stack.get_juju_home', autospec=True,
-                       return_value=juju_home_dir):
-                with patch('deploy_stack.lxc_template_glob',
-                           os.path.join(template_dir, "*.log")):
-                    with patch('subprocess.check_call') as cc_mock:
-                        copy_local_logs(env, '/destination/dir')
-        expected_files = [os.path.join(juju_home_dir, *p) for p in (
-            ('a-local', 'cloud-init-output.log'),
-            ('a-local', 'log', 'all-machines.log'),
-            ('templates', 'container.log'),
-        )]
-        self.assertEqual(cc_mock.call_args_list, [
-            call(['sudo', 'chmod', 'go+r'] + expected_files),
-            call(['cp'] + expected_files + ['/destination/dir']),
-        ])
-
-    def test_copy_local_logs_warns(self):
-        env = JujuData('a-local', {'type': 'local'})
-        err = subprocess.CalledProcessError(1, 'cp', None)
-        with temp_dir() as juju_home_dir:
-            with patch('deploy_stack.get_juju_home', autospec=True,
-                       return_value=juju_home_dir):
-                with patch('deploy_stack.lxc_template_glob',
-                           os.path.join(juju_home_dir, "*.log")):
-                    with patch('subprocess.check_call', autospec=True,
-                               side_effect=err):
-                        copy_local_logs(env, '/destination/dir')
-        self.assertEqual(
-            ["WARNING Could not retrieve local logs: Command 'cp' returned"
-             " non-zero exit status 1"],
-            self.log_stream.getvalue().splitlines())
 
     def test_copy_remote_logs(self):
         # To get the logs, their permissions must be updated first,
@@ -1195,6 +1133,7 @@ class TestTestUpgrade(FakeHomeTestCase):
         env = JujuData('foo', {'type': 'foo'})
         old_client = ModelClient(env, None, '/foo/juju')
         with self.upgrade_mocks() as (co_mock, cc_mock):
+            # import ipdb; ipdb.set_trace()
             assess_upgrade(old_client, '/bar/juju')
         new_client = ModelClient(env, None, '/bar/juju')
         # Needs to upgrade the controller first.

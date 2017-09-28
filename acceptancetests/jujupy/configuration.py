@@ -67,10 +67,6 @@ def get_environments_path(juju_home):
     return os.path.join(juju_home, 'environments.yaml')
 
 
-def get_jenv_path(juju_home, name):
-    return os.path.join(juju_home, 'environments', '%s.jenv' % name)
-
-
 def get_bootstrap_config_path(juju_data_dir):
     return os.path.join(juju_data_dir, 'bootstrap-config.yaml')
 

@@ -47,12 +47,10 @@ import yaml
 
 from jujupy.configuration import (
     get_bootstrap_config_path,
-    get_environments_path,
     get_juju_home,
     get_selected_environment,
     )
 from jujupy.utility import (
-    check_free_disk_space,
     ensure_dir,
     get_timeout_path,
     is_ipv6_address,
@@ -270,13 +268,10 @@ class JujuData:
                 provider = self.provider
             except NoProvider:
                 provider = None
-            self.local = bool(provider == 'local')
-            self.kvm = (
-                self.local and bool(self._config.get('container') == 'kvm'))
+            self.kvm = (bool(self._config.get('container') == 'kvm'))
             self.maas = bool(provider == 'maas')
             self.joyent = bool(provider == 'joyent')
         else:
-            self.local = False
             self.kvm = False
             self.maas = False
             self.joyent = False
@@ -305,7 +300,6 @@ class JujuData:
             model_name, config, juju_home=self.juju_home,
             controller=self.controller,
             bootstrap_to=self.bootstrap_to)
-        result.local = self.local
         result.kvm = self.kvm
         result.maas = self.maas
         result.joyent = self.joyent
@@ -334,7 +328,6 @@ class JujuData:
         :param dir_name: Name of sub-directory to make the home in.
         :param new_config: Dictionary representing the contents of
             the environments.yaml configuation file."""
-        import ipdb; ipdb.set_trace()
         home_path = jes_home_path(juju_home, dir_name)
         with skip_on_missing_file():
             shutil.rmtree(home_path)
@@ -611,8 +604,6 @@ class JujuData:
         if self.environment != other.environment:
             return False
         if self._config != other._config:
-            return False
-        if self.local != other.local:
             return False
         if self.maas != other.maas:
             return False
@@ -993,12 +984,7 @@ class Status:
 
 
 def describe_substrate(env):
-    if env.provider == 'local':
-        return {
-            'kvm': 'KVM (local)',
-            'lxc': 'LXC (local)'
-        }[env.get_option('container', 'lxc')]
-    elif env.provider == 'openstack':
+    if env.provider == 'openstack':
         if env.get_option('auth-url') == (
                 'https://keystone.canonistack.canonical.com:443/v2.0/'):
             return 'Canonistack'
@@ -2617,16 +2603,14 @@ class ModelClient:
             reporter.finish()
         condition.do_raise(self.model_name, status)
 
-    def get_matching_agent_version(self, no_build=False):
+    def get_matching_agent_version(self):
         version_number = get_stripped_version_number(self.version)
-        if not no_build and self.env.local:
-            version_number += '.1'
         return version_number
 
     def upgrade_juju(self, force_version=True):
         args = ()
         if force_version:
-            version = self.get_matching_agent_version(no_build=True)
+            version = self.get_matching_agent_version()
             args += ('--agent-version', version)
         self._upgrade_juju(args)
 
@@ -3107,20 +3091,6 @@ class ModelClient:
         self.juju('switch', (':'.join(args),), include_e=False)
 
 
-def get_local_root(juju_home, env):
-    return os.path.join(juju_home, env.environment)
-
-
-def dump_environments_yaml(juju_home, config):
-    """Dump yaml data to the environment file.
-
-    :param juju_home: Path to the JUJU_HOME directory.
-    :param config: Dictionary repersenting yaml data to dump."""
-    environments_path = get_environments_path(juju_home)
-    with open(environments_path, 'w') as config_file:
-        yaml.safe_dump(config, config_file)
-
-
 def jes_home_path(juju_home, dir_name):
     return os.path.join(juju_home, 'jes-homes', dir_name)
 
@@ -3145,23 +3115,7 @@ def make_safe_config(client):
     # Explicitly set 'name', which Juju implicitly sets to env.environment to
     # ensure MAASAccount knows what the name will be.
     config['name'] = unqualified_model_name(client.env.environment)
-    # if config['type'] == 'local':
-    #     config.setdefault('root-dir', get_local_root(client.env.juju_home,
-    #                       client.env))
-    #     # MongoDB requires a lot of free disk space, and the only
-    #     # visible error message is from "juju bootstrap":
-    #     # "cannot initiate replication set" if disk space is low.
-    #     # What "low" exactly means, is unclear, but 8GB should be
-    #     # enough.
-    #     ensure_dir(config['root-dir'])
-    #     check_free_disk_space(config['root-dir'], 8000000, "MongoDB files")
-    #     if client.env.kvm:
-    #         check_free_disk_space(
-    #             "/var/lib/uvtool/libvirt/images", 2000000,
-    #             "KVM disk files")
-    #     else:
-    #         check_free_disk_space(
-    #             "/var/lib/lxc", 2000000, "LXC containers")
+
     return config
 
 
@@ -3177,15 +3131,12 @@ def temp_bootstrap_env(juju_home, client, set_home=True):
     :param set_home: Set JUJU_HOME to match the temporary home in this
         context.  If False, juju_home should be supplied to bootstrap.
     """
-    import ipdb; ipdb.set_trace()
     new_config = {
         'environments': {client.env.environment: make_safe_config(client)}}
     # Always bootstrap a matching environment.
     context = client.env.make_jes_home(
         juju_home, client.env.environment, new_config)
     with context as temp_juju_home:
-        # XXX I'm pretty sure this isn't needed.
-        ensure_dir(os.path.join(juju_home, 'environments'))
         client.env.juju_home = temp_juju_home
         yield temp_juju_home
 
