@@ -52,6 +52,7 @@ type ApplicationAPI interface {
 	Expose(application string) error
 	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
 	GetConfig(appNames ...string) ([]map[string]interface{}, error)
+	GetConstraints(appNames ...string) ([]constraints.Value, error)
 	GetCharmURL(serviceName string) (*charm.URL, error)
 	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)
 	SetCharm(application.SetCharmConfig) error

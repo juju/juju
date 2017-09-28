@@ -21,7 +21,6 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"gopkg.in/juju/charmstore.v4/config"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/yaml.v2"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/multiwatcher"
@@ -105,7 +105,7 @@ func deployBundle(
 	}
 
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(dryRun, bundleDir, channel, api, ctx, data, bundleStorage)
+	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleStorage)
 	if err := h.makeModel(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -187,7 +187,7 @@ type bundleHandler struct {
 func makeBundleHandler(
 	dryRun bool,
 	bundleDir string,
-	channel string,
+	channel csparams.Channel,
 	api DeployAPI,
 	ctx *cmd.Context,
 	data *charm.BundleData,
@@ -196,13 +196,13 @@ func makeBundleHandler(
 	return &bundleHandler{
 		dryRun:        dryRun,
 		bundleDir:     bundleDir,
-		results:       make(map[string]string, numChanges),
+		results:       make(map[string]string),
 		channel:       channel,
-		api:           apiRoot,
+		api:           api,
 		bundleStorage: bundleStorage,
 		ctx:           ctx,
 		data:          data,
-		unitStatus:    make(map[string]string), // XXX maybe kill
+		unitStatus:    make(map[string]string),
 		csMacs:        make(map[*charm.URL]*macaroon.Macaroon),
 		channels:      make(map[*charm.URL]csparams.Channel),
 	}
@@ -220,7 +220,7 @@ func (h *bundleHandler) makeModel() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("model: %s", pretty.Sprint(model))
+	logger.Debugf("model: %s", pretty.Sprint(h.model))
 
 	// XXX: We should be able not need unitStatus if we use the model.
 	for _, serviceData := range status.Applications {
@@ -250,16 +250,22 @@ func (h *bundleHandler) handleChanges() error {
 	// Instantiate a watcher used to follow the deployment progress.
 	h.watcher, err = h.api.WatchAll()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot watch model")
+		return errors.Annotate(err, "cannot watch model")
 	}
 	defer h.watcher.Stop()
 
+	if h.dryRun {
+		h.ctx.Infof("Changes to deploy bundle:")
+	} else {
+		h.ctx.Infof("Executing changes:")
+	}
+
 	// Deploy the bundle.
-	for _, change := range changes {
-		ctx.Infof(change.Description())
+	for _, change := range h.changes {
+		h.ctx.Infof("- %s", change.Description())
 		switch change := change.(type) {
 		case *bundlechanges.AddCharmChange:
-			cURL, err := h.addCharm(change.Id(), change.Params)
+			err = h.addCharm(change.Id(), change.Params)
 		case *bundlechanges.AddMachineChange:
 			err = h.addMachine(change.Id(), change.Params)
 		case *bundlechanges.AddRelationChange:
@@ -279,20 +285,19 @@ func (h *bundleHandler) handleChanges() error {
 		case *bundlechanges.SetConstraintsChange:
 			err = h.setConstraints(change.Id(), change.Params)
 		default:
-			return nil, errors.Errorf("unknown change type: %T", change)
+			return errors.Errorf("unknown change type: %T", change)
 		}
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot deploy bundle")
+			return errors.Annotate(err, "cannot deploy bundle")
 		}
 	}
 	return nil
 }
 
 // addCharm adds a charm to the environment.
-func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*charm.URL, error) {
-	var noChannel csparams.Channel
+func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) error {
 	if h.dryRun {
-		return nil, nil
+		return nil
 	}
 	// First attempt to interpret as a local path.
 	if strings.HasPrefix(p.Charm, ".") || filepath.IsAbs(p.Charm) {
@@ -307,41 +312,41 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) (*ch
 		}
 		ch, curl, err := charmrepo.NewCharmAtPath(charmPath, series)
 		if err != nil && !os.IsNotExist(err) {
-			return nil, errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
+			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 		}
 		if err == nil {
 			if curl, err = h.api.AddLocalCharm(curl, ch); err != nil {
-				return nil, err
+				return err
 			}
 			logger.Debugf("added charm %s", curl)
 			h.results[id] = curl.String()
-			return curl, nil
+			return nil
 		}
 	}
 
 	// Not a local charm, so grab from the store.
 	ch, err := charm.ParseURL(p.Charm)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	url, channel, _, err := h.api.Resolve(h.modelConfig, ch)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
+		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
 	if url.Series == "bundle" {
-		return nil, errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
+		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var csMac *macaroon.Macaroon
 	url, csMac, err = addCharmFromURL(h.api, url, channel)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot add charm %q", p.Charm)
+		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
 	logger.Debugf("added charm %s", url)
 	h.results[id] = url.String()
 	h.csMacs[url] = csMac
-	h.channels[url] = csMac
-	return url, nil
+	h.channels[url] = channel
+	return nil
 }
 
 func (h *bundleHandler) makeResourceMap(storeResources map[string]int, localResources map[string]string) map[string]string {
@@ -373,7 +378,7 @@ func (h *bundleHandler) addApplication(id string, p bundlechanges.AddApplication
 		URL:     cURL,
 		Channel: h.channels[cURL],
 	}
-	csMac := csMacs[cURL]
+	csMac := h.csMacs[cURL]
 
 	h.results[id] = p.Application
 	ch := chID.URL.String()
@@ -446,7 +451,7 @@ func (h *bundleHandler) addApplication(id string, p bundlechanges.AddApplication
 	}
 
 	// Deploy the application.
-	if err := api.Deploy(application.DeployArgs{
+	if err := h.api.Deploy(application.DeployArgs{
 		CharmID:          chID,
 		Cons:             cons,
 		ApplicationName:  p.Application,
@@ -458,11 +463,19 @@ func (h *bundleHandler) addApplication(id string, p bundlechanges.AddApplication
 	}); err != nil {
 		return errors.Annotatef(err, "cannot deploy application %q", p.Application)
 	}
-
-	for resName := range resNames2IDs {
-		h.ctx.Verbosef("  added resource %s", resName)
-	}
+	h.writeAddedResources(resNames2IDs)
 	return nil
+}
+
+func (h *bundleHandler) writeAddedResources(resNames2IDs map[string]string) {
+	// Make sure the resources are output in a defined order.
+	names := set.NewStrings()
+	for resName := range resNames2IDs {
+		names.Add(resName)
+	}
+	for _, name := range names.SortedValues() {
+		h.ctx.Infof("  added resource %s", name)
+	}
 }
 
 // addMachine creates a new top-level machine or container in the environment.
@@ -500,6 +513,7 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 		Series:      p.Series,
 		Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	}
+	logger.Debugf("machineParams: %s", pretty.Sprint(machineParams))
 	if ct := p.ContainerType; ct != "" {
 		// TODO(thumper): move the warning and translation into the bundle reading code.
 
@@ -518,12 +532,14 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 		}
 		machineParams.ContainerType = containerType
 		if p.ParentId != "" {
+			logger.Debugf("p.ParentId: %q", p.ParentId)
 			machineParams.ParentId, err = h.resolveMachine(p.ParentId)
 			if err != nil {
 				return errors.Annotatef(err, "cannot retrieve parent placement for %s", msg)
 			}
 		}
 	}
+	logger.Debugf("machineParams: %s", pretty.Sprint(machineParams))
 	r, err := h.api.AddMachines([]params.AddMachineParams{machineParams})
 	if err != nil {
 		return errors.Annotatef(err, "cannot create machine for holding %s", msg)
@@ -531,7 +547,7 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 	if r[0].Error != nil {
 		return errors.Annotatef(r[0].Error, "cannot create machine for holding %s", msg)
 	}
-	machine = r[0].Machine
+	machine := r[0].Machine
 	if p.ContainerType == "" {
 		logger.Debugf("created new machine %s for holding %s", machine, msg)
 	} else if p.ParentId == "" {
@@ -565,16 +581,18 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 		return nil
 	}
 	applicationName := resolve(p.Application, h.results)
+	var err error
 	var placementArg []*instance.Placement
 	targetMachine := p.To
 	if targetMachine != "" {
+		logger.Debugf("addUnit: placement %q", targetMachine)
 		// The placement maybe "container:machine"
 		container := ""
 		if parts := strings.Split(targetMachine, ":"); len(parts) > 1 {
 			container = parts[0]
 			targetMachine = parts[1]
 		}
-		targetMachine, err := h.resolveMachine(targetMachine)
+		targetMachine, err = h.resolveMachine(targetMachine)
 		if err != nil {
 			// Should never happen.
 			return errors.Annotatef(err, "cannot retrieve placement for %q unit", applicationName)
@@ -587,6 +605,7 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 		if err != nil {
 			return errors.Errorf("invalid --to parameter %q", directive)
 		}
+		logger.Debugf("  resolved: placement %q", directive)
 		placementArg = append(placementArg, placement)
 	}
 	r, err := h.api.AddUnits(application.AddUnitsParams{
@@ -631,7 +650,7 @@ func (h *bundleHandler) upgradeCharm(id string, p bundlechanges.UpgradeCharmPara
 		URL:     cURL,
 		Channel: h.channels[cURL],
 	}
-	csMac := csMacs[cURL]
+	csMac := h.csMacs[cURL]
 
 	resources := h.makeResourceMap(p.Resources, p.LocalResources)
 
@@ -664,11 +683,9 @@ func (h *bundleHandler) upgradeCharm(id string, p bundlechanges.UpgradeCharmPara
 		ResourceIDs:     resNames2IDs,
 	}
 	if err := h.api.SetCharm(cfg); err != nil {
-		return errors.Annotatef(err, "cannot upgrade charm to %q", id)
+		return errors.Trace(err)
 	}
-	for resName := range resNames2IDs {
-		h.ctx.Verbosef("  added resource %s", resName)
-	}
+	h.writeAddedResources(resNames2IDs)
 
 	return nil
 }
@@ -709,8 +726,9 @@ func (h *bundleHandler) setConstraints(id string, p bundlechanges.SetConstraints
 	if h.dryRun {
 		return nil
 	}
-
-	if err := h.api.SetConstraints(p.Application, p.Constraints); err != nil {
+	// We know that p.Constraints is a valid constraints type due to the validation.
+	cons, _ := constraints.Parse(p.Constraints)
+	if err := h.api.SetConstraints(p.Application, cons); err != nil {
 		// This should never happen, as the bundle is already verified.
 		return errors.Annotatef(err, "cannot update constraints for application %q", p.Application)
 	}
@@ -837,6 +855,7 @@ func (h *bundleHandler) updateUnitStatus() error {
 // resolveMachine returns the machine id resolving the given unit or machine
 // placeholder.
 func (h *bundleHandler) resolveMachine(placeholder string) (string, error) {
+	logger.Debugf("resolveMachine(%q)", placeholder)
 	machineOrUnit := resolve(placeholder, h.results)
 	if !names.IsValidUnit(machineOrUnit) {
 		return machineOrUnit, nil
@@ -873,6 +892,7 @@ func resolveRelation(e string, results map[string]string) string {
 // entity from the model, and in these situations the placeholder value doesn't
 // start with the '$'.
 func resolve(placeholder string, results map[string]string) string {
+	logger.Debugf("resolve %q from %s", placeholder, pretty.Sprint(results))
 	if !strings.HasPrefix(placeholder, "$") {
 		return placeholder
 	}
