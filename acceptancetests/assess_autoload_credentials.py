@@ -478,7 +478,7 @@ def ensure_openstack_personal_cloud_exists(client):
             }
         }
     client.env.clouds['clouds'] = os_cloud
-    client.env.dump_yaml(juju_home, config=None)
+    client.env.dump_yaml(juju_home)
 
 
 def get_openstack_expected_details_dict(user, credential_details):

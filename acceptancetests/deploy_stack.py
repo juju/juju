@@ -9,7 +9,6 @@ try:
 except ImportError:
     from contextlib import ExitStack as nested
 import errno
-import glob
 import logging
 import os
 import random
@@ -30,17 +29,12 @@ from jujupy import (
     client_for_existing,
     FakeBackend,
     fake_juju_client,
-    get_juju_home,
     get_machine_dns_name,
-    jes_home_path,
+    juju_home_path,
     NoProvider,
     JujuData,
     temp_bootstrap_env,
     )
-from jujupy.client import (
-    get_local_root,
-)
-from jujupy.configuration import get_jenv_path
 from remote import (
     remote_from_address,
     remote_from_unit,
@@ -59,7 +53,6 @@ from utility import (
     generate_default_clean_dir,
     add_basic_testing_arguments,
     configure_logging,
-    ensure_deleted,
     ensure_dir,
     logged_exception,
     LoggedException,
@@ -203,24 +196,21 @@ def dump_env_logs_known_hosts(client, artifacts_dir, runtime_config=None,
                               known_hosts=None):
     if known_hosts is None:
         known_hosts = {}
-    if client.env.local:
-        logging.info("Retrieving logs for local environment")
-        copy_local_logs(client.env, artifacts_dir)
-    else:
-        remote_machines = get_remote_machines(client, known_hosts)
+    remote_machines = get_remote_machines(client, known_hosts)
 
-        for machine_id in sorted(remote_machines, key=int):
-            remote = remote_machines[machine_id]
-            if not _can_run_ssh() and not remote.is_windows():
-                logging.info("No ssh, skipping logs for machine-%s using %r",
-                             machine_id, remote)
-                continue
-            logging.info("Retrieving logs for machine-%s using %r", machine_id,
-                         remote)
-            machine_dir = os.path.join(artifacts_dir,
-                                       "machine-%s" % machine_id)
-            ensure_dir(machine_dir)
-            copy_remote_logs(remote, machine_dir)
+    for machine_id in sorted(remote_machines, key=int):
+        remote = remote_machines[machine_id]
+        if not _can_run_ssh() and not remote.is_windows():
+            logging.info(
+                "No ssh, skipping logs for machine-%s using %r",
+                machine_id, remote)
+            continue
+        logging.info(
+            "Retrieving logs for machine-%s using %r",
+            machine_id, remote)
+        machine_dir = os.path.join(artifacts_dir, "machine-%s" % machine_id)
+        ensure_dir(machine_dir)
+        copy_remote_logs(remote, machine_dir)
     archive_logs(artifacts_dir)
     retain_config(runtime_config, artifacts_dir)
 
@@ -298,19 +288,6 @@ def is_log(file_name):
 
 
 lxc_template_glob = '/var/lib/juju/containers/juju-*-lxc-template/*.log'
-
-
-def copy_local_logs(env, directory):
-    """Copy logs for all machines in local environment."""
-    local = get_local_root(get_juju_home(), env)
-    log_names = [os.path.join(local, 'cloud-init-output.log')]
-    log_names.extend(glob.glob(os.path.join(local, 'log', '*.log')))
-    log_names.extend(glob.glob(lxc_template_glob))
-    try:
-        subprocess.check_call(['sudo', 'chmod', 'go+r'] + log_names)
-        subprocess.check_call(['cp'] + log_names + [directory])
-    except subprocess.CalledProcessError as e:
-        logging.warning("Could not retrieve local logs: %s", e)
 
 
 def copy_remote_logs(remote, directory):
@@ -444,8 +421,6 @@ def deploy_job_parse_args(argv=None):
                         help='Perform an upgrade test.')
     parser.add_argument('--with-chaos', default=0, type=int,
                         help='Deploy and run Chaos Monkey in the background.')
-    parser.add_argument('--jes', action='store_true',
-                        help='Use JES to control environments.')
     parser.add_argument(
         '--controller-host', help=(
             'Host with a controller to use.  If supplied, SSO_EMAIL and'
@@ -687,7 +662,7 @@ class BootstrapManager:
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
-                 keep_env, permanent, jes_enabled, controller_strategy=None,
+                 keep_env, controller_strategy=None,
                  logged_exception_exit=True):
         """Constructor.
 
@@ -702,11 +677,6 @@ class BootstrapManager:
         self.region = region
         self.log_dir = log_dir
         self.keep_env = keep_env
-        if jes_enabled and not permanent:
-            raise ValueError('Cannot set permanent False if jes_enabled is'
-                             ' True.')
-        self.permanent = permanent
-        self.jes_enabled = jes_enabled
         self.known_hosts = {}
         if bootstrap_host is not None:
             self.known_hosts['0'] = bootstrap_host
@@ -810,22 +780,19 @@ class BootstrapManager:
 
     @classmethod
     def from_client_existing(cls, args, client):
-        jes_enabled = client.is_jes_enabled()
         controller_strategy = ExistingController(client)
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
             args.machine, args.series, args.agent_url, args.agent_stream,
-            args.region, args.logs, args.keep_env, permanent=jes_enabled,
-            jes_enabled=jes_enabled, controller_strategy=controller_strategy)
+            args.region, args.logs, args.keep_env,
+            controller_strategy=controller_strategy)
 
     @classmethod
     def from_client(cls, args, client):
-        jes_enabled = client.is_jes_enabled()
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
             args.machine, args.series, args.agent_url, args.agent_stream,
-            args.region, args.logs, args.keep_env, permanent=jes_enabled,
-            jes_enabled=jes_enabled)
+            args.region, args.logs, args.keep_env)
 
     @contextmanager
     def maas_machines(self):
@@ -866,13 +833,12 @@ class BootstrapManager:
                     status_msg = stop_libvirt_domain(URI, name)
                     logging.info("%s" % status_msg)
 
-    def tear_down(self, try_jes=False):
+    def tear_down(self):
         """Tear down the client using tear_down_client.
 
         Attempts to use the soft method destroy_controller, if that fails
         it will use the hard kill_controller.
-
-        :param try_jes: Ignored."""
+        """
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
         self.controller_strategy.tear_down(self.has_controller)
@@ -896,27 +862,15 @@ class BootstrapManager:
         for machine in ssh_machines:
             logging.info('Waiting for port 22 on %s' % machine)
             wait_for_port(machine, 22, timeout=120)
-        jenv_path = get_jenv_path(self.client.env.juju_home,
-                                  self.client.env.environment)
         torn_down = False
-        if os.path.isfile(jenv_path):
-            # An existing .jenv implies JES was not used, because when JES is
-            # enabled, cache.yaml is enabled.
-            self.tear_down_client.kill_controller()
-            torn_down = True
-        else:
-            jes_home = jes_home_path(
-                self.client.env.juju_home, self.client.env.environment)
-            with temp_juju_home(self.client, jes_home):
-                cache_path = self.client.get_cache_path()
-                if os.path.isfile(cache_path):
-                    # An existing .jenv implies JES was used, because when JES
-                    # is enabled, cache.yaml is enabled.
-                    self.controller_strategy.prepare()
-                    torn_down = True
-        ensure_deleted(jenv_path)
-        with temp_bootstrap_env(self.client.env.juju_home, self.client,
-                                permanent=self.permanent, set_home=False):
+        juju_home = juju_home_path(
+            self.client.env.juju_home, self.client.env.environment)
+        with temp_juju_home(self.client, juju_home):
+            cache_path = self.client.get_cache_path()
+            if os.path.isfile(cache_path):
+                self.controller_strategy.prepare()
+                torn_down = True
+        with temp_bootstrap_env(self.client.env.juju_home, self.client):
             with self.handle_bootstrap_exceptions():
                 if not torn_down:
                     self.controller_strategy.prepare()
@@ -1018,7 +972,7 @@ class BootstrapManager:
                     if not self.keep_env:
                         if self.has_controller:
                             self.collect_resource_details()
-                        self.tear_down(self.jes_enabled)
+                        self.tear_down()
                         unclean_resources = self.ensure_cleanup()
                         error_if_unclean(unclean_resources)
 
@@ -1033,28 +987,20 @@ class BootstrapManager:
         if not self._should_dump():
             return
         controller_client = self.client.get_controller_client()
-        if not self.jes_enabled:
-            clients = [self.client]
-        else:
-            try:
-                clients = list(self.client.iter_model_clients())
-            except Exception:
-                # Even if the controller is unreachable, we may still be able
-                # to gather some logs. The controller_client and self.client
-                # instances are all we have knowledge of.
-                clients = [controller_client]
-                if self.client is not controller_client:
-                    clients.append(self.client)
+        try:
+            clients = list(self.client.iter_model_clients())
+        except Exception:
+            # Even if the controller is unreachable, we may still be able
+            # to gather some logs. The controller_client and self.client
+            # instances are all we have knowledge of.
+            clients = [controller_client]
+            if self.client is not controller_client:
+                clients.append(self.client)
         for client in clients:
             with client.ignore_soft_deadline():
                 if client.env.environment == controller_client.env.environment:
                     known_hosts = self.known_hosts
-                    if self.jes_enabled:
-                        runtime_config = self.client.get_cache_path()
-                    else:
-                        runtime_config = get_jenv_path(
-                            self.client.env.juju_home,
-                            self.client.env.environment)
+                    runtime_config = self.client.get_cache_path()
                 else:
                     known_hosts = {}
                     runtime_config = None
@@ -1175,11 +1121,9 @@ def boot_context(temp_env_name, client, bootstrap_host, machines, series,
     :param upload_tools: False or True to upload the local agent instead of
         using streams.
     """
-    jes_enabled = client.is_jes_enabled()
     bs_manager = BootstrapManager(
         temp_env_name, client, client, bootstrap_host, machines, series,
-        agent_url, agent_stream, region, log_dir, keep_env,
-        permanent=jes_enabled, jes_enabled=jes_enabled)
+        agent_url, agent_stream, region, log_dir, keep_env)
     with bs_manager.booted_context(upload_tools) as new_machines:
         machines[:] = new_machines
         yield
@@ -1194,16 +1138,12 @@ def _deploy_job(args, charm_series, series):
     # newer client instead, this will be required for major version upgrades?
     client = client_from_config(args.env, start_juju_path, args.debug,
                                 soft_deadline=args.deadline)
-    if args.jes and not client.is_jes_enabled():
-        client.enable_jes()
-    jes_enabled = client.is_jes_enabled()
     controller_strategy = make_controller_strategy(client, client,
                                                    args.controller_host)
     bs_manager = BootstrapManager(
         args.temp_env_name, client, client, args.bootstrap_host, args.machine,
         series, args.agent_url, args.agent_stream, args.region, args.logs,
-        args.keep_env, permanent=jes_enabled, jes_enabled=jes_enabled,
-        controller_strategy=controller_strategy)
+        args.keep_env, controller_strategy=controller_strategy)
     with bs_manager.booted_context(args.upload_tools):
         if args.with_chaos > 0:
             manager = background_chaos(args.temp_env_name, client,

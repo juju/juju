@@ -104,8 +104,8 @@ def main():
     add_arg_juju_bin(parser)
     args = parser.parse_args()
     client = client_from_config(None, args.juju_bin)
-    with client.env.make_jes_home(client.env.juju_home, 'mytest',
-                                  {}) as juju_home:
+    with client.env.make_juju_home(
+            client.env.juju_home, 'mytest', {}) as juju_home:
         client.env.juju_home = juju_home
         with open(get_home_path(client, 'public-clouds.yaml'), 'w') as f:
             f.write('')

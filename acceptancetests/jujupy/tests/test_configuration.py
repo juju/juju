@@ -4,7 +4,6 @@ from unittest import TestCase
 from mock import patch
 
 from jujupy.configuration import (
-    get_jenv_path,
     get_juju_data,
 )
 
@@ -31,10 +30,3 @@ class TestGetJujuData(TestCase):
                         'JUJU_DATA': 'qux',
                         }, clear=True):
             self.assertEqual(get_juju_data(), 'qux')
-
-
-class TestGetJenvPath(TestCase):
-
-    def test_get_jenv_path(self):
-        self.assertEqual('home/environments/envname.jenv',
-                         get_jenv_path('home', 'envname'))
