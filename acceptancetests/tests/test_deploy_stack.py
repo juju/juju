@@ -57,11 +57,13 @@ from jujupy import (
     get_timeout_prefix,
     JujuData,
     ModelClient,
-    SoftDeadlineExceeded,
     Status,
     Machine,
     )
 
+from jujupy.exceptions import (
+    SoftDeadlineExceeded,
+)
 from jujupy.client import (
     CommandTime,
 )

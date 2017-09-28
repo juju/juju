@@ -1,13 +1,19 @@
-from jujupy.client import (
+from jujupy.exceptions import (
     AgentsNotStarted,
     AuthNotAccepted,
+    InvalidEndpoint,
+    NameNotAccepted,
+    NoProvider,
+    SoftDeadlineExceeded,
+    TypeNotAccepted,
+    )
+from jujupy.client import (
     ConditionList,
     client_from_config,
     client_for_existing,
     get_cache_path,
     get_machine_dns_name,
     get_timeout_prefix,
-    InvalidEndpoint,
     juju_home_path,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
@@ -18,13 +24,9 @@ from jujupy.client import (
     LXD_MACHINE,
     Machine,
     ModelClient,
-    NameNotAccepted,
-    NoProvider,
     parse_new_state_server_from_error,
-    SoftDeadlineExceeded,
     Status,
     temp_bootstrap_env,
-    TypeNotAccepted,
     )
 from jujupy.configuration import (
     get_juju_data,

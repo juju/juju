@@ -10,8 +10,10 @@ from jujupy import (
     client_for_existing,
     get_juju_data,
     )
-from jujupy.client import (
+from jujupy.exceptions import (
     NoActiveModel,
+    )
+from jujupy.client import (
     WaitAgentsStarted,
     )
 

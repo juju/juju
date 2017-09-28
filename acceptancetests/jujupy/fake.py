@@ -32,6 +32,8 @@ import yaml
 from jujupy import (
     ModelClient,
     JujuData,
+)
+from jujupy.exceptions import (
     SoftDeadlineExceeded,
 )
 from jujupy.client import CommandTime

@@ -10,13 +10,15 @@ import sys
 import yaml
 
 from jujupy import (
-    AuthNotAccepted,
     ModelClient,
-    InvalidEndpoint,
     JujuData,
+    )
+from jujupy.exceptions import (
+    AuthNotAccepted,
+    InvalidEndpoint,
     NameNotAccepted,
     TypeNotAccepted,
-    )
+)
 from utility import (
     add_arg_juju_bin,
     JujuAssertionError,

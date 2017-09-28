@@ -32,52 +32,54 @@ from jujupy.configuration import (
 from jujupy import (
     fake_juju_client,
     )
-from jujupy.client import (
+from jujupy.exceptions import (
     AuthNotAccepted,
     AgentError,
     AgentUnresolvedError,
     AppError,
+    CannotConnectEnv,
+    ErroredUnit,
+    HookFailedError,
+    InstallError,
+    InvalidEndpoint,
+    MachineError,
+    NameNotAccepted,
+    NoActiveModel,
+    ProvisioningError,
+    SoftDeadlineExceeded,
+    StatusError,
+    StatusNotMet,
+    StatusTimeout,
+    StuckAllocatingError,
+    TypeNotAccepted,
+    UnitError,
+)
+from jujupy.client import (
     BaseCondition,
     CommandTime,
     CommandComplete,
-    CannotConnectEnv,
     ConditionList,
     Controller,
     describe_substrate,
-    ErroredUnit,
     GroupReporter,
     get_cache_path,
     get_machine_dns_name,
     get_timeout_path,
     get_timeout_prefix,
-    HookFailedError,
-    InstallError,
-    InvalidEndpoint,
     juju_home_path,
     Juju2Backend,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     Machine,
     MachineDown,
-    MachineError,
     make_safe_config,
     ModelClient,
-    NameNotAccepted,
-    NoActiveModel,
     NoopCondition,
     parse_new_state_server_from_error,
-    ProvisioningError,
-    SoftDeadlineExceeded,
     Status,
-    StatusError,
     StatusItem,
-    StatusNotMet,
-    StatusTimeout,
-    StuckAllocatingError,
     temp_bootstrap_env,
     temp_yaml_file,
-    TypeNotAccepted,
-    UnitError,
     WaitMachineNotPresent,
     WaitApplicationNotPresent
     )
@@ -3701,7 +3703,7 @@ class TestJujuHomePath(TestCase):
 
     def test_juju_home_path(self):
         path = juju_home_path('/home/jrandom/foo', 'bar')
-        self.assertEqual(path, '/home/jrandom/foo/jes-homes/bar')
+        self.assertEqual(path, '/home/jrandom/foo/juju-homes/bar')
 
 
 class TestGetCachePath(TestCase):
@@ -3755,7 +3757,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
     def test_temp_bootstrap_env_provides_dir(self):
         env = JujuData('qux', {'type': 'lxd'})
         client = self.get_client(env)
-        juju_home = os.path.join(self.home_dir, 'jes-homes', 'qux')
+        juju_home = os.path.join(self.home_dir, 'juju-homes', 'qux')
 
         def side_effect(*args, **kwargs):
             os.mkdir(juju_home)
