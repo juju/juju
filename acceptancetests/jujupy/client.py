@@ -48,7 +48,6 @@ import yaml
 from jujupy.configuration import (
     get_bootstrap_config_path,
     get_environments_path,
-    get_jenv_path,
     get_juju_home,
     get_selected_environment,
     )
@@ -64,7 +63,6 @@ from jujupy.utility import (
     scoped_environ,
     skip_on_missing_file,
     split_address_port,
-    temp_dir,
     temp_yaml_file,
     unqualified_model_name,
     until_timeout,
@@ -93,15 +91,6 @@ LXD_MACHINE = 'lxd'
 
 _DEFAULT_BUNDLE_TIMEOUT = 3600
 
-_jes_cmds = {KILL_CONTROLLER: {
-    'create': 'create-environment',
-    'kill': KILL_CONTROLLER,
-}}
-for super_cmd in [SYSTEM, CONTROLLER]:
-    _jes_cmds[super_cmd] = {
-        'create': '{} create-environment'.format(super_cmd),
-        'kill': '{} kill'.format(super_cmd),
-    }
 
 log = logging.getLogger("jujupy")
 
@@ -188,20 +177,6 @@ class UpgradeMongoNotSupported(Exception):
     def __init__(self):
         super(UpgradeMongoNotSupported, self).__init__(
             'This client does not support upgrade-mongo')
-
-
-class JESNotSupported(Exception):
-
-    def __init__(self):
-        super(JESNotSupported, self).__init__(
-            'This client does not support JES')
-
-
-class JESByDefault(Exception):
-
-    def __init__(self):
-        super(JESByDefault, self).__init__(
-            'This client does not need to enable JES')
 
 
 Machine = namedtuple('Machine', ['machine_id', 'info'])
@@ -359,6 +334,7 @@ class JujuData:
         :param dir_name: Name of sub-directory to make the home in.
         :param new_config: Dictionary representing the contents of
             the environments.yaml configuation file."""
+        import ipdb; ipdb.set_trace()
         home_path = jes_home_path(juju_home, dir_name)
         with skip_on_missing_file():
             shutil.rmtree(home_path)
@@ -1567,7 +1543,7 @@ class ModelClient:
     bootstrap_replaces = frozenset(['agent-version'])
 
     # What feature flags have existed that CI used.
-    known_feature_flags = frozenset(['actions', 'jes', 'migration'])
+    known_feature_flags = frozenset(['actions', 'migration'])
 
     # What feature flags are used by this version of the juju client.
     used_feature_flags = frozenset(['migration'])
@@ -1637,34 +1613,6 @@ class ModelClient:
         if flag not in self.known_feature_flags:
             raise ValueError('Unknown feature flag: %r' % (flag,))
         self.feature_flags.add(flag)
-
-    def get_jes_command(self):
-        """For Juju 2.0, this is always kill-controller."""
-        return KILL_CONTROLLER
-
-    def is_jes_enabled(self):
-        """Does the state-server support multiple environments."""
-        try:
-            self.get_jes_command()
-            return True
-        except JESNotSupported:
-            return False
-
-    def enable_jes(self):
-        """Enable JES if JES is optional.
-
-        Specifically implemented by the clients that optionally support JES.
-        This version raises either JESByDefault or JESNotSupported.
-
-        :raises: JESByDefault when JES is always enabled; Juju has the
-            'destroy-controller' command.
-        :raises: JESNotSupported when JES is not supported; Juju does not have
-            the 'system kill' command when the JES feature flag is set.
-        """
-        if self.is_jes_enabled():
-            raise JESByDefault()
-        else:
-            raise JESNotSupported()
 
     @classmethod
     def get_full_path(cls):
@@ -2463,10 +2411,7 @@ class ModelClient:
         return self.get_models()['models']
 
     def iter_model_clients(self):
-        """Iterate through all the models that share this model's controller.
-
-        Works only if JES is enabled.
-        """
+        """Iterate through all the models that share this model's controller"""
         models = self._get_models()
         if not models:
             yield self
@@ -3166,16 +3111,6 @@ def get_local_root(juju_home, env):
     return os.path.join(juju_home, env.environment)
 
 
-def bootstrap_from_env(juju_home, client):
-    with temp_bootstrap_env(juju_home, client):
-        client.bootstrap()
-
-
-def quickstart_from_env(juju_home, client, bundle):
-    with temp_bootstrap_env(juju_home, client):
-        client.quickstart(bundle)
-
-
 def dump_environments_yaml(juju_home, config):
     """Dump yaml data to the environment file.
 
@@ -3184,24 +3119,6 @@ def dump_environments_yaml(juju_home, config):
     environments_path = get_environments_path(juju_home)
     with open(environments_path, 'w') as config_file:
         yaml.safe_dump(config, config_file)
-
-
-@contextmanager
-def _temp_env(new_config, parent=None, set_home=True):
-    """Use the supplied config as juju environment.
-
-    This is not a fully-formed version for bootstrapping.  See
-    temp_bootstrap_env.
-    """
-    with temp_dir(parent) as temp_juju_home:
-        dump_environments_yaml(temp_juju_home, new_config)
-        if set_home:
-            with scoped_environ():
-                os.environ['JUJU_HOME'] = temp_juju_home
-                os.environ['JUJU_DATA'] = temp_juju_home
-                yield temp_juju_home
-        else:
-            yield temp_juju_home
 
 
 def jes_home_path(juju_home, dir_name):
@@ -3228,28 +3145,28 @@ def make_safe_config(client):
     # Explicitly set 'name', which Juju implicitly sets to env.environment to
     # ensure MAASAccount knows what the name will be.
     config['name'] = unqualified_model_name(client.env.environment)
-    if config['type'] == 'local':
-        config.setdefault('root-dir', get_local_root(client.env.juju_home,
-                          client.env))
-        # MongoDB requires a lot of free disk space, and the only
-        # visible error message is from "juju bootstrap":
-        # "cannot initiate replication set" if disk space is low.
-        # What "low" exactly means, is unclear, but 8GB should be
-        # enough.
-        ensure_dir(config['root-dir'])
-        check_free_disk_space(config['root-dir'], 8000000, "MongoDB files")
-        if client.env.kvm:
-            check_free_disk_space(
-                "/var/lib/uvtool/libvirt/images", 2000000,
-                "KVM disk files")
-        else:
-            check_free_disk_space(
-                "/var/lib/lxc", 2000000, "LXC containers")
+    # if config['type'] == 'local':
+    #     config.setdefault('root-dir', get_local_root(client.env.juju_home,
+    #                       client.env))
+    #     # MongoDB requires a lot of free disk space, and the only
+    #     # visible error message is from "juju bootstrap":
+    #     # "cannot initiate replication set" if disk space is low.
+    #     # What "low" exactly means, is unclear, but 8GB should be
+    #     # enough.
+    #     ensure_dir(config['root-dir'])
+    #     check_free_disk_space(config['root-dir'], 8000000, "MongoDB files")
+    #     if client.env.kvm:
+    #         check_free_disk_space(
+    #             "/var/lib/uvtool/libvirt/images", 2000000,
+    #             "KVM disk files")
+    #     else:
+    #         check_free_disk_space(
+    #             "/var/lib/lxc", 2000000, "LXC containers")
     return config
 
 
 @contextmanager
-def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
+def temp_bootstrap_env(juju_home, client, set_home=True):
     """Create a temporary environment for bootstrapping.
 
     This involves creating a temporary juju home directory and returning its
@@ -3259,45 +3176,18 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     :param client: The client being prepared for bootstrapping.
     :param set_home: Set JUJU_HOME to match the temporary home in this
         context.  If False, juju_home should be supplied to bootstrap.
-    :param permanent: If permanent, the environment is kept afterwards.
-        Otherwise the environment is deleted when exiting the context.
     """
+    import ipdb; ipdb.set_trace()
     new_config = {
         'environments': {client.env.environment: make_safe_config(client)}}
     # Always bootstrap a matching environment.
-    jenv_path = get_jenv_path(juju_home, client.env.environment)
-    if permanent:
-        context = client.env.make_jes_home(
-            juju_home, client.env.environment, new_config)
-    else:
-        context = _temp_env(new_config, juju_home, set_home)
+    context = client.env.make_jes_home(
+        juju_home, client.env.environment, new_config)
     with context as temp_juju_home:
-        if os.path.lexists(jenv_path):
-            raise Exception('%s already exists!' % jenv_path)
-        new_jenv_path = get_jenv_path(temp_juju_home, client.env.environment)
-        # Create a symlink to allow access while bootstrapping, and to reduce
-        # races.  Can't use a hard link because jenv doesn't exist until
-        # partway through bootstrap.
+        # XXX I'm pretty sure this isn't needed.
         ensure_dir(os.path.join(juju_home, 'environments'))
-        # Skip creating symlink where not supported (i.e. Windows).
-        if not permanent and getattr(os, 'symlink', None) is not None:
-            os.symlink(new_jenv_path, jenv_path)
-        old_juju_home = client.env.juju_home
         client.env.juju_home = temp_juju_home
-        try:
-            yield temp_juju_home
-        finally:
-            if not permanent:
-                # replace symlink with file before deleting temp home.
-                try:
-                    os.rename(new_jenv_path, jenv_path)
-                except OSError as e:
-                    if e.errno != errno.ENOENT:
-                        raise
-                    # Remove dangling symlink
-                    with skip_on_missing_file():
-                        os.unlink(jenv_path)
-                client.env.juju_home = old_juju_home
+        yield temp_juju_home
 
 
 def get_machine_dns_name(client, machine, timeout=600):

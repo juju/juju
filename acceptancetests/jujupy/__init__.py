@@ -9,7 +9,6 @@ from jujupy.client import (
     get_timeout_prefix,
     InvalidEndpoint,
     jes_home_path,
-    JESNotSupported,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
     Juju2Backend,
@@ -25,7 +24,6 @@ from jujupy.client import (
     SoftDeadlineExceeded,
     Status,
     temp_bootstrap_env,
-    _temp_env,
     TypeNotAccepted,
     )
 from jujupy.configuration import (
@@ -37,7 +35,6 @@ from jujupy.fake import (
     FakeBackend,
     FakeControllerState,
     fake_juju_client,
-    fake_juju_client_optional_jes,
     )
 
 
@@ -50,7 +47,6 @@ __all__ = [
     'FakeBackend',
     'FakeControllerState',
     'fake_juju_client',
-    'fake_juju_client_optional_jes',
     'get_cache_path',
     'get_juju_data',
     'get_juju_home',
@@ -58,7 +54,6 @@ __all__ = [
     'get_timeout_prefix',
     'InvalidEndpoint',
     'jes_home_path',
-    'JESNotSupported',
     'JujuData',
     'JUJU_DEV_FEATURE_FLAGS',
     'Juju2Backend',
@@ -75,6 +70,5 @@ __all__ = [
     'SoftDeadlineExceeded',
     'Status',
     'temp_bootstrap_env',
-    '_temp_env',
     'TypeNotAccepted',
     ]

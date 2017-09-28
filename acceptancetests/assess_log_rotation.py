@@ -211,10 +211,8 @@ def make_client_from_args(args):
         client.env, args.temp_env_name, series=args.series,
         bootstrap_host=args.bootstrap_host, agent_url=args.agent_url,
         agent_stream=args.agent_stream, region=args.region)
-    jes_enabled = client.is_jes_enabled()
-    if jes_enabled:
-        client.env.juju_home = jes_home_path(client.env.juju_home,
-                                             args.temp_env_name)
+    client.env.juju_home = jes_home_path(
+        client.env.juju_home, args.temp_env_name)
     client.kill_controller()
     return client
 

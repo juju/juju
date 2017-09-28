@@ -828,18 +828,14 @@ class TestModelClient(ClientTest):
                                       agent_version='2.0-lambda1')
 
     def test_add_model_hypenated_controller(self):
-        self.do_add_model(
-            'kill-controller', 'add-model', ('-c', 'foo'))
+        self.do_add_model('add-model', ('-c', 'foo'))
 
-    def do_add_model(self, jes_command, create_cmd, controller_option):
+    def do_add_model(self, create_cmd, controller_option):
         controller_client = ModelClient(JujuData('foo'), None, None)
         model_data = JujuData('bar', {'type': 'foo'})
-        client = ModelClient(model_data, None, None)
-        with patch.object(client, 'get_jes_command',
-                          return_value=jes_command):
-                with patch_juju_call(controller_client) as ccj_mock:
-                    with observable_temp_file() as config_file:
-                        controller_client.add_model(model_data)
+        with patch_juju_call(controller_client) as ccj_mock:
+            with observable_temp_file() as config_file:
+                controller_client.add_model(model_data)
         ccj_mock.assert_called_once_with(
             create_cmd, controller_option + (
                 'bar', '--config', config_file.name), include_e=False)
@@ -911,16 +907,6 @@ class TestModelClient(ClientTest):
         juju_mock.assert_called_once_with(
             'kill-controller', ('foo', '-y'), check=True, include_e=False,
             timeout=600)
-
-    def do_kill_controller_azure(self, jes_command, kill_command):
-        client = ModelClient(JujuData('foo', {'type': 'azure'}), None, None)
-        with patch.object(client, 'get_jes_command',
-                          return_value=jes_command):
-            with patch_juju_call(client) as juju_mock:
-                client.kill_controller()
-        juju_mock.assert_called_once_with(
-            kill_command, ('foo', '-y'), check=False, include_e=False,
-            timeout=2700)
 
     def test_kill_controller_gce(self):
         client = ModelClient(JujuData('foo', {'type': 'gce'}), None, None)
@@ -2987,28 +2973,6 @@ class TestModelClient(ClientTest):
                 pass
             self.assertNotEqual(environ, os.environ)
 
-    def test_is_jes_enabled(self):
-        # ModelClient knows that JES is always enabled, and doesn't need to
-        # shell out.
-        env = JujuData('qux')
-        client = ModelClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen(' %s' % SYSTEM, None, 0)
-        with patch('subprocess.Popen',
-                   return_value=fake_popen) as po_mock:
-            self.assertTrue(client.is_jes_enabled())
-        self.assertEqual(0, po_mock.call_count)
-
-    def test_get_jes_command(self):
-        env = JujuData('qux')
-        client = ModelClient(env, None, '/foobar/baz')
-        # Juju 1.24 and older do not have a JES command. It is an error
-        # to call get_jes_command when is_jes_enabled is False
-        fake_popen = FakePopen(' %s' % SYSTEM, None, 0)
-        with patch('subprocess.Popen',
-                   return_value=fake_popen) as po_mock:
-            self.assertEqual(KILL_CONTROLLER, client.get_jes_command())
-        self.assertEqual(0, po_mock.call_count)
-
     def test_get_juju_timings(self):
         first_start = datetime(2017, 3, 22, 23, 36, 52, 0)
         first_end = first_start + timedelta(seconds=2)
@@ -3814,37 +3778,10 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
                 stub_bootstrap(client)
         self.assertEqual(env.provider, 'local')
 
-    def test_temp_bootstrap_env_environment(self):
-        env = JujuData('qux', {'type': 'not-local'}, juju_home='')
-        with bootstrap_context() as fake_home:
-            client = self.get_client(env)
-            with temp_bootstrap_env(fake_home, client):
-                temp_home = os.environ['JUJU_HOME']
-                self.assertEqual(temp_home, os.environ['JUJU_DATA'])
-                self.assertNotEqual(temp_home, fake_home)
-                symlink_path = get_jenv_path(fake_home, 'qux')
-                symlink_target = os.path.realpath(symlink_path)
-                expected_target = os.path.realpath(
-                    get_jenv_path(temp_home, 'qux'))
-                self.assertEqual(symlink_target, expected_target)
-                with open(get_environments_path(temp_home)) as content:
-                    config = yaml.safe_load(content.read())
-                self.assertEqual(
-                    config, {
-                        'environments': {
-                            'qux': {
-                                'type': 'not-local',
-                                'test-mode': True,
-                                'name': 'qux',
-                            }
-                        }
-                    })
-                stub_bootstrap(client)
-
     def test_temp_bootstrap_env_provides_dir(self):
         env = JujuData('qux', {'type': 'local'})
         client = self.get_client(env)
-        juju_home = os.path.join(self.home_dir, 'asdf')
+        juju_home = os.path.join(self.home_dir, 'jes-homes', 'qux')
 
         def side_effect(*args, **kwargs):
             os.mkdir(juju_home)
@@ -3866,42 +3803,6 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
                 self.assertEqual(os.environ['JUJU_HOME'], 'foo')
                 self.assertEqual(os.environ['JUJU_DATA'], 'bar')
 
-    def test_output(self):
-        env = JujuData('qux', {'type': 'local'})
-        client = self.get_client(env)
-        with bootstrap_context(client) as fake_home:
-            with temp_bootstrap_env(fake_home, client):
-                stub_bootstrap(client)
-            jenv_path = get_jenv_path(fake_home, 'qux')
-            self.assertFalse(os.path.islink(jenv_path))
-            with open(jenv_path) as contents:
-                self.assertEqual(contents.read(), 'Bogus jenv')
-
-    def test_rename_on_exception(self):
-        env = JujuData('qux', {'type': 'local'})
-        client = self.get_client(env)
-        with bootstrap_context(client) as fake_home:
-            with self.assertRaisesRegexp(Exception, 'test-rename'):
-                with temp_bootstrap_env(fake_home, client):
-                    stub_bootstrap(client)
-                    raise Exception('test-rename')
-            jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
-            self.assertFalse(os.path.islink(jenv_path))
-            with open(jenv_path) as content:
-                self.assertEqual(content.read(), 'Bogus jenv')
-
-    def test_exception_no_jenv(self):
-        env = JujuData('qux', {'type': 'local'})
-        client = self.get_client(env)
-        with bootstrap_context(client) as fake_home:
-            with self.assertRaisesRegexp(Exception, 'test-rename'):
-                with temp_bootstrap_env(fake_home, client):
-                    jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
-                    os.mkdir(os.path.dirname(jenv_path))
-                    raise Exception('test-rename')
-            jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
-            self.assertFalse(os.path.lexists(jenv_path))
-
     def test_check_space_local_kvm(self):
         with bootstrap_context() as fake_home:
             env = JujuData(
@@ -3916,43 +3817,13 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
             call('/var/lib/uvtool/libvirt/images', 2000000, 'KVM disk files'),
         ])
 
-    def test_error_on_jenv(self):
-        env = JujuData('qux', {'type': 'local'})
-        client = self.get_client(env)
-        with bootstrap_context(client) as fake_home:
-            jenv_path = get_jenv_path(fake_home, 'qux')
-            os.mkdir(os.path.dirname(jenv_path))
-            with open(jenv_path, 'w') as f:
-                f.write('In the way')
-            with self.assertRaisesRegexp(Exception, '.* already exists!'):
-                with temp_bootstrap_env(fake_home, client):
-                    stub_bootstrap(client)
-
-    def test_not_permanent(self):
-        env = JujuData('qux', {'type': 'local'})
-        client = self.get_client(env)
-        with bootstrap_context(client) as fake_home:
-            client.env.juju_home = fake_home
-            with temp_bootstrap_env(fake_home, client,
-                                    permanent=False) as tb_home:
-                stub_bootstrap(client)
-            self.assertFalse(os.path.exists(tb_home))
-            self.assertTrue(os.path.exists(get_jenv_path(fake_home,
-                            client.env.environment)))
-            self.assertFalse(os.path.exists(get_jenv_path(tb_home,
-                             client.env.environment)))
-        self.assertFalse(os.path.exists(tb_home))
-        self.assertEqual(client.env.juju_home, fake_home)
-        self.assertNotEqual(tb_home,
-                            jes_home_path(fake_home, client.env.environment))
-
     def test_permanent(self):
         env = JujuData('qux', {'type': 'local'})
+        import ipdb; ipdb.set_trace()
         client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             client.env.juju_home = fake_home
-            with temp_bootstrap_env(fake_home, client,
-                                    permanent=True) as tb_home:
+            with temp_bootstrap_env(fake_home, client) as tb_home:
                 stub_bootstrap(client)
             self.assertTrue(os.path.exists(tb_home))
             self.assertFalse(os.path.exists(get_jenv_path(fake_home,
