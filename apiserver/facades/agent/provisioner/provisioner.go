@@ -111,6 +111,9 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
+	if iEnv, ok := env.(environs.IAASEnviron); !ok {
+		return nil, errors.New("Provisioner requires an IAAS Environ")
+	}
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 	return &ProvisionerAPI{
 		Remover:                 common.NewRemover(st, false, getAuthFunc),

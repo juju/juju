@@ -35,7 +35,7 @@ func toParamsInstanceTypeResult(itypes []instances.InstanceType) []params.Instan
 
 // NewInstanceTypeConstraints returns an instanceTypeConstraints with the passed
 // parameters.
-func NewInstanceTypeConstraints(env environs.Environ, constraints constraints.Value) instanceTypeConstraints {
+func NewInstanceTypeConstraints(env environs.IAASEnviron, constraints constraints.Value) instanceTypeConstraints {
 	return instanceTypeConstraints{
 		environ:     env,
 		constraints: constraints,
@@ -45,7 +45,7 @@ func NewInstanceTypeConstraints(env environs.Environ, constraints constraints.Va
 // instanceTypeConstraints holds necesary params to filter instance types.
 type instanceTypeConstraints struct {
 	constraints constraints.Value
-	environ     environs.Environ
+	environ     environs.IAASEnviron
 }
 
 // InstanceTypes returns a list of the available instance types in the provider according

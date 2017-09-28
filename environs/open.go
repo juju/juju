@@ -21,11 +21,25 @@ func New(args OpenParams) (Environ, error) {
 	return p.Open(args)
 }
 
+// NewIAASEnv returns a new IAASEnviron based on the provided args
+// It simply wraps New().
+func NewIAASEnv(args OpenParams) (IAASEnviron, error) {
+	env, err := New(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ienv, ok := env.(IAASEnviron)
+	if !ok {
+		return nil, errors.Errorf("Could not create IAAS environment for cloud '%s'", args.Cloud.Type)
+	}
+	return ienv, nil
+}
+
 // Destroy destroys the controller and, if successful,
 // its associated configuration data from the given store.
 func Destroy(
 	controllerName string,
-	env Environ,
+	env IAASEnviron,
 	store jujuclient.ControllerStore,
 ) error {
 	details, err := store.ControllerByName(controllerName)

@@ -29,7 +29,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var environ environs.Environ
+	var environ environs.IAASEnviron
 	if err := context.Get(config.EnvironName, &environ); err != nil {
 		return nil, errors.Trace(err)
 	}

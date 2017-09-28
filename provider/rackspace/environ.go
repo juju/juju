@@ -19,7 +19,7 @@ import (
 )
 
 type environ struct {
-	environs.Environ
+	environs.IAASEnviron
 }
 
 var bootstrap = common.Bootstrap
@@ -43,7 +43,7 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 		return nil, errors.Errorf("rackspace provider doesn't support firewalls for windows instances")
 
 	}
-	r, err := e.Environ.StartInstance(args)
+	r, err := e.StartInstance(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

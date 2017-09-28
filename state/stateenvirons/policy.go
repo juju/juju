@@ -34,8 +34,16 @@ func GetNewPolicyFunc(getEnviron func(*state.State) (environs.Environ, error)) s
 
 // Prechecker implements state.Policy.
 func (p environStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
-	// Environ implements environs.InstancePrechecker.
-	return p.getEnviron(p.st)
+	// IAASEnviron implements environs.InstancePrechecker.
+	env, err := p.getEnviron(p.st)
+	if err != nil {
+		return nil, err
+	}
+	if ienv, ok := env.(environs.IAASEnviron); ok {
+		return ienv, nil
+	}
+	return nil, errors.NotImplementedf("environs.InstancePrechecker")
+
 }
 
 // ConfigValidator implements state.Policy.
@@ -61,7 +69,10 @@ func (p environStatePolicy) ConstraintsValidator() (constraints.Validator, error
 	if err != nil {
 		return nil, err
 	}
-	return env.ConstraintsValidator()
+	if ienv, ok := env.(environs.IAASEnviron); ok {
+		return ienv.ConstraintsValidator()
+	}
+	return nil, errors.NotImplementedf("constraints.Validator")
 }
 
 // InstanceDistributor implements state.Policy.
@@ -82,12 +93,15 @@ func (p environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewStorageProviderRegistry(env), nil
+	if spEnv, ok := env.(storage.ProviderRegistry); ok {
+		return NewStorageProviderRegistry(spEnv), nil
+	}
+	return nil, errors.Errorf("NewStorageProviderRegistry not supported on env %v", env)
 }
 
 // NewStorageProviderRegistry returns a storage.ProviderRegistry that chains
 // the provided Environ with the common storage providers.
-func NewStorageProviderRegistry(env environs.Environ) storage.ProviderRegistry {
+func NewStorageProviderRegistry(env storage.ProviderRegistry) storage.ProviderRegistry {
 	return storage.ChainedProviderRegistry{env, provider.CommonStorageProviders()}
 }
 

@@ -14,7 +14,7 @@ import (
 // the implementations as a bundle, e.g. satisfying interfaces.
 type DefaultProvider struct {
 	// Env is the Juju environment that methods target.
-	Env environs.Environ
+	Env environs.IAASEnviron
 }
 
 // BootstrapEnv bootstraps the Juju environment.

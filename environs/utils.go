@@ -46,7 +46,7 @@ func getAddresses(instances []instance.Instance) []network.Address {
 // waitAnyInstanceAddresses waits for at least one of the instances
 // to have addresses, and returns them.
 func waitAnyInstanceAddresses(
-	env Environ,
+	env IAASEnviron,
 	instanceIds []instance.Id,
 ) ([]network.Address, error) {
 	var addrs []network.Address
@@ -66,7 +66,7 @@ func waitAnyInstanceAddresses(
 
 // APIInfo returns an api.Info for the environment. The result is populated
 // with addresses and CA certificate, but no tag or password.
-func APIInfo(controllerUUID, modelUUID, caCert string, apiPort int, env Environ) (*api.Info, error) {
+func APIInfo(controllerUUID, modelUUID, caCert string, apiPort int, env IAASEnviron) (*api.Info, error) {
 	instanceIds, err := env.ControllerInstances(controllerUUID)
 	if err != nil {
 		return nil, err
@@ -87,9 +87,17 @@ func APIInfo(controllerUUID, modelUUID, caCert string, apiPort int, env Environ)
 // CheckProviderAPI returns an error if a simple API call
 // to check a basic response from the specified environ fails.
 func CheckProviderAPI(env Environ) error {
+
+	ienv, ok := env.(IAASEnviron)
+	if !ok {
+		// non-IAAS environs do not support AllInstances
+		// TODO(caas) find a real way to ping the substrate
+		return nil
+	}
+
 	// We will make a simple API call to the provider
 	// to ensure the underlying substrate is ok.
-	_, err := env.AllInstances()
+	_, err := ienv.AllInstances()
 	switch err {
 	case nil, ErrPartialInstances, ErrNoInstances:
 		return nil
