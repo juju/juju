@@ -69,7 +69,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	attrs := map[string]interface{}{
 		config.ProvisionerHarvestModeKey: config.HarvestAll.String(),
 	}
-	err := s.State.UpdateModelConfig(attrs, nil)
+	err := s.IAASModel.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BackingState.StartSync()
@@ -478,7 +478,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	attrs := map[string]interface{}{
 		config.AgentVersionKey: currentVersion.Number.String(),
 	}
-	err = s.State.UpdateModelConfig(attrs, nil)
+	err = s.IAASModel.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })

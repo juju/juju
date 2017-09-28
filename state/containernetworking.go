@@ -40,7 +40,7 @@ func (m *Model) AutoConfigureContainerNetworking(environ environs.Environ) error
 	} else {
 		updateAttrs["container-networking-method"] = "local"
 	}
-	err = m.st.UpdateModelConfig(updateAttrs, nil)
+	err = m.UpdateModelConfig(updateAttrs, nil)
 	return err
 }
 

@@ -1439,7 +1439,9 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		"ftp-proxy":   s.Ftp,
 		"no-proxy":    s.NoProxy,
 	}
-	err := ctx.st.UpdateModelConfig(attrs, nil)
+	m, err := ctx.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

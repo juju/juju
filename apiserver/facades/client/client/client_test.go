@@ -1258,7 +1258,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	}
 
 	setUpdateBehavior := func(update, upgrade bool) {
-		s.State.UpdateModelConfig(
+		s.IAASModel.UpdateModelConfig(
 			map[string]interface{}{
 				"enable-os-upgrade":        upgrade,
 				"enable-os-refresh-update": update,
