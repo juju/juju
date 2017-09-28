@@ -30,7 +30,6 @@ from jujupy.client import (
     get_machine_dns_name,
     LXC_MACHINE,
     LXD_MACHINE,
-    uniquify_local,
     )
 from substrate import (
     make_substrate_manager as real_make_substrate_manager,
@@ -211,7 +210,6 @@ class IndustrialTest:
         if new_agent_url is not None:
             new_client.env.update_config(
                 {'tools-metadata-url': new_agent_url})
-        uniquify_local(new_client.env)
         return cls(old_client, new_client, stage_attempts)
 
     def __init__(self, old_client, new_client, stage_attempts):

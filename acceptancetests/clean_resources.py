@@ -5,7 +5,7 @@ import os
 import yaml
 
 from argparse import ArgumentParser
-from jujupy import SimpleEnvironment
+from jujupy import JujuData
 from substrate import AWSAccount
 
 
@@ -105,7 +105,7 @@ def remove_security_groups(unclean, grp, non_instgrp, substrate, region):
 
 
 def clean(args):
-    env = SimpleEnvironment.from_config(args.env)
+    env = JujuData.from_config(args.env)
     selected_regions = get_regions()
     logging.info(
         'The target regions for cleaning job are \n{}'.format(

@@ -34,7 +34,7 @@ from jujupy import (
     get_machine_dns_name,
     jes_home_path,
     NoProvider,
-    SimpleEnvironment,
+    JujuData,
     temp_bootstrap_env,
     )
 from jujupy.client import (
@@ -769,7 +769,7 @@ class BootstrapManager:
 
         # GZ 2016-08-11: Move this logic into client_from_config maybe?
         if args.juju_bin == 'FAKE':
-            env = SimpleEnvironment.from_config(args.env)
+            env = JujuData.from_config(args.env)
             client = fake_juju_client(env=env)
         else:
             client = client_from_config(args.env, args.juju_bin,
