@@ -591,8 +591,6 @@ func Validate(cfg, old *Config) error {
 		default:
 			return fmt.Errorf("Invalid value for container-networking-method - %v", v)
 		}
-	} else {
-		return errors.New("container-networking-method value invalid cannot be empty")
 	}
 	// Check the immutable config values.  These can't change
 	if old != nil {
