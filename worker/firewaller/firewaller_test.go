@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -108,10 +109,13 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 // assertPorts retrieves the open ports of the instance and compares them
 // to the expected.
 func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machineId string, expected []network.IngressRule) {
+	fwInst, ok := inst.(instance.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
-		got, err := inst.IngressRules(machineId)
+		got, err := fwInst.IngressRules(machineId)
 		if err != nil {
 			c.Fatal(err)
 			return
@@ -133,10 +137,13 @@ func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machi
 // assertEnvironPorts retrieves the open ports of environment and compares them
 // to the expected.
 func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.IngressRule) {
+	fwEnv, ok := s.Environ.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
-		got, err := s.Environ.IngressRules()
+		got, err := fwEnv.IngressRules()
 		if err != nil {
 			c.Fatal(err)
 			return
@@ -203,10 +210,13 @@ func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 
 func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
 	s.mockClock = &mockClock{c: c}
+	fwEnv, ok := s.Environ.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	cfg := firewaller.Config{
 		ModelUUID:          s.State.ModelUUID(),
 		Mode:               config.FwInstance,
-		EnvironFirewaller:  s.Environ,
+		EnvironFirewaller:  fwEnv,
 		EnvironInstances:   s.Environ,
 		FirewallerAPI:      s.firewaller,
 		RemoteRelationsApi: s.remoteRelations,
@@ -1058,6 +1068,18 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
 	})
 
+	// And again when relation is suspended.
+	err = rel.SetSuspended(true, "")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPorts(c, inst, m.Id(), nil)
+
+	// And again when relation is resumed.
+	err = rel.SetSuspended(false, "")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
+	})
+
 	// And again when relation is destroyed.
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1079,10 +1101,13 @@ func (s *GlobalModeSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *GlobalModeSuite) newFirewaller(c *gc.C) worker.Worker {
+	fwEnv, ok := s.Environ.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	cfg := firewaller.Config{
 		ModelUUID:          s.State.ModelUUID(),
 		Mode:               config.FwGlobal,
-		EnvironFirewaller:  s.Environ,
+		EnvironFirewaller:  fwEnv,
 		EnvironInstances:   s.Environ,
 		FirewallerAPI:      s.firewaller,
 		RemoteRelationsApi: s.remoteRelations,
@@ -1326,10 +1351,13 @@ func (s *NoneModeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
+	fwEnv, ok := s.Environ.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	cfg := firewaller.Config{
 		ModelUUID:          s.State.ModelUUID(),
 		Mode:               config.FwNone,
-		EnvironFirewaller:  s.Environ,
+		EnvironFirewaller:  fwEnv,
 		EnvironInstances:   s.Environ,
 		FirewallerAPI:      s.firewaller,
 		RemoteRelationsApi: s.remoteRelations,

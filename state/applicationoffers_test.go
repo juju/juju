@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -307,6 +308,32 @@ func (s *applicationOffersSuite) TestUpdateApplicationOffer(c *gc.C) {
 		Owner:           owner.Name(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	offer, err := sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:              "hosted-mysql",
+		ApplicationName:        "mysql",
+		ApplicationDescription: "a better database",
+		Owner: owner.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(offer, jc.DeepEquals, &crossmodel.ApplicationOffer{
+		OfferName:              "hosted-mysql",
+		OfferUUID:              original.OfferUUID,
+		ApplicationName:        "mysql",
+		ApplicationDescription: "a better database",
+		Endpoints:              map[string]charm.Relation{},
+	})
+	assertOffersRef(c, s.State, "mysql", 1)
+}
+
+func (s *applicationOffersSuite) TestUpdateApplicationOfferDifferentApp(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	owner := s.Factory.MakeUser(c, nil)
+	original, err := sd.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Owner:           owner.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"})
 	offer, err := sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
@@ -320,6 +347,8 @@ func (s *applicationOffersSuite) TestUpdateApplicationOffer(c *gc.C) {
 		ApplicationName: "foo",
 		Endpoints:       map[string]charm.Relation{},
 	})
+	assertNoOffersRef(c, s.State, "mysql")
+	assertOffersRef(c, s.State, "foo", 1)
 }
 
 func (s *applicationOffersSuite) TestUpdateApplicationOfferNotFound(c *gc.C) {
@@ -355,4 +384,49 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c
 		Owner:           owner.Name(),
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot update application offer "mysql": application offer "hosted-mysql" not found`)
+}
+
+func (s *applicationOffersSuite) addOfferConnection(c *gc.C, offerUUID string) {
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "wordpress",
+		SourceModel: testing.ModelTag,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "server",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		OfferUUID:       offerUUID,
+		RelationId:      rel.Id(),
+		RelationKey:     rel.Tag().Id(),
+		Username:        "admin",
+		SourceModelUUID: testing.ModelTag.Id(),
+	})
+}
+
+func (s *applicationOffersSuite) TestRemoveOffersWithConnections(c *gc.C) {
+	offer := s.createDefaultOffer(c)
+	s.addOfferConnection(c, offer.OfferUUID)
+	ao := state.NewApplicationOffers(s.State)
+	err := ao.Remove("hosted-mysql")
+	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
+}
+
+func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *gc.C) {
+	ao := state.NewApplicationOffers(s.State)
+	offer := s.createDefaultOffer(c)
+	addOfferConnection := func() {
+		s.addOfferConnection(c, offer.OfferUUID)
+	}
+	defer state.SetBeforeHooks(c, s.State, addOfferConnection).Check()
+
+	err := ao.Remove(offer.OfferName)
+	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
 }

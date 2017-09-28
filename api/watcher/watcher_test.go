@@ -255,7 +255,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 
 func (s *watcherSuite) assertSetupRelationStatusWatch(
 	c *gc.C, rel *state.Relation,
-) (func(life life.Value, suspended bool), func()) {
+) (func(life life.Value, suspended bool, reason string), func()) {
 	// Export the relation so it can be found with a token.
 	re := s.State.RemoteEntities()
 	token, err := re.ExportLocalEntity(rel.Tag())
@@ -322,7 +322,7 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 		}
 	}
 
-	assertChange := func(life life.Value, suspended bool) {
+	assertChange := func(life life.Value, suspended bool, reason string) {
 		s.BackingState.StartSync()
 		select {
 		case changes, ok := <-w.Changes():
@@ -330,6 +330,7 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 			c.Check(changes, gc.HasLen, 1)
 			c.Check(changes[0].Life, gc.Equals, life)
 			c.Check(changes[0].Suspended, gc.Equals, suspended)
+			c.Check(changes[0].SuspendedReason, gc.Equals, reason)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("watcher didn't emit an event")
 		}
@@ -337,7 +338,7 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 	}
 
 	// Initial event.
-	assertChange(life.Alive, false)
+	assertChange(life.Alive, false, "")
 	return assertChange, stop
 }
 
@@ -363,17 +364,17 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 	assertChange, stop := s.assertSetupRelationStatusWatch(c, rel)
 	defer stop()
 
-	err = rel.SetSuspended(true)
+	err = rel.SetSuspended(true, "reason")
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange(life.Alive, true)
+	assertChange(life.Alive, true, "reason")
 
-	err = rel.SetSuspended(false)
+	err = rel.SetSuspended(false, "")
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange(life.Alive, false)
+	assertChange(life.Alive, false, "")
 
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange(life.Dying, false)
+	assertChange(life.Dying, false, "")
 }
 
 func (s *watcherSuite) TestRelationStatusWatcherDeadRelation(c *gc.C) {
@@ -390,7 +391,7 @@ func (s *watcherSuite) TestRelationStatusWatcherDeadRelation(c *gc.C) {
 
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange(life.Dead, false)
+	assertChange(life.Dead, false, "")
 }
 
 type migrationSuite struct {

@@ -121,23 +121,24 @@ type ApplicationStatus struct {
 
 // RemoteApplicationStatus holds status info about a remote application.
 type RemoteApplicationStatus struct {
-	Err            error               `json:"err,omitempty"`
-	ApplicationURL string              `json:"application-url"`
-	OfferName      string              `json:"offer-name"`
-	Endpoints      []RemoteEndpoint    `json:"endpoints"`
-	Life           string              `json:"life"`
-	Relations      map[string][]string `json:"relations"`
-	Status         DetailedStatus      `json:"status"`
+	Err       error               `json:"err,omitempty"`
+	OfferURL  string              `json:"offer-url"`
+	OfferName string              `json:"offer-name"`
+	Endpoints []RemoteEndpoint    `json:"endpoints"`
+	Life      string              `json:"life"`
+	Relations map[string][]string `json:"relations"`
+	Status    DetailedStatus      `json:"status"`
 }
 
 // ApplicationOfferStatus holds status info about an application offer.
 type ApplicationOfferStatus struct {
-	Err             error                     `json:"err,omitempty"`
-	OfferName       string                    `json:"offer-name"`
-	ApplicationName string                    `json:"application-name"`
-	CharmURL        string                    `json:"charm"`
-	Endpoints       map[string]RemoteEndpoint `json:"endpoints"`
-	ConnectedCount  int                       `json:"connected-count"`
+	Err                  error                     `json:"err,omitempty"`
+	OfferName            string                    `json:"offer-name"`
+	ApplicationName      string                    `json:"application-name"`
+	CharmURL             string                    `json:"charm"`
+	Endpoints            map[string]RemoteEndpoint `json:"endpoints"`
+	ActiveConnectedCount int                       `json:"active-connected-count"`
+	TotalConnectedCount  int                       `json:"total-connected-count"`
 }
 
 // MeterStatus represents the meter status of a unit.

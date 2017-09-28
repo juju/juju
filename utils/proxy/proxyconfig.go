@@ -81,10 +81,9 @@ func (pc *ProxyConfig) useProxy(addr string) bool {
 	if host == "localhost" {
 		return false
 	}
-	if ip := net.ParseIP(host); ip != nil {
-		if ip.IsLoopback() {
-			return false
-		}
+	ip := net.ParseIP(host)
+	if ip != nil && ip.IsLoopback() {
+		return false
 	}
 
 	if pc.noProxy == "*" {
@@ -113,6 +112,9 @@ func (pc *ProxyConfig) useProxy(addr string) bool {
 		}
 		if p[0] != '.' && strings.HasSuffix(addr, p) && addr[len(addr)-len(p)-1] == '.' {
 			// no_proxy "foo.com" matches "bar.foo.com"
+			return false
+		}
+		if _, net, err := net.ParseCIDR(p); ip != nil && err == nil && net.Contains(ip) {
 			return false
 		}
 	}

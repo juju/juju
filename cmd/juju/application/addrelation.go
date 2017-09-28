@@ -66,7 +66,7 @@ type addRelationCommand struct {
 	endpoints         []string
 	viaCIDRs          []string
 	viaValue          string
-	remoteEndpoint    *crossmodel.ApplicationURL
+	remoteEndpoint    *crossmodel.OfferURL
 	addRelationAPI    applicationAddRelationAPI
 	consumeDetailsAPI applicationConsumeDetailsAPI
 }
@@ -122,7 +122,7 @@ func (c *addRelationCommand) getAddRelationAPI() (applicationAddRelationAPI, err
 	return application.NewClient(root), nil
 }
 
-func (c *addRelationCommand) getOffersAPI(url *crossmodel.ApplicationURL) (applicationConsumeDetailsAPI, error) {
+func (c *addRelationCommand) getOffersAPI(url *crossmodel.OfferURL) (applicationConsumeDetailsAPI, error) {
 	if c.consumeDetailsAPI != nil {
 		return c.consumeDetailsAPI, nil
 	}
@@ -187,7 +187,7 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 	}
 	// Parse the offer details URL and add the source controller so
 	// things like status can show the original source of the offer.
-	offerURL, err := crossmodel.ParseApplicationURL(consumeDetails.Offer.OfferURL)
+	offerURL, err := crossmodel.ParseOfferURL(consumeDetails.Offer.OfferURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -224,7 +224,7 @@ func (c *addRelationCommand) validateEndpoints(all []string) error {
 		// We can only determine if this is a remote endpoint with 100%.
 		// If we cannot parse it, it may still be a valid local endpoint...
 		// so ignoring parsing error,
-		if url, err := crossmodel.ParseApplicationURL(endpoint); err == nil {
+		if url, err := crossmodel.ParseOfferURL(endpoint); err == nil {
 			if c.remoteEndpoint != nil {
 				return errors.NotSupportedf("providing more than one remote endpoints")
 			}

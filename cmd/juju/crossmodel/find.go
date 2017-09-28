@@ -146,7 +146,7 @@ func (c *findCommand) validateOrSetURL() error {
 		c.source = controllerName
 		return nil
 	}
-	urlParts, err := crossmodel.ParseApplicationURLParts(c.url)
+	urlParts, err := crossmodel.ParseOfferURLParts(c.url)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -176,7 +176,7 @@ type FindAPI interface {
 }
 
 // ApplicationOfferResult defines the serialization behaviour of an application offer.
-// This is used in map-style yaml output where remote application URL is the key.
+// This is used in map-style yaml output where offer URL is the key.
 type ApplicationOfferResult struct {
 	// Access is the level of access the user has on the offer.
 	Access string `yaml:"access" json:"access"`
@@ -197,7 +197,7 @@ func convertFoundOffers(store string, offers ...params.ApplicationOffer) (map[st
 			Access:    one.Access,
 			Endpoints: convertRemoteEndpoints(one.Endpoints...),
 		}
-		url, err := crossmodel.ParseApplicationURL(one.OfferURL)
+		url, err := crossmodel.ParseOfferURL(one.OfferURL)
 		if err != nil {
 			return nil, err
 		}

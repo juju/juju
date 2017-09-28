@@ -1292,6 +1292,12 @@ func (m *Model) getEntityRefs() (*modelEntityRefsDoc, error) {
 	return &doc, nil
 }
 
+// (TODO) externalreality: Temporary method to access state from model while
+// factoring Model concerns out from state.
+func (model *Model) State() *State {
+	return model.st
+}
+
 // checkModelEntityRefsEmpty checks that the model is empty of any entities
 // that may require external resource cleanup. If the model is not empty,
 // then an error will be returned; otherwise txn.Ops are returned to assert

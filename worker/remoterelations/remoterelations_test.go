@@ -174,9 +174,9 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 		}}}},
 		{"SaveMacaroon", []interface{}{relTag, apiMac}},
 		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
+		{"WatchRelationSuspendedStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
-		{"WatchRelationSuspendedStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 
@@ -241,7 +241,6 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"GetToken", []interface{}{names.NewRelationTag("db2:db django:db")}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				Life:             params.Dying,
@@ -275,7 +274,6 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"GetToken", []interface{}{names.NewRelationTag("db2:db django:db")}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				Life:             params.Dying,
@@ -431,6 +429,58 @@ func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {
 
 	expected = []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+}
+
+func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *gc.C) {
+	w := s.assertRemoteRelationsWorkers(c)
+	defer workertest.CleanKill(c, w)
+	s.stub.ResetCalls()
+
+	// First suspend the relation.
+	s.relationsFacade.relations["db2:db django:db"].suspended = true
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher.changes <- []string{"db2:db django:db"}
+
+	expected := []jujutesting.StubCall{
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+	s.stub.ResetCalls()
+
+	// Now resume the relation.
+	s.relationsFacade.relations["db2:db django:db"].suspended = false
+	relWatcher.changes <- []string{"db2:db django:db"}
+
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
+	apiMac, err := macaroon.New(nil, "apimac", "")
+	relTag := names.NewRelationTag("db2:db django:db")
+	// When resuming, it's similar to setting things up for a new relation
+	// except that the call to create te life/status listener is missing.
+	expected = []jujutesting.StubCall{
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
+		{"ExportEntities", []interface{}{
+			[]names.Tag{names.NewApplicationTag("django"), relTag}}},
+		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelationArg{{
+			ApplicationToken: "token-django",
+			SourceModelTag:   "model-local-model-uuid",
+			RelationToken:    "token-db2:db django:db",
+			RemoteEndpoint: params.RemoteEndpoint{
+				Name:      "db2",
+				Role:      "requires",
+				Interface: "db2",
+			},
+			OfferUUID:         "offer-db2-uuid",
+			LocalEndpointName: "data",
+			Macaroons:         macaroon.Slice{mac},
+		}}}},
+		{"SaveMacaroon", []interface{}{relTag, apiMac}},
+		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
+		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
+		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 }

@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -29,7 +30,11 @@ type applicationSuite struct {
 var _ = gc.Suite(&applicationSuite{})
 
 func newClient(f basetesting.APICallerFunc) *application.Client {
-	return application.NewClient(f)
+	return application.NewClient(basetesting.BestVersionCaller{f, 5})
+}
+
+func newClientV4(f basetesting.APICallerFunc) *application.Client {
+	return application.NewClient(basetesting.BestVersionCaller{f, 4})
 }
 
 func (s *applicationSuite) TestSetServiceMetricCredentials(c *gc.C) {
@@ -331,6 +336,36 @@ func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
 	}}
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		c.Assert(request, gc.Equals, "DestroyApplication")
+		c.Assert(a, jc.DeepEquals, params.DestroyApplicationsParams{
+			Applications: []params.DestroyApplicationParams{
+				{ApplicationTag: "application-foo"},
+				{ApplicationTag: "application-bar"},
+			},
+		})
+		c.Assert(response, gc.FitsTypeOf, &params.DestroyApplicationResults{})
+		out := response.(*params.DestroyApplicationResults)
+		*out = params.DestroyApplicationResults{expectedResults}
+		return nil
+	})
+	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
+		Applications: []string{"foo", "bar"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *applicationSuite) TestDestroyApplicationsV4(c *gc.C) {
+	expectedResults := []params.DestroyApplicationResult{{
+		Error: &params.Error{Message: "boo"},
+	}, {
+		Info: &params.DestroyApplicationInfo{
+			DestroyedStorage: []params.Entity{{Tag: "storage-pgdata-0"}},
+			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
+			DestroyedUnits:   []params.Entity{{Tag: "unit-bar-1"}},
+		},
+	}}
+	client := newClientV4(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, "DestroyApplication")
 		c.Assert(a, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{
 				{Tag: "application-foo"},
@@ -342,7 +377,9 @@ func (s *applicationSuite) TestDestroyApplications(c *gc.C) {
 		*out = params.DestroyApplicationResults{expectedResults}
 		return nil
 	})
-	results, err := client.DestroyApplications("foo", "bar")
+	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
+		Applications: []string{"foo", "bar"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
@@ -351,7 +388,9 @@ func (s *applicationSuite) TestDestroyApplicationsArity(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		return nil
 	})
-	_, err := client.DestroyApplications("foo")
+	_, err := client.DestroyApplications(application.DestroyApplicationsParams{
+		Applications: []string{"foo"},
+	})
 	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
 }
 
@@ -366,7 +405,9 @@ func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *gc.C) {
 		*out = params.DestroyApplicationResults{expectedResults[1:]}
 		return nil
 	})
-	results, err := client.DestroyApplications("!", "foo")
+	results, err := client.DestroyApplications(application.DestroyApplicationsParams{
+		Applications: []string{"!", "foo"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
@@ -382,6 +423,35 @@ func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
 	}}
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		c.Assert(request, gc.Equals, "DestroyUnit")
+		c.Assert(a, jc.DeepEquals, params.DestroyUnitsParams{
+			Units: []params.DestroyUnitParams{
+				{UnitTag: "unit-foo-0"},
+				{UnitTag: "unit-bar-1"},
+			},
+		})
+		c.Assert(response, gc.FitsTypeOf, &params.DestroyUnitResults{})
+		out := response.(*params.DestroyUnitResults)
+		*out = params.DestroyUnitResults{expectedResults}
+		return nil
+	})
+	results, err := client.DestroyUnits(application.DestroyUnitsParams{
+		Units: []string{"foo/0", "bar/1"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *applicationSuite) TestDestroyUnitsV4(c *gc.C) {
+	expectedResults := []params.DestroyUnitResult{{
+		Error: &params.Error{Message: "boo"},
+	}, {
+		Info: &params.DestroyUnitInfo{
+			DestroyedStorage: []params.Entity{{Tag: "storage-pgdata-0"}},
+			DetachedStorage:  []params.Entity{{Tag: "storage-pgdata-1"}},
+		},
+	}}
+	client := newClientV4(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, "DestroyUnit")
 		c.Assert(a, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{
 				{Tag: "unit-foo-0"},
@@ -393,7 +463,9 @@ func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
 		*out = params.DestroyUnitResults{expectedResults}
 		return nil
 	})
-	results, err := client.DestroyUnits("foo/0", "bar/1")
+	results, err := client.DestroyUnits(application.DestroyUnitsParams{
+		Units: []string{"foo/0", "bar/1"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
@@ -402,7 +474,9 @@ func (s *applicationSuite) TestDestroyUnitsArity(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		return nil
 	})
-	_, err := client.DestroyUnits("foo/0")
+	_, err := client.DestroyUnits(application.DestroyUnitsParams{
+		Units: []string{"foo/0"},
+	})
 	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
 }
 
@@ -417,7 +491,9 @@ func (s *applicationSuite) TestDestroyUnitsInvalidIds(c *gc.C) {
 		*out = params.DestroyUnitResults{expectedResults[1:]}
 		return nil
 	})
-	results, err := client.DestroyUnits("!", "foo/0")
+	results, err := client.DestroyUnits(application.DestroyUnitsParams{
+		Units: []string{"!", "foo/0"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
@@ -517,10 +593,44 @@ func (s *applicationSuite) TestSetRelationSuspended(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		c.Assert(request, gc.Equals, "SetRelationsSuspended")
 		c.Assert(a, jc.DeepEquals, params.RelationSuspendedArgs{
-			Args: []params.RelationSuspendedArg{{
-				RelationId: 123,
-				Suspended:  true,
-			}},
+			Args: []params.RelationSuspendedArg{
+				{
+					RelationId: 123,
+					Suspended:  true,
+					Message:    "message",
+				}, {
+					RelationId: 456,
+					Suspended:  true,
+					Message:    "message",
+				}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*result.(*params.ErrorResults) = params.ErrorResults{
+			Results: []params.ErrorResult{{}, {}},
+		}
+		called = true
+		return nil
+	})
+	err := client.SetRelationSuspended([]int{123, 456}, true, "message")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestSetRelationSuspendedArity(c *gc.C) {
+	called := false
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Assert(request, gc.Equals, "SetRelationsSuspended")
+		c.Assert(a, jc.DeepEquals, params.RelationSuspendedArgs{
+			Args: []params.RelationSuspendedArg{
+				{
+					RelationId: 123,
+					Suspended:  true,
+					Message:    "message",
+				}, {
+					RelationId: 456,
+					Suspended:  true,
+					Message:    "message",
+				}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*result.(*params.ErrorResults) = params.ErrorResults{
@@ -529,8 +639,8 @@ func (s *applicationSuite) TestSetRelationSuspended(c *gc.C) {
 		called = true
 		return nil
 	})
-	err := client.SetRelationSuspended(123, true)
-	c.Assert(err, jc.ErrorIsNil)
+	err := client.SetRelationSuspended([]int{123, 456}, true, "message")
+	c.Assert(err, gc.ErrorMatches, "expected 2 results, got 1")
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -556,5 +666,153 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 	c.Assert(results.Endpoints, jc.DeepEquals, map[string]params.CharmRelation{
 		"ep1": {Name: "foo"},
+	})
+}
+
+func (s *applicationSuite) TestGetConfig(c *gc.C) {
+	fooConfig := map[string]interface{}{
+		"name":   "foo",
+		"answer": 42,
+	}
+	barConfig := map[string]interface{}{
+		"name": "bar",
+		"key":  "value",
+	}
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "GetConfig")
+				args, ok := a.(params.Entities)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{
+						{"application-foo"}, {"application-bar"},
+					}})
+
+				result, ok := response.(*params.ApplicationGetConfigResults)
+				c.Assert(ok, jc.IsTrue)
+				result.Results = []params.ConfigResult{
+					{Config: fooConfig}, {Config: barConfig},
+				}
+				return nil
+			},
+		),
+		BestVersion: 5,
+	})
+
+	results, err := client.GetConfig("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []map[string]interface{}{
+		fooConfig, barConfig,
+	})
+}
+
+func (s *applicationSuite) TestGetConfigAPIv4(c *gc.C) {
+	fooConfig := map[string]interface{}{
+		"name":   "foo",
+		"answer": 42,
+	}
+	barConfig := map[string]interface{}{
+		"name": "bar",
+		"key":  "value",
+	}
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "Get")
+				args, ok := a.(params.ApplicationGet)
+				c.Assert(ok, jc.IsTrue)
+
+				result, ok := response.(*params.ApplicationGetResults)
+				c.Assert(ok, jc.IsTrue)
+
+				switch args.ApplicationName {
+				case "foo":
+					result.Config = fooConfig
+				case "bar":
+					result.Config = barConfig
+				default:
+					return errors.New("unexpected app name")
+				}
+				return nil
+			},
+		),
+		BestVersion: 4,
+	})
+
+	results, err := client.GetConfig("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []map[string]interface{}{
+		fooConfig, barConfig,
+	})
+}
+
+func (s *applicationSuite) TestGetConstraints(c *gc.C) {
+	fooConstraints := constraints.MustParse("mem=4G")
+	barConstraints := constraints.MustParse("mem=128G", "cores=64")
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "GetConstraints")
+				args, ok := a.(params.Entities)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{
+						{"application-foo"}, {"application-bar"},
+					}})
+
+				result, ok := response.(*params.ApplicationGetConstraintsResults)
+				c.Assert(ok, jc.IsTrue)
+				result.Results = []params.ApplicationConstraint{
+					{Constraints: fooConstraints}, {Constraints: barConstraints},
+				}
+				return nil
+			},
+		),
+		BestVersion: 5,
+	})
+
+	results, err := client.GetConstraints("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []constraints.Value{
+		fooConstraints, barConstraints,
+	})
+}
+
+func (s *applicationSuite) TestGetConstraintsAPIv4(c *gc.C) {
+	fooConstraints := constraints.MustParse("mem=4G")
+	barConstraints := constraints.MustParse("mem=128G", "cores=64")
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "GetConstraints")
+				args, ok := a.(params.GetApplicationConstraints)
+				c.Assert(ok, jc.IsTrue)
+
+				result, ok := response.(*params.GetConstraintsResults)
+				c.Assert(ok, jc.IsTrue)
+
+				switch args.ApplicationName {
+				case "foo":
+					result.Constraints = fooConstraints
+				case "bar":
+					result.Constraints = barConstraints
+				default:
+					return errors.New("unexpected app name")
+				}
+				return nil
+			},
+		),
+		BestVersion: 4,
+	})
+
+	results, err := client.GetConstraints("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []constraints.Value{
+		fooConstraints, barConstraints,
 	})
 }

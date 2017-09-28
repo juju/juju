@@ -1554,7 +1554,7 @@ func (s *MachineSuite) TestSetConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons2 := constraints.MustParse("mem=2G")
 	err = machine.SetConstraints(cons2)
-	c.Assert(err, gc.ErrorMatches, "cannot set constraints: machine is already provisioned")
+	c.Assert(err, gc.ErrorMatches, `updating machine "2": cannot set constraints: machine is already provisioned`)
 
 	// Check the failed set had no effect.
 	mcons, err = machine.Constraints()
@@ -1567,7 +1567,7 @@ func (s *MachineSuite) TestSetAmbiguousConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("mem=4G instance-type=foo")
 	err = machine.SetConstraints(cons)
-	c.Assert(err, gc.ErrorMatches, `cannot set constraints: ambiguous constraints: "instance-type" overlaps with "mem"`)
+	c.Assert(err, gc.ErrorMatches, `updating machine "2": cannot set constraints: ambiguous constraints: "instance-type" overlaps with "mem"`)
 }
 
 func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
@@ -1593,7 +1593,7 @@ func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 
 func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 	cons := constraints.MustParse("mem=1G")
-	cannotSet := `cannot set constraints: not found or not alive`
+	cannotSet := `updating machine "1": cannot set constraints: not found or not alive`
 	testWhenDying(c, s.machine, cannotSet, cannotSet, func() error {
 		err := s.machine.SetConstraints(cons)
 		mcons, err1 := s.machine.Constraints()

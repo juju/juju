@@ -70,6 +70,25 @@ varnish:
 `[1:])
 }
 
+func (s *crossmodelSuite) TestRemove(c *gc.C) {
+	ch := s.AddTestingCharm(c, "riak")
+	s.AddTestingApplication(c, "riakservice", ch)
+	ch = s.AddTestingCharm(c, "varnish")
+	s.AddTestingApplication(c, "varnishservice", ch)
+
+	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
+		"riakservice:endpoint", "riak")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = cmdtesting.RunCommand(c, crossmodel.NewRemoveOfferCommand(),
+		"admin/controller.riak")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = cmdtesting.RunCommand(c, crossmodel.NewShowOfferedEndpointCommand(),
+		"admin/controller.riak")
+	c.Assert(err, gc.ErrorMatches, `application offer "admin/controller\.riak" not found`)
+}
+
 func (s *crossmodelSuite) TestShow(c *gc.C) {
 	ch := s.AddTestingCharm(c, "riak")
 	s.AddTestingApplication(c, "riakservice", ch)

@@ -22,7 +22,7 @@ type SuspendRelationSuite struct {
 func (s *SuspendRelationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mockAPI = &mockSuspendAPI{Stub: &testing.Stub{}, version: 6}
-	s.mockAPI.setRelationSuspendedFunc = func(relationId int, suspended bool) error {
+	s.mockAPI.setRelationSuspendedFunc = func(relationIds []int, suspended bool, message string) error {
 		return s.mockAPI.NextErr()
 	}
 }
@@ -34,18 +34,14 @@ func (s *SuspendRelationSuite) runSuspendRelation(c *gc.C, args ...string) error
 	return err
 }
 
-func (s *SuspendRelationSuite) TestSuspendRelationWrongNumberOfArguments(c *gc.C) {
+func (s *SuspendRelationSuite) TestSuspendRelationInvalidArguments(c *gc.C) {
 	// No arguments
 	err := s.runSuspendRelation(c)
-	c.Assert(err, gc.ErrorMatches, "no relation id specified")
+	c.Assert(err, gc.ErrorMatches, "no relation ids specified")
 
-	// 1 argument not an integer
+	// argument not an integer
 	err = s.runSuspendRelation(c, "application1")
 	c.Assert(err, gc.ErrorMatches, `relation ID "application1" not valid`)
-
-	// More than 2 arguments
-	err = s.runSuspendRelation(c, "123", "extra")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *SuspendRelationSuite) TestSuspendRelationIdOldServer(c *gc.C) {
@@ -56,9 +52,9 @@ func (s *SuspendRelationSuite) TestSuspendRelationIdOldServer(c *gc.C) {
 }
 
 func (s *SuspendRelationSuite) TestSuspendRelationSuccess(c *gc.C) {
-	err := s.runSuspendRelation(c, "123")
+	err := s.runSuspendRelation(c, "123", "456", "--message", "message")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", 123, true)
+	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", []int{123, 456}, true, "message")
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -67,7 +63,7 @@ func (s *SuspendRelationSuite) TestSuspendRelationFail(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New(msg))
 	err := s.runSuspendRelation(c, "123")
 	c.Assert(err, gc.ErrorMatches, msg)
-	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", 123, true)
+	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", []int{123}, true, "")
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -75,14 +71,14 @@ func (s *SuspendRelationSuite) TestSuspendRelationBlocked(c *gc.C) {
 	s.mockAPI.SetErrors(common.OperationBlockedError("TestSuspendRelationBlocked"))
 	err := s.runSuspendRelation(c, "123")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestSuspendRelationBlocked.*")
-	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", 123, true)
+	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", []int{123}, true, "")
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 type mockSuspendAPI struct {
 	*testing.Stub
 	version                  int
-	setRelationSuspendedFunc func(relationId int, suspended bool) error
+	setRelationSuspendedFunc func(relationIds []int, suspended bool, message string) error
 }
 
 func (s mockSuspendAPI) Close() error {
@@ -90,9 +86,9 @@ func (s mockSuspendAPI) Close() error {
 	return s.NextErr()
 }
 
-func (s mockSuspendAPI) SetRelationSuspended(relationId int, suspended bool) error {
-	s.MethodCall(s, "SetRelationSuspended", relationId, suspended)
-	return s.setRelationSuspendedFunc(relationId, suspended)
+func (s mockSuspendAPI) SetRelationSuspended(relationIds []int, suspended bool, message string) error {
+	s.MethodCall(s, "SetRelationSuspended", relationIds, suspended, message)
+	return s.setRelationSuspendedFunc(relationIds, suspended, message)
 }
 
 func (s mockSuspendAPI) BestAPIVersion() int {

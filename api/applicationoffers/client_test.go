@@ -250,9 +250,9 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
-			args, ok := a.(params.ApplicationURLs)
+			args, ok := a.(params.OfferURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ApplicationURLs, gc.DeepEquals, []string{url})
+			c.Assert(args.OfferURLs, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.ApplicationOffersResults); ok {
 				points.Results = []params.ApplicationOfferResult{
@@ -298,9 +298,9 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
-			args, ok := a.(params.ApplicationURLs)
+			args, ok := a.(params.OfferURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ApplicationURLs, gc.DeepEquals, []string{url})
+			c.Assert(args.OfferURLs, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.ApplicationOffersResults); ok {
 				points.Results = []params.ApplicationOfferResult{
@@ -341,9 +341,9 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
-			args, ok := a.(params.ApplicationURLs)
+			args, ok := a.(params.OfferURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ApplicationURLs, gc.DeepEquals, []string{url})
+			c.Assert(args.OfferURLs, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.ApplicationOffersResults); ok {
 				points.Results = []params.ApplicationOfferResult{
@@ -568,9 +568,9 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 		) error {
 			called = true
 			c.Assert(request, gc.Equals, "GetConsumeDetails")
-			args, ok := a.(params.ApplicationURLs)
+			args, ok := a.(params.OfferURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ApplicationURLs, jc.DeepEquals, []string{"me/prod.app"})
+			c.Assert(args.OfferURLs, jc.DeepEquals, []string{"me/prod.app"})
 			if results, ok := result.(*params.ConsumeOfferDetailsResults); ok {
 				result := params.ConsumeOfferDetailsResult{
 					ConsumeOfferDetails: params.ConsumeOfferDetails{
@@ -606,4 +606,30 @@ func (s *crossmodelMockSuite) TestGetConsumeDetailsBadURL(c *gc.C) {
 	client := applicationoffers.NewClient(apiCaller)
 	_, err := client.GetConsumeDetails("badurl")
 	c.Assert(err, gc.ErrorMatches, "application offer URL is missing application")
+}
+
+func (s *crossmodelMockSuite) TestDestroyOffers(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Assert(request, gc.Equals, "DestroyOffers")
+			args, ok := a.(params.DestroyApplicationOffers)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.OfferURLs, jc.DeepEquals, []string{"me/prod.app"})
+			if results, ok := result.(*params.ErrorResults); ok {
+				results.Results = []params.ErrorResult{{
+					Error: &params.Error{Message: "fail"},
+				}}
+			}
+			return nil
+		})
+	client := applicationoffers.NewClient(apiCaller)
+	err := client.DestroyOffers("me/prod.app")
+	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(called, jc.IsTrue)
 }

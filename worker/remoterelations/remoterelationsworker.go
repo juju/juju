@@ -104,6 +104,7 @@ func (w *remoteRelationsWorker) relationUnitsChangeEvent(
 		ApplicationToken: w.applicationToken,
 		Life:             params.Life(change.Life),
 		Suspended:        &suspended,
+		SuspendedReason:  change.SuspendedReason,
 	}
 	return event, nil
 }

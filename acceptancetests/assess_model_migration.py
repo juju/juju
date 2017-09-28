@@ -26,7 +26,6 @@ from jujupy.client import (
     BaseCondition,
     get_stripped_version_number,
 )
-from jujupy.version_client import ModelClient2_0
 from jujucharm import local_charm_path
 from remote import remote_from_address
 from utility import (
@@ -68,11 +67,10 @@ def assess_model_migration(bs1, bs2, args):
                 assess_development_branch_migrations(
                     source_client, dest_client)
 
-        if client_is_at_least_2_1(bs1.client):
-            # Continue test where we ensure that a migrated model continues to
-            # work after it's originating controller has been destroyed.
-            assert_model_migrated_successfully(
-                migrated_client, application, resource_contents)
+        # Continue test where we ensure that a migrated model continues to
+        # work after it's originating controller has been destroyed.
+        assert_model_migrated_successfully(
+            migrated_client, application, resource_contents)
         log.info(
             'SUCCESS: Model operational after origin controller destroyed')
 
@@ -92,11 +90,6 @@ def assess_development_branch_migrations(source_client, dest_client):
                 source_client, dest_client, temp)
     ensure_migration_rolls_back_on_failure(source_client, dest_client)
     ensure_api_login_redirects(source_client, dest_client)
-
-
-def client_is_at_least_2_1(client):
-    """Return true of the given ModelClient is version 2.1 or greater."""
-    return not isinstance(client, ModelClient2_0)
 
 
 def after_22beta4(client_version):
@@ -502,7 +495,8 @@ def migrate_model_to_controller(
         try:
             source_client.juju(
                 'show-model',
-                get_full_model_name(migration_target_client, include_user_name),
+                get_full_model_name(
+                    migration_target_client, include_user_name),
                 include_e=False)
         except:
             log.info('Ignoring failed output.')

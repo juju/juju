@@ -308,35 +308,55 @@ func (u *Unit) Destroy() (err error) {
 			u.doc.Life = Dying
 		}
 	}()
-	unit := &Unit{st: u.st, doc: u.doc}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := unit.Refresh(); errors.IsNotFound(err) {
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, err
-			}
-		}
-		switch ops, err := unit.destroyOps(); err {
-		case errRefresh:
-		case errAlreadyDying:
+	return u.st.ApplyOperation(u.DestroyOperation())
+}
+
+// DestroyOperation returns a model operation that will destroy the unit.
+func (u *Unit) DestroyOperation() *DestroyUnitOperation {
+	return &DestroyUnitOperation{unit: &Unit{st: u.st, doc: u.doc}}
+}
+
+// DestroyUnitOperation is a model operation for destroying a unit.
+type DestroyUnitOperation struct {
+	// unit holds the unit to destroy.
+	unit *Unit
+
+	// DestroyStorage controls whether or not storage attached
+	// to the unit is destroyed. If this is false, then detachable
+	// storage will be detached and left in the model.
+	DestroyStorage bool
+}
+
+// Build is part of the ModelOperation interface.
+func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
+	if attempt > 0 {
+		if err := op.unit.Refresh(); errors.IsNotFound(err) {
 			return nil, jujutxn.ErrNoOperations
-		case nil:
-			return ops, nil
-		default:
+		} else if err != nil {
 			return nil, err
 		}
+	}
+	switch ops, err := op.unit.destroyOps(op.DestroyStorage); err {
+	case errRefresh:
+	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
+	case nil:
+		return ops, nil
+	default:
+		return nil, err
 	}
-	if err = unit.st.db().Run(buildTxn); err == nil {
-		if historyErr := unit.eraseHistory(); historyErr != nil {
-			logger.Errorf("cannot delete history for unit %q: %v", unit.globalKey(), historyErr)
-		}
-		if err = unit.Refresh(); errors.IsNotFound(err) {
-			return nil
-		}
+	return nil, jujutxn.ErrNoOperations
+}
+
+// Done is part of the ModelOperation interface.
+func (op *DestroyUnitOperation) Done(err error) error {
+	if err != nil {
+		return errors.Annotatef(err, "cannot destroy unit %q", op.unit)
 	}
-	return err
+	if err := op.unit.eraseHistory(); err != nil {
+		logger.Errorf("cannot delete history for unit %q: %v", op.unit.globalKey(), err)
+	}
+	return nil
 }
 
 func (u *Unit) eraseHistory() error {
@@ -355,7 +375,7 @@ func (u *Unit) eraseHistory() error {
 // destroyOps returns the operations required to destroy the unit. If it
 // returns errRefresh, the unit should be refreshed and the destruction
 // operations recalculated.
-func (u *Unit) destroyOps() ([]txn.Op, error) {
+func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 	if u.doc.Life != Alive {
 		return nil, errAlreadyDying
 	}
@@ -382,7 +402,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
 	minUnitsOp := minUnitsTriggerOp(u.st, u.ApplicationName())
-	cleanupOp := newCleanupOp(cleanupDyingUnit, u.doc.Name)
+	cleanupOp := newCleanupOp(cleanupDyingUnit, u.doc.Name, destroyStorage)
 	setDyingOp := txn.Op{
 		C:      unitsC,
 		Id:     u.doc.DocID,

@@ -120,8 +120,11 @@ type Relation interface {
 	// Suspended returns the suspended status of the relation.
 	Suspended() bool
 
+	// SuspendedReason returns the reason why the relation is suspended.
+	SuspendedReason() string
+
 	// SetSuspended sets the suspended status of the relation.
-	SetSuspended(bool) error
+	SetSuspended(bool, string) error
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,
@@ -198,7 +201,7 @@ type RemoteApplication interface {
 	// Tag returns the remote applications's tag.
 	Tag() names.Tag
 
-	// URL returns the remote application URL, at which it is offered.
+	// URL returns the offer URL, at which the application is offered.
 	URL() (string, bool)
 
 	// OfferUUID returns the UUID of the offer.

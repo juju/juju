@@ -495,6 +495,7 @@ var commandNames = []string{
 	"remove-cloud",
 	"remove-credential",
 	"remove-machine",
+	"remove-offer",
 	"remove-relation",
 	"remove-ssh-key",
 	"remove-storage",

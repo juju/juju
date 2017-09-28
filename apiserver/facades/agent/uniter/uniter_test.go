@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -514,6 +515,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	err := s.machine0.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
+	err = s.State.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.NetworkInfoParams{
 		Unit:     s.wordpressUnit.Tag().String(),
@@ -531,6 +534,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 				},
 			},
 		},
+		EgressSubnets:    []string{"10.0.0.0/8"},
+		IngressAddresses: []string{privateAddress.Value},
 	}
 
 	result, err := s.uniter.NetworkInfo(args)
@@ -1938,7 +1943,7 @@ func (s *uniterSuite) TestRelationsSuspended(c *gc.C) {
 
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	rel2 := s.addRelation(c, "wordpress", "logging")
-	err = rel2.SetSuspended(true)
+	err = rel2.SetSuspended(true, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
@@ -1999,6 +2004,8 @@ func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
 
 func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
+	err := rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: "going, going"})
+	c.Assert(err, jc.ErrorIsNil)
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	err = relUnit.EnterScope(nil)
@@ -2006,7 +2013,9 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	rel2 := s.addRelation(c, "wordpress", "logging")
-	err = rel2.SetSuspended(true)
+	err = rel2.SetSuspended(true, "")
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: ""})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AddTestingApplication(c, "wp2", s.wpCharm)
@@ -2016,7 +2025,7 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	args := params.RelationStatusArgs{
 		Args: []params.RelationStatusArg{
 			{rel.Id(), params.Suspended, "message"},
-			{rel2.Id(), params.Broken, ""},
+			{rel2.Id(), params.Suspended, "gone"},
 			{rel3.Id(), params.Broken, ""},
 			{RelationId: 4},
 		},
@@ -2045,7 +2054,7 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expect)
 	check(rel, status.Suspended, "message")
-	check(rel2, status.Broken, "")
+	check(rel2, status.Suspended, "gone")
 }
 
 func (s *uniterSuite) TestReadSettings(c *gc.C) {
@@ -3650,6 +3659,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
+		EgressSubnets:    []string{},
+		IngressAddresses: []string{"10.0.0.10", "10.0.0.11"},
 	}
 	// For the "admin-api" extra-binding we expect to see only interfaces from
 	// the "public" space.
@@ -3671,6 +3682,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
+		EgressSubnets:    []string{},
+		IngressAddresses: []string{"8.8.8.10", "8.8.4.10", "8.8.4.11"},
 	}
 
 	// For the "db-client" extra-binding we expect to see interfaces from default
@@ -3685,6 +3698,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
+		EgressSubnets:    []string{},
+		IngressAddresses: []string{"100.64.0.10"},
 	}
 
 	result, err := s.base.uniter.NetworkInfo(args)
@@ -3755,6 +3770,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 				},
 			},
 		},
+		EgressSubnets:    []string{},
+		IngressAddresses: []string{privateAddress.Value},
 	}
 
 	result, err := s.base.uniter.NetworkInfo(args)
@@ -3784,6 +3801,13 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.base.assertInScope(c, mysqlRelUnit, true)
 
+	// Relation specific egress subnets override model config.
+	err = s.base.State.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	relEgress := state.NewRelationEgressNetworks(s.base.State)
+	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	relId := rel.Id()
 	args := params.NetworkInfoParams{
 		Unit:       s.base.mysqlUnit.Tag().String(),
@@ -3791,19 +3815,26 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
 		RelationId: &relId,
 	}
 
-	// Since it is a remote relation, the expected address is set to the
+	// Since it is a remote relation, the expected ingress address is set to the
 	// machine's public address.
-	expectedAddress, err := s.base.machine1.PublicAddress()
+	expectedIngressAddress, err := s.base.machine1.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	privateAddress, err := s.base.machine1.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedInfo := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
+				MACAddress:    "00:11:22:33:20:50",
+				InterfaceName: "eth0.100",
 				Addresses: []params.InterfaceAddress{
-					{Address: expectedAddress.Value},
+					{Address: privateAddress.Value, CIDR: "10.0.0.0/24"},
 				},
 			},
 		},
+		EgressSubnets:    []string{"192.168.1.0/24"},
+		IngressAddresses: []string{expectedIngressAddress.Value},
 	}
 
 	result, err := s.base.uniter.NetworkInfo(args)

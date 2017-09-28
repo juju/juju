@@ -153,8 +153,9 @@ type RelationSuspendedArgs struct {
 
 // RelationSuspendedArg holds the new suspended status value for a relation.
 type RelationSuspendedArg struct {
-	RelationId int  `json:"relation-id"`
-	Suspended  bool `json:"suspended"`
+	RelationId int    `json:"relation-id"`
+	Message    string `json:"message"`
+	Suspended  bool   `json:"suspended"`
 }
 
 // AddCharm holds the arguments for making an AddCharm API call.
@@ -395,6 +396,17 @@ type ApplicationMetricCredentials struct {
 	Creds []ApplicationMetricCredential `json:"creds"`
 }
 
+// ApplicationGetConfigResults holds the return values for application GetConfig.
+type ApplicationGetConfigResults struct {
+	Results []ConfigResult
+}
+
+// ConfigResults holds configuration values for an entity.
+type ConfigResult struct {
+	Config map[string]interface{} `json:"config"`
+	Error  *Error                 `json:"error,omitempty"`
+}
+
 // PublicAddress holds parameters for the PublicAddress call.
 type PublicAddress struct {
 	Target string `json:"target"`
@@ -442,14 +454,48 @@ type AddApplicationUnits struct {
 	AttachStorage   []string              `json:"attach-storage,omitempty"`
 }
 
-// DestroyApplicationUnits holds parameters for the DestroyUnits call.
+// DestroyApplicationUnits holds parameters for the deprecated
+// Application.DestroyUnits call.
 type DestroyApplicationUnits struct {
 	UnitNames []string `json:"unit-names"`
 }
 
-// ApplicationDestroy holds the parameters for making the application Destroy call.
+// DestroyUnitsParams holds bulk parameters for the Application.DestroyUnit call.
+type DestroyUnitsParams struct {
+	Units []DestroyUnitParams `json:"units"`
+}
+
+// DestroyUnitParams holds parameters for the Application.DestroyUnit call.
+type DestroyUnitParams struct {
+	// UnitTag holds the tag of the unit to destroy.
+	UnitTag string `json:"unit-tag"`
+
+	// DestroyStorage controls whether or not storage
+	// attached to the unit should be destroyed.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
+}
+
+// ApplicationDestroy holds the parameters for making the deprecated
+// Application.Destroy call.
 type ApplicationDestroy struct {
 	ApplicationName string `json:"application"`
+}
+
+// DestroyApplicationsParams holds bulk parameters for the
+// Application.DestroyApplication call.
+type DestroyApplicationsParams struct {
+	Applications []DestroyApplicationParams `json:"applications"`
+}
+
+// DestroyApplicationParams holds parameters for the
+// Application.DestroyApplication call.
+type DestroyApplicationParams struct {
+	// ApplicationTag holds the tag of the application to destroy.
+	ApplicationTag string `json:"application-tag"`
+
+	// DestroyStorage controls whether or not storage attached to
+	// units of the application should be destroyed.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
 }
 
 // Creds holds credentials for identifying an entity.
@@ -505,6 +551,18 @@ type GetApplicationConstraints struct {
 // GetConstraintsResults holds results of the GetConstraints call.
 type GetConstraintsResults struct {
 	Constraints constraints.Value `json:"constraints"`
+}
+
+// ApplicationGetConstraintsResults holds the multiple return values for GetConstraints call.
+type ApplicationGetConstraintsResults struct {
+	Results []ApplicationConstraint `json:"results"`
+}
+
+// ApplicationConstraint holds the constraints value for a single application, or
+// an error for trying to get it.
+type ApplicationConstraint struct {
+	Constraints constraints.Value `json:"constraints"`
+	Error       *Error            `json:"error,omitempty"`
 }
 
 // SetConstraints stores parameters for making the SetConstraints call.

@@ -688,8 +688,10 @@ type NetworkInfo struct {
 
 // NetworkInfoResult holds either and error or a list of NetworkInfos for given binding.
 type NetworkInfoResult struct {
-	Error *Error        `json:"error,omitempty" yaml:"error,omitempty"`
-	Info  []NetworkInfo `json:"network-info" yaml:"info"`
+	Error            *Error        `json:"error,omitempty" yaml:"error,omitempty"`
+	Info             []NetworkInfo `json:"bind-addresses,omitempty" yaml:"bind-addresses,omitempty"`
+	EgressSubnets    []string      `json:"egress-subnets,omitempty" yaml:"egress-subnets,omitempty"`
+	IngressAddresses []string      `json:"ingress-addresses,omitempty" yaml:"ingress-addresses,omitempty"`
 }
 
 // NetworkInfoResults holds a mapping from binding name to NetworkInfoResult.

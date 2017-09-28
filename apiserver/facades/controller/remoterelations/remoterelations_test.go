@@ -289,6 +289,7 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 	djangoRelationUnit := newMockRelationUnit()
 	djangoRelationUnit.settings["key"] = "value"
 	db2Relation := newMockRelation(123)
+	db2Relation.suspended = true
 	db2Relation.units["django/0"] = djangoRelationUnit
 	db2Relation.endpoints = []state.Endpoint{
 		{
@@ -320,9 +321,10 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.RemoteRelationResult{{
 		Result: &params.RemoteRelation{
-			Id:   123,
-			Life: "alive",
-			Key:  "db2:db django:db",
+			Id:        123,
+			Life:      "alive",
+			Suspended: true,
+			Key:       "db2:db django:db",
 			RemoteApplicationName: "db2",
 			RemoteEndpointName:    "data",
 			ApplicationName:       "django",

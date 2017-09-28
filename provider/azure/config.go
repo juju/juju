@@ -107,8 +107,7 @@ Please choose a model name of no more than %d characters.`,
 	}
 
 	if newCfg.FirewallMode() == config.FwGlobal {
-		// We do not currently support the "global" firewall mode.
-		return nil, errNoFwGlobal
+		return nil, errors.New("global firewall mode is not supported")
 	}
 
 	storageAccountType := validated[configAttrStorageAccountType].(string)

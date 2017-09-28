@@ -130,40 +130,64 @@ var errRefresh = stderrors.New("state seems inconsistent, refresh and try again"
 // some point; if the application has no units, and no relation involving the
 // application has any units in scope, they are all removed immediately.
 func (a *Application) Destroy() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot destroy application %q", a)
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
 			a.doc.Life = Dying
 		}
 	}()
-	app := &Application{st: a.st, doc: a.doc}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := app.Refresh(); errors.IsNotFound(err) {
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, err
-			}
-		}
-		switch ops, err := app.destroyOps(); err {
-		case errRefresh:
-		case errAlreadyDying:
+	return a.st.ApplyOperation(a.DestroyOperation())
+}
+
+// DestroyOperation returns a model operation that will destroy the application.
+func (a *Application) DestroyOperation() *DestroyApplicationOperation {
+	return &DestroyApplicationOperation{
+		app: &Application{st: a.st, doc: a.doc},
+	}
+}
+
+// DestroyApplicationOperation is a model operation for destroying an
+// application.
+type DestroyApplicationOperation struct {
+	// unit holds the unit to destroy.
+	app *Application
+
+	// DestroyStorage controls whether or not storage attached
+	// to units of the application are destroyed. If this is false,
+	// then detachable storage will be detached and left in the model.
+	DestroyStorage bool
+}
+
+// Build is part of the ModelOperation interface.
+func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
+	if attempt > 0 {
+		if err := op.app.Refresh(); errors.IsNotFound(err) {
 			return nil, jujutxn.ErrNoOperations
-		case nil:
-			return ops, nil
-		default:
+		} else if err != nil {
 			return nil, err
 		}
-		return nil, jujutxn.ErrTransientFailure
 	}
-	return a.st.db().Run(buildTxn)
+	ops, err := op.app.destroyOps(op.DestroyStorage)
+	switch err {
+	case errRefresh:
+		return nil, jujutxn.ErrTransientFailure
+	case errAlreadyDying:
+		return nil, jujutxn.ErrNoOperations
+	case nil:
+		return ops, nil
+	}
+	return nil, err
+}
+
+// Done is part of the ModelOperation interface.
+func (op *DestroyApplicationOperation) Done(err error) error {
+	return errors.Annotatef(err, "cannot destroy application %q", op.app)
 }
 
 // destroyOps returns the operations required to destroy the application. If it
 // returns errRefresh, the application should be refreshed and the destruction
 // operations recalculated.
-func (a *Application) destroyOps() ([]txn.Op, error) {
+func (a *Application) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 	if a.doc.Life == Dying {
 		return nil, errAlreadyDying
 	}
@@ -200,6 +224,14 @@ func (a *Application) destroyOps() ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, resOps...)
+
+	// We can't delete an application if it is being offered.
+	zeroOffers, err := zeroApplicationOffersRefOp(a.st, a.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, zeroOffers)
+
 	// If the application has no units, and all its known relations will be
 	// removed, the application can also be removed.
 	if a.doc.UnitCount == 0 && a.doc.RelationCount == removeCount {
@@ -226,7 +258,12 @@ func (a *Application) destroyOps() ([]txn.Op, error) {
 	// about is that *some* unit is, or is not, keeping the application from
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
 	if a.doc.UnitCount > 0 {
-		ops = append(ops, newCleanupOp(cleanupUnitsForDyingApplication, a.doc.Name))
+		cleanupOp := newCleanupOp(
+			cleanupUnitsForDyingApplication,
+			a.doc.Name,
+			destroyStorage,
+		)
+		ops = append(ops, cleanupOp)
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", bson.D{{"$gt", 0}}}}...)
 	} else {
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", 0}}...)
@@ -819,7 +856,7 @@ func (a *Application) upgradeStorageOps(
 				// cosntraints.
 				countMin = int(cons.Count)
 			}
-			unitOps, err := im.addUnitStorageOps(
+			_, unitOps, err := im.addUnitStorageOps(
 				meta, u, name, cons, countMin,
 			)
 			if err != nil {
@@ -1268,7 +1305,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		}
 		machineAssignable = pu
 	}
-	storageOps, storageCounts, numStorageAttachments, err := createStorageOps(
+	storageOps, storageTags, numStorageAttachments, err := createStorageOps(
 		im,
 		unitTag,
 		charm.Meta(),
@@ -1299,9 +1336,10 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		}
 		storageOps = append(storageOps, ops...)
 		numStorageAttachments++
-		storageCounts[si.StorageName()]++
+		storageTags[si.StorageName()] = append(storageTags[si.StorageName()], storageTag)
 	}
-	for name, count := range storageCounts {
+	for name, tags := range storageTags {
+		count := len(tags)
 		charmStorage := charm.Meta().Storage[name]
 		if err := validateCharmStorageCountChange(charmStorage, 0, count); err != nil {
 			return "", nil, errors.Trace(err)
@@ -1374,6 +1412,52 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
 	probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), workloadVersionDoc)
 	return name, ops, nil
+}
+
+// applicationOffersRefCountKey returns a key for refcounting offers
+// for the specified application. Each time an offer is created, the
+// refcount is incremented, and the opposite happens on removal.
+func applicationOffersRefCountKey(appName string) string {
+	return fmt.Sprintf("offer#%s", appName)
+}
+
+// incApplicationOffersRefOp returns a txn.Op that increments the reference
+// count for an application offer.
+func incApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(refcountsC)
+	defer closer()
+	offerRefCountKey := applicationOffersRefCountKey(appName)
+	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, offerRefCountKey, 1)
+	return incRefOp, errors.Trace(err)
+}
+
+// zeroApplicationOffersRefOp returns a txn.Op that ensures that the offer
+// refcount remains at zero, and an error if it is not zero to start with.
+func zeroApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(refcountsC)
+	defer closer()
+	key := applicationOffersRefCountKey(appName)
+	op, current, err := nsRefcounts.CurrentOp(refcounts, key)
+	if err != nil {
+		return op, errors.Trace(err)
+	}
+	if current > 0 {
+		return op, errors.Errorf("application is used by %d offer%s", current, plural(current))
+	}
+	return op, nil
+}
+
+// decApplicationOffersRefOp returns a txn.Op that decrements the reference
+// count for an application offer.
+func decApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(refcountsC)
+	defer closer()
+	offerRefCountKey := applicationOffersRefCountKey(appName)
+	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, offerRefCountKey)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+	return decRefOp, nil
 }
 
 // incUnitCountOp returns the operation to increment the application's unit count.

@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -143,24 +144,71 @@ func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.Applica
 // Remove deletes the application offer for offerName immediately.
 func (s *applicationOffers) Remove(offerName string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot delete application offer %q", offerName)
-	err = s.st.db().RunTransaction(s.removeOps(offerName))
-	if err == txn.ErrAborted {
-		// Already deleted.
-		return nil
+
+	var offer *crossmodel.ApplicationOffer
+	if offer, err = s.ApplicationOffer(offerName); err != nil {
+		return errors.Trace(err)
 	}
-	return err
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			_, err := s.ApplicationOffer(offerName)
+			if errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			}
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		// Load the application before counting the connections
+		// so we can do a consistency check on relation count.
+		app, err := s.st.Application(offer.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		conns, err := s.st.OfferConnections(offer.OfferUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(conns) > 0 {
+			return nil, errors.Errorf("offer has %d relation%s", len(conns), plural(len(conns)))
+		}
+		rels, err := app.Relations()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(rels) != app.doc.RelationCount {
+			return nil, jujutxn.ErrTransientFailure
+		}
+		return s.removeOps(offerName, app.doc.RelationCount)
+	}
+	err = s.st.db().Run(buildTxn)
+	return errors.Trace(err)
 }
 
 // removeOps returns the operations required to remove the record for offerName.
-func (s *applicationOffers) removeOps(offerName string) []txn.Op {
+func (s *applicationOffers) removeOps(offerName string, relCount int) ([]txn.Op, error) {
+	offer, err := s.ApplicationOffer(offerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	decRefOp, err := decApplicationOffersRefOp(s.st, offer.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	relCountAssert := bson.D{{"relationcount", relCount}}
+	relCountOp := txn.Op{
+		C:      applicationsC,
+		Id:     offer.ApplicationName,
+		Assert: relCountAssert,
+	}
+
 	return []txn.Op{
 		{
 			C:      applicationOffersC,
 			Id:     offerName,
 			Assert: txn.DocExists,
 			Remove: true,
-		},
-	}
+		}, decRefOp, relCountOp}, nil
 }
 
 var errDuplicateApplicationOffer = errors.Errorf("application offer already exists")
@@ -219,6 +267,10 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 				return nil, errDuplicateApplicationOffer
 			}
 		}
+		incRefOp, err := incApplicationOffersRefOp(s.st, offerArgs.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		ops := []txn.Op{
 			model.assertActiveOp(),
 			{
@@ -227,6 +279,7 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 				Assert: txn.DocMissing,
 				Insert: doc,
 			},
+			incRefOp,
 		}
 		return ops, nil
 	}
@@ -274,6 +327,18 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 		return nil, errors.Trace(err)
 	}
 	doc := s.makeApplicationOfferDoc(s.st, offer.OfferUUID, offerArgs)
+	var refOps []txn.Op
+	if offerArgs.ApplicationName != offer.ApplicationName {
+		incRefOp, err := incApplicationOffersRefOp(s.st, offerArgs.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		decRefOp, err := decApplicationOffersRefOp(s.st, offer.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		refOps = append(refOps, incRefOp, decRefOp)
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// environment may have been destroyed.
@@ -297,6 +362,7 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 				Update: bson.M{"$set": doc},
 			},
 		}
+		ops = append(ops, refOps...)
 		return ops, nil
 	}
 	err = s.st.db().Run(buildTxn)

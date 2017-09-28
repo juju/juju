@@ -156,15 +156,6 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
 func (env *environ) Destroy() error {
-	rules, err := env.IngressRules()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(rules) > 0 {
-		if err := env.ClosePorts(rules); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	if err := env.base.DestroyEnv(); err != nil {
 		return errors.Trace(err)
 	}

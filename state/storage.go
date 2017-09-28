@@ -652,9 +652,9 @@ func createStorageOps(
 	cons map[string]StorageConstraints,
 	series string,
 	maybeMachineAssignable machineAssignable,
-) (ops []txn.Op, instanceCounts map[string]int, numStorageAttachments int, err error) {
+) (ops []txn.Op, storageTags map[string][]names.StorageTag, numStorageAttachments int, err error) {
 
-	fail := func(err error) ([]txn.Op, map[string]int, int, error) {
+	fail := func(err error) ([]txn.Op, map[string][]names.StorageTag, int, error) {
 		return nil, nil, -1, err
 	}
 
@@ -701,7 +701,7 @@ func createStorageOps(
 		})
 	}
 
-	instanceCounts = make(map[string]int)
+	storageTags = make(map[string][]names.StorageTag)
 	ops = make([]txn.Op, 0, len(templates)*3)
 	for _, t := range templates {
 		owner := entityTag.String()
@@ -715,13 +715,14 @@ func createStorageOps(
 			return fail(errors.Errorf("unknown storage type %q", t.meta.Type))
 		}
 
-		instanceCounts[t.storageName] += int(t.cons.Count)
 		for i := uint64(0); i < t.cons.Count; i++ {
 			cons := cons[t.storageName]
 			id, err := newStorageInstanceId(im.mb, t.storageName)
 			if err != nil {
 				return fail(errors.Annotate(err, "cannot generate storage instance name"))
 			}
+			storageTag := names.NewStorageTag(id)
+			storageTags[t.storageName] = append(storageTags[t.storageName], storageTag)
 			doc := &storageInstanceDoc{
 				Id:          id,
 				Kind:        kind,
@@ -735,8 +736,7 @@ func createStorageOps(
 			var machineOps []txn.Op
 			if unitTag, ok := entityTag.(names.UnitTag); ok {
 				doc.AttachmentCount = 1
-				storage := names.NewStorageTag(id)
-				ops = append(ops, createStorageAttachmentOp(storage, unitTag))
+				ops = append(ops, createStorageAttachmentOp(storageTag, unitTag))
 				numStorageAttachments++
 
 				if maybeMachineAssignable != nil {
@@ -770,7 +770,7 @@ func createStorageOps(
 	// creation, because the only sane time to add storage attachments
 	// is when units are added to said service.
 
-	return ops, instanceCounts, numStorageAttachments, nil
+	return ops, storageTags, numStorageAttachments, nil
 }
 
 // unitAssignedMachineStorageOps returns ops for creating volumes, filesystems
@@ -1863,23 +1863,27 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 // store as specified in the charm.
 func (im *IAASModel) AddStorageForUnit(
 	tag names.UnitTag, name string, cons StorageConstraints,
-) error {
+) ([]names.StorageTag, error) {
 	u, err := im.st.Unit(tag.Id())
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
+	var tags []names.StorageTag
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := u.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
-		return im.addStorageForUnitOps(u, name, cons)
+		var ops []txn.Op
+		var err error
+		tags, ops, err = im.addStorageForUnitOps(u, name, cons)
+		return ops, err
 	}
 	if err := im.mb.db().Run(buildTxn); err != nil {
-		return errors.Annotatef(err, "adding %q storage to %s", name, u)
+		return nil, errors.Annotatef(err, "adding %q storage to %s", name, u)
 	}
-	return nil
+	return tags, nil
 }
 
 // addStorage adds storage instances to given unit as specified.
@@ -1887,9 +1891,9 @@ func (im *IAASModel) addStorageForUnitOps(
 	u *Unit,
 	storageName string,
 	cons StorageConstraints,
-) ([]txn.Op, error) {
+) ([]names.StorageTag, []txn.Op, error) {
 	if u.Life() != Alive {
-		return nil, unitNotAliveErr
+		return nil, nil, unitNotAliveErr
 	}
 
 	// Storage addition is based on the charm metadata; u.charm()
@@ -1897,12 +1901,12 @@ func (im *IAASModel) addStorageForUnitOps(
 	// during the transaction.
 	ch, err := u.charm()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	charmMeta := ch.Meta()
 	charmStorageMeta, ok := charmMeta.Storage[storageName]
 	if !ok {
-		return nil, errors.NotFoundf("charm storage %q", storageName)
+		return nil, nil, errors.NotFoundf("charm storage %q", storageName)
 	}
 	ops := u.assertCharmOps(ch)
 
@@ -1911,7 +1915,7 @@ func (im *IAASModel) addStorageForUnitOps(
 		// values from the unit's recorded storage constraints.
 		allCons, err := u.StorageConstraints()
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 		if uCons, ok := allCons[storageName]; ok {
 			if cons.Pool == "" {
@@ -1926,7 +1930,7 @@ func (im *IAASModel) addStorageForUnitOps(
 		if cons.Pool == "" || cons.Size == 0 {
 			modelConfig, err := im.ModelConfig()
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, nil, errors.Trace(err)
 			}
 			completeCons, err := storageConstraintsWithDefaults(
 				modelConfig,
@@ -1935,7 +1939,7 @@ func (im *IAASModel) addStorageForUnitOps(
 				cons,
 			)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, nil, errors.Trace(err)
 			}
 			cons = completeCons
 		}
@@ -1945,15 +1949,15 @@ func (im *IAASModel) addStorageForUnitOps(
 	// and no count was specified at deploy as storage constraints for this store,
 	// and no count was specified to storage add as a contraint either.
 	if cons.Count == 0 {
-		return nil, errors.NotValidf("adding storage where instance count is 0")
+		return nil, nil, errors.NotValidf("adding storage where instance count is 0")
 	}
 
-	addUnitStorageOps, err := im.addUnitStorageOps(charmMeta, u, storageName, cons, -1)
+	tags, addUnitStorageOps, err := im.addUnitStorageOps(charmMeta, u, storageName, cons, -1)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	ops = append(ops, addUnitStorageOps...)
-	return ops, nil
+	return tags, ops, nil
 }
 
 // addUnitStorageOps returns transaction ops to create storage for the given
@@ -1966,7 +1970,7 @@ func (im *IAASModel) addUnitStorageOps(
 	storageName string,
 	cons StorageConstraints,
 	countMin int,
-) ([]txn.Op, error) {
+) ([]names.StorageTag, []txn.Op, error) {
 	var ops []txn.Op
 
 	consTotal := cons
@@ -1977,18 +1981,18 @@ func (im *IAASModel) addUnitStorageOps(
 			im, u.Tag(), storageName, int(cons.Count), charmMeta,
 		)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 		ops = append(ops, currentCountOp)
 		consTotal.Count += uint64(currentCount)
 	} else {
 		currentCountOp, currentCount, err := im.countEntityStorageInstances(u.Tag(), storageName)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 		ops = append(ops, currentCountOp)
 		if currentCount >= countMin {
-			return ops, nil
+			return nil, ops, nil
 		}
 		cons.Count = uint64(countMin)
 	}
@@ -1997,11 +2001,11 @@ func (im *IAASModel) addUnitStorageOps(
 		map[string]StorageConstraints{storageName: consTotal},
 		charmMeta,
 	); err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	// Create storage db operations
-	storageOps, storageCounts, _, err := createStorageOps(
+	storageOps, storageTags, _, err := createStorageOps(
 		im,
 		u.Tag(),
 		charmMeta,
@@ -2010,18 +2014,21 @@ func (im *IAASModel) addUnitStorageOps(
 		u,
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	// Increment reference counts for the named storage for each
 	// instance we create. We'll use the reference counts to ensure
 	// we don't exceed limits when adding storage, and for
 	// maintaining model integrity during charm upgrades.
-	for name, count := range storageCounts {
+	var allTags []names.StorageTag
+	for name, tags := range storageTags {
+		count := len(tags)
 		incRefOp, err := increfEntityStorageOp(im.mb, u.Tag(), name, count)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 		storageOps = append(storageOps, incRefOp)
+		allTags = append(allTags, tags...)
 	}
 	ops = append(ops, txn.Op{
 		C:      unitsC,
@@ -2030,7 +2037,7 @@ func (im *IAASModel) addUnitStorageOps(
 		Update: bson.D{{"$inc",
 			bson.D{{"storageattachmentcount", int(cons.Count)}}}},
 	})
-	return append(ops, storageOps...), nil
+	return allTags, append(ops, storageOps...), nil
 }
 
 func (im *IAASModel) countEntityStorageInstances(owner names.Tag, name string) (txn.Op, int, error) {

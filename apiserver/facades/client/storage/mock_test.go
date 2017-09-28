@@ -60,7 +60,7 @@ type mockState struct {
 	machineFilesystemAttachments        func(machine names.MachineTag) ([]state.FilesystemAttachment, error)
 	filesystemAttachments               func(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error)
 	allFilesystems                      func() ([]state.Filesystem, error)
-	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) error
+	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
 	getBlockForType                     func(t state.BlockType) (state.Block, bool, error)
 	blockDevices                        func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 	destroyStorageInstance              func(names.StorageTag, bool) error
@@ -162,7 +162,7 @@ func (st *mockState) Filesystem(tag names.FilesystemTag) (state.Filesystem, erro
 	return st.filesystem(tag)
 }
 
-func (st *mockState) AddStorageForUnit(u names.UnitTag, name string, cons state.StorageConstraints) error {
+func (st *mockState) AddStorageForUnit(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 	return st.addStorageForUnit(u, name, cons)
 }
 

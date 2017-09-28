@@ -33,11 +33,18 @@ type MachineResult struct {
 	Err     *params.Error
 }
 
-// MachineStatusResults provides a found Machine and Status Results
+// MachineStatusResult provides a found Machine and Status Results
 // for it.
 type MachineStatusResult struct {
 	Machine *Machine
 	Status  params.StatusResult
+}
+
+// DistributionGroupResult provides a slice of machine.Ids in the
+// distribution group and any Error related to finding it.
+type DistributionGroupResult struct {
+	MachineIds []string
+	Err        *params.Error
 }
 
 const provisionerFacade = "Provisioner"
@@ -312,4 +319,25 @@ func (st *State) HostChangesForContainer(containerTag names.MachineTag) ([]netwo
 		res[i].MACAddress = bridgeInfo.MACAddress
 	}
 	return res, result.Results[0].ReconfigureDelay, nil
+}
+
+// DistributionGroupByMachineId returns a slice of machine.Ids
+// that belong to the same distribution group as the given
+// Machine. The provisioner may use this information
+// to distribute instances for high availability.
+func (st *State) DistributionGroupByMachineId(tags ...names.MachineTag) ([]DistributionGroupResult, error) {
+	var stringResults params.StringsResults
+	entities := make([]params.Entity, len(tags))
+	for i, t := range tags {
+		entities[i] = params.Entity{Tag: t.String()}
+	}
+	err := st.facade.FacadeCall("DistributionGroupByMachineId", params.Entities{Entities: entities}, &stringResults)
+	if err != nil {
+		return []DistributionGroupResult{}, err
+	}
+	results := make([]DistributionGroupResult, len(tags))
+	for i, stringResult := range stringResults.Results {
+		results[i] = DistributionGroupResult{MachineIds: stringResult.Result, Err: stringResult.Error}
+	}
+	return results, nil
 }

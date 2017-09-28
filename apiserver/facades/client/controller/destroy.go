@@ -56,11 +56,16 @@ func destroyController(
 		return errors.Trace(err)
 	}
 
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// If we are destroying models, we need to tolerate living
 	// models but set the controller to dying to prevent new
 	// models sneaking in. If we are not destroying hosted models,
 	// this will fail if any hosted models are found.
-	backend := common.NewModelManagerBackend(st, pool)
+	backend := common.NewModelManagerBackend(model, pool)
 	return errors.Trace(common.DestroyController(
 		backend, args.DestroyModels, args.DestroyStorage,
 	))

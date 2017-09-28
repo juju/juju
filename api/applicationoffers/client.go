@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/permission"
 )
 
@@ -108,7 +109,7 @@ func convertListResultsToModel(items []params.ApplicationOfferDetails) ([]crossm
 				Username:        oc.Username,
 				Endpoint:        oc.Endpoint,
 				RelationId:      oc.RelationId,
-				Status:          oc.Status.Status.String(),
+				Status:          relation.Status(oc.Status.Status),
 				Message:         oc.Status.Info,
 				Since:           oc.Status.Since,
 				IngressSubnets:  oc.IngressSubnets,
@@ -170,7 +171,7 @@ func (c *Client) modifyOfferUser(action params.OfferAction, user, access string,
 // ApplicationOffer returns offered remote application details for a given URL.
 func (c *Client) ApplicationOffer(urlStr string) (params.ApplicationOffer, error) {
 
-	url, err := crossmodel.ParseApplicationURL(urlStr)
+	url, err := crossmodel.ParseOfferURL(urlStr)
 	if err != nil {
 		return params.ApplicationOffer{}, errors.Trace(err)
 	}
@@ -180,7 +181,7 @@ func (c *Client) ApplicationOffer(urlStr string) (params.ApplicationOffer, error
 
 	found := params.ApplicationOffersResults{}
 
-	err = c.facade.FacadeCall("ApplicationOffers", params.ApplicationURLs{[]string{urlStr}}, &found)
+	err = c.facade.FacadeCall("ApplicationOffers", params.OfferURLs{[]string{urlStr}}, &found)
 	if err != nil {
 		return params.ApplicationOffer{}, errors.Trace(err)
 	}
@@ -230,7 +231,7 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 // GetConsumeDetails returns details necessary to consue an offer at a given URL.
 func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, error) {
 
-	url, err := crossmodel.ParseApplicationURL(urlStr)
+	url, err := crossmodel.ParseOfferURL(urlStr)
 	if err != nil {
 		return params.ConsumeOfferDetails{}, errors.Trace(err)
 	}
@@ -240,7 +241,7 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 
 	found := params.ConsumeOfferDetailsResults{}
 
-	err = c.facade.FacadeCall("GetConsumeDetails", params.ApplicationURLs{[]string{urlStr}}, &found)
+	err = c.facade.FacadeCall("GetConsumeDetails", params.OfferURLs{[]string{urlStr}}, &found)
 	if err != nil {
 		return params.ConsumeOfferDetails{}, errors.Trace(err)
 	}
@@ -259,4 +260,30 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 		Macaroon:       theOne.Macaroon,
 		ControllerInfo: theOne.ControllerInfo,
 	}, nil
+}
+
+// DestroyOffers removes the specified application offers.
+func (c *Client) DestroyOffers(offerURLs ...string) error {
+	if len(offerURLs) == 0 {
+		return nil
+	}
+	args := params.DestroyApplicationOffers{
+		OfferURLs: make([]string, len(offerURLs)),
+	}
+	for i, url := range offerURLs {
+		if _, err := crossmodel.ParseOfferURL(url); err != nil {
+			return errors.Trace(err)
+		}
+		args.OfferURLs[i] = url
+	}
+
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("DestroyOffers", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(result.Results) != len(args.OfferURLs) {
+		return errors.Errorf("expected %d results, got %d", len(args.OfferURLs), len(result.Results))
+	}
+	return result.Combine()
 }

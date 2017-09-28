@@ -402,7 +402,7 @@ func watchApplicationRelations(backend modelBackend, applicationName string) Str
 		return strings.HasPrefix(k, prefix) || strings.Contains(k, infix)
 	}
 	members := bson.D{{"endpoints.applicationname", applicationName}}
-	return newRelationLifeSuspendedWatcher(backend, members, filter)
+	return newRelationLifeSuspendedWatcher(backend, members, filter, nil)
 }
 
 // WatchModelMachines returns a StringsWatcher that notifies of changes to
@@ -1105,7 +1105,7 @@ func (r *Relation) WatchLifeSuspendedStatus() StringsWatcher {
 		return k == r.Tag().Id()
 	}
 	members := bson.D{{"id", r.Id()}}
-	return newRelationLifeSuspendedWatcher(r.st, members, filter)
+	return newRelationLifeSuspendedWatcher(r.st, members, filter, nil)
 }
 
 type relationLifeSuspended struct {
@@ -1117,11 +1117,12 @@ type relationLifeSuspended struct {
 // suspended status of specific relations.
 type relationLifeSuspendedWatcher struct {
 	commonWatcher
-	out chan []string
-
-	members       bson.D
-	filter        func(interface{}) bool
+	out           chan []string
 	lifeSuspended map[string]relationLifeSuspended
+
+	members   bson.D
+	filter    func(interface{}) bool
+	transform func(id string) string
 }
 
 // newRelationLifeSuspendedWatcher creates a watcher that sends changes when the
@@ -1130,12 +1131,14 @@ func newRelationLifeSuspendedWatcher(
 	backend modelBackend,
 	members bson.D,
 	filter func(key interface{}) bool,
+	transform func(id string) string,
 ) *relationLifeSuspendedWatcher {
 	w := &relationLifeSuspendedWatcher{
 		commonWatcher: newCommonWatcher(backend),
 		out:           make(chan []string),
 		members:       members,
 		filter:        filter,
+		transform:     transform,
 		lifeSuspended: make(map[string]relationLifeSuspended),
 	}
 	go func() {
@@ -1244,6 +1247,11 @@ func (w *relationLifeSuspendedWatcher) loop() error {
 	out := w.out
 	for {
 		values := ids.Values()
+		if w.transform != nil {
+			for i, v := range values {
+				values[i] = w.transform(v)
+			}
+		}
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
@@ -3031,7 +3039,7 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 		}
 		return num > 0
 	}
-	return newLifecycleWatcher(st, relationsC, nil, filter, tr)
+	return newRelationLifeSuspendedWatcher(st, nil, filter, tr)
 }
 
 // WatchSubnets returns a StringsWatcher that notifies of changes to

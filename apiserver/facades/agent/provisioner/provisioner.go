@@ -140,6 +140,19 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	}, nil
 }
 
+type ProvisionerAPIV5 struct {
+	*ProvisionerAPI
+}
+
+// NewProvisionerAPIV5 creates a new server-side Provisioner API facade.
+func NewProvisionerAPIV5(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV5, error) {
+	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV5{provisionerAPI}, nil
+}
+
 func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
 	if !canAccess(tag) {
 		return nil, common.ErrPerm
@@ -492,6 +505,68 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 		instanceIds[i] = instance.Id(instanceId)
 	}
 	return instanceIds, nil
+}
+
+// DistributionGroupByMachineId returns, for each given machine entity,
+// a slice of machine.Ids that belong to the same distribution
+// group as that machine. This information may be used to
+// distribute instances for high availability.
+func (p *ProvisionerAPIV5) DistributionGroupByMachineId(args params.Entities) (params.StringsResults, error) {
+	result := params.StringsResults{
+		Results: make([]params.StringsResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return params.StringsResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := p.getMachine(canAccess, tag)
+		if err == nil {
+			// If the machine is an environment manager, return
+			// environment manager instances. Otherwise, return
+			// instances with services in common with the machine
+			// being provisioned.
+			if machine.IsManager() {
+				result.Results[i].Result, err = environManagerMachineIds(p.st, machine)
+			} else {
+				result.Results[i].Result, err = commonApplicationMachineId(p.st, machine)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// environManagerMachineIds returns a slice of all other environ manager machine.Ids.
+func environManagerMachineIds(st *state.State, m *state.Machine) ([]string, error) {
+	info, err := st.ControllerInfo()
+	if err != nil {
+		return nil, err
+	}
+	result := set.NewStrings(info.MachineIds...)
+	result.Remove(m.Id())
+	return result.SortedValues(), nil
+}
+
+// commonApplicationMachineId returns a slice of machine.Ids with
+// applications in common with the specified machine.
+func commonApplicationMachineId(st *state.State, m *state.Machine) ([]string, error) {
+	applications := m.Principals()
+	var union set.Strings
+	for _, app := range applications {
+		machines, err := state.ApplicationMachines(st, app)
+		if err != nil {
+			return nil, err
+		}
+		union = union.Union(set.NewStrings(machines...))
+	}
+	union.Remove(m.Id())
+	return union.SortedValues(), nil
 }
 
 // Constraints returns the constraints for each given machine entity.

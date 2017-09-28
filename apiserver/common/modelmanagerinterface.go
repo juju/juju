@@ -102,22 +102,28 @@ var _ ModelManagerBackend = (*modelManagerStateShim)(nil)
 
 type modelManagerStateShim struct {
 	*state.State
-	pool *state.StatePool
+	model *state.Model
+	pool  *state.StatePool
 }
 
 // NewModelManagerBackend returns a modelManagerStateShim wrapping the passed
 // state, which implements ModelManagerBackend.
-func NewModelManagerBackend(st *state.State, pool *state.StatePool) ModelManagerBackend {
-	return modelManagerStateShim{st, pool}
+func NewModelManagerBackend(m *state.Model, pool *state.StatePool) ModelManagerBackend {
+	return modelManagerStateShim{m.State(), m, pool}
 }
 
 // NewModel implements ModelManagerBackend.
 func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelManagerBackend, error) {
-	m, otherState, err := st.State.NewModel(args)
+	otherModel, otherState, err := st.State.NewModel(args)
 	if err != nil {
 		return nil, nil, err
 	}
-	return modelShim{m}, modelManagerStateShim{otherState, st.pool}, nil
+	return modelShim{otherModel}, modelManagerStateShim{otherState, otherModel, st.pool}, nil
+}
+
+// UpdateModelConfigDefaultValues implements the ModelManagerBackend method.
+func (st modelManagerStateShim) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.RegionSpec) error {
+	return st.model.UpdateModelConfigDefaultValues(update, remove, regionSpec)
 }
 
 // GetBackend implements ModelManagerBackend.
@@ -126,7 +132,11 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return modelManagerStateShim{otherState, st.pool}, release, nil
+	otherModel, err := otherState.Model()
+	if err != nil {
+		return nil, nil, err
+	}
+	return modelManagerStateShim{otherState, otherModel, st.pool}, release, nil
 }
 
 // GetModel implements ModelManagerBackend.

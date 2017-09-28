@@ -35,6 +35,7 @@ type destroyControllerSuite struct {
 	controller *controller.ControllerAPIv4
 
 	otherState     *state.State
+	otherModel     *state.Model
 	otherEnvOwner  names.UserTag
 	otherModelUUID string
 }
@@ -73,6 +74,9 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	})
 	s.AddCleanup(func(c *gc.C) { s.otherState.Close() })
 	s.otherModelUUID = s.otherState.ModelUUID()
+
+	s.otherModel, err = s.otherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedEnvsWithBlocks(c *gc.C) {
@@ -136,7 +140,7 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvs(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherState, s.StatePool), nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
@@ -148,7 +152,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvs(c *gc.C) {
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBlock(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherState, s.StatePool), nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
@@ -162,7 +166,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBloc
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlockFail(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherState, s.StatePool), nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")

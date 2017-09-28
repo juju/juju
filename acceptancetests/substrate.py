@@ -20,9 +20,6 @@ from jujuconfig import (
     get_euca_env,
     translate_to_env,
     )
-from jujupy import (
-    EnvJujuClient1X
-    )
 from utility import (
     temp_dir,
     until_timeout,
@@ -113,7 +110,7 @@ class AWSAccount:
     @classmethod
     @contextmanager
     def from_boot_config(cls, boot_config, region=None):
-        """Create an AWSAccount from a SimpleEnvironment or JujuData."""
+        """Create an AWSAccount from a JujuData object."""
         config = get_config(boot_config)
         euca_environ = get_euca_env(config)
         if region is None:
@@ -285,7 +282,7 @@ class OpenStackAccount:
     @classmethod
     @contextmanager
     def from_boot_config(cls, boot_config):
-        """Create an OpenStackAccount from a SimpleEnvironment or JujuData."""
+        """Create an OpenStackAccount from a JujuData object."""
         config = get_config(boot_config)
         yield cls(
             config['username'], config['password'], config['tenant-name'],
@@ -353,7 +350,7 @@ class JoyentAccount:
     def from_boot_config(cls, boot_config):
         """Create a ContextManager for a JoyentAccount.
 
-         Using a SimpleEnvironment or JujuData, the private key is written to
+         Using a JujuData object, the private key is written to
          a tmp file. Then, the Joyent client is inited with the path to the
          tmp key. The key is removed when done.
          """
@@ -415,13 +412,9 @@ def convert_to_azure_ids(client, instance_ids):
     :param instance_ids: a list of Juju machine instance-ids
     :return: A list of ARM VM instance ids.
     """
-    if isinstance(client, EnvJujuClient1X):
-        # Juju 1.x reports the true vm instance-id.
-        return instance_ids
-    else:
-        with AzureARMAccount.from_boot_config(
-                client.env) as substrate:
-            return substrate.convert_to_azure_ids(client, instance_ids)
+    with AzureARMAccount.from_boot_config(
+            client.env) as substrate:
+        return substrate.convert_to_azure_ids(client, instance_ids)
 
 
 class GCEAccount:

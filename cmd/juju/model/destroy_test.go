@@ -31,6 +31,7 @@ type DestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	api             *fakeAPI
 	configAPI       *fakeConfigAPI
+	storageAPI      *mockStorageAPI
 	stub            *jutesting.Stub
 	budgetAPIClient *mockBudgetAPIClient
 	store           *jujuclient.MemStore
@@ -100,6 +101,7 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 		bestAPIVersion: 4,
 	}
 	s.configAPI = &fakeConfigAPI{}
+	s.storageAPI = &mockStorageAPI{Stub: s.stub}
 
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "test1"
@@ -120,12 +122,12 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, noOpRefresh, s.store, s.sleep)
+	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, noOpRefresh, s.store, s.sleep)
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
 func (s *DestroySuite) NewDestroyCommand() cmd.Command {
-	return model.NewDestroyCommandForTest(s.api, s.configAPI, noOpRefresh, s.store, s.sleep)
+	return model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, noOpRefresh, s.store, s.sleep)
 }
 
 func checkModelExistsInStore(c *gc.C, name string, store jujuclient.ClientStore) {
@@ -162,7 +164,7 @@ func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 		return nil
 	}
 
-	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, refresh, s.store, s.sleep)
+	cmd := model.NewDestroyCommandForTest(s.api, s.configAPI, s.storageAPI, refresh, s.store, s.sleep)
 	_, err := cmdtesting.RunCommand(c, cmd, "foo")
 	c.Check(called, jc.IsTrue)
 	c.Check(err, gc.ErrorMatches, `model test1:admin/foo not found`)
@@ -281,11 +283,15 @@ into another Juju model.
 
 func (s *DestroySuite) TestDestroyDestroyStorageFlagUnspecifiedOldController(c *gc.C) {
 	s.api.bestAPIVersion = 3
-	ctx, err := s.runDestroyCommand(c, "test2", "-y")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `this juju controller only supports destroying storage
+	s.storageAPI.storage = []params.StorageDetails{{}}
 
-Please run the the command again with --destroy-storage,
+	_, err := s.runDestroyCommand(c, "test2", "-y")
+	c.Assert(err, gc.ErrorMatches, `cannot destroy model "test2"
+
+Destroying this model will destroy the storage, but you
+have not indicated that you want to do that.
+
+Please run the the command again with --destroy-storage
 to confirm that you want to destroy the storage along
 with the model.
 
@@ -293,6 +299,14 @@ If instead you want to keep the storage, you must first
 upgrade the controller to version 2.3 or greater.
 
 `)
+}
+
+func (s *DestroySuite) TestDestroyDestroyStorageFlagUnspecifiedOldControllerNoStorage(c *gc.C) {
+	s.api.bestAPIVersion = 3
+	s.storageAPI.storage = nil // no storage in model
+
+	_, err := s.runDestroyCommand(c, "test2", "-y")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *DestroySuite) resetModel(c *gc.C) {
@@ -368,4 +382,16 @@ type mockBudgetAPIClient struct {
 func (c *mockBudgetAPIClient) DeleteBudget(model string) (string, error) {
 	c.MethodCall(c, "DeleteBudget", model)
 	return "Budget removed.", c.NextErr()
+}
+
+type mockStorageAPI struct {
+	*jutesting.Stub
+	storage []params.StorageDetails
+}
+
+func (*mockStorageAPI) Close() error { return nil }
+
+func (m *mockStorageAPI) ListStorageDetails() ([]params.StorageDetails, error) {
+	m.MethodCall(m, "ListStorageDetails")
+	return m.storage, m.NextErr()
 }

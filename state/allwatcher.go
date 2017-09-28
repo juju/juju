@@ -524,11 +524,11 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 		return app.updateOfferInfo(st, store)
 	}
 	info := &multiwatcher.RemoteApplicationInfo{
-		ModelUUID:      st.ModelUUID(),
-		Name:           app.Name,
-		OfferUUID:      app.OfferUUID,
-		ApplicationURL: app.URL,
-		Life:           multiwatcher.Life(app.Life.String()),
+		ModelUUID: st.ModelUUID(),
+		Name:      app.Name,
+		OfferUUID: app.OfferUUID,
+		OfferURL:  app.URL,
+		Life:      multiwatcher.Life(app.Life.String()),
 	}
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
@@ -579,7 +579,8 @@ func (app *backingRemoteApplication) updateOfferInfo(st *State, store *multiwatc
 	if err != nil {
 		return errors.Trace(err)
 	}
-	offerInfo.ConnectedCount = remoteConnection.ConnectionCount()
+	offerInfo.TotalConnectedCount = remoteConnection.TotalConnectionCount()
+	offerInfo.ActiveConnectedCount = remoteConnection.ActiveConnectionCount()
 	store.Update(offerInfo)
 	return nil
 }
@@ -637,7 +638,8 @@ func updateOfferInfo(st *State, offerInfo *multiwatcher.ApplicationOfferInfo) er
 	if err != nil {
 		return errors.Trace(err)
 	}
-	offerInfo.ConnectedCount = remoteConnection.ConnectionCount()
+	offerInfo.TotalConnectedCount = remoteConnection.TotalConnectionCount()
+	offerInfo.ActiveConnectedCount = remoteConnection.ActiveConnectionCount()
 	return nil
 }
 

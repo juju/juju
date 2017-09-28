@@ -16,7 +16,6 @@ import (
 type firewallRule struct {
 	KnownService   string   `yaml:"known-service" json:"known-service"`
 	WhitelistCIDRS []string `yaml:"whitelist-subnets,omitempty" json:"whitelist-subnets,omitempty"`
-	BlacklistCIDRS []string `yaml:"blacklist-subnets,omitempty" json:"blacklist-subnets,omitempty"`
 }
 
 type firewallRules []firewallRule
@@ -43,9 +42,9 @@ func formatFirewallRulesTabular(writer io.Writer, rules firewallRules) {
 
 	sort.Sort(rules)
 
-	w.Println("Service", "Whitelist subnets", "Blacklist subnets")
+	w.Println("Service", "Whitelist subnets")
 	for _, rule := range rules {
-		w.Println(rule.KnownService, strings.Join(rule.WhitelistCIDRS, ","), strings.Join(rule.BlacklistCIDRS, ","))
+		w.Println(rule.KnownService, strings.Join(rule.WhitelistCIDRS, ","))
 	}
 	tw.Flush()
 }

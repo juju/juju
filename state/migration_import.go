@@ -73,18 +73,13 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 	args := ModelArgs{
-		Type:           modelType,
-		CloudName:      model.Cloud(),
-		CloudRegion:    model.CloudRegion(),
-		Config:         cfg,
-		Owner:          model.Owner(),
-		MigrationMode:  MigrationModeImporting,
-		EnvironVersion: model.EnvironVersion(),
-
-		// NOTE(axw) we create the model without any storage
-		// pools. We'll need to import the storage pools from
-		// the model description before adding any volumes,
-		// filesystems or storage instances.
+		Type:                    modelType,
+		CloudName:               model.Cloud(),
+		CloudRegion:             model.CloudRegion(),
+		Config:                  cfg,
+		Owner:                   model.Owner(),
+		MigrationMode:           MigrationModeImporting,
+		EnvironVersion:          model.EnvironVersion(),
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	}
 	if creds := model.CloudCredential(); creds != nil {
@@ -239,8 +234,8 @@ type importer struct {
 	model   description.Model
 	logger  loggo.Logger
 	// applicationUnits is populated at the end of loading the applications, and is a
-	// map of application name to units of that application.
-	applicationUnits map[string][]*Unit
+	// map of application name to the units of that application.
+	applicationUnits map[string]map[string]*Unit
 }
 
 func (i *importer) modelExtras() error {
@@ -707,10 +702,14 @@ func (i *importer) loadUnits() error {
 		return errors.Annotate(err, "cannot get all units")
 	}
 
-	result := make(map[string][]*Unit)
+	result := make(map[string]map[string]*Unit)
 	for _, doc := range docs {
-		units := result[doc.Application]
-		result[doc.Application] = append(units, newUnit(i.st, &doc))
+		units, found := result[doc.Application]
+		if !found {
+			units = make(map[string]*Unit)
+			result[doc.Application] = units
+		}
+		units[doc.Name] = newUnit(i.st, &doc)
 	}
 	i.applicationUnits = result
 	return nil
@@ -1107,7 +1106,11 @@ func (i *importer) relation(rel description.Relation) error {
 	// for each unit.
 	for _, endpoint := range rel.Endpoints() {
 		units := i.applicationUnits[endpoint.ApplicationName()]
-		for _, unit := range units {
+		for unitName, settings := range endpoint.AllSettings() {
+			unit, ok := units[unitName]
+			if !ok {
+				return errors.NotFoundf("unit %q", unitName)
+			}
 			ru, err := dbRelation.Unit(unit)
 			if err != nil {
 				return errors.Trace(err)
@@ -1121,7 +1124,7 @@ func (i *importer) relation(rel description.Relation) error {
 					Key: ruKey,
 				},
 			},
-				createSettingsOp(settingsC, ruKey, endpoint.Settings(unit.Name())),
+				createSettingsOp(settingsC, ruKey, settings),
 			)
 		}
 	}
@@ -1580,14 +1583,16 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 		Insert: doc,
 	})
 
-	refcounts, closer := i.st.db().GetCollection(refcountsC)
-	defer closer()
-	storageRefcountKey := entityStorageRefcountKey(owner, storage.Name())
-	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, 1)
-	if err != nil {
-		return errors.Trace(err)
+	if owner != nil {
+		refcounts, closer := i.st.db().GetCollection(refcountsC)
+		defer closer()
+		storageRefcountKey := entityStorageRefcountKey(owner, storage.Name())
+		incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, 1)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, incRefOp)
 	}
-	ops = append(ops, incRefOp)
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)

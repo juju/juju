@@ -90,6 +90,12 @@ type AddApplicationOffer struct {
 	Endpoints              map[string]string `json:"endpoints"`
 }
 
+// DestroyApplicationOffers holds parameters for the DestroyOffers call.
+type DestroyApplicationOffers struct {
+	OfferURLs []string `json:"offer-urls"`
+	Force     bool     `json:"force,omitempty"`
+}
+
 // RemoteEndpoint represents a remote application endpoint.
 type RemoteEndpoint struct {
 	Name      string             `json:"name"`
@@ -128,10 +134,10 @@ type ApplicationOffersResults struct {
 	Results []ApplicationOfferResult `json:"results,omitempty"`
 }
 
-// ApplicationURLs is a collection of remote application URLs
-type ApplicationURLs struct {
-	// ApplicationURLs contains collection of urls for applications that are to be shown.
-	ApplicationURLs []string `json:"application-urls,omitempty"`
+// OfferURLs is a collection of remote offer URLs
+type OfferURLs struct {
+	// OfferURLs contains collection of urls for applications that are to be shown.
+	OfferURLs []string `json:"offer-urls,omitempty"`
 }
 
 // ConsumeApplicationArg holds the arguments for consuming a remote application.
@@ -170,6 +176,7 @@ type TokenResults struct {
 // the perspective of the local model.
 type RemoteRelation struct {
 	Life                  Life           `json:"life"`
+	Suspended             bool           `json:"suspended"`
 	Id                    int            `json:"id"`
 	Key                   string         `json:"key"`
 	ApplicationName       string         `json:"application-name"`
@@ -326,6 +333,8 @@ type RemoteRelationChangeEvent struct {
 	// Suspended is the current suspended status of the relation.
 	Suspended *bool `json:"suspended,omitempty"`
 
+	SuspendedReason string `json:"suspended-reason,omitempty"`
+
 	// ChangedUnits maps unit tokens to relation unit changes.
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
 
@@ -348,6 +357,9 @@ type RelationLifeSuspendedStatusChange struct {
 
 	// Suspended is the suspended status of the relation.
 	Suspended bool `json:"suspended"`
+
+	// SuspendedReason is an optional message to explain why suspended is true.
+	SuspendedReason string `json:"suspended-reason"`
 }
 
 // RelationLifeSuspendedStatusWatchResult holds a RelationStatusWatcher id, baseline state
@@ -450,10 +462,10 @@ type RemoteEntityArg struct {
 
 // RemoteApplicationInfo has attributes for a remote application.
 type RemoteApplicationInfo struct {
-	ModelTag       string `json:"model-tag"`
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	ApplicationURL string `json:"application-url"`
+	ModelTag    string `json:"model-tag"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	OfferURL    string `json:"offer-url"`
 	// SourceModelLabel is only populated if the application
 	// originates from another model on the same controller
 	// rather than via an offer URL.

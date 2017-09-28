@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -41,8 +42,9 @@ type APIv4 struct {
 }
 
 // API implements the application interface and is the concrete
-// implementation of the api end point. API provides the
-// Application API facades for versions 1-4.
+// implementation of the api end point.
+//
+// API provides the Application API facade for version 5.
 type API struct {
 	backend    Backend
 	authorizer facade.Authorizer
@@ -449,6 +451,40 @@ func (api *API) SetCharm(args params.ApplicationSetCharm) error {
 	)
 }
 
+// GetConfig returns the application config for each of the applications
+// asked for.
+func (api *API) GetConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.ApplicationGetConfigResults{}, err
+	}
+	results := params.ApplicationGetConfigResults{
+		Results: make([]params.ConfigResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		config, err := api.getConfig(arg.Tag)
+		results.Results[i].Config = config
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (api *API) getConfig(entity string) (map[string]interface{}, error) {
+	tag, err := names.ParseTag(entity)
+	if err != nil {
+		return nil, err
+	}
+	switch kind := tag.Kind(); kind {
+	case names.ApplicationTagKind:
+		app, err := api.backend.Application(tag.Id())
+		if err != nil {
+			return nil, err
+		}
+		return app.ConfigSettings()
+	default:
+		return nil, errors.Errorf("unexpected tag type, expected application, got %s", kind)
+	}
+}
+
 // applicationSetCharm sets the charm for the given for the application.
 func (api *API) applicationSetCharm(
 	appName string,
@@ -730,22 +766,24 @@ func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]Un
 //
 // NOTE(axw) this exists only for backwards compatibility,
 // for API facade versions 1-3; clients should prefer its
-// successor, DestroyUnit, below.
+// successor, DestroyUnit, below. Until all consumers have
+// been updated, or we bump a major version, we can't drop
+// this.
 //
 // TODO(axw) 2017-03-16 #1673323
 // Drop this in Juju 3.0.
 func (api *API) DestroyUnits(args params.DestroyApplicationUnits) error {
 	var errs []error
-	entities := params.Entities{
-		Entities: make([]params.Entity, 0, len(args.UnitNames)),
+	entities := params.DestroyUnitsParams{
+		Units: make([]params.DestroyUnitParams, 0, len(args.UnitNames)),
 	}
 	for _, unitName := range args.UnitNames {
 		if !names.IsValidUnit(unitName) {
 			errs = append(errs, errors.NotValidf("unit name %q", unitName))
 			continue
 		}
-		entities.Entities = append(entities.Entities, params.Entity{
-			Tag: names.NewUnitTag(unitName).String(),
+		entities.Units = append(entities.Units, params.DestroyUnitParams{
+			UnitTag: names.NewUnitTag(unitName).String(),
 		})
 	}
 	results, err := api.DestroyUnit(entities)
@@ -761,15 +799,28 @@ func (api *API) DestroyUnits(args params.DestroyApplicationUnits) error {
 }
 
 // DestroyUnit removes a given set of application units.
-func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, error) {
+//
+// NOTE(axw) this provides backwards compatibility for facade version 4.
+func (api *APIv4) DestroyUnit(args params.Entities) (params.DestroyUnitResults, error) {
+	v5args := params.DestroyUnitsParams{
+		Units: make([]params.DestroyUnitParams, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		v5args.Units[i].UnitTag = arg.Tag
+	}
+	return api.API.DestroyUnit(v5args)
+}
+
+// DestroyUnit removes a given set of application units.
+func (api *API) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.DestroyUnitResults{}, errors.Trace(err)
 	}
 	if err := api.check.RemoveAllowed(); err != nil {
 		return params.DestroyUnitResults{}, errors.Trace(err)
 	}
-	destroyUnit := func(entity params.Entity) (*params.DestroyUnitInfo, error) {
-		unitTag, err := names.ParseUnitTag(entity.Tag)
+	destroyUnit := func(arg params.DestroyUnitParams) (*params.DestroyUnitInfo, error) {
+		unitTag, err := names.ParseUnitTag(arg.UnitTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -788,19 +839,30 @@ func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, er
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
-			api.backend, storage,
-		)
-		if err != nil {
-			return nil, errors.Trace(err)
+		if arg.DestroyStorage {
+			for _, s := range storage {
+				info.DestroyedStorage = append(
+					info.DestroyedStorage,
+					params.Entity{s.StorageTag().String()},
+				)
+			}
+		} else {
+			info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
+				api.backend, storage,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
-		if err := unit.Destroy(); err != nil {
+		op := unit.DestroyOperation()
+		op.DestroyStorage = arg.DestroyStorage
+		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return &info, nil
 	}
-	results := make([]params.DestroyUnitResult, len(args.Entities))
-	for i, entity := range args.Entities {
+	results := make([]params.DestroyUnitResult, len(args.Units))
+	for i, entity := range args.Units {
 		info, err := destroyUnit(entity)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
@@ -815,20 +877,22 @@ func (api *API) DestroyUnit(args params.Entities) (params.DestroyUnitResults, er
 //
 // NOTE(axw) this exists only for backwards compatibility,
 // for API facade versions 1-3; clients should prefer its
-// successor, DestroyApplication, below.
+// successor, DestroyApplication, below. Until all consumers
+// have been updated, or we bump a major version, we can't
+// drop this.
 //
 // TODO(axw) 2017-03-16 #1673323
 // Drop this in Juju 3.0.
-func (api *API) Destroy(args params.ApplicationDestroy) error {
-	if !names.IsValidApplication(args.ApplicationName) {
-		return errors.NotValidf("application name %q", args.ApplicationName)
+func (api *API) Destroy(in params.ApplicationDestroy) error {
+	if !names.IsValidApplication(in.ApplicationName) {
+		return errors.NotValidf("application name %q", in.ApplicationName)
 	}
-	entities := params.Entities{
-		Entities: []params.Entity{{
-			Tag: names.NewApplicationTag(args.ApplicationName).String(),
+	args := params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: names.NewApplicationTag(in.ApplicationName).String(),
 		}},
 	}
-	results, err := api.DestroyApplication(entities)
+	results, err := api.DestroyApplication(args)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -839,7 +903,20 @@ func (api *API) Destroy(args params.ApplicationDestroy) error {
 }
 
 // DestroyApplication removes a given set of applications.
-func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicationResults, error) {
+//
+// NOTE(axw) this provides backwards compatibility for facade version 4.
+func (api *APIv4) DestroyApplication(args params.Entities) (params.DestroyApplicationResults, error) {
+	v5args := params.DestroyApplicationsParams{
+		Applications: make([]params.DestroyApplicationParams, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		v5args.Applications[i].ApplicationTag = arg.Tag
+	}
+	return api.API.DestroyApplication(v5args)
+}
+
+// DestroyApplication removes a given set of applications.
+func (api *API) DestroyApplication(args params.DestroyApplicationsParams) (params.DestroyApplicationResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.DestroyApplicationResults{}, err
 	}
@@ -853,8 +930,8 @@ func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicat
 		}
 		return app.Destroy()
 	}
-	destroyApp := func(entity params.Entity) (*params.DestroyApplicationInfo, error) {
-		tag, err := names.ParseApplicationTag(entity.Tag)
+	destroyApp := func(arg params.DestroyApplicationParams) (*params.DestroyApplicationInfo, error) {
+		tag, err := names.ParseApplicationTag(arg.ApplicationTag)
 		if err != nil {
 			return nil, err
 		}
@@ -894,23 +971,34 @@ func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicat
 			}
 			storage = unseen
 
-			destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
-				api.backend, storage,
-			)
-			if err != nil {
-				return nil, err
+			if arg.DestroyStorage {
+				for _, s := range storage {
+					info.DestroyedStorage = append(
+						info.DestroyedStorage,
+						params.Entity{s.StorageTag().String()},
+					)
+				}
+			} else {
+				destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
+					api.backend, storage,
+				)
+				if err != nil {
+					return nil, err
+				}
+				info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
+				info.DetachedStorage = append(info.DetachedStorage, detached...)
 			}
-			info.DestroyedStorage = append(info.DestroyedStorage, destroyed...)
-			info.DetachedStorage = append(info.DetachedStorage, detached...)
 		}
-		if err := app.Destroy(); err != nil {
+		op := app.DestroyOperation()
+		op.DestroyStorage = arg.DestroyStorage
+		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, err
 		}
 		return &info, nil
 	}
-	results := make([]params.DestroyApplicationResult, len(args.Entities))
-	for i, entity := range args.Entities {
-		info, err := destroyApp(entity)
+	results := make([]params.DestroyApplicationResult, len(args.Applications))
+	for i, arg := range args.Applications {
+		info, err := destroyApp(arg)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -921,16 +1009,36 @@ func (api *API) DestroyApplication(args params.Entities) (params.DestroyApplicat
 }
 
 // GetConstraints returns the constraints for a given application.
-func (api *API) GetConstraints(args params.GetApplicationConstraints) (params.GetConstraintsResults, error) {
+func (api *API) GetConstraints(args params.Entities) (params.ApplicationGetConstraintsResults, error) {
 	if err := api.checkCanRead(); err != nil {
-		return params.GetConstraintsResults{}, errors.Trace(err)
+		return params.ApplicationGetConstraintsResults{}, errors.Trace(err)
 	}
-	app, err := api.backend.Application(args.ApplicationName)
+	results := params.ApplicationGetConstraintsResults{
+		Results: make([]params.ApplicationConstraint, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		cons, err := api.getConstraints(arg.Tag)
+		results.Results[i].Constraints = cons
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (api *API) getConstraints(entity string) (constraints.Value, error) {
+	tag, err := names.ParseTag(entity)
 	if err != nil {
-		return params.GetConstraintsResults{}, errors.Trace(err)
+		return constraints.Value{}, err
 	}
-	cons, err := app.Constraints()
-	return params.GetConstraintsResults{cons}, errors.Trace(err)
+	switch kind := tag.Kind(); kind {
+	case names.ApplicationTagKind:
+		app, err := api.backend.Application(tag.Id())
+		if err != nil {
+			return constraints.Value{}, err
+		}
+		return app.Constraints()
+	default:
+		return constraints.Value{}, errors.Errorf("unexpected tag type, expected application, got %s", kind)
+	}
 }
 
 // SetConstraints sets the constraints for a given application.
@@ -1055,7 +1163,11 @@ func (api *API) SetRelationsSuspended(args params.RelationSuspendedArgs) (params
 		if errors.IsNotFound(err) {
 			return errors.Errorf("cannot set suspend status for %q which is not associated with an offer", rel.Tag().Id())
 		}
-		err = rel.SetSuspended(arg.Suspended)
+		message := arg.Message
+		if !arg.Suspended {
+			message = ""
+		}
+		err = rel.SetSuspended(arg.Suspended, message)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1065,7 +1177,8 @@ func (api *API) SetRelationsSuspended(args params.RelationSuspendedArgs) (params
 			statusValue = status.Suspending
 		}
 		return rel.SetStatus(status.StatusInfo{
-			Status: status.Status(statusValue),
+			Status:  status.Status(statusValue),
+			Message: arg.Message,
 		})
 	}
 	results := make([]params.ErrorResult, len(args.Args))
@@ -1253,4 +1366,27 @@ func (api *API) maybeUpdateExistingApplicationEndpoints(
 		}
 	}
 	return existingRemoteApp, nil
+}
+
+// Mask the new methods from the V4 API. The API reflection code in
+// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
+// removes the method as far as the RPC machinery is concerned.
+
+// UpdateApplicationSeries isn't on the V4 API.
+func (u *APIv4) UpdateApplicationSeries(_, _ struct{}) {}
+
+// GetConfig isn't on the V4 API.
+func (u *APIv4) GetConfig(_, _ struct{}) {}
+
+// GetConstraints returns the v4 implementation of GetConstraints.
+func (api *APIv4) GetConstraints(args params.GetApplicationConstraints) (params.GetConstraintsResults, error) {
+	if err := api.checkCanRead(); err != nil {
+		return params.GetConstraintsResults{}, errors.Trace(err)
+	}
+	app, err := api.backend.Application(args.ApplicationName)
+	if err != nil {
+		return params.GetConstraintsResults{}, errors.Trace(err)
+	}
+	cons, err := app.Constraints()
+	return params.GetConstraintsResults{cons}, errors.Trace(err)
 }

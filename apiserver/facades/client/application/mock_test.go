@@ -129,9 +129,9 @@ func (a *mockApplication) SetCharm(cfg state.SetCharmConfig) error {
 	return a.NextErr()
 }
 
-func (a *mockApplication) Destroy() error {
-	a.MethodCall(a, "Destroy")
-	return a.NextErr()
+func (a *mockApplication) DestroyOperation() *state.DestroyApplicationOperation {
+	a.MethodCall(a, "DestroyOperation")
+	return &state.DestroyApplicationOperation{}
 }
 
 func (a *mockApplication) AddUnit(args state.AddUnitParams) (application.Unit, error) {
@@ -458,6 +458,11 @@ func (m *mockBackend) Application(name string) (application.Application, error) 
 	return app, nil
 }
 
+func (m *mockBackend) ApplyOperation(op state.ModelOperation) error {
+	m.MethodCall(m, "ApplyOperation", op)
+	return m.NextErr()
+}
+
 type mockExternalController struct {
 	uuid string
 	info crossmodel.ControllerInfo
@@ -516,9 +521,11 @@ type mockRelation struct {
 	application.Relation
 	jtesting.Stub
 
-	tag       names.Tag
-	status    status.Status
-	suspended bool
+	tag             names.Tag
+	status          status.Status
+	message         string
+	suspended       bool
+	suspendedReason string
 }
 
 func (r *mockRelation) Tag() names.Tag {
@@ -528,18 +535,25 @@ func (r *mockRelation) Tag() names.Tag {
 func (r *mockRelation) SetStatus(status status.StatusInfo) error {
 	r.MethodCall(r, "SetStatus")
 	r.status = status.Status
+	r.message = status.Message
 	return r.NextErr()
 }
 
-func (r *mockRelation) SetSuspended(suspended bool) error {
+func (r *mockRelation) SetSuspended(suspended bool, reason string) error {
 	r.MethodCall(r, "SetSuspended")
 	r.suspended = suspended
+	r.suspendedReason = reason
 	return r.NextErr()
 }
 
 func (r *mockRelation) Suspended() bool {
 	r.MethodCall(r, "Suspended")
 	return r.suspended
+}
+
+func (r *mockRelation) SuspendedReason() string {
+	r.MethodCall(r, "SuspendedReason")
+	return r.suspendedReason
 }
 
 func (r *mockRelation) Destroy() error {
@@ -563,9 +577,9 @@ func (u *mockUnit) IsPrincipal() bool {
 	return true
 }
 
-func (u *mockUnit) Destroy() error {
-	u.MethodCall(u, "Destroy")
-	return u.NextErr()
+func (u *mockUnit) DestroyOperation() *state.DestroyUnitOperation {
+	u.MethodCall(u, "DestroyOperation")
+	return &state.DestroyUnitOperation{}
 }
 
 func (u *mockUnit) AssignWithPolicy(policy state.AssignmentPolicy) error {

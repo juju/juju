@@ -36,7 +36,7 @@ var (
 	normal = proxy.Settings{
 		Http:    "http://http.proxy",
 		Https:   "https://https.proxy",
-		NoProxy: ".foo.com,bar.com,10.0.0.1:3333",
+		NoProxy: ".foo.com,bar.com,10.0.0.1:3333,192.168.0.0/16",
 	}
 	noProxy = proxy.Settings{
 		Http:    "http://http.proxy",
@@ -64,6 +64,7 @@ func (s *Suite) TestGetProxy(c *gc.C) {
 	checkProxy(c, normal, "http://10.23.45.67:80", "http://http.proxy")
 	checkProxy(c, noProxy, "http://decemberists.com", "")
 	checkProxy(c, proxy.Settings{Http: "grizzly.bear"}, "veckatimest.com", "http://grizzly.bear")
+	checkProxy(c, normal, "http://192.168.30.40:80", "")
 }
 
 func (s *Suite) TestSetBadUrl(c *gc.C) {

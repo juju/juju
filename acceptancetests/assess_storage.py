@@ -27,7 +27,6 @@ from utility import (
     configure_logging,
     temp_dir,
 )
-from jujupy.version_client import ModelClient2_1
 from jujupy.client import get_stripped_version_number
 
 
@@ -103,7 +102,8 @@ def wait_for_storage_detach(client, storage_id, interval, timeout):
         time.sleep(interval)
         storage_output = json.loads(client.list_storage())
         try:
-            index = [elem for elem in storage_output['volumes'].keys()
+            index = [
+                elem for elem in storage_output['volumes'].keys()
                 if storage_output['volumes'][elem]['storage'] == storage_id][0]
         except IndexError:
             log.info('Volume index for {} cannot be found.'.format(storage_id))
@@ -148,13 +148,6 @@ def make_expected_ls(client, storage_name, unit_name, kind='filesystem'):
                 }
             }
         }
-    # Remember that clients descend from the newest client. So 2.2 is not
-    # an instance of 2.1, but 1.25 is an instance.
-    if isinstance(client, ModelClient2_1):
-        # Juju 2.1- is missing the life field.
-        del data['storage'][storage_name]['life']
-        del data['storage'][storage_name]['attachments']['units'][
-            unit_name]['life']
     return data
 
 

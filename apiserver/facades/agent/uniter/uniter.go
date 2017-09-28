@@ -1449,9 +1449,22 @@ func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.Er
 		} else if err != nil {
 			return errors.Trace(err)
 		}
+		// If we are transitioning from "suspending" to "suspended",
+		// we retain any existing message so that if the user has
+		// previously specified a reason for suspending, it is retained.
+		message := arg.Message
+		if message == "" && arg.Status == params.Suspended {
+			current, err := rel.Status()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if current.Status == status.Suspending {
+				message = current.Message
+			}
+		}
 		return rel.SetStatus(status.StatusInfo{
 			Status:  status.Status(arg.Status),
-			Message: arg.Message,
+			Message: message,
 		})
 	}
 	results := make([]params.ErrorResult, len(args.Args))
@@ -1848,7 +1861,17 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 
 	spaces := set.NewStrings()
 	bindingsToSpace := make(map[string]string)
+	bindingsToEgressSubnets := make(map[string][]string)
+	bindingsToIngressAddress := make(map[string]string)
 
+	model, err := u.st.Model()
+	if err != nil {
+		return params.NetworkInfoResults{}, err
+	}
+	modelCfg, err := model.ModelConfig()
+	if err != nil {
+		return params.NetworkInfoResults{}, err
+	}
 	for _, binding := range args.Bindings {
 		if boundSpace, err := unit.GetSpaceForBinding(binding); err != nil {
 			result.Results[binding] = params.NetworkInfoResult{Error: common.ServerError(err)}
@@ -1856,9 +1879,9 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 			spaces.Add(boundSpace)
 			bindingsToSpace[binding] = boundSpace
 		}
+		bindingsToEgressSubnets[binding] = modelCfg.EgressSubnets()
 	}
 
-	var defaultSpaceInfo *network.NetworkInfo
 	if args.RelationId != nil {
 		// We're in a relation context.
 		rel, err := u.st.Relation(*args.RelationId)
@@ -1869,37 +1892,60 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
+
+		// Look for any relation specific egress subnets.
+		relEgress := state.NewRelationEgressNetworks(u.st)
+		egressSubnets, err := relEgress.Networks(rel.Tag().Id())
+		if err != nil && !errors.IsNotFound(err) {
+			return params.NetworkInfoResults{}, err
+		} else if err == nil {
+			cidrs := egressSubnets.CIDRS()
+			if len(cidrs) > 0 {
+				bindingsToEgressSubnets[endpoint.Name] = cidrs
+			}
+		}
+
 		boundSpace, err := unit.GetSpaceForBinding(endpoint.Name)
 		if err != nil && !errors.IsNotValid(err) {
 			return params.NetworkInfoResults{}, err
 		}
 		// If the endpoint for this relation is not bound to a space, or
-		// is bound to the default space, we need to set the address info
-		// for the default space to the correct cross model ingress address.
+		// is bound to the default space, we need to look up the ingress
+		// address info which is aware of cross model relations.
 		if boundSpace == environs.DefaultSpaceName || err != nil {
 			ru, err := u.getRelationUnit(canAccess, rel.Tag().String(), unitTag)
 			if err != nil {
 				return params.NetworkInfoResults{}, err
 			}
 			address, err := ru.IngressAddress()
-			logger.Debugf("address for relation %v is %v", rel.Tag().Id(), address)
-			spaces.Remove(environs.DefaultSpaceName)
-			defaultSpaceInfo = &network.NetworkInfo{
-				Addresses: []network.InterfaceAddress{{
-					Address: address.Value,
-				}},
+			if err != nil {
+				return params.NetworkInfoResults{}, err
 			}
+			bindingsToIngressAddress[endpoint.Name] = address.Value
 		}
 	}
 
 	networkInfos := machine.GetNetworkInfoForSpaces(spaces)
-	if defaultSpaceInfo != nil {
-		networkInfos[environs.DefaultSpaceName] = state.MachineNetworkInfoResult{
-			NetworkInfos: []network.NetworkInfo{*defaultSpaceInfo},
-		}
-	}
 	for binding, space := range bindingsToSpace {
-		result.Results[binding] = networkingcommon.MachineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
+		// The binding address information based on link layer devices.
+		info := networkingcommon.MachineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
+
+		// Set egress and ingress address information.
+		info.EgressSubnets = bindingsToEgressSubnets[binding]
+		// If there is no ingress address explicitly defined for a given binding,
+		// set the ingress addresses to the binding addresses.
+		ingressAddress, ok := bindingsToIngressAddress[binding]
+		if !ok {
+			for _, nwInfo := range info.Info {
+				for _, addr := range nwInfo.Addresses {
+					info.IngressAddresses = append(info.IngressAddresses, addr.Address)
+				}
+			}
+		}
+		if len(info.IngressAddresses) == 0 && ingressAddress != "" {
+			info.IngressAddresses = []string{ingressAddress}
+		}
+		result.Results[binding] = info
 	}
 
 	return result, nil

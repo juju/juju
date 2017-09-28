@@ -30,12 +30,9 @@ from jujupy.configuration import (
     get_bootstrap_config_path,
     get_environments_path,
     get_jenv_path,
-    NoSuchEnvironment,
     )
 from jujupy import (
-    FakeControllerState,
     fake_juju_client,
-    get_client_class,
     )
 from jujupy.client import (
     AuthNotAccepted,
@@ -72,10 +69,8 @@ from jujupy.client import (
     NameNotAccepted,
     NoActiveModel,
     NoopCondition,
-    NoProvider,
     parse_new_state_server_from_error,
     ProvisioningError,
-    SimpleEnvironment,
     SoftDeadlineExceeded,
     Status,
     StatusError,
@@ -87,7 +82,6 @@ from jujupy.client import (
     temp_bootstrap_env,
     temp_yaml_file,
     TypeNotAccepted,
-    uniquify_local,
     UnitError,
     WaitMachineNotPresent,
     WaitApplicationNotPresent
@@ -96,10 +90,6 @@ from jujupy.fake import (
     get_user_register_command_info,
     get_user_register_token,
 )
-from jujupy.version_client import (
-    EnvJujuClient1X,
-    EnvJujuClient24,
-    )
 from tests import (
     assert_juju_call,
     client_past_deadline,
@@ -134,26 +124,6 @@ class ClientTest(FakeHomeTestCase):
         patcher = patch('jujupy.client.pause')
         self.addCleanup(patcher.stop)
         self.pause_mock = patcher.start()
-
-    def fake_juju_client(self):
-        """Provide a faked juju client for the version under test.
-
-        Requires client_version, client_class, fake_backend_class to be
-        defined.
-        """
-        backend_state = FakeControllerState()
-        backend = self.fake_backend_class(backend_state,
-                                          version=self.client_version)
-        return fake_juju_client(version=self.client_version,
-                                cls=self.client_class, _backend=backend)
-
-    def check_basics(self):
-        """Basic tests for a recent ClientTest.
-
-        These are opt-in because not every ClientTest declares client_class
-        and client_version.
-        """
-        self.assertIs(self.client_class, get_client_class(self.client_version))
 
 
 class TestTempYamlFile(TestCase):
@@ -317,7 +287,7 @@ class TestJuju2Backend(TestCase):
                                soft_deadline=None)
         with patch('subprocess.Popen') as mock_popen:
             mock_popen.return_value.communicate.return_value = (
-                '{"current-model": "model"}', '')
+                b'{"current-model": "model"}', b'')
             mock_popen.return_value.returncode = 0
             result = backend.get_active_model('/foo/bar')
         self.assertEqual(('model'), result)
@@ -498,16 +468,6 @@ class TestModelClient(ClientTest):
         client = ModelClient(env, '1.25', 'full_path')
         self.assertIs(env, client.env)
 
-    def test_convert_to_juju_data(self):
-        env = SimpleEnvironment('foo', {'type': 'bar'}, 'baz')
-        with patch.object(JujuData, 'load_yaml'):
-            client = ModelClient(env, '1.25', 'full_path')
-            client.env.load_yaml.assert_called_once_with()
-        self.assertIsInstance(client.env, JujuData)
-        self.assertEqual(client.env.environment, 'foo')
-        self.assertEqual(client.env._config, {'type': 'bar'})
-        self.assertEqual(client.env.juju_home, 'baz')
-
     def test_get_version(self):
         value = ' 5.6 \n'.encode('ascii')
         with patch('subprocess.check_output', return_value=value) as vsn:
@@ -538,13 +498,6 @@ class TestModelClient(ClientTest):
             client.upgrade_juju()
         juju_mock.assert_called_with(('--agent-version', '2.0'))
 
-    def test_upgrade_juju_local(self):
-        client = ModelClient(
-            JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
-        with patch.object(client, '_upgrade_juju') as juju_mock:
-            client.upgrade_juju()
-        juju_mock.assert_called_with(('--agent-version', '2.0',))
-
     def test_upgrade_juju_no_force_version(self):
         client = ModelClient(
             JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
@@ -564,19 +517,6 @@ class TestModelClient(ClientTest):
         self.assertIs(client1.debug, client2.debug)
         self.assertEqual(client1.feature_flags, client2.feature_flags)
         self.assertEqual(client1._backend, client2._backend)
-
-    def test_clone_changed(self):
-        client1 = ModelClient(JujuData('foo'), '1.27', 'full/path',
-                              debug=True)
-        env2 = SimpleEnvironment('bar')
-        client2 = client1.clone(env2, '1.28', 'other/path', debug=False,
-                                cls=EnvJujuClient1X)
-        self.assertIs(EnvJujuClient1X, type(client2))
-        self.assertIs(env2, client2.env)
-        self.assertEqual('1.28', client2.version)
-        self.assertEqual('other/path', client2.full_path)
-        self.assertIs(False, client2.debug)
-        self.assertEqual(client1.feature_flags, client2.feature_flags)
 
     def test_get_cache_path(self):
         client = ModelClient(JujuData('foo', juju_home='/foo/'),
@@ -928,11 +868,6 @@ class TestModelClient(ClientTest):
             '-c', 'name', 'new-model', '--config', config_file.name),
             frozenset({'migration'}), 'foo', None, True, None, None,
             suppress_err=False)
-
-    def test_destroy_environment(self):
-        env = JujuData('foo')
-        client = ModelClient(env, None, None)
-        self.assertIs(False, hasattr(client, 'destroy_environment'))
 
     def test_destroy_model(self):
         env = JujuData('foo', {'type': 'ec2'})
@@ -1322,16 +1257,16 @@ class TestModelClient(ClientTest):
             'deploy', ('local:blah', '--resource', 'foo=/path/dir'))
 
     def test_deploy_storage(self):
-        env = EnvJujuClient1X(
-            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        env = ModelClient(
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb', storage='rootfs,1G')
         mock_juju.assert_called_with(
             'deploy', ('mondogb', '--storage', 'rootfs,1G'))
 
     def test_deploy_constraints(self):
-        env = EnvJujuClient1X(
-            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        env = ModelClient(
+            JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb', constraints='virt-type=kvm')
         mock_juju.assert_called_with(
@@ -3798,54 +3733,6 @@ class TestModelClient(ClientTest):
         self.assertRaises(ValueError, client.switch)
 
 
-class TestUniquifyLocal(TestCase):
-
-    def test_uniquify_local_empty(self):
-        env = SimpleEnvironment('foo', {'type': 'local'})
-        uniquify_local(env)
-        self.assertEqual(env._config, {
-            'type': 'local',
-            'api-port': 17071,
-            'state-port': 37018,
-            'storage-port': 8041,
-            'syslog-port': 6515,
-        })
-
-    def test_uniquify_local_preset(self):
-        env = SimpleEnvironment('foo', {
-            'type': 'local',
-            'api-port': 17071,
-            'state-port': 37018,
-            'storage-port': 8041,
-            'syslog-port': 6515,
-        })
-        uniquify_local(env)
-        self.assertEqual(env._config, {
-            'type': 'local',
-            'api-port': 17072,
-            'state-port': 37019,
-            'storage-port': 8042,
-            'syslog-port': 6516,
-        })
-
-    def test_uniquify_nonlocal(self):
-        env = SimpleEnvironment('foo', {
-            'type': 'nonlocal',
-            'api-port': 17071,
-            'state-port': 37018,
-            'storage-port': 8041,
-            'syslog-port': 6515,
-        })
-        uniquify_local(env)
-        self.assertEqual(env._config, {
-            'type': 'nonlocal',
-            'api-port': 17071,
-            'state-port': 37018,
-            'storage-port': 8041,
-            'syslog-port': 6515,
-        })
-
-
 @contextmanager
 def bootstrap_context(client=None):
     # Avoid unnecessary syscalls.
@@ -3917,10 +3804,10 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
 
     @staticmethod
     def get_client(env):
-        return EnvJujuClient24(env, '1.24-fake', 'fake-juju-path')
+        return ModelClient(env, '1.24-fake', 'fake-juju-path')
 
     def test_no_config_mangling_side_effect(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'local'})
         client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             with temp_bootstrap_env(fake_home, client):
@@ -3928,10 +3815,9 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         self.assertEqual(env.provider, 'local')
 
     def test_temp_bootstrap_env_environment(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'not-local'}, juju_home='')
         with bootstrap_context() as fake_home:
             client = self.get_client(env)
-            agent_version = client.get_matching_agent_version()
             with temp_bootstrap_env(fake_home, client):
                 temp_home = os.environ['JUJU_HOME']
                 self.assertEqual(temp_home, os.environ['JUJU_DATA'])
@@ -3941,19 +3827,22 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
                 expected_target = os.path.realpath(
                     get_jenv_path(temp_home, 'qux'))
                 self.assertEqual(symlink_target, expected_target)
-                config = yaml.safe_load(
-                    open(get_environments_path(temp_home)))
-                self.assertEqual(config, {'environments': {'qux': {
-                    'type': 'local',
-                    'root-dir': get_local_root(fake_home, client.env),
-                    'agent-version': agent_version,
-                    'test-mode': True,
-                    'name': 'qux',
-                }}})
+                with open(get_environments_path(temp_home)) as content:
+                    config = yaml.safe_load(content.read())
+                self.assertEqual(
+                    config, {
+                        'environments': {
+                            'qux': {
+                                'type': 'not-local',
+                                'test-mode': True,
+                                'name': 'qux',
+                            }
+                        }
+                    })
                 stub_bootstrap(client)
 
     def test_temp_bootstrap_env_provides_dir(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'local'})
         client = self.get_client(env)
         juju_home = os.path.join(self.home_dir, 'asdf')
 
@@ -3968,7 +3857,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         self.assertEqual(temp_home, juju_home)
 
     def test_temp_bootstrap_env_no_set_home(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'local'})
         client = self.get_client(env)
         os.environ['JUJU_HOME'] = 'foo'
         os.environ['JUJU_DATA'] = 'bar'
@@ -3978,17 +3867,18 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
                 self.assertEqual(os.environ['JUJU_DATA'], 'bar')
 
     def test_output(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'local'})
         client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             with temp_bootstrap_env(fake_home, client):
                 stub_bootstrap(client)
             jenv_path = get_jenv_path(fake_home, 'qux')
             self.assertFalse(os.path.islink(jenv_path))
-            self.assertEqual(open(jenv_path).read(), 'Bogus jenv')
+            with open(jenv_path) as contents:
+                self.assertEqual(contents.read(), 'Bogus jenv')
 
     def test_rename_on_exception(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'local'})
         client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             with self.assertRaisesRegexp(Exception, 'test-rename'):
@@ -3997,10 +3887,11 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
                     raise Exception('test-rename')
             jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
             self.assertFalse(os.path.islink(jenv_path))
-            self.assertEqual(open(jenv_path).read(), 'Bogus jenv')
+            with open(jenv_path) as content:
+                self.assertEqual(content.read(), 'Bogus jenv')
 
     def test_exception_no_jenv(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'local'})
         client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             with self.assertRaisesRegexp(Exception, 'test-rename'):
@@ -4011,21 +3902,11 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
             jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
             self.assertFalse(os.path.lexists(jenv_path))
 
-    def test_check_space_local_lxc(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
-        with bootstrap_context() as fake_home:
-            client = self.get_client(env)
-            with patch('jujupy.client.check_free_disk_space') as mock_cfds:
-                with temp_bootstrap_env(fake_home, client):
-                    stub_bootstrap(client)
-        self.assertEqual(mock_cfds.mock_calls, [
-            call(os.path.join(fake_home, 'qux'), 8000000, 'MongoDB files'),
-            call('/var/lib/lxc', 2000000, 'LXC containers'),
-        ])
-
     def test_check_space_local_kvm(self):
-        env = SimpleEnvironment('qux', {'type': 'local', 'container': 'kvm'})
         with bootstrap_context() as fake_home:
+            env = JujuData(
+                'qux',
+                {'type': 'local', 'container': 'kvm'})
             client = self.get_client(env)
             with patch('jujupy.client.check_free_disk_space') as mock_cfds:
                 with temp_bootstrap_env(fake_home, client):
@@ -4036,7 +3917,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         ])
 
     def test_error_on_jenv(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'local'})
         client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             jenv_path = get_jenv_path(fake_home, 'qux')
@@ -4048,7 +3929,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
                     stub_bootstrap(client)
 
     def test_not_permanent(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'local'})
         client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             client.env.juju_home = fake_home
@@ -4066,7 +3947,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
                             jes_home_path(fake_home, client.env.environment))
 
     def test_permanent(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'local'})
         client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             client.env.juju_home = fake_home
@@ -5145,294 +5026,6 @@ class TestController(TestCase):
         self.assertEqual('ctrl', controller.name)
 
 
-class TestSimpleEnvironment(TestCase):
-
-    def test_init(self):
-        controller = Mock()
-        with temp_dir() as juju_home:
-            juju_data = SimpleEnvironment(
-                'foo', {'enable_os_upgrade': False},
-                juju_home=juju_home, controller=controller,
-                bootstrap_to='zone=baz')
-            self.assertEqual(juju_home, juju_data.juju_home)
-            self.assertIs(controller, juju_data.controller)
-            self.assertEqual('zone=baz', juju_data.bootstrap_to)
-
-    def test_default_controller(self):
-        default = SimpleEnvironment('foo')
-        self.assertEqual('foo', default.controller.name)
-
-    def test_clone(self):
-        orig = SimpleEnvironment('foo', {'type': 'bar'}, 'myhome')
-        orig.local = 'local1'
-        orig.kvm = 'kvm1'
-        orig.maas = 'maas1'
-        orig.joyent = 'joyent1'
-        orig.user_name = 'user1'
-        orig.bootstrap_to = 'zonea'
-        copy = orig.clone()
-        self.assertIs(SimpleEnvironment, type(copy))
-        self.assertIsNot(orig, copy)
-        self.assertEqual(copy.environment, 'foo')
-        self.assertIsNot(orig._config, copy._config)
-        self.assertEqual({'type': 'bar'}, copy._config)
-        self.assertEqual('myhome', copy.juju_home)
-        self.assertEqual('local1', copy.local)
-        self.assertEqual('kvm1', copy.kvm)
-        self.assertEqual('maas1', copy.maas)
-        self.assertEqual('joyent1', copy.joyent)
-        self.assertEqual('user1', copy.user_name)
-        self.assertEqual('zonea', copy.bootstrap_to)
-        self.assertIs(orig.controller, copy.controller)
-
-    def test_clone_model_name(self):
-        orig = SimpleEnvironment('foo', {'type': 'bar', 'name': 'oldname'},
-                                 'myhome')
-        copy = orig.clone(model_name='newname')
-        self.assertEqual('newname', copy.environment)
-        self.assertEqual('newname', copy.get_option('name'))
-
-    def test_set_model_name(self):
-        env = SimpleEnvironment('foo', {})
-        env.set_model_name('bar')
-        self.assertEqual(env.environment, 'bar')
-        self.assertEqual(env.controller.name, 'bar')
-        self.assertEqual(env.get_option('name'), 'bar')
-
-    def test_set_model_name_not_controller(self):
-        env = SimpleEnvironment('foo', {})
-        env.set_model_name('bar', set_controller=False)
-        self.assertEqual(env.environment, 'bar')
-        self.assertEqual(env.controller.name, 'foo')
-        self.assertEqual(env.get_option('name'), 'bar')
-
-    def test_local_from_config(self):
-        env = SimpleEnvironment('local', {'type': 'openstack'})
-        self.assertFalse(env.local, 'Does not respect config type.')
-        env = SimpleEnvironment('local', {'type': 'local'})
-        self.assertTrue(env.local, 'Does not respect config type.')
-
-    def test_kvm_from_config(self):
-        env = SimpleEnvironment('local', {'type': 'local'})
-        self.assertFalse(env.kvm, 'Does not respect config type.')
-        env = SimpleEnvironment('local',
-                                {'type': 'local', 'container': 'kvm'})
-        self.assertTrue(env.kvm, 'Does not respect config type.')
-
-    def test_from_config(self):
-        with temp_config():
-            env = SimpleEnvironment.from_config('foo')
-            self.assertIs(SimpleEnvironment, type(env))
-            self.assertEqual({'type': 'local'}, env._config)
-
-    def test_from_bogus_config(self):
-        with temp_config():
-            with self.assertRaises(NoSuchEnvironment):
-                SimpleEnvironment.from_config('bar')
-
-    def test_from_config_none(self):
-        with temp_config():
-            os.environ['JUJU_ENV'] = 'foo'
-            # GZ 2015-10-15: Currently default_env calls the juju on path here.
-            with patch('jujupy.configuration.default_env', autospec=True,
-                       return_value='foo') as cde_mock:
-                env = SimpleEnvironment.from_config(None)
-            self.assertEqual(env.environment, 'foo')
-            cde_mock.assert_called_once_with()
-
-    def test_juju_home(self):
-        env = SimpleEnvironment('foo')
-        self.assertIs(None, env.juju_home)
-        env = SimpleEnvironment('foo', juju_home='baz')
-        self.assertEqual('baz', env.juju_home)
-
-    def test_make_jes_home(self):
-        with temp_dir() as juju_home:
-            with SimpleEnvironment('foo').make_jes_home(
-                    juju_home, 'bar', {'baz': 'qux'}) as jes_home:
-                pass
-            with open(get_environments_path(jes_home)) as env_file:
-                env = yaml.safe_load(env_file)
-        self.assertEqual(env, {'baz': 'qux'})
-        self.assertEqual(jes_home, jes_home_path(juju_home, 'bar'))
-
-    def test_make_jes_home_clean_existing(self):
-        env = SimpleEnvironment('foo')
-        with temp_dir() as juju_home:
-            with env.make_jes_home(juju_home, 'bar',
-                                   {'baz': 'qux'}) as jes_home:
-                foo_path = os.path.join(jes_home, 'foo')
-                with open(foo_path, 'w') as foo:
-                    foo.write('foo')
-                self.assertTrue(os.path.isfile(foo_path))
-            with env.make_jes_home(juju_home, 'bar',
-                                   {'baz': 'qux'}) as jes_home:
-                self.assertFalse(os.path.exists(foo_path))
-
-    def test_discard_option(self):
-        env = SimpleEnvironment('foo', {'type': 'foo', 'bar': 'baz'})
-        discarded = env.discard_option('bar')
-        self.assertEqual('baz', discarded)
-        self.assertEqual({'type': 'foo'}, env._config)
-
-    def test_discard_option_not_present(self):
-        env = SimpleEnvironment('foo', {'type': 'foo'})
-        discarded = env.discard_option('bar')
-        self.assertIs(None, discarded)
-        self.assertEqual({'type': 'foo'}, env._config)
-
-    def test_get_option(self):
-        env = SimpleEnvironment('foo', {'type': 'azure', 'foo': 'bar'})
-        self.assertEqual(env.get_option('foo'), 'bar')
-        self.assertIs(env.get_option('baz'), None)
-
-    def test_get_option_sentinel(self):
-        env = SimpleEnvironment('foo', {'type': 'azure', 'foo': 'bar'})
-        sentinel = object()
-        self.assertIs(env.get_option('baz', sentinel), sentinel)
-
-    def test_make_jes_home_copy_public_clouds(self):
-        file_name = 'public-clouds.yaml'
-        env = SimpleEnvironment('foo')
-        test_string = 'Test string for: {}'.format(file_name)
-        with temp_dir() as juju_home:
-            with open(os.path.join(juju_home, file_name), 'w') as file:
-                file.write(test_string)
-            with env.make_jes_home(juju_home, 'bar',
-                                   {'baz': 'qux'}) as jes_home:
-                with open(os.path.join(jes_home, file_name)) as file:
-                    contents = file.readlines()
-        self.assertEqual([test_string], contents)
-
-    def test_update_config(self):
-        env = SimpleEnvironment('foo', {'type': 'azure'})
-        env.update_config({'bar': 'baz', 'qux': 'quxx'})
-        self.assertEqual(env._config, {
-            'type': 'azure', 'bar': 'baz', 'qux': 'quxx'})
-
-    def test_update_config_region(self):
-        env = SimpleEnvironment('foo', {'type': 'azure'})
-        env.update_config({'region': 'foo1'})
-        self.assertEqual(env._config, {
-            'type': 'azure', 'location': 'foo1'})
-        self.assertEqual('WARNING Using set_region to set region to "foo1".\n',
-                         self.log_stream.getvalue())
-
-    def test_update_config_type(self):
-        env = SimpleEnvironment('foo', {'type': 'azure'})
-        env.update_config({'type': 'foo1'})
-        self.assertEqual(env.provider, 'foo1')
-        self.assertEqual('WARNING Setting type is not 2.x compatible.\n',
-                         self.log_stream.getvalue())
-
-    def test_provider(self):
-        env = SimpleEnvironment('foo', {'type': 'provider1'})
-        self.assertEqual('provider1', env.provider)
-
-    def test_provider_no_provider(self):
-        env = SimpleEnvironment('foo', {'foo': 'bar'})
-        with self.assertRaisesRegexp(NoProvider, 'No provider specified.'):
-            env.provider
-
-    def test_get_region(self):
-        self.assertEqual(
-            'bar', SimpleEnvironment(
-                'foo', {'type': 'foo', 'region': 'bar'}, 'home').get_region())
-
-    def test_get_region_old_azure(self):
-        self.assertEqual('northeu', SimpleEnvironment('foo', {
-            'type': 'azure', 'location': 'North EU'}, 'home').get_region())
-
-    def test_get_region_azure_arm(self):
-        self.assertEqual('bar', SimpleEnvironment('foo', {
-            'type': 'azure', 'location': 'bar', 'tenant-id': 'baz'},
-            'home').get_region())
-
-    def test_get_region_joyent(self):
-        self.assertEqual('bar', SimpleEnvironment('foo', {
-            'type': 'joyent', 'sdc-url': 'https://bar.api.joyentcloud.com'},
-            'home').get_region())
-
-    def test_get_region_lxd(self):
-        self.assertEqual('localhost', SimpleEnvironment(
-            'foo', {'type': 'lxd'}, 'home').get_region())
-
-    def test_get_region_lxd_specified(self):
-        self.assertEqual('foo', SimpleEnvironment(
-            'foo', {'type': 'lxd', 'region': 'foo'}, 'home').get_region())
-
-    def test_get_region_maas(self):
-        self.assertIs(None, SimpleEnvironment('foo', {
-            'type': 'maas', 'region': 'bar',
-        }, 'home').get_region())
-
-    def test_get_region_manual(self):
-        self.assertEqual('baz', SimpleEnvironment('foo', {
-            'type': 'manual', 'region': 'bar',
-            'bootstrap-host': 'baz'}, 'home').get_region())
-
-    def test_set_region(self):
-        env = SimpleEnvironment('foo', {'type': 'bar'}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('region'), 'baz')
-        self.assertEqual(env.get_region(), 'baz')
-
-    def test_set_region_no_provider(self):
-        env = SimpleEnvironment('foo', {}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('region'), 'baz')
-
-    def test_set_region_joyent(self):
-        env = SimpleEnvironment('foo', {'type': 'joyent'}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('sdc-url'),
-                         'https://baz.api.joyentcloud.com')
-        self.assertEqual(env.get_region(), 'baz')
-
-    def test_set_region_azure(self):
-        env = SimpleEnvironment('foo', {'type': 'azure'}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('location'), 'baz')
-        self.assertEqual(env.get_region(), 'baz')
-
-    def test_set_region_lxd(self):
-        env = SimpleEnvironment('foo', {'type': 'lxd'}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('region'), 'baz')
-
-    def test_set_region_manual(self):
-        env = SimpleEnvironment('foo', {'type': 'manual'}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('bootstrap-host'), 'baz')
-        self.assertEqual(env.get_region(), 'baz')
-
-    def test_set_region_maas(self):
-        env = SimpleEnvironment('foo', {'type': 'maas'}, 'home')
-        with self.assertRaisesRegexp(ValueError,
-                                     'Only None allowed for maas.'):
-            env.set_region('baz')
-        env.set_region(None)
-        self.assertIs(env.get_region(), None)
-
-    def test_get_cloud_credentials_returns_config(self):
-        env = SimpleEnvironment(
-            'foo', {'type': 'ec2', 'region': 'foo'}, 'home')
-        env.credentials = {'credentials': {
-            'aws': {'credentials': {'aws': True}},
-            'azure': {'credentials': {'azure': True}},
-            }}
-        self.assertEqual(env._config, env.get_cloud_credentials())
-
-    def test_dump_yaml(self):
-        env = SimpleEnvironment('baz', {'type': 'qux'}, 'home')
-        with temp_dir() as path:
-            env.dump_yaml(path, {'foo': 'bar'})
-            self.assertItemsEqual(
-                ['environments.yaml'], os.listdir(path))
-            with open(os.path.join(path, 'environments.yaml')) as f:
-                self.assertEqual({'foo': 'bar'}, yaml.safe_load(f))
-
-
 class TestJujuData(TestCase):
 
     def test_init(self):
@@ -5507,6 +5100,13 @@ class TestJujuData(TestCase):
                         bootstrap_to='zonea', cloud_name='cloudname')
         orig.credentials = {'secret': 'password'}
         orig.clouds = {'name': {'meta': 'data'}}
+        orig.local = 'local1'
+        orig.kvm = 'kvm1'
+        orig.maas = 'maas1'
+        orig.joyent = 'joyent1'
+        orig.user_name = 'user1'
+        orig.bootstrap_to = 'zonea'
+
         copy = orig.clone()
         self.assertIs(JujuData, type(copy))
         self.assertIsNot(orig, copy)
@@ -5520,6 +5120,22 @@ class TestJujuData(TestCase):
         self.assertIsNot(orig.clouds, copy.clouds)
         self.assertEqual(orig.clouds, copy.clouds)
         self.assertEqual('cloudname', copy._cloud_name)
+        self.assertEqual({'type': 'bar'}, copy._config)
+        self.assertEqual('myhome', copy.juju_home)
+        self.assertEqual('local1', copy.local)
+        self.assertEqual('kvm1', copy.kvm)
+        self.assertEqual('maas1', copy.maas)
+        self.assertEqual('joyent1', copy.joyent)
+        self.assertEqual('user1', copy.user_name)
+        self.assertEqual('zonea', copy.bootstrap_to)
+        self.assertIs(orig.controller, copy.controller)
+
+    def test_set_model_name(self):
+        env = JujuData('foo', {}, juju_home='')
+        env.set_model_name('bar')
+        self.assertEqual(env.environment, 'bar')
+        self.assertEqual(env.controller.name, 'bar')
+        self.assertEqual(env.get_option('name'), 'bar')
 
     def test_clone_model_name(self):
         orig = JujuData('foo', {'type': 'bar', 'name': 'oldname'}, 'myhome')
@@ -5528,6 +5144,18 @@ class TestJujuData(TestCase):
         copy = orig.clone(model_name='newname')
         self.assertEqual('newname', copy.environment)
         self.assertEqual('newname', copy.get_option('name'))
+
+    def test_discard_option(self):
+        env = JujuData('foo', {'type': 'foo', 'bar': 'baz'}, juju_home='')
+        discarded = env.discard_option('bar')
+        self.assertEqual('baz', discarded)
+        self.assertEqual({'type': 'foo'}, env._config)
+
+    def test_discard_option_not_present(self):
+        env = JujuData('foo', {'type': 'foo'}, juju_home='')
+        discarded = env.discard_option('bar')
+        self.assertIs(None, discarded)
+        self.assertEqual({'type': 'foo'}, env._config)
 
     def test_update_config(self):
         env = JujuData('foo', {'type': 'azure'}, juju_home='')
@@ -5770,73 +5398,88 @@ class TestJujuData(TestCase):
             data = JujuData('baz', {'type': 'qux'}, path)
             data.load_yaml()
 
+    def test_get_option(self):
+        env = JujuData('foo', {'type': 'azure', 'foo': 'bar'}, juju_home='')
+        self.assertEqual(env.get_option('foo'), 'bar')
+        self.assertIs(env.get_option('baz'), None)
+
+    def test_get_option_sentinel(self):
+        env = JujuData('foo', {'type': 'azure', 'foo': 'bar'}, juju_home='')
+        sentinel = object()
+        self.assertIs(env.get_option('baz', sentinel), sentinel)
+
 
 class TestDescribeSubstrate(TestCase):
 
+    def setUp(self):
+        super(TestDescribeSubstrate, self).setUp()
+        # JujuData expects a JUJU_HOME or HOME env as it gets juju_home_path
+        os.environ['HOME'] = '/tmp/jujupy-tests/'
+
     def test_local_lxc(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'local',
             })
         self.assertEqual(describe_substrate(env), 'LXC (local)')
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'local',
             'container': 'lxc',
             })
         self.assertEqual(describe_substrate(env), 'LXC (local)')
 
     def test_local_kvm(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'local',
             'container': 'kvm',
             })
         self.assertEqual(describe_substrate(env), 'KVM (local)')
 
     def test_openstack(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'openstack',
             'auth-url': 'foo',
             })
         self.assertEqual(describe_substrate(env), 'Openstack')
 
     def test_canonistack(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'openstack',
             'auth-url': 'https://keystone.canonistack.canonical.com:443/v2.0/',
             })
         self.assertEqual(describe_substrate(env), 'Canonistack')
 
     def test_aws(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'ec2',
             })
         self.assertEqual(describe_substrate(env), 'AWS')
 
     def test_rackspace(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'rackspace',
             })
         self.assertEqual(describe_substrate(env), 'Rackspace')
 
     def test_joyent(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'joyent',
             })
         self.assertEqual(describe_substrate(env), 'Joyent')
 
     def test_azure(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'azure',
             })
         self.assertEqual(describe_substrate(env), 'Azure')
 
     def test_maas(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'maas',
             })
         self.assertEqual(describe_substrate(env), 'MAAS')
 
     def test_bar(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'bar',
             })
         self.assertEqual(describe_substrate(env), 'bar')

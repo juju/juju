@@ -280,10 +280,10 @@ func (s *ApplicationSuite) TestDestroyRelationIdRelationNotFound(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
-	results, err := s.api.DestroyApplication(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "application-postgresql"},
-		},
+	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: "application-postgresql",
+		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -301,13 +301,64 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 			},
 		},
 	})
+
+	s.backend.CheckCallNames(c,
+		"ModelTag",
+		"RemoteApplication",
+		"Application",
+		"UnitStorageAttachments",
+		"StorageInstance",
+		"StorageInstance",
+		"StorageInstanceFilesystem",
+		"StorageInstanceFilesystem",
+		"UnitStorageAttachments",
+		"ApplyOperation",
+	)
+	s.backend.CheckCall(c, 9, "ApplyOperation", &state.DestroyApplicationOperation{})
+}
+
+func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
+	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: "application-postgresql",
+			DestroyStorage: true,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0], jc.DeepEquals, params.DestroyApplicationResult{
+		Info: &params.DestroyApplicationInfo{
+			DestroyedUnits: []params.Entity{
+				{Tag: "unit-postgresql-0"},
+				{Tag: "unit-postgresql-1"},
+			},
+			DestroyedStorage: []params.Entity{
+				{Tag: "storage-pgdata-0"},
+				{Tag: "storage-pgdata-1"},
+			},
+		},
+	})
+
+	s.backend.CheckCallNames(c,
+		"ModelTag",
+		"RemoteApplication",
+		"Application",
+		"UnitStorageAttachments",
+		"StorageInstance",
+		"StorageInstance",
+		"UnitStorageAttachments",
+		"ApplyOperation",
+	)
+	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyApplicationOperation{
+		DestroyStorage: true,
+	})
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationNotFound(c *gc.C) {
 	delete(s.backend.applications, "postgresql")
-	results, err := s.api.DestroyApplication(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "application-postgresql"},
+	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{
+			{ApplicationTag: "application-postgresql"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -321,10 +372,13 @@ func (s *ApplicationSuite) TestDestroyApplicationNotFound(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
-	results, err := s.api.DestroyUnit(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "unit-postgresql-0"},
-			{Tag: "unit-postgresql-1"},
+	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+		Units: []params.DestroyUnitParams{
+			{UnitTag: "unit-postgresql-0"},
+			{
+				UnitTag:        "unit-postgresql-1",
+				DestroyStorage: true,
+			},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -341,6 +395,25 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	}, {
 		Info: &params.DestroyUnitInfo{},
 	}})
+
+	s.backend.CheckCallNames(c,
+		"ModelTag",
+		"Unit",
+		"UnitStorageAttachments",
+		"StorageInstance",
+		"StorageInstance",
+		"StorageInstanceFilesystem",
+		"StorageInstanceFilesystem",
+		"ApplyOperation",
+
+		"Unit",
+		"UnitStorageAttachments",
+		"ApplyOperation",
+	)
+	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyUnitOperation{})
+	s.backend.CheckCall(c, 10, "ApplyOperation", &state.DestroyUnitOperation{
+		DestroyStorage: true,
+	})
 }
 
 func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
@@ -411,12 +484,15 @@ func (s *ApplicationSuite) TestSetRelationSuspended(c *gc.C) {
 		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
 			Suspended:  true,
+			Message:    "message",
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.IsNil)
 	c.Assert(s.relation.suspended, jc.IsTrue)
+	c.Assert(s.relation.suspendedReason, gc.Equals, "message")
 	c.Assert(s.relation.status, gc.Equals, status.Suspending)
+	c.Assert(s.relation.message, gc.Equals, "message")
 }
 
 func (s *ApplicationSuite) TestSetRelationSuspendedNoOp(c *gc.C) {
@@ -438,6 +514,7 @@ func (s *ApplicationSuite) TestSetRelationSuspendedNoOp(c *gc.C) {
 func (s *ApplicationSuite) TestSetRelationSuspendedFalse(c *gc.C) {
 	s.backend.offerConnections["wordpress:db mysql:db"] = &mockOfferConnection{}
 	s.relation.suspended = true
+	s.relation.suspendedReason = "reason"
 	s.relation.status = status.Error
 	results, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{
@@ -448,6 +525,7 @@ func (s *ApplicationSuite) TestSetRelationSuspendedFalse(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.IsNil)
 	c.Assert(s.relation.suspended, jc.IsFalse)
+	c.Assert(s.relation.suspendedReason, gc.Equals, "")
 	c.Assert(s.relation.status, gc.Equals, status.Joining)
 }
 

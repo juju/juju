@@ -304,19 +304,24 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
 	defer t.Env.StopInstances(inst1.Id())
-	rules, err := inst1.IngressRules("1")
+	fwInst1, ok := inst1.(instance.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
+	rules, err := fwInst1.IngressRules("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 
 	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "2")
 	c.Assert(inst2, gc.NotNil)
-	rules, err = inst2.IngressRules("2")
+	fwInst2, ok := inst2.(instance.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+	rules, err = fwInst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 	defer t.Env.StopInstances(inst2.Id())
 
 	// Open some ports and check they're there.
-	err = inst1.OpenPorts(
+	err = fwInst1.OpenPorts(
 		"1", []network.IngressRule{
 			network.MustNewIngressRule("udp", 67, 67),
 			network.MustNewIngressRule("tcp", 45, 45),
@@ -324,7 +329,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = inst1.IngressRules("1")
+	rules, err = fwInst1.IngressRules("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -334,11 +339,11 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 			network.MustNewIngressRule("udp", 67, 67, "0.0.0.0/0"),
 		},
 	)
-	rules, err = inst2.IngressRules("2")
+	rules, err = fwInst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 
-	err = inst2.OpenPorts(
+	err = fwInst2.OpenPorts(
 		"2", []network.IngressRule{
 			network.MustNewIngressRule("tcp", 89, 89),
 			network.MustNewIngressRule("tcp", 45, 45),
@@ -347,7 +352,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check there's no crosstalk to another machine
-	rules, err = inst2.IngressRules("2")
+	rules, err = fwInst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -357,7 +362,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
 		},
 	)
-	rules, err = inst1.IngressRules("1")
+	rules, err = fwInst1.IngressRules("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -369,30 +374,30 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	)
 
 	// Check that opening the same port again is ok.
-	oldRules, err := inst2.IngressRules("2")
+	oldRules, err := fwInst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = inst2.OpenPorts(
+	err = fwInst2.OpenPorts(
 		"2", []network.IngressRule{
 			network.MustNewIngressRule("tcp", 45, 45),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	err = inst2.OpenPorts(
+	err = fwInst2.OpenPorts(
 		"2", []network.IngressRule{
 			network.MustNewIngressRule("tcp", 20, 30),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = inst2.IngressRules("2")
+	rules, err = fwInst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, jc.DeepEquals, oldRules)
 
 	// Check that opening the same port again and another port is ok.
-	err = inst2.OpenPorts(
+	err = fwInst2.OpenPorts(
 		"2", []network.IngressRule{
 			network.MustNewIngressRule("tcp", 45, 45),
 			network.MustNewIngressRule("tcp", 99, 99),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = inst2.IngressRules("2")
+	rules, err = fwInst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -403,7 +408,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 			network.MustNewIngressRule("tcp", 99, 99, "0.0.0.0/0"),
 		},
 	)
-	err = inst2.ClosePorts(
+	err = fwInst2.ClosePorts(
 		"2", []network.IngressRule{
 			network.MustNewIngressRule("tcp", 45, 45),
 			network.MustNewIngressRule("tcp", 99, 99),
@@ -412,7 +417,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
-	rules, err = inst2.IngressRules("2")
+	rules, err = fwInst2.IngressRules("2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -420,7 +425,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 			network.MustNewIngressRule("tcp", 89, 89, "0.0.0.0/0"),
 		},
 	)
-	rules, err = inst1.IngressRules("1")
+	rules, err = fwInst1.IngressRules("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -432,25 +437,25 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	)
 
 	// Check that we can close multiple ports.
-	err = inst1.ClosePorts(
+	err = fwInst1.ClosePorts(
 		"1", []network.IngressRule{
 			network.MustNewIngressRule("tcp", 45, 45),
 			network.MustNewIngressRule("udp", 67, 67),
 			network.MustNewIngressRule("tcp", 80, 100),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = inst1.IngressRules("1")
+	rules, err = fwInst1.IngressRules("1")
 	c.Assert(rules, gc.HasLen, 0)
 
 	// Check that we can close ports that aren't there.
-	err = inst2.ClosePorts(
+	err = fwInst2.ClosePorts(
 		"2", []network.IngressRule{
 			network.MustNewIngressRule("tcp", 111, 111),
 			network.MustNewIngressRule("udp", 222, 222),
 			network.MustNewIngressRule("tcp", 600, 700),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = inst2.IngressRules("2")
+	rules, err = fwInst2.IngressRules("2")
 	c.Assert(
 		rules, jc.DeepEquals,
 		[]network.IngressRule{
@@ -459,13 +464,15 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	)
 
 	// Check errors when acting on environment.
-	err = t.Env.OpenPorts([]network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
+	fwEnv, ok := t.Env.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+	err = fwEnv.OpenPorts([]network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for opening ports on model`)
 
-	err = t.Env.ClosePorts([]network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
+	err = fwEnv.ClosePorts([]network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for closing ports on model`)
 
-	_, err = t.Env.IngressRules()
+	_, err = fwEnv.IngressRules()
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for retrieving ingress rules from model`)
 }
 
@@ -489,17 +496,21 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	// Create instances and check open ports on both instances.
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "1")
 	defer t.Env.StopInstances(inst1.Id())
-	rules, err := t.Env.IngressRules()
+
+	fwEnv, ok := t.Env.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+
+	rules, err := fwEnv.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 
 	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, t.ControllerUUID, "2")
-	rules, err = t.Env.IngressRules()
+	rules, err = fwEnv.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 	defer t.Env.StopInstances(inst2.Id())
 
-	err = t.Env.OpenPorts([]network.IngressRule{
+	err = fwEnv.OpenPorts([]network.IngressRule{
 		network.MustNewIngressRule("udp", 67, 67),
 		network.MustNewIngressRule("tcp", 45, 45),
 		network.MustNewIngressRule("tcp", 89, 89),
@@ -508,7 +519,7 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rules, err = t.Env.IngressRules()
+	rules, err = fwEnv.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -522,13 +533,13 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	)
 
 	// Check closing some ports.
-	err = t.Env.ClosePorts([]network.IngressRule{
+	err = fwEnv.ClosePorts([]network.IngressRule{
 		network.MustNewIngressRule("tcp", 99, 99),
 		network.MustNewIngressRule("udp", 67, 67),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rules, err = t.Env.IngressRules()
+	rules, err = fwEnv.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -540,14 +551,14 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	)
 
 	// Check that we can close ports that aren't there.
-	err = t.Env.ClosePorts([]network.IngressRule{
+	err = fwEnv.ClosePorts([]network.IngressRule{
 		network.MustNewIngressRule("tcp", 111, 111),
 		network.MustNewIngressRule("udp", 222, 222),
 		network.MustNewIngressRule("tcp", 2000, 2500),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rules, err = t.Env.IngressRules()
+	rules, err = fwEnv.IngressRules()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -558,16 +569,18 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 		},
 	)
 
+	fwInst1, ok := inst1.(instance.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
 	// Check errors when acting on instances.
-	err = inst1.OpenPorts(
+	err = fwInst1.OpenPorts(
 		"1", []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for opening ports on instance`)
 
-	err = inst1.ClosePorts(
+	err = fwInst1.ClosePorts(
 		"1", []network.IngressRule{network.MustNewIngressRule("tcp", 80, 80)})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for closing ports on instance`)
 
-	_, err = inst1.IngressRules("1")
+	_, err = fwInst1.IngressRules("1")
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for retrieving ingress rules from instance`)
 }
 

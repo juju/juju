@@ -140,6 +140,9 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err := export.applications(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.remoteApplications(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.relations(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -170,10 +173,6 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	}
 
 	if err := export.cloudimagemetadata(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if err := export.remoteApplications(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -897,6 +896,10 @@ func (e *exporter) relations() error {
 		return errors.Trace(err)
 	}
 
+	remoteApps := make(set.Strings)
+	for _, a := range e.model.RemoteApplications() {
+		remoteApps.Add(a.Name())
+	}
 	for _, relation := range rels {
 		exRelation := e.model.AddRelation(description.RelationArgs{
 			Id:  relation.Id(),
@@ -908,6 +911,14 @@ func (e *exporter) relations() error {
 			return errors.Annotatef(err, "status for relation %v", relation.Id())
 		}
 		exRelation.SetStatus(statusArgs)
+
+		isRemote := false
+		for _, ep := range relation.Endpoints() {
+			if remoteApps.Contains(ep.ApplicationName) {
+				isRemote = true
+				break
+			}
+		}
 		for _, ep := range relation.Endpoints() {
 			exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
 				ApplicationName: ep.ApplicationName,
@@ -919,7 +930,11 @@ func (e *exporter) relations() error {
 				Scope:           string(ep.Scope),
 			})
 			// We expect a relationScope and settings for each of the
-			// units of the specified application.
+			// units of the specified application, unless it is a
+			// remote application.
+			if isRemote {
+				continue
+			}
 			units := e.units[ep.ApplicationName]
 			for _, unit := range units {
 				ru, err := relation.Unit(unit)
@@ -1534,10 +1549,13 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 	}
 	descApp := e.model.AddRemoteApplication(args)
 	status, err := e.statusArgs(app.globalKey())
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	descApp.SetStatus(status)
+	// Not all remote applications have status.
+	if err == nil {
+		descApp.SetStatus(status)
+	}
 	endpoints, err := app.Endpoints()
 	if err != nil {
 		return errors.Trace(err)

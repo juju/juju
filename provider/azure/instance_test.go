@@ -265,9 +265,11 @@ func (s *instanceSuite) TestMultipleInstanceAddresses(c *gc.C) {
 
 func (s *instanceSuite) TestIngressRulesEmpty(c *gc.C) {
 	inst := s.getInstance(c)
+	fwInst, ok := inst.(instance.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender}
-	rules, err := inst.IngressRules("0")
+	rules, err := fwInst.IngressRules("0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 }
@@ -360,8 +362,10 @@ func (s *instanceSuite) TestIngressRules(c *gc.C) {
 		},
 	}})
 	s.sender = azuretesting.Senders{nsgSender}
+	fwInst, ok := inst.(instance.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
 
-	rules, err := inst.IngressRules("0")
+	rules, err := fwInst.IngressRules("0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, jc.DeepEquals, []jujunetwork.IngressRule{
 		jujunetwork.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
@@ -373,6 +377,9 @@ func (s *instanceSuite) TestIngressRules(c *gc.C) {
 
 func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	inst := s.getInstance(c)
+	fwInst, ok := inst.(instance.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	sender := mocks.NewSender()
 	notFoundSender := mocks.NewSender()
 	notFoundSender.AppendResponse(mocks.NewResponseWithStatus(
@@ -380,7 +387,7 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	))
 	s.sender = azuretesting.Senders{sender, notFoundSender, notFoundSender, notFoundSender}
 
-	err := inst.ClosePorts("0", []jujunetwork.IngressRule{
+	err := fwInst.ClosePorts("0", []jujunetwork.IngressRule{
 		jujunetwork.MustNewIngressRule("tcp", 1000, 1000),
 		jujunetwork.MustNewIngressRule("udp", 1000, 2000),
 		jujunetwork.MustNewIngressRule("udp", 1000, 2000, "192.168.1.0/24", "10.0.0.0/24"),
@@ -418,12 +425,15 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	}
 
 	inst := s.getInstance(c)
+	fwInst, ok := inst.(instance.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	okSender := mocks.NewSender()
 	okSender.AppendResponse(mocks.NewResponseWithContent("{}"))
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender, okSender, okSender}
 
-	err := inst.OpenPorts("0", []jujunetwork.IngressRule{
+	err := fwInst.OpenPorts("0", []jujunetwork.IngressRule{
 		jujunetwork.MustNewIngressRule("tcp", 1000, 1000),
 		jujunetwork.MustNewIngressRule("udp", 1000, 2000),
 		jujunetwork.MustNewIngressRule("tcp", 1000, 2000, "192.168.1.0/24", "10.0.0.0/24"),
@@ -515,6 +525,9 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	}
 
 	inst := s.getInstance(c)
+	fwInst, ok := inst.(instance.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	okSender := mocks.NewSender()
 	okSender.AppendResponse(mocks.NewResponseWithContent("{}"))
 	nsgSender := networkSecurityGroupSender([]network.SecurityRule{{
@@ -529,7 +542,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	}})
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
 
-	err := inst.OpenPorts("0", []jujunetwork.IngressRule{
+	err := fwInst.OpenPorts("0", []jujunetwork.IngressRule{
 		jujunetwork.MustNewIngressRule("tcp", 1000, 1000),
 		jujunetwork.MustNewIngressRule("udp", 1000, 2000),
 	})
@@ -556,7 +569,10 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
-	err := s.getInstance(c).OpenPorts("0", nil)
+	inst := s.getInstance(c)
+	fwInst, ok := inst.(instance.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+	err := fwInst.OpenPorts("0", nil)
 	c.Assert(err, gc.ErrorMatches, "internal network address not found")
 }
 

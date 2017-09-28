@@ -1125,7 +1125,7 @@ func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
 	stateInfo, _ := a.CurrentConfig().StateServingInfo()
 	srvCert, _, err := cert.ParseCertAndKey(stateInfo.Cert, stateInfo.PrivateKey)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedDnsNames := set.NewStrings("local", "juju-apiserver", "juju-mongodb")
+	expectedDnsNames := set.NewStrings("localhost", "juju-apiserver", "juju-mongodb")
 	certDnsNames := set.NewStrings(srvCert.DNSNames...)
 	c.Check(expectedDnsNames.Difference(certDnsNames).IsEmpty(), jc.IsTrue)
 

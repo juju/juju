@@ -38,14 +38,15 @@ func relationKey(endpoints []Endpoint) string {
 // relationDoc is the internal representation of a Relation in MongoDB.
 // Note the correspondence with RelationInfo in apiserver/params.
 type relationDoc struct {
-	DocID     string     `bson:"_id"`
-	Key       string     `bson:"key"`
-	ModelUUID string     `bson:"model-uuid"`
-	Id        int        `bson:"id"`
-	Endpoints []Endpoint `bson:"endpoints"`
-	Life      Life       `bson:"life"`
-	UnitCount int        `bson:"unitcount"`
-	Suspended bool       `bson:"suspended"`
+	DocID           string     `bson:"_id"`
+	Key             string     `bson:"key"`
+	ModelUUID       string     `bson:"model-uuid"`
+	Id              int        `bson:"id"`
+	Endpoints       []Endpoint `bson:"endpoints"`
+	Life            Life       `bson:"life"`
+	UnitCount       int        `bson:"unitcount"`
+	Suspended       bool       `bson:"suspended"`
+	SuspendedReason string     `bson:"suspended-reason"`
 }
 
 // Relation represents a relation between one or two service endpoints.
@@ -73,6 +74,11 @@ func (r *Relation) Tag() names.Tag {
 // Suspended returns true if the relation is suspended.
 func (r *Relation) Suspended() bool {
 	return r.doc.Suspended
+}
+
+// SuspendedReason returns the reason why the relation is suspended.
+func (r *Relation) SuspendedReason() string {
+	return r.doc.SuspendedReason
 }
 
 // Refresh refreshes the contents of the relation from the underlying
@@ -154,9 +160,12 @@ func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
 }
 
 // SetSuspended sets whether the relation is suspended.
-func (r *Relation) SetSuspended(suspended bool) error {
+func (r *Relation) SetSuspended(suspended bool, suspendedReason string) error {
 	if r.doc.Suspended == suspended {
 		return nil
+	}
+	if !suspended && suspendedReason != "" {
+		return errors.New("cannot set suspended reason if not suspended")
 	}
 
 	var buildTxn jujutxn.TransactionSource = func(attempt int) ([]txn.Op, error) {
@@ -214,7 +223,10 @@ func (r *Relation) SetSuspended(suspended bool) error {
 			C:      relationsC,
 			Id:     r.doc.DocID,
 			Assert: bson.D{{"suspended", r.doc.Suspended}},
-			Update: bson.D{{"$set", bson.D{{"suspended", suspended}}}},
+			Update: bson.D{
+				{"$set", bson.D{{"suspended", suspended}}},
+				{"$set", bson.D{{"suspended-reason", suspendedReason}}},
+			},
 		}}
 		return append(setOps, checkOps...), nil
 	}
@@ -482,8 +494,8 @@ func (r *Relation) RelatedEndpoints(applicationname string) ([]Endpoint, error) 
 
 // Unit returns a RelationUnit for the supplied unit.
 func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
-	const checkUnitLife = true
-	return r.unit(u.Name(), u.doc.Principal, u.IsPrincipal(), checkUnitLife)
+	const isLocalUnit = true
+	return r.unit(u.Name(), u.doc.Principal, u.IsPrincipal(), isLocalUnit)
 }
 
 // RemoteUnit returns a RelationUnit for the supplied unit
@@ -501,8 +513,8 @@ func (r *Relation) RemoteUnit(unitName string) (*RelationUnit, error) {
 	// relation, so all remote units are principals.
 	const principal = ""
 	const isPrincipal = true
-	const checkUnitLife = false
-	return r.unit(unitName, principal, isPrincipal, checkUnitLife)
+	const isLocalUnit = false
+	return r.unit(unitName, principal, isPrincipal, isLocalUnit)
 }
 
 // IsCrossModel returns whether this relation is a cross-model
@@ -523,7 +535,7 @@ func (r *Relation) unit(
 	unitName string,
 	principal string,
 	isPrincipal bool,
-	checkUnitLife bool,
+	isLocalUnit bool,
 ) (*RelationUnit, error) {
 	serviceName, err := names.UnitApplication(unitName)
 	if err != nil {
@@ -542,13 +554,13 @@ func (r *Relation) unit(
 		scope = fmt.Sprintf("%s#%s", scope, container)
 	}
 	return &RelationUnit{
-		st:            r.st,
-		relation:      r,
-		unitName:      unitName,
-		isPrincipal:   isPrincipal,
-		checkUnitLife: checkUnitLife,
-		endpoint:      ep,
-		scope:         scope,
+		st:          r.st,
+		relation:    r,
+		unitName:    unitName,
+		isPrincipal: isPrincipal,
+		isLocalUnit: isLocalUnit,
+		endpoint:    ep,
+		scope:       scope,
 	}, nil
 }
 

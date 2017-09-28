@@ -436,13 +436,13 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 		"http-proxy":  "http://http-proxy",
 		"https-proxy": "https://https-proxy",
 	}
-	err := s.State.UpdateModelConfigDefaultValues(attrs, nil, nil)
+	err := s.IAASModel.UpdateModelConfigDefaultValues(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs = map[string]interface{}{
 		"apt-mirror": "http://different-mirror",
 	}
-	err = s.State.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
+	err = s.IAASModel.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := statetesting.NewMongoInfo()
@@ -494,7 +494,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	rspec, err := environs.NewRegionSpec("dummy", "dummy-region")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.UpdateModelConfigDefaultValues(attrs, nil, rspec)
+	err = s.IAASModel.UpdateModelConfigDefaultValues(attrs, nil, rspec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Then check in another state.
@@ -537,7 +537,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	c.Assert(cfg, jc.DeepEquals, expectedValues)
 
 	// remove the dummy-region setting
-	err = s.State.UpdateModelConfigDefaultValues(nil, []string{"no-proxy"}, rspec)
+	err = s.IAASModel.UpdateModelConfigDefaultValues(nil, []string{"no-proxy"}, rspec)
 
 	// and check again
 	cfg, err = anotherState.ModelConfigDefaultValues()
@@ -575,7 +575,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultValuesUnknownRegion
 
 	// We add this to the unused-region which has not been created in mongo
 	// yet.
-	err = s.State.UpdateModelConfigDefaultValues(attrs, nil, rspec)
+	err = s.IAASModel.UpdateModelConfigDefaultValues(attrs, nil, rspec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Then check config.

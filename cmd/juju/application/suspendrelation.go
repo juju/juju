@@ -5,10 +5,12 @@ package application
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
+	"github.com/juju/gnuflag"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -24,6 +26,8 @@ status will be set to suspended. The relation is specified using its id.
 
 Examples:
     juju suspend-relation 123
+    juju suspend-relation 123 --message "reason for suspending"
+    juju suspend-relation 123 456 --message "reason for suspending"
 
 See also: 
     add-relation
@@ -40,44 +44,50 @@ func NewSuspendRelationCommand() cmd.Command {
 			return nil, errors.Trace(err)
 		}
 		return application.NewClient(root), nil
-
 	}
 	return modelcmd.Wrap(cmd)
 }
 
 type suspendRelationCommand struct {
 	modelcmd.ModelCommandBase
-	RelationId int
-	newAPIFunc func() (SetRelationSuspendedAPI, error)
+	relationIds []int
+	message     string
+	newAPIFunc  func() (SetRelationSuspendedAPI, error)
 }
 
 func (c *suspendRelationCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "suspend-relation",
-		Args:    "<relation-id>",
+		Args:    "<relation-id>[ <relation-id>...]",
 		Purpose: suspendHelpSummary,
 		Doc:     suspendHelpDetails,
 	}
 }
 
 func (c *suspendRelationCommand) Init(args []string) (err error) {
-	if len(args) == 1 {
-		if c.RelationId, err = strconv.Atoi(args[0]); err != nil || c.RelationId < 0 {
-			return errors.NotValidf("relation ID %q", args[0])
-		}
-		return nil
-	}
 	if len(args) == 0 {
-		return errors.New("no relation id specified")
+		return errors.New("no relation ids specified")
 	}
-	return cmd.CheckEmpty(args[1:])
+	for _, id := range args {
+		if relId, err := strconv.Atoi(strings.TrimSpace(id)); err != nil || relId < 0 {
+			return errors.NotValidf("relation ID %q", id)
+		} else {
+			c.relationIds = append(c.relationIds, relId)
+		}
+	}
+	return nil
+}
+
+func (c *suspendRelationCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
+	f.StringVar(&c.message, "message", "", "reason for suspension")
 }
 
 // SetRelationSuspendedAPI defines the API methods that the suspend/resume relation commands use.
 type SetRelationSuspendedAPI interface {
 	Close() error
 	BestAPIVersion() int
-	SetRelationSuspended(relationId int, suspended bool) error
+	SetRelationSuspended(relationIds []int, suspended bool, message string) error
 }
 
 func (c *suspendRelationCommand) Run(_ *cmd.Context) error {
@@ -89,6 +99,6 @@ func (c *suspendRelationCommand) Run(_ *cmd.Context) error {
 	if client.BestAPIVersion() < 5 {
 		return errors.New("suspending a relation is not supported by this version of Juju")
 	}
-	err = client.SetRelationSuspended(c.RelationId, true)
+	err = client.SetRelationSuspended(c.relationIds, true, c.message)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

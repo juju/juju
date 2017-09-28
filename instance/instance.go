@@ -39,7 +39,10 @@ type Instance interface {
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance.
 	Addresses() ([]network.Address, error)
+}
 
+// InstanceFirewaller provides instance-level firewall functionality
+type InstanceFirewaller interface {
 	// OpenPorts opens the given port ranges on the instance, which
 	// should have been started with the given machine id.
 	OpenPorts(machineId string, rules []network.IngressRule) error

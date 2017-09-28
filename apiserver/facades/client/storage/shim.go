@@ -133,7 +133,7 @@ type storageAccess interface {
 	Filesystem(tag names.FilesystemTag) (state.Filesystem, error)
 
 	// AddStorageForUnit is required for storage add functionality.
-	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) error
+	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
 
 	// GetBlockForType is required to block operations.
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)

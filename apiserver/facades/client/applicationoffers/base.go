@@ -211,7 +211,7 @@ func (api *BaseAPI) getModelsFromOffers(offerURLs ...string) ([]offerModel, erro
 	// Cache the models found so far so we don't look them up more than once.
 	modelsCache := make(map[string]Model)
 	oneModel := func(offerURL string) (Model, error) {
-		url, err := jujucrossmodel.ParseApplicationURL(offerURL)
+		url, err := jujucrossmodel.ParseOfferURL(offerURL)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

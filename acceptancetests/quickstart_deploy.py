@@ -78,5 +78,6 @@ def main():
         print('%s (%s)' % (e, type(e).__name__))
         sys.exit(1)
 
+
 if __name__ == '__main__':
     main()
