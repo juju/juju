@@ -2682,7 +2682,7 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 func (s *applicationSuite) setupRemoteApplication(c *gc.C) {
 	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{
-			{ApplicationOffer: params.ApplicationOffer{
+			{ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         testing.ModelTag.String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
@@ -2750,7 +2750,7 @@ func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{
-			{ApplicationOffer: params.ApplicationOffer{
+			{ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag: testing.ModelTag.String(),
 				OfferName:      "hosted-db2",
 				OfferUUID:      "hosted-db2-uuid",

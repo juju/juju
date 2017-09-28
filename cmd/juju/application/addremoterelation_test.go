@@ -48,7 +48,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *
 	s.mockAPI.CheckCall(c, 1, "GetConsumeDetails", "othermodel.applicationname2")
 	s.mockAPI.CheckCall(c, 2, "Consume",
 		crossmodel.ConsumeApplicationArgs{
-			ApplicationOffer: params.ApplicationOffer{
+			Offer: params.ApplicationOfferDetails{
 				OfferName: "hosted-mysql",
 				OfferURL:  "bob/prod.hosted-mysql",
 			},
@@ -63,7 +63,7 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc
 	s.mockAPI.CheckCall(c, 1, "GetConsumeDetails", "othermodel.applicationname2")
 	s.mockAPI.CheckCall(c, 2, "Consume",
 		crossmodel.ConsumeApplicationArgs{
-			ApplicationOffer: params.ApplicationOffer{
+			Offer: params.ApplicationOfferDetails{
 				OfferName: "hosted-mysql",
 				OfferURL:  "bob/prod.hosted-mysql",
 			},
@@ -242,7 +242,7 @@ func (m *mockAddRelationAPI) Consume(arg crossmodel.ConsumeApplicationArgs) (str
 func (m *mockAddRelationAPI) GetConsumeDetails(url string) (params.ConsumeOfferDetails, error) {
 	m.AddCall("GetConsumeDetails", url)
 	return params.ConsumeOfferDetails{
-		Offer: &params.ApplicationOffer{
+		Offer: &params.ApplicationOfferDetails{
 			OfferName: "hosted-mysql",
 			OfferURL:  "bob/prod.hosted-mysql",
 		},

@@ -445,7 +445,7 @@ func (api *OffersAPI) GetConsumeDetails(args params.OfferURLs) (params.ConsumeOf
 			continue
 		}
 		offer := result.Result
-		offerDetails := &offer.ApplicationOffer
+		offerDetails := &offer.ApplicationOfferDetails
 		results[i].Offer = offerDetails
 		results[i].ControllerInfo = controllerInfo
 		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(offerDetails, api.Authorizer.GetAuthTag().Id())

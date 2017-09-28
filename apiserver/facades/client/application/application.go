@@ -1239,7 +1239,7 @@ func (api *API) consumeOne(arg params.ConsumeApplicationArg) error {
 	if appName == "" {
 		appName = arg.OfferName
 	}
-	_, err = api.saveRemoteApplication(sourceModelTag, appName, arg.ApplicationOffer, arg.Macaroon)
+	_, err = api.saveRemoteApplication(sourceModelTag, appName, arg.ApplicationOfferDetails, arg.Macaroon)
 	return err
 }
 
@@ -1248,7 +1248,7 @@ func (api *API) consumeOne(arg params.ConsumeApplicationArg) error {
 func (api *API) saveRemoteApplication(
 	sourceModelTag names.ModelTag,
 	applicationName string,
-	offer params.ApplicationOffer,
+	offer params.ApplicationOfferDetails,
 	mac *macaroon.Macaroon,
 ) (RemoteApplication, error) {
 	remoteEps := make([]charm.Relation, len(offer.Endpoints))

@@ -582,7 +582,7 @@ func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		results, err := s.api.Consume(params.ConsumeApplicationArgs{
 			Args: []params.ConsumeApplicationArg{{
-				ApplicationOffer: params.ApplicationOffer{
+				ApplicationOfferDetails: params.ApplicationOfferDetails{
 					SourceModelTag:         coretesting.ModelTag.String(),
 					OfferName:              "hosted-mysql",
 					OfferUUID:              "hosted-mysql-uuid",
@@ -613,7 +613,7 @@ func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 	controllerUUID := utils.MustNewUUID().String()
 	results, err := s.api.Consume(params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
-			ApplicationOffer: params.ApplicationOffer{
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         coretesting.ModelTag.String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
@@ -654,7 +654,7 @@ func (s *ApplicationSuite) TestConsumeFromSameController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.api.Consume(params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
-			ApplicationOffer: params.ApplicationOffer{
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         coretesting.ModelTag.String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
@@ -697,7 +697,7 @@ func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
 	results, err := s.api.Consume(params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
 			ApplicationAlias: "beirut",
-			ApplicationOffer: params.ApplicationOffer{
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         coretesting.ModelTag.String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
@@ -753,7 +753,7 @@ func (s *ApplicationSuite) TestConsumeIncludesSpaceInfo(c *gc.C) {
 
 func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.C) {
 	arg := params.ConsumeApplicationArg{
-		ApplicationOffer: params.ApplicationOffer{
+		ApplicationOfferDetails: params.ApplicationOfferDetails{
 			SourceModelTag:         coretesting.ModelTag.String(),
 			OfferName:              "hosted-mysql",
 			OfferUUID:              "hosted-mysql-uuid",
@@ -780,7 +780,7 @@ func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.
 func (s *ApplicationSuite) assertConsumeWithNoSpacesInfoAvailable(c *gc.C) {
 	results, err := s.api.Consume(params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
-			ApplicationOffer: params.ApplicationOffer{
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         coretesting.ModelTag.String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",

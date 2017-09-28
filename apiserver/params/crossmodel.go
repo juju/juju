@@ -38,8 +38,8 @@ type OfferFilter struct {
 	AllowedUserTags        []string                   `json:"allowed-users"`
 }
 
-// ApplicationOffer represents an application offering from an external model.
-type ApplicationOffer struct {
+// ApplicationOfferDetails represents an application offering from an external model.
+type ApplicationOfferDetails struct {
 	SourceModelTag         string            `json:"source-model-tag"`
 	OfferUUID              string            `json:"offer-uuid"`
 	OfferURL               string            `json:"offer-url"`
@@ -61,7 +61,7 @@ type OfferUserDetails struct {
 // ApplicationOfferAdminDetails represents an application offering,
 // including details about how it has been deployed.
 type ApplicationOfferAdminDetails struct {
-	ApplicationOffer
+	ApplicationOfferDetails
 	ApplicationName string             `json:"application-name"`
 	CharmURL        string             `json:"charm-url"`
 	Connections     []OfferConnection  `json:"connections,omitempty"`
@@ -146,7 +146,7 @@ type OfferURLs struct {
 // ConsumeApplicationArg holds the arguments for consuming a remote application.
 type ConsumeApplicationArg struct {
 	// The offer to be consumed.
-	ApplicationOffer
+	ApplicationOfferDetails
 
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
@@ -493,9 +493,9 @@ type RemoteApplicationInfoResults struct {
 // ConsumeOfferDetails contains the details necessary to
 // consume an application offer.
 type ConsumeOfferDetails struct {
-	Offer          *ApplicationOffer       `json:"offer,omitempty"`
-	Macaroon       *macaroon.Macaroon      `json:"macaroon,omitempty"`
-	ControllerInfo *ExternalControllerInfo `json:"external-controller,omitempty"`
+	Offer          *ApplicationOfferDetails `json:"offer,omitempty"`
+	Macaroon       *macaroon.Macaroon       `json:"macaroon,omitempty"`
+	ControllerInfo *ExternalControllerInfo  `json:"external-controller,omitempty"`
 }
 
 // ConsumeOfferDetailsResult contains the details necessary to

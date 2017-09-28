@@ -109,7 +109,7 @@ func (s *applicationOffers) ApplicationOffer(offerName string) (*crossmodel.Appl
 	return s.makeApplicationOffer(*offerDoc)
 }
 
-// ApplicationOffer returns the application offer for the UUID.
+// ApplicationOfferForUUID returns the application offer for the UUID.
 func (s *applicationOffers) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
 	offerDoc, err := s.offerQuery(bson.D{{"offer-uuid", offerUUID}})
 	if err != nil {

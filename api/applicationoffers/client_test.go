@@ -136,16 +136,16 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 			})
 
 			if results, ok := result.(*params.QueryApplicationOffersResults); ok {
-				offer := params.ApplicationOffer{
+				offer := params.ApplicationOfferDetails{
 					OfferURL:  url,
 					OfferName: offerName,
 					OfferUUID: offerName + "-uuid",
 					Endpoints: endpoints,
 				}
 				results.Results = []params.ApplicationOfferAdminDetails{{
-					ApplicationOffer: offer,
-					ApplicationName:  "db2-app",
-					CharmURL:         "cs:db2-5",
+					ApplicationOfferDetails: offer,
+					ApplicationName:         "db2-app",
+					CharmURL:                "cs:db2-5",
 					Connections: []params.OfferConnection{
 						{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3,
 							Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
@@ -263,7 +263,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 			if offers, ok := result.(*params.ApplicationOffersResults); ok {
 				offers.Results = []params.ApplicationOfferResult{
 					{Result: &params.ApplicationOfferAdminDetails{
-						ApplicationOffer: params.ApplicationOffer{
+						ApplicationOfferDetails: params.ApplicationOfferDetails{
 							ApplicationDescription: desc,
 							Endpoints:              endpoints,
 							OfferURL:               url,
@@ -381,7 +381,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 			if offers, ok := result.(*params.ApplicationOffersResults); ok {
 				offers.Results = []params.ApplicationOfferResult{
 					{Result: &params.ApplicationOfferAdminDetails{
-						ApplicationOffer: params.ApplicationOffer{
+						ApplicationOfferDetails: params.ApplicationOfferDetails{
 							ApplicationDescription: desc,
 							Endpoints:              endpoints,
 							OfferURL:               url,
@@ -390,7 +390,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 						},
 					}},
 					{Result: &params.ApplicationOfferAdminDetails{
-						ApplicationOffer: params.ApplicationOffer{
+						ApplicationOfferDetails: params.ApplicationOfferDetails{
 							ApplicationDescription: desc,
 							Endpoints:              endpoints,
 							OfferURL:               url,
@@ -495,14 +495,14 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 			})
 
 			if results, ok := result.(*params.QueryApplicationOffersResults); ok {
-				offer := params.ApplicationOffer{
+				offer := params.ApplicationOfferDetails{
 					OfferURL:  url,
 					OfferName: offerName,
 					Endpoints: endpoints,
 					Access:    access,
 				}
 				results.Results = []params.ApplicationOfferAdminDetails{{
-					ApplicationOffer: offer,
+					ApplicationOfferDetails: offer,
 					Users: []params.OfferUserDetails{
 						{UserName: "fred", DisplayName: "Fred", Access: "consume"},
 					},
@@ -592,7 +592,7 @@ func (s *crossmodelMockSuite) TestFindFacadeCallError(c *gc.C) {
 }
 
 func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
-	offer := params.ApplicationOffer{
+	offer := params.ApplicationOfferDetails{
 		SourceModelTag:         "source model",
 		OfferName:              "an offer",
 		OfferURL:               "offer url",

@@ -225,7 +225,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResults{
 		[]params.ApplicationOfferAdminDetails{
 			{
-				ApplicationOffer: params.ApplicationOffer{
+				ApplicationOfferDetails: params.ApplicationOfferDetails{
 					SourceModelTag:         testing.ModelTag.String(),
 					ApplicationDescription: "description",
 					OfferName:              "hosted-db2",
@@ -352,7 +352,7 @@ func (s *applicationOffersSuite) assertShow(c *gc.C, url string, expected []para
 func (s *applicationOffersSuite) TestShow(c *gc.C) {
 	expected := []params.ApplicationOfferResult{{
 		Result: &params.ApplicationOfferAdminDetails{
-			ApplicationOffer: params.ApplicationOffer{
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferURL:               "fred/prod.hosted-db2",
@@ -408,7 +408,7 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferResult{{
 		Result: &params.ApplicationOfferAdminDetails{
-			ApplicationOffer: params.ApplicationOffer{
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferURL:               "fred/prod.hosted-db2",
@@ -592,7 +592,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	}
 	c.Assert(results, jc.DeepEquals, []params.ApplicationOfferAdminDetails{
 		{
-			ApplicationOffer: params.ApplicationOffer{
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-" + name,
@@ -610,7 +610,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 				},
 			},
 		}, {
-			ApplicationOffer: params.ApplicationOffer{
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         "model-uuid2",
 				ApplicationDescription: "description2",
 				OfferName:              "hosted-" + name2,
@@ -657,7 +657,7 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
 	expected := []params.ApplicationOfferAdminDetails{
 		{
-			ApplicationOffer: params.ApplicationOffer{
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
@@ -704,7 +704,7 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferAdminDetails{
 		{
-			ApplicationOffer: params.ApplicationOffer{
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
@@ -902,7 +902,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResults{
 		[]params.ApplicationOfferAdminDetails{
 			{
-				ApplicationOffer: params.ApplicationOffer{
+				ApplicationOfferDetails: params.ApplicationOfferDetails{
 					SourceModelTag:         testing.ModelTag.String(),
 					ApplicationDescription: "db2 description",
 					OfferName:              "hosted-db2",
@@ -921,7 +921,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 				},
 			},
 			{
-				ApplicationOffer: params.ApplicationOffer{
+				ApplicationOfferDetails: params.ApplicationOfferDetails{
 					SourceModelTag:         "model-uuid2",
 					ApplicationDescription: "mysql description",
 					OfferName:              "hosted-mysql",
@@ -932,7 +932,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 				},
 			},
 			{
-				ApplicationOffer: params.ApplicationOffer{
+				ApplicationOfferDetails: params.ApplicationOfferDetails{
 					SourceModelTag:         "model-uuid2",
 					ApplicationDescription: "postgresql description",
 					OfferName:              "hosted-postgresql",
@@ -1068,7 +1068,7 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOffer{
+	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetails{
 		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OfferURL:               "fred/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
@@ -1121,7 +1121,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOffer{
+	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetails{
 		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OfferURL:               "fred/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",

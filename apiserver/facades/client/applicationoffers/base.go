@@ -136,7 +136,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 			continue
 		}
 		offer := params.ApplicationOfferAdminDetails{
-			ApplicationOffer: *offerParams,
+			ApplicationOfferDetails: *offerParams,
 		}
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
@@ -364,7 +364,7 @@ func makeOfferFilterFromParams(filter params.OfferFilter) jujucrossmodel.Applica
 }
 
 func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.ApplicationOffer, access permission.Access) (
-	*params.ApplicationOffer, crossmodel.Application, error,
+	*params.ApplicationOfferDetails, crossmodel.Application, error,
 ) {
 	app, err := backend.Application(offer.ApplicationName)
 	if err != nil {
@@ -374,7 +374,7 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	result := params.ApplicationOffer{
+	result := params.ApplicationOfferDetails{
 		SourceModelTag:         backend.ModelTag().String(),
 		OfferName:              offer.OfferName,
 		OfferUUID:              offer.OfferUUID,

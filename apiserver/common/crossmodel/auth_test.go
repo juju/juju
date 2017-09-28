@@ -201,7 +201,7 @@ permission: consume
 func (s *authSuite) TestCreateConsumeOfferMacaroon(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	offer := &params.ApplicationOffer{
+	offer := &params.ApplicationOfferDetails{
 		SourceModelTag: coretesting.ModelTag.String(),
 		OfferUUID:      "mysql-uuid",
 	}
@@ -294,7 +294,7 @@ func (s *authSuite) TestCheckOfferMacaroonsExpired(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	clock := testing.NewClock(time.Now().Add(-10 * time.Minute))
 	authContext = authContext.WithClock(clock)
-	offer := &params.ApplicationOffer{
+	offer := &params.ApplicationOfferDetails{
 		SourceModelTag: coretesting.ModelTag.String(),
 		OfferURL:       "mysql-uuid",
 	}
@@ -315,7 +315,7 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 	clock := testing.NewClock(time.Now().Add(-10 * time.Minute))
 	authContext = authContext.WithClock(clock)
 	authContext = authContext.WithDischargeURL("http://thirdparty")
-	offer := &params.ApplicationOffer{
+	offer := &params.ApplicationOfferDetails{
 		SourceModelTag: coretesting.ModelTag.String(),
 		OfferURL:       "mysql-uuid",
 	}
