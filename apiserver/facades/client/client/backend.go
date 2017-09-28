@@ -96,6 +96,10 @@ type stateShim struct {
 	model *state.Model
 }
 
+func (st stateShim) ModelConfigValues() (config.ConfigValues, error) {
+	return st.model.ModelConfigValues()
+}
+
 func (s *stateShim) Annotations(entity state.GlobalEntity) (map[string]string, error) {
 	return s.model.Annotations(entity)
 }
