@@ -1166,11 +1166,9 @@ func buildModelRepresentation(status *params.FullStatus, apiRoot DeployAPI) (*bu
 		Machines:     machines,
 	}
 	for _, relation := range status.Relations {
-		if relation.Scope == "peer" {
-			continue
-		}
+		// All relations have two endpoints except peers.
 		if count := len(relation.Endpoints); count != 2 {
-			return nil, errors.Errorf("unexpected size of relations, wanted 2 got %d", count)
+			continue
 		}
 		model.Relations = append(model.Relations, bundlechanges.Relation{
 			App1:      relation.Endpoints[0].ApplicationName,
