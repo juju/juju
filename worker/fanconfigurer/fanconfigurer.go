@@ -54,8 +54,6 @@ func (fc *FanConfigurer) processNewConfig() error {
 		return nil
 	}
 
-	// TODO(wpk) 2017-08-09 Verify that it is indeed the best way to configure fan,
-	// also check all the results code
 	for i, fan := range fanConfig {
 		logger.Debugf("Adding config for %d: %s %s", i, fan.Underlay, fan.Overlay)
 		line := fmt.Sprintf("fanatic enable-fan -u %s -o %s", fan.Underlay, fan.Overlay)
@@ -65,6 +63,8 @@ func (fc *FanConfigurer) processNewConfig() error {
 			return err
 		}
 	}
+	// TODO(wpk) 2017-09-28 Although officially not needed we do fanctl up -a just to be sure - 
+	// fanatic sometimes fails to bring up interface because of some weird interactions with iptables.
 	result, err := scriptrunner.RunCommand("fanctl up -a", os.Environ(), fc.clock, 5000*time.Millisecond)
 	logger.Debugf("Launched fanctl up -a - result %v %v %d", string(result.Stdout), string(result.Stderr), result.Code)
 
