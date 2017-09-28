@@ -60,11 +60,9 @@ riak:
       role: provider
   users:
     admin:
-      user: admin
       display-name: admin
       access: admin
     everyone@external:
-      user: everyone@external
       access: read
 varnish:
   application: varnishservice
@@ -77,11 +75,9 @@ varnish:
       role: provider
   users:
     admin:
-      user: admin
       display-name: admin
       access: admin
     everyone@external:
-      user: everyone@external
       access: read
 `[1:])
 }
@@ -132,11 +128,9 @@ kontroll:admin/controller.varnish:
       role: provider
   users:
     admin:
-      user: admin
       display-name: admin
       access: admin
     everyone@external:
-      user: everyone@external
       access: read
 `[1:])
 }
@@ -147,7 +141,9 @@ func (s *crossmodelSuite) TestShowOtherModel(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewShowOfferedEndpointCommand(),
 		"otheruser/othermodel.hosted-mysql", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+	otherUser, err := s.State.User(names.NewUserTag("otheruser"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, fmt.Sprintf(`
 kontroll:otheruser/othermodel.hosted-mysql:
   access: admin
   endpoints:
@@ -155,11 +151,13 @@ kontroll:otheruser/othermodel.hosted-mysql:
       interface: mysql
       role: provider
   users:
-    otheruser:
-      user: otheruser
-      display-name: display name-9
+    admin:
+      display-name: admin
       access: admin
-`[1:])
+    otheruser:
+      display-name: %s
+      access: admin
+`, otherUser.DisplayName())[1:])
 }
 
 func (s *crossmodelSuite) setupOffers(c *gc.C) {
@@ -189,11 +187,9 @@ kontroll:admin/controller.riak:
       role: provider
   users:
     admin:
-      user: admin
       display-name: admin
       access: admin
     everyone@external:
-      user: everyone@external
       access: read
 kontroll:admin/controller.varnish:
   access: admin
@@ -203,11 +199,9 @@ kontroll:admin/controller.varnish:
       role: provider
   users:
     admin:
-      user: admin
       display-name: admin
       access: admin
     everyone@external:
-      user: everyone@external
       access: read
 `[1:])
 }
@@ -218,7 +212,9 @@ func (s *crossmodelSuite) TestFindOtherModel(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
 		"otheruser/othermodel", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+	otherUser, err := s.State.User(names.NewUserTag("otheruser"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, fmt.Sprintf(`
 kontroll:otheruser/othermodel.hosted-mysql:
   access: admin
   endpoints:
@@ -226,11 +222,13 @@ kontroll:otheruser/othermodel.hosted-mysql:
       interface: mysql
       role: provider
   users:
-    otheruser:
-      user: otheruser
-      display-name: display name-6
+    admin:
+      display-name: admin
       access: admin
-`[1:])
+    otheruser:
+      display-name: %s
+      access: admin
+`, otherUser.DisplayName())[1:])
 }
 
 func (s *crossmodelSuite) TestFindAllModels(c *gc.C) {
@@ -239,7 +237,9 @@ func (s *crossmodelSuite) TestFindAllModels(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(), "kontroll:", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+	otherUser, err := s.State.User(names.NewUserTag("otheruser"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, fmt.Sprintf(`
 kontroll:admin/controller.riak:
   access: admin
   endpoints:
@@ -248,11 +248,9 @@ kontroll:admin/controller.riak:
       role: provider
   users:
     admin:
-      user: admin
       display-name: admin
       access: admin
     everyone@external:
-      user: everyone@external
       access: read
 kontroll:admin/controller.varnish:
   access: admin
@@ -262,11 +260,9 @@ kontroll:admin/controller.varnish:
       role: provider
   users:
     admin:
-      user: admin
       display-name: admin
       access: admin
     everyone@external:
-      user: everyone@external
       access: read
 kontroll:otheruser/othermodel.hosted-mysql:
   access: admin
@@ -275,11 +271,13 @@ kontroll:otheruser/othermodel.hosted-mysql:
       interface: mysql
       role: provider
   users:
-    otheruser:
-      user: otheruser
-      display-name: display name-4
+    admin:
+      display-name: admin
       access: admin
-`[1:])
+    otheruser:
+      display-name: %s
+      access: admin
+`, otherUser.DisplayName())[1:])
 }
 
 func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
@@ -493,6 +491,9 @@ kontroll:otheruser/othermodel.hosted-mysql:
     database:
       interface: mysql
       role: provider
+  users:
+    test:
+      access: read
 `[1:])
 }
 

@@ -36,9 +36,6 @@ type ApplicationOfferDetails struct {
 	// TODO(wallyworld) - do not use charm.Relation here
 	Endpoints []charm.Relation
 
-	// Access is the level of access to the offer of the current user.
-	Access permission.Access
-
 	// Connects are the connections to the offer.
 	Connections []OfferConnection
 

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
@@ -90,6 +91,12 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 			return err
 		}
 	}
+	accountDetails, err := c.CurrentAccountDetails()
+	if err != nil {
+		return err
+	}
+	loggedInUser := accountDetails.User
+
 	api, err := c.newAPIFunc(controllerName)
 	if err != nil {
 		return err
@@ -102,7 +109,7 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	output, err := convertOffers(controllerName, found)
+	output, err := convertOffers(controllerName, names.NewUserTag(loggedInUser), found)
 	if err != nil {
 		return err
 	}
@@ -116,7 +123,7 @@ type ShowAPI interface {
 }
 
 type OfferUser struct {
-	UserName    string `yaml:"user" json:"user"`
+	UserName    string `yaml:"-" json:"-"`
 	DisplayName string `yaml:"display-name,omitempty" json:"display-name,omitempty"`
 	Access      string `yaml:"access" json:"access"`
 }
@@ -139,14 +146,17 @@ type ShowOfferedApplication struct {
 
 // convertOffers takes any number of api-formatted remote applications and
 // creates a collection of ui-formatted offers.
-func convertOffers(store string, offers ...*crossmodel.ApplicationOfferDetails) (map[string]ShowOfferedApplication, error) {
+func convertOffers(
+	store string, loggedInUser names.UserTag, offers ...*crossmodel.ApplicationOfferDetails,
+) (map[string]ShowOfferedApplication, error) {
 	if len(offers) == 0 {
 		return nil, nil
 	}
 	output := make(map[string]ShowOfferedApplication, len(offers))
 	for _, one := range offers {
+		access := accessForUser(loggedInUser, one.Users)
 		app := ShowOfferedApplication{
-			Access:    string(one.Access),
+			Access:    access,
 			Endpoints: convertRemoteEndpoints(one.Endpoints...),
 			Users:     convertUsers(one.Users...),
 		}

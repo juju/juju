@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
@@ -101,6 +102,12 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	if err := c.validateOrSetURL(); err != nil {
 		return errors.Trace(err)
 	}
+	accountDetails, err := c.CurrentAccountDetails()
+	if err != nil {
+		return err
+	}
+	loggedInUser := accountDetails.User
+
 	api, err := c.newAPIFunc(c.source)
 	if err != nil {
 		return err
@@ -125,7 +132,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	output, err := convertFoundOffers(c.source, found...)
+	output, err := convertFoundOffers(c.source, names.NewUserTag(loggedInUser), found...)
 	if err != nil {
 		return err
 	}
@@ -187,16 +194,28 @@ type ApplicationOfferResult struct {
 	Users map[string]OfferUser `yaml:"users,omitempty" json:"users,omitempty"`
 }
 
+func accessForUser(user names.UserTag, users []crossmodel.OfferUserDetails) string {
+	for _, u := range users {
+		if u.UserName == user.Id() {
+			return string(u.Access)
+		}
+	}
+	return "-"
+}
+
 // convertFoundOffers takes any number of api-formatted remote applications and
 // creates a collection of ui-formatted applications.
-func convertFoundOffers(store string, offers ...*crossmodel.ApplicationOfferDetails) (map[string]ApplicationOfferResult, error) {
+func convertFoundOffers(
+	store string, loggedInUser names.UserTag, offers ...*crossmodel.ApplicationOfferDetails,
+) (map[string]ApplicationOfferResult, error) {
 	if len(offers) == 0 {
 		return nil, nil
 	}
 	output := make(map[string]ApplicationOfferResult, len(offers))
 	for _, one := range offers {
+		access := accessForUser(loggedInUser, one.Users)
 		app := ApplicationOfferResult{
-			Access:    string(one.Access),
+			Access:    access,
 			Endpoints: convertRemoteEndpoints(one.Endpoints...),
 			Users:     convertUsers(one.Users...),
 		}

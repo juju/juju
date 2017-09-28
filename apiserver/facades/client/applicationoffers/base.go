@@ -84,6 +84,17 @@ func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, bool, erro
 	return model, model != nil, nil
 }
 
+func (api *BaseAPI) userDisplayName(backend Backend, userTag names.UserTag) (string, error) {
+	var displayName string
+	user, err := backend.User(userTag)
+	if err != nil && !errors.IsNotFound(err) {
+		return "", errors.Trace(err)
+	} else if err == nil {
+		displayName = user.DisplayName()
+	}
+	return displayName, nil
+}
+
 // applicationOffersFromModel gets details about remote applications that match given filters.
 func (api *BaseAPI) applicationOffersFromModel(
 	modelUUID string,
@@ -114,6 +125,12 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 
+	apiUserTag := api.Authorizer.GetAuthTag().(names.UserTag)
+	apiUserDisplayName, err := api.userDisplayName(backend, apiUserTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var results []params.ApplicationOfferAdminDetails
 	for _, appOffer := range offers {
 		userAccess := permission.AdminAccess
@@ -128,19 +145,24 @@ func (api *BaseAPI) applicationOffersFromModel(
 			}
 			isAdmin = userAccess == permission.AdminAccess
 		}
-		offerParams, app, err := api.makeOfferParams(backend, &appOffer, userAccess)
+		offerParams, app, err := api.makeOfferParams(backend, &appOffer)
 		// Just because we can't compose the result for one offer, log
 		// that and move on to the next one.
 		if err != nil {
 			logger.Warningf("cannot get application offer: %v", err)
 			continue
 		}
+		offerParams.Users = []params.OfferUserDetails{{
+			UserName:    apiUserTag.Id(),
+			DisplayName: apiUserDisplayName,
+			Access:      string(userAccess),
+		}}
 		offer := params.ApplicationOfferAdminDetails{
 			ApplicationOfferDetails: *offerParams,
 		}
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
-			if err := getOfferAdminDetails(backend, app, &offer); err != nil {
+			if err := api.getOfferAdminDetails(backend, app, &offer); err != nil {
 				logger.Warningf("cannot get offer admin details: %v", err)
 			}
 		}
@@ -149,7 +171,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 	return results, nil
 }
 
-func getOfferAdminDetails(backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetails) error {
+func (api *BaseAPI) getOfferAdminDetails(backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetails) error {
 	curl, _ := app.CharmURL()
 	conns, err := backend.OfferConnections(offer.OfferUUID)
 	if err != nil {
@@ -194,13 +216,15 @@ func getOfferAdminDetails(backend Backend, app crossmodel.Application, offer *pa
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	apiUserTag := api.Authorizer.GetAuthTag().(names.UserTag)
 	for userName, access := range offerUsers {
-		var displayName string
-		user, err := backend.User(names.NewUserTag(userName))
-		if err != nil && !errors.IsNotFound(err) {
+		if userName == apiUserTag.Id() {
+			continue
+		}
+		displayName, err := api.userDisplayName(backend, names.NewUserTag(userName))
+		if err != nil {
 			return errors.Trace(err)
-		} else if err == nil {
-			displayName = user.DisplayName()
 		}
 		offer.Users = append(offer.Users, params.OfferUserDetails{
 			UserName:    userName,
@@ -363,7 +387,7 @@ func makeOfferFilterFromParams(filter params.OfferFilter) jujucrossmodel.Applica
 	return offerFilter
 }
 
-func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.ApplicationOffer, access permission.Access) (
+func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.ApplicationOffer) (
 	*params.ApplicationOfferDetails, crossmodel.Application, error,
 ) {
 	app, err := backend.Application(offer.ApplicationName)
@@ -379,7 +403,6 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 		OfferName:              offer.OfferName,
 		OfferUUID:              offer.OfferUUID,
 		ApplicationDescription: offer.ApplicationDescription,
-		Access:                 string(access),
 	}
 
 	spaceNames := set.NewStrings()

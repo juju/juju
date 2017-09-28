@@ -240,7 +240,10 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 							Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
 						},
 					},
-					Access: "admin",
+					Users: []params.OfferUserDetails{
+						{UserName: "admin", DisplayName: "", Access: "admin"},
+						{UserName: "mary", DisplayName: "mary", Access: "consume"},
+					},
 				},
 				ApplicationName: "test",
 				CharmURL:        "cs:db2-2",
@@ -252,7 +255,6 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 					Status:         params.EntityStatus{Status: "joined"},
 					IngressSubnets: []string{"192.168.1.0/32", "10.0.0.0/8"},
 				}},
-				Users: []params.OfferUserDetails{{UserName: "mary", DisplayName: "mary", Access: "consume"}},
 			},
 		},
 	})
@@ -367,7 +369,10 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
 					},
 				},
-				Access: "admin",
+				Users: []params.OfferUserDetails{
+					{UserName: "fred", DisplayName: "", Access: "admin"},
+					{UserName: "mary", DisplayName: "mary", Access: "consume"},
+				},
 			},
 			ApplicationName: "test",
 			CharmURL:        "cs:db2-2",
@@ -377,14 +382,15 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 				Status:         params.EntityStatus{Status: "joined"},
 				IngressSubnets: []string{"192.168.1.0/32", "10.0.0.0/8"},
 			}},
-			Users: []params.OfferUserDetails{{UserName: "mary", DisplayName: "mary", Access: "consume"}},
 		},
 	}}
 	s.authorizer.Tag = names.NewUserTag("admin")
+	expected[0].Result.Users[0].UserName = "admin"
 	s.assertShow(c, "fred/prod.hosted-db2", expected)
 	// Again with an unqualified model path.
 	s.authorizer.AdminTag = names.NewUserTag("fred")
 	s.authorizer.Tag = s.authorizer.AdminTag
+	expected[0].Result.Users[0].UserName = "fred"
 	s.applicationOffers.ResetCalls()
 	s.assertShow(c, "prod.hosted-db2", expected)
 }
@@ -423,9 +429,11 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
 					},
 				},
-				Access: "read"},
-		},
-	}}
+				Users: []params.OfferUserDetails{
+					{UserName: "someone", DisplayName: "someone", Access: "read"},
+				},
+			},
+		}}}
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
 	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ReadAccess)
 	s.assertShow(c, "fred/prod.hosted-db2", expected)
@@ -598,7 +606,6 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 				OfferName:              "hosted-" + name,
 				OfferUUID:              "hosted-" + name + "-uuid",
 				OfferURL:               url,
-				Access:                 "read",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Bindings:               map[string]string{"db": "myspace"},
 				Spaces: []params.RemoteSpace{
@@ -608,6 +615,9 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
 					},
 				},
+				Users: []params.OfferUserDetails{
+					{UserName: "someone", DisplayName: "someone", Access: "read"},
+				},
 			},
 		}, {
 			ApplicationOfferDetails: params.ApplicationOfferDetails{
@@ -616,8 +626,10 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 				OfferName:              "hosted-" + name2,
 				OfferUUID:              "hosted-" + name2 + "-uuid",
 				OfferURL:               url2,
-				Access:                 "consume",
-				Endpoints:              []params.RemoteEndpoint{{Name: "db2"}}},
+				Endpoints:              []params.RemoteEndpoint{{Name: "db2"}},
+				Users: []params.OfferUserDetails{
+					{UserName: "someone", DisplayName: "someone", Access: "consume"},
+				}},
 		},
 	})
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall, listOffersBackendCall)
@@ -652,7 +664,7 @@ func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.Applicati
 	})
 }
 
-func (s *applicationOffersSuite) TestFind(c *gc.C) {
+func (s *applicationOffersSuite) TestFid(c *gc.C) {
 	s.setupOffers(c, "")
 	s.authorizer.Tag = names.NewUserTag("admin")
 	expected := []params.ApplicationOfferAdminDetails{
@@ -672,7 +684,9 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
 					},
 				},
-				Access: "admin"},
+				Users: []params.OfferUserDetails{
+					{UserName: "admin", DisplayName: "", Access: "admin"},
+				}},
 			ApplicationName: "test",
 			CharmURL:        "cs:db2-2",
 			Connections: []params.OfferConnection{{
@@ -719,7 +733,11 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
 					},
 				},
-				Access: "read"}}}
+				Users: []params.OfferUserDetails{
+					{UserName: "someone", DisplayName: "someone", Access: "read"},
+				}},
+		},
+	}
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
 	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ReadAccess)
 	s.assertFind(c, expected)
@@ -908,7 +926,6 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 					OfferName:              "hosted-db2",
 					OfferUUID:              "hosted-db2-uuid",
 					OfferURL:               "fred/prod.hosted-db2",
-					Access:                 "consume",
 					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 					Bindings:               map[string]string{"db2": "myspace"},
 					Spaces: []params.RemoteSpace{
@@ -917,6 +934,9 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 							ProviderId: "juju-space-myspace",
 							Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
 						},
+					},
+					Users: []params.OfferUserDetails{
+						{UserName: "someone", DisplayName: "someone", Access: "consume"},
 					},
 				},
 			},
@@ -927,8 +947,10 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 					OfferName:              "hosted-mysql",
 					OfferUUID:              "hosted-mysql-uuid",
 					OfferURL:               "mary/another.hosted-mysql",
-					Access:                 "read",
 					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+					Users: []params.OfferUserDetails{
+						{UserName: "someone", DisplayName: "someone", Access: "read"},
+					},
 				},
 			},
 			{
@@ -938,11 +960,12 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 					OfferName:              "hosted-postgresql",
 					OfferUUID:              "hosted-postgresql-uuid",
 					OfferURL:               "mary/another.hosted-postgresql",
-					Access:                 "admin",
 					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+					Users: []params.OfferUserDetails{
+						{UserName: "someone", DisplayName: "someone", Access: "admin"},
+					},
 				},
 				CharmURL: "cs:postgresql-2",
-				Users:    []params.OfferUserDetails{{UserName: "someone", DisplayName: "someone", Access: "admin"}},
 			},
 		},
 	})
@@ -1083,7 +1106,9 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 				Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
 			},
 		},
-		Access: "consume",
+		Users: []params.OfferUserDetails{
+			{UserName: "someone", DisplayName: "someone", Access: "consume"},
+		},
 	})
 	c.Assert(results.Results[0].ControllerInfo, jc.DeepEquals, &params.ExternalControllerInfo{
 		ControllerTag: testing.ControllerTag.String(),
@@ -1129,7 +1154,9 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 		ApplicationDescription: "a database",
 		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
 		Bindings:               map[string]string{"database": ""},
-		Access:                 "consume",
+		Users: []params.OfferUserDetails{
+			{UserName: "someone", DisplayName: "someone", Access: "consume"},
+		},
 	})
 }
 

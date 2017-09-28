@@ -108,7 +108,6 @@ func offerParamsToDetails(offer params.ApplicationOfferAdminDetails) (*crossmode
 		CharmURL:               offer.CharmURL,
 		OfferURL:               offer.OfferURL,
 		Endpoints:              eps,
-		Access:                 permission.Access(offer.Access),
 	}
 	for _, oc := range offer.Connections {
 		modelTag, err := names.ParseModelTag(oc.SourceModelTag)

@@ -63,9 +63,8 @@ test-master:fred/model.db2:
       interface: http
       role: provider
   users:
-    fred:
-      user: fred
-      display-name: Fred
+    bob:
+      display-name: Bob
       access: consume
 `[1:],
 	)
@@ -171,9 +170,8 @@ func (s mockShowAPI) ApplicationOffer(url string) (*jujucrossmodel.ApplicationOf
 			{Name: "log", Interface: "http", Role: charm.RoleProvider},
 			{Name: "db2", Interface: "http", Role: charm.RoleRequirer},
 		},
-		Access: "consume",
 		Users: []jujucrossmodel.OfferUserDetails{{
-			UserName: "fred", DisplayName: "Fred", Access: "consume",
+			UserName: "bob", DisplayName: "Bob", Access: "consume",
 		}},
 	}, nil
 }

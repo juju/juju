@@ -133,9 +133,8 @@ master:fred/model.hosted-db2:
       interface: http
       role: provider
   users:
-    fred:
-      user: fred
-      display-name: Fred
+    bob:
+      display-name: Bob
       access: consume
 `[1:],
 	)
@@ -218,9 +217,8 @@ func (s mockFindAPI) FindApplicationOffers(filters ...jujucrossmodel.Application
 			{Name: "log", Interface: "http", Role: charm.RoleProvider},
 			{Name: "db2", Interface: "http", Role: charm.RoleRequirer},
 		},
-		Access: "consume",
 		Users: []jujucrossmodel.OfferUserDetails{{
-			UserName: "fred", DisplayName: "Fred", Access: "consume",
+			UserName: "bob", DisplayName: "Bob", Access: "consume",
 		}},
 	}}, nil
 }

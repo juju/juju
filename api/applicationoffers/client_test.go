@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/testing"
 )
 
@@ -141,6 +140,9 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 					OfferName: offerName,
 					OfferUUID: offerName + "-uuid",
 					Endpoints: endpoints,
+					Users: []params.OfferUserDetails{
+						{UserName: "fred", DisplayName: "Fred", Access: "consume"},
+					},
 				}
 				results.Results = []params.ApplicationOfferAdminDetails{{
 					ApplicationOfferDetails: offer,
@@ -151,9 +153,6 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 							Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
 							IngressSubnets: []string{"10.0.0.0/8"},
 						},
-					},
-					Users: []params.OfferUserDetails{
-						{UserName: "fred", DisplayName: "Fred", Access: "consume"},
 					},
 				}}
 			}
@@ -268,7 +267,9 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 							Endpoints:              endpoints,
 							OfferURL:               url,
 							OfferName:              offerName,
-							Access:                 access,
+							Users: []params.OfferUserDetails{
+								{UserName: "fred", DisplayName: "Fred", Access: access},
+							},
 						},
 						ApplicationName: "db2-app",
 						CharmURL:        "cs:db2-5",
@@ -277,9 +278,6 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 								Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
 								IngressSubnets: []string{"10.0.0.0/8"},
 							},
-						},
-						Users: []params.OfferUserDetails{
-							{UserName: "fred", DisplayName: "Fred", Access: "consume"},
 						},
 					}},
 				}
@@ -300,15 +298,14 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 		ApplicationName:        "db2-app",
 		ApplicationDescription: "IBM DB2 Express Server Edition is an entry level database system",
 		CharmURL:               "cs:db2-5",
-		Access:                 "consume",
+		Users: []jujucrossmodel.OfferUserDetails{
+			{UserName: "fred", DisplayName: "Fred", Access: "consume"},
+		},
 		Connections: []jujucrossmodel.OfferConnection{
 			{SourceModelUUID: testing.ModelTag.Id(), Username: "fred", RelationId: 3,
 				Endpoint: "db", Status: "joined", Message: "message", Since: &since,
 				IngressSubnets: []string{"10.0.0.0/8"},
 			},
-		},
-		Users: []jujucrossmodel.OfferUserDetails{
-			{UserName: "fred", DisplayName: "Fred", Access: "consume"},
 		},
 	})
 }
@@ -358,8 +355,6 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 		{Name: "log", Interface: "http", Role: charm.RoleRequirer},
 	}
 	offerName := "hosted-db2"
-	access := "consume"
-
 	called := false
 
 	apiCaller := basetesting.APICallerFunc(
@@ -386,7 +381,6 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 							Endpoints:              endpoints,
 							OfferURL:               url,
 							OfferName:              offerName,
-							Access:                 access,
 						},
 					}},
 					{Result: &params.ApplicationOfferAdminDetails{
@@ -395,7 +389,6 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 							Endpoints:              endpoints,
 							OfferURL:               url,
 							OfferName:              offerName,
-							Access:                 access,
 						},
 					}}}
 			}
@@ -456,7 +449,6 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	offerName := "hosted-db2"
 	ownerName := "owner"
 	modelName := "model"
-	access := "consume"
 	url := fmt.Sprintf("fred/model.%s", offerName)
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
@@ -499,13 +491,12 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 					OfferURL:  url,
 					OfferName: offerName,
 					Endpoints: endpoints,
-					Access:    access,
-				}
-				results.Results = []params.ApplicationOfferAdminDetails{{
-					ApplicationOfferDetails: offer,
 					Users: []params.OfferUserDetails{
 						{UserName: "fred", DisplayName: "Fred", Access: "consume"},
 					},
+				}
+				results.Results = []params.ApplicationOfferAdminDetails{{
+					ApplicationOfferDetails: offer,
 				}}
 			}
 			return nil
@@ -522,7 +513,6 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 		Users: []jujucrossmodel.OfferUserDetails{
 			{UserName: "fred", DisplayName: "Fred", Access: "consume"},
 		},
-		Access: permission.Access(access),
 	}})
 }
 

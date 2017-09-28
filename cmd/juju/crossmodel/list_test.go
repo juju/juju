@@ -229,7 +229,6 @@ hosted-db2:
     - 10.0.0.0/8
   users:
     fred:
-      user: fred
       display-name: Fred
       access: consume
 `[1:],

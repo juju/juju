@@ -40,15 +40,15 @@ type OfferFilter struct {
 
 // ApplicationOfferDetails represents an application offering from an external model.
 type ApplicationOfferDetails struct {
-	SourceModelTag         string            `json:"source-model-tag"`
-	OfferUUID              string            `json:"offer-uuid"`
-	OfferURL               string            `json:"offer-url"`
-	OfferName              string            `json:"offer-name"`
-	ApplicationDescription string            `json:"application-description"`
-	Endpoints              []RemoteEndpoint  `json:"endpoints"`
-	Spaces                 []RemoteSpace     `json:"spaces"`
-	Bindings               map[string]string `json:"bindings"`
-	Access                 string            `json:"access"`
+	SourceModelTag         string             `json:"source-model-tag"`
+	OfferUUID              string             `json:"offer-uuid"`
+	OfferURL               string             `json:"offer-url"`
+	OfferName              string             `json:"offer-name"`
+	ApplicationDescription string             `json:"application-description"`
+	Endpoints              []RemoteEndpoint   `json:"endpoints,omitempty"`
+	Spaces                 []RemoteSpace      `json:"spaces,omitempty"`
+	Bindings               map[string]string  `json:"bindings,omitempty"`
+	Users                  []OfferUserDetails `json:"users,omitempty"`
 }
 
 // OfferUserDetails represents an offer consumer and their permission on the offer.
@@ -62,10 +62,9 @@ type OfferUserDetails struct {
 // including details about how it has been deployed.
 type ApplicationOfferAdminDetails struct {
 	ApplicationOfferDetails
-	ApplicationName string             `json:"application-name"`
-	CharmURL        string             `json:"charm-url"`
-	Connections     []OfferConnection  `json:"connections,omitempty"`
-	Users           []OfferUserDetails `json:"users,omitempty"`
+	ApplicationName string            `json:"application-name"`
+	CharmURL        string            `json:"charm-url"`
+	Connections     []OfferConnection `json:"connections,omitempty"`
 }
 
 // OfferConnection holds details about a connection to an offer.
