@@ -1993,8 +1993,9 @@ class ModelClient:
 
     def destroy_model(self):
         exit_status, _ = self.juju(
-            'destroy-model', ('{}:{}'.format(self.env.controller.name,
-                                             self.env.environment), '-y',),
+            'destroy-model',
+            ('{}:{}'.format(self.env.controller.name, self.env.environment),
+            '-y', '--destroy-storage',),
             include_e=False, timeout=get_teardown_timeout(self))
         return exit_status
 
