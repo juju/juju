@@ -18,6 +18,7 @@ var controllerFacadeNames = set.NewStrings(
 	"ApplicationOffers",
 	"Cloud",
 	"Controller",
+	"CrossController",
 	"MigrationTarget",
 	"ModelManager",
 	"UserManager",
@@ -33,6 +34,10 @@ var commonFacadeNames = set.NewStrings(
 	// backwards compatibility. Remove once we're sure no non-Juju
 	// clients care about it.
 	"HighAvailability",
+
+	// NotifyWatcher may be used for watching controller API info,
+	// in conjunction with the CrossController facade.
+	"NotifyWatcher",
 )
 
 func controllerFacadesOnly(facadeName, _ string) error {
