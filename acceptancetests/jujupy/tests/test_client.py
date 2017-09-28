@@ -53,7 +53,7 @@ from jujupy.client import (
     HookFailedError,
     InstallError,
     InvalidEndpoint,
-    jes_home_path,
+    juju_home_path,
     Juju2Backend,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
@@ -3697,10 +3697,10 @@ def bootstrap_context(client=None):
             yield fake_home
 
 
-class TestJesHomePath(TestCase):
+class TestJujuHomePath(TestCase):
 
-    def test_jes_home_path(self):
-        path = jes_home_path('/home/jrandom/foo', 'bar')
+    def test_juju_home_path(self):
+        path = juju_home_path('/home/jrandom/foo', 'bar')
         self.assertEqual(path, '/home/jrandom/foo/jes-homes/bar')
 
 

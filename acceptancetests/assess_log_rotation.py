@@ -16,7 +16,7 @@ from jujucharm import (
     )
 from jujupy import (
     client_from_config,
-    jes_home_path,
+    juju_home_path,
     )
 from utility import (
     add_basic_testing_arguments,
@@ -211,7 +211,7 @@ def make_client_from_args(args):
         client.env, args.temp_env_name, series=args.series,
         bootstrap_host=args.bootstrap_host, agent_url=args.agent_url,
         agent_stream=args.agent_stream, region=args.region)
-    client.env.juju_home = jes_home_path(
+    client.env.juju_home = juju_home_path(
         client.env.juju_home, args.temp_env_name)
     client.kill_controller()
     return client

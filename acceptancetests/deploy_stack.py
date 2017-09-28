@@ -30,7 +30,7 @@ from jujupy import (
     FakeBackend,
     fake_juju_client,
     get_machine_dns_name,
-    jes_home_path,
+    juju_home_path,
     NoProvider,
     JujuData,
     temp_bootstrap_env,
@@ -863,9 +863,9 @@ class BootstrapManager:
             logging.info('Waiting for port 22 on %s' % machine)
             wait_for_port(machine, 22, timeout=120)
         torn_down = False
-        jes_home = jes_home_path(
+        juju_home = juju_home_path(
             self.client.env.juju_home, self.client.env.environment)
-        with temp_juju_home(self.client, jes_home):
+        with temp_juju_home(self.client, juju_home):
             cache_path = self.client.get_cache_path()
             if os.path.isfile(cache_path):
                 self.controller_strategy.prepare()

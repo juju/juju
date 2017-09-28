@@ -325,7 +325,7 @@ class JujuData:
             base path for the new directory.
         :param dir_name: Name of sub-directory to make the home in.
         """
-        home_path = jes_home_path(juju_home, dir_name)
+        home_path = juju_home_path(juju_home, dir_name)
         with skip_on_missing_file():
             shutil.rmtree(home_path)
         os.makedirs(home_path)
@@ -3084,8 +3084,8 @@ class ModelClient:
         self.juju('switch', (':'.join(args),), include_e=False)
 
 
-def jes_home_path(juju_home, dir_name):
-    return os.path.join(juju_home, 'jes-homes', dir_name)
+def juju_home_path(juju_home, dir_name):
+    return os.path.join(juju_home, 'juju-homes', dir_name)
 
 
 def get_cache_path(juju_home, models=False):
