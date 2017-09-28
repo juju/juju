@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/crossmodel"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 )
 
 type showSuite struct {
@@ -53,6 +53,7 @@ func (s *showSuite) TestShowYaml(c *gc.C) {
 		[]string{"fred/model.db2", "--format", "yaml"},
 		`
 test-master:fred/model.db2:
+  description: IBM DB2 Express Server Edition is an entry level database system
   access: consume
   endpoints:
     db2:
@@ -61,7 +62,11 @@ test-master:fred/model.db2:
     log:
       interface: http
       role: provider
-  description: IBM DB2 Express Server Edition is an entry level database system
+  users:
+    fred:
+      user: fred
+      display-name: Fred
+      access: consume
 `[1:],
 	)
 }
@@ -149,23 +154,26 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) ApplicationOffer(url string) (params.ApplicationOffer, error) {
+func (s mockShowAPI) ApplicationOffer(url string) (*jujucrossmodel.ApplicationOfferDetails, error) {
 	if s.msg != "" {
-		return params.ApplicationOffer{}, errors.New(s.msg)
+		return nil, errors.New(s.msg)
 	}
 
 	offerURL := "fred/model.db2"
 	if s.controllerName != "" {
 		offerURL = s.controllerName + ":" + offerURL
 	}
-	return params.ApplicationOffer{
+	return &jujucrossmodel.ApplicationOfferDetails{
 		OfferName:              "hosted-db2",
 		OfferURL:               offerURL,
 		ApplicationDescription: s.desc,
-		Endpoints: []params.RemoteEndpoint{
+		Endpoints: []charm.Relation{
 			{Name: "log", Interface: "http", Role: charm.RoleProvider},
 			{Name: "db2", Interface: "http", Role: charm.RoleRequirer},
 		},
 		Access: "consume",
+		Users: []jujucrossmodel.OfferUserDetails{{
+			UserName: "fred", DisplayName: "Fred", Access: "consume",
+		}},
 	}, nil
 }

@@ -24,7 +24,7 @@ type ListSuite struct {
 
 	mockAPI *mockListAPI
 
-	applications []model.ApplicationOfferDetailsResult
+	applications []*model.ApplicationOfferDetails
 	endpoints    []charm.Relation
 }
 
@@ -38,12 +38,12 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 		{Name: "log", Interface: "http", Role: charm.RoleProvider},
 	}
 
-	s.applications = []model.ApplicationOfferDetailsResult{
-		{Result: s.createOfferItem("hosted-db2", "myctrl", nil)},
+	s.applications = []*model.ApplicationOfferDetails{
+		s.createOfferItem("hosted-db2", "myctrl", nil),
 	}
 
 	s.mockAPI = &mockListAPI{
-		list: func(filters ...model.ApplicationOfferFilter) ([]model.ApplicationOfferDetailsResult, error) {
+		list: func(filters ...model.ApplicationOfferFilter) ([]*model.ApplicationOfferDetails, error) {
 			s.mockAPI.filters = filters
 			return s.applications, nil
 		},
@@ -59,7 +59,7 @@ func (s *ListSuite) TestListNoCurrentModel(c *gc.C) {
 func (s *ListSuite) TestListError(c *gc.C) {
 	msg := "fail api"
 
-	s.mockAPI.list = func(filters ...model.ApplicationOfferFilter) ([]model.ApplicationOfferDetailsResult, error) {
+	s.mockAPI.list = func(filters ...model.ApplicationOfferFilter) ([]*model.ApplicationOfferDetails, error) {
 		return nil, errors.New(msg)
 	}
 
@@ -82,7 +82,7 @@ func (s *ListSuite) TestListFilterArgs(c *gc.C) {
 }
 
 func (s *ListSuite) TestListFormatError(c *gc.C) {
-	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("zdi^%", "different_store", nil)})
+	s.applications = append(s.applications, s.createOfferItem("zdi^%", "different_store", nil))
 
 	_, err := s.runList(c, nil)
 	c.Assert(err, gc.ErrorMatches, ".*failed to format.*")
@@ -93,8 +93,8 @@ func (s *ListSuite) TestListSummary(c *gc.C) {
 	conns1 := []model.OfferConnection{{Status: relation.Joined}, {}, {}}
 	conns2 := []model.OfferConnection{{}, {}}
 	// Insert in random order to check sorting.
-	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("zdiff-db2", "differentstore", conns1)})
-	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("adiff-db2", "vendor", conns2)})
+	s.applications = append(s.applications, s.createOfferItem("zdiff-db2", "differentstore", conns1))
+	s.applications = append(s.applications, s.createOfferItem("adiff-db2", "vendor", conns2))
 
 	s.assertValidList(
 		c,
@@ -110,23 +110,6 @@ adiff-db2   app-adiff-db2   cs:db2-5  0/2        vendor          vendor:fred/mod
 
 `[1:],
 		"",
-	)
-}
-
-func (s *ListSuite) TestListWithErrors(c *gc.C) {
-	msg := "here is the error"
-	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Error: errors.New(msg)})
-
-	s.assertValidList(
-		c,
-		[]string{"--format", "summary"},
-		`
-Offer       Application     Charm     Connected  Store   URL                           Endpoint  Interface  Role
-hosted-db2  app-hosted-db2  cs:db2-5  0/0        myctrl  myctrl:fred/model.hosted-db2  log       http       provider
-                                                                                       mysql     db2        requirer
-
-`[1:],
-		msg,
 	)
 }
 
@@ -164,13 +147,13 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 		},
 	}
 	// Insert in random order to check sorting.
-	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("zdiff-db2", "differentstore", conns1)})
-	s.applications = append(s.applications, model.ApplicationOfferDetailsResult{Result: s.createOfferItem("adiff-db2", "vendor", conns2)})
-	s.applications[1].Result.Endpoints = []charm.Relation{
+	s.applications = append(s.applications, s.createOfferItem("zdiff-db2", "differentstore", conns1))
+	s.applications = append(s.applications, s.createOfferItem("adiff-db2", "vendor", conns2))
+	s.applications[1].Endpoints = []charm.Relation{
 		{Name: "db", Interface: "db2", Role: charm.RoleProvider},
 		{Name: "server", Interface: "mysql", Role: charm.RoleProvider},
 	}
-	s.applications[2].Result.Endpoints = []charm.Relation{
+	s.applications[2].Endpoints = []charm.Relation{
 		{Name: "db", Interface: "db2", Role: charm.RoleProvider},
 	}
 
@@ -192,8 +175,8 @@ adiff-db2  mary  3            joined  db        db2        provider
 func (s *ListSuite) TestListYAML(c *gc.C) {
 	// Since applications are in the map and ordering is unreliable, ensure that there is only one endpoint.
 	// We only need one to demonstrate display anyway :D
-	s.applications[0].Result.Endpoints = []charm.Relation{{Name: "mysql", Interface: "db2", Role: charm.RoleRequirer}}
-	s.applications[0].Result.Connections = []model.OfferConnection{
+	s.applications[0].Endpoints = []charm.Relation{{Name: "mysql", Interface: "db2", Role: charm.RoleRequirer}}
+	s.applications[0].Connections = []model.OfferConnection{
 		{
 			SourceModelUUID: "model-uuid",
 			Username:        "mary",
@@ -210,6 +193,9 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 			IngressSubnets:  []string{"192.168.0.1/32", "10.0.0.0/8"},
 		},
 	}
+	s.applications[0].Users = []model.OfferUserDetails{{
+		UserName: "fred", DisplayName: "Fred", Access: "consume",
+	}}
 
 	s.assertValidList(
 		c,
@@ -241,6 +227,11 @@ hosted-db2:
     ingress-subnets:
     - 192.168.0.1/32
     - 10.0.0.0/8
+  users:
+    fred:
+      user: fred
+      display-name: Fred
+      access: consume
 `[1:],
 		"",
 	)
@@ -274,13 +265,13 @@ func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expec
 
 type mockListAPI struct {
 	filters []model.ApplicationOfferFilter
-	list    func(filters ...model.ApplicationOfferFilter) ([]model.ApplicationOfferDetailsResult, error)
+	list    func(filters ...model.ApplicationOfferFilter) ([]*model.ApplicationOfferDetails, error)
 }
 
 func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) ListOffers(filters ...model.ApplicationOfferFilter) ([]model.ApplicationOfferDetailsResult, error) {
+func (s mockListAPI) ListOffers(filters ...model.ApplicationOfferFilter) ([]*model.ApplicationOfferDetails, error) {
 	return s.list(filters...)
 }

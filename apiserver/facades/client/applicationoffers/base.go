@@ -89,7 +89,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 	modelUUID string,
 	requiredAccess permission.Access,
 	filters ...jujucrossmodel.ApplicationOfferFilter,
-) ([]params.ApplicationOfferDetails, error) {
+) ([]params.ApplicationOfferAdminDetails, error) {
 	// Get the relevant backend for the specified model.
 	backend, releaser, err := api.StatePool.Get(modelUUID)
 	if err != nil {
@@ -114,7 +114,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 
-	var results []params.ApplicationOfferDetails
+	var results []params.ApplicationOfferAdminDetails
 	for _, appOffer := range offers {
 		userAccess := permission.AdminAccess
 		// If the user is not a model admin, they need at least read
@@ -135,55 +135,80 @@ func (api *BaseAPI) applicationOffersFromModel(
 			logger.Warningf("cannot get application offer: %v", err)
 			continue
 		}
-		offer := params.ApplicationOfferDetails{
+		offer := params.ApplicationOfferAdminDetails{
 			ApplicationOffer: *offerParams,
 		}
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
-			curl, _ := app.CharmURL()
-			conns, err := backend.OfferConnections(offer.OfferUUID)
-			if err != nil {
-				logger.Warningf("cannot get offer connection details: %v", err)
-				continue
-			}
-			offer.ApplicationName = app.Name()
-			offer.CharmURL = curl.String()
-			for _, oc := range conns {
-				connDetails := params.OfferConnection{
-					SourceModelTag: names.NewModelTag(oc.SourceModelUUID()).String(),
-					Username:       oc.UserName(),
-					RelationId:     oc.RelationId(),
-				}
-				rel, err := backend.KeyRelation(oc.RelationKey())
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				ep, err := rel.Endpoint(app.Name())
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				relStatus, err := rel.Status()
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				connDetails.Endpoint = ep.Name
-				connDetails.Status = params.EntityStatus{
-					Status: relStatus.Status,
-					Info:   relStatus.Message,
-					Data:   relStatus.Data,
-					Since:  relStatus.Since,
-				}
-				relIngress, err := backend.IngressNetworks(oc.RelationKey())
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				connDetails.IngressSubnets = relIngress.CIDRS()
-				offer.Connections = append(offer.Connections, connDetails)
+			if err := getOfferAdminDetails(backend, app, &offer); err != nil {
+				logger.Warningf("cannot get offer admin details: %v", err)
 			}
 		}
 		results = append(results, offer)
 	}
 	return results, nil
+}
+
+func getOfferAdminDetails(backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetails) error {
+	curl, _ := app.CharmURL()
+	conns, err := backend.OfferConnections(offer.OfferUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	offer.ApplicationName = app.Name()
+	offer.CharmURL = curl.String()
+	for _, oc := range conns {
+		connDetails := params.OfferConnection{
+			SourceModelTag: names.NewModelTag(oc.SourceModelUUID()).String(),
+			Username:       oc.UserName(),
+			RelationId:     oc.RelationId(),
+		}
+		rel, err := backend.KeyRelation(oc.RelationKey())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ep, err := rel.Endpoint(app.Name())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		relStatus, err := rel.Status()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		connDetails.Endpoint = ep.Name
+		connDetails.Status = params.EntityStatus{
+			Status: relStatus.Status,
+			Info:   relStatus.Message,
+			Data:   relStatus.Data,
+			Since:  relStatus.Since,
+		}
+		relIngress, err := backend.IngressNetworks(oc.RelationKey())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		connDetails.IngressSubnets = relIngress.CIDRS()
+		offer.Connections = append(offer.Connections, connDetails)
+	}
+
+	offerUsers, err := backend.GetOfferUsers(offer.OfferUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for userName, access := range offerUsers {
+		var displayName string
+		user, err := backend.User(names.NewUserTag(userName))
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		} else if err == nil {
+			displayName = user.DisplayName()
+		}
+		offer.Users = append(offer.Users, params.OfferUserDetails{
+			UserName:    userName,
+			DisplayName: displayName,
+			Access:      string(access),
+		})
+	}
+	return nil
 }
 
 // checkOfferAccess returns the level of access the authenticated user has to the offer,
@@ -288,7 +313,7 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 func (api *BaseAPI) getApplicationOffersDetails(
 	filters params.OfferFilters,
 	requiredPermission permission.Access,
-) ([]params.ApplicationOfferDetails, error) {
+) ([]params.ApplicationOfferAdminDetails, error) {
 
 	// If there are no filters specified, that's an error since the
 	// caller is expected to specify at the least one or more models
@@ -311,7 +336,7 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	sort.Strings(allUUIDs)
 
 	// Do the per model queries.
-	var result []params.ApplicationOfferDetails
+	var result []params.ApplicationOfferAdminDetails
 	for _, modelUUID := range allUUIDs {
 		filters := filtersPerModel[modelUUID]
 		offers, err := api.applicationOffersFromModel(modelUUID, requiredPermission, filters...)

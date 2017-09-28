@@ -51,13 +51,21 @@ type ApplicationOffer struct {
 	Access                 string            `json:"access"`
 }
 
-// ApplicationOfferDetails represents an application offering,
+// OfferUserDetails represents an offer consumer and their permission on the offer.
+type OfferUserDetails struct {
+	UserName    string `json:"user"`
+	DisplayName string `json:"display-name"`
+	Access      string `json:"access"`
+}
+
+// ApplicationOfferAdminDetails represents an application offering,
 // including details about how it has been deployed.
-type ApplicationOfferDetails struct {
+type ApplicationOfferAdminDetails struct {
 	ApplicationOffer
-	ApplicationName string            `json:"application-name"`
-	CharmURL        string            `json:"charm-url"`
-	Connections     []OfferConnection `json:"connections,omitempty"`
+	ApplicationName string             `json:"application-name"`
+	CharmURL        string             `json:"charm-url"`
+	Connections     []OfferConnection  `json:"connections,omitempty"`
+	Users           []OfferUserDetails `json:"users,omitempty"`
 }
 
 // OfferConnection holds details about a connection to an offer.
@@ -70,10 +78,10 @@ type OfferConnection struct {
 	IngressSubnets []string     `json:"ingress-subnets"`
 }
 
-// ListApplicationOffersResults is a result of listing application offers.
-type ListApplicationOffersResults struct {
+// QueryApplicationOffersResults is a result of searching application offers.
+type QueryApplicationOffersResults struct {
 	// Results contains application offers matching each filter.
-	Results []ApplicationOfferDetails `json:"results"`
+	Results []ApplicationOfferAdminDetails `json:"results"`
 }
 
 // AddApplicationOffers is used when adding offers to a application directory.
@@ -113,16 +121,11 @@ type RemoteSpace struct {
 	Subnets            []Subnet               `json:"subnets"`
 }
 
-// FindApplicationOffersResults is a result of finding remote application offers.
-type FindApplicationOffersResults struct {
-	// Results contains application offers matching each filter.
-	Results []ApplicationOffer `json:"results"`
-}
-
-// ApplicationOfferResult is a result of listing a remote application offer.
+// ApplicationOfferResult is a result of querying a remote
+// application offer based on its URL.
 type ApplicationOfferResult struct {
 	// Result contains application offer information.
-	Result *ApplicationOffer `json:"result,omitempty"`
+	Result *ApplicationOfferAdminDetails `json:"result,omitempty"`
 
 	// Error contains related error.
 	Error *Error `json:"error,omitempty"`

@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 )
@@ -63,7 +62,7 @@ func (s *findSuite) TestNoResults(c *gc.C) {
 		OwnerName: "bob",
 		ModelName: "none",
 	}
-	s.mockAPI.results = []params.ApplicationOffer{}
+	s.mockAPI.results = []*jujucrossmodel.ApplicationOfferDetails{}
 	s.assertFindError(
 		c,
 		[]string{"--url", "none"},
@@ -133,6 +132,11 @@ master:fred/model.hosted-db2:
     log:
       interface: http
       role: provider
+  users:
+    fred:
+      user: fred
+      display-name: Fred
+      access: consume
 `[1:],
 	)
 }
@@ -183,14 +187,14 @@ type mockFindAPI struct {
 	msg, offerName    string
 	expectedModelName string
 	expectedFilter    *jujucrossmodel.ApplicationOfferFilter
-	results           []params.ApplicationOffer
+	results           []*jujucrossmodel.ApplicationOfferDetails
 }
 
 func (s mockFindAPI) Close() error {
 	return nil
 }
 
-func (s mockFindAPI) FindApplicationOffers(filters ...jujucrossmodel.ApplicationOfferFilter) ([]params.ApplicationOffer, error) {
+func (s mockFindAPI) FindApplicationOffers(filters ...jujucrossmodel.ApplicationOfferFilter) ([]*jujucrossmodel.ApplicationOfferDetails, error) {
 	if s.msg != "" {
 		return nil, errors.New(s.msg)
 	}
@@ -207,13 +211,16 @@ func (s mockFindAPI) FindApplicationOffers(filters ...jujucrossmodel.Application
 		store = "master"
 	}
 	offerURL := fmt.Sprintf("%s:fred/%s.%s", store, s.expectedModelName, s.offerName)
-	return []params.ApplicationOffer{{
+	return []*jujucrossmodel.ApplicationOfferDetails{{
 		OfferURL:  offerURL,
 		OfferName: s.offerName,
-		Endpoints: []params.RemoteEndpoint{
+		Endpoints: []charm.Relation{
 			{Name: "log", Interface: "http", Role: charm.RoleProvider},
 			{Name: "db2", Interface: "http", Role: charm.RoleRequirer},
 		},
 		Access: "consume",
+		Users: []jujucrossmodel.OfferUserDetails{{
+			UserName: "fred", DisplayName: "Fred", Access: "consume",
+		}},
 	}}, nil
 }

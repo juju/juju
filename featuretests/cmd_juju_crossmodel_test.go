@@ -58,6 +58,14 @@ riak:
     endpoint:
       interface: http
       role: provider
+  users:
+    admin:
+      user: admin
+      display-name: admin
+      access: admin
+    everyone@external:
+      user: everyone@external
+      access: read
 varnish:
   application: varnishservice
   store: kontroll
@@ -67,6 +75,14 @@ varnish:
     webcache:
       interface: varnish
       role: provider
+  users:
+    admin:
+      user: admin
+      display-name: admin
+      access: admin
+    everyone@external:
+      user: everyone@external
+      access: read
 `[1:])
 }
 
@@ -108,12 +124,20 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
 kontroll:admin/controller.varnish:
+  description: Another popular database
   access: admin
   endpoints:
     webcache:
       interface: varnish
       role: provider
-  description: Another popular database
+  users:
+    admin:
+      user: admin
+      display-name: admin
+      access: admin
+    everyone@external:
+      user: everyone@external
+      access: read
 `[1:])
 }
 
@@ -130,6 +154,11 @@ kontroll:otheruser/othermodel.hosted-mysql:
     database:
       interface: mysql
       role: provider
+  users:
+    otheruser:
+      user: otheruser
+      display-name: display name-9
+      access: admin
 `[1:])
 }
 
@@ -158,12 +187,28 @@ kontroll:admin/controller.riak:
     endpoint:
       interface: http
       role: provider
+  users:
+    admin:
+      user: admin
+      display-name: admin
+      access: admin
+    everyone@external:
+      user: everyone@external
+      access: read
 kontroll:admin/controller.varnish:
   access: admin
   endpoints:
     webcache:
       interface: varnish
       role: provider
+  users:
+    admin:
+      user: admin
+      display-name: admin
+      access: admin
+    everyone@external:
+      user: everyone@external
+      access: read
 `[1:])
 }
 
@@ -180,6 +225,11 @@ kontroll:otheruser/othermodel.hosted-mysql:
     database:
       interface: mysql
       role: provider
+  users:
+    otheruser:
+      user: otheruser
+      display-name: display name-6
+      access: admin
 `[1:])
 }
 
@@ -196,18 +246,39 @@ kontroll:admin/controller.riak:
     endpoint:
       interface: http
       role: provider
+  users:
+    admin:
+      user: admin
+      display-name: admin
+      access: admin
+    everyone@external:
+      user: everyone@external
+      access: read
 kontroll:admin/controller.varnish:
   access: admin
   endpoints:
     webcache:
       interface: varnish
       role: provider
+  users:
+    admin:
+      user: admin
+      display-name: admin
+      access: admin
+    everyone@external:
+      user: everyone@external
+      access: read
 kontroll:otheruser/othermodel.hosted-mysql:
   access: admin
   endpoints:
     database:
       interface: mysql
       role: provider
+  users:
+    otheruser:
+      user: otheruser
+      display-name: display name-4
+      access: admin
 `[1:])
 }
 

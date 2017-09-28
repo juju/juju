@@ -158,8 +158,8 @@ func (api *OffersAPI) makeAddOfferArgsFromParams(backend Backend, addOfferParams
 
 // ListApplicationOffers gets deployed details about application offers that match given filter.
 // The results contain details about the deployed applications such as connection count.
-func (api *OffersAPI) ListApplicationOffers(filters params.OfferFilters) (params.ListApplicationOffersResults, error) {
-	var result params.ListApplicationOffersResults
+func (api *OffersAPI) ListApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResults, error) {
+	var result params.QueryApplicationOffersResults
 	offers, err := api.getApplicationOffersDetails(filters, permission.AdminAccess)
 	if err != nil {
 		return result, common.ServerError(err)
@@ -363,7 +363,7 @@ func (api *OffersAPI) ApplicationOffers(urls params.OfferURLs) (params.Applicati
 	if err != nil {
 		return results, common.ServerError(err)
 	}
-	offersByURL := make(map[string]params.ApplicationOfferDetails)
+	offersByURL := make(map[string]params.ApplicationOfferAdminDetails)
 	for _, offer := range offers {
 		offersByURL[offer.OfferURL] = offer
 	}
@@ -375,14 +375,14 @@ func (api *OffersAPI) ApplicationOffers(urls params.OfferURLs) (params.Applicati
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		results.Results[i].Result = &offer.ApplicationOffer
+		results.Results[i].Result = &offer
 	}
 	return results, nil
 }
 
 // FindApplicationOffers gets details about remote applications that match given filter.
-func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params.FindApplicationOffersResults, error) {
-	var result params.FindApplicationOffersResults
+func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResults, error) {
+	var result params.QueryApplicationOffersResults
 	var filtersToUse params.OfferFilters
 
 	// If there is only one filter term, and no model is specified, add in
@@ -411,9 +411,7 @@ func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params
 	if err != nil {
 		return result, common.ServerError(err)
 	}
-	for _, offer := range offers {
-		result.Results = append(result.Results, offer.ApplicationOffer)
-	}
+	result.Results = offers
 	return result, nil
 }
 
@@ -442,18 +440,20 @@ func (api *OffersAPI) GetConsumeDetails(args params.OfferURLs) (params.ConsumeOf
 	}
 
 	for i, result := range offers.Results {
-		offer := result.Result
-		results[i].Offer = offer
 		results[i].Error = result.Error
-		if result.Error == nil {
-			results[i].ControllerInfo = controllerInfo
-			offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(offer, api.Authorizer.GetAuthTag().Id())
-			if err != nil {
-				results[i].Error = common.ServerError(err)
-				continue
-			}
-			results[i].Macaroon = offerMacaroon
+		if result.Error != nil {
+			continue
 		}
+		offer := result.Result
+		offerDetails := &offer.ApplicationOffer
+		results[i].Offer = offerDetails
+		results[i].ControllerInfo = controllerInfo
+		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(offerDetails, api.Authorizer.GetAuthTag().Id())
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Macaroon = offerMacaroon
 	}
 	consumeResults.Results = results
 	return consumeResults, nil
