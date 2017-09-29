@@ -37,7 +37,7 @@ Examples:
     juju remove-offer prod.model/hosted-mysql
 
 See also:
-    find-endpoints
+    find-offers
     offer
 `
 

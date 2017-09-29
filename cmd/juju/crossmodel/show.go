@@ -18,18 +18,12 @@ Show extended information about an offered application.
 
 This command is aimed for a user who wants to see more detail about what’s offered behind a particular URL.
 
-options:
--o, --output (= "")
-   specify an output file
---format (= tabular)
-   specify output format (tabular|json|yaml)
-
 Examples:
-   $ juju show-endpoints fred/prod.db2
-   $ juju show-endpoints anothercontroller:fred/prod.db2
+   $ juju show-offer fred/prod.db2
+   $ juju show-offer anothercontroller:fred/prod.db2
 
 See also:
-   find-endpoints
+   find-offers
 `
 
 type showCommand struct {
@@ -62,7 +56,7 @@ func (c *showCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *showCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "show-endpoints",
+		Name:    "show-offer",
 		Purpose: "Shows offered applications' endpoints details.",
 		Doc:     showCommandDoc,
 	}

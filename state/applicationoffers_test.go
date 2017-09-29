@@ -208,10 +208,25 @@ func (s *applicationOffersSuite) TestListOffersOneFilter(c *gc.C) {
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		OfferName:       "offer1",
 		ApplicationName: "mysql",
+		Endpoints: []crossmodel.EndpointFilterTerm{{
+			Interface: "mysql",
+		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(offers), gc.Equals, 1)
 	c.Assert(offers[0], jc.DeepEquals, offer)
+}
+
+func (s *applicationOffersSuite) TestListOffersFilterExcludes(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	s.createOffer(c, "offer1", "description for offer1")
+	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
+		Endpoints: []crossmodel.EndpointFilterTerm{{
+			Interface: "db2",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(offers), gc.Equals, 0)
 }
 
 func (s *applicationOffersSuite) TestListOffersManyFilters(c *gc.C) {

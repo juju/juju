@@ -71,7 +71,7 @@ func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.Applicat
 	}
 }
 
-func (s *baseSuite) setupOffers(c *gc.C, filterAppName string) {
+func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoints bool) {
 	applicationName := "test"
 	offerName := "hosted-db2"
 
@@ -85,10 +85,16 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string) {
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		c.Assert(filters, gc.HasLen, 1)
-		c.Assert(filters[0], jc.DeepEquals, jujucrossmodel.ApplicationOfferFilter{
+		expectedFilter := jujucrossmodel.ApplicationOfferFilter{
 			OfferName:       offerName,
 			ApplicationName: filterAppName,
-		})
+		}
+		if filterWithEndpoints {
+			expectedFilter.Endpoints = []jujucrossmodel.EndpointFilterTerm{{
+				Interface: "db2",
+			}}
+		}
+		c.Assert(filters[0], jc.DeepEquals, expectedFilter)
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}}
