@@ -17,7 +17,7 @@ from collections import defaultdict
 from jujupy import (
     client_for_existing
     )
-from jujupy.client import (
+from jujupy.wait_condition import (
     WaitApplicationNotPresent
     )
 from deploy_stack import (

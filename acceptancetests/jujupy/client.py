@@ -37,8 +37,6 @@ import subprocess
 import sys
 import time
 
-from dateutil.parser import parse as datetime_parse
-from dateutil import tz
 import pexpect
 import yaml
 
@@ -48,37 +46,30 @@ from jujupy.configuration import (
     get_selected_environment,
     )
 from jujupy.exceptions import (
-    AgentError,
-    AgentUnresolvedError,
     AgentsNotStarted,
-    AppError,
     ApplicationsNotStarted,
     AuthNotAccepted,
     CannotConnectEnv,
-    ErroredUnit,
-    HookFailedError,
-    InstallError,
     InvalidEndpoint,
     NameNotAccepted,
     NoActiveControllers,
     NoActiveModel,
     NoProvider,
-    MachineError,
-    ProvisioningError,
     SoftDeadlineExceeded,
-    StatusError,
     StatusNotMet,
     StatusTimeout,
-    StuckAllocatingError,
     TypeNotAccepted,
-    UnitError,
-    VersionsNotUpdated,
     VotingNotEnabled,
     WorkloadsNotReady,
     )
+from jujupy.status import (
+    AGENTS_READY,
+    coalesce_agent_status,
+    Status,
+    )
 from jujupy.utility import (
+    _dns_name_for_machine,
     get_timeout_path,
-    is_ipv6_address,
     JujuResourceTimeout,
     pause,
     quote,
@@ -90,6 +81,14 @@ from jujupy.utility import (
     unqualified_model_name,
     until_timeout,
     )
+from jujupy.wait_condition import (
+    CommandComplete,
+    CommandTime,
+    NoopCondition,
+    WaitAgentsStarted,
+    WaitMachineNotPresent,
+    WaitVersion,
+    )
 
 
 __metaclass__ = type
@@ -100,7 +99,6 @@ try:
 except NameError:
     argtype = str
 
-AGENTS_READY = set(['started', 'idle'])
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
 JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
@@ -147,18 +145,6 @@ def parse_new_state_server_from_error(error):
 
 
 Machine = namedtuple('Machine', ['machine_id', 'info'])
-
-
-def coalesce_agent_status(agent_item):
-    """Return the machine agent-state or the unit agent-status."""
-    state = agent_item.get('agent-state')
-    if state is None and agent_item.get('agent-status') is not None:
-        state = agent_item.get('agent-status').get('current')
-    if state is None and agent_item.get('juju-status') is not None:
-        state = agent_item.get('juju-status').get('current')
-    if state is None:
-        state = 'no-agent'
-    return state
 
 
 class JujuData:
@@ -535,306 +521,6 @@ class JujuData:
         return not self == other
 
 
-StatusError.ordering = [
-    ProvisioningError, StuckAllocatingError, MachineError, InstallError,
-    AgentUnresolvedError, HookFailedError, UnitError, AppError, AgentError,
-    StatusError,
-    ]
-
-
-class StatusItem:
-
-    APPLICATION = 'application-status'
-    WORKLOAD = 'workload-status'
-    MACHINE = 'machine-status'
-    JUJU = 'juju-status'
-
-    def __init__(self, status_name, item_name, item_value):
-        """Create a new StatusItem from its fields.
-
-        :param status_name: One of the status strings.
-        :param item_name: The name of the machine/unit/application the status
-            information is about.
-        :param item_value: A dictionary of status values. If there is an entry
-            with the status_name in the dictionary its contents are used."""
-        self.status_name = status_name
-        self.item_name = item_name
-        self.status = item_value.get(status_name, item_value)
-
-    def __eq__(self, other):
-        if type(other) != type(self):
-            return False
-        elif self.status_name != other.status_name:
-            return False
-        elif self.item_name != other.item_name:
-            return False
-        elif self.status != other.status:
-            return False
-        else:
-            return True
-
-    def __ne__(self, other):
-        return bool(not self == other)
-
-    @property
-    def message(self):
-        return self.status.get('message')
-
-    @property
-    def since(self):
-        return self.status.get('since')
-
-    @property
-    def current(self):
-        return self.status.get('current')
-
-    @property
-    def version(self):
-        return self.status.get('version')
-
-    @property
-    def datetime_since(self):
-        if self.since is None:
-            return None
-        return datetime_parse(self.since)
-
-    def to_exception(self):
-        """Create an exception representing the error if one exists.
-
-        :return: StatusError (or subtype) to represent an error or None
-        to show that there is no error."""
-        if self.current not in ['error', 'failed', 'down',
-                                'provisioning error']:
-            if (self.current, self.status_name) != (
-                    'allocating', self.MACHINE):
-                return None
-        if self.APPLICATION == self.status_name:
-            return AppError(self.item_name, self.message)
-        elif self.WORKLOAD == self.status_name:
-            if self.message is None:
-                return UnitError(self.item_name, self.message)
-            elif re.match('hook failed: ".*install.*"', self.message):
-                return InstallError(self.item_name, self.message)
-            elif re.match('hook failed', self.message):
-                return HookFailedError(self.item_name, self.message)
-            else:
-                return UnitError(self.item_name, self.message)
-        elif self.MACHINE == self.status_name:
-            if self.current == 'provisioning error':
-                return ProvisioningError(self.item_name, self.message)
-            if self.current == 'allocating':
-                return StuckAllocatingError(
-                    self.item_name,
-                    'Stuck allocating.  Last message: {}'.format(self.message))
-            else:
-                return MachineError(self.item_name, self.message)
-        elif self.JUJU == self.status_name:
-            if self.since is None:
-                return AgentError(self.item_name, self.message)
-            time_since = datetime.now(tz.gettz('UTC')) - self.datetime_since
-            if time_since > AgentUnresolvedError.a_reasonable_time:
-                return AgentUnresolvedError(self.item_name, self.message,
-                                            time_since.total_seconds())
-            else:
-                return AgentError(self.item_name, self.message)
-        else:
-            raise ValueError('Unknown status:{}'.format(self.status_name),
-                             (self.item_name, self.status_value))
-
-    def __repr__(self):
-        return 'StatusItem({!r}, {!r}, {!r})'.format(
-            self.status_name, self.item_name, self.status)
-
-
-class Status:
-
-    def __init__(self, status, status_text):
-        self.status = status
-        self.status_text = status_text
-
-    @classmethod
-    def from_text(cls, text):
-        try:
-            # Parsing as JSON is much faster than parsing as YAML, so try
-            # parsing as JSON first and fall back to YAML.
-            status_yaml = json.loads(text)
-        except ValueError:
-            status_yaml = yaml.safe_load(text)
-        return cls(status_yaml, text)
-
-    @property
-    def model_name(self):
-        return self.status['model']['name']
-
-    def get_applications(self):
-        return self.status.get('applications', {})
-
-    def iter_machines(self, containers=False, machines=True):
-        for machine_name, machine in sorted(self.status['machines'].items()):
-            if machines:
-                yield machine_name, machine
-            if containers:
-                for contained, unit in machine.get('containers', {}).items():
-                    yield contained, unit
-
-    def iter_new_machines(self, old_status, containers=False):
-        old = dict(old_status.iter_machines(containers=containers))
-        for machine, data in self.iter_machines(containers=containers):
-            if machine in old:
-                continue
-            yield machine, data
-
-    def _iter_units_in_application(self, app_data):
-        """Given application data, iterate through every unit in it."""
-        for unit_name, unit in sorted(app_data.get('units', {}).items()):
-            yield unit_name, unit
-            subordinates = unit.get('subordinates', ())
-            for sub_name in sorted(subordinates):
-                yield sub_name, subordinates[sub_name]
-
-    def iter_units(self):
-        """Iterate over every unit in every application."""
-        for service_name, service in sorted(self.get_applications().items()):
-            for name, data in self._iter_units_in_application(service):
-                yield name, data
-
-    def agent_items(self):
-        for machine_name, machine in self.iter_machines(containers=True):
-            yield machine_name, machine
-        for unit_name, unit in self.iter_units():
-            yield unit_name, unit
-
-    def unit_agent_states(self, states=None):
-        """Fill in a dictionary with the states of units.
-
-        Units of a dying application are marked as dying.
-
-        :param states: If not None, when it should be a defaultdict(list)),
-        then states are added to this dictionary."""
-        if states is None:
-            states = defaultdict(list)
-        for app_name, app_data in sorted(self.get_applications().items()):
-            if app_data.get('life') == 'dying':
-                for unit, data in self._iter_units_in_application(app_data):
-                    states['dying'].append(unit)
-            else:
-                for unit, data in self._iter_units_in_application(app_data):
-                    states[coalesce_agent_status(data)].append(unit)
-        return states
-
-    def agent_states(self):
-        """Map agent states to the units and machines in those states."""
-        states = defaultdict(list)
-        for item_name, item in self.iter_machines(containers=True):
-            states[coalesce_agent_status(item)].append(item_name)
-        self.unit_agent_states(states)
-        return states
-
-    def check_agents_started(self, environment_name=None):
-        """Check whether all agents are in the 'started' state.
-
-        If not, return agent_states output.  If so, return None.
-        If an error is encountered for an agent, raise ErroredUnit
-        """
-        bad_state_info = re.compile(
-            '(.*error|^(cannot set up groups|cannot run instance)).*')
-        for item_name, item in self.agent_items():
-            state_info = item.get('agent-state-info', '')
-            if bad_state_info.match(state_info):
-                raise ErroredUnit(item_name, state_info)
-        states = self.agent_states()
-        if set(states.keys()).issubset(AGENTS_READY):
-            return None
-        for state, entries in states.items():
-            if 'error' in state:
-                # sometimes the state may be hidden in juju status message
-                juju_status = dict(
-                    self.agent_items())[entries[0]].get('juju-status')
-                if juju_status:
-                    juju_status_msg = juju_status.get('message')
-                    if juju_status_msg:
-                        state = juju_status_msg
-                raise ErroredUnit(entries[0], state)
-        return states
-
-    def get_service_count(self):
-        return len(self.get_applications())
-
-    def get_service_unit_count(self, service):
-        return len(
-            self.get_applications().get(service, {}).get('units', {}))
-
-    def get_agent_versions(self):
-        versions = defaultdict(set)
-        for item_name, item in self.agent_items():
-            if item.get('juju-status', None):
-                version = item['juju-status'].get('version', 'unknown')
-                versions[version].add(item_name)
-            else:
-                versions[item.get('agent-version', 'unknown')].add(item_name)
-        return versions
-
-    def get_instance_id(self, machine_id):
-        return self.status['machines'][machine_id]['instance-id']
-
-    def get_machine_dns_name(self, machine_id):
-        return _dns_name_for_machine(self, machine_id)
-
-    def get_unit(self, unit_name):
-        """Return metadata about a unit."""
-        for name, service in sorted(self.get_applications().items()):
-            if unit_name in service.get('units', {}):
-                return service['units'][unit_name]
-        raise KeyError(unit_name)
-
-    def service_subordinate_units(self, service_name):
-        """Return subordinate metadata for a service_name."""
-        services = self.get_applications()
-        if service_name in services:
-            for name, unit in sorted(services[service_name].get(
-                    'units', {}).items()):
-                for sub_name, sub in unit.get('subordinates', {}).items():
-                    yield sub_name, sub
-
-    def get_open_ports(self, unit_name):
-        """List the open ports for the specified unit.
-
-        If no ports are listed for the unit, the empty list is returned.
-        """
-        return self.get_unit(unit_name).get('open-ports', [])
-
-    def iter_status(self):
-        """Iterate through every status field in the larger status data."""
-        for machine_name, machine_value in self.iter_machines(containers=True):
-            yield StatusItem(StatusItem.MACHINE, machine_name, machine_value)
-            yield StatusItem(StatusItem.JUJU, machine_name, machine_value)
-        for app_name, app_value in self.get_applications().items():
-            yield StatusItem(StatusItem.APPLICATION, app_name, app_value)
-            unit_iterator = self._iter_units_in_application(app_value)
-            for unit_name, unit_value in unit_iterator:
-                yield StatusItem(StatusItem.WORKLOAD, unit_name, unit_value)
-                yield StatusItem(StatusItem.JUJU, unit_name, unit_value)
-
-    def iter_errors(self, ignore_recoverable=False):
-        """Iterate through every error, repersented by exceptions."""
-        for sub_status in self.iter_status():
-            error = sub_status.to_exception()
-            if error is not None:
-                if not (ignore_recoverable and error.recoverable):
-                    yield error
-
-    def check_for_errors(self, ignore_recoverable=False):
-        """Return a list of errors, in order of their priority."""
-        return sorted(self.iter_errors(ignore_recoverable),
-                      key=lambda item: item.priority())
-
-    def raise_highest_error(self, ignore_recoverable=False):
-        """Raise an exception reperenting the highest priority error."""
-        errors = self.check_for_errors(ignore_recoverable)
-        if errors:
-            raise errors[0]
-
-
 def describe_substrate(env):
     if env.provider == 'openstack':
         if env.get_option('auth-url') == (
@@ -1100,259 +786,6 @@ class Juju2Backend:
 
     def pause(self, seconds):
         pause(seconds)
-
-
-class BaseCondition:
-    """Base class for conditions that support client.wait_for."""
-
-    def __init__(self, timeout=300, already_satisfied=False):
-        self.timeout = timeout
-        self.already_satisfied = already_satisfied
-
-    def iter_blocking_state(self, status):
-        """Identify when the condition required is met.
-
-        When the operation is complete yield nothing. Otherwise yields a
-        tuple ('<item detail>', '<state>')
-        as to why the action cannot be considered complete yet.
-
-        An example for a condition of an application being removed:
-            yield <application name>, 'still-present'
-        """
-        raise NotImplementedError()
-
-    def do_raise(self, model_name, status):
-        """Raise exception for when success condition fails to be achieved."""
-        raise NotImplementedError()
-
-
-class ConditionList(BaseCondition):
-    """A list of conditions that support client.wait_for.
-
-    This combines the supplied list of conditions.  It is only satisfied when
-    all conditions are met.  It times out when any member times out.  When
-    asked to raise, it causes the first condition to raise an exception.  An
-    improvement would be to raise the first condition whose timeout has been
-    exceeded.
-    """
-
-    def __init__(self, conditions):
-        if len(conditions) == 0:
-            timeout = 300
-        else:
-            timeout = max(c.timeout for c in conditions)
-        already_satisfied = all(c.already_satisfied for c in conditions)
-        super(ConditionList, self).__init__(timeout, already_satisfied)
-        self._conditions = conditions
-
-    def iter_blocking_state(self, status):
-        for condition in self._conditions:
-            for item, state in condition.iter_blocking_state(status):
-                yield item, state
-
-    def do_raise(self, model_name, status):
-        self._conditions[0].do_raise(model_name, status)
-
-
-class NoopCondition(BaseCondition):
-
-    def iter_blocking_state(self, status):
-        return iter(())
-
-    def do_raise(self, model_name, status):
-        raise Exception('NoopCondition failed: {}'.format(model_name))
-
-
-class WaitMachineNotPresent(BaseCondition):
-    """Condition satisfied when a given machine is not present."""
-
-    def __init__(self, machine, timeout=300):
-        super(WaitMachineNotPresent, self).__init__(timeout)
-        self.machine = machine
-
-    def __eq__(self, other):
-        if not type(self) is type(other):
-            return False
-        if self.timeout != other.timeout:
-            return False
-        if self.machine != other.machine:
-            return False
-        return True
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def iter_blocking_state(self, status):
-        for machine, info in status.iter_machines():
-            if machine == self.machine:
-                yield machine, 'still-present'
-
-    def do_raise(self, model_name, status):
-        raise Exception("Timed out waiting for machine removal %s" %
-                        self.machine)
-
-
-class WaitApplicationNotPresent(BaseCondition):
-    """Condition satisfied when a given machine is not present."""
-
-    def __init__(self, application, timeout=300):
-        super(WaitApplicationNotPresent, self).__init__(timeout)
-        self.application = application
-
-    def __eq__(self, other):
-        if not type(self) is type(other):
-            return False
-        if self.timeout != other.timeout:
-            return False
-        if self.application != other.application:
-            return False
-        return True
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def iter_blocking_state(self, status):
-        for application in status.get_applications().keys():
-            if application == self.application:
-                yield application, 'still-present'
-
-    def do_raise(self, model_name, status):
-        raise Exception("Timed out waiting for application "
-                        "removal {}".format(self.application))
-
-
-class MachineDown(BaseCondition):
-    """Condition satisfied when a given machine is down."""
-
-    def __init__(self, machine_id):
-        super(MachineDown, self).__init__()
-        self.machine_id = machine_id
-
-    def iter_blocking_state(self, status):
-        """Yield the juju-status of the machine if it is not 'down'."""
-        juju_status = status.status['machines'][self.machine_id]['juju-status']
-        if juju_status['current'] != 'down':
-            yield self.machine_id, juju_status['current']
-
-    def do_raise(self, model_name, status):
-        raise Exception(
-            "Timed out waiting for juju to determine machine {} down.".format(
-                self.machine_id))
-
-
-class WaitVersion(BaseCondition):
-
-    def __init__(self, target_version, timeout=300):
-        super(WaitVersion, self).__init__(timeout)
-        self.target_version = target_version
-
-    def iter_blocking_state(self, status):
-        for version, agents in status.get_agent_versions().items():
-            if version == self.target_version:
-                continue
-            for agent in agents:
-                yield agent, version
-
-    def do_raise(self, model_name, status):
-        raise VersionsNotUpdated(model_name, status)
-
-
-class WaitAgentsStarted(BaseCondition):
-    """Wait until all agents are idle or started."""
-
-    def __init__(self, timeout=1200):
-        super(WaitAgentsStarted, self).__init__(timeout)
-
-    def iter_blocking_state(self, status):
-        states = Status.check_agents_started(status)
-
-        if states is not None:
-            for state, item in states.items():
-                yield item[0], state
-
-    def do_raise(self, model_name, status):
-        raise AgentsNotStarted(model_name, status)
-
-
-class CommandTime:
-    """Store timing details for a juju command."""
-
-    def __init__(self, cmd, full_args, envvars=None, start=None):
-        """Constructor.
-
-        :param cmd: Command string for command run (e.g. bootstrap)
-        :param args: List of all args the command was called with.
-        :param envvars: Dict of any extra envvars set before command was
-          called.
-        :param start: datetime.datetime object representing when the command
-          was run. If None defaults to datetime.utcnow()
-        """
-        self.cmd = cmd
-        self.full_args = full_args
-        self.envvars = envvars
-        self.start = start if start else datetime.utcnow()
-        self.end = None
-
-    def actual_completion(self, end=None):
-        """Signify that actual completion time of the command.
-
-        Note. ignores multiple calls after the initial call.
-
-        :param end: datetime.datetime object. If None defaults to
-          datetime.datetime.utcnow()
-        """
-        if self.end is None:
-            self.end = end if end else datetime.utcnow()
-
-    @property
-    def total_seconds(self):
-        """Total amount of seconds a command took to complete.
-
-        :return: Int representing number of seconds or None if the command
-          timing has never been completed.
-        """
-        if self.end is None:
-            return None
-        return (self.end - self.start).total_seconds()
-
-
-class CommandComplete(BaseCondition):
-    """Wraps a CommandTime and gives the ability to wait_for completion."""
-
-    def __init__(self, real_condition, command_time):
-        """Constructor.
-
-        :param real_condition: BaseCondition object.
-        :param command_time: CommandTime object representing the command to
-          wait for completion.
-        """
-        super(CommandComplete, self).__init__(
-            real_condition.timeout,
-            real_condition.already_satisfied)
-        self._real_condition = real_condition
-        self.command_time = command_time
-        if real_condition.already_satisfied:
-            self.command_time.actual_completion()
-
-    def iter_blocking_state(self, status):
-        """Wraps the iter_blocking_state of the stored BaseCondition.
-
-        When the operation is complete iter_blocking_state yields nothing.
-        Otherwise iter_blocking_state yields details as to why the action
-        cannot be considered complete yet.
-        """
-        completed = True
-        for item, state in self._real_condition.iter_blocking_state(status):
-            completed = False
-            yield item, state
-        if completed:
-            self.command_time.actual_completion()
-
-    def do_raise(self, status):
-        raise RuntimeError(
-            'Timed out waiting for "{}" command to complete: "{}"'.format(
-                self.command_time.cmd,
-                ' '.join(self.command_time.full_args)))
 
 
 def get_stripped_version_number(version_string):
@@ -2998,13 +2431,6 @@ def get_machine_dns_name(client, machine, timeout=600):
             return _dns_name_for_machine(status, machine)
         except KeyError:
             log.debug("No dns-name yet for machine %s", machine)
-
-
-def _dns_name_for_machine(status, machine):
-    host = status.status['machines'][machine]['dns-name']
-    if is_ipv6_address(host):
-        log.warning("Selected IPv6 address for machine %s: %r", machine, host)
-    return host
 
 
 class Controller:

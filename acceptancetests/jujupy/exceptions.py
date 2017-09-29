@@ -187,3 +187,10 @@ class AgentUnresolvedError(AgentError):
 
     # This is the time limit set by IS for recovery from an agent error.
     a_reasonable_time = timedelta(minutes=5)
+
+
+StatusError.ordering = [
+    ProvisioningError, StuckAllocatingError, MachineError, InstallError,
+    AgentUnresolvedError, HookFailedError, UnitError, AppError, AgentError,
+    StatusError,
+    ]

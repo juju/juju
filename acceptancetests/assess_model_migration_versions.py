@@ -19,9 +19,11 @@ from assess_model_migration import (
     migrate_model_to_controller,
     )
 from jujupy.client import (
-    BaseCondition,
     get_stripped_version_number,
     )
+from jujupy.wait_condition import (
+    BaseCondition,
+)
 from deploy_stack import (
     BootstrapManager,
     client_from_config,

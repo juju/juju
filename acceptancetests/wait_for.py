@@ -13,7 +13,7 @@ from jujupy import (
 from jujupy.exceptions import (
     NoActiveModel,
     )
-from jujupy.client import (
+from jujupy.wait_condition import (
     WaitAgentsStarted,
     )
 

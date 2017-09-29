@@ -36,7 +36,9 @@ from jujupy import (
 from jujupy.exceptions import (
     SoftDeadlineExceeded,
 )
-from jujupy.client import CommandTime
+from jujupy.wait_condition import (
+    CommandTime,
+    )
 
 __metaclass__ = type
 

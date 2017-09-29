@@ -57,14 +57,16 @@ from jujupy import (
     get_timeout_prefix,
     JujuData,
     ModelClient,
-    Status,
     Machine,
     )
 
 from jujupy.exceptions import (
     SoftDeadlineExceeded,
 )
-from jujupy.client import (
+from jujupy.status import (
+    Status,
+    )
+from jujupy.wait_condition import (
     CommandTime,
 )
 from remote import (

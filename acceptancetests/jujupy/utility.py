@@ -20,9 +20,8 @@ from datetime import (
     )
 import errno
 import os
-import re
+import logging
 from shutil import rmtree
-import subprocess
 import socket
 import sys
 from time import (
@@ -40,6 +39,9 @@ except ImportError:
 import yaml
 
 quote
+
+
+log = logging.getLogger("jujupy.utility")
 
 
 @contextmanager
@@ -141,24 +143,6 @@ def temp_dir(parent=None, keep=False):
             rmtree(directory)
 
 
-def check_free_disk_space(path, required, purpose):
-    df_result = subprocess.check_output(["df", "-k", path])
-    df_result = df_result.split('\n')[1]
-    df_result = re.split(' +', df_result)
-    available = int(df_result[3])
-    if available < required:
-        message = (
-            "Warning: Probably not enough disk space available for\n"
-            "%(purpose)s in directory %(path)s,\n"
-            "mount point %(mount)s\n"
-            "required: %(required)skB, available: %(available)skB."
-            )
-        print(message % {
-            'path': path, 'mount': df_result[5], 'required': required,
-            'available': available, 'purpose': purpose
-            })
-
-
 @contextmanager
 def skip_on_missing_file():
     """Skip to the end of block if a missing file exception is raised."""
@@ -215,3 +199,10 @@ def qualified_model_name(model_name, owner_name):
             'qualified model name {} with owner not matching {}'.format(
                 model_name, owner_name))
     return '{}/{}'.format(owner_name, parts[-1])
+
+
+def _dns_name_for_machine(status, machine):
+    host = status.status['machines'][machine]['dns-name']
+    if is_ipv6_address(host):
+        log.warning("Selected IPv6 address for machine %s: %r", machine, host)
+    return host
