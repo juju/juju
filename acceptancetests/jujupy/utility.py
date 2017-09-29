@@ -182,6 +182,13 @@ def get_timeout_path():
     return os.path.abspath(jujupy.timeout.__file__)
 
 
+def get_timeout_prefix(duration, timeout_path=None):
+    """Return extra arguments to run a command with a timeout."""
+    if timeout_path is None:
+        timeout_path = get_timeout_path()
+    return (sys.executable, timeout_path, '%.2f' % duration, '--')
+
+
 def unqualified_model_name(model_name):
     """Return the model name with the owner qualifier stripped if present."""
     return model_name.split('/', 1)[-1]

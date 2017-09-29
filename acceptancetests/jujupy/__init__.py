@@ -22,16 +22,17 @@ from jujupy.exceptions import (
     SoftDeadlineExceeded,
     TypeNotAccepted,
     )
+from jujupy.backend import (
+    JUJU_DEV_FEATURE_FLAGS,
+    JujuBackend,
+    )
 from jujupy.client import (
     client_from_config,
     client_for_existing,
     get_cache_path,
     get_machine_dns_name,
-    get_timeout_prefix,
     juju_home_path,
     JujuData,
-    JUJU_DEV_FEATURE_FLAGS,
-    Juju2Backend,
     KILL_CONTROLLER,
     KVM_MACHINE,
     LXC_MACHINE,
@@ -53,6 +54,9 @@ from jujupy.fake import (
     )
 from jujupy.status import (
     Status,
+    )
+from jujupy.utility import (
+    get_timeout_prefix,
     )
 from jujupy.wait_condition import (
     ConditionList,
@@ -76,7 +80,7 @@ __all__ = [
     'juju_home_path',
     'JujuData',
     'JUJU_DEV_FEATURE_FLAGS',
-    'Juju2Backend',
+    'JujuBackend',
     'KILL_CONTROLLER',
     'KVM_MACHINE',
     'LXC_MACHINE',
