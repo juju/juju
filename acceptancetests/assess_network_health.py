@@ -495,20 +495,6 @@ class AssessNetworkHealth:
                 else:
                     raise
 
-    def ping_units(self, client, source, units):
-        """Calls out to our subordinate network-health charm to ping targets.
-
-        :param client: The juju client to address
-        :param source: The specific network-health unit to send from
-        :param units: The units to ping
-        """
-        units = self.to_json(units)
-        args = "targets='{}'".format(units)
-        action_id = client.action_do(source, 'ping', args)
-        result = client.action_fetch(action_id)
-        result = yaml.safe_load(result)['results']['results']
-        return result
-
     def is_ipv6(self, address):
         try:
             socket.inet_pton(socket.AF_INET6, address)
@@ -528,20 +514,6 @@ class AssessNetworkHealth:
         json_string = json_string.replace('{', '(')
         json_string = json_string.replace('}', ')')
         return json_string
-
-    def parse_targets(self, status):
-        """Returns targets based on supplied juju status information.
-
-        :param apps: Dict of applications via 'juju status --format yaml'
-        """
-        targets = {}
-        for application, units in status.get_applications().items():
-            target_units = {}
-            if 'units' in units:
-                for unit_id, info in units.get('units').items():
-                    target_units[unit_id] = info['public-address']
-                targets[application] = target_units
-        return targets
 
 
 def setup_spaces(maas, bundle=None):

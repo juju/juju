@@ -304,20 +304,6 @@ class JujuCITestCase(FakeHomeTestCase):
              'juju-core_1.22-alpha1.tar.gz'],
             files)
 
-    @contextmanager
-    def get_juju_binary_mocks(self):
-        def mock_extract_deb(args):
-            parent = os.path.join(args[3], 'subdir', 'sub-subdir')
-            os.makedirs(parent)
-            with open(os.path.join(parent, 'juju'), 'w') as f:
-                f.write('foo')
-
-        with temp_dir() as workspace:
-            with patch('urllib.urlretrieve') as ur_mock:
-                with patch('subprocess.check_call',
-                           side_effect=mock_extract_deb) as cc_mock:
-                    yield workspace, ur_mock, cc_mock
-
     def test_setup_workspace(self):
         with temp_dir() as base_dir:
             workspace_dir = os.path.join(base_dir, 'workspace')

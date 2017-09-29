@@ -207,10 +207,6 @@ class FakeEnvironmentState:
         self.machines.remove(machine_id)
         self.containers.pop(machine_id, None)
 
-    def remove_state_server(self, machine_id):
-        self.remove_machine(machine_id)
-        self.state_servers.remove(machine_id)
-
     def destroy_model(self):
         del self.controller.models[self.name]
         self._clear()
@@ -696,12 +692,6 @@ class FakeBackend:
                               full_path, debug,
                               past_deadline=self._past_deadline)
 
-    def set_feature(self, feature, enabled):
-        if enabled:
-            self.feature_flags.add(feature)
-        else:
-            self.feature_flags.discard(feature)
-
     def is_feature_enabled(self, feature):
         return bool(feature in self.feature_flags)
 
@@ -871,9 +861,6 @@ class FakeBackend:
             'users': self.get_users(),
             }
         return {model_name: data}
-
-    def set_action_result(self, unit_id, action, result):
-        self.action_results.setdefault(unit_id, {})[action] = result
 
     def run_action(self, unit_id, action):
         action_uuid = '{}'.format(uuid.uuid1())

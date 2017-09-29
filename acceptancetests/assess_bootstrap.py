@@ -75,11 +75,6 @@ def assess_metadata(bs_manager, local_source):
         raise JujuAssertionError('Error, possible web metadata.')
 
 
-def get_controller_address(client):
-    """Get the address of the controller for this model."""
-    return get_machine_dns_name(client, "0")
-
-
 def get_controller_hostname(client):
     """Get the hostname of the controller for this model."""
     controller_client = client.get_controller_client()

@@ -3486,18 +3486,6 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
             self.assertEqual(os.environ['JUJU_DATA'], 'bar')
 
 
-@contextmanager
-def temp_config():
-    with temp_dir() as home:
-        os.environ['JUJU_HOME'] = home
-        environments_path = os.path.join(home, 'environments.yaml')
-        with open(environments_path, 'w') as environments:
-            yaml.dump({'environments': {
-                'foo': {'type': 'lxd'}
-            }}, environments)
-        yield
-
-
 class TestController(TestCase):
 
     def test_controller(self):

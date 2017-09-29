@@ -90,15 +90,6 @@ from utility import (
     )
 
 
-def make_logs(log_dir):
-    def write_dumped_files(*args):
-        with open(os.path.join(log_dir, 'cloud.log'), 'w') as l:
-            l.write('fake log')
-        with open(os.path.join(log_dir, 'extra'), 'w') as l:
-            l.write('not compressed')
-    return write_dumped_files
-
-
 class DeployStackTestCase(FakeHomeTestCase):
 
     log_level = logging.DEBUG

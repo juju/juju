@@ -50,12 +50,6 @@ __all__ = [
 WSANO_DATA = 11004
 
 
-@contextmanager
-def noop_context():
-    """A context manager that does nothing."""
-    yield
-
-
 class PortTimeoutError(Exception):
     pass
 
@@ -158,26 +152,6 @@ def get_revision_build(build_info):
             for parameter in action['parameters']:
                 if parameter['name'] == 'revision_build':
                     return parameter['value']
-
-
-def builds_for_revision(job, revision_build, jenkins):
-    """Return the build_info data for the given job and revision_build.
-
-    Only successful builds are included.
-
-    :param job: The name of the job.
-    :param revision_build: The revision_build to searh for. Note that
-        this parameter is a string.
-    :parameter  jenkins: A Jenkins instance.
-    """
-    job_info = jenkins.get_job_info(job)
-    result = []
-    for build in job_info['builds']:
-        build_info = jenkins.get_build_info(job, build['number'])
-        if (get_revision_build(build_info) == revision_build and
-                build_info['result'] == 'SUCCESS'):
-            result.append(build_info)
-    return result
 
 
 def get_winrm_certs():
