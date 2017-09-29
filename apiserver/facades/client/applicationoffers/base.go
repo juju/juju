@@ -383,7 +383,14 @@ func makeOfferFilterFromParams(filter params.OfferFilter) jujucrossmodel.Applica
 		ApplicationName:        filter.ApplicationName,
 		ApplicationDescription: filter.ApplicationDescription,
 	}
-	// TODO(wallyworld) - add support for Endpoint filter attribute
+	offerFilter.Endpoints = make([]jujucrossmodel.EndpointFilterTerm, len(filter.Endpoints))
+	for i, ep := range filter.Endpoints {
+		offerFilter.Endpoints[i] = jujucrossmodel.EndpointFilterTerm{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      ep.Role,
+		}
+	}
 	return offerFilter
 }
 

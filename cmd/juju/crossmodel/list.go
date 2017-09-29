@@ -21,31 +21,15 @@ import (
 const listCommandDoc = `
 List information about applications' endpoints that have been shared.
 
-options:
--o, --output (= "")
-   specify an output file
---format (= tabular)
-   specify output format (json|tabular|yaml)
-[[--<filter-scope> ]<filter-term>],...
-   <filter-term> is free text and will be matched against any of:
-       - endpoint URL prefix
-       - interface name
-       - application name
-   <filter-scope> is optional and is used to limit the scope of the search using the search term, one of:
-       - interface
-       - application
-
 Examples:
     $ juju offers
     $ juju offers -m model
     $ juju offers --interface db2
     $ juju offers --application mysql
 
-    $ juju offers --interface db2
-    mycontroller
-    Application  Charm  Connected  Store         URL                     Endpoint  Interface  Role
-    db2          db2    123        mycontroller  admin/controller.mysql  db        db2        provider
-
+See also:
+   find-offers   
+   show-offer
 `
 
 // listCommand returns storage instances.

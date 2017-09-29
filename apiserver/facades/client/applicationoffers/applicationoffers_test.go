@@ -201,7 +201,7 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
-	s.setupOffers(c, "test")
+	s.setupOffers(c, "test", false)
 	s.mockState.users["mary"] = &mockUser{"mary"}
 	s.mockState.CreateOfferAccess(
 		names.NewApplicationOfferTag("hosted-db2"),
@@ -281,7 +281,7 @@ func (s *applicationOffersSuite) TestListPermission(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestListError(c *gc.C) {
-	s.setupOffers(c, "test")
+	s.setupOffers(c, "test", false)
 	s.authorizer.Tag = names.NewUserTag("admin")
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -305,7 +305,7 @@ func (s *applicationOffersSuite) TestListError(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestListFilterRequiresModel(c *gc.C) {
-	s.setupOffers(c, "test")
+	s.setupOffers(c, "test", false)
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
@@ -319,13 +319,13 @@ func (s *applicationOffersSuite) TestListFilterRequiresModel(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestListRequiresFilter(c *gc.C) {
-	s.setupOffers(c, "test")
+	s.setupOffers(c, "test", false)
 	_, err := s.api.ListApplicationOffers(params.OfferFilters{})
 	c.Assert(err, gc.ErrorMatches, "at least one offer filter is required")
 }
 
 func (s *applicationOffersSuite) assertShow(c *gc.C, url string, expected []params.ApplicationOfferResult) {
-	s.setupOffers(c, "")
+	s.setupOffers(c, "", false)
 	s.mockState.users["mary"] = &mockUser{"mary"}
 	s.mockState.CreateOfferAccess(
 		names.NewApplicationOfferTag("hosted-db2"),
@@ -640,6 +640,9 @@ func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.Applicati
 		Filters: []params.OfferFilter{
 			{
 				OfferName: "hosted-db2",
+				Endpoints: []params.EndpointFilterAttributes{{
+					Interface: "db2",
+				}},
 			},
 		},
 	}
@@ -665,7 +668,7 @@ func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.Applicati
 }
 
 func (s *applicationOffersSuite) TestFid(c *gc.C) {
-	s.setupOffers(c, "")
+	s.setupOffers(c, "", true)
 	s.authorizer.Tag = names.NewUserTag("admin")
 	expected := []params.ApplicationOfferAdminDetails{
 		{
@@ -707,13 +710,13 @@ func (s *applicationOffersSuite) TestFindNoPermission(c *gc.C) {
 	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.setupOffers(c, "")
+	s.setupOffers(c, "", true)
 	s.authorizer.Tag = names.NewUserTag("someone")
 	s.assertFind(c, []params.ApplicationOfferAdminDetails{})
 }
 
 func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
-	s.setupOffers(c, "")
+	s.setupOffers(c, "", true)
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferAdminDetails{
@@ -744,7 +747,7 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestFindFiltersRequireModel(c *gc.C) {
-	s.setupOffers(c, "")
+	s.setupOffers(c, "", true)
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
@@ -761,7 +764,7 @@ func (s *applicationOffersSuite) TestFindFiltersRequireModel(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestFindRequiresFilter(c *gc.C) {
-	s.setupOffers(c, "")
+	s.setupOffers(c, "", true)
 	_, err := s.api.FindApplicationOffers(params.OfferFilters{})
 	c.Assert(err, gc.ErrorMatches, "at least one offer filter is required")
 }

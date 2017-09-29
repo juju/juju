@@ -403,31 +403,38 @@ func (s *applicationOffers) makeFilterTerm(filterTerm crossmodel.ApplicationOffe
 }
 
 // ListOffers returns the application offers matching any one of the filter terms.
-func (s *applicationOffers) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
+func (s *applicationOffers) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
 	applicationOffersCollection, closer := s.st.db().GetCollection(applicationOffersC)
 	defer closer()
 
-	// TODO(wallyworld) - add support for filtering on endpoints
-	var mgoTerms []bson.D
-	for _, term := range filter {
-		elems := s.makeFilterTerm(term)
-		if len(elems) == 0 {
-			continue
+	var offerDocs []applicationOfferDoc
+	if len(filters) == 0 {
+		err := applicationOffersCollection.Find(nil).All(&offerDocs)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		mgoTerms = append(mgoTerms, bson.D{{"$and", []bson.D{elems}}})
 	}
-	var docs []applicationOfferDoc
-	var mgoQuery bson.D
-	if len(mgoTerms) > 0 {
-		mgoQuery = bson.D{{"$or", mgoTerms}}
+	for _, filter := range filters {
+		var mgoQuery bson.D
+		elems := s.makeFilterTerm(filter)
+		mgoQuery = append(mgoQuery, elems...)
+
+		var docs []applicationOfferDoc
+		err := applicationOffersCollection.Find(mgoQuery).All(&docs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		docs, err = s.filterOffers(docs, filter)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		offerDocs = append(offerDocs, docs...)
 	}
-	err := applicationOffersCollection.Find(mgoQuery).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot find application offers")
-	}
-	sort.Sort(srSlice(docs))
-	offers := make([]crossmodel.ApplicationOffer, len(docs))
-	for i, doc := range docs {
+	sort.Sort(offerSlice(offerDocs))
+
+	offers := make([]crossmodel.ApplicationOffer, len(offerDocs))
+	for i, doc := range offerDocs {
 		offer, err := s.makeApplicationOffer(doc)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -435,6 +442,52 @@ func (s *applicationOffers) ListOffers(filter ...crossmodel.ApplicationOfferFilt
 		offers[i] = *offer
 	}
 	return offers, nil
+}
+
+// filterOffers takes a list of offers resulting from a db query
+// and performs additional filtering which cannot be done via mongo.
+func (s *applicationOffers) filterOffers(
+	in []applicationOfferDoc,
+	filter crossmodel.ApplicationOfferFilter,
+) ([]applicationOfferDoc, error) {
+
+	if len(filter.Endpoints) == 0 {
+		return in, nil
+	}
+
+	match := func(ep Endpoint) bool {
+		for _, fep := range filter.Endpoints {
+			if fep.Interface != "" && fep.Interface == ep.Interface {
+				continue
+			}
+			if fep.Name != "" && fep.Name == ep.Name {
+				continue
+			}
+			if fep.Role != "" && fep.Role == ep.Role {
+				continue
+			}
+			return false
+		}
+		return true
+	}
+
+	var out []applicationOfferDoc
+	for _, doc := range in {
+		app, err := s.st.Application(doc.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, epName := range doc.Endpoints {
+			ep, err := app.Endpoint(epName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if match(ep) {
+				out = append(out, doc)
+			}
+		}
+	}
+	return out, nil
 }
 
 func (s *applicationOffers) makeApplicationOffer(doc applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
@@ -468,11 +521,11 @@ func getApplicationEndpoints(application *Application, endpointNames map[string]
 	return result, nil
 }
 
-type srSlice []applicationOfferDoc
+type offerSlice []applicationOfferDoc
 
-func (sr srSlice) Len() int      { return len(sr) }
-func (sr srSlice) Swap(i, j int) { sr[i], sr[j] = sr[j], sr[i] }
-func (sr srSlice) Less(i, j int) bool {
+func (sr offerSlice) Len() int      { return len(sr) }
+func (sr offerSlice) Swap(i, j int) { sr[i], sr[j] = sr[j], sr[i] }
+func (sr offerSlice) Less(i, j int) bool {
 	sr1 := sr[i]
 	sr2 := sr[j]
 	if sr1.OfferName == sr2.OfferName {

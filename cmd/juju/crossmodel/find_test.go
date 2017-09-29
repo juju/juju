@@ -55,17 +55,24 @@ func (s *findSuite) TestFindDuplicateUrl(c *gc.C) {
 	s.assertFindError(c, []string{"url", "--url", "urlparam"}, ".*URL term cannot be specified twice.*")
 }
 
+func (s *findSuite) TestFindOfferandUrl(c *gc.C) {
+	s.assertFindError(c, []string{"--offer", "offer", "--url", "urlparam"}, ".*cannot specify both a URL term and offer term.*")
+}
+
 func (s *findSuite) TestNoResults(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedModelName = "none"
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
 		OwnerName: "bob",
 		ModelName: "none",
+		Endpoints: []jujucrossmodel.EndpointFilterTerm{{
+			Interface: "mysql",
+		}},
 	}
 	s.mockAPI.results = []*jujucrossmodel.ApplicationOfferDetails{}
 	s.assertFindError(
 		c,
-		[]string{"--url", "none"},
+		[]string{"--url", "none", "--interface", "mysql"},
 		`no matching application offers found`,
 	)
 }
@@ -97,13 +104,12 @@ func (s *findSuite) TestEndpointFilter(c *gc.C) {
 		ModelName: "model",
 		Endpoints: []jujucrossmodel.EndpointFilterTerm{{
 			Interface: "mysql",
-			Name:      "db",
 		}},
 	}
 	s.mockAPI.expectedModelName = "model"
 	s.assertFind(
 		c,
-		[]string{"--format", "tabular", "--url", "fred/model", "--endpoint", "db", "--interface", "mysql"},
+		[]string{"--format", "tabular", "--url", "fred/model", "--interface", "mysql"},
 		`
 Store   URL                    Access   Interfaces
 master  fred/model.hosted-db2  consume  http:db2, http:log
