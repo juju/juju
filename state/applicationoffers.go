@@ -391,8 +391,7 @@ func (s *applicationOffers) makeFilterTerm(filterTerm crossmodel.ApplicationOffe
 	}
 	// We match on partial names, eg "-sql"
 	if filterTerm.OfferName != "" {
-		name := regexp.QuoteMeta(filterTerm.OfferName)
-		filter = append(filter, bson.DocElem{"offer-name", bson.D{{"$regex", fmt.Sprintf(".*%s.*", name)}}})
+		filter = append(filter, bson.DocElem{"offer-name", bson.D{{"$regex", fmt.Sprintf(".*%s.*", filterTerm.OfferName)}}})
 	}
 	// We match descriptions by looking for containing terms.
 	if filterTerm.ApplicationDescription != "" {

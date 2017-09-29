@@ -81,6 +81,17 @@ func (s *ListSuite) TestListFilterArgs(c *gc.C) {
 	})
 }
 
+func (s *ListSuite) TestListOfferArg(c *gc.C) {
+	_, err := s.runList(c, []string{"mysql-lite"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mockAPI.filters, gc.HasLen, 1)
+	c.Assert(s.mockAPI.filters[0], jc.DeepEquals, model.ApplicationOfferFilter{
+		OwnerName: "fred",
+		ModelName: "test",
+		OfferName: "^mysql-lite$",
+	})
+}
+
 func (s *ListSuite) TestListFormatError(c *gc.C) {
 	s.applications = append(s.applications, s.createOfferItem("zdi^%", "different_store", nil))
 

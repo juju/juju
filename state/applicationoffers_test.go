@@ -217,6 +217,24 @@ func (s *applicationOffersSuite) TestListOffersOneFilter(c *gc.C) {
 	c.Assert(offers[0], jc.DeepEquals, offer)
 }
 
+func (s *applicationOffersSuite) TestListOffersExact(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	offer := s.createOffer(c, "offer1", "description for offer1")
+	s.createOffer(c, "offer2", "description for offer2")
+	s.createOffer(c, "offer3", "description for offer3")
+	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
+		OfferName: "^offer1$",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(offers), gc.Equals, 1)
+	c.Assert(offers[0], jc.DeepEquals, offer)
+	offers, err = sd.ListOffers(crossmodel.ApplicationOfferFilter{
+		OfferName: "^offer$",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(offers), gc.Equals, 0)
+}
+
 func (s *applicationOffersSuite) TestListOffersFilterExcludes(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	s.createOffer(c, "offer1", "description for offer1")

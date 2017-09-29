@@ -4,6 +4,8 @@
 package crossmodel
 
 import (
+	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/juju/cmd"
@@ -26,6 +28,7 @@ Examples:
     $ juju offers -m model
     $ juju offers --interface db2
     $ juju offers --application mysql
+    $ juju offers hosted-mysql
 
 See also:
    find-offers   
@@ -43,6 +46,7 @@ type listCommand struct {
 
 	interfaceName   string
 	applicationName string
+	offerName       string
 	filters         []crossmodel.ApplicationOfferFilter
 }
 
@@ -68,13 +72,19 @@ func (c *listCommand) NewApplicationOffersAPI() (*applicationoffers.Client, erro
 
 // Init implements Command.Init.
 func (c *listCommand) Init(args []string) (err error) {
-	return cmd.CheckEmpty(args)
+	offerName, err := cmd.ZeroOrOneArgs(args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.offerName = offerName
+	return nil
 }
 
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "offers",
+		Args:    "[<offer-name>]",
 		Aliases: []string{"list-offers"},
 		Purpose: "Lists shared endpoints.",
 		Doc:     listCommandDoc,
@@ -129,6 +139,9 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		ModelName:       unqualifiedModelName,
 		ApplicationName: c.applicationName,
 	}}
+	if c.offerName != "" {
+		c.filters[0].OfferName = fmt.Sprintf("^%v$", regexp.QuoteMeta(c.offerName))
+	}
 	if c.interfaceName != "" {
 		c.filters[0].Endpoints = []crossmodel.EndpointFilterTerm{{
 			Interface: c.interfaceName,
