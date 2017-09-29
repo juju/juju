@@ -38,23 +38,30 @@ type OfferFilter struct {
 	AllowedUserTags        []string                   `json:"allowed-users"`
 }
 
-// ApplicationOffer represents an application offering from an external model.
-type ApplicationOffer struct {
-	SourceModelTag         string            `json:"source-model-tag"`
-	OfferUUID              string            `json:"offer-uuid"`
-	OfferURL               string            `json:"offer-url"`
-	OfferName              string            `json:"offer-name"`
-	ApplicationDescription string            `json:"application-description"`
-	Endpoints              []RemoteEndpoint  `json:"endpoints"`
-	Spaces                 []RemoteSpace     `json:"spaces"`
-	Bindings               map[string]string `json:"bindings"`
-	Access                 string            `json:"access"`
+// ApplicationOfferDetails represents an application offering from an external model.
+type ApplicationOfferDetails struct {
+	SourceModelTag         string             `json:"source-model-tag"`
+	OfferUUID              string             `json:"offer-uuid"`
+	OfferURL               string             `json:"offer-url"`
+	OfferName              string             `json:"offer-name"`
+	ApplicationDescription string             `json:"application-description"`
+	Endpoints              []RemoteEndpoint   `json:"endpoints,omitempty"`
+	Spaces                 []RemoteSpace      `json:"spaces,omitempty"`
+	Bindings               map[string]string  `json:"bindings,omitempty"`
+	Users                  []OfferUserDetails `json:"users,omitempty"`
 }
 
-// ApplicationOfferDetails represents an application offering,
+// OfferUserDetails represents an offer consumer and their permission on the offer.
+type OfferUserDetails struct {
+	UserName    string `json:"user"`
+	DisplayName string `json:"display-name"`
+	Access      string `json:"access"`
+}
+
+// ApplicationOfferAdminDetails represents an application offering,
 // including details about how it has been deployed.
-type ApplicationOfferDetails struct {
-	ApplicationOffer
+type ApplicationOfferAdminDetails struct {
+	ApplicationOfferDetails
 	ApplicationName string            `json:"application-name"`
 	CharmURL        string            `json:"charm-url"`
 	Connections     []OfferConnection `json:"connections,omitempty"`
@@ -70,10 +77,10 @@ type OfferConnection struct {
 	IngressSubnets []string     `json:"ingress-subnets"`
 }
 
-// ListApplicationOffersResults is a result of listing application offers.
-type ListApplicationOffersResults struct {
+// QueryApplicationOffersResults is a result of searching application offers.
+type QueryApplicationOffersResults struct {
 	// Results contains application offers matching each filter.
-	Results []ApplicationOfferDetails `json:"results"`
+	Results []ApplicationOfferAdminDetails `json:"results"`
 }
 
 // AddApplicationOffers is used when adding offers to a application directory.
@@ -113,16 +120,11 @@ type RemoteSpace struct {
 	Subnets            []Subnet               `json:"subnets"`
 }
 
-// FindApplicationOffersResults is a result of finding remote application offers.
-type FindApplicationOffersResults struct {
-	// Results contains application offers matching each filter.
-	Results []ApplicationOffer `json:"results"`
-}
-
-// ApplicationOfferResult is a result of listing a remote application offer.
+// ApplicationOfferResult is a result of querying a remote
+// application offer based on its URL.
 type ApplicationOfferResult struct {
 	// Result contains application offer information.
-	Result *ApplicationOffer `json:"result,omitempty"`
+	Result *ApplicationOfferAdminDetails `json:"result,omitempty"`
 
 	// Error contains related error.
 	Error *Error `json:"error,omitempty"`
@@ -143,7 +145,7 @@ type OfferURLs struct {
 // ConsumeApplicationArg holds the arguments for consuming a remote application.
 type ConsumeApplicationArg struct {
 	// The offer to be consumed.
-	ApplicationOffer
+	ApplicationOfferDetails
 
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
@@ -490,9 +492,9 @@ type RemoteApplicationInfoResults struct {
 // ConsumeOfferDetails contains the details necessary to
 // consume an application offer.
 type ConsumeOfferDetails struct {
-	Offer          *ApplicationOffer       `json:"offer,omitempty"`
-	Macaroon       *macaroon.Macaroon      `json:"macaroon,omitempty"`
-	ControllerInfo *ExternalControllerInfo `json:"external-controller,omitempty"`
+	Offer          *ApplicationOfferDetails `json:"offer,omitempty"`
+	Macaroon       *macaroon.Macaroon       `json:"macaroon,omitempty"`
+	ControllerInfo *ExternalControllerInfo  `json:"external-controller,omitempty"`
 }
 
 // ConsumeOfferDetailsResult contains the details necessary to

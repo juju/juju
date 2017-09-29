@@ -200,7 +200,7 @@ func (a *AuthContext) offerPermissionYaml(sourceModelUUID, username, offerURL, r
 }
 
 // CreateConsumeOfferMacaroon creates a macaroon that authorises access to the specified offer.
-func (a *AuthContext) CreateConsumeOfferMacaroon(offer *params.ApplicationOffer, username string) (*macaroon.Macaroon, error) {
+func (a *AuthContext) CreateConsumeOfferMacaroon(offer *params.ApplicationOfferDetails, username string) (*macaroon.Macaroon, error) {
 	sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
 	if err != nil {
 		return nil, errors.Trace(err)

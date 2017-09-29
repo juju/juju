@@ -4,8 +4,9 @@
 package crossmodel
 
 import (
+	"gopkg.in/juju/charm.v6-unstable"
+
 	"github.com/juju/juju/api/applicationoffers"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -39,7 +40,7 @@ type RemoteEndpoint struct {
 
 // convertRemoteEndpoints takes any number of api-formatted remote applications' endpoints and
 // creates a collection of ui-formatted endpoints.
-func convertRemoteEndpoints(apiEndpoints ...params.RemoteEndpoint) map[string]RemoteEndpoint {
+func convertRemoteEndpoints(apiEndpoints ...charm.Relation) map[string]RemoteEndpoint {
 	if len(apiEndpoints) == 0 {
 		return nil
 	}

@@ -499,7 +499,7 @@ func (s *applicationSuite) TestDestroyUnitsInvalidIds(c *gc.C) {
 }
 
 func (s *applicationSuite) TestConsume(c *gc.C) {
-	offer := params.ApplicationOffer{
+	offer := params.ApplicationOfferDetails{
 		SourceModelTag:         "source model",
 		OfferName:              "an offer",
 		OfferUUID:              "offer-uuid",
@@ -528,10 +528,10 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Args, jc.DeepEquals, []params.ConsumeApplicationArg{
 				{
-					ApplicationAlias: "alias",
-					ApplicationOffer: offer,
-					Macaroon:         mac,
-					ControllerInfo:   controllerInfo,
+					ApplicationAlias:        "alias",
+					ApplicationOfferDetails: offer,
+					Macaroon:                mac,
+					ControllerInfo:          controllerInfo,
 				},
 			})
 			if results, ok := result.(*params.ErrorResults); ok {
@@ -542,7 +542,7 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 		})
 	client := application.NewClient(apiCaller)
 	name, err := client.Consume(crossmodel.ConsumeApplicationArgs{
-		ApplicationOffer: offer,
+		Offer:            offer,
 		ApplicationAlias: "alias",
 		Macaroon:         mac,
 		ControllerInfo: &crossmodel.ControllerInfo{

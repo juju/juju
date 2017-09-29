@@ -631,9 +631,9 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 	var consumeRes params.ErrorResults
 	args := params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
-			ApplicationOffer: arg.ApplicationOffer,
-			ApplicationAlias: arg.ApplicationAlias,
-			Macaroon:         arg.Macaroon,
+			ApplicationOfferDetails: arg.Offer,
+			ApplicationAlias:        arg.ApplicationAlias,
+			Macaroon:                arg.Macaroon,
 		}},
 	}
 	if arg.ControllerInfo != nil {
@@ -653,7 +653,7 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 	if err := consumeRes.Results[0].Error; err != nil {
 		return "", errors.Trace(err)
 	}
-	localName := arg.ApplicationOffer.OfferName
+	localName := arg.Offer.OfferName
 	if arg.ApplicationAlias != "" {
 		localName = arg.ApplicationAlias
 	}

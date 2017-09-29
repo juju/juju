@@ -197,7 +197,7 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 	// Consume is idempotent so even if the offer has been consumed previously,
 	// it's safe to do so again.
 	arg := crossmodel.ConsumeApplicationArgs{
-		ApplicationOffer: *consumeDetails.Offer,
+		Offer:            *consumeDetails.Offer,
 		ApplicationAlias: c.remoteEndpoint.ApplicationName,
 		Macaroon:         consumeDetails.Macaroon,
 	}

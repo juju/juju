@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -203,6 +202,10 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 
 func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 	s.setupOffers(c, "test")
+	s.mockState.users["mary"] = &mockUser{"mary"}
+	s.mockState.CreateOfferAccess(
+		names.NewApplicationOfferTag("hosted-db2"),
+		names.NewUserTag("mary"), permission.ConsumeAccess)
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
@@ -219,10 +222,10 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 		return
 	}
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, jc.DeepEquals, params.ListApplicationOffersResults{
-		[]params.ApplicationOfferDetails{
+	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResults{
+		[]params.ApplicationOfferAdminDetails{
 			{
-				ApplicationOffer: params.ApplicationOffer{
+				ApplicationOfferDetails: params.ApplicationOfferDetails{
 					SourceModelTag:         testing.ModelTag.String(),
 					ApplicationDescription: "description",
 					OfferName:              "hosted-db2",
@@ -237,7 +240,10 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 							Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
 						},
 					},
-					Access: "admin",
+					Users: []params.OfferUserDetails{
+						{UserName: "admin", DisplayName: "", Access: "admin"},
+						{UserName: "mary", DisplayName: "mary", Access: "consume"},
+					},
 				},
 				ApplicationName: "test",
 				CharmURL:        "cs:db2-2",
@@ -320,6 +326,10 @@ func (s *applicationOffersSuite) TestListRequiresFilter(c *gc.C) {
 
 func (s *applicationOffersSuite) assertShow(c *gc.C, url string, expected []params.ApplicationOfferResult) {
 	s.setupOffers(c, "")
+	s.mockState.users["mary"] = &mockUser{"mary"}
+	s.mockState.CreateOfferAccess(
+		names.NewApplicationOfferTag("hosted-db2"),
+		names.NewUserTag("mary"), permission.ConsumeAccess)
 	filter := params.OfferURLs{[]string{url}}
 
 	found, err := s.api.ApplicationOffers(filter)
@@ -343,34 +353,50 @@ func (s *applicationOffersSuite) assertShow(c *gc.C, url string, expected []para
 
 func (s *applicationOffersSuite) TestShow(c *gc.C) {
 	expected := []params.ApplicationOfferResult{{
-		Result: &params.ApplicationOffer{
-			SourceModelTag:         testing.ModelTag.String(),
-			ApplicationDescription: "description",
-			OfferURL:               "fred/prod.hosted-db2",
-			OfferName:              "hosted-db2",
-			OfferUUID:              "hosted-db2-uuid",
-			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-			Bindings:               map[string]string{"db2": "myspace"},
-			Spaces: []params.RemoteSpace{
-				{
-					Name:       "myspace",
-					ProviderId: "juju-space-myspace",
-					Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+		Result: &params.ApplicationOfferAdminDetails{
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
+				SourceModelTag:         testing.ModelTag.String(),
+				ApplicationDescription: "description",
+				OfferURL:               "fred/prod.hosted-db2",
+				OfferName:              "hosted-db2",
+				OfferUUID:              "hosted-db2-uuid",
+				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+				Bindings:               map[string]string{"db2": "myspace"},
+				Spaces: []params.RemoteSpace{
+					{
+						Name:       "myspace",
+						ProviderId: "juju-space-myspace",
+						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+					},
+				},
+				Users: []params.OfferUserDetails{
+					{UserName: "fred", DisplayName: "", Access: "admin"},
+					{UserName: "mary", DisplayName: "mary", Access: "consume"},
 				},
 			},
-			Access: "admin"},
+			ApplicationName: "test",
+			CharmURL:        "cs:db2-2",
+			Connections: []params.OfferConnection{{
+				SourceModelTag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				RelationId:     1, Username: "fred", Endpoint: "db",
+				Status:         params.EntityStatus{Status: "joined"},
+				IngressSubnets: []string{"192.168.1.0/32", "10.0.0.0/8"},
+			}},
+		},
 	}}
 	s.authorizer.Tag = names.NewUserTag("admin")
+	expected[0].Result.Users[0].UserName = "admin"
 	s.assertShow(c, "fred/prod.hosted-db2", expected)
 	// Again with an unqualified model path.
 	s.authorizer.AdminTag = names.NewUserTag("fred")
 	s.authorizer.Tag = s.authorizer.AdminTag
+	expected[0].Result.Users[0].UserName = "fred"
 	s.applicationOffers.ResetCalls()
 	s.assertShow(c, "prod.hosted-db2", expected)
 }
 
 func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
-	s.mockState.users.Add("someone")
+	s.mockState.users["someone"] = &mockUser{"someone"}
 	user := names.NewUserTag("someone")
 	offer := names.NewApplicationOfferTag("hosted-db2")
 	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
@@ -387,24 +413,28 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferResult{{
-		Result: &params.ApplicationOffer{
-			SourceModelTag:         testing.ModelTag.String(),
-			ApplicationDescription: "description",
-			OfferURL:               "fred/prod.hosted-db2",
-			OfferName:              "hosted-db2",
-			OfferUUID:              "hosted-db2-uuid",
-			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-			Bindings:               map[string]string{"db2": "myspace"},
-			Spaces: []params.RemoteSpace{
-				{
-					Name:       "myspace",
-					ProviderId: "juju-space-myspace",
-					Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+		Result: &params.ApplicationOfferAdminDetails{
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
+				SourceModelTag:         testing.ModelTag.String(),
+				ApplicationDescription: "description",
+				OfferURL:               "fred/prod.hosted-db2",
+				OfferName:              "hosted-db2",
+				OfferUUID:              "hosted-db2-uuid",
+				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+				Bindings:               map[string]string{"db2": "myspace"},
+				Spaces: []params.RemoteSpace{
+					{
+						Name:       "myspace",
+						ProviderId: "juju-space-myspace",
+						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+					},
+				},
+				Users: []params.OfferUserDetails{
+					{UserName: "someone", DisplayName: "someone", Access: "read"},
 				},
 			},
-			Access: "read"},
-	}}
-	s.mockState.users.Add(user.Name())
+		}}}
+	s.mockState.users[user.Name()] = &mockUser{user.Name()}
 	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ReadAccess)
 	s.assertShow(c, "fred/prod.hosted-db2", expected)
 }
@@ -536,12 +566,12 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
-	s.mockState.users.Add(user.Name())
+	s.mockState.users[user.Name()] = &mockUser{user.Name()}
 	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-test"), user, permission.ReadAccess)
 
 	anotherState := &mockState{
 		modelUUID:   "uuid2",
-		users:       set.NewStrings(),
+		users:       make(map[string]applicationoffers.User),
 		accessPerms: make(map[offerAccess]permission.Access),
 		spaces:      make(map[string]applicationoffers.Space),
 		model:       anotherModel,
@@ -557,47 +587,55 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 			&mockSubnet{cidr: "4.3.2.0/24", providerId: "juju-subnet-1", zones: []string{"az1"}},
 		},
 	}
-	anotherState.users.Add(user.Name())
+	anotherState.users[user.Name()] = &mockUser{user.Name()}
 	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-testagain"), user, permission.ConsumeAccess)
 	s.mockStatePool.st["uuid2"] = anotherState
 
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	var results []params.ApplicationOffer
+	var results []params.ApplicationOfferAdminDetails
 	for _, r := range found.Results {
 		c.Assert(r.Error, gc.IsNil)
 		results = append(results, *r.Result)
 	}
-	c.Assert(results, jc.DeepEquals, []params.ApplicationOffer{
+	c.Assert(results, jc.DeepEquals, []params.ApplicationOfferAdminDetails{
 		{
-			SourceModelTag:         testing.ModelTag.String(),
-			ApplicationDescription: "description",
-			OfferName:              "hosted-" + name,
-			OfferUUID:              "hosted-" + name + "-uuid",
-			OfferURL:               url,
-			Access:                 "read",
-			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-			Bindings:               map[string]string{"db": "myspace"},
-			Spaces: []params.RemoteSpace{
-				{
-					Name:       "myspace",
-					ProviderId: "juju-space-myspace",
-					Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
+				SourceModelTag:         testing.ModelTag.String(),
+				ApplicationDescription: "description",
+				OfferName:              "hosted-" + name,
+				OfferUUID:              "hosted-" + name + "-uuid",
+				OfferURL:               url,
+				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+				Bindings:               map[string]string{"db": "myspace"},
+				Spaces: []params.RemoteSpace{
+					{
+						Name:       "myspace",
+						ProviderId: "juju-space-myspace",
+						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+					},
+				},
+				Users: []params.OfferUserDetails{
+					{UserName: "someone", DisplayName: "someone", Access: "read"},
 				},
 			},
 		}, {
-			SourceModelTag:         "model-uuid2",
-			ApplicationDescription: "description2",
-			OfferName:              "hosted-" + name2,
-			OfferUUID:              "hosted-" + name2 + "-uuid",
-			OfferURL:               url2,
-			Access:                 "consume",
-			Endpoints:              []params.RemoteEndpoint{{Name: "db2"}}},
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
+				SourceModelTag:         "model-uuid2",
+				ApplicationDescription: "description2",
+				OfferName:              "hosted-" + name2,
+				OfferUUID:              "hosted-" + name2 + "-uuid",
+				OfferURL:               url2,
+				Endpoints:              []params.RemoteEndpoint{{Name: "db2"}},
+				Users: []params.OfferUserDetails{
+					{UserName: "someone", DisplayName: "someone", Access: "consume"},
+				}},
+		},
 	})
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall, listOffersBackendCall)
 }
 
-func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.ApplicationOffer) {
+func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.ApplicationOfferAdminDetails) {
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
@@ -607,7 +645,7 @@ func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.Applicati
 	}
 	found, err := s.api.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, jc.DeepEquals, params.FindApplicationOffersResults{
+	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResults{
 		Results: expected,
 	})
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
@@ -626,31 +664,44 @@ func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.Applicati
 	})
 }
 
-func (s *applicationOffersSuite) TestFind(c *gc.C) {
+func (s *applicationOffersSuite) TestFid(c *gc.C) {
 	s.setupOffers(c, "")
 	s.authorizer.Tag = names.NewUserTag("admin")
-	expected := []params.ApplicationOffer{
+	expected := []params.ApplicationOfferAdminDetails{
 		{
-			SourceModelTag:         testing.ModelTag.String(),
-			ApplicationDescription: "description",
-			OfferName:              "hosted-db2",
-			OfferUUID:              "hosted-db2-uuid",
-			OfferURL:               "fred/prod.hosted-db2",
-			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-			Bindings:               map[string]string{"db2": "myspace"},
-			Spaces: []params.RemoteSpace{
-				{
-					Name:       "myspace",
-					ProviderId: "juju-space-myspace",
-					Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
+				SourceModelTag:         testing.ModelTag.String(),
+				ApplicationDescription: "description",
+				OfferName:              "hosted-db2",
+				OfferUUID:              "hosted-db2-uuid",
+				OfferURL:               "fred/prod.hosted-db2",
+				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+				Bindings:               map[string]string{"db2": "myspace"},
+				Spaces: []params.RemoteSpace{
+					{
+						Name:       "myspace",
+						ProviderId: "juju-space-myspace",
+						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+					},
 				},
-			},
-			Access: "admin"}}
+				Users: []params.OfferUserDetails{
+					{UserName: "admin", DisplayName: "", Access: "admin"},
+				}},
+			ApplicationName: "test",
+			CharmURL:        "cs:db2-2",
+			Connections: []params.OfferConnection{{
+				SourceModelTag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				RelationId:     1, Username: "fred", Endpoint: "db",
+				Status:         params.EntityStatus{Status: "joined"},
+				IngressSubnets: []string{"192.168.1.0/32", "10.0.0.0/8"},
+			}},
+		},
+	}
 	s.assertFind(c, expected)
 }
 
 func (s *applicationOffersSuite) TestFindNoPermission(c *gc.C) {
-	s.mockState.users.Add("someone")
+	s.mockState.users["someone"] = &mockUser{"someone"}
 	user := names.NewUserTag("someone")
 	offer := names.NewApplicationOfferTag("hosted-db2")
 	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
@@ -658,31 +709,36 @@ func (s *applicationOffersSuite) TestFindNoPermission(c *gc.C) {
 
 	s.setupOffers(c, "")
 	s.authorizer.Tag = names.NewUserTag("someone")
-	s.assertFind(c, []params.ApplicationOffer{})
+	s.assertFind(c, []params.ApplicationOfferAdminDetails{})
 }
 
 func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 	s.setupOffers(c, "")
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
-	expected := []params.ApplicationOffer{
+	expected := []params.ApplicationOfferAdminDetails{
 		{
-			SourceModelTag:         testing.ModelTag.String(),
-			ApplicationDescription: "description",
-			OfferName:              "hosted-db2",
-			OfferUUID:              "hosted-db2-uuid",
-			OfferURL:               "fred/prod.hosted-db2",
-			Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-			Bindings:               map[string]string{"db2": "myspace"},
-			Spaces: []params.RemoteSpace{
-				{
-					Name:       "myspace",
-					ProviderId: "juju-space-myspace",
-					Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+			ApplicationOfferDetails: params.ApplicationOfferDetails{
+				SourceModelTag:         testing.ModelTag.String(),
+				ApplicationDescription: "description",
+				OfferName:              "hosted-db2",
+				OfferUUID:              "hosted-db2-uuid",
+				OfferURL:               "fred/prod.hosted-db2",
+				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+				Bindings:               map[string]string{"db2": "myspace"},
+				Spaces: []params.RemoteSpace{
+					{
+						Name:       "myspace",
+						ProviderId: "juju-space-myspace",
+						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+					},
 				},
-			},
-			Access: "read"}}
-	s.mockState.users.Add(user.Name())
+				Users: []params.OfferUserDetails{
+					{UserName: "someone", DisplayName: "someone", Access: "read"},
+				}},
+		},
+	}
+	s.mockState.users[user.Name()] = &mockUser{user.Name()}
 	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ReadAccess)
 	s.assertFind(c, expected)
 }
@@ -782,12 +838,12 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
-	s.mockState.users.Add(user.Name())
+	s.mockState.users[user.Name()] = &mockUser{user.Name()}
 	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ConsumeAccess)
 
 	anotherState := &mockState{
 		modelUUID:   "uuid2",
-		users:       set.NewStrings(),
+		users:       make(map[string]applicationoffers.User),
 		accessPerms: make(map[offerAccess]permission.Access),
 		spaces:      make(map[string]applicationoffers.Space),
 	}
@@ -826,7 +882,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 			relationId:  1,
 		},
 	}
-	anotherState.users.Add(user.Name())
+	anotherState.users[user.Name()] = &mockUser{user.Name()}
 	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-mysql"), user, permission.ReadAccess)
 	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-postgresql"), user, permission.AdminAccess)
 
@@ -861,42 +917,55 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	}
 	found, err := s.api.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, jc.DeepEquals, params.FindApplicationOffersResults{
-		[]params.ApplicationOffer{
+	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResults{
+		[]params.ApplicationOfferAdminDetails{
 			{
-				SourceModelTag:         testing.ModelTag.String(),
-				ApplicationDescription: "db2 description",
-				OfferName:              "hosted-db2",
-				OfferUUID:              "hosted-db2-uuid",
-				OfferURL:               "fred/prod.hosted-db2",
-				Access:                 "consume",
-				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-				Bindings:               map[string]string{"db2": "myspace"},
-				Spaces: []params.RemoteSpace{
-					{
-						Name:       "myspace",
-						ProviderId: "juju-space-myspace",
-						Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+				ApplicationOfferDetails: params.ApplicationOfferDetails{
+					SourceModelTag:         testing.ModelTag.String(),
+					ApplicationDescription: "db2 description",
+					OfferName:              "hosted-db2",
+					OfferUUID:              "hosted-db2-uuid",
+					OfferURL:               "fred/prod.hosted-db2",
+					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+					Bindings:               map[string]string{"db2": "myspace"},
+					Spaces: []params.RemoteSpace{
+						{
+							Name:       "myspace",
+							ProviderId: "juju-space-myspace",
+							Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
+						},
+					},
+					Users: []params.OfferUserDetails{
+						{UserName: "someone", DisplayName: "someone", Access: "consume"},
 					},
 				},
 			},
 			{
-				SourceModelTag:         "model-uuid2",
-				ApplicationDescription: "mysql description",
-				OfferName:              "hosted-mysql",
-				OfferUUID:              "hosted-mysql-uuid",
-				OfferURL:               "mary/another.hosted-mysql",
-				Access:                 "read",
-				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+				ApplicationOfferDetails: params.ApplicationOfferDetails{
+					SourceModelTag:         "model-uuid2",
+					ApplicationDescription: "mysql description",
+					OfferName:              "hosted-mysql",
+					OfferUUID:              "hosted-mysql-uuid",
+					OfferURL:               "mary/another.hosted-mysql",
+					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+					Users: []params.OfferUserDetails{
+						{UserName: "someone", DisplayName: "someone", Access: "read"},
+					},
+				},
 			},
 			{
-				SourceModelTag:         "model-uuid2",
-				ApplicationDescription: "postgresql description",
-				OfferName:              "hosted-postgresql",
-				OfferUUID:              "hosted-postgresql-uuid",
-				OfferURL:               "mary/another.hosted-postgresql",
-				Access:                 "admin",
-				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+				ApplicationOfferDetails: params.ApplicationOfferDetails{
+					SourceModelTag:         "model-uuid2",
+					ApplicationDescription: "postgresql description",
+					OfferName:              "hosted-postgresql",
+					OfferUUID:              "hosted-postgresql-uuid",
+					OfferURL:               "mary/another.hosted-postgresql",
+					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+					Users: []params.OfferUserDetails{
+						{UserName: "someone", DisplayName: "someone", Access: "admin"},
+					},
+				},
+				CharmURL: "cs:postgresql-2",
 			},
 		},
 	})
@@ -989,7 +1058,7 @@ func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *gc.C) {
 func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
-	st.(*mockState).users.Add("someone")
+	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
 	offer := names.NewApplicationOfferTag("hosted-mysql")
 	err := st.CreateOfferAccess(offer, apiUser, permission.NoAccess)
@@ -1009,7 +1078,7 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
-	st.(*mockState).users.Add("someone")
+	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
 	offer := names.NewApplicationOfferTag("hosted-mysql")
 	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
@@ -1022,7 +1091,7 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOffer{
+	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetails{
 		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OfferURL:               "fred/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
@@ -1037,7 +1106,9 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 				Subnets:    []params.Subnet{{CIDR: "4.3.2.0/24", ProviderId: "juju-subnet-1", Zones: []string{"az1"}}},
 			},
 		},
-		Access: "consume",
+		Users: []params.OfferUserDetails{
+			{UserName: "someone", DisplayName: "someone", Access: "consume"},
+		},
 	})
 	c.Assert(results.Results[0].ControllerInfo, jc.DeepEquals, &params.ExternalControllerInfo{
 		ControllerTag: testing.ControllerTag.String(),
@@ -1057,7 +1128,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	s.setupOffer()
 
 	st := s.mockStatePool.st[testing.ModelTag.Id()].(*mockState)
-	st.users.Add("someone")
+	st.users["someone"] = &mockUser{"someone"}
 	delete(st.applications["mysql"].(*mockApplication).bindings, "database")
 	st.spaces[""] = &mockSpace{
 		name: "",
@@ -1075,7 +1146,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOffer{
+	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetails{
 		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OfferURL:               "fred/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
@@ -1083,7 +1154,9 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 		ApplicationDescription: "a database",
 		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
 		Bindings:               map[string]string{"database": ""},
-		Access:                 "consume",
+		Users: []params.OfferUserDetails{
+			{UserName: "someone", DisplayName: "someone", Access: "consume"},
+		},
 	})
 }
 
@@ -1098,7 +1171,7 @@ func (s *consumeSuite) setupOffer() {
 		model:             model,
 		applications:      make(map[string]crossmodel.Application),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
-		users:             set.NewStrings(),
+		users:             make(map[string]applicationoffers.User),
 		accessPerms:       make(map[offerAccess]permission.Access),
 		spaces:            make(map[string]applicationoffers.Space),
 		relations:         make(map[string]crossmodel.Relation),
@@ -1145,7 +1218,7 @@ func (s *consumeSuite) setupOffer() {
 func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
-	st.(*mockState).users.Add("foobar")
+	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 
 	// Give user permission to see the offer.
 	user := names.NewUserTag("foobar")
@@ -1190,7 +1263,7 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 func (s *consumeSuite) TestDestroyOffers(c *gc.C) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
-	st.(*mockState).users.Add("foobar")
+	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 
 	s.authorizer.Tag = names.NewUserTag("admin")
 	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
@@ -1218,7 +1291,7 @@ func (s *consumeSuite) TestDestroyOffersPermission(c *gc.C) {
 	s.setupOffer()
 	s.authorizer.Tag = names.NewUserTag("mary")
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
-	st.(*mockState).users.Add("foobar")
+	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 
 	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
 		OfferURLs: []string{"fred/prod.hosted-mysql"},

@@ -55,7 +55,7 @@ func (c *Client) Offer(modelUUID, application string, endpoints []string, offerN
 
 // ListOffers gets all remote applications that have been offered from this Juju model.
 // Each returned application satisfies at least one of the the specified filters.
-func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOfferDetailsResult, error) {
+func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error) {
 	var paramsFilter params.OfferFilters
 	for _, f := range filters {
 		// TODO(wallyworld) - include allowed users
@@ -73,48 +73,64 @@ func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]cro
 		paramsFilter.Filters = append(paramsFilter.Filters, filterTerm)
 	}
 
-	applicationOffers := params.ListApplicationOffersResults{}
-	err := c.facade.FacadeCall("ListApplicationOffers", paramsFilter, &applicationOffers)
+	offers := params.QueryApplicationOffersResults{}
+	err := c.facade.FacadeCall("ListApplicationOffers", paramsFilter, &offers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return convertListResultsToModel(applicationOffers.Results)
+	return convertOffersResultsToModel(offers.Results)
 }
 
-func convertListResultsToModel(items []params.ApplicationOfferDetails) ([]crossmodel.ApplicationOfferDetailsResult, error) {
-	result := make([]crossmodel.ApplicationOfferDetailsResult, len(items))
+func convertOffersResultsToModel(items []params.ApplicationOfferAdminDetails) ([]*crossmodel.ApplicationOfferDetails, error) {
+	result := make([]*crossmodel.ApplicationOfferDetails, len(items))
+	var err error
 	for i, one := range items {
-		eps := make([]charm.Relation, len(one.Endpoints))
-		for i, ep := range one.Endpoints {
-			eps[i] = charm.Relation{
-				Name:      ep.Name,
-				Role:      ep.Role,
-				Interface: ep.Interface,
-			}
+		if result[i], err = offerParamsToDetails(one); err != nil {
+			return nil, errors.Trace(err)
 		}
-		result[i].Result = &crossmodel.ApplicationOfferDetails{
-			ApplicationName: one.ApplicationName,
-			OfferName:       one.OfferName,
-			CharmURL:        one.CharmURL,
-			OfferURL:        one.OfferURL,
-			Endpoints:       eps,
+	}
+	return result, nil
+}
+
+func offerParamsToDetails(offer params.ApplicationOfferAdminDetails) (*crossmodel.ApplicationOfferDetails, error) {
+	eps := make([]charm.Relation, len(offer.Endpoints))
+	for i, ep := range offer.Endpoints {
+		eps[i] = charm.Relation{
+			Name:      ep.Name,
+			Role:      ep.Role,
+			Interface: ep.Interface,
 		}
-		for _, oc := range one.Connections {
-			modelTag, err := names.ParseModelTag(oc.SourceModelTag)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			result[i].Result.Connections = append(result[i].Result.Connections, crossmodel.OfferConnection{
-				SourceModelUUID: modelTag.Id(),
-				Username:        oc.Username,
-				Endpoint:        oc.Endpoint,
-				RelationId:      oc.RelationId,
-				Status:          relation.Status(oc.Status.Status),
-				Message:         oc.Status.Info,
-				Since:           oc.Status.Since,
-				IngressSubnets:  oc.IngressSubnets,
-			})
+	}
+	result := &crossmodel.ApplicationOfferDetails{
+		ApplicationName:        offer.ApplicationName,
+		ApplicationDescription: offer.ApplicationDescription,
+		OfferName:              offer.OfferName,
+		CharmURL:               offer.CharmURL,
+		OfferURL:               offer.OfferURL,
+		Endpoints:              eps,
+	}
+	for _, oc := range offer.Connections {
+		modelTag, err := names.ParseModelTag(oc.SourceModelTag)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		result.Connections = append(result.Connections, crossmodel.OfferConnection{
+			SourceModelUUID: modelTag.Id(),
+			Username:        oc.Username,
+			Endpoint:        oc.Endpoint,
+			RelationId:      oc.RelationId,
+			Status:          relation.Status(oc.Status.Status),
+			Message:         oc.Status.Info,
+			Since:           oc.Status.Since,
+			IngressSubnets:  oc.IngressSubnets,
+		})
+	}
+	for _, u := range offer.Users {
+		result.Users = append(result.Users, crossmodel.OfferUserDetails{
+			UserName:    u.UserName,
+			DisplayName: u.DisplayName,
+			Access:      permission.Access(u.Access),
+		})
 	}
 	return result, nil
 }
@@ -169,37 +185,37 @@ func (c *Client) modifyOfferUser(action params.OfferAction, user, access string,
 }
 
 // ApplicationOffer returns offered remote application details for a given URL.
-func (c *Client) ApplicationOffer(urlStr string) (params.ApplicationOffer, error) {
+func (c *Client) ApplicationOffer(urlStr string) (*crossmodel.ApplicationOfferDetails, error) {
 
 	url, err := crossmodel.ParseOfferURL(urlStr)
 	if err != nil {
-		return params.ApplicationOffer{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if url.Source != "" {
-		return params.ApplicationOffer{}, errors.NotSupportedf("query for non-local application offers")
+		return nil, errors.NotSupportedf("query for non-local application offers")
 	}
 
 	found := params.ApplicationOffersResults{}
 
 	err = c.facade.FacadeCall("ApplicationOffers", params.OfferURLs{[]string{urlStr}}, &found)
 	if err != nil {
-		return params.ApplicationOffer{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	result := found.Results
 	if len(result) != 1 {
-		return params.ApplicationOffer{}, errors.Errorf("expected to find one result for url %q but found %d", url, len(result))
+		return nil, errors.Errorf("expected to find one result for url %q but found %d", url, len(result))
 	}
 
 	theOne := result[0]
 	if theOne.Error != nil {
-		return params.ApplicationOffer{}, errors.Trace(theOne.Error)
+		return nil, errors.Trace(theOne.Error)
 	}
-	return *theOne.Result, nil
+	return offerParamsToDetails(*theOne.Result)
 }
 
 // FindApplicationOffers returns all application offers matching the supplied filter.
-func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]params.ApplicationOffer, error) {
+func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error) {
 	// We need at least one filter. The default filter will list all local applications.
 	if len(filters) == 0 {
 		return nil, errors.New("at least one filter must be specified")
@@ -220,12 +236,12 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 		paramsFilter.Filters = append(paramsFilter.Filters, filterTerm)
 	}
 
-	out := params.FindApplicationOffersResults{}
-	err := c.facade.FacadeCall("FindApplicationOffers", paramsFilter, &out)
+	offers := params.QueryApplicationOffersResults{}
+	err := c.facade.FacadeCall("FindApplicationOffers", paramsFilter, &offers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return out.Results, nil
+	return convertOffersResultsToModel(offers.Results)
 }
 
 // GetConsumeDetails returns details necessary to consue an offer at a given URL.

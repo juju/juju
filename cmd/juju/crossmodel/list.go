@@ -4,7 +4,6 @@
 package crossmodel
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/cmd"
@@ -157,23 +156,8 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	// Filter out valid output, if any...
-	valid := []crossmodel.ApplicationOfferDetails{}
-	for _, application := range offeredApplications {
-		if application.Error != nil {
-			fmt.Fprintf(ctx.Stderr, "%v\n", application.Error)
-			continue
-		}
-		if application.Result != nil {
-			valid = append(valid, *application.Result)
-		}
-	}
-	if len(valid) == 0 {
-		return nil
-	}
-
 	// For now, all offers come from the one controller.
-	data, err := formatApplicationOfferDetails(controllerName, valid)
+	data, err := formatApplicationOfferDetails(controllerName, offeredApplications)
 	if err != nil {
 		return errors.Annotate(err, "failed to format found applications")
 	}
@@ -184,7 +168,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 // ListAPI defines the API methods that list endpoints command use.
 type ListAPI interface {
 	Close() error
-	ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOfferDetailsResult, error)
+	ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error)
 }
 
 // ListOfferItem defines the serialization behaviour of an offer item in endpoints list.
@@ -209,6 +193,9 @@ type ListOfferItem struct {
 
 	// Connections holds details of connections to the offer.
 	Connections []offerConnectionDetails `yaml:"connections,omitempty" json:"connections,omitempty"`
+
+	// Users are the users who can access the offer.
+	Users map[string]OfferUser `yaml:"users,omitempty" json:"users,omitempty"`
 }
 
 type offeredApplications map[string]ListOfferItem
@@ -228,7 +215,7 @@ type offerConnectionDetails struct {
 	IngressSubnets  []string              `json:"ingress-subnets,omitempty" yaml:"ingress-subnets,omitempty"`
 }
 
-func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOfferDetails) (offeredApplications, error) {
+func formatApplicationOfferDetails(store string, all []*crossmodel.ApplicationOfferDetails) (offeredApplications, error) {
 	result := make(offeredApplications)
 	for _, one := range all {
 		url, err := crossmodel.ParseOfferURL(one.OfferURL)
@@ -245,7 +232,7 @@ func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOff
 	return result, nil
 }
 
-func convertOfferToListItem(url *crossmodel.OfferURL, offer crossmodel.ApplicationOfferDetails) ListOfferItem {
+func convertOfferToListItem(url *crossmodel.OfferURL, offer *crossmodel.ApplicationOfferDetails) ListOfferItem {
 	item := ListOfferItem{
 		OfferName:       offer.OfferName,
 		ApplicationName: offer.ApplicationName,
@@ -253,6 +240,7 @@ func convertOfferToListItem(url *crossmodel.OfferURL, offer crossmodel.Applicati
 		CharmURL:        offer.CharmURL,
 		OfferURL:        offer.OfferURL,
 		Endpoints:       convertCharmEndpoints(offer.Endpoints...),
+		Users:           convertUsers(offer.Users...),
 	}
 	for _, conn := range offer.Connections {
 		item.Connections = append(item.Connections, offerConnectionDetails{

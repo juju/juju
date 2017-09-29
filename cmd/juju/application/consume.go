@@ -151,7 +151,7 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 	defer targetClient.Close()
 
 	arg := crossmodel.ConsumeApplicationArgs{
-		ApplicationOffer: *consumeDetails.Offer,
+		Offer:            *consumeDetails.Offer,
 		ApplicationAlias: c.applicationAlias,
 		Macaroon:         consumeDetails.Macaroon,
 	}

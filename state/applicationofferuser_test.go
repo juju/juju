@@ -49,7 +49,7 @@ func (s *ApplicationOfferUserSuite) makeOffer(c *gc.C, access permission.Access)
 	return offer, user.UserTag()
 }
 
-func (s *ApplicationOfferUserSuite) assertAddOffer(c *gc.C, wantedAccess permission.Access) {
+func (s *ApplicationOfferUserSuite) assertAddOffer(c *gc.C, wantedAccess permission.Access) string {
 	offer, user := s.makeOffer(c, wantedAccess)
 
 	access, err := s.State.GetOfferAccess(offer.OfferUUID, user)
@@ -65,6 +65,7 @@ func (s *ApplicationOfferUserSuite) assertAddOffer(c *gc.C, wantedAccess permiss
 	access, err = s.State.GetOfferAccess(offer.OfferUUID, names.NewUserTag("everyone@external"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
+	return offer.OfferUUID
 }
 
 func (s *ApplicationOfferUserSuite) TestAddReadOnlyOfferUser(c *gc.C) {
@@ -73,6 +74,17 @@ func (s *ApplicationOfferUserSuite) TestAddReadOnlyOfferUser(c *gc.C) {
 
 func (s *ApplicationOfferUserSuite) TestAddConsumeOfferUser(c *gc.C) {
 	s.assertAddOffer(c, permission.ConsumeAccess)
+}
+
+func (s *ApplicationOfferUserSuite) TestGetOfferAccess(c *gc.C) {
+	offerUUID := s.assertAddOffer(c, permission.ConsumeAccess)
+	users, err := s.State.GetOfferUsers(offerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(users, jc.DeepEquals, map[string]permission.Access{
+		"everyone@external": permission.ReadAccess,
+		"test-admin":        permission.AdminAccess,
+		"validusername":     permission.ConsumeAccess,
+	})
 }
 
 func (s *ApplicationOfferUserSuite) TestAddAdminModelUser(c *gc.C) {

@@ -62,10 +62,12 @@ type Backend interface {
 	Model() (Model, error)
 	OfferConnections(string) ([]OfferConnection, error)
 	Space(string) (Space, error)
+	User(names.UserTag) (User, error)
 
 	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
 	UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
 	RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error
+	GetOfferUsers(offerUUID string) (map[string]permission.Access, error)
 }
 
 var GetStateAccess = func(st *state.State) Backend {
@@ -96,9 +98,9 @@ func (s stateShim) RemoveOfferAccess(offer names.ApplicationOfferTag, user names
 	return s.st.RemoveOfferAccess(offer, user)
 }
 
-// func (s stateShim) NewStorage() storage.Storage {
-// 	return storage.NewStorage(s.st.ModelUUID(), s.st.MongoSession())
-// }
+func (s stateShim) GetOfferUsers(offerUUID string) (map[string]permission.Access, error) {
+	return s.st.GetOfferUsers(offerUUID)
+}
 
 func (s *stateShim) Space(name string) (Space, error) {
 	sp, err := s.st.Space(name)
@@ -215,4 +217,16 @@ type OfferConnection interface {
 
 type offerConnectionShim struct {
 	*state.OfferConnection
+}
+
+func (s *stateShim) User(tag names.UserTag) (User, error) {
+	return s.st.User(tag)
+}
+
+type User interface {
+	DisplayName() string
+}
+
+type userShim struct {
+	*state.User
 }

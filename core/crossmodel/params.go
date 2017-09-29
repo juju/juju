@@ -9,16 +9,22 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/permission"
 )
 
-// ApplicationOfferDetails represents a remote application used when vendor
-// lists their own applications.
+// ApplicationOfferAdminDetails represents the details about an
+// application offer. Depending on the access permission of the
+// user making the API call, and whether the call is "find" or "list",
+// not all fields will be populated.
 type ApplicationOfferDetails struct {
 	// OfferName is the name of the offer
 	OfferName string
 
 	// ApplicationName is the application name to which the offer pertains.
 	ApplicationName string
+
+	// ApplicationDescription is the application description.
+	ApplicationDescription string
 
 	// OfferURL is the URL where the offer can be located.
 	OfferURL string
@@ -32,6 +38,21 @@ type ApplicationOfferDetails struct {
 
 	// Connects are the connections to the offer.
 	Connections []OfferConnection
+
+	// Users are the users able to access the offer.
+	Users []OfferUserDetails
+}
+
+// OfferUserDetails holds the details about a user's access to an offer.
+type OfferUserDetails struct {
+	// UserName is the username of the user.
+	UserName string
+
+	// DisplayName is the display name of the user.
+	DisplayName string
+
+	// Access is the level of access to the offer.
+	Access permission.Access
 }
 
 // OfferConnection holds details about a connection to an offer.
@@ -59,13 +80,4 @@ type OfferConnection struct {
 
 	// IngressSubnets is the list of subnets from which traffic will originate.
 	IngressSubnets []string
-}
-
-// ApplicationOfferDetailsResult is a result of listing a remote application.
-type ApplicationOfferDetailsResult struct {
-	// Result contains remote application information.
-	Result *ApplicationOfferDetails
-
-	// Error contains error related to this item.
-	Error error
 }

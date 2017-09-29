@@ -6,7 +6,6 @@ package applicationoffers_test
 import (
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -53,7 +52,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.env = &mockEnviron{}
 	s.mockState = &mockState{
 		modelUUID:         coretesting.ModelTag.Id(),
-		users:             set.NewStrings(),
+		users:             make(map[string]applicationoffers.User),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		accessPerms:       make(map[offerAccess]permission.Access),
 		spaces:            make(map[string]applicationoffers.Space),

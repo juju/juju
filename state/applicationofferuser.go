@@ -22,6 +22,19 @@ func (st *State) GetOfferAccess(offerUUID string, user names.UserTag) (permissio
 	return perm.access(), nil
 }
 
+// GetOfferUsers gets the access permissions on an offer.
+func (st *State) GetOfferUsers(offerUUID string) (map[string]permission.Access, error) {
+	perms, err := st.usersPermissions(applicationOfferKey(offerUUID))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make(map[string]permission.Access)
+	for _, p := range perms {
+		result[userIDFromGlobalKey(p.doc.SubjectGlobalKey)] = p.access()
+	}
+	return result, nil
+}
+
 // CreateOfferAccess creates a new access permission for a user on an offer.
 func (st *State) CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
 	if err := permission.ValidateOfferAccess(access); err != nil {

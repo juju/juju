@@ -7,8 +7,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
 )
@@ -102,6 +102,12 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	if err := c.validateOrSetURL(); err != nil {
 		return errors.Trace(err)
 	}
+	accountDetails, err := c.CurrentAccountDetails()
+	if err != nil {
+		return err
+	}
+	loggedInUser := accountDetails.User
+
 	api, err := c.newAPIFunc(c.source)
 	if err != nil {
 		return err
@@ -126,7 +132,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	output, err := convertFoundOffers(c.source, found...)
+	output, err := convertFoundOffers(c.source, names.NewUserTag(loggedInUser), found...)
 	if err != nil {
 		return err
 	}
@@ -172,7 +178,7 @@ func (c *findCommand) validateOrSetURL() error {
 // FindAPI defines the API methods that cross model find command uses.
 type FindAPI interface {
 	Close() error
-	FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]params.ApplicationOffer, error)
+	FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error)
 }
 
 // ApplicationOfferResult defines the serialization behaviour of an application offer.
@@ -183,19 +189,35 @@ type ApplicationOfferResult struct {
 
 	// Endpoints is the list of offered application endpoints.
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
+
+	// Users are the users who can access the offer.
+	Users map[string]OfferUser `yaml:"users,omitempty" json:"users,omitempty"`
+}
+
+func accessForUser(user names.UserTag, users []crossmodel.OfferUserDetails) string {
+	for _, u := range users {
+		if u.UserName == user.Id() {
+			return string(u.Access)
+		}
+	}
+	return "-"
 }
 
 // convertFoundOffers takes any number of api-formatted remote applications and
 // creates a collection of ui-formatted applications.
-func convertFoundOffers(store string, offers ...params.ApplicationOffer) (map[string]ApplicationOfferResult, error) {
+func convertFoundOffers(
+	store string, loggedInUser names.UserTag, offers ...*crossmodel.ApplicationOfferDetails,
+) (map[string]ApplicationOfferResult, error) {
 	if len(offers) == 0 {
 		return nil, nil
 	}
 	output := make(map[string]ApplicationOfferResult, len(offers))
 	for _, one := range offers {
+		access := accessForUser(loggedInUser, one.Users)
 		app := ApplicationOfferResult{
-			Access:    one.Access,
+			Access:    access,
 			Endpoints: convertRemoteEndpoints(one.Endpoints...),
+			Users:     convertUsers(one.Users...),
 		}
 		url, err := crossmodel.ParseOfferURL(one.OfferURL)
 		if err != nil {
