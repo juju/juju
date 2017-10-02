@@ -61,10 +61,7 @@ func (s *PingBatcherSuite) TearDownTest(c *gc.C) {
 	presence.RealPeriod()
 }
 
-func (s *PingBatcherSuite) TestRecordsPings(c *gc.C) {
-	pb := presence.NewPingBatcher(s.presence, time.Second)
-	defer assertStopped(c, pb)
-
+func (s *PingBatcherSuite) assertPingsRecorded(c *gc.C, pb *presence.PingBatcher) {
 	// UnixNano time rounded to 30s interval
 	slot := int64(1497960150)
 	c.Assert(pb.Ping("test-uuid", slot, "0", 8), jc.ErrorIsNil)
@@ -80,6 +77,18 @@ func (s *PingBatcherSuite) TestRecordsPings(c *gc.C) {
 		"0": int64(24),
 		"1": int64(129),
 	})
+}
+func (s *PingBatcherSuite) TestRecordsPings(c *gc.C) {
+	pb := presence.NewPingBatcher(s.presence, time.Second)
+	defer assertStopped(c, pb)
+	s.assertPingsRecorded(c, pb)
+}
+
+func (s *PingBatcherSuite) TestRecordsPingsUsingInc(c *gc.C) {
+	pb := presence.NewPingBatcher(s.presence, time.Second)
+	pb.ForceUpdatesUsingInc()
+	defer assertStopped(c, pb)
+	s.assertPingsRecorded(c, pb)
 }
 
 func (s *PingBatcherSuite) TestMultipleUUIDs(c *gc.C) {
