@@ -308,7 +308,7 @@ func (pb *PingBatcher) flush() error {
 		// only used by 1 model. Given 30s slots, we only ever hit 1 or 2 documents being updated at the same
 		// time. If we switch to sharing batchers between models, then it might make more sense to use bulk updates
 		// but then we need to handle when we get Duplicate Key errors during update.
-		_, err := pings.UpsertId(docId,
+		changeInfo, err := pings.UpsertId(docId,
 			bson.D{
 				{"$set", bson.D{{"slot", slot.Slot}}},
 				{"$bit", fields},
@@ -316,6 +316,9 @@ func (pb *PingBatcher) flush() error {
 		)
 		if err != nil {
 			return errors.Trace(err)
+		}
+		if changeInfo.Updated == 0 {
+			return errors.Errorf("failed to update ping document: %s, no documents updated", docId)
 		}
 		if logger.IsTraceEnabled() {
 			// the rest of Pings records the first 6 characters of
