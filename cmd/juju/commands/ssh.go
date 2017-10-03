@@ -28,8 +28,10 @@ The SSH host keys of the target are verified. The --no-host-key-checks option
 can be used to disable these checks. Use of this option is not recommended as
 it opens up the possibility of a man-in-the-middle attack.
 
-Options specific to ssh can be provided as well. Refer to the ssh man
-page for an explanation of those options.
+Options specific to ssh can be provided as well. In fact, any arguments passed 
+after the target will be passed directly on to OpenSSH 
+(on platforms where it is available). 
+Refer to the ssh man page for an explanation of those options.
 
 Examples:
 Connect to machine 0:
@@ -47,6 +49,12 @@ Connect to a mysql unit:
 Connect to a jenkins unit as user jenkins:
 
     juju ssh jenkins@jenkins/0
+
+Pass extra options to SSH:
+
+    juju ssh mysql/0 -i SPECIAL_IDENTITY_FILE echo hello
+
+(not 'juju ssh -i SPECIAL_IDENTITY_FILE echo hello') 
 
 See also: 
     scp`
