@@ -17,7 +17,7 @@ else
 endif
 
 ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf|aarch64|ppc64le|s390x).*/golang/'), golang)
-	GO_C = golang-1.8
+	GO_C = golang-1.9
 	INSTALL_FLAGS =
 else
 	GO_C = gccgo-4.9  gccgo-go
@@ -96,7 +96,7 @@ rebuild-dependencies.tsv: godeps
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
-	@echo Adding juju PPAs for golang and juju
+	@echo Adding juju PPA for mongodb
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
 	@echo Installing dependencies
@@ -125,11 +125,8 @@ check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
 install-go:
-	@echo Adding juju PPAs for golang and juju
-	@sudo apt-add-repository -y ppa:juju/golang
-	@sudo apt-get update
-	@echo Installing $(GO_C)
-	@sudo apt-get -y install $(GO_C)
+	@echo Installing go-1.9 snap
+	@sudo snap install go --channel=1.9/stable
 
 .PHONY: build check install
 .PHONY: clean format simplify
