@@ -28,6 +28,9 @@ The SSH host keys of the target are verified. The --no-host-key-checks option
 can be used to disable these checks. Use of this option is not recommended as
 it opens up the possibility of a man-in-the-middle attack.
 
+Options specific to ssh can be provided as well. Refer to the ssh man
+page for an explanation of those options.
+
 Examples:
 Connect to machine 0:
 
