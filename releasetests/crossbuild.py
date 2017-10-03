@@ -14,7 +14,7 @@ from tempfile import mkdtemp
 import traceback
 
 
-GOLANG_VERSION = '1.8'
+GOLANG_VERSION = '1.9'
 CROSSCOMPILE_SOURCE = (
     'https://raw.githubusercontent.com'
     '/davecheney/golang-crosscompile/master/crosscompile.bash')
@@ -95,7 +95,7 @@ def setup_cross_building(build_dir, dry_run=False, verbose=False):
     sudo apt-get install winetricks wine innoextract dpkg-dev xvfb
     apt-get source golang-go={GOLANG_VERSION}*
     export GOROOT=/var/lib/jenkins/crossbuild/golang-{GOLANG_VERSION}
-    export GOROOT_BOOTSTRAP=/usr/lib/go-1.8/
+    export GOROOT_BOOTSTRAP=/usr/lib/go-1.9/
 
     # For sl90x, ppc64el, arm64
     go-crosscompile-build linux/$GOARCH
