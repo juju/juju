@@ -28,6 +28,13 @@ The SSH host keys of the target are verified. The --no-host-key-checks option
 can be used to disable these checks. Use of this option is not recommended as
 it opens up the possibility of a man-in-the-middle attack.
 
+The default identity known to Juju and used by this command is ~/.ssh/id_rsa
+
+Options can be passed to the local OpenSSH client (ssh) on platforms 
+where it is available. This is done by inserting them between the target and 
+a possible remote command. Refer to the ssh man page for an explanation 
+of those options.
+
 Examples:
 Connect to machine 0:
 
@@ -44,6 +51,10 @@ Connect to a mysql unit:
 Connect to a jenkins unit as user jenkins:
 
     juju ssh jenkins@jenkins/0
+
+Connect to a mysql unit with an identity not known to juju (ssh option -i):
+
+    juju ssh mysql/0 -i ~/.ssh/my_private_key echo hello
 
 See also: 
     scp`
@@ -62,7 +73,7 @@ type sshCommand struct {
 func (c *sshCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "ssh",
-		Args:    "<[user@]target> [command]",
+		Args:    "<[user@]target> [openssh options] [command]",
 		Purpose: usageSSHSummary,
 		Doc:     usageSSHDetails,
 	}
