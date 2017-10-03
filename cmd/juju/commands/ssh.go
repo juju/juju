@@ -54,7 +54,7 @@ Pass extra options to SSH:
 
     juju ssh mysql/0 -i SPECIAL_IDENTITY_FILE echo hello
 
-(not 'juju ssh -i SPECIAL_IDENTITY_FILE echo hello') 
+(not 'juju ssh -i SPECIAL_IDENTITY_FILE mysql/0 echo hello') 
 
 See also: 
     scp`
