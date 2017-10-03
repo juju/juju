@@ -1108,13 +1108,17 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	c.Assert(m0.Life(), gc.Equals, state.Dying)
 }
 
-type mockMachineGetter struct{}
+type mockProvisionerGetter struct{}
 
-func (*mockMachineGetter) Machines(...names.MachineTag) ([]apiprovisioner.MachineResult, error) {
+func (*mockProvisionerGetter) DistributionGroupByMachineId(...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error) {
 	return nil, fmt.Errorf("error")
 }
 
-func (*mockMachineGetter) MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error) {
+func (*mockProvisionerGetter) Machines(...names.MachineTag) ([]apiprovisioner.MachineResult, error) {
+	return nil, fmt.Errorf("error")
+}
+
+func (*mockProvisionerGetter) MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error) {
 	return nil, fmt.Errorf("error")
 }
 
@@ -1135,7 +1139,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 		c,
 		config.HarvestAll,
 		s.Environ,
-		&mockMachineGetter{},
+		&mockProvisionerGetter{},
 		&mockToolsFinder{},
 	)
 	defer func() {
@@ -1155,7 +1159,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	c *gc.C,
 	harvestingMethod config.HarvestMode,
 	broker environs.InstanceBroker,
-	machineGetter provisioner.MachineGetter,
+	provisionerGetter provisioner.ProvisionerGetter,
 	toolsFinder provisioner.ToolsFinder,
 ) provisioner.ProvisionerTask {
 
@@ -1172,7 +1176,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		s.ControllerConfig.ControllerUUID(),
 		names.NewMachineTag("0"),
 		harvestingMethod,
-		machineGetter,
+		provisionerGetter,
 		toolsFinder,
 		machineWatcher,
 		retryWatcher,

@@ -206,7 +206,8 @@ func (f *switchingFirewaller) InstanceIngressRules(inst instance.Instance, machi
 }
 
 type firewallerBase struct {
-	environ *Environ
+	environ          *Environ
+	ensureGroupMutex sync.Mutex
 }
 
 // GetSecurityGroups implements Firewaller interface.
@@ -544,6 +545,11 @@ func (c *neutronFirewaller) ensureGroup(name string, rules []neutron.RuleInfoV2)
 	neutronClient := c.environ.neutron()
 	var group neutron.SecurityGroupV2
 
+	// Due to parallelization of the provisioner, it's possible that we try
+	// to create the model security group a second time before the first time
+	// is complete causing failures.
+	c.ensureGroupMutex.Lock()
+	defer c.ensureGroupMutex.Unlock()
 	// First attempt to look up an existing group by name.
 	groupsFound, err := neutronClient.SecurityGroupByNameV2(name)
 	// a list is returned, but there should be only one

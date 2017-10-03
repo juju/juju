@@ -74,6 +74,8 @@ type environ struct {
 	defaultVPCMutex   sync.Mutex
 	defaultVPCChecked bool
 	defaultVPC        *ec2.VPC
+
+	ensureGroupMutex sync.Mutex
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -441,33 +443,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var availabilityZones []string
+	var availabilityZone string
 	if placementZone != "" {
-		availabilityZones = []string{placementZone}
-	}
-
-	// If no availability zone is specified or required, then automatically
-	// spread across the known zones for optimal spread across the instance
-	// distribution group.
-	if len(availabilityZones) == 0 {
-		var err error
-		var group []instance.Id
-		if args.DistributionGroup != nil {
-			group, err = args.DistributionGroup()
-			if err != nil {
-				return nil, err
-			}
-		}
-		zoneInstances, err := availabilityZoneAllocations(e, group)
-		if err != nil {
-			return nil, err
-		}
-		for _, z := range zoneInstances {
-			availabilityZones = append(availabilityZones, z.ZoneName)
-		}
-		if len(availabilityZones) == 0 {
-			return nil, errors.New("failed to determine availability zones")
-		}
+		availabilityZone = placementZone
 	}
 
 	arches := args.Tools.Arches()
@@ -560,62 +538,55 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	haveVPCID := isVPCIDSet(e.ecfg().vpcID())
 
-	for _, zone := range availabilityZones {
-		runArgs := commonRunArgs
-		runArgs.AvailZone = zone
+	runArgs := commonRunArgs
+	runArgs.AvailZone = availabilityZone
 
-		var subnetIDsForZone []string
-		var subnetErr error
-		if haveVPCID {
-			var allowedSubnetIDs []string
-			if placementSubnetID != "" {
-				allowedSubnetIDs = []string{placementSubnetID}
+	var subnetIDsForZone []string
+	var subnetErr error
+	if haveVPCID {
+		var allowedSubnetIDs []string
+		if placementSubnetID != "" {
+			allowedSubnetIDs = []string{placementSubnetID}
+		} else {
+			for subnetID, _ := range args.SubnetsToZones {
+				allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
+			}
+		}
+		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
+	} else if args.Constraints.HaveSpaces() {
+		subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones)
+		if subnetErr == nil && placementSubnetID != "" {
+			asSet := set.NewStrings(subnetIDsForZone...)
+			if asSet.Contains(placementSubnetID) {
+				subnetIDsForZone = []string{placementSubnetID}
 			} else {
-				for subnetID, _ := range args.SubnetsToZones {
-					allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
-				}
-			}
-			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, e.ecfg().vpcID(), zone, allowedSubnetIDs)
-		} else if args.Constraints.HaveSpaces() {
-			subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(zone, args.SubnetsToZones)
-			if subnetErr == nil && placementSubnetID != "" {
-				asSet := set.NewStrings(subnetIDsForZone...)
-				if asSet.Contains(placementSubnetID) {
-					subnetIDsForZone = []string{placementSubnetID}
-				} else {
-					subnetIDsForZone = nil
-					subnetErr = errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, zone)
-				}
+				subnetIDsForZone = nil
+				subnetErr = errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, availabilityZone)
 			}
 		}
-
-		switch {
-		case subnetErr != nil && errors.IsNotFound(subnetErr):
-			logger.Infof("no matching subnets in zone %q; assuming zone is constrained and trying another", zone)
-			continue
-		case subnetErr != nil:
-			return nil, errors.Annotatef(subnetErr, "getting subnets for zone %q", zone)
-		case len(subnetIDsForZone) > 1:
-			// With multiple equally suitable subnets, picking one at random
-			// will allow for better instance spread within the same zone, and
-			// still work correctly if we happen to pick a constrained subnet
-			// (we'll just treat this the same way we treat constrained zones
-			// and retry).
-			runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
-			logger.Debugf("selected random subnet %q from all matching in zone %q", runArgs.SubnetId, zone)
-		case len(subnetIDsForZone) == 1:
-			runArgs.SubnetId = subnetIDsForZone[0]
-			logger.Debugf("selected subnet %q in zone %q", runArgs.SubnetId, zone)
-		}
-
-		callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", zone), nil)
-		instResp, err = runInstances(e.ec2, runArgs, callback)
-		if err == nil || !isZoneOrSubnetConstrainedError(err) {
-			break
-		}
-
-		logger.Infof("%q is constrained, trying another availability zone", zone)
 	}
+
+	switch {
+	case subnetErr != nil && errors.IsNotFound(subnetErr):
+		logger.Infof("no matching subnets in zone %q; assuming zone is constrained and trying another", availabilityZone)
+		return nil, subnetErr
+	case subnetErr != nil:
+		return nil, errors.Annotatef(subnetErr, "getting subnets for zone %q", availabilityZone)
+	case len(subnetIDsForZone) > 1:
+		// With multiple equally suitable subnets, picking one at random
+		// will allow for better instance spread within the same zone, and
+		// still work correctly if we happen to pick a constrained subnet
+		// (we'll just treat this the same way we treat constrained zones
+		// and retry).
+		runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
+		logger.Debugf("selected random subnet %q from all matching in zone %q", runArgs.SubnetId, availabilityZone)
+	case len(subnetIDsForZone) == 1:
+		runArgs.SubnetId = subnetIDsForZone[0]
+		logger.Debugf("selected subnet %q in zone %q", runArgs.SubnetId, availabilityZone)
+	}
+
+	callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", availabilityZone), nil)
+	instResp, err = runInstances(e.ec2, runArgs, callback)
 
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot run instances")
@@ -1738,6 +1709,12 @@ func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroup
 // Any entries in perms without SourceIPs will be granted for
 // the named group only.
 func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+	// Due to parallelization of the provisioner, it's possible that we try
+	// to create the model security group a second time before the first time
+	// is complete causing failures.
+	e.ensureGroupMutex.Lock()
+	defer e.ensureGroupMutex.Unlock()
+
 	// Specify explicit VPC ID if needed (not for default VPC or EC2-classic).
 	chosenVPCID := e.ecfg().vpcID()
 	inVPCLogSuffix := fmt.Sprintf(" (in VPC %q)", chosenVPCID)

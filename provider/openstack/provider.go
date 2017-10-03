@@ -293,6 +293,8 @@ type Environ struct {
 
 	// Clock is defined so it can be replaced for testing
 	clock clock.Clock
+
+	publicIPMutex sync.Mutex
 }
 
 var _ environs.Environ = (*Environ)(nil)
@@ -950,7 +952,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, errors.New("missing controller UUID")
 	}
 
-	availabilityZones, err := e.startInstanceAvailabilityZones(args)
+	availabilityZone, err := e.startInstanceAvailabilityZone(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1115,31 +1117,6 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return server, err
 	}
 
-	tryStartNovaInstanceAcrossAvailZones := func(
-		attempts utils.AttemptStrategy,
-		client *nova.Client,
-		instanceOpts nova.RunServerOpts,
-		availabilityZones []string,
-	) (server *nova.Entity, err error) {
-		for _, zone := range availabilityZones {
-			logger.Infof("trying to build instance in availability zone %q", zone)
-			instanceOpts.AvailabilityZone = zone
-			e.configurator.ModifyRunServerOptions(&instanceOpts)
-			server, err = tryStartNovaInstance(attempts, client, instanceOpts)
-			// 'No valid host available' is typically a resource error,
-			// therefore it a good idea to try another AZ if available.
-			if err == nil || isNoValidHostsError(err) == false {
-				break
-			}
-			logger.Infof("failed to build instance in availability zone %q", zone)
-
-		}
-		if err != nil {
-			err = errors.Annotate(err, "cannot run instance")
-		}
-		return server, err
-	}
-
 	var opts = nova.RunServerOpts{
 		Name:               machineName,
 		FlavorId:           spec.InstanceType.Id,
@@ -1148,10 +1125,13 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		SecurityGroupNames: novaGroupNames,
 		Networks:           networks,
 		Metadata:           args.InstanceConfig.Tags,
+		AvailabilityZone:   availabilityZone,
 	}
-	server, err := tryStartNovaInstanceAcrossAvailZones(shortAttempt, e.nova(), opts, availabilityZones)
+	e.configurator.ModifyRunServerOptions(&opts)
+
+	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(errors.Annotate(err, "cannot run instance"))
 	}
 
 	detail, err := e.nova().GetServer(server.Id)
@@ -1168,6 +1148,11 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	logger.Infof("started instance %q", inst.Id())
 	withPublicIP := e.ecfg().useFloatingIP()
 	if withPublicIP {
+		// If we don't lock here, AllocatePublicIP() can return the same
+		// public IP for 2 different instances.  Only one will successfully
+		// be assigned the public IP, the other will not have one.
+		e.publicIPMutex.Lock()
+		defer e.publicIPMutex.Unlock()
 		var publicIP *string
 		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.networking.AllocatePublicIP(inst.Id()); err != nil {
@@ -1185,55 +1170,28 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 		inst.floatingIP = publicIP
 	}
+
 	return &environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: inst.hardwareCharacteristics(),
 	}, nil
 }
 
-func (e *Environ) startInstanceAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+func (e *Environ) startInstanceAvailabilityZone(args environs.StartInstanceParams) (string, error) {
 	volumeAttachmentsZone, err := e.volumeAttachmentsZone(args.VolumeAttachments)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	placementZone, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	var availabilityZones []string
+	var availabilityZone string
 	if placementZone != "" {
-		availabilityZones = []string{placementZone}
+		availabilityZone = placementZone
 	}
 
-	// If no availability zone is specified, then automatically spread across
-	// the known zones for optimal spread across the instance distribution
-	// group.
-	if len(availabilityZones) == 0 {
-		var group []instance.Id
-		var err error
-		if args.DistributionGroup != nil {
-			group, err = args.DistributionGroup()
-			if err != nil {
-				return nil, err
-			}
-		}
-		zoneInstances, err := availabilityZoneAllocations(e, group)
-		if errors.IsNotImplemented(err) {
-			// Availability zones are an extension, so we may get a
-			// not implemented error; ignore these.
-		} else if err != nil {
-			return nil, err
-		} else {
-			for _, zone := range zoneInstances {
-				availabilityZones = append(availabilityZones, zone.ZoneName)
-			}
-		}
-		if len(availabilityZones) == 0 {
-			// No explicitly selectable zones available, so use an unspecified zone.
-			availabilityZones = []string{""}
-		}
-	}
-	return availabilityZones, nil
+	return availabilityZone, nil
 }
 
 func (env *Environ) instancePlacementZone(placement string, volumeAttachmentsZone string) (string, error) {
@@ -1293,13 +1251,6 @@ func (e *Environ) volumeAttachmentsZone(volumeAttachments []storage.VolumeAttach
 		}
 	}
 	return zone, nil
-}
-
-func isNoValidHostsError(err error) bool {
-	if cause := errors.Cause(err); cause != nil {
-		return strings.Contains(cause.Error(), "No valid host was found")
-	}
-	return false
 }
 
 func (e *Environ) StopInstances(ids ...instance.Id) error {
