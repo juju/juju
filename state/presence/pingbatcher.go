@@ -370,9 +370,6 @@ func (pb *PingBatcher) flush() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		// if changeInfo.Updated == 0 {
-		// 	return errors.Errorf("failed to update ping document: %s, no documents updated", docId)
-		// }
 		if logger.IsTraceEnabled() {
 			// the rest of Pings records the first 6 characters of
 			// model-uuids, so we include that here if we are TRACEing.
