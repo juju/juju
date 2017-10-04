@@ -56,6 +56,7 @@ func NewPingBatcher(base *mgo.Collection, flushInterval time.Duration) *PingBatc
 		syncDelay:     defaultSyncDelay,
 		rand:          rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
+	pb.useInc = checkMongoVersion(base)
 	pb.start()
 	return pb
 }
@@ -107,6 +108,10 @@ type PingBatcher struct {
 
 	// flushMutex ensures only one concurrent flush is done
 	flushMutex sync.Mutex
+
+	// useInc is set to True if we discover the mongo version doesn't support $bit and upsert correctly.
+	// see https://bugs.launchpad.net/juju/+bug/1699678
+	useInc bool
 }
 
 // Start the worker loop.
@@ -151,6 +156,35 @@ func (pb *PingBatcher) nextSleep(r *rand.Rand) time.Duration {
 	sleepRange := float64(pb.flushInterval) * 0.4
 	offset := r.Int63n(int64(sleepRange))
 	return time.Duration(int64(sleepMin) + offset)
+}
+
+func checkMongoVersion(coll *mgo.Collection) bool {
+	if coll == nil {
+		logger.Debugf("using $inc operations with unknown mongo version")
+		return true
+	}
+	buildInfo, err := coll.Database.Session.BuildInfo()
+	if err != nil {
+		logger.Debugf("using $inc operations with unknown mongo version")
+		return true
+	}
+	// useInc is set to true if we discover the database is <2.6.
+	// Really old mongo (2.?) didn't support $bit at all, and in Mongo 2.4,
+	// it did not handle Upsert and $bit operations correctly.
+	// (see https://bugs.launchpad.net/juju/+bug/1699678)
+	if len(buildInfo.VersionArray) < 2 {
+		// Something weird, just fallback to safe mode
+		logger.Debugf("using $inc operations with misunderstood Mongo version: %s", buildInfo.Version)
+		return true
+	}
+	if buildInfo.VersionArray[0] >= 3 ||
+		(buildInfo.VersionArray[0] == 2 && buildInfo.VersionArray[1] >= 6) {
+		logger.Debugf("using $bit operations with Mongo %s", buildInfo.Version)
+		return false
+	} else {
+		logger.Debugf("using $inc operations with Mongo %s", buildInfo.Version)
+		return true
+	}
 }
 
 func (pb *PingBatcher) loop() error {
@@ -265,6 +299,28 @@ func (pb *PingBatcher) handlePing(ping singlePing) {
 	pb.pingCount++
 }
 
+func (pb *PingBatcher) upsertFieldsUsingInc(slt slot) bson.D {
+	var incFields bson.D
+	for fieldKey, value := range slt.Alive {
+		incFields = append(incFields, bson.DocElem{Name: "alive." + fieldKey, Value: value})
+	}
+	return bson.D{
+		{"$set", bson.D{{"slot", slt.Slot}}},
+		{"$inc", incFields},
+	}
+}
+
+func (pb *PingBatcher) upsertFieldsUsingBit(slt slot) bson.D {
+	var fields bson.D
+	for fieldKey, value := range slt.Alive {
+		fields = append(fields, bson.DocElem{Name: "alive." + fieldKey, Value: bson.M{"or": value}})
+	}
+	return bson.D{
+		{"$set", bson.D{{"slot", slt.Slot}}},
+		{"$bit", fields},
+	}
+}
+
 // flush pushes the internal state to the database. Note that if the database
 // updates fail, we will still wipe our internal state as it is unsafe to
 // publish the same updates to the same slots.
@@ -298,22 +354,19 @@ func (pb *PingBatcher) flush() error {
 	t := time.Now()
 	for docId, slot := range next {
 		docCount++
-		var fields bson.D
-		for fieldKey, value := range slot.Alive {
-			fields = append(fields, bson.DocElem{Name: "alive." + fieldKey, Value: bson.M{"or": value}})
-			fieldCount++
+		fieldCount += len(slot.Alive)
+		var update bson.D
+		if pb.useInc {
+			update = pb.upsertFieldsUsingInc(slot)
+		} else {
+			update = pb.upsertFieldsUsingBit(slot)
 		}
 		// Note: UpsertId already handles hitting the DuplicateKey error internally
 		// We also just Upsert directly instead of using Bulk because for now each PingBatcher is actually
 		// only used by 1 model. Given 30s slots, we only ever hit 1 or 2 documents being updated at the same
 		// time. If we switch to sharing batchers between models, then it might make more sense to use bulk updates
 		// but then we need to handle when we get Duplicate Key errors during update.
-		_, err := pings.UpsertId(docId,
-			bson.D{
-				{"$set", bson.D{{"slot", slot.Slot}}},
-				{"$bit", fields},
-			},
-		)
+		_, err := pings.UpsertId(docId, update)
 		if err != nil {
 			return errors.Trace(err)
 		}
