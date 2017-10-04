@@ -1267,6 +1267,10 @@ func (fw *Firewaller) startRelation(rel *params.RemoteRelation, role charm.Relat
 	if err != nil {
 		return errors.Trace(err)
 	}
+	remoteAppResult := remoteApps[0]
+	if remoteAppResult.Error != nil {
+		return errors.Trace(err)
+	}
 
 	tag := names.NewRelationTag(rel.Key)
 	data := &remoteRelationData{
@@ -1294,7 +1298,7 @@ func (fw *Firewaller) startRelation(rel *params.RemoteRelation, role charm.Relat
 		return errors.Trace(err)
 	}
 
-	data.isOffer = remoteApps[0].Result.Registered
+	data.isOffer = remoteAppResult.Result.IsConsumerProxy
 	return fw.startRelationPoller(rel.Key, rel.RemoteApplicationName, data.relationReady)
 }
 

@@ -210,17 +210,17 @@ type RemoteApplication struct {
 	OfferUUID string `json:"offer-uuid"`
 
 	// Life is the current lifecycle state of the application.
-	Life Life `json:"life"`
+	Life Life `json:"life,omitempty"`
 
 	// Status is the current status of the application.
-	Status string `json:"status"`
+	Status string `json:"status,omitempty"`
 
 	// ModelUUID is the UUId of the model hosting the application.
 	ModelUUID string `json:"model-uuid"`
 
-	// IsConsumerProxy returns the application is created
+	// IsConsumerProxy returns if the application is created
 	// from a registration operation by a consuming model.
-	Registered bool `json:"registered"`
+	IsConsumerProxy bool `json:"is-consumer-proxy"`
 
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
