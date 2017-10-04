@@ -255,22 +255,17 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		status, err := remoteApp.Status()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		mac, err := remoteApp.Macaroon()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return &params.RemoteApplication{
-			Name:       remoteApp.Name(),
-			OfferUUID:  remoteApp.OfferUUID(),
-			Life:       params.Life(remoteApp.Life().String()),
-			Status:     status.Status.String(),
-			ModelUUID:  remoteApp.SourceModel().Id(),
-			Registered: remoteApp.IsConsumerProxy(),
-			Macaroon:   mac,
+			Name:            remoteApp.Name(),
+			OfferUUID:       remoteApp.OfferUUID(),
+			Life:            params.Life(remoteApp.Life().String()),
+			ModelUUID:       remoteApp.SourceModel().Id(),
+			IsConsumerProxy: remoteApp.IsConsumerProxy(),
+			Macaroon:        mac,
 		}, nil
 	}
 	for i, entity := range entities.Entities {

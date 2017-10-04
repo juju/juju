@@ -96,15 +96,14 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 	mac, err := macaroon.New(nil, "test", "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.application, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:            "mysql",
-		URL:             "me/model.mysql",
-		SourceModel:     s.IAASModel.ModelTag(),
-		Token:           "app-token",
-		IsConsumerProxy: true,
-		Endpoints:       eps,
-		Spaces:          spaces,
-		Bindings:        bindings,
-		Macaroon:        mac,
+		Name:        "mysql",
+		URL:         "me/model.mysql",
+		SourceModel: s.IAASModel.ModelTag(),
+		Token:       "app-token",
+		Endpoints:   eps,
+		Spaces:      spaces,
+		Bindings:    bindings,
+		Macaroon:    mac,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -124,15 +123,27 @@ func (s *remoteApplicationSuite) assertApplicationRelations(c *gc.C, svc *state.
 	return rels
 }
 
+func (s *remoteApplicationSuite) TestNoStatusForConsumerProxy(c *gc.C) {
+	application, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.IAASModel.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = application.Status()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *remoteApplicationSuite) TestInitialStatus(c *gc.C) {
 	appStatus, err := s.application.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Since, gc.NotNil)
 	appStatus.Since = nil
 	c.Assert(appStatus, gc.DeepEquals, status.StatusInfo{
-		Status:  status.Unknown,
-		Message: "waiting for remote connection",
-		Data:    map[string]interface{}{},
+		Status: status.Unknown,
+		Data:   map[string]interface{}{},
 	})
 }
 

@@ -692,16 +692,6 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	}
 	appDoc.Spaces = spaces
 	app := newRemoteApplication(st, appDoc)
-	statusInfo := ""
-	if args.IsConsumerProxy {
-		statusInfo = "waiting for remote connection"
-	}
-	statusDoc := statusDoc{
-		ModelUUID:  st.ModelUUID(),
-		Status:     status.Unknown,
-		StatusInfo: statusInfo,
-		Updated:    time.Now().UnixNano(),
-	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
@@ -725,7 +715,6 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		}
 		ops := []txn.Op{
 			model.assertActiveOp(),
-			createStatusOp(st, app.globalKey(), statusDoc),
 			{
 				C:      remoteApplicationsC,
 				Id:     appDoc.Name,
@@ -736,6 +725,14 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 				Id:     appDoc.Name,
 				Assert: txn.DocMissing,
 			},
+		}
+		if !args.IsConsumerProxy {
+			statusDoc := statusDoc{
+				ModelUUID: st.ModelUUID(),
+				Status:    status.Unknown,
+				Updated:   time.Now().UnixNano(),
+			}
+			ops = append(ops, createStatusOp(st, app.globalKey(), statusDoc))
 		}
 		// If we know the token, import it.
 		if args.Token != "" {
