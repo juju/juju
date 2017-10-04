@@ -756,7 +756,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 
 	// These attributes are added if not set.
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
-	attrs["container-networking-method"] = "local"
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)

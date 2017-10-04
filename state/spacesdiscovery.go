@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/juju/errors"
@@ -104,7 +105,11 @@ func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName
 
 	for _, subnet := range subnets {
 		for _, fan := range fans {
-			subnetWithDashes := strings.Replace(strings.Replace(subnet.CIDR, ".", "-", -1), "/", "-", -1)
+			_, subnetNet, err := net.ParseCIDR(subnet.CIDR)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			subnetWithDashes := strings.Replace(strings.Replace(subnetNet.String(), ".", "-", -1), "/", "-", -1)
 			id := fmt.Sprintf("%s-INFAN-%s", subnet.ProviderId, subnetWithDashes)
 			if modelSubnetIds.Contains(id) {
 				continue

@@ -1009,6 +1009,11 @@ func (m *mockModel) LastModelConnection(user names.UserTag) (time.Time, error) {
 	return time.Time{}, m.NextErr()
 }
 
+func (m *mockModel) AutoConfigureContainerNetworking(environ environs.Environ) error {
+	m.MethodCall(m, "AutoConfigureContainerNetworking", environ)
+	return m.NextErr()
+}
+
 type mockModelUser struct {
 	gitjujutesting.Stub
 	userName       string

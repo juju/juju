@@ -74,7 +74,7 @@ func (s *bridgePolicyStateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.bridgePolicy = &containerizer.BridgePolicy{
-		NetBondReconfigureDelay: 13,
+		NetBondReconfigureDelay:   13,
 		ContainerNetworkingMethod: "provider",
 	}
 }
@@ -601,7 +601,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoLocal(c 
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	bridgePolicy := &containerizer.BridgePolicy{
-		NetBondReconfigureDelay: 13,
+		NetBondReconfigureDelay:   13,
 		ContainerNetworkingMethod: "provider",
 	}
 	err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
@@ -619,7 +619,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUseLocal(c
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 
 	bridgePolicy := &containerizer.BridgePolicy{
-		NetBondReconfigureDelay: 13,
+		NetBondReconfigureDelay:   13,
 		ContainerNetworkingMethod: "local",
 	}
 	err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
@@ -726,7 +726,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetw
 	s.createAllDefaultDevices(c, s.machine)
 	s.addContainerMachine(c)
 	bridgePolicy := &containerizer.BridgePolicy{
-		NetBondReconfigureDelay: 13,
+		NetBondReconfigureDelay:   13,
 		ContainerNetworkingMethod: "local",
 	}
 	// No defined spaces for the container, no *known* spaces for the host
@@ -747,7 +747,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetw
 	s.createAllDefaultDevices(c, s.machine)
 	s.addContainerMachine(c)
 	bridgePolicy := &containerizer.BridgePolicy{
-		NetBondReconfigureDelay: 13,
+		NetBondReconfigureDelay:   13,
 		ContainerNetworkingMethod: "local",
 	}
 	// No defined spaces for the container, host has spaces but we have
@@ -784,7 +784,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerContainerNetw
 	c.Assert(err, jc.ErrorIsNil)
 	s.addContainerMachine(c)
 	bridgePolicy := &containerizer.BridgePolicy{
-		NetBondReconfigureDelay: 13,
+		NetBondReconfigureDelay:   13,
 		ContainerNetworkingMethod: "local",
 	}
 	// No defined spaces for the container, no *known* spaces for the host

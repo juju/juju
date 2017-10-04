@@ -4,6 +4,7 @@
 package fanconfigurer_test
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -11,14 +12,14 @@ import (
 	"fmt"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
-	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -56,11 +57,12 @@ func (s *fanconfigurerSuite) TestWatchSuccess(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e, err := fanconfigurer.NewFanConfigurerAPI(
+	e, err := fanconfigurer.NewFanConfigurerAPIForModel(
 		&fakeModelAccessor{},
 		resources,
 		authorizer,
 	)
+	c.Assert(err, jc.ErrorIsNil)
 	result, err := e.WatchForFanConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
@@ -70,51 +72,58 @@ func (s *fanconfigurerSuite) TestWatchSuccess(c *gc.C) {
 func (s *fanconfigurerSuite) TestWatchAuthFailed(c *gc.C) {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
-		Tag: names.NewMachineTag("0"),
+		Tag: names.NewUserTag("vito"),
 	}
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e, err := fanconfigurer.NewFanConfigurerAPI(
+	_, err := fanconfigurer.NewFanConfigurerAPIForModel(
 		&fakeModelAccessor{},
 		resources,
 		authorizer,
 	)
-	result, err := e.WatchForFanConfigChanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
-	c.Assert(resources.Count(), gc.Equals, 1)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (*fanconfigurerSuite) TestModelConfigSuccess(c *gc.C) {
+func (s *fanconfigurerSuite) TestFanConfigSuccess(c *gc.C) {
+	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
+	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	testingEnvConfig := testingEnvConfig(c)
-	e := common.NewModelWatcher(
-		&fakeModelAccessor{modelConfig: testingEnvConfig},
-		nil,
+	e, err := fanconfigurer.NewFanConfigurerAPIForModel(
+		&fakeModelAccessor{
+			modelConfig: testingEnvConfig,
+		},
+		resources,
 		authorizer,
 	)
-	result, err := e.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	// Make sure we can read the secret attribute (i.e. it's not masked).
-	c.Check(result.Config["secret"], gc.Equals, "pork")
-	c.Check(map[string]interface{}(result.Config), jc.DeepEquals, testingEnvConfig.AllAttrs())
+	result, err := e.FanConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Fans, gc.HasLen, 2)
+	c.Check(result.Fans[0].Underlay, gc.Equals, "10.100.0.0/16")
+	c.Check(result.Fans[0].Overlay, gc.Equals, "251.0.0.0/8")
+	c.Check(result.Fans[1].Underlay, gc.Equals, "192.168.0.0/16")
+	c.Check(result.Fans[1].Overlay, gc.Equals, "252.0.0.0/8")
 }
 
-func (*fanconfigurerSuite) TestFanConfigFetchError(c *gc.C) {
+func (s *fanconfigurerSuite) TestFanConfigFetchError(c *gc.C) {
+	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	e := common.NewModelWatcher(
+	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
+	e, err := fanconfigurer.NewFanConfigurerAPIForModel(
 		&fakeModelAccessor{
 			modelConfigError: fmt.Errorf("pow"),
 		},
 		nil,
 		authorizer,
 	)
-	_, err := e.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = e.FanConfig()
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
@@ -125,7 +134,7 @@ func testingEnvConfig(c *gc.C) *config.Config {
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			ControllerName:   "dummycontroller",
-			ModelConfig:      dummy.SampleConfig(),
+			ModelConfig:      dummy.SampleConfig().Merge(testing.Attrs{"fan-config": "10.100.0.0/16=251.0.0.0/8 192.168.0.0/16=252.0.0.0/8"}),
 			Cloud:            dummy.SampleCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},

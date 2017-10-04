@@ -63,7 +63,7 @@ func (fc *FanConfigurer) processNewConfig() error {
 			return err
 		}
 	}
-	// TODO(wpk) 2017-09-28 Although officially not needed we do fanctl up -a just to be sure - 
+	// TODO(wpk) 2017-09-28 Although officially not needed we do fanctl up -a just to be sure -
 	// fanatic sometimes fails to bring up interface because of some weird interactions with iptables.
 	result, err := scriptrunner.RunCommand("fanctl up -a", os.Environ(), fc.clock, 5000*time.Millisecond)
 	logger.Debugf("Launched fanctl up -a - result %v %v %d", string(result.Stdout), string(result.Stderr), result.Code)

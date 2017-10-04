@@ -26,14 +26,17 @@ var _ FanConfigurer = (*FanConfigurerAPI)(nil)
 
 // NewFanConfigurerAPI creates a new FanConfigurer API endpoint on server-side.
 func NewFanConfigurerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*FanConfigurerAPI, error) {
-	// Only machine agents have access to the fanconfigurer service.
-	if !authorizer.AuthMachineAgent() {
-		return nil, common.ErrPerm
-	}
-
 	model, err := st.Model()
 	if err != nil {
 		return nil, err
+	}
+	return NewFanConfigurerAPIForModel(model, resources, authorizer)
+}
+
+func NewFanConfigurerAPIForModel(model state.ModelAccessor, resources facade.Resources, authorizer facade.Authorizer) (*FanConfigurerAPI, error) {
+	// Only machine agents have access to the fanconfigurer service.
+	if !authorizer.AuthMachineAgent() {
+		return nil, common.ErrPerm
 	}
 
 	return &FanConfigurerAPI{

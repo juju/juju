@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/juju/errors"
@@ -61,6 +62,23 @@ func (m *Model) discoverFan(netEnviron environs.NetworkingEnviron, modelConfig *
 		return false, err
 	}
 	var outputTable []string
+
+	fanOverlays := []string{"252.0.0.0/8", "253.0.0.0/8", "254.0.0.0/8", "250.0.0.0/8", "251.0.0.0/8"}
+	fanOverlayForUnderlay := func(underlay string) string {
+		_, ipNet, err := net.ParseCIDR(underlay)
+		if err != nil {
+			return ""
+		}
+		if ones, _ := ipNet.Mask.Size(); ones <= 8 {
+			return ""
+		}
+		if len(fanOverlays) == 0 {
+			return ""
+		}
+		var overlay string
+		overlay, fanOverlays = fanOverlays[0], fanOverlays[1:]
+		return overlay
+	}
 	for _, subnet := range subnets {
 		overlay := fanOverlayForUnderlay(subnet)
 		if overlay != "" {
@@ -72,8 +90,4 @@ func (m *Model) discoverFan(netEnviron environs.NetworkingEnviron, modelConfig *
 		return true, nil
 	}
 	return false, nil
-}
-
-func fanOverlayForUnderlay(overlay string) string {
-	return "253.0.0.0/8"
 }
