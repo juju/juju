@@ -84,9 +84,9 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 	for attempt := attempts.Start(); attempt.Next(); apiAttempts++ {
 		err = tryAPI(c)
 		if err == nil {
-			ctx.Infof("Bootstrap complete, %q controller now available.", controllerName)
-			ctx.Infof("Controller machines are in the %q model.", bootstrap.ControllerModelName)
-			ctx.Infof("Initial model %q added.", hostedModelName)
+			ctx.Infof("Bootstrap complete, %q controller now available", controllerName)
+			ctx.Infof("Controller machines are in the %q model", bootstrap.ControllerModelName)
+			ctx.Infof("Initial model %q added", hostedModelName)
 			break
 		}
 		// As the API server is coming up, it goes through a number of steps.
