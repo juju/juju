@@ -37,6 +37,7 @@ type UserDataSuite struct {
 
 	networkInterfacesPythonFile string
 	systemNetworkInterfacesFile string
+	jujuNetplanFile             string
 
 	fakeInterfaces []network.InterfaceInfo
 
@@ -45,6 +46,10 @@ type UserDataSuite struct {
 	expectedSampleUserData       string
 	expectedFallbackConfig       string
 	expectedBaseConfig           string
+	expectedFullNetplanYaml      string
+	expectedBaseNetplanYaml      string
+	expectedFullNetplan          string
+	expectedBaseNetplan          string
 	expectedFallbackUserData     string
 	tempFolder                   string
 	pythonVersions               []string
@@ -61,8 +66,10 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 
 	s.tempFolder = c.MkDir()
 	networkFolder := c.MkDir()
+	netplanFolder := c.MkDir()
 	s.systemNetworkInterfacesFile = filepath.Join(networkFolder, "system-interfaces")
 	s.networkInterfacesPythonFile = filepath.Join(networkFolder, "system-interfaces.py")
+	s.jujuNetplanFile = filepath.Join(netplanFolder, "79-juju.yaml")
 
 	s.fakeInterfaces = []network.InterfaceInfo{{
 		InterfaceName:    "any0",
@@ -196,6 +203,10 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
   printf '%%s\n' '` + networkInterfacesScriptYamled + ` ' > '%[2]s'
 - |2
 
+  if [ ! -f /sbin/ifup ]; then
+      echo "No /sbin/ifup, assuming that it's a netplan system."
+      exit 0
+  fi
   ifdown -a
   sleep 1.5
   if [ -f /usr/bin/python ]; then
@@ -204,6 +215,113 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
       python3 %[2]s --interfaces-file %[1]s
   fi
   ifup -a
+`[1:]
+	s.expectedFullNetplanYaml = `
+- install -D -m 644 /dev/null '%[1]s'
+- |-
+  printf '%%s\n' 'network:
+    version: 2
+    ethernets:
+      any0:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f0
+        addresses:
+        - 0.1.2.3/24
+        gateway4: 0.1.2.1
+        nameservers:
+          search: [foo, bar]
+          addresses: [ns1.invalid, ns2.invalid]
+        mtu: 8317
+      any1:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f1
+        addresses:
+        - 0.2.2.4/24
+        gateway4: 0.2.2.1
+        nameservers:
+          search: [foo, bar]
+          addresses: [ns1.invalid, ns2.invalid]
+        routes:
+        - to: 0.5.6.0/24
+          via: 0.2.2.1
+          metric: 50
+      any2:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f2
+        dhcp4: true
+      any3:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f3
+        dhcp4: true
+      any4:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f4
+      any5:
+        match:
+          macaddress: aa:bb:cc:dd:ee:f5
+        addresses:
+        - 2001:db8::dead:beef/64
+        gateway6: 2001:db8::dead:f00
+  ' > '%[1]s'
+`[1:]
+
+	s.expectedFullNetplan = `
+network:
+  version: 2
+  ethernets:
+    any0:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f0
+      addresses:
+      - 0.1.2.3/24
+      gateway4: 0.1.2.1
+      nameservers:
+        search: [foo, bar]
+        addresses: [ns1.invalid, ns2.invalid]
+      mtu: 8317
+    any1:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f1
+      addresses:
+      - 0.2.2.4/24
+      gateway4: 0.2.2.1
+      nameservers:
+        search: [foo, bar]
+        addresses: [ns1.invalid, ns2.invalid]
+      routes:
+      - to: 0.5.6.0/24
+        via: 0.2.2.1
+        metric: 50
+    any2:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f2
+      dhcp4: true
+    any3:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f3
+      dhcp4: true
+    any4:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f4
+    any5:
+      match:
+        macaddress: aa:bb:cc:dd:ee:f5
+      addresses:
+      - 2001:db8::dead:beef/64
+      gateway6: 2001:db8::dead:f00
+`[1:]
+
+	s.expectedBaseNetplanYaml = `
+- install -D -m 644 /dev/null '%[1]s'
+- |-
+  printf '%%s\n' 'network:
+    version: 2
+    ethernets:
+      eth0:
+        match:
+          name: eth0
+        dhcp4: true
+  ' > '%[1]s'
 `[1:]
 
 	s.expectedFallbackConfig = `#cloud-config
@@ -226,6 +344,16 @@ iface lo inet loopback
 
 iface {eth} inet dhcp
 `
+
+	s.expectedBaseNetplan = `
+network:
+  version: 2
+  ethernets:
+    eth0:
+      match:
+        name: eth0
+      dhcp4: true
+`[1:]
 
 	s.expectedFallbackUserData = `
 #cloud-config
@@ -260,23 +388,41 @@ runcmd:
 
 	s.PatchValue(containerinit.NetworkInterfacesFile, s.systemNetworkInterfacesFile)
 	s.PatchValue(containerinit.SystemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
+	s.PatchValue(containerinit.JujuNetplanFile, s.jujuNetplanFile)
 }
 
-func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
-	data, err := containerinit.GenerateNetworkConfig(nil)
+func (s *UserDataSuite) TestGenerateENIConfig(c *gc.C) {
+	data, err := containerinit.GenerateENITemplate(nil)
 	c.Assert(err, gc.ErrorMatches, "missing container network config")
 	c.Assert(data, gc.Equals, "")
 
 	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
-	data, err = containerinit.GenerateNetworkConfig(netConfig)
+	data, err = containerinit.GenerateENITemplate(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.Equals, s.expectedBaseConfig)
+	c.Check(data, gc.Equals, s.expectedBaseConfig)
 
 	// Test with all interface types.
 	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
-	data, err = containerinit.GenerateNetworkConfig(netConfig)
+	data, err = containerinit.GenerateENITemplate(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.Equals, s.expectedSampleConfigTemplate)
+	c.Check(data, gc.Equals, s.expectedSampleConfigTemplate)
+}
+
+func (s *UserDataSuite) TestGenerateNetplan(c *gc.C) {
+	data, err := containerinit.GenerateNetplan(nil)
+	c.Assert(err, gc.ErrorMatches, "missing container network config")
+	c.Assert(data, gc.Equals, "")
+
+	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
+	data, err = containerinit.GenerateNetplan(netConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(data, gc.Equals, s.expectedBaseNetplan)
+
+	// Test with all interface types.
+	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
+	data, err = containerinit.GenerateNetplan(netConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(data, gc.Equals, s.expectedFullNetplan)
 }
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) {
@@ -287,6 +433,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) 
 
 	expected := fmt.Sprintf(s.expectedSampleConfigWriting, s.systemNetworkInterfacesFile)
 	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile, s.systemNetworkInterfacesFile)
+	expected += fmt.Sprintf(s.expectedFullNetplanYaml, s.jujuNetplanFile)
 	assertUserData(c, cloudConf, expected)
 }
 
@@ -297,6 +444,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksFallbackConfig(c *gc.C
 	c.Assert(cloudConf, gc.NotNil)
 	expected := fmt.Sprintf(s.expectedFallbackConfig, s.systemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
 	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile)
+	expected += fmt.Sprintf(s.expectedBaseNetplanYaml, s.jujuNetplanFile)
 	assertUserData(c, cloudConf, expected)
 }
 

@@ -40,6 +40,10 @@ network:
       nameservers:
         search: [foo.local, bar.local]
         addresses: [8.8.8.8]
+      routes:
+      - to: 0.0.0.0/0
+        via: 11.0.0.1
+        metric: 3
     lom:
       match:
         driver: ixgbe
@@ -70,6 +74,7 @@ network:
 `[1:]
 	var np netplan.Netplan
 	err := netplan.Unmarshal([]byte(input), &np)
+	c.Check(err, jc.ErrorIsNil)
 	out, err := netplan.Marshal(np)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(string(out), gc.Equals, input)
@@ -92,6 +97,10 @@ network:
       nameservers:
         search: [foo.local, bar.local]
         addresses: [8.8.8.8]
+      routes:
+      - to: 100.0.0.0/8
+        via: 1.2.3.10
+        metric: 5
 `[1:]
 	expected := `
 network:
@@ -112,6 +121,10 @@ network:
       nameservers:
         search: [foo.local, bar.local]
         addresses: [8.8.8.8]
+      routes:
+      - to: 100.0.0.0/8
+        via: 1.2.3.10
+        metric: 5
 `[1:]
 	var np netplan.Netplan
 
@@ -146,6 +159,10 @@ network:
       nameservers:
         search: [foo.local, bar.local]
         addresses: [8.8.8.8]
+      routes:
+      - to: 100.0.0.0/8
+        via: 1.2.3.10
+        metric: 5
 `[1:]
 	var np netplan.Netplan
 	err := netplan.Unmarshal([]byte(input), &np)
