@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -450,12 +451,28 @@ func (s *applicationOffers) filterOffers(
 	filter crossmodel.ApplicationOfferFilter,
 ) ([]applicationOfferDoc, error) {
 
-	if len(filter.Endpoints) == 0 {
+	out, err := s.filterOffersByEndpoint(in, filter.Endpoints)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out, err = s.filterOffersByConnectedUser(out, filter.ConnectedUsers)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.filterOffersByAllowedConsumer(out, filter.AllowedConsumers)
+}
+
+func (s *applicationOffers) filterOffersByEndpoint(
+	in []applicationOfferDoc,
+	endpoints []crossmodel.EndpointFilterTerm,
+) ([]applicationOfferDoc, error) {
+
+	if len(endpoints) == 0 {
 		return in, nil
 	}
 
 	match := func(ep Endpoint) bool {
-		for _, fep := range filter.Endpoints {
+		for _, fep := range endpoints {
 			if fep.Interface != "" && fep.Interface == ep.Interface {
 				continue
 			}
@@ -483,6 +500,59 @@ func (s *applicationOffers) filterOffers(
 			}
 			if match(ep) {
 				out = append(out, doc)
+			}
+		}
+	}
+	return out, nil
+}
+
+func (s *applicationOffers) filterOffersByConnectedUser(
+	in []applicationOfferDoc,
+	users []string,
+) ([]applicationOfferDoc, error) {
+
+	if len(users) == 0 {
+		return in, nil
+	}
+
+	offerUUIDS := make(set.Strings)
+	for _, username := range users {
+		conns, err := s.st.OfferConnectionsForUser(username)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, oc := range conns {
+			offerUUIDS.Add(oc.OfferUUID())
+		}
+	}
+	var out []applicationOfferDoc
+	for _, doc := range in {
+		if offerUUIDS.Contains(doc.OfferUUID) {
+			out = append(out, doc)
+		}
+	}
+	return out, nil
+}
+
+func (s *applicationOffers) filterOffersByAllowedConsumer(
+	in []applicationOfferDoc,
+	users []string,
+) ([]applicationOfferDoc, error) {
+
+	if len(users) == 0 {
+		return in, nil
+	}
+
+	var out []applicationOfferDoc
+	for _, doc := range in {
+		offerUsers, err := s.st.GetOfferUsers(doc.OfferUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, username := range users {
+			if offerUsers[username].EqualOrGreaterOfferAccessThan(permission.ConsumeAccess) {
+				out = append(out, doc)
+				break
 			}
 		}
 	}

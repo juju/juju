@@ -58,17 +58,24 @@ func (c *Client) Offer(modelUUID, application string, endpoints []string, offerN
 func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error) {
 	var paramsFilter params.OfferFilters
 	for _, f := range filters {
-		// TODO(wallyworld) - include allowed users
 		filterTerm := params.OfferFilter{
-			ModelName:       f.ModelName,
-			OfferName:       f.OfferName,
-			ApplicationName: f.ApplicationName,
+			ModelName:           f.ModelName,
+			OfferName:           f.OfferName,
+			ApplicationName:     f.ApplicationName,
+			Endpoints:           make([]params.EndpointFilterAttributes, len(f.Endpoints)),
+			AllowedConsumerTags: make([]string, len(f.AllowedConsumers)),
+			ConnectedUserTags:   make([]string, len(f.ConnectedUsers)),
 		}
-		filterTerm.Endpoints = make([]params.EndpointFilterAttributes, len(f.Endpoints))
 		for i, ep := range f.Endpoints {
 			filterTerm.Endpoints[i].Name = ep.Name
 			filterTerm.Endpoints[i].Interface = ep.Interface
 			filterTerm.Endpoints[i].Role = ep.Role
+		}
+		for i, u := range f.AllowedConsumers {
+			filterTerm.AllowedConsumerTags[i] = names.NewUserTag(u).String()
+		}
+		for i, u := range f.ConnectedUsers {
+			filterTerm.ConnectedUserTags[i] = names.NewUserTag(u).String()
 		}
 		paramsFilter.Filters = append(paramsFilter.Filters, filterTerm)
 	}

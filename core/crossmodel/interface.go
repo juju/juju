@@ -101,8 +101,11 @@ type ApplicationOfferFilter struct {
 	// Endpoint contains an endpoint filter criteria.
 	Endpoints []EndpointFilterTerm
 
-	// AllowedUsers are the users allowed to consume the application.
-	AllowedUsers []string
+	// AllowedConsumers are the users allowed to consume the offer.
+	AllowedConsumers []string
+
+	// ConnectedUsers are the users currently related to the offer.
+	ConnectedUsers []string
 }
 
 // EndpointFilterTerm represents a remote endpoint filter.

@@ -105,10 +105,12 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
-		OfferName: offerName,
-		Endpoints: relations,
+		OfferName:        offerName,
+		Endpoints:        relations,
+		ApplicationName:  "mysql",
+		AllowedConsumers: []string{"allowed"},
+		ConnectedUsers:   []string{"connected"},
 	}
-
 	called := false
 	since := time.Now()
 	apiCaller := basetesting.APICallerFunc(
@@ -132,6 +134,8 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 					Name:      "endPointA",
 					Interface: "http",
 				}},
+				AllowedConsumerTags: []string{"user-allowed"},
+				ConnectedUserTags:   []string{"user-connected"},
 			})
 
 			if results, ok := result.(*params.QueryApplicationOffersResults); ok {
