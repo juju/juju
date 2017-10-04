@@ -108,6 +108,7 @@ type maasEnviron struct {
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
+var _ environs.Networking = (*maasEnviron)(nil)
 
 // MaasCapabilities represents a function that gets the capabilities of a MAAS
 // installation.
@@ -2334,4 +2335,9 @@ func (*maasEnviron) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo
 // SSHAddresses implements environs.SSHAddresses.
 func (*maasEnviron) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
 	return addresses, nil
+}
+
+// SuperSubnets implements environs.SuperSubnets
+func (*maasEnviron) SuperSubnets() ([]string, error) {
+	return nil, errors.NotSupportedf("super subnets")
 }

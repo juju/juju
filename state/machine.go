@@ -1458,7 +1458,7 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 	privateAddress := m.doc.PreferredPrivateAddress
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
-		return network.ExactScopeMatch(addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal)
+		return network.ExactScopeMatch(addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal, network.ScopeFanLocal)
 	}
 	// Without an exact match, prefer a fallback match.
 	getAddr := func(addresses []address) network.Address {

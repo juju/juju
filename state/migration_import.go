@@ -1264,6 +1264,8 @@ func (i *importer) subnets() error {
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
 			SpaceName:         subnet.SpaceName(),
+			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
+			FanOverlay:        subnet.FanOverlay(),
 		}
 		// TODO(babbageclunk): at the moment state.Subnet only stores
 		// one AZ.

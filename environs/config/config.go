@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/logfwd/syslog"
+	"github.com/juju/juju/network"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -105,6 +106,10 @@ const (
 	// the network for containers.
 	NetBondReconfigureDelayKey = "net-bond-reconfigure-delay"
 
+	// ContainerNetworkingMethod is the key for setting up
+	// networking method for containers.
+	ContainerNetworkingMethod = "container-networking-method"
+
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
 
@@ -164,6 +169,9 @@ const (
 	// EgressSubnets are the source addresses from which traffic from this model
 	// originates if the model is deployed such that NAT or similar is in use.
 	EgressSubnets = "egress-subnets"
+
+	// FanConfig defines the configuration for FAN network running in the model.
+	FanConfig = "fan-config"
 
 	//
 	// Deprecated Settings Attributes
@@ -301,6 +309,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	if err := c.ensureUnitLogging(); err != nil {
 		return nil, err
 	}
+
 	// no old config to compare against
 	if err := Validate(c, nil); err != nil {
 		return nil, err
@@ -355,6 +364,7 @@ var defaultConfigValues = map[string]interface{}{
 	//
 	// $ juju model-config net-bond-reconfigure-delay=30
 	NetBondReconfigureDelayKey: 17,
+	ContainerNetworkingMethod:  "",
 
 	"default-series":           series.LatestLts(),
 	ProvisionerHarvestModeKey:  HarvestDestroyed.String(),
@@ -368,6 +378,7 @@ var defaultConfigValues = map[string]interface{}{
 	TransmitVendorMetricsKey:   true,
 	UpdateStatusHookInterval:   DefaultUpdateStatusHookInterval,
 	EgressSubnets:              "",
+	FanConfig:                  "",
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -561,6 +572,26 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	if v, ok := cfg.defined[FanConfig].(string); ok && v != "" {
+		_, err := network.ParseFanConfig(v)
+		if err != nil {
+			return err
+		}
+	}
+
+	if v, ok := cfg.defined[ContainerNetworkingMethod].(string); ok {
+		switch v {
+		case "fan":
+			if cfg, err := cfg.FanConfig(); err != nil || cfg == nil {
+				return errors.New("container-networking-method cannot be set to 'fan' without fan-config set")
+			}
+		case "provider": // TODO(wpk) FIXME we should check that the provider supports this setting!
+		case "local":
+		case "": // We'll try to autoconfigure it
+		default:
+			return fmt.Errorf("Invalid value for container-networking-method - %v", v)
+		}
+	}
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
@@ -671,6 +702,12 @@ func (c *Config) ProxySSH() bool {
 func (c *Config) NetBondReconfigureDelay() int {
 	value, _ := c.defined[NetBondReconfigureDelayKey].(int)
 	return value
+}
+
+// ContainerNetworkingMethod returns the method with which
+// containers network should be set up.
+func (c *Config) ContainerNetworkingMethod() string {
+	return c.asString(ContainerNetworkingMethod)
 }
 
 // ProxySettings returns all four proxy settings; http, https, ftp, and no
@@ -1042,6 +1079,12 @@ func (c *Config) EgressSubnets() []string {
 	return result
 }
 
+// FanConfig is the configuration of FAN network running in the model.
+func (c *Config) FanConfig() (network.FanConfig, error) {
+	// At this point we are sure that the line is valid.
+	return network.ParseFanConfig(c.asString(FanConfig))
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1147,12 +1190,14 @@ var alwaysOptional = schema.Defaults{
 	"test-mode":                  schema.Omit,
 	TransmitVendorMetricsKey:     schema.Omit,
 	NetBondReconfigureDelayKey:   schema.Omit,
+	ContainerNetworkingMethod:    schema.Omit,
 	MaxStatusHistoryAge:          schema.Omit,
 	MaxStatusHistorySize:         schema.Omit,
 	MaxActionResultsAge:          schema.Omit,
 	MaxActionResultsSize:         schema.Omit,
 	UpdateStatusHookInterval:     schema.Omit,
 	EgressSubnets:                schema.Omit,
+	FanConfig:                    schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1524,6 +1569,11 @@ data of the store. (default false)`,
 		Type:        environschema.Tint,
 		Group:       environschema.EnvironGroup,
 	},
+	ContainerNetworkingMethod: {
+		Description: "Method of container networking setup - one of fan, provider, local",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
 	MaxStatusHistoryAge: {
 		Description: "The maximum age for status history entries before they are pruned, in human-readable time format",
 		Type:        environschema.Tstring,
@@ -1551,6 +1601,11 @@ data of the store. (default false)`,
 	},
 	EgressSubnets: {
 		Description: "Source address(es) for traffic originating from this model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	FanConfig: {
+		Description: "Configuration for fan networking for this model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

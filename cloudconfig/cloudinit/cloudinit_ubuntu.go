@@ -271,6 +271,8 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 		"bridge-utils",
 		"cloud-utils",
 		"tmux",
+		// TODO(wpk) 2017-07-23 maybe we should do it in fanconfigurer?
+		"ubuntu-fan",
 	}
 
 	// The required packages need to come from the correct repo.

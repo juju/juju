@@ -7,6 +7,8 @@
 package networkingcommon
 
 import (
+	"net"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -86,6 +88,41 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 	return providerConfig, nil
 }
 
+// fixUpFanSubnets takes network config and updates FAN subnets with proper CIDR, providerId and providerSubnetId.
+// The method how fan overlay is cut into segments is described in network/fan.go.
+func (api *NetworkConfigAPI) fixUpFanSubnets(networkConfig []params.NetworkConfig) ([]params.NetworkConfig, error) {
+	subnets, err := api.st.AllSubnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var fanSubnets []*state.Subnet
+	var fanCIDRs []*net.IPNet
+	for _, subnet := range subnets {
+		if subnet.FanOverlay() != "" {
+			fanSubnets = append(fanSubnets, subnet)
+			_, net, err := net.ParseCIDR(subnet.CIDR())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			fanCIDRs = append(fanCIDRs, net)
+		}
+	}
+	for i := range networkConfig {
+		localIp := net.ParseIP(networkConfig[i].Address)
+		for j, fanSubnet := range fanSubnets {
+			if fanCIDRs[j].Contains(localIp) {
+				networkConfig[i].CIDR = fanSubnet.CIDR()
+				networkConfig[i].ProviderId = string(fanSubnet.ProviderId())
+				networkConfig[i].ProviderSubnetId = string(fanSubnet.ProviderNetworkId())
+				break
+			}
+		}
+	}
+	logger.Tracef("Final network config after fixing up FAN subnets %+v", networkConfig)
+	return networkConfig, nil
+}
+
 func (api *NetworkConfigAPI) setOneMachineNetworkConfig(m *state.Machine, networkConfig []params.NetworkConfig) error {
 	devicesArgs, devicesAddrs := NetworkConfigsToStateArgs(networkConfig)
 
@@ -154,13 +191,18 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetw
 	if err != nil {
 		return errors.Trace(err)
 	}
-	finalConfig := observedConfig
+	mergedConfig := observedConfig
 	if len(providerConfig) != 0 {
-		finalConfig = MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
-		logger.Tracef("merged observed and provider network config for machine %q: %+v", m.Id(), finalConfig)
+		mergedConfig = MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
+		logger.Tracef("merged observed and provider network config for machine %q: %+v", m.Id(), mergedConfig)
 	}
 
-	return api.setOneMachineNetworkConfig(m, finalConfig)
+	mergedConfig, err = api.fixUpFanSubnets(mergedConfig)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return api.setOneMachineNetworkConfig(m, mergedConfig)
 }
 
 func (api *NetworkConfigAPI) SetProviderNetworkConfig(args params.Entities) (params.ErrorResults, error) {

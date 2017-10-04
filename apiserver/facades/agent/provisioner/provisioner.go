@@ -814,8 +814,8 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 
 	supportContainerAddresses := environs.SupportsContainerAddresses(env)
 	bridgePolicy := containerizer.BridgePolicy{
-		NetBondReconfigureDelay: env.Config().NetBondReconfigureDelay(),
-		UseLocalBridges:         !supportContainerAddresses,
+		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
+		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
 	}
 
 	// TODO(jam): 2017-01-31 PopulateContainerLinkLayerDevices should really
@@ -965,8 +965,8 @@ type hostChangesContext struct {
 
 func (ctx *hostChangesContext) ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error {
 	bridgePolicy := containerizer.BridgePolicy{
-		NetBondReconfigureDelay: env.Config().NetBondReconfigureDelay(),
-		UseLocalBridges:         !environs.SupportsContainerAddresses(env),
+		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
+		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
 	}
 	bridges, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(host, container)
 	if err != nil {

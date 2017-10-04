@@ -293,6 +293,11 @@ func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, er
 	}
 }
 
+// SuperSubnets implements environs.SuperSubnets
+func (*environ) SuperSubnets() ([]string, error) {
+	return nil, errors.NotSupportedf("super subnets")
+}
+
 func copyStrings(items []string) []string {
 	if items == nil {
 		return nil
