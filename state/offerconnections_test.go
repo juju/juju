@@ -143,3 +143,27 @@ func (s *offerConnectionsSuite) TestOfferConnectionForRelation(c *gc.C) {
 	c.Assert(obtained.RelationKey(), gc.Equals, oc.RelationKey())
 	c.Assert(obtained.OfferUUID(), gc.Equals, oc.OfferUUID())
 }
+
+func (s *offerConnectionsSuite) TestOfferConnectionsForUser(c *gc.C) {
+	oc, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: testing.ModelTag.Id(),
+		RelationId:      s.activeRel.Id(),
+		RelationKey:     s.activeRel.Tag().Id(),
+		Username:        "fred",
+		OfferUUID:       "offer-uuid",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	defer anotherState.Close()
+
+	obtained, err := anotherState.OfferConnectionsForUser("mary")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.HasLen, 0)
+	obtained, err = anotherState.OfferConnectionsForUser("fred")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.HasLen, 1)
+	c.Assert(obtained[0].OfferUUID(), gc.Equals, oc.OfferUUID())
+	c.Assert(obtained[0].UserName(), gc.Equals, oc.UserName())
+}

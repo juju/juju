@@ -128,7 +128,7 @@ func (s *applicationOffersSuite) TestListOffersNone(c *gc.C) {
 	c.Assert(len(offers), gc.Equals, 0)
 }
 
-func (s *applicationOffersSuite) createOffer(c *gc.C, name, description string) crossmodel.ApplicationOffer {
+func (s *applicationOffersSuite) createOffer(c *gc.C, name, description string) (crossmodel.ApplicationOffer, string) {
 	eps := map[string]string{
 		"db": "server",
 	}
@@ -143,7 +143,7 @@ func (s *applicationOffersSuite) createOffer(c *gc.C, name, description string) 
 	}
 	offer, err := sd.AddOffer(offerArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	return *offer
+	return *offer, owner.Name()
 }
 
 func (s *applicationOffersSuite) TestApplicationOffer(c *gc.C) {
@@ -202,7 +202,7 @@ func (s *applicationOffersSuite) TestListOffersAll(c *gc.C) {
 
 func (s *applicationOffersSuite) TestListOffersOneFilter(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
-	offer := s.createOffer(c, "offer1", "description for offer1")
+	offer, _ := s.createOffer(c, "offer1", "description for offer1")
 	s.createOffer(c, "offer2", "description for offer2")
 	s.createOffer(c, "offer3", "description for offer3")
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
@@ -219,7 +219,7 @@ func (s *applicationOffersSuite) TestListOffersOneFilter(c *gc.C) {
 
 func (s *applicationOffersSuite) TestListOffersExact(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
-	offer := s.createOffer(c, "offer1", "description for offer1")
+	offer, _ := s.createOffer(c, "offer1", "description for offer1")
 	s.createOffer(c, "offer2", "description for offer2")
 	s.createOffer(c, "offer3", "description for offer3")
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
@@ -249,8 +249,8 @@ func (s *applicationOffersSuite) TestListOffersFilterExcludes(c *gc.C) {
 
 func (s *applicationOffersSuite) TestListOffersManyFilters(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
-	offer := s.createOffer(c, "offer1", "description for offer1")
-	offer2 := s.createOffer(c, "offer2", "description for offer2")
+	offer, _ := s.createOffer(c, "offer1", "description for offer1")
+	offer2, _ := s.createOffer(c, "offer2", "description for offer2")
 	s.createOffer(c, "offer3", "description for offer3")
 	offers, err := sd.ListOffers(
 		crossmodel.ApplicationOfferFilter{
@@ -270,7 +270,7 @@ func (s *applicationOffersSuite) TestListOffersManyFilters(c *gc.C) {
 func (s *applicationOffersSuite) TestListOffersFilterDescriptionRegexp(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
 	s.createOffer(c, "offer1", "description for offer1")
-	offer := s.createOffer(c, "offer2", "description for offer2")
+	offer, _ := s.createOffer(c, "offer2", "description for offer2")
 	s.createOffer(c, "offer3", "description for offer3")
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		ApplicationDescription: "for offer2",
@@ -282,11 +282,67 @@ func (s *applicationOffersSuite) TestListOffersFilterDescriptionRegexp(c *gc.C) 
 
 func (s *applicationOffersSuite) TestListOffersFilterOfferNameRegexp(c *gc.C) {
 	sd := state.NewApplicationOffers(s.State)
-	offer := s.createOffer(c, "hosted-offer1", "description for offer1")
+	offer, _ := s.createOffer(c, "hosted-offer1", "description for offer1")
 	s.createOffer(c, "offer2", "description for offer2")
 	s.createOffer(c, "offer3", "description for offer3")
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		OfferName: "offer1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(offers), gc.Equals, 1)
+	c.Assert(offers[0], jc.DeepEquals, offer)
+}
+
+func (s *applicationOffersSuite) TestListOffersAllowedConsumersOwner(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	offer, owner := s.createOffer(c, "offer1", "description for offer1")
+	s.createOffer(c, "offer2", "description for offer2")
+	s.createOffer(c, "offer3", "description for offer3")
+	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
+		AllowedConsumers: []string{owner, "mary"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(offers), gc.Equals, 1)
+	c.Assert(offers[0], jc.DeepEquals, offer)
+}
+
+func (s *applicationOffersSuite) TestListOffersAllowedConsumers(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	offer, _ := s.createOffer(c, "offer1", "description for offer1")
+	offer2, _ := s.createOffer(c, "offer2", "description for offer2")
+	s.createOffer(c, "offer3", "description for offer3")
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "mary"})
+
+	mary := names.NewUserTag("mary")
+	err := s.State.CreateOfferAccess(
+		names.NewApplicationOfferTag(offer.OfferName), mary, permission.ConsumeAccess)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.CreateOfferAccess(
+		names.NewApplicationOfferTag(offer2.OfferName), mary, permission.ReadAccess)
+	c.Assert(err, jc.ErrorIsNil)
+	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
+		AllowedConsumers: []string{"mary"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(offers), gc.Equals, 1)
+	c.Assert(offers[0], jc.DeepEquals, offer)
+}
+
+func (s *applicationOffersSuite) TestListOffersConnectedUsers(c *gc.C) {
+	sd := state.NewApplicationOffers(s.State)
+	offer, _ := s.createOffer(c, "offer1", "description for offer1")
+	s.createOffer(c, "offer2", "description for offer2")
+	s.createOffer(c, "offer3", "description for offer3")
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "mary"})
+
+	_, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: testing.ModelTag.Id(),
+		Username:        "mary",
+		OfferUUID:       offer.OfferUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
+		ConnectedUsers: []string{"mary"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(offers), gc.Equals, 1)

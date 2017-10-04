@@ -327,7 +327,11 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 
 		// Record the filter and model details against the model UUID.
 		filters := filtersPerModel[modelUUID]
-		filters = append(filters, makeOfferFilterFromParams(f))
+		filter, err := makeOfferFilterFromParams(f)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		filters = append(filters, filter)
 		filtersPerModel[modelUUID] = filters
 	}
 	return models, filtersPerModel, nil
@@ -377,13 +381,15 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	return result, nil
 }
 
-func makeOfferFilterFromParams(filter params.OfferFilter) jujucrossmodel.ApplicationOfferFilter {
+func makeOfferFilterFromParams(filter params.OfferFilter) (jujucrossmodel.ApplicationOfferFilter, error) {
 	offerFilter := jujucrossmodel.ApplicationOfferFilter{
 		OfferName:              filter.OfferName,
 		ApplicationName:        filter.ApplicationName,
 		ApplicationDescription: filter.ApplicationDescription,
+		Endpoints:              make([]jujucrossmodel.EndpointFilterTerm, len(filter.Endpoints)),
+		AllowedConsumers:       make([]string, len(filter.AllowedConsumerTags)),
+		ConnectedUsers:         make([]string, len(filter.ConnectedUserTags)),
 	}
-	offerFilter.Endpoints = make([]jujucrossmodel.EndpointFilterTerm, len(filter.Endpoints))
 	for i, ep := range filter.Endpoints {
 		offerFilter.Endpoints[i] = jujucrossmodel.EndpointFilterTerm{
 			Name:      ep.Name,
@@ -391,7 +397,21 @@ func makeOfferFilterFromParams(filter params.OfferFilter) jujucrossmodel.Applica
 			Role:      ep.Role,
 		}
 	}
-	return offerFilter
+	for i, tag := range filter.AllowedConsumerTags {
+		u, err := names.ParseUserTag(tag)
+		if err != nil {
+			return jujucrossmodel.ApplicationOfferFilter{}, errors.Trace(err)
+		}
+		offerFilter.AllowedConsumers[i] = u.Id()
+	}
+	for i, tag := range filter.ConnectedUserTags {
+		u, err := names.ParseUserTag(tag)
+		if err != nil {
+			return jujucrossmodel.ApplicationOfferFilter{}, errors.Trace(err)
+		}
+		offerFilter.ConnectedUsers[i] = u.Id()
+	}
+	return offerFilter, nil
 }
 
 func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.ApplicationOffer) (

@@ -35,7 +35,8 @@ type OfferFilter struct {
 	ApplicationDescription string                     `json:"application-description"`
 	ApplicationUser        string                     `json:"application-user"`
 	Endpoints              []EndpointFilterAttributes `json:"endpoints"`
-	AllowedUserTags        []string                   `json:"allowed-users"`
+	ConnectedUserTags      []string                   `json:"connected-users"`
+	AllowedConsumerTags    []string                   `json:"allowed-users"`
 }
 
 // ApplicationOfferDetails represents an application offering from an external model.

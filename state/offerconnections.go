@@ -191,6 +191,23 @@ func (st *State) OfferConnectionForRelation(relationKey string) (*OfferConnectio
 	return newOfferConnection(st, &connDoc), nil
 }
 
+// OfferConnectionsForUser returns the offer connections for the specified user.
+func (st *State) OfferConnectionsForUser(username string) ([]*OfferConnection, error) {
+	offerConnectionCollection, closer := st.db().GetCollection(offerConnectionsC)
+	defer closer()
+
+	var connDocs []offerConnectionDoc
+	err := offerConnectionCollection.Find(bson.D{{"username", username}}).All(&connDocs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get offer connection details for user %q", username)
+	}
+	conns := make([]*OfferConnection, len(connDocs))
+	for i, oc := range connDocs {
+		conns[i] = newOfferConnection(st, &oc)
+	}
+	return conns, nil
+}
+
 // RemoteConnectionStatus returns summary information about connections to the specified offer.
 func (st *State) RemoteConnectionStatus(offerUUID string) (*RemoteConnectionStatus, error) {
 	conns, err := st.OfferConnections(offerUUID)

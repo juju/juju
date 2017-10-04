@@ -68,7 +68,8 @@ func (s *ListSuite) TestListError(c *gc.C) {
 }
 
 func (s *ListSuite) TestListFilterArgs(c *gc.C) {
-	_, err := s.runList(c, []string{"--interface", "mysql", "--application", "mysql-lite"})
+	_, err := s.runList(c, []string{
+		"--interface", "mysql", "--application", "mysql-lite", "--connected-user", "user", "--allowed-consumer", "consumer"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.filters, gc.HasLen, 1)
 	c.Assert(s.mockAPI.filters[0], jc.DeepEquals, model.ApplicationOfferFilter{
@@ -78,6 +79,8 @@ func (s *ListSuite) TestListFilterArgs(c *gc.C) {
 		Endpoints: []model.EndpointFilterTerm{{
 			Interface: "mysql",
 		}},
+		ConnectedUsers:   []string{"user"},
+		AllowedConsumers: []string{"consumer"},
 	})
 }
 

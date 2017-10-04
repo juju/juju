@@ -21,13 +21,29 @@ import (
 )
 
 const listCommandDoc = `
-List information about applications' endpoints that have been shared.
+List information about applications' endpoints that have been shared and who is connected.
+
+The default tabular output shows each user connected (relating to) the offer, and the 
+relation id of the relation. If no relations have been made, no rows are printed.
+
+The summary output shows one row per offer, with a count of active/total relations.
+
+The YAML output shows additional information about the source of connections, including
+the source model UUID.
+
+The output can be filtered by:
+ - interface: the interface name of the endpoint
+ - application: the name of the offered application
+ - connected user: the name of a user who has a relation to the offer
+ - allowed consumer: the name of a user allowed to consume the offer
 
 Examples:
     $ juju offers
     $ juju offers -m model
     $ juju offers --interface db2
     $ juju offers --application mysql
+    $ juju offers --connected-user fred
+    $ juju offers --allowed-consumer mary
     $ juju offers hosted-mysql
 
 See also:
@@ -44,10 +60,12 @@ type listCommand struct {
 	newAPIFunc    func() (ListAPI, error)
 	refreshModels func(jujuclient.ClientStore, string) error
 
-	interfaceName   string
-	applicationName string
-	offerName       string
-	filters         []crossmodel.ApplicationOfferFilter
+	interfaceName     string
+	applicationName   string
+	connectedUserName string
+	consumerName      string
+	offerName         string
+	filters           []crossmodel.ApplicationOfferFilter
 }
 
 // NewListEndpointsCommand constructs new list endpoint command.
@@ -96,6 +114,8 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.applicationName, "application", "", "return results matching the application")
 	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
+	f.StringVar(&c.consumerName, "allowed-consumer", "", "return results where the user is allowed to consume the offer")
+	f.StringVar(&c.connectedUserName, "connected-user", "", "return results where the user has a connection to the offer")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -147,6 +167,12 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 			Interface: c.interfaceName,
 		}}
 	}
+	if c.connectedUserName != "" {
+		c.filters[0].ConnectedUsers = []string{c.connectedUserName}
+	}
+	if c.consumerName != "" {
+		c.filters[0].AllowedConsumers = []string{c.consumerName}
+	}
 
 	offeredApplications, err := api.ListOffers(c.filters...)
 	if err != nil {
@@ -191,7 +217,7 @@ type ListOfferItem struct {
 	// Connections holds details of connections to the offer.
 	Connections []offerConnectionDetails `yaml:"connections,omitempty" json:"connections,omitempty"`
 
-	// Users are the users who can access the offer.
+	// Users are the users who can consume the offer.
 	Users map[string]OfferUser `yaml:"users,omitempty" json:"users,omitempty"`
 }
 
