@@ -1227,6 +1227,7 @@ func (api *API) consumeOne(arg params.ConsumeApplicationArg) error {
 		if controllerTag.Id() != api.backend.ControllerTag().Id() {
 			if _, err = api.backend.SaveController(crossmodel.ControllerInfo{
 				ControllerTag: controllerTag,
+				Alias:         arg.ControllerInfo.Alias,
 				Addrs:         arg.ControllerInfo.Addrs,
 				CACert:        arg.ControllerInfo.CACert,
 			}, sourceModelTag.Id()); err != nil {

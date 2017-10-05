@@ -42,6 +42,7 @@ func (s *externalControllerSuite) TestSaveInvalidAddress(c *gc.C) {
 func (s *externalControllerSuite) TestSaveNoModels(c *gc.C) {
 	controllerInfo := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
+		Alias:         "controller-alias",
 		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
 		CACert:        testing.CACert,
 	}
@@ -62,6 +63,7 @@ func (s *externalControllerSuite) assertSavedControllerInfo(c *gc.C, modelUUIDs 
 	c.Assert(raw["_id"], gc.Equals, testing.ControllerTag.Id())
 	c.Assert(raw["addresses"], jc.SameContents, []interface{}{"192.168.1.0:1234", "10.0.0.1:1234"})
 	c.Assert(raw["cacert"], gc.Equals, testing.CACert)
+	c.Assert(raw["alias"], gc.Equals, "controller-alias")
 	var models []string
 	for _, m := range raw["models"].([]interface{}) {
 		models = append(models, m.(string))
@@ -72,6 +74,7 @@ func (s *externalControllerSuite) assertSavedControllerInfo(c *gc.C, modelUUIDs 
 func (s *externalControllerSuite) TestSave(c *gc.C) {
 	controllerInfo := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
+		Alias:         "controller-alias",
 		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
 		CACert:        testing.CACert,
 	}
@@ -87,6 +90,7 @@ func (s *externalControllerSuite) TestSave(c *gc.C) {
 func (s *externalControllerSuite) TestSaveIdempotent(c *gc.C) {
 	controllerInfo := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
+		Alias:         "controller-alias",
 		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
 		CACert:        testing.CACert,
 	}
@@ -103,6 +107,7 @@ func (s *externalControllerSuite) TestSaveIdempotent(c *gc.C) {
 func (s *externalControllerSuite) TestUpdateModels(c *gc.C) {
 	controllerInfo := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
+		Alias:         "controller-alias",
 		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
 		CACert:        testing.CACert,
 	}
@@ -118,6 +123,7 @@ func (s *externalControllerSuite) TestUpdateModels(c *gc.C) {
 func (s *externalControllerSuite) TestControllerForModel(c *gc.C) {
 	controllerInfo := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
+		Alias:         "controller-alias",
 		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
 		CACert:        testing.CACert,
 	}

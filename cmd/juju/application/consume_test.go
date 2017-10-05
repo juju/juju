@@ -105,6 +105,7 @@ func (s *ConsumeSuite) assertSuccessModelDotApplication(c *gc.C, alias string) {
 			Macaroon:         mac,
 			ControllerInfo: &crossmodel.ControllerInfo{
 				ControllerTag: coretesting.ControllerTag,
+				Alias:         "controller-alias",
 				Addrs:         []string{"192.168.1:1234"},
 				CACert:        coretesting.CACert,
 			},
@@ -151,6 +152,7 @@ func (a *mockConsumeAPI) GetConsumeDetails(url string) (params.ConsumeOfferDetai
 		Macaroon: mac,
 		ControllerInfo: &params.ExternalControllerInfo{
 			ControllerTag: coretesting.ControllerTag.String(),
+			Alias:         "controller-alias",
 			Addrs:         []string{"192.168.1:1234"},
 			CACert:        coretesting.CACert,
 		},

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/testing"
 )
 
 const endpointSeparator = ":"
@@ -50,10 +51,16 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationToOneRemoteApplication(c *
 		crossmodel.ConsumeApplicationArgs{
 			Offer: params.ApplicationOfferDetails{
 				OfferName: "hosted-mysql",
-				OfferURL:  "bob/prod.hosted-mysql",
+				OfferURL:  "kontroll:bob/prod.hosted-mysql",
 			},
 			ApplicationAlias: "applicationname2",
 			Macaroon:         s.mac,
+			ControllerInfo: &crossmodel.ControllerInfo{
+				ControllerTag: testing.ControllerTag,
+				Addrs:         []string{"192.168.1.0"},
+				Alias:         "kontroll",
+				CACert:        testing.CACert,
+			},
 		})
 	s.mockAPI.CheckCall(c, 4, "AddRelation", []string{"applicationname", "applicationname2"}, []string(nil))
 }
@@ -65,10 +72,16 @@ func (s *AddRemoteRelationSuiteNewAPI) TestAddRelationAnyRemoteApplication(c *gc
 		crossmodel.ConsumeApplicationArgs{
 			Offer: params.ApplicationOfferDetails{
 				OfferName: "hosted-mysql",
-				OfferURL:  "bob/prod.hosted-mysql",
+				OfferURL:  "kontroll:bob/prod.hosted-mysql",
 			},
 			ApplicationAlias: "applicationname2",
 			Macaroon:         s.mac,
+			ControllerInfo: &crossmodel.ControllerInfo{
+				ControllerTag: testing.ControllerTag,
+				Addrs:         []string{"192.168.1.0"},
+				Alias:         "kontroll",
+				CACert:        testing.CACert,
+			},
 		})
 	s.mockAPI.CheckCall(c, 4, "AddRelation", []string{"applicationname2", "applicationname"}, []string(nil))
 }
@@ -247,5 +260,11 @@ func (m *mockAddRelationAPI) GetConsumeDetails(url string) (params.ConsumeOfferD
 			OfferURL:  "bob/prod.hosted-mysql",
 		},
 		Macaroon: m.mac,
+		ControllerInfo: &params.ExternalControllerInfo{
+			ControllerTag: testing.ControllerTag.String(),
+			Addrs:         []string{"192.168.1.0"},
+			Alias:         "controller-alias",
+			CACert:        testing.CACert,
+		},
 	}, nil
 }

@@ -127,14 +127,6 @@ func (c *addRelationCommand) getOffersAPI(url *crossmodel.OfferURL) (application
 		return c.consumeDetailsAPI, nil
 	}
 
-	if url.Source == "" {
-		var err error
-		controllerName, err := c.ControllerName()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		url.Source = controllerName
-	}
 	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), url.Source, "")
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -153,6 +145,14 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 		if client.BestAPIVersion() < 5 {
 			// old client does not have cross-model capability.
 			return errors.NotSupportedf("cannot add relation to %s: remote endpoints", c.remoteEndpoint.String())
+		}
+		if c.remoteEndpoint.Source == "" {
+			var err error
+			controllerName, err := c.ControllerName()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			c.remoteEndpoint.Source = controllerName
 		}
 		if err := c.maybeConsumeOffer(client); err != nil {
 			return errors.Trace(err)
@@ -208,6 +208,7 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 		}
 		arg.ControllerInfo = &crossmodel.ControllerInfo{
 			ControllerTag: controllerTag,
+			Alias:         offerURL.Source,
 			Addrs:         consumeDetails.ControllerInfo.Addrs,
 			CACert:        consumeDetails.ControllerInfo.CACert,
 		}

@@ -15,6 +15,9 @@ type ControllerInfo struct {
 	// ControllerTag holds tag for the controller.
 	ControllerTag names.ControllerTag
 
+	// Alias holds a (human friendly) alias for the controller.
+	Alias string
+
 	// Addrs holds the addresses and ports of the controller's API servers.
 	Addrs []string
 

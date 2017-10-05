@@ -511,6 +511,7 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	controllerInfo := &params.ExternalControllerInfo{
 		ControllerTag: coretesting.ControllerTag.String(),
+		Alias:         "controller-alias",
 		Addrs:         []string{"192.168.1.0"},
 		CACert:        coretesting.CACert,
 	}
@@ -547,6 +548,7 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 		Macaroon:         mac,
 		ControllerInfo: &crossmodel.ControllerInfo{
 			ControllerTag: coretesting.ControllerTag,
+			Alias:         "controller-alias",
 			Addrs:         controllerInfo.Addrs,
 			CACert:        controllerInfo.CACert,
 		},
