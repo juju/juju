@@ -100,7 +100,7 @@ your feedback and usage of juju.
 
 def get_lp_bug_tasks(script, milestone_name):
     """Return an iterators of Lp BugTasks,"""
-    lp = Launchpad.login_with(
+    lp = Launchpad.login_anonymously(
         script, service_root='https://api.launchpad.net', version='devel')
     if milestone_name.startswith('1.'):
         project = lp.projects['juju-core']
