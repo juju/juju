@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -420,12 +421,12 @@ var bootstrapTests = []bootstrapTest{{
 	info:    "agent-version doesn't match client version major",
 	version: "1.3.3-saucy-ppc64el",
 	args:    []string{"--agent-version", "2.3.0"},
-	err:     `requested agent version major.minor mismatch`,
+	err:     regexp.QuoteMeta(`this client can only bootstrap 1.3+ agents`),
 }, {
 	info:    "agent-version doesn't match client version minor",
 	version: "1.3.3-saucy-ppc64el",
 	args:    []string{"--agent-version", "1.4.0"},
-	err:     `requested agent version major.minor mismatch`,
+	err:     regexp.QuoteMeta(`this client can only bootstrap 1.3+ agents`),
 }, {
 	info: "--clouds with --regions",
 	args: []string{"--clouds", "--regions", "aws"},

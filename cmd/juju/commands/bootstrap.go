@@ -236,7 +236,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 	if c.AgentVersion != nil && (c.AgentVersion.Major != jujuversion.Current.Major || c.AgentVersion.Minor != jujuversion.Current.Minor) {
-		return errors.New("requested agent version major.minor mismatch")
+		return errors.Errorf("this client can only bootstrap %v.%v+ agents", jujuversion.Current.Major, jujuversion.Current.Minor)
 	}
 
 	switch len(args) {
