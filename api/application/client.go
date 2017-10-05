@@ -639,6 +639,7 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 	if arg.ControllerInfo != nil {
 		args.Args[0].ControllerInfo = &params.ExternalControllerInfo{
 			ControllerTag: arg.ControllerInfo.ControllerTag.String(),
+			Alias:         arg.ControllerInfo.Alias,
 			Addrs:         arg.ControllerInfo.Addrs,
 			CACert:        arg.ControllerInfo.CACert,
 		}

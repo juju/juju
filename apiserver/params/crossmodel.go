@@ -564,6 +564,7 @@ const (
 // needed to make a connection to an external controller.
 type ExternalControllerInfo struct {
 	ControllerTag string   `json:"controller-tag"`
+	Alias         string   `json:"controller-alias"`
 	Addrs         []string `json:"addrs"`
 	CACert        string   `json:"ca-cert"`
 }
