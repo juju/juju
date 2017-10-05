@@ -1120,6 +1120,22 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerVLANOnBond(c 
 	c.Check(reconfigureDelay, gc.Equals, 13)
 }
 
+func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNetworkingMethodFAN(c *gc.C) {
+	s.setupTwoSpaces(c)
+	s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
+	s.addContainerMachine(c)
+	err := s.containerMachine.SetConstraints(constraints.Value{
+		Spaces: &[]string{"default"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	bridgePolicy := &containerizer.BridgePolicy{
+		NetBondReconfigureDelay:   13,
+		ContainerNetworkingMethod: "fan",
+	}
+	_, _, err = bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
+	c.Assert(err, gc.ErrorMatches, `host machine "0" has no available FAN devices in space\(s\) "default"`)
+}
+
 var bridgeNames = map[string]string{
 	"eno0":            "br-eno0",
 	"twelvechars0":    "br-twelvechars0",
