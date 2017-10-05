@@ -182,6 +182,9 @@ def assess_lxd_container_space(client):
     assert_initial_spaces(client)
     assert_initial_subnets(client)
     assert_added_space(client)
+    # With FAN now working, we need to explicitly set the model-config
+    # to local to test the old behavior
+    client.juju('model-config', 'container-networking-method=local')
     # Run juju deploy ubuntu --constraints "spaces=testspace"
     client.deploy(charm='ubuntu', constraints='spaces=testspace')
     client.wait_for_started()
