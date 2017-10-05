@@ -246,6 +246,10 @@ func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachin
 		// Nothing to do, just return success
 		return nil, 0, nil
 	}
+	if b.ContainerNetworkingMethod == "fan" {
+		return nil, 0, errors.Errorf("host machine %q has no available FAN devices in space(s) %s",
+			m.Id(), network.QuoteSpaceSet(notFound))
+	}
 	hostDeviceNamesToBridge := make([]string, 0)
 	for _, spaceName := range notFound.Values() {
 		hostDeviceNames := make([]string, 0)
