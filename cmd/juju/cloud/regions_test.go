@@ -103,13 +103,17 @@ func (s *regionsSuite) TestListGCERegions(c *gc.C) {
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, `
 us-east1
+us-east4
 us-central1
 us-west1
 europe-west1
+europe-west2
+europe-west3
 asia-east1
 asia-northeast1
 asia-southeast1
 australia-southeast1
+southamerica-east1
 
 `[1:])
 }
@@ -121,11 +125,17 @@ func (s *regionsSuite) TestListGCERegionsYaml(c *gc.C) {
 	c.Assert(out, jc.DeepEquals, `
 us-east1:
   endpoint: https://www.googleapis.com
+us-east4:
+  endpoint: https://www.googleapis.com
 us-central1:
   endpoint: https://www.googleapis.com
 us-west1:
   endpoint: https://www.googleapis.com
 europe-west1:
+  endpoint: https://www.googleapis.com
+europe-west2:
+  endpoint: https://www.googleapis.com
+europe-west3:
   endpoint: https://www.googleapis.com
 asia-east1:
   endpoint: https://www.googleapis.com
@@ -134,6 +144,8 @@ asia-northeast1:
 asia-southeast1:
   endpoint: https://www.googleapis.com
 australia-southeast1:
+  endpoint: https://www.googleapis.com
+southamerica-east1:
   endpoint: https://www.googleapis.com
 `[1:])
 }
