@@ -7,11 +7,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
+	"io/ioutil"
 
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/juju/environs/simplestreams"
 )
 
 // VersionHash contains the SHA256 of one jujud version.
@@ -20,19 +19,18 @@ type VersionHash struct {
 	SHA256  string `yaml:"sha256"`
 }
 
-// SignedVersions stores the content of a jujud signature file.
-type SignedVersions struct {
+// Versions stores the content of a jujud signature file.
+type Versions struct {
 	Versions []VersionHash `yaml:"versions"`
 }
 
-// ParseSignedVersions checks the signature of the data passed in and
-// returns the parsed version data.
-func ParseSignedVersions(r io.Reader, armoredPublicKey string) (*SignedVersions, error) {
-	data, err := simplestreams.DecodeCheckSignature(r, armoredPublicKey)
+// ParseVersions constructs a versions object from a reader..
+func ParseVersions(r io.Reader) (*Versions, error) {
+	data, err := ioutil.ReadAll(r)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
-	var results SignedVersions
+	var results Versions
 	err = yaml.Unmarshal(data, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -42,7 +40,7 @@ func ParseSignedVersions(r io.Reader, armoredPublicKey string) (*SignedVersions,
 
 // VersionsMatching returns all version numbers for which the SHA256
 // matches the content of the reader passed in.
-func (v *SignedVersions) VersionsMatching(r io.Reader) ([]string, error) {
+func (v *Versions) VersionsMatching(r io.Reader) ([]string, error) {
 	hash := sha256.New()
 	_, err := io.Copy(hash, r)
 	if err != nil {
@@ -53,7 +51,7 @@ func (v *SignedVersions) VersionsMatching(r io.Reader) ([]string, error) {
 
 // VersionsMatchingHash returns all version numbers for which the SHA256
 // matches the hash passed in.
-func (v *SignedVersions) VersionsMatchingHash(h string) []string {
+func (v *Versions) VersionsMatchingHash(h string) []string {
 	var results []string
 	for i := range v.Versions {
 		if v.Versions[i].SHA256 == h {

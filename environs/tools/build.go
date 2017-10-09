@@ -21,8 +21,6 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/names"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -191,17 +189,17 @@ func copyExistingJujud(dir string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// If there's a signature file beside the jujud binary, include that.
-	sigPath := filepath.Join(jujuDir, names.JujudSignature)
-	sigTarget := filepath.Join(dir, names.JujudSignature)
-	info, err = os.Stat(sigPath)
+	// If there's a version file beside the jujud binary, include that.
+	versionPath := filepath.Join(jujuDir, names.JujudVersions)
+	versionTarget := filepath.Join(dir, names.JujudVersions)
+	info, err = os.Stat(versionPath)
 	if os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("including signature")
-	return errors.Trace(copyFileWithMode(sigPath, sigTarget, info.Mode()))
+	logger.Infof("including versions file")
+	return errors.Trace(copyFileWithMode(versionPath, versionTarget, info.Mode()))
 }
 
 func buildJujud(dir string) error {
@@ -255,7 +253,7 @@ func bundleTools(build bool, w io.Writer, forceVersion *version.Number) (version
 	}
 
 	official := true
-	tvers, err := getVersionFromSignature(dir)
+	tvers, err := getVersionFromFile(dir)
 	if errors.IsNotFound(err) {
 		// Extract the version number that the jujud binary was built with.
 		// This is used to check compatibility with the version of the client
@@ -305,8 +303,8 @@ func getVersionFromJujud(dir string) (version.Binary, error) {
 	return tvers, nil
 }
 
-func getVersionFromSignature(dir string) (version.Binary, error) {
-	sigPath := filepath.Join(dir, names.JujudSignature)
+func getVersionFromFile(dir string) (version.Binary, error) {
+	sigPath := filepath.Join(dir, names.JujudVersions)
 	sigFile, err := os.Open(sigPath)
 	if os.IsNotExist(err) {
 		return version.Binary{}, errors.NotFoundf("signature file %q", sigPath)
@@ -315,18 +313,7 @@ func getVersionFromSignature(dir string) (version.Binary, error) {
 	}
 	defer sigFile.Close()
 
-	signingKey, err := simplestreams.UserPublicSigningKey()
-	if err != nil {
-		return version.Binary{}, errors.Trace(err)
-	}
-	if signingKey == "" {
-		logger.Debugf("using juju public signing key to check signature")
-		signingKey = keys.JujuPublicKey
-	} else {
-		logger.Debugf("using user public signing key to check signature")
-	}
-
-	signedVersions, err := ParseSignedVersions(sigFile, signingKey)
+	versions, err := ParseVersions(sigFile)
 	if err != nil {
 		return version.Binary{}, errors.Trace(err)
 	}
@@ -338,7 +325,7 @@ func getVersionFromSignature(dir string) (version.Binary, error) {
 		return version.Binary{}, errors.Trace(err)
 	}
 	defer jujudFile.Close()
-	matching, err := signedVersions.VersionsMatching(jujudFile)
+	matching, err := versions.VersionsMatching(jujudFile)
 	if err != nil {
 		return version.Binary{}, errors.Trace(err)
 	}
