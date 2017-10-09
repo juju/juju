@@ -255,14 +255,14 @@ func (h *bundleHandler) handleChanges() error {
 	defer h.watcher.Stop()
 
 	if h.dryRun {
-		h.ctx.Infof("Changes to deploy bundle:")
+		fmt.Fprintf(h.ctx.Stdout, "Changes to deploy bundle:")
 	} else {
-		h.ctx.Infof("Executing changes:")
+		fmt.Fprintf(h.ctx.Stdout, "Executing changes:")
 	}
 
 	// Deploy the bundle.
 	for _, change := range h.changes {
-		h.ctx.Infof("- %s", change.Description())
+		fmt.Fprintf(h.ctx.Stdout, "- %s", change.Description())
 		switch change := change.(type) {
 		case *bundlechanges.AddCharmChange:
 			err = h.addCharm(change.Id(), change.Params)
@@ -1205,7 +1205,25 @@ func buildModelRepresentation(status *params.FullStatus, apiRoot DeployAPI) (*bu
 		return nil, errors.Annotate(err, "getting application options")
 	}
 	for i, config := range configValues {
-		model.Applications[appNames[i]].Options = config
+		options := make(map[string]interface{})
+		// The config map has values that looks like this:
+		//  map[string]interface {}{
+		//        "value":       "",
+		//        "default":     bool(true),
+		//        "description": "Where to gather metrics from.\nExamples:\n  host1.maas:9090\n  host1.maas:9090, host2.maas:9090\n",
+		//        "type":        "string",
+		//    },
+		// We want the value iff default is false.
+		for key, valueMap := range config {
+			value, err := applicationConfigValue(key, valueMap)
+			if err != nil {
+				return nil, errors.Annotatef(err, "bad application config for %q", appNames[i])
+			}
+			if value != nil {
+				options[key] = value
+			}
+		}
+		model.Applications[appNames[i]].Options = options
 	}
 	// Lastly get all the application constraints.
 	constraintValues, err := apiRoot.GetConstraints(appNames...)
@@ -1225,4 +1243,30 @@ func buildModelRepresentation(status *params.FullStatus, apiRoot DeployAPI) (*bu
 	}
 
 	return model, nil
+}
+
+// applicationConfigValue returns the value if it is not a default value.
+// If the value is a default value, nil is returned.
+// If there was issue determining the type or value, an error is returned.
+func applicationConfigValue(key string, valueMap interface{}) (interface{}, error) {
+	vm, ok := valueMap.(map[string]interface{})
+	if !ok {
+		return nil, errors.Errorf("unexpected application config value type %T for key %q", valueMap, key)
+	}
+	defaultValue, found := vm["default"]
+	if !found {
+		return nil, errors.Errorf("missing application config value 'default' for key %q", key)
+	}
+	isDefault, ok := defaultValue.(bool)
+	if !ok {
+		return nil, errors.Errorf("expected bool defaul value, got %#v for key %q", defaultValue, key)
+	}
+	if isDefault {
+		return nil, nil
+	}
+	value, found := vm["value"]
+	if !found {
+		return nil, errors.Errorf("missing application config value 'value'")
+	}
+	return value, nil
 }
