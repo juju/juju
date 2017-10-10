@@ -1,4 +1,6 @@
 echo "Getting and updating juju-core dependencies to the required versions."
+env
+echo "Work directory is $WORK"
 GOPATH=$WORK go get -v github.com/rogpeppe/godeps
 GODEPS=$WORK/bin/godeps
 if [[ ! -f $GODEPS ]]; then
