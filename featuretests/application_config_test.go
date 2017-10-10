@@ -157,66 +157,67 @@ func (s *ApplicationConfigSuite) assertJujuConfigOutput(c *gc.C, jujuConfigOutpu
 	c.Assert(len(obtained), gc.Equals, len(s.settingKeys))
 	for name, aSetting := range expected {
 		c.Assert(s.settingKeys.Contains(name), jc.IsTrue)
-		c.Assert(obtained[name].Default, gc.Equals, aSetting.Default)
 		c.Assert(obtained[name].Value, gc.Equals, aSetting.Value)
+		c.Assert(obtained[name].Source, gc.Equals, aSetting.Source)
 	}
 }
 
 type configSetting struct {
-	Value   interface{}
-	Default bool
+	Value  interface{}
+	Source string
 }
 
 type settingsMap map[string]configSetting
 
 var (
 	initialConfig = settingsMap{
-		"booleandefault":   {true, true},
-		"booleannodefault": {nil, true},
-		"booleanoverwrite": {false, false},
-		"floatdefault":     {4.2, true},
-		"floatnodefault":   {nil, true},
-		"floatoverwrite":   {2.1, false},
-		"intdefault":       {42, true},
-		"intnodefault":     {nil, true},
-		"intoverwrite":     {1620, false},
-		"strdefault":       {"charm default", true},
-		"strnodefault":     {nil, true},
-		"stroverwrite":     {"test value", false},
+		"booleandefault":   {true, "default"},
+		"booleannodefault": {nil, "unset"},
+		"booleanoverwrite": {false, "user"},
+		"floatdefault":     {4.2, "default"},
+		"floatnodefault":   {nil, "unset"},
+		"floatoverwrite":   {2.1, "user"},
+		"intdefault":       {42, "default"},
+		"intnodefault":     {nil, "unset"},
+		"intoverwrite":     {1620, "user"},
+		"strdefault":       {"charm default", "default"},
+		"strnodefault":     {nil, "unset"},
+		"stroverwrite":     {"test value", "user"},
 	}
 	updatedConfig = settingsMap{
-		"booleandefault":   {false, false},
-		"booleannodefault": {true, false},
-		"booleanoverwrite": {true, true}, // this should be true since user-specified value is the same as default
-		"floatdefault":     {7.2, false},
-		"floatnodefault":   {10.2, false},
-		"floatoverwrite":   {11.1, true}, // this should be true since user-specified value is the same as default
-		"intdefault":       {22, false},
-		"intnodefault":     {11, false},
-		"intoverwrite":     {111, true}, // this should be true since user-specified value is the same as default
-		"strdefault":       {"not", false},
-		"strnodefault":     {"maybe", false},
-		"stroverwrite":     {"me", false},
+		"booleandefault":   {false, "user"},
+		"booleannodefault": {true, "user"},
+		"booleanoverwrite": {true, "user"}, // this should be true since user-specified value is the same as default
+		"floatdefault":     {7.2, "user"},
+		"floatnodefault":   {10.2, "user"},
+		"floatoverwrite":   {11.1, "user"}, // this should be true since user-specified value is the same as default
+		"intdefault":       {22, "user"},
+		"intnodefault":     {11, "user"},
+		"intoverwrite":     {111, "user"}, // this should be true since user-specified value is the same as default
+		"strdefault":       {"not", "user"},
+		"strnodefault":     {"maybe", "user"},
+		"stroverwrite":     {"me", "user"},
 	}
 	resetConfig = settingsMap{
-		"booleandefault":   {true, true},
-		"booleannodefault": {nil, true},
-		"booleanoverwrite": {true, true},
-		"floatdefault":     {4.2, true},
-		"floatnodefault":   {nil, true},
-		"floatoverwrite":   {11.1, true},
-		"intdefault":       {42, true},
-		"intnodefault":     {nil, true},
-		"intoverwrite":     {111, true},
-		"strdefault":       {"charm default", true},
-		"strnodefault":     {nil, true},
-		"stroverwrite":     {"overwrite me", true},
+		"booleandefault":   {true, "default"},
+		"booleannodefault": {nil, "unset"},
+		"booleanoverwrite": {true, "default"},
+		"floatdefault":     {4.2, "default"},
+		"floatnodefault":   {nil, "unset"},
+		"floatoverwrite":   {11.1, "default"},
+		"intdefault":       {42, "default"},
+		"intnodefault":     {nil, "unset"},
+		"intoverwrite":     {111, "default"},
+		"strdefault":       {"charm default", "default"},
+		"strnodefault":     {nil, "unset"},
+		"stroverwrite":     {"overwrite me", "default"},
 	}
 )
 
 type TestSetting struct {
-	Default     bool        `yaml:"is_default"`
+	Default     interface{} `yaml:"default"`
 	Description string      `yaml:"description"`
+	Source      string      `yaml:"source"`
 	Type        string      `yaml:"type"`
 	Value       interface{} `yaml:"value"`
 }
