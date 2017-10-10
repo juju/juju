@@ -479,7 +479,15 @@ func (api *API) getConfig(entity string) (map[string]interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		return app.ConfigSettings()
+		settings, err := app.ConfigSettings()
+		if err != nil {
+			return nil, err
+		}
+		charm, _, err := app.Charm()
+		if err != nil {
+			return nil, err
+		}
+		return describe(settings, charm.Config()), nil
 	default:
 		return nil, errors.Errorf("unexpected tag type, expected application, got %s", kind)
 	}

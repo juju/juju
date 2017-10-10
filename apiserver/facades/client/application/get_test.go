@@ -47,6 +47,26 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *getSuite) TestClientServiceGetSmoketestV4(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	v4 := &application.APIv4{s.serviceAPI}
+	results, err := v4.Get(params.ApplicationGet{"wordpress"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
+		Application: "wordpress",
+		Charm:       "wordpress",
+		Config: map[string]interface{}{
+			"blog-title": map[string]interface{}{
+				"default":     true,
+				"description": "A descriptive title used for the blog.",
+				"type":        "string",
+				"value":       "My Title",
+			},
+		},
+		Series: "quantal",
+	})
+}
+
 func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	results, err := s.serviceAPI.Get(params.ApplicationGet{"wordpress"})
@@ -56,10 +76,11 @@ func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 		Charm:       "wordpress",
 		Config: map[string]interface{}{
 			"blog-title": map[string]interface{}{
+				"default":     "My Title",
+				"description": "A descriptive title used for the blog.",
+				"source":      "default",
 				"type":        "string",
 				"value":       "My Title",
-				"description": "A descriptive title used for the blog.",
-				"is_default":  true,
 			},
 		},
 		Series: "quantal",
@@ -93,25 +114,28 @@ var getTests = []struct {
 	expect: params.ApplicationGetResults{
 		Config: map[string]interface{}{
 			"title": map[string]interface{}{
+				"default":     "My Title",
 				"description": "A descriptive title used for the application.",
+				"source":      "user",
 				"type":        "string",
 				"value":       "Look To Windward",
 			},
 			"outlook": map[string]interface{}{
 				"description": "No default outlook.",
+				"source":      "unset",
 				"type":        "string",
-				"is_default":  true,
 			},
 			"username": map[string]interface{}{
+				"default":     "admin001",
 				"description": "The name of the initial account (given admin permissions).",
+				"source":      "user",
 				"type":        "string",
 				"value":       "admin001",
-				"is_default":  true,
 			},
 			"skill-level": map[string]interface{}{
 				"description": "A number indicating skill.",
+				"source":      "unset",
 				"type":        "int",
-				"is_default":  true,
 			},
 		},
 		Series: "quantal",
@@ -132,23 +156,28 @@ var getTests = []struct {
 	expect: params.ApplicationGetResults{
 		Config: map[string]interface{}{
 			"title": map[string]interface{}{
+				"default":     "My Title",
 				"description": "A descriptive title used for the application.",
+				"source":      "default",
 				"type":        "string",
 				"value":       "My Title",
-				"is_default":  true,
 			},
 			"outlook": map[string]interface{}{
 				"description": "No default outlook.",
 				"type":        "string",
+				"source":      "user",
 				"value":       "phlegmatic",
 			},
 			"username": map[string]interface{}{
+				"default":     "admin001",
 				"description": "The name of the initial account (given admin permissions).",
+				"source":      "user",
 				"type":        "string",
 				"value":       "foobie",
 			},
 			"skill-level": map[string]interface{}{
 				"description": "A number indicating skill.",
+				"source":      "user",
 				"type":        "int",
 				// TODO(jam): 2013-08-28 bug #1217742
 				// we have to use float64() here, because the
@@ -192,7 +221,7 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 		client := apiapplication.NewClient(s.APIState)
 		got, err := client.Get(app.Name())
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(*got, gc.DeepEquals, expect)
+		c.Assert(*got, jc.DeepEquals, expect)
 	}
 }
 
@@ -217,6 +246,7 @@ func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.Config["skill-level"], jc.DeepEquals, map[string]interface{}{
 		"description": "A number indicating skill.",
+		"source":      "user",
 		"type":        "int",
 		"value":       asFloat,
 	})
