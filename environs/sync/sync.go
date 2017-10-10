@@ -353,7 +353,8 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 		return nil, err
 	}
 	return &BuiltAgent{
-		Version:     toolsVersion,
+		Version: reportedVersion,
+		// Version:     toolsVersion,
 		Dir:         baseToolsDir,
 		StorageName: storageName,
 		Size:        size,

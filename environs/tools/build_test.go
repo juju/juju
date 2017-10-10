@@ -229,18 +229,24 @@ func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *gc.C) {
 }
 
 func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
-	// Mock out args[0] so that copyExistingJujud can find our fake
-	// binary.
 	dir := c.MkDir()
 	err := ioutil.WriteFile(filepath.Join(dir, "juju"), []byte("some data"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(dir, "jujud"), []byte(fakeBinary), 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(dir, "jujud.ver"), []byte(versionFile), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	if versionFile != "" {
+		err = ioutil.WriteFile(filepath.Join(dir, "jujud.ver"), []byte(versionFile), 0755)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
+	// Mock out args[0] so that copyExistingJujud can find our fake
+	// binary. Tricky - we need to copy the test binary into the
+	// directory so patching out exec can work.
 	oldArg0 := os.Args[0]
-	os.Args[0] = filepath.Join(dir, "juju")
+	testBinary := filepath.Join(dir, "tst")
+	os.Args[0] = testBinary
+	err = os.Link(oldArg0, testBinary)
+	c.Assert(err, jc.ErrorIsNil)
 	b.AddCleanup(func(c *gc.C) {
 		os.Args[0] = oldArg0
 	})
@@ -287,8 +293,7 @@ func listDir(c *gc.C, dir string) []string {
 
 func (b *buildSuite) TestBundleToolsMatchesBinaryUsingSeriesArch(c *gc.C) {
 	thisArch := arch.HostArch()
-	thisSeries, err := series.HostSeries()
-	c.Assert(err, jc.ErrorIsNil)
+	thisSeries := series.MustHostSeries()
 	dir := b.setUpFakeBinaries(c, fmt.Sprintf(seriesArchMatchVersionFile, thisSeries, thisArch))
 
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
@@ -309,6 +314,37 @@ func (b *buildSuite) TestBundleTestRejectsVersionFileWithNoMatch(c *gc.C) {
 	forceVersion := version.MustParse("1.2.3.1")
 	_, _, _, err = tools.BundleTools(false, bundleFile, &forceVersion)
 	c.Assert(err, gc.ErrorMatches, `no SHA256 in version file "[^\"]+" matches binary "[^\"]+"`)
+}
+
+func (b *buildSuite) TestBundleToolsWithNoVersion(c *gc.C) {
+	dir := b.setUpFakeBinaries(c, "")
+	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Patch so that getting the version from our fake binary in the
+	// absence of a version file works.
+	ver := version.Binary{
+		Number: version.Number{
+			Major: 1,
+			Minor: 2,
+			Patch: 3,
+		},
+		Series: "artful",
+		Arch:   "amd64",
+	}
+
+	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+		Stdout: ver.String(),
+		Args:   make(chan []string, 1),
+	})
+
+	b.PatchValue(tools.ExecCommand, execCommand)
+
+	forceVersion := version.MustParse("1.2.3.1")
+	resultVersion, official, _, err := tools.BundleTools(false, bundleFile, &forceVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-artful-amd64")
+	c.Assert(official, jc.IsFalse)
 }
 
 const (
