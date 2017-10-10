@@ -52,6 +52,7 @@ func (v *Versions) VersionsMatching(r io.Reader) ([]string, error) {
 // VersionsMatchingHash returns all version numbers for which the SHA256
 // matches the hash passed in.
 func (v *Versions) VersionsMatchingHash(h string) []string {
+	logger.Debugf("looking for sha256 %s", h)
 	var results []string
 	for i := range v.Versions {
 		if v.Versions[i].SHA256 == h {

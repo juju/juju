@@ -239,15 +239,15 @@ type BundleToolsFunc func(build bool, w io.Writer, forceVersion *version.Number)
 var BundleTools BundleToolsFunc = bundleTools
 
 // bundleTools bundles all the current juju tools in gzipped tar
-// format to the given writer.
-// If forceVersion is not nil, a FORCE-VERSION file is included in
+// format to the given writer.  If forceVersion is not nil and the
+// file isn't an official build, a FORCE-VERSION file is included in
 // the tools bundle so it will lie about its current version number.
 func bundleTools(build bool, w io.Writer, forceVersion *version.Number) (version.Binary, bool, string, error) {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return version.Binary{}, false, "", err
 	}
-	// defer os.RemoveAll(dir)
+	defer os.RemoveAll(dir)
 	if err := packageLocalTools(dir, build); err != nil {
 		return version.Binary{}, false, "", err
 	}
@@ -304,10 +304,10 @@ func getVersionFromJujud(dir string) (version.Binary, error) {
 }
 
 func getVersionFromFile(dir string) (version.Binary, error) {
-	sigPath := filepath.Join(dir, names.JujudVersions)
-	sigFile, err := os.Open(sigPath)
+	versionPath := filepath.Join(dir, names.JujudVersions)
+	sigFile, err := os.Open(versionPath)
 	if os.IsNotExist(err) {
-		return version.Binary{}, errors.NotFoundf("signature file %q", sigPath)
+		return version.Binary{}, errors.NotFoundf("version file %q", versionPath)
 	} else if err != nil {
 		return version.Binary{}, errors.Trace(err)
 	}
@@ -330,7 +330,7 @@ func getVersionFromFile(dir string) (version.Binary, error) {
 		return version.Binary{}, errors.Trace(err)
 	}
 	if len(matching) == 0 {
-		return version.Binary{}, errors.Errorf("no SHA256 in signature file %q matches binary %q", sigPath, jujudPath)
+		return version.Binary{}, errors.Errorf("no SHA256 in version file %q matches binary %q", versionPath, jujudPath)
 	}
 	return selectBinary(matching)
 }
@@ -343,7 +343,7 @@ func selectBinary(versions []string) (version.Binary, error) {
 	}
 	var current version.Binary
 	for _, ver := range versions {
-		current, err := version.ParseBinary(ver)
+		current, err = version.ParseBinary(ver)
 		if err != nil {
 			return version.Binary{}, errors.Trace(err)
 		}
