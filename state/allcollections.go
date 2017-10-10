@@ -345,13 +345,13 @@ func allCollections() collectionSchema {
 		subnetsC:              {},
 		linkLayerDevicesC:     {},
 		linkLayerDevicesRefsC: {},
-		ipAddressesC:          {
+		ipAddressesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "machine-id", "device-name"},
 			}},
 		},
-		endpointBindingsC:     {},
-		openedPortsC:          {},
+		endpointBindingsC: {},
+		openedPortsC:      {},
 
 		// -----
 
