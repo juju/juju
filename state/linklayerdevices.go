@@ -484,6 +484,8 @@ func (dev *LinkLayerDevice) Addresses() ([]*Address, error) {
 		allAddresses = append(allAddresses, newIPAddress(dev.st, *resultDoc))
 	}
 
+	// NOTE (jam) 2017-10-10: There is no index on ip.addresses for (model-uuid, machine-id, device-name)
+	// so this is going to do a table scan
 	findQuery := findAddressesQuery(dev.doc.MachineID, dev.doc.Name)
 	if err := dev.st.forEachIPAddressDoc(findQuery, callbackFunc); err != nil {
 		return nil, errors.Trace(err)

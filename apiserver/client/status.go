@@ -416,6 +416,37 @@ func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Mach
 	return v, nil
 }
 
+// subnetLookup caches the results of looking up specific subnets by CIDR
+type subnetLookup struct {
+	st      Backend
+	seen    map[string]*state.Subnet
+	missing map[string]bool
+}
+
+func NewSubnetLookup(st Backend) *subnetLookup {
+	return &subnetLookup{
+		st:      st,
+		seen:    make(map[string]*state.Subnet),
+		missing: make(map[string]bool),
+	}
+}
+
+func (sl *subnetLookup) Lookup(cidr string) (*state.Subnet, error) {
+	if subnet, ok := sl.seen[cidr]; ok {
+		return subnet, nil
+	}
+	if _, ok := sl.missing[cidr]; ok {
+		return nil, nil
+	}
+	subnet, err := sl.st.Subnet(cidr)
+	if errors.IsNotFound(err) {
+		sl.missing[cidr] = true
+		return nil, nil
+	}
+	sl.seen[cidr] = subnet
+	return subnet, nil
+}
+
 // fetchNetworkInterfaces returns maps from machine id to ip.addresses, machine
 // id to a map of interface names from space names, and machine id to
 // linklayerdevices.
@@ -425,6 +456,9 @@ func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Mach
 func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string]map[string]set.Strings, map[string][]*state.LinkLayerDevice, error) {
 	ipAddresses := make(map[string][]*state.Address)
 	spaces := make(map[string]map[string]set.Strings)
+	subnetLookup := NewSubnetLookup(st)
+	// For every machine, track what devices have addresses so we can filter linklayerdevices later
+	devicesWithAddresses := make(map[string]set.Strings)
 	ipAddrs, err := st.AllIPAddresses()
 	if err != nil {
 		return nil, nil, nil, err
@@ -435,8 +469,8 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		}
 		machineID := ipAddr.MachineID()
 		ipAddresses[machineID] = append(ipAddresses[machineID], ipAddr)
-		subnet, err := st.Subnet(ipAddr.SubnetCIDR())
-		if errors.IsNotFound(err) {
+		subnet, err := subnetLookup.Lookup(ipAddr.SubnetCIDR())
+		if subnet == nil && err == nil {
 			// No worries; no subnets means no spaces.
 			continue
 		} else if err != nil {
@@ -456,6 +490,12 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 			}
 			spacesSet.Add(spaceName)
 		}
+		deviceSet, ok := devicesWithAddresses[machineID]
+		if ok {
+			deviceSet.Add(ipAddr.DeviceName())
+		} else {
+			devicesWithAddresses[machineID] = set.NewStrings(ipAddr.DeviceName())
+		}
 	}
 
 	linkLayerDevices := make(map[string][]*state.LinkLayerDevice)
@@ -467,16 +507,18 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		if llDev.IsLoopbackDevice() {
 			continue
 		}
-		addrs, err := llDev.Addresses()
-		if err != nil {
-			return nil, nil, nil, err
+		machineID := llDev.MachineID()
+		machineDevs, ok := devicesWithAddresses[machineID]
+		if !ok {
+			// This machine ID doesn't seem to have any devices with IP Addresses
+			continue
 		}
-		// We don't want to see bond slaves or bridge ports, only the
-		// IP-addressed devices.
-		if len(addrs) > 0 {
-			machineID := llDev.MachineID()
-			linkLayerDevices[machineID] = append(linkLayerDevices[machineID], llDev)
+		if !machineDevs.Contains(llDev.Name()) {
+			// this device did not have any IP Addresses
+			continue
 		}
+		// This device had an IP Address, so include it in the list of devices for this machine
+		linkLayerDevices[machineID] = append(linkLayerDevices[machineID], llDev)
 	}
 
 	return ipAddresses, spaces, linkLayerDevices, nil
