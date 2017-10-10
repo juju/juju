@@ -523,7 +523,18 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 		BuildAgentTarball: func(build bool, ver *version.Number, _ string) (*sync.BuiltAgent, error) {
 			c.Logf("BuildAgentTarball version %s", ver)
 			c.Assert(build, jc.IsTrue)
-			return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+			c.Assert(ver.String(), gc.Equals, "1.99.0.1")
+			localVer := *ver
+			// If we found an official build we suppress the build number.
+			localVer.Build = 0
+			return &sync.BuiltAgent{
+				Dir: c.MkDir(),
+				Version: version.Binary{
+					Number: localVer,
+					Series: "quental",
+					Arch:   "arm64",
+				},
+			}, nil
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -531,7 +542,7 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 	cfg := env.instanceConfig.Bootstrap.ControllerModelConfig
 	agentVersion, valid := cfg.AgentVersion()
 	c.Check(valid, jc.IsTrue)
-	c.Check(agentVersion.String(), gc.Equals, "1.99.0.1")
+	c.Check(agentVersion.String(), gc.Equals, "1.99.0")
 }
 
 func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientArch string) {
