@@ -16,18 +16,12 @@ else
 	TEST_TIMEOUT := 1500s
 endif
 
-ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf|aarch64|ppc64le|s390x).*/golang/'), golang)
-	GO_C = golang-1.9
-	INSTALL_FLAGS =
-else
-	GO_C = gccgo-4.9  gccgo-go
-	INSTALL_FLAGS = -gccgoflags=-static-libgo
-endif
+GO_C = golang-1.9
+INSTALL_FLAGS =
 
 define DEPENDENCIES
   ca-certificates
   bzip2
-  bzr
   distro-info-data
   git
   zip
