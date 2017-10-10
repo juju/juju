@@ -64,7 +64,7 @@ node('juju-core-slave-b') {
 
                 sh(script: "${scripts_dir}/clean_lxd.py")
 
-                withEnv(["PATH+GO=/snap/bin/"]) {
+                withEnv(["PATH+GO=/snap/go/current/bin/"]) {
                     retcode = sh(
                         script: "${release_scripts}/make-pr-tarball.bash ${env.CHANGE_ID}",
                         returnStatus: true)
