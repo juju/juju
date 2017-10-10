@@ -102,9 +102,6 @@ func (api *API) ListFirewallRules() (params.ListFirewallRulesResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return listResults, errors.Trace(err)
 	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return listResults, errors.Trace(err)
-	}
 	rules, err := api.backend.ListFirewallRules()
 	if err != nil {
 		return listResults, errors.Trace(err)

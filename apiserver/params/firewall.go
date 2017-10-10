@@ -27,6 +27,12 @@ type FirewallRule struct {
 	WhitelistCIDRS []string `json:"whitelist-cidrs,omitempty"`
 }
 
+// KnownServiceArgs holds the parameters for retrieving firewall rules.
+type KnownServiceArgs struct {
+	// KnownServices are the well known services for a firewall rule.
+	KnownServices []KnownServiceValue `json:"known-services"`
+}
+
 // KnownServiceValue describes a well known service for which a
 // firewall rule can be set up.
 type KnownServiceValue string

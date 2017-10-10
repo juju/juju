@@ -472,3 +472,22 @@ func (f *FirewallerAPIV4) SetRelationsStatus(args params.SetStatus) (params.Erro
 	}
 	return result, nil
 }
+
+// FirewallRules returns the firewall rules for the specified well known service types.
+func (f *FirewallerAPIV4) FirewallRules(args params.KnownServiceArgs) (params.ListFirewallRulesResults, error) {
+	var result params.ListFirewallRulesResults
+	for _, knownService := range args.KnownServices {
+		rule, err := f.st.FirewallRule(state.WellKnownServiceType(knownService))
+		if err != nil && !errors.IsNotFound(err) {
+			return result, common.ServerError(err)
+		}
+		if err != nil {
+			continue
+		}
+		result.Rules = append(result.Rules, params.FirewallRule{
+			KnownService:   params.KnownServiceValue(knownService),
+			WhitelistCIDRS: rule.WhitelistCIDRs,
+		})
+	}
+	return result, nil
+}

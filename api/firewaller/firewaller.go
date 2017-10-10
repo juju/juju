@@ -238,3 +238,20 @@ func (c *Client) SetRelationStatus(relationKey string, status relation.Status, m
 	}
 	return results.OneError()
 }
+
+// FirewallRules returns the firewall rules for the specified known service names.
+func (c *Client) FirewallRules(knownServices ...string) ([]params.FirewallRule, error) {
+	args := params.KnownServiceArgs{
+		KnownServices: make([]params.KnownServiceValue, len(knownServices)),
+	}
+	for i, s := range knownServices {
+		args.KnownServices[i] = params.KnownServiceValue(s)
+	}
+
+	var results params.ListFirewallRulesResults
+	err := c.facade.FacadeCall("FirewallRules", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results.Rules, nil
+}

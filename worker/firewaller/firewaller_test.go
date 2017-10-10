@@ -4,6 +4,7 @@
 package firewaller_test
 
 import (
+	"fmt"
 	"reflect"
 	"sync/atomic"
 	"time"
@@ -1007,7 +1008,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
+func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expected []string) {
 	// Set up the offering model - create the local app.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	u, m := s.addUnit(c, mysql)
@@ -1046,12 +1047,12 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 
 	// Save a new ingress network against the relation.
 	rin := state.NewRelationIngressNetworks(s.State)
-	_, err = rin.Save(rel.Tag().Id(), false, []string{"10.0.0.4/16"})
+	_, err = rin.Save(rel.Tag().Id(), false, ingress)
 	c.Assert(err, jc.ErrorIsNil)
 
 	//Ports opened.
 	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
+		network.MustNewIngressRule("tcp", 3306, 3306, expected...),
 	})
 
 	// Check the relation ready poll time is as expected.
@@ -1062,10 +1063,10 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), nil)
 
-	_, err = rin.Save(rel.Tag().Id(), false, []string{"10.0.0.4/16"})
+	_, err = rin.Save(rel.Tag().Id(), false, ingress)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
+		network.MustNewIngressRule("tcp", 3306, 3306, expected...),
 	})
 
 	// And again when relation is suspended.
@@ -1077,13 +1078,74 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 	err = rel.SetSuspended(false, "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
+		network.MustNewIngressRule("tcp", 3306, 3306, expected...),
 	})
 
 	// And again when relation is destroyed.
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), nil)
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
+	s.assertIngressCidrs(c, []string{"10.0.0.4/16"}, []string{"10.0.0.4/16"})
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToPublic(c *gc.C) {
+	var ingress []string
+	for i := 1; i < 30; i++ {
+		ingress = append(ingress, fmt.Sprintf("10.%d.0.1/32", i))
+	}
+	s.assertIngressCidrs(c, ingress, []string{"0.0.0.0/0"})
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C) {
+	fwRules := state.NewFirewallRules(s.State)
+	err := fwRules.Save(state.FirewallRule{
+		WellKnownService: state.JujuApplicationOfferRule,
+		WhitelistCIDRs:   []string{"192.168.1.0/16"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	var ingress []string
+	for i := 1; i < 30; i++ {
+		ingress = append(ingress, fmt.Sprintf("10.%d.0.1/32", i))
+	}
+	s.assertIngressCidrs(c, ingress, []string{"192.168.1.0/16"})
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *gc.C) {
+	ingress := []string{
+		"192.0.1.254/31",
+		"192.0.2.0/28",
+		"192.0.2.16/28",
+		"192.0.2.32/28",
+		"192.0.2.48/28",
+		"192.0.2.64/28",
+		"192.0.2.80/28",
+		"192.0.2.96/28",
+		"192.0.2.112/28",
+		"192.0.2.128/28",
+		"192.0.2.144/28",
+		"192.0.2.160/28",
+		"192.0.2.176/28",
+		"192.0.2.192/28",
+		"192.0.2.208/28",
+		"192.0.2.224/28",
+		"192.0.2.240/28",
+		"192.0.3.0/28",
+		"192.0.4.0/28",
+		"192.0.5.0/28",
+		"192.0.6.0/28",
+	}
+	expected := []string{
+		"192.0.1.254/31",
+		"192.0.2.0/24",
+		"192.0.3.0/28",
+		"192.0.4.0/28",
+		"192.0.5.0/28",
+		"192.0.6.0/28",
+	}
+	s.assertIngressCidrs(c, ingress, expected)
 }
 
 type GlobalModeSuite struct {
