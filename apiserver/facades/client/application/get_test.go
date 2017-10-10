@@ -47,6 +47,26 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *getSuite) TestClientServiceGetSmoketestV4(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	v4 := &application.APIv4{s.serviceAPI}
+	results, err := v4.Get(params.ApplicationGet{"wordpress"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
+		Application: "wordpress",
+		Charm:       "wordpress",
+		Config: map[string]interface{}{
+			"blog-title": map[string]interface{}{
+				"default":     true,
+				"description": "A descriptive title used for the blog.",
+				"type":        "string",
+				"value":       "My Title",
+			},
+		},
+		Series: "quantal",
+	})
+}
+
 func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	results, err := s.serviceAPI.Get(params.ApplicationGet{"wordpress"})
