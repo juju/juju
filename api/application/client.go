@@ -174,7 +174,11 @@ func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error)
 			if err != nil {
 				return nil, errors.Annotatef(err, "unable to get settings for %q", appName)
 			}
-			allSettings = append(allSettings, results.Config)
+			settings, err := describeV5(results.Config)
+			if err != nil {
+				return nil, errors.Annotatef(err, "unable to process settings for %q", appName)
+			}
+			allSettings = append(allSettings, settings)
 		}
 		return allSettings, nil
 	}
@@ -197,6 +201,34 @@ func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error)
 		allSettings = append(allSettings, result.Config)
 	}
 	return allSettings, nil
+}
+
+// describeV5 will take the results of describeV4 from the apiserver
+// and remove the "default" boolean, and add in "source".
+// Mutates and resturns the config map.
+func describeV5(config map[string]interface{}) (map[string]interface{}, error) {
+	for _, value := range config {
+		vMap, ok := value.(map[string]interface{})
+		if !ok {
+			return nil, errors.Errorf("expected settings map got %v (%T) ", value, value)
+		}
+		if _, found := vMap["default"]; found {
+			v, hasValue := vMap["value"]
+			if hasValue {
+				vMap["default"] = v
+				vMap["source"] = "default"
+			} else {
+				delete(vMap, "default")
+				vMap["source"] = "unset"
+			}
+		} else {
+			// If default isn't set, then the source is user.
+			// And we have no idea what the charm default is or whether
+			// there is one.
+			vMap["source"] = "user"
+		}
+	}
+	return config, nil
 }
 
 // SetCharmConfig holds the configuration for setting a new revision of a charm
