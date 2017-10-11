@@ -870,6 +870,10 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	machineId := machined.tag.Id()
 	instanceId, err := m.InstanceId()
+	if params.IsCodeNotProvisioned(err) {
+		// Not provisioned yet, so nothing to do for this instance
+		return nil
+	}
 	if err != nil {
 		return err
 	}
