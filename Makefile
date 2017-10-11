@@ -120,7 +120,7 @@ check-deps:
 
 install-go:
 	@echo Installing go-1.9 snap
-	@sudo snap install go --channel=1.9/stable
+	@sudo snap install go --channel=1.9/stable --classic
 
 .PHONY: build check install
 .PHONY: clean format simplify
