@@ -38,7 +38,7 @@ import (
 )
 
 func GetMockBundleTools(c *gc.C, expectedForceVersion *version.Number) tools.BundleToolsFunc {
-	return func(build bool, w io.Writer, forceVersion *version.Number) (version.Binary, string, error) {
+	return func(build bool, w io.Writer, forceVersion *version.Number) (version.Binary, bool, string, error) {
 		if expectedForceVersion != nil {
 			c.Assert(forceVersion, jc.DeepEquals, expectedForceVersion)
 		} else {
@@ -50,7 +50,7 @@ func GetMockBundleTools(c *gc.C, expectedForceVersion *version.Number) tools.Bun
 			Series: series.MustHostSeries(),
 		}
 		sha256Hash := fmt.Sprintf("%x", sha256.New().Sum(nil))
-		return vers, sha256Hash, nil
+		return vers, false, sha256Hash, nil
 	}
 }
 

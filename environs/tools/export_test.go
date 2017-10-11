@@ -13,3 +13,7 @@ var (
 	GetVersionFromJujud           = getVersionFromJujud
 	ExecCommand                   = &execCommand
 )
+
+func VersionsMatchingHash(v *Versions, h string) []string {
+	return v.versionsMatchingHash(h)
+}

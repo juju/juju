@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -315,20 +316,16 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	context, err := c.initVersions(client, cfg, agentVersion, warnCompat)
+	context, tryImplicit, err := c.initVersions(client, cfg, agentVersion, warnCompat)
 	if err != nil {
 		return err
 	}
 	// If we're running a custom build or the user has asked for a new agent
 	// to be built, upload a local jujud binary if possible.
-	uploadLocalBinary := isControllerModel && c.Version == version.Zero && tryImplicitUpload(agentVersion)
+	uploadLocalBinary := isControllerModel && c.Version == version.Zero && tryImplicit
 	if !warnCompat && (uploadLocalBinary || c.BuildAgent) && !c.DryRun {
 		if err := context.uploadTools(c.BuildAgent); err != nil {
-			// If we've explicitly asked to build an agent binary, or the upload failed
-			// because changes were blocked, we'll return an error.
-			if err2 := block.ProcessBlockedError(err, block.BlockChange); c.BuildAgent || err2 == cmd.ErrSilent {
-				return err2
-			}
+			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 		builtMsg := ""
 		if c.BuildAgent {
@@ -379,9 +376,22 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	return nil
 }
 
-func tryImplicitUpload(agentVersion version.Number) bool {
+func tryImplicitUpload(agentVersion version.Number) (bool, error) {
 	newerAgent := jujuversion.Current.Compare(agentVersion) > 0
-	return newerAgent || agentVersion.Build > 0 || jujuversion.Current.Build > 0
+	if newerAgent || agentVersion.Build > 0 || jujuversion.Current.Build > 0 {
+		return true, nil
+	}
+	jujudPath, err := tools.ExistingJujudLocation()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	_, official, err := tools.JujudVersion(jujudPath)
+	// If there's an error getting jujud version, play it safe
+	// and don't implicitly do an implicit upload.
+	if err != nil {
+		return false, nil
+	}
+	return !official, nil
 }
 
 const resetPreviousUpgradeMessage = `
@@ -410,9 +420,11 @@ func (c *upgradeJujuCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool
 // agent and client versions, and the list of currently available tools, will
 // always be accurate; the chosen version, and the flag indicating development
 // mode, may remain blank until uploadTools or validate is called.
-func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Config, agentVersion version.Number, filterOnPrior bool) (*upgradeContext, error) {
+func (c *upgradeJujuCommand) initVersions(
+	client upgradeJujuAPI, cfg *config.Config, agentVersion version.Number, filterOnPrior bool,
+) (*upgradeContext, bool, error) {
 	if c.Version == agentVersion {
-		return nil, errUpToDate
+		return nil, false, errUpToDate
 	}
 	filterVersion := jujuversion.Current
 	if c.Version != version.Zero {
@@ -423,23 +435,27 @@ func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 		// the current client version.
 		filterVersion.Major--
 	}
+	tryImplicitUpload, err := tryImplicitUpload(agentVersion)
+	if err != nil {
+		return nil, false, err
+	}
 	logger.Debugf("searching for agent binaries with major: %d", filterVersion.Major)
 	findResult, err := client.FindTools(filterVersion.Major, -1, "", "")
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	err = findResult.Error
 	if findResult.Error != nil {
 		if !params.IsCodeNotFound(err) {
-			return nil, err
+			return nil, false, err
 		}
-		if !tryImplicitUpload(agentVersion) && !c.BuildAgent {
+		if !tryImplicitUpload && !c.BuildAgent {
 			// No tools found and we shouldn't upload any, so if we are not asking for a
 			// major upgrade, pretend there is no more recent version available.
 			if c.Version == version.Zero && agentVersion.Major == filterVersion.Major {
-				return nil, errUpToDate
+				return nil, false, errUpToDate
 			}
-			return nil, err
+			return nil, tryImplicitUpload, err
 		}
 	}
 	return &upgradeContext{
@@ -449,7 +465,7 @@ func (c *upgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Con
 		tools:     findResult.List,
 		apiClient: client,
 		config:    cfg,
-	}, nil
+	}, tryImplicitUpload, nil
 }
 
 // upgradeContext holds the version information for making upgrade decisions.
@@ -498,7 +514,11 @@ func (context *upgradeContext) uploadTools(buildAgent bool) (err error) {
 	defer os.RemoveAll(builtTools.Dir)
 
 	uploadToolsVersion := builtTools.Version
-	uploadToolsVersion.Number = context.chosen
+	if builtTools.Official {
+		context.chosen = builtTools.Version.Number
+	} else {
+		uploadToolsVersion.Number = context.chosen
+	}
 	toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
 	logger.Infof("uploading agent binary %v (%dkB) to Juju controller", uploadToolsVersion, (builtTools.Size+512)/1024)
 	f, err := os.Open(toolsPath)

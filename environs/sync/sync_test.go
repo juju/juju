@@ -351,7 +351,7 @@ func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
 	return buf.Bytes()
 }
 
-func bundleTools(c *gc.C) (version.Binary, string, error) {
+func bundleTools(c *gc.C) (version.Binary, bool, string, error) {
 	f, err := ioutil.TempFile("", "juju-tgz")
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
@@ -420,8 +420,9 @@ func (s *badBuildSuite) assertEqualsCurrentVersion(c *gc.C, v version.Binary) {
 
 func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 	// Test that original bundleTools Func fails as expected
-	vers, sha256Hash, err := bundleTools(c)
+	vers, official, sha256Hash, err := bundleTools(c)
 	c.Assert(vers, gc.DeepEquals, version.Binary{})
+	c.Assert(official, jc.IsFalse)
 	c.Assert(sha256Hash, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `cannot build jujud agent binary from source: build command "go" failed: exit status 1; `)
 
@@ -429,9 +430,10 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 
 	// Test that BundleTools func passes after it is
 	// mocked out
-	vers, sha256Hash, err = bundleTools(c)
+	vers, official, sha256Hash, err = bundleTools(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers.Number, gc.Equals, jujuversion.Current)
+	c.Assert(official, jc.IsFalse)
 	c.Assert(sha256Hash, gc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 }
 
@@ -481,7 +483,7 @@ func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
 	)
 	p.WriteString("Hello World")
 
-	s.PatchValue(&envtools.BundleTools, func(build bool, writerArg io.Writer, forceVersionArg *version.Number) (vers version.Binary, sha256Hash string, err error) {
+	s.PatchValue(&envtools.BundleTools, func(build bool, writerArg io.Writer, forceVersionArg *version.Number) (vers version.Binary, official bool, sha256Hash string, err error) {
 		c.Assert(build, jc.IsTrue)
 		writer = writerArg
 		n, err = writer.Write(p.Bytes())

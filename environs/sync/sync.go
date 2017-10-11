@@ -281,6 +281,7 @@ func cloneToolsForSeries(toolsInfo *BuiltAgent, stream string, series ...string)
 // a call to BundleTools.
 type BuiltAgent struct {
 	Version     version.Binary
+	Official    bool
 	Dir         string
 	StorageName string
 	Sha256Hash  string
@@ -309,7 +310,7 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	toolsVersion, sha256Hash, err := envtools.BundleTools(build, f, forceVersion)
+	toolsVersion, official, sha256Hash, err := envtools.BundleTools(build, f, forceVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +320,7 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 	clientVersion := jujuversion.Current
 	clientVersion.Build = 0
 	if builtVersion.Number.Compare(clientVersion) != 0 {
-		return nil, errors.Errorf("agent binary %v not compatibile with bootstrap client %v", toolsVersion.Number, jujuversion.Current)
+		return nil, errors.Errorf("agent binary %v not compatible with bootstrap client %v", toolsVersion.Number, jujuversion.Current)
 	}
 	fileInfo, err := f.Stat()
 	if err != nil {
@@ -327,10 +328,14 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 	}
 	size := fileInfo.Size()
 	reportedVersion := toolsVersion
-	if forceVersion != nil {
+	if !official && forceVersion != nil {
 		reportedVersion.Number = *forceVersion
 	}
-	logger.Infof("using agent binary %v aliased to %v (%dkB)", toolsVersion, reportedVersion, (size+512)/1024)
+	if official {
+		logger.Infof("using official agent binary %v (%dkB)", toolsVersion, (size+512)/1024)
+	} else {
+		logger.Infof("using agent binary %v aliased to %v (%dkB)", toolsVersion, reportedVersion, (size+512)/1024)
+	}
 	baseToolsDir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return nil, err
@@ -354,6 +359,7 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 	}
 	return &BuiltAgent{
 		Version:     toolsVersion,
+		Official:    official,
 		Dir:         baseToolsDir,
 		StorageName: storageName,
 		Size:        size,
