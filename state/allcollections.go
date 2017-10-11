@@ -343,9 +343,13 @@ func allCollections() collectionSchema {
 		subnetsC:              {},
 		linkLayerDevicesC:     {},
 		linkLayerDevicesRefsC: {},
-		ipAddressesC:          {},
-		endpointBindingsC:     {},
-		openedPortsC:          {},
+		ipAddressesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "machine-id", "device-name"},
+			}},
+		},
+		endpointBindingsC: {},
+		openedPortsC:      {},
 
 		// -----
 
