@@ -390,7 +390,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 
-	logger.Infof("Installing Juju agent on bootstrap instance")
+	ctx.Infof("Installing Juju agent on bootstrap instance")
 	publicKey, err := userPublicSigningKey()
 	if err != nil {
 		return err

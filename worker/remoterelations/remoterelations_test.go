@@ -439,7 +439,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *gc.C) {
 	s.stub.ResetCalls()
 
 	// First suspend the relation.
-	s.relationsFacade.relations["db2:db django:db"].suspended = true
+	s.relationsFacade.relations["db2:db django:db"].SetSuspended(true)
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
@@ -450,7 +450,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *gc.C) {
 	s.stub.ResetCalls()
 
 	// Now resume the relation.
-	s.relationsFacade.relations["db2:db django:db"].suspended = false
+	s.relationsFacade.relations["db2:db django:db"].SetSuspended(false)
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	mac, err := macaroon.New(nil, "test", "")

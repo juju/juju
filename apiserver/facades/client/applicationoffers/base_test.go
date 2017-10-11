@@ -6,7 +6,6 @@ package applicationoffers_test
 import (
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -53,7 +52,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.env = &mockEnviron{}
 	s.mockState = &mockState{
 		modelUUID:         coretesting.ModelTag.Id(),
-		users:             set.NewStrings(),
+		users:             make(map[string]applicationoffers.User),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		accessPerms:       make(map[offerAccess]permission.Access),
 		spaces:            make(map[string]applicationoffers.Space),
@@ -72,7 +71,7 @@ func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.Applicat
 	}
 }
 
-func (s *baseSuite) setupOffers(c *gc.C, filterAppName string) {
+func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoints bool) {
 	applicationName := "test"
 	offerName := "hosted-db2"
 
@@ -86,10 +85,16 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string) {
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		c.Assert(filters, gc.HasLen, 1)
-		c.Assert(filters[0], jc.DeepEquals, jujucrossmodel.ApplicationOfferFilter{
+		expectedFilter := jujucrossmodel.ApplicationOfferFilter{
 			OfferName:       offerName,
 			ApplicationName: filterAppName,
-		})
+		}
+		if filterWithEndpoints {
+			expectedFilter.Endpoints = []jujucrossmodel.EndpointFilterTerm{{
+				Interface: "db2",
+			}}
+		}
+		c.Assert(filters[0], jc.DeepEquals, expectedFilter)
 		return []jujucrossmodel.ApplicationOffer{anOffer}, nil
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}}

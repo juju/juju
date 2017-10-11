@@ -223,12 +223,13 @@ func (i *RemoteApplicationInfo) EntityId() EntityId {
 // ApplicationOfferInfo holds the information about an application offer that is
 // tracked by multiwatcherStore.
 type ApplicationOfferInfo struct {
-	ModelUUID       string `json:"model-uuid"`
-	OfferName       string `json:"offer-name"`
-	OfferUUID       string `json:"offer-uuid"`
-	ApplicationName string `json:"application-name"`
-	CharmName       string `json:"charm-name"`
-	ConnectedCount  int    `json:"connected-count"`
+	ModelUUID            string `json:"model-uuid"`
+	OfferName            string `json:"offer-name"`
+	OfferUUID            string `json:"offer-uuid"`
+	ApplicationName      string `json:"application-name"`
+	CharmName            string `json:"charm-name"`
+	TotalConnectedCount  int    `json:"total-connected-count"`
+	ActiveConnectedCount int    `json:"active-connected-count"`
 }
 
 // EntityId returns a unique identifier for an application offer across models.

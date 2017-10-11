@@ -365,3 +365,8 @@ func (Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bo
 func (*Environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
 	return addresses, nil
 }
+
+// SuperSubnets implements environs.SuperSubnets
+func (*Environ) SuperSubnets() ([]string, error) {
+	return nil, errors.NotSupportedf("super subnets")
+}

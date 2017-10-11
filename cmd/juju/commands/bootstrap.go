@@ -93,10 +93,16 @@ address.
 
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
-The value of '--agent-version' will become the default tools version to
-use in all models for this controller. The full binary version is accepted
-(e.g.: 2.0.1-xenial-amd64) but only the numeric version (e.g.: 2.0.1) is
-used. Otherwise, by default, the version used is that of the client.
+
+By default, the Juju version of the agent binary that is downloaded and 
+installed on all models for the new controller will be the same as that 
+of the Juju client used to perform the bootstrap.
+However, a user can specify a different agent version via '--agent-version' 
+option to bootstrap command. Juju will use this version for models' agents 
+as long as the client's version is from the same Juju release series.
+In other words, a 2.2.1 client can bootstrap any 2.2.x agents but cannot
+bootstrap any 2.0.x or 2.1.x agents.
+The agent version can be specified a simple numeric version, e.g. 2.2.4.
 
 Examples:
     juju bootstrap
@@ -106,7 +112,7 @@ Examples:
     juju bootstrap aws/us-east-1
     juju bootstrap google joe-us-east1
     juju bootstrap --config=~/config-rs.yaml rackspace joe-syd
-    juju bootstrap --config agent-version=1.25.3 aws joe-us-east-1
+    juju bootstrap --agent-version=2.2.4 aws joe-us-east-1
     juju bootstrap --config bootstrap-timeout=1200 azure joe-eastus
 
 See also:
@@ -236,7 +242,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 	if c.AgentVersion != nil && (c.AgentVersion.Major != jujuversion.Current.Major || c.AgentVersion.Minor != jujuversion.Current.Minor) {
-		return errors.New("requested agent version major.minor mismatch")
+		return errors.Errorf("this client can only bootstrap %v.%v agents", jujuversion.Current.Major, jujuversion.Current.Minor)
 	}
 
 	switch len(args) {

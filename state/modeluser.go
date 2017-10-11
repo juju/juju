@@ -229,7 +229,11 @@ func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 
 // IsControllerAdmin returns true if the user specified has Super User Access.
 func (st *State) IsControllerAdmin(user names.UserTag) (bool, error) {
-	ua, err := st.UserAccess(user, st.ControllerTag())
+	model, err := st.Model()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	ua, err := st.UserAccess(user, model.ControllerTag())
 	if errors.IsNotFound(err) {
 		return false, nil
 	}

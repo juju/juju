@@ -148,7 +148,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	if args.CloudRegion != "" {
 		cloudRegion += "/" + args.CloudRegion
 	}
-	fmt.Fprintf(ctx.GetStderr(), "Launching controller instance(s) on %s...\n", cloudRegion)
+	ctx.Infof("Launching controller instance(s) on %s...", cloudRegion)
 	// Print instance status reports status changes during provisioning.
 	// Note the carriage returns, meaning subsequent prints are to the same
 	// line of stderr, not a new line.
@@ -191,7 +191,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		padding := make([]string, 40-len(msg))
 		msg += strings.Join(padding, " ")
 	}
-	fmt.Fprintln(ctx.GetStderr(), msg)
+	ctx.Infof(msg)
 
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
@@ -268,6 +268,7 @@ var FinishBootstrap = func(
 	if err != nil {
 		return err
 	}
+	ctx.Infof("Connected to %v", addr)
 
 	sshOptions, cleanup, err := hostSSHOptions(addr)
 	if err != nil {
@@ -334,6 +335,7 @@ func ConfigureMachine(
 		return err
 	}
 	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLog) + configScript
+	ctx.Infof("Running machine configuration script...")
 	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
 		Client:         client,

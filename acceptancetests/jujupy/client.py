@@ -47,14 +47,10 @@ import yaml
 
 from jujupy.configuration import (
     get_bootstrap_config_path,
-    get_environments_path,
-    get_jenv_path,
     get_juju_home,
     get_selected_environment,
     )
 from jujupy.utility import (
-    check_free_disk_space,
-    ensure_dir,
     get_timeout_path,
     is_ipv6_address,
     JujuResourceTimeout,
@@ -64,7 +60,6 @@ from jujupy.utility import (
     scoped_environ,
     skip_on_missing_file,
     split_address_port,
-    temp_dir,
     temp_yaml_file,
     unqualified_model_name,
     until_timeout,
@@ -93,15 +88,6 @@ LXD_MACHINE = 'lxd'
 
 _DEFAULT_BUNDLE_TIMEOUT = 3600
 
-_jes_cmds = {KILL_CONTROLLER: {
-    'create': 'create-environment',
-    'kill': KILL_CONTROLLER,
-}}
-for super_cmd in [SYSTEM, CONTROLLER]:
-    _jes_cmds[super_cmd] = {
-        'create': '{} create-environment'.format(super_cmd),
-        'kill': '{} kill'.format(super_cmd),
-    }
 
 log = logging.getLogger("jujupy")
 
@@ -190,20 +176,6 @@ class UpgradeMongoNotSupported(Exception):
             'This client does not support upgrade-mongo')
 
 
-class JESNotSupported(Exception):
-
-    def __init__(self):
-        super(JESNotSupported, self).__init__(
-            'This client does not support JES')
-
-
-class JESByDefault(Exception):
-
-    def __init__(self):
-        super(JESByDefault, self).__init__(
-            'This client does not need to enable JES')
-
-
 Machine = namedtuple('Machine', ['machine_id', 'info'])
 
 
@@ -262,247 +234,8 @@ class VotingNotEnabled(StatusNotMet):
     _fmt = 'Timed out waiting for voting to be enabled in {env}.'
 
 
-class SimpleEnvironment:
-    """Represents a model in a JUJU_HOME directory for juju 1."""
-
-    def __init__(self, environment, config=None, juju_home=None,
-                 controller=None, bootstrap_to=None):
-        """Constructor.
-
-        :param environment: Name of the environment.
-        :param config: Dictionary with configuration options, default is None.
-        :param juju_home: Path to JUJU_HOME directory, default is None.
-        :param controller: Controller instance-- this model's controller.
-            If not given or None a new instance is created.
-        :param bootstrap_to: A placement directive to use when bootstrapping.
-            See Juju provider docs to examples of what Juju might expect.
-        """
-        self.user_name = None
-        if controller is None:
-            controller = Controller(environment)
-        self.controller = controller
-        self.environment = environment
-        self._config = config
-        self.juju_home = juju_home
-        self.bootstrap_to = bootstrap_to
-        if self._config is not None:
-            try:
-                provider = self.provider
-            except NoProvider:
-                provider = None
-            self.local = bool(provider == 'local')
-            self.kvm = (
-                self.local and bool(self._config.get('container') == 'kvm'))
-            self.maas = bool(provider == 'maas')
-            self.joyent = bool(provider == 'joyent')
-        else:
-            self.local = False
-            self.kvm = False
-            self.maas = False
-            self.joyent = False
-
-    def get_option(self, key, default=None):
-        return self._config.get(key, default)
-
-    def update_config(self, new_config):
-        for key, value in new_config.items():
-            if key == 'region':
-                logging.warning(
-                    'Using set_region to set region to "{}".'.format(value))
-                self.set_region(value)
-                continue
-            if key == 'type':
-                logging.warning('Setting type is not 2.x compatible.')
-            self._config[key] = value
-
-    def discard_option(self, key):
-        return self._config.pop(key, None)
-
-    def make_config_copy(self):
-        return deepcopy(self._config)
-
-    @property
-    def provider(self):
-        """Return the provider type for this environment.
-
-        See get_cloud to determine the specific cloud.
-        """
-        try:
-            return self._config['type']
-        except KeyError:
-            raise NoProvider('No provider specified.')
-
-    def is_cloud_provider(self):
-        """Return True if the commandline cloud is a provider.
-
-        This is True when LXD or Manual would be specified on the commandline,
-        false otherwse.
-        """
-        return bool(self.provider in ('lxd', 'manual'))
-
-    def get_region(self):
-        """Determine the region from a 1.x-style config.
-
-        This requires translating Azure's and Joyent's conventions for
-        specifying region.
-
-        It means that endpoint, rather than region, should be supplied if the
-        cloud (not the provider) is named "lxd" or "manual".
-
-        May return None for MAAS or LXD clouds.
-        """
-        provider = self.provider
-        # In 1.x, providers define region differently.  Translate.
-        if provider == 'azure':
-            if 'tenant-id' not in self._config:
-                return self._config['location'].replace(' ', '').lower()
-            return self._config['location']
-        elif provider == 'joyent':
-            matcher = re.compile('https://(.*).api.joyentcloud.com')
-            return matcher.match(self._config['sdc-url']).group(1)
-        elif provider == 'maas':
-            return None
-        # In 2.x, certain providers can be specified on the commandline in
-        # place of a cloud.  The "region" in these cases is the endpoint.
-        elif self.is_cloud_provider():
-            return self._get_config_endpoint()
-        else:
-            # The manual provider is typically used without a region.
-            if provider == 'manual':
-                return self._config.get('region')
-            return self._config['region']
-
-    def _get_config_endpoint(self):
-        if self.provider == 'lxd':
-            return self._config.get('region', 'localhost')
-        elif self.provider == 'manual':
-            return self._config['bootstrap-host']
-
-    def set_region(self, region):
-        """Assign the region to a 1.x-style config.
-
-        This requires translating Azure's and Joyent's conventions for
-        specifying region.
-
-        It means that endpoint, rather than region, should be updated if the
-        cloud (not the provider) is named "lxd" or "manual".
-
-        Only None is acccepted for MAAS.
-        """
-        try:
-            provider = self.provider
-            cloud_is_provider = self.is_cloud_provider()
-        except NoProvider:
-            provider = None
-            cloud_is_provider = False
-        if provider == 'azure':
-            self._config['location'] = region
-        elif provider == 'joyent':
-            self._config['sdc-url'] = (
-                'https://{}.api.joyentcloud.com'.format(region))
-        elif cloud_is_provider:
-            self._set_config_endpoint(region)
-        elif provider == 'maas':
-            if region is not None:
-                raise ValueError('Only None allowed for maas.')
-        else:
-            self._config['region'] = region
-
-    def _set_config_endpoint(self, endpoint):
-        if self.provider == 'lxd':
-            self._config['region'] = endpoint
-        elif self.provider == 'manual':
-            self._config['bootstrap-host'] = endpoint
-
-    def clone(self, model_name=None):
-        config = deepcopy(self._config)
-        if model_name is None:
-            model_name = self.environment
-        else:
-            config['name'] = unqualified_model_name(model_name)
-        result = self.__class__(model_name, config, juju_home=self.juju_home,
-                                controller=self.controller,
-                                bootstrap_to=self.bootstrap_to)
-        result.local = self.local
-        result.kvm = self.kvm
-        result.maas = self.maas
-        result.joyent = self.joyent
-        result.user_name = self.user_name
-        return result
-
-    def __eq__(self, other):
-        if type(self) != type(other):
-            return False
-        if self.environment != other.environment:
-            return False
-        if self._config != other._config:
-            return False
-        if self.local != other.local:
-            return False
-        if self.maas != other.maas:
-            return False
-        if self.bootstrap_to != other.bootstrap_to:
-            return False
-        return True
-
-    def __ne__(self, other):
-        return not self == other
-
-    def set_model_name(self, model_name, set_controller=True):
-        if set_controller:
-            self.controller.name = model_name
-        self.environment = model_name
-        self._config['name'] = unqualified_model_name(model_name)
-
-    @classmethod
-    def from_config(cls, name):
-        """Create an environment from the configuation file.
-
-        :param name: Name of the environment to get the configuration from."""
-        return cls._from_config(name)
-
-    @classmethod
-    def _from_config(cls, name):
-        config, selected = get_selected_environment(name)
-        if name is None:
-            name = selected
-        return cls(name, config)
-
-    @contextmanager
-    def make_jes_home(self, juju_home, dir_name, new_config):
-        """Make a JUJU_HOME/DATA directory to avoid conflicts.
-
-        :param juju_home: Current JUJU_HOME/DATA directory, used as a
-            base path for the new directory.
-        :param dir_name: Name of sub-directory to make the home in.
-        :param new_config: Dictionary representing the contents of
-            the environments.yaml configuation file."""
-        home_path = jes_home_path(juju_home, dir_name)
-        with skip_on_missing_file():
-            shutil.rmtree(home_path)
-        os.makedirs(home_path)
-        self.dump_yaml(home_path, new_config)
-        # For extention: Add all files carried over to the list.
-        for file_name in ['public-clouds.yaml']:
-            src_path = os.path.join(juju_home, file_name)
-            with skip_on_missing_file():
-                shutil.copy(src_path, home_path)
-        yield home_path
-
-    def get_cloud_credentials(self):
-        """Return the credentials for this model's cloud.
-
-        This implementation returns config variables in addition to
-        credentials.
-        """
-        return self._config
-
-    def dump_yaml(self, path, config):
-        dump_environments_yaml(path, config)
-
-
-class JujuData(SimpleEnvironment):
-    """Represents a model in a JUJU_DATA directory for juju 2."""
+class JujuData:
+    """Represents a model in a JUJU_DATA directory for juju."""
 
     def __init__(self, environment, config=None, juju_home=None,
                  controller=None, cloud_name=None, bootstrap_to=None):
@@ -521,14 +254,55 @@ class JujuData(SimpleEnvironment):
         """
         if juju_home is None:
             juju_home = get_juju_home()
-        super(JujuData, self).__init__(environment, config, juju_home,
-                                       controller, bootstrap_to)
+        self.user_name = None
+        if controller is None:
+            controller = Controller(environment)
+        self.controller = controller
+        self.environment = environment
+        self._config = config
+        self.juju_home = juju_home
+        self.bootstrap_to = bootstrap_to
+        if self._config is not None:
+            try:
+                provider = self.provider
+            except NoProvider:
+                provider = None
+            self.kvm = (bool(self._config.get('container') == 'kvm'))
+            self.maas = bool(provider == 'maas')
+            self.joyent = bool(provider == 'joyent')
+        else:
+            self.kvm = False
+            self.maas = False
+            self.joyent = False
         self.credentials = {}
         self.clouds = {}
         self._cloud_name = cloud_name
 
+    @property
+    def provider(self):
+        """Return the provider type for this environment.
+
+        See get_cloud to determine the specific cloud.
+        """
+        try:
+            return self._config['type']
+        except KeyError:
+            raise NoProvider('No provider specified.')
+
     def clone(self, model_name=None):
-        result = super(JujuData, self).clone(model_name)
+        config = deepcopy(self._config)
+        if model_name is None:
+            model_name = self.environment
+        else:
+            config['name'] = unqualified_model_name(model_name)
+        result = JujuData(
+            model_name, config, juju_home=self.juju_home,
+            controller=self.controller,
+            bootstrap_to=self.bootstrap_to)
+        result.kvm = self.kvm
+        result.maas = self.maas
+        result.joyent = self.joyent
+        result.user_name = self.user_name
         result.credentials = deepcopy(self.credentials)
         result.clouds = deepcopy(self.clouds)
         result._cloud_name = self._cloud_name
@@ -539,6 +313,29 @@ class JujuData(SimpleEnvironment):
         juju_data = cls(env.environment, env._config, env.juju_home)
         juju_data.load_yaml()
         return juju_data
+
+    def make_config_copy(self):
+        return deepcopy(self._config)
+
+    @contextmanager
+    def make_juju_home(self, juju_home, dir_name):
+        """Make a JUJU_HOME/DATA directory to avoid conflicts.
+
+        :param juju_home: Current JUJU_HOME/DATA directory, used as a
+            base path for the new directory.
+        :param dir_name: Name of sub-directory to make the home in.
+        """
+        home_path = juju_home_path(juju_home, dir_name)
+        with skip_on_missing_file():
+            shutil.rmtree(home_path)
+        os.makedirs(home_path)
+        self.dump_yaml(home_path)
+        # For extention: Add all files carried over to the list.
+        for file_name in ['public-clouds.yaml']:
+            src_path = os.path.join(juju_home, file_name)
+            with skip_on_missing_file():
+                shutil.copy(src_path, home_path)
+        yield home_path
 
     def update_config(self, new_config):
         if 'type' in new_config:
@@ -551,7 +348,16 @@ class JujuData(SimpleEnvironment):
                     raise ValueError(
                         '{} cannot be changed with explicit cloud'
                         ' name.'.format(endpoint_key))
-        super(JujuData, self).update_config(new_config)
+
+        for key, value in new_config.items():
+            if key == 'region':
+                logging.warning(
+                    'Using set_region to set region to "{}".'.format(value))
+                self.set_region(value)
+                continue
+            if key == 'type':
+                logging.warning('Setting type is not 2.x compatible.')
+            self._config[key] = value
 
     def load_yaml(self):
         try:
@@ -582,6 +388,13 @@ class JujuData(SimpleEnvironment):
         juju_data = cls._from_config(name)
         juju_data.load_yaml()
         return juju_data
+
+    @classmethod
+    def _from_config(cls, name):
+        config, selected = get_selected_environment(name)
+        if name is None:
+            name = selected
+        return cls(name, config)
 
     @classmethod
     def from_cloud_region(cls, cloud, region, config, clouds, juju_home):
@@ -631,12 +444,8 @@ class JujuData(SimpleEnvironment):
         data.load_yaml()
         return data
 
-    def dump_yaml(self, path, config):
-        """Dump the configuration files to the specified path.
-
-        config is unused, but is accepted for compatibility with
-        SimpleEnvironment and make_jes_home().
-        """
+    def dump_yaml(self, path):
+        """Dump the configuration files to the specified path."""
         with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
             yaml.safe_dump(self.credentials, f)
         self.write_clouds(path, self.clouds)
@@ -653,6 +462,42 @@ class JujuData(SimpleEnvironment):
             if cloud_config['endpoint'] == endpoint:
                 return cloud
         raise LookupError('No such endpoint: {}'.format(endpoint))
+
+    def set_model_name(self, model_name, set_controller=True):
+        if set_controller:
+            self.controller.name = model_name
+        self.environment = model_name
+        self._config['name'] = unqualified_model_name(model_name)
+
+    def set_region(self, region):
+        """Assign the region to a 1.x-style config.
+
+        This requires translating Azure's and Joyent's conventions for
+        specifying region.
+
+        It means that endpoint, rather than region, should be updated if the
+        cloud (not the provider) is named "lxd" or "manual".
+
+        Only None is acccepted for MAAS.
+        """
+        try:
+            provider = self.provider
+            cloud_is_provider = self.is_cloud_provider()
+        except NoProvider:
+            provider = None
+            cloud_is_provider = False
+        if provider == 'azure':
+            self._config['location'] = region
+        elif provider == 'joyent':
+            self._config['sdc-url'] = (
+                'https://{}.api.joyentcloud.com'.format(region))
+        elif cloud_is_provider:
+            self._set_config_endpoint(region)
+        elif provider == 'maas':
+            if region is not None:
+                raise ValueError('Only None allowed for maas.')
+        else:
+            self._config['region'] = region
 
     def get_cloud(self):
         if self._cloud_name is not None:
@@ -685,6 +530,44 @@ class JujuData(SimpleEnvironment):
         """Return the credentials for this model's cloud."""
         return self.get_cloud_credentials_item()[1]
 
+    def get_option(self, key, default=None):
+        return self._config.get(key, default)
+
+    def discard_option(self, key):
+        return self._config.pop(key, None)
+
+    def get_region(self):
+        """Determine the region from a 1.x-style config.
+
+        This requires translating Azure's and Joyent's conventions for
+        specifying region.
+
+        It means that endpoint, rather than region, should be supplied if the
+        cloud (not the provider) is named "lxd" or "manual".
+
+        May return None for MAAS or LXD clouds.
+        """
+        provider = self.provider
+        # In 1.x, providers define region differently.  Translate.
+        if provider == 'azure':
+            if 'tenant-id' not in self._config:
+                return self._config['location'].replace(' ', '').lower()
+            return self._config['location']
+        elif provider == 'joyent':
+            matcher = re.compile('https://(.*).api.joyentcloud.com')
+            return matcher.match(self._config['sdc-url']).group(1)
+        elif provider == 'maas':
+            return None
+        # In 2.x, certain providers can be specified on the commandline in
+        # place of a cloud.  The "region" in these cases is the endpoint.
+        elif self.is_cloud_provider():
+            return self._get_config_endpoint()
+        else:
+            # The manual provider is typically used without a region.
+            if provider == 'manual':
+                return self._config.get('region')
+            return self._config['region']
+
     def is_cloud_provider(self):
         """Return True if the commandline cloud is a provider.
 
@@ -695,6 +578,34 @@ class JujuData(SimpleEnvironment):
         # breakage.
         return bool(self.provider in ('lxd', 'manual') and
                     self.get_cloud() in ('lxd', 'manual'))
+
+    def _get_config_endpoint(self):
+        if self.provider == 'lxd':
+            return self._config.get('region', 'localhost')
+        elif self.provider == 'manual':
+            return self._config['bootstrap-host']
+
+    def _set_config_endpoint(self, endpoint):
+        if self.provider == 'lxd':
+            self._config['region'] = endpoint
+        elif self.provider == 'manual':
+            self._config['bootstrap-host'] = endpoint
+
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        if self.environment != other.environment:
+            return False
+        if self._config != other._config:
+            return False
+        if self.maas != other.maas:
+            return False
+        if self.bootstrap_to != other.bootstrap_to:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self == other
 
 
 class StatusError(Exception):
@@ -1066,12 +977,7 @@ class Status:
 
 
 def describe_substrate(env):
-    if env.provider == 'local':
-        return {
-            'kvm': 'KVM (local)',
-            'lxc': 'LXC (local)'
-        }[env.get_option('container', 'lxc')]
-    elif env.provider == 'openstack':
+    if env.provider == 'openstack':
         if env.get_option('auth-url') == (
                 'https://keystone.canonistack.canonical.com:443/v2.0/'):
             return 'Canonistack'
@@ -1616,7 +1522,7 @@ class ModelClient:
     bootstrap_replaces = frozenset(['agent-version'])
 
     # What feature flags have existed that CI used.
-    known_feature_flags = frozenset(['actions', 'jes', 'migration'])
+    known_feature_flags = frozenset(['actions', 'migration'])
 
     # What feature flags are used by this version of the juju client.
     used_feature_flags = frozenset(['migration'])
@@ -1687,34 +1593,6 @@ class ModelClient:
             raise ValueError('Unknown feature flag: %r' % (flag,))
         self.feature_flags.add(flag)
 
-    def get_jes_command(self):
-        """For Juju 2.0, this is always kill-controller."""
-        return KILL_CONTROLLER
-
-    def is_jes_enabled(self):
-        """Does the state-server support multiple environments."""
-        try:
-            self.get_jes_command()
-            return True
-        except JESNotSupported:
-            return False
-
-    def enable_jes(self):
-        """Enable JES if JES is optional.
-
-        Specifically implemented by the clients that optionally support JES.
-        This version raises either JESByDefault or JESNotSupported.
-
-        :raises: JESByDefault when JES is always enabled; Juju has the
-            'destroy-controller' command.
-        :raises: JESNotSupported when JES is not supported; Juju does not have
-            the 'system kill' command when the JES feature flag is set.
-        """
-        if self.is_jes_enabled():
-            raise JESByDefault()
-        else:
-            raise JESNotSupported()
-
     @classmethod
     def get_full_path(cls):
         if sys.platform == 'win32':
@@ -1769,14 +1647,6 @@ class ModelClient:
                 controller=self.env.controller.name,
                 model=self.model_name)
 
-    @staticmethod
-    def _get_env(env):
-        if not isinstance(env, JujuData) and isinstance(env,
-                                                        SimpleEnvironment):
-            # FIXME: JujuData should be used from the start.
-            env = JujuData.from_env(env)
-        return env
-
     def __init__(self, env, version, full_path, juju_home=None, debug=False,
                  soft_deadline=None, _backend=None):
         """Create a new juju client.
@@ -1796,7 +1666,7 @@ class ModelClient:
         :param _backend: The backend to use for interacting with the client.
             If None (the default), self.default_backend will be used.
         """
-        self.env = self._get_env(env)
+        self.env = env
         if _backend is None:
             _backend = self.default_backend(full_path, version, set(), debug,
                                             soft_deadline)
@@ -1941,7 +1811,7 @@ class ModelClient:
         :param env: Either a class representing the new model/environment
             or the name of the new model/environment which will then be
             otherwise identical to the current model/environment."""
-        if not isinstance(env, SimpleEnvironment):
+        if not isinstance(env, JujuData):
             env = self.env.clone(env)
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
@@ -2050,8 +1920,9 @@ class ModelClient:
 
     def destroy_model(self):
         exit_status, _ = self.juju(
-            'destroy-model', ('{}:{}'.format(self.env.controller.name,
-                                             self.env.environment), '-y',),
+            'destroy-model',
+            ('{}:{}'.format(self.env.controller.name, self.env.environment),
+            '-y', '--destroy-storage',),
             include_e=False, timeout=get_teardown_timeout(self))
         return exit_status
 
@@ -2520,10 +2391,7 @@ class ModelClient:
         return self.get_models()['models']
 
     def iter_model_clients(self):
-        """Iterate through all the models that share this model's controller.
-
-        Works only if JES is enabled.
-        """
+        """Iterate through all the models that share this model's controller"""
         models = self._get_models()
         if not models:
             yield self
@@ -2729,16 +2597,14 @@ class ModelClient:
             reporter.finish()
         condition.do_raise(self.model_name, status)
 
-    def get_matching_agent_version(self, no_build=False):
+    def get_matching_agent_version(self):
         version_number = get_stripped_version_number(self.version)
-        if not no_build and self.env.local:
-            version_number += '.1'
         return version_number
 
     def upgrade_juju(self, force_version=True):
         args = ()
         if force_version:
-            version = self.get_matching_agent_version(no_build=True)
+            version = self.get_matching_agent_version()
             args += ('--agent-version', version)
         self._upgrade_juju(args)
 
@@ -3037,7 +2903,7 @@ class ModelClient:
             user_client.env.user_name = user_name
             user_client.env.environment = qualified_model_name(
                 user_client.env.environment, self.env.user_name)
-        user_client.env.dump_yaml(user_client.env.juju_home, None)
+        user_client.env.dump_yaml(user_client.env.juju_home)
         # New user names the controller.
         user_client.env.controller = Controller(controller_name)
         return user_client
@@ -3219,70 +3085,8 @@ class ModelClient:
         self.juju('switch', (':'.join(args),), include_e=False)
 
 
-def get_local_root(juju_home, env):
-    return os.path.join(juju_home, env.environment)
-
-
-def bootstrap_from_env(juju_home, client):
-    with temp_bootstrap_env(juju_home, client):
-        client.bootstrap()
-
-
-def quickstart_from_env(juju_home, client, bundle):
-    with temp_bootstrap_env(juju_home, client):
-        client.quickstart(bundle)
-
-
-def uniquify_local(env):
-    """Ensure that local environments have unique port settings.
-
-    This allows local environments to be duplicated despite
-    https://bugs.launchpad.net/bugs/1382131
-    """
-    if not env.local:
-        return
-    port_defaults = {
-        'api-port': 17070,
-        'state-port': 37017,
-        'storage-port': 8040,
-        'syslog-port': 6514,
-    }
-    new_config = {}
-    for key, default in port_defaults.items():
-        new_config[key] = env.get_option(key, default) + 1
-    env.update_config(new_config)
-
-
-def dump_environments_yaml(juju_home, config):
-    """Dump yaml data to the environment file.
-
-    :param juju_home: Path to the JUJU_HOME directory.
-    :param config: Dictionary repersenting yaml data to dump."""
-    environments_path = get_environments_path(juju_home)
-    with open(environments_path, 'w') as config_file:
-        yaml.safe_dump(config, config_file)
-
-
-@contextmanager
-def _temp_env(new_config, parent=None, set_home=True):
-    """Use the supplied config as juju environment.
-
-    This is not a fully-formed version for bootstrapping.  See
-    temp_bootstrap_env.
-    """
-    with temp_dir(parent) as temp_juju_home:
-        dump_environments_yaml(temp_juju_home, new_config)
-        if set_home:
-            with scoped_environ():
-                os.environ['JUJU_HOME'] = temp_juju_home
-                os.environ['JUJU_DATA'] = temp_juju_home
-                yield temp_juju_home
-        else:
-            yield temp_juju_home
-
-
-def jes_home_path(juju_home, dir_name):
-    return os.path.join(juju_home, 'jes-homes', dir_name)
+def juju_home_path(juju_home, dir_name):
+    return os.path.join(juju_home, 'juju-homes', dir_name)
 
 
 def get_cache_path(juju_home, models=False):
@@ -3305,28 +3109,12 @@ def make_safe_config(client):
     # Explicitly set 'name', which Juju implicitly sets to env.environment to
     # ensure MAASAccount knows what the name will be.
     config['name'] = unqualified_model_name(client.env.environment)
-    if config['type'] == 'local':
-        config.setdefault('root-dir', get_local_root(client.env.juju_home,
-                          client.env))
-        # MongoDB requires a lot of free disk space, and the only
-        # visible error message is from "juju bootstrap":
-        # "cannot initiate replication set" if disk space is low.
-        # What "low" exactly means, is unclear, but 8GB should be
-        # enough.
-        ensure_dir(config['root-dir'])
-        check_free_disk_space(config['root-dir'], 8000000, "MongoDB files")
-        if client.env.kvm:
-            check_free_disk_space(
-                "/var/lib/uvtool/libvirt/images", 2000000,
-                "KVM disk files")
-        else:
-            check_free_disk_space(
-                "/var/lib/lxc", 2000000, "LXC containers")
+
     return config
 
 
 @contextmanager
-def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
+def temp_bootstrap_env(juju_home, client):
     """Create a temporary environment for bootstrapping.
 
     This involves creating a temporary juju home directory and returning its
@@ -3336,45 +3124,12 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     :param client: The client being prepared for bootstrapping.
     :param set_home: Set JUJU_HOME to match the temporary home in this
         context.  If False, juju_home should be supplied to bootstrap.
-    :param permanent: If permanent, the environment is kept afterwards.
-        Otherwise the environment is deleted when exiting the context.
     """
-    new_config = {
-        'environments': {client.env.environment: make_safe_config(client)}}
     # Always bootstrap a matching environment.
-    jenv_path = get_jenv_path(juju_home, client.env.environment)
-    if permanent:
-        context = client.env.make_jes_home(
-            juju_home, client.env.environment, new_config)
-    else:
-        context = _temp_env(new_config, juju_home, set_home)
+    context = client.env.make_juju_home(juju_home, client.env.environment)
     with context as temp_juju_home:
-        if os.path.lexists(jenv_path):
-            raise Exception('%s already exists!' % jenv_path)
-        new_jenv_path = get_jenv_path(temp_juju_home, client.env.environment)
-        # Create a symlink to allow access while bootstrapping, and to reduce
-        # races.  Can't use a hard link because jenv doesn't exist until
-        # partway through bootstrap.
-        ensure_dir(os.path.join(juju_home, 'environments'))
-        # Skip creating symlink where not supported (i.e. Windows).
-        if not permanent and getattr(os, 'symlink', None) is not None:
-            os.symlink(new_jenv_path, jenv_path)
-        old_juju_home = client.env.juju_home
         client.env.juju_home = temp_juju_home
-        try:
-            yield temp_juju_home
-        finally:
-            if not permanent:
-                # replace symlink with file before deleting temp home.
-                try:
-                    os.rename(new_jenv_path, jenv_path)
-                except OSError as e:
-                    if e.errno != errno.ENOENT:
-                        raise
-                    # Remove dangling symlink
-                    with skip_on_missing_file():
-                        os.unlink(jenv_path)
-                client.env.juju_home = old_juju_home
+        yield temp_juju_home
 
 
 def get_machine_dns_name(client, machine, timeout=600):

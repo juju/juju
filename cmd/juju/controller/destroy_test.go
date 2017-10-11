@@ -46,10 +46,11 @@ var _ = gc.Suite(&DestroySuite{})
 
 type baseDestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	api       *fakeDestroyAPI
-	clientapi *fakeDestroyAPIClient
-	store     *jujuclient.MemStore
-	apierror  error
+	api        *fakeDestroyAPI
+	clientapi  *fakeDestroyAPIClient
+	storageAPI *mockStorageAPI
+	store      *jujuclient.MemStore
+	apierror   error
 }
 
 // fakeDestroyAPI mocks out the controller API
@@ -165,6 +166,8 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	}
 	s.apierror = nil
 
+	s.storageAPI = &mockStorageAPI{}
+
 	s.store = jujuclient.NewMemStore()
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"localhost"},
@@ -240,7 +243,9 @@ func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context,
 }
 
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
-	return controller.NewDestroyCommandForTest(s.api, s.clientapi, s.store, s.apierror)
+	return controller.NewDestroyCommandForTest(
+		s.api, s.clientapi, s.storageAPI, s.store, s.apierror,
+	)
 }
 
 func checkControllerExistsInStore(c *gc.C, name string, store jujuclient.ControllerGetter) {
@@ -370,11 +375,15 @@ into another Juju model.
 
 func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecifiedOldController(c *gc.C) {
 	s.api.bestAPIVersion = 3
-	ctx, err := s.runDestroyCommand(c, "test1", "-y")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `this juju controller only supports destroying storage
+	s.storageAPI.storage = []params.StorageDetails{{}}
 
-Please run the the command again with --destroy-storage,
+	_, err := s.runDestroyCommand(c, "test1", "-y")
+	c.Assert(err, gc.ErrorMatches, `cannot destroy controller "test1"
+
+Destroying this controller will destroy the storage,
+but you have not indicated that you want to do that.
+
+Please run the the command again with --destroy-storage
 to confirm that you want to destroy the storage along
 with the controller.
 
@@ -382,6 +391,14 @@ If instead you want to keep the storage, you must first
 upgrade the controller to version 2.3 or greater.
 
 `)
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecifiedOldControllerNoStorage(c *gc.C) {
+	s.api.bestAPIVersion = 3
+	s.storageAPI.storage = nil // no storage
+
+	_, err := s.runDestroyCommand(c, "test1", "-y")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *DestroySuite) TestDestroyControllerGetFails(c *gc.C) {
@@ -553,4 +570,19 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl  destroy-model\n"+
 		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob     all, destroy-model\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+}
+
+type mockStorageAPI struct {
+	gitjujutesting.Stub
+	storage []params.StorageDetails
+}
+
+func (m *mockStorageAPI) Close() error {
+	m.MethodCall(m, "Close")
+	return m.NextErr()
+}
+
+func (m *mockStorageAPI) ListStorageDetails() ([]params.StorageDetails, error) {
+	m.MethodCall(m, "ListStorageDetails")
+	return m.storage, m.NextErr()
 }

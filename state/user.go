@@ -31,6 +31,11 @@ func userGlobalKey(userID string) string {
 	return fmt.Sprintf("%s#%s", userGlobalKeyPrefix, userID)
 }
 
+func userIDFromGlobalKey(key string) string {
+	prefix := userGlobalKeyPrefix + "#"
+	return strings.TrimPrefix(key, prefix)
+}
+
 func (st *State) checkUserExists(name string) (bool, error) {
 	users, closer := st.db().GetCollection(usersC)
 	defer closer()

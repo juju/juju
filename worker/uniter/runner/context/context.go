@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -589,6 +590,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_MACHINE_ID="+context.assignedMachineTag.Id(),
 		"JUJU_PRINCIPAL_UNIT="+context.principal,
 		"JUJU_AVAILABILITY_ZONE="+context.availabilityzone,
+		"JUJU_VERSION="+version.Current.String(),
 	)
 	if r, err := context.HookRelation(); err == nil {
 		vars = append(vars,

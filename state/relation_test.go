@@ -445,18 +445,19 @@ func (s *RelationSuite) TestRemoveAlsoDeletesRemoteOfferConnections(c *gc.C) {
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: coretesting.ModelTag.Id(),
 		RelationId:      relation.Id(),
+		RelationKey:     relation.Tag().Id(),
 		Username:        "fred",
 		OfferUUID:       "offer-uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	rc, err := s.State.RemoteConnectionStatus("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rc.ConnectionCount(), gc.Equals, 1)
+	c.Assert(rc.TotalConnectionCount(), gc.Equals, 1)
 
 	state.RemoveRelation(c, relation)
 	rc, err = s.State.RemoteConnectionStatus("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rc.ConnectionCount(), gc.Equals, 0)
+	c.Assert(rc.TotalConnectionCount(), gc.Equals, 0)
 }
 
 func (s *RelationSuite) TestRemoveNoFeatureFlag(c *gc.C) {

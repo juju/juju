@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/agent" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
+	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
 	"github.com/juju/juju/apiserver/facades/agent/hostkeyreporter"
 	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
 	"github.com/juju/juju/apiserver/facades/agent/leadership"
@@ -150,6 +151,7 @@ func AllFacades() *facade.Registry {
 
 	reg("Deployer", 1, deployer.NewDeployerAPI)
 	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI)
+	reg("FanConfigurer", 1, fanconfigurer.NewFanConfigurerAPI)
 	reg("Firewaller", 3, firewaller.NewStateFirewallerAPIV3)
 	reg("Firewaller", 4, firewaller.NewStateFirewallerAPIV4)
 	reg("FirewallRules", 1, firewallrules.NewFacade)

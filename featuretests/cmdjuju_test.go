@@ -98,20 +98,22 @@ charm: dummy
 settings:
   outlook:
     description: No default outlook.
-    is_default: true
+    source: unset
     type: string
   skill-level:
     description: A number indicating skill.
-    is_default: true
+    source: unset
     type: int
   title:
+    default: My Title
     description: A descriptive title used for the application.
-    is_default: true
+    source: default
     type: string
     value: My Title
   username:
+    default: admin001
     description: The name of the initial account (given admin permissions).
-    is_default: true
+    source: default
     type: string
     value: admin001
 `

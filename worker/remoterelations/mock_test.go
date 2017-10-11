@@ -166,13 +166,12 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 		if app, ok := m.remoteApplications[name]; ok {
 			result[i] = params.RemoteApplicationResult{
 				Result: &params.RemoteApplication{
-					Name:       app.name,
-					OfferUUID:  app.offeruuid,
-					Life:       app.life,
-					Status:     app.status,
-					ModelUUID:  app.modelUUID,
-					Registered: app.registered,
-					Macaroon:   mac,
+					Name:            app.name,
+					OfferUUID:       app.offeruuid,
+					Life:            app.life,
+					ModelUUID:       app.modelUUID,
+					IsConsumerProxy: app.registered,
+					Macaroon:        mac,
 				},
 			}
 		} else {
@@ -202,7 +201,7 @@ func (m *mockRelationsFacade) Relations(keys []string) ([]params.RemoteRelationR
 			result[i].Result = &params.RemoteRelation{
 				Id:        rel.id,
 				Life:      rel.life,
-				Suspended: rel.suspended,
+				Suspended: rel.Suspended(),
 				Key:       keys[i],
 			}
 			if epInfo, ok := m.relationsEndpoints[key]; ok {
@@ -402,7 +401,6 @@ type mockRemoteApplication struct {
 	offeruuid  string
 	url        string
 	life       params.Life
-	status     string
 	modelUUID  string
 	registered bool
 }
@@ -467,6 +465,7 @@ func (r *mockRemoteApplication) Life() params.Life {
 
 type mockRelation struct {
 	testing.Stub
+	sync.Mutex
 	id        int
 	life      params.Life
 	suspended bool
@@ -490,6 +489,14 @@ func (r *mockRelation) Life() params.Life {
 }
 
 func (r *mockRelation) Suspended() bool {
+	r.Lock()
+	defer r.Unlock()
 	r.MethodCall(r, "Suspended")
 	return r.suspended
+}
+
+func (r *mockRelation) SetSuspended(suspended bool) {
+	r.Lock()
+	defer r.Unlock()
+	r.suspended = suspended
 }

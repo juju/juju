@@ -77,7 +77,7 @@ func (st *State) inheritedConfigAttributes() (map[string]interface{}, error) {
 
 // modelConfigValues returns the values and source for the supplied model config
 // when combined with controller and Juju defaults.
-func (st *State) modelConfigValues(modelCfg attrValues) (config.ConfigValues, error) {
+func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues, error) {
 	resultValues := make(attrValues)
 	for k, v := range modelCfg {
 		resultValues[k] = v
@@ -85,11 +85,11 @@ func (st *State) modelConfigValues(modelCfg attrValues) (config.ConfigValues, er
 
 	// Read all of the current inherited config values so
 	// we can dynamically reflect the origin of the model config.
-	rspec, err := st.regionSpec()
+	rspec, err := model.st.regionSpec()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	configSources := modelConfigSources(st, rspec)
+	configSources := modelConfigSources(model.st, rspec)
 	sourceNames := make([]string, 0, len(configSources))
 	sourceAttrs := make([]attrValues, 0, len(configSources))
 	for _, src := range configSources {
@@ -174,17 +174,12 @@ func (model *Model) UpdateModelConfigDefaultValues(attrs map[string]interface{},
 
 // ModelConfigValues returns the config values for the model represented
 // by this state.
-func (st *State) ModelConfigValues() (config.ConfigValues, error) {
-	m, err := st.Model()
+func (model *Model) ModelConfigValues() (config.ConfigValues, error) {
+	cfg, err := model.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	cfg, err := m.ModelConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st.modelConfigValues(cfg.AllAttrs())
+	return model.modelConfigValues(cfg.AllAttrs())
 }
 
 // ModelConfigDefaultValues returns the default config values to be used

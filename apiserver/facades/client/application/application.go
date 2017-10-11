@@ -479,7 +479,15 @@ func (api *API) getConfig(entity string) (map[string]interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		return app.ConfigSettings()
+		settings, err := app.ConfigSettings()
+		if err != nil {
+			return nil, err
+		}
+		charm, _, err := app.Charm()
+		if err != nil {
+			return nil, err
+		}
+		return describe(settings, charm.Config()), nil
 	default:
 		return nil, errors.Errorf("unexpected tag type, expected application, got %s", kind)
 	}
@@ -1227,6 +1235,7 @@ func (api *API) consumeOne(arg params.ConsumeApplicationArg) error {
 		if controllerTag.Id() != api.backend.ControllerTag().Id() {
 			if _, err = api.backend.SaveController(crossmodel.ControllerInfo{
 				ControllerTag: controllerTag,
+				Alias:         arg.ControllerInfo.Alias,
 				Addrs:         arg.ControllerInfo.Addrs,
 				CACert:        arg.ControllerInfo.CACert,
 			}, sourceModelTag.Id()); err != nil {
@@ -1239,7 +1248,7 @@ func (api *API) consumeOne(arg params.ConsumeApplicationArg) error {
 	if appName == "" {
 		appName = arg.OfferName
 	}
-	_, err = api.saveRemoteApplication(sourceModelTag, appName, arg.ApplicationOffer, arg.Macaroon)
+	_, err = api.saveRemoteApplication(sourceModelTag, appName, arg.ApplicationOfferDetails, arg.Macaroon)
 	return err
 }
 
@@ -1248,7 +1257,7 @@ func (api *API) consumeOne(arg params.ConsumeApplicationArg) error {
 func (api *API) saveRemoteApplication(
 	sourceModelTag names.ModelTag,
 	applicationName string,
-	offer params.ApplicationOffer,
+	offer params.ApplicationOfferDetails,
 	mac *macaroon.Macaroon,
 ) (RemoteApplication, error) {
 	remoteEps := make([]charm.Relation, len(offer.Endpoints))

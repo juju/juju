@@ -705,3 +705,14 @@ type NetworkInfoParams struct {
 	RelationId *int     `json:"relation-id,omitempty"`
 	Bindings   []string `json:"bindings"`
 }
+
+// FanConfigEntry holds configuration for a single fan.
+type FanConfigEntry struct {
+	Underlay string `json:"underlay"`
+	Overlay  string `json:"overlay"`
+}
+
+// FanConfigResult holds configuration for all fans in a model
+type FanConfigResult struct {
+	Fans []FanConfigEntry `json:"fans"`
+}

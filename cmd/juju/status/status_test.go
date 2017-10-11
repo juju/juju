@@ -3305,6 +3305,7 @@ func (oc addOfferConnection) step(c *gc.C, ctx *context) {
 		OfferUUID:       offer.OfferUUID,
 		Username:        oc.username,
 		RelationId:      rel.Id(),
+		RelationKey:     rel.Tag().Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -4110,7 +4111,7 @@ Machine  State    DNS       Inst id       Series   AZ          Message
 3        started  10.0.3.1  controller-3  quantal              I am number three
 
 Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
-hosted-mysql  mysql        mysql  1    1          server    mysql      provider
+hosted-mysql  mysql        mysql  1    1/1        server    mysql      provider
 
 Relation provider      Requirer                   Interface  Type         Message
 mysql:juju-info        logging:info               juju-info  subordinate  

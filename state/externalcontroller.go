@@ -36,6 +36,9 @@ type externalControllerDoc struct {
 	// It is the controller UUID.
 	Id string `bson:"_id"`
 
+	// Alias holds an alias (human friendly) name for the controller.
+	Alias string `bson:"alias"`
+
 	// Addrs holds the host:port values for the external
 	// controller's API server.
 	Addrs []string `bson:"addresses"`
@@ -57,6 +60,7 @@ func (rc *externalController) Id() string {
 func (rc *externalController) ControllerInfo() crossmodel.ControllerInfo {
 	return crossmodel.ControllerInfo{
 		ControllerTag: names.NewControllerTag(rc.doc.Id),
+		Alias:         rc.doc.Alias,
 		Addrs:         rc.doc.Addrs,
 		CACert:        rc.doc.CACert,
 	}
@@ -84,6 +88,7 @@ func (ec *externalControllers) Save(controller crossmodel.ControllerInfo, modelU
 	}
 	doc := externalControllerDoc{
 		Id:     controller.ControllerTag.Id(),
+		Alias:  controller.Alias,
 		Addrs:  controller.Addrs,
 		CACert: controller.CACert,
 	}
@@ -110,6 +115,7 @@ func (ec *externalControllers) Save(controller crossmodel.ControllerInfo, modelU
 				Update: bson.D{
 					{"$set",
 						bson.D{{"addresses", doc.Addrs},
+							{"alias", doc.Alias},
 							{"cacert", doc.CACert},
 							{"models", models.Values()}},
 					},

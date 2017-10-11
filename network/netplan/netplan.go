@@ -28,6 +28,7 @@ type Interface struct {
 	Gateway6    string      `yaml:"gateway6,omitempty"`
 	Nameservers Nameservers `yaml:"nameservers,omitempty"`
 	MTU         int         `yaml:"mtu,omitempty"`
+	Routes      []Route     `yaml:"routes,omitempty"`
 }
 type Ethernet struct {
 	Match     map[string]string `yaml:"match"`

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/network/netplan"
 )
 
 var (
@@ -58,16 +59,17 @@ func WriteCloudInitFile(directory string, userData []byte) (string, error) {
 var (
 	systemNetworkInterfacesFile = "/etc/network/interfaces"
 	networkInterfacesFile       = systemNetworkInterfacesFile + "-juju"
+	jujuNetplanFile             = "/etc/netplan/99-juju.yaml"
 )
 
-// GenerateNetworkConfig renders a network config for one or more network
+// GenerateENITemplate renders an e/n/i template config for one or more network
 // interfaces, using the given non-nil networkConfig containing a non-empty
 // Interfaces field.
-func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, error) {
+func GenerateENITemplate(networkConfig *container.NetworkConfig) (string, error) {
 	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
-	logger.Debugf("generating network config from %#v", *networkConfig)
+	logger.Debugf("generating /e/n/i template from %#v", *networkConfig)
 
 	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces)
 
@@ -170,6 +172,64 @@ func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, erro
 	return generatedConfig, nil
 }
 
+// GenerateNetplan renders a netplan file for one or more network
+// interfaces, using the given non-nil networkConfig containing a non-empty
+// Interfaces field.
+func GenerateNetplan(networkConfig *container.NetworkConfig) (string, error) {
+	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
+		return "", errors.Errorf("missing container network config")
+	}
+	logger.Debugf("generating netplan from %#v", *networkConfig)
+	var netPlan netplan.Netplan
+	netPlan.Network.Ethernets = make(map[string]netplan.Ethernet)
+	netPlan.Network.Version = 2
+	for _, info := range networkConfig.Interfaces {
+		var iface netplan.Ethernet
+		if cidr := info.CIDRAddress(); cidr != "" {
+			iface.Addresses = append(iface.Addresses, cidr)
+		} else if info.ConfigType == network.ConfigDHCP {
+			iface.Dhcp4 = true
+		}
+
+		for _, dns := range info.DNSServers {
+			iface.Nameservers.Addresses = append(iface.Nameservers.Addresses, dns.Value)
+		}
+		iface.Nameservers.Search = append(iface.Nameservers.Search, info.DNSSearchDomains...)
+
+		if info.GatewayAddress.Value != "" {
+			switch {
+			case info.GatewayAddress.Type == network.IPv4Address:
+				iface.Gateway4 = info.GatewayAddress.Value
+			case info.GatewayAddress.Type == network.IPv6Address:
+				iface.Gateway6 = info.GatewayAddress.Value
+			}
+		}
+
+		if info.MTU != 0 && info.MTU != 1500 {
+			iface.MTU = info.MTU
+		}
+		if info.MACAddress != "" {
+			iface.Match = map[string]string{"macaddress": info.MACAddress}
+		} else {
+			iface.Match = map[string]string{"name": info.InterfaceName}
+		}
+		for _, route := range info.Routes {
+			route := netplan.Route{
+				To:     route.DestinationCIDR,
+				Via:    route.GatewayIP,
+				Metric: route.Metric,
+			}
+			iface.Routes = append(iface.Routes, route)
+		}
+		netPlan.Network.Ethernets[info.InterfaceName] = iface
+	}
+	out, err := netplan.Marshal(netPlan)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return string(out), nil
+}
+
 // PreparedConfig holds all the necessary information to render a persistent
 // network config to a file.
 type PreparedConfig struct {
@@ -266,13 +326,18 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 	}
 
 	if networkConfig != nil {
-		config, err := GenerateNetworkConfig(networkConfig)
+		eni, err := GenerateENITemplate(networkConfig)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".templ", config, 0644)
+		netPlan, err := GenerateNetplan(networkConfig)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".templ", eni, 0644)
 		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".py", NetworkInterfacesScript, 0744)
 		cloudConfig.AddBootCmd(populateNetworkInterfaces(systemNetworkInterfacesFile))
+		cloudConfig.AddBootTextFile(jujuNetplanFile, netPlan, 0644)
 	}
 
 	return cloudConfig, nil
@@ -312,6 +377,10 @@ func CloudInitUserData(
 // Note: we sleep to mitigate against LP #1337873 and LP #1269921.
 func populateNetworkInterfaces(networkFile string) string {
 	s := `
+if [ ! -f /sbin/ifup ]; then
+    echo "No /sbin/ifup, assuming that it's a netplan system."
+    exit 0
+fi
 ifdown -a
 sleep 1.5
 if [ -f /usr/bin/python ]; then

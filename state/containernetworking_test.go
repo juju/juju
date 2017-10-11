@@ -1,0 +1,109 @@
+// Copyright 2017 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package state_test
+
+import (
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/environs"
+)
+
+type containerTestNetworkLessEnviron struct {
+	environs.Environ
+}
+
+type containerTestNetworkedEnviron struct {
+	environs.NetworkingEnviron
+
+	stub                       *testing.Stub
+	supportsContainerAddresses bool
+	superSubnets               []string
+}
+
+type ContainerNetworkingSuite struct {
+	ConnSuite
+}
+
+var _ = gc.Suite(&ContainerNetworkingSuite{})
+
+func (e *containerTestNetworkedEnviron) SuperSubnets() ([]string, error) {
+	e.stub.AddCall("SuperSubnets")
+	return e.superSubnets, e.stub.NextErr()
+}
+
+func (e *containerTestNetworkedEnviron) SupportsContainerAddresses() (bool, error) {
+	e.stub.AddCall("SupportsContainerAddresses")
+	return e.supportsContainerAddresses, e.stub.NextErr()
+}
+
+var _ environs.NetworkingEnviron = (*containerTestNetworkedEnviron)(nil)
+
+func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNetworkless(c *gc.C) {
+	err := s.Model.AutoConfigureContainerNetworking(containerTestNetworkLessEnviron{})
+	c.Check(err, gc.ErrorMatches, "fan configuration in a non-networking environ not supported")
+}
+
+func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingAlreadyConfigured(c *gc.C) {
+	environ := containerTestNetworkedEnviron{
+		stub:         &testing.Stub{},
+		superSubnets: []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
+	}
+	err := s.State.UpdateModelConfig(map[string]interface{}{
+		"container-networking-method": "local",
+		"fan-config":                  "1.2.3.4/24=5.6.7.8/16",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.Model.AutoConfigureContainerNetworking(&environ)
+	c.Check(err, jc.ErrorIsNil)
+	config, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	attrs := config.AllAttrs()
+	c.Check(attrs["container-networking-method"], gc.Equals, "local")
+	c.Check(attrs["fan-config"], gc.Equals, "1.2.3.4/24=5.6.7.8/16")
+}
+
+func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNoSuperSubnets(c *gc.C) {
+	environ := containerTestNetworkedEnviron{
+		stub: &testing.Stub{},
+	}
+	err := s.Model.AutoConfigureContainerNetworking(&environ)
+	c.Check(err, jc.ErrorIsNil)
+	config, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	attrs := config.AllAttrs()
+	c.Check(attrs["container-networking-method"], gc.Equals, "local")
+	c.Check(attrs["fan-config"], gc.Equals, "")
+}
+
+func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingSupportsContainerAddresses(c *gc.C) {
+	environ := containerTestNetworkedEnviron{
+		stub: &testing.Stub{},
+		supportsContainerAddresses: true,
+		superSubnets:               []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
+	}
+	err := s.Model.AutoConfigureContainerNetworking(&environ)
+	c.Check(err, jc.ErrorIsNil)
+	config, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	attrs := config.AllAttrs()
+	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
+	c.Check(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8 192.168.1.0/24=253.0.0.0/8")
+}
+
+func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDefault(c *gc.C) {
+	environ := containerTestNetworkedEnviron{
+		stub: &testing.Stub{},
+		supportsContainerAddresses: false,
+		superSubnets:               []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
+	}
+	err := s.Model.AutoConfigureContainerNetworking(&environ)
+	c.Check(err, jc.ErrorIsNil)
+	config, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	attrs := config.AllAttrs()
+	c.Check(attrs["container-networking-method"], gc.Equals, "fan")
+	c.Check(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8 192.168.1.0/24=253.0.0.0/8")
+}

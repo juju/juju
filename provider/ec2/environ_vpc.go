@@ -347,6 +347,14 @@ func getVPCRouteTables(apiClient vpcAPIClient, vpc *ec2.VPC) ([]ec2.RouteTable, 
 	return response.Tables, nil
 }
 
+func getVPCCIDR(apiClient vpcAPIClient, vpcID string) (string, error) {
+	vpc, err := getVPCByID(apiClient, vpcID)
+	if err != nil {
+		return "", err
+	}
+	return vpc.CIDRBlock, nil
+}
+
 func findVPCMainRouteTable(routeTables []ec2.RouteTable) (*ec2.RouteTable, error) {
 	var mainTable *ec2.RouteTable
 	for i, table := range routeTables {

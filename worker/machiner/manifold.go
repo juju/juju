@@ -12,19 +12,45 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	apimachiner "github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
-type ManifoldConfig engine.AgentAPIManifoldConfig
+type ManifoldConfig struct {
+	AgentName         string
+	APICallerName     string
+	FanConfigurerName string
+}
 
 // Manifold returns a dependency manifold that runs a machiner worker, using
 // the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentAPIManifoldConfig(config)
-	return engine.AgentAPIManifold(typedConfig, newWorker)
+	return dependency.Manifold{
+		Inputs: []string{
+			config.AgentName,
+			config.APICallerName,
+			config.FanConfigurerName,
+		},
+		Start: func(context dependency.Context) (worker.Worker, error) {
+			var agent agent.Agent
+			if err := context.Get(config.AgentName, &agent); err != nil {
+				return nil, err
+			}
+			var apiCaller base.APICaller
+			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+				return nil, err
+			}
+			var fanConfigurerReady bool
+			if err := context.Get(config.FanConfigurerName, &fanConfigurerReady); err != nil {
+				return nil, err
+			}
+			if !fanConfigurerReady {
+				return nil, dependency.ErrMissing
+			}
+			return newWorker(agent, apiCaller)
+		},
+	}
 }
 
 // newWorker non-trivially wraps NewMachiner to specialise a engine.AgentAPIManifold.

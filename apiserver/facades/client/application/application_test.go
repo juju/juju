@@ -103,19 +103,24 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.API {
 
 func (s *applicationSuite) TestGetConfig(c *gc.C) {
 	fooConfig := map[string]interface{}{
-		"name":   "foo",
-		"answer": 42,
+		"title":       "foo",
+		"skill-level": 42,
 	}
+	dummy := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "dummy",
+	})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:     "foo",
+		Charm:    dummy,
 		Settings: fooConfig,
 	})
 	barConfig := map[string]interface{}{
-		"name": "bar",
-		"key":  "value",
+		"title":   "bar",
+		"outlook": "fantastic",
 	}
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:     "bar",
+		Charm:    dummy,
 		Settings: barConfig,
 	})
 	results, err := s.applicationAPI.GetConfig(params.Entities{
@@ -134,9 +139,61 @@ func (s *applicationSuite) TestGetConfig(c *gc.C) {
 			}, {
 				Error: &params.Error{Message: `unexpected tag type, expected application, got user`},
 			}, {
-				Config: fooConfig,
+				Config: map[string]interface{}{
+					"outlook": map[string]interface{}{
+						"description": "No default outlook.",
+						"source":      "unset",
+						"type":        "string",
+					},
+					"skill-level": map[string]interface{}{
+						"description": "A number indicating skill.",
+						"source":      "user",
+						"type":        "int",
+						"value":       42,
+					},
+					"title": map[string]interface{}{
+						"default":     "My Title",
+						"description": "A descriptive title used for the application.",
+						"source":      "user",
+						"type":        "string",
+						"value":       "foo",
+					},
+					"username": map[string]interface{}{
+						"default":     "admin001",
+						"description": "The name of the initial account (given admin permissions).",
+						"source":      "default",
+						"type":        "string",
+						"value":       "admin001",
+					},
+				},
 			}, {
-				Config: barConfig,
+				Config: map[string]interface{}{
+					"outlook": map[string]interface{}{
+						"description": "No default outlook.",
+						"source":      "user",
+						"type":        "string",
+						"value":       "fantastic",
+					},
+					"skill-level": map[string]interface{}{
+						"description": "A number indicating skill.",
+						"source":      "unset",
+						"type":        "int",
+					},
+					"title": map[string]interface{}{
+						"default":     "My Title",
+						"description": "A descriptive title used for the application.",
+						"source":      "user",
+						"type":        "string",
+						"value":       "bar",
+					},
+					"username": map[string]interface{}{
+						"default":     "admin001",
+						"description": "The name of the initial account (given admin permissions).",
+						"source":      "default",
+						"type":        "string",
+						"value":       "admin001",
+					},
+				},
 			}, {
 				Error: &params.Error{Message: `application "wat" not found`, Code: "not found"},
 			},
@@ -2682,7 +2739,7 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 func (s *applicationSuite) setupRemoteApplication(c *gc.C) {
 	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{
-			{ApplicationOffer: params.ApplicationOffer{
+			{ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         testing.ModelTag.String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
@@ -2750,7 +2807,7 @@ func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{
-			{ApplicationOffer: params.ApplicationOffer{
+			{ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag: testing.ModelTag.String(),
 				OfferName:      "hosted-db2",
 				OfferUUID:      "hosted-db2-uuid",

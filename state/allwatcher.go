@@ -579,7 +579,8 @@ func (app *backingRemoteApplication) updateOfferInfo(st *State, store *multiwatc
 	if err != nil {
 		return errors.Trace(err)
 	}
-	offerInfo.ConnectedCount = remoteConnection.ConnectionCount()
+	offerInfo.TotalConnectedCount = remoteConnection.TotalConnectionCount()
+	offerInfo.ActiveConnectedCount = remoteConnection.ActiveConnectionCount()
 	store.Update(offerInfo)
 	return nil
 }
@@ -637,7 +638,8 @@ func updateOfferInfo(st *State, offerInfo *multiwatcher.ApplicationOfferInfo) er
 	if err != nil {
 		return errors.Trace(err)
 	}
-	offerInfo.ConnectedCount = remoteConnection.ConnectionCount()
+	offerInfo.TotalConnectedCount = remoteConnection.TotalConnectionCount()
+	offerInfo.ActiveConnectedCount = remoteConnection.ActiveConnectionCount()
 	return nil
 }
 

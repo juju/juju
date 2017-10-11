@@ -95,6 +95,7 @@ type Model interface {
 	ControllerUUID() string
 	LastModelConnection(user names.UserTag) (time.Time, error)
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
+	AutoConfigureContainerNetworking(environ environs.Environ) error
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)
@@ -123,6 +124,11 @@ func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelMana
 // UpdateModelConfigDefaultValues implements the ModelManagerBackend method.
 func (st modelManagerStateShim) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.RegionSpec) error {
 	return st.model.UpdateModelConfigDefaultValues(update, remove, regionSpec)
+}
+
+// ControllerTag exposes Model ControllerTag for ModelManagerBackend inteface
+func (st modelManagerStateShim) ControllerTag() names.ControllerTag {
+	return st.model.ControllerTag()
 }
 
 // GetBackend implements ModelManagerBackend.

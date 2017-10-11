@@ -606,7 +606,6 @@ type LinkLayerDeviceAddress struct {
 // - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique.
 func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set link-layer device addresses of machine %q", m.doc.Id)
-
 	if len(devicesAddresses) == 0 {
 		logger.Debugf("no device addresses to set")
 		return nil

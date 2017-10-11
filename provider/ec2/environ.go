@@ -76,6 +76,9 @@ type environ struct {
 	defaultVPC        *ec2.VPC
 }
 
+var _ environs.Environ = (*environ)(nil)
+var _ environs.Networking = (*environ)(nil)
+
 func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
@@ -1974,4 +1977,22 @@ func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (b
 // SSHAddresses implements environs.SSHAddresses.
 func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
 	return addresses, nil
+}
+
+// SuperSubnets implements NetworkingEnviron.SuperSubnets
+func (e *environ) SuperSubnets() ([]string, error) {
+	vpcId := e.ecfg().vpcID()
+	if !isVPCIDSet(vpcId) {
+		if hasDefaultVPC, err := e.hasDefaultVPC(); err == nil && hasDefaultVPC {
+			vpcId = e.defaultVPC.Id
+		}
+	}
+	if !isVPCIDSet(vpcId) {
+		return nil, errors.NotSupportedf("Not a VPC environment")
+	}
+	cidr, err := getVPCCIDR(e.ec2, vpcId)
+	if err != nil {
+		return nil, err
+	}
+	return []string{cidr}, nil
 }

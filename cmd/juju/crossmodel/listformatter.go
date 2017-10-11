@@ -54,8 +54,15 @@ func formatListEndpointsSummary(writer io.Writer, offers offeredApplications) er
 			if i == 0 {
 				// As there is some information about offer and its endpoints,
 				// only display offer information once when the first endpoint is displayed.
-				connectedCount := len(offer.Connections)
-				w.Println(offer.OfferName, offer.ApplicationName, offer.CharmURL, fmt.Sprint(connectedCount),
+				totalConnectedCount := len(offer.Connections)
+				activeConnectedCount := 0
+				for _, conn := range offer.Connections {
+					if conn.Status.Current == relation.Joined.String() {
+						activeConnectedCount++
+					}
+				}
+				w.Println(offer.OfferName, offer.ApplicationName, offer.CharmURL,
+					fmt.Sprintf("%v/%v", activeConnectedCount, totalConnectedCount),
 					offer.Source, offer.OfferURL, endpointName, endpoint.Interface, endpoint.Role)
 				continue
 			}

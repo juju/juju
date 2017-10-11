@@ -191,7 +191,8 @@ var scenarioStatus = &params.FullStatus{
 					Interface: "mysql",
 					Role:      "provider",
 				}},
-			ConnectedCount: 1,
+			ActiveConnectedCount: 0,
+			TotalConnectedCount:  1,
 		},
 	},
 	Applications: map[string]params.ApplicationStatus{
@@ -441,6 +442,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		Username:        "fred",
 		OfferUUID:       offer.OfferUUID,
 		RelationId:      mwRel.Id(),
+		RelationKey:     mwRel.Tag().Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

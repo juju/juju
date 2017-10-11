@@ -7,8 +7,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
 )
@@ -18,21 +18,16 @@ Find which offered application endpoints are available to the current user.
 
 This command is aimed for a user who wants to discover what endpoints are available to them.
 
-options:
--o, --output (= "")
-   specify an output file
---format (= tabular)
-   specify output format (tabular|json|yaml)
-
 Examples:
-   $ juju find-endpoints
-   $ juju find-endpoints mycontroller:
-   $ juju find-endpoints fred/prod
-   $ juju find-endpoints --interface mysql --url fred/prod
-   $ juju find-endpoints --url fred/prod.db2
+   $ juju find-offers
+   $ juju find-offers mycontroller:
+   $ juju find-offers fred/prod
+   $ juju find-offers --interface mysql
+   $ juju find-offers --url fred/prod.db2
+   $ juju find-offers --offer db2
    
 See also:
-   show-endpoints   
+   show-offer   
 `
 
 type findCommand struct {
@@ -44,7 +39,6 @@ type findCommand struct {
 	modelName      string
 	offerName      string
 	interfaceName  string
-	endpoint       string
 
 	out        cmd.Output
 	newAPIFunc func(string) (FindAPI, error)
@@ -62,6 +56,9 @@ func NewFindEndpointsCommand() cmd.Command {
 
 // Init implements Command.Init.
 func (c *findCommand) Init(args []string) (err error) {
+	if c.offerName != "" && c.url != "" {
+		return errors.New("cannot specify both a URL term and offer term")
+	}
 	url, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
 		return errors.Trace(err)
@@ -78,7 +75,7 @@ func (c *findCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *findCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "find-endpoints",
+		Name:    "find-offers",
 		Purpose: "Find offered application endpoints.",
 		Doc:     findCommandDoc,
 	}
@@ -89,7 +86,7 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.RemoteEndpointsCommandBase.SetFlags(f)
 	f.StringVar(&c.url, "url", "", "return results matching the offer URL")
 	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
-	f.StringVar(&c.endpoint, "endpoint", "", "return results matching the endpoint name")
+	f.StringVar(&c.offerName, "offer", "", "return results matching the offer name")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -102,6 +99,12 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	if err := c.validateOrSetURL(); err != nil {
 		return errors.Trace(err)
 	}
+	accountDetails, err := c.CurrentAccountDetails()
+	if err != nil {
+		return err
+	}
+	loggedInUser := accountDetails.User
+
 	api, err := c.newAPIFunc(c.source)
 	if err != nil {
 		return err
@@ -112,13 +115,10 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 		OwnerName: c.modelOwnerName,
 		ModelName: c.modelName,
 		OfferName: c.offerName,
-		// TODO(wallyworld): interface
-		// TODO(wallyworld): endpoint
 	}
-	if c.interfaceName != "" || c.endpoint != "" {
+	if c.interfaceName != "" {
 		filter.Endpoints = []crossmodel.EndpointFilterTerm{{
 			Interface: c.interfaceName,
-			Name:      c.endpoint,
 		}}
 	}
 	found, err := api.FindApplicationOffers(filter)
@@ -126,7 +126,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	output, err := convertFoundOffers(c.source, found...)
+	output, err := convertFoundOffers(c.source, names.NewUserTag(loggedInUser), found...)
 	if err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func (c *findCommand) validateOrSetURL() error {
 // FindAPI defines the API methods that cross model find command uses.
 type FindAPI interface {
 	Close() error
-	FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]params.ApplicationOffer, error)
+	FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error)
 }
 
 // ApplicationOfferResult defines the serialization behaviour of an application offer.
@@ -183,19 +183,35 @@ type ApplicationOfferResult struct {
 
 	// Endpoints is the list of offered application endpoints.
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
+
+	// Users are the users who can access the offer.
+	Users map[string]OfferUser `yaml:"users,omitempty" json:"users,omitempty"`
+}
+
+func accessForUser(user names.UserTag, users []crossmodel.OfferUserDetails) string {
+	for _, u := range users {
+		if u.UserName == user.Id() {
+			return string(u.Access)
+		}
+	}
+	return "-"
 }
 
 // convertFoundOffers takes any number of api-formatted remote applications and
 // creates a collection of ui-formatted applications.
-func convertFoundOffers(store string, offers ...params.ApplicationOffer) (map[string]ApplicationOfferResult, error) {
+func convertFoundOffers(
+	store string, loggedInUser names.UserTag, offers ...*crossmodel.ApplicationOfferDetails,
+) (map[string]ApplicationOfferResult, error) {
 	if len(offers) == 0 {
 		return nil, nil
 	}
 	output := make(map[string]ApplicationOfferResult, len(offers))
 	for _, one := range offers {
+		access := accessForUser(loggedInUser, one.Users)
 		app := ApplicationOfferResult{
-			Access:    one.Access,
+			Access:    access,
 			Endpoints: convertRemoteEndpoints(one.Endpoints...),
+			Users:     convertUsers(one.Users...),
 		}
 		url, err := crossmodel.ParseOfferURL(one.OfferURL)
 		if err != nil {

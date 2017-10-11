@@ -13,7 +13,7 @@ from jujucharm import (
 from jujupy import (
     client_from_config,
     fake_juju_client,
-    SimpleEnvironment,
+    JujuData,
     )
 from deploy_stack import (
     BootstrapManager,
@@ -44,7 +44,7 @@ def prepare_dummy_env(client):
 def get_clients(initial, other, base_env, debug, agent_url):
     """Return the clients to use for testing."""
     if initial == 'FAKE':
-        environment = SimpleEnvironment.from_config(base_env)
+        environment = JujuData.from_config(base_env)
         client = fake_juju_client(env=environment)
         return client, client, client
     else:
@@ -72,12 +72,11 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
     """
     initial_client, other_client, teardown_client = get_clients(
         initial, other, base_env, debug, agent_url)
-    jes_enabled = initial_client.is_jes_enabled()
     bs_manager = BootstrapManager(
         environment_name, initial_client, teardown_client,
         bootstrap_host=None, machines=[], series=series, agent_url=agent_url,
         agent_stream=agent_stream, region=None, log_dir=log_dir,
-        keep_env=False, permanent=jes_enabled, jes_enabled=jes_enabled)
+        keep_env=False)
     test_control_heterogeneous(bs_manager, other_client, upload_tools)
 
 

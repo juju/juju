@@ -29,7 +29,7 @@ type remoteApplicationWorker struct {
 	applicationName       string // name of the remote application proxy in the local model
 	localModelUUID        string // uuid of the model hosting the local application
 	remoteModelUUID       string // uuid of the model hosting the remote offer
-	registered            bool
+	isConsumerProxy       bool
 	localRelationChanges  chan params.RemoteRelationChangeEvent
 	remoteRelationChanges chan params.RemoteRelationChangeEvent
 
@@ -74,7 +74,7 @@ func newRemoteApplicationWorker(
 		applicationName:                   remoteApplication.Name,
 		localModelUUID:                    localModelUUID,
 		remoteModelUUID:                   remoteApplication.ModelUUID,
-		registered:                        remoteApplication.Registered,
+		isConsumerProxy:                   remoteApplication.IsConsumerProxy,
 		offerMacaroon:                     remoteApplication.Macaroon,
 		localRelationChanges:              make(chan params.RemoteRelationChangeEvent),
 		remoteRelationChanges:             make(chan params.RemoteRelationChangeEvent),
@@ -152,7 +152,7 @@ func (w *remoteApplicationWorker) processRelationGone(key string, relations map[
 	// so we know when the relation is resumed.
 	// If we really are dying and not just suspended, then
 	// stop the lifecycle watcher and delete the relation.
-	if dying || w.registered {
+	if dying || w.isConsumerProxy {
 		// We are on the offering side so the relation can only be dying, or
 		// we are on the consuming side and are not suspended so must be dying.
 		delete(relations, key)
@@ -183,7 +183,7 @@ func (w *remoteApplicationWorker) processRelationGone(key string, relations map[
 	// On the consuming side, inform the remote side the relation is dying
 	// (but only if we are killing the relation due to it dying, not because
 	// it is suspended).
-	if !w.registered && dying {
+	if !w.isConsumerProxy && dying {
 		change := params.RemoteRelationChangeEvent{
 			RelationToken:    relation.relationToken,
 			Life:             params.Dying,
@@ -230,7 +230,7 @@ func (w *remoteApplicationWorker) relationChanged(
 		// We haven't started the relation unit watcher so just exit.
 		return nil
 	}
-	if w.registered {
+	if w.isConsumerProxy {
 		// Nothing else to do on the offering side.
 		return nil
 	}

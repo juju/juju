@@ -48,6 +48,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"api-config-watcher",
 		"central-hub",
 		"disk-manager",
+		"fan-configurer",
 		"host-key-reporter",
 		"log-sender",
 		"logging-config-updater",

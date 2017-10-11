@@ -296,6 +296,7 @@ type Environ struct {
 }
 
 var _ environs.Environ = (*Environ)(nil)
+var _ environs.NetworkingEnviron = (*Environ)(nil)
 var _ simplestreams.HasRegion = (*Environ)(nil)
 var _ instance.Distributor = (*Environ)(nil)
 var _ environs.InstanceTagger = (*Environ)(nil)
@@ -1772,6 +1773,11 @@ func (e *Environ) Spaces() ([]network.SpaceInfo, error) {
 // SupportsContainerAddresses is specified on environs.Networking.
 func (e *Environ) SupportsContainerAddresses() (bool, error) {
 	return false, errors.NotSupportedf("container address")
+}
+
+// SuperSubnets is specified on environs.Networking
+func (*Environ) SuperSubnets() ([]string, error) {
+	return nil, errors.NotSupportedf("super subnets")
 }
 
 // AllocateContainerAddresses is specified on environs.Networking.

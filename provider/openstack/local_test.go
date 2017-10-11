@@ -91,7 +91,7 @@ func registerLocalTests() {
 	config := makeTestConfig(cred)
 	config["agent-version"] = coretesting.FakeVersionNumber.String()
 	config["authorized-keys"] = "fakekey"
-	config["network"] = "net"
+	config["network"] = "private_999"
 	gc.Suite(&localLiveSuite{
 		LiveTests: LiveTests{
 			cred: cred,
@@ -376,7 +376,10 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 		return nil
 	})
 
-	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": true})
+	env := s.openEnviron(c, coretesting.Attrs{
+		"network":         "private_999",
+		"use-floating-ip": true,
+	})
 	err := bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapFinished, jc.IsTrue)
@@ -549,6 +552,38 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 		"caused by: "+
 		"request \\(http://.*/networks/.*\\) returned unexpected status: "+
 		"404; error info: .*itemNotFound.*")
+}
+
+func (s *localServerSuite) TestStartInstanceNetworksDifferentAZ(c *gc.C) {
+	// If both the network and external-network config values are
+	// specified, there is not check for them being on different
+	// network availability zones when use-floating-ips specified.
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network":          "net",     // az = nova
+		"external-network": "ext-net", // az = test-available
+		"use-floating-ip":  true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.StopInstances(inst.Id())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *localServerSuite) TestStartInstanceNetworkNoExternalNetInAZ(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network":         "net", // az = nova
+		"use-floating-ip": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, _, err = testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Assert(err, gc.ErrorMatches, "cannot allocate a public IP as needed: could not find an external network in availability zone.*")
 }
 
 func (s *localServerSuite) TestStartInstancePortSecurityEnabled(c *gc.C) {
@@ -854,7 +889,10 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 }
 
 func (s *localServerSuite) TestAllInstancesFloatingIP(c *gc.C) {
-	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": true})
+	env := s.openEnviron(c, coretesting.Attrs{
+		"network":         "private_999",
+		"use-floating-ip": true,
+	})
 
 	inst0, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	inst1, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "101")

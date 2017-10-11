@@ -290,10 +290,11 @@ func (sf *statusFormatter) getRemoteApplicationStatusInfo(application params.Rem
 
 func (sf *statusFormatter) formatOffer(name string, offer params.ApplicationOfferStatus) offerStatus {
 	out := offerStatus{
-		Err:             offer.Err,
-		ApplicationName: offer.ApplicationName,
-		CharmURL:        offer.CharmURL,
-		ConnectedCount:  offer.ConnectedCount,
+		Err:                  offer.Err,
+		ApplicationName:      offer.ApplicationName,
+		CharmURL:             offer.CharmURL,
+		ActiveConnectedCount: offer.ActiveConnectedCount,
+		TotalConnectedCount:  offer.TotalConnectedCount,
 	}
 	out.Endpoints = make(map[string]remoteEndpoint)
 	for alias, ep := range offer.Endpoints {

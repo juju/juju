@@ -61,11 +61,17 @@ clouds:
     regions:
       us-east1:
         endpoint: https://www.googleapis.com
+      us-east4:
+        endpoint: https://www.googleapis.com
       us-central1:
         endpoint: https://www.googleapis.com
       us-west1:
         endpoint: https://www.googleapis.com
       europe-west1:
+        endpoint: https://www.googleapis.com
+      europe-west2:
+        endpoint: https://www.googleapis.com
+      europe-west3:
         endpoint: https://www.googleapis.com
       asia-east1:
         endpoint: https://www.googleapis.com
@@ -74,6 +80,8 @@ clouds:
       asia-southeast1:
         endpoint: https://www.googleapis.com
       australia-southeast1:
+        endpoint: https://www.googleapis.com
+      southamerica-east1:
         endpoint: https://www.googleapis.com
   azure:
     type: azure

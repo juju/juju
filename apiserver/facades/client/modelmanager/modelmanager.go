@@ -501,6 +501,13 @@ func (m *ModelManagerAPI) newIAASModel(
 	}
 	defer st.Close()
 
+	if err = model.AutoConfigureContainerNetworking(env); err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing container networking autoconfiguration on a non-networking environment")
+		} else {
+			return nil, errors.Annotate(err, "Failed to perform container networking autoconfiguration")
+		}
+	}
 	if err = st.ReloadSpaces(env); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
