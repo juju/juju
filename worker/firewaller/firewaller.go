@@ -522,7 +522,8 @@ func (fw *Firewaller) reconcileInstances() error {
 			return err
 		}
 		machineId := machined.tag.Id()
-		initialRules, err := instances[0].IngressRules(machineId)
+		instance := instances[0]
+		initialRules, err := instance.IngressRules(machineId)
 		if err != nil {
 			return err
 		}
@@ -532,7 +533,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if len(toOpen) > 0 {
 			logger.Infof("opening instance port ranges %v for %q",
 				toOpen, machined.tag)
-			if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
+			if err := instance.OpenPorts(machineId, toOpen); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -540,7 +541,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if len(toClose) > 0 {
 			logger.Infof("closing instance port ranges %v for %q",
 				toClose, machined.tag)
-			if err := instances[0].ClosePorts(machineId, toClose); err != nil {
+			if err := instance.ClosePorts(machineId, toClose); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -813,6 +814,10 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	machineId := machined.tag.Id()
 	instanceId, err := m.InstanceId()
+	if params.IsCodeNotProvisioned(err) {
+		// Not provisioned yet, so nothing to do for this instance
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -820,9 +825,13 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
+	if len(instances) != 1 {
+		return errors.Errorf("Instances returned an unexpected number of instances: %d", len(instances))
+	}
+	instance := instances[0]
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
+		if err := instance.OpenPorts(machineId, toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -830,7 +839,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 		logger.Infof("opened port ranges %v on %q", toOpen, machined.tag)
 	}
 	if len(toClose) > 0 {
-		if err := instances[0].ClosePorts(machineId, toClose); err != nil {
+		if err := instance.ClosePorts(machineId, toClose); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
