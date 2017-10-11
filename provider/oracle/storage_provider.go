@@ -62,7 +62,7 @@ func (s storageProvider) Releasable() bool {
 
 // DefaultPools  is defined on the storage.Provider interface.
 func (s storageProvider) DefaultPools() []*storage.Config {
-	latencyPool, _ := storage.NewConfig("oracle-latency", oracleStorageProvideType, map[string]interface{}{
+	latencyPool, _ := storage.NewConfig("oracle-latency", oracleStorageProviderType, map[string]interface{}{
 		oracleVolumeType: latencyPool,
 	})
 	return []*storage.Config{latencyPool}

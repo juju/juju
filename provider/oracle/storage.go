@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	oracleStorageProvideType = storage.ProviderType("oracle")
+	oracleStorageProviderType = storage.ProviderType("oracle")
 
 	// maxVolumeSizeInGB represents the maximum size in GiB for
 	// a single volume. For more information please see:
@@ -74,7 +74,7 @@ func (o *OracleEnviron) canAccessStorageAPI() (bool, error) {
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (o *OracleEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
 	if access, err := o.canAccessStorageAPI(); access {
-		return []storage.ProviderType{oracleStorageProvideType}, nil
+		return []storage.ProviderType{oracleStorageProviderType}, nil
 	} else {
 		return nil, errors.Trace(err)
 	}
@@ -86,7 +86,7 @@ func (o *OracleEnviron) StorageProvider(t storage.ProviderType) (storage.Provide
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if access && t == oracleStorageProvideType {
+	if access && t == oracleStorageProviderType {
 		return &storageProvider{
 			env: o,
 			api: o.client,

@@ -113,6 +113,9 @@ const (
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
 
+	// The default filesystem storage source.
+	StorageDefaultFilesystemSourceKey = "storage-default-filesystem-source"
+
 	// ResourceTagsKey is an optional list or space-separated string
 	// of k=v pairs, defining the tags for ResourceTags.
 	ResourceTagsKey = "resource-tags"
@@ -994,6 +997,13 @@ func (c *Config) StorageDefaultBlockSource() (string, bool) {
 	return bs, bs != ""
 }
 
+// StorageDefaultFilesystemSource returns the default filesystem
+// storage source for the environment.
+func (c *Config) StorageDefaultFilesystemSource() (string, bool) {
+	bs := c.asString(StorageDefaultFilesystemSourceKey)
+	return bs, bs != ""
+}
+
 // ResourceTags returns a set of tags to set on environment resources
 // that Juju creates and manages, if the provider supports them. These
 // tags have no special meaning to Juju, but may be used for existing
@@ -1158,7 +1168,8 @@ var alwaysOptional = schema.Defaults{
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
-	StorageDefaultBlockSourceKey: schema.Omit,
+	StorageDefaultBlockSourceKey:      schema.Omit,
+	StorageDefaultFilesystemSourceKey: schema.Omit,
 
 	"firewall-mode":              schema.Omit,
 	"logging-config":             schema.Omit,
@@ -1531,6 +1542,11 @@ global or per instance security groups.`,
 	},
 	StorageDefaultBlockSourceKey: {
 		Description: "The default block storage source for the model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	StorageDefaultFilesystemSourceKey: {
+		Description: "The default filesystem storage source for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

@@ -1843,11 +1843,17 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 			return rootfsPool, nil
 		}
 
-		// TODO(axw) add env configuration for default
-		// filesystem source, prefer that.
-		defaultPool, ok := cfg.StorageDefaultBlockSource()
+		// If a filesystem source is specified in config,
+		// use that; otherwise if a block source is specified,
+		// use that and create a filesystem within.
+		defaultPool, ok := cfg.StorageDefaultFilesystemSource()
 		if !ok {
-			defaultPool = rootfsPool
+			defaultPool, ok = cfg.StorageDefaultBlockSource()
+			if !ok {
+				// No filesystem or block source,
+				// so just use rootfs.
+				defaultPool = rootfsPool
+			}
 		}
 		return defaultPool, nil
 	}
