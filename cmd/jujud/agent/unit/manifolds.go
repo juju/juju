@@ -202,7 +202,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 			PreUpgradeSteps: config.PreUpgradeSteps,
 			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
-				return noopStatusSetter{}, nil
+				return &noopStatusSetter{}, nil
 			},
 		}),
 
