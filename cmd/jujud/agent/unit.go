@@ -17,12 +17,10 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -180,9 +178,6 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		PreUpgradeSteps:      a.preUpgradeSteps,
 		UpgradeStepsLock:     a.upgradeComplete,
 		UpgradeCheckLock:     a.initialUpgradeCheckComplete,
-		Reporter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
-			return a, nil
-		},
 	})
 
 	config := dependency.EngineConfig{
@@ -247,10 +242,5 @@ func (a *UnitAgent) validateMigration(apiCaller base.APICaller) error {
 		return errors.Errorf("model mismatch when validating: got %q, expected %q",
 			newModelUUID, curModelUUID)
 	}
-	return nil
-}
-
-// SetStatus implements upgradesteps.StatusSetter
-func (a *UnitAgent) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
 	return nil
 }

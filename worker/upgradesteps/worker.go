@@ -59,7 +59,7 @@ var (
 func NewLock(agentConfig agent.Config) gate.Lock {
 	lock := gate.NewLock()
 
-	if wrench.IsActive("machine-agent", "always-try-upgrade") || wrench.IsActive("unit-agent", "always-try-upgrade") {
+	if wrench.IsActive(wrenchKey(agentConfig), "always-try-upgrade") {
 		// Always enter upgrade mode. This allows test of upgrades
 		// even when there's actually no upgrade steps to run.
 		return lock
@@ -95,12 +95,6 @@ func NewWorker(
 	machine StatusSetter,
 	newEnvironFunc environs.NewEnvironFunc,
 ) (worker.Worker, error) {
-	switch agent.CurrentConfig().Tag().(type) {
-	case names.MachineTag:
-	case names.UnitTag:
-	default:
-		return nil, errors.New("agent's tag is not a MachineTag nor a UnitTag")
-	}
 	w := &upgradesteps{
 		upgradeComplete: upgradeComplete,
 		agent:           agent,
@@ -159,8 +153,16 @@ func isAPILostDuringUpgrade(err error) bool {
 	return ok
 }
 
+func (w *upgradesteps) wrenchKey() string {
+	return wrenchKey(w.agent.CurrentConfig())
+}
+
+func wrenchKey(agentConfig agent.Config) string {
+	return agentConfig.Tag().Kind() + "-agent"
+}
+
 func (w *upgradesteps) run() error {
-	if wrench.IsActive("machine-agent", "fail-upgrade-start") || wrench.IsActive("unit-agent", "fail-upgrade-start") {
+	if wrench.IsActive(w.wrenchKey(), "fail-upgrade-start") {
 		return nil // Make the worker stop
 	}
 
@@ -232,7 +234,7 @@ func (w *upgradesteps) runUpgrades() error {
 		return err
 	}
 
-	if wrench.IsActive("machine-agent", "fail-upgrade") || wrench.IsActive("unit-agent", "fail-upgrade") {
+	if wrench.IsActive(w.wrenchKey(), "fail-upgrade") {
 		return errors.New("wrench")
 	}
 
@@ -297,7 +299,7 @@ func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 	watcher := info.Watch()
 	defer watcher.Stop()
 
-	maxWait := getUpgradeStartTimeout(w.isMaster)
+	maxWait := w.getUpgradeStartTimeout()
 	timeout := time.After(maxWait)
 	for {
 		select {
@@ -400,8 +402,8 @@ func (w *upgradesteps) finaliseUpgrade(info *state.UpgradeInfo) error {
 	return nil
 }
 
-func getUpgradeStartTimeout(isMaster bool) time.Duration {
-	if wrench.IsActive("machine-agent", "short-upgrade-timeout") || wrench.IsActive("unit-agent", "short-upgrade-timeout") {
+func (w *upgradesteps) getUpgradeStartTimeout() time.Duration {
+	if wrench.IsActive(w.wrenchKey(), "short-upgrade-timeout") {
 		// This duration is fairly arbitrary. During manual testing it
 		// avoids the normal long wait but still provides a small
 		// window to check the environment status and logs before the
@@ -409,7 +411,7 @@ func getUpgradeStartTimeout(isMaster bool) time.Duration {
 		return time.Minute
 	}
 
-	if isMaster {
+	if w.isMaster {
 		return UpgradeStartTimeoutMaster
 	}
 	return UpgradeStartTimeoutSecondary

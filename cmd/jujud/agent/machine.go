@@ -582,7 +582,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			CentralHub:           a.centralHub,
 			PubSubReporter:       pubsubReporter,
 			UpdateLoggerConfig:   updateAgentConfLogging,
-			Reporter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
+			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
 				return a.machine(apiConn)
 			},
 		})

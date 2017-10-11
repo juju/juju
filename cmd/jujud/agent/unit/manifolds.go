@@ -18,6 +18,7 @@ import (
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -91,9 +92,6 @@ type ManifoldsConfig struct {
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
 	PreUpgradeSteps func(*state.State, coreagent.Config, bool, bool) error
-
-	// Reporter provides upgradesteps.StatusSetter.
-	Reporter func(apiConn api.Connection) (upgradesteps.StatusSetter, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -203,7 +201,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				return nil, errors.New("unit agent cannot open state")
 			},
 			PreUpgradeSteps: config.PreUpgradeSteps,
-			Reporter:        config.Reporter,
+			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
+				return noopStatusSetter{}, nil
+			},
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -215,7 +215,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// possible interference with the minion (which will not
 		// take action until it's gained sole control of the
 		// fortress).
-		migrationFortressName: fortress.Manifold(),
+		migrationFortressName: ifFullyUpgraded(fortress.Manifold()),
 		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Check:         migrationflag.IsTerminal,
@@ -339,6 +339,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 }
 
+var ifFullyUpgraded = engine.Housing{
+	Flags: []string{
+		upgradeStepsFlagName,
+		upgradeCheckFlagName,
+	},
+}.Decorate
+
 var ifNotMigrating = engine.Housing{
 	Flags: []string{
 		migrationInactiveFlagName,
@@ -377,3 +384,10 @@ const (
 	metricCollectName = "metric-collect"
 	metricSenderName  = "metric-sender"
 )
+
+type noopStatusSetter struct{}
+
+// SetStatus implements upgradesteps.StatusSetter
+func (a *noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
+	return nil
+}

@@ -152,8 +152,8 @@ type ManifoldsConfig struct {
 	// config value as the logging config in the agent.conf file.
 	UpdateLoggerConfig func(string) error
 
-	// Reporter provides upgradesteps.StatusSetter.
-	Reporter func(apiConn api.Connection) (upgradesteps.StatusSetter, error)
+	// NewAgentStatusSetter provides upgradesteps.StatusSetter.
+	NewAgentStatusSetter func(apiConn api.Connection) (upgradesteps.StatusSetter, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -342,7 +342,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			OpenStateForUpgrade:  config.OpenStateForUpgrade,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
-			Reporter:             config.Reporter,
+			NewAgentStatusSetter: config.NewAgentStatusSetter,
 		}),
 
 		// The migration workers collaborate to run migrations;
