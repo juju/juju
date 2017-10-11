@@ -60,11 +60,12 @@ type containerProvisioner struct {
 // provisioner providers common behaviour for a running provisioning worker.
 type provisioner struct {
 	Provisioner
-	st          *apiprovisioner.State
-	agentConfig agent.Config
-	broker      environs.InstanceBroker
-	toolsFinder ToolsFinder
-	catacomb    catacomb.Catacomb
+	st                      *apiprovisioner.State
+	agentConfig             agent.Config
+	broker                  environs.InstanceBroker
+	distributionGroupFinder DistributionGroupFinder
+	toolsFinder             ToolsFinder
+	catacomb                catacomb.Catacomb
 }
 
 // RetryStrategy defines the retry behavior when encountering a retryable
@@ -117,6 +118,12 @@ var getToolsFinder = func(st *apiprovisioner.State) ToolsFinder {
 	return st
 }
 
+// getToolsFinder returns a ToolsFinder for the provided State.
+// This exists for mocking.
+var getDistributionGroupFinder = func(st *apiprovisioner.State) DistributionGroupFinder {
+	return st
+}
+
 // getStartTask creates a new worker for the provisioner,
 func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerTask, error) {
 	auth, err := authentication.NewAPIAuthenticator(p.st)
@@ -154,6 +161,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		machineTag,
 		harvestMode,
 		p.st,
+		p.distributionGroupFinder,
 		p.toolsFinder,
 		machineWatcher,
 		retryWatcher,
@@ -174,9 +182,10 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config, environ environs.Environ) (Provisioner, error) {
 	p := &environProvisioner{
 		provisioner: provisioner{
-			st:          st,
-			agentConfig: agentConfig,
-			toolsFinder: getToolsFinder(st),
+			st:                      st,
+			agentConfig:             agentConfig,
+			toolsFinder:             getToolsFinder(st),
+			distributionGroupFinder: getDistributionGroupFinder(st),
 		},
 		environ: environ,
 	}

@@ -545,7 +545,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 
 func (s *ProvisionerSuite) waitUntilMachineNotPending(c *gc.C, m *state.Machine) (status.StatusInfo, status.StatusInfo) {
 	t0 := time.Now()
-	for time.Since(t0) < coretesting.LongWait {
+	for time.Since(t0) < 10*coretesting.LongWait {
 		agentStatusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
 		if agentStatusInfo.Status == status.Pending {
@@ -569,9 +569,11 @@ func (s *ProvisionerSuite) waitUntilMachineNotPending(c *gc.C, m *state.Machine)
 }
 
 func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreationError(c *gc.C) {
-	// Set the retry delay to 0, and retry count to 2 to keep tests short
+	// Set the retry delay to 0, and retry count to 1 to keep tests short
+	// RetryStrategyCount will be multiplied by the number of availability
+	// zones by the provisioner.
 	s.PatchValue(provisioner.RetryStrategyDelay, 0*time.Second)
-	s.PatchValue(provisioner.RetryStrategyCount, 2)
+	s.PatchValue(provisioner.RetryStrategyCount, 1)
 
 	// create the error injection channel
 	errorInjectionChannel := make(chan error, 3)
@@ -1108,22 +1110,31 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	c.Assert(m0.Life(), gc.Equals, state.Dying)
 }
 
-type mockProvisionerGetter struct{}
+type mockMachineGetter struct{}
 
-func (*mockProvisionerGetter) DistributionGroupByMachineId(...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error) {
+func (*mockMachineGetter) Machines(...names.MachineTag) ([]apiprovisioner.MachineResult, error) {
 	return nil, fmt.Errorf("error")
 }
 
-func (*mockProvisionerGetter) Machines(...names.MachineTag) ([]apiprovisioner.MachineResult, error) {
+func (*mockMachineGetter) MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error) {
 	return nil, fmt.Errorf("error")
 }
 
-func (*mockProvisionerGetter) MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error) {
+type mockDistributionGroupFinder struct{}
+
+func (mockDistributionGroupFinder) DistributionGroupByMachineId(...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error) {
 	return nil, fmt.Errorf("error")
 }
 
 func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, config.HarvestAll, s.Environ, s.provisioner, mockToolsFinder{})
+	task := s.newProvisionerTask(
+		c,
+		config.HarvestAll,
+		s.Environ,
+		s.provisioner,
+		mockDistributionGroupFinder{},
+		mockToolsFinder{},
+	)
 	defer stop(c, task)
 
 	// create a machine
@@ -1139,7 +1150,8 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 		c,
 		config.HarvestAll,
 		s.Environ,
-		&mockProvisionerGetter{},
+		&mockMachineGetter{},
+		&mockDistributionGroupFinder{},
 		&mockToolsFinder{},
 	)
 	defer func() {
@@ -1159,7 +1171,8 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	c *gc.C,
 	harvestingMethod config.HarvestMode,
 	broker environs.InstanceBroker,
-	provisionerGetter provisioner.ProvisionerGetter,
+	machineGetter provisioner.MachineGetter,
+	distributionGroupFinder provisioner.DistributionGroupFinder,
 	toolsFinder provisioner.ToolsFinder,
 ) provisioner.ProvisionerTask {
 
@@ -1176,7 +1189,8 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		s.ControllerConfig.ControllerUUID(),
 		names.NewMachineTag("0"),
 		harvestingMethod,
-		provisionerGetter,
+		machineGetter,
+		distributionGroupFinder,
 		toolsFinder,
 		machineWatcher,
 		retryWatcher,
@@ -1191,7 +1205,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 
 func (s *ProvisionerSuite) TestHarvestNoneReapsNothing(c *gc.C) {
 
-	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, mockToolsFinder{})
+	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, mockDistributionGroupFinder{}, mockToolsFinder{})
 	defer stop(c, task)
 	task.SetHarvestMode(config.HarvestNone)
 
@@ -1214,6 +1228,7 @@ func (s *ProvisionerSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
 		config.HarvestDestroyed,
 		s.Environ,
 		s.provisioner,
+		mockDistributionGroupFinder{},
 		mockToolsFinder{},
 	)
 	defer stop(c, task)
@@ -1241,6 +1256,7 @@ func (s *ProvisionerSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
 		config.HarvestDestroyed,
 		s.Environ,
 		s.provisioner,
+		mockDistributionGroupFinder{},
 		mockToolsFinder{},
 	)
 	defer stop(c, task)
@@ -1266,6 +1282,7 @@ func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 		config.HarvestDestroyed,
 		s.Environ,
 		s.provisioner,
+		mockDistributionGroupFinder{},
 		mockToolsFinder{},
 	)
 	defer stop(c, task)
@@ -1291,6 +1308,7 @@ func (s *ProvisionerSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C) {
 		config.HarvestAll,
 		s.Environ,
 		s.provisioner,
+		mockDistributionGroupFinder{},
 		mockToolsFinder{},
 	)
 	defer stop(c, task)
@@ -1318,7 +1336,7 @@ func (s *ProvisionerSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C) {
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	e := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, config.HarvestAll, e, s.provisioner, mockToolsFinder{})
+	task := s.newProvisionerTask(c, config.HarvestAll, e, s.provisioner, mockDistributionGroupFinder{}, mockToolsFinder{})
 	defer stop(c, task)
 
 	// Provision some machines, some will be started first time,
@@ -1370,7 +1388,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	broker := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, config.HarvestAll, broker, s.provisioner, mockToolsFinder{})
+	task := s.newProvisionerTask(c, config.HarvestAll, broker, s.provisioner, mockDistributionGroupFinder{}, mockToolsFinder{})
 	defer stop(c, task)
 
 	added := s.enableHA(c, 3)

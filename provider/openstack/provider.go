@@ -1130,6 +1130,12 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	e.configurator.ModifyRunServerOptions(&opts)
 
 	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
+	if isNoValidHostsError(err) {
+		// 'No valid host available' is typically a resource error,
+		// let the provisioner know it is a good idea to try another
+		// AZ if available.
+		return nil, environs.ErrAvailabilityZoneFailed
+	}
 	if err != nil {
 		return nil, errors.Trace(errors.Annotate(err, "cannot run instance"))
 	}
@@ -1251,6 +1257,13 @@ func (e *Environ) volumeAttachmentsZone(volumeAttachments []storage.VolumeAttach
 		}
 	}
 	return zone, nil
+}
+
+func isNoValidHostsError(err error) bool {
+	if cause := errors.Cause(err); cause != nil {
+		return strings.Contains(cause.Error(), "No valid host was found")
+	}
+	return false
 }
 
 func (e *Environ) StopInstances(ids ...instance.Id) error {

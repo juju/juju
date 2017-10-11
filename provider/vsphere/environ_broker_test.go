@@ -322,19 +322,17 @@ func (s *environBrokerSuite) TestStartInstanceCallsAvailabilityZoneAllocations(c
 	c.Assert(createVMArgs.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
 }
 
-func (s *environBrokerSuite) TestStartInstanceTriesToCreateInstanceInAllAvailabilityZones(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C) {
+	c.Skip("While Provisioner Parallelization on going.")
 	s.client.SetErrors(nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err := s.env.StartInstance(startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, "failed to start instance in provided availability zone")
 
-	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "CreateVirtualMachine", "Close")
+	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "Close")
 	createVMCall1 := s.client.Calls()[1]
 	createVMArgs1 := createVMCall1.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs1.ComputeResource, jc.DeepEquals, s.client.computeResources[0])
-	createVMCall2 := s.client.Calls()[2]
-	createVMArgs2 := createVMCall2.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs2.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
 }
 
 func (s *environBrokerSuite) TestStartInstanceDatastore(c *gc.C) {

@@ -569,7 +569,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	switch {
 	case subnetErr != nil && errors.IsNotFound(subnetErr):
 		logger.Infof("no matching subnets in zone %q; assuming zone is constrained and trying another", availabilityZone)
-		return nil, subnetErr
+		return nil, environs.ErrAvailabilityZoneFailed
 	case subnetErr != nil:
 		return nil, errors.Annotatef(subnetErr, "getting subnets for zone %q", availabilityZone)
 	case len(subnetIDsForZone) > 1:
@@ -588,6 +588,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", availabilityZone), nil)
 	instResp, err = runInstances(e.ec2, runArgs, callback)
 
+	if isZoneOrSubnetConstrainedError(err) {
+		return nil, environs.ErrAvailabilityZoneFailed
+	}
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot run instances")
 	}

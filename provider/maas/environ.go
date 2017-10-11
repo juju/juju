@@ -1301,7 +1301,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
 			if i+1 < len(args.AvailabilityZones) {
 				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
-				continue
+				return nil, environs.ErrAvailabilityZoneFailed
 			}
 		}
 		if err != nil {
@@ -1330,7 +1330,7 @@ func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, erro
 		if gomaasapi.IsNoMatchError(err) {
 			if i+1 < len(args.AvailabilityZones) {
 				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
-				continue
+				return nil, environs.ErrAvailabilityZoneFailed
 			}
 		}
 		if err != nil {
