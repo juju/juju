@@ -425,6 +425,16 @@ func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Mach
 func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string]map[string]set.Strings, map[string][]*state.LinkLayerDevice, error) {
 	ipAddresses := make(map[string][]*state.Address)
 	spaces := make(map[string]map[string]set.Strings)
+	subnets, err := st.AllSubnets()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	subnetsByCIDR := make(map[string]*state.Subnet)
+	for _, subnet := range subnets {
+		subnetsByCIDR[subnet.CIDR()] = subnet
+	}
+	// For every machine, track what devices have addresses so we can filter linklayerdevices later
+	devicesWithAddresses := make(map[string]set.Strings)
 	ipAddrs, err := st.AllIPAddresses()
 	if err != nil {
 		return nil, nil, nil, err
@@ -435,26 +445,27 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		}
 		machineID := ipAddr.MachineID()
 		ipAddresses[machineID] = append(ipAddresses[machineID], ipAddr)
-		subnet, err := st.Subnet(ipAddr.SubnetCIDR())
-		if errors.IsNotFound(err) {
-			// No worries; no subnets means no spaces.
-			continue
-		} else if err != nil {
-			return nil, nil, nil, err
+		if subnet, ok := subnetsByCIDR[ipAddr.SubnetCIDR()]; ok {
+			if spaceName := subnet.SpaceName(); spaceName != "" {
+				devices, ok := spaces[machineID]
+				if !ok {
+					devices = make(map[string]set.Strings)
+					spaces[machineID] = devices
+				}
+				deviceName := ipAddr.DeviceName()
+				spacesSet, ok := devices[deviceName]
+				if !ok {
+					spacesSet = make(set.Strings)
+					devices[deviceName] = spacesSet
+				}
+				spacesSet.Add(spaceName)
+			}
 		}
-		if spaceName := subnet.SpaceName(); spaceName != "" {
-			devices, ok := spaces[machineID]
-			if !ok {
-				devices = make(map[string]set.Strings)
-				spaces[machineID] = devices
-			}
-			deviceName := ipAddr.DeviceName()
-			spacesSet, ok := devices[deviceName]
-			if !ok {
-				spacesSet = make(set.Strings)
-				devices[deviceName] = spacesSet
-			}
-			spacesSet.Add(spaceName)
+		deviceSet, ok := devicesWithAddresses[machineID]
+		if ok {
+			deviceSet.Add(ipAddr.DeviceName())
+		} else {
+			devicesWithAddresses[machineID] = set.NewStrings(ipAddr.DeviceName())
 		}
 	}
 
@@ -467,16 +478,18 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		if llDev.IsLoopbackDevice() {
 			continue
 		}
-		addrs, err := llDev.Addresses()
-		if err != nil {
-			return nil, nil, nil, err
+		machineID := llDev.MachineID()
+		machineDevs, ok := devicesWithAddresses[machineID]
+		if !ok {
+			// This machine ID doesn't seem to have any devices with IP Addresses
+			continue
 		}
-		// We don't want to see bond slaves or bridge ports, only the
-		// IP-addressed devices.
-		if len(addrs) > 0 {
-			machineID := llDev.MachineID()
-			linkLayerDevices[machineID] = append(linkLayerDevices[machineID], llDev)
+		if !machineDevs.Contains(llDev.Name()) {
+			// this device did not have any IP Addresses
+			continue
 		}
+		// This device had an IP Address, so include it in the list of devices for this machine
+		linkLayerDevices[machineID] = append(linkLayerDevices[machineID], llDev)
 	}
 
 	return ipAddresses, spaces, linkLayerDevices, nil

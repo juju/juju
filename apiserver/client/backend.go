@@ -46,6 +46,7 @@ type Backend interface {
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
 	AllModels() ([]*state.Model, error)
 	AllRelations() ([]*state.Relation, error)
+	AllSubnets() ([]*state.Subnet, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
 	APIHostPorts() ([][]network.HostPort, error)
 	Application(string) (*state.Application, error)
@@ -70,7 +71,6 @@ type Backend interface {
 	SetAnnotations(state.GlobalEntity, map[string]string) error
 	SetModelAgentVersion(version.Number) error
 	SetModelConstraints(constraints.Value) error
-	Subnet(string) (*state.Subnet, error)
 	Unit(string) (Unit, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 	Watch(params state.WatchParams) *state.Multiwatcher
