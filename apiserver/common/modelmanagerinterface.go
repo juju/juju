@@ -96,6 +96,7 @@ type Model interface {
 	LastModelConnection(user names.UserTag) (time.Time, error)
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
 	AutoConfigureContainerNetworking(environ environs.Environ) error
+	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)
@@ -119,6 +120,10 @@ func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelMana
 		return nil, nil, err
 	}
 	return modelShim{otherModel}, modelManagerStateShim{otherState, otherModel, st.pool}, nil
+}
+
+func (st modelManagerStateShim) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
+	return st.ModelConfigDefaultValues()
 }
 
 // UpdateModelConfigDefaultValues implements the ModelManagerBackend method.
