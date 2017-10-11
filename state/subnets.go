@@ -175,6 +175,12 @@ func (s *Subnet) AvailabilityZone() string {
 // SpaceName returns the space the subnet is associated with. If the subnet is
 // not associated with a space it will be the empty string.
 func (s *Subnet) SpaceName() string {
+	if s.doc.FanLocalUnderlay != "" {
+		underlay, err := s.st.Subnet(s.doc.FanLocalUnderlay)
+		if err == nil {
+			return underlay.SpaceName()
+		}
+	}
 	return s.doc.SpaceName
 }
 
