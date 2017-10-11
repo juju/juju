@@ -582,6 +582,9 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			CentralHub:           a.centralHub,
 			PubSubReporter:       pubsubReporter,
 			UpdateLoggerConfig:   updateAgentConfLogging,
+			Reporter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
+				return a.machine(apiConn)
+			},
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -848,17 +851,21 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	return runner, nil
 }
 
-func (a *MachineAgent) setControllerNetworkConfig(apiConn api.Connection) error {
+func (a *MachineAgent) machine(apiConn api.Connection) (*apimachiner.Machine, error) {
 	machinerAPI := apimachiner.NewState(apiConn)
 	agentConfig := a.CurrentConfig()
 
 	tag := agentConfig.Tag().(names.MachineTag)
-	machine, err := machinerAPI.Machine(tag)
+	return machinerAPI.Machine(tag)
+}
+
+func (a *MachineAgent) setControllerNetworkConfig(apiConn api.Connection) error {
+	machine, err := a.machine(apiConn)
 	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
 		return jworker.ErrTerminateAgent
 	}
 	if err != nil {
-		return errors.Annotatef(err, "cannot load machine %s from state", tag)
+		return errors.Annotatef(err, "cannot load machine %s from state", a.CurrentConfig().Tag())
 	}
 
 	if err := machine.SetProviderNetworkConfig(); err != nil {

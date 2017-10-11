@@ -10,8 +10,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	apiagent "github.com/juju/juju/api/agent"
-	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/dependency"
@@ -27,6 +25,7 @@ type ManifoldConfig struct {
 	OpenStateForUpgrade  func() (*state.State, error)
 	PreUpgradeSteps      func(*state.State, agent.Config, bool, bool) error
 	NewEnvironFunc       environs.NewEnvironFunc
+	Reporter             func(apiConn api.Connection) (StatusSetter, error)
 }
 
 // Manifold returns a dependency manifold that runs an upgrader
@@ -52,11 +51,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
-
-			// Grab the tag and ensure that it's for a machine.
-			tag, ok := agent.CurrentConfig().Tag().(names.MachineTag)
-			if !ok {
-				return nil, errors.New("agent's tag is not a machine tag")
+			switch agent.CurrentConfig().Tag().(type) {
+			case names.MachineTag:
+			case names.UnitTag:
+			default:
+				return nil, errors.New("agent's tag is not a MachineTag nor a UnitTag")
 			}
 
 			// Get API connection.
@@ -68,40 +67,26 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			// Get the machine agent's jobs.
-			// TODO(fwereade): use appropriate facade!
-			agentFacade, err := apiagent.NewState(apiConn)
-			if err != nil {
-				return nil, err
-			}
-			entity, err := agentFacade.Entity(tag)
-			if err != nil {
-				return nil, err
-			}
-			jobs := entity.Jobs()
-
-			// Get machine instance for setting status on.
-			// TODO(fwereade): use appropriate facade!
-			machinerFacade := apimachiner.NewState(apiConn)
-			machine, err := machinerFacade.Machine(tag)
-			if err != nil {
-				return nil, err
-			}
-
 			// Get upgradesteps completed lock.
 			var upgradeStepsLock gate.Lock
 			if err := context.Get(config.UpgradeStepsGateName, &upgradeStepsLock); err != nil {
 				return nil, err
 			}
 
+			// Get a reporter capable of setting machine status
+			// to indicate progress to the user.
+			reporter, err := config.Reporter(apiConn)
+			if err != nil {
+				return nil, err
+			}
 			return NewWorker(
 				upgradeStepsLock,
 				agent,
 				apiConn,
-				jobs,
+				agent.CurrentConfig().Jobs(),
 				config.OpenStateForUpgrade,
 				config.PreUpgradeSteps,
-				machine,
+				reporter,
 				config.NewEnvironFunc,
 			)
 		},

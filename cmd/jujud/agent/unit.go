@@ -17,14 +17,19 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 var (
@@ -48,8 +53,9 @@ type UnitAgent struct {
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
 	// longer any immediately pending agent upgrades.
-	// Channel used as a selectable bool (closed means true).
-	initialUpgradeCheckComplete chan struct{}
+	initialUpgradeCheckComplete gate.Lock
+	preUpgradeSteps             upgrades.PreUpgradeStepsFunc
+	upgradeComplete             gate.Lock
 
 	prometheusRegistry *prometheus.Registry
 }
@@ -64,9 +70,10 @@ func NewUnitAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter)
 		AgentConf:        NewAgentConf(""),
 		configChangedVal: voyeur.NewValue(true),
 		ctx:              ctx,
-		initialUpgradeCheckComplete: make(chan struct{}),
+		initialUpgradeCheckComplete: gate.NewLock(),
 		bufferedLogger:              bufferedLogger,
 		prometheusRegistry:          prometheusRegistry,
+		preUpgradeSteps:             upgrades.PreUpgradeSteps,
 	}, nil
 }
 
@@ -127,6 +134,14 @@ func (a *UnitAgent) Stop() error {
 	return a.tomb.Wait()
 }
 
+func (a *UnitAgent) isUpgradeRunning() bool {
+	return !a.upgradeComplete.IsUnlocked()
+}
+
+func (a *UnitAgent) isInitialUpgradeCheckPending() bool {
+	return !a.initialUpgradeCheckComplete.IsUnlocked()
+}
+
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	defer a.tomb.Done()
@@ -150,6 +165,9 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		})
 	}
 
+	agentConfig := a.AgentConf.CurrentConfig()
+	a.upgradeComplete = upgradesteps.NewLock(agentConfig)
+
 	manifolds := unitManifolds(unit.ManifoldsConfig{
 		Agent:                agent.APIHostPortsSetter{a},
 		LogSource:            a.bufferedLogger.Logs(),
@@ -158,6 +176,13 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		ValidateMigration:    a.validateMigration,
 		PrometheusRegisterer: a.prometheusRegistry,
 		UpdateLoggerConfig:   updateAgentConfLogging,
+		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
+		PreUpgradeSteps:      a.preUpgradeSteps,
+		UpgradeStepsLock:     a.upgradeComplete,
+		UpgradeCheckLock:     a.initialUpgradeCheckComplete,
+		Reporter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
+			return a, nil
+		},
 	})
 
 	config := dependency.EngineConfig{
@@ -222,5 +247,10 @@ func (a *UnitAgent) validateMigration(apiCaller base.APICaller) error {
 		return errors.Errorf("model mismatch when validating: got %q, expected %q",
 			newModelUUID, curModelUUID)
 	}
+	return nil
+}
+
+// SetStatus implements upgradesteps.StatusSetter
+func (a *UnitAgent) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
 	return nil
 }

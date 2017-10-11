@@ -59,7 +59,7 @@ var (
 func NewLock(agentConfig agent.Config) gate.Lock {
 	lock := gate.NewLock()
 
-	if wrench.IsActive("machine-agent", "always-try-upgrade") {
+	if wrench.IsActive("machine-agent", "always-try-upgrade") || wrench.IsActive("unit-agent", "always-try-upgrade") {
 		// Always enter upgrade mode. This allows test of upgrades
 		// even when there's actually no upgrade steps to run.
 		return lock
@@ -95,9 +95,11 @@ func NewWorker(
 	machine StatusSetter,
 	newEnvironFunc environs.NewEnvironFunc,
 ) (worker.Worker, error) {
-	tag, ok := agent.CurrentConfig().Tag().(names.MachineTag)
-	if !ok {
-		return nil, errors.New("machine agent's tag is not a MachineTag")
+	switch agent.CurrentConfig().Tag().(type) {
+	case names.MachineTag:
+	case names.UnitTag:
+	default:
+		return nil, errors.New("agent's tag is not a MachineTag nor a UnitTag")
 	}
 	w := &upgradesteps{
 		upgradeComplete: upgradeComplete,
@@ -107,7 +109,7 @@ func NewWorker(
 		openState:       openState,
 		preUpgradeSteps: preUpgradeSteps,
 		machine:         machine,
-		tag:             tag,
+		tag:             agent.CurrentConfig().Tag(),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -128,7 +130,7 @@ type upgradesteps struct {
 
 	fromVersion  version.Number
 	toVersion    version.Number
-	tag          names.MachineTag
+	tag          names.Tag
 	isMaster     bool
 	isController bool
 	st           *state.State
@@ -158,7 +160,7 @@ func isAPILostDuringUpgrade(err error) bool {
 }
 
 func (w *upgradesteps) run() error {
-	if wrench.IsActive("machine-agent", "fail-upgrade-start") {
+	if wrench.IsActive("machine-agent", "fail-upgrade-start") || wrench.IsActive("unit-agent", "fail-upgrade-start") {
 		return nil // Make the worker stop
 	}
 
@@ -176,7 +178,7 @@ func (w *upgradesteps) run() error {
 		return nil
 	}
 
-	// If the machine agent is a controller, flag that state
+	// If the agent is a machine agent for a controller, flag that state
 	// needs to be opened before running upgrade steps
 	for _, job := range w.jobs {
 		if job == multiwatcher.JobManageModel {
@@ -206,7 +208,7 @@ func (w *upgradesteps) run() error {
 		// to restart.
 		//
 		// For other errors, the error is not returned because we want
-		// the machine agent to stay running in an error state waiting
+		// the agent to stay running in an error state waiting
 		// for user intervention.
 		if isAPILostDuringUpgrade(err) {
 			return err
@@ -230,7 +232,7 @@ func (w *upgradesteps) runUpgrades() error {
 		return err
 	}
 
-	if wrench.IsActive("machine-agent", "fail-upgrade") {
+	if wrench.IsActive("machine-agent", "fail-upgrade") || wrench.IsActive("unit-agent", "fail-upgrade") {
 		return errors.New("wrench")
 	}
 
@@ -250,10 +252,13 @@ func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
 	}
 
-	if !w.isController {
-		return nil, nil
+	if w.isController {
+		return w.prepareControllerForUpgrade()
 	}
+	return nil, nil
+}
 
+func (w *upgradesteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error) {
 	logger.Infof("signalling that this controller is ready for upgrade")
 	info, err := w.st.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
 	if err != nil {
@@ -328,12 +333,12 @@ func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 	}
 }
 
-// runUpgradeSteps runs the required upgrade steps for the machine
-// agent, retrying on failure. The agent's UpgradedToVersion is set
+// runUpgradeSteps runs the required upgrade steps for the agent,
+// retrying on failure. The agent's UpgradedToVersion is set
 // once the upgrade is complete.
 //
 // This function conforms to the agent.ConfigMutator type and is
-// designed to be called via a machine agent's ChangeConfig method.
+// designed to be called via an agent's ChangeConfig method.
 func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error
 	w.machine.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
@@ -396,7 +401,7 @@ func (w *upgradesteps) finaliseUpgrade(info *state.UpgradeInfo) error {
 }
 
 func getUpgradeStartTimeout(isMaster bool) time.Duration {
-	if wrench.IsActive("machine-agent", "short-upgrade-timeout") {
+	if wrench.IsActive("machine-agent", "short-upgrade-timeout") || wrench.IsActive("unit-agent", "short-upgrade-timeout") {
 		// This duration is fairly arbitrary. During manual testing it
 		// avoids the normal long wait but still provides a small
 		// window to check the environment status and logs before the
@@ -442,7 +447,7 @@ var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 }
 
 // jobsToTargets determines the upgrade targets corresponding to the
-// jobs assigned to a machine agent. This determines the upgrade steps
+// jobs assigned to an agent. This determines the upgrade steps
 // which will run during an upgrade.
 func jobsToTargets(jobs []multiwatcher.MachineJob, isMaster bool) (targets []upgrades.Target) {
 	for _, job := range jobs {
