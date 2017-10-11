@@ -7,7 +7,7 @@ package names
 const (
 	Juju           = "juju.exe"
 	Jujud          = "jujud.exe"
-	JujudVersions  = "jujud.ver"
+	JujudVersions  = "jujud-versions.yaml"
 	Jujuc          = "jujuc.exe"
 	JujuRun        = "juju-run.exe"
 	JujuDumpLogs   = "juju-dumplogs.exe"

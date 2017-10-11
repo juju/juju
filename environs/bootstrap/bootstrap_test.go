@@ -528,7 +528,8 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 			// If we found an official build we suppress the build number.
 			localVer.Build = 0
 			return &sync.BuiltAgent{
-				Dir: c.MkDir(),
+				Dir:      c.MkDir(),
+				Official: true,
 				Version: version.Binary{
 					Number: localVer,
 					Series: "quental",

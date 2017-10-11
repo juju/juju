@@ -235,7 +235,7 @@ func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
 	err = ioutil.WriteFile(filepath.Join(dir, "jujud"), []byte(fakeBinary), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	if versionFile != "" {
-		err = ioutil.WriteFile(filepath.Join(dir, "jujud.ver"), []byte(versionFile), 0755)
+		err = ioutil.WriteFile(filepath.Join(dir, "jujud-versions.yaml"), []byte(versionFile), 0755)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -278,7 +278,7 @@ func (b *buildSuite) TestBundleToolsIncludesVersionFile(c *gc.C) {
 	unpackDir := filepath.Join(dir, "tools", "1.2.3-quantal-arm64")
 	// downloaded-tools.txt is added by UnpackTools.
 	c.Assert(listDir(c, unpackDir), gc.DeepEquals, []string{
-		"downloaded-tools.txt", "jujud", "jujud.ver"})
+		"downloaded-tools.txt", "jujud", "jujud-versions.yaml"})
 }
 
 func listDir(c *gc.C, dir string) []string {
@@ -306,14 +306,32 @@ func (b *buildSuite) TestBundleToolsMatchesBinaryUsingSeriesArch(c *gc.C) {
 	c.Assert(official, jc.IsTrue)
 }
 
-func (b *buildSuite) TestBundleTestRejectsVersionFileWithNoMatch(c *gc.C) {
-	dir := b.setUpFakeBinaries(c, noMatchVersionFile)
-	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
-	c.Assert(err, jc.ErrorIsNil)
+func (b *buildSuite) TestJujudVersion(c *gc.C) {
+	dir := b.setUpFakeBinaries(c, "")
 
-	forceVersion := version.MustParse("1.2.3.1")
-	_, _, _, err = tools.BundleTools(false, bundleFile, &forceVersion)
-	c.Assert(err, gc.ErrorMatches, `no SHA256 in version file "[^\"]+" matches binary "[^\"]+"`)
+	// Patch so that getting the version from our fake binary in the
+	// absence of a version file works.
+	ver := version.Binary{
+		Number: version.Number{
+			Major: 1,
+			Minor: 2,
+			Patch: 3,
+		},
+		Series: "artful",
+		Arch:   "amd64",
+	}
+
+	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+		Stdout: ver.String(),
+		Args:   make(chan []string, 1),
+	})
+
+	b.PatchValue(tools.ExecCommand, execCommand)
+
+	resultVersion, official, err := tools.JujudVersion(dir)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-artful-amd64")
+	c.Assert(official, jc.IsFalse)
 }
 
 func (b *buildSuite) TestBundleToolsWithNoVersion(c *gc.C) {
@@ -341,9 +359,10 @@ func (b *buildSuite) TestBundleToolsWithNoVersion(c *gc.C) {
 	b.PatchValue(tools.ExecCommand, execCommand)
 
 	forceVersion := version.MustParse("1.2.3.1")
-	resultVersion, official, _, err := tools.BundleTools(false, bundleFile, &forceVersion)
+	resultVersion, official, sha, err := tools.BundleTools(false, bundleFile, &forceVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-artful-amd64")
+	c.Assert(sha, gc.Not(gc.Equals), "")
 	c.Assert(official, jc.IsFalse)
 }
 

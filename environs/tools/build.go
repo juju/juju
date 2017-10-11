@@ -165,20 +165,31 @@ func copyFileWithMode(from, to string, mode os.FileMode) error {
 	return nil
 }
 
-func copyExistingJujud(dir string) error {
-	// Assume that the user is running juju.
+// ExistingJujudLocation returns the directory to
+// a jujud executable in the path.
+func ExistingJujudLocation() (string, error) {
 	jujuLocation, err := findExecutable(os.Args[0])
 	if err != nil {
 		logger.Infof("%v", err)
-		return err
+		return "", err
 	}
 	jujuDir := filepath.Dir(jujuLocation)
+	return jujuDir, nil
+}
+
+func copyExistingJujud(dir string) error {
+	// Assume that the user is running juju.
+	jujuDir, err := ExistingJujudLocation()
+	if err != nil {
+		logger.Infof("couldn't find existing jujud: %v", err)
+		return errors.Trace(err)
+	}
 	jujudLocation := filepath.Join(jujuDir, names.Jujud)
 	logger.Debugf("checking: %s", jujudLocation)
 	info, err := os.Stat(jujudLocation)
 	if err != nil {
-		logger.Infof("couldn't find existing jujud")
-		return err
+		logger.Infof("couldn't find existing jujud: %v", err)
+		return errors.Trace(err)
 	}
 	logger.Infof("Found agent binary to upload (%s)", jujudLocation)
 	// TODO(thumper): break this out into a util function.
@@ -242,7 +253,7 @@ var BundleTools BundleToolsFunc = bundleTools
 // format to the given writer.  If forceVersion is not nil and the
 // file isn't an official build, a FORCE-VERSION file is included in
 // the tools bundle so it will lie about its current version number.
-func bundleTools(build bool, w io.Writer, forceVersion *version.Number) (version.Binary, bool, string, error) {
+func bundleTools(build bool, w io.Writer, forceVersion *version.Number) (_ version.Binary, official bool, sha256hash string, _ error) {
 	dir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return version.Binary{}, false, "", err
@@ -252,21 +263,10 @@ func bundleTools(build bool, w io.Writer, forceVersion *version.Number) (version
 		return version.Binary{}, false, "", err
 	}
 
-	official := true
-	tvers, err := getVersionFromFile(dir)
-	if errors.IsNotFound(err) {
-		// Extract the version number that the jujud binary was built with.
-		// This is used to check compatibility with the version of the client
-		// being used to bootstrap.
-		official = false
-		tvers, err = getVersionFromJujud(dir)
-		if err != nil {
-			return version.Binary{}, false, "", errors.Trace(err)
-		}
-	} else if err != nil {
+	tvers, official, err := JujudVersion(dir)
+	if err != nil {
 		return version.Binary{}, false, "", errors.Trace(err)
 	}
-
 	if official {
 		logger.Debugf("using official version %s", tvers)
 	} else if forceVersion != nil {
@@ -276,7 +276,7 @@ func bundleTools(build bool, w io.Writer, forceVersion *version.Number) (version
 		}
 	}
 
-	sha256hash, err := archiveAndSHA256(w, dir)
+	sha256hash, err = archiveAndSHA256(w, dir)
 	if err != nil {
 		return version.Binary{}, false, "", err
 	}
@@ -301,6 +301,41 @@ func getVersionFromJujud(dir string) (version.Binary, error) {
 		return version.Binary{}, errors.Errorf("invalid version %q printed by jujud", tvs)
 	}
 	return tvers, nil
+}
+
+// JujudVersion returns the Jujud version at the specified location,
+// and whether it is an official binary.
+func JujudVersion(dir string) (version.Binary, bool, error) {
+	tvers, err := getVersionFromFile(dir)
+	official := err == nil
+	if err != nil && !errors.IsNotFound(err) && !isNoMatchingToolsChecksum(err) {
+		return version.Binary{}, false, errors.Trace(err)
+	}
+	if errors.IsNotFound(err) || isNoMatchingToolsChecksum(err) {
+		// No signature file found.
+		// Extract the version number that the jujud binary was built with.
+		// This is used to check compatibility with the version of the client
+		// being used to bootstrap.
+		tvers, err = getVersionFromJujud(dir)
+		if err != nil {
+			return version.Binary{}, false, errors.Trace(err)
+		}
+	}
+	return tvers, official, nil
+}
+
+type noMatchingToolsChecksum struct {
+	versionPath string
+	jujudPath   string
+}
+
+func (e *noMatchingToolsChecksum) Error() string {
+	return fmt.Sprintf("no SHA256 in version file %q matches binary %q", e.versionPath, e.jujudPath)
+}
+
+func isNoMatchingToolsChecksum(err error) bool {
+	_, ok := err.(*noMatchingToolsChecksum)
+	return ok
 }
 
 func getVersionFromFile(dir string) (version.Binary, error) {
@@ -330,7 +365,7 @@ func getVersionFromFile(dir string) (version.Binary, error) {
 		return version.Binary{}, errors.Trace(err)
 	}
 	if len(matching) == 0 {
-		return version.Binary{}, errors.Errorf("no SHA256 in version file %q matches binary %q", versionPath, jujudPath)
+		return version.Binary{}, &noMatchingToolsChecksum{versionPath, jujudPath}
 	}
 	return selectBinary(matching)
 }

@@ -338,7 +338,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			version := builtTools.Version
 			version.Series = tool.Version.Series
 			version.Arch = tool.Version.Arch
-
+			// But if not an official build, use the forced version.
+			if !builtTools.Official {
+				version.Number = forceVersion
+			}
 			tool.Version = version
 			availableTools[i] = tool
 		}

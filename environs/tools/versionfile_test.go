@@ -62,14 +62,14 @@ func (s *versionSuite) TestVersionsMatching(c *gc.C) {
 
 func (s *versionSuite) TestVersionsMatchingHash(c *gc.C) {
 	v := getVersions(c)
-	results := v.VersionsMatchingHash(
+	results := tools.VersionsMatchingHash(v,
 		"eeead9934c597c7678e989e7fd20bf57056a52ce8e25ace371a83711ad484d0c")
 	c.Assert(results, gc.DeepEquals, []string{
 		"2.2.4-xenial-amd64",
 		"2.2.4-trusty-amd64",
 		"2.2.4-centos7-amd64",
 	})
-	results = v.VersionsMatchingHash(
+	results = tools.VersionsMatchingHash(v,
 		"f6cf381fc20545d827b307dd413377bff3c123e1894fdf6c239f07a4143beb47")
 	c.Assert(results, gc.DeepEquals, []string{
 		"2.2.4-xenial-arm64",
