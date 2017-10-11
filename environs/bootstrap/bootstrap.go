@@ -321,6 +321,8 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
 		defer os.RemoveAll(builtTools.Dir)
+		// Combine the built agent information with the list of
+		// available tools.
 		for i, tool := range availableTools {
 			if tool.URL != "" {
 				continue
@@ -329,6 +331,15 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			tool.URL = fmt.Sprintf("file://%s", filename)
 			tool.Size = builtTools.Size
 			tool.SHA256 = builtTools.Sha256Hash
+
+			// Use the version from the built tools but with the
+			// corrected series and arch - this ensures the build
+			// number is right if we found a valid official build.
+			version := builtTools.Version
+			version.Series = tool.Version.Series
+			version.Arch = tool.Version.Arch
+
+			tool.Version = version
 			availableTools[i] = tool
 		}
 	}
