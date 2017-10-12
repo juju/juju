@@ -189,6 +189,40 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 	c.Check(getVolumeCalls, gc.Equals, 2)
 }
 
+func (s *cinderVolumeSourceSuite) TestCreateVolumeVolumeType(c *gc.C) {
+	var created bool
+	mockAdapter := &mockAdapter{
+		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
+			created = true
+			c.Assert(args, jc.DeepEquals, cinder.CreateVolumeVolumeParams{
+				Size:       1,
+				Name:       "juju-testenv-volume-123",
+				VolumeType: "SSD",
+			})
+			return &cinder.Volume{ID: mockVolId}, nil
+		},
+		getVolume: func(volumeId string) (*cinder.Volume, error) {
+			return &cinder.Volume{
+				ID:     volumeId,
+				Size:   1,
+				Status: "available",
+			}, nil
+		},
+	}
+
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
+	_, err := volSource.CreateVolumes([]storage.VolumeParams{{
+		Provider: openstack.CinderProviderType,
+		Tag:      mockVolumeTag,
+		Size:     1024,
+		Attributes: map[string]interface{}{
+			"volume-type": "SSD",
+		},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(created, jc.IsTrue)
+}
+
 func (s *cinderVolumeSourceSuite) TestResourceTags(c *gc.C) {
 	var created bool
 	mockAdapter := &mockAdapter{
