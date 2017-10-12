@@ -82,6 +82,10 @@ var (
 		"migration-inactive-flag",
 		"migration-minion",
 		"upgrader",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+		"upgrade-check-gate",
+		"upgrade-check-flag",
 	}
 	notMigratingUnitWorkers = []string{
 		"api-address-updater",
