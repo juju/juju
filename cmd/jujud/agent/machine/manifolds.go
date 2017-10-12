@@ -151,6 +151,9 @@ type ManifoldsConfig struct {
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
 	UpdateLoggerConfig func(string) error
+
+	// NewAgentStatusSetter provides upgradesteps.StatusSetter.
+	NewAgentStatusSetter func(apiConn api.Connection) (upgradesteps.StatusSetter, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -339,6 +342,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			OpenStateForUpgrade:  config.OpenStateForUpgrade,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
+			NewAgentStatusSetter: config.NewAgentStatusSetter,
 		}),
 
 		// The migration workers collaborate to run migrations;

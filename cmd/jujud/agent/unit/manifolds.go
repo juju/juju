@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
+	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
@@ -16,6 +17,8 @@ import (
 	"github.com/juju/juju/api/base"
 	msapi "github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -24,6 +27,7 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -37,6 +41,7 @@ import (
 	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -68,6 +73,25 @@ type ManifoldsConfig struct {
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
 	UpdateLoggerConfig func(string) error
+
+	// PreviousAgentVersion passes through the version the unit
+	// agent was running before the current restart.
+	PreviousAgentVersion version.Number
+
+	// UpgradeStepsLock is passed to the upgrade steps gate to
+	// coordinate workers that shouldn't do anything until the
+	// upgrade-steps worker is done.
+	UpgradeStepsLock gate.Lock
+
+	// UpgradeCheckLock is passed to the upgrade check gate to
+	// coordinate workers that shouldn't do anything until the
+	// upgrader worker completes it's first check.
+	UpgradeCheckLock gate.Lock
+
+	// PreUpgradeSteps is a function that is used by the upgradesteps
+	// worker to ensure that conditions are OK for an upgrade to
+	// proceed.
+	PreUpgradeSteps func(*state.State, coreagent.Config, bool, bool) error
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -127,6 +151,29 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogSource:     config.LogSource,
 		}),
 
+		// The upgrade steps gate is used to coordinate workers which
+		// shouldn't do anything until the upgrade-steps worker has
+		// finished running any required upgrade steps. The flag of
+		// similar name is used to implement the isFullyUpgraded func
+		// that keeps upgrade concerns out of unrelated manifolds.
+		upgradeStepsGateName: gate.ManifoldEx(config.UpgradeStepsLock),
+		upgradeStepsFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  upgradeStepsGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+
+		// The upgrade check gate is used to coordinate workers which
+		// shouldn't do anything until the upgrader worker has
+		// completed its first check for a new tools version to
+		// upgrade to. The flag of similar name is used to implement
+		// the isFullyUpgraded func that keeps upgrade concerns out of
+		// unrelated manifolds.
+		upgradeCheckGateName: gate.ManifoldEx(config.UpgradeCheckLock),
+		upgradeCheckFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  upgradeCheckGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+
 		// The upgrader is a leaf worker that returns a specific error type
 		// recognised by the unit agent, causing other workers to be stopped
 		// and the agent to be restarted running the new tools. We should only
@@ -134,8 +181,29 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// careful about behavioural differences, and interactions with the
 		// upgradesteps worker.
 		upgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			UpgradeCheckGateName: upgradeCheckGateName,
+			PreviousAgentVersion: config.PreviousAgentVersion,
+		}),
+
+		// The upgradesteps worker runs soon after the unit agent
+		// starts and runs any steps required to upgrade to the
+		// running jujud version. Once upgrade steps have run, the
+		// upgradesteps gate is unlocked and the worker exits.
+		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			// Realistically,  units should not open state for any reason.
+			OpenStateForUpgrade: func() (*state.State, error) {
+				return nil, errors.New("unit agent cannot open state")
+			},
+			PreUpgradeSteps: config.PreUpgradeSteps,
+			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
+				return &noopStatusSetter{}, nil
+			},
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -147,7 +215,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// possible interference with the minion (which will not
 		// take action until it's gained sole control of the
 		// fortress).
-		migrationFortressName: fortress.Manifold(),
+		migrationFortressName: ifFullyUpgraded(fortress.Manifold()),
 		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Check:         migrationflag.IsTerminal,
@@ -271,6 +339,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 }
 
+var ifFullyUpgraded = engine.Housing{
+	Flags: []string{
+		upgradeStepsFlagName,
+		upgradeCheckFlagName,
+	},
+}.Decorate
+
 var ifNotMigrating = engine.Housing{
 	Flags: []string{
 		migrationInactiveFlagName,
@@ -283,7 +358,13 @@ const (
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
 	logSenderName        = "log-sender"
+
 	upgraderName         = "upgrader"
+	upgradeStepsName     = "upgrade-steps-runner"
+	upgradeStepsGateName = "upgrade-steps-gate"
+	upgradeStepsFlagName = "upgrade-steps-flag"
+	upgradeCheckGateName = "upgrade-check-gate"
+	upgradeCheckFlagName = "upgrade-check-flag"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
@@ -303,3 +384,10 @@ const (
 	metricCollectName = "metric-collect"
 	metricSenderName  = "metric-sender"
 )
+
+type noopStatusSetter struct{}
+
+// SetStatus implements upgradesteps.StatusSetter
+func (a *noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
+	return nil
+}
