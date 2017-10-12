@@ -39,6 +39,7 @@ type mockState struct {
 	macaroons      map[names.Tag]*macaroon.Macaroon
 	relations      map[string]*mockRelation
 	controllerInfo map[string]*mockControllerInfo
+	firewallRules  map[state.WellKnownServiceType]*state.FirewallRule
 	subnetsWatcher *mockStringsWatcher
 	modelWatcher   *mockNotifyWatcher
 	configAttrs    map[string]interface{}
@@ -51,6 +52,7 @@ func newMockState(modelUUID string) *mockState {
 		remoteEntities: make(map[names.Tag]string),
 		macaroons:      make(map[names.Tag]*macaroon.Macaroon),
 		controllerInfo: make(map[string]*mockControllerInfo),
+		firewallRules:  make(map[state.WellKnownServiceType]*state.FirewallRule),
 		subnetsWatcher: newMockStringsWatcher(),
 		modelWatcher:   newMockNotifyWatcher(),
 		configAttrs:    coretesting.FakeConfig(),
@@ -108,6 +110,14 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	st.MethodCall(st, "FindEntity")
 	// TODO - implement when remaining firewaller tests become unit tests
 	return nil, errors.NotImplementedf("FindEntity")
+}
+
+func (st *mockState) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
+	r, ok := st.firewallRules[service]
+	if !ok {
+		return nil, errors.NotFoundf("firewall rule for %q", service)
+	}
+	return r, nil
 }
 
 type mockWatcher struct {
