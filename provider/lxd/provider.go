@@ -79,7 +79,15 @@ func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*con
 	if err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	return args.Config, nil
+	// Set the default filesystem-storage source.
+	attrs := make(map[string]interface{})
+	if _, ok := args.Config.StorageDefaultFilesystemSource(); !ok {
+		attrs[config.StorageDefaultFilesystemSourceKey] = lxdStorageProviderType
+	}
+	if len(attrs) == 0 {
+		return args.Config, nil
+	}
+	return args.Config.Apply(attrs)
 }
 
 // Validate implements environs.EnvironProvider.
