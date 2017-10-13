@@ -24,7 +24,7 @@ const listCommandDoc = `
 List information about applications' endpoints that have been shared and who is connected.
 
 The default tabular output shows each user connected (relating to) the offer, and the 
-relation id of the relation. If no relations have been made, no rows are printed.
+relation id of the relation.
 
 The summary output shows one row per offer, with a count of active/total relations.
 
@@ -36,6 +36,7 @@ The output can be filtered by:
  - application: the name of the offered application
  - connected user: the name of a user who has a relation to the offer
  - allowed consumer: the name of a user allowed to consume the offer
+ - active only: only show offers which are in use (are related to)
 
 Examples:
     $ juju offers
@@ -45,6 +46,7 @@ Examples:
     $ juju offers --connected-user fred
     $ juju offers --allowed-consumer mary
     $ juju offers hosted-mysql
+    $ juju offers hosted-mysql --active-only
 
 See also:
    find-offers   
@@ -60,6 +62,7 @@ type listCommand struct {
 	newAPIFunc    func() (ListAPI, error)
 	refreshModels func(jujuclient.ClientStore, string) error
 
+	activeOnly        bool
 	interfaceName     string
 	applicationName   string
 	connectedUserName string
@@ -116,6 +119,7 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
 	f.StringVar(&c.consumerName, "allowed-consumer", "", "return results where the user is allowed to consume the offer")
 	f.StringVar(&c.connectedUserName, "connected-user", "", "return results where the user has a connection to the offer")
+	f.BoolVar(&c.activeOnly, "active-only", false, "only return results where the offer is in use")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -180,7 +184,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 
 	// For now, all offers come from the one controller.
-	data, err := formatApplicationOfferDetails(controllerName, offeredApplications)
+	data, err := formatApplicationOfferDetails(controllerName, offeredApplications, c.activeOnly)
 	if err != nil {
 		return errors.Annotate(err, "failed to format found applications")
 	}
@@ -238,9 +242,12 @@ type offerConnectionDetails struct {
 	IngressSubnets  []string              `json:"ingress-subnets,omitempty" yaml:"ingress-subnets,omitempty"`
 }
 
-func formatApplicationOfferDetails(store string, all []*crossmodel.ApplicationOfferDetails) (offeredApplications, error) {
+func formatApplicationOfferDetails(store string, all []*crossmodel.ApplicationOfferDetails, activeOnly bool) (offeredApplications, error) {
 	result := make(offeredApplications)
 	for _, one := range all {
+		if activeOnly && len(one.Connections) == 0 {
+			continue
+		}
 		url, err := crossmodel.ParseOfferURL(one.OfferURL)
 		if err != nil {
 			return nil, errors.Annotatef(err, "%v", one.OfferURL)

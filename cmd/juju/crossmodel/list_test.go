@@ -115,11 +115,11 @@ func (s *ListSuite) TestListSummary(c *gc.C) {
 		[]string{"--format", "summary"},
 		`
 Offer       Application     Charm     Connected  Store           URL                                  Endpoint  Interface  Role
-zdiff-db2   app-zdiff-db2   cs:db2-5  1/3        differentstore  differentstore:fred/model.zdiff-db2  log       http       provider
+adiff-db2   app-adiff-db2   cs:db2-5  0/2        vendor          vendor:fred/model.adiff-db2          log       http       provider
                                                                                                       mysql     db2        requirer
 hosted-db2  app-hosted-db2  cs:db2-5  0/0        myctrl          myctrl:fred/model.hosted-db2         log       http       provider
                                                                                                       mysql     db2        requirer
-adiff-db2   app-adiff-db2   cs:db2-5  0/2        vendor          vendor:fred/model.adiff-db2          log       http       provider
+zdiff-db2   app-zdiff-db2   cs:db2-5  1/3        differentstore  differentstore:fred/model.zdiff-db2  log       http       provider
                                                                                                       mysql     db2        requirer
 
 `[1:],
@@ -127,7 +127,20 @@ adiff-db2   app-adiff-db2   cs:db2-5  0/2        vendor          vendor:fred/mod
 	)
 }
 
-func (s *ListSuite) TestListTabular(c *gc.C) {
+func (s *ListSuite) TestListTabularNoConnections(c *gc.C) {
+	s.assertValidList(
+		c,
+		[]string{"--format", "tabular"},
+		`
+Offer       User  Relation id  Status  Endpoint  Interface  Role  Ingress subnets
+hosted-db2  -                                                     
+
+`[1:],
+		"",
+	)
+}
+
+func (s *ListSuite) setupListTabular() {
 	// For summary output, we don't care about the content, just the count.
 	conns1 := []model.OfferConnection{
 		{
@@ -170,16 +183,37 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	s.applications[2].Endpoints = []charm.Relation{
 		{Name: "db", Interface: "db2", Role: charm.RoleProvider},
 	}
+}
 
+func (s *ListSuite) TestListTabular(c *gc.C) {
+	s.setupListTabular()
 	s.assertValidList(
 		c,
 		[]string{"--format", "tabular"},
 		`
+Offer       User  Relation id  Status  Endpoint  Interface  Role      Ingress subnets
+adiff-db2   mary  3            joined  db        db2        provider  
+hosted-db2  -                                                         
+zdiff-db2   fred  1            joined  server    mysql      provider  
+            mary  1            joined  server    mysql      provider  192.168.0.1/32,10.0.0.0/8
+            mary  2            joined  db        db2        provider  
+
+`[1:],
+		"",
+	)
+}
+
+func (s *ListSuite) TestListTabularActiveOnly(c *gc.C) {
+	s.setupListTabular()
+	s.assertValidList(
+		c,
+		[]string{"--format", "tabular", "--active-only"},
+		`
 Offer      User  Relation id  Status  Endpoint  Interface  Role      Ingress subnets
+adiff-db2  mary  3            joined  db        db2        provider  
 zdiff-db2  fred  1            joined  server    mysql      provider  
            mary  1            joined  server    mysql      provider  192.168.0.1/32,10.0.0.0/8
            mary  2            joined  db        db2        provider  
-adiff-db2  mary  3            joined  db        db2        provider  
 
 `[1:],
 		"",

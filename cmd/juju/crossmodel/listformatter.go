@@ -78,10 +78,7 @@ func formatListEndpointsSummary(writer io.Writer, offers offeredApplications) er
 func (o offerItems) Len() int      { return len(o) }
 func (o offerItems) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
 func (o offerItems) Less(i, j int) bool {
-	if o[i].Source == o[j].Source {
-		return o[i].OfferName < o[j].OfferName
-	}
-	return o[i].Source < o[j].Source
+	return o[i].OfferName < o[j].OfferName
 }
 
 func formatListTabular(writer io.Writer, value interface{}) error {
@@ -115,6 +112,11 @@ func formatListEndpointsTabular(writer io.Writer, offers offeredApplications) er
 
 		// Sort connections by relation id and username.
 		sort.Sort(byUserRelationId(offer.Connections))
+
+		// If there are no connections, print am empty row.
+		if len(offer.Connections) == 0 {
+			w.Println(offer.OfferName, "-", "", "", "", "", "", "")
+		}
 
 		for i, conn := range offer.Connections {
 			if i == 0 {
