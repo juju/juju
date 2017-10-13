@@ -23,6 +23,9 @@ type statePoolShim struct {
 
 func (p *statePoolShim) Get(modelUUID string) (Backend, func(), error) {
 	st, releaser, err := p.StatePool.Get(modelUUID)
+	if err != nil {
+		return stateShim{}, func() {}, err
+	}
 	closer := func() {
 		releaser()
 	}
