@@ -1477,7 +1477,11 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string) ([]string, error
 		return nil, errors.Trace(err)
 	}
 	// TODO(axw): fix the storage API.
-	volumeSource, err := cinder.VolumeSource(nil)
+	storageConfig, err := storage.NewConfig("cinder", CinderProviderType, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	volumeSource, err := cinder.VolumeSource(storageConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
