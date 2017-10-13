@@ -29,6 +29,7 @@ func (c *resolvedCommand) Info() *cmd.Info {
 		Name:    "resolved",
 		Args:    "<unit>",
 		Purpose: "Marks unit errors resolved and re-executes failed hooks.",
+		Aliases: []string{"resolve"},
 	}
 }
 
