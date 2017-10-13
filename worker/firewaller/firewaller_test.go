@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -54,7 +55,7 @@ type firewallerBaseSuite struct {
 	firewaller           *apifirewaller.Client
 	remoteRelations      *remoterelations.Client
 	crossmodelFirewaller *crossmodelrelations.Client
-	mockClock            *mockClock
+	clock                clock.Clock
 }
 
 func (s *firewallerBaseSuite) SetUpSuite(c *gc.C) {
@@ -210,7 +211,11 @@ func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 }
 
 func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
-	s.mockClock = &mockClock{c: c}
+	return s.newFirewallerWithClock(c, &mockClock{c: c})
+}
+
+func (s *InstanceModeSuite) newFirewallerWithClock(c *gc.C, clock clock.Clock) worker.Worker {
+	s.clock = clock
 	fwEnv, ok := s.Environ.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
@@ -224,7 +229,7 @@ func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock: s.mockClock,
+		Clock: s.clock,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -719,7 +724,9 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C) {
+func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
+	c *gc.C, published chan bool, apiErr *bool, ingressRequired *bool, clock clock.Clock,
+) (worker.Worker, *state.RelationUnit) {
 	// Set up the consuming model - create the local app.
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	// Set up the consuming model - create the remote app.
@@ -740,9 +747,7 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 
 	mac, err := macaroon.New(nil, "apimac", "")
 	c.Assert(err, jc.ErrorIsNil)
-	published := make(chan bool)
 	var relToken string
-	var ingressRequired bool
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CrossModelRelations")
 		c.Check(version, gc.Equals, 0)
@@ -753,18 +758,21 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 				RelationToken:    relToken,
 				ApplicationToken: appToken,
 				Networks:         []string{"10.0.0.4/32"},
-				IngressRequired:  ingressRequired,
+				IngressRequired:  *ingressRequired,
 				Macaroons:        macaroon.Slice{mac},
 			}},
 		}
-		expected.Changes[0].IngressRequired = ingressRequired
-		if !ingressRequired {
+		expected.Changes[0].IngressRequired = *ingressRequired
+		if !*ingressRequired {
 			expected.Changes[0].Networks = []string{}
 		}
 		c.Check(arg, gc.DeepEquals, expected)
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
+		}
+		if *apiErr {
+			return errors.New("fail")
 		}
 		published <- true
 		return nil
@@ -774,8 +782,7 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	c.Assert(s.crossmodelFirewaller, gc.NotNil)
 
 	// Create the firewaller facade on the consuming model.
-	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	fw := s.newFirewallerWithClock(c, clock)
 
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -790,7 +797,6 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	err = re.ImportRemoteEntity(app.Tag(), appToken)
 	c.Assert(err, jc.ErrorIsNil)
-	ingressRequired = true
 
 	// We should not have published any ingress events yet - no unit has entered scope.
 	select {
@@ -809,10 +815,19 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
+	return fw, ru
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C) {
+	published := make(chan bool)
+	ingressRequired := true
+	apiErr := false
+	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired, &mockClock{c: c})
+	defer statetesting.AssertKillAndWait(c, fw)
 
 	// Add a unit on the consuming app and have it enter the relation scope.
 	// This will trigger the firewaller to publish the changes.
-	err = ru.EnterScope(map[string]interface{}{})
+	err := ru.EnterScope(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case <-time.After(coretesting.LongWait):
@@ -821,7 +836,7 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	}
 
 	// Check the relation ready poll time is as expected.
-	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
+	c.Assert(s.clock.(*mockClock).wait, gc.Equals, 3*time.Second)
 
 	// Change should be sent when unit leaves scope.
 	ingressRequired = false
@@ -830,6 +845,35 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on leave scope")
+	case <-published:
+	}
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
+	published := make(chan bool)
+	ingressRequired := true
+	apiErr := true
+	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired, testing.NewClock(time.Time{}))
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	// Add a unit on the consuming app and have it enter the relation scope.
+	// This will trigger the firewaller to try and publish the changes.
+	err := ru.EnterScope(map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We should not have published any ingress events yet - no changed published.
+	select {
+	case <-time.After(coretesting.ShortWait):
+	case <-published:
+		c.Fatal("unexpected ingress change to be published")
+	}
+
+	// Give the worker time to restart and try again.
+	apiErr = false
+	s.clock.(*testing.Clock).WaitAdvance(60*time.Second, coretesting.LongWait, 1)
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("time out waiting for ingress change to be published on enter scope")
 	case <-published:
 	}
 }
@@ -912,7 +956,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 	}
 
 	// Check the relation ready poll time is as expected.
-	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
+	c.Assert(s.clock.(*mockClock).wait, gc.Equals, 3*time.Second)
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
@@ -1056,7 +1100,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 	})
 
 	// Check the relation ready poll time is as expected.
-	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
+	c.Assert(s.clock.(*mockClock).wait, gc.Equals, 3*time.Second)
 
 	// Change should be sent when ingress networks disappear.
 	_, err = rin.Save(rel.Tag().Id(), false, nil)

@@ -5,8 +5,10 @@ package remoterelations_test
 
 import (
 	"reflect"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -50,6 +52,7 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 		NewRemoteModelFacadeFunc: func(*api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 			return s.remoteRelationsFacade, nil
 		},
+		Clock: testing.NewClock(time.Time{}),
 	}
 }
 
@@ -381,8 +384,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDyingConsumes(c *gc.C) {
 
 func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
 	w := s.assertRemoteRelationsWorkers(c)
-	// Just in case, ensure worker is killed.
-	defer workertest.CheckKill(c, w)
+	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
 	s.stub.SetErrors(errors.New("failed"))
@@ -390,8 +392,65 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
 	unitsWatcher.changes <- watcher.RelationUnitsChange{
 		Departed: []string{"unit/1"},
 	}
-	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "publishing relation change .* to remote model .*: failed")
+
+	// The error causes relation change publication to fail.
+	apiMac, err := macaroon.New(nil, "apimac", "")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []jujutesting.StubCall{
+		{"PublishRelationChange", []interface{}{
+			params.RemoteRelationChangeEvent{
+				ApplicationToken: "token-django",
+				RelationToken:    "token-db2:db django:db",
+				DepartedUnits:    []int{1},
+				Macaroons:        macaroon.Slice{apiMac},
+			},
+		}},
+		{"Close", nil},
+	}
+
+	s.waitForWorkerStubCalls(c, expected)
+	// An error in one of the units watchers does not kill the parent worker.
+	workertest.CheckAlive(c, w)
+
+	// Allow the worker to resume.
+	s.stub.SetErrors(nil)
+	s.stub.ResetCalls()
+	s.config.Clock.(*testing.Clock).WaitAdvance(50*time.Second, coretesting.LongWait, 1)
+	// Not resumed yet.
+	c.Assert(s.stub.Calls(), gc.HasLen, 0)
+	s.config.Clock.(*testing.Clock).WaitAdvance(10*time.Second, coretesting.LongWait, 1)
+
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher.changes <- []string{"db2:db django:db"}
+	relTag := names.NewRelationTag("db2:db django:db")
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
+	expected = []jujutesting.StubCall{
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
+		{"ExportEntities", []interface{}{
+			[]names.Tag{names.NewApplicationTag("django"), relTag}}},
+		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelationArg{{
+			ApplicationToken: "token-django",
+			SourceModelTag:   "model-local-model-uuid",
+			RelationToken:    "token-db2:db django:db",
+			RemoteEndpoint: params.RemoteEndpoint{
+				Name:      "db2",
+				Role:      "requires",
+				Interface: "db2",
+			},
+			OfferUUID:         "offer-db2-uuid",
+			LocalEndpointName: "data",
+			Macaroons:         macaroon.Slice{mac},
+		}}}},
+		{"SaveMacaroon", []interface{}{relTag, apiMac}},
+		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
+		{"WatchRelationSuspendedStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
+		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
+		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
+	}
+	// After the worker resumes, normal processing happens.
+	s.waitForWorkerStubCalls(c, expected)
 }
 
 func (s *remoteRelationsSuite) TestRegisteredApplicationNotRegistered(c *gc.C) {

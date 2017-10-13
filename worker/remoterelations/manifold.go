@@ -5,7 +5,8 @@ package remoterelations
 
 import (
 	"github.com/juju/errors"
-	worker "gopkg.in/juju/worker.v1"
+	"github.com/juju/utils/clock"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -68,6 +69,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ModelUUID:                agent.CurrentConfig().Model().Id(),
 		RelationsFacade:          facade,
 		NewRemoteModelFacadeFunc: remoteRelationsFacadeForModelFunc(config.NewControllerConnection),
+		Clock: clock.WallClock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

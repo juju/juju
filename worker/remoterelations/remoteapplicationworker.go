@@ -6,7 +6,7 @@ package remoterelations
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -59,34 +59,6 @@ type relation struct {
 	localEndpoint      params.RemoteEndpoint
 	remoteEndpointName string
 	macaroon           *macaroon.Macaroon
-}
-
-func newRemoteApplicationWorker(
-	relationsWatcher watcher.StringsWatcher,
-	localModelUUID string,
-	remoteApplication params.RemoteApplication,
-	newRemoteModelRelationsFacadeFunc newRemoteRelationsFacadeFunc,
-	facade RemoteRelationsFacade,
-) (worker.Worker, error) {
-	w := &remoteApplicationWorker{
-		relationsWatcher:                  relationsWatcher,
-		offerUUID:                         remoteApplication.OfferUUID,
-		applicationName:                   remoteApplication.Name,
-		localModelUUID:                    localModelUUID,
-		remoteModelUUID:                   remoteApplication.ModelUUID,
-		isConsumerProxy:                   remoteApplication.IsConsumerProxy,
-		offerMacaroon:                     remoteApplication.Macaroon,
-		localRelationChanges:              make(chan params.RemoteRelationChangeEvent),
-		remoteRelationChanges:             make(chan params.RemoteRelationChangeEvent),
-		localModelFacade:                  facade,
-		newRemoteModelRelationsFacadeFunc: newRemoteModelRelationsFacadeFunc,
-	}
-	err := catacomb.Invoke(catacomb.Plan{
-		Site: &w.catacomb,
-		Work: w.loop,
-		Init: []worker.Worker{relationsWatcher},
-	})
-	return w, err
 }
 
 // Kill is defined on worker.Worker
