@@ -569,11 +569,9 @@ func (s *ProvisionerSuite) waitUntilMachineNotPending(c *gc.C, m *state.Machine)
 }
 
 func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreationError(c *gc.C) {
-	// Set the retry delay to 0, and retry count to 1 to keep tests short
-	// RetryStrategyCount will be multiplied by the number of availability
-	// zones by the provisioner.
+	// Set the retry delay to 0, and retry count to 2 to keep tests short
 	s.PatchValue(provisioner.RetryStrategyDelay, 0*time.Second)
-	s.PatchValue(provisioner.RetryStrategyCount, 1)
+	s.PatchValue(provisioner.RetryStrategyCount, 2)
 
 	// create the error injection channel
 	errorInjectionChannel := make(chan error, 3)
@@ -1122,8 +1120,12 @@ func (*mockMachineGetter) MachinesWithTransientErrors() ([]apiprovisioner.Machin
 
 type mockDistributionGroupFinder struct{}
 
-func (mockDistributionGroupFinder) DistributionGroupByMachineId(...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error) {
-	return nil, fmt.Errorf("error")
+func (mockDistributionGroupFinder) DistributionGroupByMachineId(tags ...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error) {
+	result := make([]apiprovisioner.DistributionGroupResult, len(tags))
+	for i, _ := range tags {
+		result[i] = apiprovisioner.DistributionGroupResult{[]string{}, nil}
+	}
+	return result, nil
 }
 
 func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
