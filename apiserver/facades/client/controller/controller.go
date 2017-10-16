@@ -119,6 +119,10 @@ func (s *ControllerAPIv3) AllModels() (params.UserModelList, error) {
 	for _, modelUUID := range modelUUIDs {
 		st, release, err := s.statePool.Get(modelUUID)
 		if err != nil {
+			// This model could have been removed.
+			if errors.IsNotFound(err) {
+				continue
+			}
 			return result, errors.Trace(err)
 		}
 		defer release()
@@ -246,6 +250,10 @@ func (s *ControllerAPIv3) HostedModelConfigs() (params.HostedModelConfigsResults
 		}
 		st, release, err := s.statePool.Get(modelUUID)
 		if err != nil {
+			// This model could have been removed.
+			if errors.IsNotFound(err) {
+				continue
+			}
 			return result, errors.Trace(err)
 		}
 		defer release()

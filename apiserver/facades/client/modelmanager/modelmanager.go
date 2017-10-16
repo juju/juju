@@ -695,6 +695,10 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 	for _, modelUUID := range modelUUIDs {
 		st, release, err := m.state.GetBackend(modelUUID)
 		if err != nil {
+			// This model could have been removed.
+			if errors.IsNotFound(err) {
+				continue
+			}
 			return result, errors.Trace(err)
 		}
 		defer release()
