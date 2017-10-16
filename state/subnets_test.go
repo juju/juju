@@ -20,6 +20,14 @@ type SubnetSuite struct {
 var _ = gc.Suite(&SubnetSuite{})
 
 func (s *SubnetSuite) TestAddSubnetSucceedsWithFullyPopulatedInfo(c *gc.C) {
+	fanOverlaySubnetInfo := state.SubnetInfo{
+		ProviderId: "foo2",
+		CIDR:       "10.0.0.0/8",
+		SpaceName:  "foo",
+	}
+	subnet, err := s.State.AddSubnet(fanOverlaySubnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertSubnetMatchesInfo(c, subnet, fanOverlaySubnetInfo)
 	subnetInfo := state.SubnetInfo{
 		ProviderId:        "foo",
 		CIDR:              "192.168.1.0/24",
@@ -31,7 +39,7 @@ func (s *SubnetSuite) TestAddSubnetSucceedsWithFullyPopulatedInfo(c *gc.C) {
 		FanOverlay:        "172.16.0.0/16",
 	}
 
-	subnet, err := s.State.AddSubnet(subnetInfo)
+	subnet, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSubnetMatchesInfo(c, subnet, subnetInfo)
 
@@ -260,6 +268,7 @@ func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
 		{CIDR: "8.8.8.0/24", SpaceName: "bar"},
 		{CIDR: "10.0.2.0/24", ProviderId: "foo"},
 		{CIDR: "2001:db8::/64", AvailabilityZone: "zone1"},
+		{CIDR: "253.0.0.0/8", SpaceName: "notreally", FanLocalUnderlay: "8.8.8.0/24"},
 	}
 
 	for _, info := range subnetInfos {
@@ -272,9 +281,14 @@ func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
 	c.Assert(subnets, gc.HasLen, len(subnetInfos))
 
 	for i, subnet := range subnets {
-		c.Assert(subnet.CIDR(), gc.Equals, subnetInfos[i].CIDR)
-		c.Assert(subnet.ProviderId(), gc.Equals, subnetInfos[i].ProviderId)
-		c.Assert(subnet.SpaceName(), gc.Equals, subnetInfos[i].SpaceName)
-		c.Assert(subnet.AvailabilityZone(), gc.Equals, subnetInfos[i].AvailabilityZone)
+		c.Check(subnet.CIDR(), gc.Equals, subnetInfos[i].CIDR)
+		c.Check(subnet.ProviderId(), gc.Equals, subnetInfos[i].ProviderId)
+		if subnet.FanLocalUnderlay() == "" {
+			c.Check(subnet.SpaceName(), gc.Equals, subnetInfos[i].SpaceName)
+		} else {
+			// Special case
+			c.Check(subnet.SpaceName(), gc.Equals, "bar")
+		}
+		c.Check(subnet.AvailabilityZone(), gc.Equals, subnetInfos[i].AvailabilityZone)
 	}
 }

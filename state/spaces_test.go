@@ -559,3 +559,37 @@ func (s *SpacesSuite) TestRefreshFailsWithNotFoundWhenRemoved(c *gc.C) {
 	err := space.Refresh()
 	s.assertSpaceNotFoundError(c, err, "soon-removed")
 }
+
+func (s *SpacesSuite) TestFanSubnetInheritsSpace(c *gc.C) {
+	args := addSpaceArgs{
+		Name:        "space1",
+		ProviderId:  network.Id("some id 2"),
+		SubnetCIDRs: []string{"1.1.1.0/24", "2001:cbd0::/32"},
+	}
+	space, err := s.addSpaceWithSubnets(c, args)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertSpaceMatchesArgs(c, space, args)
+	info := state.SubnetInfo{
+		CIDR:             "253.1.0.0/16",
+		VLANTag:          79,
+		AvailabilityZone: "AvailabilityZone",
+		FanOverlay:       "253.0.0.0/8",
+		FanLocalUnderlay: "1.1.1.0/24",
+	}
+	_, err = s.State.AddSubnet(info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = space.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	subnets, err := space.Subnets()
+	c.Assert(err, jc.ErrorIsNil)
+	var foundSubnet *state.Subnet
+	for _, subnet := range subnets {
+		if subnet.CIDR() == "253.1.0.0/16" {
+			foundSubnet = subnet
+			break
+		}
+	}
+	c.Assert(foundSubnet, gc.NotNil)
+	c.Assert(foundSubnet.SpaceName(), gc.Equals, "space1")
+}

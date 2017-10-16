@@ -869,6 +869,38 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 		VLANTag:           64,
 		AvailabilityZone:  "bar",
 		SpaceName:         "bam",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("bam", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	subnet, err := newSt.Subnet(original.CIDR())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
+	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
+	c.Assert(subnet.ProviderNetworkId(), gc.Equals, network.Id("elm"))
+	c.Assert(subnet.VLANTag(), gc.Equals, 64)
+	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
+	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "")
+	c.Assert(subnet.FanOverlay(), gc.Equals, "")
+}
+
+func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
+	_, err := s.State.AddSubnet(state.SubnetInfo{
+		CIDR:      "100.2.0.0/16",
+		SpaceName: "bam",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	original, err := s.State.AddSubnet(state.SubnetInfo{
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        network.Id("foo"),
+		ProviderNetworkId: network.Id("elm"),
+		VLANTag:           64,
+		AvailabilityZone:  "bar",
 		FanLocalUnderlay:  "100.2.0.0/16",
 		FanOverlay:        "253.0.0.0/8",
 	})
