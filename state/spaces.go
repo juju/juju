@@ -65,12 +65,12 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 	iter := subnetsCollection.Find(bson.D{{"space-name", name}, bson.DocElem{"fan-local-underlay", bson.D{{"$exists", false}}}}).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		subnet := &Subnet{s.st, doc}
+		subnet := &Subnet{s.st, doc, name}
 		results = append(results, subnet)
 		// ...and then add them explicitly as descendants of underlay network.
-		iter := subnetsCollection.Find(bson.D{{"fan-local-underlay", doc.CIDR}}).Iter()
-		for iter.Next(&doc) {
-			subnet := &Subnet{s.st, doc}
+		childIter := subnetsCollection.Find(bson.D{{"fan-local-underlay", doc.CIDR}}).Iter()
+		for childIter.Next(&doc) {
+			subnet := &Subnet{s.st, doc, name}
 			results = append(results, subnet)
 		}
 	}

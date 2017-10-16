@@ -48,8 +48,9 @@ type SubnetInfo struct {
 }
 
 type Subnet struct {
-	st  *State
-	doc subnetDoc
+	st        *State
+	doc       subnetDoc
+	spaceName string
 }
 
 type subnetDoc struct {
@@ -175,13 +176,7 @@ func (s *Subnet) AvailabilityZone() string {
 // SpaceName returns the space the subnet is associated with. If the subnet is
 // not associated with a space it will be the empty string.
 func (s *Subnet) SpaceName() string {
-	if s.doc.FanLocalUnderlay != "" {
-		underlay, err := s.st.Subnet(s.doc.FanLocalUnderlay)
-		if err == nil {
-			return underlay.SpaceName()
-		}
-	}
-	return s.doc.SpaceName
+	return s.spaceName
 }
 
 // ProviderNetworkId returns the provider id of the network containing
@@ -221,6 +216,16 @@ func (s *Subnet) Refresh() error {
 	}
 	if err != nil {
 		return errors.Errorf("cannot refresh subnet %q: %v", s, err)
+	}
+	s.spaceName = s.doc.SpaceName
+	if s.doc.FanLocalUnderlay != "" {
+		overlayDoc := &subnetDoc{}
+		err = subnets.FindId(s.doc.FanLocalUnderlay).One(overlayDoc)
+		if err != nil {
+			return errors.Annotatef(err, "Can't find underlay network %v for FAN %v", s.doc.FanLocalUnderlay, s.doc.CIDR)
+		} else {
+			s.spaceName = overlayDoc.SpaceName
+		}
 	}
 	return nil
 }
@@ -275,7 +280,7 @@ func (st *State) newSubnetFromArgs(args SubnetInfo) (*Subnet, error) {
 		FanLocalUnderlay:  args.FanLocalUnderlay,
 		FanOverlay:        args.FanOverlay,
 	}
-	subnet := &Subnet{doc: subDoc, st: st}
+	subnet := &Subnet{doc: subDoc, st: st, spaceName: args.SpaceName}
 	err := subnet.Validate()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -325,7 +330,18 @@ func (st *State) Subnet(cidr string) (*Subnet, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get subnet %q", cidr)
 	}
-	return &Subnet{st, *doc}, nil
+	spaceName := doc.SpaceName
+	if doc.FanLocalUnderlay != "" {
+		overlayDoc := &subnetDoc{}
+		err = subnets.FindId(doc.FanLocalUnderlay).One(overlayDoc)
+		if err != nil {
+			return nil, errors.Annotatef(err, "Can't find underlay network %v for FAN %v", doc.FanLocalUnderlay, doc.CIDR)
+		} else {
+			spaceName = overlayDoc.SpaceName
+		}
+	}
+
+	return &Subnet{st, *doc, spaceName}, nil
 }
 
 // AllSubnets returns all known subnets in the model.
@@ -338,8 +354,18 @@ func (st *State) AllSubnets() (subnets []*Subnet, err error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all subnets")
 	}
+	cidrToSpace := make(map[string]string)
 	for _, doc := range docs {
-		subnets = append(subnets, &Subnet{st, doc})
+		cidrToSpace[doc.CIDR] = doc.SpaceName
+	}
+	for _, doc := range docs {
+		spaceName := doc.SpaceName
+		if doc.FanLocalUnderlay != "" {
+			if space, ok := cidrToSpace[doc.FanLocalUnderlay]; ok {
+				spaceName = space
+			}
+		}
+		subnets = append(subnets, &Subnet{st, doc, spaceName})
 	}
 	return subnets, nil
 }
