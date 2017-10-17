@@ -40,6 +40,7 @@ kind: Config
 clusters:
 - cluster:
     server: https://1.1.1.1:8888
+    certificate-authority-data: QQ==
   name: the-cluster
 contexts:
 - context:
@@ -60,6 +61,7 @@ kind: Config
 clusters:
 - cluster:
     server: https://1.1.1.1:8888
+    certificate-authority-data: QQ==
   name: the-cluster
 - cluster:
     server: https://10.10.10.10:1010
@@ -154,7 +156,7 @@ func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
 			Clouds: map[string]caascfg.CloudConfig{
 				"the-cluster": caascfg.CloudConfig{
 					Endpoint:   "https://1.1.1.1:8888",
-					Attributes: map[string]interface{}{"CAData": []uint8(nil)}}},
+					Attributes: map[string]interface{}{"CAData": []uint8("A")}}},
 			Credentials: map[string]cloud.Credential{
 				"the-user": cloud.NewCredential(
 					cloud.UserPassAuthType,
@@ -186,7 +188,7 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 					Attributes: map[string]interface{}{"CAData": []uint8(nil)}},
 				"the-cluster": caascfg.CloudConfig{
 					Endpoint:   "https://1.1.1.1:8888",
-					Attributes: map[string]interface{}{"CAData": []uint8(nil)}}},
+					Attributes: map[string]interface{}{"CAData": []uint8("A")}}},
 			Credentials: map[string]cloud.Credential{
 				"default-user": cloud.NewCredential(
 					cloud.UserPassAuthType,
