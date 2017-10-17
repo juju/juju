@@ -51,9 +51,8 @@ func allCollections() collectionSchema {
 
 		txnsC: {
 			// This collection is used exclusively by mgo/txn to record transactions.
-			global:         true,
-			rawAccess:      true,
-			explicitCreate: &mgo.CollectionInfo{},
+			global:    true,
+			rawAccess: true,
 			indexes: []mgo.Index{{
 				// The "s" field is used in queries
 				// by mgo/txn.Runner.ResumeAll.
