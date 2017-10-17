@@ -93,6 +93,27 @@ func (env *sessionEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]s
 	return results, err
 }
 
+// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
+func (env *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (names string, err error) {
+	err = env.withSession(func(env *sessionEnviron) error {
+		names, err = env.DeriveAvailabilityZone(args)
+		return err
+	})
+	return names, err
+}
+
+// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
+func (env *sessionEnviron) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+	// TODO (HML) 16-Oct-2017
+	// parseAvailabilityZones will change to parseAvailabilityZone with
+	// the Provisioner Parallelization.
+	zones, err := env.parseAvailabilityZones(args)
+	if err != nil {
+		return "", err
+	}
+	return zones[0], nil
+}
+
 func (env *sessionEnviron) availZone(name string) (common.AvailabilityZone, error) {
 	zones, err := env.AvailabilityZones()
 	if err != nil {

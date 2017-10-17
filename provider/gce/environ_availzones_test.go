@@ -206,3 +206,57 @@ func (s *environAZSuite) TestStartInstanceAvailabilityZonesVolumeAttachmentsConf
 	_, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
 	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=away-zone", as this will prevent attaching the requested disks in zone "home-zone"`)
 }
+
+func (s *environAZSuite) TestDeriveAvailabilityZone(c *gc.C) {
+	s.StartInstArgs.Placement = "zone=test-available"
+	s.FakeConn.Zones = []google.AvailabilityZone{
+		google.NewZone("test-available", google.StatusUp, "", ""),
+	}
+	zone, err := s.Env.DeriveAvailabilityZone(s.StartInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "test-available")
+}
+
+func (s *environAZSuite) TestDeriveAvailabilityZoneVolumeNoPlacement(c *gc.C) {
+	s.FakeConn.Zones = []google.AvailabilityZone{
+		google.NewZone("az1", google.StatusDown, "", ""),
+		google.NewZone("az2", google.StatusUp, "", ""),
+	}
+	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
+		VolumeId: "az2--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+	}}
+	zone, err := s.Env.DeriveAvailabilityZone(s.StartInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "az2")
+}
+
+func (s *environAZSuite) TestDeriveAvailabilityZoneUnavailable(c *gc.C) {
+	s.StartInstArgs.Placement = "zone=test-unavailable"
+	s.FakeConn.Zones = []google.AvailabilityZone{
+		google.NewZone("test-unavailable", google.StatusDown, "", ""),
+	}
+	zone, err := s.Env.DeriveAvailabilityZone(s.StartInstArgs)
+	c.Check(err, gc.ErrorMatches, `.*availability zone "test-unavailable" is DOWN`)
+	c.Assert(zone, gc.Equals, "")
+}
+
+func (s *environAZSuite) TestDeriveAvailabilityZoneUnknown(c *gc.C) {
+	s.StartInstArgs.Placement = "zone=test-unknown"
+	zone, err := s.Env.DeriveAvailabilityZone(s.StartInstArgs)
+	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown" not found`)
+	c.Assert(zone, gc.Equals, "")
+}
+
+func (s *environAZSuite) TestDeriveAvailabilityZoneConflictsVolume(c *gc.C) {
+	s.FakeConn.Zones = []google.AvailabilityZone{
+		google.NewZone("az1", google.StatusUp, "", ""),
+		google.NewZone("az2", google.StatusUp, "", ""),
+	}
+	s.StartInstArgs.Placement = "zone=az1"
+	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
+		VolumeId: "az2--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+	}}
+	zone, err := s.Env.DeriveAvailabilityZone(s.StartInstArgs)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az1", as this will prevent attaching the requested disks in zone "az2"`)
+	c.Assert(zone, gc.Equals, "")
+}
