@@ -1307,16 +1307,30 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	return []common.AvailabilityZone{
 		azShim{"zone1", true},
 		azShim{"zone2", false},
+		azShim{"zone3", false},
+		azShim{"zone4", true},
 	}, nil
 }
 
 // InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
 func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	// TODO(dimitern): Fix this properly.
 	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
 		return nil, errors.NotSupportedf("instance availability zones")
 	}
-	return []string{"zone1"}, nil
+	returnValue := make([]string, len(ids))
+	for i, _ := range ids {
+		if i%2 == 0 {
+			returnValue[i] = "zone1"
+		} else {
+			returnValue[i] = "zone4"
+		}
+	}
+	return returnValue, nil
+}
+
+// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
+func (env *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+	return "", nil
 }
 
 // Subnets implements environs.Environ.Subnets.

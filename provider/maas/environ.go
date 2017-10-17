@@ -580,6 +580,15 @@ func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string
 	return zones, nil
 }
 
+// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
+func (e *maasEnviron) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+	placement, err := e.parsePlacement(args.Placement)
+	if err != nil {
+		return "", err
+	}
+	return placement.zoneName, nil
+}
+
 type maasPlacement struct {
 	nodeName string
 	zoneName string

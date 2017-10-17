@@ -931,6 +931,99 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 	return t.result, t.err
 }
 
+func (t *localServerSuite) TestDeriveAvailabilityZone(c *gc.C) {
+	var resultZones []amzec2.AvailabilityZoneInfo
+	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
+		resp := &amzec2.AvailabilityZonesResp{
+			Zones: append([]amzec2.AvailabilityZoneInfo{}, resultZones...),
+		}
+		return resp, nil
+	})
+	env := t.Prepare(c).(common.ZonedEnviron)
+	resultZones = make([]amzec2.AvailabilityZoneInfo, 2)
+	resultZones[0].Name = "az1"
+	resultZones[1].Name = "az2"
+	resultZones[0].State = "available"
+	resultZones[1].State = "impaired"
+
+	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "zone=az1"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "az1")
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZoneImpaired(c *gc.C) {
+	var resultZones []amzec2.AvailabilityZoneInfo
+	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
+		resp := &amzec2.AvailabilityZonesResp{
+			Zones: append([]amzec2.AvailabilityZoneInfo{}, resultZones...),
+		}
+		return resp, nil
+	})
+	env := t.Prepare(c).(common.ZonedEnviron)
+	resultZones = make([]amzec2.AvailabilityZoneInfo, 2)
+	resultZones[0].Name = "az1"
+	resultZones[1].Name = "az2"
+	resultZones[0].State = "available"
+	resultZones[1].State = "impaired"
+
+	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "zone=az2"})
+	c.Assert(err, gc.ErrorMatches, "availability zone \"az2\" is \"impaired\"")
+	c.Assert(zone, gc.Equals, "")
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZoneConflictVolume(c *gc.C) {
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		StatusCallback: fakeCallback,
+		Placement:      "zone=test-available",
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+				Machine:  names.NewMachineTag("1"),
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	}
+	env := t.Prepare(c).(common.ZonedEnviron)
+	zone, err := env.DeriveAvailabilityZone(args)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
+	c.Assert(zone, gc.Equals, "")
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZoneVolumeNoPlacement(c *gc.C) {
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		StatusCallback: fakeCallback,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+				Machine:  names.NewMachineTag("1"),
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	}
+	env := t.Prepare(c).(common.ZonedEnviron)
+	zone, err := env.DeriveAvailabilityZone(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "volume-zone")
+}
+
 func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 

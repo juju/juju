@@ -103,11 +103,13 @@ func (env *mockEnviron) StorageProvider(t jujustorage.ProviderType) (jujustorage
 
 type availabilityZonesFunc func() ([]common.AvailabilityZone, error)
 type instanceAvailabilityZoneNamesFunc func([]instance.Id) ([]string, error)
+type deriveAvailabilityZoneFunc func(environs.StartInstanceParams) (string, error)
 
 type mockZonedEnviron struct {
 	mockEnviron
 	availabilityZones             availabilityZonesFunc
 	instanceAvailabilityZoneNames instanceAvailabilityZoneNamesFunc
+	deriveAvailabilityZone        deriveAvailabilityZoneFunc
 }
 
 func (env *mockZonedEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
@@ -116,6 +118,10 @@ func (env *mockZonedEnviron) AvailabilityZones() ([]common.AvailabilityZone, err
 
 func (env *mockZonedEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
 	return env.instanceAvailabilityZoneNames(ids)
+}
+
+func (env *mockZonedEnviron) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+	return env.deriveAvailabilityZone(args)
 }
 
 type mockInstance struct {
