@@ -386,7 +386,10 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	ctlr.Close()
 
 	s.openState(c, names.NewModelTag(st.ModelUUID()))
-	err = s.State.UpdateModelConfig(update, remove)
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.UpdateModelConfig(update, remove)
 	c.Assert(err, gc.ErrorMatches, expect)
 
 	// ModelConfig remains inviolate.

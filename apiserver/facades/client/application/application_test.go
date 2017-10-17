@@ -1096,7 +1096,7 @@ func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddC
 		return repo
 	})
 	attrs := map[string]interface{}{"test-mode": true}
-	err := s.State.UpdateModelConfig(attrs, nil)
+	err := s.IAASModel.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the store's test mode is enabled when calling application Deploy.

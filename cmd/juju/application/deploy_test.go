@@ -176,7 +176,7 @@ func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
 	// Update the model default series to be unset.
 	updateAttrs := map[string]interface{}{"default-series": ""}
-	err := s.State.UpdateModelConfig(updateAttrs, nil)
+	err := s.IAASModel.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
@@ -197,7 +197,7 @@ func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
 	// and yet, here, the model defaults to the series "trusty". This test
 	// asserts that the model's default takes precedence.
 	updateAttrs := map[string]interface{}{"default-series": "trusty"}
-	err := s.State.UpdateModelConfig(updateAttrs, nil)
+	err := s.IAASModel.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "multi-series")
 	_, err = runDeploy(c, path)

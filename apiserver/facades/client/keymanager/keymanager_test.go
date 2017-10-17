@@ -85,10 +85,10 @@ func (s *keyManagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
 }
 
 func (s *keyManagerSuite) setAuthorisedKeysForModel(c *gc.C, st *state.State, keys string) {
-	err := st.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
+	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err := st.Model()
+	err = m.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelConfig, err := m.ModelConfig()

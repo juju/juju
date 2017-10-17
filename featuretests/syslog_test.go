@@ -137,7 +137,7 @@ func (s *syslogSuite) SetUpTest(c *gc.C) {
 
 	// Leave log forwarding disabled initially, it will be enabled
 	// via a model config update in the test.
-	err = s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		"syslog-host":        addr,
 		"syslog-ca-cert":     coretesting.CACert,
 		"syslog-client-cert": coretesting.ServerCert,
@@ -236,7 +236,7 @@ func (s *syslogSuite) TestLogRecordForwarded(c *gc.C) {
 		c.Assert(a.Stop(), jc.ErrorIsNil)
 	}()
 
-	err = s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		"logforward-enabled": true,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -276,7 +276,7 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 	received := make(chan rfc5424test.Message)
 	addr := s.createSyslogServer(c, received, done)
 
-	err = s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		"logforward-enabled": true,
 		"syslog-host":        addr,
 		"syslog-ca-cert":     coretesting.CACert,

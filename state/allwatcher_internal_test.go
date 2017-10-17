@@ -491,7 +491,10 @@ func setApplicationConfigAttr(c *gc.C, app *Application, attr string, val interf
 }
 
 func setModelConfigAttr(c *gc.C, st *State, attr string, val interface{}) {
-	err := st.UpdateModelConfig(map[string]interface{}{attr: val}, nil)
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.UpdateModelConfig(map[string]interface{}{attr: val}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

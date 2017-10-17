@@ -372,7 +372,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 	setDefaultPassword(c, u)
 	add(u)
-	err = s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		config.AgentVersionKey: "1.2.3"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 

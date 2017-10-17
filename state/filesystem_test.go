@@ -44,7 +44,7 @@ func (s *FilesystemStateSuite) TestAddServiceNoPoolNoDefaultWithUnits(c *gc.C) {
 func (s *FilesystemStateSuite) TestAddServiceNoPoolDefaultFilesystem(c *gc.C) {
 	// no pool specified, default filesystem configured: use default
 	// filesystem.
-	err := s.State.UpdateModelConfig(map[string]interface{}{
+	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		"storage-default-filesystem-source": "machinescoped",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -54,7 +54,7 @@ func (s *FilesystemStateSuite) TestAddServiceNoPoolDefaultFilesystem(c *gc.C) {
 func (s *FilesystemStateSuite) TestAddServiceNoPoolDefaultBlock(c *gc.C) {
 	// no pool specified, default block configured: use default
 	// block with managed fs on top.
-	err := s.State.UpdateModelConfig(map[string]interface{}{
+	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "modelscoped-block",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)

@@ -275,11 +275,12 @@ type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []s
 // UpdateModelConfig adds, updates or removes attributes in the current
 // configuration of the model with the provided updateAttrs and
 // removeAttrs.
-func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...ValidateConfigFunc) error {
+func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...ValidateConfigFunc) error {
 	if len(updateAttrs)+len(removeAttrs) == 0 {
 		return nil
 	}
 
+	st := m.State()
 	if len(removeAttrs) > 0 {
 		var removed []string
 		if updateAttrs == nil {
@@ -313,12 +314,6 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	// the user asked for.
 
 	modelSettings, err := readSettings(st.db(), settingsC, modelGlobalKey)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Get the existing model config from state.
-	m, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}

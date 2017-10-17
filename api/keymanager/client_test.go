@@ -36,7 +36,7 @@ func (s *keymanagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *keymanagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
+	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

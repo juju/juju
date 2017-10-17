@@ -173,7 +173,7 @@ func (api *KeyManagerAPI) writeSSHKeys(sshKeys []string) error {
 	// TODO(waigani) 2014-03-17 bug #1293324
 	// Pass in validation to ensure SSH keys
 	// have not changed underfoot
-	err := api.state.UpdateModelConfig(attrs, nil)
+	err := api.model.UpdateModelConfig(attrs, nil)
 	if err != nil {
 		return fmt.Errorf("writing environ config: %v", err)
 	}
