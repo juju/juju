@@ -15,6 +15,7 @@ import (
 // allowing stubs to be created for testing.
 type Backend interface {
 	common.BlockGetter
+	AllSequences() (map[string]int, error)
 	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
 	ModelConfigValues() (config.ConfigValues, error)
@@ -26,6 +27,10 @@ type Backend interface {
 type stateShim struct {
 	*state.State
 	model *state.Model
+}
+
+func (st stateShim) AllSequences() (map[string]int, error) {
+	return st.model.AllSequences()
 }
 
 func (st stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {

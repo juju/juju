@@ -97,6 +97,7 @@ type Model interface {
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
 	AutoConfigureContainerNetworking(environ environs.Environ) error
 	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
+	AllSequences() (map[string]int, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

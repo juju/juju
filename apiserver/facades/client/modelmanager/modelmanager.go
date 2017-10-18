@@ -81,7 +81,7 @@ type ModelManagerAPI struct {
 	model       common.Model
 }
 
-// ModelManagerAPIV2 provides a way to wrap the different calls between
+// ModelManagerAPIV3 provides a way to wrap the different calls between
 // version 3 and version 4 of the model manager API
 type ModelManagerAPIV3 struct {
 	*ModelManagerAPI

@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -207,11 +208,37 @@ func (s *modelconfigSuite) TestSetSupportCredentals(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *modelconfigSuite) TestModelSequencesNoRead(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("fred")
+	_, err := s.api.ModelSequences()
+	c.Assert(errors.Cause(err), gc.Equals, common.ErrPerm)
+}
+
+func (s *modelconfigSuite) TestModelSequences(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("read")
+	sequences := map[string]int{
+		"first":  1,
+		"second": 2,
+	}
+	s.backend.sequences = sequences
+	result, err := s.api.ModelSequences()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Sequences, jc.DeepEquals, sequences)
+}
+
 type mockBackend struct {
-	cfg config.ConfigValues
-	old *config.Config
-	b   state.BlockType
-	msg string
+	cfg       config.ConfigValues
+	old       *config.Config
+	b         state.BlockType
+	msg       string
+	sequences map[string]int
+}
+
+func (m *mockBackend) AllSequences() (map[string]int, error) {
+	if m.sequences == nil {
+		return nil, errors.New("no sequences defined")
+	}
+	return m.sequences, nil
 }
 
 func (m *mockBackend) ModelConfigValues() (config.ConfigValues, error) {
