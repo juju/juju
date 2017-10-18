@@ -172,7 +172,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		stream := envtools.PreferredStream(&jujuversion.Current, s.env.Config().Development(), s.env.Config().AgentStream())
+		stream := envtools.PreferredStreams(&jujuversion.Current, s.env.Config().Development(), s.env.Config().AgentStream())[0]
 		actual, err := envtools.FindTools(s.env, test.major, test.minor, stream, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
@@ -287,44 +287,52 @@ var preferredStreamTests = []struct {
 	currentVers    string
 	forceDevel     bool
 	streamInConfig string
-	expected       string
+	expected       []string
 }{{
 	currentVers:    "1.22.0",
 	streamInConfig: "released",
-	expected:       "released",
+	expected:       []string{"released"},
+}, {
+	currentVers:    "1.22.0",
+	streamInConfig: "proposed",
+	expected:       []string{"proposed", "released"},
 }, {
 	currentVers:    "1.22.0",
 	streamInConfig: "devel",
-	expected:       "devel",
+	expected:       []string{"devel", "proposed", "released"},
+}, {
+	currentVers:    "1.22.0",
+	streamInConfig: "testing",
+	expected:       []string{"testing", "devel", "proposed", "released"},
 }, {
 	currentVers: "1.22.0",
-	expected:    "released",
+	expected:    []string{"released"},
 }, {
 	currentVers: "1.22-beta1",
-	expected:    "devel",
+	expected:    []string{"devel", "proposed", "released"},
 }, {
 	currentVers:    "1.22-beta1",
 	streamInConfig: "released",
-	expected:       "devel",
+	expected:       []string{"devel", "proposed", "released"},
 }, {
 	currentVers:    "1.22-beta1",
 	streamInConfig: "devel",
-	expected:       "devel",
+	expected:       []string{"devel", "proposed", "released"},
 }, {
 	currentVers: "1.22.0",
 	forceDevel:  true,
-	expected:    "devel",
+	expected:    []string{"devel", "proposed", "released"},
 }, {
 	currentVers:  "1.22.0",
 	explicitVers: "1.22-beta1",
-	expected:     "devel",
+	expected:     []string{"devel", "proposed", "released"},
 }, {
 	currentVers:  "1.22-bta1",
 	explicitVers: "1.22.0",
-	expected:     "released",
+	expected:     []string{"released"},
 }}
 
-func (s *SimpleStreamsToolsSuite) TestPreferredStream(c *gc.C) {
+func (s *SimpleStreamsToolsSuite) TestPreferredStreams(c *gc.C) {
 	for i, test := range preferredStreamTests {
 		c.Logf("\ntest %d", i)
 		s.PatchValue(&jujuversion.Current, version.MustParse(test.currentVers))
@@ -333,8 +341,8 @@ func (s *SimpleStreamsToolsSuite) TestPreferredStream(c *gc.C) {
 			v := version.MustParse(test.explicitVers)
 			vers = &v
 		}
-		obtained := envtools.PreferredStream(vers, test.forceDevel, test.streamInConfig)
-		c.Check(obtained, gc.Equals, test.expected)
+		obtained := envtools.PreferredStreams(vers, test.forceDevel, test.streamInConfig)
+		c.Check(obtained, gc.DeepEquals, test.expected)
 	}
 }
 

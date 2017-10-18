@@ -150,7 +150,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if ok && desiredVersion != jujuversion.Current {
 		// If we have been asked for a newer version, ensure the newer
 		// tools can actually be found, or else bootstrap won't complete.
-		stream := envtools.PreferredStream(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
+		stream := envtools.PreferredStreams(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())[0]
 		logger.Infof("newer agent binaries requested, looking for %v in stream %v", desiredVersion, stream)
 		hostSeries, err := series.HostSeries()
 		if err != nil {

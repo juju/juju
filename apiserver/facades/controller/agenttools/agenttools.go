@@ -85,7 +85,7 @@ func checkToolsAvailability(newEnviron newEnvironFunc, modelCfg *config.Config, 
 	// We'll try the released stream first, then fall back to the current configured stream
 	// if no released tools are found.
 	vers, err := finder(env, currentVersion.Major, currentVersion.Minor, tools.ReleasedStream, coretools.Filter{})
-	preferredStream := tools.PreferredStream(&currentVersion, modelCfg.Development(), modelCfg.AgentStream())
+	preferredStream := tools.PreferredStreams(&currentVersion, modelCfg.Development(), modelCfg.AgentStream())[0]
 	if preferredStream != tools.ReleasedStream && errors.Cause(err) == coretools.ErrNoMatches {
 		vers, err = finder(env, currentVersion.Major, currentVersion.Minor, preferredStream, coretools.Filter{})
 	}

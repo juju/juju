@@ -94,7 +94,9 @@ func SyncTools(syncContext *SyncContext) error {
 		// We now store the tools in a directory named after their stream, but the
 		// legacy behaviour is to store all tools in a single "releases" directory.
 		toolsDir = envtools.ReleasedStream
-		syncContext.Stream = envtools.PreferredStream(&jujuversion.Current, false, "")
+		// Always use the primary stream here - the user can specify
+		// to override that decision.
+		syncContext.Stream = envtools.PreferredStreams(&jujuversion.Current, false, "")[0]
 	}
 	sourceTools, err := envtools.FindToolsForCloud(
 		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},

@@ -176,7 +176,7 @@ func FindExactTools(env environs.Environ, vers version.Number, series string, ar
 		Series: series,
 		Arch:   arch,
 	}
-	stream := PreferredStream(&vers, env.Config().Development(), env.Config().AgentStream())
+	stream := PreferredStreams(&vers, env.Config().Development(), env.Config().AgentStream())[0]
 	logger.Debugf("looking for agent binaries in stream %q", stream)
 	availableTools, err := FindTools(env, vers.Major, vers.Minor, stream, filter)
 	if err != nil {
@@ -215,12 +215,22 @@ func convertToolsError(err *error) {
 	}
 }
 
-// PreferredStream returns the tools stream used to search for tools, based
-// on the required version, whether devel mode is required, and any user specified stream.
-func PreferredStream(vers *version.Number, forceDevel bool, stream string) string {
+var streamFallbacks = map[string][]string{
+	ReleasedStream: {ReleasedStream},
+	ProposedStream: {ProposedStream, ReleasedStream},
+	DevelStream:    {DevelStream, ProposedStream, ReleasedStream},
+	TestingStream:  {TestingStream, DevelStream, ProposedStream, ReleasedStream},
+}
+
+// PreferredStreams returns the tools streams that should be searched
+// for tools, based on the required version, whether devel mode is
+// required, and any user specified stream. The streams are in
+// fallback order - if there are no matching tools in one stream the
+// next should be checked.
+func PreferredStreams(vers *version.Number, forceDevel bool, stream string) []string {
 	// If the use has already nominated a specific stream, we'll use that.
 	if stream != "" && stream != ReleasedStream {
-		return stream
+		return copyStrings(streamFallbacks[stream])
 	}
 	// If we're not upgrading from a known version, we use the
 	// currently running version.
@@ -230,7 +240,13 @@ func PreferredStream(vers *version.Number, forceDevel bool, stream string) strin
 	// Devel versions are alpha or beta etc as defined by the version tag.
 	// The user can also force the use of devel streams via config.
 	if forceDevel || jujuversion.IsDev(*vers) {
-		return DevelStream
+		return copyStrings(streamFallbacks[DevelStream])
 	}
-	return ReleasedStream
+	return copyStrings(streamFallbacks[ReleasedStream])
+}
+
+func copyStrings(vals []string) []string {
+	result := make([]string, len(vals))
+	copy(result, vals)
+	return result
 }
