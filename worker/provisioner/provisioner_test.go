@@ -385,6 +385,7 @@ func (s *CommonProvisionerSuite) waitForRemovalMark(c *gc.C, m *state.Machine) {
 // waitInstanceId waits until the supplied machine has an instance id, then
 // asserts it is as expected.
 func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expect instance.Id) {
+	c.Logf("waitInstanceId(%s, %s)", m, expect)
 	s.waitHardwareCharacteristics(c, m, func() bool {
 		if actual, err := m.InstanceId(); err == nil {
 			c.Assert(actual, gc.Equals, expect)
@@ -1124,6 +1125,11 @@ func (mockDistributionGroupFinder) DistributionGroupByMachineId(tags ...names.Ma
 	result := make([]apiprovisioner.DistributionGroupResult, len(tags))
 	for i, _ := range tags {
 		result[i] = apiprovisioner.DistributionGroupResult{[]string{}, nil}
+	}
+	if len(tags) == 3 {
+		result[0] = apiprovisioner.DistributionGroupResult{[]string{"1", "2"}, nil}
+		result[1] = apiprovisioner.DistributionGroupResult{[]string{"0", "2"}, nil}
+		result[2] = apiprovisioner.DistributionGroupResult{[]string{"0", "1"}, nil}
 	}
 	return result, nil
 }

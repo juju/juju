@@ -1307,8 +1307,9 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	return []common.AvailabilityZone{
 		azShim{"zone1", true},
 		azShim{"zone2", false},
-		azShim{"zone3", false},
+		azShim{"zone3", true},
 		azShim{"zone4", true},
+		azShim{"zone5", true},
 	}, nil
 }
 
@@ -1317,12 +1318,25 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
 		return nil, errors.NotSupportedf("instance availability zones")
 	}
+	availabilityZones, err := env.AvailabilityZones()
+	if err != nil {
+		return nil, err
+	}
+	azMaxIndex := len(availabilityZones) - 1
+	azIndex := 0
 	returnValue := make([]string, len(ids))
 	for i, _ := range ids {
-		if i%2 == 0 {
-			returnValue[i] = "zone1"
+		if availabilityZones[azIndex].Available() {
+			returnValue[i] = availabilityZones[azIndex].Name()
 		} else {
-			returnValue[i] = "zone4"
+			// Based on knowledge of how the AZs are setup above
+			// in AvailabilityZones()
+			azIndex += 1
+			returnValue[i] = availabilityZones[azIndex].Name()
+		}
+		azIndex += 1
+		if azIndex == azMaxIndex {
+			azIndex = 0
 		}
 	}
 	return returnValue, nil

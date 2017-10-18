@@ -56,14 +56,17 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 
 // DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
 func (env *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	// TODO (HML) 16-Oct-2017
-	// startInstanceAvailabilityZones will change to startInstanceAvailabilityZone with
-	// the Provisioner Parallelization.
-	availabilityZones, err := env.startInstanceAvailabilityZones(args)
+
+	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return availabilityZones[0], nil
+
+	placementZone, err := env.instancePlacementZone(args.Placement, volumeAttachmentsZone)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return placementZone, nil
 }
 
 func (env *environ) availZone(name string) (*google.AvailabilityZone, error) {
@@ -112,6 +115,10 @@ func (env *environ) startInstanceAvailabilityZones(args environs.StartInstancePa
 		return []string{placementZone}, nil
 	}
 
+	// TODO ProvisionerParallelization 17-Oct-2017
+	// With parallelizing the provisioner, this section will be used for
+	// bootstrap - are there any effiencies to be made?
+	//
 	// If no availability zone is specified, then automatically spread across
 	// the known zones for optimal spread across the instance distribution
 	// group.

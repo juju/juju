@@ -66,6 +66,7 @@ func (s *environBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInst
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,
+		Placement:      "zone=z1",
 		StatusCallback: func(status status.Status, info string, data map[string]interface{}) error {
 			s.statusCallbackStub.AddCall("StatusCallback", status, info, data)
 			return s.statusCallbackStub.NextErr()
@@ -300,30 +301,7 @@ func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	c.Assert(createVMArgs.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
 }
 
-func (s *environBrokerSuite) TestStartInstanceCallsAvailabilityZoneAllocations(c *gc.C) {
-	startInstArgs := s.createStartInstanceArgs(c)
-	startInstArgs.DistributionGroup = func() ([]instance.Id, error) {
-		return []instance.Id{instance.Id("old-vm")}, nil
-	}
-
-	s.client.virtualMachines = []*mo.VirtualMachine{
-		buildVM("old-vm").resourcePool(s.client.computeResources[0].ResourcePool).vm(),
-	}
-
-	_, err := s.env.StartInstance(startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.client.CheckCallNames(c, "ComputeResources", "VirtualMachines", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[2]
-	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-
-	// Because the old VM is allocated to the first compute resource,
-	// the second one should be used for the new VM.
-	c.Assert(createVMArgs.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
-}
-
 func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	s.client.SetErrors(nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err := s.env.StartInstance(startInstArgs)

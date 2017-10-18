@@ -102,16 +102,16 @@ func (env *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (n
 	return names, err
 }
 
+// TODO (HML) 16-oct-2017
+// Verify any volume attachments
+//
 // DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
 func (env *sessionEnviron) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	// TODO (HML) 16-Oct-2017
-	// parseAvailabilityZones will change to parseAvailabilityZone with
-	// the Provisioner Parallelization.
-	zones, err := env.parseAvailabilityZones(args)
+	zone, err := env.parseAvailabilityZone(args)
 	if err != nil {
 		return "", err
 	}
-	return zones[0], nil
+	return zone, nil
 }
 
 func (env *sessionEnviron) availZone(name string) (common.AvailabilityZone, error) {
@@ -127,58 +127,17 @@ func (env *sessionEnviron) availZone(name string) (common.AvailabilityZone, erro
 	return nil, errors.NotFoundf("availability zone %q", name)
 }
 
-// parseAvailabilityZones returns the availability zones that should be
+// parseAvailabilityZone returns the availability zone that should be
 // tried for the given instance spec. If a placement argument was
-// provided then only that one is returned. Otherwise the environment is
-// queried for available zones. In that case, the resulting list is
-// roughly ordered such that the environment's instances are spread
-// evenly across the region.
-func (env *sessionEnviron) parseAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+// provided then only that one is returned.
+func (env *sessionEnviron) parseAvailabilityZone(args environs.StartInstanceParams) (string, error) {
 	if args.Placement != "" {
 		// args.Placement will always be a zone name or empty.
 		placement, err := env.parsePlacement(args.Placement)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return "", errors.Trace(err)
 		}
-		return []string{placement.Name()}, nil
+		return placement.Name(), nil
 	}
-
-	// If no availability zone is specified, then automatically spread across
-	// the known zones for optimal spread across the instance distribution
-	// group.
-	var group []instance.Id
-	var err error
-	if args.DistributionGroup != nil {
-		group, err = args.DistributionGroup()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	var zoneNames []string
-	// vSphere will misbehave if we call AvailabilityZoneAllocations with empty
-	// groups, in this case all zones should be returned.
-	if len(group) != 0 {
-		zoneInstances, err := common.AvailabilityZoneAllocations(env, group)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, z := range zoneInstances {
-			zoneNames = append(zoneNames, z.ZoneName)
-		}
-	} else {
-		zones, err := env.AvailabilityZones()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, z := range zones {
-			zoneNames = append(zoneNames, z.Name())
-		}
-	}
-	logger.Infof("found %d zones: %v", len(zoneNames), zoneNames)
-
-	if len(zoneNames) == 0 {
-		return nil, errors.NotFoundf("availability zones")
-	}
-
-	return zoneNames, nil
+	return "", nil
 }

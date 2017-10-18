@@ -576,14 +576,11 @@ type openstackPlacement struct {
 
 // DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
 func (e *Environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	// ToDo (HML) 16-Oct-2017
-	// startInstanceAvailabilityZones will change to startInstanceAvailabilityZone with
-	// the Provisioner Parallelization.
-	availabilityZones, err := e.startInstanceAvailabilityZones(args)
+	availabilityZone, err := e.startInstanceAvailabilityZone(args)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return availabilityZones[0], nil
+	return availabilityZone, nil
 }
 
 func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) {

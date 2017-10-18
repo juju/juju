@@ -2229,9 +2229,9 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsP
 	_, err = testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
 		ControllerUUID:    t.ControllerUUID,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
-		Placement:         "zone=test-available",
+		Placement:         "zone=az2",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested disks in zone "az1"`)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2", as this will prevent attaching the requested disks in zone "az1"`)
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {

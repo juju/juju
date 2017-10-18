@@ -955,55 +955,7 @@ func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	return env
 }
 
-func (s *environSuite) TestStartInstanceDistributionParams(c *gc.C) {
-	env := s.bootstrap(c)
-	var mock mockAvailabilityZoneAllocations
-	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-
-	// no distribution group specified
-	s.newNode(c, "node1", "host1", nil)
-	s.addSubnet(c, 1, 1, "node1")
-	testing.AssertStartInstance(c, env, s.controllerUUID, "1")
-	c.Assert(mock.group, gc.HasLen, 0)
-
-	// distribution group specified: ensure it's passed through to AvailabilityZone.
-	s.newNode(c, "node2", "host2", nil)
-	s.addSubnet(c, 2, 2, "node2")
-	expectedInstances := []instance.Id{"i-0", "i-1"}
-	params := environs.StartInstanceParams{
-		ControllerUUID: s.controllerUUID,
-		DistributionGroup: func() ([]instance.Id, error) {
-			return expectedInstances, nil
-		},
-	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
-}
-
-func (s *environSuite) TestStartInstanceDistributionErrors(c *gc.C) {
-	env := s.bootstrap(c)
-	mock := mockAvailabilityZoneAllocations{
-		err: errors.New("AvailabilityZoneAllocations failed"),
-	}
-	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	_, _, _, err := testing.StartInstance(env, s.controllerUUID, "1")
-	c.Assert(err, gc.ErrorMatches, "cannot get availability zone allocations: AvailabilityZoneAllocations failed")
-
-	mock.err = nil
-	dgErr := errors.New("DistributionGroup failed")
-	params := environs.StartInstanceParams{
-		ControllerUUID: s.controllerUUID,
-		DistributionGroup: func() ([]instance.Id, error) {
-			return nil, dgErr
-		},
-	}
-	_, err = testing.StartInstanceWithParams(env, "1", params)
-	c.Assert(err, gc.ErrorMatches, "cannot get distribution group: DistributionGroup failed")
-}
-
 func (s *environSuite) TestStartInstanceDistribution(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	env := s.bootstrap(c)
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "test-available"})
