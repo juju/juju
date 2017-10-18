@@ -721,10 +721,6 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	s.retryClock.CheckCalls(c, expectedCalls)
 }
 
-func (s *environSuite) TestStartInstanceDistributionGroup(c *gc.C) {
-	c.Skip("TODO: test StartInstance's DistributionGroup behaviour")
-}
-
 func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	env := s.openEnviron(c)
 	unitsDeployed := "mysql/0 wordpress/0"

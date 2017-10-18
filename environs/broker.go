@@ -40,13 +40,9 @@ type StartInstanceParams struct {
 	// instance should be started.
 	Placement string
 
-	// DistributionGroup, if non-nil, is a function
-	// that returns a slice of instance.Ids that belong
-	// to the same distribution group as the machine
-	// being provisioned. The InstanceBroker may use
-	// this information to distribute instances for
-	// high availability.
-	DistributionGroup func() ([]instance.Id, error)
+	// AvailabilityZone, provides the name of a recommended availability
+	// zone to start the instance in.
+	AvailabilityZone string
 
 	// Volumes is a set of parameters for volumes that should be created.
 	//

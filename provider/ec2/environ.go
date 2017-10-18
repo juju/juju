@@ -248,22 +248,10 @@ func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 
 // DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
 func (e *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	// Determine the availability zones of existing volumes that are to be
-	// attached to the machine. They must all match, and must be the same
-	// as specified zone (if any).
-	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
+	availabilityZone, err := e.startInstanceAvailabilityZone(args)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	placementZone, _, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	var availabilityZone string
-	if placementZone != "" {
-		availabilityZone = placementZone
-	}
-
 	return availabilityZone, nil
 }
 
@@ -330,11 +318,12 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
 func (e *environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
-	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if _, _, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone); err != nil {
+	if _, _, err := e.startInstanceAvailabilityZoneAndSubnetID(
+		environs.StartInstanceParams{
+			Placement:         args.Placement,
+			VolumeAttachments: args.VolumeAttachments,
+		},
+	); err != nil {
 		return errors.Trace(err)
 	}
 	if !args.Constraints.HasInstanceType() {
@@ -435,17 +424,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// Determine the availability zones of existing volumes that are to be
 	// attached to the machine. They must all match, and must be the same
 	// as specified zone (if any).
-	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
+	availabilityZone, placementSubnetID, err := e.startInstanceAvailabilityZoneAndSubnetID(args)
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	placementZone, placementSubnetID, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var availabilityZone string
-	if placementZone != "" {
-		availabilityZone = placementZone
+		return nil, err
 	}
 
 	arches := args.Tools.Arches()
@@ -647,6 +628,32 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		Instance: inst,
 		Hardware: &hc,
 	}, nil
+}
+
+func (e *environ) startInstanceAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+	availabilityZone, _, err := e.startInstanceAvailabilityZoneAndSubnetID(args)
+	return availabilityZone, err
+}
+
+func (e *environ) startInstanceAvailabilityZoneAndSubnetID(args environs.StartInstanceParams) (string, string, error) {
+	// Determine the availability zones of existing volumes that are to be
+	// attached to the machine. They must all match, and must be the same
+	// as specified zone (if any).
+	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	placementZone, placementSubnetID, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	var availabilityZone string
+	if placementZone != "" {
+		availabilityZone = placementZone
+	} else if args.AvailabilityZone != "" {
+		availabilityZone = args.AvailabilityZone
+	}
+	return availabilityZone, placementSubnetID, nil
 }
 
 func (e *environ) instancePlacementZone(placement, volumeAttachmentsZone string) (zone, subnet string, _ error) {

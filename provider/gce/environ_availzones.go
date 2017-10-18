@@ -115,6 +115,11 @@ func (env *environ) startInstanceAvailabilityZones(args environs.StartInstancePa
 		return []string{placementZone}, nil
 	}
 
+	// Did the caller provide an availabilty zone to use?
+	if args.AvailabilityZone != "" {
+		return []string{args.AvailabilityZone}, nil
+	}
+
 	// TODO ProvisionerParallelization 17-Oct-2017
 	// With parallelizing the provisioner, this section will be used for
 	// bootstrap - are there any effiencies to be made?
@@ -122,14 +127,7 @@ func (env *environ) startInstanceAvailabilityZones(args environs.StartInstancePa
 	// If no availability zone is specified, then automatically spread across
 	// the known zones for optimal spread across the instance distribution
 	// group.
-	var group []instance.Id
-	if args.DistributionGroup != nil {
-		group, err = args.DistributionGroup()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	zoneInstances, err := availabilityZoneAllocations(env, group)
+	zoneInstances, err := availabilityZoneAllocations(env, []instance.Id{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

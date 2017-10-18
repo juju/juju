@@ -905,6 +905,8 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		default:
 			nodeName = placement.nodeName
 		}
+	} else if args.AvailabilityZone != "" {
+		availabilityZone = args.AvailabilityZone
 	}
 
 	// Storage.

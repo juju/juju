@@ -102,7 +102,7 @@ func NewProvisionerTask(
 		harvestMode:                harvestMode,
 		harvestModeChan:            make(chan config.HarvestMode, 1),
 		machines:                   make(map[string]*apiprovisioner.Machine),
-		availabilityZoneMachines:   make([]*availabilityZoneMachine, 0),
+		availabilityZoneMachines:   make([]*AvailabilityZoneMachine, 0),
 		imageStream:                imageStream,
 		retryStartInstanceStrategy: retryStartInstanceStrategy,
 	}
@@ -142,7 +142,7 @@ type provisionerTask struct {
 	// machine id -> machine
 	machines                 map[string]*apiprovisioner.Machine
 	azMachinesMutex          sync.RWMutex
-	availabilityZoneMachines []*availabilityZoneMachine
+	availabilityZoneMachines []*AvailabilityZoneMachine
 }
 
 // Kill implements worker.Worker.Kill.
@@ -686,7 +686,6 @@ func (task *provisionerTask) constructStartInstanceParams(
 		Tools:             possibleTools,
 		InstanceConfig:    instanceConfig,
 		Placement:         provisioningInfo.Placement,
-		DistributionGroup: machine.DistributionGroup,
 		Volumes:           volumes,
 		VolumeAttachments: volumeAttachments,
 		SubnetsToZones:    subnetsToZones,
@@ -709,7 +708,6 @@ func (task *provisionerTask) constructStartInstanceParams(
 			}
 		}
 	}
-
 	return startInstanceParams, nil
 }
 
@@ -726,10 +724,11 @@ func (task *provisionerTask) maintainMachines(machines []*apiprovisioner.Machine
 	return nil
 }
 
-type availabilityZoneMachine struct {
-	zoneName         string
-	machineIds       set.Strings
-	failedMachineIds set.Strings
+// AvailabilityZoneMachine exposed for testing
+type AvailabilityZoneMachine struct {
+	ZoneName         string
+	MachineIds       set.Strings
+	FailedMachineIds set.Strings
 }
 
 // populateAvailabilityZoneMachines fills in the map, availabilityZoneMachines,
@@ -767,7 +766,7 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 
 	// convert instances IDs to machines IDs to aid distributing
 	// not yet created instances across availability zones.
-	task.availabilityZoneMachines = make([]*availabilityZoneMachine, len(availabilityZoneInstances))
+	task.availabilityZoneMachines = make([]*AvailabilityZoneMachine, len(availabilityZoneInstances))
 	for i, instances := range availabilityZoneInstances {
 		machineIds := set.NewStrings()
 		for _, instanceId := range instances.Instances {
@@ -775,10 +774,10 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 				machineIds.Add(id)
 			}
 		}
-		task.availabilityZoneMachines[i] = &availabilityZoneMachine{
-			zoneName:         instances.ZoneName,
-			machineIds:       machineIds,
-			failedMachineIds: set.NewStrings(),
+		task.availabilityZoneMachines[i] = &AvailabilityZoneMachine{
+			ZoneName:         instances.ZoneName,
+			MachineIds:       machineIds,
+			FailedMachineIds: set.NewStrings(),
 		}
 	}
 	return nil
@@ -787,14 +786,14 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 // populateDistributionGroupZoneMap returns a zone mapping which only includes
 // machines in the same distribution group.  This is used to determine where new
 // machines in that distribution group should be placed.
-func (task *provisionerTask) populateDistributionGroupZoneMap(machineIds []string) []*availabilityZoneMachine {
-	var dgAvailabilityZoneMachines []*availabilityZoneMachine
+func (task *provisionerTask) populateDistributionGroupZoneMap(machineIds []string) []*AvailabilityZoneMachine {
+	var dgAvailabilityZoneMachines []*AvailabilityZoneMachine
 	dgSet := set.NewStrings(machineIds...)
 	for _, azm := range task.availabilityZoneMachines {
-		dgAvailabilityZoneMachines = append(dgAvailabilityZoneMachines, &availabilityZoneMachine{
-			azm.zoneName,
-			azm.machineIds.Intersection(dgSet),
-			azm.failedMachineIds,
+		dgAvailabilityZoneMachines = append(dgAvailabilityZoneMachines, &AvailabilityZoneMachine{
+			azm.ZoneName,
+			azm.MachineIds.Intersection(dgSet),
+			azm.FailedMachineIds,
 		})
 	}
 	return dgAvailabilityZoneMachines
@@ -824,11 +823,11 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(machine *apipro
 		sort.Sort(byPopulationThenName(dgZoneMap))
 
 		for _, dgZoneMachines := range dgZoneMap {
-			if !dgZoneMachines.failedMachineIds.Contains(machine.Id()) {
-				machineZone = dgZoneMachines.zoneName
+			if !dgZoneMachines.FailedMachineIds.Contains(machine.Id()) {
+				machineZone = dgZoneMachines.ZoneName
 				for _, azm := range task.availabilityZoneMachines {
-					if azm.zoneName == dgZoneMachines.zoneName {
-						azm.machineIds.Add(machine.Id())
+					if azm.ZoneName == dgZoneMachines.ZoneName {
+						azm.MachineIds.Add(machine.Id())
 						break
 					}
 				}
@@ -838,9 +837,9 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(machine *apipro
 	} else {
 		sort.Sort(byPopulationThenName(task.availabilityZoneMachines))
 		for _, zoneMachines := range task.availabilityZoneMachines {
-			if !zoneMachines.failedMachineIds.Contains(machine.Id()) {
-				machineZone = zoneMachines.zoneName
-				zoneMachines.machineIds.Add(machine.Id())
+			if !zoneMachines.FailedMachineIds.Contains(machine.Id()) {
+				machineZone = zoneMachines.ZoneName
+				zoneMachines.MachineIds.Add(machine.Id())
 				break
 			}
 		}
@@ -848,7 +847,7 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(machine *apipro
 	return machineZone
 }
 
-type byPopulationThenName []*availabilityZoneMachine
+type byPopulationThenName []*AvailabilityZoneMachine
 
 func (b byPopulationThenName) Len() int {
 	return len(b)
@@ -856,10 +855,10 @@ func (b byPopulationThenName) Len() int {
 
 func (b byPopulationThenName) Less(i, j int) bool {
 	switch {
-	case b[i].machineIds.Size() < b[j].machineIds.Size():
+	case b[i].MachineIds.Size() < b[j].MachineIds.Size():
 		return true
-	case b[i].machineIds.Size() == b[j].machineIds.Size():
-		return b[i].zoneName < b[j].zoneName
+	case b[i].MachineIds.Size() == b[j].MachineIds.Size():
+		return b[i].ZoneName < b[j].ZoneName
 	}
 	return false
 }
@@ -976,10 +975,6 @@ func (task *provisionerTask) setupToStartMachine(machine *apiprovisioner.Machine
 		return nil, environs.StartInstanceParams{}, err
 	}
 
-	// TODO ProvisionerParallelization 2017-10-03
-	// Fix StartInstanceParams struct to carry the availability zone,
-	// overwrite the placement as done currently.
-	// DistributionGroups() can be removed.
 	startInstanceParams, err := task.constructStartInstanceParams(
 		task.controllerUUID,
 		machine,
@@ -1006,15 +1001,6 @@ func (task *provisionerTask) startMachine(
 		logger.Errorf("%v", err)
 	}
 
-	// Do we need to find a zone?  Or does placement contain one?
-	placementParts := strings.Split(startInstanceParams.Placement, "=")
-	var placementZone bool
-	if placementParts[0] == "zone" {
-		// TODO ProvisionerParallelization 2017-10-13
-		// revision once StartInstanceParams has been updated
-		placementZone = true
-	}
-
 	// TODO ProvisionerParallelization 2017-10-03
 	// Improve the retry loop, newer methodology
 	// Is rate limiting handled correctly?
@@ -1024,10 +1010,10 @@ func (task *provisionerTask) startMachine(
 	// increase if StartInstace failed with ErrAvailabilityZoneFailed
 	// until all availability zones have been tried.
 	for attemptsLeft := task.retryStartInstanceStrategy.retryCount; attemptsLeft >= 0; attemptsLeft-- {
-		if !placementZone {
+		if !strings.Contains(startInstanceParams.Placement, "zone") {
 			newZone := task.machineAvailabilityZoneDistribution(machine, distributionGroupMachineIds)
 			if newZone != "" {
-				startInstanceParams.Placement = fmt.Sprintf("zone=%s", newZone)
+				startInstanceParams.AvailabilityZone = newZone
 				logger.Infof("trying machine %s StartInstance in availability zone %s", machine, newZone)
 			}
 		}
@@ -1046,16 +1032,16 @@ func (task *provisionerTask) startMachine(
 		// If the failure of StartInstance() is due the availability zone,
 		// find a new one to use when retrying.
 		if err == environs.ErrAvailabilityZoneFailed {
-			if placementZone {
+			if strings.Contains(startInstanceParams.Placement, "zone") {
 				// User specified availability zone failed, nothing to retry.
 				return task.setErrorStatusAndRemoveMachineAZ("cannot start instance for machine %q in placement zone: %v", machine, err)
 			}
-			azRemaining, err2 := task.markMachineFailedInAZ(machine, startInstanceParams.Placement)
+			azRemaining, err2 := task.markMachineFailedInAZ(machine, startInstanceParams.AvailabilityZone)
 			if err2 != nil {
-				return err2
+				return task.setErrorStatusAndRemoveMachineAZ("cannot start instance: %v", machine, err2)
 			}
 			if azRemaining {
-				// There are more availabilty zones to try, don't burn an attempt.
+				// There are more availability zones to try, don't burn an attempt.
 				retryMsg = fmt.Sprintf("failed to start instance (%s) within attempt %d, retrying in %v with new availability zone",
 					err.Error(),
 					task.retryStartInstanceStrategy.retryCount-attemptsLeft,
@@ -1120,15 +1106,10 @@ func (task *provisionerTask) startMachine(
 	return nil
 }
 
-// markMachineFailedInAZ moves the machine in zone from machineIds to failedMachineIds
+// markMachineFailedInAZ moves the machine in zone from MachineIds to FailedMachineIds
 // in availabilityZoneMachines, report if there are any availability zones not failed for
 // the specified machine.
-func (task *provisionerTask) markMachineFailedInAZ(machine *apiprovisioner.Machine, placement string) (bool, error) {
-	placementParts := strings.Split(placement, "=")
-	if placementParts[0] != "zone" {
-		return false, errors.New("no suggestions to make, placement not a zone")
-	}
-	zone := placementParts[1]
+func (task *provisionerTask) markMachineFailedInAZ(machine *apiprovisioner.Machine, zone string) (bool, error) {
 	if zone == "" {
 		return false, errors.New("no zone provided")
 	}
@@ -1136,14 +1117,14 @@ func (task *provisionerTask) markMachineFailedInAZ(machine *apiprovisioner.Machi
 	defer task.azMachinesMutex.Unlock()
 	azRemaining := false
 	for _, zoneMachines := range task.availabilityZoneMachines {
-		if zone == zoneMachines.zoneName {
-			zoneMachines.machineIds.Remove(machine.Id())
-			zoneMachines.failedMachineIds.Add(machine.Id())
+		if zone == zoneMachines.ZoneName {
+			zoneMachines.MachineIds.Remove(machine.Id())
+			zoneMachines.FailedMachineIds.Add(machine.Id())
 			if azRemaining {
 				break
 			}
 		}
-		if !zoneMachines.failedMachineIds.Contains(zone) {
+		if !zoneMachines.FailedMachineIds.Contains(zone) {
 			azRemaining = true
 		}
 	}
@@ -1154,7 +1135,7 @@ func (task *provisionerTask) clearMachineAZFailures(machine *apiprovisioner.Mach
 	task.azMachinesMutex.Lock()
 	defer task.azMachinesMutex.Unlock()
 	for _, zoneMachines := range task.availabilityZoneMachines {
-		zoneMachines.failedMachineIds.Remove(machine.Id())
+		zoneMachines.FailedMachineIds.Remove(machine.Id())
 	}
 }
 
@@ -1162,8 +1143,8 @@ func (task *provisionerTask) addMachinetoAZMap(machine *apiprovisioner.Machine, 
 	task.azMachinesMutex.Lock()
 	defer task.azMachinesMutex.Unlock()
 	for _, zoneMachines := range task.availabilityZoneMachines {
-		if zoneName == zoneMachines.zoneName {
-			zoneMachines.machineIds.Add(machine.Id())
+		if zoneName == zoneMachines.ZoneName {
+			zoneMachines.MachineIds.Add(machine.Id())
 			break
 		}
 	}
@@ -1178,8 +1159,8 @@ func (task *provisionerTask) removeMachineFromAZMap(machine *apiprovisioner.Mach
 	task.azMachinesMutex.Lock()
 	defer task.azMachinesMutex.Unlock()
 	for _, zoneMachines := range task.availabilityZoneMachines {
-		zoneMachines.machineIds = zoneMachines.machineIds.Difference(machineId)
-		zoneMachines.failedMachineIds = zoneMachines.failedMachineIds.Difference(machineId)
+		zoneMachines.MachineIds = zoneMachines.MachineIds.Difference(machineId)
+		zoneMachines.FailedMachineIds = zoneMachines.FailedMachineIds.Difference(machineId)
 	}
 }
 

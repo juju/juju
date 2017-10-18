@@ -1189,12 +1189,11 @@ func (e *Environ) startInstanceAvailabilityZone(args environs.StartInstanceParam
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	var availabilityZone string
 	if placementZone != "" {
-		availabilityZone = placementZone
+		return placementZone, nil
 	}
 
-	return availabilityZone, nil
+	return args.AvailabilityZone, nil
 }
 
 func (env *Environ) instancePlacementZone(placement string, volumeAttachmentsZone string) (string, error) {

@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/watcher"
 )
@@ -36,3 +37,15 @@ var (
 )
 
 var ClassifyMachine = classifyMachine
+
+func PopulateDistributionGroupZoneMap(p ProvisionerTask, machineIds []string) []*AvailabilityZoneMachine {
+	return p.(*provisionerTask).populateDistributionGroupZoneMap(machineIds)
+}
+
+func MachineAvailabilityZoneDistribution(p ProvisionerTask, machine *apiprovisioner.Machine, distributionGroupMachineIds []string) string {
+	return p.(*provisionerTask).machineAvailabilityZoneDistribution(machine, distributionGroupMachineIds)
+}
+
+func PopulateAvailabilityZoneMachines(p ProvisionerTask) error {
+	return p.(*provisionerTask).populateAvailabilityZoneMachines()
+}

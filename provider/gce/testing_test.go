@@ -197,7 +197,6 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Tools:          tools,
 		Constraints:    cons,
 		//Placement: "",
-		//DistributionGroup: nil,
 	}
 
 	s.InstanceType = allInstanceTypes[0]

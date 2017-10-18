@@ -2056,32 +2056,6 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 	c.Assert(zones[1].Available(), jc.IsFalse)
 }
 
-type mockAvailabilityZoneAllocations struct {
-	group  []instance.Id // input param
-	result []common.AvailabilityZoneInstances
-	err    error
-}
-
-func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
-	e common.ZonedEnviron, group []instance.Id,
-) ([]common.AvailabilityZoneInstances, error) {
-	t.group = group
-	return t.result, t.err
-}
-
-func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
-	err := bootstrapEnv(c, t.env)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// test-available is the only available AZ, so AvailabilityZoneAllocations
-	// is guaranteed to return that.
-	result, _ := testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
-		ControllerUUID: t.ControllerUUID,
-		Placement:      "zone=test-available",
-	})
-	c.Assert(openstack.InstanceServerDetail(result.Instance).AvailabilityZone, gc.Equals, "test-available")
-}
-
 func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
@@ -2214,7 +2188,6 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsP
 			},
 		},
 	)
-
 	_, err = t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
@@ -2232,20 +2205,6 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsP
 		Placement:         "zone=az2",
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2", as this will prevent attaching the requested disks in zone "az1"`)
-}
-
-func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
-	err := bootstrapEnv(c, t.env)
-	c.Assert(err, jc.ErrorIsNil)
-
-	mock := mockAvailabilityZoneAllocations{
-		err: errors.NotImplementedf("availability zones"),
-	}
-	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-
-	// Instance will be created without an availability zone specified.
-	inst, _ := testing.AssertStartInstance(c, t.env, t.ControllerUUID, "1")
-	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "")
 }
 
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {

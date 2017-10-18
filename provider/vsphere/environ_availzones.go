@@ -139,5 +139,5 @@ func (env *sessionEnviron) parseAvailabilityZone(args environs.StartInstancePara
 		}
 		return placement.Name(), nil
 	}
-	return "", nil
+	return args.AvailabilityZone, nil
 }

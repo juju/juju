@@ -905,19 +905,6 @@ func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
 }
 
-type mockAvailabilityZoneAllocations struct {
-	group  []instance.Id // input param
-	result []common.AvailabilityZoneInstances
-	err    error
-}
-
-func (m *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
-	e common.ZonedEnviron, group []instance.Id,
-) ([]common.AvailabilityZoneInstances, error) {
-	m.group = group
-	return m.result, m.err
-}
-
 func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[string]interface{}) {
 	allAttrs := map[string]interface{}{
 		"system_id":     nodename,
@@ -953,41 +940,6 @@ func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
-}
-
-func (s *environSuite) TestStartInstanceDistribution(c *gc.C) {
-	env := s.bootstrap(c)
-	s.testMAASObject.TestServer.AddZone("test-available", "description")
-	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "test-available"})
-	s.addSubnet(c, 1, 1, "node1")
-	inst, _ := testing.AssertStartInstance(c, env, s.controllerUUID, "1")
-	zone, err := inst.(*maas1Instance).zone()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "test-available")
-}
-
-func (s *environSuite) TestStartInstanceDistributionOneAssigned(c *gc.C) {
-	mock := mockAvailabilityZoneAllocations{
-		result: []common.AvailabilityZoneInstances{{
-			ZoneName: "zone1",
-		}, {
-			ZoneName: "zone2",
-		}},
-	}
-	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	s.testMAASObject.TestServer.AddZone("zone1", "description")
-	s.testMAASObject.TestServer.AddZone("zone2", "description")
-	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "zone1"})
-	s.addSubnet(c, 1, 1, "node1")
-	s.newNode(c, "node2", "host2", map[string]interface{}{"zone": "zone2"})
-	s.addSubnet(c, 2, 2, "node2")
-
-	env := s.bootstrap(c)
-	testing.AssertStartInstance(c, env, s.controllerUUID, "1")
-	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
-		// one acquire for the bootstrap, one for StartInstance.
-		"acquire", "acquire",
-	})
 }
 
 func (s *environSuite) TestReleaseContainerAddresses(c *gc.C) {

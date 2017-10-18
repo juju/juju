@@ -1309,7 +1309,6 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 		azShim{"zone2", false},
 		azShim{"zone3", true},
 		azShim{"zone4", true},
-		azShim{"zone5", true},
 	}, nil
 }
 
