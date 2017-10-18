@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/crossmodelrelations"
 	"github.com/juju/juju/api/remoterelations"
-	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/worker/apicaller"
 )
 
@@ -45,7 +44,7 @@ func remoteRelationsFacadeForModelFunc(
 	connectionFunc apicaller.NewExternalControllerConnectionFunc,
 ) newRemoteRelationsFacadeFunc {
 	return func(apiInfo *api.Info) (RemoteModelRelationsFacadeCloser, error) {
-		apiInfo.Tag = names.NewUserTag(authentication.AnonymousUsername)
+		apiInfo.Tag = names.NewUserTag(api.AnonymousUsername)
 		conn, err := connectionFunc(apiInfo)
 		if err != nil {
 			return nil, errors.Trace(err)

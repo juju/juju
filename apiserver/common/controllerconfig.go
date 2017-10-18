@@ -50,13 +50,13 @@ func (s *ControllerConfigAPI) ControllerAPIInfoForModels(args params.Entities) (
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		addrs, CACert, err := s.st.ControllerInfo(modelTag.Id())
+		addrs, caCert, err := s.st.ControllerInfo(modelTag.Id())
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
 		result.Results[i].Addresses = addrs
-		result.Results[i].CACert = CACert
+		result.Results[i].CACert = caCert
 	}
 	return result, nil
 }
@@ -73,11 +73,7 @@ func (s *controllerStateShim) ControllerInfo(modelUUID string) (addrs []string, 
 		return nil, "", errors.Trace(err)
 	}
 	if modelExists {
-		addr, err := apiAddresses(s.State)
-		if err != nil {
-			return nil, "", errors.Trace(err)
-		}
-		return addr, s.State.CACert(), nil
+		return StateControllerInfo(s.State)
 	}
 
 	// Now check any external controllers.
@@ -87,4 +83,13 @@ func (s *controllerStateShim) ControllerInfo(modelUUID string) (addrs []string, 
 		return nil, "", errors.Trace(err)
 	}
 	return info.ControllerInfo().Addrs, info.ControllerInfo().CACert, nil
+}
+
+// StateControllerInfo returns the local controller details for the given State.
+func StateControllerInfo(st *state.State) (addrs []string, caCert string, _ error) {
+	addr, err := apiAddresses(st)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	return addr, st.CACert(), nil
 }

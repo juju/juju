@@ -31,6 +31,9 @@ import (
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
+// AnonymousUsername is the special username to use for anonymous logins.
+const AnonymousUsername = "jujuanonymous"
+
 // Info encapsulates information about a server holding juju state and
 // can be used to make a connection to it.
 type Info struct {

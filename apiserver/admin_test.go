@@ -565,6 +565,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 	c.Assert(result.ModelTag, gc.Equals, s.IAASModel.ModelTag().String())
 	c.Assert(result.Facades, jc.DeepEquals, []params.FacadeVersions{
 		{Name: "CrossModelRelations", Versions: []int{1}},
+		{Name: "NotifyWatcher", Versions: []int{1}},
 		{Name: "RelationStatusWatcher", Versions: []int{1}},
 		{Name: "RelationUnitsWatcher", Versions: []int{1}},
 		{Name: "StringsWatcher", Versions: []int{1}},
@@ -588,8 +589,10 @@ func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.IsNil)
 	c.Assert(result.ControllerTag, gc.Equals, s.State.ControllerTag().String())
-	// There are currently no anonymous controller facades.
-	c.Assert(result.Facades, gc.HasLen, 0)
+	c.Assert(result.Facades, jc.DeepEquals, []params.FacadeVersions{
+		{Name: "CrossController", Versions: []int{1}},
+		{Name: "NotifyWatcher", Versions: []int{1}},
+	})
 }
 
 func (s *loginSuite) TestControllerModel(c *gc.C) {

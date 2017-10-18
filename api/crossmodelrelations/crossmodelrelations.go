@@ -41,10 +41,6 @@ func NewClientWithCache(caller base.APICallCloser, cache *MacaroonCache) *Client
 	}
 }
 
-func (c *Client) Close() error {
-	return c.ClientFacade.Close()
-}
-
 // handleError is used to process an error obtained when making a facade call.
 // If the error indicates that a macaroon discharge is required, this is done
 // and the resulting discharge macaroons passed back so the api call can be retried.

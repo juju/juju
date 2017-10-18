@@ -68,7 +68,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
+	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
+	"github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
@@ -148,6 +150,8 @@ func AllFacades() *facade.Registry {
 	reg("Controller", 3, controller.NewControllerAPIv3)
 	reg("Controller", 4, controller.NewControllerAPIv4)
 	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
+	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
+	reg("ExternalControllerUpdater", 1, externalcontrollerupdater.NewStateAPI)
 
 	reg("Deployer", 1, deployer.NewDeployerAPI)
 	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI)

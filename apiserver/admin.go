@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -184,7 +185,7 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			result.anonymousLogin = userTag.Id() == authentication.AnonymousUsername && len(req.Macaroons) == 0
+			result.anonymousLogin = userTag.Id() == api.AnonymousUsername && len(req.Macaroons) == 0
 			result.userLogin = !result.anonymousLogin
 		}
 		if err != nil || kind != names.UserTagKind {

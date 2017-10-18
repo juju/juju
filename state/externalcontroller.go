@@ -69,7 +69,11 @@ func (rc *externalController) ControllerInfo() crossmodel.ControllerInfo {
 // ExternalControllers instances provide access to external controllers in state.
 type ExternalControllers interface {
 	Save(_ crossmodel.ControllerInfo, modelUUIDs ...string) (ExternalController, error)
+	Controller(controllerUUID string) (ExternalController, error)
 	ControllerForModel(modelUUID string) (ExternalController, error)
+	Remove(controllerUUID string) error
+	Watch() StringsWatcher
+	WatchController(controllerUUID string) NotifyWatcher
 }
 
 type externalControllers struct {
@@ -81,7 +85,7 @@ func NewExternalControllers(st *State) *externalControllers {
 	return &externalControllers{st: st}
 }
 
-// Add creates a new external controller record.
+// Add creates or updates an external controller record.
 func (ec *externalControllers) Save(controller crossmodel.ControllerInfo, modelUUIDs ...string) (ExternalController, error) {
 	if err := controller.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -141,6 +145,26 @@ func (ec *externalControllers) Save(controller crossmodel.ControllerInfo, modelU
 	}, nil
 }
 
+// Remove removes an external controller record with the given controller UUID.
+func (ec *externalControllers) Remove(controllerUUID string) error {
+	ops := []txn.Op{{
+		C:      externalControllersC,
+		Id:     controllerUUID,
+		Remove: true,
+	}}
+	err := ec.st.db().RunTransaction(ops)
+	return errors.Annotate(err, "failed to remove external controller")
+}
+
+// Controller retrieves an ExternalController with a given controller UUID.
+func (ec *externalControllers) Controller(controllerUUID string) (ExternalController, error) {
+	doc, err := ec.controller(controllerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &externalController{*doc}, nil
+}
+
 func (ec *externalControllers) controller(controllerUUID string) (*externalControllerDoc, error) {
 	coll, closer := ec.st.db().GetCollection(externalControllersC)
 	defer closer()
@@ -175,4 +199,17 @@ func (ec *externalControllers) ControllerForModel(modelUUID string) (ExternalCon
 		}, nil
 	}
 	return nil, errors.Errorf("expected 1 controller with model %v, got %d", modelUUID, len(doc))
+}
+
+// Watch returns a strings watcher that watches for addition and removal of
+// external controller documents. The strings returned will be the controller
+// UUIDs.
+func (ec *externalControllers) Watch() StringsWatcher {
+	return newExternalControllersWatcher(ec.st)
+}
+
+// WatchController returns a notify watcher that watches for changes to the
+// external controller with the specified controller UUID.
+func (ec *externalControllers) WatchController(controllerUUID string) NotifyWatcher {
+	return newEntityWatcher(ec.st, externalControllersC, controllerUUID)
 }
