@@ -78,6 +78,7 @@ type ModelManagerAPI struct {
 	toolsFinder *common.ToolsFinder
 	apiUser     names.UserTag
 	isAdmin     bool
+	model       common.Model
 }
 
 // ModelManagerAPIV2 provides a way to wrap the different calls between
@@ -105,6 +106,7 @@ func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 	ctlrSt := pool.SystemState()
 	auth := ctx.Auth()
 
+	var err error
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -112,21 +114,17 @@ func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 
 	configGetter := stateenvirons.EnvironConfigGetter{st, model}
 
-	m, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
-
-	ctlrModel, err := ctlrSt.Model()
+	ctrlModel, err := ctlrSt.Model()
 	if err != nil {
 		return nil, err
 	}
 
 	return NewModelManagerAPI(
-		common.NewModelManagerBackend(m, pool),
-		common.NewModelManagerBackend(ctlrModel, pool),
+		common.NewModelManagerBackend(model, pool),
+		common.NewModelManagerBackend(ctrlModel, pool),
 		configGetter,
 		auth,
+		model,
 	)
 }
 
@@ -155,6 +153,7 @@ func NewModelManagerAPI(
 	ctlrSt common.ModelManagerBackend,
 	configGetter environs.EnvironConfigGetter,
 	authorizer facade.Authorizer,
+	m common.Model,
 ) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -178,6 +177,7 @@ func NewModelManagerAPI(
 		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
 		apiUser:        apiUser,
 		isAdmin:        isAdmin,
+		model:          m,
 	}, nil
 }
 
@@ -695,6 +695,10 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 	for _, modelUUID := range modelUUIDs {
 		st, release, err := m.state.GetBackend(modelUUID)
 		if err != nil {
+			// This model could have been removed.
+			if errors.IsNotFound(err) {
+				continue
+			}
 			return result, errors.Trace(err)
 		}
 		defer release()
@@ -1107,7 +1111,7 @@ func (m *ModelManagerAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
 		return result, common.ErrPerm
 	}
 
-	values, err := m.state.ModelConfigDefaultValues()
+	values, err := m.model.ModelConfigDefaultValues()
 	if err != nil {
 		return result, errors.Trace(err)
 	}

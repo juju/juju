@@ -20,6 +20,7 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/crosscontroller"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
@@ -35,6 +36,7 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/juju/worker/externalcontrollerupdater"
 	"github.com/juju/juju/worker/fanconfigurer"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
@@ -151,6 +153,9 @@ type ManifoldsConfig struct {
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
 	UpdateLoggerConfig func(string) error
+
+	// NewAgentStatusSetter provides upgradesteps.StatusSetter.
+	NewAgentStatusSetter func(apiConn api.Connection) (upgradesteps.StatusSetter, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -181,6 +186,16 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	var externalUpdateProxyFunc func(proxy.Settings) error
 	if runtime.GOOS == "linux" {
 		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
+	}
+
+	newExternalControllerWatcherClient := func(apiInfo *api.Info) (
+		externalcontrollerupdater.ExternalControllerWatcherClientCloser, error,
+	) {
+		conn, err := apicaller.NewExternalControllerConnection(apiInfo)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return crosscontroller.NewClient(conn), nil
 	}
 
 	return dependency.Manifolds{
@@ -339,6 +354,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			OpenStateForUpgrade:  config.OpenStateForUpgrade,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
+			NewAgentStatusSetter: config.NewAgentStatusSetter,
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -519,6 +535,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     hostkeyreporter.NewFacade,
 			NewWorker:     hostkeyreporter.NewWorker,
 		})),
+
+		externalControllerUpdaterName: ifNotMigrating(externalcontrollerupdater.Manifold(
+			externalcontrollerupdater.ManifoldConfig{
+				StateName:                          stateName,
+				APICallerName:                      apiCallerName,
+				NewExternalControllerWatcherClient: newExternalControllerWatcherClient,
+			},
+		)),
 	}
 }
 
@@ -559,22 +583,23 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	servingInfoSetterName    = "serving-info-setter"
-	apiWorkersName           = "unconverted-api-workers"
-	rebootName               = "reboot-executor"
-	loggingConfigUpdaterName = "logging-config-updater"
-	diskManagerName          = "disk-manager"
-	proxyConfigUpdater       = "proxy-config-updater"
-	apiAddressUpdaterName    = "api-address-updater"
-	machinerName             = "machiner"
-	logSenderName            = "log-sender"
-	deployerName             = "unit-agent-deployer"
-	authenticationWorkerName = "ssh-authkeys-updater"
-	storageProvisionerName   = "storage-provisioner"
-	resumerName              = "mgo-txn-resumer"
-	identityFileWriterName   = "ssh-identity-writer"
-	toolsVersionCheckerName  = "tools-version-checker"
-	machineActionName        = "machine-action-runner"
-	hostKeyReporterName      = "host-key-reporter"
-	fanConfigurerName        = "fan-configurer"
+	servingInfoSetterName         = "serving-info-setter"
+	apiWorkersName                = "unconverted-api-workers"
+	rebootName                    = "reboot-executor"
+	loggingConfigUpdaterName      = "logging-config-updater"
+	diskManagerName               = "disk-manager"
+	proxyConfigUpdater            = "proxy-config-updater"
+	apiAddressUpdaterName         = "api-address-updater"
+	machinerName                  = "machiner"
+	logSenderName                 = "log-sender"
+	deployerName                  = "unit-agent-deployer"
+	authenticationWorkerName      = "ssh-authkeys-updater"
+	storageProvisionerName        = "storage-provisioner"
+	resumerName                   = "mgo-txn-resumer"
+	identityFileWriterName        = "ssh-identity-writer"
+	toolsVersionCheckerName       = "tools-version-checker"
+	machineActionName             = "machine-action-runner"
+	hostKeyReporterName           = "host-key-reporter"
+	fanConfigurerName             = "fan-configurer"
+	externalControllerUpdaterName = "external-controller-updater"
 )

@@ -8,6 +8,31 @@ import (
 	"gopkg.in/macaroon.v1"
 )
 
+// ExternalControllerInfoResults contains the results of querying
+// the information for a set of external controllers.
+type ExternalControllerInfoResults struct {
+	Results []ExternalControllerInfoResult `json:"results"`
+}
+
+// ExternalControllerInfoResult contains the result of querying
+// the information of external controllers.
+type ExternalControllerInfoResult struct {
+	Result *ExternalControllerInfo `json:"result"`
+	Error  *Error                  `json:"error"`
+}
+
+// SetControllersInfoParams contains the parameters for setting the
+// info for a set of external controllers.
+type SetExternalControllersInfoParams struct {
+	Controllers []SetExternalControllerInfoParams `json:"controllers"`
+}
+
+// SetExternalControllerInfoParams contains the parameters for setting
+// the info for an external controller.
+type SetExternalControllerInfoParams struct {
+	Info ExternalControllerInfo `json:"info"`
+}
+
 // EndpointFilterAttributes is used to filter offers matching the
 // specified endpoint criteria.
 type EndpointFilterAttributes struct {

@@ -700,6 +700,29 @@ func (s *environSuite) TestPrecheckNodePlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *environSuite) TestDeriveAvailabilityZone(c *gc.C) {
+	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
+	env := s.makeEnviron()
+	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "zone=zone1"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "zone1")
+}
+
+func (s *environSuite) TestDeriveAvailabilityZoneUnknown(c *gc.C) {
+	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
+	env := s.makeEnviron()
+	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "zone=zone2"})
+	c.Assert(err, gc.ErrorMatches, `invalid availability zone "zone2"`)
+	c.Assert(zone, gc.Equals, "")
+}
+
+func (s *environSuite) TestDeriveAvailabilityZoneInvalidPlacement(c *gc.C) {
+	env := s.makeEnviron()
+	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "notzone=anything"})
+	c.Assert(err, gc.ErrorMatches, "unknown placement directive: notzone=anything")
+	c.Assert(zone, gc.Equals, "")
+}
+
 func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
 	// Add a node for the started instance.
 	s.newNode(c, "thenode1", "host1", map[string]interface{}{"zone": "test-available"})

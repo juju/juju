@@ -54,6 +54,18 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 	return results, err
 }
 
+// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
+func (env *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+	// TODO (HML) 16-Oct-2017
+	// startInstanceAvailabilityZones will change to startInstanceAvailabilityZone with
+	// the Provisioner Parallelization.
+	availabilityZones, err := env.startInstanceAvailabilityZones(args)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return availabilityZones[0], nil
+}
+
 func (env *environ) availZone(name string) (*google.AvailabilityZone, error) {
 	zones, err := env.gce.AvailabilityZones(env.cloud.Region)
 	if err != nil {

@@ -1164,7 +1164,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	})
 	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "static-pool",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1356,7 +1356,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		"allow-lxd-loop-mounts": true,
 		"apt-mirror":            "http://example.mirror.com",
 	}
-	err := s.State.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAPTProxy := proxy.Settings{
 		Http:    "http://proxy.example.com:9000",

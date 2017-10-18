@@ -109,7 +109,7 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelConfigGet(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil)
+	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	context := s.run(c, "model-config", "special")
@@ -122,7 +122,7 @@ func (s *cmdModelSuite) TestModelConfigSet(c *gc.C) {
 }
 
 func (s *cmdModelSuite) TestModelConfigReset(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil)
+	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-config", "--reset", "special")
@@ -156,7 +156,7 @@ special         -        -
 
 func (s *cmdModelSuite) TestModelDefaultsSet(c *gc.C) {
 	s.run(c, "model-defaults", "special=known")
-	defaults, err := s.State.ModelConfigDefaultValues()
+	defaults, err := s.IAASModel.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := defaults["special"]
 	c.Assert(found, jc.IsTrue)
@@ -165,7 +165,7 @@ func (s *cmdModelSuite) TestModelDefaultsSet(c *gc.C) {
 
 func (s *cmdModelSuite) TestModelDefaultsSetRegion(c *gc.C) {
 	s.run(c, "model-defaults", "dummy/dummy-region", "special=known")
-	defaults, err := s.State.ModelConfigDefaultValues()
+	defaults, err := s.IAASModel.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := defaults["special"]
 	c.Assert(found, jc.IsTrue)
@@ -178,7 +178,7 @@ func (s *cmdModelSuite) TestModelDefaultsReset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-defaults", "--reset", "special")
-	defaults, err := s.State.ModelConfigDefaultValues()
+	defaults, err := s.IAASModel.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := defaults["special"]
 	c.Assert(found, jc.IsFalse)
@@ -189,7 +189,7 @@ func (s *cmdModelSuite) TestModelDefaultsResetRegion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-defaults", "dummy-region", "--reset", "special")
-	defaults, err := s.State.ModelConfigDefaultValues()
+	defaults, err := s.IAASModel.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := defaults["special"]
 	c.Assert(found, jc.IsFalse)

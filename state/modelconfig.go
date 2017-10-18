@@ -184,20 +184,16 @@ func (model *Model) ModelConfigValues() (config.ConfigValues, error) {
 
 // ModelConfigDefaultValues returns the default config values to be used
 // when creating a new model, and the origin of those values.
-func (st *State) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (model *Model) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
 	cloudName := model.Cloud()
-	cloud, err := st.Cloud(cloudName)
+	cloud, err := model.State().Cloud(cloudName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	result := make(config.ModelDefaultAttributes)
 	// Juju defaults
-	defaultAttrs, err := st.defaultInheritedConfig()
+	defaultAttrs, err := model.State().defaultInheritedConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -205,7 +201,7 @@ func (st *State) ModelConfigDefaultValues() (config.ModelDefaultAttributes, erro
 		result[k] = config.AttributeDefaultValues{Default: v}
 	}
 	// Controller config
-	ciCfg, err := st.controllerInheritedConfig()
+	ciCfg, err := model.State().controllerInheritedConfig()
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 
@@ -221,7 +217,7 @@ func (st *State) ModelConfigDefaultValues() (config.ModelDefaultAttributes, erro
 	// Region config
 	for _, region := range cloud.Regions {
 		rspec := &environs.RegionSpec{Cloud: cloudName, Region: region.Name}
-		riCfg, err := st.regionInheritedConfig(rspec)()
+		riCfg, err := model.State().regionInheritedConfig(rspec)()
 		if err != nil {
 			if errors.IsNotFound(err) {
 				continue
@@ -279,11 +275,12 @@ type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []s
 // UpdateModelConfig adds, updates or removes attributes in the current
 // configuration of the model with the provided updateAttrs and
 // removeAttrs.
-func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...ValidateConfigFunc) error {
+func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...ValidateConfigFunc) error {
 	if len(updateAttrs)+len(removeAttrs) == 0 {
 		return nil
 	}
 
+	st := m.State()
 	if len(removeAttrs) > 0 {
 		var removed []string
 		if updateAttrs == nil {
@@ -317,12 +314,6 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 	// the user asked for.
 
 	modelSettings, err := readSettings(st.db(), settingsC, modelGlobalKey)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Get the existing model config from state.
-	m, err := st.Model()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -36,6 +36,7 @@ type Backend interface {
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
 	AllRelations() ([]*state.Relation, error)
+	AllSubnets() ([]*state.Subnet, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
 	APIHostPorts() ([][]network.HostPort, error)
 	Application(string) (*state.Application, error)
@@ -61,7 +62,6 @@ type Backend interface {
 	SetAnnotations(state.GlobalEntity, map[string]string) error
 	SetModelAgentVersion(version.Number) error
 	SetModelConstraints(constraints.Value) error
-	Subnet(string) (*state.Subnet, error)
 	Unit(string) (Unit, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 	Watch(params state.WatchParams) *state.Multiwatcher
@@ -94,6 +94,10 @@ type Unit interface {
 type stateShim struct {
 	*state.State
 	model *state.Model
+}
+
+func (st stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
+	return st.model.UpdateModelConfig(u, r, a...)
 }
 
 func (st stateShim) ModelConfigValues() (config.ConfigValues, error) {

@@ -28,6 +28,10 @@ type stateShim struct {
 	model *state.Model
 }
 
+func (st stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
+	return st.model.UpdateModelConfig(u, r, a...)
+}
+
 func (st stateShim) ModelConfigValues() (config.ConfigValues, error) {
 	return st.model.ModelConfigValues()
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EvilSuperstars/go-cidrman"
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
@@ -41,6 +42,7 @@ type FirewallerAPI interface {
 	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
 	MacaroonForRelation(relationKey string) (*macaroon.Macaroon, error)
 	SetRelationStatus(relationKey string, status relation.Status, message string) error
+	FirewallRules(serviceNames ...string) ([]params.FirewallRule, error)
 }
 
 // CrossModelFirewallerFacade exposes firewaller functionality on the
@@ -792,10 +794,14 @@ func (fw *Firewaller) gatherIngressRules(machines ...*machineData) ([]network.In
 	return want, nil
 }
 
+// TODO(wallyworld) - consider making this configurable.
+const maxAllowedCIDRS = 20
+
 func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag, cidrs set.Strings) error {
 	logger.Debugf("finding egress rules for %v", appTag)
 	// Now create the rules for any remote relations of which the
 	// unit's application is a part.
+	newCidrs := make(set.Strings)
 	for _, data := range fw.relationIngress {
 		if data.localApplicationTag != appTag {
 			continue
@@ -804,8 +810,43 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 			continue
 		}
 		for _, cidr := range data.networks.Values() {
-			cidrs.Add(cidr)
+			newCidrs.Add(cidr)
 		}
+	}
+	// If we have too many CIDRs to create a rule for, consolidate.
+	// If a firewall rule with a whitelist of CIDRs has been set up,
+	// use that, else open to the world.
+	if newCidrs.Size() > maxAllowedCIDRS {
+		// First, try and merge the cidrs.
+		merged, err := cidrman.MergeCIDRs(newCidrs.Values())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		newCidrs = set.NewStrings(merged...)
+	}
+
+	// If there's still too many after merging, look for any firewall whitelist.
+	if newCidrs.Size() > maxAllowedCIDRS {
+		newCidrs = make(set.Strings)
+		rules, err := fw.firewallerApi.FirewallRules("juju-application-offer")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(rules) > 0 {
+			rule := rules[0]
+			if len(rule.WhitelistCIDRS) > 0 {
+				for _, cidr := range rule.WhitelistCIDRS {
+					newCidrs.Add(cidr)
+				}
+			}
+		}
+		// No relevant firewall rule exists, so go public.
+		if newCidrs.Size() == 0 {
+			newCidrs.Add("0.0.0.0/0")
+		}
+	}
+	for _, cidr := range newCidrs.Values() {
+		cidrs.Add(cidr)
 	}
 	return nil
 }
@@ -870,6 +911,10 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	machineId := machined.tag.Id()
 	instanceId, err := m.InstanceId()
+	if params.IsCodeNotProvisioned(err) {
+		// Not provisioned yet, so nothing to do for this instance
+		return nil
+	}
 	if err != nil {
 		return err
 	}

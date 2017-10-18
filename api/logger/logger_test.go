@@ -52,7 +52,7 @@ func (s *loggerSuite) TestLoggingConfig(c *gc.C) {
 }
 
 func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
-	err := s.BackingState.UpdateModelConfig(map[string]interface{}{"logging-config": loggingConfig}, nil)
+	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"logging-config": loggingConfig}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

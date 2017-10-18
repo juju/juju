@@ -51,7 +51,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingAlreadyCo
 		stub:         &testing.Stub{},
 		superSubnets: []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
 	}
-	err := s.State.UpdateModelConfig(map[string]interface{}{
+	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		"container-networking-method": "local",
 		"fan-config":                  "1.2.3.4/24=5.6.7.8/16",
 	}, nil)

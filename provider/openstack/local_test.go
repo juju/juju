@@ -1406,6 +1406,112 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZonesConflictsVolume(c *gc.C
 	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2", as this will prevent attaching the requested disks in zone "az1"`)
 }
 
+func (t *localServerSuite) TestDeriveAvailabilityZone(c *gc.C) {
+	placement := "zone=test-available"
+	env := t.env.(common.ZonedEnviron)
+	zone, err := env.DeriveAvailabilityZone(
+		environs.StartInstanceParams{
+			Placement: placement,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "test-available")
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZoneUnavailable(c *gc.C) {
+	placement := "zone=test-unavailable"
+	env := t.env.(common.ZonedEnviron)
+	zone, err := env.DeriveAvailabilityZone(
+		environs.StartInstanceParams{
+			Placement: placement,
+		})
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
+	c.Assert(zone, gc.Equals, "")
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZoneUnknown(c *gc.C) {
+	placement := "zone=test-unknown"
+	env := t.env.(common.ZonedEnviron)
+	zone, err := env.DeriveAvailabilityZone(
+		environs.StartInstanceParams{
+			Placement: placement,
+		})
+	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	c.Assert(zone, gc.Equals, "")
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZoneVolumeNoPlacement(c *gc.C) {
+	t.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: false,
+			},
+		},
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		Size:             123,
+		Name:             "foo",
+		AvailabilityZone: "az2",
+		Metadata: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	env := t.env.(common.ZonedEnviron)
+	zone, err := env.DeriveAvailabilityZone(
+		environs.StartInstanceParams{
+			VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zone, gc.Equals, "az2")
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZoneConflictsVolume(c *gc.C) {
+	t.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		Size:             123,
+		Name:             "foo",
+		AvailabilityZone: "az1",
+		Metadata: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	env := t.env.(common.ZonedEnviron)
+	zone, err := env.DeriveAvailabilityZone(
+		environs.StartInstanceParams{
+			Placement:         "zone=az2",
+			VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
+		})
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2", as this will prevent attaching the requested disks in zone "az1"`)
+	c.Assert(zone, gc.Equals, "")
+}
+
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")

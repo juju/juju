@@ -244,6 +244,27 @@ func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 	return zones, err
 }
 
+// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
+func (e *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+	// Determine the availability zones of existing volumes that are to be
+	// attached to the machine. They must all match, and must be the same
+	// as specified zone (if any).
+	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	placementZone, _, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var availabilityZone string
+	if placementZone != "" {
+		availabilityZone = placementZone
+	}
+
+	return availabilityZone, nil
+}
+
 type ec2Placement struct {
 	availabilityZone *ec2.AvailabilityZoneInfo
 	subnet           *ec2.Subnet

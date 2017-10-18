@@ -51,9 +51,8 @@ func allCollections() collectionSchema {
 
 		txnsC: {
 			// This collection is used exclusively by mgo/txn to record transactions.
-			global:         true,
-			rawAccess:      true,
-			explicitCreate: &mgo.CollectionInfo{},
+			global:    true,
+			rawAccess: true,
 			indexes: []mgo.Index{{
 				// The "s" field is used in queries
 				// by mgo/txn.Runner.ResumeAll.
@@ -343,9 +342,13 @@ func allCollections() collectionSchema {
 		subnetsC:              {},
 		linkLayerDevicesC:     {},
 		linkLayerDevicesRefsC: {},
-		ipAddressesC:          {},
-		endpointBindingsC:     {},
-		openedPortsC:          {},
+		ipAddressesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "machine-id", "device-name"},
+			}},
+		},
+		endpointBindingsC: {},
+		openedPortsC:      {},
 
 		// -----
 

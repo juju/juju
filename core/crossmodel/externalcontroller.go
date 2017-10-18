@@ -28,7 +28,7 @@ type ControllerInfo struct {
 
 // Validate returns an error if the ControllerInfo contains bad data.
 func (info *ControllerInfo) Validate() error {
-	if !names.IsValidModel(info.ControllerTag.Id()) {
+	if !names.IsValidController(info.ControllerTag.Id()) {
 		return errors.NotValidf("ControllerTag")
 	}
 

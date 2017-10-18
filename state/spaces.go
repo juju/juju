@@ -61,11 +61,18 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 	defer closer()
 
 	var doc subnetDoc
-	iter := subnetsCollection.Find(bson.D{{"space-name", name}}).Iter()
+	// We ignore space-name field for FAN subnets...
+	iter := subnetsCollection.Find(bson.D{{"space-name", name}, bson.DocElem{"fan-local-underlay", bson.D{{"$exists", false}}}}).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		subnet := &Subnet{s.st, doc}
+		subnet := &Subnet{s.st, doc, name}
 		results = append(results, subnet)
+		// ...and then add them explicitly as descendants of underlay network.
+		childIter := subnetsCollection.Find(bson.D{{"fan-local-underlay", doc.CIDR}}).Iter()
+		for childIter.Next(&doc) {
+			subnet := &Subnet{s.st, doc, name}
+			results = append(results, subnet)
+		}
 	}
 	if err := iter.Err(); err != nil {
 		return nil, err
@@ -106,7 +113,7 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 		ops = append(ops, txn.Op{
 			C:      subnetsC,
 			Id:     subnetId,
-			Assert: txn.DocExists,
+			Assert: bson.D{bson.DocElem{"fan-local-underlay", bson.D{{"$exists", false}}}},
 			Update: bson.D{{"$set", bson.D{{"space-name", name}}}},
 		})
 	}
@@ -116,8 +123,12 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 			return nil, errors.AlreadyExistsf("space %q", name)
 		}
 		for _, subnetId := range subnets {
-			if _, err := st.Subnet(subnetId); errors.IsNotFound(err) {
+			subnet, err := st.Subnet(subnetId)
+			if errors.IsNotFound(err) {
 				return nil, err
+			}
+			if subnet.FanLocalUnderlay() != "" {
+				return nil, errors.Errorf("Can't set space for FAN subnet %q - it's always inherited from underlay", subnet.CIDR())
 			}
 		}
 		if err := newSpace.Refresh(); err != nil {

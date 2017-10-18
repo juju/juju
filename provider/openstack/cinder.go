@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"gopkg.in/goose.v2/cinder"
 	"gopkg.in/goose.v2/identity"
@@ -22,6 +23,9 @@ import (
 
 const (
 	CinderProviderType = storage.ProviderType("cinder")
+
+	cinderVolumeType = "volume-type"
+
 	// autoAssignedMountPoint specifies the value to pass in when
 	// you'd like Cinder to automatically assign a mount point.
 	autoAssignedMountPoint = ""
@@ -31,6 +35,34 @@ const (
 	volumeStatusError     = "error"
 	volumeStatusInUse     = "in-use"
 )
+
+var cinderConfigFields = schema.Fields{
+	cinderVolumeType: schema.String(),
+}
+
+var cinderConfigChecker = schema.FieldMap(
+	cinderConfigFields,
+	schema.Defaults{
+		cinderVolumeType: schema.Omit,
+	},
+)
+
+type cinderConfig struct {
+	volumeType string
+}
+
+func newCinderConfig(attrs map[string]interface{}) (*cinderConfig, error) {
+	out, err := cinderConfigChecker.Coerce(attrs, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "validating Cinder storage config")
+	}
+	coerced := out.(map[string]interface{})
+	volumeType, _ := coerced[cinderVolumeType].(string)
+	cinderConfig := &cinderConfig{
+		volumeType: volumeType,
+	}
+	return cinderConfig, nil
+}
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (env *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
@@ -138,7 +170,8 @@ func (s *cinderProvider) Scope() storage.Scope {
 func (p *cinderProvider) ValidateConfig(cfg *storage.Config) error {
 	// TODO(axw) 2015-05-01 #1450737
 	// Reject attempts to create non-persistent volumes.
-	return nil
+	_, err := newCinderConfig(cfg.Attrs())
+	return errors.Trace(err)
 }
 
 // Dynamic implements storage.Provider.
@@ -180,6 +213,11 @@ func (s *cinderVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]stora
 }
 
 func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (*storage.Volume, error) {
+	cinderConfig, err := newCinderConfig(arg.Attributes)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var metadata interface{}
 	if len(arg.ResourceTags) > 0 {
 		metadata = arg.ResourceTags
@@ -187,8 +225,9 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (*storage.Vo
 	cinderVolume, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
 		// The Cinder documentation incorrectly states the
 		// size parameter is in GB. It is actually GiB.
-		Size: int(math.Ceil(float64(arg.Size / 1024))),
-		Name: resourceName(s.namespace, s.envName, arg.Tag.String()),
+		Size:       int(math.Ceil(float64(arg.Size / 1024))),
+		Name:       resourceName(s.namespace, s.envName, arg.Tag.String()),
+		VolumeType: cinderConfig.volumeType,
 		// TODO(axw) use the AZ of the initially attached machine.
 		AvailabilityZone: "",
 		Metadata:         metadata,
@@ -389,7 +428,8 @@ func releaseVolume(storageAdapter OpenstackStorage, volumeId string) error {
 
 // ValidateVolumeParams implements storage.VolumeSource.
 func (s *cinderVolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
-	return nil
+	_, err := newCinderConfig(params.Attributes)
+	return errors.Trace(err)
 }
 
 // AttachVolumes implements storage.VolumeSource.

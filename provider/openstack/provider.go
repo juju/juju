@@ -572,6 +572,18 @@ type openstackPlacement struct {
 	availabilityZone nova.AvailabilityZone
 }
 
+// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
+func (e *Environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+	// ToDo (HML) 16-Oct-2017
+	// startInstanceAvailabilityZones will change to startInstanceAvailabilityZone with
+	// the Provisioner Parallelization.
+	availabilityZones, err := e.startInstanceAvailabilityZones(args)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return availabilityZones[0], nil
+}
+
 func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) {
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
@@ -1477,7 +1489,11 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string) ([]string, error
 		return nil, errors.Trace(err)
 	}
 	// TODO(axw): fix the storage API.
-	volumeSource, err := cinder.VolumeSource(nil)
+	storageConfig, err := storage.NewConfig("cinder", CinderProviderType, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	volumeSource, err := cinder.VolumeSource(storageConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
