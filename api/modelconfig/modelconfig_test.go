@@ -180,3 +180,31 @@ func (s *modelconfigSuite) TestGetSupport(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 	c.Assert(level, gc.Equals, "level")
 }
+
+func (s *modelconfigSuite) TestModelSequences(c *gc.C) {
+	sequences := map[string]int{
+		"first":  1,
+		"second": 2,
+	}
+
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelConfig")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ModelSequences")
+			c.Check(a, gc.IsNil)
+			c.Assert(result, gc.FitsTypeOf, &params.ModelSequenceResult{})
+			results := result.(*params.ModelSequenceResult)
+			results.Sequences = sequences
+			return nil
+		},
+	)
+	client := modelconfig.NewClient(apiCaller)
+	result, err := client.ModelSequences()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, sequences)
+}

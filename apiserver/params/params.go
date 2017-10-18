@@ -1112,3 +1112,8 @@ type DumpModelRequest struct {
 	Entities   []Entity `json:"entities"`
 	Simplified bool     `json:"simplified"`
 }
+
+// ModelSequenceResult contains the sequences for a single model.
+type ModelSequenceResult struct {
+	Sequences map[string]int `json:"sequences"`
+}

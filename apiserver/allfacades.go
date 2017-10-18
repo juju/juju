@@ -194,7 +194,8 @@ func AllFacades() *facade.Registry {
 	reg("MigrationMinion", 1, migrationminion.NewFacade)
 	reg("MigrationTarget", 1, migrationtarget.NewFacade)
 
-	reg("ModelConfig", 1, modelconfig.NewFacade)
+	reg("ModelConfig", 1, modelconfig.NewFacadeV1)
+	reg("ModelConfig", 2, modelconfig.NewFacade)
 	reg("ModelManager", 2, modelmanager.NewFacadeV2)
 	reg("ModelManager", 3, modelmanager.NewFacadeV3)
 	reg("ModelManager", 4, modelmanager.NewFacadeV4)

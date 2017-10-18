@@ -90,3 +90,13 @@ func (c *Client) SLALevel() (string, error) {
 	}
 	return result.Result, nil
 }
+
+// ModelSequences returns the internal sequences for the apiserver model endpoint.
+func (c *Client) ModelSequences() (map[string]int, error) {
+	result := params.ModelSequenceResult{}
+	err := c.facade.FacadeCall("ModelSequences", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result.Sequences, nil
+}

@@ -210,3 +210,23 @@ func (su *dbSeqUpdater) ensure(next int) error {
 	}
 	return errors.Trace(err)
 }
+
+// AllSequences returns all the sequences used in the database.
+// Used for exporting models, and providing through the API for bundle
+// deployment.
+func (m *Model) AllSequences() (map[string]int, error) {
+	sequences, closer := m.st.db().GetCollection(sequenceC)
+	defer closer()
+
+	result := make(map[string]int)
+
+	var docs []sequenceDoc
+	if err := sequences.Find(nil).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for _, doc := range docs {
+		result[doc.Name] = doc.Counter
+	}
+	return result, nil
+}

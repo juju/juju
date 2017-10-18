@@ -12,11 +12,26 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
 )
 
+// ModelConfigAPI is the endpoint which implements the model config facade.
+type ModelConfigAPI struct {
+	backend Backend
+	auth    facade.Authorizer
+	check   *common.BlockChecker
+}
+
+// ModelConfigAPIV1 provides a way to wrap the different calls between
+// version 1 and version 2 of the model config API
+type ModelConfigAPIV1 struct {
+	*ModelConfigAPI
+}
+
 // NewFacade is used for API registration.
-func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelConfigAPI, error) {
+func NewFacade(ctx facade.Context) (*ModelConfigAPI, error) {
+	st := ctx.State()
+	auth := ctx.Auth()
+
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -24,11 +39,13 @@ func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*Mo
 	return NewModelConfigAPI(NewStateBackend(model), auth)
 }
 
-// ModelConfigAPI is the endpoint which implements the model config facade.
-type ModelConfigAPI struct {
-	backend Backend
-	auth    facade.Authorizer
-	check   *common.BlockChecker
+// NewFacadeV1 returns a V1 facade
+func NewFacadeV1(ctx facade.Context) (*ModelConfigAPIV1, error) {
+	base, err := NewFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ModelConfigAPIV1{base}, nil
 }
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
@@ -197,3 +214,22 @@ func (c *ModelConfigAPI) SLALevel() (params.StringResult, error) {
 	result.Result = level
 	return result, nil
 }
+
+// ModelSequences returns the internal sequences for the apiserver model endpoint.
+func (m *ModelConfigAPI) ModelSequences() (params.ModelSequenceResult, error) {
+	if err := m.canReadModel(); err != nil {
+		return params.ModelSequenceResult{}, errors.Trace(err)
+	}
+	sequences, err := m.backend.AllSequences()
+	if err != nil {
+		return params.ModelSequenceResult{}, errors.Trace(err)
+	}
+	return params.ModelSequenceResult{sequences}, nil
+}
+
+// Mask the new methods from the V3 API. The API reflection code in
+// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
+// removes the method as far as the RPC machinery is concerned.
+
+// ModelSequences isn't on the V1 API.
+func (m *ModelConfigAPIV1) ModelSequences(_, _ struct{}) {}
