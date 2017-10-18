@@ -549,7 +549,6 @@ func (c *DeployCommand) deployBundle(
 	); err != nil {
 		return errors.Trace(err)
 	}
-	ctx.Infof("Deploy of bundle completed.")
 	return nil
 }
 

@@ -109,6 +109,9 @@ func deployBundle(
 	if err := h.makeModel(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := h.resolveCharmsAndEndpoints(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := h.getChanges(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -236,12 +239,73 @@ func (h *bundleHandler) makeModel() error {
 	return nil
 }
 
+// resolveCharmsAndEndpoints will go through the bundle and
+// resolve the charm URLs. From the model the charm names are
+// fully qualified, meaning they have a source and revision id.
+// Effectively the logic this method follows is:
+//   * if the bundle specifies a local charm, and the application
+//     exists already, then override the charm URL in the bundle
+//     spec to match the charm name from the model. We don't
+//     upgrade local charms as part of a bundle deploy.
+//   * the charm URL is resolved and the bundle spec is replaced
+//     with the fully resolved charm URL - i.e.: with rev id.
+//   * check all endpoints, and if any of them have implicit endpoints,
+//     and if they do, resolve the implicitness in order to compare
+//     with relations in the model.
+func (h *bundleHandler) resolveCharmsAndEndpoints() error {
+
+	deployedApps := set.NewStrings()
+	toResolve := make(map[string]string)
+
+	for name, spec := range h.data.Applications {
+		app := h.model.GetApplication(name)
+		if app != nil {
+			deployedApps.Add(name)
+
+			if h.isLocalCharm(spec.Charm) {
+				logger.Debugf("%s exists in model and is local, replacing with %q", name, app.Charm)
+				// Replace with charm from model
+				spec.Charm = app.Charm
+				continue
+			}
+
+			// TODO(thumper): fix the charm upgrade handling
+			// for now, pretend all the charms are the same.
+			spec.Charm = app.Charm
+			continue
+		}
+
+		if !h.isLocalCharm(spec.Charm) {
+			toResolve[name] = spec.Charm
+		}
+	}
+	// TODO(thumper): Resolve all the charm names.
+	// For now bundle deployment is going to ignore charm upgrades.
+
+	// TODO(thumper): the InferEndpoints code is deeply wedged in the
+	// persistence layer and needs to be extracted. This is a multi-day
+	// effort, so for now the bundle handling is doing no implicit endpoint
+	// handling.
+	return nil
+}
+
 func (h *bundleHandler) getChanges() error {
-	var err error
-	h.changes, err = bundlechanges.FromData(h.data, h.model)
+	changes, err := bundlechanges.FromData(h.data, h.model)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// TODO(thumper): fix the charm upgrade handling
+	// for now, filter out the upgrade charm changes.
+	for _, change := range changes {
+		switch change := change.(type) {
+		case *bundlechanges.UpgradeCharmChange:
+			// no-op, not handled.
+		default:
+			h.changes = append(h.changes, change)
+		}
+	}
+
 	return nil
 }
 
@@ -254,15 +318,20 @@ func (h *bundleHandler) handleChanges() error {
 	}
 	defer h.watcher.Stop()
 
+	if len(h.changes) == 0 {
+		h.ctx.Infof("No changes to apply.")
+		return nil
+	}
+
 	if h.dryRun {
-		fmt.Fprintf(h.ctx.Stdout, "Changes to deploy bundle:")
+		fmt.Fprintf(h.ctx.Stdout, "Changes to deploy bundle:\n")
 	} else {
-		fmt.Fprintf(h.ctx.Stdout, "Executing changes:")
+		fmt.Fprintf(h.ctx.Stdout, "Executing changes:\n")
 	}
 
 	// Deploy the bundle.
 	for _, change := range h.changes {
-		fmt.Fprintf(h.ctx.Stdout, "- %s", change.Description())
+		fmt.Fprintf(h.ctx.Stdout, "- %s\n", change.Description())
 		switch change := change.(type) {
 		case *bundlechanges.AddCharmChange:
 			err = h.addCharm(change.Id(), change.Params)
@@ -279,7 +348,9 @@ func (h *bundleHandler) handleChanges() error {
 		case *bundlechanges.SetAnnotationsChange:
 			err = h.setAnnotations(change.Id(), change.Params)
 		case *bundlechanges.UpgradeCharmChange:
-			err = h.upgradeCharm(change.Id(), change.Params)
+			// TODO(thumper): fix the charm upgrade handling.
+			// For now these are filtered out.
+			// err = h.upgradeCharm(change.Id(), change.Params)
 		case *bundlechanges.SetOptionsChange:
 			err = h.setOptions(change.Id(), change.Params)
 		case *bundlechanges.SetConstraintsChange:
@@ -291,7 +362,16 @@ func (h *bundleHandler) handleChanges() error {
 			return errors.Annotate(err, "cannot deploy bundle")
 		}
 	}
+
+	if !h.dryRun {
+		h.ctx.Infof("Deploy of bundle completed.")
+	}
+
 	return nil
+}
+
+func (h *bundleHandler) isLocalCharm(name string) bool {
+	return strings.HasPrefix(name, ".") || filepath.IsAbs(name)
 }
 
 // addCharm adds a charm to the environment.
@@ -300,7 +380,7 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 		return nil
 	}
 	// First attempt to interpret as a local path.
-	if strings.HasPrefix(p.Charm, ".") || filepath.IsAbs(p.Charm) {
+	if h.isLocalCharm(p.Charm) {
 		charmPath := p.Charm
 		if !filepath.IsAbs(charmPath) {
 			charmPath = filepath.Join(h.bundleDir, charmPath)
@@ -569,6 +649,11 @@ func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams
 	// TODO(wallyworld) - CMR support in bundles
 	_, err := h.api.AddRelation([]string{ep1, ep2}, nil)
 	if err != nil {
+		// TODO(thumper): remove this error check when we add resolving
+		// implicit relations.
+		if params.IsCodeAlreadyExists(err) {
+			return nil
+		}
 		return errors.Annotatef(err, "cannot add relation between %q and %q", ep1, ep2)
 
 	}
@@ -1209,7 +1294,7 @@ func buildModelRepresentation(status *params.FullStatus, apiRoot DeployAPI) (*bu
 		// The config map has values that looks like this:
 		//  map[string]interface {}{
 		//        "value":       "",
-		//        "default":     bool(true),
+		//        "source":     "user", // or "unset" or "default"
 		//        "description": "Where to gather metrics from.\nExamples:\n  host1.maas:9090\n  host1.maas:9090, host2.maas:9090\n",
 		//        "type":        "string",
 		//    },
@@ -1253,15 +1338,11 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 	if !ok {
 		return nil, errors.Errorf("unexpected application config value type %T for key %q", valueMap, key)
 	}
-	defaultValue, found := vm["default"]
+	source, found := vm["source"]
 	if !found {
-		return nil, errors.Errorf("missing application config value 'default' for key %q", key)
+		return nil, errors.Errorf("missing application config value 'source' for key %q", key)
 	}
-	isDefault, ok := defaultValue.(bool)
-	if !ok {
-		return nil, errors.Errorf("expected bool defaul value, got %#v for key %q", defaultValue, key)
-	}
-	if isDefault {
+	if source != "user" {
 		return nil, nil
 	}
 	value, found := vm["value"]
