@@ -98,17 +98,13 @@ func SyncTools(syncContext *SyncContext) error {
 		// to override that decision.
 		syncContext.Stream = envtools.PreferredStreams(&jujuversion.Current, false, "")[0]
 	}
-	sourceTools, err := envtools.FindToolsForCloud(
-		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
-		syncContext.Stream, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
 	// For backwards compatibility with cloud storage, if there are no tools in the specified stream,
 	// double check the release stream.
 	// TODO - remove this when we no longer need to support cloud storage upgrades.
-	if err == envtools.ErrNoTools {
-		sourceTools, err = envtools.FindToolsForCloud(
-			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
-			envtools.ReleasedStream, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
-	}
+	streams := []string{syncContext.Stream, envtools.ReleasedStream}
+	sourceTools, err := envtools.FindToolsForCloud(
+		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
+		streams, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
 	if err != nil {
 		return errors.Trace(err)
 	}

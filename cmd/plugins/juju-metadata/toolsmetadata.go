@@ -118,7 +118,7 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		toolsList, err = envtools.FindToolsForCloud(toolsDataSources(source), simplestreams.CloudSpec{}, c.stream, -1, -1, coretools.Filter{})
+		toolsList, err = envtools.FindToolsForCloud(toolsDataSources(source), simplestreams.CloudSpec{}, []string{c.stream}, -1, -1, coretools.Filter{})
 	}
 	if err != nil {
 		return errors.Trace(err)

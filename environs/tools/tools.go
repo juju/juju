@@ -5,6 +5,7 @@ package tools
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -81,7 +82,7 @@ type HasAgentMirror interface {
 // If minorVersion = -1, then only majorVersion is considered.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindTools(env environs.Environ, majorVersion, minorVersion int, stream string, filter coretools.Filter) (_ coretools.List, err error) {
+func FindTools(env environs.Environ, majorVersion, minorVersion int, streams []string, filter coretools.Filter) (_ coretools.List, err error) {
 	var cloudSpec simplestreams.CloudSpec
 	switch env := env.(type) {
 	case simplestreams.HasRegion:
@@ -98,7 +99,7 @@ func FindTools(env environs.Environ, majorVersion, minorVersion int, stream stri
 		return nil, errors.New("cannot find agent binaries without a complete cloud configuration")
 	}
 
-	logger.Debugf("finding agent binaries in stream %q", stream)
+	logger.Debugf("finding agent binaries in stream: %q", strings.Join(streams, ", "))
 	if minorVersion >= 0 {
 		logger.Debugf("reading agent binaries with major.minor version %d.%d", majorVersion, minorVersion)
 	} else {
@@ -120,50 +121,63 @@ func FindTools(env environs.Environ, majorVersion, minorVersion int, stream stri
 	if err != nil {
 		return nil, err
 	}
-	return FindToolsForCloud(sources, cloudSpec, stream, majorVersion, minorVersion, filter)
+	return FindToolsForCloud(sources, cloudSpec, streams, majorVersion, minorVersion, filter)
 }
 
-// FindToolsForCloud returns a List containing all tools in the given stream, with a given
+// FindToolsForCloud returns a List containing all tools in the given streams, with a given
 // major.minor version number and cloudSpec, filtered by filter.
 // If minorVersion = -1, then only majorVersion is considered.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec, stream string,
-	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
-
-	toolsConstraint, err := makeToolsConstraint(cloudSpec, stream, majorVersion, minorVersion, filter)
-	if err != nil {
-		return nil, err
-	}
-	toolsMetadata, _, err := Fetch(sources, toolsConstraint)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			err = ErrNoTools
-		}
-		return nil, err
-	}
-	if len(toolsMetadata) == 0 {
-		return nil, coretools.ErrNoMatches
-	}
-	list = make(coretools.List, len(toolsMetadata))
-	for i, metadata := range toolsMetadata {
-		binary, err := metadata.binary()
+func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec, streams []string,
+	majorVersion, minorVersion int, filter coretools.Filter) (coretools.List, error) {
+	var list coretools.List
+	noToolsCount := 0
+	seenBinary := make(map[version.Binary]bool)
+	for _, stream := range streams {
+		toolsConstraint, err := makeToolsConstraint(cloudSpec, stream, majorVersion, minorVersion, filter)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, err
 		}
-		list[i] = &coretools.Tools{
-			Version: binary,
-			URL:     metadata.FullPath,
-			Size:    metadata.Size,
-			SHA256:  metadata.SHA256,
+		toolsMetadata, _, err := Fetch(sources, toolsConstraint)
+		if errors.IsNotFound(err) {
+			noToolsCount++
+			continue
 		}
+		if err != nil {
+			return nil, err
+		}
+		for _, metadata := range toolsMetadata {
+			binary, err := metadata.binary()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			// Ensure that we only add an agent version if we haven't
+			// already seen it from a more preferred stream.
+			if seenBinary[binary] {
+				continue
+			}
+			list = append(list, &coretools.Tools{
+				Version: binary,
+				URL:     metadata.FullPath,
+				Size:    metadata.Size,
+				SHA256:  metadata.SHA256,
+			})
+			seenBinary[binary] = true
+		}
+	}
+	if len(list) == 0 {
+		if len(streams) == noToolsCount {
+			return nil, ErrNoTools
+		}
+		return nil, coretools.ErrNoMatches
 	}
 	if filter.Series != "" {
 		if err := checkToolsSeries(list, filter.Series); err != nil {
 			return nil, err
 		}
 	}
-	return list, err
+	return list, nil
 }
 
 // FindExactTools returns only the tools that match the supplied version.
@@ -176,9 +190,9 @@ func FindExactTools(env environs.Environ, vers version.Number, series string, ar
 		Series: series,
 		Arch:   arch,
 	}
-	stream := PreferredStreams(&vers, env.Config().Development(), env.Config().AgentStream())[0]
-	logger.Debugf("looking for agent binaries in stream %q", stream)
-	availableTools, err := FindTools(env, vers.Major, vers.Minor, stream, filter)
+	streams := PreferredStreams(&vers, env.Config().Development(), env.Config().AgentStream())
+	logger.Debugf("looking for agent binaries in streams %v", streams)
+	availableTools, err := FindTools(env, vers.Major, vers.Minor, streams, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +244,10 @@ var streamFallbacks = map[string][]string{
 func PreferredStreams(vers *version.Number, forceDevel bool, stream string) []string {
 	// If the use has already nominated a specific stream, we'll use that.
 	if stream != "" && stream != ReleasedStream {
-		return copyStrings(streamFallbacks[stream])
+		if fallbacks, ok := streamFallbacks[stream]; ok {
+			return copyStrings(fallbacks)
+		}
+		return []string{stream}
 	}
 	// If we're not upgrading from a known version, we use the
 	// currently running version.

@@ -119,5 +119,5 @@ func findBootstrapTools(env environs.Environ, vers *version.Number, arch, series
 		filter.Number = *vers
 	}
 	streams := envtools.PreferredStreams(vers, env.Config().Development(), env.Config().AgentStream())
-	return findTools(env, cliVersion.Major, cliVersion.Minor, streams[0], filter)
+	return findTools(env, cliVersion.Major, cliVersion.Minor, streams, filter)
 }
