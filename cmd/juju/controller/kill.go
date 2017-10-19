@@ -188,7 +188,8 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 			// including the parsing of the model owner tag.
 			// Only model name is guaranteed to be set in the result
 			// when an error is returned.
-			ctx.Infof("Could not kill %s directly: %v", model.Name, model.Error)
+			hasErrors = true
+			logger.Errorf("could not kill %s directly: %v", model.Name, model.Error)
 			continue
 		}
 		ctx.Infof("Killing %s/%s directly", model.Owner.Id(), model.Name)
