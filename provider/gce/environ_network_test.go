@@ -97,6 +97,13 @@ func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
 		SpaceProviderId:   "",
+	}, {
+		ProviderId:        "legacy",
+		ProviderNetworkId: "legacy",
+		CIDR:              "10.240.0.0/16",
+		AvailabilityZones: []string{"a-zone", "b-zone"},
+		VLANTag:           0,
+		SpaceProviderId:   "",
 	}})
 }
 
