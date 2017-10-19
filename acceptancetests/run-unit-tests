@@ -179,7 +179,7 @@ if [[ "$INSTANCE_TYPE" != "lxc" && "$INSTANCE_TYPE" != "host" ]]; then
     done
     $FIXUP_SOURCES
 fi
-export PATH=/usr/lib/go-1.8/bin:$PATH
+export PATH=/snap/go/current/bin/:$PATH
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
 sudo apt-get install -y make gcc software-properties-common distro-info-data
@@ -190,7 +190,6 @@ fi
 if [[ "$INSTALL_DEPS" == "" ]]; then
     echo "Installing default deps."
     # Work around branches that don't have this target.
-    make install-go || true
     make install-dependencies
 else
     echo "Installing deps from command line."

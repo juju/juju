@@ -9,14 +9,6 @@ endif
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
-ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf|aarch64|ppc64le|s390x).*/golang/'), golang)
-	GO_C := golang-1.8
-	INSTALL_FLAGS :=
-else
-	GO_C := gccgo-4.9  gccgo-go
-	INSTALL_FLAGS := -gccgoflags=-static-libgo
-endif
-
 # Allow the tests to take longer on arm platforms.
 ifeq ($(shell uname -p | sed -r 's/.*(armel|armhf|aarch64).*/golang/'), golang)
 	TEST_TIMEOUT := 2400s
@@ -27,11 +19,9 @@ endif
 define DEPENDENCIES
   ca-certificates
   bzip2
-  bzr
   distro-info-data
   git
   zip
-  $(GO_C)
 endef
 
 default: build
@@ -58,7 +48,7 @@ check: godeps
 	go test -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
 
 install: godeps
-	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
+	go install -v $(PROJECT)/...
 
 clean:
 	go clean $(PROJECT)/...
@@ -97,8 +87,9 @@ rebuild-dependencies.tsv: godeps
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
-	@echo Adding juju PPAs for golang and juju
-	@sudo apt-add-repository --yes ppa:juju/golang
+	@echo Installing go-1.8 snap
+	@sudo snap install go --channel=1.8/stable --classic
+	@echo Adding juju PPA for mongodb
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
 	@echo Installing dependencies
@@ -109,7 +100,7 @@ install-dependencies:
 # Install bash_completion
 install-etc:
 	@echo Installing bash completion
-	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-2.0 /usr/share/bash-completion/completions
+	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju /usr/share/bash-completion/completions
 	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-version /usr/share/bash-completion/completions
 
 setup-lxd:
