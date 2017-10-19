@@ -182,6 +182,14 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 		logger.Errorf("unable to retrieve hosted model config: %v", err)
 	}
 	for _, model := range hostedConfig {
+		if model.Error != nil {
+			// We can only display model name here since
+			// the error coming from api can be anything
+			// including the parsing of the model owner tag.
+			// Only model name is guaranteed to be set in the result
+			// when an error is returned.
+			ctx.Infof("Could not kill %s directly: %v", model.Name, model.Error)
+		}
 		ctx.Infof("Killing %s/%s directly", model.Owner.Id(), model.Name)
 		cfg, err := config.New(config.NoDefaults, model.Config)
 		if err != nil {
