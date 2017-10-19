@@ -16,9 +16,6 @@ else
 	TEST_TIMEOUT := 1500s
 endif
 
-GO_C = golang-1.8
-INSTALL_FLAGS =
-
 define DEPENDENCIES
   ca-certificates
   bzip2
@@ -51,7 +48,7 @@ check: godeps
 	go test -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
 
 install: godeps
-	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
+	go install -v $(PROJECT)/...
 
 clean:
 	go clean $(PROJECT)/...
