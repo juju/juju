@@ -38,7 +38,7 @@ func runRemoveUnit(c *gc.C, args ...string) (*cmd.Context, error) {
 
 func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Application {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	_, err := runDeploy(c, "-n", "2", ch, "multi-series", "--series", "precise")
+	err := runDeploy(c, "-n", "2", ch, "multi-series", "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:precise/multi-series-1")
 	svc, _ := s.AssertService(c, "multi-series", curl, 2, 0)
@@ -75,7 +75,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitDestroyStorage(c *gc.C) {
 
 func (s *RemoveUnitSuite) testRemoveUnitRemoveStorage(c *gc.C, destroy bool) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
-	_, err := runDeploy(c, ch, "storage-filesystem", "--storage", "data=modelscoped,2")
+	err := runDeploy(c, ch, "storage-filesystem", "--storage", "data=modelscoped,2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Materialise the storage by assigning the unit to a machine.
