@@ -149,23 +149,41 @@ type NeutronNetworking struct {
 
 // AllocatePublicIP is part of the Networking interface.
 func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error) {
-	azNames, err := n.env.InstanceAvailabilityZoneNames([]instance.Id{instId})
-	if err != nil {
-		logger.Debugf("allocatePublicIP(): InstanceAvailabilityZoneNames() failed with %s\n", err)
-		return nil, errors.Trace(err)
-	}
-
-	// find the external networks in the same availability zone as the instance
 	extNetworkIds := make([]string, 0)
-	for _, az := range azNames {
-		// return one or an array?
-		extNetIds, _ := getExternalNeutronNetworksByAZ(n.env, az)
-		if len(extNetIds) > 0 {
-			extNetworkIds = append(extNetworkIds, extNetIds...)
+	neutronClient := n.env.neutron()
+	externalNetwork := n.env.ecfg().externalNetwork()
+	if externalNetwork != "" {
+		// the config specified an external network, try it first.
+		netId, err := resolveNeutronNetwork(neutronClient, externalNetwork, true)
+		if err != nil {
+			logger.Debugf("external network %s not found, search for one", externalNetwork)
+		} else {
+			logger.Debugf("using external network %q", externalNetwork)
+			extNetworkIds = []string{netId}
 		}
 	}
+
 	if len(extNetworkIds) == 0 {
-		return nil, errors.NewNotFound(nil, "could not find an external network in availablity zone")
+		// Create slice of network.Ids for external networks in the same AZ as
+		// the instance's network, to find an existing floating ip in, or allocate
+		// a new floating ip from.
+		network := n.env.ecfg().network()
+		netId, err := resolveNeutronNetwork(neutronClient, network, false)
+		netDetails, err := neutronClient.GetNetworkV2(netId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		for _, az := range netDetails.AvailabilityZones {
+			extNetIds, _ := getExternalNeutronNetworksByAZ(n.env, az)
+			if len(extNetIds) > 0 {
+				extNetworkIds = append(extNetworkIds, extNetIds...)
+			}
+		}
+
+		if len(extNetworkIds) == 0 {
+			return nil, errors.NewNotFound(nil, fmt.Sprintf("could not find an external network in availability zone %s", netDetails.AvailabilityZones))
+		}
 	}
 
 	fips, err := n.env.neutron().ListFloatingIPsV2()
@@ -193,7 +211,7 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 	var lastErr error
 	for _, extNetId := range extNetworkIds {
 		var newfip *neutron.FloatingIPV2
-		newfip, lastErr = n.env.neutron().AllocateFloatingIPV2(extNetId)
+		newfip, lastErr = neutronClient.AllocateFloatingIPV2(extNetId)
 		if lastErr == nil {
 			logger.Debugf("allocated new public IP: %s", newfip.IP)
 			return &newfip.IP, nil
@@ -216,27 +234,6 @@ func externalNetworkFilter() *neutron.Filter {
 // given availability zone. If azName is empty, return all external networks.
 func getExternalNeutronNetworksByAZ(e *Environ, azName string) ([]string, error) {
 	neutron := e.neutron()
-	externalNetwork := e.ecfg().externalNetwork()
-	if externalNetwork != "" {
-		// the config specified an external network, try it first.
-		netId, err := resolveNeutronNetwork(neutron, externalNetwork, true)
-		if err != nil {
-			logger.Debugf("external network %s not found, search for one", externalNetwork)
-		} else {
-			netDetails, err := neutron.GetNetworkV2(netId)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			// double check that the requested network is in the given AZ
-			for _, netAZ := range netDetails.AvailabilityZones {
-				if azName == netAZ {
-					logger.Debugf("using external network %q", externalNetwork)
-					return []string{netId}, nil
-				}
-			}
-			logger.Debugf("external network %s was found, however not in the %s availability zone", externalNetwork, azName)
-		}
-	}
 	// Find all external networks in availability zone
 	networks, err := neutron.ListNetworksV2(externalNetworkFilter())
 	if err != nil {
