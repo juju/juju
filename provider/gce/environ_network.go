@@ -93,6 +93,17 @@ func (e *environ) getMatchingSubnets(subnetIds IncludeSet, zones []string) ([]ne
 			))
 		}
 	}
+	// We have to include networks in 'LEGACY' mode that do not have subnetworks.
+	for _, netwk := range networks {
+		if netwk.IPv4Range != "" && subnetIds.Include(netwk.Name) {
+			results = append(results, makeSubnetInfo(
+				network.Id(netwk.Name),
+				network.Id(netwk.Name),
+				netwk.IPv4Range,
+				zones,
+			))
+		}
+	}
 	return results, nil
 }
 
