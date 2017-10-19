@@ -9,14 +9,6 @@ endif
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
-ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf|aarch64|ppc64le|s390x).*/golang/'), golang)
-	GO_C := golang-1.8
-	INSTALL_FLAGS :=
-else
-	GO_C := gccgo-4.9  gccgo-go
-	INSTALL_FLAGS := -gccgoflags=-static-libgo
-endif
-
 # Allow the tests to take longer on arm platforms.
 ifeq ($(shell uname -p | sed -r 's/.*(armel|armhf|aarch64).*/golang/'), golang)
 	TEST_TIMEOUT := 2400s
@@ -24,14 +16,15 @@ else
 	TEST_TIMEOUT := 1500s
 endif
 
+GO_C = golang-1.8
+INSTALL_FLAGS =
+
 define DEPENDENCIES
   ca-certificates
   bzip2
-  bzr
   distro-info-data
   git
   zip
-  $(GO_C)
 endef
 
 default: build
@@ -97,8 +90,7 @@ rebuild-dependencies.tsv: godeps
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
-	@echo Adding juju PPAs for golang and juju
-	@sudo apt-add-repository --yes ppa:juju/golang
+	@echo Adding juju PPA for mongodb
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
 	@echo Installing dependencies
@@ -109,7 +101,7 @@ install-dependencies:
 # Install bash_completion
 install-etc:
 	@echo Installing bash completion
-	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-2.0 /usr/share/bash-completion/completions
+	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju /usr/share/bash-completion/completions
 	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-version /usr/share/bash-completion/completions
 
 setup-lxd:
@@ -126,8 +118,13 @@ GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' github.com/juju/juju/...
 check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
+install-go:
+	@echo Installing go-1.8 snap
+	@sudo snap install go --channel=1.8/stable --classic
+
 .PHONY: build check install
 .PHONY: clean format simplify
 .PHONY: install-dependencies
 .PHONY: rebuild-dependencies.tsv
 .PHONY: check-deps
+.PHONY: install-go
