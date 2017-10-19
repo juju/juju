@@ -153,7 +153,7 @@ if [[ "$USE_TMPFS" == "true" ]]; then
     fi
     sudo rm -rf /mnt/tmp/* || true
     export TMPDIR=/mnt/tmp
-	fi
+fi
 if [[ "$USE_MONGO32" == "true" ]]; then
     # Ensure juju 2.* uses the correct mongo.
     export JUJU_MONGOD=/usr/lib/juju/mongo3.2/bin/mongod
@@ -190,7 +190,6 @@ fi
 if [[ "$INSTALL_DEPS" == "" ]]; then
     echo "Installing default deps."
     # Work around branches that don't have this target.
-    make install-go || true
     make install-dependencies
 else
     echo "Installing deps from command line."

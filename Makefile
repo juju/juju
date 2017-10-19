@@ -16,9 +16,6 @@ else
 	TEST_TIMEOUT := 1500s
 endif
 
-GO_C = golang-1.9
-INSTALL_FLAGS =
-
 define DEPENDENCIES
   ca-certificates
   bzip2
@@ -33,16 +30,11 @@ default: build
 # and will only work - when this tree is found on the GOPATH.
 ifeq ($(CURDIR),$(PROJECT_DIR))
 
-ifeq ($(JUJU_MAKE_GODEPS),true)
 $(GOPATH)/bin/godeps:
 	go get github.com/rogpeppe/godeps
 
 godeps: $(GOPATH)/bin/godeps
 	$(GOPATH)/bin/godeps -u dependencies.tsv
-else
-godeps:
-	@echo "skipping godeps"
-endif
 
 build: godeps
 	go build $(PROJECT)/...
@@ -51,7 +43,7 @@ check: godeps
 	go test -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
 
 install: godeps
-	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
+	go install -v $(PROJECT)/...
 
 clean:
 	go clean $(PROJECT)/...
@@ -90,6 +82,8 @@ rebuild-dependencies.tsv: godeps
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
+	@echo Installing go-1.9 snap
+	@sudo snap install go --channel=1.9/stable --classic
 	@echo Adding juju PPA for mongodb
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
@@ -118,13 +112,8 @@ GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' github.com/juju/juju/...
 check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
-install-go:
-	@echo Installing go-1.9 snap
-	@sudo snap install go --channel=1.9/stable --classic
-
 .PHONY: build check install
 .PHONY: clean format simplify
 .PHONY: install-dependencies
 .PHONY: rebuild-dependencies.tsv
 .PHONY: check-deps
-.PHONY: install-go
