@@ -19,6 +19,13 @@ endif
 GO_C = golang-1.9
 INSTALL_FLAGS =
 
+# Enable verbose testing for reporting.
+ifeq ($(VERBOSE_CHECK), 1)
+	CHECK_ARGS = -v
+else
+	CHECK_ARGS =
+endif
+
 define DEPENDENCIES
   ca-certificates
   bzip2
@@ -48,7 +55,7 @@ build: godeps
 	go build $(PROJECT)/...
 
 check: godeps
-	go test -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
+	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
 
 install: godeps
 	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
