@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package singular_test
+package mongomaster_test
 
 import (
 	"flag"
@@ -17,12 +17,14 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/singular"
+	"github.com/juju/juju/worker/master"
+	"github.com/juju/juju/worker/master/mongomaster"
 )
 
-var logger = loggo.GetLogger("juju.singular-test")
+var logger = loggo.GetLogger("juju.worker.master.mongomaster-test")
 
 type mongoSuite struct {
 	coretesting.BaseSuite
@@ -39,7 +41,7 @@ func (*mongoSuite) SetUpSuite(c *gc.C) {
 }
 
 // start replica set with three mongods
-// start singular worker on each one.
+// start master worker on each one.
 // change worker priorities so the master changes.
 // check that
 // a) there is never more than one running at a time
@@ -111,7 +113,11 @@ func startAgents(c *gc.C, notifyCh chan<- event, insts []*gitjujutesting.MgoInst
 				id: i + 1,
 				ch: notifyCh,
 			},
-			Runner:   newRunner(),
+			Runner: worker.NewRunner(worker.RunnerParams{
+				IsFatal: func(err error) bool {
+					return false
+				},
+			}),
 			hostPort: inst.Addr(),
 		}
 		go func() {
@@ -169,20 +175,20 @@ func (a *testAgent) mongoWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	mc := &mongoConn{
-		localHostPort: a.hostPort,
-		session:       session,
+	mc := &mongomaster.Conn{
+		Session: session,
+		Member:  localMember{a.hostPort},
 	}
 
 	runner := worker.NewRunner(worker.RunnerParams{
 		IsFatal: connectionIsFatal(mc),
 	})
-	singularRunner, err := singular.New(runner, mc)
+	masterRunner, err := master.New(runner, mc)
 	if err != nil {
-		return nil, fmt.Errorf("cannot start singular runner: %v", err)
+		return nil, fmt.Errorf("cannot start master runner: %v", err)
 	}
 	a.notify.workerConnected()
-	singularRunner.StartWorker(fmt.Sprint("worker-", a.notify.id), func() (worker.Worker, error) {
+	masterRunner.StartWorker(fmt.Sprint("worker-", a.notify.id), func() (worker.Worker, error) {
 		return jworker.NewSimpleWorker(func(stop <-chan struct{}) error {
 			return a.worker(session, stop)
 		}), nil
@@ -437,26 +443,6 @@ func (n *notifier) agentQuit(err error) {
 	n.sendEvent("quit", err)
 }
 
-type mongoConn struct {
-	localHostPort string
-	session       *mgo.Session
-}
-
-func (c *mongoConn) Ping() error {
-	return c.session.Ping()
-}
-
-func (c *mongoConn) IsMaster() (bool, error) {
-	hostPort, err := replicaset.MasterHostPort(c.session)
-	if err != nil {
-		logger.Errorf("replicaset.MasterHostPort returned error: %v", err)
-		return false, err
-	}
-	logger.Errorf("replicaset.MasterHostPort(%s) returned %s", c.localHostPort, hostPort)
-	logger.Errorf("-> %s IsMaster: %v", c.localHostPort, hostPort == c.localHostPort)
-	return hostPort == c.localHostPort, nil
-}
-
 const replicaSetName = "juju"
 
 // startReplicaSet starts up a replica set with n mongo instances.
@@ -540,7 +526,7 @@ func newFloat64(f float64) *float64 {
 // that diagnoses an error as fatal if the connection
 // has failed or if the error is otherwise fatal.
 // Copied from jujud.
-func connectionIsFatal(conn singular.Conn) func(err error) bool {
+func connectionIsFatal(conn master.Conn) func(err error) bool {
 	return func(err error) bool {
 		if err := conn.Ping(); err != nil {
 			logger.Infof("error pinging %T: %v", conn, err)
@@ -549,4 +535,16 @@ func connectionIsFatal(conn singular.Conn) func(err error) bool {
 		logger.Infof("error %q is not fatal", err)
 		return false
 	}
+}
+
+type localMember struct {
+	localHostPort string
+}
+
+func (m localMember) Addresses() []network.Address {
+	hp, err := network.ParseHostPort(m.localHostPort)
+	if err != nil {
+		panic(err)
+	}
+	return []network.Address{hp.Address}
 }

@@ -88,13 +88,14 @@ import (
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/logsender/logsendermetrics"
+	"github.com/juju/juju/worker/master"
+	"github.com/juju/juju/worker/master/mongomaster"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	psworker "github.com/juju/juju/worker/pubsub"
-	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgradesteps"
 )
@@ -112,7 +113,7 @@ var (
 	// the intestinal fortitude to untangle this package. Be that
 	// person! Juju Needs You.
 	useMultipleCPUs       = utils.UseMultipleCPUs
-	newSingularRunner     = singular.New
+	newMasterRunner       = master.New
 	peergrouperNew        = peergrouper.New
 	newCertificateUpdater = certupdater.NewCertificateUpdater
 	newMetadataUpdater    = imagemetadataworker.NewWorker
@@ -1926,27 +1927,12 @@ type MongoSessioner interface {
 }
 
 func newSingularStateRunner(runner *worker.Runner, st MongoSessioner, m *state.Machine) (jworker.Runner, error) {
-	singularStateConn := singularStateConn{st.MongoSession(), m}
-	singularRunner, err := newSingularRunner(runner, singularStateConn)
+	masterStateConn := &mongomaster.Conn{st.MongoSession(), m}
+	singularRunner, err := newMasterRunner(runner, masterStateConn)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot make singular State Runner")
+		return nil, errors.Annotate(err, "cannot make master Runner")
 	}
 	return singularRunner, err
-}
-
-// singularStateConn implements singular.Conn on
-// top of a State connection.
-type singularStateConn struct {
-	session *mgo.Session
-	machine *state.Machine
-}
-
-func (c singularStateConn) IsMaster() (bool, error) {
-	return mongo.IsMaster(c.session, c.machine)
-}
-
-func (c singularStateConn) Ping() error {
-	return c.session.Ping()
 }
 
 // newDeployContext gives the tests the opportunity to create a deployer.Context
