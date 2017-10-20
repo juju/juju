@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -127,8 +128,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissi
 		`Located bundle "cs:bundle/wordpress-with-endpoint-bindings-1"`)
 	c.Assert(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm mysql\n"+
-		"- deploy application mysql using mysql")
+		"- upload charm cs:xenial/mysql-42 for series xenial\n"+
+		"- deploy application mysql on xenial using cs:xenial/mysql-42")
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{})
 	s.assertUnitsCreated(c, map[string]string{})
@@ -303,8 +304,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleResources(c *gc.C) {
 
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm cs:starsay\n"+
-		"- deploy application starsay using cs:starsay\n"+
+		"- upload charm cs:trusty/starsay-42 for series trusty\n"+
+		"- deploy application starsay on trusty using cs:trusty/starsay-42\n"+
 		"- add unit starsay/0 to new machine 0",
 	)
 	// Info messages go to stdErr.
@@ -442,7 +443,7 @@ charm path in application "mysql" does not exist: .*mysql`,
                 charm: xenial/rails-42
                 num_units: 1
     `,
-	err: `cannot deploy bundle: cannot resolve URL "xenial/rails-42": cannot resolve URL "cs:xenial/rails-42": charm not found`,
+	err: `cannot resolve URL "xenial/rails-42": cannot resolve URL "cs:xenial/rails-42": charm not found`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",
@@ -488,14 +489,17 @@ negative number of units specified on application "mysql"`,
                 charm: local:wordpress
                 num_units: 1
     `,
-	err: `cannot deploy bundle: cannot resolve URL "local:wordpress": unknown schema for charm URL "local:wordpress"`,
+	err: `cannot resolve URL "local:wordpress": unknown schema for charm URL "local:wordpress"`,
 }}
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleErrors(c *gc.C) {
 	for i, test := range deployBundleErrorsTests {
 		c.Logf("test %d: %s", i, test.about)
 		err := s.DeployBundleYAML(c, test.content)
-		c.Check(err, gc.ErrorMatches, test.err)
+		pass := c.Check(err, gc.ErrorMatches, "cannot deploy bundle: "+test.err)
+		if !pass {
+			c.Logf("error: \n%s\n", errors.ErrorStack(err))
+		}
 	}
 }
 
@@ -648,7 +652,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath),
 		"--bundle-config", "missing-file")
-	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: "+missingFileRegex("missing-file"))
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to open bundle-config file: "+missingFileRegex("missing-file"))
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleConfig(c *gc.C) {
@@ -1356,11 +1360,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
 
 	c.Check(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm cs:django\n"+
-		"- deploy application django using cs:django\n"+
+		"- upload charm cs:xenial/django-42 for series xenial\n"+
+		"- deploy application django on xenial using cs:xenial/django-42\n"+
 		"- set annotations for django\n"+
-		"- upload charm xenial/mem-47 for series xenial\n"+
-		"- deploy application memcached on xenial using xenial/mem-47\n"+
+		"- upload charm cs:xenial/mem-47 for series xenial\n"+
+		"- deploy application memcached on xenial using cs:xenial/mem-47\n"+
 		"- add new machine 0 (bundle machine 1)\n"+
 		"- set annotations for new machine 0\n"+
 		"- add unit django/0 to new machine 0\n"+

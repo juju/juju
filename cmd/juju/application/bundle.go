@@ -101,7 +101,7 @@ func deployBundle(
 			}
 			return nil, errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
 		}
-		return nil, errors.Annotate(verifyError, "cannot deploy bundle")
+		return nil, errors.Trace(verifyError)
 	}
 
 	// TODO: move bundle parsing and checking into the handler.
@@ -255,7 +255,6 @@ func (h *bundleHandler) makeModel() error {
 func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 
 	deployedApps := set.NewStrings()
-	toResolve := make(map[string]string)
 
 	for name, spec := range h.data.Applications {
 		app := h.model.GetApplication(name)
@@ -268,19 +267,26 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				spec.Charm = app.Charm
 				continue
 			}
+		}
 
-			// TODO(thumper): fix the charm upgrade handling
-			// for now, pretend all the charms are the same.
-			spec.Charm = app.Charm
+		if h.isLocalCharm(spec.Charm) {
 			continue
 		}
 
-		if !h.isLocalCharm(spec.Charm) {
-			toResolve[name] = spec.Charm
+		ch, err := charm.ParseURL(spec.Charm)
+		if err != nil {
+			return errors.Trace(err)
 		}
+		url, _, _, err := h.api.Resolve(h.modelConfig, ch)
+		if err != nil {
+			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
+		}
+		if url.Series == "bundle" {
+			return errors.Errorf("expected charm URL, got bundle URL %q", spec.Charm)
+		}
+
+		spec.Charm = url.String()
 	}
-	// TODO(thumper): Resolve all the charm names.
-	// For now bundle deployment is going to ignore charm upgrades.
 
 	// TODO(thumper): the InferEndpoints code is deeply wedged in the
 	// persistence layer and needs to be extracted. This is a multi-day
@@ -295,17 +301,7 @@ func (h *bundleHandler) getChanges() error {
 		return errors.Trace(err)
 	}
 
-	// TODO(thumper): fix the charm upgrade handling
-	// for now, filter out the upgrade charm changes.
-	for _, change := range changes {
-		switch change := change.(type) {
-		case *bundlechanges.UpgradeCharmChange:
-			// no-op, not handled.
-		default:
-			h.changes = append(h.changes, change)
-		}
-	}
-
+	h.changes = changes
 	return nil
 }
 
@@ -350,7 +346,7 @@ func (h *bundleHandler) handleChanges() error {
 		case *bundlechanges.UpgradeCharmChange:
 			// TODO(thumper): fix the charm upgrade handling.
 			// For now these are filtered out.
-			// err = h.upgradeCharm(change.Id(), change.Params)
+			err = h.upgradeCharm(change.Id(), change.Params)
 		case *bundlechanges.SetOptionsChange:
 			err = h.setOptions(change.Id(), change.Params)
 		case *bundlechanges.SetConstraintsChange:
@@ -359,7 +355,7 @@ func (h *bundleHandler) handleChanges() error {
 			return errors.Errorf("unknown change type: %T", change)
 		}
 		if err != nil {
-			return errors.Annotate(err, "cannot deploy bundle")
+			return errors.Trace(err)
 		}
 	}
 
@@ -739,7 +735,6 @@ func (h *bundleHandler) upgradeCharm(id string, p bundlechanges.UpgradeCharmPara
 
 	resources := h.makeResourceMap(p.Resources, p.LocalResources)
 
-	// charmsClient := charms.NewClient(api)
 	resourceLister, err := resourceadapters.NewAPIClient(h.api)
 	if err != nil {
 		return errors.Trace(err)

@@ -1430,10 +1430,10 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 	)
 	c.Check(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Executing changes:\n"+
-		"- upload charm mysql\n"+
-		"- deploy application mysql using mysql\n"+
-		"- upload charm wordpress\n"+
-		"- deploy application wordpress using wordpress\n"+
+		"- upload charm cs:mysql\n"+
+		"- deploy application mysql using cs:mysql\n"+
+		"- upload charm cs:wordpress\n"+
+		"- deploy application wordpress using cs:wordpress\n"+
 		"- add relation wordpress:db - mysql:server\n"+
 		"- add unit mysql/0 to new machine 0\n"+
 		"- add unit wordpress/0 to new machine 1\n",

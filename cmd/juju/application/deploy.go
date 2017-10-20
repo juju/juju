@@ -547,7 +547,7 @@ func (c *DeployCommand) deployBundle(
 		bundleStorage,
 		c.DryRun,
 	); err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "cannot deploy bundle")
 	}
 	return nil
 }
@@ -730,8 +730,9 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 }
 
 func findDeployerFIFO(maybeDeployers ...func() (deployFn, error)) (deployFn, error) {
-	for _, d := range maybeDeployers {
+	for i, d := range maybeDeployers {
 		if deploy, err := d(); err != nil {
+			logger.Debugf("iter %d: %v", i, d)
 			return nil, errors.Trace(err)
 		} else if deploy != nil {
 			return deploy, nil
@@ -810,7 +811,7 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 			if info, statErr := os.Stat(bundleFile); statErr == nil {
 				if info.IsDir() {
 					if _, ok := pathErr.(*charmrepo.NotFoundError); !ok {
-						return nil, pathErr
+						return nil, errors.Annotate(pathErr, "cannot deploy bundle")
 					}
 				}
 			}
