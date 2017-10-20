@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/state/globalclock"
 	stateaudit "github.com/juju/juju/state/internal/audit"
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
@@ -57,6 +58,9 @@ const (
 	// presenceDB is the name of the database used to hold presence pinger data.
 	presenceDB = "presence"
 	presenceC  = "presence"
+
+	// globalClockC is the name of the collection used to hold global clock data.
+	globalClockC = "globalclock"
 
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
@@ -2318,4 +2322,16 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// GlobalClockUpdater returns a new globalclock.Updater using the
+// State's *mgo.Session.
+func (st *State) GlobalClockUpdater() (*globalclock.Updater, error) {
+	return globalclock.NewUpdater(globalclock.UpdaterConfig{
+		Config: globalclock.Config{
+			Session:    st.MongoSession(),
+			Database:   jujuDB,
+			Collection: globalClockC,
+		},
+	})
 }

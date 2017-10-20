@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/worker/fanconfigurer"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/globalclockupdater"
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logger"
@@ -396,6 +397,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName: stateName,
 			Duration:  10 * time.Second, // XXX
 		}),
+		globalClockUpdaterName: ifMongoMaster(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
+			ClockName:      clockName,
+			StateName:      stateName,
+			UpdateInterval: 1 * time.Second,
+		})),
 
 		// The serving-info-setter manifold sets grabs the state
 		// serving info from the API connection and writes it to the
@@ -579,6 +585,12 @@ var ifNotMigrating = engine.Housing{
 	Occupy: migrationFortressName,
 }.Decorate
 
+var ifMongoMaster = engine.Housing{
+	Flags: []string{
+		mongoMasterFlagName,
+	},
+}.Decorate
+
 const (
 	agentName              = "agent"
 	terminationName        = "termination-signal-handler"
@@ -623,4 +635,5 @@ const (
 	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
 	mongoMasterFlagName           = "mongo-master-flag"
+	globalClockUpdaterName        = "global-clock-updater"
 )

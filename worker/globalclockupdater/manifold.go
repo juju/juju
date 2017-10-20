@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package globalclock
+package globalclockupdater
 
 import (
 	"time"
@@ -11,7 +11,6 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/master"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -21,10 +20,24 @@ type ManifoldConfig struct {
 	ClockName string
 	StateName string
 
-	Duration time.Duration
+	UpdateInterval time.Duration
 }
 
-// Manifold returns a dependency.Manifold that will run a GlobalClockUpdater.
+func (config ManifoldConfig) Validate() error {
+	if config.ClockName == "" {
+		return errors.NotValidf("empty ClockName")
+	}
+	if config.StateName == "" {
+		return errors.NotValidf("empty StateName")
+	}
+	if config.UpdateInterval <= 0 {
+		return errors.NotValidf("empty or negative UpdateInterval")
+	}
+	return nil
+}
+
+// Manifold returns a dependency.Manifold that will run a global clock
+// updater worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -37,6 +50,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // start is a method on ManifoldConfig because it's more readable than a closure.
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var clock clock.Clock
 	if err := context.Get(config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
@@ -50,17 +67,17 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	stMachine, err := st.Machine(machineTag.Id())
+
+	updater, err := st.GlobalClockUpdater()
 	if err != nil {
 		stTracker.Done()
 		return nil, errors.Trace(err)
 	}
-	conn := &Conn{st.MongoSession(), stMachine}
 
-	flag, err := master.NewFlagWorker(master.FlagConfig{
-		Clock:    clock,
-		Conn:     conn,
-		Duration: config.Duration,
+	worker, err := NewWorker(Config{
+		Updater:        updater,
+		LocalClock:     clock,
+		UpdateInterval: config.UpdateInterval,
 	})
 	if err != nil {
 		stTracker.Done()
@@ -68,23 +85,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	go func() {
-		flag.Wait()
+		worker.Wait()
 		stTracker.Done()
 	}()
-	return wrappedWorker{flag}, nil
-}
-
-// wrappedWorker wraps a flag worker, translating ErrRefresh into
-// dependency.ErrBounce.
-type wrappedWorker struct {
-	worker.Worker
-}
-
-// Wait is part of the worker.Worker interface.
-func (w wrappedWorker) Wait() error {
-	err := w.Worker.Wait()
-	if errors.Cause(err) == master.ErrRefresh {
-		err = dependency.ErrBounce
-	}
-	return err
+	return worker, nil
 }
