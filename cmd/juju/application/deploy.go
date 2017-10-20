@@ -730,9 +730,8 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 }
 
 func findDeployerFIFO(maybeDeployers ...func() (deployFn, error)) (deployFn, error) {
-	for i, d := range maybeDeployers {
+	for _, d := range maybeDeployers {
 		if deploy, err := d(); err != nil {
-			logger.Debugf("iter %d: %v", i, d)
 			return nil, errors.Trace(err)
 		} else if deploy != nil {
 			return deploy, nil

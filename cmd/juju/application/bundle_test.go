@@ -181,10 +181,27 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
-	err := runDeploy(c, "bundle/wordpress-simple")
+	stdOut, stdErr, err := runDeployWithOutput(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "bundle/wordpress-simple")
+	c.Check(stdOut, gc.Equals, ""+
+		"Executing changes:\n"+
+		"- upload charm cs:xenial/mysql-42 for series xenial\n"+
+		"- deploy application mysql on xenial using cs:xenial/mysql-42\n"+
+		"- upload charm cs:xenial/wordpress-47 for series xenial\n"+
+		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n"+
+		"- add relation wordpress:db - mysql:server\n"+
+		"- add unit mysql/0 to new machine 0\n"+
+		"- add unit wordpress/0 to new machine 1",
+	)
+	stdOut, stdErr, err = runDeployWithOutput(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
+	// Nothing to do...
+	c.Check(stdOut, gc.Equals, "")
+	c.Check(stdErr, gc.Equals, ""+
+		"Located bundle \"cs:bundle/wordpress-simple-1\"\n"+
+		"No changes to apply.",
+	)
+
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
 		"mysql":     {charm: "cs:xenial/mysql-42"},
@@ -195,6 +212,33 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 		"mysql/0":     "0",
 		"wordpress/0": "1",
 	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	stdOut, _, err := runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := "" +
+		"Changes to deploy bundle:\n" +
+		"- upload charm cs:xenial/mysql-42 for series xenial\n" +
+		"- deploy application mysql on xenial using cs:xenial/mysql-42\n" +
+		"- upload charm cs:xenial/wordpress-47 for series xenial\n" +
+		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n" +
+		"- add relation wordpress:db - mysql:server\n" +
+		"- add unit mysql/0 to new machine 0\n" +
+		"- add unit wordpress/0 to new machine 1"
+
+	c.Check(stdOut, gc.Equals, expected)
+	stdOut, _, err = runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(stdOut, gc.Equals, expected)
+
+	s.assertCharmsUploaded(c /* none */)
+	s.assertApplicationsDeployed(c, map[string]serviceInfo{})
+	s.assertRelationsEstablished(c /* none */)
+	s.assertUnitsCreated(c, map[string]string{})
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
@@ -815,7 +859,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
 	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:xenial/wordpress-42")
 
 	// Then deploy a new bundle with modified charm revision and options.
-	err = s.DeployBundleYAML(c, `
+	stdOut, _, err := s.DeployBundleYAMLWithOutput(c, `
         applications:
             wordpress:
                 charm: wordpress
@@ -828,6 +872,14 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
                 num_units: 1
     `)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdOut, gc.Equals, ""+
+		"Executing changes:\n"+
+		"- upload charm cs:vivid/upgrade-2 for series vivid\n"+
+		"- upgrade up to use charm cs:vivid/upgrade-2 for series vivid\n"+
+		"- set application options for wordpress\n"+
+		`- set constraints for wordpress to "spaces=new cores=8"`,
+	)
+
 	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:vivid/upgrade-2", "cs:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
 		"up": {charm: "cs:vivid/upgrade-2"},
@@ -957,7 +1009,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
             - ["wp:db", "mysql:server"]
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.DeployBundleYAML(c, `
+	stdOut, _, err := s.DeployBundleYAMLWithOutput(c, `
         applications:
             wp:
                 charm: wordpress
@@ -973,6 +1025,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
             - ["varnish:webcache", "wp:cache"]
     `)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdOut, gc.Equals, ""+
+		"Executing changes:\n"+
+		"- add relation varnish:webcache - wp:cache",
+	)
 	s.assertRelationsEstablished(c, "wp:db mysql:server", "wp:cache varnish:webcache")
 	s.assertUnitsCreated(c, map[string]string{
 		"mysql/0":   "0",
@@ -1316,12 +1372,18 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMassiveUnitColocation(c *g
             2:
             3:
     `
-	err = s.DeployBundleYAML(c, content)
+	stdOut, _, err := s.DeployBundleYAMLWithOutput(c, content)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(stdOut, gc.Equals, ""+
+		"Executing changes:\n"+
+		"- deploy application node on xenial using cs:xenial/django-42\n"+
+		"- add unit node/0 to 0/lxd/0 to satisfy [lxd:memcached]",
+	)
 
 	// Redeploy the same bundle again and check that nothing happens.
-	err = s.DeployBundleYAML(c, content)
+	stdOut, _, err = s.DeployBundleYAMLWithOutput(c, content)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdOut, gc.Equals, "")
 	s.assertUnitsCreated(c, map[string]string{
 		"django/0":    "0",
 		"django/1":    "0/lxd/0",
