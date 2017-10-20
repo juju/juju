@@ -154,11 +154,15 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	defaultCredential := caasConfig.Credentials[defaultContext.CredentialName]
 	defaultCloud := caasConfig.Clouds[defaultContext.CloudName]
 
-	newCloud := cloud.Cloud{
-		Name:     c.caasName,
-		Type:     c.caasType,
-		Endpoint: defaultCloud.Endpoint,
+	cloudConfig := map[string]interface{}{
+		"CAData": defaultCloud.Attributes["CAData"],
+	}
 
+	newCloud := cloud.Cloud{
+		Name:      c.caasName,
+		Type:      c.caasType,
+		Endpoint:  defaultCloud.Endpoint,
+		Config:    cloudConfig,
 		AuthTypes: []cloud.AuthType{defaultCredential.AuthType()},
 	}
 
@@ -234,8 +238,11 @@ func addCloudToController(apiClient CloudAPI, newCloud cloud.Cloud) error {
 	return nil
 }
 
+// This is exported to be patched in tests.
+var NewFileCredentialStore = jujuclient.NewFileCredentialStore
+
 func addCredentialToLocal(cloudName string, newCredential cloud.Credential, credentialName string) error {
-	store := jujuclient.NewFileCredentialStore()
+	store := NewFileCredentialStore()
 	newCredentials := &cloud.CloudCredential{
 		AuthCredentials: make(map[string]cloud.Credential),
 	}
@@ -247,8 +254,13 @@ func addCredentialToLocal(cloudName string, newCredential cloud.Credential, cred
 	return nil
 }
 
+// This is exported to be patched in tests.
+var CurrentAccountDetails = func(c *AddCAASCommand) (*jujuclient.AccountDetails, error) {
+	return c.CurrentAccountDetails()
+}
+
 func (c *AddCAASCommand) addCredentialToController(apiClient CloudAPI, newCredential cloud.Credential, credentialName string) error {
-	currentAccountDetails, err := c.CurrentAccountDetails()
+	currentAccountDetails, err := CurrentAccountDetails(c)
 	if err != nil {
 		return errors.Trace(err)
 	}
