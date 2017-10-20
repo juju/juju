@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machineactions"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/master/mongomaster"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -211,6 +212,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// be Very Wrong Indeed to use SetCanUninstall in conjunction
 		// with this code.
 		terminationName: terminationworker.Manifold(),
+
+		clockName: clockManifold(config.Clock),
 
 		// The stateconfigwatcher manifold watches the machine agent's
 		// configuration and reports if state serving info is
@@ -387,6 +390,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:         migrationminion.NewWorker,
 		}),
 
+		mongoMasterFlagName: mongomaster.Manifold(mongomaster.ManifoldConfig{
+			AgentName: agentName,
+			ClockName: clockName,
+			StateName: stateName,
+			Duration:  10 * time.Second, // XXX
+		}),
+
 		// The serving-info-setter manifold sets grabs the state
 		// serving info from the API connection and writes it to the
 		// agent config.
@@ -546,6 +556,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 }
 
+func clockManifold(clock clock.Clock) dependency.Manifold {
+	return dependency.Manifold{
+		Start: func(_ dependency.Context) (worker.Worker, error) {
+			return engine.NewValueWorker(clock)
+		},
+		Output: engine.ValueWorkerOutput,
+	}
+}
+
 var ifFullyUpgraded = engine.Housing{
 	Flags: []string{
 		upgradeStepsFlagName,
@@ -571,6 +590,7 @@ const (
 	apiConfigWatcherName   = "api-config-watcher"
 	centralHubName         = "central-hub"
 	pubSubName             = "pubsub-forwarder"
+	clockName              = "clock"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"
@@ -602,4 +622,5 @@ const (
 	hostKeyReporterName           = "host-key-reporter"
 	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
+	mongoMasterFlagName           = "mongo-master-flag"
 )

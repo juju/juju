@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
+var ErrRefresh = errors.New("ping failed, flag invalidated")
+
 // FlagConfig holds a FlagWorker's dependencies and resources.
 type FlagConfig struct {
 	Clock    clock.Clock
@@ -105,7 +107,7 @@ func (flag *FlagWorker) loop(ping func() error) error {
 			return flag.catacomb.ErrDying()
 		case <-timer.Chan():
 			if err := ping(); err != nil {
-				return errors.Annotate(err, "ping failed, flag invalidated")
+				return errors.Trace(ErrRefresh)
 			}
 			timer.Reset(flag.config.Duration)
 		}
