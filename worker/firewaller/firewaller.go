@@ -132,13 +132,13 @@ type Firewaller struct {
 	globalMode           bool
 	globalIngressRuleRef map[string]int // map of rule names to count of occurrences
 
-	modelUUID                   string
-	newRemoteFirewallerAPIFunc  newCrossModelFacadeFunc
-	remoteRelationsWatcher      watcher.StringsWatcher
-	remoteRelationNetworkChange chan *remoteRelationNetworkChange
-	localRelationsChange        chan *remoteRelationNetworkChange
-	relationIngress             map[names.RelationTag]*remoteRelationData
-	pollClock                   clock.Clock
+	modelUUID                  string
+	newRemoteFirewallerAPIFunc newCrossModelFacadeFunc
+	remoteRelationsWatcher     watcher.StringsWatcher
+	localRelationsChange       chan *remoteRelationNetworkChange
+	relationIngress            map[names.RelationTag]*remoteRelationData
+	relationWorkerRunner       *worker.Runner
+	pollClock                  clock.Clock
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -151,21 +151,30 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		clk = clock.WallClock
 	}
 	fw := &Firewaller{
-		firewallerApi:               cfg.FirewallerAPI,
-		remoteRelationsApi:          cfg.RemoteRelationsApi,
-		environFirewaller:           cfg.EnvironFirewaller,
-		environInstances:            cfg.EnvironInstances,
-		newRemoteFirewallerAPIFunc:  cfg.NewCrossModelFacadeFunc,
-		modelUUID:                   cfg.ModelUUID,
-		machineds:                   make(map[names.MachineTag]*machineData),
-		unitsChange:                 make(chan *unitsChange),
-		unitds:                      make(map[names.UnitTag]*unitData),
-		applicationids:              make(map[names.ApplicationTag]*applicationData),
-		exposedChange:               make(chan *exposedChange),
-		relationIngress:             make(map[names.RelationTag]*remoteRelationData),
-		remoteRelationNetworkChange: make(chan *remoteRelationNetworkChange),
-		localRelationsChange:        make(chan *remoteRelationNetworkChange),
-		pollClock:                   clk,
+		firewallerApi:              cfg.FirewallerAPI,
+		remoteRelationsApi:         cfg.RemoteRelationsApi,
+		environFirewaller:          cfg.EnvironFirewaller,
+		environInstances:           cfg.EnvironInstances,
+		newRemoteFirewallerAPIFunc: cfg.NewCrossModelFacadeFunc,
+		modelUUID:                  cfg.ModelUUID,
+		machineds:                  make(map[names.MachineTag]*machineData),
+		unitsChange:                make(chan *unitsChange),
+		unitds:                     make(map[names.UnitTag]*unitData),
+		applicationids:             make(map[names.ApplicationTag]*applicationData),
+		exposedChange:              make(chan *exposedChange),
+		relationIngress:            make(map[names.RelationTag]*remoteRelationData),
+		localRelationsChange:       make(chan *remoteRelationNetworkChange),
+		pollClock:                  clk,
+		relationWorkerRunner: worker.NewRunner(worker.RunnerParams{
+			Clock: clk,
+
+			// One of the remote relation workers failing should not
+			// prevent the others from running.
+			IsFatal: func(error) bool { return false },
+
+			// For any failures, try again in 1 minute.
+			RestartDelay: time.Minute,
+		}),
 	}
 
 	switch cfg.Mode {
@@ -180,6 +189,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &fw.catacomb,
 		Work: fw.loop,
+		Init: []worker.Worker{fw.relationWorkerRunner},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -270,12 +280,6 @@ func (fw *Firewaller) loop() error {
 					return err
 				}
 			}
-		case change := <-fw.remoteRelationNetworkChange:
-			// We need to notify the remote (offering) model that it needs
-			// to open new ports to allow ingress from the consumer.
-			if err := fw.publishNetworkChanged(change); err != nil {
-				return errors.Trace(err)
-			}
 		case change := <-fw.localRelationsChange:
 			// We have a notification that the remote (consuming) model
 			// has changed egress networks so need to update the local
@@ -298,53 +302,6 @@ func (fw *Firewaller) loop() error {
 			}
 		}
 	}
-}
-
-func (fw *Firewaller) publishNetworkChanged(change *remoteRelationNetworkChange) error {
-	logger.Debugf("process remote relation egress change for %v", change.relationTag)
-	relData, ok := fw.relationIngress[change.relationTag]
-	if !ok || relData.relationToken == "" {
-		logger.Warningf("ignoring unknown relation %v processing egress change", change.relationTag)
-		return nil
-	}
-
-	apiInfo, err := fw.firewallerApi.ControllerAPIInfoForModel(relData.remoteModelUUID)
-	if err != nil {
-		return errors.Annotatef(err, "cannot get api info for model %v", relData.remoteModelUUID)
-	}
-	mac, err := fw.firewallerApi.MacaroonForRelation(relData.tag.Id())
-	if params.IsCodeNotFound(err) {
-		// Relation has gone, nothing to do.
-		return nil
-	}
-	if err != nil {
-		return errors.Annotatef(err, "cannot get macaroon for %v", relData.tag.Id())
-	}
-	remoteModelAPI, err := fw.newRemoteFirewallerAPIFunc(apiInfo)
-	if err != nil {
-		return errors.Annotate(err, "cannot open facade to remote model to publish network change")
-	}
-	defer remoteModelAPI.Close()
-	event := params.IngressNetworksChangeEvent{
-		RelationToken:    relData.relationToken,
-		ApplicationToken: relData.applicationToken,
-		Networks:         change.networks.Values(),
-		IngressRequired:  change.ingressRequired,
-		Macaroons:        macaroon.Slice{mac},
-	}
-	err = remoteModelAPI.PublishIngressNetworkChange(event)
-	if errors.IsNotFound(err) {
-		logger.Debugf("relation id not found publishing %+v", event)
-		return nil
-	}
-
-	// If the requested ingress is not permitted on the offering side,
-	// mark the relation as in error. It's not an error that requires a
-	// worker restart though.
-	if params.IsCodeForbidden(err) {
-		return fw.firewallerApi.SetRelationStatus(relData.tag.Id(), relation.Error, err.Error())
-	}
-	return errors.Annotate(err, "cannot publish ingress network change")
 }
 
 func (fw *Firewaller) relationIngressChanged(change *remoteRelationNetworkChange) error {
@@ -1326,22 +1283,20 @@ func (fw *Firewaller) startRelation(rel *params.RemoteRelation, role charm.Relat
 		endpointRole:        role,
 		relationReady:       make(chan remoteRelationInfo),
 	}
+
+	// Start the worker which will watch the remote relation for things like new networks.
+	if err := fw.relationWorkerRunner.StartWorker(tag.Id(), func() (worker.Worker, error) {
+		if err := catacomb.Invoke(catacomb.Plan{
+			Site: &data.catacomb,
+			Work: data.watchLoop,
+		}); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return data, nil
+	}); err != nil {
+		return errors.Annotate(err, "error starting remote relation worker")
+	}
 	fw.relationIngress[tag] = data
-
-	err = catacomb.Invoke(catacomb.Plan{
-		Site: &data.catacomb,
-		Work: data.watchLoop,
-	})
-	if err != nil {
-		delete(fw.relationIngress, tag)
-		return errors.Trace(err)
-	}
-
-	// register the relationData with the firewaller's catacomb.
-	if err := fw.catacomb.Add(data); err != nil {
-		delete(fw.relationIngress, tag)
-		return errors.Trace(err)
-	}
 
 	data.isOffer = remoteAppResult.Result.IsConsumerProxy
 	return fw.startRelationPoller(rel.Key, rel.RemoteApplicationName, data.relationReady)
@@ -1454,7 +1409,7 @@ func (rd *remoteRelationData) ingressAddressWatcher() (watcher.StringsWatcher, e
 		}
 		rd.crossModelFirewallerFacade, err = rd.fw.newRemoteFirewallerAPIFunc(apiInfo)
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot open facade to remote model to publish network change")
+			return nil, errors.Annotate(err, "cannot open facade to remote model to watch ingress addresses")
 		}
 
 		mac, err := rd.fw.firewallerApi.MacaroonForRelation(rd.tag.Id())
@@ -1486,12 +1441,44 @@ func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
 		networks:            set.NewStrings(cidrs...),
 		ingressRequired:     len(cidrs) > 0,
 	}
-	select {
-	case <-rd.catacomb.Dying():
-		return rd.catacomb.ErrDying()
-	case rd.fw.remoteRelationNetworkChange <- change:
+
+	apiInfo, err := rd.fw.firewallerApi.ControllerAPIInfoForModel(rd.remoteModelUUID)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get api info for model %v", rd.remoteModelUUID)
 	}
-	return nil
+	mac, err := rd.fw.firewallerApi.MacaroonForRelation(rd.tag.Id())
+	if params.IsCodeNotFound(err) {
+		// Relation has gone, nothing to do.
+		return nil
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot get macaroon for %v", rd.tag.Id())
+	}
+	remoteModelAPI, err := rd.fw.newRemoteFirewallerAPIFunc(apiInfo)
+	if err != nil {
+		return errors.Annotate(err, "cannot open facade to remote model to publish network change")
+	}
+	defer remoteModelAPI.Close()
+	event := params.IngressNetworksChangeEvent{
+		RelationToken:    rd.relationToken,
+		ApplicationToken: rd.applicationToken,
+		Networks:         change.networks.Values(),
+		IngressRequired:  change.ingressRequired,
+		Macaroons:        macaroon.Slice{mac},
+	}
+	err = remoteModelAPI.PublishIngressNetworkChange(event)
+	if errors.IsNotFound(err) {
+		logger.Debugf("relation id not found publishing %+v", event)
+		return nil
+	}
+
+	// If the requested ingress is not permitted on the offering side,
+	// mark the relation as in error. It's not an error that requires a
+	// worker restart though.
+	if params.IsCodeForbidden(err) {
+		return rd.fw.firewallerApi.SetRelationStatus(rd.tag.Id(), relation.Error, err.Error())
+	}
+	return errors.Annotate(err, "cannot publish ingress network change")
 }
 
 // updateIngressNetworks processes the changed ingress networks on the relation.
@@ -1525,10 +1512,11 @@ func (rd *remoteRelationData) Wait() error {
 func (fw *Firewaller) forgetRelation(data *remoteRelationData) error {
 	logger.Debugf("forget relation %v", data.tag.Id())
 	delete(fw.relationIngress, data.tag)
-	// Unusually, it's fine to ignore this error, because we know the relation data
-	// is being tracked in fw.catacomb. But we do still want to wait until the
-	// watch loop has stopped before we nuke the last data and return.
-	worker.Stop(data)
+	// There's not much we can do if there's an error stopping the remote
+	// relation worker, so just log it.
+	if err := fw.relationWorkerRunner.StopWorker(data.tag.Id()); err != nil {
+		logger.Errorf("error stopping remote relation worker for %s: %v", data.tag, err)
+	}
 	logger.Debugf("stopped watching %q", data.tag)
 	return nil
 }
