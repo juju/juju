@@ -3411,6 +3411,9 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		CIDR:      "100.64.0.0/16",
 		SpaceName: "wp-default",
 	}, {
+		CIDR:      "192.168.1.0/24",
+		SpaceName: "database",
+	}, {
 		SpaceName: "layertwo",
 	}}
 	for _, info := range subnetInfos {
@@ -3454,6 +3457,9 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.base.mysql = factory.MakeApplication(c, &jujufactory.ApplicationParams{
 		Name:  "mysql",
 		Charm: mysqlCharm,
+		EndpointBindings: map[string]string{
+			"server": "database",
+		},
 	})
 	s.base.wordpressUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
 		Application: s.base.wordpress,
@@ -3519,6 +3525,10 @@ func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix i
 			Name:       "eth3",
 			Type:       state.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:53", addrSuffix),
+		}, {
+			Name:       "eth4",
+			Type:       state.EthernetDevice,
+			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:54", addrSuffix),
 		}},
 		[]state.LinkLayerDeviceAddress{{
 			DeviceName:   "eth0",
@@ -3544,6 +3554,10 @@ func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix i
 			DeviceName:   "eth2",
 			ConfigMethod: state.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("100.64.0.%d/16", addrSuffix),
+		}, {
+			DeviceName:   "eth4",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("192.168.1.%d/24", addrSuffix),
 		}}
 }
 
@@ -3757,21 +3771,18 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 		Bindings: []string{"server"},
 	}
 
-	privateAddress, err := s.base.machine1.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
-
 	expectedInfo := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				MACAddress:    "00:11:22:33:20:50",
-				InterfaceName: "eth0.100",
+				MACAddress:    "00:11:22:33:20:54",
+				InterfaceName: "eth4",
 				Addresses: []params.InterfaceAddress{
-					{Address: privateAddress.Value, CIDR: "10.0.0.0/24"},
+					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
 				},
 			},
 		},
 		EgressSubnets:    []string{},
-		IngressAddresses: []string{privateAddress.Value},
+		IngressAddresses: []string{"192.168.1.20"},
 	}
 
 	result, err := s.base.uniter.NetworkInfo(args)
@@ -3784,8 +3795,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 }
 
 func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
-	// If a network info call is made in the context of a relation, and the
-	// endpoint of that relation is not bound, or bound to the default space, we
+	// If a network info call is made in the context of a relation we
 	// provide the ingress address relevant to the relation.
 	s.setupUniterAPIForUnit(c, s.base.mysqlUnit)
 	_, err := s.base.State.AddRemoteApplication(state.AddRemoteApplicationParams{
@@ -3820,16 +3830,13 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
 	expectedIngressAddress, err := s.base.machine1.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 
-	privateAddress, err := s.base.machine1.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
-
 	expectedInfo := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				MACAddress:    "00:11:22:33:20:50",
-				InterfaceName: "eth0.100",
+				MACAddress:    "00:11:22:33:20:54",
+				InterfaceName: "eth4",
 				Addresses: []params.InterfaceAddress{
-					{Address: privateAddress.Value, CIDR: "10.0.0.0/24"},
+					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
 				},
 			},
 		},

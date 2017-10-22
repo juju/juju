@@ -91,12 +91,13 @@ type MachineParams struct {
 
 // ApplicationParams is used when specifying parameters for a new application.
 type ApplicationParams struct {
-	Name        string
-	Charm       *state.Charm
-	Status      *status.StatusInfo
-	Settings    map[string]interface{}
-	Storage     map[string]state.StorageConstraints
-	Constraints constraints.Value
+	Name             string
+	Charm            *state.Charm
+	Status           *status.StatusInfo
+	Settings         map[string]interface{}
+	Storage          map[string]state.StorageConstraints
+	Constraints      constraints.Value
+	EndpointBindings map[string]string
 }
 
 // UnitParams are used to create units.
@@ -448,12 +449,13 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 	}
 
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
-		Name:        params.Name,
-		Charm:       params.Charm,
-		Settings:    charm.Settings(params.Settings),
-		Storage:     params.Storage,
-		Constraints: params.Constraints,
-		Resources:   resourceMap,
+		Name:             params.Name,
+		Charm:            params.Charm,
+		Settings:         charm.Settings(params.Settings),
+		Storage:          params.Storage,
+		Constraints:      params.Constraints,
+		Resources:        resourceMap,
+		EndpointBindings: params.EndpointBindings,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -1905,24 +1904,15 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 			}
 		}
 
-		boundSpace, err := unit.GetSpaceForBinding(endpoint.Name)
-		if err != nil && !errors.IsNotValid(err) {
+		ru, err := u.getRelationUnit(canAccess, rel.Tag().String(), unitTag)
+		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
-		// If the endpoint for this relation is not bound to a space, or
-		// is bound to the default space, we need to look up the ingress
-		// address info which is aware of cross model relations.
-		if boundSpace == environs.DefaultSpaceName || err != nil {
-			ru, err := u.getRelationUnit(canAccess, rel.Tag().String(), unitTag)
-			if err != nil {
-				return params.NetworkInfoResults{}, err
-			}
-			address, err := ru.IngressAddress()
-			if err != nil {
-				return params.NetworkInfoResults{}, err
-			}
-			bindingsToIngressAddress[endpoint.Name] = address.Value
+		address, err := ru.IngressAddress()
+		if err != nil {
+			return params.NetworkInfoResults{}, err
 		}
+		bindingsToIngressAddress[endpoint.Name] = address.Value
 	}
 
 	networkInfos := machine.GetNetworkInfoForSpaces(spaces)
