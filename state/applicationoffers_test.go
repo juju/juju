@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -518,4 +520,40 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *gc.C) {
 
 	err := ao.Remove(offer.OfferName)
 	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
+}
+
+func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
+	ao := state.NewApplicationOffers(s.State)
+	offer, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Owner:           s.Owner.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := s.State.WatchOfferStatus(offer.OfferUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	// Initial event.
+	wc.AssertOneChange()
+	wc.AssertNoChange()
+
+	app, err := s.State.Application(offer.ApplicationName)
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.SetStatus(status.StatusInfo{
+		Status:  status.Waiting,
+		Message: "waiting for replication",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+	wc.AssertNoChange()
+
+	err = ao.Remove(offer.OfferName)
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+	wc.AssertNoChange()
 }

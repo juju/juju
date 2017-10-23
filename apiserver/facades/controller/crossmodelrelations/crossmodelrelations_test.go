@@ -42,6 +42,7 @@ type crossmodelRelationsSuite struct {
 	api           *crossmodelrelations.CrossModelRelationsAPI
 
 	watchedRelations params.Entities
+	watchedOffers    []string
 }
 
 func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
@@ -71,11 +72,18 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		w.changes <- []string{"db2:db django:db"}
 		return w, nil
 	}
+	offerStatusWatcher := func(st crossmodelrelations.CrossModelRelationsState, offerUUID string) (crossmodelrelations.OfferWatcher, error) {
+		c.Assert(s.st, gc.Equals, st)
+		s.watchedOffers = []string{offerUUID}
+		w := &mockOfferStatusWatcher{offerUUID: offerUUID, changes: make(chan struct{}, 1)}
+		w.changes <- struct{}{}
+		return w, nil
+	}
 	var err error
 	s.authContext, err = commoncrossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
-		s.st, fw, s.resources, s.authorizer, s.authContext, egressAddressWatcher, relationStatusWatcher)
+		s.st, fw, s.resources, s.authorizer, s.authContext, egressAddressWatcher, relationStatusWatcher, offerStatusWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -459,5 +467,49 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-postgresql:db django:db"}},
+	})
+}
+
+func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
+	s.st.offers["mysql-uuid"] = &crossmodel.ApplicationOffer{
+		OfferName: "hosted-mysql", OfferUUID: "mysql-uuid", ApplicationName: "mysql"}
+	app := &mockApplication{}
+	s.st.applications["mysql"] = app
+	s.st.remoteEntities[names.NewApplicationOfferTag("hosted-mysql")] = "token-hosted-mysql"
+	mac, err := s.bakery.NewMacaroon("", nil,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
+			checkers.DeclaredCaveat("username", "mary"),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.OfferArgs{
+		Args: []params.OfferArg{
+			{
+				OfferUUID: "db2-uuid",
+				Macaroons: macaroon.Slice{mac},
+			},
+			{
+				OfferUUID: "mysql-uuid",
+				Macaroons: macaroon.Slice{mac},
+			},
+			{
+				OfferUUID: "postgresql-uuid",
+				Macaroons: macaroon.Slice{mac},
+			},
+		},
+	}
+	results, err := s.api.WatchOfferStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
+	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
+	c.Assert(s.watchedOffers, jc.DeepEquals, []string{"mysql-uuid"})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"Application", []interface{}{"mysql"}},
+	})
+	app.CheckCalls(c, []testing.StubCall{
+		{"Status", nil},
 	})
 }

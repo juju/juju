@@ -602,3 +602,16 @@ func (sr offerSlice) Less(i, j int) bool {
 	}
 	return sr1.OfferName < sr2.OfferName
 }
+
+// WatchOfferStatus returns a NotifyWatcher that notifies of changes
+// to the offer's status.
+func (st *State) WatchOfferStatus(offerUUID string) (NotifyWatcher, error) {
+	oa := NewApplicationOffers(st)
+	offer, err := oa.ApplicationOfferForUUID(offerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO(wallyworld) - for now, the offer status is just the application status
+	appKey := applicationGlobalKey(offer.ApplicationName)
+	return newEntityWatcher(st, statusesC, st.docID(appKey)), nil
+}

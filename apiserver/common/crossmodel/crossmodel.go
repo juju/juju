@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -289,5 +290,37 @@ func GetRelationLifeSuspendedStatusChange(st relationGetter, key string) (*param
 		Life:            params.Life(rel.Life().String()),
 		Suspended:       rel.Suspended(),
 		SuspendedReason: rel.SuspendedReason(),
+	}, nil
+}
+
+type offerGetter interface {
+	ApplicationOfferForUUID(string) (*crossmodel.ApplicationOffer, error)
+	Application(string) (Application, error)
+}
+
+// GetOfferStatusChange returns a status change
+// struct for a specified offer name.
+func GetOfferStatusChange(st offerGetter, offerUUID string) (*params.OfferStatusChange, error) {
+	offer, err := st.ApplicationOfferForUUID(offerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO(wallyworld) - for now, offer status is just the application status
+	app, err := st.Application(offer.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	status, err := app.Status()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &params.OfferStatusChange{
+		OfferName: offer.OfferName,
+		Status: params.EntityStatus{
+			Status: status.Status,
+			Info:   status.Message,
+			Data:   status.Data,
+			Since:  status.Since,
+		},
 	}, nil
 }

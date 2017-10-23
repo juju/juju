@@ -441,3 +441,52 @@ func (c *Client) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watch
 	w := apiwatcher.NewRelationStatusWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
+
+// WatchOfferStatus starts an OfferStatusWatcher for watching the status
+// of the specified offer in the remote model.
+func (c *Client) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatcher, error) {
+	args := params.OfferArgs{Args: []params.OfferArg{arg}}
+	// Use any previously cached discharge macaroons.
+	if ms, ok := c.getCachedMacaroon("watch offer status", arg.OfferUUID); ok {
+		args.Args[0].Macaroons = ms
+	}
+
+	var results params.OfferStatusWatchResults
+	apiCall := func() error {
+		if err := c.facade.FacadeCall("WatchOfferStatus", args, &results); err != nil {
+			return errors.Trace(err)
+		}
+		if len(results.Results) != 1 {
+			return errors.Errorf("expected 1 result, got %d", len(results.Results))
+		}
+		return nil
+	}
+
+	// Make the api call the first time.
+	if err := apiCall(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// On error, possibly discharge the macaroon and retry.
+	result := results.Results[0]
+	if result.Error != nil {
+		mac, err := c.handleError(result.Error)
+		if err != nil {
+			result.Error.Message = err.Error()
+			return nil, result.Error
+		}
+		args.Args[0].Macaroons = mac
+		c.cache.Upsert(args.Args[0].OfferUUID, mac)
+
+		if err := apiCall(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = results.Results[0]
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	w := apiwatcher.NewOfferStatusWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}

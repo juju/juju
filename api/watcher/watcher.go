@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
@@ -339,6 +340,23 @@ func NewRelationStatusWatcher(
 	return w
 }
 
+// mergeChanges combines the status changes in current and new, such that we end up with
+// only one change per offer in the result; the most recent change wins.
+func (w *relationStatusWatcher) mergeChanges(current, new []watcher.RelationStatusChange) []watcher.RelationStatusChange {
+	chMap := make(map[string]watcher.RelationStatusChange)
+	for _, c := range current {
+		chMap[c.Key] = c
+	}
+	for _, c := range new {
+		chMap[c.Key] = c
+	}
+	var result []watcher.RelationStatusChange
+	for _, c := range chMap {
+		result = append(result, c)
+	}
+	return result
+}
+
 func (w *relationStatusWatcher) loop(initialChanges []params.RelationLifeSuspendedStatusChange) error {
 	w.newResult = func() interface{} { return new(params.RelationLifeSuspendedStatusWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "RelationStatusWatcher", w.relationStatusWatcherId)
@@ -357,22 +375,26 @@ func (w *relationStatusWatcher) loop(initialChanges []params.RelationLifeSuspend
 		}
 		return result
 	}
+	out := w.out
 	changes := copyChanges(initialChanges)
 	for {
 		select {
-		// Send the initial event or subsequent change.
-		case w.out <- changes:
 		case <-w.tomb.Dying():
-			return nil
+			return tomb.ErrDying
+			// Read the next change.
+		case data, ok := <-w.in:
+			if !ok {
+				// The tomb is already killed with the correct error
+				// at this point, so just return.
+				return nil
+			}
+			new := copyChanges(data.(*params.RelationLifeSuspendedStatusWatchResult).Changes)
+			changes = w.mergeChanges(changes, new)
+			out = w.out
+		case out <- changes:
+			out = nil
+			changes = nil
 		}
-		// Read the next change.
-		data, ok := <-w.in
-		if !ok {
-			// The tomb is already killed with the correct error
-			// at this point, so just return.
-			return nil
-		}
-		changes = copyChanges(data.(*params.RelationLifeSuspendedStatusWatchResult).Changes)
 	}
 }
 
@@ -380,6 +402,99 @@ func (w *relationStatusWatcher) loop(initialChanges []params.RelationLifeSuspend
 // the life and status of a relation. The first event reflects the current
 // values of these attributes.
 func (w *relationStatusWatcher) Changes() watcher.RelationStatusChannel {
+	return w.out
+}
+
+// offerStatusWatcher will send notifications of changes to offer status.
+type offerStatusWatcher struct {
+	commonWatcher
+	caller               base.APICaller
+	offerStatusWatcherId string
+	out                  chan []watcher.OfferStatusChange
+}
+
+// NewOfferStatusWatcher returns a watcher notifying of changes to
+// offer status.
+func NewOfferStatusWatcher(
+	caller base.APICaller, result params.OfferStatusWatchResult,
+) watcher.OfferStatusWatcher {
+	w := &offerStatusWatcher{
+		caller:               caller,
+		offerStatusWatcherId: result.OfferStatusWatcherId,
+		out:                  make(chan []watcher.OfferStatusChange),
+	}
+	go func() {
+		defer w.tomb.Done()
+		w.tomb.Kill(w.loop(result.Changes))
+	}()
+	return w
+}
+
+// mergeChanges combines the status changes in current and new, such that we end up with
+// only one change per offer in the result; the most recent change wins.
+func (w *offerStatusWatcher) mergeChanges(current, new []watcher.OfferStatusChange) []watcher.OfferStatusChange {
+	chMap := make(map[string]watcher.OfferStatusChange)
+	for _, c := range current {
+		chMap[c.Name] = c
+	}
+	for _, c := range new {
+		chMap[c.Name] = c
+	}
+	var result []watcher.OfferStatusChange
+	for _, c := range chMap {
+		result = append(result, c)
+	}
+	return result
+}
+
+func (w *offerStatusWatcher) loop(initialChanges []params.OfferStatusChange) error {
+	w.newResult = func() interface{} { return new(params.OfferStatusWatchResult) }
+	w.call = makeWatcherAPICaller(w.caller, "OfferStatusWatcher", w.offerStatusWatcherId)
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	copyChanges := func(changes []params.OfferStatusChange) []watcher.OfferStatusChange {
+		result := make([]watcher.OfferStatusChange, len(changes))
+		for i, ch := range changes {
+			result[i] = watcher.OfferStatusChange{
+				Name: ch.OfferName,
+				Status: status.StatusInfo{
+					Status:  ch.Status.Status,
+					Message: ch.Status.Info,
+					Data:    ch.Status.Data,
+					Since:   ch.Status.Since,
+				},
+			}
+		}
+		return result
+	}
+	out := w.out
+	changes := copyChanges(initialChanges)
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		// Read the next change.
+		case data, ok := <-w.in:
+			if !ok {
+				// The tomb is already killed with the correct error
+				// at this point, so just return.
+				return nil
+			}
+			new := copyChanges(data.(*params.OfferStatusWatchResult).Changes)
+			changes = w.mergeChanges(changes, new)
+			out = w.out
+		case out <- changes:
+			out = nil
+			changes = nil
+		}
+	}
+}
+
+// Changes returns a channel that will receive the changes to
+// the status of an offer. The first event reflects the current
+// values of these attributes.
+func (w *offerStatusWatcher) Changes() watcher.OfferStatusChannel {
 	return w.out
 }
 

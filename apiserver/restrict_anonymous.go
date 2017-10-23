@@ -17,6 +17,7 @@ var anonymousFacadeNames = set.NewStrings(
 	"CrossController",
 	"CrossModelRelations",
 	"NotifyWatcher",
+	"OfferStatusWatcher",
 	"RelationStatusWatcher",
 	"RelationUnitsWatcher",
 	"StringsWatcher",
