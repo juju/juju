@@ -8,7 +8,6 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/clock/monotonic"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
@@ -24,36 +23,17 @@ type ClientPersistenceSuite struct {
 
 var _ = gc.Suite(&ClientPersistenceSuite{})
 
-func (s *ClientPersistenceSuite) TestNewClientInvalidClockDoc(c *gc.C) {
-	config := lease.ClientConfig{
-		Id:           "client",
-		Namespace:    "namespace",
-		Collection:   "collection",
-		Mongo:        NewMongo(s.db),
-		Clock:        clock.WallClock,
-		MonotonicNow: monotonic.Now,
-	}
-	dbKey := "clock#namespace#"
-	err := s.db.C("collection").Insert(bson.M{"_id": dbKey})
-	c.Assert(err, jc.ErrorIsNil)
-
-	client, err := lease.NewClient(config)
-	c.Check(client, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, `corrupt clock document: invalid type ""`)
-}
-
 func (s *ClientPersistenceSuite) TestNewClientInvalidLeaseDoc(c *gc.C) {
 	config := lease.ClientConfig{
-		Id:           "client",
-		Namespace:    "namespace",
-		Collection:   "collection",
-		Mongo:        NewMongo(s.db),
-		Clock:        clock.WallClock,
-		MonotonicNow: monotonic.Now,
+		Id:          "client",
+		Namespace:   "namespace",
+		Collection:  "collection",
+		Mongo:       NewMongo(s.db),
+		LocalClock:  clock.WallClock,
+		GlobalClock: GlobalClock{},
 	}
 	err := s.db.C("collection").Insert(bson.M{
 		"_id":       "snagglepuss",
-		"type":      "lease",
 		"namespace": "namespace",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,7 +90,7 @@ func (s *ClientPersistenceSuite) TestExpireLease(c *gc.C) {
 	leaseDuration := time.Minute
 	err := fix1.Client.ClaimLease("name", corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
-	fix1.Clock.Advance(leaseDuration + time.Nanosecond)
+	fix1.GlobalClock.Advance(leaseDuration + time.Nanosecond)
 	err = fix1.Client.ExpireLease("name")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -140,7 +120,7 @@ func (s *ClientPersistenceSuite) TestTimezoneChanges(c *gc.C) {
 
 	// Same client can come up in a different timezone and still work correctly.
 	fix2 := s.NewFixture(c, FixtureParams{
-		ClockStart: fix1.Zero.In(time.FixedZone("somewhere", -1234)),
+		LocalClockStart: fix1.Zero.In(time.FixedZone("somewhere", -1234)),
 	})
 	c.Check("name", fix2.Holder(), "holder")
 	exactExpiry := fix2.Zero.Add(leaseDuration)
@@ -156,8 +136,8 @@ func (s *ClientPersistenceSuite) TestTimezoneIsolation(c *gc.C) {
 	// Different client *and* different timezone; but clock agrees perfectly,
 	// so we still see no skew.
 	fix2 := s.NewFixture(c, FixtureParams{
-		Id:         "remote-client",
-		ClockStart: fix1.Zero.UTC(),
+		Id:              "remote-client",
+		LocalClockStart: fix1.Zero.UTC(),
 	})
 	c.Check("name", fix2.Holder(), "holder")
 	exactExpiry := fix1.Zero.Add(leaseDuration).UTC()

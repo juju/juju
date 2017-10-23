@@ -18,7 +18,6 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/clock/monotonic"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -443,13 +442,17 @@ func (st *State) ApplicationLeaders() (map[string]string, error) {
 }
 
 func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
+	globalClock, err := st.globalClockReader()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting global clock for lease client")
+	}
 	client, err := statelease.NewClient(statelease.ClientConfig{
-		Id:           st.leaseClientId,
-		Namespace:    applicationLeadershipNamespace,
-		Collection:   leasesC,
-		Mongo:        &environMongo{st},
-		Clock:        st.stateClock,
-		MonotonicNow: monotonic.Now,
+		Id:          st.leaseClientId,
+		Namespace:   applicationLeadershipNamespace,
+		Collection:  leasesC,
+		Mongo:       &environMongo{st},
+		LocalClock:  st.stateClock,
+		GlobalClock: globalClock,
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create leadership lease client")
@@ -458,13 +461,17 @@ func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
 }
 
 func (st *State) getSingularLeaseClient() (lease.Client, error) {
+	globalClock, err := st.globalClockReader()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting global clock for lease client")
+	}
 	client, err := statelease.NewClient(statelease.ClientConfig{
-		Id:           st.leaseClientId,
-		Namespace:    singularControllerNamespace,
-		Collection:   leasesC,
-		Mongo:        &environMongo{st},
-		Clock:        st.stateClock,
-		MonotonicNow: monotonic.Now,
+		Id:          st.leaseClientId,
+		Namespace:   singularControllerNamespace,
+		Collection:  leasesC,
+		Mongo:       &environMongo{st},
+		LocalClock:  st.stateClock,
+		GlobalClock: globalClock,
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create singular lease client")
@@ -2328,6 +2335,16 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 // State's *mgo.Session.
 func (st *State) GlobalClockUpdater() (*globalclock.Updater, error) {
 	return globalclock.NewUpdater(globalclock.UpdaterConfig{
+		Config: globalclock.Config{
+			Session:    st.MongoSession(),
+			Database:   jujuDB,
+			Collection: globalClockC,
+		},
+	})
+}
+
+func (st *State) globalClockReader() (*globalclock.Reader, error) {
+	return globalclock.NewReader(globalclock.ReaderConfig{
 		Config: globalclock.Config{
 			Session:    st.MongoSession(),
 			Database:   jujuDB,

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
@@ -24,8 +23,27 @@ type Mongo interface {
 	GetCollection(name string) (collection mongo.Collection, closer func())
 }
 
-// MonotonicNow exposes monotonic clock Now() for use by the lease manager.
-type MonotonicClockFunc func() time.Duration
+// LocalClock provides the writer-local wall clock interface required by
+// the lease package.
+type LocalClock interface {
+
+	// Now returns the current, writer-local wall-clock time.
+	//
+	// Now is required to return times with a monotonic component,
+	// as returned by Go 1.9 and onwards, such that local times
+	// can be safely compared in the face of wall clock jumps.
+	Now() time.Time
+}
+
+// GlobalClock provides the global clock interface required by the lease
+// package.
+type GlobalClock interface {
+
+	// Now returns the current global clock time.
+	//
+	// Now is required to return monotonically increasing times.
+	Now() (time.Time, error)
+}
 
 // ClientConfig contains the resources and information required to create
 // a Client. Multiple clients can collaborate if they share a collection and
@@ -47,11 +65,11 @@ type ClientConfig struct {
 	// Mongo exposes the mgo[/txn] capabilities required by a Client.
 	Mongo Mongo
 
-	// Clock exposes the wall-clock time to a Client.
-	Clock clock.Clock
+	// LocalClock exposes the writer-local wall-clock time to a Client.
+	LocalClock LocalClock
 
-	// MonotonicNow exposes the monotonic clock Now() func to a client.
-	MonotonicNow MonotonicClockFunc
+	// GlobalClock exposes the global clock to a Client.
+	GlobalClock GlobalClock
 }
 
 // validate returns an error if the supplied config is not valid.
@@ -68,11 +86,11 @@ func (config ClientConfig) validate() error {
 	if config.Mongo == nil {
 		return errors.New("missing mongo")
 	}
-	if config.Clock == nil {
-		return errors.New("missing clock")
+	if config.LocalClock == nil {
+		return errors.New("missing local clock")
 	}
-	if config.MonotonicNow == nil {
-		return errors.New("missing monotonic clock")
+	if config.GlobalClock == nil {
+		return errors.New("missing global clock")
 	}
 	return nil
 }

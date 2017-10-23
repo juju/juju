@@ -57,7 +57,7 @@ func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespiteWriterChange(c *g
 func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespitePassingExpiry(c *gc.C) {
 	info := s.fix.Client.Leases()["name"]
 
-	s.fix.Clock.Advance(time.Hour)
+	s.fix.GlobalClock.Advance(time.Hour)
 	err := s.fix.Client.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -71,7 +71,7 @@ func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespitePassingExpiry(c *
 func (s *ClientAssertSuite) TestAbortsWhenLeaseVacant(c *gc.C) {
 	info := s.fix.Client.Leases()["name"]
 
-	s.fix.Clock.Advance(time.Hour)
+	s.fix.GlobalClock.Advance(time.Hour)
 	err := s.fix.Client.ExpireLease("name")
 	c.Assert(err, jc.ErrorIsNil)
 

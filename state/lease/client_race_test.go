@@ -9,12 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
-	"github.com/juju/utils/clock"
-	"github.com/juju/utils/clock/monotonic"
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/state/lease"
 )
 
 // ClientSimpleRaceSuite tests what happens when two clients interfere with
@@ -24,40 +21,6 @@ type ClientSimpleRaceSuite struct {
 }
 
 var _ = gc.Suite(&ClientSimpleRaceSuite{})
-
-func (s *ClientSimpleRaceSuite) TestNewClient_WorksDespite_CreateClockRace(c *gc.C) {
-	config := func(id string) lease.ClientConfig {
-		return lease.ClientConfig{
-			Id:           id,
-			Namespace:    "ns",
-			Collection:   "leases",
-			Mongo:        NewMongo(s.db),
-			Clock:        clock.WallClock,
-			MonotonicNow: monotonic.Now,
-		}
-	}
-	sutConfig := config("sut")
-	sutRunner := sutConfig.Mongo.(*Mongo).runner
-
-	// Set up a hook to create the clock doc (and write some important data to
-	// it)  by creating another client before the SUT gets a chance.
-	defer txntesting.SetBeforeHooks(c, sutRunner, func() {
-		client, err := lease.NewClient(config("blocker"))
-		c.Check(err, jc.ErrorIsNil)
-		err = client.ClaimLease("somewhere", corelease.Request{"someone", time.Minute})
-		c.Check(err, jc.ErrorIsNil)
-	})()
-
-	// Create a client against an apparently-empty namespace.
-	client, err := lease.NewClient(sutConfig)
-	c.Check(err, jc.ErrorIsNil)
-
-	// Despite the scramble, it's generated with recent lease data and no error.
-	leases := client.Leases()
-	info, found := leases["somewhere"]
-	c.Check(found, jc.IsTrue)
-	c.Check(info.Holder, gc.Equals, "someone")
-}
 
 func (s *ClientSimpleRaceSuite) TestClaimLease_BlockedBy_ClaimLease(c *gc.C) {
 	sut := s.EasyFixture(c)
@@ -91,7 +54,7 @@ func (s *ClientSimpleRaceSuite) TestClaimLease_Pathological(c *gc.C) {
 			c.Check(err, jc.ErrorIsNil)
 		},
 		After: func() {
-			blocker.Clock.Advance(time.Minute)
+			blocker.GlobalClock.Advance(time.Minute)
 			err := blocker.Client.ExpireLease("name")
 			c.Check(err, jc.ErrorIsNil)
 		},
@@ -168,7 +131,7 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_BlockedBy_ExpireLease(c *gc.C) {
 
 	// Set up a hook to expire the lease before the extend gets a chance.
 	defer txntesting.SetBeforeHooks(c, s.sut.Runner, func() {
-		s.blocker.Clock.Advance(90 * time.Second)
+		s.blocker.GlobalClock.Advance(90 * time.Second)
 		err := s.blocker.Client.ExpireLease("name")
 		c.Check(err, jc.ErrorIsNil)
 	})()
@@ -186,7 +149,7 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_BlockedBy_ExpireThenReclaimDiffe
 	// Set up a hook to expire and reclaim the lease before the extend gets a
 	// chance.
 	defer txntesting.SetBeforeHooks(c, s.sut.Runner, func() {
-		s.blocker.Clock.Advance(90 * time.Second)
+		s.blocker.GlobalClock.Advance(90 * time.Second)
 		err := s.blocker.Client.ExpireLease("name")
 		c.Check(err, jc.ErrorIsNil)
 		err = s.blocker.Client.ClaimLease("name", corelease.Request{"different-holder", time.Minute})
@@ -206,7 +169,8 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_WorksDespite_ExpireThenReclaimSa
 	// Set up hooks to expire and reclaim the lease before the extend gets a
 	// chance; and to verify that the second attempt successfully extends.
 	defer txntesting.SetRetryHooks(c, s.sut.Runner, func() {
-		s.blocker.Clock.Advance(90 * time.Second)
+		s.blocker.GlobalClock.Advance(90 * time.Second)
+		s.blocker.LocalClock.Advance(90 * time.Second)
 		err := s.blocker.Client.ExpireLease("name")
 		c.Check(err, jc.ErrorIsNil)
 		err = s.blocker.Client.ClaimLease("name", corelease.Request{"holder", time.Minute})
@@ -228,7 +192,8 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_Pathological(c *gc.C) {
 	// replace it before the SUT goes and looks to figure out what it should do.
 	interfere := jujutxn.TestHook{
 		Before: func() {
-			s.blocker.Clock.Advance(time.Minute + time.Second)
+			s.blocker.GlobalClock.Advance(time.Minute + time.Second)
+			s.blocker.LocalClock.Advance(time.Minute + time.Second)
 			err := s.blocker.Client.ExpireLease("name")
 			c.Check(err, jc.ErrorIsNil)
 		},
@@ -243,7 +208,7 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_Pathological(c *gc.C) {
 	)()
 
 	// Try to extend, and watch the poor thing collapse in exhaustion.
-	err := s.sut.Client.ExtendLease("name", corelease.Request{"holder", time.Minute})
+	err := s.sut.Client.ExtendLease("name", corelease.Request{"holder", 3 * time.Minute})
 	c.Check(err, gc.ErrorMatches, "cannot satisfy request: state changing too quickly; try again soon")
 }
 
@@ -251,17 +216,19 @@ func (s *ClientTrickyRaceSuite) TestExpireLease_BlockedBy_ExtendLease(c *gc.C) {
 
 	// Set up a hook to extend the lease before the expire gets a chance.
 	defer txntesting.SetBeforeHooks(c, s.sut.Runner, func() {
-		s.blocker.Clock.Advance(90 * time.Second)
+		s.blocker.GlobalClock.Advance(90 * time.Second)
+		s.blocker.LocalClock.Advance(90 * time.Second)
 		err := s.blocker.Client.ExtendLease("name", corelease.Request{"holder", 30 * time.Second})
 		c.Check(err, jc.ErrorIsNil)
 	})()
 
 	// Try to expire; check it aborts.
-	s.sut.Clock.Advance(90 * time.Second)
+	s.sut.GlobalClock.Advance(90 * time.Second)
 	err := s.sut.Client.ExpireLease("name")
 	c.Check(err, gc.Equals, corelease.ErrInvalid)
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.
+	s.sut.LocalClock.Advance(90 * time.Second)
 	c.Check("name", s.sut.Expiry(), s.sut.Zero.Add(2*time.Minute))
 }
 
@@ -269,13 +236,13 @@ func (s *ClientTrickyRaceSuite) TestExpireLease_BlockedBy_ExpireLease(c *gc.C) {
 
 	// Set up a hook to expire the lease before the SUT gets a chance.
 	defer txntesting.SetBeforeHooks(c, s.sut.Runner, func() {
-		s.blocker.Clock.Advance(90 * time.Second)
+		s.blocker.GlobalClock.Advance(90 * time.Second)
 		err := s.blocker.Client.ExpireLease("name")
 		c.Check(err, jc.ErrorIsNil)
 	})()
 
 	// Try to expire; check it aborts.
-	s.sut.Clock.Advance(90 * time.Second)
+	s.sut.GlobalClock.Advance(90 * time.Second)
 	err := s.sut.Client.ExpireLease("name")
 	c.Check(err, gc.Equals, corelease.ErrInvalid)
 
@@ -287,7 +254,7 @@ func (s *ClientTrickyRaceSuite) TestExpireLease_BlockedBy_ExpireThenReclaim(c *g
 
 	// Set up a hook to expire the lease and then reclaim it.
 	defer txntesting.SetBeforeHooks(c, s.sut.Runner, func() {
-		s.blocker.Clock.Advance(90 * time.Second)
+		s.blocker.GlobalClock.Advance(90 * time.Second)
 		err := s.blocker.Client.ExpireLease("name")
 		c.Check(err, jc.ErrorIsNil)
 		err = s.blocker.Client.ClaimLease("name", corelease.Request{"holder", time.Minute})
@@ -295,10 +262,11 @@ func (s *ClientTrickyRaceSuite) TestExpireLease_BlockedBy_ExpireThenReclaim(c *g
 	})()
 
 	// Try to expire; check it aborts.
-	s.sut.Clock.Advance(90 * time.Second)
+	s.sut.GlobalClock.Advance(90 * time.Second)
 	err := s.sut.Client.ExpireLease("name")
 	c.Check(err, gc.Equals, corelease.ErrInvalid)
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.
+	s.sut.LocalClock.Advance(90 * time.Second)
 	c.Check("name", s.sut.Expiry(), s.sut.Zero.Add(150*time.Second))
 }

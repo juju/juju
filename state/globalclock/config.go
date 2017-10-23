@@ -17,6 +17,12 @@ type UpdaterConfig struct {
 	Config
 }
 
+// ReaderConfig contains the resources and information required to
+// create a Reader.
+type ReaderConfig struct {
+	Config
+}
+
 // WatcherConfig contains the resources and information required to
 // create a Watcher.
 type WatcherConfig struct {
