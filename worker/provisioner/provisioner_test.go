@@ -5,6 +5,7 @@ package provisioner_test
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -199,7 +200,9 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, nil, nil, true)
+	retVal := s.checkStartInstancesCustom(c, []*state.Machine{m}, "pork", s.defaultConstraints,
+		nil, nil, nil, nil, nil, true)
+	return retVal[m.Id()]
 }
 
 func (s *CommonProvisionerSuite) checkStartInstanceCustom(
@@ -211,16 +214,50 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	volumeAttachments []storage.VolumeAttachment,
 	checkPossibleTools coretools.List,
 	waitInstanceId bool,
+) instance.Instance {
+	retVal := s.checkStartInstancesCustom(c, []*state.Machine{m},
+		secret, cons, networkInfo, subnetsToZones, volumes,
+		volumeAttachments, checkPossibleTools, waitInstanceId)
+	return retVal[m.Id()]
+}
+
+func (s *CommonProvisionerSuite) checkStartInstances(c *gc.C, machines []*state.Machine) map[string]instance.Instance {
+	return s.checkStartInstancesCustom(c, machines, "pork", s.defaultConstraints, nil, nil,
+		nil, nil, nil, true)
+}
+
+// checkStartInstanceCustom takes a slice of Machines.  A
+// map of machine Ids to instances is returned
+func (s *CommonProvisionerSuite) checkStartInstancesCustom(
+	c *gc.C, machines []*state.Machine,
+	secret string, cons constraints.Value,
+	networkInfo []network.InterfaceInfo,
+	subnetsToZones map[network.Id][]string,
+	volumes []storage.Volume,
+	volumeAttachments []storage.VolumeAttachment,
+	checkPossibleTools coretools.List,
+	waitInstanceId bool,
 ) (
-	inst instance.Instance,
+	returnInstances map[string]instance.Instance,
 ) {
 	s.BackingState.StartSync()
+	returnInstances = make(map[string]instance.Instance, len(machines))
 	for {
 		select {
 		case o := <-s.op:
 			switch o := o.(type) {
 			case dummy.OpStartInstance:
-				inst = o.Instance
+				inst := o.Instance
+
+				var m *state.Machine
+				for i, machine := range machines {
+					if machine.Id() == o.MachineId {
+						m = machine
+						machines = append(machines[:i], machines[i+1:]...)
+						break
+					}
+				}
+				c.Assert(m, gc.NotNil)
 				if waitInstanceId {
 					s.waitInstanceId(c, m, inst.Id())
 				}
@@ -273,7 +310,11 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 						Tags:     cons.Tags,
 					})
 				}
-				return
+				returnInstances[m.Id()] = inst
+				if len(machines) == 0 {
+					return
+				}
+				break
 			default:
 				c.Logf("ignoring unexpected operation %#v", o)
 			}
@@ -398,6 +439,20 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 	})
 }
 
+// waitInstanceId waits until the supplied machine has an instance id, then
+// asserts it is as expected.
+func (s *CommonProvisionerSuite) waitInstanceIdNoAssert(c *gc.C, m *state.Machine) {
+	s.waitHardwareCharacteristics(c, m, func() bool {
+		if _, err := m.InstanceId(); err == nil {
+			return true
+		} else if !errors.IsNotProvisioned(err) {
+			// We don't expect any errors.
+			panic(err)
+		}
+		return false
+	})
+}
+
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
@@ -463,43 +518,6 @@ func (s *ProvisionerSuite) TestSimple(c *gc.C) {
 	s.waitForRemovalMark(c, m)
 }
 
-/*
-func (s *ProvisionerSuite) TestInstanceAvailabilityZoneDistribution(c *gc.C) {
-	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
-	task := s.newProvisionerTask(c, config.HarvestAll, s.Environ, s.provisioner, mockDistributionGroupFinder{}, mockToolsFinder{})
-	defer stop(c, task)
-
-	//	machines, err := s.addMachines(4)
-	//c.Assert(err, jc.ErrorIsNil)
-	//	for _, m := range machines {
-	//		s.checkStartInstance(c, m)
-	//	}
-
-	m1, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m1)
-	m1Zone, err := m1.AvailabilityZone()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m1Zone, gc.Equals, "zone1")
-
-	m1InstanceId, err := m1.InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("TestInstanceAvailabilityZoneDistribution(): %s", m1InstanceId)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m1Zone, gc.Equals, "zone1")
-
-	m2, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m2)
-	m2InstanceId, err := m2.InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("TestInstanceAvailabilityZoneDistribution(): %s", m2InstanceId)
-	//m3, err := s.addMachine()
-	//c.Assert(err, jc.ErrorIsNil)
-	//s.checkStartInstance(c, m3)
-}
-*/
-
 func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Create a machine with non-standard constraints.
 	m, err := s.addMachine()
@@ -511,6 +529,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Start a provisioner and check those constraints are used.
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
+
 	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, nil, nil, true)
 }
 
@@ -1161,34 +1180,29 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	c.Assert(m0.Life(), gc.Equals, state.Dying)
 }
 
-type mockMachineGetter struct{}
+type mockMachineGetter struct {
+	machines map[names.MachineTag]*apiprovisioner.Machine
+}
 
-func (*mockMachineGetter) Machines(tags ...names.MachineTag) ([]apiprovisioner.MachineResult, error) {
+func (mock *mockMachineGetter) Machines(tags ...names.MachineTag) ([]apiprovisioner.MachineResult, error) {
 	return nil, fmt.Errorf("error")
-	/*
-		result := make([]apiprovisioner.MachineResult, len(tags))
-		for i, _ := range tags {
-			result[i] =
-		}
-		return result, nil
-	*/
 }
 
 func (*mockMachineGetter) MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error) {
 	return nil, fmt.Errorf("error")
 }
 
-type mockDistributionGroupFinder struct{}
+type mockDistributionGroupFinder struct {
+	groups map[names.MachineTag][]string
+}
 
-func (mockDistributionGroupFinder) DistributionGroupByMachineId(tags ...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error) {
+func (mock *mockDistributionGroupFinder) DistributionGroupByMachineId(tags ...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error) {
 	result := make([]apiprovisioner.DistributionGroupResult, len(tags))
 	for i, _ := range tags {
 		result[i] = apiprovisioner.DistributionGroupResult{[]string{}, nil}
 	}
-	if len(tags) == 3 {
-		result[0] = apiprovisioner.DistributionGroupResult{[]string{"1", "2"}, nil}
-		result[1] = apiprovisioner.DistributionGroupResult{[]string{"0", "2"}, nil}
-		result[2] = apiprovisioner.DistributionGroupResult{[]string{"0", "1"}, nil}
+	for i, tag := range tags {
+		result[i] = apiprovisioner.DistributionGroupResult{mock.groups[tag], nil}
 	}
 	return result, nil
 }
@@ -1199,7 +1213,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 		config.HarvestAll,
 		s.Environ,
 		s.provisioner,
-		mockDistributionGroupFinder{},
+		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 	)
 	defer stop(c, task)
@@ -1243,14 +1257,28 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	toolsFinder provisioner.ToolsFinder,
 ) provisioner.ProvisionerTask {
 
+	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 0)
+
+	return s.newProvisionerTaskWithRetryStrategy(c, harvestingMethod, broker,
+		machineGetter, distributionGroupFinder, toolsFinder, retryStrategy)
+}
+
+func (s *ProvisionerSuite) newProvisionerTaskWithRetryStrategy(
+	c *gc.C,
+	harvestingMethod config.HarvestMode,
+	broker environs.InstanceBroker,
+	machineGetter provisioner.MachineGetter,
+	distributionGroupFinder provisioner.DistributionGroupFinder,
+	toolsFinder provisioner.ToolsFinder,
+	retryStrategy provisioner.RetryStrategy,
+) provisioner.ProvisionerTask {
+
 	machineWatcher, err := s.provisioner.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	retryWatcher, err := s.provisioner.WatchMachineErrorRetry()
 	c.Assert(err, jc.ErrorIsNil)
 	auth, err := authentication.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, jc.ErrorIsNil)
-
-	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 0)
 
 	w, err := provisioner.NewProvisionerTask(
 		s.ControllerConfig.ControllerUUID(),
@@ -1272,7 +1300,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 
 func (s *ProvisionerSuite) TestHarvestNoneReapsNothing(c *gc.C) {
 
-	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, mockDistributionGroupFinder{}, mockToolsFinder{})
+	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
 	defer stop(c, task)
 	task.SetHarvestMode(config.HarvestNone)
 
@@ -1295,7 +1323,7 @@ func (s *ProvisionerSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
 		config.HarvestDestroyed,
 		s.Environ,
 		s.provisioner,
-		mockDistributionGroupFinder{},
+		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 	)
 	defer stop(c, task)
@@ -1323,7 +1351,7 @@ func (s *ProvisionerSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
 		config.HarvestDestroyed,
 		s.Environ,
 		s.provisioner,
-		mockDistributionGroupFinder{},
+		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 	)
 	defer stop(c, task)
@@ -1349,7 +1377,7 @@ func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 		config.HarvestDestroyed,
 		s.Environ,
 		s.provisioner,
-		mockDistributionGroupFinder{},
+		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 	)
 	defer stop(c, task)
@@ -1375,7 +1403,7 @@ func (s *ProvisionerSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C) {
 		config.HarvestAll,
 		s.Environ,
 		s.provisioner,
-		mockDistributionGroupFinder{},
+		&mockDistributionGroupFinder{},
 		mockToolsFinder{},
 	)
 	defer stop(c, task)
@@ -1402,8 +1430,15 @@ func (s *ProvisionerSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C) {
 
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
-	e := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, config.HarvestAll, e, s.provisioner, mockDistributionGroupFinder{}, mockToolsFinder{})
+	e := &mockBroker{
+		Environ:    s.Environ,
+		retryCount: make(map[string]int),
+		failureInfo: map[string]mockBrokerFailures{
+			"3": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
+			"4": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
+		},
+	}
+	task := s.newProvisionerTask(c, config.HarvestAll, e, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
 	defer stop(c, task)
 
 	// Provision some machines, some will be started first time,
@@ -1454,8 +1489,13 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 
 func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
-	broker := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, config.HarvestAll, broker, s.provisioner, mockDistributionGroupFinder{}, mockToolsFinder{})
+	broker := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int),
+		failureInfo: map[string]mockBrokerFailures{
+			"3": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
+			"4": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
+		},
+	}
+	task := s.newProvisionerTask(c, config.HarvestAll, broker, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
 	defer stop(c, task)
 
 	added := s.enableHA(c, 3)
@@ -1469,73 +1509,197 @@ func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
 	}
 }
 
-/*
-func (s *ProvisionerSuite) TestPopulateDistributionGroupZoneMap(c *gc.C) {
-	broker := mockBroker{Environ: s.Environ, ids: []string{"0", "1", "2", "3"}}
-	task := s.newProvisionerTask(c, config.HarvestDestroyed, broker, s.provisioner, mockDistributionGroupFinder{}, mockToolsFinder{})
-	defer stop(c, task)
-	distribution := provisioner.PopulateDistributionGroupZoneMap(task, []string{"2", "3"})
-	c.Assert(len(distribution), jc.GreaterThan, 0)
-	c.Log("TestPopulateDistributionGroupZoneMap %+v", distribution[0])
+func assertAvailabilityZoneMachines(c *gc.C,
+	machines []*state.Machine,
+	obtained []*provisioner.AvailabilityZoneMachine,
+	expected []*provisioner.AvailabilityZoneMachine,
+) {
+	sort.Sort(provisioner.ByPopulationThenName(expected))
+	sort.Sort(provisioner.ByPopulationThenName(obtained))
+
+	if len(machines) > 0 {
+		for _, m := range machines {
+			zone, err := m.AvailabilityZone()
+			c.Assert(err, jc.ErrorIsNil)
+			for _, zoneInfo := range obtained {
+				if zone == zoneInfo.ZoneName {
+					c.Assert(zoneInfo.MachineIds.Contains(zone), gc.Equals, true)
+
+				}
+			}
+		}
+	}
 }
 
-func (s *ProvisionerSuite) TestMachineAvailabilityZoneDistribution(c *gc.C) {
-	//s.PatchValue(providercommon.AvailabilityZoneAllocations)
-
-	broker := mockBroker{Environ: s.Environ, ids: []string{"0", "1", "2", "3"}}
-	provisioner := mockMachineGetter{}
-	provisioner.Machines()
-	task := s.newProvisionerTask(c, config.HarvestDestroyed, broker, s.provisioner, mockDistributionGroupFinder{}, mockToolsFinder{})
+func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachines(c *gc.C) {
+	// Per provider dummy, there will be 3 available availability zones.
+	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
 	defer stop(c, task)
-	m0, err := s.addMachine()
+
+	machines, err := s.addMachines(4)
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m0)
-	//machine :=
-	//zone := provisioner.MachineAvailabilityZoneDistribution(task, m0, []string{"2", "3"})
+	s.checkStartInstances(c, machines)
+
+	assertAvailabilityZoneMachines(c, machines, provisioner.GetAvailabilityZoneMachines(task), []*provisioner.AvailabilityZoneMachine{
+		{ZoneName: "zone1", MachineIds: map[string]bool{"1": true, "4": true}, FailedMachineIds: map[string]bool{}},
+		{ZoneName: "zone3", MachineIds: map[string]bool{"2": true}, FailedMachineIds: map[string]bool{}},
+		{ZoneName: "zone4", MachineIds: map[string]bool{"3": true}, FailedMachineIds: map[string]bool{}},
+	})
 }
 
-func (s *ProvisionerSuite) TestPopulateAvailabilityZoneMachines(c *gc.C) {
-
-	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, mockDistributionGroupFinder{}, mockToolsFinder{})
-	defer stop(c, task)
-
-	m0, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m0)
-	m0InstanceId, err := m0.InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-
-	mock := mockAvailabilityZoneAllocations{
-		result: []providercommon.AvailabilityZoneInstances{
-			{ZoneName: "zone1", Instances: []instance.Id{m0InstanceId}},
-			{ZoneName: "zone2"},
+func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailures(c *gc.C) {
+	// Per provider dummy, there will be 3 available availability zones.
+	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
+	e := &mockBroker{
+		Environ:    s.Environ,
+		retryCount: make(map[string]int),
+		failureInfo: map[string]mockBrokerFailures{
+			"2": {whenSucceed: 1, err: environs.ErrAvailabilityZoneFailed},
 		},
 	}
+	retryStrategy := provisioner.NewRetryStrategy(5*time.Millisecond, 2)
+	task := s.newProvisionerTaskWithRetryStrategy(c, config.HarvestDestroyed,
+		e, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{}, retryStrategy)
+	defer stop(c, task)
 
-	s.PatchValue(providercommon.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	err = provisioner.PopulateAvailabilityZoneMachines(task)
+	machines, err := s.addMachines(4)
 	c.Assert(err, jc.ErrorIsNil)
+	s.checkStartInstances(c, machines)
 
+	assertAvailabilityZoneMachines(c, machines, provisioner.GetAvailabilityZoneMachines(task), []*provisioner.AvailabilityZoneMachine{
+		{ZoneName: "zone1", MachineIds: map[string]bool{"1": true, "3": true}, FailedMachineIds: map[string]bool{}},
+		{ZoneName: "zone3", MachineIds: map[string]bool{"4": true}, FailedMachineIds: map[string]bool{"2": true}},
+		{ZoneName: "zone4", MachineIds: map[string]bool{"2": true}, FailedMachineIds: map[string]bool{}},
+	})
 }
 
-type mockAvailabilityZoneAllocations struct {
-	group  []instance.Id // input param
-	result []providercommon.AvailabilityZoneInstances
-	err    error
+func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesWithDG(c *gc.C) {
+	// Per provider dummy, there will be 3 available availability zones.
+	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
+	dgFinder := &mockDistributionGroupFinder{groups: map[names.MachineTag][]string{
+		names.NewMachineTag("0"): []string{"1, 3"}, // 1
+		names.NewMachineTag("1"): []string{"0, 3"}, // 2
+		names.NewMachineTag("2"): []string{},       // 3
+		names.NewMachineTag("3"): []string{"0, 1"}, // 4
+	}}
+
+	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, dgFinder, mockToolsFinder{})
+	defer stop(c, task)
+
+	machines, err := s.addMachines(4)
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkStartInstances(c, machines)
+
+	// 1, 2, 4 should be in different zones
+	assertAvailabilityZoneMachines(c, machines, provisioner.GetAvailabilityZoneMachines(task), []*provisioner.AvailabilityZoneMachine{
+		{ZoneName: "zone1", MachineIds: map[string]bool{"1": true, "3": true}, FailedMachineIds: map[string]bool{}},
+		{ZoneName: "zone3", MachineIds: map[string]bool{"2": true}, FailedMachineIds: map[string]bool{}},
+		{ZoneName: "zone4", MachineIds: map[string]bool{"4": true}, FailedMachineIds: map[string]bool{}},
+	})
 }
 
-func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
-	//func (b *mockBroker) AvailabilityZoneAllocations(
-	e providercommon.ZonedEnviron, group []instance.Id,
-) ([]providercommon.AvailabilityZoneInstances, error) {
-	t.group = group
-	return t.result, t.err
+func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailuresWithDG(c *gc.C) {
+	// Per provider dummy, there will be 3 available availability zones.
+	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
+	e := &mockBroker{
+		Environ:    s.Environ,
+		retryCount: make(map[string]int),
+		failureInfo: map[string]mockBrokerFailures{
+			"2": {whenSucceed: 1, err: environs.ErrAvailabilityZoneFailed},
+		},
+	}
+	dgFinder := &mockDistributionGroupFinder{groups: map[names.MachineTag][]string{
+		names.NewMachineTag("0"): []string{"1"}, // 1
+		names.NewMachineTag("1"): []string{"0"}, // 2
+		names.NewMachineTag("2"): []string{"3"}, // 3
+		names.NewMachineTag("3"): []string{"2"}, // 4
+	}}
+	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 2)
+	task := s.newProvisionerTaskWithRetryStrategy(c, config.HarvestDestroyed,
+		e, s.provisioner, dgFinder, mockToolsFinder{}, retryStrategy)
+	defer stop(c, task)
+
+	machines, err := s.addMachines(4)
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkStartInstances(c, machines)
+
+	assertAvailabilityZoneMachines(c, machines, provisioner.GetAvailabilityZoneMachines(task), []*provisioner.AvailabilityZoneMachine{
+		{ZoneName: "zone1", MachineIds: map[string]bool{"1": true, "3": true}, FailedMachineIds: map[string]bool{"2": true}},
+		{ZoneName: "zone3", MachineIds: map[string]bool{"2": true}, FailedMachineIds: map[string]bool{}},
+		{ZoneName: "zone4", MachineIds: map[string]bool{"4": true}, FailedMachineIds: map[string]bool{}},
+	})
 }
-*/
+
+func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStopMachines(c *gc.C) {
+	// Per provider dummy, there will be 3 available availability zones.
+	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
+	defer stop(c, task)
+
+	machines, err := s.addMachines(4)
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkStartInstances(c, machines)
+
+	assertAvailabilityZoneMachines(c,
+		machines,
+		provisioner.GetAvailabilityZoneMachines(task),
+		[]*provisioner.AvailabilityZoneMachine{
+			{ZoneName: "zone1", MachineIds: map[string]bool{"1": true, "4": true}, FailedMachineIds: map[string]bool{}},
+			{ZoneName: "zone3", MachineIds: map[string]bool{"2": true}, FailedMachineIds: map[string]bool{}},
+			{ZoneName: "zone4", MachineIds: map[string]bool{"3": true}, FailedMachineIds: map[string]bool{}},
+		})
+
+	c.Assert(machines[0].EnsureDead(), gc.IsNil)
+	s.waitForRemovalMark(c, machines[0])
+
+	assertAvailabilityZoneMachines(
+		c, machines[:1],
+		provisioner.GetAvailabilityZoneMachines(task),
+		[]*provisioner.AvailabilityZoneMachine{
+			{ZoneName: "zone1", MachineIds: map[string]bool{"4": true}, FailedMachineIds: map[string]bool{}},
+			{ZoneName: "zone3", MachineIds: map[string]bool{"2": true}, FailedMachineIds: map[string]bool{}},
+			{ZoneName: "zone4", MachineIds: map[string]bool{"3": true}, FailedMachineIds: map[string]bool{}},
+		})
+}
+
+func (s *ProvisionerSuite) TestAvailabilityZoneMachinesFailMachine(c *gc.C) {
+	c.Skip("To be implemented")
+}
+
+func (s *ProvisionerSuite) TestAvailabilityZoneMachinesRestartTask(c *gc.C) {
+	// Per provider dummy, there will be 3 available availability zones.
+	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
+	defer stop(c, task)
+
+	machines, err := s.addMachines(4)
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkStartInstances(c, machines)
+
+	expectedAvailabilityZoneMachines := []*provisioner.AvailabilityZoneMachine{
+		{ZoneName: "zone1", MachineIds: map[string]bool{"1": true, "4": true}, FailedMachineIds: map[string]bool{}},
+		{ZoneName: "zone3", MachineIds: map[string]bool{"2": true}, FailedMachineIds: map[string]bool{}},
+		{ZoneName: "zone4", MachineIds: map[string]bool{"3": true}, FailedMachineIds: map[string]bool{}},
+	}
+
+	assertAvailabilityZoneMachines(c, machines, provisioner.GetAvailabilityZoneMachines(task), expectedAvailabilityZoneMachines)
+
+	stop(c, task)
+	newTask := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
+	defer stop(c, newTask)
+
+	// Did the provisionerTask.AvailabilityZoneMachines get rebuilt was it was.
+	assertAvailabilityZoneMachines(c, machines, provisioner.GetAvailabilityZoneMachines(task), expectedAvailabilityZoneMachines)
+}
+
 type mockBroker struct {
 	environs.Environ
-	retryCount map[string]int
-	ids        []string
+	retryCount  map[string]int
+	ids         []string
+	failureInfo map[string]mockBrokerFailures
+}
+
+type mockBrokerFailures struct {
+	err         error
+	whenSucceed int
 }
 
 func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -1546,12 +1710,35 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs
 	// record ids so we can call checkStartInstance in the appropriate order.
 	b.ids = append(b.ids, id)
 	retries := b.retryCount[id]
-	if (id != "3" && id != "4") || retries > 2 {
+	whenSucceed := 0
+	var returnError error
+	if failureInfo, ok := b.failureInfo[id]; ok {
+		whenSucceed = failureInfo.whenSucceed
+		returnError = failureInfo.err
+	}
+	//if (id != "3" && id != "4") || retries > 2 {
+	if retries == whenSucceed {
 		return b.Environ.StartInstance(args)
 	} else {
 		b.retryCount[id] = retries + 1
 	}
-	return nil, fmt.Errorf("error: some error")
+	//return nil, fmt.Errorf("error: some error")
+	return nil, returnError
+}
+
+// ZonedEnviron necessary for provisionerTask.populateAvailabilityZoneMachines where
+// mockBroker used.
+
+func (b *mockBroker) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {
+	return b.Environ.(providercommon.ZonedEnviron).AvailabilityZones()
+}
+
+func (b *mockBroker) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	return b.Environ.(providercommon.ZonedEnviron).InstanceAvailabilityZoneNames(ids)
+}
+
+func (b *mockBroker) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+	return b.Environ.(providercommon.ZonedEnviron).DeriveAvailabilityZone(args)
 }
 
 type mockToolsFinder struct {

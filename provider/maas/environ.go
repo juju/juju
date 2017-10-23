@@ -603,16 +603,11 @@ func (e *maasEnviron) parsePlacement(placement string) (*maasPlacement, error) {
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
 		availabilityZone := value
-		zones, err := e.AvailabilityZones()
+		err := common.ValidateAvailabilityZone(e, availabilityZone)
 		if err != nil {
 			return nil, err
 		}
-		for _, z := range zones {
-			if z.Name() == availabilityZone {
-				return &maasPlacement{zoneName: availabilityZone}, nil
-			}
-		}
-		return nil, errors.Errorf("invalid availability zone %q", availabilityZone)
+		return &maasPlacement{zoneName: availabilityZone}, nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
@@ -907,6 +902,10 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		}
 	} else if args.AvailabilityZone != "" {
 		availabilityZone = args.AvailabilityZone
+		if err := common.ValidateAvailabilityZone(environ, availabilityZone); err != nil {
+			logger.Errorf(err.Error())
+			return nil, environs.ErrAvailabilityZoneFailed
+		}
 	}
 
 	// Storage.

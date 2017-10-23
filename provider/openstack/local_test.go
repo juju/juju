@@ -1324,7 +1324,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	placement := "zone=test-unknown"
 	err := t.env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Placement: placement})
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not valid`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
@@ -1435,7 +1435,8 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneUnknown(c *gc.C) {
 		environs.StartInstanceParams{
 			Placement: placement,
 		})
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	// check error log
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not valid`)
 	c.Assert(zone, gc.Equals, "")
 }
 
@@ -1981,12 +1982,16 @@ func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnavailable(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unavailable")
-	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
+	// check error logs?
+	//c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
+	c.Assert(err, gc.ErrorMatches, "failed to start instance in provided availability zone")
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	// check error logs?
+	//c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	c.Assert(err, gc.ErrorMatches, "failed to start instance in provided availability zone")
 }
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
@@ -1994,8 +1999,8 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{
-		ControllerUUID: t.ControllerUUID,
-		Placement:      "zone=" + zone,
+		ControllerUUID:   t.ControllerUUID,
+		AvailabilityZone: zone,
 	}
 	result, err := testing.StartInstanceWithParams(t.env, "1", params)
 	if err != nil {
@@ -2097,6 +2102,19 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "(?s).*Some unknown error.*")
 }
 
+func (t *localServerSuite) testStartInstanceWithParamsDeriveAZ(
+	machineId string,
+	params environs.StartInstanceParams,
+) (*environs.StartInstanceResult, error) {
+	zonedEnv := t.env.(common.ZonedEnviron)
+	zone, err := zonedEnv.DeriveAvailabilityZone(params)
+	if err != nil {
+		return nil, err
+	}
+	params.AvailabilityZone = zone
+	return testing.StartInstanceWithParams(t.env, "1", params)
+}
+
 func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) {
 	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2132,8 +2150,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) 
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
+	result, err := t.testStartInstanceWithParamsDeriveAZ("1", environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		VolumeAttachments: []storage.VolumeAttachmentParams{
 			{VolumeId: "foo"},
@@ -2160,7 +2177,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsMultipleAvailZones(
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	_, err = testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
+	_, err = t.testStartInstanceWithParamsDeriveAZ("1", environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		VolumeAttachments: []storage.VolumeAttachmentParams{
 			{VolumeId: "vol-az1"},

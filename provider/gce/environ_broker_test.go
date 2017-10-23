@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/storage"
 )
 
 type environBrokerSuite struct {
@@ -91,6 +92,25 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Instance, jc.DeepEquals, s.Instance)
 	c.Check(result.Hardware, jc.DeepEquals, s.hardware)
+}
+
+func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
+	s.FakeEnviron.Spec = s.spec
+	s.FakeEnviron.Inst = s.BaseInstance
+	s.FakeEnviron.Hwc = s.hardware
+
+	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
+		VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+	}}
+	derivedZone, err := s.Env.DeriveAvailabilityZone(s.StartInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(derivedZone), jc.GreaterThan, 0)
+	s.StartInstArgs.AvailabilityZone = derivedZone
+
+	result, err := s.Env.StartInstance(s.StartInstArgs)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, derivedZone)
 }
 
 func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {

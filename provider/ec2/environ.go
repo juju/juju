@@ -425,7 +425,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// attached to the machine. They must all match, and must be the same
 	// as specified zone (if any).
 	availabilityZone, placementSubnetID, err := e.startInstanceAvailabilityZoneAndSubnetID(args)
-	if err != nil {
+	switch {
+	case err != nil && errors.IsNotValid(err):
+		return nil, environs.ErrAvailabilityZoneFailed
+	case err != nil:
 		return nil, err
 	}
 
@@ -651,7 +654,29 @@ func (e *environ) startInstanceAvailabilityZoneAndSubnetID(args environs.StartIn
 	if placementZone != "" {
 		availabilityZone = placementZone
 	} else if args.AvailabilityZone != "" {
-		availabilityZone = args.AvailabilityZone
+		// Validate and check state of the AvailabilityZone
+		zones, err := e.AvailabilityZones()
+		if err != nil {
+			return "", "", err
+		}
+		for _, z := range zones {
+			if z.Name() == args.AvailabilityZone {
+				ec2AZ := z.(*ec2AvailabilityZone)
+				if ec2AZ.AvailabilityZoneInfo.State != availableState {
+					return "", "", errors.Errorf(
+						"availability zone %q is %q",
+						ec2AZ.AvailabilityZoneInfo.Name,
+						ec2AZ.AvailabilityZoneInfo.State,
+					)
+				} else {
+					availabilityZone = args.AvailabilityZone
+				}
+				break
+			}
+		}
+		if availabilityZone == "" {
+			return "", "", errors.NotValidf("availability zone %q", availabilityZone)
+		}
 	}
 	return availabilityZone, placementSubnetID, nil
 }

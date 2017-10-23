@@ -6,6 +6,8 @@ package common
 import (
 	"sort"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 )
@@ -173,4 +175,23 @@ func DistributeInstances(env ZonedEnviron, candidates, group []instance.Id) ([]i
 		}
 	}
 	return eligible, nil
+}
+
+// ValidateAvailabilityZone returns nil iff the availability
+// zone exists and is available, otherwise returns a NotValid
+// error.
+func ValidateAvailabilityZone(env ZonedEnviron, zone string) error {
+	zones, err := env.AvailabilityZones()
+	if err != nil {
+		return err
+	}
+	for _, z := range zones {
+		if z.Name() == zone {
+			if z.Available() {
+				return nil
+			}
+			return errors.Errorf("availability zone %q is unavailable", zone)
+		}
+	}
+	return errors.NotValidf("availability zone %q", zone)
 }

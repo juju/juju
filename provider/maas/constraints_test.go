@@ -202,7 +202,6 @@ func stringslicep(values ...string) *[]string {
 }
 
 func (suite *environSuite) TestSelectNodeValidZone(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0", "zone": "bar"}`)
 
@@ -217,7 +216,6 @@ func (suite *environSuite) TestSelectNodeValidZone(c *gc.C) {
 }
 
 func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	env := suite.makeEnviron()
 
 	snArgs := selectNodeArgs{
@@ -227,7 +225,7 @@ func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
 
 	_, err := env.selectNode(snArgs)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, `cannot run instances: ServerError: 409 Conflict \(\)`)
+	c.Assert(err, gc.ErrorMatches, `failed to start instance in provided availability zone`)
 }
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {

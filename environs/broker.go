@@ -40,8 +40,8 @@ type StartInstanceParams struct {
 	// instance should be started.
 	Placement string
 
-	// AvailabilityZone, provides the name of a recommended availability
-	// zone to start the instance in.
+	// AvailabilityZone, provides the name of the availability
+	// zone required to start the instance.
 	AvailabilityZone string
 
 	// Volumes is a set of parameters for volumes that should be created.

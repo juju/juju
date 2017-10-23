@@ -679,7 +679,7 @@ func (s *environSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
 	err := env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Placement: "zone=zone2"})
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "zone2"`)
+	c.Assert(err, gc.ErrorMatches, `availability zone "zone2" not valid`)
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
@@ -712,7 +712,7 @@ func (s *environSuite) TestDeriveAvailabilityZoneUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
 	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "zone=zone2"})
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "zone2"`)
+	c.Assert(err, gc.ErrorMatches, `availability zone "zone2" not valid`)
 	c.Assert(zone, gc.Equals, "")
 }
 
@@ -720,6 +720,14 @@ func (s *environSuite) TestDeriveAvailabilityZoneInvalidPlacement(c *gc.C) {
 	env := s.makeEnviron()
 	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "notzone=anything"})
 	c.Assert(err, gc.ErrorMatches, "unknown placement directive: notzone=anything")
+	c.Assert(zone, gc.Equals, "")
+}
+
+func (s *environSuite) TestDeriveAvailabilityZoneNoPlacement(c *gc.C) {
+	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
+	env := s.makeEnviron()
+	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zone, gc.Equals, "")
 }
 
@@ -738,12 +746,13 @@ func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
 func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	_, err := s.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	// check error log?
+	c.Assert(err, gc.ErrorMatches, `failed to start instance in provided availability zone`)
 }
 
 func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := s.bootstrap(c)
-	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID, Placement: "zone=" + zone}
+	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID, AvailabilityZone: zone}
 	result, err := testing.StartInstanceWithParams(env, "1", params)
 	if err != nil {
 		return nil, err

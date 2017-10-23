@@ -571,13 +571,13 @@ func (e *Environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 }
 
 type openstackPlacement struct {
-	availabilityZone nova.AvailabilityZone
+	zoneName string
 }
 
 // DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
 func (e *Environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
 	availabilityZone, err := e.startInstanceAvailabilityZone(args)
-	if err != nil {
+	if err != nil && !errors.IsNotImplemented(err) {
 		return "", errors.Trace(err)
 	}
 	return availabilityZone, nil
@@ -591,18 +591,11 @@ func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) 
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
 		availabilityZone := value
-		zones, err := e.AvailabilityZones()
+		err := common.ValidateAvailabilityZone(e, availabilityZone)
 		if err != nil {
 			return nil, err
 		}
-		for _, z := range zones {
-			if z.Name() == availabilityZone {
-				return &openstackPlacement{
-					z.(*openstackAvailabilityZone).AvailabilityZone,
-				}, nil
-			}
-		}
-		return nil, errors.Errorf("invalid availability zone %q", availabilityZone)
+		return &openstackPlacement{zoneName: availabilityZone}, nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
@@ -1192,7 +1185,12 @@ func (e *Environ) startInstanceAvailabilityZone(args environs.StartInstanceParam
 	if placementZone != "" {
 		return placementZone, nil
 	}
-
+	if args.AvailabilityZone != "" {
+		if err := common.ValidateAvailabilityZone(e, args.AvailabilityZone); err != nil {
+			logger.Errorf(err.Error())
+			return "", environs.ErrAvailabilityZoneFailed
+		}
+	}
 	return args.AvailabilityZone, nil
 }
 
@@ -1204,16 +1202,13 @@ func (env *Environ) instancePlacementZone(placement string, volumeAttachmentsZon
 	if err != nil {
 		return "", err
 	}
-	if volumeAttachmentsZone != "" && instPlacement.availabilityZone.Name != volumeAttachmentsZone {
+	if volumeAttachmentsZone != "" && instPlacement.zoneName != volumeAttachmentsZone {
 		return "", errors.Errorf(
 			"cannot create instance with placement %q, as this will prevent attaching the requested disks in zone %q",
 			placement, volumeAttachmentsZone,
 		)
 	}
-	if !instPlacement.availabilityZone.State.Available {
-		return "", errors.Errorf("availability zone %q is unavailable", instPlacement.availabilityZone.Name)
-	}
-	return instPlacement.availabilityZone.Name, nil
+	return instPlacement.zoneName, nil
 }
 
 // volumeAttachmentsZone determines the availability zone for each volume

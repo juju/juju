@@ -128,6 +128,22 @@ func StartInstanceWithConstraints(
 	return result.Instance, result.Hardware, result.NetworkInfo, nil
 }
 
+/*
+// AssertStartInstance is a test helper function that starts an instance with a
+// plausible but invalid configuration, and checks that it succeeds.
+func AssertStartInstanceWithParams(
+	c *gc.C,
+	env environs.Environ, machineId string,
+	params environs.StartInstanceParams,
+) (
+	*environs.StartInstanceResult
+) {
+	inst, err := StartInstanceWithParams(env, machineId, params)
+	c.Assert(err, jc.ErrorIsNil)
+	return inst
+}
+*/
+
 // StartInstanceWithParams is a test helper function that starts an instance
 // with the given parameters, and a plausible but invalid configuration, and
 // returns the result of Environ.StartInstance. The provided params's
