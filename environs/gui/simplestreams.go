@@ -63,12 +63,16 @@ func FetchMetadata(stream string, sources ...simplestreams.DataSource) ([]*Metad
 			ValueTemplate:   Metadata{},
 		},
 	}
-	items, _, err := simplestreams.GetMetadata(sources, params)
+	results, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {
 		return nil, errors.Annotate(err, "error fetching simplestreams metadata")
 	}
-	allMeta := make([]*Metadata, len(items))
-	for i, item := range items {
+	if len(results) < 1 {
+		return nil, errors.NotFoundf("simplestreams metadata results")
+	}
+	result := results[0]
+	allMeta := make([]*Metadata, len(result.Items))
+	for i, item := range result.Items {
 		allMeta[i] = item.(*Metadata)
 	}
 	sort.Sort(byVersion(allMeta))

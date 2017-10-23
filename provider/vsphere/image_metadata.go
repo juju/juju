@@ -67,12 +67,15 @@ func imageMetadataFetch(sources []simplestreams.DataSource, cons *imagemetadata.
 			ValueTemplate: OvaFileMetadata{},
 		},
 	}
-	items, _, err := simplestreams.GetMetadata(sources, params)
+	results, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	metadata := make([]*OvaFileMetadata, len(items))
-	for i, md := range items {
+	if len(results) < 1 {
+		return nil, errors.NotFoundf("simplestreams metadata results")
+	}
+	metadata := make([]*OvaFileMetadata, len(results[0].Items))
+	for i, md := range results[0].Items {
 		metadata[i] = md.(*OvaFileMetadata)
 	}
 	return metadata, nil

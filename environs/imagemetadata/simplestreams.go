@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
@@ -244,18 +245,21 @@ func Fetch(
 			ValueTemplate: ImageMetadata{},
 		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
+	results, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {
-		return nil, resolveInfo, err
+		return nil, nil, err
 	}
-	metadata := make([]*ImageMetadata, len(items))
-	for i, md := range items {
+	if len(results) < 1 {
+		return nil, nil, errors.NotFoundf("simplestreams metadata results")
+	}
+	metadata := make([]*ImageMetadata, len(results[0].Items))
+	for i, md := range results[0].Items {
 		metadata[i] = md.(*ImageMetadata)
 	}
 	// Sorting the metadata is not strictly necessary, but it ensures consistent ordering for
 	// all compilers, and it just makes it easier to look at the data.
 	Sort(metadata)
-	return metadata, resolveInfo, nil
+	return metadata, results[0].ResolveInfo, nil
 }
 
 // Sort sorts a slice of ImageMetadata in ascending order of their id

@@ -199,18 +199,21 @@ func Fetch(
 			ValueTemplate:   ToolsMetadata{},
 		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
+	results, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {
 		return nil, nil, err
 	}
-	metadata := make([]*ToolsMetadata, len(items))
-	for i, md := range items {
+	if len(results) < 1 {
+		return nil, nil, errors.NotFoundf("simplestreams metadata results")
+	}
+	metadata := make([]*ToolsMetadata, len(results[0].Items))
+	for i, md := range results[0].Items {
 		metadata[i] = md.(*ToolsMetadata)
 	}
 	// Sorting the metadata is not strictly necessary, but it ensures consistent ordering for
 	// all compilers, and it just makes it easier to look at the data.
 	Sort(metadata)
-	return metadata, resolveInfo, nil
+	return metadata, results[0].ResolveInfo, nil
 }
 
 // Sort sorts a slice of ToolsMetadata in ascending order of their version
