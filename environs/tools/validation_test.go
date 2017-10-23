@@ -156,7 +156,7 @@ func (s *ValidateSuite) TestStreamsNoMatch(c *gc.C) {
 			Series:        "raring",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
-			Stream:        "testing",
+			Stream:        "released",
 			Sources: []simplestreams.DataSource{
 				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
 		},

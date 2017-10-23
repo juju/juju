@@ -20,7 +20,7 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.tools")
 
-func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, majorVersion, minorVersion int,
+func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, fallback bool, majorVersion, minorVersion int,
 	filter coretools.Filter) (*ToolsConstraint, error) {
 
 	var toolsConstraint *ToolsConstraint
@@ -35,10 +35,10 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 		if majorMismatch || minorMismacth {
 			return nil, coretools.ErrNoMatches
 		}
-		toolsConstraint = NewVersionedToolsConstraint(filter.Number,
+		toolsConstraint = NewVersionedToolsConstraint(filter.Number, fallback,
 			simplestreams.LookupParams{CloudSpec: cloudSpec, Stream: stream})
 	} else {
-		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion,
+		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion, fallback,
 			simplestreams.LookupParams{CloudSpec: cloudSpec, Stream: stream})
 	}
 	if filter.Arch != "" {
@@ -131,7 +131,7 @@ func FindTools(env environs.Environ, majorVersion, minorVersion int, stream stri
 func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec, stream string,
 	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
 
-	toolsConstraint, err := makeToolsConstraint(cloudSpec, stream, majorVersion, minorVersion, filter)
+	toolsConstraint, err := makeToolsConstraint(cloudSpec, stream, true, majorVersion, minorVersion, filter)
 	if err != nil {
 		return nil, err
 	}

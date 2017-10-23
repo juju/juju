@@ -64,23 +64,38 @@ const (
 	DevelStream = "devel"
 )
 
+var streamFallbacks = map[string][]string{
+	ReleasedStream: {ReleasedStream},
+	ProposedStream: {ProposedStream, ReleasedStream},
+	DevelStream:    {DevelStream, ProposedStream, ReleasedStream},
+	TestingStream:  {TestingStream, DevelStream, ProposedStream, ReleasedStream},
+}
+
 // ToolsConstraint defines criteria used to find a tools metadata record.
 type ToolsConstraint struct {
 	simplestreams.LookupParams
-	Version      version.Number
-	MajorVersion int
-	MinorVersion int
+	Version        version.Number
+	MajorVersion   int
+	MinorVersion   int
+	StreamFallback bool
 }
 
 // NewVersionedToolsConstraint returns a ToolsConstraint for a tools with a specific version.
-func NewVersionedToolsConstraint(vers version.Number, params simplestreams.LookupParams) *ToolsConstraint {
-	return &ToolsConstraint{LookupParams: params, Version: vers}
+func NewVersionedToolsConstraint(vers version.Number, fallback bool, params simplestreams.LookupParams) *ToolsConstraint {
+	return &ToolsConstraint{
+		LookupParams:   params,
+		Version:        vers,
+		StreamFallback: fallback,
+	}
 }
 
 // NewGeneralToolsConstraint returns a ToolsConstraint for tools with matching major/minor version numbers.
-func NewGeneralToolsConstraint(majorVersion, minorVersion int, params simplestreams.LookupParams) *ToolsConstraint {
+func NewGeneralToolsConstraint(majorVersion, minorVersion int, fallback bool, params simplestreams.LookupParams) *ToolsConstraint {
 	return &ToolsConstraint{LookupParams: params, Version: version.Zero,
-		MajorVersion: majorVersion, MinorVersion: minorVersion}
+		MajorVersion:   majorVersion,
+		MinorVersion:   minorVersion,
+		StreamFallback: fallback,
+	}
 }
 
 // IndexIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
@@ -88,7 +103,18 @@ func (tc *ToolsConstraint) IndexIds() []string {
 	if tc.Stream == "" {
 		return nil
 	}
-	return []string{ToolsContentId(tc.Stream)}
+	streams := []string{tc.Stream}
+	if tc.StreamFallback {
+		fallbacks, found := streamFallbacks[tc.Stream]
+		if found {
+			streams = fallbacks
+		}
+	}
+	results := make([]string, len(streams))
+	for i, stream := range streams {
+		results[i] = ToolsContentId(stream)
+	}
+	return results
 }
 
 // ProductIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
@@ -348,7 +374,7 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 // ReadMetadata returns the tools metadata from the given storage for the specified stream.
 func ReadMetadata(store storage.StorageReader, stream string) ([]*ToolsMetadata, error) {
 	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath, simplestreams.EXISTING_CLOUD_DATA, false)
-	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, -1, -1, coretools.Filter{})
+	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, false, -1, -1, coretools.Filter{})
 	if err != nil {
 		return nil, err
 	}
