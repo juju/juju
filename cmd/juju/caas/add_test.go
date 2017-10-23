@@ -23,9 +23,10 @@ import (
 
 type addCAASSuite struct {
 	jujutesting.IsolationSuite
-	fakeCloudAPI      *fakeCloudAPI
-	store             *fakeCloudMetadataStore
-	fakeK8SConfigFunc caascfg.ClientConfigFunc
+	fakeCloudAPI        *fakeCloudAPI
+	store               *fakeCloudMetadataStore
+	fileCredentialStore *fakeCredentialStore
+	fakeK8SConfigFunc   caascfg.ClientConfigFunc
 }
 
 var _ = gc.Suite(&addCAASSuite{})
@@ -150,11 +151,12 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	s.store.Call("PublicCloudMetadata", []string(nil)).Returns(initialCloudMap, false, nil)
 	newCloudMap["mrcloud"] = mrCloud
 	s.store.Call("WritePersonalCloudMetadata", initialCloudMap).Returns(nil)
-	s.PatchValue(&caas.NewFileCredentialStore, func() jujuclient.CredentialStore { return fakeCredentialStore{} })
 }
 
 func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientConfig bool) *caas.AddCAASCommand {
-	addcmd := caas.NewAddCAASCommandForTest(s.store, &fakeAPIConnection{},
+	addcmd := caas.NewAddCAASCommandForTest(s.store,
+		&fakeCredentialStore{},
+		&fakeAPIConnection{},
 		func(caller base.APICallCloser) caas.CloudAPI {
 			return s.fakeCloudAPI
 		},
