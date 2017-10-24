@@ -182,6 +182,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// The global clock is not migrated; each controller has its own
 		// independent global clock.
 		globalClockC,
+
 		// Leases are not migrated either. When an application is migrated,
 		// we include the name of the leader unit. On import, a new lease
 		// is created for the leader unit.

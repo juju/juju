@@ -18,7 +18,6 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/clock/monotonic"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -33,12 +32,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
+	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/state/globalclock"
 	stateaudit "github.com/juju/juju/state/internal/audit"
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
@@ -439,13 +440,17 @@ func (st *State) ApplicationLeaders() (map[string]string, error) {
 }
 
 func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
+	globalClock, err := st.globalClockReader()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting global clock for lease client")
+	}
 	client, err := statelease.NewClient(statelease.ClientConfig{
-		Id:           st.leaseClientId,
-		Namespace:    applicationLeadershipNamespace,
-		Collection:   leasesC,
-		Mongo:        &environMongo{st},
-		Clock:        st.stateClock,
-		MonotonicNow: monotonic.Now,
+		Id:          st.leaseClientId,
+		Namespace:   applicationLeadershipNamespace,
+		Collection:  leasesC,
+		Mongo:       &environMongo{st},
+		LocalClock:  st.stateClock,
+		GlobalClock: globalClock,
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create leadership lease client")
@@ -454,13 +459,17 @@ func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
 }
 
 func (st *State) getSingularLeaseClient() (lease.Client, error) {
+	globalClock, err := st.globalClockReader()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting global clock for lease client")
+	}
 	client, err := statelease.NewClient(statelease.ClientConfig{
-		Id:           st.leaseClientId,
-		Namespace:    singularControllerNamespace,
-		Collection:   leasesC,
-		Mongo:        &environMongo{st},
-		Clock:        st.stateClock,
-		MonotonicNow: monotonic.Now,
+		Id:          st.leaseClientId,
+		Namespace:   singularControllerNamespace,
+		Collection:  leasesC,
+		Mongo:       &environMongo{st},
+		LocalClock:  st.stateClock,
+		GlobalClock: globalClock,
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create singular lease client")
@@ -2318,4 +2327,24 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// GlobalClockUpdater returns a new globalclock.Updater using the
+// State's *mgo.Session.
+func (st *State) GlobalClockUpdater() (coreglobalclock.Updater, error) {
+	return globalclock.NewUpdater(globalclock.UpdaterConfig{
+		Config: globalclock.Config{
+			Mongo:      &environMongo{st},
+			Collection: globalClockC,
+		},
+	})
+}
+
+func (st *State) globalClockReader() (*globalclock.Reader, error) {
+	return globalclock.NewReader(globalclock.ReaderConfig{
+		Config: globalclock.Config{
+			Mongo:      &environMongo{st},
+			Collection: globalClockC,
+		},
+	})
 }
