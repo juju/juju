@@ -489,7 +489,7 @@ func (ru *RelationUnit) IngressAddress() (network.Address, error) {
 	if crossmodel, err := ru.relation.IsCrossModel(); err != nil {
 		return network.Address{}, errors.Trace(err)
 	} else if !crossmodel {
-		space, err := unit.GetSpaceForBinding("")
+		space, err := unit.GetSpaceForBinding(ru.endpoint.Name)
 		if err != nil {
 			return network.Address{}, errors.Trace(err)
 		}

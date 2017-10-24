@@ -897,7 +897,7 @@ func (s *RelationUnitSuite) TestIngressAddressWithSpaces(c *gc.C) {
 	address, err := prr.pru0.IngressAddress()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(address, gc.DeepEquals, network.NewAddress("2.2.3.4"))
+	c.Assert(address, gc.DeepEquals, addresses[0])
 }
 
 func (s *RelationUnitSuite) TestIngressAddressRemoteRelation(c *gc.C) {
