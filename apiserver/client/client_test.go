@@ -257,8 +257,8 @@ func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {
 	s.assertModelVersion(c, s.State, currentVersion)
 	// But we can force it
 	args = params.SetModelAgentVersion{
-		Version: version.MustParse("7.8.6"),
-		Force: true,
+		Version:             version.MustParse("7.8.6"),
+		IgnoreAgentVersions: true,
 	}
 	err = s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)

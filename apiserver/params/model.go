@@ -110,8 +110,8 @@ type UnsetModelDefaults struct {
 // SetModelAgentVersion contains the arguments for
 // SetModelAgentVersion client API call.
 type SetModelAgentVersion struct {
-	Version version.Number `json:"version"`
-	Force   bool           `json:"force,omitempty"`
+	Version             version.Number `json:"version"`
+	IgnoreAgentVersions bool           `json:"force,omitempty"`
 }
 
 // ModelMigrationStatus holds information about the progress of a (possibly
