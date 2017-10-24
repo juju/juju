@@ -71,8 +71,8 @@ type AddCAASCommand struct {
 }
 
 // NewAddCAASCommand returns a command to add caas information.
-func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) *AddCAASCommand {
-	return &AddCAASCommand{
+func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
+	cmd := &AddCAASCommand{
 		cloudMetadataStore:  cloudMetadataStore,
 		fileCredentialStore: jujuclient.NewFileCredentialStore(),
 		newCloudAPI: func(caller base.APICallCloser) CloudAPI {
@@ -82,15 +82,18 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) *AddCAASCommand {
 			return caascfg.NewClientConfigReader(caasType)
 		},
 	}
+	return modelcmd.Wrap(cmd)
 }
-func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, fileCredentialStore jujuclient.CredentialStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) CloudAPI, newClientConfigReaderFunc func(string) (caascfg.ClientConfigFunc, error)) *AddCAASCommand {
-	return &AddCAASCommand{
+func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, fileCredentialStore jujuclient.CredentialStore, clientStore jujuclient.ClientStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) CloudAPI, newClientConfigReaderFunc func(string) (caascfg.ClientConfigFunc, error)) cmd.Command {
+	cmd := &AddCAASCommand{
 		cloudMetadataStore:    cloudMetadataStore,
 		fileCredentialStore:   fileCredentialStore,
 		apiRoot:               apiRoot,
 		newCloudAPI:           newCloudAPIFunc,
 		newClientConfigReader: newClientConfigReaderFunc,
 	}
+	cmd.SetClientStore(clientStore)
+	return modelcmd.Wrap(cmd)
 }
 
 // Info returns help information about the command.
@@ -253,13 +256,8 @@ func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential cl
 	return nil
 }
 
-// This is exported to be patched in tests.
-var CurrentAccountDetails = func(c *AddCAASCommand) (*jujuclient.AccountDetails, error) {
-	return c.CurrentAccountDetails()
-}
-
 func (c *AddCAASCommand) addCredentialToController(apiClient CloudAPI, newCredential cloud.Credential, credentialName string) error {
-	currentAccountDetails, err := CurrentAccountDetails(c)
+	currentAccountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
 		return errors.Trace(err)
 	}

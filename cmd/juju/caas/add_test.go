@@ -153,9 +153,26 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	s.store.Call("WritePersonalCloudMetadata", initialCloudMap).Returns(nil)
 }
 
-func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientConfig bool) *caas.AddCAASCommand {
+func NewMockClientStore() *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "foouser",
+	}
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	store.Models["foo"] = &jujuclient.ControllerModels{
+		CurrentModel: "admin/bar",
+		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {}},
+	}
+	return store
+}
+
+func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientConfig bool) cmd.Command {
 	addcmd := caas.NewAddCAASCommandForTest(s.store,
 		&fakeCredentialStore{},
+		NewMockClientStore(),
 		&fakeAPIConnection{},
 		func(caller base.APICallCloser) caas.CloudAPI {
 			return s.fakeCloudAPI
@@ -171,15 +188,10 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientCon
 			}
 		},
 	)
-	s.PatchValue(&caas.CurrentAccountDetails, func(*caas.AddCAASCommand) (*jujuclient.AccountDetails, error) {
-		return &jujuclient.AccountDetails{
-			User: "fakeduser",
-		}, nil
-	})
 	return addcmd
 }
 
-func (s *addCAASSuite) runCommand(c *gc.C, cmd *caas.AddCAASCommand, args ...string) (*cmd.Context, error) {
+func (s *addCAASSuite) runCommand(c *gc.C, cmd cmd.Command, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
