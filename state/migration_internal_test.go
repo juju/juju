@@ -37,7 +37,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		openedPortsC,
 
 		// application / unit
-		leasesC,
 		applicationsC,
 		unitsC,
 		meterStatusC, // red / green status for metrics of units
@@ -179,6 +178,14 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Metrics manager maintains controller specific state relating to
 		// the store and forward of charm metrics. Nothing to migrate here.
 		metricsManagerC,
+
+		// The global clock is not migrated; each controller has its own
+		// independent global clock.
+		globalClockC,
+		// Leases are not migrated either. When an application is migrated,
+		// we include the name of the leader unit. On import, a new lease
+		// is created for the leader unit.
+		leasesC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
