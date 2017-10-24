@@ -118,8 +118,8 @@ var getToolsFinder = func(st *apiprovisioner.State) ToolsFinder {
 	return st
 }
 
-// getToolsFinder returns a ToolsFinder for the provided State.
-// This exists for mocking.
+// getDistributionGroupFinder returns a DistributionGroupFinder
+// for the provided State. This exists for mocking.
 var getDistributionGroupFinder = func(st *apiprovisioner.State) DistributionGroupFinder {
 	return st
 }

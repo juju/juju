@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/wrench"
+	"strings"
 )
 
 type ProvisionerTask interface {
@@ -695,16 +696,14 @@ func (task *provisionerTask) constructStartInstanceParams(
 
 	if zonedEnv, ok := task.broker.(providercommon.ZonedEnviron); ok {
 		zone, err := zonedEnv.DeriveAvailabilityZone(startInstanceParams)
-		switch {
-		case err != nil && !errors.IsNotImplemented(err):
+		if err != nil {
 			return environs.StartInstanceParams{}, errors.Trace(err)
-		case err == nil:
-			if zone != "" {
-				if startInstanceParams.Placement == "" {
-					startInstanceParams.Placement = fmt.Sprintf("zone=%s", zone)
-				}
-				task.addMachinetoAZMap(machine, zone)
+		}
+		if zone != "" {
+			if startInstanceParams.Placement == "" {
+				startInstanceParams.Placement = fmt.Sprintf("zone=%s", zone)
 			}
+			task.addMachinetoAZMap(machine, zone)
 		}
 	}
 	return startInstanceParams, nil
@@ -729,8 +728,6 @@ type AvailabilityZoneMachine struct {
 	MachineIds       set.Strings
 	FailedMachineIds set.Strings
 }
-
-//var availabilityZoneAllocations = providercommon.AvailabilityZoneAllocations
 
 // populateAvailabilityZoneMachines fills in the map, availabilityZoneMachines,
 // if empty, with a current mapping of availability zone to IDs of machines
@@ -848,6 +845,7 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(machine *apipro
 	return machineZone
 }
 
+// exported for use in testing.
 type ByPopulationThenName []*AvailabilityZoneMachine
 
 func (b ByPopulationThenName) Len() int {
@@ -890,7 +888,6 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 	}
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(machines))
 	errMachines := make([]error, len(machines))
 
 	for i, m := range machines {
@@ -902,9 +899,11 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 		}
 
 		if machineDistributionGroups[i].Err != nil {
-			return err
+			task.setErrorStatus("fetching distribution groups for machine %q: %v", m, machineDistributionGroups[i].Err)
+			continue
 		}
 
+		wg.Add(1)
 		go func(machine *apiprovisioner.Machine, dg []string, index int) {
 			defer wg.Done()
 			v, err := machine.ModelAgentVersion()
@@ -926,10 +925,14 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 	// TODO ProvisionerParallelization 2017-10-09
 	// Is this necessary?
 	wg.Wait()
+	var errorStrings []string
 	for _, err := range errMachines {
 		if err != nil {
-			return err
+			errorStrings = append(errorStrings, err.Error())
 		}
+	}
+	if errorStrings != nil {
+		return errors.New(strings.Join(errorStrings, "\n"))
 	}
 	return nil
 }
@@ -1098,7 +1101,8 @@ func (task *provisionerTask) startMachine(
 		volumeNameToAttachmentInfo,
 	); err != nil {
 		// We need to stop the instance right away here, set error status and go on.
-		if err2 := task.setErrorStatusAndRemoveMachineAZ("cannot register instance for machine %v: %v", machine, err); err2 != nil {
+		task.removeMachineFromAZMap(machine)
+		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
 			logger.Errorf("%v", errors.Annotate(err2, "cannot set machine's status"))
 		}
 		if err2 := task.broker.StopInstances(result.Instance.Id()); err2 != nil {

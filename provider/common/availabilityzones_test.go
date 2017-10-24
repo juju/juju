@@ -165,10 +165,11 @@ func (s *AvailabilityZoneSuite) TestValidateAvailabilityZone(c *gc.C) {
 		calls = append(calls, "AvailabilityZones")
 		return availabilityZones, nil
 	})
-	tests := make(map[string]error, 4)
-	tests["az1"] = nil
-	tests["az2"] = errors.Errorf("availability zone %q is unavailable", "az2")
-	tests["az3"] = errors.NotValidf("availability zone %q", "az3")
+	tests := map[string]error{
+		"az1": nil,
+		"az2": errors.Errorf("availability zone %q is unavailable", "az2"),
+		"az3": errors.NotValidf("availability zone %q", "az3"),
+	}
 	for i, t := range tests {
 		err := common.ValidateAvailabilityZone(&s.env, i)
 		if t == nil {
