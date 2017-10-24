@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
+	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -2333,7 +2334,7 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 
 // GlobalClockUpdater returns a new globalclock.Updater using the
 // State's *mgo.Session.
-func (st *State) GlobalClockUpdater() (*globalclock.Updater, error) {
+func (st *State) GlobalClockUpdater() (coreglobalclock.Updater, error) {
 	return globalclock.NewUpdater(globalclock.UpdaterConfig{
 		Config: globalclock.Config{
 			Session:    st.MongoSession(),

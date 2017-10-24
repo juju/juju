@@ -20,6 +20,7 @@ type ManifoldConfig struct {
 	ClockName string
 	StateName string
 
+	NewWorker      func(Config) (worker.Worker, error)
 	UpdateInterval time.Duration
 	BackoffDelay   time.Duration
 }
@@ -31,11 +32,14 @@ func (config ManifoldConfig) Validate() error {
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
 	}
+	if config.NewWorker == nil {
+		return errors.NotValidf("nil NewWorker")
+	}
 	if config.UpdateInterval <= 0 {
-		return errors.NotValidf("empty or negative UpdateInterval")
+		return errors.NotValidf("non-positive UpdateInterval")
 	}
 	if config.BackoffDelay <= 0 {
-		return errors.NotValidf("empty or negative BackoffDelay")
+		return errors.NotValidf("non-positive BackoffDelay")
 	}
 	return nil
 }
@@ -72,14 +76,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	updater, err := st.GlobalClockUpdater()
-	if err != nil {
-		stTracker.Done()
-		return nil, errors.Trace(err)
-	}
-
-	worker, err := NewWorker(Config{
-		Updater:        updater,
+	worker, err := config.NewWorker(Config{
+		NewUpdater:     st.GlobalClockUpdater,
 		LocalClock:     clock,
 		UpdateInterval: config.UpdateInterval,
 		BackoffDelay:   config.BackoffDelay,

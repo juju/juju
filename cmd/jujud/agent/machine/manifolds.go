@@ -398,6 +398,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		globalClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
 			ClockName:      clockName,
 			StateName:      stateName,
+			NewWorker:      globalclockupdater.NewWorker,
 			UpdateInterval: 1 * time.Second,
 			BackoffDelay:   30 * time.Second,
 		}),
