@@ -4,10 +4,7 @@
 package globalclock
 
 import (
-	"time"
-
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	mgo "gopkg.in/mgo.v2"
 )
 
@@ -21,33 +18,6 @@ type UpdaterConfig struct {
 // create a Reader.
 type ReaderConfig struct {
 	Config
-}
-
-// WatcherConfig contains the resources and information required to
-// create a Watcher.
-type WatcherConfig struct {
-	Config
-
-	// LocalClock is the local clock, used for polling.
-	LocalClock clock.Clock
-
-	// PollInterval is the time interval in between querying
-	// the current global clock time.
-	PollInterval time.Duration
-}
-
-// validate returns an error if the supplied config is not valid.
-func (config WatcherConfig) validate() error {
-	if err := config.Config.validate(); err != nil {
-		return errors.Trace(err)
-	}
-	if config.LocalClock == nil {
-		return errors.New("missing local clock")
-	}
-	if config.PollInterval == 0 {
-		return errors.New("missing poll interval")
-	}
-	return nil
 }
 
 // Config contains the common resources and information required to
