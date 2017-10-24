@@ -59,9 +59,6 @@ const (
 	presenceDB = "presence"
 	presenceC  = "presence"
 
-	// globalClockC is the name of the collection used to hold global clock data.
-	globalClockC = "globalclock"
-
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
 

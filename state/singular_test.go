@@ -64,6 +64,10 @@ func (s *SingularSuite) TestExpire(c *gc.C) {
 		wait <- claimer.WaitUntilExpired(s.modelTag.Id())
 	}()
 
+	g, err := s.State.GlobalClockUpdater()
+	c.Assert(err, jc.ErrorIsNil)
+	err = g.AddTime(coretesting.ShortWait)
+	c.Assert(err, jc.ErrorIsNil)
 	s.Clock.Advance(coretesting.ShortWait)
 	select {
 	case err := <-wait:
@@ -71,6 +75,8 @@ func (s *SingularSuite) TestExpire(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 	}
 
+	err = g.AddTime(time.Hour)
+	c.Assert(err, jc.ErrorIsNil)
 	s.Clock.Advance(time.Hour)
 	select {
 	case err := <-wait:
