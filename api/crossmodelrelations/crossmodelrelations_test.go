@@ -669,3 +669,88 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeR
 	c.Assert(ms[0], jc.DeepEquals, mac)
 	c.Assert(ms[1].Id(), gc.Equals, "discharge mac")
 }
+
+func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
+	offerUUID := "offer-uuid"
+	mac, err := macaroon.New(nil, "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CrossModelRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(arg, jc.DeepEquals, params.OfferArgs{Args: []params.OfferArg{{
+			OfferUUID: offerUUID, Macaroons: macaroon.Slice{mac}}}})
+		c.Check(request, gc.Equals, "WatchOfferStatus")
+		c.Assert(result, gc.FitsTypeOf, &params.OfferStatusWatchResults{})
+		*(result.(*params.OfferStatusWatchResults)) = params.OfferStatusWatchResults{
+			Results: []params.OfferStatusWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
+	_, err = client.WatchOfferStatus(params.OfferArg{
+		OfferUUID: offerUUID,
+		Macaroons: macaroon.Slice{mac},
+	})
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	// Call again with a different macaroon but the first one will be
+	// cached and override the passed in macaroon.
+	different, err := macaroon.New(nil, "different", "")
+	c.Assert(err, jc.ErrorIsNil)
+	s.cache.Upsert("offer-uuid", macaroon.Slice{mac})
+	_, err = client.WatchOfferStatus(params.OfferArg{
+		OfferUUID: offerUUID,
+		Macaroons: macaroon.Slice{different},
+	})
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 2)
+}
+
+func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *gc.C) {
+	var (
+		callCount    int
+		mac          *macaroon.Macaroon
+		dischargeMac macaroon.Slice
+	)
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		resultErr := &params.Error{Message: "FAIL"}
+		switch callCount {
+		case 2, 3: //Watcher Next, Stop
+			return nil
+		case 0:
+			mac = s.newDischargeMacaroon(c)
+			resultErr = &params.Error{
+				Code: params.CodeDischargeRequired,
+				Info: &params.ErrorInfo{
+					Macaroon: mac,
+				},
+			}
+		case 1:
+			argParam := arg.(params.OfferArgs)
+			dischargeMac = argParam.Args[0].Macaroons
+		}
+		*(result.(*params.OfferStatusWatchResults)) = params.OfferStatusWatchResults{
+			Results: []params.OfferStatusWatchResult{{Error: resultErr}},
+		}
+		callCount++
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err := client.WatchOfferStatus(params.OfferArg{OfferUUID: "offer-uuid"})
+	c.Check(callCount, gc.Equals, 2)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Assert(dischargeMac, gc.HasLen, 2)
+	c.Assert(dischargeMac[0], jc.DeepEquals, mac)
+	c.Assert(dischargeMac[1].Id(), gc.Equals, "discharge mac")
+	// Macaroon has been cached.
+	ms, ok := s.cache.Get("offer-uuid")
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(ms[0], jc.DeepEquals, mac)
+	c.Assert(ms[1].Id(), gc.Equals, "discharge mac")
+}

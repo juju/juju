@@ -57,6 +57,7 @@ func newMockState() *mockState {
 		remoteApplications:    make(map[string]*mockRemoteApplication),
 		applications:          make(map[string]*mockApplication),
 		remoteEntities:        make(map[names.Tag]string),
+		offers:                make(map[string]*crossmodel.ApplicationOffer),
 		offerConnections:      make(map[int]*mockOfferConnection),
 		offerConnectionsByKey: make(map[string]*mockOfferConnection),
 		firewallRules:         make(map[state.WellKnownServiceType]*state.FirewallRule),
@@ -70,6 +71,15 @@ func (st *mockState) ApplicationOfferForUUID(offerUUID string) (*crossmodel.Appl
 		return nil, errors.NotFoundf("offer %v", offerUUID)
 	}
 	return offer, nil
+}
+
+func (st *mockState) ApplicationOffer(offerName string) (*crossmodel.ApplicationOffer, error) {
+	for _, offer := range st.offers {
+		if offer.OfferName == offerName {
+			return offer, nil
+		}
+	}
+	return nil, errors.NotFoundf("offer %v", offerName)
 }
 
 func (st *mockState) ModelUUID() string {
@@ -266,6 +276,20 @@ func (w *mockRelationStatusWatcher) Changes() <-chan []string {
 	return w.changes
 }
 
+type mockOfferStatusWatcher struct {
+	*mockWatcher
+	offerUUID string
+	changes   chan struct{}
+}
+
+func (w *mockOfferStatusWatcher) Changes() <-chan struct{} {
+	return w.changes
+}
+
+func (w *mockOfferStatusWatcher) OfferUUID() string {
+	return w.offerUUID
+}
+
 type mockModel struct {
 }
 
@@ -400,6 +424,11 @@ func (a *mockApplication) Endpoints() ([]state.Endpoint, error) {
 func (a *mockApplication) Life() state.Life {
 	a.MethodCall(a, "Life")
 	return a.life
+}
+
+func (a *mockApplication) Status() (status.StatusInfo, error) {
+	a.MethodCall(a, "Status")
+	return status.StatusInfo{}, nil
 }
 
 type mockOfferConnection struct {

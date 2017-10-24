@@ -75,6 +75,10 @@ type Backend interface {
 	// ApplicationOfferForUUID returns the application offer for the UUID.
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 
+	// WatchStatus returns a watcher that notifies of changes to the status
+	// of the offer.
+	WatchOfferStatus(offerUUID string) (state.NotifyWatcher, error)
+
 	// FirewallRule returns the firewall rule for the specified service.
 	FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error)
 }
@@ -177,6 +181,9 @@ type Application interface {
 	// name it is bound to (or empty if unspecified). When no bindings are stored
 	// for the application, defaults are returned.
 	EndpointBindings() (map[string]string, error)
+
+	// Status returns the status of the application.
+	Status() (status.StatusInfo, error)
 }
 
 type Charm interface {

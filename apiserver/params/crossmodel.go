@@ -404,6 +404,29 @@ type RelationStatusWatchResults struct {
 	Results []RelationLifeSuspendedStatusWatchResult `json:"results"`
 }
 
+// OfferStatusChange describes the status of an offer.
+type OfferStatusChange struct {
+	// OfferName is the name of the offer.
+	OfferName string `json:"offer-name"`
+
+	// Status is the status of the offer.
+	Status EntityStatus `json:"status"`
+}
+
+// OfferStatusWatchResult holds a OfferStatusWatcher id, baseline state
+// (in the Changes field), and an error (if any).
+type OfferStatusWatchResult struct {
+	OfferStatusWatcherId string              `json:"watcher-id"`
+	Changes              []OfferStatusChange `json:"changes"`
+	Error                *Error              `json:"error,omitempty"`
+}
+
+// OfferStatusWatchResults holds the results for any API call which ends up
+// returning a list of OfferStatusWatchers.
+type OfferStatusWatchResults struct {
+	Results []OfferStatusWatchResult `json:"results"`
+}
+
 // IngressNetworksChanges holds a set of IngressNetworksChangeEvent structures.
 type IngressNetworksChanges struct {
 	Changes []IngressNetworksChangeEvent `json:"changes,omitempty"`
@@ -485,6 +508,17 @@ type RemoteEntityArgs struct {
 // RemoteEntityArg holds a remote relation token corresponding macaroons.
 type RemoteEntityArg struct {
 	Token     string         `json:"relation-token"`
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+}
+
+// OfferArgs holds arguments to an API call dealing with offers.
+type OfferArgs struct {
+	Args []OfferArg `json:"args"`
+}
+
+// OfferArg holds an offer uuid and corresponding macaroons.
+type OfferArg struct {
+	OfferUUID string         `json:"offer-uuid"`
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 }
 

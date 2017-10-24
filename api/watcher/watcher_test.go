@@ -27,10 +27,12 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	corewatcher "github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type watcherSuite struct {
@@ -310,7 +312,7 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	stop := func() {
-		c.Assert(worker.Stop(w), jc.ErrorIsNil)
+		workertest.CleanKill(c, w)
 	}
 
 	assertNoChange := func() {
@@ -364,9 +366,14 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 	assertChange, stop := s.assertSetupRelationStatusWatch(c, rel)
 	defer stop()
 
+	// We only want the most recent change.
 	err = rel.SetSuspended(true, "reason")
 	c.Assert(err, jc.ErrorIsNil)
-	assertChange(life.Alive, true, "reason")
+	err = rel.SetSuspended(false, "")
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.SetSuspended(true, "another reason")
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(life.Alive, true, "another reason")
 
 	err = rel.SetSuspended(false, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -392,6 +399,109 @@ func (s *watcherSuite) TestRelationStatusWatcherDeadRelation(c *gc.C) {
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertChange(life.Dead, false, "")
+}
+
+func (s *watcherSuite) setupOfferStatusWatch(
+	c *gc.C,
+) (func(status status.Status, message string), func()) {
+	// Create the offer connection details.
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
+	offers := state.NewApplicationOffers(s.State)
+	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Owner:           "admin",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add the consume permission for the offer so the macaroon
+	// discharge can occur.
+	err = s.State.CreateOfferAccess(
+		names.NewApplicationOfferTag("hosted-mysql"),
+		names.NewUserTag("fred"), permission.ConsumeAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a macaroon for authorisation.
+	store, err := s.State.NewBakeryStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	bakery, err := bakery.NewService(bakery.NewServiceParams{
+		Location: "juju model " + s.State.ModelUUID(),
+		Store:    store,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	mac, err := bakery.NewMacaroon(fmt.Sprintf("%v %v", s.IAASModel.ModelTag(), offer.OfferName), nil,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.State.ModelUUID()),
+			checkers.DeclaredCaveat("offer-uuid", offer.OfferUUID),
+			checkers.DeclaredCaveat("username", "fred"),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Start watching for a relation change.
+	client := crossmodelrelations.NewClient(s.stateAPI)
+	w, err := client.WatchOfferStatus(params.OfferArg{
+		OfferUUID: offer.OfferUUID,
+		Macaroons: macaroon.Slice{mac},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	stop := func() {
+		workertest.CleanKill(c, w)
+	}
+
+	assertNoChange := func() {
+		s.BackingState.StartSync()
+		select {
+		case _, ok := <-w.Changes():
+			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+
+	assertChange := func(status status.Status, message string) {
+		s.BackingState.StartSync()
+		select {
+		case changes, ok := <-w.Changes():
+			c.Check(ok, jc.IsTrue)
+			if status == "" {
+				c.Assert(changes, gc.HasLen, 0)
+				break
+			}
+			c.Assert(changes, gc.HasLen, 1)
+			c.Check(changes[0].Name, gc.Equals, "hosted-mysql")
+			c.Check(changes[0].Status.Status, gc.Equals, status)
+			c.Check(changes[0].Status.Message, gc.Equals, message)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher didn't emit an event")
+		}
+		assertNoChange()
+	}
+
+	// Initial event.
+	assertChange(status.Waiting, "waiting for machine")
+	return assertChange, stop
+}
+
+func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
+	// Create a pair of services and a relation between them.
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+
+	assertChange, stop := s.setupOfferStatusWatch(c)
+	defer stop()
+
+	// We only want the most recent change.
+	err := mysql.SetStatus(status.StatusInfo{Status: status.Blocked, Message: "message"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysql.SetStatus(status.StatusInfo{Status: status.Waiting, Message: "another message"})
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(status.Waiting, "another message")
+
+	// Deleting the offer results in an empty change set.
+	offers := state.NewApplicationOffers(s.State)
+	err = offers.Remove("hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange("", "")
 }
 
 type migrationSuite struct {

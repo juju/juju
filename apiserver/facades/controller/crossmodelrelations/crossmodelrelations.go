@@ -26,6 +26,7 @@ var logger = loggo.GetLogger("juju.apiserver.crossmodelrelations")
 
 type egressAddressWatcherFunc func(facade.Resources, firewall.State, params.Entities) (params.StringsWatchResults, error)
 type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag) (state.StringsWatcher, error)
+type offerStatusWatcherFunc func(CrossModelRelationsState, string) (OfferWatcher, error)
 
 // CrossModelRelationsAPI provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPI struct {
@@ -40,6 +41,7 @@ type CrossModelRelationsAPI struct {
 
 	egressAddressWatcher  egressAddressWatcherFunc
 	relationStatusWatcher relationStatusWatcherFunc
+	offerStatusWatcher    offerStatusWatcherFunc
 }
 
 // NewStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
@@ -61,6 +63,7 @@ func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI
 		ctx.Resources(), ctx.Auth(), authCtxt.(*commoncrossmodel.AuthContext),
 		firewall.WatchEgressAddressesForRelations,
 		watchRelationLifeSuspendedStatus,
+		watchOfferStatus,
 	)
 }
 
@@ -73,6 +76,7 @@ func NewCrossModelRelationsAPI(
 	authCtxt *commoncrossmodel.AuthContext,
 	egressAddressWatcher egressAddressWatcherFunc,
 	relationStatusWatcher relationStatusWatcherFunc,
+	offerStatusWatcher offerStatusWatcherFunc,
 ) (*CrossModelRelationsAPI, error) {
 	return &CrossModelRelationsAPI{
 		st:                    st,
@@ -82,6 +86,7 @@ func NewCrossModelRelationsAPI(
 		authCtxt:              authCtxt,
 		egressAddressWatcher:  egressAddressWatcher,
 		relationStatusWatcher: relationStatusWatcher,
+		offerStatusWatcher:    offerStatusWatcher,
 		relationToOffer:       make(map[string]string),
 	}, nil
 }
@@ -387,18 +392,82 @@ func (api *CrossModelRelationsAPI) WatchRelationsSuspendedStatus(
 			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
 			continue
 		}
-		results.Results[i].RelationStatusWatcherId = api.resources.Register(w)
 		changesParams := make([]params.RelationLifeSuspendedStatusChange, len(changes))
 		for j, key := range changes {
 			change, err := commoncrossmodel.GetRelationLifeSuspendedStatusChange(api.st, key)
 			if err != nil {
 				results.Results[i].Error = common.ServerError(err)
 				changesParams = nil
+				w.Stop()
 				break
 			}
 			changesParams[j] = *change
 		}
 		results.Results[i].Changes = changesParams
+		results.Results[i].RelationStatusWatcherId = api.resources.Register(w)
+	}
+	return results, nil
+}
+
+// OfferWatcher instances track changes to a specified offer.
+type OfferWatcher interface {
+	state.NotifyWatcher
+	OfferUUID() string
+}
+
+type offerWatcher struct {
+	state.NotifyWatcher
+	offerUUID string
+}
+
+func (w *offerWatcher) OfferUUID() string {
+	return w.offerUUID
+}
+
+func watchOfferStatus(st CrossModelRelationsState, offerUUID string) (OfferWatcher, error) {
+	w, err := st.WatchOfferStatus(offerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &offerWatcher{w, offerUUID}, nil
+}
+
+// WatchOfferStatus starts an OfferStatusWatcher for
+// watching the status of an offer.
+func (api *CrossModelRelationsAPI) WatchOfferStatus(
+	offerArgs params.OfferArgs,
+) (params.OfferStatusWatchResults, error) {
+	results := params.OfferStatusWatchResults{
+		Results: make([]params.OfferStatusWatchResult, len(offerArgs.Args)),
+	}
+
+	for i, arg := range offerArgs.Args {
+		// Ensure the supplied macaroon allows access.
+		auth := api.authCtxt.Authenticator(api.st.ModelUUID(), arg.OfferUUID)
+		_, err := auth.CheckOfferMacaroons(arg.OfferUUID, arg.Macaroons)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		w, err := api.offerStatusWatcher(api.st, arg.OfferUUID)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		_, ok := <-w.Changes()
+		if !ok {
+			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			continue
+		}
+		change, err := commoncrossmodel.GetOfferStatusChange(api.st, arg.OfferUUID)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			w.Stop()
+			break
+		}
+		results.Results[i].Changes = []params.OfferStatusChange{*change}
+		results.Results[i].OfferStatusWatcherId = api.resources.Register(w)
 	}
 	return results, nil
 }
