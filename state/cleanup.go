@@ -215,6 +215,10 @@ func (st *State) cleanupModelsForDyingController(cleanupArgs []bson.Raw) (err er
 	for _, modelUUID := range modelUUIDs {
 		st, release, err := pool.Get(modelUUID)
 		if err != nil {
+			// This model could have been removed.
+			if errors.IsNotFound(err) {
+				continue
+			}
 			return errors.Trace(err)
 		}
 		defer release()
