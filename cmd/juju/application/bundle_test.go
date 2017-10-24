@@ -125,7 +125,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissi
 		"cannot deploy bundle: cannot deploy application \"mysql\": "+
 		"cannot add application \"mysql\": unknown space \"db\" not valid")
 	c.Assert(stdErr, gc.Equals, ""+
-		`Located bundle "cs:bundle/wordpress-with-endpoint-bindings-1"`)
+		`Located bundle "cs:bundle/wordpress-with-endpoint-bindings-1"`+"\n"+
+		"Resolving charm: wordpress-extra-bindings\n"+
+		"Resolving charm: mysql")
 	c.Assert(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
 		"- upload charm cs:xenial/mysql-42 for series xenial\n"+
@@ -199,6 +201,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 	c.Check(stdOut, gc.Equals, "")
 	c.Check(stdErr, gc.Equals, ""+
 		"Located bundle \"cs:bundle/wordpress-simple-1\"\n"+
+		"Resolving charm: wordpress\n"+
+		"Resolving charm: mysql\n"+
 		"No changes to apply.",
 	)
 
@@ -354,6 +358,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleResources(c *gc.C) {
 	)
 	// Info messages go to stdErr.
 	c.Check(stdErr, gc.Equals, ""+
+		"Resolving charm: cs:starsay\n"+
 		"  added resource install-resource\n"+
 		"  added resource store-resource\n"+
 		"  added resource upload-resource\n"+
@@ -1433,6 +1438,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithAnnotations_OutputIsCo
 		"- add unit memcached/0 to new machine 1",
 	)
 	c.Check(stdErr, gc.Equals, ""+
+		"Resolving charm: cs:django\n"+
+		"Resolving charm: xenial/mem-47\n"+
 		"Deploy of bundle completed.",
 	)
 }

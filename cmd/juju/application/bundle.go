@@ -273,6 +273,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			continue
 		}
 
+		h.ctx.Infof("Resolving charm: %s", spec.Charm)
 		ch, err := charm.ParseURL(spec.Charm)
 		if err != nil {
 			return errors.Trace(err)

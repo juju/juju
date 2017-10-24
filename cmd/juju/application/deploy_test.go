@@ -1425,6 +1425,8 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 
 	c.Check(cmdtesting.Stderr(context), gc.Equals, ""+
 		`Located bundle "cs:bundle/wordpress-simple"`+"\n"+
+		"Resolving charm: wordpress\n"+
+		"Resolving charm: mysql\n"+
 		`Deploy of bundle completed.`+
 		"\n",
 	)
