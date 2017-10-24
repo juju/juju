@@ -69,7 +69,7 @@ type Backend interface {
 	ModelUUID() string
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	SetAnnotations(state.GlobalEntity, map[string]string) error
-	SetModelAgentVersion(version.Number) error
+	SetModelAgentVersion(version.Number, bool) error
 	SetModelConstraints(constraints.Value) error
 	Unit(string) (Unit, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error

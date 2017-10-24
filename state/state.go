@@ -650,7 +650,7 @@ func IsUpgradeInProgressError(err error) bool {
 // given version, only if the model is in a stable state (all agents are
 // running the current version). If this is a hosted model, newVersion
 // cannot be higher than the controller version.
-func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
+func (st *State) SetModelAgentVersion(newVersion version.Number, force bool) (err error) {
 	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsController() {
 		return errors.Errorf("a hosted model cannot have a higher version than the server model: %s > %s",
 			newVersion.String(),
@@ -676,8 +676,10 @@ func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
 			return nil, jujutxn.ErrNoOperations
 		}
 
-		if err := st.checkCanUpgrade(currentVersion, newVersion.String()); err != nil {
-			return nil, errors.Trace(err)
+		if !force {
+			if err := st.checkCanUpgrade(currentVersion, newVersion.String()); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 
 		ops := []txn.Op{

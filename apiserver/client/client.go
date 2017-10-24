@@ -569,7 +569,7 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 		}
 	}
 
-	return c.api.stateAccessor.SetModelAgentVersion(args.Version)
+	return c.api.stateAccessor.SetModelAgentVersion(args.Version, false)
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
