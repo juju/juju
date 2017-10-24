@@ -50,6 +50,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/cmd/jujud/agent/internal/mongomaster"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/cmd/jujud/reboot"
@@ -88,8 +89,6 @@ import (
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/logsender/logsendermetrics"
-	"github.com/juju/juju/worker/master"
-	"github.com/juju/juju/worker/master/mongomaster"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/mongoupgrader"
@@ -113,7 +112,7 @@ var (
 	// the intestinal fortitude to untangle this package. Be that
 	// person! Juju Needs You.
 	useMultipleCPUs       = utils.UseMultipleCPUs
-	newMasterRunner       = master.New
+	newMasterRunner       = mongomaster.New
 	peergrouperNew        = peergrouper.New
 	newCertificateUpdater = certupdater.NewCertificateUpdater
 	newMetadataUpdater    = imagemetadataworker.NewWorker
@@ -1926,8 +1925,16 @@ type MongoSessioner interface {
 	MongoSession() *mgo.Session
 }
 
+// TODO(axw) 2017-10-24 #1726680
+//
+// We are still using MongoDB mastership to ensure that we
+// run a single txnlogpruner worker, and a single dblogpruner
+// worker. We should update worker/singular and API facade to
+// support claiming for the entire controller, rather rather
+// than a specific model, and use that to run controller-wide
+// singular workers.
 func newSingularStateRunner(runner *worker.Runner, st MongoSessioner, m *state.Machine) (jworker.Runner, error) {
-	masterStateConn := &mongomaster.Conn{st.MongoSession(), m}
+	masterStateConn := &mongomaster.MongoConn{st.MongoSession(), m}
 	singularRunner, err := newMasterRunner(runner, masterStateConn)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make master Runner")

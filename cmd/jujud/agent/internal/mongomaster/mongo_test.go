@@ -17,14 +17,13 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/cmd/jujud/agent/internal/mongomaster"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/master"
-	"github.com/juju/juju/worker/master/mongomaster"
 )
 
-var logger = loggo.GetLogger("juju.worker.master.mongomaster-test")
+var logger = loggo.GetLogger("juju.cmd.jujud.agent.internal.mongomaster-test")
 
 type mongoSuite struct {
 	coretesting.BaseSuite
@@ -175,7 +174,7 @@ func (a *testAgent) mongoWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	mc := &mongomaster.Conn{
+	mc := &mongomaster.MongoConn{
 		Session: session,
 		Member:  localMember{a.hostPort},
 	}
@@ -183,7 +182,7 @@ func (a *testAgent) mongoWorker() (worker.Worker, error) {
 	runner := worker.NewRunner(worker.RunnerParams{
 		IsFatal: connectionIsFatal(mc),
 	})
-	masterRunner, err := master.New(runner, mc)
+	masterRunner, err := mongomaster.New(runner, mc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start master runner: %v", err)
 	}
@@ -526,7 +525,7 @@ func newFloat64(f float64) *float64 {
 // that diagnoses an error as fatal if the connection
 // has failed or if the error is otherwise fatal.
 // Copied from jujud.
-func connectionIsFatal(conn master.Conn) func(err error) bool {
+func connectionIsFatal(conn mongomaster.Conn) func(err error) bool {
 	return func(err error) bool {
 		if err := conn.Ping(); err != nil {
 			logger.Infof("error pinging %T: %v", conn, err)

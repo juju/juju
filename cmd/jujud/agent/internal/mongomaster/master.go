@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package master
+package mongomaster
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 	jworker "github.com/juju/juju/worker"
 )
 
-var logger = loggo.GetLogger("juju.worker.master")
+var logger = loggo.GetLogger("juju.cmd.jujud.agent.internal.mongomaster")
 
 var PingInterval = 10 * time.Second
 

@@ -9,19 +9,19 @@ import (
 	"github.com/juju/juju/mongo"
 )
 
-// Conn is an implementation of master.Conn, reporting whether or not the
+// MongoConn is an implementation of Conn, reporting whether or not the
 // replicaset member identified by Member is the master.
-type Conn struct {
+type MongoConn struct {
 	Session *mgo.Session
 	Member  mongo.WithAddresses
 }
 
 // Ping is part of the master.Conn interface.
-func (c *Conn) Ping() error {
+func (c *MongoConn) Ping() error {
 	return c.Session.Ping()
 }
 
 // IsMember is part of the master.Conn interface.
-func (c *Conn) IsMaster() (bool, error) {
+func (c *MongoConn) IsMaster() (bool, error) {
 	return mongo.IsMaster(c.Session, c.Member)
 }
