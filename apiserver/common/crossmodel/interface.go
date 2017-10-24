@@ -229,4 +229,7 @@ type RemoteApplication interface {
 
 	// Life returns the lifecycle state of the application.
 	Life() state.Life
+
+	// SetStatus sets the status of the remote application.
+	SetStatus(info status.StatusInfo) error
 }

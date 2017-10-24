@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/remoterelations"
 )
@@ -243,12 +244,18 @@ func (m *mockRelationsFacade) ControllerAPIInfoForModel(modelUUID string) (*api.
 	return m.controllerInfo[modelUUID], nil
 }
 
+func (m *mockRelationsFacade) SetRemoteApplicationStatus(applicationName string, status status.Status, message string) error {
+	m.stub.MethodCall(m, "SetRemoteApplicationStatus", applicationName, status.String(), message)
+	return nil
+}
+
 type mockRemoteRelationsFacade struct {
 	mu   sync.Mutex
 	stub *testing.Stub
 	remoterelations.RemoteModelRelationsFacadeCloser
 	relationsUnitsWatchers  map[string]*mockRelationUnitsWatcher
 	relationsStatusWatchers map[string]*mockRelationStatusWatcher
+	offersStatusWatchers    map[string]*mockOfferStatusWatcher
 }
 
 func newMockRemoteRelationsFacade(stub *testing.Stub) *mockRemoteRelationsFacade {
@@ -256,6 +263,7 @@ func newMockRemoteRelationsFacade(stub *testing.Stub) *mockRemoteRelationsFacade
 		stub: stub,
 		relationsUnitsWatchers:  make(map[string]*mockRelationUnitsWatcher),
 		relationsStatusWatchers: make(map[string]*mockRelationStatusWatcher),
+		offersStatusWatchers:    make(map[string]*mockOfferStatusWatcher),
 	}
 }
 
@@ -325,6 +333,17 @@ func (m *mockRemoteRelationsFacade) WatchRelationSuspendedStatus(arg params.Remo
 	}
 	m.relationsStatusWatchers[arg.Token] = newMockRelationStatusWatcher()
 	return m.relationsStatusWatchers[arg.Token], nil
+}
+
+func (m *mockRemoteRelationsFacade) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatcher, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "WatchOfferStatus", arg.OfferUUID, arg.Macaroons)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	m.offersStatusWatchers[arg.OfferUUID] = newMockOfferStatusWatcher()
+	return m.offersStatusWatchers[arg.OfferUUID], nil
 }
 
 // RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
@@ -437,6 +456,24 @@ func newMockRelationStatusWatcher() *mockRelationStatusWatcher {
 }
 
 func (w *mockRelationStatusWatcher) Changes() watcher.RelationStatusChannel {
+	w.MethodCall(w, "Changes")
+	return w.changes
+}
+
+type mockOfferStatusWatcher struct {
+	mockWatcher
+	changes chan []watcher.OfferStatusChange
+}
+
+func newMockOfferStatusWatcher() *mockOfferStatusWatcher {
+	w := &mockOfferStatusWatcher{
+		changes: make(chan []watcher.OfferStatusChange, 1),
+	}
+	go w.doneWhenDying()
+	return w
+}
+
+func (w *mockOfferStatusWatcher) Changes() watcher.OfferStatusChannel {
 	w.MethodCall(w, "Changes")
 	return w.changes
 }
