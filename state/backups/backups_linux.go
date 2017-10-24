@@ -277,6 +277,10 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	for _, modelUUID := range modelUUIDs {
 		st, release, err := pool.Get(modelUUID)
 		if err != nil {
+			// This model could have been removed.
+			if errors.IsNotFound(err) {
+				continue
+			}
 			return nil, errors.Trace(err)
 		}
 		defer release()
