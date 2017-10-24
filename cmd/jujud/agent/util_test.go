@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/cmd/jujud/agent/internal/mongomaster"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -45,7 +46,6 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/peergrouper"
-	"github.com/juju/juju/worker/singular"
 )
 
 const (
@@ -91,7 +91,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&upstart.InitDir, c.MkDir())
 
 	s.singularRecord = newSingularRunnerRecord()
-	s.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+	s.PatchValue(&newMasterRunner, s.singularRecord.newSingularRunner)
 	s.PatchValue(&peergrouperNew, func(*state.State, clock.Clock, bool, peergrouper.Hub) (worker.Worker, error) {
 		return newDummyWorker(), nil
 	})
@@ -314,8 +314,8 @@ func newSingularRunnerRecord() *singularRunnerRecord {
 	}
 }
 
-func (r *singularRunnerRecord) newSingularRunner(runner jworker.Runner, conn singular.Conn) (jworker.Runner, error) {
-	sr, err := singular.New(runner, conn)
+func (r *singularRunnerRecord) newSingularRunner(runner jworker.Runner, conn mongomaster.Conn) (jworker.Runner, error) {
+	sr, err := mongomaster.New(runner, conn)
 	if err != nil {
 		return nil, err
 	}

@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/worker/fanconfigurer"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/globalclockupdater"
 	"github.com/juju/juju/worker/hostkeyreporter"
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logger"
@@ -211,6 +212,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// be Very Wrong Indeed to use SetCanUninstall in conjunction
 		// with this code.
 		terminationName: terminationworker.Manifold(),
+
+		clockName: clockManifold(config.Clock),
 
 		// The stateconfigwatcher manifold watches the machine agent's
 		// configuration and reports if state serving info is
@@ -387,6 +390,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:         migrationminion.NewWorker,
 		}),
 
+		// We run a global clock updater for every controller machine.
+		//
+		// The global clock updater is responsible for detecting and
+		// preventing concurrent updates, to ensure global time is
+		// monotonic and increases at a rate no faster than real time.
+		globalClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
+			ClockName:      clockName,
+			StateName:      stateName,
+			NewWorker:      globalclockupdater.NewWorker,
+			UpdateInterval: 1 * time.Second,
+			BackoffDelay:   30 * time.Second,
+		}),
+
 		// The serving-info-setter manifold sets grabs the state
 		// serving info from the API connection and writes it to the
 		// agent config.
@@ -546,6 +562,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 }
 
+func clockManifold(clock clock.Clock) dependency.Manifold {
+	return dependency.Manifold{
+		Start: func(_ dependency.Context) (worker.Worker, error) {
+			return engine.NewValueWorker(clock)
+		},
+		Output: engine.ValueWorkerOutput,
+	}
+}
+
 var ifFullyUpgraded = engine.Housing{
 	Flags: []string{
 		upgradeStepsFlagName,
@@ -571,6 +596,7 @@ const (
 	apiConfigWatcherName   = "api-config-watcher"
 	centralHubName         = "central-hub"
 	pubSubName             = "pubsub-forwarder"
+	clockName              = "clock"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"
@@ -602,4 +628,5 @@ const (
 	hostKeyReporterName           = "host-key-reporter"
 	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
+	globalClockUpdaterName        = "global-clock-updater"
 )

@@ -11,14 +11,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/leadership"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type LeadershipSuite struct {
 	ConnSuite
-	checker leadership.Checker
-	claimer leadership.Claimer
+	checker     leadership.Checker
+	claimer     leadership.Claimer
+	globalClock globalclock.Updater
 }
 
 var _ = gc.Suite(&LeadershipSuite{})
@@ -29,6 +31,8 @@ func (s *LeadershipSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.checker = s.State.LeadershipChecker()
 	s.claimer = s.State.LeadershipClaimer()
+	s.globalClock, err = s.State.GlobalClockUpdater()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *LeadershipSuite) TestClaimValidatesApplicationname(c *gc.C) {
@@ -118,6 +122,8 @@ func (s *LeadershipSuite) TestKillWorkersUnblocksClaimer(c *gc.C) {
 
 	s.State.KillWorkers()
 	s.Clock.Advance(coretesting.LongWait)
+	err = s.globalClock.AddTime(coretesting.LongWait)
+	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case err := <-s.expiryChan("blah"):
 		c.Check(err, gc.ErrorMatches, "lease manager stopped")
@@ -142,6 +148,8 @@ func (s *LeadershipSuite) TestApplicationLeaders(c *gc.C) {
 
 func (s *LeadershipSuite) expire(c *gc.C, applicationname string) {
 	s.Clock.Advance(time.Hour)
+	err := s.globalClock.AddTime(time.Hour)
+	c.Assert(err, jc.ErrorIsNil)
 	s.Session.Fsync(false)
 	select {
 	case err := <-s.expiryChan(applicationname):

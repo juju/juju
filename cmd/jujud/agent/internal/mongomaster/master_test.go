@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package singular_test
+package mongomaster_test
 
 import (
 	"fmt"
@@ -12,36 +12,36 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/cmd/jujud/agent/internal/mongomaster"
 	"github.com/juju/juju/testing"
 	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/singular"
 )
 
-type singularSuite struct {
+type masterSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&singularSuite{})
+var _ = gc.Suite(&masterSuite{})
 
-func (*singularSuite) TestWithMasterError(c *gc.C) {
+func (*masterSuite) TestWithMasterError(c *gc.C) {
 	expectErr := fmt.Errorf("an error")
 	conn := &fakeConn{
 		isMasterErr: expectErr,
 	}
-	r, err := singular.New(newRunner(), conn)
+	r, err := mongomaster.New(newRunner(), conn)
 	c.Check(err, gc.ErrorMatches, "cannot get master status: an error")
 	c.Check(r, gc.IsNil)
 }
 
-func (s *singularSuite) TestWithIsMasterTrue(c *gc.C) {
+func (s *masterSuite) TestWithIsMasterTrue(c *gc.C) {
 	// When IsMaster returns true, workers get started on the underlying
 	// runner as usual.
-	s.PatchValue(&singular.PingInterval, 1*time.Millisecond)
+	s.PatchValue(&mongomaster.PingInterval, 1*time.Millisecond)
 	underlyingRunner := newRunner()
 	conn := &fakeConn{
 		isMaster: true,
 	}
-	r, err := singular.New(underlyingRunner, conn)
+	r, err := mongomaster.New(underlyingRunner, conn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	started := make(chan struct{}, 1)
@@ -64,18 +64,18 @@ func (s *singularSuite) TestWithIsMasterTrue(c *gc.C) {
 
 var errFatal = fmt.Errorf("fatal error")
 
-func (s *singularSuite) TestWithIsMasterFalse(c *gc.C) {
+func (s *masterSuite) TestWithIsMasterFalse(c *gc.C) {
 	// When IsMaster returns false, dummy workers are started that
 	// do nothing except wait for the pinger to return an error.
 
-	s.PatchValue(&singular.PingInterval, testing.ShortWait/10)
+	s.PatchValue(&mongomaster.PingInterval, testing.ShortWait/10)
 
 	underlyingRunner := newRunner()
 	conn := &fakeConn{
 		isMaster: false,
 		pinged:   make(chan struct{}, 5),
 	}
-	r, err := singular.New(underlyingRunner, conn)
+	r, err := mongomaster.New(underlyingRunner, conn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = r.StartWorker("worker", func() (worker.Worker, error) {
@@ -126,10 +126,10 @@ loop2:
 	}
 }
 
-func (s *singularSuite) TestPingCalledOnceOnlyForSeveralWorkers(c *gc.C) {
+func (s *masterSuite) TestPingCalledOnceOnlyForSeveralWorkers(c *gc.C) {
 	// Patch the ping interval to a large value, start several workers
 	// and check that Ping is only called once.
-	s.PatchValue(&singular.PingInterval, testing.LongWait)
+	s.PatchValue(&mongomaster.PingInterval, testing.LongWait)
 
 	underlyingRunner := newRunner()
 	conn := &fakeConn{
@@ -137,7 +137,7 @@ func (s *singularSuite) TestPingCalledOnceOnlyForSeveralWorkers(c *gc.C) {
 		pinged:   make(chan struct{}, 2),
 	}
 
-	r, err := singular.New(underlyingRunner, conn)
+	r, err := mongomaster.New(underlyingRunner, conn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 5; i++ {

@@ -68,7 +68,7 @@ func (s *ClientOperationSuite) TestCannotClaimLeaseTwice(c *gc.C) {
 	c.Check(err, gc.Equals, lease.ErrInvalid)
 
 	// ...not even when the lease has expired.
-	fix.Clock.Advance(time.Hour)
+	fix.GlobalClock.Advance(time.Hour)
 	err = fix.Client.ClaimLease("name", lease.Request{"holder", leaseDuration})
 	c.Check(err, gc.Equals, lease.ErrInvalid)
 }
@@ -94,8 +94,8 @@ func (s *ClientOperationSuite) TestCanExtendStaleLease(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Advance the clock past lease expiry time, then extend.
-	fix.Clock.Advance(time.Minute)
-	extendTime := fix.Clock.Now()
+	fix.LocalClock.Advance(time.Minute)
+	extendTime := fix.LocalClock.Now()
 	leaseDuration := time.Minute
 	err = fix.Client.ExtendLease("name", lease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
@@ -141,7 +141,7 @@ func (s *ClientOperationSuite) TestCannotExpireLeaseBeforeExpiry(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// It can't be expired until after the duration has elapsed.
-	fix.Clock.Advance(leaseDuration)
+	fix.GlobalClock.Advance(leaseDuration)
 	err = fix.Client.ExpireLease("name")
 	c.Assert(err, gc.Equals, lease.ErrInvalid)
 }
@@ -152,8 +152,14 @@ func (s *ClientOperationSuite) TestExpireLeaseAfterExpiry(c *gc.C) {
 	err := fix.Client.ClaimLease("name", lease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// It can be expired as soon as the duration has elapsed.
-	fix.Clock.Advance(leaseDuration + time.Nanosecond)
+	// It can be expired as soon as the duration has elapsed
+	// *on the global clock*. The amount of time elapsed on
+	// the local clock is inconsequential.
+	fix.LocalClock.Advance(leaseDuration + time.Nanosecond)
+	err = fix.Client.ExpireLease("name")
+	c.Assert(err, gc.Equals, lease.ErrInvalid)
+
+	fix.GlobalClock.Advance(leaseDuration + time.Nanosecond)
 	err = fix.Client.ExpireLease("name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check("name", fix.Holder(), "")
