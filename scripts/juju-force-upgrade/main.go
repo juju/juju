@@ -1,3 +1,6 @@
+// Copyright 2017 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -18,7 +21,7 @@ import (
 	jversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("forceagentversion")
+var logger = loggo.GetLogger("juju.forceupgrade")
 
 func checkErr(label string, err error) {
 	if err != nil {

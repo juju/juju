@@ -3711,7 +3711,7 @@ func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
 	assertAgentVersion(c, s.State, currentVersion)
 }
 
-func (s *StateSuite) TestSetModelAgentVerisonMixedVersions(c *gc.C) {
+func (s *StateSuite) TestSetModelAgentVersionMixedVersions(c *gc.C) {
 	_, currentVersion := s.prepareAgentVersionTests(c, s.State)
 	machine, err := s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)

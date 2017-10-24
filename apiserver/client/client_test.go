@@ -217,13 +217,52 @@ func (s *serverSuite) assertModelVersion(c *gc.C, st *state.State, expected stri
 	c.Assert(agentVersion, gc.Equals, expected)
 }
 
-func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
+func (s *serverSuite) TestSetModelAgentVersion(c *gc.C) {
 	args := params.SetModelAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
 	err := s.client.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertModelVersion(c, s.State, "9.8.7")
+}
+
+func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {
+	// Get the agent-version set in the model.
+	cfg, err := s.State.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	agentVersion, ok := cfg.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	currentVersion := agentVersion.String()
+
+	// Add a machine with the current version and a unit with a different version
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-quantal-amd64"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetAgentVersion(version.MustParseBinary("1.0.2-quantal-amd64"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// This should be refused because an agent doesn't match "currentVersion"
+	args := params.SetModelAgentVersion{
+		Version: version.MustParse("9.8.7"),
+	}
+	err = s.client.SetModelAgentVersion(args)
+	c.Check(err, gc.ErrorMatches, "some agents have not upgraded to the current model version .*: unit-wordpress-0")
+	// Version hasn't changed
+	s.assertModelVersion(c, s.State, currentVersion)
+	// But we can force it
+	args = params.SetModelAgentVersion{
+		Version: version.MustParse("7.8.6"),
+		Force: true,
+	}
+	err = s.client.SetModelAgentVersion(args)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertModelVersion(c, s.State, "7.8.6")
 }
 
 func (s *serverSuite) makeMigratingModel(c *gc.C, name string, mode state.MigrationMode) {
@@ -238,7 +277,7 @@ func (s *serverSuite) makeMigratingModel(c *gc.C, name string, mode state.Migrat
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serverSuite) TestControllerModelSetEnvironAgentVersionBlockedByImportingModel(c *gc.C) {
+func (s *serverSuite) TestControllerModelSetModelAgentVersionBlockedByImportingModel(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
 	s.makeMigratingModel(c, "to-migrate", state.MigrationModeImporting)
 	args := params.SetModelAgentVersion{
@@ -248,7 +287,7 @@ func (s *serverSuite) TestControllerModelSetEnvironAgentVersionBlockedByImportin
 	c.Assert(err, gc.ErrorMatches, `model "some-user/to-migrate" is importing, upgrade blocked`)
 }
 
-func (s *serverSuite) TestControllerModelSetEnvironAgentVersionBlockedByExportingModel(c *gc.C) {
+func (s *serverSuite) TestControllerModelSetModelAgentVersionBlockedByExportingModel(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
 	s.makeMigratingModel(c, "to-migrate", state.MigrationModeExporting)
 	args := params.SetModelAgentVersion{
@@ -258,7 +297,7 @@ func (s *serverSuite) TestControllerModelSetEnvironAgentVersionBlockedByExportin
 	c.Assert(err, gc.ErrorMatches, `model "some-user/to-migrate" is exporting, upgrade blocked`)
 }
 
-func (s *serverSuite) TestUserModelSetEnvironAgentVersionNotAffectedByMigration(c *gc.C) {
+func (s *serverSuite) TestUserModelSetModelAgentVersionNotAffectedByMigration(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
@@ -318,7 +357,7 @@ func (s *serverSuite) TestCheckProviderAPIFail(c *gc.C) {
 	s.assertCheckProviderAPI(c, errors.New("instances error"), "cannot make API call to provider: instances error")
 }
 
-func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
+func (s *serverSuite) assertSetModelAgentVersion(c *gc.C) {
 	args := params.SetModelAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
@@ -331,7 +370,7 @@ func (s *serverSuite) assertSetEnvironAgentVersion(c *gc.C) {
 	c.Assert(agentVersion, gc.Equals, "9.8.7")
 }
 
-func (s *serverSuite) assertSetEnvironAgentVersionBlocked(c *gc.C, msg string) {
+func (s *serverSuite) assertSetModelAgentVersionBlocked(c *gc.C, msg string) {
 	args := params.SetModelAgentVersion{
 		Version: version.MustParse("9.8.7"),
 	}
@@ -339,19 +378,19 @@ func (s *serverSuite) assertSetEnvironAgentVersionBlocked(c *gc.C, msg string) {
 	s.AssertBlocked(c, err, msg)
 }
 
-func (s *serverSuite) TestBlockDestroySetEnvironAgentVersion(c *gc.C) {
-	s.BlockDestroyModel(c, "TestBlockDestroySetEnvironAgentVersion")
-	s.assertSetEnvironAgentVersion(c)
+func (s *serverSuite) TestBlockDestroySetModelAgentVersion(c *gc.C) {
+	s.BlockDestroyModel(c, "TestBlockDestroySetModelAgentVersion")
+	s.assertSetModelAgentVersion(c)
 }
 
-func (s *serverSuite) TestBlockRemoveSetEnvironAgentVersion(c *gc.C) {
-	s.BlockRemoveObject(c, "TestBlockRemoveSetEnvironAgentVersion")
-	s.assertSetEnvironAgentVersion(c)
+func (s *serverSuite) TestBlockRemoveSetModelAgentVersion(c *gc.C) {
+	s.BlockRemoveObject(c, "TestBlockRemoveSetModelAgentVersion")
+	s.assertSetModelAgentVersion(c)
 }
 
-func (s *serverSuite) TestBlockChangesSetEnvironAgentVersion(c *gc.C) {
-	s.BlockAllChanges(c, "TestBlockChangesSetEnvironAgentVersion")
-	s.assertSetEnvironAgentVersionBlocked(c, "TestBlockChangesSetEnvironAgentVersion")
+func (s *serverSuite) TestBlockChangesSetModelAgentVersion(c *gc.C) {
+	s.BlockAllChanges(c, "TestBlockChangesSetModelAgentVersion")
+	s.assertSetModelAgentVersionBlocked(c, "TestBlockChangesSetModelAgentVersion")
 }
 
 func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
