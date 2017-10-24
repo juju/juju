@@ -21,6 +21,7 @@ type ManifoldConfig struct {
 	StateName string
 
 	UpdateInterval time.Duration
+	BackoffDelay   time.Duration
 }
 
 func (config ManifoldConfig) Validate() error {
@@ -32,6 +33,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.UpdateInterval <= 0 {
 		return errors.NotValidf("empty or negative UpdateInterval")
+	}
+	if config.BackoffDelay <= 0 {
+		return errors.NotValidf("empty or negative BackoffDelay")
 	}
 	return nil
 }
@@ -78,6 +82,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Updater:        updater,
 		LocalClock:     clock,
 		UpdateInterval: config.UpdateInterval,
+		BackoffDelay:   config.BackoffDelay,
 	})
 	if err != nil {
 		stTracker.Done()

@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/state/globalclock"
 )
 
@@ -81,6 +82,26 @@ func (s *UpdaterSuite) TestNewUpdaterPreservesTime(c *gc.C) {
 	u1 := s.newUpdater(c)
 	c.Assert(s.readTime(c), gc.Equals, globalEpoch.Add(time.Second))
 
+	err = u1.AddTime(time.Second)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.readTime(c), gc.Equals, globalEpoch.Add(2*time.Second))
+}
+
+func (s *UpdaterSuite) TestUpdaterConcurrentAddTime(c *gc.C) {
+	u0 := s.newUpdater(c)
+	u1 := s.newUpdater(c)
+
+	err := u0.AddTime(time.Second)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.readTime(c), gc.Equals, globalEpoch.Add(time.Second))
+
+	err = u1.AddTime(time.Second)
+	c.Assert(err, gc.Equals, coreglobalclock.ErrConcurrentUpdate)
+	c.Assert(s.readTime(c), gc.Equals, globalEpoch.Add(time.Second)) // no change
+
+	// u1's view of the clock should have been updated when
+	// ErrConcurrentUpdate was returned, so AddTime should
+	// now succeed.
 	err = u1.AddTime(time.Second)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.readTime(c), gc.Equals, globalEpoch.Add(2*time.Second))

@@ -9,22 +9,32 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
+
+	"github.com/juju/juju/core/globalclock"
 )
 
 var logger = loggo.GetLogger("juju.worker.globalclockupdater")
 
-type Worker struct {
-	config Config
-}
-
+// Config contains the configuration for the global clock updater worker.
 type Config struct {
-	Updater        ClockUpdater
-	LocalClock     clock.Clock
+	// Updater is the global clock updater to use for updating.
+	Updater globalclock.Updater
+
+	// LocalClock is the local wall clock. The times returned must
+	// contain a monotonic component (Go 1.9+).
+	LocalClock clock.Clock
+
+	// UpdateInterval is the amount of time in between clock updates.
 	UpdateInterval time.Duration
+
+	// BackoffDelay is the amount of time to delay before attempting
+	// another update when a concurrent write is detected.
+	BackoffDelay time.Duration
 }
 
+// Validate validates the configuration.
 func (config Config) Validate() error {
 	if config.Updater == nil {
 		return errors.NotValidf("nil Updater")
@@ -35,13 +45,14 @@ func (config Config) Validate() error {
 	if config.UpdateInterval <= 0 {
 		return errors.NotValidf("zero or negative UpdateInterval")
 	}
+	if config.BackoffDelay <= 0 {
+		return errors.NotValidf("zero or negative BackoffDelay")
+	}
 	return nil
 }
 
-type ClockUpdater interface {
-	AddTime(time.Duration) error
-}
-
+// NewWorker returns a new global clock updater worker, using the given
+// configuration.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating config")
@@ -59,28 +70,44 @@ type updaterWorker struct {
 	config Config
 }
 
+// Kill is part of the worker.Worker interface.
 func (w *updaterWorker) Kill() {
 	w.tomb.Kill(nil)
 }
 
+// Wait is part of the worker.Worker interface.
 func (w *updaterWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
 func (w *updaterWorker) loop() error {
 	interval := w.config.UpdateInterval
+	backoff := w.config.BackoffDelay
+
+	last := w.config.LocalClock.Now()
 	timer := w.config.LocalClock.NewTimer(interval)
 	defer timer.Stop()
+
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-timer.Chan():
-			timer.Reset(interval)
-			if err := w.config.Updater.AddTime(interval); err != nil {
+			// Increment the global time by the amount of time
+			// since we initially read or last updated the clock.
+			now := w.config.LocalClock.Now()
+			amount := now.Sub(last)
+			err := w.config.Updater.AddTime(amount)
+			if err == globalclock.ErrConcurrentUpdate {
+				logger.Tracef("concurrent update, backing off for %s", backoff)
+				timer.Reset(backoff)
+				continue
+			} else if err != nil {
 				return errors.Annotate(err, "updating global clock")
 			}
+			last = now
 			logger.Tracef("incremented global time by %s", interval)
+			timer.Reset(interval)
 		}
 	}
 }

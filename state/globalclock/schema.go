@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package globalclock
@@ -27,6 +27,13 @@ func newClockDoc(t time.Time) *clockDoc {
 
 func (d clockDoc) time() time.Time {
 	return time.Unix(0, d.Time)
+}
+
+func matchTimeDoc(t time.Time) bson.D {
+	return bson.D{
+		{"_id", clockDocID},
+		{"time", t.UnixNano()},
+	}
 }
 
 func setTimeDoc(t time.Time) bson.D {

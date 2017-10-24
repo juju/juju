@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machineactions"
 	"github.com/juju/juju/worker/machiner"
-	"github.com/juju/juju/worker/master/mongomaster"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -391,17 +390,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:         migrationminion.NewWorker,
 		}),
 
-		mongoMasterFlagName: mongomaster.Manifold(mongomaster.ManifoldConfig{
-			AgentName: agentName,
-			ClockName: clockName,
-			StateName: stateName,
-			Duration:  10 * time.Second, // XXX
-		}),
-		globalClockUpdaterName: ifMongoMaster(globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
+		// We run a global clock updater for every controller machine.
+		//
+		// The global clock updater is responsible for detecting and
+		// preventing concurrent updates, to ensure global time is
+		// monotonic and increases at a rate no faster than real time.
+		globalClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
 			ClockName:      clockName,
 			StateName:      stateName,
 			UpdateInterval: 1 * time.Second,
-		})),
+			BackoffDelay:   30 * time.Second,
+		}),
 
 		// The serving-info-setter manifold sets grabs the state
 		// serving info from the API connection and writes it to the
@@ -585,12 +584,6 @@ var ifNotMigrating = engine.Housing{
 	Occupy: migrationFortressName,
 }.Decorate
 
-var ifMongoMaster = engine.Housing{
-	Flags: []string{
-		mongoMasterFlagName,
-	},
-}.Decorate
-
 const (
 	agentName              = "agent"
 	terminationName        = "termination-signal-handler"
@@ -634,6 +627,5 @@ const (
 	hostKeyReporterName           = "host-key-reporter"
 	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
-	mongoMasterFlagName           = "mongo-master-flag"
 	globalClockUpdaterName        = "global-clock-updater"
 )
