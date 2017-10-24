@@ -17,6 +17,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -407,4 +408,21 @@ func (s *remoteRelationsSuite) TestControllerAPIInfoForModels(c *gc.C) {
 	c.Assert(result.Results[0].Addresses, jc.SameContents, []string{"1.2.3.4/32"})
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(result.Results[0].CACert, gc.Equals, coretesting.CACert)
+}
+
+func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatus(c *gc.C) {
+	remoteApp := newMockRemoteApplication("db2", "url")
+	s.st.remoteApplications["db2"] = remoteApp
+	entity := names.NewApplicationTag("db2")
+	result, err := s.api.SetRemoteApplicationsStatus(
+		params.SetStatus{Entities: []params.EntityStatusArgs{{
+			Tag:    entity.String(),
+			Status: "blocked",
+			Info:   "a message",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(remoteApp.status, gc.Equals, status.Blocked)
+	c.Assert(remoteApp.message, gc.Equals, "a message")
 }

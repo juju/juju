@@ -71,12 +71,41 @@ func (w *remoteApplicationWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *remoteApplicationWorker) loop() error {
-	defer func() {
-		if w.remoteModelFacade != nil {
-			w.remoteModelFacade.Close()
+func (w *remoteApplicationWorker) loop() (err error) {
+	// On the consuming side, watch for status changes to the offer.
+	var offerStatusChanges watcher.OfferStatusChannel
+	if !w.isConsumerProxy {
+		// Get the connection info for the remote controller.
+		apiInfo, err := w.localModelFacade.ControllerAPIInfoForModel(w.remoteModelUUID)
+		if err != nil {
+			return errors.Trace(err)
 		}
-	}()
+
+		w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo)
+		if err != nil {
+			return errors.Annotate(err, "opening facade to remote model")
+		}
+
+		defer func() {
+			w.remoteModelFacade.Close()
+		}()
+
+		arg := params.OfferArg{
+			OfferUUID: w.offerUUID,
+		}
+		if w.offerMacaroon != nil {
+			arg.Macaroons = macaroon.Slice{w.offerMacaroon}
+		}
+
+		offerStatusWatcher, err := w.remoteModelFacade.WatchOfferStatus(arg)
+		if err != nil {
+			return errors.Annotate(err, "watching status for offer")
+		}
+		if err := w.catacomb.Add(offerStatusWatcher); err != nil {
+			return errors.Trace(err)
+		}
+		offerStatusChanges = offerStatusWatcher.Changes()
+	}
 
 	relations := make(map[string]*relation)
 	for {
@@ -109,6 +138,13 @@ func (w *remoteApplicationWorker) loop() error {
 			if err := w.localModelFacade.ConsumeRemoteRelationChange(change); err != nil {
 				return errors.Annotatef(err, "consuming relation change %+v from remote model %v", change, w.remoteModelUUID)
 			}
+		case changes := <-offerStatusChanges:
+			logger.Debugf("offer status changed: %#v", changes)
+			for _, change := range changes {
+				if err := w.localModelFacade.SetRemoteApplicationStatus(w.applicationName, change.Status.Status, change.Status.Message); err != nil {
+					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.remoteModelUUID)
+				}
+			}
 		}
 	}
 }
@@ -131,6 +167,7 @@ func (w *remoteApplicationWorker) processRelationGone(key string, relations map[
 		if err := worker.Stop(relation.remoteRrw); err != nil {
 			logger.Warningf("stopping remote relations worker for %v: %v", key, err)
 		}
+		relation.remoteRuw = nil
 	}
 	// For the unit watchers, check to see if these are nil before stopping.
 	// They will be nil if the relation was suspended and then we kill it for real.
@@ -139,12 +176,6 @@ func (w *remoteApplicationWorker) processRelationGone(key string, relations map[
 			logger.Warningf("stopping local relation unit worker for %v: %v", key, err)
 		}
 		relation.localRuw = nil
-	}
-	if relation.remoteRuw != nil {
-		if err := worker.Stop(relation.remoteRuw); err != nil {
-			logger.Warningf("stopping remote relation unit worker for %v: %v", key, err)
-		}
-		relation.remoteRuw = nil
 	}
 
 	if !dying {
@@ -302,15 +333,6 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	relations map[string]*relation,
 	remoteRelation *params.RemoteRelation,
 ) error {
-	// Get the connection info for the remote controller.
-	apiInfo, err := w.localModelFacade.ControllerAPIInfoForModel(w.remoteModelUUID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo)
-	if err != nil {
-		return errors.Annotate(err, "opening facade to remote model")
-	}
 
 	// We have not seen the relation before, make
 	// sure it is registered on the offering side.

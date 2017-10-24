@@ -308,6 +308,7 @@ type mockRemoteApplication struct {
 	url           string
 	life          state.Life
 	status        status.Status
+	message       string
 	eps           []charm.Relation
 	consumerproxy bool
 }
@@ -361,6 +362,13 @@ func (r *mockRemoteApplication) SourceModel() names.ModelTag {
 func (r *mockRemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
 	r.MethodCall(r, "Macaroon")
 	return macaroon.New(nil, "test", "")
+}
+
+func (r *mockRemoteApplication) SetStatus(info status.StatusInfo) error {
+	r.MethodCall(r, "SetStatus")
+	r.status = info.Status
+	r.message = info.Message
+	return nil
 }
 
 type mockApplication struct {

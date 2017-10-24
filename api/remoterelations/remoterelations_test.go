@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -431,6 +432,34 @@ func (s *remoteRelationsSuite) TestSaveMacaroon(c *gc.C) {
 	})
 	client := remoterelations.NewClient(apiCaller)
 	err = client.SaveMacaroon(rel, mac)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *remoteRelationsSuite) TestSetRemoteApplicationStatus(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "RemoteRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SetRemoteApplicationsStatus")
+		c.Assert(arg, gc.DeepEquals, params.SetStatus{Entities: []params.EntityStatusArgs{
+			{
+				Tag:    names.NewApplicationTag("mysql").String(),
+				Status: "blocked",
+				Info:   "a message",
+			}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := remoterelations.NewClient(apiCaller)
+	err := client.SetRemoteApplicationStatus("mysql", status.Blocked, "a message")
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }

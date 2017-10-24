@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
 
@@ -259,6 +260,7 @@ func (c *Client) ConsumeRemoteRelationChange(change params.RemoteRelationChangeE
 	return results.OneError()
 }
 
+// ControllerAPIInfoForModel retrieves the controller API info for the specified model.
 func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) {
 	modelTag := names.NewModelTag(modelUUID)
 	args := params.Entities{[]params.Entity{{Tag: modelTag.String()}}}
@@ -279,4 +281,17 @@ func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) 
 		CACert:   result.CACert,
 		ModelTag: modelTag,
 	}, nil
+}
+
+// SetRemoteApplicationStatus sets the status for the specified remote application.
+func (c *Client) SetRemoteApplicationStatus(applicationName string, status status.Status, message string) error {
+	args := params.SetStatus{Entities: []params.EntityStatusArgs{
+		{Tag: names.NewApplicationTag(applicationName).String(), Status: status.String(), Info: message},
+	}}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("SetRemoteApplicationsStatus", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
 }

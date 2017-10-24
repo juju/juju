@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/remoterelations"
@@ -76,18 +77,40 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *gc.C) worker.Wo
 	// by starting relevant relation watchers.
 	s.relationsFacade.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
 	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
-	applicationNames := []string{"db2", "mysql"}
-	s.relationsFacade.remoteApplicationsWatcher.changes <- applicationNames
+	s.relationsFacade.controllerInfo["remote-model-uuid"] = &api.Info{
+		Addrs: []string{"1.2.3.4:1234"}, CACert: coretesting.CACert}
 
 	w, err := remoterelations.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"WatchRemoteApplications", nil},
-		{"RemoteApplications", []interface{}{[]string{"db2", "mysql"}}},
-		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
-		{"WatchRemoteApplicationRelations", []interface{}{"mysql"}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
+	s.stub.ResetCalls()
+
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
+	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"db2"}
+	expected = []jujutesting.StubCall{
+		{"RemoteApplications", []interface{}{[]string{"db2"}}},
+		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
+		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
+		{"WatchOfferStatus", []interface{}{"offer-db2-uuid", macaroon.Slice{mac}}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+	s.stub.ResetCalls()
+
+	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	expected = []jujutesting.StubCall{
+		{"RemoteApplications", []interface{}{[]string{"mysql"}}},
+		{"WatchRemoteApplicationRelations", []interface{}{"mysql"}},
+		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
+		{"WatchOfferStatus", []interface{}{"offer-mysql-uuid", macaroon.Slice{mac}}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+	s.stub.ResetCalls()
+
+	applicationNames := []string{"db2", "mysql"}
 	for _, app := range applicationNames {
 		w, ok := s.relationsFacade.remoteApplicationRelationsWatcher(app)
 		c.Check(ok, jc.IsTrue)
@@ -129,6 +152,27 @@ func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
 	c.Check(relWatcher.killed(), jc.IsTrue)
 	expected := []jujutesting.StubCall{
 		{"RemoteApplications", []interface{}{[]string{"mysql"}}},
+		{"Close", nil},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+}
+
+func (s *remoteRelationsSuite) TestOfferStatusChange(c *gc.C) {
+	w := s.assertRemoteApplicationWorkers(c)
+	defer workertest.CleanKill(c, w)
+	s.stub.ResetCalls()
+
+	statusWatcher := s.remoteRelationsFacade.offersStatusWatchers["offer-mysql-uuid"]
+	statusWatcher.changes <- []watcher.OfferStatusChange{{
+		Name: "mysql",
+		Status: status.StatusInfo{
+			Status:  status.Active,
+			Message: "started",
+		},
+	}}
+
+	expected := []jujutesting.StubCall{
+		{"SetRemoteApplicationStatus", []interface{}{"mysql", "active", "started"}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 }
@@ -147,8 +191,6 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 		},
 		remoteEndpointName: "data",
 	}
-	s.relationsFacade.controllerInfo["remote-model-uuid"] = &api.Info{
-		Addrs: []string{"1.2.3.4:1234"}, CACert: coretesting.CACert}
 
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
@@ -156,10 +198,10 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 	mac, err := macaroon.New(nil, "test", "")
 	c.Assert(err, jc.ErrorIsNil)
 	apiMac, err := macaroon.New(nil, "apimac", "")
+	c.Assert(err, jc.ErrorIsNil)
 	relTag := names.NewRelationTag("db2:db django:db")
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
 		{"ExportEntities", []interface{}{
 			[]names.Tag{names.NewApplicationTag("django"), relTag}}},
 		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelationArg{{
@@ -426,8 +468,9 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
 	mac, err := macaroon.New(nil, "test", "")
 	c.Assert(err, jc.ErrorIsNil)
 	expected = []jujutesting.StubCall{
-		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
+		{"WatchOfferStatus", []interface{}{"offer-db2-uuid", macaroon.Slice{mac}}},
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"ExportEntities", []interface{}{
 			[]names.Tag{names.NewApplicationTag("django"), relTag}}},
 		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelationArg{{
@@ -520,7 +563,6 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *gc.C) {
 	// except that the call to create te life/status listener is missing.
 	expected = []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
 		{"ExportEntities", []interface{}{
 			[]names.Tag{names.NewApplicationTag("django"), relTag}}},
 		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelationArg{{

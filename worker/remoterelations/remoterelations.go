@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -51,6 +52,10 @@ type RemoteModelRelationsFacade interface {
 	// WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the
 	// relations of each specified application in the remote model.
 	WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error)
+
+	// WatchOfferStatus starts an OfferStatusWatcher for watching the status
+	// of the specified offer in the remote model.
+	WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatcher, error)
 }
 
 // RemoteRelationsFacade exposes remote relation functionality to a worker.
@@ -101,6 +106,9 @@ type RemoteRelationsFacade interface {
 
 	// ControllerAPIInfoForModel returns the controller api info for a model.
 	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
+
+	// SetRemoteApplicationStatus sets the status for the specified remote application.
+	SetRemoteApplicationStatus(applicationName string, status status.Status, message string) error
 }
 
 type newRemoteRelationsFacadeFunc func(*api.Info) (RemoteModelRelationsFacadeCloser, error)

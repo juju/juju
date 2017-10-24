@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 )
 
 // RemoteRelationsAPI provides access to the RemoteRelations API facade.
@@ -393,4 +394,28 @@ func (api *RemoteRelationsAPI) ConsumeRemoteRelationChanges(
 		}
 	}
 	return results, nil
+}
+
+// SetRemoteApplicationsStatus sets the status for the specified remote applications.
+func (f *RemoteRelationsAPI) SetRemoteApplicationsStatus(args params.SetStatus) (params.ErrorResults, error) {
+	var result params.ErrorResults
+	result.Results = make([]params.ErrorResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		remoteAppTag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		app, err := f.st.RemoteApplication(remoteAppTag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = app.SetStatus(status.StatusInfo{
+			Status:  status.Status(entity.Status),
+			Message: entity.Info,
+		})
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
 }
