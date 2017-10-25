@@ -61,7 +61,7 @@ func cloudsFromConfig(config *clientcmdapi.Config) (map[string]CloudConfig, erro
 	rv := map[string]CloudConfig{}
 	for name, cluster := range config.Clusters {
 		attrs := map[string]interface{}{}
-		attrs["CAData"] = cluster.CertificateAuthorityData
+		attrs["CAData"] = string(cluster.CertificateAuthorityData)
 
 		rv[name] = CloudConfig{
 			Endpoint:   cluster.Server,

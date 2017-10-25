@@ -156,7 +156,7 @@ func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
 			Clouds: map[string]caascfg.CloudConfig{
 				"the-cluster": caascfg.CloudConfig{
 					Endpoint:   "https://1.1.1.1:8888",
-					Attributes: map[string]interface{}{"CAData": []uint8("A")}}},
+					Attributes: map[string]interface{}{"CAData": "A"}}},
 			Credentials: map[string]cloud.Credential{
 				"the-user": cloud.NewCredential(
 					cloud.UserPassAuthType,
@@ -185,10 +185,10 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 			Clouds: map[string]caascfg.CloudConfig{
 				"default-cluster": caascfg.CloudConfig{
 					Endpoint:   "https://10.10.10.10:1010",
-					Attributes: map[string]interface{}{"CAData": []uint8(nil)}},
+					Attributes: map[string]interface{}{"CAData": ""}},
 				"the-cluster": caascfg.CloudConfig{
 					Endpoint:   "https://1.1.1.1:8888",
-					Attributes: map[string]interface{}{"CAData": []uint8("A")}}},
+					Attributes: map[string]interface{}{"CAData": "A"}}},
 			Credentials: map[string]cloud.Credential{
 				"default-user": cloud.NewCredential(
 					cloud.UserPassAuthType,
