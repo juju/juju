@@ -812,7 +812,7 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *gc.C, ws ...*state.RelationSc
 	}
 }
 
-func (s *RelationUnitSuite) TestIngressAddress(c *gc.C) {
+func (s *RelationUnitSuite) TestNetworksForRelation(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -826,10 +826,12 @@ func (s *RelationUnitSuite) TestIngressAddress(c *gc.C) {
 		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
 	)
 
-	address, err := prr.pru0.IngressAddress()
+	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(address, gc.DeepEquals, network.NewAddress("1.2.3.4"))
+	c.Assert(boundSpace, gc.Equals, "")
+	c.Assert(ingress, gc.DeepEquals, []string{"1.2.3.4"})
+	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
 func (s *RelationUnitSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machine, addresses ...string) {
@@ -857,7 +859,7 @@ func (s *RelationUnitSuite) addDevicesWithAddresses(c *gc.C, machine *state.Mach
 	}
 }
 
-func (s *RelationUnitSuite) TestIngressAddressWithSpaces(c *gc.C) {
+func (s *RelationUnitSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	s.State.AddSubnet(state.SubnetInfo{CIDR: "1.2.0.0/16"})
 	s.State.AddSpace("space-1", "pid-1", []string{"1.2.0.0/16"}, false)
 	s.State.AddSubnet(state.SubnetInfo{CIDR: "2.2.0.0/16"})
@@ -894,13 +896,15 @@ func (s *RelationUnitSuite) TestIngressAddressWithSpaces(c *gc.C) {
 
 	s.addDevicesWithAddresses(c, machine, "1.2.3.4/16", "2.2.3.4/16", "3.2.3.4/16", "4.3.2.1/16")
 
-	address, err := prr.pru0.IngressAddress()
+	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(address, gc.DeepEquals, addresses[0])
+	c.Assert(boundSpace, gc.Equals, "space-3")
+	c.Assert(ingress, gc.DeepEquals, []string{"2.2.3.4"})
+	c.Assert(egress, gc.DeepEquals, []string{"2.2.3.4/32"})
 }
 
-func (s *RelationUnitSuite) TestIngressAddressRemoteRelation(c *gc.C) {
+func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	prr := newRemoteProReqRelation(c, &s.ConnSuite)
 	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -914,13 +918,15 @@ func (s *RelationUnitSuite) TestIngressAddressRemoteRelation(c *gc.C) {
 		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
 	)
 
-	address, err := prr.rru0.IngressAddress()
+	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("4.3.2.1", network.ScopePublic))
+	c.Assert(boundSpace, gc.Equals, "")
+	c.Assert(ingress, gc.DeepEquals, []string{"4.3.2.1"})
+	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
-func (s *RelationUnitSuite) TestIngressAddressRemoteRelationNoPublicAddr(c *gc.C) {
+func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *gc.C) {
 	prr := newRemoteProReqRelation(c, &s.ConnSuite)
 	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -933,9 +939,12 @@ func (s *RelationUnitSuite) TestIngressAddressRemoteRelationNoPublicAddr(c *gc.C
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
 
-	address, err := prr.rru0.IngressAddress()
+	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.DeepEquals, network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
+
+	c.Assert(boundSpace, gc.Equals, "")
+	c.Assert(ingress, gc.DeepEquals, []string{"1.2.3.4"})
+	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
 func (s *RelationUnitSuite) TestValidYes(c *gc.C) {
