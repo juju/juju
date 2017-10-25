@@ -177,8 +177,16 @@ func (c *legacyNovaFirewaller) UpdateGroupController(controllerUUID string) erro
 	if err != nil {
 		return errors.Trace(err)
 	}
+	re, err := regexp.Compile(c.jujuGroupRegexp())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var failed []string
 	for _, group := range groups {
+		if !re.MatchString(group.Name) {
+			continue
+		}
 		err := c.updateGroupControllerUUID(&group, controllerUUID)
 		if err != nil {
 			logger.Errorf("error updating controller for security group %s: %v", group.Id, err)
