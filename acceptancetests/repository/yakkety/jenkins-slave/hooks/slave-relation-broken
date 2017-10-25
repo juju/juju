@@ -1,3 +1,0 @@
-#!/bin/bash
-
-stop jenkins-slave || true

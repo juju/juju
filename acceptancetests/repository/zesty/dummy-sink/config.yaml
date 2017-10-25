@@ -1,5 +1,0 @@
-options:
-  token:
-    type: string
-    default: ''
-    description: Token used to prove that the relation is working

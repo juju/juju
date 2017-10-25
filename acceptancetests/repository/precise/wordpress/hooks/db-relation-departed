@@ -1,5 +1,0 @@
-#!/bin/bash
-
-source inc/common
-
-rm -f $config_file_path
