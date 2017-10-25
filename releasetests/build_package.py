@@ -33,7 +33,8 @@ SUPPORTED_RELEASES = """\
 16.04 xenial LTS
 16.10 yakkety HISTORIC
 17.04 zesty SUPPORTED
-17.10 artful DEVEL
+17.10 artful SUPPORTED
+18.04 bionic DEVEL
 """
 
 
