@@ -160,7 +160,7 @@ func (srv *localServer) startServer(c *gc.C) {
 	}
 	srv.client = amzec2.New(aws.Auth{}, srv.region, aws.SignV4Factory(srv.region.Name, "ec2"))
 
-	zones := make([]amzec2.AvailabilityZoneInfo, 3)
+	zones := make([]amzec2.AvailabilityZoneInfo, 4)
 	zones[0].Region = srv.region.Name
 	zones[0].Name = srv.region.Name + "-available"
 	zones[0].State = "available"
@@ -170,6 +170,9 @@ func (srv *localServer) startServer(c *gc.C) {
 	zones[2].Region = srv.region.Name
 	zones[2].Name = srv.region.Name + "-unavailable"
 	zones[2].State = "unavailable"
+	zones[3].Region = srv.region.Name
+	zones[3].Name = srv.region.Name + "-available2"
+	zones[3].State = "available"
 	srv.ec2srv.SetAvailabilityZones(zones)
 	srv.ec2srv.SetInitialInstanceState(ec2test.Pending)
 	srv.zones = zones
@@ -306,7 +309,6 @@ func (t *localServerSuite) makeTestingDefaultVPCUnavailable(c *gc.C) {
 }
 
 func (t *localServerSuite) TestPrepareForBootstrapWithNotRecommendedButForcedVPCID(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	t.makeTestingDefaultVPCUnavailable(c)
 	params := t.PrepareParams(c)
 	params.ModelConfig["vpc-id"] = t.srv.defaultVPC.Id
@@ -335,6 +337,7 @@ func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, param
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
 		CAPrivateKey:     coretesting.CAKey,
+		Placement:        "zone=test-available",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -347,7 +350,6 @@ func (t *localServerSuite) TestPrepareForBootstrapWithVPCIDNone(c *gc.C) {
 }
 
 func (t *localServerSuite) TestPrepareForBootstrapWithDefaultVPCID(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	params := t.PrepareParams(c)
 	params.ModelConfig["vpc-id"] = t.srv.defaultVPC.Id
 
@@ -740,7 +742,8 @@ func (t *localServerSuite) TestStartInstanceAvailZoneImpaired(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(err, gc.ErrorMatches, `failed to start instance in provided availability zone`)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
+	c.Assert(errors.Details(err), gc.Matches, `.*availability zone \"\" not valid.*`)
 }
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
@@ -838,20 +841,23 @@ func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (inst
 			subIDs[2]: []string{"test-unavailable"},
 		},
 	}
-	zonedEnv := t.Prepare(c).(common.ZonedEnviron)
-	zone, err := zonedEnv.DeriveAvailabilityZone(params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("testStartInstanceSubnet found zone %s", zone)
-	params.AvailabilityZone = zone
-	result, err := testing.StartInstanceWithParams(env, "1", params)
+	zonedEnviron := env.(common.ZonedEnviron)
+	zone, err := zonedEnviron.DeriveAvailabilityZone(params)
 	if err != nil {
 		return nil, err
 	}
-	return result.Instance, nil
+	if zone != "" {
+		params.AvailabilityZone = zone
+		result, err := testing.StartInstanceWithParams(env, "1", params)
+		if err != nil {
+			return nil, err
+		}
+		return result.Instance, nil
+	}
+	return nil, errors.Errorf("testStartInstanceSubnet failed")
 }
 
-func (t *localServerSuite) TestStartInstanceSubnetWrongVPC(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
+func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *gc.C) {
 	subIDs, vpcId := t.addTestingSubnets(c)
 	c.Assert(vpcId, gc.Not(gc.Equals), "vpc-0")
 	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": "vpc-0", "vpc-id-force": true})
@@ -864,7 +870,8 @@ func (t *localServerSuite) TestStartInstanceSubnetWrongVPC(c *gc.C) {
 			subIDs[2]: []string{"test-unavailable"},
 		},
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	zonedEnviron := env.(common.ZonedEnviron)
+	_, err := zonedEnviron.DeriveAvailabilityZone(params)
 	c.Assert(err, gc.ErrorMatches, `unknown placement directive: subnet=0.1.2.0/24`)
 }
 
@@ -1057,48 +1064,39 @@ var azNoDefaultSubnetErr = &amzec2.Error{
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	t.testStartInstanceAvailZoneAllConstrained(c, azConstrainedErr)
 }
 
 func (t *localServerSuite) TestStartInstanceVolumeTypeNotAvailable(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	t.testStartInstanceAvailZoneAllConstrained(c, azVolumeTypeNotAvailableInZoneErr)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneAllInsufficientInstanceCapacity(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	t.testStartInstanceAvailZoneAllConstrained(c, azInsufficientInstanceCapacityErr)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneAllNoDefaultSubnet(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	t.testStartInstanceAvailZoneAllConstrained(c, azNoDefaultSubnetErr)
 }
 
 func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.prepareAndBootstrap(c)
 
-	mock := mockAvailabilityZoneAllocations{
-		result: []common.AvailabilityZoneInstances{
-			{ZoneName: "az1"}, {ZoneName: "az2"},
-		},
-	}
-	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-
-	var azArgs []string
-
 	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
-		azArgs = append(azArgs, ri.AvailZone)
 		return nil, runInstancesError
 	})
-	_, _, _, err := testing.StartInstance(env, t.ControllerUUID, "1")
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
-		"cannot run instances: %s \\(%s\\)",
-		regexp.QuoteMeta(runInstancesError.Message),
-		runInstancesError.Code,
-	))
-	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
+
+	params := environs.StartInstanceParams{
+		ControllerUUID:   t.ControllerUUID,
+		StatusCallback:   fakeCallback,
+		AvailabilityZone: "test-available",
+	}
+
+	_, err := testing.StartInstanceWithParams(env, "1", params)
+	// All AZConstrained failures should return environs.ErrAvailabilityZoneFailed
+	// so the caller knows to try a new zone, rather than fail.
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
+	c.Assert(errors.Details(err), jc.Contains, runInstancesError.Message)
 }
 
 // addTestingSubnets adds a testing default VPC with 3 subnets in the EC2 test
@@ -1175,7 +1173,8 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
-	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
+	c.Assert(errors.Details(err), gc.Matches, `.*subnets in AZ "test-available" not found.*`)
 }
 
 func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
@@ -1198,11 +1197,9 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 }
 
 func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	env := t.prepareAndBootstrap(c)
 	subIDs, _ := t.addTestingSubnets(c)
 
-	// Should work because zone is not specified so we can resolve the constraints
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
@@ -1212,13 +1209,43 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 		},
 		StatusCallback: fakeCallback,
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	t.assertStartInstanceWithParamsFindAZ(c, env, "1", params)
+}
+
+func (t *localServerSuite) assertStartInstanceWithParamsFindAZ(
+	c *gc.C,
+	env environs.Environ,
+	machineId string,
+	params environs.StartInstanceParams,
+) {
+	zonedEnviron := env.(common.ZonedEnviron)
+	zone, err := zonedEnviron.DeriveAvailabilityZone(params)
 	c.Assert(err, jc.ErrorIsNil)
+	if zone != "" {
+		params.AvailabilityZone = zone
+		_, err = testing.StartInstanceWithParams(env, "1", params)
+		c.Assert(err, jc.ErrorIsNil)
+		return
+	}
+	availabilityZones, err := zonedEnviron.AvailabilityZones()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, zone := range availabilityZones {
+		if !zone.Available() {
+			continue
+		}
+		params.AvailabilityZone = zone.Name()
+		_, err = testing.StartInstanceWithParams(env, "1", params)
+		if err == nil {
+			return
+		} else if errors.Cause(err) == environs.ErrAvailabilityZoneFailed {
+			continue
+		}
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 	c.Skip("temporarily disabled")
-
 	subIDs, vpcId := t.addTestingSubnets(c)
 	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId})
 
@@ -1232,34 +1259,26 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 		},
 		StatusCallback: fakeCallback,
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	//_, err := testing.StartInstanceWithParams(env, "1", params)
+	zonedEnviron := env.(common.ZonedEnviron)
+	_, err := zonedEnviron.DeriveAvailabilityZone(params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	t.testStartInstanceAvailZoneOneConstrained(c, azConstrainedErr)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneOneInsufficientInstanceCapacity(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	t.testStartInstanceAvailZoneOneConstrained(c, azInsufficientInstanceCapacityErr)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneOneNoDefaultSubnetErr(c *gc.C) {
-	c.Skip("While Provisioner Parallelization on going.")
 	t.testStartInstanceAvailZoneOneConstrained(c, azNoDefaultSubnetErr)
 }
 
 func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.prepareAndBootstrap(c)
-
-	mock := mockAvailabilityZoneAllocations{
-		result: []common.AvailabilityZoneInstances{
-			{ZoneName: "az1"}, {ZoneName: "az2"},
-		},
-	}
-	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	// The first call to RunInstances fails with an error indicating the AZ
 	// is constrained. The second attempt succeeds, and so allocates to az2.
@@ -1273,10 +1292,26 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 		}
 		return realRunInstances(e, ri, fakeCallback)
 	})
-	inst, hwc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
-	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
-	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "az2")
-	c.Check(*hwc.AvailabilityZone, gc.Equals, "az2")
+
+	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID}
+	zonedEnviron := env.(common.ZonedEnviron)
+	availabilityZones, err := zonedEnviron.AvailabilityZones()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, zone := range availabilityZones {
+		if !zone.Available() {
+			continue
+		}
+		params.AvailabilityZone = zone.Name()
+		_, err = testing.StartInstanceWithParams(env, "1", params)
+		if err == nil {
+			break
+		} else if errors.Cause(err) == environs.ErrAvailabilityZoneFailed {
+			continue
+		}
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	sort.Strings(azArgs)
+	c.Assert(azArgs, gc.DeepEquals, []string{"test-available", "test-available2"})
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
@@ -1633,16 +1668,22 @@ func validateSubnets(c *gc.C, subnets []network.SubnetInfo, vpcId network.Id) {
 		ProviderId:        "subnet-0",
 		ProviderNetworkId: vpcId,
 		VLANTag:           0,
-		AvailabilityZones: []string{"test-available"},
+		AvailabilityZones: []string{"test-available2"},
 	}, {
 		CIDR:              "10.10.1.0/24",
 		ProviderId:        "subnet-1",
 		ProviderNetworkId: vpcId,
 		VLANTag:           0,
-		AvailabilityZones: []string{"test-impaired"},
+		AvailabilityZones: []string{"test-available"},
 	}, {
 		CIDR:              "10.10.2.0/24",
 		ProviderId:        "subnet-2",
+		ProviderNetworkId: vpcId,
+		VLANTag:           0,
+		AvailabilityZones: []string{"test-impaired"},
+	}, {
+		CIDR:              "10.10.3.0/24",
+		ProviderId:        "subnet-3",
 		ProviderNetworkId: vpcId,
 		VLANTag:           0,
 		AvailabilityZones: []string{"test-unavailable"},
@@ -1671,7 +1712,7 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 
 	subnets, err = env.Subnets(instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.HasLen, 3)
+	c.Assert(subnets, gc.HasLen, 4)
 	validateSubnets(c, subnets, "vpc-0")
 }
 

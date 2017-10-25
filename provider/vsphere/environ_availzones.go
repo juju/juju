@@ -102,9 +102,6 @@ func (env *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (n
 	return names, err
 }
 
-// TODO (HML) 16-oct-2017
-// Verify any volume attachments
-//
 // DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
 func (env *sessionEnviron) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
 	zone, err := env.parseAvailabilityZone(args)

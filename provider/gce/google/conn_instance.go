@@ -40,7 +40,7 @@ func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType 
 			}
 			// Try the next zone.
 			logger.Errorf("failed to get new instance in zone %q: %v", zoneName, waitErr)
-			return environs.ErrAvailabilityZoneFailed
+			return errors.Wrap(waitErr, environs.ErrAvailabilityZoneFailed)
 		}
 
 		// Success!

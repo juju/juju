@@ -746,8 +746,7 @@ func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
 func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	_, err := s.testStartInstanceAvailZone(c, "test-unknown")
-	// check error log?
-	c.Assert(err, gc.ErrorMatches, `failed to start instance in provided availability zone`)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
 }
 
 func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {

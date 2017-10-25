@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 )
 
 func (*environSuite) TestConvertConstraints(c *gc.C) {
@@ -224,8 +225,7 @@ func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
 	}
 
 	_, err := env.selectNode(snArgs)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, `failed to start instance in provided availability zone`)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
 }
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {

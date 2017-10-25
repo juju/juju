@@ -1124,7 +1124,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		// 'No valid host available' is typically a resource error,
 		// let the provisioner know it is a good idea to try another
 		// AZ if available.
-		return nil, environs.ErrAvailabilityZoneFailed
+		return nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
 	}
 	if err != nil {
 		return nil, errors.Trace(errors.Annotate(err, "cannot run instance"))
@@ -1188,7 +1188,7 @@ func (e *Environ) startInstanceAvailabilityZone(args environs.StartInstanceParam
 	if args.AvailabilityZone != "" {
 		if err := common.ValidateAvailabilityZone(e, args.AvailabilityZone); err != nil {
 			logger.Errorf(err.Error())
-			return "", environs.ErrAvailabilityZoneFailed
+			return "", errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
 		}
 	}
 	return args.AvailabilityZone, nil

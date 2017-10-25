@@ -4,12 +4,12 @@
 package vsphere_test
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"path"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -305,7 +305,7 @@ func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C)
 	s.client.SetErrors(nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err := s.env.StartInstance(startInstArgs)
-	c.Assert(err, gc.ErrorMatches, "failed to start instance in provided availability zone")
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
 
 	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "Close")
 	createVMCall1 := s.client.Calls()[1]

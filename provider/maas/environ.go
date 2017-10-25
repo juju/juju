@@ -904,7 +904,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		availabilityZone = args.AvailabilityZone
 		if err := common.ValidateAvailabilityZone(environ, availabilityZone); err != nil {
 			logger.Errorf(err.Error())
-			return nil, environs.ErrAvailabilityZoneFailed
+			return nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
 		}
 	}
 

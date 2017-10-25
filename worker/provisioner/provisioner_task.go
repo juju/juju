@@ -116,7 +116,7 @@ func NewProvisionerTask(
 	}
 	// Get existing machine distributions.
 	err = task.populateAvailabilityZoneMachines()
-	if err != nil && !errors.IsNotImplemented(err) {
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return task, nil
@@ -731,7 +731,8 @@ type AvailabilityZoneMachine struct {
 
 // populateAvailabilityZoneMachines fills in the map, availabilityZoneMachines,
 // if empty, with a current mapping of availability zone to IDs of machines
-// running in that zone.
+// running in that zone.  If the provider does not implement the ZonedEnviron
+// interface, return nil.
 func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 	task.azMachinesMutex.Lock()
 	defer task.azMachinesMutex.Unlock()
@@ -742,8 +743,8 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 
 	zonedEnv, ok := task.broker.(providercommon.ZonedEnviron)
 	if !ok {
-		// Nothing to do if the provider doesn't implement AvailabilityZones
-		return errors.NotImplementedf("Provider ZonedEnviron")
+		// Nothing to do if the provider doesn't implement AvailabilityZonesAllocations
+		return nil
 	}
 
 	// In this case, AvailabilityZoneAllocations() will return all of the "available"
@@ -1043,7 +1044,7 @@ func (task *provisionerTask) startMachine(
 		var retryMsg string
 		// If the failure of StartInstance() is due the availability zone,
 		// find a new one to use when retrying.
-		if err == environs.ErrAvailabilityZoneFailed {
+		if errors.Cause(err) == environs.ErrAvailabilityZoneFailed {
 			if !distributeAcrossZones {
 				// User specified availability zone failed, nothing to retry.
 				task.removeMachineFromAZMap(machine)

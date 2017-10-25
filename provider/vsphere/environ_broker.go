@@ -214,7 +214,7 @@ func (env *sessionEnviron) newRawInstance(
 	if err != nil {
 		logger.Warningf("failed to get availability zone %s: %s", zone, err)
 
-		return nil, nil, environs.ErrAvailabilityZoneFailed
+		return nil, nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
 	}
 	createVMArgs.ComputeResource = &availZone.(*vmwareAvailZone).r
 
@@ -222,7 +222,7 @@ func (env *sessionEnviron) newRawInstance(
 	if err != nil {
 		logger.Warningf("failed to create instance in availability zone %s: %s", zone, err)
 
-		return nil, nil, environs.ErrAvailabilityZoneFailed
+		return nil, nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
 	}
 
 	hw := &instance.HardwareCharacteristics{

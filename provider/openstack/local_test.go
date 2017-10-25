@@ -1982,16 +1982,12 @@ func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnavailable(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unavailable")
-	// check error logs?
-	//c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
-	c.Assert(err, gc.ErrorMatches, "failed to start instance in provided availability zone")
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
-	// check error logs?
-	//c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
-	c.Assert(err, gc.ErrorMatches, "failed to start instance in provided availability zone")
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
 }
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {

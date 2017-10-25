@@ -1551,6 +1551,41 @@ func assertAvailabilityZoneMachines(c *gc.C,
 	}
 }
 
+func assertAvailabilityZoneMachinesDistribution(c *gc.C, obtained []*provisioner.AvailabilityZoneMachine) {
+	// Are the machines evenly distributed?  No zone should have
+	// 2 machines more than any other zone.
+	min, max := 1, 0
+	for _, zone := range obtained {
+		count := zone.MachineIds.Size()
+		if min > count {
+			min = count
+		}
+		if max < count {
+			max = count
+		}
+	}
+	c.Assert(max-min, jc.LessThan, 2)
+}
+
+func checkAvailabilityZoneMachinesDistributionGroups(c *gc.C, groups map[names.MachineTag][]string, obtained []*provisioner.AvailabilityZoneMachine) error {
+	// Machines in a distribution group should not be in the same
+	// AZ, unless there are more machines in the group, than AZs.
+	for tag, group := range groups {
+		for _, z := range obtained {
+			if z.MachineIds.Contains(tag.Id()) {
+				intersection := z.MachineIds.Intersection(set.NewStrings(group...))
+				size := intersection.Size()
+				if size == 0 || (len(group)/len(obtained) == size) {
+					break
+				} else {
+					return errors.Errorf("%+v has too many of %s and %s", z.MachineIds, tag.Id(), group)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachines(c *gc.C) {
 	// Per provider dummy, there will be 3 available availability zones.
 	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
@@ -1560,7 +1595,9 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkStartInstances(c, machines)
 
-	assertAvailabilityZoneMachines(c, machines, nil, provisioner.GetAvailabilityZoneMachines(task))
+	availabilityZoneMachines := provisioner.GetAvailabilityZoneMachines(task)
+	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines)
 }
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailures(c *gc.C) {
@@ -1582,28 +1619,33 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailures(c
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkStartInstances(c, machines)
 
-	assertAvailabilityZoneMachines(c, machines, []*state.Machine{machines[1]}, provisioner.GetAvailabilityZoneMachines(task))
+	availabilityZoneMachines := provisioner.GetAvailabilityZoneMachines(task)
+	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines)
 }
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesWithDG(c *gc.C) {
 	// Per provider dummy, there will be 3 available availability zones.
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	dgFinder := &mockDistributionGroupFinder{groups: map[names.MachineTag][]string{
-		names.NewMachineTag("1"): []string{"4, 3"},
+		names.NewMachineTag("1"): []string{"3, 4"},
 		names.NewMachineTag("2"): []string{},
-		names.NewMachineTag("3"): []string{"4, 1"},
+		names.NewMachineTag("3"): []string{"1, 4"},
 		names.NewMachineTag("4"): []string{"1, 3"},
+		names.NewMachineTag("5"): []string{},
 	}}
 
 	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, dgFinder, mockToolsFinder{})
 	defer stop(c, task)
 
-	machines, err := s.addMachines(4)
+	machines, err := s.addMachines(5)
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkStartInstances(c, machines)
 
 	// 1, 2, 4 should be in different zones
-	assertAvailabilityZoneMachines(c, machines, nil, provisioner.GetAvailabilityZoneMachines(task))
+	availabilityZoneMachines := provisioner.GetAvailabilityZoneMachines(task)
+	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
+	c.Assert(checkAvailabilityZoneMachinesDistributionGroups(c, dgFinder.groups, availabilityZoneMachines), jc.ErrorIsNil)
 }
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailuresWithDG(c *gc.C) {
@@ -1617,21 +1659,24 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailuresWi
 		},
 	}
 	dgFinder := &mockDistributionGroupFinder{groups: map[names.MachineTag][]string{
-		names.NewMachineTag("4"): []string{"1"},
-		names.NewMachineTag("1"): []string{"4"},
+		names.NewMachineTag("1"): []string{"4", "5"},
 		names.NewMachineTag("2"): []string{"3"},
 		names.NewMachineTag("3"): []string{"2"},
+		names.NewMachineTag("4"): []string{"1", "5"},
+		names.NewMachineTag("5"): []string{"1", "4"},
 	}}
 	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 2)
 	task := s.newProvisionerTaskWithRetryStrategy(c, config.HarvestDestroyed,
 		e, s.provisioner, dgFinder, mockToolsFinder{}, retryStrategy)
 	defer stop(c, task)
 
-	machines, err := s.addMachines(4)
+	machines, err := s.addMachines(5)
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkStartInstances(c, machines)
 
-	assertAvailabilityZoneMachines(c, machines, []*state.Machine{machines[1]}, provisioner.GetAvailabilityZoneMachines(task))
+	availabilityZoneMachines := provisioner.GetAvailabilityZoneMachines(task)
+	assertAvailabilityZoneMachines(c, machines, []*state.Machine{machines[1]}, availabilityZoneMachines)
+	c.Assert(checkAvailabilityZoneMachinesDistributionGroups(c, dgFinder.groups, availabilityZoneMachines), jc.ErrorIsNil)
 }
 
 func (s *ProvisionerSuite) TestProvisioningMachinesSingleMachineDGFailure(c *gc.C) {
@@ -1639,22 +1684,25 @@ func (s *ProvisionerSuite) TestProvisioningMachinesSingleMachineDGFailure(c *gc.
 	// ensure the other machines are still provisioned.
 	dgFinder := &mockDistributionGroupFinder{
 		groups: map[names.MachineTag][]string{
-			names.NewMachineTag("4"): []string{"1"}, // 4
-			names.NewMachineTag("2"): []string{"3"}, // 2
-			names.NewMachineTag("3"): []string{"2"}, // 3
+			names.NewMachineTag("2"): []string{"3", "5"},
+			names.NewMachineTag("3"): []string{"2", "5"},
+			names.NewMachineTag("4"): []string{"1"},
+			names.NewMachineTag("5"): []string{"2", "3"},
 		},
 	}
 	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, dgFinder, mockToolsFinder{})
 	defer stop(c, task)
 
-	machines, err := s.addMachines(4)
+	machines, err := s.addMachines(5)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkStartInstances(c, machines[1:])
 	_, err = machines[0].InstanceId()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 
-	assertAvailabilityZoneMachines(c, machines[1:], nil, provisioner.GetAvailabilityZoneMachines(task))
+	availabilityZoneMachines := provisioner.GetAvailabilityZoneMachines(task)
+	assertAvailabilityZoneMachines(c, machines[1:], nil, availabilityZoneMachines)
+	c.Assert(checkAvailabilityZoneMachinesDistributionGroups(c, dgFinder.groups, availabilityZoneMachines), jc.ErrorIsNil)
 }
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStopMachines(c *gc.C) {
@@ -1666,7 +1714,9 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStopMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkStartInstances(c, machines)
 
-	assertAvailabilityZoneMachines(c, machines, nil, provisioner.GetAvailabilityZoneMachines(task))
+	availabilityZoneMachines := provisioner.GetAvailabilityZoneMachines(task)
+	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines)
 
 	c.Assert(machines[0].EnsureDead(), gc.IsNil)
 	s.waitForRemovalMark(c, machines[0])
@@ -1694,7 +1744,9 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailMachine(c *gc.C) {
 	_, err = mFail.InstanceId()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 
-	assertAvailabilityZoneMachines(c, machines, nil, provisioner.GetAvailabilityZoneMachines(task))
+	availabilityZoneMachines := provisioner.GetAvailabilityZoneMachines(task)
+	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachines)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachines)
 }
 
 func (s *ProvisionerSuite) TestAvailabilityZoneMachinesRestartTask(c *gc.C) {
@@ -1706,15 +1758,44 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesRestartTask(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkStartInstances(c, machines)
 
-	expected := provisioner.GetAvailabilityZoneMachines(task)
-	assertAvailabilityZoneMachines(c, machines, nil, expected)
+	availabilityZoneMachinesBefore := provisioner.GetAvailabilityZoneMachines(task)
+	assertAvailabilityZoneMachines(c, machines, nil, availabilityZoneMachinesBefore)
+	assertAvailabilityZoneMachinesDistribution(c, availabilityZoneMachinesBefore)
 
 	stop(c, task)
 	newTask := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
 	defer stop(c, newTask)
 
-	// Did the provisionerTask.AvailabilityZoneMachines get rebuilt was it was.
-	assertAvailabilityZoneMachines(c, machines, nil, expected)
+	availabilityZoneMachinesAfter := provisioner.GetAvailabilityZoneMachines(task)
+	c.Assert(availabilityZoneMachinesBefore, gc.DeepEquals, availabilityZoneMachinesAfter)
+}
+
+func (s *ProvisionerSuite) TestProvisioningMachinesNoZonedEnviron(c *gc.C) {
+	// Make sure the provisioner still works for providers which do no
+	// implement the ZonedEnviron interface.
+	noZonedEnvironBroker := &mockNoZonedEnvironBroker{Environ: s.Environ}
+	task := s.newProvisionerTask(c,
+		config.HarvestDestroyed,
+		noZonedEnvironBroker,
+		s.provisioner,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{})
+	defer stop(c, task)
+
+	machines, err := s.addMachines(4)
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkStartInstances(c, machines)
+
+	expected := provisioner.GetAvailabilityZoneMachines(task)
+	c.Assert(expected, gc.HasLen, 0)
+}
+
+type mockNoZonedEnvironBroker struct {
+	environs.Environ
+}
+
+func (b *mockNoZonedEnvironBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	return b.Environ.StartInstance(args)
 }
 
 type mockBroker struct {
@@ -1730,9 +1811,9 @@ type mockBrokerFailures struct {
 }
 
 func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	// All machines except machines 3, 4 are provisioned successfully the first time.
-	// Machines 3 is provisioned after some attempts have been made.
-	// Machine 4 is never provisioned.
+	// All machines are provisioned successfully the first time unless
+	// mock.failureInfo is configured.
+	//
 	id := args.InstanceConfig.MachineId
 	// record ids so we can call checkStartInstance in the appropriate order.
 	b.ids = append(b.ids, id)
@@ -1743,13 +1824,11 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs
 		whenSucceed = failureInfo.whenSucceed
 		returnError = failureInfo.err
 	}
-	//if (id != "3" && id != "4") || retries > 2 {
 	if retries == whenSucceed {
 		return b.Environ.StartInstance(args)
 	} else {
 		b.retryCount[id] = retries + 1
 	}
-	//return nil, fmt.Errorf("error: some error")
 	return nil, returnError
 }
 
