@@ -78,6 +78,10 @@ type upgradeJujuCommand struct {
 	ResetPrevious bool
 	AssumeYes     bool
 
+	// IgnoreAgentVersions is used to allow an admin to request an agent version without waiting for all agents to be at the right
+	// version.
+	IgnoreAgentVersions bool
+
 	// minMajorUpgradeVersion maps known major numbers to
 	// the minimum version that can be upgraded to that
 	// major version.  For example, users must be running
@@ -101,6 +105,8 @@ func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
 	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
 	f.BoolVar(&c.AssumeYes, "yes", false, "")
+	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
+		"Don't check if all agents have already reached the current version (old controllers will ignore this flag see juju-force-upgrade)")
 }
 
 func (c *upgradeJujuCommand) Init(args []string) error {
@@ -170,7 +176,7 @@ type upgradeJujuAPI interface {
 	FindTools(majorVersion, minorVersion int, series, arch string) (result params.FindToolsResult, err error)
 	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error)
 	AbortCurrentUpgrade() error
-	SetModelAgentVersion(version version.Number) error
+	SetModelAgentVersion(version version.Number, ignoreAgentVersion bool) error
 	Close() error
 }
 
@@ -363,7 +369,8 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 				return block.ProcessBlockedError(err, block.BlockChange)
 			}
 		}
-		if err := client.SetModelAgentVersion(context.chosen); err != nil {
+		logger.Criticalf("**********   SetModelAgentVersion: %s %t", context.chosen.String(), c.IgnoreAgentVersions)
+		if err := client.SetModelAgentVersion(context.chosen, c.IgnoreAgentVersions); err != nil {
 			if params.IsCodeUpgradeInProgress(err) {
 				return errors.Errorf("%s\n\n"+
 					"Please wait for the upgrade to complete or if there was a problem with\n"+

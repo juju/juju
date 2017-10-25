@@ -256,7 +256,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesntStartUpgrade(c *gc.C) {
 	// This test checks when a controller is upgrading and one of
 	// the other controllers doesn't signal it is ready in time.
 
-	err := s.State.SetModelAgentVersion(jujuversion.Current)
+	err := s.State.SetModelAgentVersion(jujuversion.Current, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The master controller in this scenario is functionally tested

@@ -527,7 +527,7 @@ func (s *clientSuite) TestSetModelAgentVersionDuringUpgrade(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machine.Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.APIState.Client().SetModelAgentVersion(nextVersion)
+	err = s.APIState.Client().SetModelAgentVersion(nextVersion, false)
 
 	// Expect an error with a error code that indicates this specific
 	// situation. The client needs to be able to reliably identify
