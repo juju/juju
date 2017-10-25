@@ -237,27 +237,49 @@ func (client *client) claimLeaseOps(name string, request lease.Request) ([]txn.O
 	if err != nil {
 		return nil, entry{}, errors.Annotate(err, "refreshing global time")
 	}
-	nextEntry := entry{
-		holder:   request.Holder,
-		start:    globalTime,
-		duration: request.Duration,
-		writer:   client.config.Id,
-	}
 
-	// We need to write the entry to the database in a specific format.
-	leaseDoc, err := newLeaseDoc(client.config.Namespace, name, nextEntry)
+	return claimLeaseOps(
+		client.config.Namespace, name, request.Holder,
+		client.config.Id, client.config.Collection,
+		globalTime, request.Duration,
+	)
+}
+
+// ClaimLeaseOps returns txn.Ops to write a new lease. The txn.Ops
+// will fail if the lease document exists, regardless of whether it
+// has expired.
+func ClaimLeaseOps(
+	namespace, name, holder, writer, collection string,
+	globalTime time.Time, duration time.Duration,
+) ([]txn.Op, error) {
+	ops, _, err := claimLeaseOps(
+		namespace, name, holder, writer, collection,
+		globalTime, duration,
+	)
+	return ops, errors.Trace(err)
+}
+
+func claimLeaseOps(
+	namespace, name, holder, writer, collection string,
+	globalTime time.Time, duration time.Duration,
+) ([]txn.Op, entry, error) {
+	newEntry := entry{
+		holder:   holder,
+		start:    globalTime,
+		duration: duration,
+		writer:   writer,
+	}
+	leaseDoc, err := newLeaseDoc(namespace, name, newEntry)
 	if err != nil {
 		return nil, entry{}, errors.Trace(err)
 	}
 	claimLeaseOp := txn.Op{
-		C:      client.config.Collection,
+		C:      collection,
 		Id:     leaseDoc.Id,
 		Assert: txn.DocMissing,
 		Insert: leaseDoc,
 	}
-
-	ops := []txn.Op{claimLeaseOp}
-	return ops, nextEntry, nil
+	return []txn.Op{claimLeaseOp}, newEntry, nil
 }
 
 // extendLeaseOps returns the []txn.Op necessary to extend the supplied lease

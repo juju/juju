@@ -25,3 +25,9 @@ func (s *steps23Suite) TestAddModelType(c *gc.C) {
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
+
+func (s *steps23Suite) TestMigrateLeases(c *gc.C) {
+	step := findStateStep(c, v23, "migrate old leases")
+	// Logic for step itself is tested in state package.
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}

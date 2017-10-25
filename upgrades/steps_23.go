@@ -13,5 +13,12 @@ func stateStepsFor23() []Step {
 				return context.State().AddModelType()
 			},
 		},
+		&upgradeStep{
+			description: "migrate old leases",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().MigrateLeasesToGlobalTime()
+			},
+		},
 	}
 }

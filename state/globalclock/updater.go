@@ -121,3 +121,9 @@ func readClock(coll mongo.Collection) (time.Time, error) {
 	}
 	return doc.time(), nil
 }
+
+// GlobalEpoch returns the global clock's epoch, an arbitrary reference time
+// at which the global clock started.
+func GlobalEpoch() time.Time {
+	return globalEpoch
+}
