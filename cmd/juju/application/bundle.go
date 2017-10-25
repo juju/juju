@@ -118,7 +118,7 @@ func deployBundle(
 	if err := h.handleChanges(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return h.csMacs, nil
+	return h.macaroons, nil
 
 }
 
@@ -130,6 +130,10 @@ type bundleHandler struct {
 	bundleDir string
 	// changes holds the changes to be applied in order to deploy the bundle.
 	changes []bundlechanges.Change
+
+	// applications are all the applications defined in the bundle.
+	// Used primarily for iterating over sorted values.
+	applications set.Strings
 
 	// results collects data resulting from applying changes. Keys identify
 	// changes, values result from interacting with the environment, and are
@@ -173,8 +177,8 @@ type bundleHandler struct {
 
 	model *bundlechanges.Model
 
-	csMacs   map[*charm.URL]*macaroon.Macaroon
-	channels map[*charm.URL]csparams.Channel
+	macaroons map[*charm.URL]*macaroon.Macaroon
+	channels  map[*charm.URL]csparams.Channel
 
 	// watcher holds an environment mega-watcher used to keep the environment
 	// status up to date.
@@ -196,9 +200,14 @@ func makeBundleHandler(
 	data *charm.BundleData,
 	bundleStorage map[string]map[string]storage.Constraints,
 ) *bundleHandler {
+	applications := set.NewStrings()
+	for name := range data.Applications {
+		applications.Add(name)
+	}
 	return &bundleHandler{
 		dryRun:        dryRun,
 		bundleDir:     bundleDir,
+		applications:  applications,
 		results:       make(map[string]string),
 		channel:       channel,
 		api:           api,
@@ -206,7 +215,7 @@ func makeBundleHandler(
 		ctx:           ctx,
 		data:          data,
 		unitStatus:    make(map[string]string),
-		csMacs:        make(map[*charm.URL]*macaroon.Macaroon),
+		macaroons:     make(map[*charm.URL]*macaroon.Macaroon),
 		channels:      make(map[*charm.URL]csparams.Channel),
 	}
 }
@@ -225,9 +234,8 @@ func (h *bundleHandler) makeModel() error {
 	}
 	logger.Debugf("model: %s", pretty.Sprint(h.model))
 
-	// XXX: We should be able not need unitStatus if we use the model.
-	for _, serviceData := range status.Applications {
-		for unit, unitData := range serviceData.Units {
+	for _, appData := range status.Applications {
+		for unit, unitData := range appData.Units {
 			h.unitStatus[unit] = unitData.Machine
 		}
 	}
@@ -256,13 +264,14 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 
 	deployedApps := set.NewStrings()
 
-	for name, spec := range h.data.Applications {
+	for _, name := range h.applications.SortedValues() {
+		spec := h.data.Applications[name]
 		app := h.model.GetApplication(name)
 		if app != nil {
 			deployedApps.Add(name)
 
 			if h.isLocalCharm(spec.Charm) {
-				logger.Debugf("%s exists in model and is local, replacing with %q", name, app.Charm)
+				logger.Debugf("%s exists in model uses a local charm, replacing with %q", name, app.Charm)
 				// Replace with charm from model
 				spec.Charm = app.Charm
 				continue
@@ -331,27 +340,25 @@ func (h *bundleHandler) handleChanges() error {
 		fmt.Fprintf(h.ctx.Stdout, "- %s\n", change.Description())
 		switch change := change.(type) {
 		case *bundlechanges.AddCharmChange:
-			err = h.addCharm(change.Id(), change.Params)
+			err = h.addCharm(change)
 		case *bundlechanges.AddMachineChange:
-			err = h.addMachine(change.Id(), change.Params)
+			err = h.addMachine(change)
 		case *bundlechanges.AddRelationChange:
-			err = h.addRelation(change.Id(), change.Params)
+			err = h.addRelation(change)
 		case *bundlechanges.AddApplicationChange:
-			err = h.addApplication(change.Id(), change.Params)
+			err = h.addApplication(change)
 		case *bundlechanges.AddUnitChange:
-			err = h.addUnit(change.Id(), change.Params)
+			err = h.addUnit(change)
 		case *bundlechanges.ExposeChange:
-			err = h.exposeService(change.Id(), change.Params)
+			err = h.exposeApplication(change)
 		case *bundlechanges.SetAnnotationsChange:
-			err = h.setAnnotations(change.Id(), change.Params)
+			err = h.setAnnotations(change)
 		case *bundlechanges.UpgradeCharmChange:
-			// TODO(thumper): fix the charm upgrade handling.
-			// For now these are filtered out.
-			err = h.upgradeCharm(change.Id(), change.Params)
+			err = h.upgradeCharm(change)
 		case *bundlechanges.SetOptionsChange:
-			err = h.setOptions(change.Id(), change.Params)
+			err = h.setOptions(change)
 		case *bundlechanges.SetConstraintsChange:
-			err = h.setConstraints(change.Id(), change.Params)
+			err = h.setConstraints(change)
 		default:
 			return errors.Errorf("unknown change type: %T", change)
 		}
@@ -372,10 +379,12 @@ func (h *bundleHandler) isLocalCharm(name string) bool {
 }
 
 // addCharm adds a charm to the environment.
-func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) error {
+func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if h.dryRun {
 		return nil
 	}
+	id := change.Id()
+	p := change.Params
 	// First attempt to interpret as a local path.
 	if h.isLocalCharm(p.Charm) {
 		charmPath := p.Charm
@@ -414,14 +423,14 @@ func (h *bundleHandler) addCharm(id string, p bundlechanges.AddCharmParams) erro
 	if url.Series == "bundle" {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
-	var csMac *macaroon.Macaroon
-	url, csMac, err = addCharmFromURL(h.api, url, channel)
+	var macaroon *macaroon.Macaroon
+	url, macaroon, err = addCharmFromURL(h.api, url, channel)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
 	logger.Debugf("added charm %s", url)
 	h.results[id] = url.String()
-	h.csMacs[url] = csMac
+	h.macaroons[url] = macaroon
 	h.channels[url] = channel
 	return nil
 }
@@ -441,11 +450,13 @@ func (h *bundleHandler) makeResourceMap(storeResources map[string]int, localReso
 }
 
 // addApplication deploys an application with no units.
-func (h *bundleHandler) addApplication(id string, p bundlechanges.AddApplicationParams) error {
+func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChange) error {
 	// TODO: add verbose output for details
 	if h.dryRun {
 		return nil
 	}
+
+	p := change.Params
 	cURL, err := charm.ParseURL(resolve(p.Charm, h.results))
 	if err != nil {
 		return errors.Trace(err)
@@ -455,9 +466,9 @@ func (h *bundleHandler) addApplication(id string, p bundlechanges.AddApplication
 		URL:     cURL,
 		Channel: h.channels[cURL],
 	}
-	csMac := h.csMacs[cURL]
+	macaroon := h.macaroons[cURL]
 
-	h.results[id] = p.Application
+	h.results[change.Id()] = p.Application
 	ch := chID.URL.String()
 
 	// Handle application configuration.
@@ -501,7 +512,7 @@ func (h *bundleHandler) addApplication(id string, p bundlechanges.AddApplication
 	resNames2IDs, err := resourceadapters.DeployResources(
 		p.Application,
 		chID,
-		csMac,
+		macaroon,
 		resources,
 		charmInfo.Meta.Resources,
 		h.api,
@@ -556,7 +567,8 @@ func (h *bundleHandler) writeAddedResources(resNames2IDs map[string]string) {
 }
 
 // addMachine creates a new top-level machine or container in the environment.
-func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) error {
+func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error {
+	p := change.Params
 	var verbose []string
 	if p.Series != "" {
 		verbose = append(verbose, fmt.Sprintf("with series %q", p.Series))
@@ -571,13 +583,16 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 		return nil
 	}
 
-	apps := h.applicationsForMachineChange(id)
-	// Note that we always have at least one application that justifies the
-	// creation of this machine.
-	msg := apps[0] + " unit"
+	deployedApps := func() string {
+		apps := h.applicationsForMachineChange(change.Id())
+		// Note that we always have at least one application that justifies the
+		// creation of this machine.
+		msg := apps[0] + " unit"
 
-	if count := len(apps); count != 1 {
-		msg = strings.Join(apps[:count-1], ", ") + " and " + apps[count-1] + " units"
+		if count := len(apps); count != 1 {
+			msg = strings.Join(apps[:count-1], ", ") + " and " + apps[count-1] + " units"
+		}
+		return msg
 	}
 
 	cons, err := constraints.Parse(p.Constraints)
@@ -605,42 +620,43 @@ func (h *bundleHandler) addMachine(id string, p bundlechanges.AddMachineParams) 
 		}
 		containerType, err := instance.ParseContainerType(ct)
 		if err != nil {
-			return errors.Annotatef(err, "cannot create machine for holding %s", msg)
+			return errors.Annotatef(err, "cannot create machine for holding %s", deployedApps())
 		}
 		machineParams.ContainerType = containerType
 		if p.ParentId != "" {
 			logger.Debugf("p.ParentId: %q", p.ParentId)
 			machineParams.ParentId, err = h.resolveMachine(p.ParentId)
 			if err != nil {
-				return errors.Annotatef(err, "cannot retrieve parent placement for %s", msg)
+				return errors.Annotatef(err, "cannot retrieve parent placement for %s", deployedApps())
 			}
 		}
 	}
 	logger.Debugf("machineParams: %s", pretty.Sprint(machineParams))
 	r, err := h.api.AddMachines([]params.AddMachineParams{machineParams})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create machine for holding %s", msg)
+		return errors.Annotatef(err, "cannot create machine for holding %s", deployedApps())
 	}
 	if r[0].Error != nil {
-		return errors.Annotatef(r[0].Error, "cannot create machine for holding %s", msg)
+		return errors.Annotatef(r[0].Error, "cannot create machine for holding %s", deployedApps())
 	}
 	machine := r[0].Machine
 	if p.ContainerType == "" {
-		logger.Debugf("created new machine %s for holding %s", machine, msg)
+		logger.Debugf("created new machine %s for holding %s", machine, deployedApps())
 	} else if p.ParentId == "" {
-		logger.Debugf("created %s container in new machine for holding %s", machine, msg)
+		logger.Debugf("created %s container in new machine for holding %s", machine, deployedApps())
 	} else {
-		logger.Debugf("created %s container in machine %s for holding %s", machine, machineParams.ParentId, msg)
+		logger.Debugf("created %s container in machine %s for holding %s", machine, machineParams.ParentId, deployedApps())
 	}
-	h.results[id] = machine
+	h.results[change.Id()] = machine
 	return nil
 }
 
 // addRelation creates a relationship between two services.
-func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams) error {
+func (h *bundleHandler) addRelation(change *bundlechanges.AddRelationChange) error {
 	if h.dryRun {
 		return nil
 	}
+	p := change.Params
 	ep1 := resolveRelation(p.Endpoint1, h.results)
 	ep2 := resolveRelation(p.Endpoint2, h.results)
 	// TODO(wallyworld) - CMR support in bundles
@@ -658,10 +674,12 @@ func (h *bundleHandler) addRelation(id string, p bundlechanges.AddRelationParams
 }
 
 // addUnit adds a single unit to an application already present in the environment.
-func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error {
+func (h *bundleHandler) addUnit(change *bundlechanges.AddUnitChange) error {
 	if h.dryRun {
 		return nil
 	}
+
+	p := change.Params
 	applicationName := resolve(p.Application, h.results)
 	var err error
 	var placementArg []*instance.Placement
@@ -704,10 +722,10 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 		// In this case, the unit name is stored in results instead of the
 		// machine id, which is lazily evaluated later only if required.
 		// This way we avoid waiting for watcher updates.
-		h.results[id] = unit
+		h.results[change.Id()] = unit
 	} else {
 		logger.Debugf("added %s unit to new machine", unit)
-		h.results[id] = targetMachine
+		h.results[change.Id()] = targetMachine
 	}
 
 	// Note that the targetMachine can be empty for now, resulting in a partially
@@ -718,11 +736,12 @@ func (h *bundleHandler) addUnit(id string, p bundlechanges.AddUnitParams) error 
 }
 
 // upgradeCharm will get the application to use the new charm.
-func (h *bundleHandler) upgradeCharm(id string, p bundlechanges.UpgradeCharmParams) error {
+func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) error {
 	if h.dryRun {
 		return nil
 	}
 
+	p := change.Params
 	cURL, err := charm.ParseURL(resolve(p.Charm, h.results))
 	if err != nil {
 		return errors.Trace(err)
@@ -732,7 +751,7 @@ func (h *bundleHandler) upgradeCharm(id string, p bundlechanges.UpgradeCharmPara
 		URL:     cURL,
 		Channel: h.channels[cURL],
 	}
-	csMac := h.csMacs[cURL]
+	macaroon := h.macaroons[cURL]
 
 	resources := h.makeResourceMap(p.Resources, p.LocalResources)
 
@@ -749,7 +768,7 @@ func (h *bundleHandler) upgradeCharm(id string, p bundlechanges.UpgradeCharmPara
 		resNames2IDs, err = resourceadapters.DeployResources(
 			p.Application,
 			chID,
-			csMac,
+			macaroon,
 			resources,
 			filtered,
 			h.api,
@@ -772,7 +791,8 @@ func (h *bundleHandler) upgradeCharm(id string, p bundlechanges.UpgradeCharmPara
 }
 
 // setOptions updates application configuration settings.
-func (h *bundleHandler) setOptions(id string, p bundlechanges.SetOptionsParams) error {
+func (h *bundleHandler) setOptions(change *bundlechanges.SetOptionsChange) error {
+	p := change.Params
 	h.ctx.Verbosef("  setting options:")
 	for key, value := range p.Options {
 		switch value.(type) {
@@ -803,10 +823,11 @@ func (h *bundleHandler) setOptions(id string, p bundlechanges.SetOptionsParams) 
 }
 
 // setConstraints updates application constraints.
-func (h *bundleHandler) setConstraints(id string, p bundlechanges.SetConstraintsParams) error {
+func (h *bundleHandler) setConstraints(change *bundlechanges.SetConstraintsChange) error {
 	if h.dryRun {
 		return nil
 	}
+	p := change.Params
 	// We know that p.Constraints is a valid constraints type due to the validation.
 	cons, _ := constraints.Parse(p.Constraints)
 	if err := h.api.SetConstraints(p.Application, cons); err != nil {
@@ -817,12 +838,13 @@ func (h *bundleHandler) setConstraints(id string, p bundlechanges.SetConstraints
 	return nil
 }
 
-// exposeService exposes an application.
-func (h *bundleHandler) exposeService(id string, p bundlechanges.ExposeParams) error {
+// exposeApplication exposes an application.
+func (h *bundleHandler) exposeApplication(change *bundlechanges.ExposeChange) error {
 	if h.dryRun {
 		return nil
 	}
-	application := resolve(p.Application, h.results)
+
+	application := resolve(change.Params.Application, h.results)
 	if err := h.api.Expose(application); err != nil {
 		return errors.Annotatef(err, "cannot expose application %s", application)
 	}
@@ -830,7 +852,8 @@ func (h *bundleHandler) exposeService(id string, p bundlechanges.ExposeParams) e
 }
 
 // setAnnotations sets annotations for an application or a machine.
-func (h *bundleHandler) setAnnotations(id string, p bundlechanges.SetAnnotationsParams) error {
+func (h *bundleHandler) setAnnotations(change *bundlechanges.SetAnnotationsChange) error {
+	p := change.Params
 	h.ctx.Verbosef("  setting annotations:")
 	for key, value := range p.Annotations {
 		h.ctx.Verbosef("    %s: %q", key, value)
@@ -969,7 +992,7 @@ func resolveRelation(e string, results map[string]string) string {
 // by a unique incremental number.
 //
 // Now that the bundlechanges library understands the existing model, if the
-// entity already existed in the model, the placehodler value is the actual
+// entity already existed in the model, the placeholder value is the actual
 // entity from the model, and in these situations the placeholder value doesn't
 // start with the '$'.
 func resolve(placeholder string, results map[string]string) string {
@@ -1248,7 +1271,7 @@ func buildModelRepresentation(status *params.FullStatus, apiRoot DeployAPI) (*bu
 	}
 	for _, relation := range status.Relations {
 		// All relations have two endpoints except peers.
-		if count := len(relation.Endpoints); count != 2 {
+		if len(relation.Endpoints) != 2 {
 			continue
 		}
 		model.Relations = append(model.Relations, bundlechanges.Relation{

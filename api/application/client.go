@@ -205,7 +205,7 @@ func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error)
 
 // describeV5 will take the results of describeV4 from the apiserver
 // and remove the "default" boolean, and add in "source".
-// Mutates and resturns the config map.
+// Mutates and returns the config map.
 func describeV5(config map[string]interface{}) (map[string]interface{}, error) {
 	for _, value := range config {
 		vMap, ok := value.(map[string]interface{})

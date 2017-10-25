@@ -126,8 +126,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissi
 		"cannot add application \"mysql\": unknown space \"db\" not valid")
 	c.Assert(stdErr, gc.Equals, ""+
 		`Located bundle "cs:bundle/wordpress-with-endpoint-bindings-1"`+"\n"+
-		"Resolving charm: wordpress-extra-bindings\n"+
-		"Resolving charm: mysql")
+		"Resolving charm: mysql\n"+
+		"Resolving charm: wordpress-extra-bindings")
 	c.Assert(stdOut, gc.Equals, ""+
 		"Executing changes:\n"+
 		"- upload charm cs:xenial/mysql-42 for series xenial\n"+
@@ -201,8 +201,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 	c.Check(stdOut, gc.Equals, "")
 	c.Check(stdErr, gc.Equals, ""+
 		"Located bundle \"cs:bundle/wordpress-simple-1\"\n"+
-		"Resolving charm: wordpress\n"+
 		"Resolving charm: mysql\n"+
+		"Resolving charm: wordpress\n"+
 		"No changes to apply.",
 	)
 
