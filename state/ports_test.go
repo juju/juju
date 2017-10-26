@@ -106,6 +106,22 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 		},
 		expected: "",
 	}, {
+		about:    "open and close icmp",
+		existing: nil,
+		open: &state.PortRange{
+			FromPort: -1,
+			ToPort:   -1,
+			UnitName: s.unit1.Name(),
+			Protocol: "ICMP",
+		},
+		close: &state.PortRange{
+			FromPort: -1,
+			ToPort:   -1,
+			UnitName: s.unit1.Name(),
+			Protocol: "ICMP",
+		},
+		expected: "",
+	}, {
 		about: "try to close part of a port range",
 		existing: []state.PortRange{{
 			FromPort: 100,
@@ -297,6 +313,22 @@ func (s *PortsDocSuite) TestAllPortRanges(c *gc.C) {
 	c.Assert(ranges, gc.HasLen, 1)
 
 	c.Assert(ranges[network.PortRange{100, 200, "TCP"}], gc.Equals, s.unit1.Name())
+}
+
+func (s *PortsDocSuite) TestICMP(c *gc.C) {
+	portRange := state.PortRange{
+		FromPort: -1,
+		ToPort:   -1,
+		UnitName: s.unit1.Name(),
+		Protocol: "ICMP",
+	}
+	err := s.portsWithoutSubnet.OpenPorts(portRange)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ranges := s.portsWithoutSubnet.AllPortRanges()
+	c.Assert(ranges, gc.HasLen, 1)
+
+	c.Assert(ranges[network.PortRange{-1, -1, "ICMP"}], gc.Equals, s.unit1.Name())
 }
 
 func (s *PortsDocSuite) TestOpenInvalidRange(c *gc.C) {
@@ -587,6 +619,10 @@ func (p *PortRangeSuite) TestPortRangeString(c *gc.C) {
 	c.Assert(state.PortRange{"wordpress/0", 80, 100, "TCP"}.String(),
 		gc.Equals,
 		`80-100/tcp ("wordpress/0")`,
+	)
+	c.Assert(state.PortRange{"wordpress/0", -1, -1, "ICMP"}.String(),
+		gc.Equals,
+		`icmp ("wordpress/0")`,
 	)
 }
 

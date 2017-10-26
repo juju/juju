@@ -56,11 +56,17 @@ func NewPortRange(unitName string, fromPort, toPort int, protocol string) (PortR
 // Validate checks if the port range is valid.
 func (p PortRange) Validate() error {
 	proto := strings.ToLower(p.Protocol)
-	if proto != "tcp" && proto != "udp" {
+	if proto != "tcp" && proto != "udp" && proto != "icmp" {
 		return errors.Errorf("invalid protocol %q", proto)
 	}
 	if !names.IsValidUnit(p.UnitName) {
 		return errors.Errorf("invalid unit %q", p.UnitName)
+	}
+	if proto == "icmp" {
+		if p.FromPort == p.ToPort && p.FromPort == -1 {
+			return nil
+		}
+		return errors.Errorf(`protocol "icmp" doesn't support any ports; got "%v"`, p.FromPort)
 	}
 	if p.FromPort > p.ToPort {
 		return errors.Errorf("invalid port range %d-%d", p.FromPort, p.ToPort)
@@ -87,6 +93,9 @@ func (a PortRange) Length() int {
 // valid range from 1 to 65535, inclusive.
 func (a PortRange) SanitizeBounds() PortRange {
 	b := a
+	if a.Protocol == "icmp" {
+		return b
+	}
 	if b.FromPort > b.ToPort {
 		b.FromPort, b.ToPort = b.ToPort, b.FromPort
 	}
@@ -127,7 +136,11 @@ func (prA PortRange) CheckConflicts(prB PortRange) error {
 
 // Strings returns the port range as a string.
 func (p PortRange) String() string {
-	return fmt.Sprintf("%d-%d/%s (%q)", p.FromPort, p.ToPort, strings.ToLower(p.Protocol), p.UnitName)
+	proto := strings.ToLower(p.Protocol)
+	if proto == "icmp" {
+		return fmt.Sprintf("%s (%q)", proto, p.UnitName)
+	}
+	return fmt.Sprintf("%d-%d/%s (%q)", p.FromPort, p.ToPort, proto, p.UnitName)
 }
 
 // portsDoc represents the state of ports opened on machines for networks
