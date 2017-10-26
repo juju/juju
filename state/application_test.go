@@ -1397,6 +1397,41 @@ func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
 	assertNoOffersRef(c, s.State, "mysql")
 }
 
+func (s *ApplicationSuite) TestDestroyApplicationRemoveOffers(c *gc.C) {
+	// Refcounts are zero initially.
+	assertNoOffersRef(c, s.State, "mysql")
+
+	ao := state.NewApplicationOffers(s.State)
+	_, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Endpoints:       map[string]string{"server": "server"},
+		Owner:           s.Owner.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertOffersRef(c, s.State, "mysql", 1)
+
+	_, err = ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "mysql-offer",
+		ApplicationName: "mysql",
+		Endpoints:       map[string]string{"server": "server"},
+		Owner:           s.Owner.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	assertOffersRef(c, s.State, "mysql", 2)
+
+	op := s.mysql.DestroyOperation()
+	op.RemoveOffers = true
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertNoOffersRef(c, s.State, "mysql")
+
+	offers, err := ao.AllApplicationOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(offers, gc.HasLen, 0)
+}
+
 func (s *ApplicationSuite) TestOffersRefRace(c *gc.C) {
 	addOffer := func() {
 		ao := state.NewApplicationOffers(s.State)

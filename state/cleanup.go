@@ -336,7 +336,9 @@ func (st *State) removeApplicationsForDyingModel() (err error) {
 	iter := applications.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading application document")
 	for iter.Next(&application.doc) {
-		if err := application.Destroy(); err != nil {
+		op := application.DestroyOperation()
+		op.RemoveOffers = true
+		if err := st.ApplyOperation(op); err != nil {
 			return errors.Trace(err)
 		}
 	}

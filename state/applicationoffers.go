@@ -146,13 +146,13 @@ func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.Applica
 func (s *applicationOffers) Remove(offerName string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot delete application offer %q", offerName)
 
-	var offer *crossmodel.ApplicationOffer
-	if offer, err = s.ApplicationOffer(offerName); err != nil {
+	offer, err := s.ApplicationOffer(offerName)
+	if err != nil {
 		return errors.Trace(err)
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			_, err := s.ApplicationOffer(offerName)
+			offer, err = s.ApplicationOffer(offerName)
 			if errors.IsNotFound(err) {
 				return nil, jujutxn.ErrNoOperations
 			}
@@ -173,6 +173,11 @@ func (s *applicationOffers) Remove(offerName string) (err error) {
 		if len(conns) > 0 {
 			return nil, errors.Errorf("offer has %d relation%s", len(conns), plural(len(conns)))
 		}
+		// TODO(axw) the relation counting logic here is flawed.
+		// The application could have a relation to some other
+		// application which is removed after the count is taken,
+		// and another relation (and offer connection) added to
+		// a remote application.
 		rels, err := app.Relations()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -180,36 +185,64 @@ func (s *applicationOffers) Remove(offerName string) (err error) {
 		if len(rels) != app.doc.RelationCount {
 			return nil, jujutxn.ErrTransientFailure
 		}
-		return s.removeOps(offerName, app.doc.RelationCount)
-	}
-	err = s.st.db().Run(buildTxn)
-	return errors.Trace(err)
-}
-
-// removeOps returns the operations required to remove the record for offerName.
-func (s *applicationOffers) removeOps(offerName string, relCount int) ([]txn.Op, error) {
-	offer, err := s.ApplicationOffer(offerName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	decRefOp, err := decApplicationOffersRefOp(s.st, offer.ApplicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	relCountAssert := bson.D{{"relationcount", relCount}}
-	relCountOp := txn.Op{
-		C:      applicationsC,
-		Id:     offer.ApplicationName,
-		Assert: relCountAssert,
-	}
-
-	return []txn.Op{
-		{
+		decRefOp, err := decApplicationOffersRefOp(s.st, offer.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops := []txn.Op{{
+			C:      applicationsC,
+			Id:     offer.ApplicationName,
+			Assert: bson.D{{"relationcount", app.doc.RelationCount}},
+		}, {
 			C:      applicationOffersC,
-			Id:     offerName,
+			Id:     offer.OfferName,
 			Assert: txn.DocExists,
 			Remove: true,
-		}, decRefOp, relCountOp}, nil
+		}, decRefOp}
+		return ops, nil
+	}
+	return errors.Trace(s.st.db().Run(buildTxn))
+}
+
+// removeApplicationOffersOps returns txn.Ops that will remove all offers for
+// the specified application. No assertions on the application or the offer
+// connections are made; the caller is responsible for ensuring that offer
+// connections have already been removed, or will be removed along with the
+// offers.
+func removeApplicationOffersOps(st *State, application string) ([]txn.Op, error) {
+	// Check how many offer refs there are. If there are none, there's
+	// nothing more to do. If there are refs, we assume that the number
+	// if refs is the same as what we find below. If there is a
+	// discrepancy, then it'll result in a transaction failure, and
+	// we'll retry.
+	countRefsOp, n, err := countApplicationOffersRefOp(st, application)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n == 0 {
+		return []txn.Op{countRefsOp}, nil
+	}
+
+	applicationOffersCollection, closer := st.db().GetCollection(applicationOffersC)
+	defer closer()
+	query := bson.D{{"application-name", application}}
+	var docs []applicationOfferDoc
+	if err := applicationOffersCollection.Find(query).All(&docs); err != nil {
+		return nil, errors.Annotatef(err, "reading application %q offers", application)
+	}
+
+	var ops []txn.Op
+	for _, doc := range docs {
+		ops = append(ops, txn.Op{
+			C:      applicationOffersC,
+			Id:     doc.OfferName,
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+	}
+	offerRefCountKey := applicationOffersRefCountKey(application)
+	removeRefsOp := nsRefcounts.JustRemoveOp(refcountsC, offerRefCountKey, len(docs))
+	return append(ops, removeRefsOp), nil
 }
 
 var errDuplicateApplicationOffer = errors.Errorf("application offer already exists")
