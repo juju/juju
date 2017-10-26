@@ -156,6 +156,11 @@ type DestroyApplicationOperation struct {
 	// to units of the application are destroyed. If this is false,
 	// then detachable storage will be detached and left in the model.
 	DestroyStorage bool
+
+	// RemoveOffers controls whether or not application offers
+	// are removed. If this is false, then the operation will
+	// fail if there are any offers remaining.
+	RemoveOffers bool
 }
 
 // Build is part of the ModelOperation interface.
@@ -167,7 +172,7 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 			return nil, err
 		}
 	}
-	ops, err := op.app.destroyOps(op.DestroyStorage)
+	ops, err := op.app.destroyOps(op.DestroyStorage, op.RemoveOffers)
 	switch err {
 	case errRefresh:
 		return nil, jujutxn.ErrTransientFailure
@@ -187,7 +192,7 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 // destroyOps returns the operations required to destroy the application. If it
 // returns errRefresh, the application should be refreshed and the destruction
 // operations recalculated.
-func (a *Application) destroyOps(destroyStorage bool) ([]txn.Op, error) {
+func (a *Application) destroyOps(destroyStorage, removeOffers bool) ([]txn.Op, error) {
 	if a.doc.Life == Dying {
 		return nil, errAlreadyDying
 	}
@@ -226,11 +231,16 @@ func (a *Application) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 	ops = append(ops, resOps...)
 
 	// We can't delete an application if it is being offered.
-	zeroOffers, err := zeroApplicationOffersRefOp(a.st, a.Name())
-	if err != nil {
-		return nil, errors.Trace(err)
+	if !removeOffers {
+		countOp, n, err := countApplicationOffersRefOp(a.st, a.Name())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if n != 0 {
+			return nil, errors.Errorf("application is used by %d offer%s", n, plural(n))
+		}
+		ops = append(ops, countOp)
 	}
-	ops = append(ops, zeroOffers)
 
 	// If the application has no units, and all its known relations will be
 	// removed, the application can also be removed.
@@ -300,14 +310,20 @@ func removeResourcesOps(st *State, applicationID string) ([]txn.Op, error) {
 // removeOps returns the operations required to remove the application. Supplied
 // asserts will be included in the operation on the application document.
 func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
-	ops := []txn.Op{
-		{
-			C:      applicationsC,
-			Id:     a.doc.DocID,
-			Assert: asserts,
-			Remove: true,
-		},
+	ops := []txn.Op{{
+		C:      applicationsC,
+		Id:     a.doc.DocID,
+		Assert: asserts,
+		Remove: true,
+	}}
+
+	// Remove application offers.
+	removeOfferOps, err := removeApplicationOffersOps(a.st, a.doc.Name)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	ops = append(ops, removeOfferOps...)
+
 	// Note that appCharmDecRefOps might not catch the final decref
 	// when run in a transaction that decrefs more than once. So we
 	// avoid attempting to do the final cleanup in the ref dec ops and
@@ -1431,20 +1447,13 @@ func incApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) 
 	return incRefOp, errors.Trace(err)
 }
 
-// zeroApplicationOffersRefOp returns a txn.Op that ensures that the offer
-// refcount remains at zero, and an error if it is not zero to start with.
-func zeroApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) {
+// countApplicationOffersRefOp returns the number of offers for an application,
+// along with a txn.Op that ensures that that does not change.
+func countApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, int, error) {
 	refcounts, closer := mb.db().GetCollection(refcountsC)
 	defer closer()
 	key := applicationOffersRefCountKey(appName)
-	op, current, err := nsRefcounts.CurrentOp(refcounts, key)
-	if err != nil {
-		return op, errors.Trace(err)
-	}
-	if current > 0 {
-		return op, errors.Errorf("application is used by %d offer%s", current, plural(current))
-	}
-	return op, nil
+	return nsRefcounts.CurrentOp(refcounts, key)
 }
 
 // decApplicationOffersRefOp returns a txn.Op that decrements the reference

@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo/mongotest"
@@ -936,6 +937,36 @@ func (s *ModelSuite) TestDestroyModelEmpty(c *gc.C) {
 	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(m.Refresh(), jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, state.Dead)
+}
+
+func (s *ModelSuite) TestDestroyModelWithApplicationOffers(c *gc.C) {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	app := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+
+	ao := state.NewApplicationOffers(s.State)
+	offer, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Endpoints:       map[string]string{"server": "server"},
+		Owner:           s.Owner.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.Destroy(state.DestroyModelParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.Refresh(), jc.ErrorIsNil)
+	c.Assert(m.Life(), gc.Equals, state.Dying)
+
+	// Run the cleanups, check that the application and offer are
+	// both removed.
+	assertCleanupCount(c, s.State, 2)
+
+	_, err = ao.ApplicationOffer(offer.OfferName)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = app.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ModelSuite) TestProcessDyingServerModelTransitionDyingToDead(c *gc.C) {
