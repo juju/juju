@@ -1854,3 +1854,54 @@ func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaul
 		expectUpgradedData{settingsColl, expectedSettings},
 	)
 }
+
+func (s *upgradesSuite) TestMigrateLeasesToGlobalTime(c *gc.C) {
+	leases, closer := s.state.db().GetRawCollection(leasesC)
+	defer closer()
+
+	// Use the non-controller model to ensure we can run the function
+	// across multiple models.
+	otherState := s.makeModel(c, "crack-up", testing.Attrs{})
+	defer otherState.Close()
+
+	uuid := otherState.ModelUUID()
+
+	err := leases.Insert(bson.M{
+		"_id":        uuid + ":some-garbage",
+		"model-uuid": uuid,
+	}, bson.M{
+		"_id":        uuid + ":clock#some-namespace#some-name#",
+		"model-uuid": uuid,
+		"type":       "clock",
+	}, bson.M{
+		"_id":        uuid + ":lease#some-namespace#some-name#",
+		"model-uuid": uuid,
+		"type":       "lease",
+		"namespace":  "some-namespace",
+		"name":       "some-name",
+		"holder":     "hand",
+		"expiry":     "later",
+		"writer":     "ghost",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// - garbage doc is left alone has it has no "type" field
+	// - clock doc is removed, but no replacement required
+	// - lease doc is removed and replaced
+	expectedLeases := []bson.M{{
+		"_id":        uuid + ":some-garbage",
+		"model-uuid": uuid,
+	}, bson.M{
+		"_id":        uuid + ":some-namespace#some-name#",
+		"model-uuid": uuid,
+		"namespace":  "some-namespace",
+		"name":       "some-name",
+		"holder":     "hand",
+		"start":      int64(0),
+		"duration":   int64(time.Minute),
+		"writer":     "ghost",
+	}}
+	s.assertUpgradedData(c, MigrateLeasesToGlobalTime,
+		expectUpgradedData{leases, expectedLeases},
+	)
+}

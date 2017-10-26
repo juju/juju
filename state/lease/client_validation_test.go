@@ -47,18 +47,18 @@ func (s *ClientValidationSuite) TestNewClientMongo(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "missing mongo")
 }
 
-func (s *ClientValidationSuite) TestNewClientClock(c *gc.C) {
+func (s *ClientValidationSuite) TestNewClientLocalClock(c *gc.C) {
 	fix := s.EasyFixture(c)
-	fix.Config.Clock = nil
+	fix.Config.LocalClock = nil
 	_, err := lease.NewClient(fix.Config)
-	c.Check(err, gc.ErrorMatches, "missing clock")
+	c.Check(err, gc.ErrorMatches, "missing local clock")
 }
 
-func (s *ClientValidationSuite) TestNewMonotonicClock(c *gc.C) {
+func (s *ClientValidationSuite) TestNewClientGlobalClock(c *gc.C) {
 	fix := s.EasyFixture(c)
-	fix.Config.MonotonicNow = nil
+	fix.Config.GlobalClock = nil
 	_, err := lease.NewClient(fix.Config)
-	c.Check(err, gc.ErrorMatches, "missing monotonic clock")
+	c.Check(err, gc.ErrorMatches, "missing global clock")
 }
 
 func (s *ClientValidationSuite) TestClaimLeaseName(c *gc.C) {

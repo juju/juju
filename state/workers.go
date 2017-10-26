@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	jworker "github.com/juju/juju/worker"
@@ -57,38 +58,40 @@ func newWorkers(st *State) (*workers, error) {
 		return presence.NewPingBatcher(st.getPresenceCollection(), pingFlushInterval), nil
 	})
 	ws.StartWorker(leadershipWorker, func() (worker.Worker, error) {
-		client, err := st.getLeadershipLeaseClient()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		manager, err := lease.NewManager(lease.ManagerConfig{
-			Secretary: leadershipSecretary{},
-			Client:    client,
-			Clock:     ws.state.clock(),
-			MaxSleep:  time.Minute,
-		})
+		manager, err := st.newLeaseManager(st.getLeadershipLeaseClient, leadershipSecretary{})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return manager, nil
 	})
 	ws.StartWorker(singularWorker, func() (worker.Worker, error) {
-		client, err := ws.state.getSingularLeaseClient()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		manager, err := lease.NewManager(lease.ManagerConfig{
-			Secretary: singularSecretary{st.ModelUUID()},
-			Client:    client,
-			Clock:     st.clock(),
-			MaxSleep:  time.Minute,
-		})
+		manager, err := st.newLeaseManager(st.getSingularLeaseClient, singularSecretary{st.ModelUUID()})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return manager, nil
 	})
 	return ws, nil
+}
+
+func (st *State) newLeaseManager(
+	getClient func() (corelease.Client, error),
+	secretary lease.Secretary,
+) (worker.Worker, error) {
+	client, err := getClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	manager, err := lease.NewManager(lease.ManagerConfig{
+		Secretary: secretary,
+		Client:    client,
+		Clock:     st.clock(),
+		MaxSleep:  time.Minute,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return manager, nil
 }
 
 func (ws *workers) txnLogWatcher() *watcher.Watcher {

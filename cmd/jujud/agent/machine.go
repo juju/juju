@@ -1925,6 +1925,17 @@ type MongoSessioner interface {
 	MongoSession() *mgo.Session
 }
 
+// TODO(axw) 2017-10-24 #1726680
+//
+// We are still using MongoDB mastership to ensure that we
+// run a single txnlogpruner worker, and a single dblogpruner
+// worker. We should update worker/singular and API facade to
+// support claiming for the entire controller, rather rather
+// than a specific model, and use that to run controller-wide
+// singular workers.
+//
+// When we move over to worker/singular, remove the Mongo bits
+// from worker/singular that shouldn't be there anyway.
 func newSingularStateRunner(runner *worker.Runner, st MongoSessioner, m *state.Machine) (jworker.Runner, error) {
 	singularStateConn := singularStateConn{st.MongoSession(), m}
 	singularRunner, err := newSingularRunner(runner, singularStateConn)

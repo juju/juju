@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -21,7 +20,6 @@ import (
 // NewClient returns a new Client using the supplied config, or an error. Any
 // of the following situations will prevent client creation:
 //  * invalid config
-//  * invalid clock data stored in the namespace
 //  * invalid lease data stored in the namespace
 // ...but a returned Client will hold a recent cache of lease data and be ready
 // to use.
@@ -36,9 +34,6 @@ func NewClient(config ClientConfig) (lease.Client, error) {
 	client := &client{
 		config: config,
 		logger: logger,
-	}
-	if err := client.ensureClockDoc(); err != nil {
-		return nil, errors.Trace(err)
 	}
 	if err := client.Refresh(); err != nil {
 		return nil, errors.Trace(err)
@@ -58,18 +53,21 @@ type client struct {
 	// entries records recent information about leases.
 	entries map[string]entry
 
-	// skews records recent information about remote writers' clocks.
-	skews map[string]Skew
+	// globalTime records the most recently obtained global clock time.
+	globalTime time.Time
 }
 
 // Leases is part of the lease.Client interface.
 func (client *client) Leases() map[string]lease.Info {
+	localTime := client.config.LocalClock.Now()
 	leases := make(map[string]lease.Info)
 	for name, entry := range client.entries {
-		skew := client.skews[entry.writer]
+		globalExpiry := entry.start.Add(entry.duration)
+		remaining := globalExpiry.Sub(client.globalTime)
+		localExpiry := localTime.Add(remaining)
 		leases[name] = lease.Info{
 			Holder:   entry.holder,
-			Expiry:   skew.Latest(entry.expiry),
+			Expiry:   localExpiry,
 			Trapdoor: client.assertOpTrapdoor(name, entry.holder),
 		}
 	}
@@ -105,7 +103,7 @@ func (client *client) request(name string, request lease.Request, getOps opsFunc
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
-			if err := client.Refresh(); err != nil {
+			if err := client.refresh(false); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -148,7 +146,7 @@ func (client *client) ExpireLease(name string) error {
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
-			if err := client.Refresh(); err != nil {
+			if err := client.refresh(false); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -175,70 +173,25 @@ func (client *client) ExpireLease(name string) error {
 
 // Refresh is part of the Client interface.
 func (client *client) Refresh() error {
+	return client.refresh(true)
+}
+
+func (client *client) refresh(refreshGlobalTime bool) error {
 	client.logger.Tracef("refreshing")
 
-	// Always read entries before skews, because skews are written before
-	// entries; we increase the risk of reading older skew data, but (should)
-	// eliminate the risk of reading an entry whose writer is not present
-	// in the skews data.
 	collection, closer := client.config.Mongo.GetCollection(client.config.Collection)
 	defer closer()
 	entries, err := client.readEntries(collection)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	skews, err := client.readSkews(collection)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Check we're not missing any required clock information before
-	// updating our local state.
-	for name, entry := range entries {
-		if _, found := skews[entry.writer]; !found {
-			return errors.Errorf("lease %q invalid: no clock data for %s", name, entry.writer)
+	if refreshGlobalTime {
+		if _, err := client.refreshGlobalTime(); err != nil {
+			return errors.Trace(err)
 		}
 	}
-	client.skews = skews
 	client.entries = entries
 	return nil
-}
-
-// ensureClockDoc returns an error if it can neither find nor create a
-// valid clock document for the client's namespace.
-func (client *client) ensureClockDoc() error {
-	collection, closer := client.config.Mongo.GetCollection(client.config.Collection)
-	defer closer()
-
-	clockDocId := client.clockDocId()
-	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
-		client.logger.Tracef("checking clock %q (attempt %d)", clockDocId, attempt)
-		var clockDoc clockDoc
-		err := collection.FindId(clockDocId).One(&clockDoc)
-		switch err {
-		case nil:
-			client.logger.Tracef("clock already exists")
-			if err := clockDoc.validate(); err != nil {
-				return nil, errors.Annotatef(err, "corrupt clock document")
-			}
-			return nil, jujutxn.ErrNoOperations
-		case mgo.ErrNotFound:
-			client.logger.Tracef("creating clock")
-			newClockDoc, err := newClockDoc(client.config.Namespace)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			return []txn.Op{{
-				C:      client.config.Collection,
-				Id:     clockDocId,
-				Assert: txn.DocMissing,
-				Insert: newClockDoc,
-			}}, nil
-		default:
-			return nil, errors.Trace(err)
-		}
-	})
-	return errors.Trace(err)
 }
 
 // readEntries reads all lease data for the client's namespace.
@@ -246,7 +199,6 @@ func (client *client) readEntries(collection mongo.Collection) (map[string]entry
 
 	// Read all lease documents in the client's namespace.
 	query := bson.M{
-		fieldType:      typeLease,
 		fieldNamespace: client.config.Namespace,
 	}
 	iter := collection.Find(query).Iter()
@@ -257,6 +209,9 @@ func (client *client) readEntries(collection mongo.Collection) (map[string]entry
 	for iter.Next(&leaseDoc) {
 		name, entry, err := leaseDoc.entry()
 		if err != nil {
+			if err := iter.Close(); err != nil {
+				client.logger.Debugf("failed to close lease docs iterator: %s", err)
+			}
 			return nil, errors.Annotatef(err, "corrupt lease document %q", leaseDoc.Id)
 		}
 		entries[name] = entry
@@ -265,43 +220,6 @@ func (client *client) readEntries(collection mongo.Collection) (map[string]entry
 		return nil, errors.Trace(err)
 	}
 	return entries, nil
-}
-
-// readSkews reads all clock data for the client's namespace.
-func (client *client) readSkews(collection mongo.Collection) (map[string]Skew, error) {
-
-	// Read the clock document, recording the time before and after completion.
-	beginning := client.config.Clock.Now()
-	startRead := client.config.MonotonicNow()
-	var clockDoc clockDoc
-	if err := collection.FindId(client.clockDocId()).One(&clockDoc); err != nil {
-		return nil, errors.Trace(err)
-	}
-	endRead := client.config.MonotonicNow()
-	if err := clockDoc.validate(); err != nil {
-		return nil, errors.Annotatef(err, "corrupt clock document")
-	}
-
-	// Create skew entries for each known writer...
-	readTime := endRead - startRead
-	skews, err := clockDoc.skews(beginning, beginning.Add(readTime))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// If a writer was previously known to us, and has not written since last
-	// time we read, we should keep the original skew, which is more accurate.
-	for writer, skew := range client.skews {
-		if skews[writer].LastWrite == skew.LastWrite {
-			skews[writer] = skew
-		}
-	}
-
-	// ...and overwrite our own with a zero skew, which will DTRT (assuming
-	// nobody's reusing client ids across machines with different clocks,
-	// which *should* never happen).
-	skews[client.config.Id] = Skew{}
-	return skews, nil
 }
 
 // claimLeaseOps returns the []txn.Op necessary to claim the supplied lease
@@ -315,32 +233,53 @@ func (client *client) claimLeaseOps(name string, request lease.Request) ([]txn.O
 		return nil, entry{}, lease.ErrInvalid
 	}
 
-	// According to the local clock, we want the lease to extend until
-	// <duration> in the future.
-	now := client.config.Clock.Now()
-	expiry := now.Add(request.Duration)
-	nextEntry := entry{
-		holder: request.Holder,
-		expiry: expiry,
-		writer: client.config.Id,
+	globalTime, err := client.refreshGlobalTime()
+	if err != nil {
+		return nil, entry{}, errors.Annotate(err, "refreshing global time")
 	}
 
-	// We need to write the entry to the database in a specific format.
-	leaseDoc, err := newLeaseDoc(client.config.Namespace, name, nextEntry)
+	return claimLeaseOps(
+		client.config.Namespace, name, request.Holder,
+		client.config.Id, client.config.Collection,
+		globalTime, request.Duration,
+	)
+}
+
+// ClaimLeaseOps returns txn.Ops to write a new lease. The txn.Ops
+// will fail if the lease document exists, regardless of whether it
+// has expired.
+func ClaimLeaseOps(
+	namespace, name, holder, writer, collection string,
+	globalTime time.Time, duration time.Duration,
+) ([]txn.Op, error) {
+	ops, _, err := claimLeaseOps(
+		namespace, name, holder, writer, collection,
+		globalTime, duration,
+	)
+	return ops, errors.Trace(err)
+}
+
+func claimLeaseOps(
+	namespace, name, holder, writer, collection string,
+	globalTime time.Time, duration time.Duration,
+) ([]txn.Op, entry, error) {
+	newEntry := entry{
+		holder:   holder,
+		start:    globalTime,
+		duration: duration,
+		writer:   writer,
+	}
+	leaseDoc, err := newLeaseDoc(namespace, name, newEntry)
 	if err != nil {
 		return nil, entry{}, errors.Trace(err)
 	}
-	extendLeaseOp := txn.Op{
-		C:      client.config.Collection,
+	claimLeaseOp := txn.Op{
+		C:      collection,
 		Id:     leaseDoc.Id,
 		Assert: txn.DocMissing,
 		Insert: leaseDoc,
 	}
-
-	// We always write a clock-update operation *before* writing lease info.
-	writeClockOp := client.writeClockOp(now)
-	ops := []txn.Op{writeClockOp, extendLeaseOp}
-	return ops, nextEntry, nil
+	return []txn.Op{claimLeaseOp}, newEntry, nil
 }
 
 // extendLeaseOps returns the []txn.Op necessary to extend the supplied lease
@@ -360,36 +299,24 @@ func (client *client) extendLeaseOps(name string, request lease.Request) ([]txn.
 		return nil, entry{}, lease.ErrInvalid
 	}
 
-	// According to the local clock, we want the lease to extend until
-	// <duration> in the future.
-	now := client.config.Clock.Now()
-	expiry := now.Add(request.Duration)
-
-	// We don't know what time the original writer thinks it is, but we
-	// can figure out the earliest and latest local times at which it
-	// could be expecting its original lease to expire.
-	skew := client.skews[lastEntry.writer]
-	if expiry.Before(skew.Earliest(lastEntry.expiry)) {
-		// The "extended" lease will certainly expire before the
-		// existing lease could. Done.
-		return nil, lastEntry, errNoExtension
+	globalTime, err := client.refreshGlobalTime()
+	if err != nil {
+		return nil, entry{}, errors.Annotate(err, "refreshing global time")
 	}
-	latestExpiry := skew.Latest(lastEntry.expiry)
-	if expiry.Before(latestExpiry) {
-		// The lease might be long enough, but we're not sure, so we'll
-		// write a new one that definitely is long enough; but we must
-		// be sure that the new lease has an expiry time such that no
-		// other writer can consider it to have expired before the
-		// original writer considers its own lease to have expired.
-		expiry = latestExpiry
+	expiry := globalTime.Add(request.Duration)
+	if !expiry.After(lastEntry.start.Add(lastEntry.duration)) {
+		// The "extended" lease expires at the same time as, or before,
+		// the existing lease. Done.
+		return nil, lastEntry, errNoExtension
 	}
 
 	// We know we need to write a lease; we know when it needs to expire; we
 	// know what needs to go into the local cache:
 	nextEntry := entry{
-		holder: lastEntry.holder,
-		expiry: expiry,
-		writer: client.config.Id,
+		holder:   lastEntry.holder,
+		start:    globalTime,
+		duration: request.Duration,
+		writer:   client.config.Id,
 	}
 
 	// ...and what needs to change in the database, and how to ensure the
@@ -398,19 +325,19 @@ func (client *client) extendLeaseOps(name string, request lease.Request) ([]txn.
 		C:  client.config.Collection,
 		Id: client.leaseDocId(name),
 		Assert: bson.M{
-			fieldLeaseHolder: lastEntry.holder,
-			fieldLeaseExpiry: toInt64(lastEntry.expiry),
-			fieldLeaseWriter: lastEntry.writer,
+			fieldHolder:   lastEntry.holder,
+			fieldStart:    toInt64(lastEntry.start),
+			fieldDuration: lastEntry.duration,
+			fieldWriter:   lastEntry.writer,
 		},
 		Update: bson.M{"$set": bson.M{
-			fieldLeaseExpiry: toInt64(expiry),
-			fieldLeaseWriter: client.config.Id,
+			fieldStart:    toInt64(globalTime),
+			fieldDuration: nextEntry.duration,
+			fieldWriter:   client.config.Id,
 		}},
 	}
 
-	// We always write a clock-update operation *before* writing lease info.
-	writeClockOp := client.writeClockOp(now)
-	ops := []txn.Op{writeClockOp, extendLeaseOp}
+	ops := []txn.Op{extendLeaseOp}
 	return ops, nextEntry, nil
 }
 
@@ -426,11 +353,15 @@ func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
 	}
 
 	// We also can't expire a lease whose expiry time may be in the future.
-	skew := client.skews[lastEntry.writer]
-	latestExpiry := skew.Latest(lastEntry.expiry)
-	now := client.config.Clock.Now()
-	if !now.After(latestExpiry) {
-		return nil, errors.Annotatef(lease.ErrInvalid, "lease %q expires in the future", name)
+	latestExpiry := lastEntry.start.Add(lastEntry.duration)
+	if !client.globalTime.After(latestExpiry) {
+		globalTime, err := client.refreshGlobalTime()
+		if err != nil {
+			return nil, errors.Annotate(err, "refreshing global time")
+		}
+		if !globalTime.After(latestExpiry) {
+			return nil, errors.Annotatef(lease.ErrInvalid, "lease %q expires in the future", name)
+		}
 	}
 
 	// The database change is simple, and depends on the lease doc being
@@ -439,40 +370,16 @@ func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
 		C:  client.config.Collection,
 		Id: client.leaseDocId(name),
 		Assert: bson.M{
-			fieldLeaseHolder: lastEntry.holder,
-			fieldLeaseExpiry: toInt64(lastEntry.expiry),
-			fieldLeaseWriter: lastEntry.writer,
+			fieldHolder:   lastEntry.holder,
+			fieldStart:    toInt64(lastEntry.start),
+			fieldDuration: lastEntry.duration,
+			fieldWriter:   lastEntry.writer,
 		},
 		Remove: true,
 	}
 
-	// We always write a clock-update operation *before* writing lease info.
-	// Removing a lease document counts as writing lease info.
-	writeClockOp := client.writeClockOp(now)
-	ops := []txn.Op{writeClockOp, expireLeaseOp}
+	ops := []txn.Op{expireLeaseOp}
 	return ops, nil
-}
-
-// writeClockOp returns a txn.Op which writes the supplied time to the writer's
-// field in the skew doc, and aborts if a more recent time has been recorded for
-// that writer.
-func (client *client) writeClockOp(now time.Time) txn.Op {
-	dbNow := toInt64(now)
-	dbKey := fmt.Sprintf("%s.%s", fieldClockWriters, client.config.Id)
-	return txn.Op{
-		C:  client.config.Collection,
-		Id: client.clockDocId(),
-		Assert: bson.M{
-			"$or": []bson.M{{
-				dbKey: bson.M{"$lte": dbNow},
-			}, {
-				dbKey: bson.M{"$exists": false},
-			}},
-		},
-		Update: bson.M{
-			"$set": bson.M{dbKey: dbNow},
-		},
-	}
 }
 
 // assertOpTrapdoor returns a lease.Trapdoor that will replace a supplied
@@ -482,7 +389,7 @@ func (client *client) assertOpTrapdoor(name, holder string) lease.Trapdoor {
 		C:  client.config.Collection,
 		Id: client.leaseDocId(name),
 		Assert: bson.M{
-			fieldLeaseHolder: holder,
+			fieldHolder: holder,
 		},
 	}
 	return func(out interface{}) error {
@@ -495,9 +402,15 @@ func (client *client) assertOpTrapdoor(name, holder string) lease.Trapdoor {
 	}
 }
 
-// clockDocId returns the id of the clock document in the client's namespace.
-func (client *client) clockDocId() string {
-	return clockDocId(client.config.Namespace)
+func (client *client) refreshGlobalTime() (time.Time, error) {
+	client.logger.Tracef("refreshing global time")
+	globalTime, err := client.config.GlobalClock.Now()
+	if err != nil {
+		return time.Time{}, errors.Trace(err)
+	}
+	client.logger.Tracef("global time is %s", globalTime)
+	client.globalTime = globalTime
+	return globalTime, nil
 }
 
 // leaseDocId returns the id of the named lease document in the client's
@@ -511,8 +424,12 @@ type entry struct {
 	// holder identifies the current holder of the lease.
 	holder string
 
-	// expiry is the (writer-local) time at which the lease is safe to remove.
-	expiry time.Time
+	// start is the global time at which the lease started.
+	start time.Time
+
+	// duration is the duration for which the lease is valid,
+	// from the start time.
+	duration time.Duration
 
 	// writer identifies the client that wrote the lease.
 	writer string

@@ -105,6 +105,7 @@ var (
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"clock",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",

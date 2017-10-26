@@ -49,6 +49,10 @@ func allCollections() collectionSchema {
 		// Infrastructure collections
 		// ==========================
 
+		globalClockC: {
+			global:    true,
+			rawAccess: true,
+		},
 		txnsC: {
 			// This collection is used exclusively by mgo/txn to record transactions.
 			global:    true,
@@ -487,6 +491,7 @@ const (
 	controllerUsersC         = "controllerusers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
+	globalClockC             = "globalclock"
 	globalSettingsC          = "globalSettings"
 	guimetadataC             = "guimetadata"
 	guisettingsC             = "guisettings"
