@@ -64,15 +64,17 @@ type AddCAASCommand struct {
 	context string
 
 	cloudMetadataStore    CloudMetadataStore
+	fileCredentialStore   jujuclient.CredentialStore
 	apiRoot               api.Connection
 	newCloudAPI           func(base.APICallCloser) CloudAPI
 	newClientConfigReader func(string) (caascfg.ClientConfigFunc, error)
 }
 
 // NewAddCAASCommand returns a command to add caas information.
-func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) *AddCAASCommand {
-	return &AddCAASCommand{
-		cloudMetadataStore: cloudMetadataStore,
+func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
+	cmd := &AddCAASCommand{
+		cloudMetadataStore:  cloudMetadataStore,
+		fileCredentialStore: jujuclient.NewFileCredentialStore(),
 		newCloudAPI: func(caller base.APICallCloser) CloudAPI {
 			return cloudapi.NewClient(caller)
 		},
@@ -80,14 +82,18 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) *AddCAASCommand {
 			return caascfg.NewClientConfigReader(caasType)
 		},
 	}
+	return modelcmd.Wrap(cmd)
 }
-func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) CloudAPI, newClientConfigReaderFunc func(string) (caascfg.ClientConfigFunc, error)) *AddCAASCommand {
-	return &AddCAASCommand{
+func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, fileCredentialStore jujuclient.CredentialStore, clientStore jujuclient.ClientStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) CloudAPI, newClientConfigReaderFunc func(string) (caascfg.ClientConfigFunc, error)) cmd.Command {
+	cmd := &AddCAASCommand{
 		cloudMetadataStore:    cloudMetadataStore,
+		fileCredentialStore:   fileCredentialStore,
 		apiRoot:               apiRoot,
 		newCloudAPI:           newCloudAPIFunc,
 		newClientConfigReader: newClientConfigReaderFunc,
 	}
+	cmd.SetClientStore(clientStore)
+	return modelcmd.Wrap(cmd)
 }
 
 // Info returns help information about the command.
@@ -154,11 +160,15 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	defaultCredential := caasConfig.Credentials[defaultContext.CredentialName]
 	defaultCloud := caasConfig.Clouds[defaultContext.CloudName]
 
-	newCloud := cloud.Cloud{
-		Name:     c.caasName,
-		Type:     c.caasType,
-		Endpoint: defaultCloud.Endpoint,
+	cloudConfig := map[string]interface{}{
+		"CAData": defaultCloud.Attributes["CAData"],
+	}
 
+	newCloud := cloud.Cloud{
+		Name:      c.caasName,
+		Type:      c.caasType,
+		Endpoint:  defaultCloud.Endpoint,
+		Config:    cloudConfig,
 		AuthTypes: []cloud.AuthType{defaultCredential.AuthType()},
 	}
 
@@ -172,7 +182,7 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := addCredentialToLocal(c.caasName, defaultCredential, defaultContext.CredentialName); err != nil {
+	if err := c.addCredentialToLocal(c.caasName, defaultCredential, defaultContext.CredentialName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -234,13 +244,12 @@ func addCloudToController(apiClient CloudAPI, newCloud cloud.Cloud) error {
 	return nil
 }
 
-func addCredentialToLocal(cloudName string, newCredential cloud.Credential, credentialName string) error {
-	store := jujuclient.NewFileCredentialStore()
+func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential cloud.Credential, credentialName string) error {
 	newCredentials := &cloud.CloudCredential{
 		AuthCredentials: make(map[string]cloud.Credential),
 	}
 	newCredentials.AuthCredentials[credentialName] = newCredential
-	err := store.UpdateCredential(cloudName, *newCredentials)
+	err := c.fileCredentialStore.UpdateCredential(cloudName, *newCredentials)
 	if err != nil {
 		return errors.Trace(err)
 	}
