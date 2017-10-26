@@ -46,7 +46,7 @@ func runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
 func (s *RemoveApplicationSuite) setupTestApplication(c *gc.C) {
 	// Destroy an application that exists.
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	_, err := runDeploy(c, ch, "multi-series")
+	err := runDeploy(c, ch, "multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -71,7 +71,7 @@ func (s *RemoveApplicationSuite) TestDestroyStorage(c *gc.C) {
 
 func (s *RemoveApplicationSuite) testStorageRemoval(c *gc.C, destroy bool) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
-	_, err := runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,modelscoped")
+	err := runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,modelscoped")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Materialise the storage by assigning units to machines.

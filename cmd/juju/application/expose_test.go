@@ -8,12 +8,11 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type ExposeSuite struct {
@@ -43,14 +42,9 @@ func (s *ExposeSuite) assertExposed(c *gc.C, application string) {
 }
 
 func (s *ExposeSuite) TestExpose(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	_, err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "some-application-name"})
 
-	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
-	s.AssertService(c, "some-application-name", curl, 1, 0)
-
-	err = runExpose(c, "some-application-name")
+	err := runExpose(c, "some-application-name")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertExposed(c, "some-application-name")
 
@@ -62,15 +56,11 @@ func (s *ExposeSuite) TestExpose(c *gc.C) {
 }
 
 func (s *ExposeSuite) TestBlockExpose(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	_, err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
-	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
-	s.AssertService(c, "some-application-name", curl, 1, 0)
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "some-application-name"})
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockExpose")
 
-	err = runExpose(c, "some-application-name")
+	err := runExpose(c, "some-application-name")
 	s.AssertBlocked(c, err, ".*TestBlockExpose.*")
 }

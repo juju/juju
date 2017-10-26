@@ -71,7 +71,10 @@ func (b *bundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 		// This should never happen as Verify only returns verification errors.
 		return results, errors.Annotate(err, "cannot verify bundle")
 	}
-	changes := bundlechanges.FromData(data)
+	changes, err := bundlechanges.FromData(data, nil)
+	if err != nil {
+		return results, err
+	}
 	results.Changes = make([]*params.BundleChange, len(changes))
 	for i, c := range changes {
 		results.Changes[i] = &params.BundleChange{

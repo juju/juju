@@ -673,12 +673,32 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 
 func (s *applicationSuite) TestGetConfig(c *gc.C) {
 	fooConfig := map[string]interface{}{
-		"name":   "foo",
-		"answer": 42,
-	}
+		"outlook": map[string]interface{}{
+			"description": "No default outlook.",
+			"source":      "unset",
+			"type":        "string",
+		},
+		"skill-level": map[string]interface{}{
+			"description": "A number indicating skill.",
+			"source":      "user",
+			"type":        "int",
+			"value":       42,
+		}}
 	barConfig := map[string]interface{}{
-		"name": "bar",
-		"key":  "value",
+		"title": map[string]interface{}{
+			"default":     "My Title",
+			"description": "A descriptive title used for the application.",
+			"source":      "user",
+			"type":        "string",
+			"value":       "bar",
+		},
+		"username": map[string]interface{}{
+			"default":     "admin001",
+			"description": "The name of the initial account (given admin permissions).",
+			"source":      "default",
+			"type":        "string",
+			"value":       "admin001",
+		},
 	}
 
 	client := application.NewClient(basetesting.BestVersionCaller{
@@ -712,12 +732,28 @@ func (s *applicationSuite) TestGetConfig(c *gc.C) {
 
 func (s *applicationSuite) TestGetConfigAPIv4(c *gc.C) {
 	fooConfig := map[string]interface{}{
-		"name":   "foo",
-		"answer": 42,
-	}
+		"outlook": map[string]interface{}{
+			"default":     true,
+			"description": "No default outlook.",
+			"type":        "string",
+		},
+		"skill-level": map[string]interface{}{
+			"description": "A number indicating skill.",
+			"type":        "int",
+			"value":       42,
+		}}
 	barConfig := map[string]interface{}{
-		"name": "bar",
-		"key":  "value",
+		"title": map[string]interface{}{
+			"description": "A descriptive title used for the application.",
+			"type":        "string",
+			"value":       "bar",
+		},
+		"username": map[string]interface{}{
+			"default":     true,
+			"description": "The name of the initial account (given admin permissions).",
+			"type":        "string",
+			"value":       "admin001",
+		},
 	}
 
 	client := application.NewClient(basetesting.BestVersionCaller{
@@ -744,10 +780,39 @@ func (s *applicationSuite) TestGetConfigAPIv4(c *gc.C) {
 		BestVersion: 4,
 	})
 
+	expectedFooConfig := map[string]interface{}{
+		"outlook": map[string]interface{}{
+			"description": "No default outlook.",
+			"source":      "unset",
+			"type":        "string",
+		},
+		"skill-level": map[string]interface{}{
+			"description": "A number indicating skill.",
+			"source":      "user",
+			"type":        "int",
+			"value":       42,
+		}}
+	expectedBarConfig := map[string]interface{}{
+		"title": map[string]interface{}{
+			// We can't infer the charm default.
+			"description": "A descriptive title used for the application.",
+			"source":      "user",
+			"type":        "string",
+			"value":       "bar",
+		},
+		"username": map[string]interface{}{
+			"default":     "admin001",
+			"description": "The name of the initial account (given admin permissions).",
+			"source":      "default",
+			"type":        "string",
+			"value":       "admin001",
+		},
+	}
+
 	results, err := client.GetConfig("foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []map[string]interface{}{
-		fooConfig, barConfig,
+		expectedFooConfig, expectedBarConfig,
 	})
 }
 
