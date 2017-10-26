@@ -110,7 +110,9 @@ func (c *sshInstanceConfigurator) ChangeIngressRules(ipAddress string, insert bo
 		insertArg = "-D"
 	}
 	for _, port := range rules {
-		if port.ToPort-port.FromPort > 0 {
+		if port.Protocol == "icmp" {
+			cmd += fmt.Sprintf("sudo iptables -d %s %s INPUT -p %s --icmp-type 8 -j ACCEPT\n", ipAddress, insertArg, port.Protocol)
+		} else if port.ToPort-port.FromPort > 0 {
 			cmd += fmt.Sprintf("sudo iptables -d %s %s INPUT -p %s --match multiport --dports %d:%d -j ACCEPT\n", ipAddress, insertArg, port.Protocol, port.FromPort, port.ToPort)
 		} else {
 
@@ -144,6 +146,7 @@ func (c *sshInstanceConfigurator) FindIngressRules() ([]network.IngressRule, err
 	//target     prot opt source               destination
 	//ACCEPT     tcp  --  0.0.0.0/0            192.168.0.1  multiport dports 3456:3458
 	//ACCEPT     tcp  --  0.0.0.0/0            192.168.0.2  tcp dpt:12345
+	//ACCEPT     icmp --  0.0.0.0/0            10.0.0.1     icmptype 8
 
 	res := make([]network.IngressRule, 0)
 	var addSinglePortRange = func(items []string) {
@@ -180,6 +183,10 @@ func (c *sshInstanceConfigurator) FindIngressRules() ([]network.IngressRule, err
 			continue
 		}
 		items := strings.Split(line, " ")
+		proto := strings.ToLower(items[1])
+		if proto == "icmp" && items[3] == "0.0.0.0/0" {
+			res = append(res, network.NewOpenIngressRule(proto, -1, -1))
+		}
 		if len(items) == 7 && items[0] == "ACCEPT" && items[3] == "0.0.0.0/0" {
 			addSinglePortRange(items)
 		}

@@ -56,7 +56,7 @@ func (s *PortsSuite) TestValidatePortRange(c *gc.C) {
 		about:     "invalid protocol - 1-65535/foo",
 		proto:     "foo",
 		ports:     []int{1, 65535},
-		expectErr: `invalid protocol "foo", expected "tcp" or "udp"`,
+		expectErr: `invalid protocol "foo", expected "tcp", "udp", or "icmp"`,
 	}, {
 		about: "valid range - 100-200/udp",
 		proto: "UDP",
@@ -164,7 +164,7 @@ func (s *PortsSuite) TestTryOpenPorts(c *gc.C) {
 	}, {
 		about:     "invalid protocol - 10-20/foo",
 		proto:     "foo",
-		expectErr: `invalid protocol "foo", expected "tcp" or "udp"`,
+		expectErr: `invalid protocol "foo", expected "tcp", "udp", or "icmp"`,
 	}, {
 		about:         "open a new range (no machine ports yet)",
 		expectPending: makePendingPorts("tcp", 10, 20, true),
@@ -226,7 +226,7 @@ func (s *PortsSuite) TestTryClosePorts(c *gc.C) {
 	}, {
 		about:     "invalid protocol - 10-20/foo",
 		proto:     "foo",
-		expectErr: `invalid protocol "foo", expected "tcp" or "udp"`,
+		expectErr: `invalid protocol "foo", expected "tcp", "udp", or "icmp"`,
 	}, {
 		about:         "close a new range (no machine ports yet; ignored)",
 		expectPending: map[context.PortRange]context.PortRangeInfo{},
