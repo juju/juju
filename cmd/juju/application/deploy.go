@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -305,6 +306,12 @@ type DeployCommand struct {
 	Bindings map[string]string
 	Steps    []DeployStep
 
+	// UseExisting machines when deploying the bundle.
+	UseExisting bool
+	// BundleMachines is a mapping for machines in the bundle to machines
+	// in the model.
+	BundleMachines map[string]string
+
 	// NewAPIRoot stores a function which returns a new API root.
 	NewAPIRoot func() (DeployAPI, error)
 
@@ -463,7 +470,7 @@ var (
 		"series", "to", "resource", "attach-storage",
 	}
 	// TODO(thumper): support dry-run for apps as well as bundles.
-	bundleOnlyFlags = []string{"bundle-config", "dry-run"}
+	bundleOnlyFlags = []string{"bundle-config", "dry-run", "use-existing-machines", "bundle-machine"}
 )
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -482,6 +489,9 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
+
+	f.BoolVar(&c.UseExisting, "use-existing-machines", false, "xx Just show what the bundle deploy would do")
+	f.Var(cmd.StringMap{&c.BundleMachines}, "bundle-machine", "xxx Resource to be uploaded to the controller")
 
 	for _, step := range c.Steps {
 		step.SetFlags(f)
@@ -511,6 +521,18 @@ func (c *DeployCommand) Init(args []string) error {
 	if err := c.parseBind(); err != nil {
 		return err
 	}
+
+	// If any bundle-machines have been added, make sure they are all non-
+	// negative integers.
+	for key, value := range c.BundleMachines {
+		if i, err := strconv.Atoi(key); err != nil || i < 0 {
+			return errors.Errorf("first value in %q must be a top level machine id", key)
+		}
+		if i, err := strconv.Atoi(value); err != nil || i < 0 {
+			return errors.Errorf("second value in %q must be a top level machine id", key)
+		}
+	}
+
 	return c.UnitCommandBase.Init(args)
 }
 
@@ -546,6 +568,8 @@ func (c *DeployCommand) deployBundle(
 		ctx,
 		bundleStorage,
 		c.DryRun,
+		c.UseExisting,
+		c.BundleMachines,
 	); err != nil {
 		return errors.Annotate(err, "cannot deploy bundle")
 	}
