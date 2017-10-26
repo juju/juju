@@ -116,7 +116,8 @@ func NewProvisionerTask(
 	}
 	// Get existing machine distributions.
 	err = task.populateAvailabilityZoneMachines()
-	if err != nil {
+	// Not all providers implement ZonedEnviron
+	if err != nil && !errors.IsNotImplemented(err) {
 		return nil, errors.Trace(err)
 	}
 	return task, nil
@@ -867,9 +868,7 @@ func (b byPopulationThenNames) Swap(i, j int) {
 }
 
 // startMachines starts a goroutine for each specified machine to
-// start it.  The specified machines are provided the name of the
-// first availability zone to try.  Errors from individual start
-// machine attempts will be logged.
+// start it.  Errors from individual start machine attempts will be logged.
 func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
 	if len(machines) == 0 {
 		return nil
@@ -906,24 +905,13 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 		wg.Add(1)
 		go func(machine *apiprovisioner.Machine, dg []string, index int) {
 			defer wg.Done()
-			v, err := machine.ModelAgentVersion()
-			if err != nil {
-				errMachines[index] = errors.Trace(err)
-				return
-			}
-			pInfo, startInstanceParams, err := task.setupToStartMachine(machine, v)
-			if err != nil {
-				return
-			}
-			if err := task.startMachine(machine, pInfo, startInstanceParams, dg); err != nil {
+			if err := task.startMachine(machine, dg); err != nil {
 				task.removeMachineFromAZMap(machine)
 				errMachines[index] = err
 			}
 		}(m, machineDistributionGroups[i].MachineIds, i)
 	}
 
-	// TODO ProvisionerParallelization 2017-10-09
-	// Is this necessary?
 	wg.Wait()
 	var errorStrings []string
 	for _, err := range errMachines {
@@ -939,7 +927,8 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisioner.Machine, err error) error {
 	logger.Errorf(message, machine, err)
-	if err2 := machine.SetInstanceStatus(status.ProvisioningError, err.Error(), nil); err2 != nil {
+	errForStatus := errors.Cause(err)
+	if err2 := machine.SetInstanceStatus(status.ProvisioningError, errForStatus.Error(), nil); err2 != nil {
 		// Something is wrong with this machine, better report it back.
 		return errors.Annotatef(err2, "cannot set error status for machine %q", machine)
 	}
@@ -949,20 +938,17 @@ func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisio
 // setupToStartMachine gathers the nessecessary information, based on the specified
 // machine, to create ProvisioningInfo and StartInstanceParms to be used by startMachine.
 func (task *provisionerTask) setupToStartMachine(machine *apiprovisioner.Machine, version *version.Number) (
-	*params.ProvisioningInfo,
 	environs.StartInstanceParams,
 	error,
 ) {
 	pInfo, err := machine.ProvisioningInfo()
 	if err != nil {
-		task.setErrorStatus("fetching provisioning info for machine %q: %v", machine, err)
-		return nil, environs.StartInstanceParams{}, err
+		return environs.StartInstanceParams{}, errors.Annotatef(err, "fetching provisioning info for machine %q", machine)
 	}
 
 	instanceCfg, err := task.constructInstanceConfig(machine, task.auth, pInfo)
 	if err != nil {
-		task.setErrorStatus("creating instance config for machine %q: %v", machine, err)
-		return nil, environs.StartInstanceParams{}, err
+		return environs.StartInstanceParams{}, errors.Annotatef(err, "creating instance config for machine %q", machine)
 	}
 
 	assocProvInfoAndMachCfg(pInfo, instanceCfg)
@@ -978,8 +964,7 @@ func (task *provisionerTask) setupToStartMachine(machine *apiprovisioner.Machine
 		arch,
 	)
 	if err != nil {
-		task.setErrorStatus("cannot find tools for machine %q: %v", machine, err)
-		return nil, environs.StartInstanceParams{}, err
+		return environs.StartInstanceParams{}, errors.Annotatef(err, "cannot find tools for machine %q", machine)
 	}
 
 	startInstanceParams, err := task.constructStartInstanceParams(
@@ -990,20 +975,30 @@ func (task *provisionerTask) setupToStartMachine(machine *apiprovisioner.Machine
 		possibleTools,
 	)
 	if err != nil {
-		task.removeMachineFromAZMap(machine)
-		task.setErrorStatus("cannot construct params for machine %q: %v", machine, err)
-		return nil, environs.StartInstanceParams{}, err
+		return environs.StartInstanceParams{}, errors.Annotatef(err, "cannot construct params for machine %q", machine)
 	}
 
-	return pInfo, startInstanceParams, nil
+	return startInstanceParams, nil
 }
 
 func (task *provisionerTask) startMachine(
 	machine *apiprovisioner.Machine,
-	provisioningInfo *params.ProvisioningInfo,
-	startInstanceParams environs.StartInstanceParams,
 	distributionGroupMachineIds []string,
 ) error {
+	v, err := machine.ModelAgentVersion()
+	if err != nil {
+		return err
+	}
+
+	startInstanceParams, err := task.setupToStartMachine(machine, v)
+	if err != nil {
+		// Attempt to future proof the AZMap with call to
+		// removeMachineFromAZMap(), and prevent the map becoming
+		// inconsistent
+		task.removeMachineFromAZMap(machine)
+		return task.setErrorStatus("%v", machine, err)
+	}
+
 	// TODO (jam): 2017-01-19 Should we be setting this earlier in the cycle?
 	if err := machine.SetInstanceStatus(status.Provisioning, "starting", nil); err != nil {
 		logger.Errorf("%v", err)
@@ -1051,7 +1046,6 @@ func (task *provisionerTask) startMachine(
 			}
 			azRemaining, err2 := task.markMachineFailedInAZ(machine, startInstanceParams.AvailabilityZone)
 			if err2 != nil {
-				task.removeMachineFromAZMap(machine)
 				if err = task.setErrorStatus("cannot start instance: %v", machine, err2); err != nil {
 					logger.Errorf("setting error status: %s", err)
 				}
@@ -1101,7 +1095,6 @@ func (task *provisionerTask) startMachine(
 		volumeNameToAttachmentInfo,
 	); err != nil {
 		// We need to stop the instance right away here, set error status and go on.
-		task.removeMachineFromAZMap(machine)
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
 			logger.Errorf("%v", errors.Annotate(err2, "cannot set machine's status"))
 		}
