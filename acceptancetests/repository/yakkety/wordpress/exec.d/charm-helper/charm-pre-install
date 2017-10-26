@@ -1,5 +1,0 @@
-#!/bin/bash
-
-SCRIPT=$(readlink -f $0)
-HERE=$(dirname $SCRIPT)
-dpkg -i $HERE/charm-helper-sh_*.deb

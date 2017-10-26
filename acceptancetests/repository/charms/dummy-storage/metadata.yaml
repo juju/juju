@@ -11,6 +11,7 @@ series:
   - xenial
   - zesty
   - artful
+  - bionic
 storage:
   single-fs:
     type: filesystem
