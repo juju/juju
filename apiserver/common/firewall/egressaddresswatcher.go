@@ -4,8 +4,6 @@
 package firewall
 
 import (
-	"net"
-
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/worker.v1"
@@ -182,7 +180,7 @@ func (w *EgressAddressWatcher) loop() error {
 				}
 			}
 			unitAddressesChanged = false
-			addresses = FormatAsCIDR(addressSet.Values())
+			addresses = network.FormatAsCIDR(addressSet.Values())
 			out = w.out
 		}
 		userConfiguredEgressChanged = false
@@ -243,26 +241,6 @@ func (w *EgressAddressWatcher) loop() error {
 		}
 
 	}
-}
-
-// FormatAsCIDR converts the specified IP addresses to
-// a slice of CIDRs.
-func FormatAsCIDR(addresses []string) []string {
-	result := make([]string, len(addresses))
-	for i, a := range addresses {
-		cidr := a
-		// If address is not already a cidr, add a /32 (ipv4) or /128 (ipv6).
-		if _, _, err := net.ParseCIDR(a); err != nil {
-			ip := net.ParseIP(a)
-			if ip.To4() != nil {
-				cidr = a + "/32"
-			} else {
-				cidr = a + "/128"
-			}
-		}
-		result[i] = cidr
-	}
-	return result
 }
 
 func (w *EgressAddressWatcher) unitAddress(unit Unit) (string, bool, error) {

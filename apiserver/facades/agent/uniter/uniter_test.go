@@ -3384,7 +3384,8 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigForImplicitlyBoundEndpoint(c
 }
 
 type uniterNetworkInfoSuite struct {
-	base uniterSuite // not embedded so it doesn't run all tests.
+	base       uniterSuite // not embedded so it doesn't run all tests.
+	mysqlCharm *state.Charm
 }
 
 var _ = gc.Suite(&uniterNetworkInfoSuite{})
@@ -3451,12 +3452,12 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 
 	s.base.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
 
-	mysqlCharm := factory.MakeCharm(c, &jujufactory.CharmParams{
+	s.mysqlCharm = factory.MakeCharm(c, &jujufactory.CharmParams{
 		Name: "mysql",
 	})
 	s.base.mysql = factory.MakeApplication(c, &jujufactory.ApplicationParams{
 		Name:  "mysql",
-		Charm: mysqlCharm,
+		Charm: s.mysqlCharm,
 		EndpointBindings: map[string]string{
 			"server": "database",
 		},
@@ -3794,9 +3795,10 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 	})
 }
 
-func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
-	// If a network info call is made in the context of a relation we
-	// provide the ingress address relevant to the relation.
+func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBinding(c *gc.C) {
+	// If a network info call is made in the context of a relation, and the
+	// endpoint of that relation is bound to the non default space, we
+	// provide the ingress addresses as those belonging to the space.
 	s.setupUniterAPIForUnit(c, s.base.mysqlUnit)
 	_, err := s.base.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		SourceModel: coretesting.ModelTag,
@@ -3825,6 +3827,73 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
 		RelationId: &relId,
 	}
 
+	expectedInfo := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:20:54",
+				InterfaceName: "eth4",
+				Addresses: []params.InterfaceAddress{
+					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
+				},
+			},
+		},
+		EgressSubnets:    []string{"192.168.1.0/24"},
+		IngressAddresses: []string{"192.168.1.20"},
+	}
+
+	result, err := s.base.uniter.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
+		Results: map[string]params.NetworkInfoResult{
+			"server": expectedInfo,
+		},
+	})
+}
+
+func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBinding(c *gc.C) {
+	// If a network info call is made in the context of a relation, and the
+	// endpoint of that relation is not bound, or bound to the default space, we
+	// provide the ingress address relevant to the relation: public for CMR.
+	_, err := s.base.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		SourceModel: coretesting.ModelTag,
+		Name:        "wordpress-remote",
+		Endpoints:   []charm.Relation{{Name: "db", Interface: "mysql", Role: "requirer"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Recreate mysql app without endpoint binding.
+	factory := jujufactory.NewFactory(s.base.State)
+	s.base.mysql = factory.MakeApplication(c, &jujufactory.ApplicationParams{
+		Name:  "mysql-default",
+		Charm: s.mysqlCharm,
+	})
+	s.base.mysqlUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
+		Application: s.base.mysql,
+		Machine:     s.base.machine1,
+	})
+	s.setupUniterAPIForUnit(c, s.base.mysqlUnit)
+
+	rel := s.base.addRelation(c, "mysql-default", "wordpress-remote")
+	mysqlRelUnit, err := rel.Unit(s.base.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.base.assertInScope(c, mysqlRelUnit, true)
+
+	// Relation specific egress subnets override model config.
+	err = s.base.JujuConnSuite.IAASModel.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	relEgress := state.NewRelationEgressNetworks(s.base.State)
+	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	relId := rel.Id()
+	args := params.NetworkInfoParams{
+		Unit:       s.base.mysqlUnit.Tag().String(),
+		Bindings:   []string{"server"},
+		RelationId: &relId,
+	}
+
 	// Since it is a remote relation, the expected ingress address is set to the
 	// machine's public address.
 	expectedIngressAddress, err := s.base.machine1.PublicAddress()
@@ -3833,10 +3902,10 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
 	expectedInfo := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				MACAddress:    "00:11:22:33:20:54",
-				InterfaceName: "eth4",
+				MACAddress:    "00:11:22:33:20:50",
+				InterfaceName: "eth0.100",
 				Addresses: []params.InterfaceAddress{
-					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
+					{Address: "10.0.0.20", CIDR: "10.0.0.0/24"},
 				},
 			},
 		},

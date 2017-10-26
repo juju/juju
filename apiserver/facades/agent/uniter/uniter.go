@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
@@ -1212,8 +1211,9 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 		}
 
 		settings := map[string]interface{}{}
-		ingressAddress, err := relUnit.IngressAddress()
-		if err == nil {
+		_, ingressAddresses, egressSubnets, err := state.NetworksForRelation(relUnit.Endpoint().Name, unit, rel, modelSubnets)
+		if err == nil && len(ingressAddresses) > 0 {
+			ingressAddress := ingressAddresses[0]
 			// private-address is historically a cloud local address for the machine.
 			// Existing charms are built to ask for this attribute from relation
 			// settings to find out what address to use to connect to the app
@@ -1222,31 +1222,12 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 			// charms than we break - breakage will not occur for correctly written
 			// charms, since the semantics of this value dictates the use case described.
 			// Any other use goes against the intended purpose of this value.
-			settings["private-address"] = ingressAddress.Value
+			settings["private-address"] = ingressAddress
 			// ingress-address is the preferred settings attribute name as it more accurately
 			// reflects the purpose of the attribute value. We'll deprecate private-address.
-			settings["ingress-address"] = ingressAddress.Value
+			settings["ingress-address"] = ingressAddress
 		} else {
-			logger.Warningf("cannot set ingress-address for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
-		}
-		var egressSubnets []string
-		egressNetworks := state.NewRelationEgressNetworks(u.st)
-		rn, err := egressNetworks.Networks(rel.Tag().Id())
-		if err == nil {
-			// egress-subnets are a slice of cidrs from which traffic
-			// on this side of the relation may originate.
-			egressSubnets = rn.CIDRS()
-		} else if errors.IsNotFound(err) {
-			// No relation specific subnets, so maybe there's a model setting.
-			if len(modelSubnets) > 0 {
-				egressSubnets = modelSubnets
-			} else if ingressAddress.Value != "" {
-				// We default to the ingress address.
-				cidrs := firewall.FormatAsCIDR([]string{ingressAddress.Value})
-				egressSubnets = cidrs
-			}
-		} else {
-			logger.Warningf("cannot set egress-subnets for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
+			logger.Warningf("cannot set ingress/egress addresses for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
 		}
 		if len(egressSubnets) > 0 {
 			settings["egress-subnets"] = strings.Join(egressSubnets, ",")
@@ -1861,7 +1842,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 	spaces := set.NewStrings()
 	bindingsToSpace := make(map[string]string)
 	bindingsToEgressSubnets := make(map[string][]string)
-	bindingsToIngressAddress := make(map[string]string)
+	bindingsToIngressAddresses := make(map[string][]string)
 
 	model, err := u.st.Model()
 	if err != nil {
@@ -1891,28 +1872,15 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
-
-		// Look for any relation specific egress subnets.
-		relEgress := state.NewRelationEgressNetworks(u.st)
-		egressSubnets, err := relEgress.Networks(rel.Tag().Id())
-		if err != nil && !errors.IsNotFound(err) {
-			return params.NetworkInfoResults{}, err
-		} else if err == nil {
-			cidrs := egressSubnets.CIDRS()
-			if len(cidrs) > 0 {
-				bindingsToEgressSubnets[endpoint.Name] = cidrs
-			}
-		}
-
-		ru, err := u.getRelationUnit(canAccess, rel.Tag().String(), unitTag)
+		boundSpace, ingress, egress, err := state.NetworksForRelation(endpoint.Name, unit, rel, modelCfg.EgressSubnets())
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
-		address, err := ru.IngressAddress()
-		if err != nil {
-			return params.NetworkInfoResults{}, err
+		spaces.Add(boundSpace)
+		if len(egress) > 0 {
+			bindingsToEgressSubnets[endpoint.Name] = egress
 		}
-		bindingsToIngressAddress[endpoint.Name] = address.Value
+		bindingsToIngressAddresses[endpoint.Name] = ingress
 	}
 
 	networkInfos := machine.GetNetworkInfoForSpaces(spaces)
@@ -1922,18 +1890,16 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 
 		// Set egress and ingress address information.
 		info.EgressSubnets = bindingsToEgressSubnets[binding]
+		info.IngressAddresses = bindingsToIngressAddresses[binding]
+
 		// If there is no ingress address explicitly defined for a given binding,
 		// set the ingress addresses to the binding addresses.
-		ingressAddress, ok := bindingsToIngressAddress[binding]
-		if !ok {
+		if len(info.IngressAddresses) == 0 {
 			for _, nwInfo := range info.Info {
 				for _, addr := range nwInfo.Addresses {
 					info.IngressAddresses = append(info.IngressAddresses, addr.Address)
 				}
 			}
-		}
-		if len(info.IngressAddresses) == 0 && ingressAddress != "" {
-			info.IngressAddresses = []string{ingressAddress}
 		}
 		result.Results[binding] = info
 	}
