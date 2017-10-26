@@ -603,16 +603,11 @@ func (e *maasEnviron) parsePlacement(placement string) (*maasPlacement, error) {
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
 		availabilityZone := value
-		zones, err := e.AvailabilityZones()
+		err := common.ValidateAvailabilityZone(e, availabilityZone)
 		if err != nil {
 			return nil, err
 		}
-		for _, z := range zones {
-			if z.Name() == availabilityZone {
-				return &maasPlacement{zoneName: availabilityZone}, nil
-			}
-		}
-		return nil, errors.Errorf("invalid availability zone %q", availabilityZone)
+		return &maasPlacement{zoneName: availabilityZone}, nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
@@ -892,7 +887,7 @@ func (*maasEnviron) MaintainInstance(args environs.StartInstanceParams) error {
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	*environs.StartInstanceResult, error,
 ) {
-	var availabilityZones []string
+	var availabilityZone string
 	var nodeName string
 	if args.Placement != "" {
 		placement, err := environ.parsePlacement(args.Placement)
@@ -901,40 +896,16 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		}
 		switch {
 		case placement.zoneName != "":
-			availabilityZones = append(availabilityZones, placement.zoneName)
+			availabilityZone = placement.zoneName
 		default:
 			nodeName = placement.nodeName
 		}
-	}
-
-	// If no placement is specified, then automatically spread across
-	// the known zones for optimal spread across the instance distribution
-	// group.
-	if args.Placement == "" {
-		var group []instance.Id
-		var err error
-		if args.DistributionGroup != nil {
-			group, err = args.DistributionGroup()
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot get distribution group")
-			}
+	} else if args.AvailabilityZone != "" {
+		availabilityZone = args.AvailabilityZone
+		if err := common.ValidateAvailabilityZone(environ, availabilityZone); err != nil {
+			logger.Errorf(err.Error())
+			return nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
 		}
-		zoneInstances, err := availabilityZoneAllocations(environ, group)
-		// TODO (mfoord): this branch is for old versions of MAAS and
-		// can be removed, but this means fixing tests.
-		if errors.IsNotImplemented(err) {
-			// Availability zones are an extension, so we may get a
-			// not implemented error; ignore these.
-		} else if err != nil {
-			return nil, errors.Annotate(err, "cannot get availability zone allocations")
-		} else if len(zoneInstances) > 0 {
-			for _, z := range zoneInstances {
-				availabilityZones = append(availabilityZones, z.ZoneName)
-			}
-		}
-	}
-	if len(availabilityZones) == 0 {
-		availabilityZones = []string{""}
 	}
 
 	// Storage.
@@ -954,7 +925,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	snArgs := selectNodeArgs{
 		Constraints:       args.Constraints,
-		AvailabilityZones: availabilityZones,
+		AvailabilityZones: []string{availabilityZone},
 		NodeName:          nodeName,
 		Interfaces:        interfaceBindings,
 		Volumes:           volumes,
@@ -1301,7 +1272,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
 			if i+1 < len(args.AvailabilityZones) {
 				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
-				continue
+				return nil, environs.ErrAvailabilityZoneFailed
 			}
 		}
 		if err != nil {
@@ -1330,7 +1301,7 @@ func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, erro
 		if gomaasapi.IsNoMatchError(err) {
 			if i+1 < len(args.AvailabilityZones) {
 				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
-				continue
+				return nil, environs.ErrAvailabilityZoneFailed
 			}
 		}
 		if err != nil {

@@ -74,6 +74,8 @@ type environ struct {
 	defaultVPCMutex   sync.Mutex
 	defaultVPCChecked bool
 	defaultVPC        *ec2.VPC
+
+	ensureGroupMutex sync.Mutex
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -246,22 +248,10 @@ func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 
 // DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
 func (e *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	// Determine the availability zones of existing volumes that are to be
-	// attached to the machine. They must all match, and must be the same
-	// as specified zone (if any).
-	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
+	availabilityZone, err := e.startInstanceAvailabilityZone(args)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	placementZone, _, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	var availabilityZone string
-	if placementZone != "" {
-		availabilityZone = placementZone
-	}
-
 	return availabilityZone, nil
 }
 
@@ -328,11 +318,12 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
 func (e *environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
-	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if _, _, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone); err != nil {
+	if _, _, err := e.startInstanceAvailabilityZoneAndSubnetID(
+		environs.StartInstanceParams{
+			Placement:         args.Placement,
+			VolumeAttachments: args.VolumeAttachments,
+		},
+	); err != nil {
 		return errors.Trace(err)
 	}
 	if !args.Constraints.HasInstanceType() {
@@ -433,41 +424,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// Determine the availability zones of existing volumes that are to be
 	// attached to the machine. They must all match, and must be the same
 	// as specified zone (if any).
-	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	placementZone, placementSubnetID, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var availabilityZones []string
-	if placementZone != "" {
-		availabilityZones = []string{placementZone}
-	}
-
-	// If no availability zone is specified or required, then automatically
-	// spread across the known zones for optimal spread across the instance
-	// distribution group.
-	if len(availabilityZones) == 0 {
-		var err error
-		var group []instance.Id
-		if args.DistributionGroup != nil {
-			group, err = args.DistributionGroup()
-			if err != nil {
-				return nil, err
-			}
-		}
-		zoneInstances, err := availabilityZoneAllocations(e, group)
-		if err != nil {
-			return nil, err
-		}
-		for _, z := range zoneInstances {
-			availabilityZones = append(availabilityZones, z.ZoneName)
-		}
-		if len(availabilityZones) == 0 {
-			return nil, errors.New("failed to determine availability zones")
-		}
+	availabilityZone, placementSubnetID, err := e.startInstanceAvailabilityZoneAndSubnetID(args)
+	switch {
+	case err != nil && errors.IsNotValid(err):
+		return nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
+	case err != nil:
+		return nil, err
 	}
 
 	arches := args.Tools.Arches()
@@ -560,63 +522,59 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	haveVPCID := isVPCIDSet(e.ecfg().vpcID())
 
-	for _, zone := range availabilityZones {
-		runArgs := commonRunArgs
-		runArgs.AvailZone = zone
+	runArgs := commonRunArgs
+	runArgs.AvailZone = availabilityZone
 
-		var subnetIDsForZone []string
-		var subnetErr error
-		if haveVPCID {
-			var allowedSubnetIDs []string
-			if placementSubnetID != "" {
-				allowedSubnetIDs = []string{placementSubnetID}
+	var subnetIDsForZone []string
+	var subnetErr error
+	if haveVPCID {
+		var allowedSubnetIDs []string
+		if placementSubnetID != "" {
+			allowedSubnetIDs = []string{placementSubnetID}
+		} else {
+			for subnetID, _ := range args.SubnetsToZones {
+				allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
+			}
+		}
+		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
+	} else if args.Constraints.HaveSpaces() {
+		subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones)
+		if subnetErr == nil && placementSubnetID != "" {
+			asSet := set.NewStrings(subnetIDsForZone...)
+			if asSet.Contains(placementSubnetID) {
+				subnetIDsForZone = []string{placementSubnetID}
 			} else {
-				for subnetID, _ := range args.SubnetsToZones {
-					allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
-				}
-			}
-			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, e.ecfg().vpcID(), zone, allowedSubnetIDs)
-		} else if args.Constraints.HaveSpaces() {
-			subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(zone, args.SubnetsToZones)
-			if subnetErr == nil && placementSubnetID != "" {
-				asSet := set.NewStrings(subnetIDsForZone...)
-				if asSet.Contains(placementSubnetID) {
-					subnetIDsForZone = []string{placementSubnetID}
-				} else {
-					subnetIDsForZone = nil
-					subnetErr = errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, zone)
-				}
+				subnetIDsForZone = nil
+				subnetErr = errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, availabilityZone)
 			}
 		}
-
-		switch {
-		case subnetErr != nil && errors.IsNotFound(subnetErr):
-			logger.Infof("no matching subnets in zone %q; assuming zone is constrained and trying another", zone)
-			continue
-		case subnetErr != nil:
-			return nil, errors.Annotatef(subnetErr, "getting subnets for zone %q", zone)
-		case len(subnetIDsForZone) > 1:
-			// With multiple equally suitable subnets, picking one at random
-			// will allow for better instance spread within the same zone, and
-			// still work correctly if we happen to pick a constrained subnet
-			// (we'll just treat this the same way we treat constrained zones
-			// and retry).
-			runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
-			logger.Debugf("selected random subnet %q from all matching in zone %q", runArgs.SubnetId, zone)
-		case len(subnetIDsForZone) == 1:
-			runArgs.SubnetId = subnetIDsForZone[0]
-			logger.Debugf("selected subnet %q in zone %q", runArgs.SubnetId, zone)
-		}
-
-		callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", zone), nil)
-		instResp, err = runInstances(e.ec2, runArgs, callback)
-		if err == nil || !isZoneOrSubnetConstrainedError(err) {
-			break
-		}
-
-		logger.Infof("%q is constrained, trying another availability zone", zone)
 	}
 
+	switch {
+	case subnetErr != nil && errors.IsNotFound(subnetErr):
+		logger.Infof("no matching subnets in zone %q; assuming zone is constrained and trying another", availabilityZone)
+		return nil, errors.Wrap(subnetErr, environs.ErrAvailabilityZoneFailed)
+	case subnetErr != nil:
+		return nil, errors.Annotatef(subnetErr, "getting subnets for zone %q", availabilityZone)
+	case len(subnetIDsForZone) > 1:
+		// With multiple equally suitable subnets, picking one at random
+		// will allow for better instance spread within the same zone, and
+		// still work correctly if we happen to pick a constrained subnet
+		// (we'll just treat this the same way we treat constrained zones
+		// and retry).
+		runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
+		logger.Debugf("selected random subnet %q from all matching in zone %q", runArgs.SubnetId, availabilityZone)
+	case len(subnetIDsForZone) == 1:
+		runArgs.SubnetId = subnetIDsForZone[0]
+		logger.Debugf("selected subnet %q in zone %q", runArgs.SubnetId, availabilityZone)
+	}
+
+	callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", availabilityZone), nil)
+	instResp, err = runInstances(e.ec2, runArgs, callback)
+
+	if isZoneOrSubnetConstrainedError(err) {
+		return nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
+	}
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot run instances")
 	}
@@ -673,6 +631,54 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		Instance: inst,
 		Hardware: &hc,
 	}, nil
+}
+
+func (e *environ) startInstanceAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+	availabilityZone, _, err := e.startInstanceAvailabilityZoneAndSubnetID(args)
+	return availabilityZone, err
+}
+
+func (e *environ) startInstanceAvailabilityZoneAndSubnetID(args environs.StartInstanceParams) (string, string, error) {
+	// Determine the availability zones of existing volumes that are to be
+	// attached to the machine. They must all match, and must be the same
+	// as specified zone (if any).
+	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	placementZone, placementSubnetID, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	var availabilityZone string
+	if placementZone != "" {
+		availabilityZone = placementZone
+	} else if args.AvailabilityZone != "" {
+		// Validate and check state of the AvailabilityZone
+		zones, err := e.AvailabilityZones()
+		if err != nil {
+			return "", "", err
+		}
+		for _, z := range zones {
+			if z.Name() == args.AvailabilityZone {
+				ec2AZ := z.(*ec2AvailabilityZone)
+				if ec2AZ.AvailabilityZoneInfo.State != availableState {
+					return "", "", errors.Errorf(
+						"availability zone %q is %q",
+						ec2AZ.AvailabilityZoneInfo.Name,
+						ec2AZ.AvailabilityZoneInfo.State,
+					)
+				} else {
+					availabilityZone = args.AvailabilityZone
+				}
+				break
+			}
+		}
+		if availabilityZone == "" {
+			return "", "", errors.NotValidf("availability zone %q", availabilityZone)
+		}
+	}
+	return availabilityZone, placementSubnetID, nil
 }
 
 func (e *environ) instancePlacementZone(placement, volumeAttachmentsZone string) (zone, subnet string, _ error) {
@@ -1738,6 +1744,12 @@ func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroup
 // Any entries in perms without SourceIPs will be granted for
 // the named group only.
 func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+	// Due to parallelization of the provisioner, it's possible that we try
+	// to create the model security group a second time before the first time
+	// is complete causing failures.
+	e.ensureGroupMutex.Lock()
+	defer e.ensureGroupMutex.Unlock()
+
 	// Specify explicit VPC ID if needed (not for default VPC or EC2-classic).
 	chosenVPCID := e.ecfg().vpcID()
 	inVPCLogSuffix := fmt.Sprintf(" (in VPC %q)", chosenVPCID)

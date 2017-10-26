@@ -4,12 +4,12 @@
 package vsphere_test
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"path"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -66,6 +66,7 @@ func (s *environBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInst
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,
+		Placement:      "zone=z1",
 		StatusCallback: func(status status.Status, info string, data map[string]interface{}) error {
 			s.statusCallbackStub.AddCall("StatusCallback", status, info, data)
 			return s.statusCallbackStub.NextErr()
@@ -300,41 +301,16 @@ func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	c.Assert(createVMArgs.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
 }
 
-func (s *environBrokerSuite) TestStartInstanceCallsAvailabilityZoneAllocations(c *gc.C) {
-	startInstArgs := s.createStartInstanceArgs(c)
-	startInstArgs.DistributionGroup = func() ([]instance.Id, error) {
-		return []instance.Id{instance.Id("old-vm")}, nil
-	}
-
-	s.client.virtualMachines = []*mo.VirtualMachine{
-		buildVM("old-vm").resourcePool(s.client.computeResources[0].ResourcePool).vm(),
-	}
-
-	_, err := s.env.StartInstance(startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.client.CheckCallNames(c, "ComputeResources", "VirtualMachines", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[2]
-	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-
-	// Because the old VM is allocated to the first compute resource,
-	// the second one should be used for the new VM.
-	c.Assert(createVMArgs.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
-}
-
-func (s *environBrokerSuite) TestStartInstanceTriesToCreateInstanceInAllAvailabilityZones(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C) {
 	s.client.SetErrors(nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err := s.env.StartInstance(startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
 
-	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "CreateVirtualMachine", "Close")
+	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "Close")
 	createVMCall1 := s.client.Calls()[1]
 	createVMArgs1 := createVMCall1.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs1.ComputeResource, jc.DeepEquals, s.client.computeResources[0])
-	createVMCall2 := s.client.Calls()[2]
-	createVMArgs2 := createVMCall2.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs2.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
 }
 
 func (s *environBrokerSuite) TestStartInstanceDatastore(c *gc.C) {

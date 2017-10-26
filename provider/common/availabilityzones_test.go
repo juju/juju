@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -153,6 +154,32 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *gc.C) {
 	c.Assert(calls, gc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
 	c.Assert(err, gc.Equals, resultErr)
 	c.Assert(zoneInstances, gc.HasLen, 0)
+}
+
+func (s *AvailabilityZoneSuite) TestValidateAvailabilityZone(c *gc.C) {
+	var calls []string
+	s.PatchValue(&s.env.availabilityZones, func() ([]common.AvailabilityZone, error) {
+		availabilityZones := make([]common.AvailabilityZone, 2)
+		availabilityZones[0] = &mockAvailabilityZone{name: "az1", available: true}
+		availabilityZones[1] = &mockAvailabilityZone{name: "az2", available: false}
+		calls = append(calls, "AvailabilityZones")
+		return availabilityZones, nil
+	})
+	tests := map[string]error{
+		"az1": nil,
+		"az2": errors.Errorf("availability zone %q is unavailable", "az2"),
+		"az3": errors.NotValidf("availability zone %q", "az3"),
+	}
+	for i, t := range tests {
+		err := common.ValidateAvailabilityZone(&s.env, i)
+		if t == nil {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, err.Error())
+		}
+		c.Assert(calls, gc.DeepEquals, []string{"AvailabilityZones"})
+		calls = []string{}
+	}
 }
 
 func (s *AvailabilityZoneSuite) TestDistributeInstancesGroup(c *gc.C) {

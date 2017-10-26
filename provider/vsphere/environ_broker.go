@@ -164,7 +164,7 @@ func (env *sessionEnviron) newRawInstance(
 
 	// Identify which zones may be used, taking into
 	// account placement directives.
-	zones, err := env.parseAvailabilityZones(args)
+	zone, err := env.parseAvailabilityZone(args)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -209,30 +209,22 @@ func (env *sessionEnviron) newRawInstance(
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.
-	var vm *mo.VirtualMachine
-	var lastError error
-	for _, zone := range zones {
-		logger.Debugf("attempting to create VM in availability zone %s", zone)
-		availZone, err := env.availZone(zone)
-		if err != nil {
-			logger.Warningf("failed to get availability zone %s: %s", zone, err)
-			lastError = err
-			continue
-		}
-		createVMArgs.ComputeResource = &availZone.(*vmwareAvailZone).r
+	logger.Debugf("attempting to create VM in availability zone %s", zone)
+	availZone, err := env.availZone(zone)
+	if err != nil {
+		logger.Warningf("failed to get availability zone %s: %s", zone, err)
 
-		vm, err = env.client.CreateVirtualMachine(env.ctx, createVMArgs)
-		if err != nil {
-			logger.Warningf("failed to create instance in availability zone %s: %s", zone, err)
-			lastError = err
-			continue
-		}
-		lastError = nil
-		break
+		return nil, nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
 	}
-	if lastError != nil {
-		return nil, nil, errors.Annotate(lastError, "failed to create instance in any availability zone")
+	createVMArgs.ComputeResource = &availZone.(*vmwareAvailZone).r
+
+	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs)
+	if err != nil {
+		logger.Warningf("failed to create instance in availability zone %s: %s", zone, err)
+
+		return nil, nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
 	}
+
 	hw := &instance.HardwareCharacteristics{
 		Arch:     &img.Arch,
 		Mem:      cons.Mem,

@@ -1324,7 +1324,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	placement := "zone=test-unknown"
 	err := t.env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Placement: placement})
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not valid`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
@@ -1435,7 +1435,8 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneUnknown(c *gc.C) {
 		environs.StartInstanceParams{
 			Placement: placement,
 		})
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	// check error log
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not valid`)
 	c.Assert(zone, gc.Equals, "")
 }
 
@@ -1981,12 +1982,12 @@ func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnavailable(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unavailable")
-	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
 }
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
@@ -1994,8 +1995,8 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{
-		ControllerUUID: t.ControllerUUID,
-		Placement:      "zone=" + zone,
+		ControllerUUID:   t.ControllerUUID,
+		AvailabilityZone: zone,
 	}
 	result, err := testing.StartInstanceWithParams(t.env, "1", params)
 	if err != nil {
@@ -2056,76 +2057,6 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 	c.Assert(zones[1].Available(), jc.IsFalse)
 }
 
-type mockAvailabilityZoneAllocations struct {
-	group  []instance.Id // input param
-	result []common.AvailabilityZoneInstances
-	err    error
-}
-
-func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
-	e common.ZonedEnviron, group []instance.Id,
-) ([]common.AvailabilityZoneInstances, error) {
-	t.group = group
-	return t.result, t.err
-}
-
-func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
-	err := bootstrapEnv(c, t.env)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var mock mockAvailabilityZoneAllocations
-	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-
-	// no distribution group specified
-	testing.AssertStartInstance(c, t.env, t.ControllerUUID, "1")
-	c.Assert(mock.group, gc.HasLen, 0)
-
-	// distribution group specified: ensure it's passed through to AvailabilityZone.
-	expectedInstances := []instance.Id{"i-0", "i-1"}
-	params := environs.StartInstanceParams{
-		ControllerUUID: t.ControllerUUID,
-		DistributionGroup: func() ([]instance.Id, error) {
-			return expectedInstances, nil
-		},
-	}
-	_, err = testing.StartInstanceWithParams(t.env, "1", params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
-}
-
-func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
-	err := bootstrapEnv(c, t.env)
-	c.Assert(err, jc.ErrorIsNil)
-
-	mock := mockAvailabilityZoneAllocations{
-		err: fmt.Errorf("AvailabilityZoneAllocations failed"),
-	}
-	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	_, _, _, err = testing.StartInstance(t.env, t.ControllerUUID, "1")
-	c.Assert(errors.Cause(err), gc.Equals, mock.err)
-
-	mock.err = nil
-	dgErr := fmt.Errorf("DistributionGroup failed")
-	params := environs.StartInstanceParams{
-		ControllerUUID: t.ControllerUUID,
-		DistributionGroup: func() ([]instance.Id, error) {
-			return nil, dgErr
-		},
-	}
-	_, err = testing.StartInstanceWithParams(t.env, "1", params)
-	c.Assert(errors.Cause(err), gc.Equals, dgErr)
-}
-
-func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
-	err := bootstrapEnv(c, t.env)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// test-available is the only available AZ, so AvailabilityZoneAllocations
-	// is guaranteed to return that.
-	inst, _ := testing.AssertStartInstance(c, t.env, t.ControllerUUID, "1")
-	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
-}
-
 func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
@@ -2160,8 +2091,24 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	_, _, _, err = testing.StartInstance(t.env, t.ControllerUUID, "1")
+	_, err = testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Placement:      "zone=az2",
+	})
 	c.Assert(err, gc.ErrorMatches, "(?s).*Some unknown error.*")
+}
+
+func (t *localServerSuite) testStartInstanceWithParamsDeriveAZ(
+	machineId string,
+	params environs.StartInstanceParams,
+) (*environs.StartInstanceResult, error) {
+	zonedEnv := t.env.(common.ZonedEnviron)
+	zone, err := zonedEnv.DeriveAvailabilityZone(params)
+	if err != nil {
+		return nil, err
+	}
+	params.AvailabilityZone = zone
+	return testing.StartInstanceWithParams(t.env, "1", params)
 }
 
 func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) {
@@ -2181,6 +2128,12 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) 
 				Available: true,
 			},
 		},
+		nova.AvailabilityZone{
+			Name: "test-available",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
 	)
 
 	_, err = t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
@@ -2193,8 +2146,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) 
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
+	result, err := t.testStartInstanceWithParamsDeriveAZ("1", environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		VolumeAttachments: []storage.VolumeAttachmentParams{
 			{VolumeId: "foo"},
@@ -2221,7 +2173,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsMultipleAvailZones(
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	_, err = testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
+	_, err = t.testStartInstanceWithParamsDeriveAZ("1", environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		VolumeAttachments: []storage.VolumeAttachmentParams{
 			{VolumeId: "vol-az1"},
@@ -2249,7 +2201,6 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsP
 			},
 		},
 	)
-
 	_, err = t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
@@ -2264,64 +2215,9 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsP
 	_, err = testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
 		ControllerUUID:    t.ControllerUUID,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
-		Placement:         "zone=test-available",
+		Placement:         "zone=az2",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested disks in zone "az1"`)
-}
-
-func (t *localServerSuite) TestStartInstanceNoValidHost(c *gc.C) {
-
-	t.srv.Nova.SetAvailabilityZones(
-		// bootstrap node will be on az1.
-		nova.AvailabilityZone{
-			Name: "az1",
-			State: nova.AvailabilityZoneState{
-				Available: true,
-			},
-		},
-		// az2 will be made to return an unknown error.
-		nova.AvailabilityZone{
-			Name: "az2",
-			State: nova.AvailabilityZoneState{
-				Available: true,
-			},
-		},
-	)
-
-	t.srv.Nova.SetAZForNoValidHosts(
-		nova.AvailabilityZone{
-			Name: "az1",
-			State: nova.AvailabilityZoneState{
-				Available: true,
-			},
-		},
-	)
-
-	cfg, err := t.env.Config().Apply(coretesting.Attrs{
-		// A label that corresponds to a neutron test service network
-		"network": "net",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = t.env.SetConfig(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	inst, _ := testing.AssertStartInstance(c, t.env, t.ControllerUUID, "100")
-	defer t.env.StopInstances(inst.Id())
-	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "az2")
-}
-
-func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
-	err := bootstrapEnv(c, t.env)
-	c.Assert(err, jc.ErrorIsNil)
-
-	mock := mockAvailabilityZoneAllocations{
-		err: errors.NotImplementedf("availability zones"),
-	}
-	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-
-	// Instance will be created without an availability zone specified.
-	inst, _ := testing.AssertStartInstance(c, t.env, t.ControllerUUID, "1")
-	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2", as this will prevent attaching the requested disks in zone "az1"`)
 }
 
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {

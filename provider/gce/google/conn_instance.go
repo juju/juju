@@ -7,6 +7,7 @@ import (
 	"path"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs"
 	"google.golang.org/api/compute/v1"
 )
 
@@ -39,7 +40,7 @@ func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType 
 			}
 			// Try the next zone.
 			logger.Errorf("failed to get new instance in zone %q: %v", zoneName, waitErr)
-			continue
+			return errors.Wrap(waitErr, environs.ErrAvailabilityZoneFailed)
 		}
 
 		// Success!

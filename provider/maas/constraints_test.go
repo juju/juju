@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 )
 
 func (*environSuite) TestConvertConstraints(c *gc.C) {
@@ -206,7 +207,7 @@ func (suite *environSuite) TestSelectNodeValidZone(c *gc.C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0", "zone": "bar"}`)
 
 	snArgs := selectNodeArgs{
-		AvailabilityZones: []string{"foo", "bar"},
+		AvailabilityZones: []string{"bar", "foo"},
 		Constraints:       constraints.Value{},
 	}
 
@@ -224,8 +225,7 @@ func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
 	}
 
 	_, err := env.selectNode(snArgs)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, `cannot run instances: ServerError: 409 Conflict \(\)`)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
 }
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {

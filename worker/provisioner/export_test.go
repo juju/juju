@@ -36,3 +36,7 @@ var (
 )
 
 var ClassifyMachine = classifyMachine
+
+func GetAvailabilityZoneMachines(p ProvisionerTask) []*AvailabilityZoneMachine {
+	return p.(*provisionerTask).availabilityZoneMachines
+}

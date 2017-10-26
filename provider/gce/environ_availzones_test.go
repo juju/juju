@@ -35,7 +35,6 @@ func (s *environAZSuite) TestAvailabilityZones(c *gc.C) {
 	c.Check(zones[0].Available(), jc.IsTrue)
 	c.Check(zones[1].Name(), gc.Equals, "b-zone")
 	c.Check(zones[1].Available(), jc.IsTrue)
-
 }
 
 func (s *environAZSuite) TestAvailabilityZonesDeprecated(c *gc.C) {
@@ -78,39 +77,33 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNamesAPIs(c *gc.C) {
 }
 
 func (s *environAZSuite) TestStartInstanceAvailabilityZones(c *gc.C) {
-	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{{
-		ZoneName:  "home-zone",
-		Instances: []instance.Id{s.Instance.Id()},
-	}}
+	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{
+		{ZoneName: "az2",
+			Instances: []instance.Id{s.Instance.Id()}},
+		{ZoneName: "az3",
+			Instances: []instance.Id{},
+		}}
+
+	zones, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(zones, jc.DeepEquals, []string{"az2", "az3"})
+}
+
+func (s *environAZSuite) TestStartInstanceAvailabilityZoneParam(c *gc.C) {
+	s.FakeConn.Zones = []google.AvailabilityZone{
+		google.NewZone("az1", google.StatusDown, "", ""),
+		google.NewZone("az2", google.StatusUp, "", ""),
+		google.NewZone("az3", google.StatusUp, "", ""),
+	}
+	s.StartInstArgs.AvailabilityZone = "az3"
 
 	zones, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(zones, jc.DeepEquals, []string{"home-zone"})
-}
-
-func (s *environAZSuite) TestStartInstanceAvailabilityZonesAPI(c *gc.C) {
-	ids := []instance.Id{s.Instance.Id()}
-	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{{
-		ZoneName:  "home-zone",
-		Instances: ids,
-	}}
-	s.StartInstArgs.DistributionGroup = func() ([]instance.Id, error) {
-		return ids, nil
-	}
-
-	_, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
-	s.FakeEnviron.CheckCalls(c, []gce.FakeCall{})
-	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
-		FuncName: "AvailabilityZoneAllocations",
-		Args: gce.FakeCallArgs{
-			"switch": s.Env,
-			"group":  ids,
-		},
-	}})
+	// Prior to the introduction of StartInstanceParams.AvailabilityZone
+	// "az2" would have been chosen as the availability zone by the provider.
+	// Ensure that the new value is taking precedence.
+	c.Check(zones, jc.DeepEquals, []string{"az3"})
 }
 
 func (s *environAZSuite) TestStartInstanceAvailabilityZonesPlacement(c *gc.C) {
@@ -150,21 +143,6 @@ func (s *environAZSuite) TestStartInstanceAvailabilityZonesPlacementUnavailable(
 	_, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
 
 	c.Check(err, gc.ErrorMatches, `.*availability zone "a-zone" is DOWN`)
-}
-
-func (s *environAZSuite) TestStartInstanceAvailabilityZonesDistGroup(c *gc.C) {
-	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{{
-		ZoneName:  "home-zone",
-		Instances: []instance.Id{s.Instance.Id()},
-	}}
-	s.StartInstArgs.DistributionGroup = func() ([]instance.Id, error) {
-		return []instance.Id{s.Instance.Id()}, nil
-	}
-
-	zones, err := gce.StartInstanceAvailabilityZones(s.Env, s.StartInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(zones, jc.DeepEquals, []string{"home-zone"})
 }
 
 func (s *environAZSuite) TestStartInstanceAvailabilityZonesNoneFound(c *gc.C) {

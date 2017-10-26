@@ -679,7 +679,7 @@ func (s *environSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
 	err := env.PrecheckInstance(environs.PrecheckInstanceParams{Series: series.LatestLts(), Placement: "zone=zone2"})
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "zone2"`)
+	c.Assert(err, gc.ErrorMatches, `availability zone "zone2" not valid`)
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
@@ -712,7 +712,7 @@ func (s *environSuite) TestDeriveAvailabilityZoneUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
 	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "zone=zone2"})
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "zone2"`)
+	c.Assert(err, gc.ErrorMatches, `availability zone "zone2" not valid`)
 	c.Assert(zone, gc.Equals, "")
 }
 
@@ -720,6 +720,14 @@ func (s *environSuite) TestDeriveAvailabilityZoneInvalidPlacement(c *gc.C) {
 	env := s.makeEnviron()
 	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "notzone=anything"})
 	c.Assert(err, gc.ErrorMatches, "unknown placement directive: notzone=anything")
+	c.Assert(zone, gc.Equals, "")
+}
+
+func (s *environSuite) TestDeriveAvailabilityZoneNoPlacement(c *gc.C) {
+	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
+	env := s.makeEnviron()
+	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zone, gc.Equals, "")
 }
 
@@ -738,12 +746,12 @@ func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
 func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	_, err := s.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
 }
 
 func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := s.bootstrap(c)
-	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID, Placement: "zone=" + zone}
+	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID, AvailabilityZone: zone}
 	result, err := testing.StartInstanceWithParams(env, "1", params)
 	if err != nil {
 		return nil, err
@@ -905,19 +913,6 @@ func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
 }
 
-type mockAvailabilityZoneAllocations struct {
-	group  []instance.Id // input param
-	result []common.AvailabilityZoneInstances
-	err    error
-}
-
-func (m *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
-	e common.ZonedEnviron, group []instance.Id,
-) ([]common.AvailabilityZoneInstances, error) {
-	m.group = group
-	return m.result, m.err
-}
-
 func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[string]interface{}) {
 	allAttrs := map[string]interface{}{
 		"system_id":     nodename,
@@ -953,129 +948,6 @@ func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
-}
-
-func (s *environSuite) TestStartInstanceDistributionParams(c *gc.C) {
-	env := s.bootstrap(c)
-	var mock mockAvailabilityZoneAllocations
-	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-
-	// no distribution group specified
-	s.newNode(c, "node1", "host1", nil)
-	s.addSubnet(c, 1, 1, "node1")
-	testing.AssertStartInstance(c, env, s.controllerUUID, "1")
-	c.Assert(mock.group, gc.HasLen, 0)
-
-	// distribution group specified: ensure it's passed through to AvailabilityZone.
-	s.newNode(c, "node2", "host2", nil)
-	s.addSubnet(c, 2, 2, "node2")
-	expectedInstances := []instance.Id{"i-0", "i-1"}
-	params := environs.StartInstanceParams{
-		ControllerUUID: s.controllerUUID,
-		DistributionGroup: func() ([]instance.Id, error) {
-			return expectedInstances, nil
-		},
-	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
-}
-
-func (s *environSuite) TestStartInstanceDistributionErrors(c *gc.C) {
-	env := s.bootstrap(c)
-	mock := mockAvailabilityZoneAllocations{
-		err: errors.New("AvailabilityZoneAllocations failed"),
-	}
-	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	_, _, _, err := testing.StartInstance(env, s.controllerUUID, "1")
-	c.Assert(err, gc.ErrorMatches, "cannot get availability zone allocations: AvailabilityZoneAllocations failed")
-
-	mock.err = nil
-	dgErr := errors.New("DistributionGroup failed")
-	params := environs.StartInstanceParams{
-		ControllerUUID: s.controllerUUID,
-		DistributionGroup: func() ([]instance.Id, error) {
-			return nil, dgErr
-		},
-	}
-	_, err = testing.StartInstanceWithParams(env, "1", params)
-	c.Assert(err, gc.ErrorMatches, "cannot get distribution group: DistributionGroup failed")
-}
-
-func (s *environSuite) TestStartInstanceDistribution(c *gc.C) {
-	env := s.bootstrap(c)
-	s.testMAASObject.TestServer.AddZone("test-available", "description")
-	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "test-available"})
-	s.addSubnet(c, 1, 1, "node1")
-	inst, _ := testing.AssertStartInstance(c, env, s.controllerUUID, "1")
-	zone, err := inst.(*maas1Instance).zone()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "test-available")
-}
-
-func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
-	mock := mockAvailabilityZoneAllocations{
-		result: []common.AvailabilityZoneInstances{{
-			ZoneName: "zone1",
-		}, {
-			ZoneName: "zonelord",
-		}, {
-			ZoneName: "zone2",
-		}},
-	}
-	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	s.testMAASObject.TestServer.AddZone("zone1", "description")
-	s.testMAASObject.TestServer.AddZone("zone2", "description")
-	s.newNode(c, "node2", "host2", map[string]interface{}{"zone": "zone2"})
-	s.addSubnet(c, 1, 1, "node2")
-
-	env := s.bootstrap(c)
-	inst, _ := testing.AssertStartInstance(c, env, s.controllerUUID, "1")
-	zone, err := inst.(maasInstance).zone()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "zone2")
-	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
-		// one acquire for the bootstrap, three for StartInstance (with zone failover)
-		"acquire", "acquire", "acquire", "acquire",
-	})
-	c.Assert(s.testMAASObject.TestServer.NodesOperationRequestValues(), gc.DeepEquals, []url.Values{{
-		"name":       []string{"bootstrap-host"},
-		"agent_name": []string{env.Config().UUID()},
-		"mem":        []string{"1024"},
-	}, {
-		"zone":       []string{"zone1"},
-		"agent_name": []string{env.Config().UUID()},
-	}, {
-		"zone":       []string{"zonelord"},
-		"agent_name": []string{env.Config().UUID()},
-	}, {
-		"zone":       []string{"zone2"},
-		"agent_name": []string{env.Config().UUID()},
-	}})
-}
-
-func (s *environSuite) TestStartInstanceDistributionOneAssigned(c *gc.C) {
-	mock := mockAvailabilityZoneAllocations{
-		result: []common.AvailabilityZoneInstances{{
-			ZoneName: "zone1",
-		}, {
-			ZoneName: "zone2",
-		}},
-	}
-	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	s.testMAASObject.TestServer.AddZone("zone1", "description")
-	s.testMAASObject.TestServer.AddZone("zone2", "description")
-	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "zone1"})
-	s.addSubnet(c, 1, 1, "node1")
-	s.newNode(c, "node2", "host2", map[string]interface{}{"zone": "zone2"})
-	s.addSubnet(c, 2, 2, "node2")
-
-	env := s.bootstrap(c)
-	testing.AssertStartInstance(c, env, s.controllerUUID, "1")
-	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
-		// one acquire for the bootstrap, one for StartInstance.
-		"acquire", "acquire",
-	})
 }
 
 func (s *environSuite) TestReleaseContainerAddresses(c *gc.C) {

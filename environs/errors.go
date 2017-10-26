@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	ErrNotBootstrapped  = errors.New("model is not bootstrapped")
-	ErrNoInstances      = errors.NotFoundf("instances")
-	ErrPartialInstances = errors.New("only some instances were found")
+	ErrNotBootstrapped        = errors.New("model is not bootstrapped")
+	ErrNoInstances            = errors.NotFoundf("instances")
+	ErrPartialInstances       = errors.New("only some instances were found")
+	ErrAvailabilityZoneFailed = errors.New("failed to start instance in provided availability zone")
 )
