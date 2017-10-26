@@ -2642,16 +2642,31 @@ func (s *noNeutronSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *noNeutronSuite) TestUpdateGroupControllerNoNeutron(c *gc.C) {
+	// Ensure that when Juju updates the security groups when we don't
+	// have Neutron networking, that we don't get confused by security
+	// groups that are not part of this model.
 	client := openstack.GetNovaClient(s.env)
-	_, err := client.CreateSecurityGroup("unrelated", "you know, for tests!")
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrapEnv(c, s.env)
+	// Non-Juju groups and groups for other models.
+	names := []string{
+		"unrelated",
+		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff",
+		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff-0",
+	}
+	for _, name := range names {
+		createNovaSecurityGroup(c, client, name)
+	}
+
+	// Bootstrapping will create the groups for this model.
+	err := bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
 
 	groupNamesBefore := set.NewStrings(getNovaSecurityGroupNames(c, client)...)
 	c.Assert(groupNamesBefore, gc.DeepEquals, set.NewStrings(
 		"default",
 		"unrelated",
+		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff",
+		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff-0",
+		// These are the groups for our model.
 		"juju-deadbeef-1bad-500d-9000-4b1d0d06f00d-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"juju-deadbeef-1bad-500d-9000-4b1d0d06f00d-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
 	))
@@ -2662,11 +2677,21 @@ func (s *noNeutronSuite) TestUpdateGroupControllerNoNeutron(c *gc.C) {
 
 	groupNamesAfter := set.NewStrings(getNovaSecurityGroupNames(c, client)...)
 	c.Assert(groupNamesAfter, gc.DeepEquals, set.NewStrings(
+		// These ones are left alone.
 		"default",
 		"unrelated",
+		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff",
+		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff-0",
+		// Only these last two are updated.
 		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
 	))
+}
+
+func createNovaSecurityGroup(c *gc.C, client *nova.Client, name string) {
+	c.Logf("creating group %q", name)
+	_, err := client.CreateSecurityGroup(name, "")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func getNovaSecurityGroupNames(c *gc.C, client *nova.Client) []string {
