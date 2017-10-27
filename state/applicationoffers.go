@@ -173,11 +173,10 @@ func (s *applicationOffers) Remove(offerName string) (err error) {
 		if len(conns) > 0 {
 			return nil, errors.Errorf("offer has %d relation%s", len(conns), plural(len(conns)))
 		}
-		// TODO(axw) the relation counting logic here is flawed.
-		// The application could have a relation to some other
-		// application which is removed after the count is taken,
-		// and another relation (and offer connection) added to
-		// a remote application.
+		// Because we don't refcount offer connections, we instead
+		// assert here that the relation count doesn't change, and
+		// that the specific relations that make up that count aren't
+		// removed.
 		rels, err := app.Relations()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -185,20 +184,35 @@ func (s *applicationOffers) Remove(offerName string) (err error) {
 		if len(rels) != app.doc.RelationCount {
 			return nil, jujutxn.ErrTransientFailure
 		}
-		decRefOp, err := decApplicationOffersRefOp(s.st, offer.ApplicationName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		ops := []txn.Op{{
 			C:      applicationsC,
 			Id:     offer.ApplicationName,
 			Assert: bson.D{{"relationcount", app.doc.RelationCount}},
-		}, {
+		}}
+		for _, rel := range rels {
+			crossModel, err := rel.IsCrossModel()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if crossModel {
+				return nil, jujutxn.ErrTransientFailure
+			}
+			ops = append(ops, txn.Op{
+				C:      relationsC,
+				Id:     rel.doc.DocID,
+				Assert: txn.DocExists,
+			})
+		}
+		decRefOp, err := decApplicationOffersRefOp(s.st, offer.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, txn.Op{
 			C:      applicationOffersC,
 			Id:     offer.OfferName,
 			Assert: txn.DocExists,
 			Remove: true,
-		}, decRefOp}
+		}, decRefOp)
 		return ops, nil
 	}
 	return errors.Trace(s.st.db().Run(buildTxn))
