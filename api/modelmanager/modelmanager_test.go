@@ -393,13 +393,10 @@ func (s *modelmanagerSuite) TestModelStatusEmpty(c *gc.C) {
 }
 
 func (s *modelmanagerSuite) TestModelStatusError(c *gc.C) {
-	apiCaller := basetesting.BestVersionCaller{
-		BestVersion: 3,
-		APICallerFunc: basetesting.APICallerFunc(
-			func(objType string, version int, id, request string, args, result interface{}) error {
-				return errors.New("model error")
-			}),
-	}
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			return errors.New("model error")
+		})
 	client := modelmanager.NewClient(apiCaller)
 	out, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, gc.ErrorMatches, "model error")
