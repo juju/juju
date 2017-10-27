@@ -819,7 +819,7 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(machine *apipro
 	// az population of the distribution group machine.
 	if len(distributionGroupMachineIds) > 0 {
 		dgZoneMap := task.populateDistributionGroupZoneMap(distributionGroupMachineIds)
-		sort.Sort(ByPopulationThenName(dgZoneMap))
+		sort.Sort(byPopulationThenNames(dgZoneMap))
 
 		for _, dgZoneMachines := range dgZoneMap {
 			if !dgZoneMachines.FailedMachineIds.Contains(machine.Id()) {
@@ -834,7 +834,7 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(machine *apipro
 			}
 		}
 	} else {
-		sort.Sort(ByPopulationThenName(task.availabilityZoneMachines))
+		sort.Sort(byPopulationThenNames(task.availabilityZoneMachines))
 		for _, zoneMachines := range task.availabilityZoneMachines {
 			if !zoneMachines.FailedMachineIds.Contains(machine.Id()) {
 				machineZone = zoneMachines.ZoneName
@@ -846,14 +846,13 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(machine *apipro
 	return machineZone
 }
 
-// exported for use in testing.
-type ByPopulationThenName []*AvailabilityZoneMachine
+type byPopulationThenNames []*AvailabilityZoneMachine
 
-func (b ByPopulationThenName) Len() int {
+func (b byPopulationThenNames) Len() int {
 	return len(b)
 }
 
-func (b ByPopulationThenName) Less(i, j int) bool {
+func (b byPopulationThenNames) Less(i, j int) bool {
 	switch {
 	case b[i].MachineIds.Size() < b[j].MachineIds.Size():
 		return true
@@ -863,7 +862,7 @@ func (b ByPopulationThenName) Less(i, j int) bool {
 	return false
 }
 
-func (b ByPopulationThenName) Swap(i, j int) {
+func (b byPopulationThenNames) Swap(i, j int) {
 	b[i], b[j] = b[j], b[i]
 }
 
