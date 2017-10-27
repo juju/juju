@@ -169,7 +169,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		for _, r := range modelStatusResults {
 			if r.Error != nil {
 				if !errors.IsNotFound(r.Error) {
-					details.Errors = append(details.Errors, r.Error)
+					details.Errors = append(details.Errors, r.Error.Error())
 				}
 				continue
 			}
