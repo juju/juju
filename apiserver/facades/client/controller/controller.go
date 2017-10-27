@@ -129,9 +129,10 @@ func (s *ControllerAPIv3) ModelStatus(req params.Entities) (params.ModelStatusRe
 	if err != nil {
 		return params.ModelStatusResults{}, err
 	}
+
 	for _, r := range results.Results {
 		if r.Error != nil {
-			return params.ModelStatusResults{}, errors.Trace(r.Error)
+			return params.ModelStatusResults{Results: make([]params.ModelStatus, len(req.Entities))}, errors.Trace(r.Error)
 		}
 	}
 	return results, nil

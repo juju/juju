@@ -39,7 +39,6 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 				{Id: "3", InstanceId: "id-3", HasVote: false, WantsVote: false, Status: "active"},
 			},
 		},
-		apiVersion: 4,
 	}
 	s.api = func(controllerName string) controller.ControllerAccessAPI {
 		s.fakeController.controllerName = controllerName
@@ -369,7 +368,6 @@ func (s *ShowControllerSuite) assertShowController(c *gc.C, args ...string) {
 type fakeController struct {
 	controllerName string
 	machines       map[string][]base.Machine
-	apiVersion     int
 }
 
 func (*fakeController) GetControllerAccess(user string) (permission.Access, error) {
@@ -411,8 +409,4 @@ func (c *fakeController) AllModels() (result []base.UserModel, _ error) {
 
 func (*fakeController) Close() error {
 	return nil
-}
-
-func (f *fakeController) BestAPIVersion() int {
-	return f.apiVersion
 }

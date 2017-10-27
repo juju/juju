@@ -151,10 +151,6 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 		return err
 	}
 
-	// This is needed since return parameter may have an Error
-	// property in the later api versions, > 3.
-	newerAPI := client.BestAPIVersion() > 3
-
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	// Use the model information to update the cached controller details.
@@ -165,21 +161,24 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 
 	machineCount := 0
 	for _, s := range modelStatus {
-		if newerAPI && s.Error != nil {
-			// This most likely occurred because a model was
-			// destroyed half-way through the call.
-			continue
+		if s.Error != nil {
+			if errors.IsNotFound(s.Error) {
+				// This most likely occurred because a model was
+				// destroyed half-way through the call.
+				continue
+			}
+			return s.Error
 		}
 		machineCount += s.TotalMachineCount
 	}
 	details.MachineCount = &machineCount
-	details.ActiveControllerMachineCount, details.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, newerAPI, modelStatus)
+	details.ActiveControllerMachineCount, details.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, modelStatus)
 	return c.store.UpdateController(controllerName, *details)
 }
 
-func ControllerMachineCounts(controllerModelUUID string, newerAPI bool, modelStatusResults []base.ModelStatus) (activeCount, totalCount int) {
+func ControllerMachineCounts(controllerModelUUID string, modelStatusResults []base.ModelStatus) (activeCount, totalCount int) {
 	for _, s := range modelStatusResults {
-		if newerAPI && s.Error != nil {
+		if s.Error != nil {
 			// This most likely occurred because a model was
 			// destroyed half-way through the call.
 			continue

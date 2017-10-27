@@ -89,7 +89,6 @@ type ControllerAccessAPI interface {
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
 	Close() error
-	BestAPIVersion() int
 }
 
 func (c *showControllerCommand) getAPI(controllerName string) (ControllerAccessAPI, error) {
@@ -163,23 +162,21 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			details.Errors = append(details.Errors, err.Error())
 			continue
 		}
-		// This is needed since return parameter may have an Error
-		// property in the later api versions, > 3.
-		newerAPI := client.BestAPIVersion() > 3
 
-		c.convertControllerForShow(&details, controllerName, one, access, newerAPI, allModels, modelStatusResults)
+		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatusResults)
 		controllers[controllerName] = details
 		machineCount := 0
 		for _, r := range modelStatusResults {
-			if newerAPI && r.Error != nil {
-				// This most likely occurred because a model was
-				// destroyed half-way through the call.
+			if r.Error != nil {
+				if !errors.IsNotFound(r.Error) {
+					details.Errors = append(details.Errors, r.Error)
+				}
 				continue
 			}
 			machineCount += r.TotalMachineCount
 		}
 		one.MachineCount = &machineCount
-		one.ActiveControllerMachineCount, one.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, newerAPI, modelStatusResults)
+		one.ActiveControllerMachineCount, one.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, modelStatusResults)
 		err = c.store.UpdateController(controllerName, *one)
 		if err != nil {
 			details.Errors = append(details.Errors, err.Error())
@@ -306,7 +303,6 @@ func (c *showControllerCommand) convertControllerForShow(
 	controllerName string,
 	details *jujuclient.ControllerDetails,
 	access string,
-	newerAPI bool,
 	allModels []base.UserModel,
 	modelStatusResults []base.ModelStatus,
 ) {
@@ -319,7 +315,7 @@ func (c *showControllerCommand) convertControllerForShow(
 		CloudRegion:    details.CloudRegion,
 		AgentVersion:   details.AgentVersion,
 	}
-	c.convertModelsForShow(controllerName, controller, newerAPI, allModels, modelStatusResults)
+	c.convertModelsForShow(controllerName, controller, allModels, modelStatusResults)
 	c.convertAccountsForShow(controllerName, controller, access)
 	var controllerModelUUID string
 	for _, m := range allModels {
@@ -332,7 +328,7 @@ func (c *showControllerCommand) convertControllerForShow(
 		var controllerModel base.ModelStatus
 		found := false
 		for _, m := range modelStatusResults {
-			if newerAPI && m.Error != nil {
+			if m.Error != nil {
 				// This most likely occurred because a model was
 				// destroyed half-way through the call.
 				continue
@@ -370,7 +366,6 @@ func (c *showControllerCommand) convertAccountsForShow(controllerName string, co
 func (c *showControllerCommand) convertModelsForShow(
 	controllerName string,
 	controller *ShowControllerDetails,
-	newerAPI bool,
 	models []base.UserModel,
 	modelStatus []base.ModelStatus,
 ) {
@@ -378,8 +373,10 @@ func (c *showControllerCommand) convertModelsForShow(
 	for i, model := range models {
 		modelDetails := ModelDetails{ModelUUID: model.UUID}
 		result := modelStatus[i]
-		if newerAPI && result.Error != nil {
-			controller.Errors = append(controller.Errors, errors.Annotatef(result.Error, "model uuid %v", model.UUID).Error())
+		if result.Error != nil {
+			if !errors.IsNotFound(result.Error) {
+				controller.Errors = append(controller.Errors, errors.Annotatef(result.Error, "model uuid %v", model.UUID).Error())
+			}
 		} else {
 			if result.TotalMachineCount > 0 {
 				modelDetails.MachineCount = new(int)

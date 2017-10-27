@@ -1237,7 +1237,7 @@ func (s *ModelManagerAPI) oldModelStatus(req params.Entities) (params.ModelStatu
 	}
 	for _, r := range results.Results {
 		if r.Error != nil {
-			return params.ModelStatusResults{}, errors.Trace(r.Error)
+			return params.ModelStatusResults{Results: make([]params.ModelStatus, len(req.Entities))}, errors.Trace(r.Error)
 		}
 	}
 	return results, nil

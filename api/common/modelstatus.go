@@ -27,10 +27,8 @@ func NewModelStatusAPI(facade base.FacadeCaller) *ModelStatusAPI {
 func (c *ModelStatusAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error) {
 	// This call is used in both Controller and ModelManger facades.
 	// Luckily, prior to the signature change both of these facades were at version 3.
-	olderVersion := false
 	if bestVer := c.facade.BestAPIVersion(); bestVer < 4 {
-		logger.Debugf("calling older models status on v%d", bestVer)
-		olderVersion = true
+		logger.Tracef("calling older models status on v%d", bestVer)
 	}
 
 	result := params.ModelStatusResults{}
@@ -45,12 +43,6 @@ func (c *ModelStatusAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus
 		return nil, err
 	}
 
-	if olderVersion {
-		// This caters for the fact that older version of base.ModelStatus
-		// did not have an Error field.
-		return c.processModelStatusResultsV3(result.Results)
-	}
-
 	return c.processModelStatusResults(result.Results)
 }
 
@@ -58,34 +50,19 @@ func (c *ModelStatusAPI) processModelStatusResults(rs []params.ModelStatus) ([]b
 	results := make([]base.ModelStatus, len(rs))
 	for i, r := range rs {
 		if r.Error != nil {
+			// cope with typed error
 			results[i].Error = errors.Trace(r.Error)
 			continue
 		}
 		model, err := names.ParseModelTag(r.ModelTag)
 		if err != nil {
-			results[i].Error = errors.Annotatef(err, "model tag %v", r.ModelTag)
+			results[i].Error = err
 			continue
 		}
 		owner, err := names.ParseUserTag(r.OwnerTag)
 		if err != nil {
-			results[i].Error = errors.Annotatef(err, "owner tag %v", r.OwnerTag)
+			results[i].Error = err
 			continue
-		}
-		results[i] = constructModelStatus(model, owner, r)
-	}
-	return results, nil
-}
-
-func (c *ModelStatusAPI) processModelStatusResultsV3(rs []params.ModelStatus) ([]base.ModelStatus, error) {
-	results := make([]base.ModelStatus, len(rs))
-	for i, r := range rs {
-		model, err := names.ParseModelTag(r.ModelTag)
-		if err != nil {
-			return nil, errors.Annotatef(err, "ModelTag %q at position %d", r.ModelTag, i)
-		}
-		owner, err := names.ParseUserTag(r.OwnerTag)
-		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", r.OwnerTag, i)
 		}
 		results[i] = constructModelStatus(model, owner, r)
 	}
