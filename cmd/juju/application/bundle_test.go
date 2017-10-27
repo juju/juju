@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 // LTS-dependent requires new entry upon new LTS release. There are numerous
@@ -1504,6 +1505,32 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleAnnotations(c *gc.C) {
 	c.Assert(ann, jc.DeepEquals, map[string]string{
 		"foo":    "bar",
 		"answer": "42",
+	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleExistingMachines(c *gc.C) {
+	xenialMachine := &factory.MachineParams{Series: "xenial"}
+	s.Factory.MakeMachine(c, xenialMachine) // machine-0
+	s.Factory.MakeMachine(c, xenialMachine) // machine-1
+	s.Factory.MakeMachine(c, xenialMachine) // machine-2
+	s.Factory.MakeMachine(c, xenialMachine) // machine-3
+	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+	err := s.DeployBundleYAML(c, `
+        applications:
+            django:
+                charm: cs:django
+                num_units: 3
+                to: [0,1,2]
+        machines:
+            0:
+            1:
+            2:
+    `, "--use-existing-machines", "--bundle-machine", "2=3")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUnitsCreated(c, map[string]string{
+		"django/0": "0",
+		"django/1": "1",
+		"django/2": "3",
 	})
 }
 

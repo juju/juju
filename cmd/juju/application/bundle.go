@@ -66,6 +66,8 @@ func deployBundle(
 	ctx *cmd.Context,
 	bundleStorage map[string]map[string]storage.Constraints,
 	dryRun bool,
+	useExistingMachines bool,
+	bundleMachines map[string]string,
 ) (map[*charm.URL]*macaroon.Macaroon, error) {
 
 	if err := processBundleConfig(data, bundleConfigFile); err != nil {
@@ -106,7 +108,7 @@ func deployBundle(
 
 	// TODO: move bundle parsing and checking into the handler.
 	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleStorage)
-	if err := h.makeModel(); err != nil {
+	if err := h.makeModel(useExistingMachines, bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := h.resolveCharmsAndEndpoints(); err != nil {
@@ -220,7 +222,10 @@ func makeBundleHandler(
 	}
 }
 
-func (h *bundleHandler) makeModel() error {
+func (h *bundleHandler) makeModel(
+	useExistingMachines bool,
+	bundleMachines map[string]string,
+) error {
 
 	// Initialize the unit status.
 	status, err := h.api.Status(nil)
@@ -228,7 +233,7 @@ func (h *bundleHandler) makeModel() error {
 		return errors.Annotate(err, "cannot get model status")
 	}
 
-	h.model, err = buildModelRepresentation(status, h.api)
+	h.model, err = buildModelRepresentation(status, h.api, useExistingMachines, bundleMachines)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1237,16 +1242,29 @@ func processBundleConfig(data *charm.BundleData, bundleConfigFile string) error 
 	return nil
 }
 
-func buildModelRepresentation(status *params.FullStatus, apiRoot DeployAPI) (*bundlechanges.Model, error) {
+func buildModelRepresentation(
+	status *params.FullStatus,
+	apiRoot DeployAPI,
+	useExistingMachines bool,
+	bundleMachines map[string]string,
+) (*bundlechanges.Model, error) {
 	var (
 		annotationTags []string
 		appNames       []string
 	)
-
+	machineMap := make(map[string]string)
 	machines := make(map[string]*bundlechanges.Machine)
 	for id := range status.Machines {
 		machines[id] = &bundlechanges.Machine{ID: id}
-		annotationTags = append(annotationTags, names.NewMachineTag(id).String())
+		tag := names.NewMachineTag(id)
+		annotationTags = append(annotationTags, tag.String())
+		if useExistingMachines && tag.ContainerType() == "" {
+			machineMap[id] = id
+		}
+	}
+	// Now iterate over the bundleMachines that the user specified.
+	for bundleMachine, modelMachine := range bundleMachines {
+		machineMap[bundleMachine] = modelMachine
 	}
 	applications := make(map[string]*bundlechanges.Application)
 	for name, appStatus := range status.Applications {
@@ -1261,6 +1279,7 @@ func buildModelRepresentation(status *params.FullStatus, apiRoot DeployAPI) (*bu
 				Machine: unit.Machine,
 			})
 		}
+		// TODO: application constraints
 		applications[name] = application
 		annotationTags = append(annotationTags, names.NewApplicationTag(name).String())
 		appNames = append(appNames, name)
@@ -1268,6 +1287,7 @@ func buildModelRepresentation(status *params.FullStatus, apiRoot DeployAPI) (*bu
 	model := &bundlechanges.Model{
 		Applications: applications,
 		Machines:     machines,
+		MachineMap:   machineMap,
 	}
 	for _, relation := range status.Relations {
 		// All relations have two endpoints except peers.

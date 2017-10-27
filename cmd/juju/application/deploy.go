@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -305,6 +306,12 @@ type DeployCommand struct {
 	Bindings map[string]string
 	Steps    []DeployStep
 
+	// UseExisting machines when deploying the bundle.
+	UseExisting bool
+	// BundleMachines is a mapping for machines in the bundle to machines
+	// in the model.
+	BundleMachines map[string]string
+
 	// NewAPIRoot stores a function which returns a new API root.
 	NewAPIRoot func() (DeployAPI, error)
 
@@ -388,6 +395,23 @@ When deploying an application or adding machines, the 'spaces' constraint can
 be used to define a comma-delimited list of required and forbidden spaces (the
 latter prefixed with "^", similar to the 'tags' constraint).
 
+When deploying bundles, machines specified in the bundle are added to the
+model as new machines. In order to use the existing machines in the model
+rather than create  new machines, the --use-existing-machines flag can be
+used. To specify a particular machine, the --bundle-machine flag can be used
+to specify a specific machine for  a particular machine in the bundle. These
+flags can be combined with the --bundle-machine flag taking precidence. For
+example, if there was a bundle that specified machines 1, 2, and 3, and the
+model had machines 1, 2, 3 and 4, the following deployment of the bundle would
+use machines 1 and 2 in the model for machines 1 and 2 in the bundle and use
+machine 4 in the model for the bundle machine 3.
+
+  juju deploy some-bundle --use-existing-machines --bundle-machine 3=4
+
+Only top level machines can be mapped in this way, just as only top level
+machines can be defined in the machines section of the bundle. The
+--bundle-machine flag can be specified multiple times.
+
 
 Examples:
     juju deploy mysql               (deploy to a new machine)
@@ -463,7 +487,9 @@ var (
 		"series", "to", "resource", "attach-storage",
 	}
 	// TODO(thumper): support dry-run for apps as well as bundles.
-	bundleOnlyFlags = []string{"bundle-config", "dry-run"}
+	bundleOnlyFlags = []string{
+		"bundle-config", "dry-run", "use-existing-machines", "bundle-machine",
+	}
 )
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -482,6 +508,9 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
+
+	f.BoolVar(&c.UseExisting, "use-existing-machines", false, "Use existing machines for bundle deployments")
+	f.Var(cmd.StringMap{&c.BundleMachines}, "bundle-machine", "Map specific bundle machines to model machines")
 
 	for _, step := range c.Steps {
 		step.SetFlags(f)
@@ -511,6 +540,18 @@ func (c *DeployCommand) Init(args []string) error {
 	if err := c.parseBind(); err != nil {
 		return err
 	}
+
+	// If any bundle-machines have been added, make sure they are all non-
+	// negative integers.
+	for key, value := range c.BundleMachines {
+		if i, err := strconv.Atoi(key); err != nil || i < 0 {
+			return errors.Errorf("--bundle-machine value \"%s=%s\", first value be a top level machine id", key, value)
+		}
+		if i, err := strconv.Atoi(value); err != nil || i < 0 {
+			return errors.Errorf("--bundle-machine value \"%s=%s\", second value be a top level machine id", key, value)
+		}
+	}
+
 	return c.UnitCommandBase.Init(args)
 }
 
@@ -546,6 +587,8 @@ func (c *DeployCommand) deployBundle(
 		ctx,
 		bundleStorage,
 		c.DryRun,
+		c.UseExisting,
+		c.BundleMachines,
 	); err != nil {
 		return errors.Annotate(err, "cannot deploy bundle")
 	}
