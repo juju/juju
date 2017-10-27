@@ -177,6 +177,12 @@ func ExistingJujudLocation() (string, error) {
 	return jujuDir, nil
 }
 
+// VersionFileFallbackDir is the other location we'll check for a
+// juju-versions file if it's not alongside the binary (for example if
+// Juju was installed from a .deb). (Exposed so we can override it in
+// tests.)
+var VersionFileFallbackDir = "/usr/lib/juju"
+
 func copyExistingJujud(dir string) error {
 	// Assume that the user is running juju.
 	jujuDir, err := ExistingJujudLocation()
@@ -192,25 +198,31 @@ func copyExistingJujud(dir string) error {
 		return errors.Trace(err)
 	}
 	logger.Infof("Found agent binary to upload (%s)", jujudLocation)
-	// TODO(thumper): break this out into a util function.
-	// copy the file into the dir.
 	target := filepath.Join(dir, names.Jujud)
 	logger.Infof("target: %v", target)
 	err = copyFileWithMode(jujudLocation, target, info.Mode())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// If there's a version file beside the jujud binary, include that.
-	versionPath := filepath.Join(jujuDir, names.JujudVersions)
+	// If there's a version file beside the jujud binary or in the
+	// fallback location, include that.
 	versionTarget := filepath.Join(dir, names.JujudVersions)
-	info, err = os.Stat(versionPath)
-	if os.IsNotExist(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
+
+	versionPaths := []string{
+		filepath.Join(jujuDir, names.JujudVersions),
+		filepath.Join(VersionFileFallbackDir, names.JujudVersions),
 	}
-	logger.Infof("including versions file")
-	return errors.Trace(copyFileWithMode(versionPath, versionTarget, info.Mode()))
+	for _, versionPath := range versionPaths {
+		info, err = os.Stat(versionPath)
+		if os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		logger.Infof("including versions file %q", versionPath)
+		return errors.Trace(copyFileWithMode(versionPath, versionTarget, info.Mode()))
+	}
+	return nil
 }
 
 func buildJujud(dir string) error {

@@ -51,6 +51,9 @@ func (b *buildSuite) SetUpTest(c *gc.C) {
 	dir1 := c.MkDir()
 	dir2 := c.MkDir()
 
+	// Ensure we don't look in the real /usr/lib/juju for jujud-versions.yaml.
+	b.PatchValue(&tools.VersionFileFallbackDir, c.MkDir())
+
 	c.Log(dir1)
 	c.Log(dir2)
 
@@ -364,6 +367,63 @@ func (b *buildSuite) TestBundleToolsWithNoVersion(c *gc.C) {
 	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-artful-amd64")
 	c.Assert(sha, gc.Not(gc.Equals), "")
 	c.Assert(official, jc.IsFalse)
+}
+
+func (b *buildSuite) TestBundleToolsFindsVersionFileInFallbackLocation(c *gc.C) {
+	// No version file next to the binary.
+	dir := b.setUpFakeBinaries(c, "")
+	// But one in the fallback location.
+	err := ioutil.WriteFile(
+		filepath.Join(tools.VersionFileFallbackDir, "jujud-versions.yaml"),
+		[]byte(fakeVersionFile),
+		0755)
+	c.Assert(err, jc.ErrorIsNil)
+
+	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	forceVersion := version.MustParse("1.2.3.1")
+	resultVersion, official, sha256, err := tools.BundleTools(false, bundleFile, &forceVersion)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Version should come from the version file.
+	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-quantal-arm64")
+	c.Assert(official, jc.IsTrue)
+
+	_, err = bundleFile.Seek(0, io.SeekStart)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = agenttools.UnpackTools(dir, &coretools.Tools{
+		Version: resultVersion,
+		SHA256:  sha256,
+	}, bundleFile)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unpackDir := filepath.Join(dir, "tools", "1.2.3-quantal-arm64")
+	// downloaded-tools.txt is added by UnpackTools.
+	c.Assert(listDir(c, unpackDir), gc.DeepEquals, []string{
+		"downloaded-tools.txt", "jujud", "jujud-versions.yaml"})
+}
+
+func (b *buildSuite) TestBundleToolsUsesAdjacentVersionFirst(c *gc.C) {
+	// If there are version files both beside the binary and in
+	// /usr/lib/juju, use the one beside the binary.
+	dir := b.setUpFakeBinaries(c, strings.Replace(fakeVersionFile, "1.2.3", "2.3.5", 1))
+	err := ioutil.WriteFile(
+		filepath.Join(tools.VersionFileFallbackDir, "jujud-versions.yaml"),
+		[]byte(fakeVersionFile),
+		0755)
+	c.Assert(err, jc.ErrorIsNil)
+
+	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	forceVersion := version.MustParse("2.3.5.1")
+	resultVersion, official, _, err := tools.BundleTools(false, bundleFile, &forceVersion)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(resultVersion.String(), gc.Equals, "2.3.5-quantal-arm64")
+	c.Assert(official, jc.IsTrue)
 }
 
 const (
