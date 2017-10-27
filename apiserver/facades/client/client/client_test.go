@@ -236,7 +236,7 @@ func (s *serverSuite) TestSetModelAgentVersion(c *gc.C) {
 
 func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {
 	// Get the agent-version set in the model.
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -247,7 +247,7 @@ func (s *serverSuite) TestSetModelAgentVersionForced(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
 	c.Assert(err, jc.ErrorIsNil)
-	unit, err := service.AddUnit()
+	unit, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-quantal-amd64"))
