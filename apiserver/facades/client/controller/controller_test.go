@@ -860,7 +860,7 @@ func (s *controllerSuite) TestModelStatusV3(c *gc.C) {
 		Tag: s.IAASModel.ModelTag().String(),
 	}}})
 	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
-	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{})
+	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
 
 	// Check that we err out if a model errs even if some firsts in collection pass.
 	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
@@ -869,7 +869,7 @@ func (s *controllerSuite) TestModelStatusV3(c *gc.C) {
 		Tag: "bad-tag",
 	}}})
 	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
-	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{})
+	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
 
 	// Check that we return successfully if no errors.
 	results, err = api.ModelStatus(params.Entities{[]params.Entity{{

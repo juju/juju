@@ -167,7 +167,7 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 				// destroyed half-way through the call.
 				continue
 			}
-			return s.Error
+			return errors.Trace(s.Error)
 		}
 		machineCount += s.TotalMachineCount
 	}

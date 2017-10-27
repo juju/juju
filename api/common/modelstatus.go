@@ -25,12 +25,6 @@ func NewModelStatusAPI(facade base.FacadeCaller) *ModelStatusAPI {
 
 // ModelStatus returns a status summary for each model tag passed in.
 func (c *ModelStatusAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error) {
-	// This call is used in both Controller and ModelManger facades.
-	// Luckily, prior to the signature change both of these facades were at version 3.
-	if bestVer := c.facade.BestAPIVersion(); bestVer < 4 {
-		logger.Tracef("calling older models status on v%d", bestVer)
-	}
-
 	result := params.ModelStatusResults{}
 	models := make([]params.Entity, len(tags))
 	for i, tag := range tags {
@@ -56,12 +50,12 @@ func (c *ModelStatusAPI) processModelStatusResults(rs []params.ModelStatus) ([]b
 		}
 		model, err := names.ParseModelTag(r.ModelTag)
 		if err != nil {
-			results[i].Error = err
+			results[i].Error = errors.Trace(err)
 			continue
 		}
 		owner, err := names.ParseUserTag(r.OwnerTag)
 		if err != nil {
-			results[i].Error = err
+			results[i].Error = errors.Trace(err)
 			continue
 		}
 		results[i] = constructModelStatus(model, owner, r)
