@@ -4,6 +4,8 @@
 package provisioner
 
 import (
+	"sort"
+
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/watcher"
 )
@@ -37,6 +39,16 @@ var (
 
 var ClassifyMachine = classifyMachine
 
-func GetAvailabilityZoneMachines(p ProvisionerTask) []*AvailabilityZoneMachine {
-	return p.(*provisionerTask).availabilityZoneMachines
+// GetCopyAvailabilityZoneMachines returns a copy of p.(*provisionerTask).availabilityZoneMachines
+func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachine {
+	task := p.(*provisionerTask)
+	task.azMachinesMutex.RLock()
+	defer task.azMachinesMutex.RUnlock()
+	// sort to make comparisions in the tests easier.
+	sort.Sort(byPopulationThenNames(task.availabilityZoneMachines))
+	retvalues := make([]AvailabilityZoneMachine, len(task.availabilityZoneMachines))
+	for i, _ := range task.availabilityZoneMachines {
+		retvalues[i] = *task.availabilityZoneMachines[i]
+	}
+	return retvalues
 }
