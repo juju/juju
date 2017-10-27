@@ -51,6 +51,7 @@ type ModelStatus struct {
 	Machines           []ModelMachineInfo    `json:"machines,omitempty"`
 	Volumes            []ModelVolumeInfo     `json:"volumes,omitempty"`
 	Filesystems        []ModelFilesystemInfo `json:"filesystems,omitempty"`
+	Error              *Error                `json:"error,omitempty"`
 }
 
 // ModelStatusResults holds status information about a group of models.

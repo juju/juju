@@ -138,7 +138,6 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		}
 
 		var details ShowControllerDetails
-		var modelStatus []base.ModelStatus
 		allModels, err := client.AllModels()
 		if err != nil {
 			details.Errors = append(details.Errors, err.Error())
@@ -158,19 +157,26 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 				controllerModelUUID = m.UUID
 			}
 		}
-		modelStatus, err = client.ModelStatus(modelTags...)
+		modelStatusResults, err := client.ModelStatus(modelTags...)
 		if err != nil {
 			details.Errors = append(details.Errors, err.Error())
 			continue
 		}
-		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatus)
+
+		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatusResults)
 		controllers[controllerName] = details
 		machineCount := 0
-		for _, s := range modelStatus {
-			machineCount += s.TotalMachineCount
+		for _, r := range modelStatusResults {
+			if r.Error != nil {
+				if !errors.IsNotFound(r.Error) {
+					details.Errors = append(details.Errors, r.Error.Error())
+				}
+				continue
+			}
+			machineCount += r.TotalMachineCount
 		}
 		one.MachineCount = &machineCount
-		one.ActiveControllerMachineCount, one.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, modelStatus)
+		one.ActiveControllerMachineCount, one.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, modelStatusResults)
 		err = c.store.UpdateController(controllerName, *one)
 		if err != nil {
 			details.Errors = append(details.Errors, err.Error())
@@ -298,7 +304,7 @@ func (c *showControllerCommand) convertControllerForShow(
 	details *jujuclient.ControllerDetails,
 	access string,
 	allModels []base.UserModel,
-	modelStatus []base.ModelStatus,
+	modelStatusResults []base.ModelStatus,
 ) {
 
 	controller.Details = ControllerDetails{
@@ -309,7 +315,7 @@ func (c *showControllerCommand) convertControllerForShow(
 		CloudRegion:    details.CloudRegion,
 		AgentVersion:   details.AgentVersion,
 	}
-	c.convertModelsForShow(controllerName, controller, allModels, modelStatus)
+	c.convertModelsForShow(controllerName, controller, allModels, modelStatusResults)
 	c.convertAccountsForShow(controllerName, controller, access)
 	var controllerModelUUID string
 	for _, m := range allModels {
@@ -321,7 +327,12 @@ func (c *showControllerCommand) convertControllerForShow(
 	if controllerModelUUID != "" {
 		var controllerModel base.ModelStatus
 		found := false
-		for _, m := range modelStatus {
+		for _, m := range modelStatusResults {
+			if m.Error != nil {
+				// This most likely occurred because a model was
+				// destroyed half-way through the call.
+				continue
+			}
 			if m.UUID == controllerModelUUID {
 				controllerModel = m
 				found = true
@@ -361,13 +372,20 @@ func (c *showControllerCommand) convertModelsForShow(
 	controller.Models = make(map[string]ModelDetails)
 	for i, model := range models {
 		modelDetails := ModelDetails{ModelUUID: model.UUID}
-		if modelStatus[i].TotalMachineCount > 0 {
-			modelDetails.MachineCount = new(int)
-			*modelDetails.MachineCount = modelStatus[i].TotalMachineCount
-		}
-		if modelStatus[i].CoreCount > 0 {
-			modelDetails.CoreCount = new(int)
-			*modelDetails.CoreCount = modelStatus[i].CoreCount
+		result := modelStatus[i]
+		if result.Error != nil {
+			if !errors.IsNotFound(result.Error) {
+				controller.Errors = append(controller.Errors, errors.Annotatef(result.Error, "model uuid %v", model.UUID).Error())
+			}
+		} else {
+			if result.TotalMachineCount > 0 {
+				modelDetails.MachineCount = new(int)
+				*modelDetails.MachineCount = result.TotalMachineCount
+			}
+			if result.CoreCount > 0 {
+				modelDetails.CoreCount = new(int)
+				*modelDetails.CoreCount = result.CoreCount
+			}
 		}
 		controller.Models[model.Name] = modelDetails
 	}

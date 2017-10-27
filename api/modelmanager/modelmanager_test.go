@@ -6,6 +6,7 @@ package modelmanager_test
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
@@ -325,37 +327,44 @@ func (s *modelmanagerSuite) TestUnsetModelDefaults(c *gc.C) {
 }
 
 func (s *modelmanagerSuite) TestModelStatus(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "ModelManager")
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ModelStatus")
-		c.Check(arg, jc.DeepEquals, params.Entities{
-			[]params.Entity{{
-				Tag: coretesting.ModelTag.String(),
-			}},
-		})
-		c.Check(result, gc.FitsTypeOf, &params.ModelStatusResults{})
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ModelStatus")
+			c.Check(arg, jc.DeepEquals, params.Entities{
+				[]params.Entity{
+					{Tag: coretesting.ModelTag.String()},
+					{Tag: coretesting.ModelTag.String()},
+				},
+			})
+			c.Check(result, gc.FitsTypeOf, &params.ModelStatusResults{})
 
-		out := result.(*params.ModelStatusResults)
-		out.Results = []params.ModelStatus{{
-			ModelTag:           coretesting.ModelTag.String(),
-			OwnerTag:           "user-glenda",
-			ApplicationCount:   3,
-			HostedMachineCount: 2,
-			Life:               "alive",
-			Machines: []params.ModelMachineInfo{{
-				Id:         "0",
-				InstanceId: "inst-ance",
-				Status:     "pending",
-			}},
-		}}
-		return nil
-	})
+			out := result.(*params.ModelStatusResults)
+			out.Results = []params.ModelStatus{
+				params.ModelStatus{
+					ModelTag:           coretesting.ModelTag.String(),
+					OwnerTag:           "user-glenda",
+					ApplicationCount:   3,
+					HostedMachineCount: 2,
+					Life:               "alive",
+					Machines: []params.ModelMachineInfo{{
+						Id:         "0",
+						InstanceId: "inst-ance",
+						Status:     "pending",
+					}},
+				},
+				params.ModelStatus{Error: common.ServerError(errors.New("model error"))},
+			}
+			return nil
+		},
+	}
 
 	client := modelmanager.NewClient(apiCaller)
-	results, err := client.ModelStatus(coretesting.ModelTag)
+	results, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
+	c.Assert(results[0], jc.DeepEquals, base.ModelStatus{
 		UUID:               coretesting.ModelTag.Id(),
 		TotalMachineCount:  1,
 		HostedMachineCount: 2,
@@ -363,7 +372,35 @@ func (s *modelmanagerSuite) TestModelStatus(c *gc.C) {
 		Owner:              "glenda",
 		Life:               string(params.Alive),
 		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
-	}})
+	})
+	c.Assert(results[1].Error, gc.ErrorMatches, "model error")
+}
+
+func (s *modelmanagerSuite) TestModelStatusEmpty(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "ModelManager")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ModelStatus")
+		c.Check(result, gc.FitsTypeOf, &params.ModelStatusResults{})
+
+		return nil
+	})
+
+	client := modelmanager.NewClient(apiCaller)
+	results, err := client.ModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []base.ModelStatus{})
+}
+
+func (s *modelmanagerSuite) TestModelStatusError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			return errors.New("model error")
+		})
+	client := modelmanager.NewClient(apiCaller)
+	out, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
+	c.Assert(err, gc.ErrorMatches, "model error")
+	c.Assert(out, gc.IsNil)
 }
 
 type dumpModelSuite struct {

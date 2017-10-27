@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -288,24 +287,6 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
-}
-
-func (s *legacySuite) TestModelStatus(c *gc.C) {
-	sysManager := s.OpenAPI(c)
-	defer sysManager.Close()
-	s.Factory.MakeMachine(c, nil)
-	modelTag := s.IAASModel.ModelTag()
-	results, err := sysManager.ModelStatus(modelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
-		UUID:               modelTag.Id(),
-		TotalMachineCount:  1,
-		HostedMachineCount: 1,
-		ServiceCount:       0,
-		Owner:              "admin",
-		Life:               string(params.Alive),
-		Machines:           []base.Machine{{Id: "0", InstanceId: "id-2", Status: "pending"}},
-	}})
 }
 
 func (s *legacySuite) TestGetControllerAccess(c *gc.C) {

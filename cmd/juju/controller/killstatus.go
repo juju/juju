@@ -99,6 +99,16 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 	var aliveModelCount int
 	var ctrModelData modelData
 	for _, model := range status {
+		if model.Error != nil {
+			if errors.IsNotFound(model.Error) {
+				// This most likely occurred because a model was
+				// destroyed half-way through the call.
+				// Since we filter out models with life.Dead below, it's safe
+				// to assume that we want to filter these models here too.
+				continue
+			}
+			return ctrData{}, nil, errors.Trace(model.Error)
+		}
 		var persistentVolumeCount int
 		var persistentFilesystemCount int
 		for _, v := range model.Volumes {

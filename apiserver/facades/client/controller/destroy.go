@@ -35,7 +35,7 @@ func (s *ControllerAPIv3) DestroyController(args params.DestroyControllerArgs) e
 // attempt to do so. Otherwise, if the controller has any non-empty,
 // non-Dead hosted models, then an error with the code
 // params.CodeHasHostedModels will be transmitted.
-func (s *ControllerAPIv4) DestroyController(args params.DestroyControllerArgs) error {
+func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
 	return destroyController(s.state, s.statePool, s.authorizer, args)
 }
 
