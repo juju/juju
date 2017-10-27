@@ -37,7 +37,7 @@ type controllerSuite struct {
 	statetesting.StateSuite
 
 	statePool  *state.StatePool
-	controller *controller.ControllerAPIv4
+	controller *controller.ControllerAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 }
@@ -841,4 +841,69 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	c.Assert(*results.Results[1].Error, gc.DeepEquals, params.Error{
 		Message: "permission denied", Code: "unauthorized access",
 	})
+}
+
+func (s *controllerSuite) TestModelStatusV3(c *gc.C) {
+	api, err := controller.NewControllerAPIv3(
+		facadetest.Context{
+			State_:     s.State,
+			StatePool_: s.statePool,
+			Resources_: s.resources,
+			Auth_:      s.authorizer,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that we err out immediately if a model errs.
+	results, err := api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: "bad-tag",
+	}, {
+		Tag: s.IAASModel.ModelTag().String(),
+	}}})
+	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{})
+
+	// Check that we err out if a model errs even if some firsts in collection pass.
+	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.IAASModel.ModelTag().String(),
+	}, {
+		Tag: "bad-tag",
+	}}})
+	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{})
+
+	// Check that we return successfully if no errors.
+	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.IAASModel.ModelTag().String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+}
+
+func (s *controllerSuite) TestModelStatus(c *gc.C) {
+	// Check that we don't err out immediately if a model errs.
+	results, err := s.controller.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: "bad-tag",
+	}, {
+		Tag: s.IAASModel.ModelTag().String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+
+	// Check that we don't err out if a model errs even if some firsts in collection pass.
+	results, err = s.controller.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.IAASModel.ModelTag().String(),
+	}, {
+		Tag: "bad-tag",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+
+	// Check that we return successfully if no errors.
+	results, err = s.controller.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.IAASModel.ModelTag().String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
 }

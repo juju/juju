@@ -91,6 +91,10 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 		return ctrData{}, nil, errors.Trace(err)
 	}
 
+	// This is needed since return parameter may have an Error
+	// property in the later api versions, > 3.
+	newerAPI := api.BestAPIVersion() > 3
+
 	var hostedMachinesCount int
 	var servicesCount int
 	var volumeCount int
@@ -99,6 +103,13 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 	var aliveModelCount int
 	var ctrModelData modelData
 	for _, model := range status {
+		if newerAPI && model.Error != nil {
+			// This most likely occurred because a model was
+			// destroyed half-way through the call.
+			// Since we filter out models with life.Dead below, it's safe
+			// to assume that we want to filter these models here too.
+			continue
+		}
 		var persistentVolumeCount int
 		var persistentFilesystemCount int
 		for _, v := range model.Volumes {

@@ -1582,6 +1582,94 @@ func (s *modelManagerStateSuite) TestModifyModelAccessInvalidAction(c *gc.C) {
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 }
 
+func (s *modelManagerSuite) TestModelStatusV2(c *gc.C) {
+	api := &modelmanager.ModelManagerAPIV2{
+		&modelmanager.ModelManagerAPIV3{s.api},
+	}
+	// Check that we err out immediately if a model errs.
+	results, err := api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: "bad-tag",
+	}, {
+		Tag: s.st.ModelTag().String(),
+	}}})
+	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{})
+
+	// Check that we err out if a model errs even if some firsts in collection pass.
+	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.st.ModelTag().String(),
+	}, {
+		Tag: "bad-tag",
+	}}})
+	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{})
+
+	// Check that we return successfully if no errors.
+	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.st.ModelTag().String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+}
+
+func (s *modelManagerSuite) TestModelStatusV3(c *gc.C) {
+	api := &modelmanager.ModelManagerAPIV3{s.api}
+
+	// Check that we err out immediately if a model errs.
+	results, err := api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: "bad-tag",
+	}, {
+		Tag: s.st.ModelTag().String(),
+	}}})
+	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{})
+
+	// Check that we err out if a model errs even if some firsts in collection pass.
+	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.st.ModelTag().String(),
+	}, {
+		Tag: "bad-tag",
+	}}})
+	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{})
+
+	// Check that we return successfully if no errors.
+	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.st.ModelTag().String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+}
+
+func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
+	// Check that we don't err out immediately if a model errs.
+	results, err := s.api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: "bad-tag",
+	}, {
+		Tag: s.st.ModelTag().String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+
+	// Check that we don't err out if a model errs even if some firsts in collection pass.
+	results, err = s.api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.st.ModelTag().String(),
+	}, {
+		Tag: "bad-tag",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+
+	// Check that we return successfully if no errors.
+	results, err = s.api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.st.ModelTag().String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+}
+
 type fakeProvider struct {
 	environs.EnvironProvider
 }

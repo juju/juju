@@ -31,18 +31,16 @@ func NewModelStatusAPI(backend ModelManagerBackend, authorizer facade.Authorizer
 // ModelStatus returns a summary of the model.
 func (c *ModelStatusAPI) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
 	models := req.Entities
-	results := params.ModelStatusResults{}
-
 	status := make([]params.ModelStatus, len(models))
 	for i, model := range models {
 		modelStatus, err := c.modelStatus(model.Tag)
 		if err != nil {
-			return results, errors.Trace(err)
+			status[i].Error = ServerError(err)
+			continue
 		}
 		status[i] = modelStatus
 	}
-	results.Results = status
-	return results, nil
+	return params.ModelStatusResults{Results: status}, nil
 }
 
 func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {

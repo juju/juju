@@ -1212,3 +1212,33 @@ func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environs.RegionSp
 	}
 	return rspec, nil
 }
+
+// ModelStatus is a legacy method call to ensure that we preserve
+// backward compatibility.
+// TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
+func (s *ModelManagerAPIV2) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	return s.ModelManagerAPI.oldModelStatus(req)
+}
+
+// ModelStatus is a legacy method call to ensure that we preserve
+// backward compatibility.
+// TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
+func (s *ModelManagerAPIV3) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	return s.ModelManagerAPI.oldModelStatus(req)
+}
+
+// ModelStatus is a legacy method call to ensure that we preserve
+// backward compatibility.
+// TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
+func (s *ModelManagerAPI) oldModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	results, err := s.ModelStatusAPI.ModelStatus(req)
+	if err != nil {
+		return params.ModelStatusResults{}, err
+	}
+	for _, r := range results.Results {
+		if r.Error != nil {
+			return params.ModelStatusResults{}, errors.Trace(r.Error)
+		}
+	}
+	return results, nil
+}

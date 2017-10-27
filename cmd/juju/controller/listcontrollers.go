@@ -129,7 +129,6 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 
 func (c *listControllersCommand) refreshControllerDetails(client ControllerAccessAPI, controllerName string) error {
 	// First, get all the models the user can see, and their details.
-	var modelStatus []base.ModelStatus
 	allModels, err := client.AllModels()
 	if err != nil {
 		return err
@@ -147,10 +146,14 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 			controllerModelUUID = m.UUID
 		}
 	}
-	modelStatus, err = client.ModelStatus(modelTags...)
+	modelStatus, err := client.ModelStatus(modelTags...)
 	if err != nil {
 		return err
 	}
+
+	// This is needed since return parameter may have an Error
+	// property in the later api versions, > 3.
+	newerAPI := client.BestAPIVersion() > 3
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -162,15 +165,25 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 
 	machineCount := 0
 	for _, s := range modelStatus {
+		if newerAPI && s.Error != nil {
+			// This most likely occurred because a model was
+			// destroyed half-way through the call.
+			continue
+		}
 		machineCount += s.TotalMachineCount
 	}
 	details.MachineCount = &machineCount
-	details.ActiveControllerMachineCount, details.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, modelStatus)
+	details.ActiveControllerMachineCount, details.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, newerAPI, modelStatus)
 	return c.store.UpdateController(controllerName, *details)
 }
 
-func ControllerMachineCounts(controllerModelUUID string, modelStatus []base.ModelStatus) (activeCount, totalCount int) {
-	for _, s := range modelStatus {
+func ControllerMachineCounts(controllerModelUUID string, newerAPI bool, modelStatusResults []base.ModelStatus) (activeCount, totalCount int) {
+	for _, s := range modelStatusResults {
+		if newerAPI && s.Error != nil {
+			// This most likely occurred because a model was
+			// destroyed half-way through the call.
+			continue
+		}
 		if s.UUID != controllerModelUUID {
 			continue
 		}

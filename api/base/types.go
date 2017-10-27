@@ -34,6 +34,7 @@ type ModelStatus struct {
 	Machines           []Machine
 	Volumes            []Volume
 	Filesystems        []Filesystem
+	Error              error
 }
 
 // Machine holds information about a machine in a juju model.

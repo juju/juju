@@ -337,6 +337,12 @@ func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelT
 			ctx.Infof("error finding model status: expected one result, got %d", l)
 			return nil
 		}
+		if api.BestAPIVersion() > 3 && status[0].Error != nil {
+			// This most likely occurred because a model was
+			// destroyed half-way through the call.
+			ctx.Infof("Could not get the model status from the API: %v.", err)
+			return nil
+		}
 		return &modelData{
 			machineCount:     status[0].HostedMachineCount,
 			applicationCount: status[0].ServiceCount,
@@ -391,7 +397,15 @@ func handlePersistentStorageError(
 	if err != nil {
 		return errors.Annotate(err, "getting model status")
 	}
+	if l := len(modelStatuses); l != 1 {
+		return errors.Errorf("error finding model status: expected one result, got %d", l)
+	}
 	modelStatus := modelStatuses[0]
+	if api.BestAPIVersion() > 3 && modelStatus.Error != nil {
+		// This most likely occurred because a model was
+		// destroyed half-way through the call.
+		return errors.Annotate(err, "getting model status")
+	}
 
 	var buf bytes.Buffer
 	var persistentVolumes, persistentFilesystems int

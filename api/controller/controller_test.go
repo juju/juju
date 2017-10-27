@@ -5,8 +5,8 @@ package controller_test
 
 import (
 	"encoding/json"
-	"errors"
 
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -14,11 +14,13 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type Suite struct {
@@ -270,4 +272,81 @@ func makeSpec() controller.MigrationSpec {
 
 func randomUUID() string {
 	return utils.MustNewUUID().String()
+}
+
+func (s *Suite) TestModelStatusEmpty(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Controller")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ModelStatus")
+		c.Check(result, gc.FitsTypeOf, &params.ModelStatusResults{})
+
+		return nil
+	})
+
+	client := controller.NewClient(apiCaller)
+	results, err := client.ModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []base.ModelStatus{})
+}
+
+func (s *Suite) TestModelStatus(c *gc.C) {
+	apiCaller := apitesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "Controller")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ModelStatus")
+			c.Check(arg, jc.DeepEquals, params.Entities{
+				[]params.Entity{
+					{Tag: coretesting.ModelTag.String()},
+					{Tag: coretesting.ModelTag.String()},
+				},
+			})
+			c.Check(result, gc.FitsTypeOf, &params.ModelStatusResults{})
+
+			out := result.(*params.ModelStatusResults)
+			out.Results = []params.ModelStatus{
+				params.ModelStatus{
+					ModelTag:           coretesting.ModelTag.String(),
+					OwnerTag:           "user-glenda",
+					ApplicationCount:   3,
+					HostedMachineCount: 2,
+					Life:               "alive",
+					Machines: []params.ModelMachineInfo{{
+						Id:         "0",
+						InstanceId: "inst-ance",
+						Status:     "pending",
+					}},
+				},
+				params.ModelStatus{Error: common.ServerError(errors.New("model error"))},
+			}
+			return nil
+		},
+	}
+
+	client := controller.NewClient(apiCaller)
+	results, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results[0], jc.DeepEquals, base.ModelStatus{
+		UUID:               coretesting.ModelTag.Id(),
+		TotalMachineCount:  1,
+		HostedMachineCount: 2,
+		ServiceCount:       3,
+		Owner:              "glenda",
+		Life:               string(params.Alive),
+		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
+	})
+	c.Assert(results[1].Error, gc.ErrorMatches, "model error")
+}
+
+func (s *Suite) TestModelStatusError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			return errors.New("model error")
+		})
+	client := controller.NewClient(apiCaller)
+	out, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
+	c.Assert(err, gc.ErrorMatches, "model error")
+	c.Assert(out, gc.IsNil)
 }

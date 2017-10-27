@@ -32,7 +32,7 @@ type destroyControllerSuite struct {
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
-	controller *controller.ControllerAPIv4
+	controller *controller.ControllerAPI
 
 	otherState     *state.State
 	otherModel     *state.Model
