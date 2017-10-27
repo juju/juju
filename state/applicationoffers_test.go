@@ -511,14 +511,26 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnections(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *gc.C) {
+	// Create a local wordpress application to relate to the local mysql,
+	// to show that we count remote relations correctly.
+	s.AddTestingApplication(c, "local-wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("local-wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	localRel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
 	ao := state.NewApplicationOffers(s.State)
 	offer := s.createDefaultOffer(c)
 	addOfferConnection := func() {
+		// Remove the local relation and add a remote relation,
+		// so that the relation count remains stable. We should
+		// be checking the *remote* relation count.
+		c.Assert(localRel.Destroy(), jc.ErrorIsNil)
 		s.addOfferConnection(c, offer.OfferUUID)
 	}
 	defer state.SetBeforeHooks(c, s.State, addOfferConnection).Check()
 
-	err := ao.Remove(offer.OfferName)
+	err = ao.Remove(offer.OfferName)
 	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
 }
 
