@@ -107,6 +107,18 @@ var initErrorTests = []struct {
 	}, {
 		args: []string{"charm", "--attach-storage", "foo/0", "-n", "2"},
 		err:  `--attach-storage cannot be used with -n`,
+	}, {
+		args: []string{"bundle", "--bundle-machine", "foo"},
+		err:  `invalid value "foo" for flag --bundle-machine: expected key=value format`,
+	}, {
+		args: []string{"bundle", "--bundle-machine", "foo=bar"},
+		err:  `--bundle-machine value "foo=bar", first value be a top level machine id`,
+	}, {
+		args: []string{"bundle", "--bundle-machine", "2=bar"},
+		err:  `--bundle-machine value "2=bar", second value be a top level machine id`,
+	}, {
+		args: []string{"bundle", "--bundle-machine", "2=-3"},
+		err:  `--bundle-machine value "2=-3", second value be a top level machine id`,
 	},
 }
 
@@ -114,7 +126,7 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
 		err := cmdtesting.InitCommand(NewDeployCommand(), t.args)
-		c.Assert(err, gc.ErrorMatches, t.err)
+		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
