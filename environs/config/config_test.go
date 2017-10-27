@@ -890,6 +890,20 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	fields["known"] = schema.Int()
 	_, err = cfg.ValidateUnknownAttrs(fields, defaults)
 	c.Assert(err, gc.ErrorMatches, `known: expected int, got string\("this"\)`)
+
+	// Completely unknown attr, not-simple field type: failure.
+	cfg, err = config.New(config.UseDefaults, map[string]interface{}{
+		"name":       "myenv",
+		"type":       "other",
+		"uuid":       testing.ModelTag.Id(),
+		"extra-info": "official extra user data",
+		"known":      "this",
+		"unknown":    "that",
+		"mapAttr":    map[string]string{"foo": "bar"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cfg.ValidateUnknownAttrs(nil, nil)
+	c.Assert(err.Error(), gc.Equals, `mapAttr: unknown type (map["foo":"bar"])`)
 }
 
 type testAttr struct {
