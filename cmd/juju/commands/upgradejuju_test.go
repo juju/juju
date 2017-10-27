@@ -498,6 +498,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNewerClient(c *gc.C)
 	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
 	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
 	c.Assert(fakeAPI.modelAgentVersion, gc.Equals, fakeAPI.tools[0].Version.Number)
+	c.Assert(fakeAPI.ignoreAgentVersions, jc.IsFalse)
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNonController(c *gc.C) {
@@ -518,6 +519,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNonController(c *gc.
 	cmd := newUpgradeJujuCommand(nil)
 	_, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, gc.ErrorMatches, "no more recent supported versions available")
+	c.Assert(fakeAPI.ignoreAgentVersions, jc.IsFalse)
 }
 
 func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
@@ -546,6 +548,30 @@ func (s *UpgradeJujuSuite) TestFailUploadOnNonController(c *gc.C) {
 	cmd := newUpgradeJujuCommand(nil)
 	_, err := cmdtesting.RunCommand(c, cmd, "--build-agent", "-m", "dummy-model")
 	c.Assert(err, gc.ErrorMatches, "--build-agent can only be used with the controller model")
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithIgnoreAgentVersions(c *gc.C) {
+	s.Reset(c)
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "1.99.99",
+	}
+	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
+		return fakeAPI, nil
+	})
+	s.PatchValue(&getModelConfigAPI, func(*upgradeJujuCommand) (modelConfigAPI, error) {
+		return fakeAPI, nil
+	})
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.100.0"))
+	cmd := newUpgradeJujuCommand(nil)
+	_, err := cmdtesting.RunCommand(c, cmd, "--ignore-agent-versions")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
+	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
+	c.Assert(fakeAPI.modelAgentVersion, gc.Equals, fakeAPI.tools[0].Version.Number)
+	c.Assert(fakeAPI.ignoreAgentVersions, jc.IsTrue)
 }
 
 type DryRunTest struct {
@@ -857,6 +883,7 @@ func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
 			expectedVersion = fakeAPI.nextVersion.Number
 		}
 		c.Assert(fakeAPI.setVersionCalledWith, gc.Equals, expectedVersion)
+		c.Assert(fakeAPI.setIgnoreCalledWith, gc.Equals, false)
 	}
 
 	const expectUpgrade = true
@@ -908,6 +935,7 @@ type fakeUpgradeJujuAPI struct {
 	setVersionErr             error
 	abortCurrentUpgradeCalled bool
 	setVersionCalledWith      version.Number
+	setIgnoreCalledWith       bool
 	tools                     []string
 	findToolsCalled           bool
 }
@@ -916,6 +944,7 @@ func (a *fakeUpgradeJujuAPI) reset() {
 	a.setVersionErr = nil
 	a.abortCurrentUpgradeCalled = false
 	a.setVersionCalledWith = version.Number{}
+	a.setIgnoreCalledWith = false
 	a.tools = []string{}
 	a.findToolsCalled = false
 }
@@ -974,8 +1003,9 @@ func (a *fakeUpgradeJujuAPI) AbortCurrentUpgrade() error {
 	return nil
 }
 
-func (a *fakeUpgradeJujuAPI) SetModelAgentVersion(v version.Number) error {
+func (a *fakeUpgradeJujuAPI) SetModelAgentVersion(v version.Number, ignoreAgentVersions bool) error {
 	a.setVersionCalledWith = v
+	a.setIgnoreCalledWith = ignoreAgentVersions
 	return a.setVersionErr
 }
 
@@ -986,12 +1016,13 @@ func (a *fakeUpgradeJujuAPI) Close() error {
 // Mock an API with no state
 type fakeUpgradeJujuAPINoState struct {
 	upgradeJujuAPI
-	name              string
-	uuid              string
-	controllerUUID    string
-	agentVersion      string
-	tools             coretools.List
-	modelAgentVersion version.Number
+	name                string
+	uuid                string
+	controllerUUID      string
+	agentVersion        string
+	tools               coretools.List
+	modelAgentVersion   version.Number
+	ignoreAgentVersions bool
 }
 
 func (a *fakeUpgradeJujuAPINoState) Close() error {
@@ -1018,8 +1049,9 @@ func (a *fakeUpgradeJujuAPINoState) UploadTools(r io.ReadSeeker, vers version.Bi
 	return a.tools, nil
 }
 
-func (a *fakeUpgradeJujuAPINoState) SetModelAgentVersion(version version.Number) error {
+func (a *fakeUpgradeJujuAPINoState) SetModelAgentVersion(version version.Number, ignoreAgentVersions bool) error {
 	a.modelAgentVersion = version
+	a.ignoreAgentVersions = ignoreAgentVersions
 	return nil
 }
 

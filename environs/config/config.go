@@ -1256,9 +1256,9 @@ var (
 // of juju that does recognise the fields, but that their presence is still
 // anomalous to some degree and should be flagged (and that there is thereby
 // a mechanism for observing fields that really are typos etc).
-func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.Defaults) (map[string]interface{}, error) {
+func (cfg *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults schema.Defaults) (map[string]interface{}, error) {
 	attrs := cfg.UnknownAttrs()
-	checker := schema.FieldMap(fields, defaults)
+	checker := schema.FieldMap(extrafields, defaults)
 	coerced, err := checker.Coerce(attrs, nil)
 	if err != nil {
 		// TODO(ericsnow) Drop this?
@@ -1267,10 +1267,19 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 	}
 	result := coerced.(map[string]interface{})
 	for name, value := range attrs {
-		if fields[name] == nil {
+		if extrafields[name] == nil {
+			// We know this name isn't in the global fields, or it wouldn't be
+			// an UnknownAttr, it also appears to not be in the extra fields
+			// that are provider specific.  Check to see if an alternative
+			// spelling is in either the extra fields or the core fields.
 			if val, isString := value.(string); isString && val != "" {
 				// only warn about attributes with non-empty string values
-				logger.Warningf("unknown config field %q", name)
+				altName := strings.Replace(name, "_", "-", -1)
+				if extrafields[altName] != nil || fields[altName] != nil {
+					logger.Warningf("unknown config field %q, did you mean %q?", name, altName)
+				} else {
+					logger.Warningf("unknown config field %q", name)
+				}
 			}
 			result[name] = value
 		}

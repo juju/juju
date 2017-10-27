@@ -301,7 +301,7 @@ func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 	s.rawMachine.SetAgentVersion(current)
 	newer := current
 	newer.Patch++
-	err := s.State.SetModelAgentVersion(newer.Number)
+	err := s.State.SetModelAgentVersion(newer.Number, false)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
