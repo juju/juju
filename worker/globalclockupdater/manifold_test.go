@@ -163,11 +163,7 @@ func (s *ManifoldSuite) TestStoppingWorkerReleasesState(c *gc.C) {
 	// eventually be released.
 	workertest.CleanKill(c, worker)
 
-	select {
-	case <-s.stateTracker.done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for state to be released")
-	}
+	s.stateTracker.waitDone(c)
 	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
@@ -177,7 +173,17 @@ func (s *ManifoldSuite) startManifold(c *gc.C) (worker.Worker, error) {
 		"clock": fakeClock{},
 		"state": &s.stateTracker,
 	})
-	return manifold.Start(context)
+	worker, err := manifold.Start(context)
+	if err != nil {
+		return nil, err
+	}
+	// Add a cleanup to wait for the worker to be done; this
+	// is necessary to avoid races.
+	s.AddCleanup(func(c *gc.C) {
+		workertest.DirtyKill(c, worker)
+		s.stateTracker.waitDone(c)
+	})
+	return worker, nil
 }
 
 type fakeClock struct {
@@ -197,6 +203,16 @@ func (s *stubStateTracker) Use() (*state.State, error) {
 
 func (s *stubStateTracker) Done() error {
 	s.MethodCall(s, "Done")
+	err := s.NextErr()
+	// close must be the last read or write on stubStateTracker in Done
 	close(s.done)
-	return s.NextErr()
+	return err
+}
+
+func (s *stubStateTracker) waitDone(c *gc.C) {
+	select {
+	case <-s.done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for state to be released")
+	}
 }
