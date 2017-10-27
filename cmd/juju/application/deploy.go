@@ -369,6 +369,33 @@ Constraints can be specified by specifying the '--constraints' option. If the
 application is later scaled out with ` + "`juju add-unit`" + `, provisioned machines
 will use the same constraints (unless changed by ` + "`juju set-constraints`" + `).
 
+Application configuration values can be specified using '--config' option. This
+option accepts either a path to a yaml-formatted file or a key=value pair. 
+Configurtion file provided should be in format
+<charm name>:
+	<option name>: <option value>
+	...
+For example, to deploying 'mediawiki' with the configuration file 'mycfg.yaml'
+that contains:
+
+mediawiki:
+	name: my media wiki
+	admins: me:pwdOne
+	debug: true
+
+use
+
+  juju deploy mediawiki --config mycfg.yaml
+
+To specify key=value pair to set an application option value, use:
+ 
+  juju deploy mediawiki --config name='my media wiki'
+   
+When specifying more than one option value, use:
+
+  juju deploy mediawiki --config name='my media wiki' --config debug=true
+
+
 Resources may be uploaded by specifying the '--resource' option followed by a
 name=filepath pair. This option may be repeated more than once to upload more
 than one resource.
@@ -499,7 +526,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
-	f.Var(&c.Config, "config", "Path to yaml-formatted application config")
+	f.Var(&c.Config, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
 	f.StringVar(&c.BundleConfigFile, "bundle-config", "", "Config override values for a bundle")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
