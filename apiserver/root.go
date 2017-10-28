@@ -28,12 +28,6 @@ var (
 	// Move to API (e.g. params) so that the pinging there may
 	// depend on the interval.
 	maxClientPingInterval = 3 * time.Minute
-
-	// mongoPingInterval defines the interval at which an API server
-	// will ping the mongo session to make sure that it's still
-	// alive. When the ping returns an error, the server will be
-	// terminated.
-	mongoPingInterval = 10 * time.Second
 )
 
 type objectKey struct {

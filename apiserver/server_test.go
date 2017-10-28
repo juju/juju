@@ -633,8 +633,7 @@ func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
 	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
 		Clock:           clock.WallClock,
-		Cert:            coretesting.ServerCert,
-		Key:             coretesting.ServerKey,
+		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
 		Tag:             names.NewMachineTag("0"),
 		LogDir:          c.MkDir(),
 		Hub:             hub,

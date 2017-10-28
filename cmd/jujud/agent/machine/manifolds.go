@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"net/http"
 	"runtime"
 	"time"
 
@@ -32,6 +33,8 @@ import (
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
+	"github.com/juju/juju/worker/apiserver"
+	"github.com/juju/juju/worker/apiservercertwatcher"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/dblogpruner"
@@ -51,6 +54,7 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
+	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/reboot"
@@ -183,6 +187,29 @@ type ManifoldsConfig struct {
 	// TransactionPruneInterval defines how frequently mgo/txn transactions
 	// are pruned from the database.
 	TransactionPruneInterval time.Duration
+
+	// StopMongo is a function used to stop a locally running MongoDB service.
+	StopMongo mongoupgrader.StopMongo
+
+	// LoginValidator is an apiserver.LoginValidator that will be passed
+	// to API server instances for validating logins.
+	LoginValidator apiserver.LoginValidator
+
+	// SetStatePool is used bythe API server for informing the agent of the
+	// StatePool that it creates, so we can pass it to the introspection
+	// worker.
+	//
+	// TODO(axw) we should have a manifold that maintains a StatePool, and
+	// pass that into the API server. We would also pass the StatePool into
+	// another manifold that will be responsible for un/registering the
+	// StatePool with an introspection reporter.
+	SetStatePool func(*state.StatePool)
+
+	// RegisterIntrospectionHTTPHandlers is a function that calls the
+	// supplied function to register introspection HTTP handlers. The
+	// function will be passed a path and a handler; the function may
+	// alter the path as it sees fit, e.g. by adding a prefix.
+	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -329,6 +356,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
 		}),
+
+		// The certificate-watcher manifold monitors the API server
+		// certificate in the agent config for changes, and parses
+		// and offers the result to other manifolds. This is only
+		// run by state servers.
+		certificateWatcherName: ifController(apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
+			AgentName:          agentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+		})),
 
 		// The api caller is a thin concurrent wrapper around a connection
 		// to some API server. It's used by many other manifolds, which all
@@ -621,6 +657,28 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				NewWorker:     txnpruner.New,
 			},
 		))),
+
+		mongoUpgraderName: ifNotMigrating(ifController(mongoupgrader.Manifold(
+			mongoupgrader.ManifoldConfig{
+				StateName: stateName,
+				Machine:   machineTag,
+				StopMongo: config.StopMongo,
+			},
+		))),
+
+		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
+			AgentName:                         agentName,
+			ClockName:                         clockName,
+			StateName:                         stateName,
+			CertWatcherName:                   certificateWatcherName,
+			PrometheusRegisterer:              config.PrometheusRegisterer,
+			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
+			LoginValidator:                    config.LoginValidator,
+			Hub:                               config.CentralHub,
+			SetStatePool:                      config.SetStatePool,
+			NewWorker:                         apiserver.NewWorker,
+			NewStoreAuditEntryFunc:            apiserver.NewStateStoreAuditEntryFunc,
+		}),
 	}
 }
 
@@ -707,4 +765,7 @@ const (
 	isControllerFlagName          = "is-controller-flag"
 	logPrunerName                 = "log-pruner"
 	txnPrunerName                 = "transaction-pruner"
+	mongoUpgraderName             = "mongo-upgrader"
+	apiServerName                 = "api-server"
+	certificateWatcherName        = "certificate-watcher"
 )

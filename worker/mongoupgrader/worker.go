@@ -23,11 +23,11 @@ type StopMongo func(mongo.Version, bool) error
 // New returns a worker or err in case of failure.
 // this worker takes care of watching the state of machine's upgrade
 // mongo information and change agent conf accordingly.
-func New(st *state.State, machineID string, maybeStopMongo StopMongo) (worker.Worker, error) {
+func New(st *state.State, machineID string, maybeStopMongo StopMongo) worker.Worker {
 	upgradeWorker := func(stopch <-chan struct{}) error {
 		return upgradeMongoWatcher(st, stopch, machineID, maybeStopMongo)
 	}
-	return jworker.NewSimpleWorker(upgradeWorker), nil
+	return jworker.NewSimpleWorker(upgradeWorker)
 }
 
 func upgradeMongoWatcher(st *state.State, stopch <-chan struct{}, machineID string, maybeStopMongo StopMongo) error {
