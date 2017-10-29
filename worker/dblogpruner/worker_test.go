@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/dblogpruner"
+	"github.com/juju/juju/worker/workertest"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -77,14 +79,14 @@ func (s *suite) setupState(c *gc.C, maxLogAge, maxCollectionMB string) {
 }
 
 func (s *suite) startWorker(c *gc.C) {
-	params := &dblogpruner.LogPruneParams{
-		PruneInterval: time.Millisecond, // Speed up pruning interval for testing
-	}
-	s.pruner = dblogpruner.New(s.state, params)
-	s.AddCleanup(func(*gc.C) {
-		s.pruner.Kill()
-		c.Assert(s.pruner.Wait(), jc.ErrorIsNil)
+	pruner, err := dblogpruner.NewWorker(dblogpruner.Config{
+		State:         s.state,
+		Clock:         clock.WallClock,
+		PruneInterval: time.Millisecond,
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.pruner = pruner
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, s.pruner) })
 }
 
 func (s *suite) TestPrunesOldLogs(c *gc.C) {
