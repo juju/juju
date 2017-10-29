@@ -403,7 +403,7 @@ For example, when calling
 
   juju deploy mediawiki --config name='my media wiki' --config mycfg.yaml
   
-the farthest, i.e. the file, will be used to configure deployed application.
+the farthest, i.e. the 'name' value from the file, will be used to configure deployed application.
 
 Resources may be uploaded by specifying the '--resource' option followed by a
 name=filepath pair. This option may be repeated more than once to upload more
