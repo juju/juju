@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
@@ -33,6 +34,7 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/centralhub"
+	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
@@ -53,11 +55,13 @@ import (
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
+	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
+	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
 )
@@ -167,6 +171,18 @@ type ManifoldsConfig struct {
 
 	// NewAgentStatusSetter provides upgradesteps.StatusSetter.
 	NewAgentStatusSetter func(apiConn api.Connection) (upgradesteps.StatusSetter, error)
+
+	// ControllerLeaseDuration defines for how long this agent will ask
+	// for controller administration rights.
+	ControllerLeaseDuration time.Duration
+
+	// LogPruneInterval defines how frequently logs are pruned from
+	// the database.
+	LogPruneInterval time.Duration
+
+	// TransactionPruneInterval defines how frequently mgo/txn transactions
+	// are pruned from the database.
+	TransactionPruneInterval time.Duration
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -209,6 +225,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		return crosscontroller.NewClient(conn), nil
 	}
 
+	agentConfig := config.Agent.CurrentConfig()
+	machineTag := agentConfig.Tag().(names.MachineTag)
+	controllerTag := agentConfig.Controller()
+
 	return dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
@@ -224,6 +244,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		terminationName: terminationworker.Manifold(),
 
 		clockName: clockManifold(config.Clock),
+
+		// Each machine agent has a flag manifold/worker which
+		// reports whether or not the agent is a controller.
+		isControllerFlagName: isControllerFlagManifold(),
 
 		// The stateconfigwatcher manifold watches the machine agent's
 		// configuration and reports if state serving info is
@@ -402,7 +426,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// We run a global clock updater for every controller machine.
 		//
-		// The global clock updater is responsible for detecting and
+		// The global clock updater is primary for detecting and
 		// preventing concurrent updates, to ensure global time is
 		// monotonic and increases at a rate no faster than real time.
 		globalClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
@@ -412,6 +436,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpdateInterval: globalClockUpdaterUpdateInterval,
 			BackoffDelay:   globalClockUpdaterBackoffDelay,
 		}),
+
+		// Each controller machine runs a singular worker which will
+		// attempt to claim responsibility for running certain workers
+		// that must not be run concurrently by multiple agents.
+		isPrimaryControllerFlagName: ifController(singular.Manifold(singular.ManifoldConfig{
+			ClockName:     clockName,
+			APICallerName: apiCallerName,
+			Duration:      config.ControllerLeaseDuration,
+			Claimant:      machineTag,
+			Entity:        controllerTag,
+			NewFacade:     singular.NewFacade,
+			NewWorker:     singular.NewWorker,
+		})),
 
 		// The serving-info-setter manifold sets grabs the state
 		// serving info from the API connection and writes it to the
@@ -504,7 +541,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogSource:     config.LogSource,
 		})),
 
-		// The deployer worker is responsible for deploying and recalling unit
+		// The deployer worker is primary for deploying and recalling unit
 		// agents, according to changes in a set of state units; and for the
 		// final removal of its agents' units from state when they are no
 		// longer needed.
@@ -562,13 +599,28 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     hostkeyreporter.NewWorker,
 		})),
 
-		externalControllerUpdaterName: ifNotMigrating(externalcontrollerupdater.Manifold(
+		externalControllerUpdaterName: ifNotMigrating(ifPrimaryController(externalcontrollerupdater.Manifold(
 			externalcontrollerupdater.ManifoldConfig{
-				StateName:                          stateName,
 				APICallerName:                      apiCallerName,
 				NewExternalControllerWatcherClient: newExternalControllerWatcherClient,
 			},
-		)),
+		))),
+		logPrunerName: ifNotMigrating(ifPrimaryController(dblogpruner.Manifold(
+			dblogpruner.ManifoldConfig{
+				ClockName:     clockName,
+				StateName:     stateName,
+				PruneInterval: config.LogPruneInterval,
+				NewWorker:     dblogpruner.NewWorker,
+			},
+		))),
+		txnPrunerName: ifNotMigrating(ifPrimaryController(txnpruner.Manifold(
+			txnpruner.ManifoldConfig{
+				ClockName:     clockName,
+				StateName:     stateName,
+				PruneInterval: config.TransactionPruneInterval,
+				NewWorker:     txnpruner.New,
+			},
+		))),
 	}
 }
 
@@ -593,6 +645,18 @@ var ifNotMigrating = engine.Housing{
 		migrationInactiveFlagName,
 	},
 	Occupy: migrationFortressName,
+}.Decorate
+
+var ifPrimaryController = engine.Housing{
+	Flags: []string{
+		isPrimaryControllerFlagName,
+	},
+}.Decorate
+
+var ifController = engine.Housing{
+	Flags: []string{
+		isControllerFlagName,
+	},
 }.Decorate
 
 const (
@@ -639,4 +703,8 @@ const (
 	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
 	globalClockUpdaterName        = "global-clock-updater"
+	isPrimaryControllerFlagName   = "is-primary-controller-flag"
+	isControllerFlagName          = "is-controller-flag"
+	logPrunerName                 = "log-pruner"
+	txnPrunerName                 = "transaction-pruner"
 )

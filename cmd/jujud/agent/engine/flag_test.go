@@ -10,6 +10,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type FlagSuite struct {
@@ -40,6 +41,20 @@ func (*FlagSuite) TestFlagOutputSuccess(c *gc.C) {
 	err := engine.FlagOutput(in, &out)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(out, gc.Equals, in)
+}
+
+func (*FlagSuite) TestStaticFlagWorker(c *gc.C) {
+	testStaticFlagWorker(c, false)
+	testStaticFlagWorker(c, true)
+}
+
+func testStaticFlagWorker(c *gc.C, value bool) {
+	w := engine.NewStaticFlagWorker(value)
+	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+
+	c.Assert(w, gc.Implements, new(engine.Flag))
+	c.Assert(w.(engine.Flag).Check(), gc.Equals, value)
 }
 
 type stubWorker struct {

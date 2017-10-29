@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
@@ -104,6 +105,7 @@ type ManifoldsConfig struct {
 // run together to administer a model, as configured.
 func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
+	machineTag := agentConfig.Tag().(names.MachineTag)
 	modelTag := agentConfig.Model()
 	controllerTag := agentConfig.Controller()
 	result := dependency.Manifolds{
@@ -148,9 +150,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
 			ClockName:     clockName,
-			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Duration:      config.RunFlagDuration,
+			Claimant:      machineTag,
+			Entity:        modelTag,
 
 			NewFacade: singular.NewFacade,
 			NewWorker: singular.NewWorker,

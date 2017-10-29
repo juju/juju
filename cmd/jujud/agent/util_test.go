@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/peergrouper"
-	"github.com/juju/juju/worker/singular"
 )
 
 const (
@@ -60,7 +59,6 @@ var fastDialOpts = api.DialOpts{
 }
 
 type commonMachineSuite struct {
-	singularRecord  *singularRunnerRecord
 	fakeEnsureMongo *agenttest.FakeEnsureMongo
 	AgentSuite
 }
@@ -90,8 +88,6 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.PatchValue(&upstart.InitDir, c.MkDir())
 
-	s.singularRecord = newSingularRunnerRecord()
-	s.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
 	s.PatchValue(&peergrouperNew, func(*state.State, clock.Clock, bool, peergrouper.Hub) (worker.Worker, error) {
 		return newDummyWorker(), nil
 	})
@@ -302,75 +298,6 @@ func (m *mockAgentConfig) Value(key string) string {
 		return m.providerType
 	}
 	return ""
-}
-
-type singularRunnerRecord struct {
-	runnerC chan *fakeSingularRunner
-}
-
-func newSingularRunnerRecord() *singularRunnerRecord {
-	return &singularRunnerRecord{
-		runnerC: make(chan *fakeSingularRunner, 64),
-	}
-}
-
-func (r *singularRunnerRecord) newSingularRunner(runner jworker.Runner, conn singular.Conn) (jworker.Runner, error) {
-	sr, err := singular.New(runner, conn)
-	if err != nil {
-		return nil, err
-	}
-	fakeRunner := &fakeSingularRunner{
-		Runner: sr,
-		startC: make(chan string, 64),
-	}
-	r.runnerC <- fakeRunner
-	return fakeRunner, nil
-}
-
-// nextRunner blocks until a new singular runner is created.
-func (r *singularRunnerRecord) nextRunner(c *gc.C) *fakeSingularRunner {
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case r := <-r.runnerC:
-			return r
-		case <-timeout:
-			c.Fatal("timed out waiting for singular runner to be created")
-		}
-	}
-}
-
-type fakeSingularRunner struct {
-	jworker.Runner
-	startC chan string
-}
-
-func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worker, error)) error {
-	logger.Infof("starting fake worker %q", name)
-	r.startC <- name
-	return r.Runner.StartWorker(name, start)
-}
-
-// waitForWorker waits for a given worker to be started, returning all
-// workers started while waiting.
-func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
-	var seen []string
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case <-time.After(coretesting.ShortWait):
-			c.Logf("still waiting for %q; workers seen so far: %+v", target, seen)
-		case workerName := <-r.startC:
-			seen = append(seen, workerName)
-			if workerName == target {
-				c.Logf("target worker %q started; workers seen so far: %+v", workerName, seen)
-				return seen
-			}
-			c.Logf("worker %q started; still waiting for %q; workers seen so far: %+v", workerName, target, seen)
-		case <-timeout:
-			c.Fatal("timed out waiting for " + target)
-		}
-	}
 }
 
 type mockLoopDeviceManager struct {
