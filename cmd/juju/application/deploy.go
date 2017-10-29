@@ -396,15 +396,18 @@ When specifying more than one option value, use:
   juju deploy mediawiki --config name='my media wiki' --config debug=true
 
 Care must be taken when specifying more than one configuration via 
-'--config' option - if duplicate option names are found,
-the last one will be used. The same will apply if both a file path and 
-key=pair(s) are specified.
+'--config' option - any later values will override those specified earlier.
 For example, when calling
 
   juju deploy mediawiki --config name='my media wiki' --config mycfg.yaml
   
-the last specified, i.e. the 'name' value from the file, will be used to 
-configure deployed application.
+if mycfg.yaml contained a value for 'name', it will be used in preference 
+to the earlier 'my media wiki' value.
+The same applies to single value options. For example, when calling
+
+  juju deploy mediawiki --config name='a media wiki' --config name='my wiki'
+
+the value 'my wiki' will be used for the option 'name'.
 
 Resources may be uploaded by specifying the '--resource' option followed by a
 name=filepath pair. This option may be repeated more than once to upload more
