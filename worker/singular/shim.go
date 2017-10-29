@@ -12,10 +12,11 @@ import (
 	"github.com/juju/juju/api/singular"
 )
 
-// NewFacade creates a Facade from an APICaller and a controller. It's a
-// suitable default value for ManifoldConfig.NewFacade.
-func NewFacade(apiCaller base.APICaller, controllerTag names.MachineTag) (Facade, error) {
-	facade, err := singular.NewAPI(apiCaller, controllerTag)
+// NewFacade creates a Facade from an APICaller and an entity for which
+// administrative control will be claimed. It's a suitable default value
+// for ManifoldConfig.NewFacade.
+func NewFacade(apiCaller base.APICaller, claimant names.MachineTag, entity names.Tag) (Facade, error) {
+	facade, err := singular.NewAPI(apiCaller, claimant, entity)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -12,10 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/lease"
 	coretesting "github.com/juju/juju/testing"
@@ -137,27 +135,6 @@ func (w *stubWorker) Wait() error {
 }
 
 var errClaimDenied = errors.Trace(lease.ErrClaimDenied)
-
-type mockAgent struct {
-	agent.Agent
-	wrongKind bool
-}
-
-func (mock *mockAgent) CurrentConfig() agent.Config {
-	return &mockAgentConfig{wrongKind: mock.wrongKind}
-}
-
-type mockAgentConfig struct {
-	agent.Config
-	wrongKind bool
-}
-
-func (mock *mockAgentConfig) Tag() names.Tag {
-	if mock.wrongKind {
-		return names.NewUnitTag("foo/1")
-	}
-	return names.NewMachineTag("123")
-}
 
 type fakeClock struct {
 	clock.Clock
