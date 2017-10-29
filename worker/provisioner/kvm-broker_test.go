@@ -329,7 +329,7 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	broker, brokerErr := provisioner.NewKVMBroker(noopPrepareHostFunc, s.provisioner, manager, agentConfig)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
-	w, err := provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker, toolsFinder)
+	w, err := provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker, toolsFinder, &mockDistributionGroupFinder{})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }

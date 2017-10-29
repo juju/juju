@@ -158,7 +158,7 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	var provisionerStarted uint32
 	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
-		toolsFinder provisioner.ToolsFinder) error {
+		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder) error {
 		c.Assert(containerType, gc.Equals, ctype)
 		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
 		atomic.StoreUint32(&provisionerStarted, 1)
@@ -235,7 +235,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 
 	s.PatchValue(&provisioner.StartProvisioner, func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
-		toolsFinder provisioner.ToolsFinder) error {
+		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder) error {
 		toolsFinder.FindTools(jujuversion.Current, series.MustHostSeries(), arch.AMD64)
 		return nil
 	})
@@ -278,7 +278,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	// A noop worker callback.
 	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
-		toolsFinder provisioner.ToolsFinder) error {
+		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder) error {
 		return nil
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)

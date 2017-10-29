@@ -276,14 +276,16 @@ func NewContainerProvisioner(
 	agentConfig agent.Config,
 	broker environs.InstanceBroker,
 	toolsFinder ToolsFinder,
+	distributionGroupFinder DistributionGroupFinder,
 ) (Provisioner, error) {
 
 	p := &containerProvisioner{
 		provisioner: provisioner{
-			st:          st,
-			agentConfig: agentConfig,
-			broker:      broker,
-			toolsFinder: toolsFinder,
+			st:                      st,
+			agentConfig:             agentConfig,
+			broker:                  broker,
+			toolsFinder:             toolsFinder,
+			distributionGroupFinder: distributionGroupFinder,
 		},
 		containerType: containerType,
 	}
