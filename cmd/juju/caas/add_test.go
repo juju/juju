@@ -24,6 +24,7 @@ import (
 type addCAASSuite struct {
 	jujutesting.IsolationSuite
 	fakeCloudAPI        *fakeCloudAPI
+	fakeModelManagerAPI *fakeModelManagerAPI
 	store               *fakeCloudMetadataStore
 	fileCredentialStore *fakeCredentialStore
 	fakeK8SConfigFunc   caascfg.ClientConfigFunc
@@ -83,6 +84,15 @@ func (api *fakeCloudAPI) AddCredential(tag string, credential cloud.Credential) 
 	return nil
 }
 
+type fakeModelManagerAPI struct {
+	caas.ModelManagerAPI
+	jujutesting.Stub
+}
+
+func (api *fakeModelManagerAPI) SetModelDefaults(cloud, region string, config map[string]interface{}) error {
+	return nil
+}
+
 func fakeK8SClientConfig() (*caascfg.ClientConfig, error) {
 	return &caascfg.ClientConfig{
 		Contexts: map[string]caascfg.Context{"somekey": caascfg.Context{
@@ -133,6 +143,7 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 			names.NewCloudCredentialTag("aws/other/secrets"),
 		},
 	}
+	s.fakeModelManagerAPI = &fakeModelManagerAPI{}
 	var logger loggo.Logger
 	s.store = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
 
@@ -187,6 +198,9 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientCon
 				return fakeK8SClientConfig, nil
 			}
 		},
+		func(caller base.APICallCloser) caas.ModelManagerAPI {
+			return s.fakeModelManagerAPI
+		},
 	)
 	return addcmd
 }
@@ -234,9 +248,11 @@ func (s *addCAASSuite) TestCorrect(c *gc.C) {
 	cmd := s.makeCommand(c, true, false)
 	_, err := s.runCommand(c, cmd, "kubernetes", "myk8s")
 	c.Assert(err, jc.ErrorIsNil)
+	caasDefaultRegion := cloud.Region{Name: "default", Endpoint: "fakeendpoint", IdentityEndpoint: "", StorageEndpoint: ""}
 	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
-			"mrcloud": cloud.Cloud{Name: "mrcloud",
+			"mrcloud": cloud.Cloud{
+				Name:             "mrcloud",
 				Type:             "kubernetes",
 				Description:      "",
 				AuthTypes:        cloud.AuthTypes(nil),
@@ -255,7 +271,7 @@ func (s *addCAASSuite) TestCorrect(c *gc.C) {
 				Endpoint:         "fakeendpoint",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region(nil),
+				Regions:          []cloud.Region{caasDefaultRegion},
 				Config: map[string]interface{}{
 					"CAData": "fakecadata",
 				},

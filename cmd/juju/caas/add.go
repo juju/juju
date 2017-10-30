@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	cloudapi "github.com/juju/juju/api/cloud"
+	modelmanagerapi "github.com/juju/juju/api/modelmanager"
 	caascfg "github.com/juju/juju/caas/clientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
@@ -37,6 +38,10 @@ type CloudAPI interface {
 	AddCloud(cloud.Cloud) error
 	AddCredential(tag string, credential cloud.Credential) error
 	Close() error
+}
+
+type ModelManagerAPI interface {
+	SetModelDefaults(cloud, region string, config map[string]interface{}) error
 }
 
 var usageAddCAASSummary = `
@@ -68,6 +73,7 @@ type AddCAASCommand struct {
 	apiRoot               api.Connection
 	newCloudAPI           func(base.APICallCloser) CloudAPI
 	newClientConfigReader func(string) (caascfg.ClientConfigFunc, error)
+	newModelManagerAPI    func(base.APICallCloser) ModelManagerAPI
 }
 
 // NewAddCAASCommand returns a command to add caas information.
@@ -81,16 +87,20 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		newClientConfigReader: func(caasType string) (caascfg.ClientConfigFunc, error) {
 			return caascfg.NewClientConfigReader(caasType)
 		},
+		newModelManagerAPI: func(caller base.APICallCloser) ModelManagerAPI {
+			return modelmanagerapi.NewClient(caller)
+		},
 	}
 	return modelcmd.Wrap(cmd)
 }
-func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, fileCredentialStore jujuclient.CredentialStore, clientStore jujuclient.ClientStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) CloudAPI, newClientConfigReaderFunc func(string) (caascfg.ClientConfigFunc, error)) cmd.Command {
+func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, fileCredentialStore jujuclient.CredentialStore, clientStore jujuclient.ClientStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) CloudAPI, newClientConfigReaderFunc func(string) (caascfg.ClientConfigFunc, error), newModelManagerAPIFunc func(base.APICallCloser) ModelManagerAPI) cmd.Command {
 	cmd := &AddCAASCommand{
 		cloudMetadataStore:    cloudMetadataStore,
 		fileCredentialStore:   fileCredentialStore,
 		apiRoot:               apiRoot,
 		newCloudAPI:           newCloudAPIFunc,
 		newClientConfigReader: newClientConfigReaderFunc,
+		newModelManagerAPI:    newModelManagerAPIFunc,
 	}
 	cmd.SetClientStore(clientStore)
 	return modelcmd.Wrap(cmd)
@@ -164,12 +174,18 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 		"CAData": defaultCloud.Attributes["CAData"],
 	}
 
+	defaultRegion := cloud.Region{
+		Name:     "default",
+		Endpoint: defaultCloud.Endpoint,
+	}
+
 	newCloud := cloud.Cloud{
 		Name:      c.caasName,
 		Type:      c.caasType,
 		Endpoint:  defaultCloud.Endpoint,
 		Config:    cloudConfig,
 		AuthTypes: []cloud.AuthType{defaultCredential.AuthType()},
+		Regions:   []cloud.Region{defaultRegion},
 	}
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
@@ -177,8 +193,9 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	cloudClient := c.newCloudAPI(api)
+	modelManagerClient := c.newModelManagerAPI(api)
 
-	if err := addCloudToController(cloudClient, newCloud); err != nil {
+	if err := addCloudToController(cloudClient, modelManagerClient, newCloud); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -236,10 +253,22 @@ func addCloudToLocal(cloudMetadataStore CloudMetadataStore, newCloud cloud.Cloud
 	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
 }
 
-func addCloudToController(apiClient CloudAPI, newCloud cloud.Cloud) error {
-	err := apiClient.AddCloud(newCloud)
+func addCloudToController(cloudAPIClient CloudAPI, modelManagerAPIClient ModelManagerAPI, newCloud cloud.Cloud) error {
+
+	err := cloudAPIClient.AddCloud(newCloud)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	if len(newCloud.Regions) == 0 {
+		return errors.Errorf("CAAS clouds should always have at least one default region")
+	} else {
+		for _, region := range newCloud.Regions {
+			err = modelManagerAPIClient.SetModelDefaults(newCloud.Name, region.Name, newCloud.Config)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
 	}
 	return nil
 }
