@@ -83,7 +83,9 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		}
 		if len(spaces) == 0 {
 			ctx.Infof("no spaces to display")
-			return nil
+			if c.out.Name() == "tabular" {
+				return nil
+			}
 		}
 
 		if c.Short {
