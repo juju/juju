@@ -65,7 +65,10 @@ func newWorkers(st *State) (*workers, error) {
 		return manager, nil
 	})
 	ws.StartWorker(singularWorker, func() (worker.Worker, error) {
-		manager, err := st.newLeaseManager(st.getSingularLeaseClient, singularSecretary{st.ModelUUID()})
+		manager, err := st.newLeaseManager(st.getSingularLeaseClient, singularSecretary{
+			controllerUUID: st.ControllerUUID(),
+			modelUUID:      st.ModelUUID(),
+		})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

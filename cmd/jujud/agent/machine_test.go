@@ -332,8 +332,6 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 		done <- a.Run(nil)
 	}()
 	c.Logf("started test agent, waiting for workers...")
-	r0 := s.singularRecord.nextRunner(c)
-	r0.waitForWorker(c, "txnpruner")
 
 	// Check that the provisioner and firewaller are alive by doing
 	// a rudimentary check that it responds to state changes.
@@ -439,16 +437,6 @@ func (s *MachineSuite) TestManageModelRunsPeergrouper(c *gc.C) {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 	started.assertTriggered(c, "peergrouperworker to start")
-}
-
-func (s *MachineSuite) TestManageModelRunsDbLogPruner(c *gc.C) {
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-
-	runner := s.singularRecord.nextRunner(c)
-	runner.waitForWorker(c, "dblogpruner")
 }
 
 func (s *MachineSuite) TestManageModelCallsUseMultipleCPUs(c *gc.C) {

@@ -12,8 +12,9 @@ import (
 	"github.com/juju/juju/core/lease"
 )
 
-// singularSecretary implements lease.Secretary to restrict claims to a single
-// lease (named for the environ uuid), holdable only by machine-tag strings.
+// singularSecretary implements lease.Secretary to restrict claims to either
+// a lease for the controller or a specific model, holdable only by machine-tag
+// strings.
 //
 // It would be nicer to have a single controller-level component managing all
 // singular leases for all environments -- and thus be able to validate that
@@ -21,13 +22,14 @@ import (
 // data from *two* states through a single api connection is excessive by
 // comparison.
 type singularSecretary struct {
-	uuid string
+	controllerUUID string
+	modelUUID      string
 }
 
 // CheckLease is part of the lease.Secretary interface.
 func (s singularSecretary) CheckLease(name string) error {
-	if name != s.uuid {
-		return errors.New("expected environ UUID")
+	if name != s.controllerUUID && name != s.modelUUID {
+		return errors.New("expected controller or model UUID")
 	}
 	return nil
 }

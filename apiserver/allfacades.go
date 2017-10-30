@@ -224,7 +224,7 @@ func AllFacades() *facade.Registry {
 
 	reg("Resumer", 2, resumer.NewResumerAPI)
 	reg("RetryStrategy", 1, retrystrategy.NewRetryStrategyAPI)
-	reg("Singular", 1, singular.NewExternalFacade)
+	reg("Singular", 2, singular.NewExternalFacade)
 
 	reg("SSHClient", 1, sshclient.NewFacade)
 	reg("SSHClient", 2, sshclient.NewFacade) // v2 adds AllAddresses() method.

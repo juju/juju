@@ -16,7 +16,6 @@ import (
 // ManifoldConfig describes the resources used by an
 // externalcontrollerupdater worker.
 type ManifoldConfig struct {
-	StateName     string
 	APICallerName string
 
 	NewExternalControllerWatcherClient NewExternalControllerWatcherClientFunc
@@ -24,9 +23,6 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.StateName == "" {
-		return errors.NotValidf("empty StateName")
-	}
 	if cfg.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
@@ -40,15 +36,11 @@ func (cfg ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.StateName,
 			config.APICallerName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
-			}
-			if err := context.Get(config.StateName, nil); err != nil {
-				return nil, err
 			}
 			var apiCaller base.APICaller
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {

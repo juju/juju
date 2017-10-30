@@ -6,6 +6,7 @@ package singular
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -22,19 +23,29 @@ func NewExternalFacade(st *state.State, _ facade.Resources, auth facade.Authoriz
 		return nil, err
 	}
 
-	backend := getBackend(st, m)
+	backend := getBackend(st, m.ModelTag())
 	return NewFacade(backend, auth)
 }
 
-var getBackend = func(st *state.State, m *state.Model) Backend {
-	return struct {
-		*state.State
-		*state.Model
-	}{st, m}
+var getBackend = func(st *state.State, modelTag names.ModelTag) Backend {
+	return &stateBackend{st, modelTag}
+}
+
+type stateBackend struct {
+	*state.State
+	modelTag names.ModelTag
+}
+
+// ModelTag is part of the Backend interface.
+func (b *stateBackend) ModelTag() names.ModelTag {
+	return b.modelTag
 }
 
 // Backend supplies capabilities required by a Facade.
 type Backend interface {
+	// ControllerTag tells the Facade which controller it should consider
+	// requests for.
+	ControllerTag() names.ControllerTag
 
 	// ModelTag tells the Facade what models it should consider requests for.
 	ModelTag() names.ModelTag
@@ -50,58 +61,79 @@ func NewFacade(backend Backend, auth facade.Authorizer) (*Facade, error) {
 		return nil, common.ErrPerm
 	}
 	return &Facade{
-		auth:    auth,
-		model:   backend.ModelTag(),
-		claimer: backend.SingularClaimer(),
+		auth:          auth,
+		modelTag:      backend.ModelTag(),
+		controllerTag: backend.ControllerTag(),
+		claimer:       backend.SingularClaimer(),
 	}, nil
 }
 
 // Facade allows controller machines to request exclusive rights to administer
-// some specific model for a limited time.
+// some specific model or controller for a limited time.
 type Facade struct {
-	auth    facade.Authorizer
-	model   names.ModelTag
-	claimer lease.Claimer
+	auth          facade.Authorizer
+	controllerTag names.ControllerTag
+	modelTag      names.ModelTag
+	claimer       lease.Claimer
 }
 
 // Wait waits for the singular-controller lease to expire for all supplied
 // entities. (In practice, any requests that do not refer to the connection's
-// model will be rejected.)
+// model or controller will be rejected.)
 func (facade *Facade) Wait(args params.Entities) (result params.ErrorResults) {
 	result.Results = make([]params.ErrorResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		var err error
-		switch {
-		case entity.Tag != facade.model.String():
-			err = common.ErrPerm
-		default:
-			err = facade.claimer.WaitUntilExpired(facade.model.Id())
+		leaseId, err := facade.tagLeaseId(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
 		}
+		// TODO(axw) 2017-10-30 #1728594
+		// We should be waiting for the leases in parallel,
+		// so the waits do not affect one another.
+		err = facade.claimer.WaitUntilExpired(leaseId)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result
 }
 
 // Claim makes the supplied singular-controller lease requests. (In practice,
-// any requests not for the connection's model, or not on behalf of the
-// connected EnvironManager machine, will be rejected.)
+// any requests not for the connection's model or controller, or not on behalf
+// of the connected ModelManager machine, will be rejected.)
 func (facade *Facade) Claim(args params.SingularClaims) (result params.ErrorResults) {
 	result.Results = make([]params.ErrorResult, len(args.Claims))
 	for i, claim := range args.Claims {
-		var err error
-		switch {
-		case claim.ModelTag != facade.model.String():
-			err = common.ErrPerm
-		case claim.ControllerTag != facade.auth.GetAuthTag().String():
-			err = common.ErrPerm
-		case !allowedDuration(claim.Duration):
-			err = common.ErrPerm
-		default:
-			err = facade.claimer.Claim(facade.model.Id(), claim.ControllerTag, claim.Duration)
-		}
+		err := facade.claim(claim)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result
+}
+
+func (facade *Facade) claim(claim params.SingularClaim) error {
+	if !allowedDuration(claim.Duration) {
+		return common.ErrPerm
+	}
+	leaseId, err := facade.tagLeaseId(claim.EntityTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	holder := facade.auth.GetAuthTag().String()
+	if claim.ClaimantTag != holder {
+		return common.ErrPerm
+	}
+	return facade.claimer.Claim(leaseId, holder, claim.Duration)
+}
+
+func (facade *Facade) tagLeaseId(tagString string) (string, error) {
+	tag, err := names.ParseTag(tagString)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	switch tag {
+	case facade.modelTag, facade.controllerTag:
+		return tag.Id(), nil
+	}
+	return "", common.ErrPerm
 }
 
 // allowedDuration returns true if the supplied duration is at least one second,
