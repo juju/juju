@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
+const iaasModel = "iaas"
+
 // ExportConfig allows certain aspects of the model to be skipped
 // during the export. The intent of this is to be able to get a partial
 // export to support other API calls, like status.
@@ -91,6 +93,7 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	}
 
 	args := description.ModelArgs{
+		Type:               iaasModel,
 		Cloud:              dbModel.Cloud(),
 		CloudRegion:        dbModel.CloudRegion(),
 		Owner:              dbModel.Owner(),

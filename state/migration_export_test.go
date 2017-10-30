@@ -171,6 +171,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Tag(), gc.Equals, dbModel.ModelTag())
 	c.Assert(model.Owner(), gc.Equals, dbModel.Owner())
+	c.Assert(model.Type(), gc.Equals, "iaas")
 	dbModelCfg, err := dbModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttrs := dbModelCfg.AllAttrs()
