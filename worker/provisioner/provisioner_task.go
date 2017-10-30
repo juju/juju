@@ -978,7 +978,7 @@ func (task *provisionerTask) setupToStartMachine(machine *apiprovisioner.Machine
 		arch,
 	)
 	if err != nil {
-		task.setErrorStatus("cannot find tools for machine %q: %v", machine, err)
+		task.setErrorStatus("cannot find agents for machine %q: %v", machine, err)
 		return nil, environs.StartInstanceParams{}, err
 	}
 

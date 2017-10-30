@@ -63,10 +63,10 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		Arch:         *hc.Arch,
 	})
 	if err != nil {
-		return nil, errors.Annotate(err, "finding tools")
+		return nil, errors.Annotate(err, "finding agents")
 	}
 	if findToolsResult.Error != nil {
-		return nil, errors.Annotate(findToolsResult.Error, "finding tools")
+		return nil, errors.Annotate(findToolsResult.Error, "finding agents")
 	}
 	toolsList := findToolsResult.List
 

@@ -154,7 +154,7 @@ func (s *toolsSuite) TestUploadFailsWithNoTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp := s.uploadRequest(c, s.toolsURI(c, "?binaryVersion=1.18.0-quantal-amd64"), "application/x-tar-gz", tempFile.Name())
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "no tools uploaded")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "no agents uploaded")
 }
 
 func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
@@ -456,7 +456,7 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp := s.downloadRequest(c, tools.Version, "")
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: size mismatch for .*")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching agents: size mismatch for .*")
 	s.assertToolsNotStored(c, tools.Version.String())
 }
 
@@ -476,7 +476,7 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp := s.downloadRequest(c, tools.Version, "")
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: hash mismatch for .*")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching agents: hash mismatch for .*")
 	s.assertToolsNotStored(c, tools.Version.String())
 }
 

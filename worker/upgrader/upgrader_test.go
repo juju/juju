@@ -307,7 +307,7 @@ func (s *UpgraderSuite) TestUpgraderRefusesToDowngradeMinorVersions(c *gc.C) {
 	// TODO: ReadTools *should* be returning some form of errors.NotFound,
 	// however, it just passes back a fmt.Errorf so we live with it
 	// c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Check(err, gc.ErrorMatches, "cannot read tools metadata in tools directory.*"+utils.NoSuchFileErrRegexp)
+	c.Check(err, gc.ErrorMatches, "cannot read agents metadata in tools directory.*"+utils.NoSuchFileErrRegexp)
 }
 
 func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {

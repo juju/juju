@@ -38,7 +38,7 @@ func (src List) AllSeries() []string {
 func (src List) OneSeries() string {
 	series := src.AllSeries()
 	if len(series) != 1 {
-		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
+		panic(fmt.Errorf("should have gotten agents for one series, got %v", series))
 	}
 	return series[0]
 }

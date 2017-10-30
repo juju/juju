@@ -47,7 +47,7 @@ type syncToolsCommand struct {
 var _ cmd.Command = (*syncToolsCommand)(nil)
 
 const synctoolsDoc = `
-This copies the Juju agent software from the official tools store (located
+This copies the Juju agent software from the official agents store (located
 at https://streams.canonical.com/juju) into a model. It is generally done
 when the model is without Internet access.
 
@@ -73,7 +73,7 @@ See also:
 func (c *syncToolsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "sync-tools",
-		Purpose: "Copy tools from the official tool store into a local model.",
+		Purpose: "Copy agents from the official agent store into a local model.",
 		Doc:     synctoolsDoc,
 	}
 }

@@ -57,7 +57,7 @@ func marshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, u
 			id, err := t.productId()
 			if err != nil {
 				if series.IsUnknownSeriesVersionError(err) {
-					logger.Infof("ignoring tools metadata with unknown series %q", t.Release)
+					logger.Infof("ignoring agents metadata with unknown series %q", t.Release)
 					continue
 				}
 				return nil, nil, err

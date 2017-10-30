@@ -1028,7 +1028,7 @@ func (s *modelManagerStateSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 			errMatch: "failed to create config: agent-version .* cannot be greater than the controller .*",
 		}, {
 			value:    smaller.String(),
-			errMatch: "failed to create config: no tools found for version .*",
+			errMatch: "failed to create config: no agents found for version .*",
 		},
 	} {
 		c.Logf("test %d", i)

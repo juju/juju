@@ -1782,7 +1782,7 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	metadataStorage := openstack.MetadataStorage(s.env)
 	url, err := metadataStorage.URL("")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("Generating fake tools for: %v", url)
+	c.Logf("Generating fake agents for: %v", url)
 	envtesting.UploadFakeTools(c, metadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
 	defer envtesting.RemoveFakeTools(c, metadataStorage, s.env.Config().AgentStream())
 	openstack.UseTestImageData(metadataStorage, s.cred)

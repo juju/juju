@@ -81,7 +81,7 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, 
 			versions = append(versions, v)
 		}
 	}
-	c.Logf("uploading fake tool versions: %v", versions)
+	c.Logf("uploading fake agent versions: %v", versions)
 	_, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -137,7 +137,7 @@ func PrimeTools(c *gc.C, stor storage.Storage, dataDir, toolsDir string, vers ve
 }
 
 func uploadFakeToolsVersion(stor storage.Storage, toolsDir string, vers version.Binary) (*coretools.Tools, error) {
-	logger.Infof("uploading FAKE tools %s", vers)
+	logger.Infof("uploading FAKE agents %s", vers)
 	tgz, checksum := makeFakeTools(vers)
 	size := int64(len(tgz))
 	name := envtools.StorageName(vers, toolsDir)
@@ -302,7 +302,7 @@ func MustUploadFakeTools(stor storage.Storage, toolsDir, stream string) {
 
 // RemoveFakeTools deletes the fake tools from the supplied storage.
 func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
-	c.Logf("removing fake tools")
+	c.Logf("removing fake agents")
 	toolsVersion := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),

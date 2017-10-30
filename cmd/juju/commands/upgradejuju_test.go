@@ -129,17 +129,17 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.5",
 }, {
-	about:          "latest current release matching CLI, major version, no matching major tools",
+	about:          "latest current release matching CLI, major version, no matching major agents",
 	tools:          []string{"2.8.2-quantal-amd64"},
 	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
 	expectVersion:  "2.8.2",
 }, {
-	about:          "latest current release matching CLI, major version, no matching tools",
+	about:          "latest current release matching CLI, major version, no matching agents",
 	tools:          []string{"3.3.0-quantal-amd64"},
 	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
-	expectErr:      "no compatible tools available",
+	expectErr:      "no compatible agents available",
 }, {
 	about:          "no next supported available",
 	tools:          []string{"2.2.0-quantal-amd64", "2.2.5-quantal-i386", "2.3.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
@@ -180,7 +180,7 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--agent-version", "3.0.0"},
 	expectVersion:  "3.0.0",
 }, {
-	about:          "specified version, no tools",
+	about:          "specified version, no agents",
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
@@ -586,7 +586,7 @@ type DryRunTest struct {
 func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 	tests := []DryRunTest{
 		{
-			about:          "dry run outputs and doesn't change anything when uploading tools",
+			about:          "dry run outputs and doesn't change anything when uploading agents",
 			cmdArgs:        []string{"--build-agent", "--dry-run"},
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.1.3-quantal-amd64",

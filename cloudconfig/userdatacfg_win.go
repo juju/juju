@@ -101,7 +101,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 	tools := w.icfg.ToolsList()[0]
 	toolsJson, err := json.Marshal(tools)
 	if err != nil {
-		return errors.Annotate(err, "while serializing the tools")
+		return errors.Annotate(err, "while serializing the agents")
 	}
 
 	renderer := w.conf.ShellRenderer()

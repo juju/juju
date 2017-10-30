@@ -221,7 +221,7 @@ func uploadCharms(config UploadBinariesConfig) error {
 
 func uploadTools(config UploadBinariesConfig) error {
 	for v, uri := range config.Tools {
-		logger.Debugf("sending tools to target: %s", v)
+		logger.Debugf("sending agents to target: %s", v)
 
 		reader, err := config.ToolsDownloader.OpenURI(uri, nil)
 		if err != nil {
@@ -236,7 +236,7 @@ func uploadTools(config UploadBinariesConfig) error {
 		defer cleanup()
 
 		if _, err := config.ToolsUploader.UploadTools(content, v); err != nil {
-			return errors.Annotate(err, "cannot upload tools")
+			return errors.Annotate(err, "cannot upload agents")
 		}
 	}
 	return nil
