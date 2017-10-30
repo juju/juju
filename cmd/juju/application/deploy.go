@@ -371,7 +371,7 @@ will use the same constraints (unless changed by ` + "`juju set-constraints`" + 
 
 Application configuration values can be specified using '--config' option. This
 option accepts either a path to a yaml-formatted file or a key=value pair. 
-Configurtion file provided should be in format
+Configuration file provided should be in format
 <charm name>:
 	<option name>: <option value>
 	...
