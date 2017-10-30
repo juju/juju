@@ -860,6 +860,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
             up:
                 charm: vivid/upgrade-1
                 num_units: 1
+                constraints: mem=8G
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:xenial/wordpress-42")
@@ -876,6 +877,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
             up:
                 charm: vivid/upgrade-2
                 num_units: 1
+                constraints: mem=8G
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdOut, gc.Equals, ""+
@@ -888,7 +890,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
 
 	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:vivid/upgrade-2", "cs:xenial/wordpress-42")
 	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"up": {charm: "cs:vivid/upgrade-2"},
+		"up": {
+			charm:       "cs:vivid/upgrade-2",
+			constraints: constraints.MustParse("mem=8G"),
+		},
 		"wordpress": {
 			charm:       "cs:xenial/wordpress-42",
 			config:      charm.Settings{"blog-title": "new title"},
