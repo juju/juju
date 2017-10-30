@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -279,6 +280,10 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				logger.Debugf("%s exists in model uses a local charm, replacing with %q", name, app.Charm)
 				// Replace with charm from model
 				spec.Charm = app.Charm
+				continue
+			}
+			// If the charm matches, don't bother resolving.
+			if spec.Charm == app.Charm {
 				continue
 			}
 		}
@@ -1251,6 +1256,7 @@ func buildModelRepresentation(
 	var (
 		annotationTags []string
 		appNames       []string
+		principalApps  []string
 	)
 	machineMap := make(map[string]string)
 	machines := make(map[string]*bundlechanges.Machine)
@@ -1283,6 +1289,9 @@ func buildModelRepresentation(
 		applications[name] = application
 		annotationTags = append(annotationTags, names.NewApplicationTag(name).String())
 		appNames = append(appNames, name)
+		if len(appStatus.SubordinateTo) == 0 {
+			principalApps = append(principalApps, name)
+		}
 	}
 	model := &bundlechanges.Model{
 		Applications: applications,
@@ -1350,12 +1359,12 @@ func buildModelRepresentation(
 		model.Applications[appNames[i]].Options = options
 	}
 	// Lastly get all the application constraints.
-	constraintValues, err := apiRoot.GetConstraints(appNames...)
+	constraintValues, err := apiRoot.GetConstraints(principalApps...)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting application constraints")
 	}
 	for i, value := range constraintValues {
-		model.Applications[appNames[i]].Constraints = value.String()
+		model.Applications[principalApps[i]].Constraints = value.String()
 	}
 
 	model.ConstraintsEqual = func(a, b string) bool {
@@ -1363,7 +1372,7 @@ func buildModelRepresentation(
 		// even bother checking the error response here.
 		ac, _ := constraints.Parse(a)
 		bc, _ := constraints.Parse(b)
-		return ac == bc
+		return reflect.DeepEqual(ac, bc)
 	}
 
 	return model, nil

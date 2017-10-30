@@ -849,6 +849,37 @@ func (s *applicationSuite) TestGetConstraints(c *gc.C) {
 	})
 }
 
+func (s *applicationSuite) TestGetConstraintsError(c *gc.C) {
+	fooConstraints := constraints.MustParse("mem=4G")
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "GetConstraints")
+				args, ok := a.(params.Entities)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{
+						{"application-foo"}, {"application-bar"},
+					}})
+
+				result, ok := response.(*params.ApplicationGetConstraintsResults)
+				c.Assert(ok, jc.IsTrue)
+				result.Results = []params.ApplicationConstraint{
+					{Constraints: fooConstraints},
+					{Error: &params.Error{Message: "oh no"}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 5,
+	})
+
+	results, err := client.GetConstraints("foo", "bar")
+	c.Assert(err, gc.ErrorMatches, `unable to get constraints for "bar": oh no`)
+	c.Assert(results, gc.IsNil)
+}
+
 func (s *applicationSuite) TestGetConstraintsAPIv4(c *gc.C) {
 	fooConstraints := constraints.MustParse("mem=4G")
 	barConstraints := constraints.MustParse("mem=128G", "cores=64")

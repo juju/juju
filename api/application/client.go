@@ -554,7 +554,7 @@ func (c *Client) GetConstraints(applications ...string) ([]constraints.Value, er
 	}
 	for i, result := range results.Results {
 		if result.Error != nil {
-			return nil, errors.Annotatef(err, "unable to get constraints for %q", applications[i])
+			return nil, errors.Annotatef(result.Error, "unable to get constraints for %q", applications[i])
 		}
 		allConstraints = append(allConstraints, result.Constraints)
 	}
