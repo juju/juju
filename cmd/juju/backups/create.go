@@ -34,7 +34,11 @@ Remotely stored backups will be lost when the model is
 destroyed.  Furthermore, the remotely backup is not guaranteed to be
 available.
 
-Therefore, you should get a local copy of the backup archive.
+Therefore, you should use --filename option or use:
+
+    juju download-backup
+
+to get a local copy of the backup archive.
 This local copy can then be used to restore an model even if that
 model was already destroyed or is otherwise unavailable.
 `
