@@ -149,44 +149,16 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	}
 }
 
-func (w *remoteApplicationWorker) processRelationGone(key string, relations map[string]*relation, dying bool) error {
-	logger.Debugf("relation %v gone", key)
+func (w *remoteApplicationWorker) processRelationDying(key string, relations map[string]*relation) error {
+	logger.Debugf("relation %v dying", key)
 	relation, ok := relations[key]
 	if !ok {
 		return nil
 	}
-	// For suspended relations on the consuming side
-	// we want to keep the remote lifecycle watcher
-	// so we know when the relation is resumed.
-	// If we really are dying and not just suspended, then
-	// stop the lifecycle watcher and delete the relation.
-	if dying || w.isConsumerProxy {
-		// We are on the offering side so the relation can only be dying, or
-		// we are on the consuming side and are not suspended so must be dying.
-		delete(relations, key)
-		if err := worker.Stop(relation.remoteRrw); err != nil {
-			logger.Warningf("stopping remote relations worker for %v: %v", key, err)
-		}
-		relation.remoteRuw = nil
-	}
-	// For the unit watchers, check to see if these are nil before stopping.
-	// They will be nil if the relation was suspended and then we kill it for real.
-	if relation.localRuw != nil {
-		if err := worker.Stop(relation.localRuw); err != nil {
-			logger.Warningf("stopping local relation unit worker for %v: %v", key, err)
-		}
-		relation.localRuw = nil
-	}
-
-	if !dying {
-		// If only suspended, no need to publish a dying event to the other side.
-		return nil
-	}
-
 	// On the consuming side, inform the remote side the relation is dying
 	// (but only if we are killing the relation due to it dying, not because
 	// it is suspended).
-	if !w.isConsumerProxy && dying {
+	if !w.isConsumerProxy {
 		change := params.RemoteRelationChangeEvent{
 			RelationToken:    relation.relationToken,
 			Life:             params.Dying,
@@ -194,8 +166,59 @@ func (w *remoteApplicationWorker) processRelationGone(key string, relations map[
 			Macaroons:        macaroon.Slice{relation.macaroon},
 		}
 		if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
-			return errors.Annotatef(err, "publishing relation departed %+v to remote model %v", change, w.remoteModelUUID)
+			return errors.Annotatef(err, "publishing relation dying %+v to remote model %v", change, w.remoteModelUUID)
 		}
+	}
+	return nil
+}
+
+func (w *remoteApplicationWorker) processRelationSuspended(key string, relations map[string]*relation) error {
+	logger.Debugf("relation %v suspended", key)
+	relation, ok := relations[key]
+	if !ok {
+		return nil
+	}
+
+	// For suspended relations on the consuming side
+	// we want to keep the remote lifecycle watcher
+	// so we know when the relation is resumed.
+	if w.isConsumerProxy {
+		if err := worker.Stop(relation.remoteRrw); err != nil {
+			logger.Warningf("stopping remote relations worker for %v: %v", key, err)
+		}
+		relation.remoteRuw = nil
+		delete(relations, key)
+	}
+
+	if relation.localRuw != nil {
+		if err := worker.Stop(relation.localRuw); err != nil {
+			logger.Warningf("stopping local relation unit worker for %v: %v", key, err)
+		}
+		relation.localRuw = nil
+	}
+	return nil
+}
+
+func (w *remoteApplicationWorker) processRelationRemoved(key string, relations map[string]*relation) error {
+	logger.Debugf("relation %v removed", key)
+	relation, ok := relations[key]
+	if !ok {
+		return nil
+	}
+
+	if err := worker.Stop(relation.remoteRrw); err != nil {
+		logger.Warningf("stopping remote relations worker for %v: %v", key, err)
+	}
+	relation.remoteRuw = nil
+	delete(relations, key)
+
+	// For the unit watchers, check to see if these are nil before stopping.
+	// They will be nil if the relation was suspended and then we kill it for real.
+	if relation.localRuw != nil {
+		if err := worker.Stop(relation.localRuw); err != nil {
+			logger.Warningf("stopping local relation unit worker for %v: %v", key, err)
+		}
+		relation.localRuw = nil
 	}
 
 	logger.Debugf("remote relation %v removed from remote model", key)
@@ -208,7 +231,7 @@ func (w *remoteApplicationWorker) relationChanged(
 	logger.Debugf("relation %q changed: %+v", key, result)
 	if result.Error != nil {
 		if params.IsCodeNotFound(result.Error) {
-			return w.processRelationGone(key, relations, true)
+			return w.processRelationRemoved(key, relations)
 		}
 		return result.Error
 	}
@@ -220,8 +243,11 @@ func (w *remoteApplicationWorker) relationChanged(
 		wasSuspended := r.suspended
 		r.suspended = remoteRelation.Suspended
 		relations[key] = r
-		if remoteRelation.Life == params.Dying || remoteRelation.Suspended {
-			return w.processRelationGone(key, relations, remoteRelation.Life == params.Dying)
+		if remoteRelation.Life == params.Dying {
+			return w.processRelationDying(key, relations)
+		}
+		if remoteRelation.Suspended {
+			return w.processRelationSuspended(key, relations)
 		}
 		if !wasSuspended {
 			// Nothing to do, we have previously started the watcher.

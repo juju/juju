@@ -101,13 +101,13 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 			Id:     ru.unitName,
 			Assert: isAliveDoc,
 		})
-		ops = append(ops, txn.Op{
-			C:      relationsC,
-			Id:     relationDocID,
-			Assert: isAliveDoc,
-			Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
-		})
 	}
+	ops = append(ops, txn.Op{
+		C:      relationsC,
+		Id:     relationDocID,
+		Assert: isAliveDoc,
+		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
+	})
 
 	// * Create the unit settings in this relation, if they do not already
 	//   exist; or completely overwrite them if they do. This must happen
@@ -322,14 +322,12 @@ func (ru *RelationUnit) LeaveScope() error {
 			Remove: true,
 		}}
 		if ru.relation.doc.Life == Alive {
-			if ru.isLocalUnit {
-				ops = append(ops, txn.Op{
-					C:      relationsC,
-					Id:     ru.relation.doc.DocID,
-					Assert: bson.D{{"life", Alive}},
-					Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
-				})
-			}
+			ops = append(ops, txn.Op{
+				C:      relationsC,
+				Id:     ru.relation.doc.DocID,
+				Assert: bson.D{{"life", Alive}},
+				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
+			})
 		} else if ru.relation.doc.UnitCount > 1 {
 			ops = append(ops, txn.Op{
 				C:      relationsC,
