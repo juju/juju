@@ -90,7 +90,7 @@ func checkToolsAvailability(newEnviron newEnvironFunc, modelCfg *config.Config, 
 		vers, err = finder(env, currentVersion.Major, currentVersion.Minor, preferredStream, coretools.Filter{})
 	}
 	if err != nil {
-		return version.Zero, errors.Annotatef(err, "cannot find available tools")
+		return version.Zero, errors.Annotatef(err, "cannot find available agents")
 	}
 	// Newest also returns a list of the items in this list matching with the
 	// newest version.

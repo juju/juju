@@ -175,7 +175,7 @@ func (u *Upgrader) loop() error {
 		if err != nil {
 			return err
 		}
-		logger.Infof("desired tool version: %v", wantVersion)
+		logger.Infof("desired agent version: %v", wantVersion)
 
 		if wantVersion == jujuversion.Current {
 			u.initialUpgradeCheckComplete.Unlock()
@@ -191,7 +191,7 @@ func (u *Upgrader) loop() error {
 			// cause the unit agent to upgrade, and then want to
 			// downgrade when its associate machine agent has not
 			// finished upgrading.
-			logger.Infof("desired tool version: %s is older than current %s, refusing to downgrade",
+			logger.Infof("desired agent version: %s is older than current %s, refusing to downgrade",
 				wantVersion, jujuversion.Current)
 			u.initialUpgradeCheckComplete.Unlock()
 			continue

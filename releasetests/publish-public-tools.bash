@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Release public tools.
+# Release public agents.
 #
 # Publish to Canonistack, AWS, and Azure.
-# This script requires that the user has credentials to upload the tools
+# This script requires that the user has credentials to upload the agents
 # to Canonistack, Cloud, AWS, and Azure
 
 set -e

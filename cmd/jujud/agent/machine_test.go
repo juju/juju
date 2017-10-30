@@ -669,7 +669,7 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 			c.Log("Refreshing")
 			err := m.Refresh()
 			c.Assert(err, jc.ErrorIsNil)
-			c.Log("Fetching agent tools")
+			c.Log("Fetching agent agents")
 			agentTools, err := m.AgentTools()
 			c.Assert(err, jc.ErrorIsNil)
 			c.Logf("(%v vs. %v)", agentTools.Version, jujuversion.Current)

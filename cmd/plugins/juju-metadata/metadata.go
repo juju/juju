@@ -19,7 +19,7 @@ import (
 var logger = loggo.GetLogger("juju.plugins.metadata")
 
 var metadataDoc = `
-Juju metadata is used to find the correct image and tools when bootstrapping a
+Juju metadata is used to find the correct image and agents when bootstrapping a
 Juju model.
 `
 
@@ -46,7 +46,7 @@ func NewSuperCommand() cmd.Command {
 		Name:        "metadata",
 		UsagePrefix: "juju",
 		Doc:         metadataDoc,
-		Purpose:     "tools for generating and validating image and tools metadata",
+		Purpose:     "tools for generating and validating image and agents metadata",
 		Log:         &cmd.Log{}})
 
 	metadatacmd.Register(newValidateImageMetadataCommand())

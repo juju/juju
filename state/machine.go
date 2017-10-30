@@ -398,7 +398,7 @@ func (m *Machine) IsManual() (bool, error) {
 // have not yet been set.
 func (m *Machine) AgentTools() (*tools.Tools, error) {
 	if m.doc.Tools == nil {
-		return nil, errors.NotFoundf("agent tools for machine %v", m)
+		return nil, errors.NotFoundf("agent agents for machine %v", m)
 	}
 	tools := *m.doc.Tools
 	return &tools, nil

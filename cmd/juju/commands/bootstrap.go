@@ -92,7 +92,7 @@ address.
     bootstrap-addresses-delay: 10 # default: 10 seconds
 
 Private clouds may need to specify their own custom image metadata and
-tools/agent. Use '--metadata-source' whose value is a local directory.
+agents. Use '--metadata-source' whose value is a local directory.
 
 By default, the Juju version of the agent binary that is downloaded and 
 installed on all models for the new controller will be the same as that 
@@ -185,11 +185,11 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	}
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
-	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as tools and/or metadata source")
+	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agents and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the model if bootstrap fails")
-	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "Upgrade to the latest patch release tools on first bootstrap")
-	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of tools to use for Juju agents")
+	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "Upgrade to the latest patch release agents on first bootstrap")
+	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of agents to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
 	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
 	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--config config.yaml [--config key=value ...])")
@@ -532,7 +532,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		}
 	}()
 
-	// If --metadata-source is specified, override the default tools metadata source so
+	// If --metadata-source is specified, override the default agents metadata source so
 	// SyncTools can use it, and also upload any image metadata.
 	var metadataDir string
 	if c.MetadataSource != "" {

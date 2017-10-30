@@ -576,7 +576,7 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientAr
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		BootstrapSeries:  "quantal",
 		BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
-			c.Fatal("should not call BuildAgentTarball if there are packaged tools")
+			c.Fatal("should not call BuildAgentTarball if there are packaged agents")
 			return nil, nil
 		},
 	})
@@ -1261,7 +1261,7 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 		return arch.S390X
 	})
 	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
-		c.Fatal("find packaged tools should not be called")
+		c.Fatal("find packaged agents should not be called")
 		return nil, errors.New("unexpected")
 	})
 

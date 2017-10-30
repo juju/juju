@@ -158,9 +158,9 @@ func (c *ModelConfigCreator) checkVersion(base *config.Config, attrs map[string]
 		return errors.Trace(err)
 	}
 	if len(list) == 0 {
-		return errors.Errorf("no tools found for version %s", versionNumber)
+		return errors.Errorf("no agents found for version %s", versionNumber)
 	}
-	logger.Tracef("found tools: %#v", list)
+	logger.Tracef("found agents: %#v", list)
 	return nil
 }
 

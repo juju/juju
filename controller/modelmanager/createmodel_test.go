@@ -181,7 +181,7 @@ func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderNo
 		"uuid":          utils.MustNewUUID().String(),
 		"agent-version": "1.9.9",
 	}))
-	c.Assert(err, gc.ErrorMatches, "no tools found for version .*")
+	c.Assert(err, gc.ErrorMatches, "no agents found for version .*")
 }
 
 type RestrictedProviderFieldsSuite struct {

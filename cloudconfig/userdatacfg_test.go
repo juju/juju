@@ -1080,7 +1080,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	udata, err := cloudconfig.NewUserdataConfig(&cfg, ci)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
-	c.Assert(err, gc.ErrorMatches, "invalid machine configuration: missing tools")
+	c.Assert(err, gc.ErrorMatches, "invalid machine configuration: missing agents")
 
 	for i, test := range verifyTests {
 		c.Logf("test %d. %s", i, test.err)
@@ -1294,13 +1294,13 @@ func (*cloudinitSuite) TestToolsDownloadCommand(c *gc.C) {
 n=1
 while true; do
 
-    printf "Attempt $n to download tools from %s...\n" 'a'
+    printf "Attempt $n to download agents from %s...\n" 'a'
     download 'a' && echo "Tools downloaded successfully." && break
 
-    printf "Attempt $n to download tools from %s...\n" 'b'
+    printf "Attempt $n to download agents from %s...\n" 'b'
     download 'b' && echo "Tools downloaded successfully." && break
 
-    printf "Attempt $n to download tools from %s...\n" 'c'
+    printf "Attempt $n to download agents from %s...\n" 'c'
     download 'c' && echo "Tools downloaded successfully." && break
 
     echo "Download failed, retrying in 15s"

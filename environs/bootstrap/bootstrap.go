@@ -613,7 +613,7 @@ func bootstrapImageMetadata(
 // getBootstrapToolsVersion returns the newest tools from the given tools list.
 func getBootstrapToolsVersion(possibleTools coretools.List) (coretools.List, error) {
 	if len(possibleTools) == 0 {
-		return nil, errors.New("no bootstrap tools available")
+		return nil, errors.New("no bootstrap agents available")
 	}
 	var newVersion version.Number
 	newVersion, toolsList := possibleTools.Newest()
@@ -625,7 +625,7 @@ func getBootstrapToolsVersion(possibleTools coretools.List) (coretools.List, err
 		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, jujuversion.Current)
 		if len(compatibleTools) == 0 {
 			logger.Infof(
-				"failed to find %s tools, will attempt to use %s",
+				"failed to find %s agents, will attempt to use %s",
 				jujuversion.Current, newVersion,
 			)
 		} else {

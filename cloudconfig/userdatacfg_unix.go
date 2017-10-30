@@ -48,7 +48,7 @@ const (
 n=1
 while true; do
 {{range .URLs}}
-    printf "Attempt $n to download tools from %s...\n" {{shquote .}}
+    printf "Attempt $n to download agents from %s...\n" {{shquote .}}
     {{$curl}} {{shquote .}} && echo "Tools downloaded successfully." && break
 {{end}}
     echo "Download failed, retrying in {{.ToolsDownloadWaitTime}}s"

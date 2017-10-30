@@ -25,10 +25,10 @@ bootstrap.Bootstrap starts with sanity checks:
  * that there is at least one authorised SSH key
  * that there is a CA Cert and CA Key
  * that the model storage is writable (by writing the bootstrap-init file)
- * finds available tools
-   - locate tools available externally (matching constraints)
-   - determine which tools can be built and uploaded to make up shortfall in above
-   - if the best tools are made locally, and we can upload tools, they get uploaded
+ * finds available agents
+   - locate agents available externally (matching constraints)
+   - determine which agents can be built and uploaded to make up shortfall in above
+   - if the best agents are made locally, and we can upload agents, they get uploaded
 
 This code then calls into the Bootstrap function on the environ instance (backed by a provider), which returns arch, series, and a finalizer function.
 
@@ -44,11 +44,11 @@ Firstly, common.Bootstrap:
    - this step will go away soon, or at least become provider specific
 
 The finalizer function, is run after the following checks from bootstrap.Bootstrap:
- * selects tools from the previously calculated set based on the architecture and series
+ * selects agents from the previously calculated set based on the architecture and series
    of the instance that the provider started
- * makes sure that the tools are available
+ * makes sure that the agents are available
  * creates the machine config struct for the bootstrap machine
- * sets the tools in that structure to the tools bootstap knows about
+ * sets the agents in that structure to the agents bootstap knows about
  * then it calls the finalizer function.
 
 The common finalizer function does the following: 
@@ -78,6 +78,6 @@ jujud bootstrap-state
  * generates a (long) shared secret for mongo
  * mongo is then started
  * the database is then initialized (state.Initialize)
- * copies the tools into model storage
-   - also clones the tools for each series of the same OS
-     (for the time being at least, while each series' tools are equivalent)
+ * copies the agents into model storage
+   - also clones the agents for each series of the same OS
+     (for the time being at least, while each series' agents are equivalent)
