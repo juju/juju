@@ -135,7 +135,6 @@ func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]
 		checkers.DeclaredCaveat(sourcemodelKey, details.SourceModelUUID),
 		checkers.DeclaredCaveat(offeruuidKey, details.OfferUUID),
 		checkers.DeclaredCaveat(usernameKey, details.User),
-		checkers.TimeBeforeCaveat(a.clock.Now().Add(localOfferPermissionExpiryTime)),
 	}
 	if details.Relation != "" {
 		firstPartyCaveats = append(firstPartyCaveats, checkers.DeclaredCaveat(relationKey, details.Relation))
@@ -213,7 +212,6 @@ func (a *AuthContext) CreateConsumeOfferMacaroon(offer *params.ApplicationOfferD
 
 	return bakery.NewMacaroon("", nil,
 		[]checkers.Caveat{
-			checkers.TimeBeforeCaveat(expiryTime),
 			checkers.DeclaredCaveat(sourcemodelKey, sourceModelTag.Id()),
 			checkers.DeclaredCaveat(offeruuidKey, offer.OfferUUID),
 			checkers.DeclaredCaveat(usernameKey, username),
@@ -230,7 +228,6 @@ func (a *AuthContext) CreateRemoteRelationMacaroon(sourceModelUUID, offerUUID st
 
 	offerMacaroon, err := bakery.NewMacaroon("", nil,
 		[]checkers.Caveat{
-			checkers.TimeBeforeCaveat(expiryTime),
 			checkers.DeclaredCaveat(sourcemodelKey, sourceModelUUID),
 			checkers.DeclaredCaveat(offeruuidKey, offerUUID),
 			checkers.DeclaredCaveat(usernameKey, username),
@@ -324,7 +321,6 @@ func (a *authenticator) checkMacaroons(mac macaroon.Slice, requiredValues map[st
 			},
 			keys...,
 		),
-		checkers.TimeBeforeCaveat(a.clock.Now().Add(localOfferPermissionExpiryTime)),
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create macaroon")

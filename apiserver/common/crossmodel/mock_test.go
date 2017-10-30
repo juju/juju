@@ -4,11 +4,15 @@
 package crossmodel_test
 
 import (
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -18,11 +22,37 @@ import (
 )
 
 type mockBakeryService struct {
+	mu sync.Mutex
 	*bakery.Service
+	clock   *testing.Clock
+	expired chan struct{}
 }
 
-func (m *mockBakeryService) ExpireStorageAt(time.Time) (authentication.ExpirableStorageBakeryService, error) {
+func (m *mockBakeryService) ExpireStorageAt(at time.Time) (authentication.ExpirableStorageBakeryService, error) {
+	now := m.clock.Now()
+	delay := at.UnixNano() - now.UnixNano()
+	go func() {
+		select {
+		case <-m.clock.After(time.Duration(delay) / time.Nanosecond):
+			m.mu.Lock()
+			m.Service = m.WithRootKeyStore(bakery.NewMemRootKeyStorage())
+			m.mu.Unlock()
+			m.expired <- struct{}{}
+		}
+	}()
 	return m, nil
+}
+
+func (m *mockBakeryService) NewMacaroon(id string, rootKey []byte, caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.Service.NewMacaroon(id, rootKey, caveats)
+}
+
+func (m *mockBakeryService) CheckAny(mss []macaroon.Slice, assert map[string]string, checker checkers.Checker) (map[string]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.Service.CheckAny(mss, assert, checker)
 }
 
 type mockStatePool struct {
