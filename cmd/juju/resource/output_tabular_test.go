@@ -345,7 +345,7 @@ func fakeFmtSvcRes(name, suffix string) resourcecmd.FormattedSvcResource {
 		Type:             "Type" + suffix,
 		Path:             "Path + suffix",
 		Description:      "Desc" + suffix,
-		Revision:         1,
+		Revision:         "1",
 		Fingerprint:      "Fingerprint" + suffix,
 		Size:             100,
 		Origin:           "Origin" + suffix,

@@ -4,6 +4,7 @@
 package resource_test
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -77,7 +78,7 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		Type:             "file",
 		Path:             r.Path,
 		Used:             true,
-		Revision:         r.Revision,
+		Revision:         fmt.Sprintf("%v", r.Revision),
 		Origin:           "store",
 		Fingerprint:      fp.String(),
 		Size:             10,

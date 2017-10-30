@@ -263,15 +263,19 @@ func (s *ShowServiceSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc.C) 
 
 	code, stdout, stderr := runCmd(c, cmd, unitName)
 	c.Assert(code, gc.Equals, 0)
-	c.Check(stderr, gc.Equals, "No resources to display.\n")
-	c.Check(stdout, gc.Equals, "")
+	c.Check(stdout, gc.Equals, `
+[Unit]
+Resource  Revision
+openjdk   -
+
+`[1:])
+	c.Check(stderr, gc.Equals, "")
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
 func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
-	data := []resource.ServiceResources{{
-		UnitResources: []resource.UnitResources{{
-			Tag: names.NewUnitTag("svc/0"),
+	data := []resource.ServiceResources{
+		resource.ServiceResources{
 			Resources: []resource.Resource{
 				{
 					Resource: charmresource.Resource{
@@ -280,9 +284,10 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 							Description: "a big description",
 						},
 						Origin:   charmresource.OriginStore,
-						Revision: 15,
+						Revision: 20,
 					},
 					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+					ID:        "one",
 				},
 				{
 					Resource: charmresource.Resource{
@@ -295,13 +300,43 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 					},
 					Username:  "Bill User",
 					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+					ID:        "two",
 				},
 			},
-			DownloadProgress: map[string]int64{
-				"website2": 12,
-			},
-		}},
-	}}
+			UnitResources: []resource.UnitResources{{
+				Tag: names.NewUnitTag("svc/0"),
+				Resources: []resource.Resource{
+					{
+						Resource: charmresource.Resource{
+							Meta: charmresource.Meta{
+								Name:        "rsc1234",
+								Description: "a big description",
+							},
+							Origin:   charmresource.OriginStore,
+							Revision: 15, // Note revision is different to the application resource
+						},
+						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+						ID:        "one",
+					},
+					{
+						Resource: charmresource.Resource{
+							Meta: charmresource.Meta{
+								Name:        "website2",
+								Description: "awesome data",
+							},
+							Origin: charmresource.OriginUpload,
+							Size:   15,
+						},
+						Username:  "Bill User",
+						ID:        "two",
+						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+					},
+				},
+				DownloadProgress: map[string]int64{
+					"website2": 12,
+				},
+			}},
+		}}
 	s.stubDeps.client.ReturnResources = data
 
 	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{

@@ -159,8 +159,7 @@ func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resourc
 }
 
 func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ServiceResources) error {
-	resources := unitResources(unit, service, sr)
-	if len(resources) == 0 {
+	if len(sr.Resources) == 0 && len(sr.UnitResources) == 0 {
 		ctx.Infof(noResources)
 		return nil
 	}
@@ -173,8 +172,19 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 		return c.out.Write(ctx, FormattedUnitDetails(formatted))
 	}
 
-	res := make([]FormattedUnitResource, len(resources))
-	for i, r := range resources {
+	resources := unitResources(unit, service, sr)
+	res := make([]FormattedUnitResource, len(sr.Resources))
+	for i, r := range sr.Resources {
+		if unitResource, ok := resources[r.ID]; ok {
+			// Unit has this application resource,
+			// so use unit's version.
+			r = unitResource
+		} else {
+			// Unit does not have this application resource.
+			// Have to set it to -1 since revision 0 is still a valid revision.
+			// All other information is inherited from application resource.
+			r.Revision = -1
+		}
 		res[i] = FormattedUnitResource(FormatSvcResource(r))
 	}
 
@@ -182,14 +192,19 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 
 }
 
-func unitResources(unit, service string, sr resource.ServiceResources) []resource.Resource {
-	if len(sr.UnitResources) == 0 {
-		return nil
-	}
+func unitResources(unit, service string, sr resource.ServiceResources) map[string]resource.Resource {
+	var resources []resource.Resource
 	for _, res := range sr.UnitResources {
 		if res.Tag.Id() == unit {
-			return res.Resources
+			resources = res.Resources
 		}
 	}
-	return nil
+	if len(resources) == 0 {
+		return nil
+	}
+	unitResourcesById := make(map[string]resource.Resource)
+	for _, r := range resources {
+		unitResourcesById[r.ID] = r
+	}
+	return unitResourcesById
 }

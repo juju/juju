@@ -34,7 +34,7 @@ type FormattedSvcResource struct {
 	Type          string    `json:"type" yaml:"type"`
 	Path          string    `json:"path" yaml:"path"`
 	Description   string    `json:"description,omitempty" yaml:"description,omitempty"`
-	Revision      int       `json:"revision,omitempty" yaml:"revision,omitempty"`
+	Revision      string    `json:"revision,omitempty" yaml:"revision,omitempty"`
 	Fingerprint   string    `json:"fingerprint" yaml:"fingerprint"`
 	Size          int64     `json:"size" yaml:"size"`
 	Origin        string    `json:"origin" yaml:"origin"`

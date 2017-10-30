@@ -62,14 +62,13 @@ func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 // FormatSvcResource converts the resource info into a FormattedServiceResource.
 func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 	used := !res.IsPlaceholder()
-	return FormattedSvcResource{
+	result := FormattedSvcResource{
 		ID:               res.ID,
 		ApplicationID:    res.ApplicationID,
 		Name:             res.Name,
 		Type:             res.Type.String(),
 		Path:             res.Path,
 		Description:      res.Description,
-		Revision:         res.Revision,
 		Origin:           res.Origin.String(),
 		Fingerprint:      res.Fingerprint.String(),
 		Size:             res.Size,
@@ -80,6 +79,13 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 		CombinedOrigin:   combinedOrigin(used, res),
 		UsedYesNo:        usedYesNo(used),
 	}
+	// Have to check for -1 since revision 0 is still a valid revision.
+	if res.Revision > -1 {
+		result.Revision = fmt.Sprintf("%v", res.Revision)
+	} else {
+		result.Revision = "-"
+	}
+	return result
 }
 
 func formatServiceResources(sr resource.ServiceResources) (FormattedServiceInfo, error) {
@@ -159,7 +165,9 @@ func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progre
 func combinedRevision(r resource.Resource) string {
 	switch r.Origin {
 	case charmresource.OriginStore:
-		return fmt.Sprintf("%d", r.Revision)
+		if r.Revision > -1 {
+			return fmt.Sprintf("%d", r.Revision)
+		}
 	case charmresource.OriginUpload:
 		if !r.Timestamp.IsZero() {
 			return r.Timestamp.Format("2006-02-01T15:04")
