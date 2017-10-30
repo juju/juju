@@ -5,12 +5,15 @@ package debug
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
+	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	goyaml "gopkg.in/yaml.v2"
 )
@@ -38,7 +41,18 @@ var waitClientExit = func(s *ServerSession) {
 
 // RunHook "runs" the hook with the specified name via debug-hooks.
 func (s *ServerSession) RunHook(hookName, charmDir string, env []string) error {
-	env = append(env, "JUJU_HOOK_NAME="+hookName)
+	debugDir, err := ioutil.TempDir("", "juju-debug-hooks-")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer os.RemoveAll(debugDir)
+	if err := s.writeDebugFiles(debugDir); err != nil {
+		return errors.Trace(err)
+	}
+
+	env = utils.Setenv(env, "JUJU_HOOK_NAME="+hookName)
+	env = utils.Setenv(env, "JUJU_DEBUG="+debugDir)
+
 	cmd := exec.Command("/bin/bash", "-s")
 	cmd.Env = env
 	cmd.Dir = charmDir
@@ -58,6 +72,37 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string) error {
 		proc.Kill()
 	}(cmd.Process)
 	return cmd.Wait()
+}
+
+func (s *ServerSession) writeDebugFiles(debugDir string) error {
+	// hook.sh does not inherit environment variables,
+	// so we must insert the path to the directory
+	// containing env.sh for it to source.
+	debugHooksHookScript := strings.Replace(
+		debugHooksHookScript,
+		"__JUJU_DEBUG__", debugDir, -1,
+	)
+
+	type file struct {
+		filename string
+		contents string
+		mode     os.FileMode
+	}
+	files := []file{
+		{"welcome.msg", debugHooksWelcomeMessage, 0644},
+		{"init.sh", debugHooksInitScript, 0755},
+		{"hook.sh", debugHooksHookScript, 0755},
+	}
+	for _, file := range files {
+		if err := ioutil.WriteFile(
+			filepath.Join(debugDir, file.filename),
+			[]byte(file.contents),
+			file.mode,
+		); err != nil {
+			return errors.Annotatef(err, "writing %q", file.filename)
+		}
+	}
+	return nil
 }
 
 // FindSession attempts to find a debug hooks session for the unit specified
@@ -88,7 +133,6 @@ func (c *HooksContext) FindSession() (*ServerSession, error) {
 }
 
 const debugHooksServerScript = `set -e
-export JUJU_DEBUG=$(mktemp -d)
 exec > $JUJU_DEBUG/debug.log >&1
 
 # Set a useful prompt.
@@ -97,40 +141,6 @@ export PS1="$JUJU_UNIT_NAME:$JUJU_HOOK_NAME % "
 # Save environment variables and export them for sourcing.
 FILTER='^\(LS_COLORS\|LESSOPEN\|LESSCLOSE\|PWD\)='
 export | grep -v $FILTER > $JUJU_DEBUG/env.sh
-
-# Create welcome message display for the hook environment.
-cat > $JUJU_DEBUG/welcome.msg <<END
-This is a Juju debug-hooks tmux session. Remember:
-1. You need to execute hooks manually if you want them to run for trapped events.
-2. When you are finished with an event, you can run 'exit' to close the current window and allow Juju to continue processing
-new events for this unit without exiting a current debug-session.
-3. To run a hook and end the debugging session avoiding processing any more events manually, use:
-
-./hooks/$JUJU_HOOK_NAME
-tmux kill-session -t $JUJU_UNIT_NAME # or, equivalently, CTRL+a d
-
-4. CTRL+a is tmux prefix.
-
-More help and info is available in the online documentation:
-https://jujucharms.com/docs/authors-hook-debug.html
-
-END
-
-cat > $JUJU_DEBUG/init.sh <<END
-#!/bin/bash
-cat $JUJU_DEBUG/welcome.msg
-trap 'echo \$? > $JUJU_DEBUG/hook_exit_status' EXIT
-END
-chmod +x $JUJU_DEBUG/init.sh
-
-# Create an internal script which will load the hook environment.
-cat > $JUJU_DEBUG/hook.sh <<END
-#!/bin/bash
-. $JUJU_DEBUG/env.sh
-echo \$\$ > $JUJU_DEBUG/hook.pid
-exec /bin/bash --noprofile --init-file $JUJU_DEBUG/init.sh
-END
-chmod +x $JUJU_DEBUG/hook.sh
 
 tmux new-window -t $JUJU_UNIT_NAME -n $JUJU_HOOK_NAME "$JUJU_DEBUG/hook.sh"
 
@@ -152,4 +162,31 @@ while kill -0 "$HOOK_PID" 2> /dev/null; do
 done
 typeset -i exitstatus=$(cat $JUJU_DEBUG/hook_exit_status)
 exit $exitstatus
+`
+
+const debugHooksWelcomeMessage = `This is a Juju debug-hooks tmux session. Remember:
+1. You need to execute hooks manually if you want them to run for trapped events.
+2. When you are finished with an event, you can run 'exit' to close the current window and allow Juju to continue processing
+new events for this unit without exiting a current debug-session.
+3. To run a hook and end the debugging session avoiding processing any more events manually, use:
+
+./hooks/$JUJU_HOOK_NAME
+tmux kill-session -t $JUJU_UNIT_NAME # or, equivalently, CTRL+a d
+
+4. CTRL+a is tmux prefix.
+
+More help and info is available in the online documentation:
+https://jujucharms.com/docs/authors-hook-debug.html
+
+`
+
+const debugHooksInitScript = `#!/bin/bash
+envsubst < $JUJU_DEBUG/welcome.msg
+trap 'echo \$? > $JUJU_DEBUG/hook_exit_status' EXIT
+`
+
+const debugHooksHookScript = `#!/bin/bash
+. __JUJU_DEBUG__/env.sh
+echo $$ > $JUJU_DEBUG/hook.pid
+exec /bin/bash --noprofile --init-file $JUJU_DEBUG/init.sh
 `
