@@ -366,7 +366,6 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 				return block.ProcessBlockedError(err, block.BlockChange)
 			}
 		}
-		logger.Criticalf("**********   SetModelAgentVersion: %s %t", context.chosen.String(), c.IgnoreAgentVersions)
 		if err := client.SetModelAgentVersion(context.chosen, c.IgnoreAgentVersions); err != nil {
 			if params.IsCodeUpgradeInProgress(err) {
 				return errors.Errorf("%s\n\n"+
