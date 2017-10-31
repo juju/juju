@@ -4,6 +4,7 @@
 package lease
 
 import (
+	"runtime/debug"
 	"sort"
 	"time"
 
@@ -50,11 +51,16 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	logContext := config.EntityUUID
+	if len(logContext) > 6 {
+		logContext = logContext[:6]
+	}
 	manager := &Manager{
-		config: config,
-		claims: make(chan claim),
-		checks: make(chan check),
-		blocks: make(chan block),
+		config:     config,
+		claims:     make(chan claim),
+		checks:     make(chan check),
+		blocks:     make(chan block),
+		logContext: logContext,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &manager.catacomb,
@@ -63,6 +69,7 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Debugf("[%s] creating manager %p for:\n%s", logContext, manager, string(debug.Stack()))
 	return manager, nil
 }
 
@@ -72,6 +79,11 @@ type Manager struct {
 
 	// config collects all external configuration and dependencies.
 	config ManagerConfig
+
+	// logContext is just a string that associates messages in the log
+	// It is seeded with the first six characters of the config.EntityUUID
+	// if supplied
+	logContext string
 
 	// claims is used to deliver lease claim requests to the loop.
 	claims chan claim
@@ -231,13 +243,15 @@ func (manager *Manager) WaitUntilExpired(leaseName string) error {
 func (manager *Manager) nextTick() <-chan time.Time {
 	now := manager.config.Clock.Now()
 	nextTick := now.Add(manager.config.MaxSleep)
-	for _, info := range manager.config.Client.Leases() {
+	leases := manager.config.Client.Leases()
+	for _, info := range leases {
 		if info.Expiry.After(nextTick) {
 			continue
 		}
 		nextTick = info.Expiry
 	}
-	logger.Debugf("waking to check leases at %s", nextTick)
+	since := nextTick.Sub(now).Seconds()
+	logger.Debugf("[%s %p] waking to check (%d) leases in %.3fs", manager.logContext, manager, len(leases), since)
 	return clock.Alarm(manager.config.Clock, nextTick)
 }
 
@@ -250,7 +264,7 @@ func (manager *Manager) nextTick() <-chan time.Time {
 //
 // It will return only unrecoverable errors.
 func (manager *Manager) tick() error {
-	logger.Tracef("refreshing leases...")
+	logger.Tracef("[%s] refreshing leases...", manager.logContext)
 	client := manager.config.Client
 	if err := client.Refresh(); err != nil {
 		return errors.Trace(err)
@@ -264,7 +278,7 @@ func (manager *Manager) tick() error {
 	}
 	sort.Strings(names)
 
-	logger.Tracef("expiring leases...")
+	logger.Tracef("[%s] expiring leases...", manager.logContext)
 	now := manager.config.Clock.Now()
 	for _, name := range names {
 		if leases[name].Expiry.After(now) {
