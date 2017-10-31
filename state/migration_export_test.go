@@ -1333,3 +1333,17 @@ func (s *MigrationExportSuite) TestModelStatus(c *gc.C) {
 	c.Check(model.Status().Value(), gc.Equals, "available")
 	c.Check(model.StatusHistory(), gc.HasLen, 1)
 }
+
+func (s *MigrationExportSuite) TestTooManyStatusHistories(c *gc.C) {
+	// Check that we cap the history entries at 20.
+	machine := s.Factory.MakeMachine(c, nil)
+	s.primeStatusHistory(c, machine, status.Started, 21)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Machines(), gc.HasLen, 1)
+	history := model.Machines()[0].StatusHistory()
+	c.Assert(history, gc.HasLen, 20)
+	s.checkStatusHistory(c, history, status.Started)
+}
