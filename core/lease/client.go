@@ -36,6 +36,12 @@ type Client interface {
 	// expressed according to the Clock the client was configured with.
 	Leases() map[string]Info
 
+	// TODO (jam) 2017-10-31: Many callers of Leases() actually only tant
+	// exactly 1 lease, we should have a way to do a query to return exactly
+	// that lease, instead of having to read all of them to pull one out of the
+	// map. (Worst case it is implemented as exactly this, best case avoids
+	// reading lots of unused data.)
+
 	// Refresh reads all lease state from the database.
 	Refresh() error
 }

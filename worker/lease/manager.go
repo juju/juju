@@ -5,6 +5,7 @@ package lease
 
 import (
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -166,22 +167,28 @@ func (manager *Manager) handleClaim(claim claim) error {
 	client := manager.config.Client
 	request := lease.Request{claim.holderName, claim.duration}
 	err := lease.ErrInvalid
-	logger.Tracef("[%s] handling Claim for %s on behalf of %s for %s", manager.logContext, claim.leaseName, claim.holderName, claim.duration)
 	for err == lease.ErrInvalid {
 		select {
 		case <-manager.catacomb.Dying():
 			return manager.catacomb.ErrDying()
 		default:
+			// TODO(jam) 2017-10-31: We are asking for all leases just to look
+			// up one of them. Shouldn't the client.Leases() interface allow us
+			// to just query for a single entry?
 			info, found := client.Leases()[claim.leaseName]
 			switch {
 			case !found:
-				logger.Tracef("[%s] no lease found for %s, claiming for %s %s", manager.logContext, claim.leaseName, claim.holderName, claim.duration)
+				logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s", manager.logContext, claim.holderName, claim.leaseName, claim.duration)
 				err = client.ClaimLease(claim.leaseName, request)
 			case info.Holder == claim.holderName:
-				logger.Tracef("[%s] Claim %s already held by %s extending for %s", manager.logContext, claim.leaseName, claim.holderName, claim.duration)
+				logger.Tracef("[%s] %s extending lease %s for %s", manager.logContext, claim.holderName, claim.leaseName, claim.duration)
 				err = client.ExtendLease(claim.leaseName, request)
 			default:
-				logger.Tracef("[%s] Claim %s already held by %s rejecting for %s", manager.logContext, claim.leaseName, info.Holder, claim.holderName)
+				// Note: (jam) 2017-10-31) We don't check here if the lease has
+				// expired for the current holder. Should we?
+				remaining := info.Expiry.Sub(manager.config.Clock.Now())
+				logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
+					manager.logContext, claim.holderName, claim.leaseName, info.Holder, remaining)
 				claim.respond(false)
 				return nil
 			}
@@ -283,8 +290,9 @@ func (manager *Manager) tick() error {
 	}
 	sort.Strings(names)
 
-	logger.Tracef("[%s] expiring leases...", manager.logContext)
+	logger.Tracef("[%s] checking expiry on %d leases", manager.logContext, len(leases))
 	now := manager.config.Clock.Now()
+	expired := make([]string, 0)
 	for _, name := range names {
 		if leases[name].Expiry.After(now) {
 			continue
@@ -294,6 +302,12 @@ func (manager *Manager) tick() error {
 		default:
 			return errors.Trace(err)
 		}
+		expired = append(expired, name)
+	}
+	if len(expired) == 0 {
+		logger.Debugf("[%s] no leases to expire", manager.logContext)
+	} else {
+		logger.Debugf("[%s] expired %d leases: %s", manager.logContext, len(expired), strings.Join(expired, ", "))
 	}
 	return nil
 }
