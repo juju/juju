@@ -5,7 +5,6 @@ package crossmodelrelations_test
 
 import (
 	"regexp"
-	"strings"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -222,12 +221,11 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 		"offer-uuid":        "offer-uuid",
 	})
 	cav := result.Result.Macaroon.Caveats()
-	c.Check(cav, gc.HasLen, 5)
-	c.Check(strings.HasPrefix(cav[0].Id, "time-before "), jc.IsTrue)
-	c.Check(cav[1].Id, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Check(cav[2].Id, gc.Equals, "declared offer-uuid offer-uuid")
-	c.Check(cav[3].Id, gc.Equals, "declared username mary")
-	c.Check(cav[4].Id, gc.Equals, "declared relation-key offeredapp:local remote-apptoken:remote")
+	c.Check(cav, gc.HasLen, 4)
+	c.Check(cav[0].Id, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
+	c.Check(cav[1].Id, gc.Equals, "declared offer-uuid offer-uuid")
+	c.Check(cav[2].Id, gc.Equals, "declared username mary")
+	c.Check(cav[3].Id, gc.Equals, "declared relation-key offeredapp:local remote-apptoken:remote")
 
 	expectedRemoteApp := s.st.remoteApplications["remote-apptoken"]
 	expectedRemoteApp.Stub = testing.Stub{} // don't care about api calls

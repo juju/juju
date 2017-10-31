@@ -5,7 +5,6 @@ package crossmodel_test
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/testing"
@@ -30,6 +29,8 @@ var _ = gc.Suite(&authSuite{})
 type authSuite struct {
 	coretesting.BaseSuite
 
+	clock         *testing.Clock
+	expired       chan struct{}
 	bakery        authentication.ExpirableStorageBakeryService
 	mockStatePool *mockStatePool
 }
@@ -43,9 +44,12 @@ func (s *authSuite) SetUpTest(c *gc.C) {
 		Locator: bakery.PublicKeyLocatorMap{
 			"http://thirdparty": &key.Public,
 		},
+		RootKeyStore: bakery.NewMemRootKeyStorage(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.bakery = &mockBakeryService{bakery}
+	s.clock = testing.NewClock(time.Now())
+	s.expired = make(chan struct{})
+	s.bakery = &mockBakeryService{Service: bakery, clock: s.clock, expired: s.expired}
 	s.mockStatePool = &mockStatePool{st: make(map[string]crossmodel.Backend)}
 }
 
@@ -120,12 +124,11 @@ permission: consume
 	c.Assert(err, jc.ErrorIsNil)
 	cav, err := authContext.CheckLocalAccessRequest(opc)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cav, gc.HasLen, 5)
+	c.Assert(cav, gc.HasLen, 4)
 	c.Assert(cav[0].Condition, gc.Equals, "declared source-model-uuid "+uuid.String())
 	c.Assert(cav[1].Condition, gc.Equals, "declared offer-uuid mysql-uuid")
 	c.Assert(cav[2].Condition, gc.Equals, "declared username mary")
-	c.Assert(strings.HasPrefix(cav[3].Condition, "time-before"), jc.IsTrue)
-	c.Assert(cav[4].Condition, gc.Equals, "declared relation-key mediawiki:db mysql:server")
+	c.Assert(cav[3].Condition, gc.Equals, "declared relation-key mediawiki:db mysql:server")
 }
 
 func (s *authSuite) TestCheckLocalAccessRequestControllerAdmin(c *gc.C) {
@@ -208,11 +211,10 @@ func (s *authSuite) TestCreateConsumeOfferMacaroon(c *gc.C) {
 	mac, err := authContext.CreateConsumeOfferMacaroon(offer, "mary")
 	c.Assert(err, jc.ErrorIsNil)
 	cav := mac.Caveats()
-	c.Assert(cav, gc.HasLen, 4)
-	c.Assert(strings.HasPrefix(cav[0].Id, "time-before"), jc.IsTrue)
-	c.Assert(cav[1].Id, gc.Equals, "declared source-model-uuid "+coretesting.ModelTag.Id())
-	c.Assert(cav[2].Id, gc.Equals, "declared offer-uuid mysql-uuid")
-	c.Assert(cav[3].Id, gc.Equals, "declared username mary")
+	c.Assert(cav, gc.HasLen, 3)
+	c.Assert(cav[0].Id, gc.Equals, "declared source-model-uuid "+coretesting.ModelTag.Id())
+	c.Assert(cav[1].Id, gc.Equals, "declared offer-uuid mysql-uuid")
+	c.Assert(cav[2].Id, gc.Equals, "declared username mary")
 }
 
 func (s *authSuite) TestCreateRemoteRelationMacaroon(c *gc.C) {
@@ -222,12 +224,11 @@ func (s *authSuite) TestCreateRemoteRelationMacaroon(c *gc.C) {
 		coretesting.ModelTag.Id(), "mysql-uuid", "mary", names.NewRelationTag("mediawiki:db mysql:server"))
 	c.Assert(err, jc.ErrorIsNil)
 	cav := mac.Caveats()
-	c.Assert(cav, gc.HasLen, 5)
-	c.Assert(strings.HasPrefix(cav[0].Id, "time-before"), jc.IsTrue)
-	c.Assert(cav[1].Id, gc.Equals, "declared source-model-uuid "+coretesting.ModelTag.Id())
-	c.Assert(cav[2].Id, gc.Equals, "declared offer-uuid mysql-uuid")
-	c.Assert(cav[3].Id, gc.Equals, "declared username mary")
-	c.Assert(cav[4].Id, gc.Equals, "declared relation-key mediawiki:db mysql:server")
+	c.Assert(cav, gc.HasLen, 4)
+	c.Assert(cav[0].Id, gc.Equals, "declared source-model-uuid "+coretesting.ModelTag.Id())
+	c.Assert(cav[1].Id, gc.Equals, "declared offer-uuid mysql-uuid")
+	c.Assert(cav[2].Id, gc.Equals, "declared username mary")
+	c.Assert(cav[3].Id, gc.Equals, "declared relation-key mediawiki:db mysql:server")
 }
 
 func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
@@ -292,28 +293,35 @@ func (s *authSuite) TestCheckOfferMacaroonsNoUser(c *gc.C) {
 func (s *authSuite) TestCheckOfferMacaroonsExpired(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	clock := testing.NewClock(time.Now().Add(-10 * time.Minute))
-	authContext = authContext.WithClock(clock)
+	authContext = authContext.WithClock(s.clock)
 	offer := &params.ApplicationOfferDetails{
 		SourceModelTag: coretesting.ModelTag.String(),
-		OfferURL:       "mysql-uuid",
+		OfferUUID:      "mysql-uuid",
 	}
 	mac, err := authContext.CreateConsumeOfferMacaroon(offer, "mary")
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.clock.WaitAdvance(10*time.Minute, time.Second, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	// Give the expiry thread a chance to reset the macaroon storage.
+	select {
+	case <-s.expired:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("waiting for macaroon to expire")
+	}
 
 	_, err = authContext.Authenticator(
 		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
 		"mysql-uuid",
 		macaroon.Slice{mac},
 	)
-	c.Assert(err, gc.ErrorMatches, ".*macaroon has expired")
+	c.Assert(err, gc.ErrorMatches, ".*verification failed: macaroon not found in storage")
 }
 
 func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	clock := testing.NewClock(time.Now().Add(-10 * time.Minute))
-	authContext = authContext.WithClock(clock)
+	authContext = authContext.WithClock(s.clock)
 	authContext = authContext.WithDischargeURL("http://thirdparty")
 	offer := &params.ApplicationOfferDetails{
 		SourceModelTag: coretesting.ModelTag.String(),
@@ -321,6 +329,15 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 	}
 	mac, err := authContext.CreateConsumeOfferMacaroon(offer, "mary")
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.clock.WaitAdvance(10*time.Minute, time.Second, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	// Give the expiry thread a chance to reset the macaroon storage.
+	select {
+	case <-s.expired:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("waiting for macaroon to expire")
+	}
 
 	_, err = authContext.Authenticator(
 		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
@@ -330,7 +347,7 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 	dischargeErr, ok := err.(*common.DischargeRequiredError)
 	c.Assert(ok, jc.IsTrue)
 	cav := dischargeErr.Macaroon.Caveats()
-	c.Assert(cav, gc.HasLen, 2)
+	c.Assert(cav, gc.HasLen, 1)
 	c.Assert(cav[0].Location, gc.Equals, "http://thirdparty")
 }
 
@@ -392,31 +409,47 @@ func (s *authSuite) TestCheckRelationMacaroonsNoUser(c *gc.C) {
 func (s *authSuite) TestCheckRelationMacaroonsExpired(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	clock := testing.NewClock(time.Now().Add(-10 * time.Minute))
-	authContext = authContext.WithClock(clock)
+	authContext = authContext.WithClock(s.clock)
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := authContext.CreateRemoteRelationMacaroon(
 		coretesting.ModelTag.Id(), "prod.offer", "mary", relationTag)
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.clock.WaitAdvance(10*time.Minute, time.Second, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	// Give the expiry thread a chance to reset the macaroon storage.
+	select {
+	case <-s.expired:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("waiting for macaroon to expire")
+	}
 
 	_, err = authContext.Authenticator(
 		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
 		"mysql-uuid",
 		macaroon.Slice{mac},
 	)
-	c.Assert(err, gc.ErrorMatches, ".*macaroon has expired")
+	c.Assert(err, gc.ErrorMatches, ".*verification failed: macaroon not found in storage")
 }
 
 func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	clock := testing.NewClock(time.Now().Add(-10 * time.Minute))
-	authContext = authContext.WithClock(clock)
+	authContext = authContext.WithClock(s.clock)
 	authContext = authContext.WithDischargeURL("http://thirdparty")
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := authContext.CreateRemoteRelationMacaroon(
 		coretesting.ModelTag.Id(), "mysql-uuid", "mary", relationTag)
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.clock.WaitAdvance(10*time.Minute, time.Second, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	// Give the expiry thread a chance to reset the macaroon storage.
+	select {
+	case <-s.expired:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("waiting for macaroon to expire")
+	}
 
 	_, err = authContext.Authenticator(
 		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
@@ -426,6 +459,6 @@ func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
 	dischargeErr, ok := err.(*common.DischargeRequiredError)
 	c.Assert(ok, jc.IsTrue)
 	cav := dischargeErr.Macaroon.Caveats()
-	c.Assert(cav, gc.HasLen, 2)
+	c.Assert(cav, gc.HasLen, 1)
 	c.Assert(cav[0].Location, gc.Equals, "http://thirdparty")
 }

@@ -5,7 +5,6 @@ package applicationoffers_test
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -1120,11 +1119,10 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 	})
 	c.Assert(results.Results[0].Macaroon.Id(), gc.Equals, "")
 	cav := s.bakery.caveats[results.Results[0].Macaroon.Id()]
-	c.Check(cav, gc.HasLen, 4)
-	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), jc.IsTrue)
-	c.Check(cav[1].Condition, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Check(cav[2].Condition, gc.Equals, "declared offer-uuid hosted-mysql-uuid")
-	c.Check(cav[3].Condition, gc.Equals, "declared username someone")
+	c.Check(cav, gc.HasLen, 3)
+	c.Check(cav[0].Condition, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
+	c.Check(cav[1].Condition, gc.Equals, "declared offer-uuid hosted-mysql-uuid")
+	c.Check(cav[2].Condition, gc.Equals, "declared username someone")
 }
 
 func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
