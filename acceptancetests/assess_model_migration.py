@@ -23,9 +23,11 @@ from deploy_stack import (
     get_random_string
     )
 from jujupy.client import (
-    BaseCondition,
     get_stripped_version_number,
 )
+from jujupy.wait_condition import (
+    BaseCondition,
+    )
 from jujucharm import local_charm_path
 from remote import remote_from_address
 from utility import (

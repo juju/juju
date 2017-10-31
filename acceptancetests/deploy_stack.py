@@ -31,10 +31,12 @@ from jujupy import (
     fake_juju_client,
     get_machine_dns_name,
     juju_home_path,
-    NoProvider,
     JujuData,
     temp_bootstrap_env,
     )
+from jujupy.exceptions import (
+    NoProvider,
+)
 from remote import (
     remote_from_address,
     remote_from_unit,
