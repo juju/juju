@@ -116,6 +116,7 @@ func (manager *Manager) loop() error {
 		leases := manager.config.Client.Leases()
 		for leaseName := range blocks {
 			if _, found := leases[leaseName]; !found {
+				logger.Tracef("[%s] unblocking: %s", manager.logContext, leaseName)
 				blocks.unblock(leaseName)
 			}
 		}
@@ -134,6 +135,7 @@ func (manager *Manager) choose(blocks blocks) error {
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
 	case block := <-manager.blocks:
+		logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseName)
 		blocks.add(block)
 		return nil
 	}
@@ -166,6 +168,7 @@ func (manager *Manager) handleClaim(claim claim) error {
 	client := manager.config.Client
 	request := lease.Request{claim.holderName, claim.duration}
 	err := lease.ErrInvalid
+	logger.Tracef("[%s] handling Claim for %s %s", manager.logContext, claim.holderName, claim.duration)
 	for err == lease.ErrInvalid {
 		select {
 		case <-manager.catacomb.Dying():
@@ -206,8 +209,10 @@ func (manager *Manager) Token(leaseName, holderName string) lease.Token {
 // request, and is communicated back to the check's originator.
 func (manager *Manager) handleCheck(check check) error {
 	client := manager.config.Client
+	logger.Tracef("[%s] handling Check for lease %s on behalf of %s", manager.logContext, check.leaseName, check.holderName)
 	info, found := client.Leases()[check.leaseName]
 	if !found || info.Holder != check.holderName {
+		logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing", manager.logContext, check.leaseName, check.holderName)
 		if err := client.Refresh(); err != nil {
 			return errors.Trace(err)
 		}
@@ -216,6 +221,7 @@ func (manager *Manager) handleCheck(check check) error {
 
 	var response error
 	if !found || info.Holder != check.holderName {
+		logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held", manager.logContext, check.leaseName)
 		response = lease.ErrNotHeld
 	} else if check.trapdoorKey != nil {
 		response = info.Trapdoor(check.trapdoorKey)
@@ -250,8 +256,6 @@ func (manager *Manager) nextTick() <-chan time.Time {
 		}
 		nextTick = info.Expiry
 	}
-	since := nextTick.Sub(now).Seconds()
-	logger.Debugf("[%s %p] waking to check (%d) leases in %.3fs", manager.logContext, manager, len(leases), since)
 	return clock.Alarm(manager.config.Clock, nextTick)
 }
 
@@ -264,7 +268,7 @@ func (manager *Manager) nextTick() <-chan time.Time {
 //
 // It will return only unrecoverable errors.
 func (manager *Manager) tick() error {
-	logger.Tracef("[%s] refreshing leases...", manager.logContext)
+	logger.Debugf("[%s] woke up to refresh and expire leases", manager.logContext)
 	client := manager.config.Client
 	if err := client.Refresh(); err != nil {
 		return errors.Trace(err)
