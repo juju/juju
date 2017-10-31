@@ -29,18 +29,9 @@ backup's unique ID.  You may provide a note to associate with the backup.
 
 The backup archive and associated metadata are stored remotely by juju.
 
-WARNING: 
-Remotely stored backups will be lost when the model is
-destroyed.  Furthermore, the remotely backup is not guaranteed to be
-available.
-
-Therefore, you should use --filename option or use:
-
-    juju download-backup
-
-to get a local copy of the backup archive.
-This local copy can then be used to restore an model even if that
-model was already destroyed or is otherwise unavailable.
+See also:
+    backups
+    download-backup
 `
 
 // NewCreateCommand returns a command used to create backups.
