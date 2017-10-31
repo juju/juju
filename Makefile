@@ -1,7 +1,6 @@
 #
 # Makefile for juju-core.
 #
-
 ifndef GOPATH
 $(warning You need to set up a GOPATH.  See the README file.)
 endif
@@ -14,6 +13,13 @@ ifeq ($(shell uname -p | sed -r 's/.*(armel|armhf|aarch64).*/golang/'), golang)
 	TEST_TIMEOUT := 2400s
 else
 	TEST_TIMEOUT := 1500s
+endif
+
+# Enable verbose testing for reporting.
+ifeq ($(VERBOSE_CHECK), 1)
+	CHECK_ARGS = -v
+else
+	CHECK_ARGS =
 endif
 
 define DEPENDENCIES
@@ -41,17 +47,32 @@ godeps:
 	@echo "skipping godeps"
 endif
 
-build: godeps
-	go build $(PROJECT)/...
+build: godeps go-build
+
+add-patches:
+	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/../../../
+
+#this is useful to run after release-build, or as needed
+remove-patches:
+	cat $(PWD)/patches/*.diff | patch -f -R -u -p1 -r- -d $(PWD)/../../../
+
+release-build: godeps add-patches go-build
+
+release-install: godeps add-patches go-install remove-patches
 
 check: godeps
-	go test -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
+	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
 
-install: godeps
-	go install -v $(PROJECT)/...
+install: godeps go-install
 
 clean:
 	go clean $(PROJECT)/...
+
+go-install:
+	go install -v $(PROJECT)/...
+
+go-build:
+	go build $(PROJECT)/...
 
 else # --------------------------------
 
@@ -117,8 +138,9 @@ GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' github.com/juju/juju/...
 check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
-.PHONY: build check install
+.PHONY: build check install release-install release-build go-build go-install
 .PHONY: clean format simplify
 .PHONY: install-dependencies
 .PHONY: rebuild-dependencies.tsv
 .PHONY: check-deps
+.PHONY: add-patches remove-patches
