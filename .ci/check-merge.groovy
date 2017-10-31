@@ -101,12 +101,12 @@ node('juju-core-slave-b') {
                 print("Using build tarball: $tarfile")
             }
             xenial_ami = sh(
-                script: "${scripts_dir}/get_ami.py xenial amd64 --virt hvm",
+                script: "${scripts_dir}/get_ami.py xenial amd64 --virt hvm --region us-west-1",
                 returnStdout: true).trim()
             parallel(
                 'Xenial': {
                     try {
-                        withEnv(["JUJU_HOME=${cloud_city}"]){
+                        withEnv(["JUJU_HOME=${cloud_city}", "TESTING_EC2_REGION=us-west-1"]){
                             sh("""
                             . $JUJU_HOME/juju-qa.jujuci && . $JUJU_HOME/ec2rc >2 /dev/null && \\
                             ${scripts_dir}/run-unit-tests c4.4xlarge $xenial_ami --local "$tarfile" --use-tmpfs --force-archive
