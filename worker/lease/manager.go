@@ -166,7 +166,7 @@ func (manager *Manager) handleClaim(claim claim) error {
 	client := manager.config.Client
 	request := lease.Request{claim.holderName, claim.duration}
 	err := lease.ErrInvalid
-	logger.Tracef("[%s] handling Claim for %s %s", manager.logContext, claim.holderName, claim.duration)
+	logger.Tracef("[%s] handling Claim for %s on behalf of %s for %s", manager.logContext, claim.leaseName, claim.holderName, claim.duration)
 	for err == lease.ErrInvalid {
 		select {
 		case <-manager.catacomb.Dying():
@@ -175,10 +175,13 @@ func (manager *Manager) handleClaim(claim claim) error {
 			info, found := client.Leases()[claim.leaseName]
 			switch {
 			case !found:
+				logger.Tracef("[%s] no lease found for %s, claiming for %s %s", manager.logContext, claim.leaseName, claim.holderName, claim.duration)
 				err = client.ClaimLease(claim.leaseName, request)
 			case info.Holder == claim.holderName:
+				logger.Tracef("[%s] Claim %s already held by %s extending for %s", manager.logContext, claim.leaseName, claim.holderName, claim.duration)
 				err = client.ExtendLease(claim.leaseName, request)
 			default:
+				logger.Tracef("[%s] Claim %s already held by %s rejecting for %s", manager.logContext, claim.leaseName, info.Holder, claim.holderName)
 				claim.respond(false)
 				return nil
 			}
