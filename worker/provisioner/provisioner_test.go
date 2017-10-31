@@ -1441,7 +1441,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	e := &mockBroker{
 		Environ:    s.Environ,
 		retryCount: make(map[string]int),
-		failureInfo: map[string]mockBrokerFailures{
+		startInstanceFailureInfo: map[string]mockBrokerFailures{
 			"3": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
 			"4": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
 		},
@@ -1498,7 +1498,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	broker := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int),
-		failureInfo: map[string]mockBrokerFailures{
+		startInstanceFailureInfo: map[string]mockBrokerFailures{
 			"3": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
 			"4": {whenSucceed: 2, err: fmt.Errorf("error: some error")},
 		},
@@ -1531,7 +1531,7 @@ func assertAvailabilityZoneMachines(c *gc.C,
 	}
 	if len(failedAZMachines) > 0 {
 		for _, m := range failedAZMachines {
-			// Is the failed machine listed as failed in AvailabilityZoneMachine
+			// Is the failed machine listed as failed in at least one zone?
 			failedZones := 0
 			for _, zoneInfo := range obtained {
 				if zoneInfo.FailedMachineIds.Contains(m.Id()) {
@@ -1543,6 +1543,12 @@ func assertAvailabilityZoneMachines(c *gc.C,
 	}
 }
 
+// assertAvailabilityZoneMachinesDistribution checks to see if the
+// machines have been distributed over the zones.  This check method
+// works where there are no machine errors in the test case.
+//
+// Which machine it will be in which zone is dependent on the order in
+// which they are provisioned, therefore almost impossible to predict.
 func assertAvailabilityZoneMachinesDistribution(c *gc.C, obtained []provisioner.AvailabilityZoneMachine) {
 	// Are the machines evenly distributed?  No zone should have
 	// 2 machines more than any other zone.
@@ -1559,19 +1565,35 @@ func assertAvailabilityZoneMachinesDistribution(c *gc.C, obtained []provisioner.
 	c.Assert(max-min, jc.LessThan, 2)
 }
 
+// assertAvailabilityZoneMachinesDistribution checks to see if
+// the distribution groups have been honored.
 func checkAvailabilityZoneMachinesDistributionGroups(c *gc.C, groups map[names.MachineTag][]string, obtained []provisioner.AvailabilityZoneMachine) error {
-	// Machines in a distribution group should not be in the same
-	// AZ, unless there are more machines in the group, than AZs.
+	// The set containing the machines in a distribution group and the
+	// machine whose distribution group this is, should not be in the
+	// same AZ, unless there are more machines in the set, than AZs.
+	// If there are more machines in the set than AZs, each AZ should have
+	// the number of machines in the set divided by the number of AZ in it,
+	// or 1 less than that number.
+	//
+	// e.g. if there are 5 machines in the set and 3 AZ, each AZ should have
+	// 2 or 1 machines from the set in it.
+	obtainedZoneCount := len(obtained)
 	for tag, group := range groups {
+		maxMachineInZoneCount := 1
+		applicationMachinesCount := len(group) + 1
+		if applicationMachinesCount > obtainedZoneCount {
+			maxMachineInZoneCount = applicationMachinesCount / obtainedZoneCount
+		}
 		for _, z := range obtained {
 			if z.MachineIds.Contains(tag.Id()) {
 				intersection := z.MachineIds.Intersection(set.NewStrings(group...))
-				size := intersection.Size()
-				if size == 0 || (len(group)/len(obtained) == size) {
+				machineCount := intersection.Size() + 1
+				// For appropriate machine distribution, the number of machines in the
+				// zone should be the same as maxMachineInZoneCount or 1 less.
+				if machineCount == maxMachineInZoneCount || machineCount == maxMachineInZoneCount-1 {
 					break
-				} else {
-					return errors.Errorf("%+v has too many of %s and %s", z.MachineIds, tag.Id(), group)
 				}
+				return errors.Errorf("%+v has too many of %s and %s", z.MachineIds, tag.Id(), group)
 			}
 		}
 	}
@@ -1598,7 +1620,7 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailures(c
 	e := &mockBroker{
 		Environ:    s.Environ,
 		retryCount: make(map[string]int),
-		failureInfo: map[string]mockBrokerFailures{
+		startInstanceFailureInfo: map[string]mockBrokerFailures{
 			"2": {whenSucceed: 1, err: environs.ErrAvailabilityZoneFailed},
 		},
 	}
@@ -1646,7 +1668,7 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailuresWi
 	e := &mockBroker{
 		Environ:    s.Environ,
 		retryCount: make(map[string]int),
-		failureInfo: map[string]mockBrokerFailures{
+		startInstanceFailureInfo: map[string]mockBrokerFailures{
 			"2": {whenSucceed: 1, err: environs.ErrAvailabilityZoneFailed},
 		},
 	}
@@ -1720,7 +1742,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailMachine(c *gc.C) {
 	e := &mockBroker{
 		Environ:    s.Environ,
 		retryCount: make(map[string]int),
-		failureInfo: map[string]mockBrokerFailures{
+		startInstanceFailureInfo: map[string]mockBrokerFailures{
 			"2": {whenSucceed: 2, err: errors.New("fail provisioning for TestAvailabilityZoneMachinesFailMachine")},
 		},
 	}
@@ -1794,9 +1816,10 @@ func (b *mockNoZonedEnvironBroker) StartInstance(args environs.StartInstancePara
 
 type mockBroker struct {
 	environs.Environ
-	mu          sync.Mutex
-	retryCount  map[string]int
-	failureInfo map[string]mockBrokerFailures
+
+	mu                       sync.Mutex
+	retryCount               map[string]int
+	startInstanceFailureInfo map[string]mockBrokerFailures
 }
 
 type mockBrokerFailures struct {
@@ -1806,7 +1829,7 @@ type mockBrokerFailures struct {
 
 func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// All machines are provisioned successfully the first time unless
-	// mock.failureInfo is configured.
+	// mock.startInstanceFailureInfo is configured.
 	//
 	id := args.InstanceConfig.MachineId
 	b.mu.Lock()
@@ -1814,7 +1837,7 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs
 	retries := b.retryCount[id]
 	whenSucceed := 0
 	var returnError error
-	if failureInfo, ok := b.failureInfo[id]; ok {
+	if failureInfo, ok := b.startInstanceFailureInfo[id]; ok {
 		whenSucceed = failureInfo.whenSucceed
 		returnError = failureInfo.err
 	}
