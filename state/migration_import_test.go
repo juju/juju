@@ -1560,6 +1560,30 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 	checkScope(wpLogUnit, logWpRel, true)
 }
 
+func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	newConfig := model.Config()
+	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
+	newConfig["name"] = "something-new"
+	noTypeModel := description.NewModel(description.ModelArgs{
+		Type:               "",
+		Owner:              model.Owner(),
+		Config:             newConfig,
+		LatestToolsVersion: model.LatestToolsVersion(),
+		EnvironVersion:     model.EnvironVersion(),
+		Blocks:             model.Blocks(),
+		Cloud:              model.Cloud(),
+		CloudRegion:        model.CloudRegion(),
+	})
+	imported, newSt, err := s.State.Import(noTypeModel)
+	c.Assert(err, jc.ErrorIsNil)
+	defer newSt.Close()
+
+	c.Assert(imported.Type(), gc.Equals, state.ModelTypeIAAS)
+}
+
 // newModel replaces the uuid and name of the config attributes so we
 // can use all the other data to validate imports. An owner and name of the
 // model are unique together in a controller.
