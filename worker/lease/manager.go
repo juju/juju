@@ -4,7 +4,6 @@
 package lease
 
 import (
-	"runtime/debug"
 	"sort"
 	"time"
 
@@ -69,7 +68,6 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("[%s] creating manager %p for:\n%s", logContext, manager, string(debug.Stack()))
 	return manager, nil
 }
 
