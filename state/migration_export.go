@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
+const maxStatusHistoryEntries = 20
+
 // ExportConfig allows certain aspects of the model to be skipped
 // during the export. The intent of this is to be able to get a partial
 // export to support other API calls, like status.
@@ -1407,8 +1409,11 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 
 func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs {
 	history := e.statusHistory[globalKey]
-	result := make([]description.StatusArgs, len(history))
 	e.logger.Tracef("found %d status history docs for %s", len(history), globalKey)
+	if len(history) > maxStatusHistoryEntries {
+		history = history[:maxStatusHistoryEntries]
+	}
+	result := make([]description.StatusArgs, len(history))
 	for i, doc := range history {
 		result[i] = description.StatusArgs{
 			Value:   string(doc.Status),
