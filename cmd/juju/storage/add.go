@@ -74,7 +74,7 @@ Examples:
     or
       juju add-storage u/0 data 
 `
-	addCommandAgs = `<unit name> <charm storage name>=[<storage constraints>]`
+	addCommandAgs = `<unit name> <charm storage name>[=<storage constraints>]`
 )
 
 // addCommand adds unit storage instances dynamically.
