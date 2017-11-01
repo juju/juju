@@ -229,7 +229,7 @@ func (manager *Manager) handleCheck(check check) error {
 
 	var response error
 	if !found || info.Holder != check.holderName {
-		logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held", manager.logContext, check.leaseName)
+		logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held", manager.logContext, check.leaseName, check.holderName)
 		response = lease.ErrNotHeld
 	} else if check.trapdoorKey != nil {
 		response = info.Trapdoor(check.trapdoorKey)
@@ -276,7 +276,7 @@ func (manager *Manager) nextTick() <-chan time.Time {
 //
 // It will return only unrecoverable errors.
 func (manager *Manager) tick() error {
-	logger.Debugf("[%s] woke up to refresh and expire leases", manager.logContext)
+	logger.Tracef("[%s] waking up to refresh and expire leases", manager.logContext)
 	client := manager.config.Client
 	if err := client.Refresh(); err != nil {
 		return errors.Trace(err)
