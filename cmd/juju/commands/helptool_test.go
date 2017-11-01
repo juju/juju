@@ -25,6 +25,20 @@ func (suite *HelpToolSuite) TestHelpToolHelp(c *gc.C) {
 
 Summary:
 Show help on a Juju charm tool.
+
+Details:
+Juju charms can access a series of built-in helpers called 'hook-tools'. 
+These are useful for the charm to be able to inspect its running environment.
+
+Examples:
+
+    To get a full list of the currently available hook tools:
+
+        juju help-tool
+
+    For help on a specific tool, supply the name of that tool, for example:
+
+        juju help-tool unit-get
 `)
 }
 
