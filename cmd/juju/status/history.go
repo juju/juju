@@ -43,21 +43,15 @@ type statusHistoryCommand struct {
 	includeStatusUpdates bool
 }
 
-var statusHistoryDoc = `
+var statusHistoryDoc = fmt.Sprintf(`
 This command will report the history of status changes for
 a given entity.
 The statuses are available for the following types.
 -type supports:
-    container: will show statuses for containers.
-    juju-container: will show statuses for the container's juju agent.
-    juju-machine: will show statuses for machine's juju agent.
-    juju-unit: will show statuses for the unit's juju agent.
-    machine: will show statuses for machines.
-    unit: will show workload and juju agent combined for the specified unit.
-    workload: will show statuses for the unit's workload.
+%v
  and sorted by time of occurrence.
  The default is unit.
-`
+`, supportedHistoryKindDescs())
 
 func (c *statusHistoryCommand) Info() *cmd.Info {
 	return &cmd.Info{
@@ -68,17 +62,30 @@ func (c *statusHistoryCommand) Info() *cmd.Info {
 	}
 }
 
-func supportedHistoryKinds() string {
+func supportedHistoryKindTypes() string {
 	supported := set.NewStrings()
-	for _, k := range status.AllHistoryKind() {
+	for k, _ := range status.AllHistoryKind() {
 		supported.Add(string(k))
 	}
 	return strings.Join(supported.SortedValues(), "|")
 }
 
+func supportedHistoryKindDescs() string {
+	types := status.AllHistoryKind()
+	supported := set.NewStrings()
+	for k, _ := range types {
+		supported.Add(string(k))
+	}
+	all := ""
+	for _, k := range supported.SortedValues() {
+		all += fmt.Sprintf("    %v:  %v\n", k, types[status.HistoryKind(k)])
+	}
+	return all
+}
+
 func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.outputContent, "type", "unit", fmt.Sprintf("Type of statuses to be displayed [%v]", supportedHistoryKinds()))
+	f.StringVar(&c.outputContent, "type", "unit", fmt.Sprintf("Type of statuses to be displayed [%v]", supportedHistoryKindTypes()))
 	f.IntVar(&c.backlogSize, "n", 0, "Returns the last N logs (cannot be combined with --days or --date)")
 	f.IntVar(&c.backlogSizeDays, "days", 0, "Returns the logs for the past <days> days (cannot be combined with -n or --date)")
 	f.StringVar(&c.backlogDate, "from-date", "", "Returns logs for any date after the passed one, the expected date format is YYYY-MM-DD (cannot be combined with -n or --days)")

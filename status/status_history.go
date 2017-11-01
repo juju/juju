@@ -193,8 +193,14 @@ func (k HistoryKind) Valid() bool {
 }
 
 // AllHistoryKind will return all valid HistoryKinds.
-func AllHistoryKind() []HistoryKind {
-	return []HistoryKind{KindUnit, KindUnitAgent, KindWorkload,
-		KindMachineInstance, KindMachine,
-		KindContainerInstance, KindContainer}
+func AllHistoryKind() map[HistoryKind]string {
+	return map[HistoryKind]string{
+		KindUnit:              "statuses for specified unit and its workload",
+		KindUnitAgent:         "statuses from the agent that is managing a unit",
+		KindWorkload:          "statuses for unit's workload",
+		KindMachineInstance:   "statuses that occur due to provisioning of a machine",
+		KindMachine:           "status of the agent that is managing a machine",
+		KindContainerInstance: "statuses from the agent that is managing containers",
+		KindContainer:         "statuses from the containers only and not their host machines",
+	}
 }
