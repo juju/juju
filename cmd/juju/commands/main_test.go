@@ -445,6 +445,8 @@ var commandNames = []string{
 	"gui",
 	"help",
 	"help-tool",
+	"hook-tool",
+	"hook-tools",
 	"import-filesystem",
 	"import-ssh-key",
 	"kill-controller",
