@@ -140,7 +140,6 @@ These are useful for the charm to be able to inspect its running environment.
 Currently available charm hook tools are:
 
 %v
-
 Examples:
 
     For help on a specific tool, supply the name of that tool, for example:
