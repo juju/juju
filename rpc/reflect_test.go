@@ -4,6 +4,7 @@
 package rpc_test
 
 import (
+	"context"
 	"reflect"
 
 	jc "github.com/juju/testing/checkers"
@@ -36,6 +37,7 @@ func (*reflectSuite) TestTypeOf(c *gc.C) {
 		"ErrorMethods":     reflect.TypeOf(&ErrorMethods{}),
 		"InterfaceMethods": reflect.TypeOf((*InterfaceMethods)(nil)).Elem(),
 		"SimpleMethods":    reflect.TypeOf(&SimpleMethods{}),
+		"ContextMethods":   reflect.TypeOf(&ContextMethods{}),
 	}
 	c.Assert(rtype.MethodNames(), gc.HasLen, len(expect))
 	for name, expectGoType := range expect {
@@ -130,7 +132,7 @@ func (*reflectSuite) TestFindMethod(c *gc.C) {
 	c.Assert(m.ParamsType(), gc.Equals, reflect.TypeOf(stringVal{}))
 	c.Assert(m.ResultType(), gc.Equals, reflect.TypeOf(stringVal{}))
 
-	ret, err := m.Call("a99", reflect.ValueOf(stringVal{"foo"}))
+	ret, err := m.Call(context.TODO(), "a99", reflect.ValueOf(stringVal{"foo"}))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ret.Interface(), gc.Equals, stringVal{"Call1r1e ret"})
 }

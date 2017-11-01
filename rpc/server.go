@@ -4,6 +4,7 @@
 package rpc
 
 import (
+	"context"
 	"io"
 	"reflect"
 	"runtime/debug"
@@ -145,6 +146,11 @@ type Conn struct {
 	// dead is closed when the input loop terminates.
 	dead chan struct{}
 
+	// context is created when the connection is started, and is
+	// cancelled when the connection is closed.
+	context       context.Context
+	cancelContext context.CancelFunc
+
 	// inputLoopError holds the error that caused the input loop to
 	// terminate prematurely.  It is set before dead is closed.
 	inputLoopError error
@@ -172,10 +178,14 @@ func NewConn(codec Codec, observerFactory ObserverFactory) *Conn {
 // effect if it has already been called.  By default, a connection
 // serves no methods.  See Conn.Serve for a description of how to
 // serve methods on a Conn.
-func (conn *Conn) Start() {
+//
+// The context passed in will be propagated to requests served by
+// the connection.
+func (conn *Conn) Start(ctx context.Context) {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	if conn.dead == nil {
+		conn.context, conn.cancelContext = context.WithCancel(ctx)
 		conn.dead = make(chan struct{})
 		go conn.input()
 	}
@@ -200,14 +210,14 @@ func (conn *Conn) Start() {
 // Methods defined on O may defined in one of the following forms, where
 // T and R must be struct types.
 //
-//	Method()
-//	Method() R
-//	Method() (R, error)
-//	Method() error
-//	Method(T)
-//	Method(T) R
-//	Method(T) (R, error)
-//	Method(T) error
+//	Method([context.Context])
+//	Method([context.Context]) R
+//	Method([context.Context]) (R, error)
+//	Method([context.Context]) error
+//	Method([context.Context,]T)
+//	Method([context.Context,]T) R
+//	Method([context.Context,]T) (R, error)
+//	Method([context.Context,]T) error
 //
 // If transformErrors is non-nil, it will be called on all returned
 // non-nil errors, for example to transform the errors into ServerErrors
@@ -289,7 +299,11 @@ func (conn *Conn) Close() error {
 	conn.mutex.Unlock()
 
 	// Wait for any outstanding server requests to complete
-	// and write their replies before closing the codec.
+	// and write their replies before closing the codec. We
+	// cancel the context so that any requests that would
+	// block will be notified that the server is shutting
+	// down.
+	conn.cancelContext()
 	conn.srvPending.Wait()
 
 	// Closing the codec should cause the input loop to terminate.
@@ -348,6 +362,7 @@ func (conn *Conn) input() {
 
 // loop implements the looping part of Conn.input.
 func (conn *Conn) loop() error {
+	defer conn.cancelContext()
 	for {
 		var hdr Header
 		err := conn.codec.ReadHeader(&hdr)
@@ -490,7 +505,12 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 }
 
 // runRequest runs the given request and sends the reply.
-func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, observer Observer) {
+func (conn *Conn) runRequest(
+	req boundRequest,
+	arg reflect.Value,
+	version int,
+	observer Observer,
+) {
 	// If the request causes a panic, ensure we log that before closing the connection.
 	defer func() {
 		if panicResult := recover(); panicResult != nil {
@@ -501,7 +521,14 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, o
 	}()
 	defer conn.srvPending.Done()
 
-	rv, err := req.Call(req.hdr.Request.Id, arg)
+	// Create a request-specific context, cancelled when the
+	// request returns.
+	//
+	// TODO(axw) provide a means for clients to cancel a request.
+	ctx, cancel := context.WithCancel(conn.context)
+	defer cancel()
+
+	rv, err := req.Call(ctx, req.hdr.Request.Id, arg)
 	if err != nil {
 		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), observer)
 	} else {

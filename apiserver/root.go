@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"net/url"
 	"reflect"
 	"sync"
@@ -142,12 +143,12 @@ func (s *srvCaller) ResultType() reflect.Type {
 
 // Call takes the object Id and an instance of ParamsType to create an object and place
 // a call on its method. It then returns an instance of ResultType.
-func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
+func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error) {
 	objVal, err := s.creator(objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	return s.objMethod.Call(objVal, arg)
+	return s.objMethod.Call(ctx, objVal, arg)
 }
 
 // apiRoot implements basic method dispatching to the facade registry.
@@ -315,11 +316,6 @@ func (r *apiRoot) facadeContext(key objectKey) *facadeContext {
 type facadeContext struct {
 	r   *apiRoot
 	key objectKey
-}
-
-// Abort is part of of the facade.Context interface.
-func (ctx *facadeContext) Abort() <-chan struct{} {
-	return nil
 }
 
 // Auth is part of of the facade.Context interface.
