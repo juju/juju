@@ -73,27 +73,6 @@ func (s *statePoolSuite) TestGetSystemState(c *gc.C) {
 	c.Assert(st0, gc.Equals, s.State)
 }
 
-func (s *statePoolSuite) TestKillWorkers(c *gc.C) {
-	// Get some State instances via the pool and extract their
-	// internal workers.
-	st1, _, err := s.Pool.Get(s.ModelUUID1)
-	c.Assert(err, jc.ErrorIsNil)
-	w1 := state.GetInternalWorkers(st1)
-	workertest.CheckAlive(c, w1)
-
-	st2, _, err := s.Pool.Get(s.ModelUUID2)
-	c.Assert(err, jc.ErrorIsNil)
-	w2 := state.GetInternalWorkers(st2)
-	workertest.CheckAlive(c, w2)
-
-	// Now kill their workers.
-	s.Pool.KillWorkers()
-
-	// Ensure the internal workers for each State died.
-	c.Check(workertest.CheckKilled(c, w1), jc.ErrorIsNil)
-	c.Check(workertest.CheckKilled(c, w2), jc.ErrorIsNil)
-}
-
 func (s *statePoolSuite) TestClose(c *gc.C) {
 	// Get some State instances.
 	st1, _, err := s.Pool.Get(s.ModelUUID1)

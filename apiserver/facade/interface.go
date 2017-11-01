@@ -21,11 +21,6 @@ type Factory func(Context) (Facade, error)
 // Context exposes useful capabilities to a Facade.
 type Context interface {
 
-	// Abort will be closed with the client connection. Any long-
-	// running methods should pay attention to Abort, and terminate
-	// with a sensible (non-nil) error when requested.
-	Abort() <-chan struct{}
-
 	// Auth represents information about the connected client. You
 	// should always be checking individual requests against Auth:
 	// both state changes *and* data retrieval should be blocked

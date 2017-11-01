@@ -4,6 +4,7 @@
 package singular_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -161,7 +162,7 @@ func (s *SingularSuite) TestWait(c *gc.C) {
 	backend.stub.SetErrors(errors.New("zap!"), nil)
 	facade, err := singular.NewFacade(backend, mockAuth{})
 	c.Assert(err, jc.ErrorIsNil)
-	result := facade.Wait(waits)
+	result := facade.Wait(context.TODO(), waits)
 	c.Assert(result.Results, gc.HasLen, count)
 
 	checkDenied(c, result.Results[0])
@@ -180,6 +181,25 @@ func (s *SingularSuite) TestWait(c *gc.C) {
 		FuncName: "WaitUntilExpired",
 		Args:     []interface{}{coretesting.ControllerTag.Id()},
 	}})
+}
+
+func (s *SingularSuite) TestWaitCancelled(c *gc.C) {
+	waits := params.Entities{
+		Entities: []params.Entity{{
+			coretesting.ModelTag.String(), // success
+		}},
+	}
+	count := len(waits.Entities)
+
+	backend := &mockBackend{}
+	facade, err := singular.NewFacade(backend, mockAuth{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	result := facade.Wait(ctx, waits)
+	c.Assert(result.Results, gc.HasLen, count)
+	c.Check(result.Results[0].Error, gc.ErrorMatches, "waiting for lease cancelled by client")
 }
 
 func checkDenied(c *gc.C, result params.ErrorResult) {

@@ -22,8 +22,12 @@ func (stub *StubClaimer) ClaimLeadership(serviceName, unitName string, duration 
 	return stub.NextErr()
 }
 
-func (stub *StubClaimer) BlockUntilLeadershipReleased(serviceName string) error {
+func (stub *StubClaimer) BlockUntilLeadershipReleased(serviceName string, cancel <-chan struct{}) error {
 	stub.MethodCall(stub, "BlockUntilLeadershipReleased", serviceName)
-	<-stub.releases
+	select {
+	case <-cancel:
+		return leadership.ErrBlockCancelled
+	case <-stub.releases:
+	}
 	return stub.NextErr()
 }

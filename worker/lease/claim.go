@@ -16,14 +16,14 @@ type claim struct {
 	holderName string
 	duration   time.Duration
 	response   chan bool
-	abort      <-chan struct{}
+	stop       <-chan struct{}
 }
 
 // invoke sends the claim on the supplied channel and waits for a response.
 func (c claim) invoke(ch chan<- claim) error {
 	for {
 		select {
-		case <-c.abort:
+		case <-c.stop:
 			return errStopped
 		case ch <- c:
 			ch = nil
@@ -39,7 +39,7 @@ func (c claim) invoke(ch chan<- claim) error {
 // respond causes the supplied success value to be sent back to invoke.
 func (c claim) respond(success bool) {
 	select {
-	case <-c.abort:
+	case <-c.stop:
 	case c.response <- success:
 	}
 }

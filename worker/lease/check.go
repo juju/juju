@@ -13,7 +13,7 @@ type token struct {
 	holderName string
 	secretary  Secretary
 	checks     chan<- check
-	abort      <-chan struct{}
+	stop       <-chan struct{}
 }
 
 // Check is part of the lease.Token interface.
@@ -38,7 +38,7 @@ func (t token) Check(trapdoorKey interface{}) error {
 		holderName:  t.holderName,
 		trapdoorKey: trapdoorKey,
 		response:    make(chan error),
-		abort:       t.abort,
+		stop:        t.stop,
 	}.invoke(t.checks)
 }
 
@@ -49,7 +49,7 @@ type check struct {
 	holderName  string
 	trapdoorKey interface{}
 	response    chan error
-	abort       <-chan struct{}
+	stop        <-chan struct{}
 }
 
 // invoke sends the check on the supplied channel and waits for an error
@@ -57,7 +57,7 @@ type check struct {
 func (c check) invoke(ch chan<- check) error {
 	for {
 		select {
-		case <-c.abort:
+		case <-c.stop:
 			return errStopped
 		case ch <- c:
 			ch = nil
@@ -70,7 +70,7 @@ func (c check) invoke(ch chan<- check) error {
 // respond notifies the originating invoke of completion status.
 func (c check) respond(err error) {
 	select {
-	case <-c.abort:
+	case <-c.stop:
 	case c.response <- err:
 	}
 }

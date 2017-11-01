@@ -4,6 +4,8 @@
 package leadership
 
 import (
+	"context"
+
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -18,5 +20,5 @@ type LeadershipService interface {
 
 	// BlockUntilLeadershipReleased blocks the caller until leadership is
 	// released for the given service.
-	BlockUntilLeadershipReleased(ApplicationTag names.ApplicationTag) (params.ErrorResult, error)
+	BlockUntilLeadershipReleased(ctx context.Context, ApplicationTag names.ApplicationTag) (params.ErrorResult, error)
 }
