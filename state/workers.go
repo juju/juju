@@ -58,17 +58,20 @@ func newWorkers(st *State) (*workers, error) {
 		return presence.NewPingBatcher(st.getPresenceCollection(), pingFlushInterval), nil
 	})
 	ws.StartWorker(leadershipWorker, func() (worker.Worker, error) {
-		manager, err := st.newLeaseManager(st.getLeadershipLeaseClient, leadershipSecretary{})
+		manager, err := st.newLeaseManager(st.getLeadershipLeaseClient, leadershipSecretary{}, st.ModelUUID())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return manager, nil
 	})
 	ws.StartWorker(singularWorker, func() (worker.Worker, error) {
-		manager, err := st.newLeaseManager(st.getSingularLeaseClient, singularSecretary{
-			controllerUUID: st.ControllerUUID(),
-			modelUUID:      st.ModelUUID(),
-		})
+		manager, err := st.newLeaseManager(st.getSingularLeaseClient,
+			singularSecretary{
+				controllerUUID: st.ControllerUUID(),
+				modelUUID:      st.ModelUUID(),
+			},
+			st.ControllerUUID(),
+		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -80,16 +83,18 @@ func newWorkers(st *State) (*workers, error) {
 func (st *State) newLeaseManager(
 	getClient func() (corelease.Client, error),
 	secretary lease.Secretary,
+	entityUUID string,
 ) (worker.Worker, error) {
 	client, err := getClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	manager, err := lease.NewManager(lease.ManagerConfig{
-		Secretary: secretary,
-		Client:    client,
-		Clock:     st.clock(),
-		MaxSleep:  time.Minute,
+		Secretary:  secretary,
+		Client:     client,
+		Clock:      st.clock(),
+		MaxSleep:   time.Minute,
+		EntityUUID: entityUUID,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

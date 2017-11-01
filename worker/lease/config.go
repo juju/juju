@@ -42,6 +42,10 @@ type ManagerConfig struct {
 	// MaxSleep is the longest time the Manager should sleep before
 	// refreshing its client's leases and checking for expiries.
 	MaxSleep time.Duration
+
+	// EntityUUID is the entity that we are running this Manager for. Used for
+	// logging purposes.
+	EntityUUID string
 }
 
 // Validate returns an error if the configuration contains invalid information
