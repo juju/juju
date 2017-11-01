@@ -24,10 +24,12 @@ const (
 )
 
 const createDoc = `
-create-backup requests that juju create a backup of its state and print the
+create-backup requests that Juju creates a backup of its state and prints the
 backup's unique ID.  You may provide a note to associate with the backup.
 
-The backup archive and associated metadata are stored remotely by juju.
+The backup archive and associated metadata are stored remotely by Juju, but
+will also be copied locally unless --no-download is supplied. To access the
+remote backups, see 'juju download-backup'.
 
 See also:
     backups
