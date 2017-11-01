@@ -100,10 +100,13 @@ type helpToolCommand struct {
 
 func (t *helpToolCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "help-tool",
+		Name:    "hook-tool",
 		Args:    "[tool]",
-		Purpose: "Show help on a Juju charm tool.",
+		Purpose: "Show help on a Juju charm hook tool.",
 		Doc:     helpToolDoc,
+		Aliases: []string{
+			"help-tool", // TODO (anastasimac 2017-11-1) This should be removed in Juju 3.
+			"hook-tools"},
 	}
 }
 
@@ -116,28 +119,10 @@ func (t *helpToolCommand) Init(args []string) error {
 }
 
 func (c *helpToolCommand) Run(ctx *cmd.Context) error {
-	var hookctx dummyHookContext
 	if c.tool == "" {
-		// Ripped from SuperCommand. We could Run() a SuperCommand
-		// with "help commands", but then the implicit "help" command
-		// shows up.
-		names := jujuc.CommandNames()
-		cmds := make([]cmd.Command, 0, len(names))
-		longest := 0
-		for _, name := range names {
-			if c, err := jujuc.NewCommand(hookctx, name); err == nil {
-				if len(name) > longest {
-					longest = len(name)
-				}
-				cmds = append(cmds, c)
-			}
-		}
-		for _, c := range cmds {
-			info := c.Info()
-			fmt.Fprintf(ctx.Stdout, "%-*s  %s\n", longest, info.Name, info.Purpose)
-		}
+		fmt.Fprintf(ctx.Stdout, listHookTools())
 	} else {
-		c, err := jujuc.NewCommand(hookctx, c.tool)
+		c, err := jujuc.NewCommand(dummyHookContext{}, c.tool)
 		if err != nil {
 			return err
 		}
@@ -149,18 +134,40 @@ func (c *helpToolCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-const helpToolDoc = `
+var helpToolDoc = fmt.Sprintf(`
 Juju charms can access a series of built-in helpers called 'hook-tools'. 
 These are useful for the charm to be able to inspect its running environment.
+Currently available charm hook tools are:
+
+%v
 
 Examples:
 
-    To get a full list of the currently available hook tools:
-
-        juju help-tool
-
     For help on a specific tool, supply the name of that tool, for example:
 
-        juju help-tool unit-get
+        juju hook-tool unit-get
         
-`
+`, listHookTools())
+
+func listHookTools() string {
+	all := ""
+	// Ripped from SuperCommand. We could Run() a SuperCommand
+	// with "help commands", but then the implicit "help" command
+	// shows up.
+	names := jujuc.CommandNames()
+	cmds := []cmd.Command{}
+	longest := 0
+	for _, name := range names {
+		if c, err := jujuc.NewCommand(dummyHookContext{}, name); err == nil {
+			if len(name) > longest {
+				longest = len(name)
+			}
+			cmds = append(cmds, c)
+		}
+	}
+	for _, c := range cmds {
+		info := c.Info()
+		all += fmt.Sprintf("    %-*s  %s\n", longest, info.Name, info.Purpose)
+	}
+	return all
+}
