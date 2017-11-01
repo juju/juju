@@ -53,6 +53,10 @@ func DestroyController(
 		for _, uuid := range uuids {
 			modelSt, release, err := st.GetBackend(uuid)
 			if err != nil {
+				if errors.IsNotFound(err) {
+					// Model is already in the process of being destroyed.
+					continue
+				}
 				return errors.Trace(err)
 			}
 			defer release()
