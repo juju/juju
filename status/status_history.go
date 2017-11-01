@@ -151,8 +151,14 @@ func (h *History) SquashLogs(cycleSize int) History {
 
 // HistoryKind represents the possible types of
 // status history entries.
+//
 type HistoryKind string
 
+// IMPORTANT DEV NOTE: when changing this HistoryKind list in anyway, these may need to be revised:
+//
+// * HistoryKind.Valid()
+// * AllHistoryKind()
+// * command help for 'show-status-log' describing these kinds.
 const (
 	// KindUnit represents agent and workload combined.
 	KindUnit HistoryKind = "unit"
@@ -184,4 +190,11 @@ func (k HistoryKind) Valid() bool {
 		return true
 	}
 	return false
+}
+
+// AllHistoryKind will return all valid HistoryKinds.
+func AllHistoryKind() []HistoryKind {
+	return []HistoryKind{KindUnit, KindUnitAgent, KindWorkload,
+		KindMachineInstance, KindMachine,
+		KindContainerInstance, KindContainer}
 }
