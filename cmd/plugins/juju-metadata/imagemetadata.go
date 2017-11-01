@@ -176,13 +176,17 @@ Image metadata files have been written to:
 For Juju to use this metadata, the files need to be put into the
 image metadata search path. There are 2 options:
 
-1. Use the --metadata-source parameter when bootstrapping:
-   juju bootstrap --metadata-source %s
+1. For local access, use the --metadata-source parameter when bootstrapping:
+   juju bootstrap --metadata-source %s [...]
 
-2. Use image-metadata-url in $JUJU_DATA/environments.yaml
-(if $JUJU_DATA is not set it will try $XDG_DATA_HOME/juju and
-if not set either default to ~/.local/share/juju)
-Configure a http server to serve the contents of
+2. For remote access, use image-metadata-url attribute for model configuration. 
+To set it as a default for any model or for the controller model, 
+it needs to be supplied as part of --model-default to 'juju bootstrap' command.
+See 'bootstrap' help for more details.
+For configuration for a particular model, set it as --image-metadata-url on
+'juju model-config'. See 'model-config' help for more details.
+Regardless of where this attribute is used, it expects a reachable URL. 
+You need to configure a http server to serve the contents of
 %s
 and set the value of image-metadata-url accordingly.
 `
