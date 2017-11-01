@@ -147,6 +147,14 @@ type NeutronNetworking struct {
 	networkingBase
 }
 
+// networkFilter returns a neutron.Filter to match Neutron Networks with
+// the exact given name AND router:external boolean result.
+func projectIdFilter(projectId string) *neutron.Filter {
+	filter := neutron.NewFilter()
+	filter.Set(neutron.FilterProjectId, projectId)
+	return filter
+}
+
 // AllocatePublicIP is part of the Networking interface.
 func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error) {
 	extNetworkIds := make([]string, 0)
@@ -186,7 +194,9 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 		}
 	}
 
-	fips, err := n.env.neutron().ListFloatingIPsV2()
+	// Look for FIPs in same project as the credentials.
+	// Admins have visibility into other projects.
+	fips, err := n.env.neutron().ListFloatingIPsV2(projectIdFilter(n.env.client().TenantId()))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -241,10 +251,6 @@ func getExternalNeutronNetworksByAZ(e *Environ, azName string) ([]string, error)
 	}
 	netIds := make([]string, 0)
 	for _, network := range networks {
-		// TODO (hml): OpenStack Compute and Network AZs have no direct relation,
-		// though they can be named the same.  The default AZ is named "nova" in
-		// either case. It's possible that a compute AZ was configured but not a
-		// network one.  Need to account for this.
 		for _, netAZ := range network.AvailabilityZones {
 			if azName == netAZ {
 				netIds = append(netIds, network.Id)
