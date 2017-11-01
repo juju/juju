@@ -52,7 +52,7 @@ func (c *ShowServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resources",
 		Aliases: []string{"list-resources"},
-		Args:    "application-or-unit",
+		Args:    "<application or unit>",
 		Purpose: "Show the resources for an application or unit.",
 		Doc: `
 This command shows the resources required by and those in use by an existing
