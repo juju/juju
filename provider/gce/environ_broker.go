@@ -41,6 +41,15 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.Trace(err)
 	}
 
+	// Validate availability zone.
+	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	raw, err := newRawInstance(env, args, spec)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -165,15 +174,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		// Network is omitted (left empty).
 	}
 
-	// Instances require a named availabilty zone to start
-	// with gce.  Leave this unchanged with the parallelization
-	// of the provider, otherwise bootstrap fails.
-	zones, err := env.startInstanceAvailabilityZones(args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	inst, err := env.gce.AddInstance(instSpec, zones...)
+	inst, err := env.gce.AddInstance(instSpec, args.AvailabilityZone)
 	return inst, errors.Trace(err)
 }
 

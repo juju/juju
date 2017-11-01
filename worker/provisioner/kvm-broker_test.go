@@ -32,6 +32,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type kvmSuite struct {
@@ -336,12 +337,12 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 
 func (s *kvmProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 	p := s.newKvmProvisioner(c)
-	stop(c, p)
+	workertest.CleanKill(c, p)
 }
 
 func (s *kvmProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 	p := s.newKvmProvisioner(c)
-	defer stop(c, p)
+	defer workertest.CleanKill(c, p)
 
 	// Check that an instance is not provisioned when the machine is created.
 	_, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
@@ -352,7 +353,7 @@ func (s *kvmProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 
 func (s *kvmProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 	p := s.newKvmProvisioner(c)
-	defer stop(c, p)
+	defer workertest.CleanKill(c, p)
 
 	w, err := provisioner.GetRetryWatcher(p)
 	c.Assert(w, gc.IsNil)
@@ -374,7 +375,7 @@ func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 		c.Skip("Test only enabled on amd64, see bug lp:1572145")
 	}
 	p := s.newKvmProvisioner(c)
-	defer stop(c, p)
+	defer workertest.CleanKill(c, p)
 
 	container := s.addContainer(c)
 
@@ -394,7 +395,7 @@ func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 
 func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
 	p := s.newKvmProvisioner(c)
-	defer stop(c, p)
+	defer workertest.CleanKill(c, p)
 	s.assertProvisionerObservesConfigChanges(c, p)
 }
 

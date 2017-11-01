@@ -30,10 +30,6 @@ func ExposeInstEnv(inst *environInstance) *environ {
 	return inst.env
 }
 
-func StartInstanceAvailabilityZones(env *environ, args environs.StartInstanceParams) ([]string, error) {
-	return env.startInstanceAvailabilityZones(args)
-}
-
 func ExposeEnvConfig(env *environ) *environConfig {
 	return env.ecfg
 }

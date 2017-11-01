@@ -1407,7 +1407,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZonesConflictsVolume(c *gc.C
 		Placement:         "zone=az2",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2", as this will prevent attaching the requested disks in zone "az1"`)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2": cannot create instance in zone "az2", as this will prevent attaching the requested disks in zone "az1"`)
 }
 
 func (t *localServerSuite) TestDeriveAvailabilityZone(c *gc.C) {
@@ -1513,7 +1513,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneConflictsVolume(c *gc.C) {
 			Placement:         "zone=az2",
 			VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
 		})
-	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2", as this will prevent attaching the requested disks in zone "az1"`)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2": cannot create instance in zone "az2", as this will prevent attaching the requested disks in zone "az1"`)
 	c.Assert(zone, gc.Equals, "")
 }
 
@@ -2098,8 +2098,8 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 	)
 	defer cleanup()
 	_, err = testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
-		ControllerUUID: t.ControllerUUID,
-		Placement:      "zone=az2",
+		ControllerUUID:   t.ControllerUUID,
+		AvailabilityZone: "az2",
 	})
 	c.Assert(err, gc.ErrorMatches, "(?s).*Some unknown error.*")
 }
@@ -2118,9 +2118,6 @@ func (t *localServerSuite) testStartInstanceWithParamsDeriveAZ(
 }
 
 func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) {
-	err := bootstrapEnv(c, t.env)
-	c.Assert(err, jc.ErrorIsNil)
-
 	t.srv.Nova.SetAvailabilityZones(
 		nova.AvailabilityZone{
 			Name: "az1",
@@ -2141,6 +2138,8 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) 
 			},
 		},
 	)
+	err := bootstrapEnv(c, t.env)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
 		Size:             123,
@@ -2221,9 +2220,9 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsP
 	_, err = testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
 		ControllerUUID:    t.ControllerUUID,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
-		Placement:         "zone=az2",
+		AvailabilityZone:  "az2",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2", as this will prevent attaching the requested disks in zone "az1"`)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance in zone "az2", as this will prevent attaching the requested disks in zone "az1"`)
 }
 
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {

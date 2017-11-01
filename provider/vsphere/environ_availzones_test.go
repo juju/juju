@@ -81,3 +81,14 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZoneUnknown(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not found`)
 	c.Assert(zone, gc.Equals, "")
 }
+
+func (s *environAvailzonesSuite) TestDeriveAvailabilityZoneInvalidPlacement(c *gc.C) {
+	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
+	zonedEnviron := s.env.(common.ZonedEnviron)
+
+	zone, err := zonedEnviron.DeriveAvailabilityZone(environs.StartInstanceParams{
+		Placement: "invalid-placement",
+	})
+	c.Assert(err, gc.ErrorMatches, `unknown placement directive: invalid-placement`)
+	c.Assert(zone, gc.Equals, "")
+}

@@ -62,11 +62,11 @@ func (s *environBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInst
 	tools := setInstanceConfigTools(c, instanceConfig)
 
 	return environs.StartInstanceParams{
-		ControllerUUID: instanceConfig.Controller.Config.ControllerUUID(),
-		InstanceConfig: instanceConfig,
-		Tools:          tools,
-		Constraints:    cons,
-		Placement:      "zone=z1",
+		AvailabilityZone: "z1",
+		ControllerUUID:   instanceConfig.Controller.Config.ControllerUUID(),
+		InstanceConfig:   instanceConfig,
+		Tools:            tools,
+		Constraints:      cons,
 		StatusCallback: func(status status.Status, info string, data map[string]interface{}) error {
 			s.statusCallbackStub.AddCall("StatusCallback", status, info, data)
 			return s.statusCallbackStub.NextErr()
@@ -278,16 +278,9 @@ func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConst
 	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB("trusty")*uint64(1024))
 }
 
-func (s *environBrokerSuite) TestStartInstanceInvalidPlacement(c *gc.C) {
-	startInstArgs := s.createStartInstanceArgs(c)
-	startInstArgs.Placement = "someInvalidPlacement"
-	_, err := s.env.StartInstance(startInstArgs)
-	c.Assert(err, gc.ErrorMatches, "unknown placement directive: .*")
-}
-
 func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
-	startInstArgs.Placement = "zone=z2"
+	startInstArgs.AvailabilityZone = "z2"
 	_, err := s.env.StartInstance(startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 

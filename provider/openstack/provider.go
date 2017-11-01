@@ -576,7 +576,7 @@ type openstackPlacement struct {
 
 // DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
 func (e *Environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	availabilityZone, err := e.startInstanceAvailabilityZone(args)
+	availabilityZone, err := e.deriveAvailabilityZone(args.Placement, args.VolumeAttachments)
 	if err != nil && !errors.IsNotImplemented(err) {
 		return "", errors.Trace(err)
 	}
@@ -602,11 +602,7 @@ func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) 
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
 func (e *Environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
-	volumeAttachmentsZone, err := e.volumeAttachmentsZone(args.VolumeAttachments)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if _, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone); err != nil {
+	if _, err := e.deriveAvailabilityZone(args.Placement, args.VolumeAttachments); err != nil {
 		return errors.Trace(err)
 	}
 	if !args.Constraints.HasInstanceType() {
@@ -942,9 +938,20 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		return nil, errors.New("missing controller UUID")
 	}
 
-	availabilityZone, err := e.startInstanceAvailabilityZone(args)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if args.AvailabilityZone != "" {
+		// args.AvailabilityZone should only be set if this OpenStack
+		// supports zones; validate the zone.
+		volumeAttachmentsZone, err := e.volumeAttachmentsZone(args.VolumeAttachments)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := common.ValidateAvailabilityZone(e, args.AvailabilityZone); err != nil {
+			logger.Errorf(err.Error())
+			return nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
+		}
 	}
 
 	series := args.Tools.OneSeries()
@@ -1115,7 +1122,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		SecurityGroupNames: novaGroupNames,
 		Networks:           networks,
 		Metadata:           args.InstanceConfig.Tags,
-		AvailabilityZone:   availabilityZone,
+		AvailabilityZone:   args.AvailabilityZone,
 	}
 	e.configurator.ModifyRunServerOptions(&opts)
 
@@ -1173,42 +1180,35 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}, nil
 }
 
-func (e *Environ) startInstanceAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	volumeAttachmentsZone, err := e.volumeAttachmentsZone(args.VolumeAttachments)
+func (e *Environ) deriveAvailabilityZone(
+	placement string,
+	volumeAttachments []storage.VolumeAttachmentParams,
+) (string, error) {
+	volumeAttachmentsZone, err := e.volumeAttachmentsZone(volumeAttachments)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	placementZone, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if placementZone != "" {
-		return placementZone, nil
-	}
-	if args.AvailabilityZone != "" {
-		if err := common.ValidateAvailabilityZone(e, args.AvailabilityZone); err != nil {
-			logger.Errorf(err.Error())
-			return "", errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
-		}
-	}
-	return args.AvailabilityZone, nil
-}
-
-func (env *Environ) instancePlacementZone(placement string, volumeAttachmentsZone string) (string, error) {
 	if placement == "" {
 		return volumeAttachmentsZone, nil
 	}
-	instPlacement, err := env.parsePlacement(placement)
+	instPlacement, err := e.parsePlacement(placement)
 	if err != nil {
 		return "", err
 	}
-	if volumeAttachmentsZone != "" && instPlacement.zoneName != volumeAttachmentsZone {
-		return "", errors.Errorf(
-			"cannot create instance with placement %q, as this will prevent attaching the requested disks in zone %q",
-			placement, volumeAttachmentsZone,
-		)
+	if err := validateAvailabilityZoneConsistency(instPlacement.zoneName, volumeAttachmentsZone); err != nil {
+		return "", errors.Annotatef(err, "cannot create instance with placement %q", placement)
 	}
 	return instPlacement.zoneName, nil
+}
+
+func validateAvailabilityZoneConsistency(instanceZone, volumeAttachmentsZone string) error {
+	if volumeAttachmentsZone != "" && instanceZone != volumeAttachmentsZone {
+		return errors.Errorf(
+			"cannot create instance in zone %q, as this will prevent attaching the requested disks in zone %q",
+			instanceZone, volumeAttachmentsZone,
+		)
+	}
+	return nil
 }
 
 // volumeAttachmentsZone determines the availability zone for each volume
