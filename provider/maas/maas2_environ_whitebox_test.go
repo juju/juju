@@ -154,13 +154,7 @@ func (suite *maas2EnvironSuite) TestInstancesPartialResult(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAvailabilityZones(c *gc.C) {
-	controller := &fakeController{
-		zones: []gomaasapi.Zone{
-			&fakeZone{name: "mossack"},
-			&fakeZone{name: "fonseca"},
-		},
-	}
-	env := suite.makeEnviron(c, controller)
+	env := suite.makeEnviron(c, newFakeController())
 	result, err := env.AvailabilityZones()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedZones := set.NewStrings("mossack", "fonseca")
