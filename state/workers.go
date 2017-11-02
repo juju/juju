@@ -170,3 +170,25 @@ func (ws *workers) allModelManager(pool *StatePool) *storeManager {
 	})
 	return ws.allModelManager(pool)
 }
+
+// lazyLeaseManager wraps one of workers.singularManager or
+// workers.leadershipManager, and calls it in the method calls.
+// This enables the manager to use restarted lease managers.
+type lazyLeaseManager struct {
+	leaseManager func() *lease.Manager
+}
+
+// Claim is part of the lease.Claimer interface.
+func (l lazyLeaseManager) Claim(leaseName, holderName string, duration time.Duration) error {
+	return l.leaseManager().Claim(leaseName, holderName, duration)
+}
+
+// WaitUntilExpired is part of the lease.Claimer interface.
+func (l lazyLeaseManager) WaitUntilExpired(leaseName string) error {
+	return l.leaseManager().WaitUntilExpired(leaseName)
+}
+
+// Token is part of the lease.Checker interface.
+func (l lazyLeaseManager) Token(leaseName, holderName string) corelease.Token {
+	return l.leaseManager().Token(leaseName, holderName)
+}
