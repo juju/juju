@@ -31,6 +31,7 @@ type PrecheckBackend interface {
 	IsMigrationActive(string) (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
+	AllRelations() ([]PrecheckRelation, error)
 	ControllerBackend() (PrecheckBackendCloser, error)
 	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
 	ListPendingResources(string) ([]resource.Resource, error)
@@ -92,6 +93,20 @@ type PrecheckUnit interface {
 	AgentStatus() (status.StatusInfo, error)
 	Status() (status.StatusInfo, error)
 	AgentPresence() (bool, error)
+}
+
+// PrecheckRelation describes the state interface for relations needed
+// for prechecks.
+type PrecheckRelation interface {
+	Endpoints() []state.Endpoint
+	Unit(PrecheckUnit) (PrecheckRelationUnit, error)
+}
+
+// PrecheckRelationUnit describes the interface for relation units
+// needed for migration prechecks.
+type PrecheckRelationUnit interface {
+	Valid() (bool, error)
+	InScope() (bool, error)
 }
 
 // SourcePrecheck checks the state of the source controller to make
