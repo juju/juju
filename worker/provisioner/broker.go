@@ -148,7 +148,7 @@ func matchHostArchTools(allTools tools.List) (tools.List, error) {
 	archTools, err := allTools.Match(tools.Filter{Arch: arch})
 	if err == tools.ErrNoMatches {
 		return nil, errors.Errorf(
-			"need tools for arch %s, only found %s",
+			"need agent binaries for arch %s, only found %s",
 			arch, allTools.Arches(),
 		)
 	} else if err != nil {

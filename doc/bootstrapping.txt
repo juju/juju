@@ -25,10 +25,10 @@ bootstrap.Bootstrap starts with sanity checks:
  * that there is at least one authorised SSH key
  * that there is a CA Cert and CA Key
  * that the model storage is writable (by writing the bootstrap-init file)
- * finds available tools
-   - locate tools available externally (matching constraints)
-   - determine which tools can be built and uploaded to make up shortfall in above
-   - if the best tools are made locally, and we can upload tools, they get uploaded
+ * finds available agent binaries
+   - locate agent binaries available externally (matching constraints)
+   - determine which agent binaries can be built and uploaded to make up shortfall in above
+   - if the best agent binaries are local, we attempt to upload them
 
 This code then calls into the Bootstrap function on the environ instance (backed by a provider), which returns arch, series, and a finalizer function.
 
@@ -43,14 +43,13 @@ Firstly, common.Bootstrap:
  * writes the instance id (as yaml) into the the "provider-state" file in environ storage
    - this step will go away soon, or at least become provider specific
 
-The finalizer function, is run after the following checks from bootstrap.Bootstrap:
- * selects tools from the previously calculated set based on the architecture and series
+The  finalizer function is run by bootstrap.Bootstrap after the following is performed:
+ * select agent binaries from the previously calculated set based on the architecture and series
    of the instance that the provider started
- * makes sure that the tools are available
- * creates the machine config struct for the bootstrap machine
- * sets the tools in that structure to the tools bootstap knows about
- * then it calls the finalizer function.
-
+ * make sure that the agent binaries are available
+ * create the machine config struct for the bootstrap machine
+ * set the agent binaries in that structure to the agent binaries bootstrap knows about.
+ 
 The common finalizer function does the following: 
  * updates the machine config with the instance id of the new machine
  * calls environs.FinishMachineConfig
@@ -78,6 +77,6 @@ jujud bootstrap-state
  * generates a (long) shared secret for mongo
  * mongo is then started
  * the database is then initialized (state.Initialize)
- * copies the tools into model storage
-   - also clones the tools for each series of the same OS
-     (for the time being at least, while each series' tools are equivalent)
+ * copies the agent binaries into model storage
+   - also clones the agent binaries for each series of the same OS
+     (for the time being at least, while each series' agent binaries are equivalent)

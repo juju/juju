@@ -43,5 +43,5 @@ type toolsVersionWorker struct {
 
 func (w *toolsVersionWorker) doCheck() error {
 	err := w.api.UpdateToolsVersion()
-	return errors.Annotate(err, "cannot update tools information")
+	return errors.Annotate(err, "cannot update agent binaries information")
 }

@@ -963,7 +963,7 @@ func (task *provisionerTask) setupToStartMachine(machine *apiprovisioner.Machine
 		arch,
 	)
 	if err != nil {
-		return environs.StartInstanceParams{}, errors.Annotatef(err, "cannot find tools for machine %q", machine)
+		return environs.StartInstanceParams{}, errors.Annotatef(err, "cannot find agent binaries for machine %q", machine)
 	}
 
 	startInstanceParams, err := task.constructStartInstanceParams(

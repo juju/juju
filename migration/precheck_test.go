@@ -199,7 +199,7 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDontMatch(c *gc.C) {
 		},
 	}
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err.Error(), gc.Equals, "unit bar/1 tools don't match model (1.2.4 != 1.2.3)")
+	c.Assert(err.Error(), gc.Equals, "unit bar/1 agent binaries don't match model (1.2.4 != 1.2.3)")
 }
 
 func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
@@ -281,7 +281,7 @@ func (s *SourcePrecheckSuite) TestControllerMachineVersionsDontMatch(c *gc.C) {
 	backend := newFakeBackend()
 	backend.controllerBackend = newBackendWithMismatchingTools()
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err, gc.ErrorMatches, "controller: machine . tools don't match model.+")
+	c.Assert(err, gc.ErrorMatches, "controller: machine . agent binaries don't match model.+")
 }
 
 func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *gc.C) {
@@ -556,7 +556,7 @@ func (*precheckBaseSuite) checkAgentVersionError(c *gc.C, runPrecheck precheckRu
 
 func (*precheckBaseSuite) checkMachineVersionsDontMatch(c *gc.C, runPrecheck precheckRunner) {
 	err := runPrecheck(newBackendWithMismatchingTools())
-	c.Assert(err.Error(), gc.Equals, "machine 1 tools don't match model (1.3.1 != 1.2.3)")
+	c.Assert(err.Error(), gc.Equals, "machine 1 agent binaries don't match model (1.3.1 != 1.2.3)")
 }
 
 func newHappyBackend() *fakeBackend {
