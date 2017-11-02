@@ -273,7 +273,7 @@ func cloneToolsForSeries(toolsInfo *BuiltAgent, stream string, series ...string)
 	if err != nil {
 		return err
 	}
-	logger.Debugf("generating agent binary metadata")
+	logger.Debugf("generating agent metadata")
 	return envtools.MergeAndWriteMetadata(metadataStore, stream, stream, targetTools, false)
 }
 
@@ -427,7 +427,7 @@ func (u StorageToolsUploader) UploadTools(toolsDir, stream string, tools *coreto
 	}
 	err := envtools.MergeAndWriteMetadata(u.Storage, toolsDir, stream, coretools.List{tools}, u.WriteMirrors)
 	if err != nil {
-		logger.Errorf("error writing agent binary metadata: %v", err)
+		logger.Errorf("error writing agent metadata: %v", err)
 		return err
 	}
 	return nil

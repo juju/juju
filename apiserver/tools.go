@@ -110,7 +110,7 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 	}
 	storage, err := st.ToolsStorage()
 	if err != nil {
-		return nil, errors.Annotate(err, "error getting agent binaries storage")
+		return nil, errors.Annotate(err, "error getting storage for agent binaries")
 	}
 	defer storage.Close()
 	_, reader, err := storage.Open(version.String())

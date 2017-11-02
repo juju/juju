@@ -37,10 +37,10 @@ type toolsMetadataCommand struct {
 }
 
 const toolsMetadataDoc = `
-generate-tools creates simplestreams agent binaries metadata.
+generate-tools creates the simplestreams metadata for agents.
 
 This command works by scanning a directory for agent binary tarballs from which to generate
-simplestreams agent binaries metadata. The working directory is specified using the -d argument
+simplestreams agent metadata. The working directory is specified using the -d argument
 (defaults to $JUJU_DATA or if not defined $XDG_DATA_HOME/juju or if that is not defined
 ~/.local/share/juju). The working directory is expected to contain a named subdirectory
 containing agent binary tarballs, and is where the resulting metadata is written.
@@ -77,7 +77,7 @@ juju metadata generate-tools -d <workingdir> --stream proposed --clean
 func (c *toolsMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "generate-tools",
-		Purpose: "generate simplestreams agent binaries metadata",
+		Purpose: "generate simplestreams agent metadata",
 		Doc:     toolsMetadataDoc,
 	}
 }
@@ -89,7 +89,7 @@ func (c *toolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.clean, "clean", false,
 		"remove any existing metadata for the specified stream before generating new metadata")
 	f.BoolVar(&c.public, "public", false,
-		"agent binaries are for a public cloud, so generate mirrors information")
+		"agent binaries are for a public cloud, so generate mirror information")
 }
 
 func (c *toolsMetadataCommand) Run(context *cmd.Context) error {

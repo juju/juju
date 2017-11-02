@@ -86,7 +86,7 @@ func (*instancecfgSuite) TestSetToolsDifferentVersions(c *gc.C) {
 		&coretools.Tools{Version: version.MustParseBinary("2.3.5-trusty-amd64")},
 	}
 	err := icfg.SetTools(list)
-	c.Assert(err, gc.ErrorMatches, `agent binaries info mismatch.*2\.3\.4.*2\.3\.5.*`)
+	c.Assert(err, gc.ErrorMatches, `agent binary info mismatch.*2\.3\.4.*2\.3\.5.*`)
 	c.Assert(icfg.ToolsList(), gc.HasLen, 0)
 }
 

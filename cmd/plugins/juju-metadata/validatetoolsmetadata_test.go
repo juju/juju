@@ -74,7 +74,7 @@ func (s *ValidateToolsMetadataSuite) TestInvalidProviderError(c *gc.C) {
 
 func (s *ValidateToolsMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 	_, err := runValidateToolsMetadata(c, s.store, "-p", "maas", "-s", "series", "-r", "region", "-d", "dir")
-	c.Check(err, gc.ErrorMatches, `maas provider does not support agent binaries metadata validation`)
+	c.Check(err, gc.ErrorMatches, `maas provider does not support metadata validation for agents`)
 }
 
 func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version, region, series, endpoint string) error {

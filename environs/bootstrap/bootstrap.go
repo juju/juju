@@ -675,7 +675,7 @@ func isCompatibleVersion(v1, v2 version.Number) bool {
 }
 
 // setPrivateMetadataSources verifies the specified metadataDir exists,
-// uses it to set the default agent binary metadata source for agent binaries,
+// uses it to set the default agent metadata source for agent binaries,
 // and adds an image metadata source after verifying the contents. If the
 // directory ends in tools, only the default tools metadata source will be
 // set. Same for images.
@@ -694,19 +694,19 @@ func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetada
 	}
 	if _, err := os.Stat(agentBinaryMetadataDir); err != nil {
 		if !os.IsNotExist(err) {
-			return nil, errors.Annotate(err, "cannot access agent binary metadata")
+			return nil, errors.Annotate(err, "cannot access agent metadata")
 		}
-		logger.Debugf("no agent directory found, using default agent binary metadata source: %s", tools.DefaultBaseURL)
+		logger.Debugf("no agent directory found, using default agent metadata source: %s", tools.DefaultBaseURL)
 	} else {
 		if ending == storage.BaseToolsPath {
 			// As the specified metadataDir ended in 'tools'
 			// assume that is the only metadata to find and return.
 			tools.DefaultBaseURL = filepath.Dir(metadataDir)
-			logger.Debugf("setting default agent binary metadata source: %s", tools.DefaultBaseURL)
+			logger.Debugf("setting default agent metadata source: %s", tools.DefaultBaseURL)
 			return nil, nil
 		} else {
 			tools.DefaultBaseURL = metadataDir
-			logger.Debugf("setting default agent binary metadata source: %s", tools.DefaultBaseURL)
+			logger.Debugf("setting default agent metadata source: %s", tools.DefaultBaseURL)
 		}
 	}
 

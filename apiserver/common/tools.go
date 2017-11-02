@@ -297,7 +297,7 @@ func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 	for i, m := range allMetadata {
 		vers, err := version.ParseBinary(m.Version)
 		if err != nil {
-			return nil, errors.Annotatef(err, "unexpectedly bad version %q in agent binaries storage", m.Version)
+			return nil, errors.Annotatef(err, "unexpected bad version %q of agent binary in storage", m.Version)
 		}
 		list[i] = &coretools.Tools{
 			Version: vers,

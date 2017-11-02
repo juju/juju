@@ -534,7 +534,7 @@ func (cfg *InstanceConfig) SetTools(toolsList coretools.List) error {
 			continue
 		}
 		if !reflect.DeepEqual(info, *tools) {
-			return errors.Errorf("agent binaries info mismatch (%v, %v)", *tools, info)
+			return errors.Errorf("agent binary info mismatch (%v, %v)", *tools, info)
 		}
 	}
 	cfg.tools = copyToolsList(toolsList)

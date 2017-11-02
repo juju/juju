@@ -196,7 +196,7 @@ func checkToolsSeries(toolsList coretools.List, series string) error {
 		return fmt.Errorf("expected single series, got %v", toolsSeries)
 	}
 	if toolsSeries[0] != series {
-		return fmt.Errorf("agent binaries mismatch: expected series %v, got %v", series, toolsSeries[0])
+		return fmt.Errorf("agent binary mismatch: expected series %v, got %v", series, toolsSeries[0])
 	}
 	return nil
 }

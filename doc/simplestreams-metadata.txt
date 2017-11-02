@@ -29,7 +29,7 @@ Metadata may be inline signed, or unsigned. We indicate a metadata file is signe
 a '.sjson' extension. Each location in the path is first searched for signed metadata, and
 if none is found, unsigned metadata is attempted before moving onto the next path location.
 
-Juju ships with public keys used to validate the integrity of image and agent binaries metadata obtained
+Juju ships with public keys used to validate the integrity of image and agent metadata obtained
 from https://streams.canonical.com/juju. So out of the box, Juju will "Just Work" with any supported
 public cloud, using signed metadata. Setting up metadata for a private (eg Openstack) cloud requires
 metadata to be generated using tools which ship with Juju (more below).
@@ -149,7 +149,7 @@ product-streams : the <path_url> value as described above in Image Metadata Cont
 
 4. Central web location (https://streams.canonical.com/juju)
 
-This is the default location used to search for image and agent binaries metadata and is used if no matches
+This is the default location used to search for image and agent metadata and is used if no matches
 are found earlier in any of the above locations. No user configuration is required.
 
 Deploying Private Clouds
@@ -162,17 +162,17 @@ There are two main issues when deploying a private cloud:
 Issue 1 means that image id metadata needs to be generated and made available.
 Issue 2 means that agent binaries need to be mirrored locally to make them accessible.
 
-Juju tools exist to help with generating and validating image and agent binaries metadata.
+Juju tools exist to help with generating and validating image and agent metadata.
 For agent binaries, it is often easiest to just mirror https://streams.canonical.com/juju/tools.
 However image metadata cannot be simply mirrored because the image ids are taken
 from the cloud storage provider, so this need to be generated and validated using
 the commands described below.
 
-The available Juju metadata agent binaries can be seen by using the help command:
+The available Juju metadata for agent binaries can be seen by using the help command:
   juju help metadata
 
 A summary of the overall workflow is (more detail next):
-- create a local directory in which to store image and agent binaries metadata
+- create a local directory in which to store image and agent metadata
 - generate image metadata to local directory
 - optionally download agent binaries to local directory/tools
 Then either
@@ -184,7 +184,7 @@ or
 
 If the bootstrap --metadata-source directory option is used, any image metadata and agent binaries found
 in the specified directory will be uploaded automatically to the cloud storage for that deployment.
-This is useful for situations where image and agent binaries metadata do not need to be shared amongst several
+This is useful for situations where image and agent metadata do not need to be shared amongst several
 users, since each Juju model will upload its own separate copy of the required files.
 
 Using the image-metadata-url and agent-metadata-url to point to publicly accessible locations is useful
@@ -222,11 +222,11 @@ in the model config.
 
 2. Tools metadata
 
-Generally, agent binaries and related metadata is mirrored from https://streams.canonical.com/juju/tools. However,
+Generally, agent binaries and related metadata are mirrored from https://streams.canonical.com/juju/tools. However,
 it is possible to manually generate metadata for a custom built agent binary tarball using:
   juju generate-tools -d <metadata_dir> --stream <stream>
 
-where the required agent binaries tarballs are first placed in a directory <metadata_dir>/tools/<stream>.
+where the required agent binary tarballs are first placed in a directory <metadata_dir>/tools/<stream>.
 If unspecified, <stream> defaults to "released".
 Then, the contents of <metadata_dir> can be uploaded to a location in the Juju metadata search path or the
 bootstrap --metadata-source option may be used.
@@ -238,7 +238,7 @@ Examples:
 2. bootstrap option
  - juju bootstrap --metadata-source <tools_dir>
 
-Note that image and agent binaries metadata are generally written into the same local directory and the bootstrap
+Note that image and agent metadata are generally written into the same local directory and the bootstrap
 --metadata-source option will upload both types of metadata.
 
 As with image metadata, the validation command is used to ensure tools are available for Juju to use:
