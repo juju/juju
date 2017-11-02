@@ -909,10 +909,11 @@ func (e *exporter) relations() error {
 		})
 		globalKey := relation.globalScope()
 		statusArgs, err := e.statusArgs(globalKey)
-		if err != nil {
+		if err == nil {
+			exRelation.SetStatus(statusArgs)
+		} else if !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "status for relation %v", relation.Id())
 		}
-		exRelation.SetStatus(statusArgs)
 
 		isRemote := false
 		for _, ep := range relation.Endpoints() {
