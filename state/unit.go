@@ -233,7 +233,7 @@ func (u *Unit) WorkloadVersionHistory() *HistoryGetter {
 // yet been set.
 func (u *Unit) AgentTools() (*tools.Tools, error) {
 	if u.doc.Tools == nil {
-		return nil, errors.NotFoundf("agent tools for unit %q", u)
+		return nil, errors.NotFoundf("agent binaries for unit %q", u)
 	}
 	tools := *u.doc.Tools
 	return &tools, nil

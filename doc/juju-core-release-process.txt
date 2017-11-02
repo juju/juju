@@ -58,8 +58,8 @@ version/version.go
 
 propose it and commit it. This moves the development version to the next release number in the series.
 
-Step 6. Upload tools to the s3 public bucket
-============================================
+Step 6. Upload agent binaries to the s3 public bucket
+=====================================================
 
 For each artifact produced by the build recipe or the the server teams' release process, run scripts/release-public-tools/release-public-tools.bash $DEB_URL. This will download the .deb, extract the /usr/bin/jujud binary and upload it with the correct name to the s3 bucket.
 
@@ -90,7 +90,7 @@ A sample release note is here
 
 https://lists.ubuntu.com/archives/juju-dev/2013-August/001338.html
 
-Step 9. Upload tools from the s3 bucket to all other CPCs
-=========================================================
+Step 9. Upload agent binaries from the s3 bucket to all other CPCs
+==================================================================
 
 Procedure unknown.

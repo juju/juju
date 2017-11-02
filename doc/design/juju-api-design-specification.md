@@ -108,7 +108,7 @@ according paths care for those requests.
 
 The first one is the charm handler, which supports HTTP POST to add a local 
 charm to the store provider and HTTP GET to retrieve or list charm files. The
-second one is the tools handler, which supports HTTP POST for tje upload of
+second one is the tools handler, which supports HTTP POST for the upload of
 tools to the API server. Last but not least the API provides a backup handler
 which allows to use the storage for the backup of files via HTTP POST.
 

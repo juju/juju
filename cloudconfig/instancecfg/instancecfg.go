@@ -520,12 +520,12 @@ func (cfg *InstanceConfig) ToolsList() coretools.List {
 // all usage-sites are updated to pass through non-empty URLs.
 func (cfg *InstanceConfig) SetTools(toolsList coretools.List) error {
 	if len(toolsList) == 0 {
-		return errors.New("need at least 1 tools")
+		return errors.New("need at least 1 agent binary")
 	}
 	var tools *coretools.Tools
 	for _, listed := range toolsList {
 		if listed == nil {
-			return errors.New("nil entry in tools list")
+			return errors.New("nil entry in agent binaries list")
 		}
 		info := *listed
 		info.URL = ""
@@ -534,7 +534,7 @@ func (cfg *InstanceConfig) SetTools(toolsList coretools.List) error {
 			continue
 		}
 		if !reflect.DeepEqual(info, *tools) {
-			return errors.Errorf("tools info mismatch (%v, %v)", *tools, info)
+			return errors.Errorf("agent binaries info mismatch (%v, %v)", *tools, info)
 		}
 	}
 	cfg.tools = copyToolsList(toolsList)
@@ -579,7 +579,7 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	}
 	if cfg.tools == nil {
 		// SetTools() has never been called successfully.
-		return errors.New("missing tools")
+		return errors.New("missing agent binaries")
 	}
 	// We don't need to check cfg.toolsURLs since SetTools() does.
 	if cfg.APIInfo == nil {

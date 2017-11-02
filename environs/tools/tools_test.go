@@ -382,7 +382,7 @@ func (s *ToolsListSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *gc.C)
 	list := fakeToolsList("hoary")
 	err := envtools.CheckToolsSeries(list, "warty")
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "tools mismatch: expected series warty, got hoary")
+	c.Check(err, gc.ErrorMatches, "agent binaries mismatch: expected series warty, got hoary")
 }
 
 func (s *ToolsListSuite) TestCheckToolsSeriesRejectsToolsForMixedSeries(c *gc.C) {

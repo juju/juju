@@ -36,7 +36,7 @@ var logger = loggo.GetLogger("juju.cloudconfig")
 
 const (
 	// curlCommand is the base curl command used to download tools.
-	curlCommand = "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
+	curlCommand = "curl -sSfw 'agent binaries from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 
 	// toolsDownloadWaitTime is the number of seconds to wait between
 	// each iterations of download attempts.
@@ -48,8 +48,8 @@ const (
 n=1
 while true; do
 {{range .URLs}}
-    printf "Attempt $n to download tools from %s...\n" {{shquote .}}
-    {{$curl}} {{shquote .}} && echo "Tools downloaded successfully." && break
+    printf "Attempt $n to download agent binaries from %s...\n" {{shquote .}}
+    {{$curl}} {{shquote .}} && echo "Agent binaries downloaded successfully." && break
 {{end}}
     echo "Download failed, retrying in {{.ToolsDownloadWaitTime}}s"
     sleep {{.ToolsDownloadWaitTime}}
@@ -498,7 +498,7 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 		"URLs":                  urls,
 	})
 	if err != nil {
-		panic(errors.Annotate(err, "tools download template error"))
+		panic(errors.Annotate(err, "agent binaries download template error"))
 	}
 	return buf.String()
 }

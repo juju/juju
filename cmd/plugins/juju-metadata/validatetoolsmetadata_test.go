@@ -74,7 +74,7 @@ func (s *ValidateToolsMetadataSuite) TestInvalidProviderError(c *gc.C) {
 
 func (s *ValidateToolsMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 	_, err := runValidateToolsMetadata(c, s.store, "-p", "maas", "-s", "series", "-r", "region", "-d", "dir")
-	c.Check(err, gc.ErrorMatches, `maas provider does not support tools metadata validation`)
+	c.Check(err, gc.ErrorMatches, `maas provider does not support agent binaries metadata validation`)
 }
 
 func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version, region, series, endpoint string) error {
@@ -156,7 +156,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 		"-p", "ec2", "-s", "raring", "-r", "us-west-1",
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
-	c.Assert(err, gc.ErrorMatches, "no matching tools(.|\n)*Resolve Metadata(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, "no matching agent binaries(.|\n)*Resolve Metadata(.|\n)*")
 	_, err = runValidateToolsMetadata(c, s.store,
 		"-p", "ec2", "-s", "precise", "-r", "region",
 		"-u", "https://ec2.region.amazonaws.com", "-d", s.metadataDir,
@@ -182,12 +182,12 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 		"-p", "openstack", "-s", "precise", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
-	c.Assert(err, gc.ErrorMatches, "no matching tools(.|\n)*Resolve Metadata(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, "no matching agent binaries(.|\n)*Resolve Metadata(.|\n)*")
 	_, err = runValidateToolsMetadata(c, s.store,
 		"-p", "openstack", "-s", "raring", "-r", "region-3",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
-	c.Assert(err, gc.ErrorMatches, "no matching tools(.|\n)*Resolve Metadata(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, "no matching agent binaries(.|\n)*Resolve Metadata(.|\n)*")
 }
 
 func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {

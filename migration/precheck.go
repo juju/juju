@@ -365,11 +365,11 @@ func checkUnitAgentStatus(unit PrecheckUnit) error {
 func checkAgentTools(modelVersion version.Number, agent agentToolsGetter, agentLabel string) error {
 	tools, err := agent.AgentTools()
 	if err != nil {
-		return errors.Annotatef(err, "retrieving tools for %s", agentLabel)
+		return errors.Annotatef(err, "retrieving agent binaries for %s", agentLabel)
 	}
 	agentVersion := tools.Version.Number
 	if agentVersion != modelVersion {
-		return errors.Errorf("%s tools don't match model (%s != %s)",
+		return errors.Errorf("%s agent binaries don't match model (%s != %s)",
 			agentLabel, agentVersion, modelVersion)
 	}
 	return nil

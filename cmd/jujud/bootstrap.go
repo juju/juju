@@ -171,7 +171,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			logger.Warningf("newer agent binaries for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
 			newConfigAttrs["agent-version"] = jujuversion.Current.String()
 		} else if toolsErr != nil {
-			logger.Errorf("cannot find newer tools: %v", toolsErr)
+			logger.Errorf("cannot find newer agent binaries: %v", toolsErr)
 			return toolsErr
 		}
 	}
