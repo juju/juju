@@ -1212,52 +1212,53 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 	coll, closer := st.db().GetCollection(leasesC)
 	defer closer()
 
-	var doc struct {
-		DocID     string `bson:"_id"`
-		Type      string `bson:"type"`
-		Namespace string `bson:"namespace"`
-		Name      string `bson:"name"`
-		Holder    string `bson:"holder"`
-		Expiry    int64  `bson:"expiry"`
-		Writer    string `bson:"writer"`
-	}
-
 	// Find all old lease/clock-skew documents, remove them
 	// and create replacement lease docs in the new format.
 	//
 	// Replacement leases are created with a duration of a
 	// minute, relative to the global time epoch.
-	var ops []txn.Op
-	iter := coll.Find(bson.D{{"type", bson.D{{"$exists", true}}}}).Iter()
-	for iter.Next(&doc) {
-		ops = append(ops, txn.Op{
-			C:      leasesC,
-			Id:     st.localID(doc.DocID),
-			Assert: txn.DocExists,
-			Remove: true,
-		})
-		if doc.Type != "lease" {
-			continue
+	err := st.db().Run(func(int) ([]txn.Op, error) {
+		var doc struct {
+			DocID     string `bson:"_id"`
+			Type      string `bson:"type"`
+			Namespace string `bson:"namespace"`
+			Name      string `bson:"name"`
+			Holder    string `bson:"holder"`
+			Expiry    int64  `bson:"expiry"`
+			Writer    string `bson:"writer"`
 		}
-		claimOps, err := lease.ClaimLeaseOps(
-			doc.Namespace,
-			doc.Name,
-			doc.Holder,
-			doc.Writer,
-			coll.Name(),
-			globalclock.GlobalEpoch(),
-			initialLeaderClaimTime,
-		)
-		if err != nil {
-			return errors.Trace(err)
+
+		var ops []txn.Op
+		iter := coll.Find(bson.D{{"type", bson.D{{"$exists", true}}}}).Iter()
+		defer iter.Close()
+		for iter.Next(&doc) {
+			ops = append(ops, txn.Op{
+				C:      coll.Name(),
+				Id:     st.localID(doc.DocID),
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+			if doc.Type != "lease" {
+				continue
+			}
+			claimOps, err := lease.ClaimLeaseOps(
+				doc.Namespace,
+				doc.Name,
+				doc.Holder,
+				doc.Writer,
+				coll.Name(),
+				globalclock.GlobalEpoch(),
+				initialLeaderClaimTime,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, claimOps...)
 		}
-		ops = append(ops, claimOps...)
-	}
-	if err := iter.Close(); err != nil {
-		return errors.Trace(err)
-	}
-	if ops == nil {
-		return nil
-	}
-	return st.db().RunTransaction(ops)
+		if err := iter.Close(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
+	})
+	return errors.Annotate(err, "upgrading legacy lease documents")
 }
