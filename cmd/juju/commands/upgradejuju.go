@@ -107,7 +107,7 @@ func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
 	f.BoolVar(&c.AssumeYes, "yes", false, "")
 	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
-		"Don't check if all agents have already reached the current version (old controllers will ignore this flag see juju-force-upgrade)")
+		"Don't check if all agents have already reached the current version (pre-2.2.6 controllers will ignore this flag, use 'juju-force-upgrade' script)")
 }
 
 func (c *upgradeJujuCommand) Init(args []string) error {
