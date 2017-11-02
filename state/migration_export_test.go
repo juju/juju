@@ -1502,3 +1502,43 @@ func (s *MigrationExportSuite) TestTooManyStatusHistories(c *gc.C) {
 	c.Assert(history, gc.HasLen, 20)
 	s.checkStatusHistory(c, history, status.Started)
 }
+
+func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
+	// Importing from a model from before relations had status will
+	// mean that there's no status to export - don't fail to export if
+	// there isn't a status for a relation.
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	// InferEndpoints will always return provider, requirer
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	ru, err := rel.Unit(wordpress_0)
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressSettings := map[string]interface{}{
+		"name": "wordpress/0",
+	}
+	err = ru.EnterScope(wordpressSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ru, err = rel.Unit(mysql_0)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlSettings := map[string]interface{}{
+		"name": "mysql/0",
+	}
+	err = ru.EnterScope(mysqlSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.RemoveRelationStatus(c, rel)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	rels := model.Relations()
+	c.Assert(rels, gc.HasLen, 1)
+	c.Assert(rels[0].Status(), gc.IsNil)
+}
