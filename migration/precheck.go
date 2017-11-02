@@ -98,6 +98,8 @@ type PrecheckUnit interface {
 // PrecheckRelation describes the state interface for relations needed
 // for prechecks.
 type PrecheckRelation interface {
+	String() string
+	IsCrossModel() (bool, error)
 	Endpoints() []state.Endpoint
 	Unit(PrecheckUnit) (PrecheckRelationUnit, error)
 }
@@ -121,7 +123,12 @@ func SourcePrecheck(backend PrecheckBackend) error {
 		return errors.Trace(err)
 	}
 
-	if err := checkApplications(backend); err != nil {
+	appUnits, err := checkApplications(backend)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := checkRelations(backend, appUnits); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -309,32 +316,35 @@ func checkMachines(backend PrecheckBackend) error {
 	return nil
 }
 
-func checkApplications(backend PrecheckBackend) error {
+func checkApplications(backend PrecheckBackend) (map[string][]PrecheckUnit, error) {
 	modelVersion, err := backend.AgentVersion()
 	if err != nil {
-		return errors.Annotate(err, "retrieving model version")
+		return nil, errors.Annotate(err, "retrieving model version")
 	}
 	apps, err := backend.AllApplications()
 	if err != nil {
-		return errors.Annotate(err, "retrieving applications")
+		return nil, errors.Annotate(err, "retrieving applications")
 	}
+
+	appUnits := make(map[string][]PrecheckUnit, len(apps))
 	for _, app := range apps {
 		if app.Life() != state.Alive {
-			return errors.Errorf("application %s is %s", app.Name(), app.Life())
+			return nil, errors.Errorf("application %s is %s", app.Name(), app.Life())
 		}
-		err := checkUnits(app, modelVersion)
+		units, err := app.AllUnits()
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Annotatef(err, "retrieving units for %s", app.Name())
 		}
+		err = checkUnits(app, units, modelVersion)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		appUnits[app.Name()] = units
 	}
-	return nil
+	return appUnits, nil
 }
 
-func checkUnits(app PrecheckApplication, modelVersion version.Number) error {
-	units, err := app.AllUnits()
-	if err != nil {
-		return errors.Annotatef(err, "retrieving units for %s", app.Name())
-	}
+func checkUnits(app PrecheckApplication, units []PrecheckUnit, modelVersion version.Number) error {
 	if len(units) < app.MinUnits() {
 		return errors.Errorf("application %s is below its minimum units threshold", app.Name())
 	}
@@ -400,4 +410,46 @@ func newStatusError(format, id string, s status.Status) error {
 		msg += fmt.Sprintf(" (%s)", s)
 	}
 	return errors.New(msg)
+}
+
+func checkRelations(backend PrecheckBackend, appUnits map[string][]PrecheckUnit) error {
+	relations, err := backend.AllRelations()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model relations")
+	}
+	for _, rel := range relations {
+		// We expect a relationScope and settings for each of the
+		// units of the specified application, unless it is a
+		// remote application.
+		crossModel, err := rel.IsCrossModel()
+		if err != nil {
+			return errors.Annotatef(err, "checking whether relation %s is cross-model", rel)
+		}
+		if crossModel {
+			continue
+		}
+		for _, ep := range rel.Endpoints() {
+			for _, unit := range appUnits[ep.ApplicationName] {
+				ru, err := rel.Unit(unit)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				valid, err := ru.Valid()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if !valid {
+					continue
+				}
+				inScope, err := ru.InScope()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if !inScope {
+					return errors.Errorf("unit %s hasn't joined relation %s yet", unit.Name(), rel)
+				}
+			}
+		}
+	}
+	return nil
 }
