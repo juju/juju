@@ -14,16 +14,30 @@ import (
 )
 
 const showCommandDoc = `
-Show extended information about an offered application.
-
-This command is aimed for a user who wants to see more detail about what’s offered behind a particular URL.
+This command is intended to enable users to learn more about the
+application offered from a particular URL. In addition to the URL of
+the offer, extra information is provided from the readme file of the
+charm being offered.
 
 Examples:
-   $ juju show-offer fred/prod.db2
-   $ juju show-offer anothercontroller:fred/prod.db2
+To show the extended information for the application 'prod' offered
+from the model 'default' on the same Juju controller:
+
+     juju show-offer default.prod
+
+The supplied URL can also include a username where offers require them. This will be given as part of the URL retrieved from the
+'juju find-offers' command. To show information for the application
+'prod' from the model 'default' as the user 'admin':
+
+    juju show-offer admin/default.prod
+
+To show the information regarding the application 'prod' offered from
+the model 'default' on an accessible controller named 'controller':
+
+    juju show-offer controller:default.prod
 
 See also:
-   find-offers
+  find-offers
 `
 
 type showCommand struct {
@@ -57,7 +71,8 @@ func (c *showCommand) Init(args []string) (err error) {
 func (c *showCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-offer",
-		Purpose: "Shows offered applications' endpoints details.",
+		Args:    "[<controller>:]<offer url>",
+		Purpose: "Shows extended information about the offered application.",
 		Doc:     showCommandDoc,
 	}
 }
