@@ -126,9 +126,9 @@ func (st *State) Cloud(name string) (cloud.Cloud, error) {
 	return doc.toCloud(), nil
 }
 
-// AddCloud creates a cloud with the given name and details.
-// Note that the Config is deliberately ignored - it's only
-// relevant when bootstrapping.
+// AddCloud creates a cloud with the given name and details.  Note
+// that the Config and RegionConfig are deliberately ignored - they're
+// only relevant when bootstrapping.
 func (st *State) AddCloud(c cloud.Cloud) error {
 	if err := validateCloud(c); err != nil {
 		return errors.Annotate(err, "invalid cloud")
