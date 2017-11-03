@@ -10,7 +10,6 @@ import (
 
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils/arch"
-	//"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -30,16 +29,25 @@ type environSuite struct {
 
 func (e *environSuite) SetUpTest(c *gc.C) {
 	var err error
+	testEnvironAPI := oracletesting.DefaultEnvironAPI
 	e.env, err = oracle.NewOracleEnviron(
 		&oracle.EnvironProvider{},
 		environs.OpenParams{
 			Config: testing.ModelConfig(c),
 		},
-		oracletesting.DefaultEnvironAPI,
+		testEnvironAPI,
 		&advancingClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(e.env, gc.NotNil)
+
+	// Setup the FakeInstance Name to match with the new
+	// OracleEnviron.  Note, we are actually changing the
+	// value in oracletesting.DefaultEnvironAPI.
+	hostname, err := oracle.CreateHostname(e.env, "0")
+	c.Assert(err, gc.IsNil)
+	testEnvironAPI.FakeInstance.All.Result[0].Name = fmt.Sprintf("/Compute-a432100/sgiulitti@cloudbase.com/%s/ebc4ce91-56bb-4120-ba78-13762597f837", hostname)
+	oracle.SetEnvironAPI(e.env, testEnvironAPI)
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -151,7 +159,6 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 		},
 		oracletesting.DefaultEnvironAPI,
 		&advancingClock,
-		//clock.WallClock,
 	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
@@ -202,8 +209,10 @@ func (e *environSuite) TestAdoptResources(c *gc.C) {
 }
 
 func (e *environSuite) TestStopInstances(c *gc.C) {
-	ids := []instance.Id{instance.Id("0")}
-	err := e.env.StopInstances(ids...)
+	hostname, err := oracle.CreateHostname(e.env, "0")
+	c.Assert(err, gc.IsNil)
+	ids := []instance.Id{instance.Id(hostname)}
+	err = e.env.StopInstances(ids...)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -234,7 +243,9 @@ func (e *environSuite) TestSetConfig(c *gc.C) {
 }
 
 func (e *environSuite) TestInstances(c *gc.C) {
-	instances, err := e.env.Instances([]instance.Id{instance.Id("0")})
+	hostname, err := oracle.CreateHostname(e.env, "0")
+	c.Assert(err, gc.IsNil)
+	instances, err := e.env.Instances([]instance.Id{instance.Id(hostname)})
 	c.Assert(err, gc.IsNil)
 	c.Assert(instances, gc.NotNil)
 }
