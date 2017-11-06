@@ -592,6 +592,7 @@ func (e *maasEnviron) DeriveAvailabilityZone(args environs.StartInstanceParams) 
 type maasPlacement struct {
 	nodeName string
 	zoneName string
+	systemId string
 }
 
 func (e *maasEnviron) parsePlacement(placement string) (*maasPlacement, error) {
@@ -608,7 +609,10 @@ func (e *maasEnviron) parsePlacement(placement string) (*maasPlacement, error) {
 			return nil, err
 		}
 		return &maasPlacement{zoneName: availabilityZone}, nil
+	case "system-id":
+		return &maasPlacement{systemId: value}, nil
 	}
+
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
@@ -743,7 +747,7 @@ func (environ *maasEnviron) spaceNamesToSpaceInfo(positiveSpaces, negativeSpaces
 
 // acquireNode2 allocates a machine from MAAS2.
 func (environ *maasEnviron) acquireNode2(
-	nodeName, zoneName string,
+	nodeName, zoneName, systemId string,
 	cons constraints.Value,
 	interfaces []interfaceBinding,
 	volumes []volumeInfo,
@@ -767,6 +771,9 @@ func (environ *maasEnviron) acquireNode2(
 	if nodeName != "" {
 		acquireParams.Hostname = nodeName
 	}
+	if systemId != "" {
+		acquireParams.SystemId = systemId
+	}
 	machine, constraintMatches, err := environ.maasController.AllocateMachine(acquireParams)
 
 	if err != nil {
@@ -777,7 +784,7 @@ func (environ *maasEnviron) acquireNode2(
 
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(
-	nodeName, zoneName string,
+	nodeName, zoneName, systemId string,
 	cons constraints.Value,
 	interfaces []interfaceBinding,
 	volumes []volumeInfo,
@@ -810,6 +817,9 @@ func (environ *maasEnviron) acquireNode(
 	}
 	if nodeName != "" {
 		acquireParams.Add("name", nodeName)
+	}
+	if systemId != "" {
+		acquireParams.Add("system_id", systemId)
 	}
 
 	var result gomaasapi.JSONObject
@@ -887,8 +897,7 @@ func (*maasEnviron) MaintainInstance(args environs.StartInstanceParams) error {
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	*environs.StartInstanceResult, error,
 ) {
-	var availabilityZone string
-	var nodeName string
+	var availabilityZone, nodeName, systemId string
 	if args.Placement != "" {
 		placement, err := environ.parsePlacement(args.Placement)
 		if err != nil {
@@ -897,6 +906,8 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		switch {
 		case placement.zoneName != "":
 			availabilityZone = placement.zoneName
+		case placement.systemId != "":
+			systemId = placement.systemId
 		default:
 			nodeName = placement.nodeName
 		}
@@ -927,6 +938,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Constraints:       args.Constraints,
 		AvailabilityZones: []string{availabilityZone},
 		NodeName:          nodeName,
+		SystemId:          systemId,
 		Interfaces:        interfaceBindings,
 		Volumes:           volumes,
 	}
@@ -1251,6 +1263,7 @@ func deploymentStatusCall(nodes gomaasapi.MAASObject, ids ...instance.Id) (gomaa
 type selectNodeArgs struct {
 	AvailabilityZones []string
 	NodeName          string
+	SystemId          string
 	Constraints       constraints.Value
 	Interfaces        []interfaceBinding
 	Volumes           []volumeInfo
@@ -1264,6 +1277,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 		node, err = environ.acquireNode(
 			args.NodeName,
 			zoneName,
+			args.SystemId,
 			args.Constraints,
 			args.Interfaces,
 			args.Volumes,
@@ -1293,6 +1307,7 @@ func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, erro
 		inst, err = environ.acquireNode2(
 			args.NodeName,
 			zoneName,
+			args.SystemId,
 			args.Constraints,
 			args.Interfaces,
 			args.Volumes,

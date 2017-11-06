@@ -371,7 +371,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	_, err := env.acquireNode2("", "", constraints.Value{}, nil, nil)
+	_, err := env.acquireNode2("", "", "", constraints.Value{}, nil, nil)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -384,7 +384,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *
 	}
 	env, _ = suite.injectControllerWithSpacesAndCheck(c, nil, expected)
 	_, err := env.acquireNode2(
-		"", "",
+		"", "", "",
 		constraints.Value{Tags: stringslicep("tag1", "^tag2", "tag3", "^tag4")},
 		nil, nil,
 	)
@@ -427,7 +427,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c
 	env, _ := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), expected)
 
 	_, err := env.acquireNode2(
-		"", "",
+		"", "", "",
 		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
 		nil, nil,
 	)
@@ -440,7 +440,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndex
 	suite.PatchValue(&numericLabelLimit, shortLimit)
 
 	_, err := env.acquireNode2(
-		"", "",
+		"", "", "",
 		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
 		[]interfaceBinding{{"0", "first-clash"}, {"1", "final-clash"}},
 		nil,
@@ -494,7 +494,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeStorage(c *gc.C) {
 			return test.expected
 		}
 		env = suite.makeEnviron(c, nil)
-		_, err := env.acquireNode2("", "", constraints.Value{}, nil, test.volumes)
+		_, err := env.acquireNode2("", "", "", constraints.Value{}, nil, test.volumes)
 		c.Check(err, jc.ErrorIsNil)
 	}
 }
@@ -605,7 +605,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		getPositives = func() []gomaasapi.InterfaceSpec {
 			return test.expectedPositives
 		}
-		_, err := env.acquireNode2("", "", cons, test.interfaces, nil)
+		_, err := env.acquireNode2("", "", "", cons, test.interfaces, nil)
 		if test.expectedError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectedError)
 			c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -639,7 +639,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
 	cons := constraints.Value{
 		Spaces: stringslicep("foo", "^bar"),
 	}
-	_, err := env.acquireNode2("", "", cons, nil, nil)
+	_, err := env.acquireNode2("", "", "", cons, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -652,7 +652,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
 	cons := constraints.Value{
 		Spaces: stringslicep("foo-1", "^bar-3"),
 	}
-	_, err := env.acquireNode2("", "", cons, nil, nil)
+	_, err := env.acquireNode2("", "", "", cons, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -662,7 +662,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
 	cons := constraints.Value{
 		Spaces: stringslicep("baz"),
 	}
-	_, err := env.acquireNode2("", "", cons, nil, nil)
+	_, err := env.acquireNode2("", "", "", cons, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `unrecognised space in constraint "baz"`)
 }
 
