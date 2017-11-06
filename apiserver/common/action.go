@@ -43,15 +43,15 @@ func TagToActionReceiverFn(findEntity func(names.Tag) (state.Entity, error)) fun
 	return func(tag string) (state.ActionReceiver, error) {
 		receiverTag, err := names.ParseTag(tag)
 		if err != nil {
-			return nil, ErrBadId
+			return nil, errors.NotValidf("%s", tag)
 		}
 		entity, err := findEntity(receiverTag)
 		if err != nil {
-			return nil, ErrBadId
+			return nil, errors.NotFoundf("%s", receiverTag)
 		}
 		receiver, ok := entity.(state.ActionReceiver)
 		if !ok {
-			return nil, ErrBadId
+			return nil, errors.NotImplementedf("action receiver interface on entity %s", tag)
 		}
 		return receiver, nil
 	}
