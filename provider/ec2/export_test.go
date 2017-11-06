@@ -54,13 +54,12 @@ func AllModelGroups(e environs.Environ) ([]string, error) {
 }
 
 var (
-	EC2AvailabilityZones        = &ec2AvailabilityZones
-	AvailabilityZoneAllocations = &availabilityZoneAllocations
-	RunInstances                = &runInstances
-	BlockDeviceNamer            = blockDeviceNamer
-	GetBlockDeviceMappings      = getBlockDeviceMappings
-	IsVPCNotUsableError         = isVPCNotUsableError
-	IsVPCNotRecommendedError    = isVPCNotRecommendedError
+	EC2AvailabilityZones     = &ec2AvailabilityZones
+	RunInstances             = &runInstances
+	BlockDeviceNamer         = blockDeviceNamer
+	GetBlockDeviceMappings   = getBlockDeviceMappings
+	IsVPCNotUsableError      = isVPCNotUsableError
+	IsVPCNotRecommendedError = isVPCNotRecommendedError
 )
 
 const VPCIDNone = vpcIDNone

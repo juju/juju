@@ -1410,41 +1410,40 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZonesConflictsVolume(c *gc.C
 	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2": cannot create instance in zone "az2", as this will prevent attaching the requested disks in zone "az1"`)
 }
 
-func (t *localServerSuite) TestDeriveAvailabilityZone(c *gc.C) {
+func (t *localServerSuite) TestDeriveAvailabilityZones(c *gc.C) {
 	placement := "zone=test-available"
 	env := t.env.(common.ZonedEnviron)
-	zone, err := env.DeriveAvailabilityZone(
+	zones, err := env.DeriveAvailabilityZones(
 		environs.StartInstanceParams{
 			Placement: placement,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "test-available")
+	c.Assert(zones, gc.DeepEquals, []string{"test-available"})
 }
 
-func (t *localServerSuite) TestDeriveAvailabilityZoneUnavailable(c *gc.C) {
+func (t *localServerSuite) TestDeriveAvailabilityZonesUnavailable(c *gc.C) {
 	placement := "zone=test-unavailable"
 	env := t.env.(common.ZonedEnviron)
-	zone, err := env.DeriveAvailabilityZone(
+	zones, err := env.DeriveAvailabilityZones(
 		environs.StartInstanceParams{
 			Placement: placement,
 		})
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
-	c.Assert(zone, gc.Equals, "")
+	c.Assert(zones, gc.HasLen, 0)
 }
 
-func (t *localServerSuite) TestDeriveAvailabilityZoneUnknown(c *gc.C) {
+func (t *localServerSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
 	placement := "zone=test-unknown"
 	env := t.env.(common.ZonedEnviron)
-	zone, err := env.DeriveAvailabilityZone(
+	zones, err := env.DeriveAvailabilityZones(
 		environs.StartInstanceParams{
 			Placement: placement,
 		})
-	// check error log
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not valid`)
-	c.Assert(zone, gc.Equals, "")
+	c.Assert(zones, gc.HasLen, 0)
 }
 
-func (t *localServerSuite) TestDeriveAvailabilityZoneVolumeNoPlacement(c *gc.C) {
+func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C) {
 	t.srv.Nova.SetAvailabilityZones(
 		nova.AvailabilityZone{
 			Name: "az1",
@@ -1472,15 +1471,15 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneVolumeNoPlacement(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := t.env.(common.ZonedEnviron)
-	zone, err := env.DeriveAvailabilityZone(
+	zones, err := env.DeriveAvailabilityZones(
 		environs.StartInstanceParams{
 			VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "az2")
+	c.Assert(zones, gc.DeepEquals, []string{"az2"})
 }
 
-func (t *localServerSuite) TestDeriveAvailabilityZoneConflictsVolume(c *gc.C) {
+func (t *localServerSuite) TestDeriveAvailabilityZonesConflictsVolume(c *gc.C) {
 	t.srv.Nova.SetAvailabilityZones(
 		nova.AvailabilityZone{
 			Name: "az1",
@@ -1508,13 +1507,13 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneConflictsVolume(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := t.env.(common.ZonedEnviron)
-	zone, err := env.DeriveAvailabilityZone(
+	zones, err := env.DeriveAvailabilityZones(
 		environs.StartInstanceParams{
 			Placement:         "zone=az2",
 			VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
 		})
 	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2": cannot create instance in zone "az2", as this will prevent attaching the requested disks in zone "az1"`)
-	c.Assert(zone, gc.Equals, "")
+	c.Assert(zones, gc.HasLen, 0)
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
@@ -2109,11 +2108,14 @@ func (t *localServerSuite) testStartInstanceWithParamsDeriveAZ(
 	params environs.StartInstanceParams,
 ) (*environs.StartInstanceResult, error) {
 	zonedEnv := t.env.(common.ZonedEnviron)
-	zone, err := zonedEnv.DeriveAvailabilityZone(params)
+	zones, err := zonedEnv.DeriveAvailabilityZones(params)
 	if err != nil {
 		return nil, err
 	}
-	params.AvailabilityZone = zone
+	if len(zones) < 1 {
+		return nil, errors.New("no zones found")
+	}
+	params.AvailabilityZone = zones[0]
 	return testing.StartInstanceWithParams(t.env, "1", params)
 }
 

@@ -58,7 +58,7 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNamesNoInstances(c 
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 }
 
-func (s *environAvailzonesSuite) TestDeriveAvailabilityZone(c *gc.C) {
+func (s *environAvailzonesSuite) TestDeriveAvailabilityZones(c *gc.C) {
 	s.client.computeResources = []*mo.ComputeResource{
 		newComputeResource("test-available"),
 	}
@@ -66,29 +66,29 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZone(c *gc.C) {
 	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
-	zone, err := zonedEnviron.DeriveAvailabilityZone(
+	zones, err := zonedEnviron.DeriveAvailabilityZones(
 		environs.StartInstanceParams{Placement: "zone=test-available"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "test-available")
+	c.Assert(zones, gc.DeepEquals, []string{"test-available"})
 }
 
-func (s *environAvailzonesSuite) TestDeriveAvailabilityZoneUnknown(c *gc.C) {
+func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
 	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
-	zone, err := zonedEnviron.DeriveAvailabilityZone(
+	zones, err := zonedEnviron.DeriveAvailabilityZones(
 		environs.StartInstanceParams{Placement: "zone=test-unknown"})
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not found`)
-	c.Assert(zone, gc.Equals, "")
+	c.Assert(zones, gc.HasLen, 0)
 }
 
-func (s *environAvailzonesSuite) TestDeriveAvailabilityZoneInvalidPlacement(c *gc.C) {
+func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *gc.C) {
 	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
-	zone, err := zonedEnviron.DeriveAvailabilityZone(environs.StartInstanceParams{
+	zones, err := zonedEnviron.DeriveAvailabilityZones(environs.StartInstanceParams{
 		Placement: "invalid-placement",
 	})
 	c.Assert(err, gc.ErrorMatches, `unknown placement directive: invalid-placement`)
-	c.Assert(zone, gc.Equals, "")
+	c.Assert(zones, gc.HasLen, 0)
 }

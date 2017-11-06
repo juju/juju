@@ -153,7 +153,7 @@ func (s *suite) TestAvailabilityZone(c *gc.C) {
 
 	inst, hwc := jujutesting.AssertStartInstance(c, e, s.ControllerUUID, "0")
 	c.Assert(inst, gc.NotNil)
-	c.Check(hwc.AvailabilityZone, gc.IsNil)
+	c.Check(hwc.AvailabilityZone, gc.NotNil)
 }
 
 func (s *suite) TestSupportsSpaces(c *gc.C) {

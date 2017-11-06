@@ -35,8 +35,8 @@ func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType 
 		if waitErr == nil {
 			return errors.Trace(err)
 		}
-		// Try the next zone.
 		logger.Errorf("failed to get new instance in zone %q: %v", zone, waitErr)
+		// Let the provisioner or bootstrap know to try the next zone.
 		return errors.Wrap(waitErr, environs.ErrAvailabilityZoneFailed)
 	}
 
