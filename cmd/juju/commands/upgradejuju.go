@@ -47,7 +47,7 @@ specified:
  - If the server major version does not match the client major version,
  the version selected is that of the client version.
 If the controller is without internet access, the client must first supply
-the software to the controller's cache via the ` + "`juju sync-tools`" + ` command.
+the software to the controller's cache via the ` + "`juju sync-agents`" + ` command.
 The command will abort if an upgrade is in progress. It will also abort if
 a previous upgrade was not fully completed (e.g.: if one of the
 controllers in a high availability model failed to upgrade).
@@ -60,7 +60,7 @@ Examples:
     juju upgrade-juju --agent-version 2.0.1
     
 See also: 
-    sync-tools`
+    sync-agents`
 
 func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number, options ...modelcmd.WrapOption) cmd.Command {
 	if minUpgradeVers == nil {

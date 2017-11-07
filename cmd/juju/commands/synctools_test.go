@@ -203,7 +203,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 	messages := []jc.SimpleMessage{
 		{loggo.INFO, "Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead."},
 	}
-	// Run sync-tools command with --destination flag.
+	// Run sync-agents command with --destination flag.
 	ctx, err := s.runSyncToolsCommand(c, "-m", "test-target", "--destination", dir, "--stream", "released")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)

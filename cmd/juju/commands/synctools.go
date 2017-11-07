@@ -57,13 +57,13 @@ the software.
 
 Examples:
     # Download the software (version auto-selected) to the model:
-    juju sync-tools --debug
+    juju sync-agents --debug
 
     # Download a specific version of the software locally:
-    juju sync-tools --debug --version 2.0 --local-dir=/home/ubuntu/sync-tools
+    juju sync-agents --debug --version 2.0 --local-dir=/home/ubuntu/sync-agents
 
     # Get locally available software to the model:
-    juju sync-tools --debug --source=/home/ubuntu/sync-tools
+    juju sync-agents --debug --source=/home/ubuntu/sync-agents
 
 See also:
     upgrade-juju
@@ -72,9 +72,10 @@ See also:
 
 func (c *syncToolsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "sync-tools",
+		Name:    "sync-agents",
 		Purpose: "Copy agent binaries from the official agent store into a local model.",
 		Doc:     synctoolsDoc,
+		Aliases: []string{"sync-tools"},
 	}
 }
 
