@@ -503,11 +503,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			if c.KeepBrokenEnvironment {
 				ctx.Infof(`
 bootstrap failed but --keep-broken was specified. 
-This means that this controller is no longer registered on your client. However,
-some cloud resources were not destroyed - you can ssh into
-the machines via their IP addresses for diagnosis and investigations.
+This means that cloud resources are left behind, but not registered to 
+your local client, as the controller was not successfully created. 
+However, you should be able to ssh into the machine using the user "ubuntu" and 
+their IP address for diagnosis and investigation.
 When you are ready to clean up the failed controller, use your cloud console or 
-equivalent CLI tools to terminate instances and remove resources. 
+equivalent CLI tools to terminate the instances and remove remaining resources. 
 
 See `[1:] + "`juju kill-controller`" + `.`)
 			} else {
