@@ -931,22 +931,12 @@ func (api *API) DestroyApplication(args params.DestroyApplicationsParams) (param
 	if err := api.check.RemoveAllowed(); err != nil {
 		return params.DestroyApplicationResults{}, errors.Trace(err)
 	}
-	destroyRemoteApp := func(name string) error {
-		app, err := api.backend.RemoteApplication(name)
-		if err != nil {
-			return err
-		}
-		return app.Destroy()
-	}
 	destroyApp := func(arg params.DestroyApplicationParams) (*params.DestroyApplicationInfo, error) {
 		tag, err := names.ParseApplicationTag(arg.ApplicationTag)
 		if err != nil {
 			return nil, err
 		}
 		var info params.DestroyApplicationInfo
-		if err := destroyRemoteApp(tag.Id()); !errors.IsNotFound(err) {
-			return &info, err
-		}
 		app, err := api.backend.Application(tag.Id())
 		if err != nil {
 			return nil, err
@@ -1014,6 +1004,35 @@ func (api *API) DestroyApplication(args params.DestroyApplicationsParams) (param
 		results[i].Info = info
 	}
 	return params.DestroyApplicationResults{results}, nil
+}
+
+// DestroyConsumedApplications removes a given set of consumed (remote) applications.
+func (api *API) DestroyConsumedApplications(args params.DestroyConsumedApplicationsParams) (params.ErrorResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, err
+	}
+	if err := api.check.RemoveAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	results := make([]params.ErrorResult, len(args.Applications))
+	for i, arg := range args.Applications {
+		appTag, err := names.ParseApplicationTag(arg.ApplicationTag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		app, err := api.backend.RemoteApplication(appTag.Id())
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = app.Destroy()
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+	}
+	return params.ErrorResults{results}, nil
 }
 
 // GetConstraints returns the constraints for a given application.

@@ -161,6 +161,7 @@ func (a *mockApplication) Series() string {
 }
 
 type mockRemoteApplication struct {
+	jtesting.Stub
 	name           string
 	sourceModelTag names.ModelTag
 	endpoints      []state.Endpoint
@@ -206,6 +207,7 @@ func (m *mockRemoteApplication) AddEndpoints(eps []charm.Relation) error {
 }
 
 func (m *mockRemoteApplication) Destroy() error {
+	m.MethodCall(m, "Destroy")
 	return nil
 }
 

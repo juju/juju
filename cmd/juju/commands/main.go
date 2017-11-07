@@ -292,6 +292,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewRemoveRelationCommand())
 	r.Register(application.NewRemoveApplicationCommand())
 	r.Register(application.NewRemoveUnitCommand())
+	r.Register(application.NewRemoveSaasCommand())
 
 	// Reporting commands.
 	r.Register(status.NewStatusCommand())
