@@ -3,7 +3,9 @@
 
 package oracle
 
-import "github.com/juju/juju/storage"
+import (
+	"github.com/juju/juju/storage"
+)
 
 var (
 	DefaultTypes               = []storage.ProviderType{DefaultStorageProviderType}
@@ -20,3 +22,16 @@ var (
 	ParseImageName             = parseImageName
 	CheckImageList             = checkImageList
 )
+
+func SetEnvironAPI(o *OracleEnviron, client EnvironAPI) {
+	if o == nil {
+		return
+	}
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	o.client = client
+}
+
+func CreateHostname(o *OracleEnviron, id string) (string, error) {
+	return o.namespace.Hostname(id)
+}

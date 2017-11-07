@@ -79,15 +79,6 @@ type EnvironAPI interface {
 	StorageAPI
 }
 
-func (o *OracleEnviron) SetEnvironAPI(client EnvironAPI) {
-	if o == nil {
-		return
-	}
-	o.mutex.Lock()
-	defer o.mutex.Unlock()
-	o.client = client
-}
-
 // AvailabilityZones is defined in the common.ZonedEnviron interface
 func (o *OracleEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	return []common.AvailabilityZone{
