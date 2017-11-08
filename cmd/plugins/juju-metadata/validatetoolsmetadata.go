@@ -45,8 +45,8 @@ type validateToolsMetadataCommand struct {
 
 var validateToolsMetadataDoc = `
 validate-tools loads simplestreams metadata and validates the contents by
-looking for tools belonging to the specified series, architecture, for the
-specified cloud. If version is specified, tools matching the exact specified
+looking for agent binaries belonging to the specified series, architecture, for the
+specified cloud. If version is specified, agent binaries matching the exact specified
 version are found. It is also possible to just specify the major (and optionally
 minor) version numbers to search for.
 
@@ -54,8 +54,8 @@ The cloud specification comes from the current Juju model, as specified in
 the usual way from either the -m option, or JUJU_MODEL. Series, Region, and
 Endpoint are the key attributes.
 
-It is possible to specify a local directory containing tools metadata, in which
-case cloud attributes like provider type, region etc are optional.
+It is possible to specify a local directory containing agent metadata, 
+in which case cloud attributes like provider type, region etc are optional.
 
 The key model attributes may be overridden using command arguments, so
 that the validation may be peformed on arbitary metadata.
@@ -78,7 +78,7 @@ Examples:
  
   juju metadata validate-tools -m 2.1
 
- - validate using the current model settings and list all tools found for any series
+ - validate using the current model settings and list all agent binaries found for any series
  
   juju metadata validate-tools --series=
 
@@ -108,7 +108,7 @@ RETVAL=$?
 func (c *validateToolsMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "validate-tools",
-		Purpose: "validate tools metadata and ensure tools tarball(s) exist for Juju version(s)",
+		Purpose: "validate agent metadata and ensure agent binary tarball(s) exist for Juju version(s)",
 		Doc:     validateToolsMetadataDoc,
 	}
 }
@@ -156,7 +156,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err == nil {
 			mdLookup, ok := environ.(simplestreams.MetadataValidator)
 			if !ok {
-				return errors.Errorf("%s provider does not support tools metadata validation", environ.Config().Type())
+				return errors.Errorf("%s provider does not support agent metadata validation", environ.Config().Type())
 			}
 			params, err = mdLookup.MetadataLookupParams(c.region)
 			if err != nil {
@@ -179,7 +179,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 		}
 		mdLookup, ok := prov.(simplestreams.MetadataValidator)
 		if !ok {
-			return errors.Errorf("%s provider does not support tools metadata validation", c.providerType)
+			return errors.Errorf("%s provider does not support metadata validation for agents", c.providerType)
 		}
 		params, err = mdLookup.MetadataLookupParams(c.region)
 		if err != nil {
@@ -245,7 +245,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 				sources = append(sources, fmt.Sprintf("- %s (%s)", s.Description(), url))
 			}
 		}
-		return errors.Errorf("no matching tools using sources:\n%s", strings.Join(sources, "\n"))
+		return errors.Errorf("no matching agent binaries using sources:\n%s", strings.Join(sources, "\n"))
 	}
 	return nil
 }

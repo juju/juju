@@ -204,17 +204,28 @@ func (o *oracleInstance) deleteInstanceAndResources(cleanup bool) error {
 			break
 		}
 
+		//
+		// seclist, vnicset, secrules, and acl created with
+		// StartInstanceParams.InstanceConfig.MachineId,
+		// convert o.Id() to machineId for deletion.
+		// o.Id() returns a string in hostname form.
+		tag, err := o.env.namespace.MachineTag(string(o.Id()))
+		if err != nil {
+			return errors.Annotatef(err, "failed to get a machine tag to complete cleanup of instance")
+		}
+		machineId := tag.Id()
+
 		// the VM association is now gone, now we can delete the
 		// machine sec list
-		logger.Debugf("deleting seclist for instance: %s", string(o.Id()))
-		if err := o.env.DeleteMachineSecList(string(o.Id())); err != nil {
+		logger.Debugf("deleting seclist for instance: %s", machineId)
+		if err := o.env.DeleteMachineSecList(machineId); err != nil {
 			logger.Errorf("failed to delete seclist: %s", err)
 			if !oci.IsMethodNotAllowed(err) {
 				return errors.Trace(err)
 			}
 		}
-		logger.Debugf("deleting vnic set for instance: %s", string(o.Id()))
-		if err := o.env.DeleteMachineVnicSet(string(o.Id())); err != nil {
+		logger.Debugf("deleting vnic set for instance: %s", machineId)
+		if err := o.env.DeleteMachineVnicSet(machineId); err != nil {
 			logger.Errorf("failed to delete vnic set: %s", err)
 			if !oci.IsMethodNotAllowed(err) {
 				return errors.Trace(err)

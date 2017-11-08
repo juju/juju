@@ -88,6 +88,18 @@ func (s *precheckShim) AllApplications() ([]PrecheckApplication, error) {
 	return out, nil
 }
 
+func (s *precheckShim) AllRelations() ([]PrecheckRelation, error) {
+	rels, err := s.State.AllRelations()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var out []PrecheckRelation
+	for _, rel := range rels {
+		out = append(out, &precheckRelationShim{rel})
+	}
+	return out, nil
+}
+
 // ListPendingResources implements PrecheckBackend.
 func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, error) {
 	resources, err := s.resourcesSt.ListPendingResources(app)
@@ -147,4 +159,22 @@ func (s *precheckAppShim) AllUnits() ([]PrecheckUnit, error) {
 		out = append(out, unit)
 	}
 	return out, nil
+}
+
+// precheckRelationShim implements PrecheckRelation.
+type precheckRelationShim struct {
+	*state.Relation
+}
+
+// Unit implements PreCheckRelation.
+func (s *precheckRelationShim) Unit(pu PrecheckUnit) (PrecheckRelationUnit, error) {
+	u, ok := pu.(*state.Unit)
+	if !ok {
+		return nil, errors.Errorf("got %T instead of *state.Unit", pu)
+	}
+	ru, err := s.Relation.Unit(u)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ru, nil
 }

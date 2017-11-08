@@ -557,6 +557,13 @@ func ResetMigrationMode(c *gc.C, st *State) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func RemoveRelationStatus(c *gc.C, rel *Relation) {
+	st := rel.st
+	ops := []txn.Op{removeStatusOp(st, rel.globalScope())}
+	err := st.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 // PrimeUnitStatusHistory will add count history elements, advancing the test clock by
 // one second for each entry.
 func PrimeUnitStatusHistory(

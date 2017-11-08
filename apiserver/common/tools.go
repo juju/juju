@@ -118,7 +118,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 	}
 	tooler, ok := entity.(state.AgentTooler)
 	if !ok {
-		return nil, NotSupportedError(tag, "agent tools")
+		return nil, NotSupportedError(tag, "agent binaries")
 	}
 	existingTools, err := tooler.AgentTools()
 	if err != nil {
@@ -185,7 +185,7 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 	}
 	entity, ok := entity0.(state.AgentTooler)
 	if !ok {
-		return NotSupportedError(tag, "agent tools")
+		return NotSupportedError(tag, "agent binaries")
 	}
 	return entity.SetAgentVersion(vers)
 }
@@ -297,7 +297,7 @@ func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 	for i, m := range allMetadata {
 		vers, err := version.ParseBinary(m.Version)
 		if err != nil {
-			return nil, errors.Annotatef(err, "unexpectedly bad version %q in tools storage", m.Version)
+			return nil, errors.Annotatef(err, "unexpected bad version %q of agent binary in storage", m.Version)
 		}
 		list[i] = &coretools.Tools{
 			Version: vers,

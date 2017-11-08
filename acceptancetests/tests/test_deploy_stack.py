@@ -57,12 +57,16 @@ from jujupy import (
     get_timeout_prefix,
     JujuData,
     ModelClient,
-    SoftDeadlineExceeded,
-    Status,
     Machine,
     )
 
-from jujupy.client import (
+from jujupy.exceptions import (
+    SoftDeadlineExceeded,
+)
+from jujupy.status import (
+    Status,
+    )
+from jujupy.wait_condition import (
     CommandTime,
 )
 from remote import (
@@ -84,15 +88,6 @@ from utility import (
     LoggedException,
     temp_dir,
     )
-
-
-def make_logs(log_dir):
-    def write_dumped_files(*args):
-        with open(os.path.join(log_dir, 'cloud.log'), 'w') as l:
-            l.write('fake log')
-        with open(os.path.join(log_dir, 'extra'), 'w') as l:
-            l.write('not compressed')
-    return write_dumped_files
 
 
 class DeployStackTestCase(FakeHomeTestCase):
@@ -1125,7 +1120,7 @@ class TestTestUpgrade(FakeHomeTestCase):
                                    side_effect=lambda cls:
                                    '2.0-rc2-arch-series'):
                             with patch(
-                                    'jujupy.client.get_timeout_prefix',
+                                    'jujupy.backend.get_timeout_prefix',
                                     autospec=True, return_value=()):
                                 yield (co_mock, cc_mock)
 

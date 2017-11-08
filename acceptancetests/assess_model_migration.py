@@ -23,9 +23,11 @@ from deploy_stack import (
     get_random_string
     )
 from jujupy.client import (
-    BaseCondition,
     get_stripped_version_number,
 )
+from jujupy.wait_condition import (
+    BaseCondition,
+    )
 from jujucharm import local_charm_path
 from remote import remote_from_address
 from utility import (
@@ -158,7 +160,7 @@ def _wait_for_model_check(client, model_check, timeout):
     raise ModelCheckFailed()
 
 
-def wait_until_model_disappears(client, model_name, timeout=60):
+def wait_until_model_disappears(client, model_name, timeout=120):
     """Waits for a while for 'model_name' model to no longer be listed.
 
     :raises JujuAssertionError: If the named model continues to be listed in
@@ -189,7 +191,7 @@ def wait_until_model_disappears(client, model_name, timeout=60):
                 model_name, timeout))
 
 
-def wait_for_model(client, model_name, timeout=60):
+def wait_for_model(client, model_name, timeout=120):
     """Wait for a given timeout for the client to see the model_name.
 
     :raises JujuAssertionError: If the named model does not appear in the
@@ -210,7 +212,7 @@ def wait_for_model(client, model_name, timeout=60):
                 model_name, timeout))
 
 
-def wait_for_migrating(client, timeout=60):
+def wait_for_migrating(client, timeout=120):
     """Block until provided model client has a migration status.
 
     :raises JujuAssertionError: If the status doesn't show migration within the
@@ -374,14 +376,15 @@ def ensure_superuser_can_migrate_other_user_models(
 
 
 def deploy_simple_server_to_new_model(
-        client, model_name, resource_contents=None):
+        client, model_name, resource_contents=None, series='xenial'):
     # As per bug LP:1709773 deploy 2 primary apps and have a subordinate
     #  related to both
     new_model = client.add_model(client.env.clone(model_name))
-    application = deploy_simple_resource_server(new_model, resource_contents)
-    _, deploy_complete = new_model.deploy('cs:ubuntu')
+    application = deploy_simple_resource_server(
+        new_model, resource_contents, series)
+    _, deploy_complete = new_model.deploy('cs:ubuntu', series=series)
     new_model.wait_for(deploy_complete)
-    new_model.deploy('cs:ntp')
+    new_model.deploy('cs:ntp', series=series)
     new_model.juju('add-relation', ('ntp', application))
     new_model.juju('add-relation', ('ntp', 'ubuntu'))
     # Need to wait for the subordinate charms too.
@@ -438,7 +441,8 @@ def deploy_dummy_source_to_new_model(client, model_name):
     return new_model_client
 
 
-def deploy_simple_resource_server(client, resource_contents=None):
+def deploy_simple_resource_server(
+        client, resource_contents=None, series='xenial'):
     application_name = 'simple-resource-http'
     log.info('Deploying charm: '.format(application_name))
     charm_path = local_charm_path(
@@ -449,9 +453,12 @@ def deploy_simple_resource_server(client, resource_contents=None):
             index_file = os.path.join(temp, 'index.html')
             with open(index_file, 'wt') as f:
                 f.write(resource_contents)
-            client.deploy(charm_path, resource='index={}'.format(index_file))
+            client.deploy(
+                charm_path,
+                series=series,
+                resource='index={}'.format(index_file))
     else:
-        client.deploy(charm_path)
+        client.deploy(charm_path, series=series)
 
     client.wait_for_started()
     client.wait_for_workloads()
@@ -564,7 +571,7 @@ def raise_if_shared_machines(unit_machines):
         raise JujuAssertionError('Appliction units reside on the same machine')
 
 
-def ensure_model_logs_are_migrated(source_client, dest_client, timeout=60):
+def ensure_model_logs_are_migrated(source_client, dest_client, timeout=120):
     """Ensure logs are migrated when a model is migrated between controllers.
 
     :param source_client: ModelClient representing source controller to create

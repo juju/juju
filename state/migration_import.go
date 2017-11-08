@@ -62,9 +62,14 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.New("can't import models with remote applications")
 	}
 
-	modelType, err := ParseModelType(model.Type())
-	if err != nil {
-		return nil, nil, errors.Trace(err)
+	// Unfortunately a version was released that exports v4 models
+	// with the Type field blank. Treat this as IAAS.
+	modelType := ModelTypeIAAS
+	if model.Type() != "" {
+		modelType, err = ParseModelType(model.Type())
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
 	}
 
 	// Create the model.

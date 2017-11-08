@@ -7,6 +7,7 @@ import (
 	"time" // Only used for time types.
 
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
@@ -130,6 +131,28 @@ func (s *LeadershipSuite) TestKillWorkersUnblocksClaimer(c *gc.C) {
 	case <-s.Clock.After(coretesting.LongWait):
 		c.Fatalf("timed out while waiting for unblock")
 	}
+}
+
+func (s *LeadershipSuite) TestLeadershipClaimerRestarts(c *gc.C) {
+	// SetClockForTesting will restart the workers, and
+	// will have replaced them by the time it returns.
+	s.State.SetClockForTesting(gitjujutesting.NewClock(time.Time{}))
+
+	err := s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *LeadershipSuite) TestLeadershipCheckerRestarts(c *gc.C) {
+	err := s.claimer.ClaimLeadership("application", "application/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// SetClockForTesting will restart the workers, and
+	// will have replaced them by the time it returns.
+	s.State.SetClockForTesting(gitjujutesting.NewClock(time.Time{}))
+
+	token := s.checker.LeadershipCheck("application", "application/0")
+	err = token.Check(nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *LeadershipSuite) TestApplicationLeaders(c *gc.C) {

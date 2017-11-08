@@ -92,7 +92,7 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	}
 	defer authFile.Close()
 
-	parsedCred, err := parseJSONAuthFile(authFile)
+	parsedCred, rawJSON, err := parseJSONAuthFile(authFile)
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid json credential file %s", possibleFilePath)
 	}
@@ -102,7 +102,7 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 		return nil, errors.Trace(err)
 	}
 	cred := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{
-		"file": possibleFilePath,
+		"file": string(rawJSON),
 	})
 	credName := parsedCred.Attributes()[credAttrClientEmail]
 	if credName == "" {
@@ -125,17 +125,17 @@ func wellKnownCredentialsFile() string {
 }
 
 // parseJSONAuthFile parses a file, and extracts the OAuth2 credentials within.
-func parseJSONAuthFile(r io.Reader) (cloud.Credential, error) {
+func parseJSONAuthFile(r io.Reader) (cloud.Credential, []byte, error) {
 	creds, err := google.ParseJSONKey(r)
 	if err != nil {
-		return cloud.Credential{}, errors.Trace(err)
+		return cloud.Credential{}, nil, errors.Trace(err)
 	}
 	return cloud.NewCredential(cloud.OAuth2AuthType, map[string]string{
 		credAttrProjectID:   creds.ProjectID,
 		credAttrClientID:    creds.ClientID,
 		credAttrClientEmail: creds.ClientEmail,
 		credAttrPrivateKey:  string(creds.PrivateKey),
-	}), nil
+	}), creds.JSONKey, nil
 }
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.

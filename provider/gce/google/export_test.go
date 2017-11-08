@@ -53,8 +53,8 @@ func NewNetInterface(spec NetworkSpec, name string) *compute.NetworkInterface {
 	return spec.newInterface(name)
 }
 
-func ConnAddInstance(conn *Connection, inst *compute.Instance, mtype string, zones []string) error {
-	return conn.addInstance(inst, mtype, zones)
+func ConnAddInstance(conn *Connection, inst *compute.Instance, mtype string, zone string) error {
+	return conn.addInstance(inst, mtype, zone)
 }
 
 func ConnRemoveInstance(conn *Connection, id, zone string) error {

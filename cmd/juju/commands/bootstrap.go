@@ -185,14 +185,14 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	}
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
-	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as tools and/or metadata source")
+	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the model if bootstrap fails")
-	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "Upgrade to the latest patch release tools on first bootstrap")
-	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of tools to use for Juju agents")
+	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "After bootstrap, upgrade to the latest patch release")
+	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of agent binaries to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
 	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
-	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--config config.yaml [--config key=value ...])")
+	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--model-default config.yaml [--model-default key=value ...])")
 	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
@@ -502,8 +502,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
 				ctx.Infof(`
-bootstrap failed but --keep-broken was specified so resources are not being destroyed.
-When you have finished diagnosing the problem, remember to clean up the failed controller.
+bootstrap failed but --keep-broken was specified. 
+This means that cloud resources are left behind, but not registered to 
+your local client, as the controller was not successfully created. 
+However, you should be able to ssh into the machine using the user "ubuntu" and 
+their IP address for diagnosis and investigation.
+When you are ready to clean up the failed controller, use your cloud console or 
+equivalent CLI tools to terminate the instances and remove remaining resources. 
+
 See `[1:] + "`juju kill-controller`" + `.`)
 			} else {
 				logger.Errorf("%v", resultErr)

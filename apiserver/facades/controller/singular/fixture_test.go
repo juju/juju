@@ -35,6 +35,11 @@ type mockBackend struct {
 	stub testing.Stub
 }
 
+// ControllerTag is part of the singular.Backend interface.
+func (mock *mockBackend) ControllerTag() names.ControllerTag {
+	return coretesting.ControllerTag
+}
+
 // ModelTag is part of the singular.Backend interface.
 func (mock *mockBackend) ModelTag() names.ModelTag {
 	return coretesting.ModelTag

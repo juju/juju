@@ -281,7 +281,10 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 			break
 		}
 	}
-	c.Assert(unitsWatcher.killed(), jc.IsTrue)
+	// We keep the relation units watcher alive when the relation
+	// goes to Dying; they're only stopped when the relation is
+	// finally removed.
+	c.Assert(unitsWatcher.killed(), jc.IsFalse)
 	mac, err := macaroon.New(nil, "apimac", "")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
@@ -315,18 +318,8 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 		}
 	}
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
-	mac, err := macaroon.New(nil, "apimac", "")
-	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
-		{"PublishRelationChange", []interface{}{
-			params.RemoteRelationChangeEvent{
-				Life:             params.Dying,
-				ApplicationToken: "token-django",
-				RelationToken:    "token-db2:db django:db",
-				Macaroons:        macaroon.Slice{mac},
-			},
-		}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 }

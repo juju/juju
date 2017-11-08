@@ -15,42 +15,51 @@ import (
 )
 
 // NewAPI returns a new API client for the Singular facade. It exposes methods
-// for claiming and observing administration responsibility for the apiCaller's
-// model, on behalf of the supplied controller machine.
-func NewAPI(apiCaller base.APICaller, controllerTag names.MachineTag) (*API, error) {
-	controllerId := controllerTag.Id()
-	if !names.IsValidMachine(controllerId) {
-		return nil, errors.NotValidf("controller tag")
+// for claiming and observing administration responsibility for the entity with
+// the supplied tag, on behalf of the authenticated agent.
+func NewAPI(
+	apiCaller base.APICaller,
+	claimant names.MachineTag,
+	entity names.Tag,
+) (*API, error) {
+	if !names.IsValidMachine(claimant.Id()) {
+		return nil, errors.NotValidf("claimant tag")
 	}
-	modelTag, ok := apiCaller.ModelTag()
-	if !ok {
-		return nil, errors.New("cannot use singular API on controller-only connection")
+	switch entity.(type) {
+	case names.ModelTag:
+	case names.ControllerTag:
+	case nil:
+		return nil, errors.New("nil entity supplied")
+	default:
+		return nil, errors.Errorf(
+			"invalid entity kind %q for singular API", entity.Kind(),
+		)
 	}
 	facadeCaller := base.NewFacadeCaller(apiCaller, "Singular")
 	return &API{
-		modelTag:      modelTag,
-		controllerTag: controllerTag,
-		facadeCaller:  facadeCaller,
+		facadeCaller: facadeCaller,
+		claimant:     claimant,
+		entity:       entity,
 	}, nil
 }
 
 // API allows controller machines to claim responsibility for; or to wait for
 // no other machine to have responsibility for; administration for some model.
 type API struct {
-	modelTag      names.ModelTag
-	controllerTag names.MachineTag
-	facadeCaller  base.FacadeCaller
+	facadeCaller base.FacadeCaller
+	claimant     names.MachineTag
+	entity       names.Tag
 }
 
-// Claim attempts to claim responsibility for model administration for the
-// supplied duration. If the claim is denied, it will return
+// Claim attempts to claim responsibility for administration of the entity
+// for the supplied duration. If the claim is denied, it will return
 // lease.ErrClaimDenied.
 func (api *API) Claim(duration time.Duration) error {
 	args := params.SingularClaims{
 		Claims: []params.SingularClaim{{
-			ModelTag:      api.modelTag.String(),
-			ControllerTag: api.controllerTag.String(),
-			Duration:      duration,
+			EntityTag:   api.entity.String(),
+			ClaimantTag: api.claimant.String(),
+			Duration:    duration,
 		}},
 	}
 	var results params.ErrorResults
@@ -69,14 +78,14 @@ func (api *API) Claim(duration time.Duration) error {
 	return nil
 }
 
-// Wait blocks until nobody has responsibility for model administration. It
-// should probably be doing something watchy rather than blocky, but it's
-// following the lease manager implementation underlying the original
+// Wait blocks until nobody has responsibility for administration of the
+// entity. It should probably be doing something watchy rather than blocky,
+// but it's following the lease manager implementation underlying the original
 // leadership approach and it doesn't seem worth rewriting all that.
 func (api *API) Wait() error {
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: api.modelTag.String(),
+			Tag: api.entity.String(),
 		}},
 	}
 	var results params.ErrorResults

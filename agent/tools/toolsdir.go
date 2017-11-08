@@ -106,10 +106,10 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 			return err
 		}
 		if strings.ContainsAny(hdr.Name, "/\\") {
-			return fmt.Errorf("bad name %q in tools archive", hdr.Name)
+			return fmt.Errorf("bad name %q in agent binary archive", hdr.Name)
 		}
 		if hdr.Typeflag != tar.TypeReg {
-			return fmt.Errorf("bad file type %c in file %q in tools archive", hdr.Typeflag, hdr.Name)
+			return fmt.Errorf("bad file type %c in file %q in agent binary archive", hdr.Typeflag, hdr.Name)
 		}
 		name := path.Join(dir, hdr.Name)
 		if err := writeFile(name, os.FileMode(hdr.Mode&0777), tr); err != nil {
@@ -169,11 +169,11 @@ func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
 	dir := SharedToolsDir(dataDir, vers)
 	toolsData, err := ioutil.ReadFile(path.Join(dir, toolsFile))
 	if err != nil {
-		return nil, fmt.Errorf("cannot read tools metadata in tools directory: %v", err)
+		return nil, fmt.Errorf("cannot read agent metadata in directory %v: %v", dir, err)
 	}
 	var tools coretools.Tools
 	if err := json.Unmarshal(toolsData, &tools); err != nil {
-		return nil, fmt.Errorf("invalid tools metadata in tools directory %q: %v", dir, err)
+		return nil, fmt.Errorf("invalid agent metadata in directory %q: %v", dir, err)
 	}
 	return &tools, nil
 }
@@ -187,11 +187,11 @@ func ReadGUIArchive(dataDir string) (*coretools.GUIArchive, error) {
 		if os.IsNotExist(err) {
 			return nil, errors.NotFoundf("GUI metadata")
 		}
-		return nil, fmt.Errorf("cannot read GUI metadata in tools directory: %v", err)
+		return nil, fmt.Errorf("cannot read GUI metadata in directory %q: %v", dir, err)
 	}
 	var gui coretools.GUIArchive
 	if err := json.Unmarshal(toolsData, &gui); err != nil {
-		return nil, fmt.Errorf("invalid GUI metadata in tools directory %q: %v", dir, err)
+		return nil, fmt.Errorf("invalid GUI metadata in directory %q: %v", dir, err)
 	}
 	return &gui, nil
 }

@@ -526,6 +526,39 @@ func (c *Client) DestroyApplications(in DestroyApplicationsParams) ([]params.Des
 	return allResults, nil
 }
 
+// DestroyConsumedApplication destroys the given consumed (remote) applications.
+func (c *Client) DestroyConsumedApplication(saasNames ...string) ([]params.ErrorResult, error) {
+	args := params.DestroyConsumedApplicationsParams{
+		Applications: make([]params.DestroyConsumedApplicationParams, 0, len(saasNames)),
+	}
+	allResults := make([]params.ErrorResult, len(saasNames))
+	index := make([]int, 0, len(saasNames))
+	for i, name := range saasNames {
+		if !names.IsValidApplication(name) {
+			allResults[i].Error = &params.Error{
+				Message: errors.NotValidf("SAAS application name %q", name).Error(),
+			}
+			continue
+		}
+		index = append(index, i)
+		args.Applications = append(args.Applications, params.DestroyConsumedApplicationParams{
+			ApplicationTag: names.NewApplicationTag(name).String(),
+		})
+	}
+
+	var result params.ErrorResults
+	if err := c.facade.FacadeCall("DestroyConsumedApplications", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n := len(result.Results); n != len(args.Applications) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(args.Applications), n)
+	}
+	for i, result := range result.Results {
+		allResults[index[i]] = result
+	}
+	return allResults, nil
+}
+
 // GetConstraints returns the constraints for the given applications.
 func (c *Client) GetConstraints(applications ...string) ([]constraints.Value, error) {
 	var allConstraints []constraints.Value
@@ -554,7 +587,7 @@ func (c *Client) GetConstraints(applications ...string) ([]constraints.Value, er
 	}
 	for i, result := range results.Results {
 		if result.Error != nil {
-			return nil, errors.Annotatef(err, "unable to get constraints for %q", applications[i])
+			return nil, errors.Annotatef(result.Error, "unable to get constraints for %q", applications[i])
 		}
 		allConstraints = append(allConstraints, result.Constraints)
 	}

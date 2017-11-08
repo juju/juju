@@ -232,7 +232,7 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil)
+	_, err := env.acquireNode("", "", "", constraints.Value{}, nil, nil)
 
 	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -250,7 +250,7 @@ func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, err := env.acquireNode("host0", "", constraints.Value{}, nil, nil)
+	_, err := env.acquireNode("host0", "", "", constraints.Value{}, nil, nil)
 
 	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -271,7 +271,7 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
-	_, err := env.acquireNode("", "", constraints, nil, nil)
+	_, err := env.acquireNode("", "", "", constraints, nil, nil)
 
 	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -344,7 +344,7 @@ func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil)
+	_, err := env.acquireNode("", "", "", constraints.Value{}, nil, nil)
 
 	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -358,7 +358,7 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C)
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "tag_names": "tag1,tag3"}`)
 
 	_, err := env.acquireNode(
-		"", "",
+		"", "", "",
 		constraints.Value{Tags: stringslicep("tag1", "^tag2", "tag3", "^tag4")},
 		nil, nil,
 	)
@@ -377,7 +377,7 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
 
 	_, err := env.acquireNode(
-		"", "",
+		"", "", "",
 		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
 		nil, nil,
 	)
@@ -410,7 +410,7 @@ func (suite *environSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndexedUpT
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
 
 	_, err := env.acquireNode(
-		"", "",
+		"", "", "",
 		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
 		[]interfaceBinding{{"0", "first-clash"}, {"1", "final-clash"}},
 		nil,
@@ -447,7 +447,7 @@ func (suite *environSuite) TestAcquireNodeStorage(c *gc.C) {
 		server.NewSpace(spaceJSON(gomaasapi.CreateSpace{Name: "space-1"}))
 		server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 		suite.addSubnet(c, 1, 1, "node0")
-		_, err := env.acquireNode("", "", constraints.Value{}, nil, test.volumes)
+		_, err := env.acquireNode("", "", "", constraints.Value{}, nil, test.volumes)
 		c.Check(err, jc.ErrorIsNil)
 		requestValues := server.NodeOperationRequestValues()
 		nodeRequestValues, found := requestValues["node0"]
@@ -548,7 +548,7 @@ func (suite *environSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		suite.addSubnetWithSpace(c, 7, 7, "bar", "node1")
 		env := suite.makeEnviron()
 		server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-		_, err := env.acquireNode("", "", cons, test.interfaces, nil)
+		_, err := env.acquireNode("", "", "", cons, test.interfaces, nil)
 		if test.expectedError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectedError)
 			c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -582,7 +582,7 @@ func (suite *environSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
 	}
 	env := suite.makeEnviron()
 	server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-	_, err := env.acquireNode("", "", cons, nil, nil)
+	_, err := env.acquireNode("", "", "", cons, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	requestValues := server.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node0"]
@@ -599,7 +599,7 @@ func (suite *environSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
 	}
 	env := suite.makeEnviron()
 	server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-	_, err := env.acquireNode("", "", cons, nil, nil)
+	_, err := env.acquireNode("", "", "", cons, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	requestValues := server.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node0"]
@@ -616,6 +616,6 @@ func (suite *environSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
 	}
 	env := suite.makeEnviron()
 	server.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-	_, err := env.acquireNode("", "", cons, nil, nil)
+	_, err := env.acquireNode("", "", "", cons, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `unrecognised space in constraint "baz"`)
 }

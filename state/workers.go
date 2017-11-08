@@ -58,14 +58,20 @@ func newWorkers(st *State) (*workers, error) {
 		return presence.NewPingBatcher(st.getPresenceCollection(), pingFlushInterval), nil
 	})
 	ws.StartWorker(leadershipWorker, func() (worker.Worker, error) {
-		manager, err := st.newLeaseManager(st.getLeadershipLeaseClient, leadershipSecretary{})
+		manager, err := st.newLeaseManager(st.getLeadershipLeaseClient, leadershipSecretary{}, st.ModelUUID())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return manager, nil
 	})
 	ws.StartWorker(singularWorker, func() (worker.Worker, error) {
-		manager, err := st.newLeaseManager(st.getSingularLeaseClient, singularSecretary{st.ModelUUID()})
+		manager, err := st.newLeaseManager(st.getSingularLeaseClient,
+			singularSecretary{
+				controllerUUID: st.ControllerUUID(),
+				modelUUID:      st.ModelUUID(),
+			},
+			st.ControllerUUID(),
+		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -77,16 +83,18 @@ func newWorkers(st *State) (*workers, error) {
 func (st *State) newLeaseManager(
 	getClient func() (corelease.Client, error),
 	secretary lease.Secretary,
+	entityUUID string,
 ) (worker.Worker, error) {
 	client, err := getClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	manager, err := lease.NewManager(lease.ManagerConfig{
-		Secretary: secretary,
-		Client:    client,
-		Clock:     st.clock(),
-		MaxSleep:  time.Minute,
+		Secretary:  secretary,
+		Client:     client,
+		Clock:      st.clock(),
+		MaxSleep:   time.Minute,
+		EntityUUID: entityUUID,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -161,4 +169,26 @@ func (ws *workers) allModelManager(pool *StatePool) *storeManager {
 		return newStoreManager(NewAllModelWatcherStateBacking(ws.state, pool)), nil
 	})
 	return ws.allModelManager(pool)
+}
+
+// lazyLeaseManager wraps one of workers.singularManager or
+// workers.leadershipManager, and calls it in the method calls.
+// This enables the manager to use restarted lease managers.
+type lazyLeaseManager struct {
+	leaseManager func() *lease.Manager
+}
+
+// Claim is part of the lease.Claimer interface.
+func (l lazyLeaseManager) Claim(leaseName, holderName string, duration time.Duration) error {
+	return l.leaseManager().Claim(leaseName, holderName, duration)
+}
+
+// WaitUntilExpired is part of the lease.Claimer interface.
+func (l lazyLeaseManager) WaitUntilExpired(leaseName string) error {
+	return l.leaseManager().WaitUntilExpired(leaseName)
+}
+
+// Token is part of the lease.Checker interface.
+func (l lazyLeaseManager) Token(leaseName, holderName string) corelease.Token {
+	return l.leaseManager().Token(leaseName, holderName)
 }

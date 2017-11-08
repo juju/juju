@@ -747,12 +747,12 @@ type MeterStatusResults struct {
 	Results []MeterStatusResult `json:"results"`
 }
 
-// SingularClaim represents a request for exclusive model administration access
-// on the part of some controller.
+// SingularClaim represents a request for exclusive administrative access
+// to an entity (model or controller) on the part of the claimaint.
 type SingularClaim struct {
-	ModelTag      string        `json:"model-tag"`
-	ControllerTag string        `json:"controller-tag"`
-	Duration      time.Duration `json:"duration"`
+	EntityTag   string        `json:"entity-tag"`
+	ClaimantTag string        `json:"claimant-tag"`
+	Duration    time.Duration `json:"duration"`
 }
 
 // SingularClaims holds any number of SingularClaim~s.

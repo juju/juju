@@ -90,7 +90,7 @@ func checkToolsAvailability(newEnviron newEnvironFunc, modelCfg *config.Config, 
 		vers, err = finder(env, currentVersion.Major, currentVersion.Minor, preferredStream, coretools.Filter{})
 	}
 	if err != nil {
-		return version.Zero, errors.Annotatef(err, "cannot find available tools")
+		return version.Zero, errors.Annotatef(err, "cannot find available agent binaries")
 	}
 	// Newest also returns a list of the items in this list matching with the
 	// newest version.
@@ -125,7 +125,7 @@ func updateToolsAvailability(modelGetter ModelGetter, newEnviron newEnvironFunc,
 		return errors.Annotate(err, "cannot get latest version")
 	}
 	if ver == version.Zero {
-		logger.Debugf("tools lookup returned version Zero, this should only happen during bootstrap.")
+		logger.Debugf("The lookup of agent binaries returned version Zero. This should only happen during bootstrap.")
 		return nil
 	}
 	return update(model, ver)

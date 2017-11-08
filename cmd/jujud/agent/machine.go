@@ -80,7 +80,6 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/conv2state"
-	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/gate"
@@ -94,8 +93,6 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	psworker "github.com/juju/juju/worker/pubsub"
-	"github.com/juju/juju/worker/singular"
-	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
@@ -112,7 +109,6 @@ var (
 	// the intestinal fortitude to untangle this package. Be that
 	// person! Juju Needs You.
 	useMultipleCPUs       = utils.UseMultipleCPUs
-	newSingularRunner     = singular.New
 	peergrouperNew        = peergrouper.New
 	newCertificateUpdater = certupdater.NewCertificateUpdater
 	newMetadataUpdater    = imagemetadataworker.NewWorker
@@ -585,6 +581,9 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
 				return a.machine(apiConn)
 			},
+			ControllerLeaseDuration:  time.Minute,
+			LogPruneInterval:         5 * time.Minute,
+			TransactionPruneInterval: time.Hour,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -1116,10 +1115,6 @@ func (a *MachineAgent) startStateWorkers(
 		MoreImportant: cmdutil.MoreImportant,
 		RestartDelay:  jworker.RestartDelay,
 	})
-	singularRunner, err := newSingularStateRunner(runner, st, m)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	for _, job := range m.Jobs() {
 		switch job {
@@ -1215,14 +1210,6 @@ func (a *MachineAgent) startStateWorkers(
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
 				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
-			})
-
-			a.startWorkerAfterUpgrade(singularRunner, "dblogpruner", func() (worker.Worker, error) {
-				return dblogpruner.New(st, dblogpruner.NewLogPruneParams()), nil
-			})
-
-			a.startWorkerAfterUpgrade(singularRunner, "txnpruner", func() (worker.Worker, error) {
-				return txnpruner.New(st, time.Hour, clock.WallClock), nil
 			})
 		default:
 			return nil, errors.Errorf("unknown job type %q", job)
@@ -1919,45 +1906,6 @@ func (a *MachineAgent) uninstallAgent() error {
 		return nil
 	}
 	return errors.Errorf("uninstall failed: %v", errs)
-}
-
-type MongoSessioner interface {
-	MongoSession() *mgo.Session
-}
-
-// TODO(axw) 2017-10-24 #1726680
-//
-// We are still using MongoDB mastership to ensure that we
-// run a single txnlogpruner worker, and a single dblogpruner
-// worker. We should update worker/singular and API facade to
-// support claiming for the entire controller, rather rather
-// than a specific model, and use that to run controller-wide
-// singular workers.
-//
-// When we move over to worker/singular, remove the Mongo bits
-// from worker/singular that shouldn't be there anyway.
-func newSingularStateRunner(runner *worker.Runner, st MongoSessioner, m *state.Machine) (jworker.Runner, error) {
-	singularStateConn := singularStateConn{st.MongoSession(), m}
-	singularRunner, err := newSingularRunner(runner, singularStateConn)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot make singular State Runner")
-	}
-	return singularRunner, err
-}
-
-// singularStateConn implements singular.Conn on
-// top of a State connection.
-type singularStateConn struct {
-	session *mgo.Session
-	machine *state.Machine
-}
-
-func (c singularStateConn) IsMaster() (bool, error) {
-	return mongo.IsMaster(c.session, c.machine)
-}
-
-func (c singularStateConn) Ping() error {
-	return c.session.Ping()
 }
 
 // newDeployContext gives the tests the opportunity to create a deployer.Context

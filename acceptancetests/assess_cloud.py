@@ -8,11 +8,13 @@ from deploy_stack import (
     BootstrapManager,
     )
 from jujupy import (
-    ConditionList,
     get_juju_home,
     ModelClient,
     FakeBackend,
     FakeControllerState,
+    )
+from jujupy.wait_condition import (
+    ConditionList,
     )
 from utility import (
     add_basic_testing_arguments,

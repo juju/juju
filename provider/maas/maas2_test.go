@@ -86,7 +86,13 @@ type fakeController struct {
 }
 
 func newFakeController() *fakeController {
-	return &fakeController{Stub: &testing.Stub{}}
+	return &fakeController{
+		Stub: &testing.Stub{},
+		zones: []gomaasapi.Zone{
+			&fakeZone{name: "mossack"},
+			&fakeZone{name: "fonseca"},
+		},
+	}
 }
 
 func newFakeControllerWithErrors(errors ...error) *fakeController {
@@ -96,7 +102,9 @@ func newFakeControllerWithErrors(errors ...error) *fakeController {
 }
 
 func newFakeControllerWithFiles(files ...gomaasapi.File) *fakeController {
-	return &fakeController{Stub: &testing.Stub{}, files: files}
+	controller := newFakeController()
+	controller.files = files
+	return controller
 }
 
 func (c *fakeController) Devices(args gomaasapi.DevicesArgs) ([]gomaasapi.Device, error) {

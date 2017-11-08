@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type ContainerSetupSuite struct {
@@ -84,7 +85,7 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 
 func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 	if s.p != nil {
-		stop(c, s.p)
+		workertest.CleanKill(c, s.p)
 	}
 	s.CommonProvisionerSuite.TearDownTest(c)
 }

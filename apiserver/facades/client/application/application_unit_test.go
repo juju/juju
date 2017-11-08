@@ -108,7 +108,10 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 				}},
 			},
 		},
-		remoteApplications: make(map[string]application.RemoteApplication), charm: &mockCharm{
+		remoteApplications: map[string]application.RemoteApplication{
+			"hosted-db2": &mockRemoteApplication{},
+		},
+		charm: &mockCharm{
 			meta: &charm.Meta{}, config: &charm.Config{
 				Options: map[string]charm.Option{
 					"stringOption": {Type: "string"},
@@ -304,7 +307,6 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 
 	s.backend.CheckCallNames(c,
 		"ModelTag",
-		"RemoteApplication",
 		"Application",
 		"UnitStorageAttachments",
 		"StorageInstance",
@@ -314,7 +316,7 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 9, "ApplyOperation", &state.DestroyApplicationOperation{})
+	s.backend.CheckCall(c, 8, "ApplyOperation", &state.DestroyApplicationOperation{})
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
@@ -341,7 +343,6 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 
 	s.backend.CheckCallNames(c,
 		"ModelTag",
-		"RemoteApplication",
 		"Application",
 		"UnitStorageAttachments",
 		"StorageInstance",
@@ -349,7 +350,7 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyApplicationOperation{
+	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyApplicationOperation{
 		DestroyStorage: true,
 	})
 }
@@ -367,6 +368,37 @@ func (s *ApplicationSuite) TestDestroyApplicationNotFound(c *gc.C) {
 		Error: &params.Error{
 			Code:    params.CodeNotFound,
 			Message: `application "postgresql" not found`,
+		},
+	})
+}
+
+func (s *ApplicationSuite) TestDestroyConsumedApplication(c *gc.C) {
+	results, err := s.api.DestroyConsumedApplications(params.DestroyConsumedApplicationsParams{
+		Applications: []params.DestroyConsumedApplicationParams{{ApplicationTag: "application-hosted-db2"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{})
+
+	s.backend.CheckCallNames(c,
+		"ModelTag",
+		"RemoteApplication",
+	)
+	app := s.backend.remoteApplications["hosted-db2"]
+	app.(*mockRemoteApplication).CheckCallNames(c, "Destroy")
+}
+
+func (s *ApplicationSuite) TestDestroyConsumedApplicationNotFound(c *gc.C) {
+	delete(s.backend.remoteApplications, "hosted-db2")
+	results, err := s.api.DestroyConsumedApplications(params.DestroyConsumedApplicationsParams{
+		Applications: []params.DestroyConsumedApplicationParams{{ApplicationTag: "application-hosted-db2"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{
+		Error: &params.Error{
+			Code:    params.CodeNotFound,
+			Message: `remote application "hosted-db2" not found`,
 		},
 	})
 }

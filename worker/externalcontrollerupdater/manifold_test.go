@@ -27,7 +27,6 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldConfigSuite) validConfig() externalcontrollerupdater.ManifoldConfig {
 	return externalcontrollerupdater.ManifoldConfig{
-		StateName:     "state",
 		APICallerName: "api-caller",
 		NewExternalControllerWatcherClient: func(*api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, error) {
 			panic("should not be called")
@@ -37,11 +36,6 @@ func (s *ManifoldConfigSuite) validConfig() externalcontrollerupdater.ManifoldCo
 
 func (s *ManifoldConfigSuite) TestValid(c *gc.C) {
 	c.Check(s.config.Validate(), jc.ErrorIsNil)
-}
-
-func (s *ManifoldConfigSuite) TestMissingStateName(c *gc.C) {
-	s.config.StateName = ""
-	s.checkNotValid(c, "empty StateName not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {

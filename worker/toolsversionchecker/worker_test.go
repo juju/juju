@@ -71,7 +71,7 @@ func (s *ToolsCheckerSuite) TestWorker(c *gc.C) {
 	case called := <-f.called:
 		c.Assert(called, gc.Equals, "UpdateToolsVersion")
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting worker to seek new tool versions")
+		c.Fatalf("timed out waiting worker to seek new agent binaries versions")
 	}
 
 }

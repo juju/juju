@@ -412,6 +412,36 @@ func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
 
+func (s *applicationSuite) TestDestroyConsumedApplications(c *gc.C) {
+	expectedResults := []params.ErrorResult{{
+		Error: &params.Error{Message: "boo"},
+	}, {}}
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, "DestroyConsumedApplications")
+		c.Assert(a, jc.DeepEquals, params.DestroyConsumedApplicationsParams{
+			Applications: []params.DestroyConsumedApplicationParams{
+				{ApplicationTag: "application-foo"},
+				{ApplicationTag: "application-bar"},
+			},
+		})
+		c.Assert(response, gc.FitsTypeOf, &params.ErrorResults{})
+		out := response.(*params.ErrorResults)
+		*out = params.ErrorResults{expectedResults}
+		return nil
+	})
+	results, err := client.DestroyConsumedApplication("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *applicationSuite) TestDestroyConsumedApplicationsArity(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		return nil
+	})
+	_, err := client.DestroyConsumedApplication("foo")
+	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
+}
+
 func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
 	expectedResults := []params.DestroyUnitResult{{
 		Error: &params.Error{Message: "boo"},
@@ -847,6 +877,37 @@ func (s *applicationSuite) TestGetConstraints(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, []constraints.Value{
 		fooConstraints, barConstraints,
 	})
+}
+
+func (s *applicationSuite) TestGetConstraintsError(c *gc.C) {
+	fooConstraints := constraints.MustParse("mem=4G")
+
+	client := application.NewClient(basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, response interface{}) error {
+				c.Assert(request, gc.Equals, "GetConstraints")
+				args, ok := a.(params.Entities)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{
+						{"application-foo"}, {"application-bar"},
+					}})
+
+				result, ok := response.(*params.ApplicationGetConstraintsResults)
+				c.Assert(ok, jc.IsTrue)
+				result.Results = []params.ApplicationConstraint{
+					{Constraints: fooConstraints},
+					{Error: &params.Error{Message: "oh no"}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 5,
+	})
+
+	results, err := client.GetConstraints("foo", "bar")
+	c.Assert(err, gc.ErrorMatches, `unable to get constraints for "bar": oh no`)
+	c.Assert(results, gc.IsNil)
 }
 
 func (s *applicationSuite) TestGetConstraintsAPIv4(c *gc.C) {

@@ -90,7 +90,9 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 				store = "unknown"
 				urlPath = app.OfferURL
 			}
-			p(appName, app.StatusInfo.Current, store, urlPath)
+			w.Print(appName)
+			w.PrintStatus(app.StatusInfo.Current)
+			p(store, urlPath)
 		}
 		tw.Flush()
 	}

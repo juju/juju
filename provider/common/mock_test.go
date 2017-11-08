@@ -6,8 +6,6 @@ package common_test
 import (
 	"io"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -16,12 +14,11 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	jujustorage "github.com/juju/juju/storage"
-	"github.com/juju/juju/tools"
 )
 
 type allInstancesFunc func() ([]instance.Instance, error)
 type instancesFunc func([]instance.Id) ([]instance.Instance, error)
-type startInstanceFunc func(string, constraints.Value, []string, tools.List, *instancecfg.InstanceConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error)
+type startInstanceFunc func(environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error)
 type stopInstancesFunc func([]instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config
@@ -53,13 +50,7 @@ func (env *mockEnviron) Instances(ids []instance.Id) ([]instance.Instance, error
 }
 
 func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	inst, hw, networkInfo, err := env.startInstance(
-		args.Placement,
-		args.Constraints,
-		nil,
-		args.Tools,
-		args.InstanceConfig,
-	)
+	inst, hw, networkInfo, err := env.startInstance(args)
 	if err != nil {
 		return nil, err
 	}

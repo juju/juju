@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
@@ -98,26 +97,6 @@ removing application storage-filesystem-multi-series
 - will %[1]s storage data/2
 - will %[1]s storage data/3
 `[1:], action))
-}
-
-func (s *RemoveApplicationSuite) TestRemoteApplication(c *gc.C) {
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "remote-app",
-		SourceModel: names.NewModelTag("test"),
-		Token:       "token",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.RemoteApplication("remote-app")
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx, err := runRemoveApplication(c, "remote-app")
-	c.Assert(err, jc.ErrorIsNil)
-	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, "removing application remote-app\n")
-
-	// Removed immediately since there are no units.
-	_, err = s.State.RemoteApplication("remote-app")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {

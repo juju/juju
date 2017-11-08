@@ -29,6 +29,9 @@ var _ = gc.Suite(&oracleVolumeSource{})
 func (s *oracleVolumeSource) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	oracletesting.DefaultFakeStorageAPI.ResetCalls()
+	// Reset name from changes in environ_test SetUpTest()
+	// not required here.
+	oracletesting.DefaultEnvironAPI.FakeInstance.All.Result[0].Name = "/Compute-a432100/sgiulitti@cloudbase.com/0/ebc4ce91-56bb-4120-ba78-13762597f837"
 }
 
 func (o *oracleVolumeSource) NewVolumeSource(

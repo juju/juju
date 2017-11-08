@@ -4,10 +4,11 @@
 package state_test
 
 import (
+	"fmt"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"fmt"
 	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"

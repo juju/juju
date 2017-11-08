@@ -107,7 +107,7 @@ func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
 	f.BoolVar(&c.AssumeYes, "yes", false, "")
 	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
-		"Don't check if all agents have already reached the current version (old controllers will ignore this flag see juju-force-upgrade)")
+		"Don't check if all agents have already reached the current version")
 }
 
 func (c *upgradeJujuCommand) Init(args []string) error {
@@ -337,7 +337,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		if c.BuildAgent {
 			builtMsg = " (built from source)"
 		}
-		fmt.Fprintf(ctx.Stdout, "no prepackaged tools available, using local agent binary %v%s\n", context.chosen, builtMsg)
+		fmt.Fprintf(ctx.Stdout, "no prepackaged agent binaries available, using local agent binary %v%s\n", context.chosen, builtMsg)
 	}
 
 	// If there was an error implicitly uploading a binary, we'll still look for any packaged binaries
@@ -346,7 +346,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
-	ctx.Verbosef("available tools:\n%s", formatTools(context.tools))
+	ctx.Verbosef("available agent binaries:\n%s", formatTools(context.tools))
 	ctx.Verbosef("best version:\n    %s", context.chosen)
 	if warnCompat {
 		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", context.chosen, jujuversion.Current)
@@ -366,7 +366,6 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 				return block.ProcessBlockedError(err, block.BlockChange)
 			}
 		}
-		logger.Criticalf("**********   SetModelAgentVersion: %s %t", context.chosen.String(), c.IgnoreAgentVersions)
 		if err := client.SetModelAgentVersion(context.chosen, c.IgnoreAgentVersions); err != nil {
 			if params.IsCodeUpgradeInProgress(err) {
 				return errors.Errorf("%s\n\n"+
@@ -574,7 +573,7 @@ func (context *upgradeContext) validate() (err error) {
 				context.chosen = newestCurrent
 			} else {
 				if context.agent.Major != context.client.Major {
-					return errors.New("no compatible tools available")
+					return errors.New("no compatible agent binaries available")
 				} else {
 					return errors.New("no more recent supported versions available")
 				}

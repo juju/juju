@@ -162,13 +162,6 @@ func (env *sessionEnviron) newRawInstance(
 		cons.RootDisk = &minRootDisk
 	}
 
-	// Identify which zones may be used, taking into
-	// account placement directives.
-	zone, err := env.parseAvailabilityZone(args)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
 	// Download and extract the OVA file. If we're bootstrapping we use
 	// a temporary directory, otherwise we cache the image for future use.
 	updateProgressInterval := startInstanceUpdateProgressInterval
@@ -209,10 +202,10 @@ func (env *sessionEnviron) newRawInstance(
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.
-	logger.Debugf("attempting to create VM in availability zone %s", zone)
-	availZone, err := env.availZone(zone)
+	logger.Debugf("attempting to create VM in availability zone %s", args.AvailabilityZone)
+	availZone, err := env.availZone(args.AvailabilityZone)
 	if err != nil {
-		logger.Warningf("failed to get availability zone %s: %s", zone, err)
+		logger.Warningf("failed to get availability zone %s: %s", args.AvailabilityZone, err)
 
 		return nil, nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
 	}
@@ -220,7 +213,7 @@ func (env *sessionEnviron) newRawInstance(
 
 	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs)
 	if err != nil {
-		logger.Warningf("failed to create instance in availability zone %s: %s", zone, err)
+		logger.Warningf("failed to create instance in availability zone %s: %s", args.AvailabilityZone, err)
 
 		return nil, nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
 	}

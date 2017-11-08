@@ -60,7 +60,7 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 		return nil, resolveInfo, err
 	}
 	if len(matchingTools) == 0 {
-		return nil, resolveInfo, fmt.Errorf("no matching tools found for constraint %+v", toolsConstraint)
+		return nil, resolveInfo, fmt.Errorf("no matching agent binaries found for constraint %+v", toolsConstraint)
 	}
 	versions := make([]string, len(matchingTools))
 	for i, tm := range matchingTools {

@@ -4,7 +4,6 @@
 package remoterelations
 
 import (
-	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -66,6 +65,7 @@ func (w *remoteRelationsWorker) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+
 		case relChanges, ok := <-w.relationsWatcher.Changes():
 			if !ok {
 				// We are dying.
@@ -78,33 +78,18 @@ func (w *remoteRelationsWorker) loop() error {
 			// We only care about the most recent change.
 			change := relChanges[len(relChanges)-1]
 			logger.Debugf("relation status changed for %v: %v", w.relationTag, change)
-			if evt, err := w.relationUnitsChangeEvent(change); err != nil {
-				return errors.Trace(err)
-			} else {
-				if evt == nil {
-					continue
-				}
-				event = *evt
-				changes = w.changes
+			suspended := change.Suspended
+			event = params.RemoteRelationChangeEvent{
+				RelationToken:    w.remoteRelationToken,
+				ApplicationToken: w.applicationToken,
+				Life:             params.Life(change.Life),
+				Suspended:        &suspended,
+				SuspendedReason:  change.SuspendedReason,
 			}
+			changes = w.changes
+
 		case changes <- event:
 			changes = nil
 		}
 	}
-}
-
-func (w *remoteRelationsWorker) relationUnitsChangeEvent(
-	change watcher.RelationStatusChange,
-) (*params.RemoteRelationChangeEvent, error) {
-	logger.Debugf("update relation status for %v", w.relationTag)
-
-	suspended := change.Suspended
-	event := &params.RemoteRelationChangeEvent{
-		RelationToken:    w.remoteRelationToken,
-		ApplicationToken: w.applicationToken,
-		Life:             params.Life(change.Life),
-		Suspended:        &suspended,
-		SuspendedReason:  change.SuspendedReason,
-	}
-	return event, nil
 }
