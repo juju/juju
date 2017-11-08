@@ -21,7 +21,18 @@ func FormatCharmTabular(writer io.Writer, value interface{}) error {
 		return errors.Errorf("expected value of type %T, got %T", resources, value)
 	}
 
-	// TODO(ericsnow) sort the rows first?
+	// Sort by resource name
+	names := make([]string, len(resources))
+	resourcesByName := map[string][]FormattedCharmResource{}
+	for i, r := range resources {
+		names[i] = r.Name
+		allNamedResources, ok := resourcesByName[r.Name]
+		if !ok {
+			allNamedResources = []FormattedCharmResource{}
+		}
+		resourcesByName[r.Name] = append(allNamedResources, r)
+	}
+	sort.Strings(names)
 
 	// To format things into columns.
 	tw := output.TabWriter(writer)
@@ -31,12 +42,14 @@ func FormatCharmTabular(writer io.Writer, value interface{}) error {
 	fmt.Fprintln(tw, "Resource\tRevision")
 
 	// Print each info to its own row.
-	for _, res := range resources {
-		// the column headers must be kept in sync with these.
-		fmt.Fprintf(tw, "%s\t%d\n",
-			res.Name,
-			res.Revision,
-		)
+	for _, name := range names {
+		for _, res := range resourcesByName[name] {
+			// the column headers must be kept in sync with these.
+			fmt.Fprintf(tw, "%s\t%d\n",
+				name,
+				res.Revision,
+			)
+		}
 	}
 	tw.Flush()
 

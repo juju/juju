@@ -76,11 +76,11 @@ func (s *CharmTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
 Resource      Revision
-spam          1
+avatar        1
 eggs          2
 somethingbig  1
 song          1
-avatar        1
+spam          1
 `[1:])
 }
 
