@@ -26,7 +26,7 @@ func newToolsMetadataCommand() cmd.Command {
 	return modelcmd.Wrap(&toolsMetadataCommand{})
 }
 
-// toolsMetadataCommand is used to generate simplestreams metadata for juju tools.
+// toolsMetadataCommand is used to generate simplestreams metadata for juju agents.
 type toolsMetadataCommand struct {
 	modelcmd.ModelCommandBase
 	fetch       bool
@@ -37,7 +37,7 @@ type toolsMetadataCommand struct {
 }
 
 const toolsMetadataDoc = `
-generate-tools creates the simplestreams metadata for agents.
+generate-agents creates the simplestreams metadata for agents.
 
 This command works by scanning a directory for agent binary tarballs from which to generate
 simplestreams agent metadata. The working directory is specified using the -d argument
@@ -62,23 +62,24 @@ use the --clean option.
 Examples:
 
 # generate metadata for "released":
-juju metadata generate-tools -d <workingdir>
+juju metadata generate-agents -d <workingdir>
 
 # generate metadata for "released":
-juju metadata generate-tools -d <workingdir> --stream released
+juju metadata generate-agents -d <workingdir> --stream released
 
 # generate metadata for "proposed":
-juju metadata generate-tools -d <workingdir> --stream proposed
+juju metadata generate-agents -d <workingdir> --stream proposed
 
 # generate metadata for "proposed", first removing existing "proposed" metadata:
-juju metadata generate-tools -d <workingdir> --stream proposed --clean
+juju metadata generate-agents -d <workingdir> --stream proposed --clean
 `
 
 func (c *toolsMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "generate-tools",
+		Name:    "generate-agents",
 		Purpose: "generate simplestreams agent metadata",
 		Doc:     toolsMetadataDoc,
+		Aliases: []string{"generate-tools"},
 	}
 }
 
@@ -149,7 +150,7 @@ func toolsDataSources(urls ...string) []simplestreams.DataSource {
 }
 
 // This is essentially the same as tools.MergeAndWriteMetadata, but also
-// resolves metadata for existing tools by fetching them and computing
+// resolves metadata for existing agents by fetching them and computing
 // size/sha256 locally.
 func mergeAndWriteMetadata(
 	stor storage.Storage, toolsDir, stream string, clean bool, toolsList coretools.List, writeMirrors envtools.ShouldWriteMirrors,

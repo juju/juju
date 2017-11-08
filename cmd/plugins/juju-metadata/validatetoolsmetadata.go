@@ -44,7 +44,7 @@ type validateToolsMetadataCommand struct {
 }
 
 var validateToolsMetadataDoc = `
-validate-tools loads simplestreams metadata and validates the contents by
+validate-agents loads simplestreams metadata and validates the contents by
 looking for agent binaries belonging to the specified series, architecture, for the
 specified cloud. If version is specified, agent binaries matching the exact specified
 version are found. It is also possible to just specify the major (and optionally
@@ -64,31 +64,31 @@ Examples:
 
  - validate using the current model settings but with series raring
   
-  juju metadata validate-tools -s raring
+  juju metadata validate-agents -s raring
 
  - validate using the current model settings but with Juju version 1.11.4
   
-  juju metadata validate-tools -j 1.11.4
+  juju metadata validate-agents -j 1.11.4
 
  - validate using the current model settings but with Juju major version 2
   
-  juju metadata validate-tools -m 2
+  juju metadata validate-agents -m 2
 
  - validate using the current model settings but with Juju major.minor version 2.1
  
-  juju metadata validate-tools -m 2.1
+  juju metadata validate-agents -m 2.1
 
  - validate using the current model settings and list all agent binaries found for any series
  
-  juju metadata validate-tools --series=
+  juju metadata validate-agents --series=
 
  - validate with series raring and using metadata from local directory
  
-  juju metadata validate-tools -s raring -d <some directory>
+  juju metadata validate-agents -s raring -d <some directory>
 
  - validate for the proposed stream
 
-  juju metadata validate-tools --stream proposed
+  juju metadata validate-agents --stream proposed
 
 A key use case is to validate newly generated metadata prior to deployment to
 production. In this case, the metadata is placed in a local directory, a cloud
@@ -99,7 +99,7 @@ Example bash snippet:
 
 #!/bin/bash
 
-juju metadata validate-tools -p ec2 -r us-east-1 -s precise --juju-version 1.12.0 -d <some directory>
+juju metadata validate-agents -p ec2 -r us-east-1 -s precise --juju-version 1.12.0 -d <some directory>
 RETVAL=$?
 [ $RETVAL -eq 0 ] && echo Success
 [ $RETVAL -ne 0 ] && echo Failure
@@ -107,9 +107,10 @@ RETVAL=$?
 
 func (c *validateToolsMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "validate-tools",
+		Name:    "validate-agents",
 		Purpose: "validate agent metadata and ensure agent binary tarball(s) exist for Juju version(s)",
 		Doc:     validateToolsMetadataDoc,
+		Aliases: []string{"validate-tools"},
 	}
 }
 
