@@ -11,6 +11,7 @@ type Cloud struct {
 	IdentityEndpoint string        `json:"identity-endpoint,omitempty"`
 	StorageEndpoint  string        `json:"storage-endpoint,omitempty"`
 	Regions          []CloudRegion `json:"regions,omitempty"`
+	CACertificates   []string      `json:"ca-certificates,omitempty"`
 }
 
 // CloudRegion holds information about a cloud region.

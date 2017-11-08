@@ -23,6 +23,7 @@ type cloudDoc struct {
 	IdentityEndpoint string                       `bson:"identity-endpoint,omitempty"`
 	StorageEndpoint  string                       `bson:"storage-endpoint,omitempty"`
 	Regions          map[string]cloudRegionSubdoc `bson:"regions,omitempty"`
+	CACertificates   []string                     `bson:"ca-certificates,omitempty"`
 }
 
 // cloudRegionSubdoc records information about cloud regions.
@@ -59,6 +60,7 @@ func createCloudOp(cloud cloud.Cloud) txn.Op {
 			IdentityEndpoint: cloud.IdentityEndpoint,
 			StorageEndpoint:  cloud.StorageEndpoint,
 			Regions:          regions,
+			CACertificates:   cloud.CACertificates,
 		},
 	}
 }
@@ -90,6 +92,7 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 		IdentityEndpoint: d.IdentityEndpoint,
 		StorageEndpoint:  d.StorageEndpoint,
 		Regions:          regions,
+		CACertificates:   d.CACertificates,
 	}
 }
 
