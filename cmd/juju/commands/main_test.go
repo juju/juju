@@ -47,7 +47,7 @@ func configHelpText() string {
 }
 
 func syncToolsHelpText() string {
-	return cmdtesting.HelpText(newSyncToolsCommand(), "juju sync-agents")
+	return cmdtesting.HelpText(newSyncToolsCommand(), "juju sync-agent-binaries")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -113,8 +113,8 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    2,
 		out:     "ERROR flag provided but not defined: --model\n",
 	}, {
-		summary: "juju sync-agents registered properly",
-		args:    []string{"sync-agents", "--help"},
+		summary: "juju sync-agent-binaries registered properly",
+		args:    []string{"sync-agent-binaries", "--help"},
 		code:    0,
 		out:     syncToolsHelpText(),
 	}, {
@@ -544,7 +544,7 @@ var commandNames = []string{
 	"subnets",
 	"suspend-relation",
 	"switch",
-	"sync-agents",
+	"sync-agent-binaries",
 	"sync-tools",
 	"unexpose",
 	"unregister",
