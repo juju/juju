@@ -22,17 +22,7 @@ func FormatCharmTabular(writer io.Writer, value interface{}) error {
 	}
 
 	// Sort by resource name
-	names := make([]string, len(resources))
-	resourcesByName := map[string][]FormattedCharmResource{}
-	for i, r := range resources {
-		names[i] = r.Name
-		allNamedResources, ok := resourcesByName[r.Name]
-		if !ok {
-			allNamedResources = []FormattedCharmResource{}
-		}
-		resourcesByName[r.Name] = append(allNamedResources, r)
-	}
-	sort.Strings(names)
+	names, resourcesByName := groupCharmResourcesByName(resources)
 
 	// To format things into columns.
 	tw := output.TabWriter(writer)
@@ -56,13 +46,29 @@ func FormatCharmTabular(writer io.Writer, value interface{}) error {
 	return nil
 }
 
+func groupCharmResourcesByName(resources []FormattedCharmResource) ([]string, map[string][]FormattedCharmResource) {
+	// Sort by resource name
+	names := make([]string, len(resources))
+	resourcesByName := map[string][]FormattedCharmResource{}
+	for i, r := range resources {
+		names[i] = r.Name
+		allNamedResources, ok := resourcesByName[r.Name]
+		if !ok {
+			allNamedResources = []FormattedCharmResource{}
+		}
+		resourcesByName[r.Name] = append(allNamedResources, r)
+	}
+	sort.Strings(names)
+	return names, resourcesByName
+}
+
 // FormatSvcTabular returns a tabular summary of resources.
 func FormatSvcTabular(writer io.Writer, value interface{}) error {
 	switch resources := value.(type) {
 	case FormattedServiceInfo:
 		formatServiceTabular(writer, resources)
 		return nil
-	case []FormattedUnitResource:
+	case []FormattedSvcResource:
 		formatUnitTabular(writer, resources)
 		return nil
 	case FormattedServiceDetails:
@@ -77,20 +83,22 @@ func FormatSvcTabular(writer io.Writer, value interface{}) error {
 }
 
 func formatServiceTabular(writer io.Writer, info FormattedServiceInfo) {
-	// TODO(ericsnow) sort the rows first?
+	// Sort by resource name
+	names, resourcesByName := groupApplicationResourcesByName(info.Resources)
 
-	fmt.Fprintln(writer, "[Service]")
 	tw := output.TabWriter(writer)
 	fmt.Fprintln(tw, "Resource\tSupplied by\tRevision")
 
 	// Print each info to its own row.
-	for _, r := range info.Resources {
-		// the column headers must be kept in sync with these.
-		fmt.Fprintf(tw, "%v\t%v\t%v\n",
-			r.Name,
-			r.CombinedOrigin,
-			r.CombinedRevision,
-		)
+	for _, name := range names {
+		for _, r := range resourcesByName[name] {
+			// the column headers must be kept in sync with these.
+			fmt.Fprintf(tw, "%v\t%v\t%v\n",
+				r.Name,
+				r.CombinedOrigin,
+				r.CombinedRevision,
+			)
+		}
 	}
 
 	// Don't forget to flush!  The Tab writer won't actually write to the output
@@ -101,26 +109,44 @@ func formatServiceTabular(writer io.Writer, info FormattedServiceInfo) {
 	writeUpdates(info.Updates, writer, tw)
 }
 
+func groupApplicationResourcesByName(resources []FormattedSvcResource) ([]string, map[string][]FormattedSvcResource) {
+	// Sort by resource name
+	names := make([]string, len(resources))
+	resourcesByName := map[string][]FormattedSvcResource{}
+	for i, r := range resources {
+		names[i] = r.Name
+		allNamedResources, ok := resourcesByName[r.Name]
+		if !ok {
+			allNamedResources = []FormattedSvcResource{}
+		}
+		resourcesByName[r.Name] = append(allNamedResources, r)
+	}
+	sort.Strings(names)
+	return names, resourcesByName
+}
+
 func writeUpdates(updates []FormattedCharmResource, out io.Writer, tw *ansiterm.TabWriter) {
+	names, resourcesByName := groupCharmResourcesByName(updates)
+
 	if len(updates) > 0 {
 		fmt.Fprintln(out, "")
 		fmt.Fprintln(out, "[Updates Available]")
 		fmt.Fprintln(tw, "Resource\tRevision")
-		for _, r := range updates {
-			fmt.Fprintf(tw, "%v\t%v\n",
-				r.Name,
-				r.Revision,
-			)
+		for _, name := range names {
+			for _, r := range resourcesByName[name] {
+				fmt.Fprintf(tw, "%v\t%v\n",
+					name,
+					r.Revision,
+				)
+			}
 		}
 	}
 
 	tw.Flush()
 }
 
-func formatUnitTabular(writer io.Writer, resources []FormattedUnitResource) {
-	// TODO(ericsnow) sort the rows first?
-
-	fmt.Fprintln(writer, "[Unit]")
+func formatUnitTabular(writer io.Writer, resources []FormattedSvcResource) {
+	names, resourcesByName := groupApplicationResourcesByName(resources)
 
 	// To format things into columns.
 	tw := output.TabWriter(writer)
@@ -130,12 +156,14 @@ func formatUnitTabular(writer io.Writer, resources []FormattedUnitResource) {
 	fmt.Fprintln(tw, "Resource\tRevision")
 
 	// Print each info to its own row.
-	for _, r := range resources {
-		// the column headers must be kept in sync with these.
-		fmt.Fprintf(tw, "%v\t%v\n",
-			r.Name,
-			r.CombinedRevision,
-		)
+	for _, name := range names {
+		for _, r := range resourcesByName[name] {
+			// the column headers must be kept in sync with these.
+			fmt.Fprintf(tw, "%v\t%v\n",
+				r.Name,
+				r.CombinedRevision,
+			)
+		}
 	}
 	tw.Flush()
 }
@@ -143,9 +171,6 @@ func formatUnitTabular(writer io.Writer, resources []FormattedUnitResource) {
 func formatServiceDetailTabular(writer io.Writer, resources FormattedServiceDetails) {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.
-
-	fmt.Fprintln(writer, "[Units]")
-
 	sort.Sort(byUnitID(resources.Resources))
 	// To format things into columns.
 	tw := output.TabWriter(writer)
@@ -155,7 +180,7 @@ func formatServiceDetailTabular(writer io.Writer, resources FormattedServiceDeta
 
 	for _, r := range resources.Resources {
 		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\n",
-			r.UnitNumber,
+			r.UnitID,
 			r.Expected.Name,
 			r.Unit.CombinedRevision,
 			r.RevProgress,
@@ -169,9 +194,6 @@ func formatServiceDetailTabular(writer io.Writer, resources FormattedServiceDeta
 func formatUnitDetailTabular(writer io.Writer, resources FormattedUnitDetails) {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.
-
-	fmt.Fprintln(writer, "[Unit]")
-
 	sort.Sort(byUnitID(resources))
 	// To format things into columns.
 	tw := output.TabWriter(writer)

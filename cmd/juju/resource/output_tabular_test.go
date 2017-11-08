@@ -123,7 +123,6 @@ func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
-[Service]
 Resource  Supplied by  Revision
 openjdk   charmstore   7
 `[1:])
@@ -143,13 +142,12 @@ func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
 		Timestamp: time.Now(),
 	}
 
-	formatted := []resourcecmd.FormattedUnitResource{
-		resourcecmd.FormattedUnitResource(resourcecmd.FormatSvcResource(res)),
+	formatted := []resourcecmd.FormattedSvcResource{
+		resourcecmd.FormatSvcResource(res),
 	}
 
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
-[Unit]
 Resource  Revision
 openjdk   7
 `[1:])
@@ -252,11 +250,10 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 	data := s.formatTabular(c, formatted)
 	// Notes: sorted by name, then by revision, newest first.
 	c.Check(data, gc.Equals, `
-[Service]
 Resource  Supplied by  Revision
 openjdk   charmstore   7
-website   upload       -
 openjdk2  charmstore   8
+website   upload       -
 website2  Bill User    2012-12-12T12:12
 
 [Updates Available]
@@ -298,10 +295,9 @@ func (s *SvcTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
 
 	output := s.formatTabular(c, data)
 	c.Assert(output, gc.Equals, `
-[Units]
-Unit  Resource  Revision  Expected
-5     config    combRev2  combRev3
-10    data      combRev1  combRev1 (fetching: 17%)
+Unit    Resource  Revision  Expected
+svc/5   config    combRev2  combRev3
+svc/10  data      combRev1  combRev1 (fetching: 17%)
 
 [Updates Available]
 Resource  Revision
@@ -330,7 +326,6 @@ func (s *SvcTabularSuite) TestFormatUnitDetailsOkay(c *gc.C) {
 
 	output := s.formatTabular(c, data)
 	c.Assert(output, gc.Equals, `
-[Unit]
 Resource  Revision  Expected
 config    combRev2  combRev3 (fetching: 91%)
 data      combRev1  combRev1

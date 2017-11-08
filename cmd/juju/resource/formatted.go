@@ -47,9 +47,6 @@ type FormattedSvcResource struct {
 	CombinedOrigin   string `json:"-"`
 }
 
-// FormattedUnitResource holds the formatted representation of a resource's info.
-type FormattedUnitResource FormattedSvcResource
-
 // FormattedDetailResource is the data for a single line of tabular output for
 // juju resources <application> --details.
 type FormattedDetailResource struct {

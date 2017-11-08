@@ -188,7 +188,6 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	c.Check(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-[Service]
 Resource  Supplied by  Revision
 openjdk   charmstore   7
 rsc1234   charmstore   15
@@ -264,7 +263,6 @@ func (s *ShowServiceSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc.C) 
 	code, stdout, stderr := runCmd(c, cmd, unitName)
 	c.Assert(code, gc.Equals, 0)
 	c.Check(stdout, gc.Equals, `
-[Unit]
 Resource  Revision
 openjdk   -
 
@@ -348,7 +346,6 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 	c.Assert(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-[Unit]
 Resource  Revision
 rsc1234   15
 website2  2012-12-12T12:12
@@ -510,14 +507,13 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 	c.Check(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-[Units]
-Unit  Resource  Revision          Expected
-5     alpha     10                15
-5     beta      2012-12-12T12:12  2012-12-12T12:12
-5     charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 2%)
-10    alpha     10                15 (fetching: 15%)
-10    beta      -                 2012-12-12T12:12
-10    charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 9%)
+Unit    Resource  Revision          Expected
+svc/5   alpha     10                15
+svc/5   beta      2012-12-12T12:12  2012-12-12T12:12
+svc/5   charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 2%)
+svc/10  alpha     10                15 (fetching: 15%)
+svc/10  beta      -                 2012-12-12T12:12
+svc/10  charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 9%)
 
 `[1:])
 
@@ -648,7 +644,6 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 	c.Assert(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-[Unit]
 Resource  Revision          Expected
 alpha     10                15
 beta      -                 2012-12-12T12:12

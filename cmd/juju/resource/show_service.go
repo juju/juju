@@ -79,7 +79,7 @@ func (c *ShowServiceCommand) SetFlags(f *gnuflag.FlagSet) {
 // errors.BadRequest if you give it an incorrect number of arguments.
 func (c *ShowServiceCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.NewBadRequest(nil, "missing application name")
+		return errors.NewBadRequest(nil, "missing application or unit name")
 	}
 	c.target = args[0]
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
@@ -173,7 +173,7 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 	}
 
 	resources := unitResources(unit, service, sr)
-	res := make([]FormattedUnitResource, len(sr.Resources))
+	res := make([]FormattedSvcResource, len(sr.Resources))
 	for i, r := range sr.Resources {
 		if unitResource, ok := resources[r.ID]; ok {
 			// Unit has this application resource,
@@ -185,7 +185,7 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 			// All other information is inherited from application resource.
 			r.Revision = -1
 		}
-		res[i] = FormattedUnitResource(FormatSvcResource(r))
+		res[i] = FormatSvcResource(r)
 	}
 
 	return c.out.Write(ctx, res)
