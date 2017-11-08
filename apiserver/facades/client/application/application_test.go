@@ -2195,15 +2195,6 @@ var applicationDestroyTests = []struct {
 		application: "dummy-application",
 		err:         `application "dummy-application" not found`,
 	},
-	{
-		about:       "destroy a remote application",
-		application: "remote-application",
-	},
-	{
-		about:       "destroy an already destroyed remote application",
-		application: "remote-application",
-		err:         `application "remote-application" not found`,
-	},
 }
 
 func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
