@@ -55,7 +55,7 @@ func (s *syncToolsSuite) Reset(c *gc.C) {
 	s.SetUpTest(c)
 }
 
-func (s *syncToolsSuite) runSyncToolsCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *syncToolsSuite) runSyncAgentBinariesCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	cmd := &syncToolsCommand{}
 	cmd.SetClientStore(s.store)
 	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
@@ -132,7 +132,7 @@ func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 			called = true
 			return nil
 		}
-		ctx, err := s.runSyncToolsCommand(c, test.args...)
+		ctx, err := s.runSyncAgentBinariesCommand(c, test.args...)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ctx, gc.NotNil)
 		c.Assert(called, jc.IsTrue)
@@ -157,7 +157,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 		called = true
 		return nil
 	}
-	ctx, err := s.runSyncToolsCommand(c, "-m", "test-target", "--local-dir", dir, "--stream", "proposed")
+	ctx, err := s.runSyncAgentBinariesCommand(c, "-m", "test-target", "--local-dir", dir, "--stream", "proposed")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
@@ -173,7 +173,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectoryPublic(c *gc.C) {
 		called = true
 		return nil
 	}
-	ctx, err := s.runSyncToolsCommand(c, "-m", "test-target", "--local-dir", dir, "--public")
+	ctx, err := s.runSyncAgentBinariesCommand(c, "-m", "test-target", "--local-dir", dir, "--public")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
@@ -204,7 +204,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 		{loggo.INFO, "Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead."},
 	}
 	// Run sync-agents command with --destination flag.
-	ctx, err := s.runSyncToolsCommand(c, "-m", "test-target", "--destination", dir, "--stream", "released")
+	ctx, err := s.runSyncAgentBinariesCommand(c, "-m", "test-target", "--destination", dir, "--stream", "released")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
@@ -284,7 +284,7 @@ func (s *syncToolsSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
 		// Block operation
 		return common.OperationBlockedError("TestAPIAdapterBlockUploadTools")
 	}
-	_, err := s.runSyncToolsCommand(c, "-m", "test-target", "--destination", c.MkDir(), "--stream", "released")
+	_, err := s.runSyncAgentBinariesCommand(c, "-m", "test-target", "--destination", c.MkDir(), "--stream", "released")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestAPIAdapterBlockUploadTools.*")
 }
 
