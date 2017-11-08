@@ -59,10 +59,10 @@ func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 	}
 }
 
-// FormatSvcResource converts the resource info into a FormattedServiceResource.
-func FormatSvcResource(res resource.Resource) FormattedSvcResource {
+// FormatAppResource converts the resource info into a FormattedAppResource.
+func FormatAppResource(res resource.Resource) FormattedAppResource {
 	used := !res.IsPlaceholder()
-	result := FormattedSvcResource{
+	result := FormattedAppResource{
 		ID:               res.ID,
 		ApplicationID:    res.ApplicationID,
 		Name:             res.Name,
@@ -88,19 +88,19 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 	return result
 }
 
-func formatServiceResources(sr resource.ServiceResources) (FormattedServiceInfo, error) {
-	var formatted FormattedServiceInfo
+func formatApplicationResources(sr resource.ServiceResources) (FormattedApplicationInfo, error) {
+	var formatted FormattedApplicationInfo
 	updates, err := sr.Updates()
 	if err != nil {
 		return formatted, errors.Trace(err)
 	}
-	formatted = FormattedServiceInfo{
-		Resources: make([]FormattedSvcResource, len(sr.Resources)),
+	formatted = FormattedApplicationInfo{
+		Resources: make([]FormattedAppResource, len(sr.Resources)),
 		Updates:   make([]FormattedCharmResource, len(updates)),
 	}
 
 	for i, r := range sr.Resources {
-		formatted.Resources[i] = FormatSvcResource(r)
+		formatted.Resources[i] = FormatAppResource(r)
 	}
 	for i, u := range updates {
 		formatted.Updates[i] = FormatCharmResource(u)
@@ -108,10 +108,10 @@ func formatServiceResources(sr resource.ServiceResources) (FormattedServiceInfo,
 	return formatted, nil
 }
 
-// FormatServiceDetails converts a ServiceResources value into a formatted value
+// FormatApplicationDetails converts a ServiceResources value into a formatted value
 // for display on the command line.
-func FormatServiceDetails(sr resource.ServiceResources) (FormattedServiceDetails, error) {
-	var formatted FormattedServiceDetails
+func FormatApplicationDetails(sr resource.ServiceResources) (FormattedApplicationDetails, error) {
+	var formatted FormattedApplicationDetails
 	details, err := detailedResources("", sr)
 	if err != nil {
 		return formatted, errors.Trace(err)
@@ -120,7 +120,7 @@ func FormatServiceDetails(sr resource.ServiceResources) (FormattedServiceDetails
 	if err != nil {
 		return formatted, errors.Trace(err)
 	}
-	formatted = FormattedServiceDetails{
+	formatted = FormattedApplicationDetails{
 		Resources: details,
 		Updates:   make([]FormattedCharmResource, len(updates)),
 	}
@@ -140,8 +140,8 @@ func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progre
 		return FormattedDetailResource{}, errors.Trace(err)
 	}
 	progressStr := ""
-	fUnit := FormatSvcResource(unit)
-	expected := FormatSvcResource(svc)
+	fUnit := FormatAppResource(unit)
+	expected := FormatAppResource(svc)
 	revProgress := expected.CombinedRevision
 	if progress >= 0 {
 		progressStr = "100%"

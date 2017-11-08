@@ -18,15 +18,15 @@ type FormattedCharmResource struct {
 	Origin      string `json:"origin" yaml:"origin"`
 }
 
-// FormattedServiceInfo holds the formatted representation of the information
+// FormattedApplicationInfo holds the formatted representation of the information
 // about an application's resources.
-type FormattedServiceInfo struct {
-	Resources []FormattedSvcResource   `json:"resources,omitempty" yaml:"resources,omitempty"`
+type FormattedApplicationInfo struct {
+	Resources []FormattedAppResource   `json:"resources,omitempty" yaml:"resources,omitempty"`
 	Updates   []FormattedCharmResource `json:"updates,omitempty" yaml:"updates,omitempty"`
 }
 
-// FormattedSvcResource holds the formatted representation of a resource's info.
-type FormattedSvcResource struct {
+// FormattedAppResource holds the formatted representation of a resource's info.
+type FormattedAppResource struct {
 	// These fields are exported for the sake of serialization.
 	ID            string    `json:"resourceid,omitempty" yaml:"resourceid,omitempty"`
 	ApplicationID string    `json:"applicationId,omitempty" yaml:"applicationId,omitempty"`
@@ -51,16 +51,16 @@ type FormattedSvcResource struct {
 // juju resources <application> --details.
 type FormattedDetailResource struct {
 	UnitID      string               `json:"unitID" yaml:"unitID"`
-	Unit        FormattedSvcResource `json:"unit" yaml:"unit"`
-	Expected    FormattedSvcResource `json:"expected" yaml:"expected"`
+	Unit        FormattedAppResource `json:"unit" yaml:"unit"`
+	Expected    FormattedAppResource `json:"expected" yaml:"expected"`
 	Progress    int64                `json:"progress,omitempty" yaml:"progress,omitempty"`
 	UnitNumber  int                  `json:"-"`
 	RevProgress string               `json:"-"`
 }
 
-// FormattedServiceDetails is the data for the tabular output for juju resources
+// FormattedApplicationDetails is the data for the tabular output for juju resources
 // <application> --details.
-type FormattedServiceDetails struct {
+type FormattedApplicationDetails struct {
 	Resources []FormattedDetailResource `json:"resources,omitempty" yaml:"resources,omitempty"`
 	Updates   []FormattedCharmResource  `json:"updates,omitempty" yaml:"updates,omitempty"`
 }

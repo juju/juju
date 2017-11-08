@@ -37,28 +37,28 @@ func (s *ShowServiceSuite) SetUpTest(c *gc.C) {
 }
 
 func (*ShowServiceSuite) TestInitEmpty(c *gc.C) {
-	s := resourcecmd.ShowServiceCommand{}
+	s := resourcecmd.ListCommand{}
 
 	err := s.Init([]string{})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (*ShowServiceSuite) TestInitGood(c *gc.C) {
-	s := resourcecmd.ShowServiceCommand{}
+	s := resourcecmd.ListCommand{}
 	err := s.Init([]string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resourcecmd.ShowServiceCommandTarget(&s), gc.Equals, "foo")
+	c.Assert(resourcecmd.ListCommandTarget(&s), gc.Equals, "foo")
 }
 
 func (*ShowServiceSuite) TestInitTooManyArgs(c *gc.C) {
-	s := resourcecmd.ShowServiceCommand{}
+	s := resourcecmd.ListCommand{}
 
 	err := s.Init([]string{"foo", "bar"})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (s *ShowServiceSuite) TestInfo(c *gc.C) {
-	var command resourcecmd.ShowServiceCommand
+	var command resourcecmd.ListCommand
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
@@ -78,7 +78,7 @@ func (s *ShowServiceSuite) TestRunNoResourcesForService(c *gc.C) {
 	data := []resource.ServiceResources{resource.ServiceResources{}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -179,7 +179,7 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -207,7 +207,7 @@ func (s *ShowServiceSuite) TestRunNoResourcesForUnit(c *gc.C) {
 	data := []resource.ServiceResources{resource.ServiceResources{}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -256,7 +256,7 @@ func (s *ShowServiceSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc.C) 
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -337,7 +337,7 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 		}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -498,7 +498,7 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -635,7 +635,7 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -659,7 +659,7 @@ type stubShowServiceDeps struct {
 	client *stubServiceClient
 }
 
-func (s *stubShowServiceDeps) NewClient(c *resourcecmd.ShowServiceCommand) (resourcecmd.ShowServiceClient, error) {
+func (s *stubShowServiceDeps) NewClient(c *resourcecmd.ListCommand) (resourcecmd.ListClient, error) {
 	s.stub.AddCall("NewClient", c)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

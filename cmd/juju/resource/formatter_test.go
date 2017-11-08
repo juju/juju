@@ -70,8 +70,8 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		ApplicationID: "a-application",
 	}
 
-	f := resourcecmd.FormatSvcResource(r)
-	c.Assert(f, gc.Equals, resourcecmd.FormattedSvcResource{
+	f := resourcecmd.FormatAppResource(r)
+	c.Assert(f, gc.Equals, resourcecmd.FormattedAppResource{
 		ID:               "a-application/website",
 		ApplicationID:    "a-application",
 		Name:             r.Name,
@@ -96,7 +96,7 @@ func (s *SvcFormatterSuite) TestNotUsed(c *gc.C) {
 	r := resource.Resource{
 		Timestamp: time.Time{},
 	}
-	f := resourcecmd.FormatSvcResource(r)
+	f := resourcecmd.FormatAppResource(r)
 	c.Assert(f.Used, jc.IsFalse)
 }
 
@@ -104,7 +104,7 @@ func (s *SvcFormatterSuite) TestUsed(c *gc.C) {
 	r := resource.Resource{
 		Timestamp: time.Now(),
 	}
-	f := resourcecmd.FormatSvcResource(r)
+	f := resourcecmd.FormatAppResource(r)
 	c.Assert(f.Used, jc.IsTrue)
 }
 
@@ -117,7 +117,7 @@ func (s *SvcFormatterSuite) TestOriginUploadDeployed(c *gc.C) {
 		Username:  "bill",
 		Timestamp: time.Now(),
 	}
-	f := resourcecmd.FormatSvcResource(r)
+	f := resourcecmd.FormatAppResource(r)
 	c.Assert(f.CombinedOrigin, gc.Equals, "bill")
 }
 
@@ -127,7 +127,7 @@ func (s *SvcFormatterSuite) TestInitialOriginUpload(c *gc.C) {
 			Origin: charmresource.OriginUpload,
 		},
 	}
-	f := resourcecmd.FormatSvcResource(r)
+	f := resourcecmd.FormatAppResource(r)
 	c.Assert(f.CombinedOrigin, gc.Equals, "upload")
 }
 
@@ -189,10 +189,10 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 		resourcecmd.FormattedDetailResource{
 			UnitNumber:  55,
 			UnitID:      "a-application/55",
-			Expected:    resourcecmd.FormatSvcResource(svc),
+			Expected:    resourcecmd.FormatAppResource(svc),
 			Progress:    8,
 			RevProgress: "5 (fetching: 80%)",
-			Unit:        resourcecmd.FormatSvcResource(unit),
+			Unit:        resourcecmd.FormatAppResource(unit),
 		},
 	)
 }
@@ -229,10 +229,10 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 		resourcecmd.FormattedDetailResource{
 			UnitNumber:  55,
 			UnitID:      "a-application/55",
-			Expected:    resourcecmd.FormatSvcResource(svc),
+			Expected:    resourcecmd.FormatAppResource(svc),
 			Progress:    0,
 			RevProgress: "5 (fetching: 0%)",
-			Unit:        resourcecmd.FormatSvcResource(unit),
+			Unit:        resourcecmd.FormatAppResource(unit),
 		},
 	)
 }

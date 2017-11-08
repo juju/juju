@@ -15,40 +15,39 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-// ShowServiceClient has the API client methods needed by ShowServiceCommand.
-type ShowServiceClient interface {
+// ListClient has the API client methods needed by ListCommand.
+type ListClient interface {
 	// ListResources returns info about resources for applications in the model.
 	ListResources(services []string) ([]resource.ServiceResources, error)
 	// Close closes the connection.
 	Close() error
 }
 
-// ShowServiceDeps is a type that contains external functions that ShowService
-// depends on to function.
-type ShowServiceDeps struct {
-	// NewClient returns the value that wraps the API for showing application
+// ListDeps is a type that contains external functions that List needs.
+type ListDeps struct {
+	// NewClient returns the value that wraps the API for showing
 	// resources from the server.
-	NewClient func(*ShowServiceCommand) (ShowServiceClient, error)
+	NewClient func(*ListCommand) (ListClient, error)
 }
 
-// ShowServiceCommand implements the upload command.
-type ShowServiceCommand struct {
+// ListCommand discovers and lists application or unit resources.
+type ListCommand struct {
 	modelcmd.ModelCommandBase
 
 	details bool
-	deps    ShowServiceDeps
+	deps    ListDeps
 	out     cmd.Output
 	target  string
 }
 
-// NewShowServiceCommand returns a new command that lists resources defined
+// NewListCommand returns a new command that lists resources defined
 // by a charm.
-func NewShowServiceCommand(deps ShowServiceDeps) modelcmd.ModelCommand {
-	return modelcmd.Wrap(&ShowServiceCommand{deps: deps})
+func NewListCommand(deps ListDeps) modelcmd.ModelCommand {
+	return modelcmd.Wrap(&ListCommand{deps: deps})
 }
 
 // Info implements cmd.Command.Info.
-func (c *ShowServiceCommand) Info() *cmd.Info {
+func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resources",
 		Aliases: []string{"list-resources"},
@@ -63,11 +62,11 @@ updates available for resources from the charmstore.
 }
 
 // SetFlags implements cmd.Command.SetFlags.
-func (c *ShowServiceCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	const defaultFormat = "tabular"
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
-		defaultFormat: FormatSvcTabular,
+		defaultFormat: FormatAppTabular,
 		"yaml":        cmd.FormatYaml,
 		"json":        cmd.FormatJson,
 	})
@@ -77,7 +76,7 @@ func (c *ShowServiceCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements cmd.Command.Init. It will return an error satisfying
 // errors.BadRequest if you give it an incorrect number of arguments.
-func (c *ShowServiceCommand) Init(args []string) error {
+func (c *ListCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.NewBadRequest(nil, "missing application or unit name")
 	}
@@ -89,7 +88,7 @@ func (c *ShowServiceCommand) Init(args []string) error {
 }
 
 // Run implements cmd.Command.Run.
-func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
+func (c *ListCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.deps.NewClient(c)
 	if err != nil {
 		return errors.Trace(err)
@@ -97,18 +96,18 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 	defer apiclient.Close()
 
 	var unit string
-	var service string
+	var application string
 	if names.IsValidApplication(c.target) {
-		service = c.target
+		application = c.target
 	} else {
-		service, err = names.UnitApplication(c.target)
+		application, err = names.UnitApplication(c.target)
 		if err != nil {
 			return errors.Errorf("%q is neither an application nor a unit", c.target)
 		}
 		unit = c.target
 	}
 
-	vals, err := apiclient.ListResources([]string{service})
+	vals, err := apiclient.ListResources([]string{application})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -126,16 +125,16 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if unit == "" {
-		return c.formatServiceResources(ctx, v)
+		return c.formatApplicationResources(ctx, v)
 	}
-	return c.formatUnitResources(ctx, unit, service, v)
+	return c.formatUnitResources(ctx, unit, application, v)
 }
 
 const noResources = "No resources to display."
 
-func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resource.ServiceResources) error {
+func (c *ListCommand) formatApplicationResources(ctx *cmd.Context, sr resource.ServiceResources) error {
 	if c.details {
-		formatted, err := FormatServiceDetails(sr)
+		formatted, err := FormatApplicationDetails(sr)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -147,7 +146,7 @@ func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resourc
 		return c.out.Write(ctx, formatted)
 	}
 
-	formatted, err := formatServiceResources(sr)
+	formatted, err := formatApplicationResources(sr)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -158,7 +157,7 @@ func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resourc
 	return c.out.Write(ctx, formatted)
 }
 
-func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ServiceResources) error {
+func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ServiceResources) error {
 	if len(sr.Resources) == 0 && len(sr.UnitResources) == 0 {
 		ctx.Infof(noResources)
 		return nil
@@ -173,7 +172,7 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 	}
 
 	resources := unitResources(unit, service, sr)
-	res := make([]FormattedSvcResource, len(sr.Resources))
+	res := make([]FormattedAppResource, len(sr.Resources))
 	for i, r := range sr.Resources {
 		if unitResource, ok := resources[r.ID]; ok {
 			// Unit has this application resource,
@@ -185,7 +184,7 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 			// All other information is inherited from application resource.
 			r.Revision = -1
 		}
-		res[i] = FormatSvcResource(r)
+		res[i] = FormatAppResource(r)
 	}
 
 	return c.out.Write(ctx, res)

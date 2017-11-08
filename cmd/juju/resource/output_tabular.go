@@ -62,17 +62,17 @@ func groupCharmResourcesByName(resources []FormattedCharmResource) ([]string, ma
 	return names, resourcesByName
 }
 
-// FormatSvcTabular returns a tabular summary of resources.
-func FormatSvcTabular(writer io.Writer, value interface{}) error {
+// FormatAppTabular returns a tabular summary of resources.
+func FormatAppTabular(writer io.Writer, value interface{}) error {
 	switch resources := value.(type) {
-	case FormattedServiceInfo:
-		formatServiceTabular(writer, resources)
+	case FormattedApplicationInfo:
+		formatApplicationTabular(writer, resources)
 		return nil
-	case []FormattedSvcResource:
+	case []FormattedAppResource:
 		formatUnitTabular(writer, resources)
 		return nil
-	case FormattedServiceDetails:
-		formatServiceDetailTabular(writer, resources)
+	case FormattedApplicationDetails:
+		formatApplicationDetailTabular(writer, resources)
 		return nil
 	case FormattedUnitDetails:
 		formatUnitDetailTabular(writer, resources)
@@ -82,7 +82,7 @@ func FormatSvcTabular(writer io.Writer, value interface{}) error {
 	}
 }
 
-func formatServiceTabular(writer io.Writer, info FormattedServiceInfo) {
+func formatApplicationTabular(writer io.Writer, info FormattedApplicationInfo) {
 	// Sort by resource name
 	names, resourcesByName := groupApplicationResourcesByName(info.Resources)
 
@@ -109,15 +109,15 @@ func formatServiceTabular(writer io.Writer, info FormattedServiceInfo) {
 	writeUpdates(info.Updates, writer, tw)
 }
 
-func groupApplicationResourcesByName(resources []FormattedSvcResource) ([]string, map[string][]FormattedSvcResource) {
+func groupApplicationResourcesByName(resources []FormattedAppResource) ([]string, map[string][]FormattedAppResource) {
 	// Sort by resource name
 	names := make([]string, len(resources))
-	resourcesByName := map[string][]FormattedSvcResource{}
+	resourcesByName := map[string][]FormattedAppResource{}
 	for i, r := range resources {
 		names[i] = r.Name
 		allNamedResources, ok := resourcesByName[r.Name]
 		if !ok {
-			allNamedResources = []FormattedSvcResource{}
+			allNamedResources = []FormattedAppResource{}
 		}
 		resourcesByName[r.Name] = append(allNamedResources, r)
 	}
@@ -145,7 +145,7 @@ func writeUpdates(updates []FormattedCharmResource, out io.Writer, tw *ansiterm.
 	tw.Flush()
 }
 
-func formatUnitTabular(writer io.Writer, resources []FormattedSvcResource) {
+func formatUnitTabular(writer io.Writer, resources []FormattedAppResource) {
 	names, resourcesByName := groupApplicationResourcesByName(resources)
 
 	// To format things into columns.
@@ -168,7 +168,7 @@ func formatUnitTabular(writer io.Writer, resources []FormattedSvcResource) {
 	tw.Flush()
 }
 
-func formatServiceDetailTabular(writer io.Writer, resources FormattedServiceDetails) {
+func formatApplicationDetailTabular(writer io.Writer, resources FormattedApplicationDetails) {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.
 	sort.Sort(byUnitID(resources.Resources))

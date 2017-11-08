@@ -98,7 +98,7 @@ type SvcTabularSuite struct {
 
 func (s *SvcTabularSuite) formatTabular(c *gc.C, value interface{}) string {
 	out := &bytes.Buffer{}
-	err := resourcecmd.FormatSvcTabular(out, value)
+	err := resourcecmd.FormatAppTabular(out, value)
 	c.Assert(err, jc.ErrorIsNil)
 	return out.String()
 }
@@ -117,8 +117,8 @@ func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 		Timestamp: time.Now(),
 	}
 
-	formatted := resourcecmd.FormattedServiceInfo{
-		Resources: []resourcecmd.FormattedSvcResource{resourcecmd.FormatSvcResource(res)},
+	formatted := resourcecmd.FormattedApplicationInfo{
+		Resources: []resourcecmd.FormattedAppResource{resourcecmd.FormatAppResource(res)},
 	}
 
 	data := s.formatTabular(c, formatted)
@@ -142,8 +142,8 @@ func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
 		Timestamp: time.Now(),
 	}
 
-	formatted := []resourcecmd.FormattedSvcResource{
-		resourcecmd.FormatSvcResource(res),
+	formatted := []resourcecmd.FormattedAppResource{
+		resourcecmd.FormatAppResource(res),
 	}
 
 	data := s.formatTabular(c, formatted)
@@ -241,7 +241,7 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 		},
 	}
 
-	formatted, err := resourcecmd.FormatServiceResources(resource.ServiceResources{
+	formatted, err := resourcecmd.FormatApplicationResources(resource.ServiceResources{
 		Resources:           res,
 		CharmStoreResources: charmResources,
 	})
@@ -264,7 +264,7 @@ openjdk   10
 
 func (s *SvcTabularSuite) TestFormatSvcTabularBadValue(c *gc.C) {
 	bogus := "should have been something else"
-	err := resourcecmd.FormatSvcTabular(nil, bogus)
+	err := resourcecmd.FormatAppTabular(nil, bogus)
 	c.Check(err, gc.ErrorMatches, `unexpected type for data: string`)
 }
 
@@ -272,7 +272,7 @@ func (s *SvcTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
 	res := charmRes(c, "spam", ".tgz", "...", "")
 	updates := []resourcecmd.FormattedCharmResource{resourcecmd.FormatCharmResource(res)}
 
-	data := resourcecmd.FormattedServiceDetails{
+	data := resourcecmd.FormattedApplicationDetails{
 		Resources: []resourcecmd.FormattedDetailResource{
 			{
 				UnitID:      "svc/10",
@@ -332,8 +332,8 @@ data      combRev1  combRev1
 `[1:])
 }
 
-func fakeFmtSvcRes(name, suffix string) resourcecmd.FormattedSvcResource {
-	return resourcecmd.FormattedSvcResource{
+func fakeFmtSvcRes(name, suffix string) resourcecmd.FormattedAppResource {
+	return resourcecmd.FormattedAppResource{
 		ID:               "ID" + suffix,
 		ApplicationID:    "svc",
 		Name:             name,

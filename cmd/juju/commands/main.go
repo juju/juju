@@ -479,8 +479,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 			return os.Open(s)
 		},
 	}))
-	r.Register(resource.NewShowServiceCommand(resource.ShowServiceDeps{
-		NewClient: func(c *resource.ShowServiceCommand) (resource.ShowServiceClient, error) {
+	r.Register(resource.NewListCommand(resource.ListDeps{
+		NewClient: func(c *resource.ListCommand) (resource.ListClient, error) {
 			apiRoot, err := c.NewAPIRoot()
 			if err != nil {
 				return nil, errors.Trace(err)
