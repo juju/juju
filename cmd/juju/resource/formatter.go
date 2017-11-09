@@ -79,8 +79,8 @@ func FormatAppResource(res resource.Resource) FormattedAppResource {
 		CombinedOrigin:   combinedOrigin(used, res),
 		UsedYesNo:        usedYesNo(used),
 	}
-	// Have to check for -1 since revision 0 is still a valid revision.
-	if res.Revision > -1 {
+	// Have to check since revision 0 is still a valid revision.
+	if res.Revision >= 0 {
 		result.Revision = fmt.Sprintf("%v", res.Revision)
 	} else {
 		result.Revision = "-"
@@ -165,7 +165,8 @@ func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progre
 func combinedRevision(r resource.Resource) string {
 	switch r.Origin {
 	case charmresource.OriginStore:
-		if r.Revision > -1 {
+		// Have to check since 0+ is a valid revision number
+		if r.Revision >= 0 {
 			return fmt.Sprintf("%d", r.Revision)
 		}
 	case charmresource.OriginUpload:
