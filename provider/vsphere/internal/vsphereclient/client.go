@@ -123,7 +123,7 @@ func (c *Client) RemoveVirtualMachines(ctx context.Context, path string) error {
 
 	for _, task := range tasks {
 		_, err := task.WaitForResult(ctx, nil)
-		if err != nil {
+		if err != nil && !isManagedObjectNotFound(err) {
 			lastError = err
 			c.logger.Errorf(err.Error())
 		}
@@ -271,7 +271,8 @@ func (c *Client) DestroyVMFolder(ctx context.Context, folderPath string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if _, err := task.WaitForResult(ctx, nil); err != nil {
+	_, err = task.WaitForResult(ctx, nil)
+	if err != nil && !isManagedObjectNotFound(err) {
 		return errors.Trace(err)
 	}
 	return nil
@@ -490,4 +491,14 @@ func (c *Client) detachDisk(
 		return "", errors.Trace(err)
 	}
 	return vmdkDatastorePath, nil
+}
+
+func isManagedObjectNotFound(err error) bool {
+	if f, ok := err.(types.HasFault); ok {
+		switch f.Fault().(type) {
+		case *types.ManagedObjectNotFound:
+			return true
+		}
+	}
+	return false
 }
