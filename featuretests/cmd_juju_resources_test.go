@@ -72,7 +72,6 @@ func (s *ResourcesCmdSuite) TestResourcesCommands(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
-[Service]
 Resource          Supplied by  Revision
 install-resource  upload       -
 store-resource    upload       -
@@ -83,8 +82,14 @@ upload-resource   upload       -
 	// check "juju resources <unit>"
 	context, err = runCommand(c, "resources", s.unitOneName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "No resources to display.\n")
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
+Resource          Revision
+install-resource  -
+store-resource    -
+upload-resource   -
+
+`[1:])
 
 	// check "juju attach-resource"
 	context, err = runCommand(c, "attach-resource", s.appOneName, "install-resource=oops")
