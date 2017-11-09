@@ -43,11 +43,13 @@ gopkg.in/goose.v1	git	8f055ce635d660f9b7827a1ff398c360715df261	2016-11-30T14:51:
 gopkg.in/juju/charm.v5	git	949f52b3948c64bcd79dff3fdb2c7477fc11120a	2016-11-09T08:40:14Z
 gopkg.in/juju/charmstore.v4	git	b90d24652753eeb1f7d209483d499f6b24dcf25e	2015-07-10T10:24:09Z
 gopkg.in/juju/environschema.v1	git	16cc59268c09c22870cb4de8eb6248652535f315	2015-08-24T13:22:26Z
+gopkg.in/juju/worker.v1	git	6965b9d826717287bb002e02d1fd4d079978083e	2017-03-08T00:24:58Z
 gopkg.in/macaroon-bakery.v0	git	9593b80b01ba04b519769d045dffd6abd827d2fd	2015-04-10T07:46:55Z
 gopkg.in/macaroon.v1	git	ab3940c6c16510a850e1c2dd628b919f0f3f1464	2015-01-21T11:42:31Z
 gopkg.in/mgo.v2	git	3569c88678d88179dcbd68d02ab081cbca3cd4d0	2015-06-04T15:26:27Z
 gopkg.in/natefinch/lumberjack.v2	git	588a21fb0fa0ebdfde42670fa214576b6f0f22df	2015-05-21T01:59:18Z
 gopkg.in/natefinch/npipe.v2	git	c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6	2016-06-21T03:49:01Z
+gopkg.in/tomb.v1	git	dd632973f1e7218eb1089048e0798ec9ae7dceb8	2014-10-24T13:56:13Z
 gopkg.in/yaml.v1	git	9f9df34309c04878acc86042b16630b0f696e1de	2014-09-24T16:16:07Z
 gopkg.in/yaml.v2	git	a83829b6f1293c91addabc89d0571c246397bbf4	2016-03-01T20:40:22Z
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13

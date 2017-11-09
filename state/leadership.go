@@ -2,16 +2,25 @@ package state
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/leadership"
+	stateleadership "github.com/juju/juju/state/leadership"
+	"github.com/juju/juju/state/lease"
 )
 
-const settingsKey = "s#%s#leader"
+const (
+	leadershipWorkerName = "leadership"
+
+	settingsKey = "s#%s#leader"
+)
 
 func addLeadershipSettingsOp(serviceId string) txn.Op {
 	return txn.Op{
@@ -37,13 +46,13 @@ func leadershipSettingsDocId(serviceId string) string {
 // LeadershipClaimer returns a leadership.Claimer for units and services in the
 // state's environment.
 func (st *State) LeadershipClaimer() leadership.Claimer {
-	return st.leadershipManager
+	return lazyLeadershipManager{st.leadershipWorker}
 }
 
 // LeadershipChecker returns a leadership.Checker for units and services in the
 // state's environment.
 func (st *State) LeadershipChecker() leadership.Checker {
-	return st.leadershipManager
+	return lazyLeadershipManager{st.leadershipWorker}
 }
 
 // HackLeadership stops the state's internal leadership manager to prevent it
@@ -62,7 +71,7 @@ func (st *State) HackLeadership() {
 	// close them all on their own schedule, without panics -- but the failure of
 	// the shared component should successfully goose them all into shutting down,
 	// in parallel, of their own accord.)
-	st.leadershipManager.Kill()
+	st.leadershipWorker.Kill()
 }
 
 // buildTxnWithLeadership returns a transaction source that combines the supplied source
@@ -81,4 +90,90 @@ func buildTxnWithLeadership(buildTxn jujutxn.TransactionSource, token leadership
 		}
 		return append(prereqs, ops...), nil
 	}
+}
+
+type lazyLeadershipManager struct {
+	w *leadershipWorker
+}
+
+func (l lazyLeadershipManager) ClaimLeadership(serviceId, unitId string, duration time.Duration) error {
+	return l.w.manager().ClaimLeadership(serviceId, unitId, duration)
+}
+
+func (l lazyLeadershipManager) BlockUntilLeadershipReleased(serviceId string) error {
+	return l.w.manager().BlockUntilLeadershipReleased(serviceId)
+}
+
+func (l lazyLeadershipManager) LeadershipCheck(serviceName, unitName string) leadership.Token {
+	return l.w.manager().LeadershipCheck(serviceName, unitName)
+}
+
+type leadershipWorker struct {
+	*worker.Runner
+}
+
+func newLeadershipWorker(st *State) *leadershipWorker {
+	w := &leadershipWorker{
+		Runner: worker.NewRunner(worker.RunnerParams{
+			IsFatal: func(error) bool { return false },
+		}),
+	}
+	w.startWorker(st)
+	return w
+}
+
+func (w *leadershipWorker) startWorker(st *State) {
+	w.StartWorker(leadershipWorkerName, func() (worker.Worker, error) {
+		var clientId string
+		if identity := st.mongoInfo.Tag; identity != nil {
+			// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
+			// think it's just coincidental that the mongodb user happens to map to
+			// the machine that's executing the code -- but there doesn't seem to be
+			// an accessible alternative.
+			clientId = identity.String()
+		} else {
+			// If we're running state anonymously, we can still use the lease
+			// manager; but we need to make sure we use a unique client ID, and
+			// will thus not be very performant.
+			logger.Infof("running state anonymously; using unique client id")
+			uuid, err := utils.NewUUID()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			clientId = fmt.Sprintf("anon-%s", uuid.String())
+		}
+
+		logger.Infof("creating lease client as %s", clientId)
+		clock := GetClock()
+		datastore := &environMongo{st}
+		leaseClient, err := lease.NewClient(lease.ClientConfig{
+			Id:         clientId,
+			Namespace:  serviceLeadershipNamespace,
+			Collection: leasesC,
+			Mongo:      datastore,
+			Clock:      clock,
+		})
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot create lease client")
+		}
+		logger.Infof("starting leadership manager")
+
+		leadershipManager, err := stateleadership.NewManager(stateleadership.ManagerConfig{
+			Client:   leaseClient,
+			Clock:    clock,
+			MaxSleep: time.Minute,
+		})
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot create leadership manager")
+		}
+		return leadershipManager, nil
+	})
+}
+
+func (lw *leadershipWorker) manager() stateleadership.ManagerWorker {
+	w, err := lw.Worker(leadershipWorkerName, nil)
+	if err != nil {
+		return stateleadership.NewDeadManager(errors.Trace(err))
+	}
+	return w.(stateleadership.ManagerWorker)
 }

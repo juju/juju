@@ -31,8 +31,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/leadership"
-	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
@@ -68,9 +66,9 @@ type State struct {
 
 	// TODO(fwereade): move these out of state and make them independent
 	// workers on which state depends.
-	watcher           *watcher.Watcher
-	pwatcher          *presence.Watcher
-	leadershipManager leadership.ManagerWorker
+	watcher          *watcher.Watcher
+	pwatcher         *presence.Watcher
+	leadershipWorker *leadershipWorker
 
 	// mu guards allManager, allEnvManager & allEnvWatcherBacking
 	mu                   sync.Mutex
@@ -172,51 +170,10 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 // and fills in the serverTag field with the supplied value.
 func (st *State) start(serverTag names.EnvironTag) error {
 	st.serverTag = serverTag
-
-	var clientId string
-	if identity := st.mongoInfo.Tag; identity != nil {
-		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
-		// think it's just coincidental that the mongodb user happens to map to
-		// the machine that's executing the code -- but there doesn't seem to be
-		// an accessible alternative.
-		clientId = identity.String()
-	} else {
-		// If we're running state anonymously, we can still use the lease
-		// manager; but we need to make sure we use a unique client ID, and
-		// will thus not be very performant.
-		logger.Infof("running state anonymously; using unique client id")
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		clientId = fmt.Sprintf("anon-%s", uuid.String())
-	}
-
-	logger.Infof("creating lease client as %s", clientId)
-	clock := GetClock()
-	datastore := &environMongo{st}
-	leaseClient, err := lease.NewClient(lease.ClientConfig{
-		Id:         clientId,
-		Namespace:  serviceLeadershipNamespace,
-		Collection: leasesC,
-		Mongo:      datastore,
-		Clock:      clock,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "cannot create lease client")
-	}
-	logger.Infof("starting leadership manager")
-	leadershipManager, err := leadership.NewManager(leadership.ManagerConfig{
-		Client:   leaseClient,
-		Clock:    clock,
-		MaxSleep: time.Minute,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "cannot create leadership manager")
-	}
-	st.leadershipManager = leadershipManager
+	st.leadershipWorker = newLeadershipWorker(st)
 
 	logger.Infof("creating cloud image metadata storage")
+	datastore := &environMongo{st}
 	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.EnvironUUID(), cloudimagemetadataC, datastore)
 
 	logger.Infof("starting presence watcher")

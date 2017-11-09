@@ -448,3 +448,12 @@ func SpaceDoc(s *Space) spaceDoc {
 func DeleteCharm(st *State, curl *charm.URL) error {
 	return st.deleteCharm(curl)
 }
+
+func RestartLeadershipManager(st *State) {
+	w, err := st.leadershipWorker.Worker(leadershipWorkerName, nil)
+	if err == nil {
+		st.leadershipWorker.StopWorker(leadershipWorkerName)
+		w.Wait()
+	}
+	st.leadershipWorker.startWorker(st)
+}

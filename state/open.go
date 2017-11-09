@@ -280,9 +280,9 @@ func (st *State) Close() (err error) {
 	if st.pwatcher != nil {
 		handle("presence watcher", st.pwatcher.Stop())
 	}
-	if st.leadershipManager != nil {
-		st.leadershipManager.Kill()
-		handle("leadership manager", st.leadershipManager.Wait())
+	if st.leadershipWorker != nil {
+		st.leadershipWorker.Kill()
+		handle("leadership manager", st.leadershipWorker.Wait())
 	}
 	st.mu.Lock()
 	if st.allManager != nil {
