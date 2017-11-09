@@ -72,7 +72,7 @@ func (s *credentialsSuite) TestJSONFileCredentialsValid(c *gc.C) {
 	})
 }
 
-func createCredsFile(c *gc.C, path string) (string, string) {
+func createCredsFile(c *gc.C, path string) string {
 	if path == "" {
 		dir := c.MkDir()
 		path = filepath.Join(dir, "creds.json")
@@ -81,29 +81,29 @@ func createCredsFile(c *gc.C, path string) (string, string) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(path, creds.JSONKey, 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	return path, string(creds.JSONKey)
+	return path
 }
 
 func (s *credentialsSuite) TestDetectCredentialsFromEnvVar(c *gc.C) {
-	jsonpath, json := createCredsFile(c, "")
+	jsonpath := createCredsFile(c, "")
 	s.PatchEnvironment("USER", "fred")
 	s.PatchEnvironment("GOOGLE_APPLICATION_CREDENTIALS", jsonpath)
 	s.PatchEnvironment("CLOUDSDK_COMPUTE_REGION", "region")
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
-	expected := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": json})
+	expected := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath})
 	expected.Label = `google credential "test@example.com"`
 	c.Assert(credentials.AuthCredentials["fred"], jc.DeepEquals, expected)
 }
 
-func (s *credentialsSuite) assertDetectCredentialsKnownLocation(c *gc.C, jsonpath string, jsonContent string) {
+func (s *credentialsSuite) assertDetectCredentialsKnownLocation(c *gc.C, jsonpath string) {
 	s.PatchEnvironment("USER", "fred")
 	s.PatchEnvironment("CLOUDSDK_COMPUTE_REGION", "region")
 	credentials, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials.DefaultRegion, gc.Equals, "region")
-	expected := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonContent})
+	expected := cloud.NewCredential(cloud.JSONFileAuthType, map[string]string{"file": jsonpath})
 	expected.Label = `google credential "test@example.com"`
 	c.Assert(credentials.AuthCredentials["fred"], jc.DeepEquals, expected)
 }
@@ -123,8 +123,8 @@ func (s *credentialsSuite) TestDetectCredentialsKnownLocationUnix(c *gc.C) {
 	path := filepath.Join(dir, ".config", "gcloud")
 	err = os.MkdirAll(path, 0700)
 	c.Assert(err, jc.ErrorIsNil)
-	jsonpath, json := createCredsFile(c, filepath.Join(path, "application_default_credentials.json"))
-	s.assertDetectCredentialsKnownLocation(c, jsonpath, json)
+	jsonpath := createCredsFile(c, filepath.Join(path, "application_default_credentials.json"))
+	s.assertDetectCredentialsKnownLocation(c, jsonpath)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsKnownLocationWindows(c *gc.C) {
@@ -136,6 +136,6 @@ func (s *credentialsSuite) TestDetectCredentialsKnownLocationWindows(c *gc.C) {
 	path := filepath.Join(dir, "gcloud")
 	err := os.MkdirAll(path, 0700)
 	c.Assert(err, jc.ErrorIsNil)
-	jsonpath, json := createCredsFile(c, filepath.Join(path, "application_default_credentials.json"))
-	s.assertDetectCredentialsKnownLocation(c, jsonpath, json)
+	jsonpath := createCredsFile(c, filepath.Join(path, "application_default_credentials.json"))
+	s.assertDetectCredentialsKnownLocation(c, jsonpath)
 }
