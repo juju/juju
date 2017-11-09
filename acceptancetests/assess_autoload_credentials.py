@@ -163,10 +163,10 @@ def ensure_autoload_credentials_stores_details(client_base, cloud_details_fn):
             cloud_details.env_var_changes,
             cloud_details.expect_answers)
 
-        client.env.load_yaml()
+        credentials = get_updated_client_credentials(client)
 
         assert_credentials_contains_expected_results(
-            client.env.credentials,
+            credentials,
             cloud_details.expected_details)
 
 
@@ -205,11 +205,31 @@ def ensure_autoload_credentials_overwrite_existing(client_base,
             overwrite_details.env_var_changes,
             overwrite_details.expect_answers)
 
-        client.env.load_yaml()
+        credentials = get_updated_client_credentials(client)
 
         assert_credentials_contains_expected_results(
-            client.env.credentials,
+            credentials,
             overwrite_details.expected_details)
+
+
+def get_updated_client_credentials(client):
+    """Load crendentials for a client, sanitising if needed.
+
+    To make it easier to test it's potentially needed to parse some credential
+    details into a datastructure to simplify comparison.
+
+    :param client: ModelClient object to load details for
+    :return: Credentials dict from credentials.yaml file.
+    """
+    client.env.load_yaml()
+    credentials = client.env.credentials.copy()
+    # GCE file attribute is a string containing json contents of a file.
+    if client.env.provider == 'gce':
+        file_json = json.loads(
+            credentials['credentials']['google']['testing-user']['file'])
+        credentials[
+            'credentials']['google']['testing-user']['file'] = file_json
+    return credentials
 
 
 def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
@@ -600,12 +620,17 @@ def write_gce_home_config_file(tmp_dir, credential_details):
 
 
 def get_gce_expected_details_dict(user, credentials_path):
+    # GCE file attribute is actually a string of the json content of the file,
+    # to simplify comparison in this test we treat it as a datastructure.
+    with open(credentials_path, 'rt') as f:
+        file_contents = json.load(f)
+
     return {
         'credentials': {
             'google': {
                 user: {
                     'auth-type': 'jsonfile',
-                    'file': credentials_path,
+                    'file': file_contents,
                     }
                 }
             }
