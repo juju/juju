@@ -36,6 +36,7 @@ var lowCloud = cloud.Cloud{
 		IdentityEndpoint: "region2-identity",
 		StorageEndpoint:  "region2-storage",
 	}},
+	CACertificates: []string{"cert1", "cert2"},
 }
 
 func (s *CloudSuite) TestCloudNotFound(c *gc.C) {
