@@ -160,16 +160,17 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	defaultCredential := caasConfig.Credentials[defaultContext.CredentialName]
 	defaultCloud := caasConfig.Clouds[defaultContext.CloudName]
 
-	cloudConfig := map[string]interface{}{
-		"CAData": defaultCloud.Attributes["CAData"],
+	defaultCloudCAData, ok := defaultCloud.Attributes["CAData"].(string)
+	if !ok {
+		return errors.Errorf("CAData attribute should be a string")
 	}
 
 	newCloud := cloud.Cloud{
-		Name:      c.caasName,
-		Type:      c.caasType,
-		Endpoint:  defaultCloud.Endpoint,
-		Config:    cloudConfig,
-		AuthTypes: []cloud.AuthType{defaultCredential.AuthType()},
+		Name:           c.caasName,
+		Type:           c.caasType,
+		Endpoint:       defaultCloud.Endpoint,
+		AuthTypes:      []cloud.AuthType{defaultCredential.AuthType()},
+		CACertificates: []string{defaultCloudCAData},
 	}
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {

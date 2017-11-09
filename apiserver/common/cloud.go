@@ -29,6 +29,7 @@ func CloudToParams(cloud jujucloud.Cloud) params.Cloud {
 		IdentityEndpoint: cloud.IdentityEndpoint,
 		StorageEndpoint:  cloud.StorageEndpoint,
 		Regions:          regions,
+		CACertificates:   cloud.CACertificates,
 	}
 }
 
@@ -54,5 +55,6 @@ func CloudFromParams(cloudName string, p params.Cloud) jujucloud.Cloud {
 		IdentityEndpoint: p.IdentityEndpoint,
 		StorageEndpoint:  p.StorageEndpoint,
 		Regions:          regions,
+		CACertificates:   p.CACertificates,
 	}
 }
