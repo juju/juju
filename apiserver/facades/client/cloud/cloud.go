@@ -52,13 +52,13 @@ var (
 // NewFacade provides the required signature for facade registration.
 func NewFacade(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
-	ctlrSt := NewStateBackend(context.StatePool().SystemState())
+	ctlrSt := NewStateBackend(context.StatePool().GetController().ControllerState())
 	return NewCloudAPI(st, ctlrSt, context.Auth())
 }
 
 func NewFacadeV2(context facade.Context) (*CloudAPIV2, error) {
 	st := NewStateBackend(context.State())
-	ctlrSt := NewStateBackend(context.StatePool().SystemState())
+	ctlrSt := NewStateBackend(context.StatePool().GetController().ControllerState())
 	return NewCloudAPIV2(st, ctlrSt, context.Auth())
 }
 

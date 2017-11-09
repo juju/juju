@@ -33,7 +33,7 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 
 func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.pool = state.NewStatePool(s.State)
+	s.pool = state.NewStatePool(s.Controller)
 	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 

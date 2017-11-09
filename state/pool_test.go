@@ -17,7 +17,6 @@ import (
 
 type statePoolSuite struct {
 	statetesting.StateSuite
-	State1, State2                    *state.State
 	Pool                              *state.StatePool
 	ModelUUID, ModelUUID1, ModelUUID2 string
 }
@@ -28,16 +27,17 @@ func (s *statePoolSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.ModelUUID = s.State.ModelUUID()
 
-	s.State1 = s.Factory.MakeModel(c, nil)
-	s.AddCleanup(func(*gc.C) { s.State1.Close() })
-	s.ModelUUID1 = s.State1.ModelUUID()
+	st1 := s.Factory.MakeModel(c, nil)
+	defer st1.Close()
+	s.ModelUUID1 = st1.ModelUUID()
 
-	s.State2 = s.Factory.MakeModel(c, nil)
-	s.AddCleanup(func(*gc.C) { s.State2.Close() })
-	s.ModelUUID2 = s.State2.ModelUUID()
+	st2 := s.Factory.MakeModel(c, nil)
+	defer st2.Close()
+	s.ModelUUID2 = st2.ModelUUID()
 
-	s.Pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.Pool.Close() })
+	pool := state.NewStatePool(s.Controller)
+	s.AddCleanup(func(*gc.C) { pool.Close() })
+	s.Pool = pool
 }
 
 func (s *statePoolSuite) TestGet(c *gc.C) {
@@ -60,17 +60,13 @@ func (s *statePoolSuite) TestGet(c *gc.C) {
 	c.Assert(st2_, gc.Equals, st2)
 }
 
-func (s *statePoolSuite) TestGetWithControllerModel(c *gc.C) {
-	// When a State for the controller model is requested, the same
-	// State that was original passed in should be returned.
-	st0, _, err := s.Pool.Get(s.ModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st0, gc.Equals, s.State)
-}
+func (s *statePoolSuite) TestControllerState(c *gc.C) {
+	st := s.Pool.GetController().ControllerState()
+	c.Assert(st.ModelUUID(), gc.Equals, s.State.ModelUUID())
 
-func (s *statePoolSuite) TestGetSystemState(c *gc.C) {
-	st0 := s.Pool.SystemState()
-	c.Assert(st0, gc.Equals, s.State)
+	err := s.Pool.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	assertNotClosed(c, st)
 }
 
 func (s *statePoolSuite) TestKillWorkers(c *gc.C) {
@@ -106,9 +102,8 @@ func (s *statePoolSuite) TestClose(c *gc.C) {
 	err = s.Pool.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Confirm that controller State isn't closed.
-	_, err = s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	assertClosed(c, st1)
+	assertClosed(c, st2)
 
 	// Ensure that new ones are returned if further States are
 	// requested.
@@ -142,31 +137,6 @@ func (s *statePoolSuite) TestTooManyReleases(c *gc.C) {
 	removed = secondRelease()
 	c.Assert(removed, jc.IsTrue)
 	assertClosed(c, st)
-}
-
-func (s *statePoolSuite) TestReleaseOnSystemStateUUID(c *gc.C) {
-	st, releaser, err := s.Pool.Get(s.ModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	removed := releaser()
-	c.Assert(removed, jc.IsFalse)
-	assertNotClosed(c, st)
-}
-
-func (s *statePoolSuite) TestRemoveSystemStateUUID(c *gc.C) {
-	removed, err := s.Pool.Remove(s.ModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(removed, jc.IsFalse)
-	assertNotClosed(c, s.State)
-}
-
-func assertNotClosed(c *gc.C, st *state.State) {
-	_, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func assertClosed(c *gc.C, st *state.State) {
-	w := state.GetInternalWorkers(st)
-	c.Check(workertest.CheckKilled(c, w), jc.ErrorIsNil)
 }
 
 func (s *statePoolSuite) TestRemoveWithNoRefsCloses(c *gc.C) {
@@ -219,4 +189,14 @@ func (s *statePoolSuite) TestGetRemovedNotAllowed(c *gc.C) {
 	_, _, err = s.Pool.Get(s.ModelUUID1)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("model %v has been removed", s.ModelUUID1))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func assertNotClosed(c *gc.C, st *state.State) {
+	_, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func assertClosed(c *gc.C, st *state.State) {
+	w := state.GetInternalWorkers(st)
+	c.Check(workertest.CheckKilled(c, w), jc.ErrorIsNil)
 }

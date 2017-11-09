@@ -56,7 +56,7 @@ var _ = gc.Suite(&serverSuite{})
 
 func (s *serverSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.pool = state.NewStatePool(s.State)
+	s.pool = state.NewStatePool(s.Controller)
 	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
@@ -214,10 +214,10 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 		MongoInfo:          mongoInfo,
 		MongoDialOpts:      dialOpts,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	pool := state.NewStatePool(st)
+	pool := state.NewStatePool(s.Controller)
 	defer pool.Close()
 
 	// Now close the proxy so that any attempts to use the
@@ -374,7 +374,7 @@ func (s *macaroonServerSuite) SetUpTest(c *gc.C) {
 		controller.IdentityURL: s.discharger.Location(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
-	s.pool = state.NewStatePool(s.State)
+	s.pool = state.NewStatePool(s.Controller)
 	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
@@ -428,7 +428,7 @@ func (s *macaroonServerWrongPublicKeySuite) SetUpTest(c *gc.C) {
 		controller.IdentityPublicKey: wrongKey.Public.String(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
-	s.pool = state.NewStatePool(s.State)
+	s.pool = state.NewStatePool(s.Controller)
 	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
@@ -545,7 +545,7 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	coretesting.SkipFlaky(c, "lp:1702215")
-	pool := state.NewStatePool(s.State)
+	pool := state.NewStatePool(s.Controller)
 	defer pool.Close()
 	cfg := defaultServerConfig(c)
 	_, server := newServerWithConfig(c, pool, cfg)

@@ -381,7 +381,8 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 		tls.NewListener(lis, srv.tlsConfig), cfg.RateLimitConfig, clock.WallClock)
 
 	// The auth context for authenticating logins.
-	srv.loginAuthCtxt, err = newAuthContext(stPool.SystemState())
+	st := srv.statePool.GetController().ControllerState()
+	srv.loginAuthCtxt, err = newAuthContext(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -446,7 +447,7 @@ func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
 	}
 	m := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		Cache:      srv.statePool.SystemState().AutocertCache(),
+		Cache:      srv.statePool.GetController().ControllerState().AutocertCache(),
 		HostPolicy: autocert.HostWhitelist(cfg.AutocertDNSName),
 	}
 	if cfg.AutocertURL != "" {
@@ -535,7 +536,6 @@ func (srv *Server) run() {
 
 		// Break deadlocks caused by leadership BlockUntil... calls.
 		srv.statePool.KillWorkers()
-		srv.statePool.SystemState().KillWorkers()
 
 		srv.wg.Wait() // wait for any outstanding requests to complete.
 		srv.tomb.Done()
@@ -791,7 +791,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	}
 
 	// Add HTTP handlers for local-user macaroon authentication.
-	localLoginHandlers := &localLoginHandlers{srv.loginAuthCtxt, srv.statePool.SystemState()}
+	st := srv.statePool.GetController().ControllerState()
+	localLoginHandlers := &localLoginHandlers{srv.loginAuthCtxt, st}
 	dischargeMux := http.NewServeMux()
 	httpbakery.AddDischargeHandler(
 		dischargeMux,
@@ -953,7 +954,8 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 }
 
 func (srv *Server) mongoPinger() error {
-	session := srv.statePool.SystemState().MongoSession().Copy()
+	st := srv.statePool.GetController().ControllerState()
+	session := st.MongoSession().Copy()
 	defer session.Close()
 	for {
 		if err := session.Ping(); err != nil {
@@ -1051,7 +1053,7 @@ func serverError(err error) error {
 }
 
 func (srv *Server) processModelRemovals() error {
-	st := srv.statePool.SystemState()
+	st := srv.statePool.GetController().ControllerState()
 	w := st.WatchModelLives()
 	defer w.Stop()
 	for {

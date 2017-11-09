@@ -276,7 +276,7 @@ func (s *StateSuite) TestWatchAllModels(c *gc.C) {
 	// The allModelWatcher infrastructure is comprehensively tested
 	// elsewhere. This just ensures things are hooked up correctly in
 	// State.WatchAllModels()
-	pool := state.NewStatePool(s.State)
+	pool := state.NewStatePool(s.Controller)
 	defer pool.Close()
 	w := s.State.WatchAllModels(pool)
 	defer w.Stop()

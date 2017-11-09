@@ -1124,11 +1124,14 @@ func (m *Model) destroyOps(
 		// return an error indicating that there are hosted models.
 
 		// We need access State instances for hosted models and it's
-		// too hard to thread an external StatePool to here, so create
+		// too hard to thread an external Controller to here, so create
 		// a fresh one. Creating new States is relatively slow but
 		// this is ok because this is an infrequently used code path.
-		pool := NewStatePool(m.st)
-		defer pool.Close()
+		ctrl, err := OpenControllerForState(m.st)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer ctrl.Close()
 
 		modelUUIDs, err := m.st.AllModelUUIDs()
 		if err != nil {
@@ -1141,7 +1144,7 @@ func (m *Model) destroyOps(
 				continue
 			}
 
-			st, release, err := pool.Get(modelUUID)
+			st, err := ctrl.NewState(names.NewModelTag(modelUUID))
 			if err != nil {
 				// This model could have been removed.
 				if errors.IsNotFound(err) {
@@ -1149,14 +1152,15 @@ func (m *Model) destroyOps(
 				}
 				return nil, errors.Trace(err)
 			}
-			defer release()
 
 			model, err := st.Model()
 			if err != nil {
+				st.Close()
 				return nil, errors.Trace(err)
 			}
 
 			if model.Life() == Dead {
+				st.Close()
 				// Dead hosted models don't affect
 				// whether the controller can be
 				// destroyed or not, but they are
@@ -1170,6 +1174,7 @@ func (m *Model) destroyOps(
 			// destruction. The destruction is carried
 			// out by the cleanup.
 			ops, err := model.destroyOps(args, !args.DestroyHostedModels, true)
+			st.Close()
 			switch err {
 			case errModelNotAlive:
 				dying++

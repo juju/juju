@@ -41,7 +41,7 @@ func (s *apiserverBaseSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetPassword(ownerPassword)
 	c.Assert(err, jc.ErrorIsNil)
-	s.pool = state.NewStatePool(s.State)
+	s.pool = state.NewStatePool(s.Controller)
 	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 

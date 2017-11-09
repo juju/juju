@@ -16,12 +16,12 @@ import (
 
 type mockStatePool struct {
 	testing.Stub
-	system *mockState
-	models []*mockModel
+	controllerState *mockState
+	models          []*mockModel
 }
 
-func (p *mockStatePool) SystemState() statemetrics.State {
-	return p.system
+func (p *mockStatePool) GetController() statemetrics.Controller {
+	return &mockController{p.controllerState, p.controllerState.ControllerTag()}
 }
 
 func (p *mockStatePool) Get(modelUUID string) (statemetrics.State, state.StatePoolReleaser, error) {
@@ -60,6 +60,19 @@ func (p *mockStatePool) modelUUIDs() []string {
 		out[i] = m.tag.Id()
 	}
 	return out
+}
+
+type mockController struct {
+	st  statemetrics.State
+	tag names.ControllerTag
+}
+
+func (c *mockController) ControllerTag() names.ControllerTag {
+	return c.tag
+}
+
+func (c *mockController) ControllerState() statemetrics.State {
+	return c.st
 }
 
 type mockState struct {

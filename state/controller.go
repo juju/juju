@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	names "gopkg.in/juju/names.v2"
-	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/mongo"
@@ -32,9 +32,11 @@ func controllerKey(controllerUUID string) string {
 // Controller encapsulates state for the Juju controller as a whole,
 // as opposed to model specific functionality.
 //
-// TODO(menn0) - this is currently unused, pending further refactoring
-// of State.
 type Controller struct {
+	// st is the controller state.
+	// TODO(wallyworld) - remove this once all the controller related methods are moved
+	st *State
+
 	clock                  clock.Clock
 	controllerModelTag     names.ModelTag
 	controllerTag          names.ControllerTag
@@ -49,6 +51,13 @@ type Controller struct {
 func (ctlr *Controller) Close() error {
 	ctlr.session.Close()
 	return nil
+}
+
+// ControllerState returns the State associated with the controller model.
+// Its use is deprecated and indicates that any methods invoked on the
+// returned State need to be moved to this controller struct.
+func (ctlr *Controller) ControllerState() *State {
+	return ctlr.st
 }
 
 // NewState returns a new State instance for the specified model. The
@@ -77,6 +86,16 @@ func (ctlr *Controller) NewState(modelTag names.ModelTag) (*State, error) {
 // is still alive.
 func (ctlr *Controller) Ping() error {
 	return ctlr.session.Ping()
+}
+
+// ControllerTag returns the tag of the controller itself.
+func (ctlr *Controller) ControllerTag() names.ControllerTag {
+	return ctlr.controllerTag
+}
+
+// ModelUUID returns the UUID of the controller model.
+func (ctlr *Controller) ModelUUID() string {
+	return ctlr.controllerModelTag.Id()
 }
 
 // ControllerConfig returns the config values for the controller.

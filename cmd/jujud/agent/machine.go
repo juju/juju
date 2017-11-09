@@ -1275,7 +1275,12 @@ func (a *MachineAgent) apiserverWorkerStarter(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		statePool := state.NewStatePool(st)
+		ctrl, err := state.OpenControllerForState(st)
+		if err != nil {
+			st.Close()
+			return nil, errors.Trace(err)
+		}
+		statePool := state.NewStatePool(ctrl)
 		w, err := a.newAPIserverWorker(
 			st, statePool, certChanged, dependencyReporter,
 		)
@@ -1400,6 +1405,7 @@ func (a *MachineAgent) newAPIserverWorker(
 		Work: func() error {
 			defer st.Close()
 			defer statePool.Close()
+			defer statePool.GetController().Close()
 			defer a.statePool.set(nil)
 			<-apiserverWorker.Catacomb.Dying()
 			// Wait for the workers to die before

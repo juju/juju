@@ -114,6 +114,27 @@ func OpenController(args OpenParams) (*Controller, error) {
 	}, nil
 }
 
+// OpenControllerForState returns a controller using the controller state.
+// TODO(wallyworld) - use this method until we can weave Controller through the code.
+func OpenControllerForState(ctrlSt *State) (*Controller, error) {
+	if ctrlSt.modelTag.Id() != ctrlSt.controllerModelTag.Id() {
+		return nil, errors.New("must use controller model state when opening controller")
+	}
+	ctrl, err := OpenController(OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      ctrlSt.controllerTag,
+		ControllerModelTag: ctrlSt.modelTag,
+		MongoInfo:          ctrlSt.mongoInfo,
+		MongoDialOpts:      mongo.DefaultDialOpts(),
+		NewPolicy:          func(*State) Policy { return ctrlSt.policy },
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ctrl.st = ctrlSt
+	return ctrl, nil
+}
+
 // Open connects to the server with the given parameters, waits for it
 // to be initialized, and returns a new State representing the model
 // connected to.

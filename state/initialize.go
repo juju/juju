@@ -159,6 +159,9 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 		}
 	}()
 	st.controllerModelTag = modelTag
+	// Set the controller state.
+	// TODO(wallyworld) - controller state is deprecated
+	ctlr.st = st
 
 	// A valid model is used as a signal that the
 	// state has already been initalized. If this is the case

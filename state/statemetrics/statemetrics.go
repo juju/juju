@@ -136,7 +136,8 @@ func (c *Collector) updateMetrics() {
 	logger.Tracef("updating state metrics")
 	defer logger.Tracef("updated state metrics")
 
-	st := c.pool.SystemState()
+	ctrl := c.pool.GetController()
+	st := ctrl.ControllerState()
 	modelUUIDs, err := st.AllModelUUIDs()
 	if err != nil {
 		logger.Debugf("error getting models: %v", err)
@@ -149,7 +150,7 @@ func (c *Collector) updateMetrics() {
 	// TODO(axw) AllUsers only returns *local* users. We do not have User
 	// records for external users. To obtain external users, we will need
 	// to get all of the controller and model-level access documents.
-	controllerTag := st.ControllerTag()
+	controllerTag := ctrl.ControllerTag()
 	localUsers, err := st.AllUsers()
 	if err != nil {
 		logger.Debugf("error getting local users: %v", err)

@@ -20,7 +20,7 @@ var _ = gc.Suite(&utilsSuite{})
 
 func (s *utilsSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
-	s.pool = state.NewStatePool(s.State)
+	s.pool = state.NewStatePool(s.Controller)
 	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 

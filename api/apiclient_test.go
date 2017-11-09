@@ -567,7 +567,7 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, gc.IsNil)
 	machineTag := names.NewMachineTag("0")
-	statePool := state.NewStatePool(s.State)
+	statePool := state.NewStatePool(s.Controller)
 	defer statePool.Close()
 	srv, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
 		Clock:           clock.WallClock,

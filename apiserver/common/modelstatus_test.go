@@ -56,7 +56,7 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
-	s.pool = state.NewStatePool(s.State)
+	s.pool = state.NewStatePool(s.Controller)
 	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 
 	controller, err := controller.NewControllerAPIv4(

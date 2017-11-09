@@ -245,7 +245,7 @@ func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 		return result, errors.Trace(err)
 	}
 
-	controllerState := s.statePool.SystemState()
+	controllerState := s.statePool.GetController().ControllerState()
 	controllerModel, err := controllerState.Model()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -445,7 +445,8 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	}
 
 	// Check if the migration is likely to succeed.
-	if err := runMigrationPrechecks(hostedState, c.statePool.SystemState(), &targetInfo); err != nil {
+	ctrlSt := c.statePool.GetController().ControllerState()
+	if err := runMigrationPrechecks(hostedState, ctrlSt, &targetInfo); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -503,7 +504,7 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 // retrieved from the target controller.
 var runMigrationPrechecks = func(st, ctlrSt *state.State, targetInfo *coremigration.TargetInfo) error {
 	// Check model and source controller.
-	backend, err := migration.PrecheckShim(st)
+	backend, err := migration.PrecheckShim(st, ctlrSt)
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}

@@ -49,7 +49,7 @@ func (s *pubsubSuite) SetUpTest(c *gc.C) {
 	s.machineTag = m.Tag()
 	s.password = password
 	s.hub = pubsub.NewStructuredHub(nil)
-	s.pool = state.NewStatePool(s.State)
+	s.pool = state.NewStatePool(s.Controller)
 	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 	_, s.server = newServerWithHub(c, s.pool, s.hub)
 	s.AddCleanup(func(*gc.C) { s.server.Stop() })

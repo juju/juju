@@ -52,7 +52,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 
 	s.StateSuite.SetUpTest(c)
 
-	s.statePool = state.NewStatePool(s.State)
+	s.statePool = state.NewStatePool(s.Controller)
 	s.AddCleanup(func(c *gc.C) {
 		err := s.statePool.Close()
 		c.Assert(err, jc.ErrorIsNil)

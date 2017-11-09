@@ -84,7 +84,8 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 		// Handle the special case of a worker on a controller machine
 		// acting on behalf of a hosted model.
 		if isMachineTag(req.AuthTag) {
-			entity, err := checkControllerMachineCreds(ctxt.srv.statePool.SystemState(), req, authenticator)
+			entity, err := checkControllerMachineCreds(
+				ctxt.srv.statePool.GetController().ControllerState(), req, authenticator)
 			if err != nil {
 				return nil, nil, nil, errors.NewUnauthorized(err, "")
 			}

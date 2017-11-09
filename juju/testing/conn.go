@@ -91,6 +91,7 @@ type JujuConnSuite struct {
 	DefaultToolsStorage    storage.Storage
 
 	ControllerConfig   controller.Config
+	Controller         *state.Controller
 	State              *state.State
 	StatePool          *state.StatePool
 	Model              *state.Model
@@ -399,8 +400,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.StatePool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.StatePool.Close() })
+	s.Controller, err = state.OpenControllerForState(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	s.StatePool = state.NewStatePool(s.Controller)
+	s.AddCleanup(func(*gc.C) { s.StatePool.Close(); s.Controller.Close() })
 
 	s.Model, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -657,6 +660,15 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			)
 		}
 		s.State = nil
+	}
+	// Close controller.
+	if s.Controller != nil {
+		err := s.Controller.Close()
+		if serverAlive {
+			c.Check(err, gc.IsNil,
+				gc.Commentf("closing controller failed\n%s\n", errors.ErrorStack(err)),
+			)
+		}
 	}
 
 	dummy.Reset(c)
