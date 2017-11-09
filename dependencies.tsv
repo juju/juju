@@ -37,7 +37,7 @@ github.com/juju/idmclient	git	4dc25171f675da4206b71695d3fd80e519ad05c1	2017-02-0
 github.com/juju/jsonschema	git	a0ef8b74ebcffeeff9fc374854deb4af388f037e	2016-11-02T18:19:19Z
 github.com/juju/loggo	git	8232ab8918d91c72af1a9fb94d3edbe31d88b790	2017-06-05T01:46:07Z
 github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T10:49:27Z
-github.com/juju/mutex	git	59c26ee163447c5c57f63ff71610d433862013de	2016-06-17T01:09:07Z
+github.com/juju/mutex	git	a7799799599d96c7df634af4711343089531d874	2017-11-09T01:53:05Z
 github.com/juju/persistent-cookiejar	git	d67418f14c93a698e37b52468958d5d4dcf8a7dd	2017-04-28T16:15:59Z
 github.com/juju/pubsub	git	f4dfa62f30adc6955341b3dd73dde7c8d9b23b9e	2017-03-31T03:24:24Z
 github.com/juju/ratelimit	git	5b9ff866471762aa2ab2dced63c9fb6f53921342	2017-05-23T01:21:41Z
