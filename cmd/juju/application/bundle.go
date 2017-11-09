@@ -61,7 +61,7 @@ type deploymentLogger interface {
 func deployBundle(
 	bundleDir string,
 	data *charm.BundleData,
-	bundleConfigFile string,
+	bundleConfigFile []string,
 	channel csparams.Channel,
 	apiRoot DeployAPI,
 	ctx *cmd.Context,
@@ -1114,24 +1114,44 @@ type bundleConfigValueExists struct {
 	Applications map[string]map[string]interface{} `yaml:"applications"`
 }
 
-func processBundleConfig(data *charm.BundleData, bundleConfigFile string) error {
-	if bundleConfigFile == "" {
-		// Nothing to do here.
-		return nil
-	}
-
-	bundleConfigFile, err := utils.NormalizePath(bundleConfigFile)
-	if err != nil {
-		return errors.Annotate(err, "unable to normalise bundle-config file")
-	}
-	// Make sure the filename is absolute.
-	if !filepath.IsAbs(bundleConfigFile) {
-		cwd, err := os.Getwd()
+func processBundleConfig(data *charm.BundleData, bundleConfigFiles []string) error {
+	for _, filename := range bundleConfigFiles {
+		bundleConfigFile, err := utils.NormalizePath(filename)
 		if err != nil {
+			return errors.Annotate(err, "unable to normalise bundle-config file")
+		}
+		// Make sure the filename is absolute.
+		if !filepath.IsAbs(bundleConfigFile) {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			bundleConfigFile = filepath.Clean(filepath.Join(cwd, bundleConfigFile))
+		}
+		if err := processSingleBundleConfig(data, bundleConfigFile); err != nil {
 			return errors.Trace(err)
 		}
-		bundleConfigFile = filepath.Clean(filepath.Join(cwd, bundleConfigFile))
 	}
+	return nil
+}
+
+func processSingleBundleConfig(data *charm.BundleData, bundleConfigFile string) error {
+
+	bundleData, err := charmrepo.ReadBundleFile(bundleConfigFile)
+	if err != nil {
+		return errors.Annotate(err, "unable to read bundle-config file")
+	}
+
+	// From here we walk through the new bundleData, and override values
+	// in the current bundle.
+
+	// If a new application is added, the content is added.
+	// If an application is defined but with no content, that means
+	// remove the application from the parent bundle.
+	//   - if this is happening, all related relations are also removed.
+	// If the application exists in both, values here override values there.
+	// If machines are defined, they override the entire machines section.
+
 	content, err := ioutil.ReadFile(bundleConfigFile)
 	if err != nil {
 		return errors.Annotate(err, "unable to open bundle-config file")
