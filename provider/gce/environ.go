@@ -105,7 +105,7 @@ func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) 
 	credAttrs := cloud.Credential.Attributes()
 	if cloud.Credential.AuthType() == jujucloud.JSONFileAuthType {
 		contents := credAttrs[credAttrFile]
-		credential, _, err := parseJSONAuthFile(strings.NewReader(contents))
+		credential, err := parseJSONAuthFile(strings.NewReader(contents))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
