@@ -10,18 +10,17 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
@@ -704,7 +703,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath),
 		"--bundle-config", "missing-file")
-	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to open bundle-config file: "+missingFileRegex("missing-file"))
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to read bundle-config file .*")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleConfig(c *gc.C) {
@@ -1735,6 +1734,9 @@ func (s *ProcessBundleConfigSuite) SetUpTest(c *gc.C) {
                 num_units: 1
                 options:
                     key: value
+        relations:
+            - - "django"
+              - "memcached"
         machines:
             1:
                 annotations: {foo: bar}`
@@ -1764,13 +1766,13 @@ func (s *ProcessBundleConfigSuite) TestNoFile(c *gc.C) {
 
 func (s *ProcessBundleConfigSuite) TestBadFile(c *gc.C) {
 	err := processBundleConfig(s.bundleData, "bad")
-	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: "+missingFileRegex("bad"))
+	c.Assert(err, gc.ErrorMatches, `unable to read bundle-config file ".*": bundle not found: .*bad`)
 }
 
 func (s *ProcessBundleConfigSuite) TestGoodYAML(c *gc.C) {
 	filename := s.writeFile(c, "bad:\n\tindent")
 	err := processBundleConfig(s.bundleData, filename)
-	c.Assert(err, gc.ErrorMatches, "unable to deserialize config structure: yaml: line 1: found character that cannot start any token")
+	c.Assert(err, gc.ErrorMatches, `unable to read bundle-config file ".*": cannot unmarshal bundle data: yaml: line 1: found character that cannot start any token`)
 }
 
 func (s *ProcessBundleConfigSuite) TestReplaceZeroValues(c *gc.C) {
@@ -1789,30 +1791,64 @@ func (s *ProcessBundleConfigSuite) TestReplaceZeroValues(c *gc.C) {
 	c.Check(django.NumUnits, gc.Equals, 0)
 }
 
-func (s *ProcessBundleConfigSuite) TestUnknownConfigKey(c *gc.C) {
+func (s *ProcessBundleConfigSuite) TestMachineReplacement(c *gc.C) {
 	config := `
         machines:
-            1: 2
-        applications:
-            django:
-                expose: false
-                num_units: 0
+            1:
+            2:
     `
 	filename := s.writeFile(c, config)
 	err := processBundleConfig(s.bundleData, filename)
-	c.Assert(err, gc.ErrorMatches, `unexpected key "machines" in config`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var machines []string
+	for key := range s.bundleData.Machines {
+		machines = append(machines, key)
+	}
+	sort.Strings(machines)
+	c.Assert(machines, jc.DeepEquals, []string{"1", "2"})
 }
 
-func (s *ProcessBundleConfigSuite) TestUnknownApplication(c *gc.C) {
+func (s *ProcessBundleConfigSuite) assertApplications(c *gc.C, appNames ...string) {
+	var applications []string
+	for key := range s.bundleData.Applications {
+		applications = append(applications, key)
+	}
+	sort.Strings(applications)
+	sort.Strings(appNames)
+	c.Assert(applications, jc.DeepEquals, appNames)
+}
+
+func (s *ProcessBundleConfigSuite) TestNewApplication(c *gc.C) {
 	config := `
         applications:
-            wordpress:
-                expose: false
-                num_units: 0
+            postgresql:
+                charm: cs:postgresql
+                num_units: 1
+        relations:
+            - - "postgresql:pgsql"
+              - "django:pgsql"
     `
 	filename := s.writeFile(c, config)
 	err := processBundleConfig(s.bundleData, filename)
-	c.Assert(err, gc.ErrorMatches, `application "wordpress" from config not found in bundle`)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplications(c, "django", "memcached", "postgresql")
+	c.Assert(s.bundleData.Relations, jc.DeepEquals, [][]string{
+		{"django", "memcached"},
+		{"postgresql:pgsql", "django:pgsql"},
+	})
+}
+
+func (s *ProcessBundleConfigSuite) TestRemoveApplication(c *gc.C) {
+	config := `
+        applications:
+            memcached:
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleConfig(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplications(c, "django")
+	c.Assert(s.bundleData.Relations, gc.HasLen, 0)
 }
 
 func (s *ProcessBundleConfigSuite) TestIncludes(c *gc.C) {
@@ -1886,7 +1922,13 @@ func (s *ProcessBundleConfigSuite) TestRemainingFields(c *gc.C) {
 }
 
 func (s *ProcessBundleConfigSuite) TestYAMLInterpolation(c *gc.C) {
-	bundle := `
+
+	removeDjango := s.writeFile(c, `
+applications:
+    django:
+    `)
+
+	addWiki := s.writeFile(c, `
 defaultwiki: &DEFAULTWIKI
     charm: "cs:trusty/mediawiki-5"
     num_units: 1
@@ -1901,36 +1943,26 @@ applications:
         options:
             <<: *WIKIOPTS
             name: The name override
-    mysql:
-        charm: "cs:trusty/mysql-55"
-        num_units: 1
-        options:
-            "binlog-format": MIXED
-            "block-size": 5
-            "dataset-size": "512M"
-            flavor: distro
-series: trusty
 relations:
-    - - "wiki:db"
-      - "mysql:db"
-`
-	filename := s.writeFile(c, bundle)
-	bundleData, err := charmrepo.ReadBundleFile(filename)
+    - - "wiki"
+      - "memcached"
+`)
+
+	err := processBundleConfig(s.bundleData, removeDjango, addWiki)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Logf("bundleData:\n\n%s\n\n", pretty.Sprint(bundleData))
-	c.Fail()
-
-	var asBundle charm.BundleData
-	err = yaml.Unmarshal([]byte(bundle), &asBundle)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("asBundle:\n\n%s\n\n", pretty.Sprint(asBundle))
-
-	var asMap map[string]interface{}
-	err = yaml.Unmarshal([]byte(bundle), &asMap)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("asMap:\n\n%s\n\n", pretty.Sprint(asMap))
-
+	s.assertApplications(c, "memcached", "wiki")
+	c.Assert(s.bundleData.Relations, jc.DeepEquals, [][]string{
+		{"wiki", "memcached"},
+	})
+	wiki := s.bundleData.Applications["wiki"]
+	c.Assert(wiki.Charm, gc.Equals, "cs:trusty/mediawiki-5")
+	c.Assert(wiki.Options, gc.DeepEquals,
+		map[string]interface{}{
+			"debug": false,
+			"name":  "The name override",
+			"skin":  "vector",
+		})
 }
 
 type removeRelationsSuite struct{}

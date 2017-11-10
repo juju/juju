@@ -1131,7 +1131,6 @@ func processBundleConfig(data *charm.BundleData, bundleConfigFiles ...string) er
 }
 
 func processSingleBundleConfig(data *charm.BundleData, bundleConfigFile string) error {
-
 	config, err := charmrepo.ReadBundleFile(bundleConfigFile)
 	if err != nil {
 		return errors.Annotatef(err, "unable to read bundle-config file %q", bundleConfigFile)
@@ -1253,6 +1252,11 @@ func processSingleBundleConfig(data *charm.BundleData, bundleConfigFile string) 
 				app.EndpointBindings[key] = value
 			}
 		}
+	}
+
+	// If series is set in the config, it overrides the bundle.
+	if config.Series != "" {
+		data.Series = config.Series
 	}
 
 	// Next process relations.

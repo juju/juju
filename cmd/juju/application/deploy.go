@@ -264,8 +264,8 @@ type DeployCommand struct {
 	// or a bundle name.
 	CharmOrBundle string
 
-	// BundleConfig refers to config files that specifies additional
-	// bundle config to be merged with the main bundle.
+	// BundleConfig refers to config files that specify additional bundle
+	// configuration to be merged with the main bundle.
 	BundleConfigFile []string
 
 	// Channel holds the charmstore channel to use when obtaining
