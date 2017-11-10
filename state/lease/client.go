@@ -15,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/wrench"
 )
 
 // NewClient returns a new Client using the supplied config, or an error. Any
@@ -177,6 +178,9 @@ func (client *client) ExpireLease(name string) error {
 // Refresh is part of the Client interface.
 func (client *client) Refresh() error {
 	client.logger.Tracef("refreshing")
+	if wrench.IsActive("lease", "refresh") {
+		return errors.New("wrench active")
+	}
 
 	// Always read entries before skews, because skews are written before
 	// entries; we increase the risk of reading older skew data, but (should)

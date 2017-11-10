@@ -41,6 +41,15 @@ func NewManager(config ManagerConfig) (ManagerWorker, error) {
 	return manager, nil
 }
 
+// NewDeadManager returns a manager that's already dead
+// and always returns the given error.
+func NewDeadManager(err error) ManagerWorker {
+	m := manager{}
+	m.tomb.Kill(err)
+	m.tomb.Done()
+	return &m
+}
+
 // manager implements ManagerWorker.
 type manager struct {
 	tomb tomb.Tomb
