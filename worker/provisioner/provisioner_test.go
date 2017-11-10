@@ -1815,15 +1815,16 @@ func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {
 		Environ:    s.Environ,
 		retryCount: make(map[string]int),
 		startInstanceFailureInfo: map[string]mockBrokerFailures{
-			"1": {whenSucceed: 3, err: environs.ErrAvailabilityZoneFailed},
-			"2": {whenSucceed: 1, err: environs.ErrAvailabilityZoneFailed},
-			"4": {whenSucceed: 1, err: errors.New("fail me once.")},
+			"2": {whenSucceed: 3, err: environs.ErrAvailabilityZoneFailed},
+			"3": {whenSucceed: 1, err: environs.ErrAvailabilityZoneFailed},
+			"5": {whenSucceed: 1, err: errors.New("fail me once.")},
 		},
 		derivedAZ: map[string][]string{
 			"1": []string{"fail-zone"},
-			"2": []string{"zone1", "zone4"},
-			"3": []string{"zone1"},
-			"4": []string{"zone3"},
+			"2": []string{"zone4"},
+			"3": []string{"zone1", "zone4"},
+			"4": []string{"zone1"},
+			"5": []string{"zone3"},
 		},
 	}
 	retryStrategy := provisioner.NewRetryStrategy(5*time.Millisecond, 2)
@@ -1831,21 +1832,26 @@ func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {
 		e, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{}, retryStrategy)
 	defer workertest.CleanKill(c, task)
 
-	machines, err := s.addMachines(4)
+	machines, err := s.addMachines(5)
 	c.Assert(err, jc.ErrorIsNil)
-	mFail := machines[0]
-	mSucceed := machines[1:]
+	mFail := machines[:2]
+	mSucceed := machines[2:]
 
 	s.checkStartInstances(c, mSucceed)
+	c.Assert(e.retryCount[mFail[1].Id()], gc.Equals, 3)
+	c.Assert(e.retryCount[mSucceed[0].Id()], gc.Equals, 1)
+	c.Assert(e.retryCount[mSucceed[2].Id()], gc.Equals, 1)
 
-	_, err = mFail.InstanceId()
+	_, err = mFail[0].InstanceId()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	_, err = mFail[1].InstanceId()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 
 	availabilityZoneMachines := provisioner.GetCopyAvailabilityZoneMachines(task)
 	assertAvailabilityZoneMachines(c, mSucceed, nil, availabilityZoneMachines)
 
-	for i, zone := range []string{"zone4", "zone1", "zone3"} {
-		machineAZ, err := mSucceed[i].AvailabilityZone()
+	for i, zone := range []string{"zone1", "zone3"} {
+		machineAZ, err := mSucceed[i+1].AvailabilityZone()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(machineAZ, gc.Equals, zone)
 	}
