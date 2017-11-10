@@ -13,13 +13,13 @@ import (
 	"gopkg.in/juju/names.v2"
 )
 
-// NewStatePool returns a new StatePool instance. It takes a State
-// connected to the system (controller model).
-func NewStatePool(systemState *State) *StatePool {
-	return &StatePool{
-		systemState: systemState,
-		pool:        make(map[string]*PoolItem),
+// NewStatePool returns a new StatePool instance for Controller given.
+func NewStatePool(controller *Controller) *StatePool {
+	pool := &StatePool{
+		controller: controller,
+		pool:       make(map[string]*PoolItem),
 	}
+	return pool
 }
 
 // PoolItem holds a State and tracks how many requests are using it
@@ -38,12 +38,15 @@ func (i *PoolItem) refCount() int {
 // models. Clients should call Release when they have finished with any
 // state.
 type StatePool struct {
-	systemState *State
+	// controller is the controller for this state pool.
+	// NB the controller needs to be closed by the caller.
+	controller *Controller
+
 	// mu protects pool
 	mu   sync.Mutex
 	pool map[string]*PoolItem
 	// sourceKey is used to provide a unique number as a key for the
-	// referencesSources structure in the pool.
+	// referenceSources structure in the pool.
 	sourceKey uint64
 }
 
@@ -57,8 +60,9 @@ type StatePoolReleaser func() bool
 // if required. If the State has been marked for removal because there
 // are outstanding uses, an error will be returned.
 func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
-	if modelUUID == p.systemState.ModelUUID() {
-		return p.systemState, func() bool { return false }, nil
+	// TODO(wallyworld) - once a controller contains a state pool, this won't be necessary
+	if modelUUID == p.controller.ModelUUID() {
+		return p.controller.st, func() bool { return false }, nil
 	}
 
 	p.mu.Lock()
@@ -95,7 +99,7 @@ func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
 		return item.state, releaser, nil
 	}
 
-	st, err := p.systemState.ForModel(names.NewModelTag(modelUUID))
+	st, err := p.controller.NewState(names.NewModelTag(modelUUID))
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "failed to create state for model %v", modelUUID)
 	}
@@ -106,6 +110,14 @@ func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
 		},
 	}
 	return st, releaser, nil
+}
+
+// GetController returns the controller for which this
+// state pool operates.
+// TODO(wallyworld) - eventually a controller should have a state pool
+// rather than a state pool having a controller.
+func (p *StatePool) GetController() *Controller {
+	return p.controller
 }
 
 // GetModel is a convenience method for getting a Model for a State.
@@ -130,11 +142,6 @@ func (p *StatePool) GetModel(modelUUID string) (*Model, StatePoolReleaser, error
 // closed and removed immediately. The boolean result reports whether or
 // not the state was closed and removed.
 func (p *StatePool) release(modelUUID string, key uint64) (bool, error) {
-	if modelUUID == p.systemState.ModelUUID() {
-		// We don't maintain a refcount for the controller.
-		return false, nil
-	}
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -154,11 +161,6 @@ func (p *StatePool) release(modelUUID string, key uint64) (bool, error) {
 // corresponding Releases). The boolean result indicates whether or
 // not the state was removed.
 func (p *StatePool) Remove(modelUUID string) (bool, error) {
-	if modelUUID == p.systemState.ModelUUID() {
-		// We don't manage the controller state.
-		return false, nil
-	}
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -180,11 +182,6 @@ func (p *StatePool) maybeRemoveItem(modelUUID string, item *PoolItem) (bool, err
 	return false, nil
 }
 
-// SystemState returns the State passed in to NewStatePool.
-func (p *StatePool) SystemState() *State {
-	return p.systemState
-}
-
 // KillWorkers tells the internal worker for all cached State
 // instances in the pool to die.
 func (p *StatePool) KillWorkers() {
@@ -193,6 +190,7 @@ func (p *StatePool) KillWorkers() {
 	for _, item := range p.pool {
 		item.state.KillWorkers()
 	}
+	p.controller.st.KillWorkers()
 }
 
 // Close closes all State instances in the pool.

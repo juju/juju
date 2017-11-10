@@ -12,13 +12,14 @@ import (
 )
 
 // PrecheckShim wraps a *state.State to implement PrecheckBackend.
-func PrecheckShim(st *state.State) (PrecheckBackend, error) {
+func PrecheckShim(st, ctrlSt *state.State) (PrecheckBackend, error) {
 	rSt, err := st.Resources()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &precheckShim{
 		State:       st,
+		ctrlSt:      ctrlSt,
 		resourcesSt: rSt,
 	}, nil
 }
@@ -27,6 +28,7 @@ func PrecheckShim(st *state.State) (PrecheckBackend, error) {
 // inspection.
 type precheckShim struct {
 	*state.State
+	ctrlSt      *state.State
 	resourcesSt state.Resources
 }
 
@@ -110,18 +112,13 @@ func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, er
 }
 
 // ControllerBackend implements PrecheckBackend.
-func (s *precheckShim) ControllerBackend() (PrecheckBackendCloser, error) {
-	st, err := s.State.ForModel(s.State.ControllerModelTag())
+func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
+	rSt, err := s.ctrlSt.Resources()
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	rSt, err := st.Resources()
-	if err != nil {
-		st.Close()
 		return nil, errors.Trace(err)
 	}
 	return &precheckShim{
-		State:       st,
+		State:       s.ctrlSt,
 		resourcesSt: rSt,
 	}, nil
 }

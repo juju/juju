@@ -246,6 +246,7 @@ type environState struct {
 	insts          map[instance.Id]*dummyInstance
 	globalRules    network.IngressRuleSlice
 	bootstrapped   bool
+	controller     *state.Controller
 	apiListener    net.Listener
 	apiServer      *apiserver.Server
 	apiState       *state.State
@@ -347,12 +348,18 @@ func (state *environState) destroyLocked() {
 	if !state.bootstrapped {
 		return
 	}
+	controller := state.controller
+	state.controller = nil
+
 	apiServer := state.apiServer
-	apiStatePool := state.apiStatePool
-	apiState := state.apiState
 	state.apiServer = nil
+
+	apiStatePool := state.apiStatePool
 	state.apiStatePool = nil
+
+	apiState := state.apiState
 	state.apiState = nil
+
 	state.bootstrapped = false
 
 	// Release the lock while we close resources. In particular,
@@ -372,10 +379,19 @@ func (state *environState) destroyLocked() {
 		if err := apiStatePool.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
+		if err := apiStatePool.GetController().Close(); err != nil && mongoAlive() {
+			panic(err)
+		}
 	}
 
 	if apiState != nil {
 		if err := apiState.Close(); err != nil && mongoAlive() {
+			panic(err)
+		}
+	}
+
+	if controller != nil {
+		if err := controller.Close(); err != nil && mongoAlive() {
 			panic(err)
 		}
 	}
@@ -801,27 +817,31 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			if err != nil {
 				return err
 			}
-			ctlr.Close()
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
 				st.Close()
+				ctlr.Close()
 				return err
 			}
 			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
 				st.Close()
+				ctlr.Close()
 				return err
 			}
 			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
 				st.Close()
+				ctlr.Close()
 				return err
 			}
 			env, err := st.Model()
 			if err != nil {
 				st.Close()
+				ctlr.Close()
 				return err
 			}
 			owner, err := st.User(env.Owner())
 			if err != nil {
 				st.Close()
+				ctlr.Close()
 				return err
 			}
 			// We log this out for test purposes only. No one in real life can use
@@ -830,7 +850,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
 			owner.SetPassword(icfg.Controller.MongoInfo.Password)
 
-			statePool := state.NewStatePool(st)
+			statePool := state.NewStatePool(ctlr)
 			machineTag := names.NewMachineTag("0")
 			estate.apiServer, err = apiserver.NewServer(statePool, estate.apiListener, apiserver.ServerConfig{
 				Clock:       clock.WallClock,
@@ -852,9 +872,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			})
 			if err != nil {
 				statePool.Close()
+				ctlr.Close()
 				st.Close()
+				ctlr.Close()
 				panic(err)
 			}
+			estate.controller = ctlr
 			estate.apiState = st
 			estate.apiStatePool = statePool
 		}

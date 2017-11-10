@@ -214,7 +214,7 @@ func (s *logsinkSuite) TestNewServerValidatesLogSinkConfig(c *gc.C) {
 	type dummyListener struct {
 		net.Listener
 	}
-	pool := state.NewStatePool(s.State)
+	pool := state.NewStatePool(s.Controller)
 	defer pool.Close()
 
 	cfg := defaultServerConfig(c)

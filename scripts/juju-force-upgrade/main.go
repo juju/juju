@@ -32,7 +32,7 @@ func checkErr(label string, err error) {
 
 const dataDir = "/var/lib/juju"
 
-func getState() (*state.State, error) {
+func getController() (*state.Controller, error) {
 	tag, err := getCurrentMachineTag(dataDir)
 	if err != nil {
 		return nil, errors.Annotate(err, "finding machine tag")
@@ -59,7 +59,7 @@ func getState() (*state.State, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "opening state connection")
 	}
-	return st, nil
+	return state.OpenControllerForState(st)
 }
 
 func getCurrentMachineTag(datadir string) (names.MachineTag, error) {
@@ -104,11 +104,12 @@ func main() {
 		jversion.Current = agentVersion
 	}
 
-	st, err := getState()
+	ctrl, err := getController()
 	checkErr("getting state connection", err)
-	defer st.Close()
+	defer ctrl.ControllerState().Close()
+	defer ctrl.Close()
 
-	modelSt, err := st.ForModel(names.NewModelTag(modelUUID))
+	modelSt, err := ctrl.NewState(names.NewModelTag(modelUUID))
 	checkErr("open model", err)
 	checkErr("set model agent version", modelSt.SetModelAgentVersion(agentVersion, true))
 }

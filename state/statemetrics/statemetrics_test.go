@@ -68,7 +68,7 @@ func (s *collectorSuite) SetUpTest(c *gc.C) {
 			}},
 		}},
 	}
-	s.pool.system = &mockState{
+	s.pool.controllerState = &mockState{
 		users:      users,
 		modelUUIDs: s.pool.modelUUIDs(),
 	}
@@ -227,7 +227,7 @@ func (s *collectorSuite) TestCollect(c *gc.C) {
 }
 
 func (s *collectorSuite) TestCollectErrors(c *gc.C) {
-	s.pool.system.SetErrors(
+	s.pool.controllerState.SetErrors(
 		errors.New("no models for you"),
 		errors.New("no users for you"),
 	)

@@ -4,26 +4,31 @@ package statemetrics
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/permission"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 )
 
 // StatePool represents a pool of State objects.
 type StatePool interface {
-	SystemState() State
+	GetController() Controller
 	Get(modelUUID string) (State, state.StatePoolReleaser, error)
 	GetModel(modelUUID string) (Model, state.StatePoolReleaser, error)
 }
 
-// State represents the global state managed by the Juju controller.
+// Controller represents the state of a Controller.
+type Controller interface {
+	ControllerState() State
+	ControllerTag() names.ControllerTag
+}
+
+// State represents the state of a Model.
 type State interface {
 	AllMachines() ([]Machine, error)
 	AllModelUUIDs() ([]string, error)
 	AllUsers() ([]User, error)
-	ControllerTag() names.ControllerTag
 	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
 }
 
@@ -58,8 +63,8 @@ type statePoolShim struct {
 	pool *state.StatePool
 }
 
-func (p statePoolShim) SystemState() State {
-	return stateShim{p.pool.SystemState()}
+func (p statePoolShim) GetController() Controller {
+	return controllerShim{p.pool.GetController()}
 }
 
 func (p statePoolShim) Get(modelUUID string) (State, state.StatePoolReleaser, error) {
@@ -76,6 +81,14 @@ func (p statePoolShim) GetModel(modelUUID string) (Model, state.StatePoolRelease
 		return nil, nil, err
 	}
 	return model, releaser, nil
+}
+
+type controllerShim struct {
+	*state.Controller
+}
+
+func (c controllerShim) ControllerState() State {
+	return stateShim{c.Controller.ControllerState()}
 }
 
 type stateShim struct {

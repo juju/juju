@@ -155,7 +155,7 @@ func (s *PubSubIntegrationSuite) SetUpTest(c *gc.C) {
 	s.password = password
 	s.hub = pubsub.NewStructuredHub(nil)
 
-	statePool := state.NewStatePool(s.State)
+	statePool := state.NewStatePool(s.Controller)
 	s.AddCleanup(func(*gc.C) { statePool.Close() })
 	s.server, s.address = newServerWithHub(c, statePool, s.hub)
 	s.AddCleanup(func(*gc.C) { s.server.Stop() })

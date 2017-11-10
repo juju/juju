@@ -1313,11 +1313,15 @@ var _ = gc.Suite(&allModelWatcherStateSuite{})
 
 type allModelWatcherStateSuite struct {
 	allWatcherBaseSuite
+	pool   *StatePool
 	state1 *State
 }
 
 func (s *allModelWatcherStateSuite) SetUpTest(c *gc.C) {
 	s.allWatcherBaseSuite.SetUpTest(c)
+	pool := NewStatePool(s.controller)
+	s.AddCleanup(func(*gc.C) { pool.Close() })
+	s.pool = pool
 	s.state1 = s.newState(c)
 }
 
@@ -1331,9 +1335,7 @@ func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBacking() Backing {
 }
 
 func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBackingForState(st *State) Backing {
-	pool := NewStatePool(st)
-	s.AddCleanup(func(*gc.C) { pool.Close() })
-	return NewAllModelWatcherStateBacking(st, pool)
+	return NewAllModelWatcherStateBacking(st, s.pool)
 }
 
 // performChangeTestCases runs a passed number of test cases for changes.

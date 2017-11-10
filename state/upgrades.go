@@ -39,14 +39,19 @@ func runForAllModelStates(st *State, runner func(st *State) error) error {
 		return errors.Annotate(err, "failed to read models")
 	}
 
+	ctrl, err := OpenControllerForState(st)
+	if err != nil {
+		return errors.Annotate(err, "failed to open controller connection")
+	}
+	defer ctrl.Close()
 	for _, modelDoc := range modelDocs {
 		modelUUID := modelDoc["_id"].(string)
-		envSt, err := st.ForModel(names.NewModelTag(modelUUID))
+		modelSt, err := ctrl.NewState(names.NewModelTag(modelUUID))
 		if err != nil {
 			return errors.Annotatef(err, "failed to open model %q", modelUUID)
 		}
-		defer envSt.Close()
-		if err := runner(envSt); err != nil {
+		defer modelSt.Close()
+		if err := runner(modelSt); err != nil {
 			return errors.Annotatef(err, "model UUID %q", modelUUID)
 		}
 	}

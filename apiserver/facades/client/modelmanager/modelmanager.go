@@ -103,7 +103,7 @@ var (
 func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
-	ctlrSt := pool.SystemState()
+	ctlrSt := pool.GetController().ControllerState()
 	auth := ctx.Auth()
 
 	var err error

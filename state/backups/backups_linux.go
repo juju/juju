@@ -266,8 +266,11 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	// TODO(perrito666): We should never stop process because of this.
 	// updateAllMachines will not return errors for individual
 	// agent update failures
-	pool := state.NewStatePool(st)
-	defer pool.Close()
+	ctrl, err := state.OpenControllerForState(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer ctrl.Close()
 
 	modelUUIDs, err := st.AllModelUUIDs()
 	if err != nil {
@@ -275,18 +278,19 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	}
 	machines := []machineModel{}
 	for _, modelUUID := range modelUUIDs {
-		st, release, err := pool.Get(modelUUID)
+		st, err := ctrl.NewState(names.NewModelTag(modelUUID))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		defer release()
 
 		model, err := st.Model()
 		if err != nil {
+			st.Close()
 			return nil, errors.Trace(err)
 		}
 
 		machinesForModel, err := st.AllMachines()
+		st.Close()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

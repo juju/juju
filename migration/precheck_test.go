@@ -791,7 +791,7 @@ func (b *fakeBackend) ListPendingResources(app string) ([]resource.Resource, err
 	return b.pendingResources, b.pendingResourcesErr
 }
 
-func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackendCloser, error) {
+func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
 	if b.controllerBackend == nil {
 		return b, nil
 	}

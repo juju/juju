@@ -109,7 +109,7 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no database connection info available (is this a controller host?)")
 	}
 
-	st0, err := state.Open(state.OpenParams{
+	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
@@ -119,14 +119,19 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to database")
 	}
-	defer st0.Close()
+	ctrl, err := state.OpenControllerForState(st)
+	if err != nil {
+		return errors.Annotate(err, "failed to open controller")
+	}
+	defer st.Close()
+	defer ctrl.Close()
 
-	modelUUIDs, err := st0.AllModelUUIDs()
+	modelUUIDs, err := ctrl.ControllerState().AllModelUUIDs()
 	if err != nil {
 		return errors.Annotate(err, "failed to look up models")
 	}
 	for _, modelUUID := range modelUUIDs {
-		err := c.dumpLogsForEnv(ctx, st0, names.NewModelTag(modelUUID))
+		err := c.dumpLogsForEnv(ctx, ctrl, names.NewModelTag(modelUUID))
 		if err != nil {
 			return errors.Annotatef(err, "failed to dump logs for model %s", modelUUID)
 		}
@@ -151,8 +156,8 @@ func (c *dumpLogsCommand) findMachineId(dataDir string) (string, error) {
 	return "", errors.New("no machine agent configuration found")
 }
 
-func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag names.ModelTag) error {
-	st, err := st0.ForModel(tag)
+func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, ctrl *state.Controller, tag names.ModelTag) error {
+	st, err := ctrl.NewState(tag)
 	if err != nil {
 		return errors.Annotate(err, "failed open model")
 	}

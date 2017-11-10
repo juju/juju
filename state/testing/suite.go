@@ -66,7 +66,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		s.Controller.Close()
 	})
 
-	s.StatePool = state.NewStatePool(s.State)
+	s.StatePool = state.NewStatePool(s.Controller)
 	s.AddCleanup(func(*gc.C) { s.StatePool.Close() })
 
 	model, err := s.State.Model()

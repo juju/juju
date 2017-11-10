@@ -202,18 +202,21 @@ func (st *State) cleanupModelsForDyingController(cleanupArgs []bson.Raw) (err er
 	}
 
 	// We need access State instances for all hosted models and it's
-	// too hard to thread an external StatePool to here, so create a
+	// too hard to thread a Controller to here, so create a
 	// fresh one. Creating new States is relatively slow but this is
 	// ok because this is an infrequently used code path.
-	pool := NewStatePool(st)
-	defer pool.Close()
+	ctrl, err := OpenControllerForState(st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer ctrl.Close()
 
 	modelUUIDs, err := st.AllModelUUIDs()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, modelUUID := range modelUUIDs {
-		st, release, err := pool.Get(modelUUID)
+		st, err := ctrl.NewState(names.NewModelTag(modelUUID))
 		if err != nil {
 			// This model could have been removed.
 			if errors.IsNotFound(err) {
@@ -221,7 +224,7 @@ func (st *State) cleanupModelsForDyingController(cleanupArgs []bson.Raw) (err er
 			}
 			return errors.Trace(err)
 		}
-		defer release()
+		defer st.Close()
 
 		model, err := st.Model()
 		if err != nil {
