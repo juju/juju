@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"io"
@@ -533,10 +534,6 @@ func (srv *Server) run() {
 		err := srv.lis.Close()
 		logger.Infof("closed listening socket %q with final error: %v", addr, err)
 
-		// Break deadlocks caused by leadership BlockUntil... calls.
-		srv.statePool.KillWorkers()
-		srv.statePool.SystemState().KillWorkers()
-
 		srv.wg.Wait() // wait for any outstanding requests to complete.
 		srv.tomb.Done()
 		srv.dbloggers.dispose()
@@ -900,13 +897,25 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	websocket.Serve(w, req, func(conn *websocket.Conn) {
 		modelUUID := req.URL.Query().Get(":modeluuid")
 		logger.Tracef("got a request for model %q", modelUUID)
-		if err := srv.serveConn(conn, modelUUID, apiObserver, req.Host); err != nil {
+		if err := srv.serveConn(
+			req.Context(),
+			conn,
+			modelUUID,
+			apiObserver,
+			req.Host,
+		); err != nil {
 			logger.Errorf("error serving RPCs: %v", err)
 		}
 	})
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer, host string) error {
+func (srv *Server) serveConn(
+	ctx context.Context,
+	wsConn *websocket.Conn,
+	modelUUID string,
+	apiObserver observer.Observer,
+	host string,
+) error {
 	codec := jsoncodec.NewWebsocket(wsConn.Conn)
 	conn := rpc.NewConn(codec, apiObserver)
 
@@ -944,7 +953,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 		}
 		conn.ServeRoot(newAdminRoot(h, adminAPIs), serverError)
 	}
-	conn.Start()
+	conn.Start(ctx)
 	select {
 	case <-conn.Dead():
 	case <-srv.tomb.Dying():

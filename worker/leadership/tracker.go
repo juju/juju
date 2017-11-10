@@ -66,6 +66,11 @@ func NewTracker(tag names.UnitTag, claimer leadership.Claimer, clock clock.Clock
 			for _, ticketCh := range t.waitingMinion {
 				close(ticketCh)
 			}
+			if t.claimLease != nil {
+				// wait for the goroutine started
+				// by setLeader to exit.
+				<-t.claimLease
+			}
 		}()
 		err := t.loop()
 		// TODO: jam 2015-04-02 is this the most elegant way to make
@@ -213,7 +218,7 @@ func (t *Tracker) setMinion() error {
 		go func() {
 			defer close(t.claimLease)
 			logger.Debugf("%s waiting for %s leadership release", t.unitName, t.applicationName)
-			err := t.claimer.BlockUntilLeadershipReleased(t.applicationName)
+			err := t.claimer.BlockUntilLeadershipReleased(t.applicationName, t.tomb.Dying())
 			if err != nil {
 				logger.Debugf("error while %s waiting for %s leadership release: %v", t.unitName, t.applicationName, err)
 			}

@@ -69,7 +69,7 @@ func (s *LeadershipSuite) TestCheckValidatesUnitName(c *gc.C) {
 }
 
 func (s *LeadershipSuite) TestBlockValidatesApplicationname(c *gc.C) {
-	err := s.claimer.BlockUntilLeadershipReleased("not/a/service")
+	err := s.claimer.BlockUntilLeadershipReleased("not/a/service", nil)
 	c.Check(err, gc.ErrorMatches, `cannot wait for lease "not/a/service" expiry: not an application name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
@@ -117,16 +117,15 @@ func (s *LeadershipSuite) TestCheck(c *gc.C) {
 	c.Check(ops2, gc.IsNil)
 }
 
-func (s *LeadershipSuite) TestKillWorkersUnblocksClaimer(c *gc.C) {
+func (s *LeadershipSuite) TestCloseStateUnblocksClaimer(c *gc.C) {
 	err := s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.State.KillWorkers()
-	s.Clock.Advance(coretesting.LongWait)
-	err = s.globalClock.Advance(coretesting.LongWait)
+	err = s.State.Close()
 	c.Assert(err, jc.ErrorIsNil)
+
 	select {
-	case err := <-s.expiryChan("blah"):
+	case err := <-s.expiryChan("blah", nil):
 		c.Check(err, gc.ErrorMatches, "lease manager stopped")
 	case <-s.Clock.After(coretesting.LongWait):
 		c.Fatalf("timed out while waiting for unblock")
@@ -155,6 +154,21 @@ func (s *LeadershipSuite) TestLeadershipCheckerRestarts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *LeadershipSuite) TestBlockUntilLeadershipReleasedCancel(c *gc.C) {
+	err := s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cancel := make(chan struct{})
+	close(cancel)
+
+	select {
+	case err := <-s.expiryChan("blah", cancel):
+		c.Check(err, gc.Equals, leadership.ErrBlockCancelled)
+	case <-s.Clock.After(coretesting.LongWait):
+		c.Fatalf("timed out while waiting for unblock")
+	}
+}
+
 func (s *LeadershipSuite) TestApplicationLeaders(c *gc.C) {
 	err := s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
@@ -175,17 +189,17 @@ func (s *LeadershipSuite) expire(c *gc.C, applicationname string) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.Session.Fsync(false)
 	select {
-	case err := <-s.expiryChan(applicationname):
+	case err := <-s.expiryChan(applicationname, nil):
 		c.Assert(err, jc.ErrorIsNil)
 	case <-s.Clock.After(coretesting.LongWait):
 		c.Fatalf("never unblocked")
 	}
 }
 
-func (s *LeadershipSuite) expiryChan(applicationname string) <-chan error {
+func (s *LeadershipSuite) expiryChan(applicationname string, cancel <-chan struct{}) <-chan error {
 	expired := make(chan error, 1)
 	go func() {
-		expired <- s.claimer.BlockUntilLeadershipReleased("blah")
+		expired <- s.claimer.BlockUntilLeadershipReleased("blah", cancel)
 	}()
 	return expired
 }

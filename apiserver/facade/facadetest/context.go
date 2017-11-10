@@ -10,7 +10,6 @@ import (
 
 // Context implements facade.Context in the simplest possible way.
 type Context struct {
-	Abort_     <-chan struct{}
 	Auth_      facade.Authorizer
 	Dispose_   func()
 	Resources_ facade.Resources
@@ -20,11 +19,6 @@ type Context struct {
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
 	Identity string
-}
-
-// Abort is part of the facade.Context interface.
-func (context Context) Abort() <-chan struct{} {
-	return context.Abort_
 }
 
 // Auth is part of the facade.Context interface.
