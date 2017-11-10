@@ -15,11 +15,13 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
@@ -1756,7 +1758,7 @@ func (s *ProcessBundleConfigSuite) writeFile(c *gc.C, content string) string {
 }
 
 func (s *ProcessBundleConfigSuite) TestNoFile(c *gc.C) {
-	err := processBundleConfig(s.bundleData, "")
+	err := processBundleConfig(s.bundleData)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1881,6 +1883,109 @@ func (s *ProcessBundleConfigSuite) TestRemainingFields(c *gc.C) {
 		"disk": "big"})
 	c.Check(django.EndpointBindings, jc.DeepEquals, map[string]string{
 		"where": "dmz"})
+}
+
+func (s *ProcessBundleConfigSuite) TestYAMLInterpolation(c *gc.C) {
+	bundle := `
+defaultwiki: &DEFAULTWIKI
+    charm: "cs:trusty/mediawiki-5"
+    num_units: 1
+    options: &WIKIOPTS
+        debug: false
+        name: Please set name of wiki
+        skin: vector
+
+applications:
+    wiki:
+        <<: *DEFAULTWIKI
+        options:
+            <<: *WIKIOPTS
+            name: The name override
+    mysql:
+        charm: "cs:trusty/mysql-55"
+        num_units: 1
+        options:
+            "binlog-format": MIXED
+            "block-size": 5
+            "dataset-size": "512M"
+            flavor: distro
+series: trusty
+relations:
+    - - "wiki:db"
+      - "mysql:db"
+`
+	filename := s.writeFile(c, bundle)
+	bundleData, err := charmrepo.ReadBundleFile(filename)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Logf("bundleData:\n\n%s\n\n", pretty.Sprint(bundleData))
+	c.Fail()
+
+	var asBundle charm.BundleData
+	err = yaml.Unmarshal([]byte(bundle), &asBundle)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("asBundle:\n\n%s\n\n", pretty.Sprint(asBundle))
+
+	var asMap map[string]interface{}
+	err = yaml.Unmarshal([]byte(bundle), &asMap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("asMap:\n\n%s\n\n", pretty.Sprint(asMap))
+
+}
+
+type removeRelationsSuite struct{}
+
+var (
+	_ = gc.Suite(&removeRelationsSuite{})
+
+	sampleRelations = [][]string{
+		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
+		{"kubernetes-master:etcd", "etcd:db"},
+		{"kubernetes-worker:kube-api-endpoint", "kubeapi-load-balancer:website"},
+		{"flannel", "etcd"}, // removed :endpoint
+		{"flannel:cni", "kubernetes-master:cni"},
+		{"flannel:cni", "kubernetes-worker:cni"},
+	}
+)
+
+func (*removeRelationsSuite) TestNil(c *gc.C) {
+	result := removeRelations(nil, "foo")
+	c.Assert(result, gc.HasLen, 0)
+}
+
+func (*removeRelationsSuite) TestEmpty(c *gc.C) {
+	result := removeRelations([][]string{}, "foo")
+	c.Assert(result, gc.HasLen, 0)
+}
+
+func (*removeRelationsSuite) TestAppNotThere(c *gc.C) {
+	result := removeRelations(sampleRelations, "foo")
+	c.Assert(result, jc.DeepEquals, sampleRelations)
+}
+
+func (*removeRelationsSuite) TestAppBadRelationsKept(c *gc.C) {
+	badRelations := [][]string{{"single value"}, {"three", "string", "values"}}
+	result := removeRelations(badRelations, "foo")
+	c.Assert(result, jc.DeepEquals, badRelations)
+}
+
+func (*removeRelationsSuite) TestRemoveFromRight(c *gc.C) {
+	result := removeRelations(sampleRelations, "etcd")
+	c.Assert(result, jc.DeepEquals, [][]string{
+		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
+		{"kubernetes-worker:kube-api-endpoint", "kubeapi-load-balancer:website"},
+		{"flannel:cni", "kubernetes-master:cni"},
+		{"flannel:cni", "kubernetes-worker:cni"},
+	})
+}
+
+func (*removeRelationsSuite) TestRemoveFromLeft(c *gc.C) {
+	result := removeRelations(sampleRelations, "flannel")
+	c.Assert(result, jc.DeepEquals, [][]string{
+		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
+		{"kubernetes-master:etcd", "etcd:db"},
+		{"kubernetes-worker:kube-api-endpoint", "kubeapi-load-balancer:website"},
+	})
 }
 
 func missingFileRegex(filename string) string {
