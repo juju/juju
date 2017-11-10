@@ -7,9 +7,12 @@ import (
 	stderrors "errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
@@ -474,6 +477,16 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	return node.Map(), nil
 }
 
+// PublicAddressRetryArgs returns the retry strategy for getting a unit's public address.
+// Override for testing to use a different clock.
+var PublicAddressRetryArgs = func() retry.CallArgs {
+	return retry.CallArgs{
+		Clock:       clock.WallClock,
+		Delay:       3 * time.Second,
+		MaxDuration: 30 * time.Second,
+	}
+}
+
 // NetworksForRelation returns the ingress and egress addresses for a relation and unit.
 // The ingress addresses depend on if the relation is cross model and whether the
 // relation endpoint is bound to a space.
@@ -505,7 +518,17 @@ func NetworksForRelation(
 			return "", nil, nil, errors.Trace(err)
 		}
 		if crossmodel {
-			address, err := unit.PublicAddress()
+			var address network.Address
+			retryArg := PublicAddressRetryArgs()
+			retryArg.Func = func() error {
+				var err error
+				address, err = unit.PublicAddress()
+				return err
+			}
+			retryArg.IsFatalError = func(err error) bool {
+				return !network.IsNoAddressError(err)
+			}
+			err := retry.Call(retryArg)
 			if err != nil {
 				// TODO(wallyworld) - it's ok to return a private address sometimes
 				// TODO return an error when it's not possible to use the private address

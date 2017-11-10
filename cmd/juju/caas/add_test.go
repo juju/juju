@@ -256,8 +256,8 @@ func (s *addCAASSuite) TestCorrect(c *gc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region(nil),
-				Config: map[string]interface{}{
-					"CAData": "fakecadata",
-				},
-				RegionConfig: cloud.RegionConfig(nil)}})
+				Config:           map[string]interface{}(nil),
+				RegionConfig:     cloud.RegionConfig(nil),
+				CACertificates:   []string{"fakecadata"},
+			}})
 }

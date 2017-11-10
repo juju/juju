@@ -35,7 +35,7 @@ func (r resources) registerForServer() error {
 // RegisterForClient is the top-level registration method
 // for the component in a "juju" command context.
 func (r resources) registerForClient() error {
-	// needed for help-tool
+	// needed for hook-tool
 	r.registerHookContextCommands()
 	return nil
 }

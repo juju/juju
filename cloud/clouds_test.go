@@ -286,10 +286,11 @@ func (s *cloudSuite) TestRegionNames(c *gc.C) {
 
 func (s *cloudSuite) TestMarshalCloud(c *gc.C) {
 	in := cloud.Cloud{
-		Name:      "foo",
-		Type:      "bar",
-		AuthTypes: []cloud.AuthType{"baz"},
-		Endpoint:  "qux",
+		Name:           "foo",
+		Type:           "bar",
+		AuthTypes:      []cloud.AuthType{"baz"},
+		Endpoint:       "qux",
+		CACertificates: []string{"fakecacert"},
 	}
 	marshalled, err := cloud.MarshalCloud(in)
 	c.Assert(err, jc.ErrorIsNil)
@@ -298,6 +299,8 @@ name: foo
 type: bar
 auth-types: [baz]
 endpoint: qux
+ca-certificates:
+- fakecacert
 `[1:])
 }
 
@@ -307,13 +310,15 @@ name: foo
 type: bar
 auth-types: [baz]
 endpoint: qux
+ca-certificates: [fakecacert]
 `)
 	out, err := cloud.UnmarshalCloud(in)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, cloud.Cloud{
-		Name:      "foo",
-		Type:      "bar",
-		AuthTypes: []cloud.AuthType{"baz"},
-		Endpoint:  "qux",
+		Name:           "foo",
+		Type:           "bar",
+		AuthTypes:      []cloud.AuthType{"baz"},
+		Endpoint:       "qux",
+		CACertificates: []string{"fakecacert"},
 	})
 }

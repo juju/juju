@@ -212,7 +212,7 @@ func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
-		`cannot set up Juju GUI: cannot fetch GUI info: cannot read GUI metadata in tools directory: .*`,
+		`cannot set up Juju GUI: cannot fetch GUI info: cannot read GUI metadata in directory .*`,
 	}})
 }
 

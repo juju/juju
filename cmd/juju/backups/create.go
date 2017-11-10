@@ -24,26 +24,16 @@ const (
 )
 
 const createDoc = `
-create-backup requests that juju create a backup of its state and print the
+create-backup requests that Juju creates a backup of its state and prints the
 backup's unique ID.  You may provide a note to associate with the backup.
 
-The backup archive and associated metadata are stored remotely by juju.
+The backup archive and associated metadata are stored remotely by Juju, but
+will also be copied locally unless --no-download is supplied. To access the
+remote backups, see 'juju download-backup'.
 
-The --download option may be used without the --filename option.  In
-that case, the backup archive will be stored in the current working
-directory with a name matching juju-backup-<date>-<time>.tar.gz.
-
-WARNING: Remotely stored backups will be lost when the model is
-destroyed.  Furthermore, the remotely backup is not guaranteed to be
-available.
-
-Therefore, you should use the --download or --filename options, or use:
-
-    juju download-backups
-
-to get a local copy of the backup archive.
-This local copy can then be used to restore an model even if that
-model was already destroyed or is otherwise unavailable.
+See also:
+    backups
+    download-backup
 `
 
 // NewCreateCommand returns a command used to create backups.

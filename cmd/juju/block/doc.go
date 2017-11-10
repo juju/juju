@@ -44,7 +44,7 @@ Commands that can be disabled are grouped based on logical operations as follows
     retry-provisioning
     run
     set-constraints
-    sync-tools
+    sync-agents
     unexpose
     upgrade-charm
     upgrade-juju

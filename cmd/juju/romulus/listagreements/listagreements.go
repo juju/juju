@@ -32,7 +32,15 @@ type TermsServiceClient interface {
 }
 
 const listAgreementsDoc = `
-List terms the user has agreed to.
+Charms may require a user to accept its terms in order for it to be deployed.
+In other words, some applications may only be installed if a user agrees to 
+accept some terms defined by the charm. 
+
+This command lists the terms that the user has agreed to.
+
+See also:
+    agree
+
 `
 
 // NewListAgreementsCommand returns a new command that can be

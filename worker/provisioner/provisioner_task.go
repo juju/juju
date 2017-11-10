@@ -6,6 +6,7 @@ package provisioner
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -38,7 +39,6 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/wrench"
-	"strings"
 )
 
 type ProvisionerTask interface {
@@ -886,22 +886,16 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 		return err
 	}
 
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 	errMachines := make([]error, len(machines))
-
 	for i, m := range machines {
-		// Make sure we shouldn't be stopping before we start the next machine
-		select {
-		case <-task.catacomb.Dying():
-			return task.catacomb.ErrDying()
-		default:
-		}
-
 		if machineDistributionGroups[i].Err != nil {
-			task.setErrorStatus("fetching distribution groups for machine %q: %v", m, machineDistributionGroups[i].Err)
+			task.setErrorStatus(
+				"fetching distribution groups for machine %q: %v",
+				m, machineDistributionGroups[i].Err,
+			)
 			continue
 		}
-
 		wg.Add(1)
 		go func(machine *apiprovisioner.Machine, dg []string, index int) {
 			defer wg.Done()
@@ -913,6 +907,11 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 	}
 
 	wg.Wait()
+	select {
+	case <-task.catacomb.Dying():
+		return task.catacomb.ErrDying()
+	default:
+	}
 	var errorStrings []string
 	for _, err := range errMachines {
 		if err != nil {
@@ -964,7 +963,7 @@ func (task *provisionerTask) setupToStartMachine(machine *apiprovisioner.Machine
 		arch,
 	)
 	if err != nil {
-		return environs.StartInstanceParams{}, errors.Annotatef(err, "cannot find tools for machine %q", machine)
+		return environs.StartInstanceParams{}, errors.Annotatef(err, "cannot find agent binaries for machine %q", machine)
 	}
 
 	startInstanceParams, err := task.constructStartInstanceParams(

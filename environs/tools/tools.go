@@ -177,13 +177,13 @@ func FindExactTools(env environs.Environ, vers version.Number, series string, ar
 		Arch:   arch,
 	}
 	stream := PreferredStream(&vers, env.Config().Development(), env.Config().AgentStream())
-	logger.Debugf("looking for tools in stream %q", stream)
+	logger.Debugf("looking for agent binaries in stream %q", stream)
 	availableTools, err := FindTools(env, vers.Major, vers.Minor, stream, filter)
 	if err != nil {
 		return nil, err
 	}
 	if len(availableTools) != 1 {
-		return nil, fmt.Errorf("expected one tools, got %d tools", len(availableTools))
+		return nil, fmt.Errorf("expected one agent binary, got %d agent binaries", len(availableTools))
 	}
 	return availableTools[0], nil
 }
@@ -196,7 +196,7 @@ func checkToolsSeries(toolsList coretools.List, series string) error {
 		return fmt.Errorf("expected single series, got %v", toolsSeries)
 	}
 	if toolsSeries[0] != series {
-		return fmt.Errorf("tools mismatch: expected series %v, got %v", series, toolsSeries[0])
+		return fmt.Errorf("agent binary mismatch: expected series %v, got %v", series, toolsSeries[0])
 	}
 	return nil
 }

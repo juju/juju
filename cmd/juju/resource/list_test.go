@@ -37,34 +37,34 @@ func (s *ShowServiceSuite) SetUpTest(c *gc.C) {
 }
 
 func (*ShowServiceSuite) TestInitEmpty(c *gc.C) {
-	s := resourcecmd.ShowServiceCommand{}
+	s := resourcecmd.ListCommand{}
 
 	err := s.Init([]string{})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (*ShowServiceSuite) TestInitGood(c *gc.C) {
-	s := resourcecmd.ShowServiceCommand{}
+	s := resourcecmd.ListCommand{}
 	err := s.Init([]string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resourcecmd.ShowServiceCommandTarget(&s), gc.Equals, "foo")
+	c.Assert(resourcecmd.ListCommandTarget(&s), gc.Equals, "foo")
 }
 
 func (*ShowServiceSuite) TestInitTooManyArgs(c *gc.C) {
-	s := resourcecmd.ShowServiceCommand{}
+	s := resourcecmd.ListCommand{}
 
 	err := s.Init([]string{"foo", "bar"})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (s *ShowServiceSuite) TestInfo(c *gc.C) {
-	var command resourcecmd.ShowServiceCommand
+	var command resourcecmd.ListCommand
 	info := command.Info()
 
 	c.Check(info, jc.DeepEquals, &jujucmd.Info{
 		Name:    "resources",
 		Aliases: []string{"list-resources"},
-		Args:    "application-or-unit",
+		Args:    "<application or unit>",
 		Purpose: "Show the resources for an application or unit.",
 		Doc: `
 This command shows the resources required by and those in use by an existing
@@ -78,7 +78,7 @@ func (s *ShowServiceSuite) TestRunNoResourcesForService(c *gc.C) {
 	data := []resource.ServiceResources{resource.ServiceResources{}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -179,7 +179,7 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -188,7 +188,6 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	c.Check(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-[Service]
 Resource  Supplied by  Revision
 openjdk   charmstore   7
 rsc1234   charmstore   15
@@ -208,7 +207,7 @@ func (s *ShowServiceSuite) TestRunNoResourcesForUnit(c *gc.C) {
 	data := []resource.ServiceResources{resource.ServiceResources{}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -257,21 +256,24 @@ func (s *ShowServiceSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc.C) 
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
 	code, stdout, stderr := runCmd(c, cmd, unitName)
 	c.Assert(code, gc.Equals, 0)
-	c.Check(stderr, gc.Equals, "No resources to display.\n")
-	c.Check(stdout, gc.Equals, "")
+	c.Check(stdout, gc.Equals, `
+Resource  Revision
+openjdk   -
+
+`[1:])
+	c.Check(stderr, gc.Equals, "")
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
 func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
-	data := []resource.ServiceResources{{
-		UnitResources: []resource.UnitResources{{
-			Tag: names.NewUnitTag("svc/0"),
+	data := []resource.ServiceResources{
+		resource.ServiceResources{
 			Resources: []resource.Resource{
 				{
 					Resource: charmresource.Resource{
@@ -280,9 +282,10 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 							Description: "a big description",
 						},
 						Origin:   charmresource.OriginStore,
-						Revision: 15,
+						Revision: 20,
 					},
 					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+					ID:        "one",
 				},
 				{
 					Resource: charmresource.Resource{
@@ -295,16 +298,46 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 					},
 					Username:  "Bill User",
 					Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+					ID:        "two",
 				},
 			},
-			DownloadProgress: map[string]int64{
-				"website2": 12,
-			},
-		}},
-	}}
+			UnitResources: []resource.UnitResources{{
+				Tag: names.NewUnitTag("svc/0"),
+				Resources: []resource.Resource{
+					{
+						Resource: charmresource.Resource{
+							Meta: charmresource.Meta{
+								Name:        "rsc1234",
+								Description: "a big description",
+							},
+							Origin:   charmresource.OriginStore,
+							Revision: 15, // Note revision is different to the application resource
+						},
+						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+						ID:        "one",
+					},
+					{
+						Resource: charmresource.Resource{
+							Meta: charmresource.Meta{
+								Name:        "website2",
+								Description: "awesome data",
+							},
+							Origin: charmresource.OriginUpload,
+							Size:   15,
+						},
+						Username:  "Bill User",
+						ID:        "two",
+						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+					},
+				},
+				DownloadProgress: map[string]int64{
+					"website2": 12,
+				},
+			}},
+		}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -313,7 +346,6 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 	c.Assert(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-[Unit]
 Resource  Revision
 rsc1234   15
 website2  2012-12-12T12:12
@@ -466,7 +498,7 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -475,14 +507,13 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 	c.Check(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-[Units]
-Unit  Resource  Revision          Expected
-5     alpha     10                15
-5     beta      2012-12-12T12:12  2012-12-12T12:12
-5     charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 2%)
-10    alpha     10                15 (fetching: 15%)
-10    beta      -                 2012-12-12T12:12
-10    charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 9%)
+Unit    Resource  Revision          Expected
+svc/5   alpha     10                15
+svc/5   beta      2012-12-12T12:12  2012-12-12T12:12
+svc/5   charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 2%)
+svc/10  alpha     10                15 (fetching: 15%)
+svc/10  beta      -                 2012-12-12T12:12
+svc/10  charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 9%)
 
 `[1:])
 
@@ -604,7 +635,7 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewShowServiceCommand(resourcecmd.ShowServiceDeps{
+	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -613,7 +644,6 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 	c.Assert(stderr, gc.Equals, "")
 
 	c.Check(stdout, gc.Equals, `
-[Unit]
 Resource  Revision          Expected
 alpha     10                15
 beta      -                 2012-12-12T12:12
@@ -629,7 +659,7 @@ type stubShowServiceDeps struct {
 	client *stubServiceClient
 }
 
-func (s *stubShowServiceDeps) NewClient(c *resourcecmd.ShowServiceCommand) (resourcecmd.ShowServiceClient, error) {
+func (s *stubShowServiceDeps) NewClient(c *resourcecmd.ListCommand) (resourcecmd.ListClient, error) {
 	s.stub.AddCall("NewClient", c)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

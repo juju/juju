@@ -172,7 +172,7 @@ func (c *Client) Export() (migration.SerializedModel, error) {
 	for _, toolsInfo := range serialized.Tools {
 		v, err := version.ParseBinary(toolsInfo.Version)
 		if err != nil {
-			return migration.SerializedModel{}, errors.Annotate(err, "error parsing tools version")
+			return migration.SerializedModel{}, errors.Annotate(err, "error parsing agent binary version")
 		}
 		tools[v] = toolsInfo.URI
 	}

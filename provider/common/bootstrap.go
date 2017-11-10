@@ -171,7 +171,8 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		fmt.Fprintf(ctx.GetStderr(), "   %s\r", info)
 		return nil
 	}
-	result, err := env.StartInstance(environs.StartInstanceParams{
+
+	var startInstanceArgs = environs.StartInstanceParams{
 		ControllerUUID:  args.ControllerConfig.ControllerUUID(),
 		Constraints:     args.BootstrapConstraints,
 		Tools:           availableTools,
@@ -180,9 +181,36 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		ImageMetadata:   imageMetadata,
 		StatusCallback:  instanceStatus,
 		CleanupCallback: statusCleanup,
-	})
-	if err != nil {
+	}
+	zones, err := startInstanceZones(env, startInstanceArgs)
+	if errors.IsNotImplemented(err) {
+		// No zone support, so just call StartInstance with
+		// a blank StartInstanceParams.AvailabilityZone.
+		zones = []string{""}
+	} else if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
+	}
+
+	var result *environs.StartInstanceResult
+	for i, zone := range zones {
+		startInstanceArgs.AvailabilityZone = zone
+		result, err = env.StartInstance(startInstanceArgs)
+		if errors.Cause(err) == environs.ErrAvailabilityZoneFailed {
+			if i < len(zones)-1 {
+				// Try the next zone.
+				continue
+			}
+			// This is the last zone in the list, error.
+			if len(zones) > 1 {
+				err = errors.New("failed to start instance in any availability zone")
+			} else {
+				err = errors.Errorf("failed to start instance in availability zone %q", zone)
+			}
+		}
+		if err != nil {
+			return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
+		}
+		break
 	}
 
 	msg := fmt.Sprintf(" - %s (%s)", result.Instance.Id(), formatHardware(result.Hardware))
@@ -212,6 +240,38 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		return FinishBootstrap(ctx, client, env, result.Instance, icfg, opts)
 	}
 	return result, selectedSeries, finalize, nil
+}
+
+func startInstanceZones(env environs.Environ, args environs.StartInstanceParams) ([]string, error) {
+	zonedEnviron, ok := env.(ZonedEnviron)
+	if !ok {
+		return nil, errors.NotImplementedf("ZonedEnviron")
+	}
+
+	// Attempt creating the instance in each of the availability
+	// zones, unless the args imply a specific zone.
+	zone, err := zonedEnviron.DeriveAvailabilityZone(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if zone != "" {
+		return []string{zone}, nil
+	}
+	var zones []string
+	allZones, err := zonedEnviron.AvailabilityZones()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, zone := range allZones {
+		if !zone.Available() {
+			continue
+		}
+		zones = append(zones, zone.Name())
+	}
+	if len(zones) == 0 {
+		return nil, errors.New("no usable availability zones")
+	}
+	return zones, nil
 }
 
 func formatHardware(hw *instance.HardwareCharacteristics) string {

@@ -26,9 +26,10 @@ func NewShowCommand() cmd.Command {
 
 const showCommandDoc = `
 Show extended information about storage instances.
-Storage instances to display are specified by storage ids.
+Storage instances to display are specified by storage ids. 
+Storage ids are positional arguments to the command and do not need to be comma
+separated when more than one id is desired.
 
-* note use of positional arguments
 `
 
 // showCommand attempts to release storage instance.

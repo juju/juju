@@ -440,39 +440,38 @@ func (st *State) ApplicationLeaders() (map[string]string, error) {
 }
 
 func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
-	globalClock, err := st.globalClockReader()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting global clock for lease client")
-	}
-	client, err := statelease.NewClient(statelease.ClientConfig{
-		Id:          st.leaseClientId,
-		Namespace:   applicationLeadershipNamespace,
-		Collection:  leasesC,
-		Mongo:       &environMongo{st},
-		LocalClock:  st.stateClock,
-		GlobalClock: globalClock,
-	})
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot create leadership lease client")
-	}
-	return client, nil
+	return st.getLeaseClient(applicationLeadershipNamespace)
 }
 
 func (st *State) getSingularLeaseClient() (lease.Client, error) {
+	return st.getLeaseClient(singularControllerNamespace)
+}
+
+func (st *State) getLeaseClient(namespace string) (lease.Client, error) {
 	globalClock, err := st.globalClockReader()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting global clock for lease client")
 	}
+
+	// NOTE(axw) due to the lease managers being embedded in State,
+	// we cannot use "upgrade steps" to upgrade the leases prior
+	// to their use. Thus we must run the lease upgrade here. When
+	// we are able to extract the lease managers from State, we
+	// should remove this.
+	if err := migrateModelLeasesToGlobalTime(st); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	client, err := statelease.NewClient(statelease.ClientConfig{
 		Id:          st.leaseClientId,
-		Namespace:   singularControllerNamespace,
+		Namespace:   namespace,
 		Collection:  leasesC,
 		Mongo:       &environMongo{st},
 		LocalClock:  st.stateClock,
 		GlobalClock: globalClock,
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot create singular lease client")
+		return nil, errors.Annotatef(err, "cannot create %q lease client", namespace)
 	}
 	return client, nil
 }

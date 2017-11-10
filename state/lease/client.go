@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/wrench"
 )
 
 // NewClient returns a new Client using the supplied config, or an error. Any
@@ -178,6 +179,9 @@ func (client *client) Refresh() error {
 
 func (client *client) refresh(refreshGlobalTime bool) error {
 	client.logger.Tracef("refreshing")
+	if wrench.IsActive("lease", "refresh") {
+		return errors.New("wrench active")
+	}
 
 	collection, closer := client.config.Mongo.GetCollection(client.config.Collection)
 	defer closer()

@@ -98,6 +98,14 @@ func NewResumeRelationCommandForTest(api SetRelationSuspendedAPI) modelcmd.Model
 	return modelcmd.Wrap(cmd)
 }
 
+// NewRemoveSaasCommandForTest returns a RemoveSaasCommand with the api provided as specified.
+func NewRemoveSaasCommandForTest(api RemoveSaasAPI) modelcmd.ModelCommand {
+	cmd := &removeSaasCommand{newAPIFunc: func() (RemoveSaasAPI, error) {
+		return api, nil
+	}}
+	return modelcmd.Wrap(cmd)
+}
+
 type Patcher interface {
 	PatchValue(dest, value interface{})
 }

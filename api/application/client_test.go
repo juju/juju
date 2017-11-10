@@ -412,6 +412,36 @@ func (s *applicationSuite) TestDestroyApplicationsInvalidIds(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
 
+func (s *applicationSuite) TestDestroyConsumedApplications(c *gc.C) {
+	expectedResults := []params.ErrorResult{{
+		Error: &params.Error{Message: "boo"},
+	}, {}}
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Assert(request, gc.Equals, "DestroyConsumedApplications")
+		c.Assert(a, jc.DeepEquals, params.DestroyConsumedApplicationsParams{
+			Applications: []params.DestroyConsumedApplicationParams{
+				{ApplicationTag: "application-foo"},
+				{ApplicationTag: "application-bar"},
+			},
+		})
+		c.Assert(response, gc.FitsTypeOf, &params.ErrorResults{})
+		out := response.(*params.ErrorResults)
+		*out = params.ErrorResults{expectedResults}
+		return nil
+	})
+	results, err := client.DestroyConsumedApplication("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *applicationSuite) TestDestroyConsumedApplicationsArity(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		return nil
+	})
+	_, err := client.DestroyConsumedApplication("foo")
+	c.Assert(err, gc.ErrorMatches, `expected 1 result\(s\), got 0`)
+}
+
 func (s *applicationSuite) TestDestroyUnits(c *gc.C) {
 	expectedResults := []params.DestroyUnitResult{{
 		Error: &params.Error{Message: "boo"},

@@ -152,7 +152,7 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 	vers := version.MustParseBinary("1.2.3-precise-amd64")
 	testTools, err := agenttools.ReadTools(t.dataDir, vers)
 	c.Assert(testTools, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot read tools metadata in tools directory: .*")
+	c.Assert(err, gc.ErrorMatches, "cannot read agent metadata in directory .*")
 
 	dir := agenttools.SharedToolsDir(t.dataDir, vers)
 	err = os.MkdirAll(dir, agenttools.DirPerm)
@@ -163,7 +163,7 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 
 	testTools, err = agenttools.ReadTools(t.dataDir, vers)
 	c.Assert(testTools, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "invalid tools metadata in tools directory .*")
+	c.Assert(err, gc.ErrorMatches, "invalid agent metadata in directory .*")
 }
 
 func (t *ToolsSuite) TestReadGUIArchiveErrorNotFound(c *gc.C) {
@@ -182,7 +182,7 @@ func (t *ToolsSuite) TestReadGUIArchiveErrorNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	gui, err := agenttools.ReadGUIArchive(t.dataDir)
-	c.Assert(err, gc.ErrorMatches, "invalid GUI metadata in tools directory .*")
+	c.Assert(err, gc.ErrorMatches, "invalid GUI metadata in directory .*")
 	c.Assert(gui, gc.IsNil)
 }
 

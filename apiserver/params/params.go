@@ -498,6 +498,18 @@ type DestroyApplicationParams struct {
 	DestroyStorage bool `json:"destroy-storage,omitempty"`
 }
 
+// DestroyConsumedApplicationsParams holds bulk parameters for the
+// Application.DestroyConsumedApplication call.
+type DestroyConsumedApplicationsParams struct {
+	Applications []DestroyConsumedApplicationParams `json:"applications"`
+}
+
+// DestroyConsumedApplicationParams holds the parameters for the
+// RemoteApplication.Destroy call.
+type DestroyConsumedApplicationParams struct {
+	ApplicationTag string `json:"application-tag"`
+}
+
 // Creds holds credentials for identifying an entity.
 type Creds struct {
 	AuthTag  string `json:"auth-tag"`

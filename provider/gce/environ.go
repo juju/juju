@@ -27,7 +27,7 @@ type gceConnection interface {
 	// and returns it.
 	Instance(id, zone string) (google.Instance, error)
 	Instances(prefix string, statuses ...string) ([]google.Instance, error)
-	AddInstance(spec google.InstanceSpec, zones ...string) (*google.Instance, error)
+	AddInstance(spec google.InstanceSpec, zone string) (*google.Instance, error)
 	RemoveInstances(prefix string, ids ...string) error
 	UpdateMetadata(key, value string, ids ...string) error
 

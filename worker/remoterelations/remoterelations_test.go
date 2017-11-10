@@ -257,6 +257,58 @@ func (s *remoteRelationsSuite) TestRemoteRelationsWorkers(c *gc.C) {
 	c.Check(relWatcher.killed(), jc.IsTrue)
 }
 
+func (s *remoteRelationsSuite) TestRemoteRelationsRevoked(c *gc.C) {
+	// The consume permission is revoked after an offer is consumed.
+	// Subsequent api calls against that offer will fail and record an
+	// error in the local model.
+	s.relationsFacade.relations["db2:db django:db"] = newMockRelation(123)
+	w := s.assertRemoteApplicationWorkers(c)
+	defer workertest.CleanKill(c, w)
+	s.stub.ResetCalls()
+	s.stub.SetErrors(nil, nil, &params.Error{
+		Code:    params.CodeDischargeRequired,
+		Message: "message",
+	})
+
+	s.relationsFacade.relationsEndpoints["db2:db django:db"] = &relationEndpointInfo{
+		localApplicationName: "django",
+		localEndpoint: params.RemoteEndpoint{
+			Name:      "db2",
+			Role:      "requires",
+			Interface: "db2",
+		},
+		remoteEndpointName: "data",
+	}
+
+	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
+	relWatcher.changes <- []string{"db2:db django:db"}
+
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
+	relTag := names.NewRelationTag("db2:db django:db")
+	expected := []jujutesting.StubCall{
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
+		{"ExportEntities", []interface{}{
+			[]names.Tag{names.NewApplicationTag("django"), relTag}}},
+		{"RegisterRemoteRelations", []interface{}{[]params.RegisterRemoteRelationArg{{
+			ApplicationToken: "token-django",
+			SourceModelTag:   "model-local-model-uuid",
+			RelationToken:    "token-db2:db django:db",
+			RemoteEndpoint: params.RemoteEndpoint{
+				Name:      "db2",
+				Role:      "requires",
+				Interface: "db2",
+			},
+			OfferUUID:         "offer-db2-uuid",
+			LocalEndpointName: "data",
+			Macaroons:         macaroon.Slice{mac},
+		}}}},
+		{"SetRemoteApplicationStatus", []interface{}{"db2", "error", "message"}},
+		{"Close", nil},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+}
+
 func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 	// Checks that when a remote relation dies, the relation units
 	// workers are killed.

@@ -3,6 +3,7 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 from datetime import datetime
+from time import sleep
 import re
 
 import yaml
@@ -85,10 +86,18 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
     # we'll obviously already have some data in the logs, so adding exactly
     # 300megs should do the trick.
 
+    def run_fill_log_action():
+        """Using fill action to fill logs, returns resulting output."""
+        client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
+        # Need to give the disk sometime to actually move files before
+        # requesting resulting output.
+        sleep(10)
+        # Retrieve resulting log details (file names, sizes etc.)
+        out = client.action_do_fetch("fill-logs/0", size_action)
+        return yaml.safe_load(out)
+
     # we run do_fetch here so that we wait for fill-logs to finish.
-    client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
-    out = client.action_do_fetch("fill-logs/0", size_action)
-    action_output = yaml.safe_load(out)
+    action_output = run_fill_log_action()
 
     # Now we should have one primary log file, and one backup log file.
     # The backup should be approximately 300 megs.
@@ -101,10 +110,7 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
     check_for_extra_backup("log2", action_output)
 
     # do it all again, this should generate a second backup.
-
-    client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
-    out = client.action_do_fetch("fill-logs/0", size_action)
-    action_output = yaml.safe_load(out)
+    action_output = run_fill_log_action()
 
     # we should have two backups.
     check_log0(logfile, action_output)
@@ -114,10 +120,7 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
     check_for_extra_backup("log3", action_output)
 
     # one more time... we should still only have 2 backups and primary
-
-    client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
-    out = client.action_do_fetch("fill-logs/0", size_action)
-    action_output = yaml.safe_load(out)
+    action_output = run_fill_log_action()
 
     check_log0(logfile, action_output)
     check_expected_backup("log1", prefix, action_output)

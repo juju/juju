@@ -118,7 +118,7 @@ func SyncTools(syncContext *SyncContext) error {
 		logger.Infof("found %d recent agent binaries (version %s)", len(sourceTools), latest)
 	}
 	for _, tool := range sourceTools {
-		logger.Debugf("found source tool: %v", tool)
+		logger.Debugf("found source agent binary: %v", tool)
 	}
 
 	logger.Infof("listing target agent binaries storage")
@@ -160,7 +160,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 		return nil, err
 	}
 	logger.Infof("source for sync of agent binaries: %v", sourceURL)
-	return simplestreams.NewURLSignedDataSource("sync tools source", sourceURL, keys.JujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
+	return simplestreams.NewURLSignedDataSource("sync agent binaries source", sourceURL, keys.JujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 }
 
 // copyTools copies a set of tools from the source to the target.
@@ -273,7 +273,7 @@ func cloneToolsForSeries(toolsInfo *BuiltAgent, stream string, series ...string)
 	if err != nil {
 		return err
 	}
-	logger.Debugf("generating agent binary metadata")
+	logger.Debugf("generating agent metadata")
 	return envtools.MergeAndWriteMetadata(metadataStore, stream, stream, targetTools, false)
 }
 
@@ -324,7 +324,7 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 	}
 	fileInfo, err := f.Stat()
 	if err != nil {
-		return nil, errors.Errorf("cannot stat newly made tools archive: %v", err)
+		return nil, errors.Errorf("cannot stat newly made agent binary archive: %v", err)
 	}
 	size := fileInfo.Size()
 	reportedVersion := toolsVersion
@@ -427,7 +427,7 @@ func (u StorageToolsUploader) UploadTools(toolsDir, stream string, tools *coreto
 	}
 	err := envtools.MergeAndWriteMetadata(u.Storage, toolsDir, stream, coretools.List{tools}, u.WriteMirrors)
 	if err != nil {
-		logger.Errorf("error writing agent binary metadata: %v", err)
+		logger.Errorf("error writing agent metadata: %v", err)
 		return err
 	}
 	return nil

@@ -8,9 +8,12 @@ import (
 	"math/rand"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/retry"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -917,6 +920,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 		network.NewScopedAddress("4.3.2.1", network.ScopePublic),
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -938,6 +942,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c 
 	err = machine.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -945,6 +950,75 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c 
 	c.Assert(boundSpace, gc.Equals, "")
 	c.Assert(ingress, gc.DeepEquals, []string{"1.2.3.4"})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
+}
+
+func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationDelayedPublicAddress(c *gc.C) {
+	clk := jujutesting.NewClock(time.Now())
+	attemptMade := make(chan struct{}, 10)
+	s.PatchValue(&state.PublicAddressRetryArgs, func() retry.CallArgs {
+		return retry.CallArgs{
+			Clock:       clk,
+			Delay:       3 * time.Second,
+			MaxDuration: 30 * time.Second,
+			NotifyFunc: func(lastError error, attempt int) {
+				attemptMade <- struct{}{}
+			},
+		}
+	})
+	prr := newRemoteProReqRelation(c, &s.ConnSuite)
+	err := prr.ru0.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := prr.ru0.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set up a public address after at least one attempt
+	// is made to get it.We record the err for checking later
+	// as gc.C is not thread safe.
+	var funcErr error
+	wg := sync.WaitGroup{}
+	go func() {
+		wg.Add(1)
+		defer wg.Done()
+		funcErr = clk.WaitAdvance(15*time.Second, time.Second, 1)
+		if funcErr != nil {
+			return
+		}
+		// Ensure we have a failed attempt to get public address.
+		select {
+		case <-attemptMade:
+			funcErr = clk.WaitAdvance(10*time.Second, time.Second, 1)
+			if funcErr != nil {
+				return
+			}
+		case <-time.After(coretesting.LongWait):
+			c.Fatal("waiting for public address attempt")
+		}
+
+		// Now set up the public address.
+		funcErr = machine.SetProviderAddresses(
+			network.NewScopedAddress("4.3.2.1", network.ScopePublic),
+		)
+		if funcErr != nil {
+			return
+		}
+		funcErr = clk.WaitAdvance(10*time.Second, time.Second, 1)
+		if funcErr != nil {
+			return
+		}
+	}()
+
+	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.ru0, prr.rel, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure there we no errors in the go routine.
+	wg.Wait()
+	c.Assert(funcErr, jc.ErrorIsNil)
+
+	c.Assert(boundSpace, gc.Equals, "")
+	c.Assert(ingress, gc.DeepEquals, []string{"4.3.2.1"})
+	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
 func (s *RelationUnitSuite) TestValidYes(c *gc.C) {

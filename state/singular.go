@@ -9,7 +9,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/lease"
+	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/worker/lease"
 )
 
 // singularSecretary implements lease.Secretary to restrict claims to either
@@ -52,6 +53,8 @@ func (s singularSecretary) CheckDuration(duration time.Duration) error {
 
 // SingularClaimer returns a lease.Claimer representing the exclusive right to
 // manage the environment.
-func (st *State) SingularClaimer() lease.Claimer {
-	return st.workers.singularManager()
+func (st *State) SingularClaimer() corelease.Claimer {
+	return lazyLeaseManager{func() *lease.Manager {
+		return st.workers.singularManager()
+	}}
 }

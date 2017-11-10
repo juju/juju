@@ -150,7 +150,7 @@ func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
 		}},
 		InstanceConfig: makeInstanceConfig(c, s, "1/lxd/0"),
 	})
-	c.Assert(err, gc.ErrorMatches, `need tools for arch amd64, only found \[arm64\]`)
+	c.Assert(err, gc.ErrorMatches, `need agent binaries for arch amd64, only found \[arm64\]`)
 }
 
 type fakeContainerManager struct {

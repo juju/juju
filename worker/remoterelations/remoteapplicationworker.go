@@ -10,6 +10,7 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -71,6 +72,31 @@ func (w *remoteApplicationWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+func (w *remoteApplicationWorker) checkOfferPermissionDenied(err error, appToken, relationToken string) {
+	// If consume permission has been revoked for the offer, set the
+	// status of the local remote application entity.
+	if params.ErrCode(err) == params.CodeDischargeRequired {
+		if err := w.localModelFacade.SetRemoteApplicationStatus(w.applicationName, status.Error, err.Error()); err != nil {
+			logger.Errorf(
+				"updating remote application %v status from remote model %v: %v",
+				w.applicationName, w.remoteModelUUID, err)
+		}
+		// If we know a specific relation, update that too.
+		if relationToken != "" {
+			suspended := true
+			event := params.RemoteRelationChangeEvent{
+				RelationToken:    relationToken,
+				ApplicationToken: appToken,
+				Suspended:        &suspended,
+				SuspendedReason:  "offer permission revoked",
+			}
+			if err := w.localModelFacade.ConsumeRemoteRelationChange(event); err != nil {
+				logger.Errorf("updating relation status: %v", err)
+			}
+		}
+	}
+}
+
 func (w *remoteApplicationWorker) loop() (err error) {
 	// On the consuming side, watch for status changes to the offer.
 	var offerStatusChanges watcher.OfferStatusChannel
@@ -99,6 +125,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 
 		offerStatusWatcher, err := w.remoteModelFacade.WatchOfferStatus(arg)
 		if err != nil {
+			w.checkOfferPermissionDenied(err, "", "")
 			return errors.Annotate(err, "watching status for offer")
 		}
 		if err := w.catacomb.Add(offerStatusWatcher); err != nil {
@@ -131,6 +158,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		case change := <-w.localRelationChanges:
 			logger.Debugf("local relation units changed -> publishing: %#v", change)
 			if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
+				w.checkOfferPermissionDenied(err, change.ApplicationToken, change.RelationToken)
 				return errors.Annotatef(err, "publishing relation change %+v to remote model %v", change, w.remoteModelUUID)
 			}
 		case change := <-w.remoteRelationChanges:
@@ -166,6 +194,7 @@ func (w *remoteApplicationWorker) processRelationDying(key string, relations map
 			Macaroons:        macaroon.Slice{relation.macaroon},
 		}
 		if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
+			w.checkOfferPermissionDenied(err, relation.applicationToken, relation.relationToken)
 			return errors.Annotatef(err, "publishing relation dying %+v to remote model %v", change, w.remoteModelUUID)
 		}
 	}
@@ -314,6 +343,7 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 		Macaroons: macaroon.Slice{mac},
 	})
 	if err != nil {
+		w.checkOfferPermissionDenied(err, remoteAppToken, relationToken)
 		return nil, nil, errors.Annotatef(
 			err, "watching remote side of application %v and relation %v",
 			applicationName, relationTag.Id())
@@ -369,6 +399,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 		applicationTag, relationTag, w.offerUUID,
 		remoteRelation.Endpoint, remoteRelation.RemoteEndpointName)
 	if err != nil {
+		w.checkOfferPermissionDenied(err, "", "")
 		return errors.Annotatef(err, "registering application %v and relation %v", remoteRelation.ApplicationName, relationTag.Id())
 	}
 
@@ -381,6 +412,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 			Macaroons: macaroon.Slice{mac},
 		})
 		if err != nil {
+			w.checkOfferPermissionDenied(err, remoteAppToken, relationToken)
 			return errors.Annotatef(err, "watching remote side of relation %v", remoteRelation.Key)
 		}
 

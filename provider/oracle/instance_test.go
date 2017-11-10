@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle"
 	oracletesting "github.com/juju/juju/provider/oracle/testing"
@@ -41,7 +42,7 @@ func (i *instanceSuite) SetUpTest(c *gc.C) {
 func (i *instanceSuite) setEnvironAPI(client oracle.EnvironAPI) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
-	i.env.SetEnvironAPI(client)
+	oracle.SetEnvironAPI(i.env, client)
 }
 
 var _ = gc.Suite(&instanceSuite{})
@@ -59,13 +60,11 @@ func (i instanceSuite) TestNewOracleInstance(c *gc.C) {
 }
 
 func (i instanceSuite) TestId(c *gc.C) {
-	instance, err := oracle.NewOracleInstance(oracletesting.DefaultFakeInstancer.Instance, i.env)
+	inst, err := oracle.NewOracleInstance(oracletesting.DefaultFakeInstancer.Instance, i.env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(instance, gc.NotNil)
-
-	id := instance.Id()
-	ok := (len(id) > 0)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(inst, gc.NotNil)
+	id := inst.Id()
+	c.Assert(id, gc.Equals, instance.Id("0"))
 }
 
 func (i instanceSuite) TestStatus(c *gc.C) {
@@ -112,7 +111,7 @@ func (i instanceSuite) TestAddressesWithErrors(c *gc.C) {
 	c.Assert(instance, gc.NotNil)
 
 	_, err = instance.Addresses()
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, "FakeEnvironAPI")
 }
 
 func (i instanceSuite) TestOpenPorts(c *gc.C) {
