@@ -700,3 +700,7 @@ func (p *fakeProvider) FinalizeCredential(
 	out.Label = "finalized"
 	return &out, p.NextErr()
 }
+
+func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: cloud.CredentialSchema{}}
+}

@@ -456,13 +456,13 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	}
 
 	var credential *cloud.Credential
+	bootstrapCloud := cloud.Cloud{
+		Name:             bootstrapConfig.Cloud,
+		Type:             bootstrapConfig.CloudType,
+		Endpoint:         bootstrapConfig.CloudEndpoint,
+		IdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
+	}
 	if bootstrapConfig.Credential != "" {
-		bootstrapCloud := cloud.Cloud{
-			Name:             bootstrapConfig.Cloud,
-			Type:             bootstrapConfig.CloudType,
-			Endpoint:         bootstrapConfig.CloudEndpoint,
-			IdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
-		}
 		if bootstrapConfig.CloudRegion != "" {
 			bootstrapCloud.Regions = []cloud.Region{{
 				Name:             bootstrapConfig.CloudRegion,
@@ -493,8 +493,14 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		}
 		// DetectCredential ensures that there is only one credential
 		// to choose from. It's still in a map, though, hence for..range.
-		for _, one := range cloudCredential.AuthCredentials {
+		var credentialName string
+		for name, one := range cloudCredential.AuthCredentials {
 			credential = &one
+			credentialName = name
+		}
+		credential, err = FinalizeFileContent(credential, provider)
+		if err != nil {
+			return nil, nil, AnnotateWithFinalizationError(err, credentialName, bootstrapCloud.Name)
 		}
 		credential, err = provider.FinalizeCredential(
 			g.ctx, environs.FinalizeCredentialParams{
