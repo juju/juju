@@ -50,6 +50,7 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/stateenvirons"
 	statestorage "github.com/juju/juju/state/storage"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -153,8 +154,8 @@ func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
-	info := s.State.MongoConnectionInfo()
-	info.Password = "dummy-secret"
+	info := statetesting.NewMongoInfo()
+	info.Password = AdminSecret
 	return info
 }
 
@@ -396,7 +397,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.BackingState = getStater.GetStateInAPIServer()
 	s.BackingStatePool = getStater.GetStatePoolInAPIServer()
 
-	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.BackingState.MongoConnectionInfo())
+	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.MongoInfo(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.StatePool = state.NewStatePool(s.State)
@@ -479,9 +480,6 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 	}
 	config := environ.Config()
 	password := AdminSecret
-	if password == "" {
-		return nil, errors.Errorf("cannot connect without admin-secret")
-	}
 	modelTag := names.NewModelTag(config.UUID())
 
 	mongoInfo.Password = password

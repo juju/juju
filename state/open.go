@@ -283,11 +283,6 @@ func newState(
 	return st, nil
 }
 
-// MongoConnectionInfo returns information for connecting to mongo
-func (st *State) MongoConnectionInfo() *mongo.MongoInfo {
-	return st.mongoInfo
-}
-
 // CACert returns the certificate used to validate the state connection.
 func (st *State) CACert() string {
 	return st.mongoInfo.CACert

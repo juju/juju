@@ -414,7 +414,6 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 }
 
 func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
-	mongoInfo := s.State.MongoConnectionInfo()
 	newPolicy := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
@@ -422,7 +421,7 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.IAASModel.ModelTag(),
-		MongoInfo:          mongoInfo,
+		MongoInfo:          statetesting.NewMongoInfo(),
 		MongoDialOpts:      mongotest.DialOpts(),
 		NewPolicy:          newPolicy,
 	})

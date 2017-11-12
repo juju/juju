@@ -87,8 +87,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		ModelTag: model.ModelTag(),
 	}
 
-	auth := authentication.NewAuthenticator(st.MongoConnectionInfo(), apiInfo)
-	_, apiInfo, err = auth.SetupAuthentication(machine)
+	_, apiInfo, err = authentication.SetupAuthentication(machine, nil, apiInfo)
 	if err != nil {
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}

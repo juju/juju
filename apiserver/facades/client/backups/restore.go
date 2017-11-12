@@ -80,7 +80,10 @@ func (a *API) Restore(p params.RestoreArgs) error {
 		return errors.Annotatef(err, "HA not ready; try again later")
 	}
 
-	mgoInfo := a.backend.MongoConnectionInfo()
+	mgoInfo, err := mongoInfo(a.paths.DataDir, a.machineID)
+	if err != nil {
+		return errors.Annotatef(err, "getting mongo info")
+	}
 	logger.Debugf("mongo info from state %+v", mgoInfo)
 	v, err := a.backend.MongoVersion()
 	if err != nil {

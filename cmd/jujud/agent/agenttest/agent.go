@@ -199,7 +199,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	vers version.Binary,
 	modelTag names.ModelTag,
 ) agent.ConfigSetterWriter {
-	stateInfo := s.State.MongoConnectionInfo()
+	stateInfo := s.MongoInfo(c)
 	apiPort := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
