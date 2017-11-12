@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
 )
@@ -66,7 +67,7 @@ func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
 func (s *APIAddresserTests) TestCACert(c *gc.C) {
 	caCert, err := s.facade.CACert()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(caCert, gc.DeepEquals, s.state.CACert())
+	c.Assert(caCert, gc.DeepEquals, testing.CACert)
 }
 
 func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {

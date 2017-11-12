@@ -53,7 +53,7 @@ func (api *API) state() *state.State {
 // caCerter implements the subset of common.APIAddresser
 // methods that we choose to expose in the client facade.
 type caCerter interface {
-	CACert() params.BytesResult
+	CACert() (params.BytesResult, error)
 }
 
 // Client serves client-specific API methods.

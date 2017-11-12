@@ -283,11 +283,6 @@ func newState(
 	return st, nil
 }
 
-// CACert returns the certificate used to validate the state connection.
-func (st *State) CACert() string {
-	return st.mongoInfo.CACert
-}
-
 // Close the connection to the database.
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")

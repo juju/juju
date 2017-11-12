@@ -36,7 +36,7 @@ type API struct {
 // addresser implements the subset of common.APIAddresser
 // methods that we choose to expose in the MigrationTarget facade.
 type addresser interface {
-	CACert() params.BytesResult
+	CACert() (params.BytesResult, error)
 }
 
 // NewFacade is used for API registration.

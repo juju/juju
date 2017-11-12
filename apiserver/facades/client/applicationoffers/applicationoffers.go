@@ -433,10 +433,15 @@ func (api *OffersAPI) GetConsumeDetails(args params.OfferURLs) (params.ConsumeOf
 	if addr.Error != nil {
 		return consumeResults, common.ServerError(err)
 	}
+	caCertResult, err := api.APIAddresser.CACert()
+	if err != nil {
+		return consumeResults, common.ServerError(err)
+	}
+
 	controllerInfo := &params.ExternalControllerInfo{
 		ControllerTag: api.ControllerModel.ControllerTag().String(),
 		Addrs:         addr.Result,
-		CACert:        string(api.APIAddresser.CACert().Result),
+		CACert:        string(caCertResult.Result),
 	}
 
 	for i, result := range offers.Results {

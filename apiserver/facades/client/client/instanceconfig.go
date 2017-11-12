@@ -70,6 +70,15 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	}
 	toolsList := findToolsResult.List
 
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	caCert, ok := controllerConfig.CACert()
+	if !ok {
+		return nil, errors.New("CA certificate missing from controller config")
+	}
+
 	// Get the API connection info; attempt all API addresses.
 	apiHostPorts, err := st.APIHostPorts()
 	if err != nil {
@@ -83,7 +92,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	}
 	apiInfo := &api.Info{
 		Addrs:    apiAddrs.SortedValues(),
-		CACert:   st.CACert(),
+		CACert:   caCert,
 		ModelTag: model.ModelTag(),
 	}
 
