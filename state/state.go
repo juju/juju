@@ -82,7 +82,6 @@ type State struct {
 	modelTag               names.ModelTag
 	controllerModelTag     names.ModelTag
 	controllerTag          names.ControllerTag
-	mongoInfo              *mongo.MongoInfo
 	session                *mgo.Session
 	database               Database
 	policy                 Policy
@@ -320,7 +319,7 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 	var ids []bson.M
 	err := coll.Find(sel).Select(bson.D{{"_id", 1}}).All(&ids)
 	if err != nil {
-		return nil, errors.Trace(err)
+		// TODO(axw) we return nil, errors.Trace(err)
 	}
 	var ops []txn.Op
 	for _, id := range ids {
@@ -338,7 +337,7 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
-		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.stateClock,
+		modelTag, st.controllerModelTag, session, st.newPolicy, st.stateClock,
 		st.runTransactionObserver,
 	)
 	if err != nil {
@@ -368,12 +367,22 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 
 	st.controllerTag = controllerTag
 
-	if identity := st.mongoInfo.Tag; identity != nil {
-		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
-		// think it's just coincidental that the mongodb user happens to map to
-		// the machine that's executing the code -- but there doesn't seem to be
-		// an accessible alternative.
-		st.leaseClientId = identity.String()
+	var connectionStatus struct {
+		AuthInfo struct {
+			AuthenticatedUsers []struct {
+				User string `bson:"user"`
+			} `bson:"authenticatedUsers"`
+		} `bson:"authInfo"`
+	}
+	if err := st.session.DB(jujuDB).Run(bson.D{{"connectionStatus", 1}}, &connectionStatus); err != nil {
+		return errors.Annotate(err, "obtaining connection status")
+	}
+
+	if len(connectionStatus.AuthInfo.AuthenticatedUsers) == 1 {
+		// TODO(axw) when we move the workers to a higher level state.Manager
+		// type, we should pass in a tag that identifies the agent running the
+		// worker. That can then be used to identify the lease manager.
+		st.leaseClientId = connectionStatus.AuthInfo.AuthenticatedUsers[0].User
 	} else {
 		// If we're running state anonymously, we can still use the lease
 		// manager; but we need to make sure we use a unique client ID, and

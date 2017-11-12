@@ -107,7 +107,6 @@ func OpenController(args OpenParams) (*Controller, error) {
 		clock:                  args.Clock,
 		controllerTag:          args.ControllerTag,
 		controllerModelTag:     args.ControllerModelTag,
-		mongoInfo:              args.MongoInfo,
 		session:                session,
 		newPolicy:              args.NewPolicy,
 		runTransactionObserver: args.RunTransactionObserver,
@@ -175,7 +174,7 @@ func open(
 	}
 	logger.Debugf("mongodb login successful")
 
-	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy, clock, runTransactionObserver)
+	st, err := newState(controllerModelTag, controllerModelTag, session, newPolicy, clock, runTransactionObserver)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -245,7 +244,7 @@ func isUnauthorized(err error) bool {
 // close it if it cannot be returned under the aegis of a *State.
 func newState(
 	modelTag, controllerModelTag names.ModelTag,
-	session *mgo.Session, mongoInfo *mongo.MongoInfo,
+	session *mgo.Session,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
@@ -269,7 +268,6 @@ func newState(
 		stateClock:             clock,
 		modelTag:               modelTag,
 		controllerModelTag:     controllerModelTag,
-		mongoInfo:              mongoInfo,
 		session:                session,
 		database:               db,
 		newPolicy:              newPolicy,
