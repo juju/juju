@@ -700,35 +700,35 @@ func (s *environSuite) TestPrecheckNodePlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environSuite) TestDeriveAvailabilityZone(c *gc.C) {
+func (s *environSuite) TestDeriveAvailabilityZones(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
-	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "zone=zone1"})
+	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{Placement: "zone=zone1"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "zone1")
+	c.Assert(zones, gc.DeepEquals, []string{"zone1"})
 }
 
-func (s *environSuite) TestDeriveAvailabilityZoneUnknown(c *gc.C) {
+func (s *environSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
-	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "zone=zone2"})
+	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{Placement: "zone=zone2"})
 	c.Assert(err, gc.ErrorMatches, `availability zone "zone2" not valid`)
-	c.Assert(zone, gc.Equals, "")
+	c.Assert(zones, gc.HasLen, 0)
 }
 
-func (s *environSuite) TestDeriveAvailabilityZoneInvalidPlacement(c *gc.C) {
+func (s *environSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *gc.C) {
 	env := s.makeEnviron()
-	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "notzone=anything"})
+	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{Placement: "notzone=anything"})
 	c.Assert(err, gc.ErrorMatches, "unknown placement directive: notzone=anything")
-	c.Assert(zone, gc.Equals, "")
+	c.Assert(zones, gc.HasLen, 0)
 }
 
-func (s *environSuite) TestDeriveAvailabilityZoneNoPlacement(c *gc.C) {
+func (s *environSuite) TestDeriveAvailabilityZonesNoPlacement(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
-	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{})
+	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "")
+	c.Assert(zones, gc.HasLen, 0)
 }
 
 func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {

@@ -47,7 +47,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.Trace(err)
 	}
 	if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Wrap(errors.Trace(err), environs.ErrAvailabilityZoneFailed)
 	}
 
 	raw, err := newRawInstance(env, args, spec)
