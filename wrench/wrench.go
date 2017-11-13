@@ -109,7 +109,7 @@ var stat = os.Stat // To support patching
 func checkWrenchDir(dirName string) bool {
 	dirinfo, err := stat(dirName)
 	if err != nil {
-		logger.Debugf("couldn't read wrench directory: %v", err)
+		logger.Tracef("couldn't read wrench directory: %v", err)
 		return false
 	}
 	if !isOwnedByJujuUser(dirinfo) {
@@ -123,7 +123,7 @@ func checkWrenchDir(dirName string) bool {
 func checkWrenchFile(category, feature, fileName string) bool {
 	fileinfo, err := stat(fileName)
 	if err != nil {
-		logger.Debugf("no wrench data for %s/%s (ignored): %v",
+		logger.Tracef("no wrench data for %s/%s (ignored): %v",
 			category, feature, err)
 		return false
 	}
