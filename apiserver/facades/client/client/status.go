@@ -265,6 +265,13 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			}
 		}
 
+		deleteRelations := func(appName string, rs []*state.Relation) {
+			for _, r := range rs {
+				delete(context.relationsById, r.Id())
+			}
+			delete(context.relations, appName)
+		}
+
 		// Filter applications
 		for appName, app := range context.applications {
 			if matchedSvcs.Contains(appName) {
@@ -276,10 +283,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 				delete(context.applications, appName)
 				// delete relations for this app
 				if appRels, ok := context.relations[appName]; ok {
-					for _, r := range appRels {
-						delete(context.relationsById, r.Id())
-					}
-					delete(context.relations, appName)
+					deleteRelations(appName, appRels)
 				}
 			}
 		}
@@ -292,10 +296,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			} else if matches, err := predicate(appName); err != nil {
 				return noStatus, errors.Annotate(err, "could not filter relations")
 			} else if !matches {
-				for _, r := range rs {
-					delete(context.relationsById, r.Id())
-				}
-				delete(context.relations, appName)
+				deleteRelations(appName, rs)
 			}
 		}
 
