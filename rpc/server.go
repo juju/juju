@@ -283,14 +283,17 @@ func (conn *Conn) Close() error {
 		return nil
 	}
 	conn.closing = true
-	if conn.root != nil {
-		conn.root.Kill()
-	}
 	conn.mutex.Unlock()
 
 	// Wait for any outstanding server requests to complete
 	// and write their replies before closing the codec.
 	conn.srvPending.Wait()
+
+	conn.mutex.Lock()
+	if conn.root != nil {
+		conn.root.Kill()
+	}
+	conn.mutex.Unlock()
 
 	// Closing the codec should cause the input loop to terminate.
 	if err := conn.codec.Close(); err != nil {
