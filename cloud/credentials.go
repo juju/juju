@@ -311,7 +311,7 @@ type CredentialAttr struct {
 	// value used for this attribute.
 	FileAttr string
 
-	// FilePath is true is the value of this attribute is a file path. If
+	// FilePath is true if the value of this attribute is a file path. If
 	// this is true, then the attribute value will be set to the contents
 	// of the file when the credential is "finalized".
 	FilePath bool
