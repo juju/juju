@@ -6,7 +6,6 @@ package apiserver
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"io"
 	"log"
 	"net"
@@ -38,7 +37,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -91,7 +89,7 @@ type Server struct {
 	connCount              int64
 	totalConn              int64
 	loginAttempts          int64
-	certChanged            <-chan params.StateServingInfo
+	getCertificate         func() *tls.Certificate
 	tlsConfig              *tls.Config
 	allowModelAccess       bool
 	logSinkWriter          io.WriteCloser
@@ -108,12 +106,6 @@ type Server struct {
 	// hence it's here guarded by the mutex.
 	publicDNSName_ string
 
-	// cert holds the current certificate used for tls.Config.
-	cert *tls.Certificate
-
-	// certDNSNames holds the DNS names associated with cert.
-	certDNSNames []string
-
 	// registerIntrospectionHandlers is a function that will
 	// call a function with (path, http.Handler) tuples. This
 	// is to support registering the handlers underneath the
@@ -128,16 +120,19 @@ type LoginValidator func(authUser names.Tag) error
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
-	Clock       clock.Clock
-	PingClock   clock.Clock
-	Cert        string
-	Key         string
-	Tag         names.Tag
-	DataDir     string
-	LogDir      string
-	Validator   LoginValidator
-	Hub         *pubsub.StructuredHub
-	CertChanged <-chan params.StateServingInfo
+	Clock     clock.Clock
+	PingClock clock.Clock
+	Tag       names.Tag
+	DataDir   string
+	LogDir    string
+	Validator LoginValidator
+	Hub       *pubsub.StructuredHub
+
+	// GetCertificate holds a function that returns the current
+	// local TLS certificate for the server. The function may
+	// return updated values, so should be called whenever a
+	// new connection is accepted.
+	GetCertificate func() *tls.Certificate
 
 	// AutocertDNSName holds the DNS name for which
 	// official TLS certificates will be obtained. If this is
@@ -185,6 +180,9 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("missing Clock")
+	}
+	if c.GetCertificate == nil {
+		return errors.NotValidf("missing GetCertificate")
 	}
 	if c.NewObserver == nil {
 		return errors.NotValidf("missing NewObserver")
@@ -361,7 +359,7 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 		validator:                     cfg.Validator,
 		facades:                       AllFacades(),
 		centralHub:                    cfg.Hub,
-		certChanged:                   cfg.CertChanged,
+		getCertificate:                cfg.GetCertificate,
 		allowModelAccess:              cfg.AllowModelAccess,
 		publicDNSName_:                cfg.AutocertDNSName,
 		registerIntrospectionHandlers: cfg.RegisterIntrospectionHandlers,
@@ -391,10 +389,6 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 	srv.offerAuthCtxt, err = newOfferAuthcontext(stPool)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	if err := srv.updateCertificate(cfg.Cert, cfg.Key); err != nil {
-		return nil, errors.Annotatef(err, "cannot set initial certificate")
 	}
 
 	logSinkWriter, err := logsink.NewFileWriter(filepath.Join(srv.logDir, "logsink.log"))
@@ -543,19 +537,7 @@ func (srv *Server) run() {
 	srv.wg.Add(1)
 	go func() {
 		defer srv.wg.Done()
-		srv.tomb.Kill(srv.mongoPinger())
-	}()
-
-	srv.wg.Add(1)
-	go func() {
-		defer srv.wg.Done()
 		srv.tomb.Kill(srv.expireLocalLoginInteractions())
-	}()
-
-	srv.wg.Add(1)
-	go func() {
-		defer srv.wg.Done()
-		srv.tomb.Kill(srv.processCertChanges())
 	}()
 
 	srv.wg.Add(1)
@@ -961,22 +943,6 @@ func (srv *Server) serveConn(
 	return conn.Close()
 }
 
-func (srv *Server) mongoPinger() error {
-	session := srv.statePool.SystemState().MongoSession().Copy()
-	defer session.Close()
-	for {
-		if err := session.Ping(); err != nil {
-			logger.Infof("got error pinging mongo: %v", err)
-			return errors.Annotate(err, "error pinging mongo")
-		}
-		select {
-		case <-srv.clock.After(mongoPingInterval):
-		case <-srv.tomb.Dying():
-			return tomb.ErrDying
-		}
-	}
-}
-
 // publicDNSName returns the current public hostname.
 func (srv *Server) publicDNSName() string {
 	srv.mu.Lock()
@@ -988,68 +954,25 @@ func (srv *Server) publicDNSName() string {
 // whether it should be used to serve a connection addressed to the
 // given server name.
 func (srv *Server) localCertificate(serverName string) (*tls.Certificate, bool) {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
+	cert := srv.getCertificate()
 	if net.ParseIP(serverName) != nil {
 		// IP address connections always use the local certificate.
-		return srv.cert, true
+		return cert, true
 	}
 	if !strings.Contains(serverName, ".") {
 		// If the server name doesn't contain a period there's no
 		// way we can obtain a certificate for it.
 		// This applies to the common case where "juju-apiserver" is
 		// used as the server name.
-		return srv.cert, true
+		return cert, true
 	}
 	// Perhaps the server name is explicitly mentioned by the server certificate.
-	for _, name := range srv.certDNSNames {
+	for _, name := range cert.Leaf.DNSNames {
 		if name == serverName {
-			return srv.cert, true
+			return cert, true
 		}
 	}
-	return srv.cert, false
-}
-
-// processCertChanges receives new certificate information and
-// calls a method to update the listener's certificate.
-func (srv *Server) processCertChanges() error {
-	for {
-		select {
-		case info := <-srv.certChanged:
-			if info.Cert == "" {
-				break
-			}
-			logger.Infof("received API server certificate")
-			if err := srv.updateCertificate(info.Cert, info.PrivateKey); err != nil {
-				logger.Errorf("cannot update certificate: %v", err)
-			}
-		case <-srv.tomb.Dying():
-			return tomb.ErrDying
-		}
-	}
-}
-
-// updateCertificate updates the current CA certificate and key
-// from the given cert and key.
-func (srv *Server) updateCertificate(cert, key string) error {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	tlsCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
-	if err != nil {
-		return errors.Annotatef(err, "cannot create new TLS certificate")
-	}
-	x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
-	if err != nil {
-		return errors.Annotatef(err, "parsing x509 cert")
-	}
-	var addr []string
-	for _, ip := range x509Cert.IPAddresses {
-		addr = append(addr, ip.String())
-	}
-	logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
-	srv.cert = &tlsCert
-	srv.certDNSNames = x509Cert.DNSNames
-	return nil
+	return cert, false
 }
 
 func serverError(err error) error {

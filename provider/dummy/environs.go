@@ -19,6 +19,7 @@
 package dummy
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -833,14 +834,13 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			statePool := state.NewStatePool(st)
 			machineTag := names.NewMachineTag("0")
 			estate.apiServer, err = apiserver.NewServer(statePool, estate.apiListener, apiserver.ServerConfig{
-				Clock:       clock.WallClock,
-				Cert:        testing.ServerCert,
-				Key:         testing.ServerKey,
-				Tag:         machineTag,
-				DataDir:     DataDir,
-				LogDir:      LogDir,
-				Hub:         centralhub.New(machineTag),
-				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
+				Clock:          clock.WallClock,
+				GetCertificate: func() *tls.Certificate { return testing.ServerTLSCert },
+				Tag:            machineTag,
+				DataDir:        DataDir,
+				LogDir:         LogDir,
+				Hub:            centralhub.New(machineTag),
+				NewObserver:    func() observer.Observer { return &fakeobserver.Instance{} },
 				// Should never be used but prevent external access just in case.
 				AutocertURL: "https://0.1.2.3/no-autocert-here",
 				RegisterIntrospectionHandlers: func(f func(path string, h http.Handler)) {
