@@ -109,7 +109,7 @@ func BuildPredicateFor(patterns []string) Predicate {
 		case *state.Unit:
 			return or(buildUnitMatcherShims(i.(*state.Unit), patterns)...)
 		case *state.Application:
-			shims, err := buildServiceMatcherShims(i.(*state.Application), patterns...)
+			shims, err := buildApplicationMatcherShims(i.(*state.Application), patterns...)
 			if err != nil {
 				return false, err
 			}
@@ -197,6 +197,8 @@ func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 	return matchPortRanges(patterns, portRanges...)
 }
 
+// buildApplicationNameMatcherShims constructs predicates for given patterns to check
+// a given application name.
 func buildApplicationNameMatcherShims(appName string, patterns ...string) (shims []closurePredicate, _ error) {
 	// Match on name.
 	shims = append(shims, func() (bool, bool, error) {
@@ -210,7 +212,9 @@ func buildApplicationNameMatcherShims(appName string, patterns ...string) (shims
 	return shims, nil
 }
 
-func buildServiceMatcherShims(s *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
+// buildApplicationMatcherShims adds more checks in addition to buildApplicationNameMatcherShims:
+// adding checks if the application is exposed as well as check for its units.
+func buildApplicationMatcherShims(s *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
 	// Match on name.
 	appNameShims, err := buildApplicationNameMatcherShims(s.Name(), patterns...)
 	if err != nil {
