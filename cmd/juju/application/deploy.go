@@ -315,7 +315,8 @@ type DeployCommand struct {
 	// NewAPIRoot stores a function which returns a new API root.
 	NewAPIRoot func() (DeployAPI, error)
 
-	flagSet *gnuflag.FlagSet
+	machineMap string
+	flagSet    *gnuflag.FlagSet
 }
 
 const deployDoc = `
@@ -437,20 +438,19 @@ latter prefixed with "^", similar to the 'tags' constraint).
 
 When deploying bundles, machines specified in the bundle are added to the
 model as new machines. In order to use the existing machines in the model
-rather than create  new machines, the --use-existing-machines flag can be
-used. To specify a particular machine, the --bundle-machine flag can be used
-to specify a specific machine for  a particular machine in the bundle. These
-flags can be combined with the --bundle-machine flag taking precidence. For
-example, if there was a bundle that specified machines 1, 2, and 3, and the
-model had machines 1, 2, 3 and 4, the following deployment of the bundle would
-use machines 1 and 2 in the model for machines 1 and 2 in the bundle and use
-machine 4 in the model for the bundle machine 3.
+rather than create new machines, the option --machine-map=existing can be
+used. To specify particular machines for the mapping, multiple comma separated
+values of the form "bundle-id=existing-id" can be passed where the bundle-id
+and the existing-id refer to top level machine IDs. For example, if there was
+a bundle that specified machines 1, 2, and 3, and the model had machines 1, 2,
+3 and 4, the following deployment of the bundle would use machines 1 and 2 in
+the model for machines 1 and 2 in the bundle and use machine 4 in the model
+for the bundle machine 3.
 
-  juju deploy some-bundle --use-existing-machines --bundle-machine 3=4
+  juju deploy some-bundle --machine-map existing,3=4
 
 Only top level machines can be mapped in this way, just as only top level
-machines can be defined in the machines section of the bundle. The
---bundle-machine flag can be specified multiple times.
+machines can be defined in the machines section of the bundle.
 
 
 Examples:
@@ -528,7 +528,7 @@ var (
 	}
 	// TODO(thumper): support dry-run for apps as well as bundles.
 	bundleOnlyFlags = []string{
-		"bundle-config", "dry-run", "use-existing-machines", "bundle-machine",
+		"bundle-config", "dry-run", "machine-map",
 	}
 )
 
@@ -548,9 +548,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
-
-	f.BoolVar(&c.UseExisting, "use-existing-machines", false, "Use existing machines for bundle deployments")
-	f.Var(cmd.StringMap{&c.BundleMachines}, "bundle-machine", "Map specific bundle machines to model machines")
+	f.StringVar(&c.machineMap, "machine-map", "", "Specify the existing machines to use for bundle deployments")
 
 	for _, step := range c.Steps {
 		step.SetFlags(f)
@@ -581,18 +579,44 @@ func (c *DeployCommand) Init(args []string) error {
 		return err
 	}
 
-	// If any bundle-machines have been added, make sure they are all non-
-	// negative integers.
-	for key, value := range c.BundleMachines {
-		if i, err := strconv.Atoi(key); err != nil || i < 0 {
-			return errors.Errorf("--bundle-machine value \"%s=%s\", first value be a top level machine id", key, value)
-		}
-		if i, err := strconv.Atoi(value); err != nil || i < 0 {
-			return errors.Errorf("--bundle-machine value \"%s=%s\", second value be a top level machine id", key, value)
-		}
+	useExisting, mapping, err := parseMachineMap(c.machineMap)
+	if err != nil {
+		return errors.Annotate(err, "error in --machine-map")
 	}
+	c.UseExisting = useExisting
+	c.BundleMachines = mapping
 
 	return c.UnitCommandBase.Init(args)
+}
+
+func parseMachineMap(value string) (bool, map[string]string, error) {
+	parts := strings.Split(value, ",")
+	useExisting := false
+	mapping := make(map[string]string)
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		switch part {
+		case "":
+			// No-op.
+		case "existing":
+			useExisting = true
+		default:
+			otherParts := strings.Split(part, "=")
+			if len(otherParts) != 2 {
+				return false, nil, errors.Errorf("expected \"existing\" or \"<bundle-id>=<machine-id>\", got %q", part)
+			}
+			bundleID, machineID := strings.TrimSpace(otherParts[0]), strings.TrimSpace(otherParts[1])
+
+			if i, err := strconv.Atoi(bundleID); err != nil || i < 0 {
+				return false, nil, errors.Errorf("bundle-id %q is not a top level machine id", bundleID)
+			}
+			if i, err := strconv.Atoi(machineID); err != nil || i < 0 {
+				return false, nil, errors.Errorf("machine-id %q is not a top level machine id", machineID)
+			}
+			mapping[bundleID] = machineID
+		}
+	}
+	return useExisting, mapping, nil
 }
 
 type ModelConfigGetter interface {
