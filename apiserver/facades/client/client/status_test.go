@@ -378,48 +378,56 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 }
 
 func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
-	s1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	// make application 1 with endpoint 1
+	a1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "abc",
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
 	})
-	e1, err := s1.Endpoint("db")
+	e1, err := a1.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	// make application 2 with endpoint 2
+	a2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "def",
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "mysql",
 		}),
 	})
-	e2, err := s2.Endpoint("server")
+	e2, err := a2.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 
-	relation := s.Factory.MakeRelation(c, &factory.RelationParams{
+	// create relation between a1 and a2
+	r12 := s.Factory.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{e1, e2},
 	})
-	c.Assert(relation, gc.NotNil)
+	c.Assert(r12, gc.NotNil)
 
-	s3 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	// create another application 3 with an endpoint 3
+	a3 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
 	})
-	sEndpoint, err := s3.Endpoint("info")
+	e3, err := a3.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
-	pEndpoint, err := s1.Endpoint("juju-info")
-	c.Assert(err, jc.ErrorIsNil)
-	relation2 := s.Factory.MakeRelation(c, &factory.RelationParams{
-		Endpoints: []state.Endpoint{sEndpoint, pEndpoint},
-	})
-	c.Assert(relation2, gc.NotNil)
 
+	// create endpoint 4 on application 1
+	e4, err := a1.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	r13 := s.Factory.MakeRelation(c, &factory.RelationParams{
+		Endpoints: []state.Endpoint{e3, e4},
+	})
+	c.Assert(r13, gc.NotNil)
+
+	// Test status filtering with application 1: should get both relations
 	client := s.APIState.Client()
-	status, err := client.Status([]string{s1.Name()})
+	status, err := client.Status([]string{a1.Name()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	c.Assert(status.Relations, gc.HasLen, 2)
 
-	status, err = client.Status([]string{s3.Name()})
+	// test status filtering with application 3: should get 1 relation
+	status, err = client.Status([]string{a3.Name()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	c.Assert(status.Relations, gc.HasLen, 1)
