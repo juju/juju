@@ -377,6 +377,54 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	setAndCheckMigStatus("oh noes")
 }
 
+func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
+	s1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "abc",
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	e1, err := s1.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "def",
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "mysql",
+		}),
+	})
+	e2, err := s2.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+
+	relation := s.Factory.MakeRelation(c, &factory.RelationParams{
+		Endpoints: []state.Endpoint{e1, e2},
+	})
+	c.Assert(relation, gc.NotNil)
+
+	s3 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
+	})
+	sEndpoint, err := s3.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+	pEndpoint, err := s1.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	relation2 := s.Factory.MakeRelation(c, &factory.RelationParams{
+		Endpoints: []state.Endpoint{sEndpoint, pEndpoint},
+	})
+	c.Assert(relation2, gc.NotNil)
+
+	client := s.APIState.Client()
+	status, err := client.Status([]string{s1.Name()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	c.Assert(status.Relations, gc.HasLen, 2)
+
+	status, err = client.Status([]string{s3.Name()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	c.Assert(status.Relations, gc.HasLen, 1)
+}
+
 type statusUpgradeUnitSuite struct {
 	testing.CharmSuite
 	jujutesting.JujuConnSuite

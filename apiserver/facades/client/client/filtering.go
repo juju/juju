@@ -75,7 +75,7 @@ func UnitChainPredicateFn(
 func BuildPredicateFor(patterns []string) Predicate {
 
 	or := func(predicates ...closurePredicate) (bool, error) {
-		// Differentiate between a valid format that elimintated all
+		// Differentiate between a valid format that eliminated all
 		// elements, and an invalid query.
 		oneValidFmt := false
 		for _, p := range predicates {
@@ -99,7 +99,7 @@ func BuildPredicateFor(patterns []string) Predicate {
 	return func(i interface{}) (bool, error) {
 		switch i.(type) {
 		default:
-			panic(errors.Errorf("Programming error. We should only ever pass in machines, applications, or units. Received %T.", i))
+			panic(errors.Errorf("Programming error. We should only ever pass in machines, applications, units or application names (coming in for relations as strings). Received %T.", i))
 		case *state.Machine:
 			shims, err := buildMachineMatcherShims(i.(*state.Machine), patterns)
 			if err != nil {
@@ -110,6 +110,12 @@ func BuildPredicateFor(patterns []string) Predicate {
 			return or(buildUnitMatcherShims(i.(*state.Unit), patterns)...)
 		case *state.Application:
 			shims, err := buildServiceMatcherShims(i.(*state.Application), patterns...)
+			if err != nil {
+				return false, err
+			}
+			return or(shims...)
+		case string: // At this stage, only applicable for application name
+			shims, err := buildApplicationNameMatcherShims(i.(string), patterns...)
 			if err != nil {
 				return false, err
 			}
@@ -191,16 +197,26 @@ func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 	return matchPortRanges(patterns, portRanges...)
 }
 
-func buildServiceMatcherShims(s *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
+func buildApplicationNameMatcherShims(appName string, patterns ...string) (shims []closurePredicate, _ error) {
 	// Match on name.
 	shims = append(shims, func() (bool, bool, error) {
 		for _, p := range patterns {
-			if strings.ToLower(s.Name()) == strings.ToLower(p) {
+			if strings.ToLower(appName) == strings.ToLower(p) {
 				return true, true, nil
 			}
 		}
-		return false, false, nil
+		return false, true, nil
 	})
+	return shims, nil
+}
+
+func buildServiceMatcherShims(s *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
+	// Match on name.
+	appNameShims, err := buildApplicationNameMatcherShims(s.Name(), patterns...)
+	if err != nil {
+		return nil, err
+	}
+	shims = append(shims, appNameShims...)
 
 	// Match on exposure.
 	shims = append(shims, func() (bool, bool, error) { return matchExposure(patterns, s) })
