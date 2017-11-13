@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -702,7 +703,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath),
 		"--bundle-config", "missing-file")
-	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to open bundle-config file: "+missingFileRegex("missing-file"))
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to read bundle-config file .*")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleConfig(c *gc.C) {
@@ -1733,6 +1734,9 @@ func (s *ProcessBundleConfigSuite) SetUpTest(c *gc.C) {
                 num_units: 1
                 options:
                     key: value
+        relations:
+            - - "django"
+              - "memcached"
         machines:
             1:
                 annotations: {foo: bar}`
@@ -1756,19 +1760,19 @@ func (s *ProcessBundleConfigSuite) writeFile(c *gc.C, content string) string {
 }
 
 func (s *ProcessBundleConfigSuite) TestNoFile(c *gc.C) {
-	err := processBundleConfig(s.bundleData, "")
+	err := processBundleConfig(s.bundleData)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ProcessBundleConfigSuite) TestBadFile(c *gc.C) {
 	err := processBundleConfig(s.bundleData, "bad")
-	c.Assert(err, gc.ErrorMatches, "unable to open bundle-config file: "+missingFileRegex("bad"))
+	c.Assert(err, gc.ErrorMatches, `unable to read bundle-config file ".*": bundle not found: .*bad`)
 }
 
 func (s *ProcessBundleConfigSuite) TestGoodYAML(c *gc.C) {
 	filename := s.writeFile(c, "bad:\n\tindent")
 	err := processBundleConfig(s.bundleData, filename)
-	c.Assert(err, gc.ErrorMatches, "unable to deserialize config structure: yaml: line 1: found character that cannot start any token")
+	c.Assert(err, gc.ErrorMatches, `unable to read bundle-config file ".*": cannot unmarshal bundle data: yaml: line 1: found character that cannot start any token`)
 }
 
 func (s *ProcessBundleConfigSuite) TestReplaceZeroValues(c *gc.C) {
@@ -1787,30 +1791,64 @@ func (s *ProcessBundleConfigSuite) TestReplaceZeroValues(c *gc.C) {
 	c.Check(django.NumUnits, gc.Equals, 0)
 }
 
-func (s *ProcessBundleConfigSuite) TestUnknownConfigKey(c *gc.C) {
+func (s *ProcessBundleConfigSuite) TestMachineReplacement(c *gc.C) {
 	config := `
         machines:
-            1: 2
-        applications:
-            django:
-                expose: false
-                num_units: 0
+            1:
+            2:
     `
 	filename := s.writeFile(c, config)
 	err := processBundleConfig(s.bundleData, filename)
-	c.Assert(err, gc.ErrorMatches, `unexpected key "machines" in config`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var machines []string
+	for key := range s.bundleData.Machines {
+		machines = append(machines, key)
+	}
+	sort.Strings(machines)
+	c.Assert(machines, jc.DeepEquals, []string{"1", "2"})
 }
 
-func (s *ProcessBundleConfigSuite) TestUnknownApplication(c *gc.C) {
+func (s *ProcessBundleConfigSuite) assertApplications(c *gc.C, appNames ...string) {
+	var applications []string
+	for key := range s.bundleData.Applications {
+		applications = append(applications, key)
+	}
+	sort.Strings(applications)
+	sort.Strings(appNames)
+	c.Assert(applications, jc.DeepEquals, appNames)
+}
+
+func (s *ProcessBundleConfigSuite) TestNewApplication(c *gc.C) {
 	config := `
         applications:
-            wordpress:
-                expose: false
-                num_units: 0
+            postgresql:
+                charm: cs:postgresql
+                num_units: 1
+        relations:
+            - - "postgresql:pgsql"
+              - "django:pgsql"
     `
 	filename := s.writeFile(c, config)
 	err := processBundleConfig(s.bundleData, filename)
-	c.Assert(err, gc.ErrorMatches, `application "wordpress" from config not found in bundle`)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplications(c, "django", "memcached", "postgresql")
+	c.Assert(s.bundleData.Relations, jc.DeepEquals, [][]string{
+		{"django", "memcached"},
+		{"postgresql:pgsql", "django:pgsql"},
+	})
+}
+
+func (s *ProcessBundleConfigSuite) TestRemoveApplication(c *gc.C) {
+	config := `
+        applications:
+            memcached:
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleConfig(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplications(c, "django")
+	c.Assert(s.bundleData.Relations, gc.HasLen, 0)
 }
 
 func (s *ProcessBundleConfigSuite) TestIncludes(c *gc.C) {
@@ -1881,6 +1919,105 @@ func (s *ProcessBundleConfigSuite) TestRemainingFields(c *gc.C) {
 		"disk": "big"})
 	c.Check(django.EndpointBindings, jc.DeepEquals, map[string]string{
 		"where": "dmz"})
+}
+
+func (s *ProcessBundleConfigSuite) TestYAMLInterpolation(c *gc.C) {
+
+	removeDjango := s.writeFile(c, `
+applications:
+    django:
+    `)
+
+	addWiki := s.writeFile(c, `
+defaultwiki: &DEFAULTWIKI
+    charm: "cs:trusty/mediawiki-5"
+    num_units: 1
+    options: &WIKIOPTS
+        debug: false
+        name: Please set name of wiki
+        skin: vector
+
+applications:
+    wiki:
+        <<: *DEFAULTWIKI
+        options:
+            <<: *WIKIOPTS
+            name: The name override
+relations:
+    - - "wiki"
+      - "memcached"
+`)
+
+	err := processBundleConfig(s.bundleData, removeDjango, addWiki)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertApplications(c, "memcached", "wiki")
+	c.Assert(s.bundleData.Relations, jc.DeepEquals, [][]string{
+		{"wiki", "memcached"},
+	})
+	wiki := s.bundleData.Applications["wiki"]
+	c.Assert(wiki.Charm, gc.Equals, "cs:trusty/mediawiki-5")
+	c.Assert(wiki.Options, gc.DeepEquals,
+		map[string]interface{}{
+			"debug": false,
+			"name":  "The name override",
+			"skin":  "vector",
+		})
+}
+
+type removeRelationsSuite struct{}
+
+var (
+	_ = gc.Suite(&removeRelationsSuite{})
+
+	sampleRelations = [][]string{
+		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
+		{"kubernetes-master:etcd", "etcd:db"},
+		{"kubernetes-worker:kube-api-endpoint", "kubeapi-load-balancer:website"},
+		{"flannel", "etcd"}, // removed :endpoint
+		{"flannel:cni", "kubernetes-master:cni"},
+		{"flannel:cni", "kubernetes-worker:cni"},
+	}
+)
+
+func (*removeRelationsSuite) TestNil(c *gc.C) {
+	result := removeRelations(nil, "foo")
+	c.Assert(result, gc.HasLen, 0)
+}
+
+func (*removeRelationsSuite) TestEmpty(c *gc.C) {
+	result := removeRelations([][]string{}, "foo")
+	c.Assert(result, gc.HasLen, 0)
+}
+
+func (*removeRelationsSuite) TestAppNotThere(c *gc.C) {
+	result := removeRelations(sampleRelations, "foo")
+	c.Assert(result, jc.DeepEquals, sampleRelations)
+}
+
+func (*removeRelationsSuite) TestAppBadRelationsKept(c *gc.C) {
+	badRelations := [][]string{{"single value"}, {"three", "string", "values"}}
+	result := removeRelations(badRelations, "foo")
+	c.Assert(result, jc.DeepEquals, badRelations)
+}
+
+func (*removeRelationsSuite) TestRemoveFromRight(c *gc.C) {
+	result := removeRelations(sampleRelations, "etcd")
+	c.Assert(result, jc.DeepEquals, [][]string{
+		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
+		{"kubernetes-worker:kube-api-endpoint", "kubeapi-load-balancer:website"},
+		{"flannel:cni", "kubernetes-master:cni"},
+		{"flannel:cni", "kubernetes-worker:cni"},
+	})
+}
+
+func (*removeRelationsSuite) TestRemoveFromLeft(c *gc.C) {
+	result := removeRelations(sampleRelations, "flannel")
+	c.Assert(result, jc.DeepEquals, [][]string{
+		{"kubernetes-master:kube-control", "kubernetes-worker:kube-control"},
+		{"kubernetes-master:etcd", "etcd:db"},
+		{"kubernetes-worker:kube-api-endpoint", "kubeapi-load-balancer:website"},
+	})
 }
 
 func missingFileRegex(filename string) string {

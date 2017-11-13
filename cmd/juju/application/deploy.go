@@ -264,9 +264,9 @@ type DeployCommand struct {
 	// or a bundle name.
 	CharmOrBundle string
 
-	// BundleConfig refers to a config file that specifies application overrides, and
-	// in the near future, machine and space mappings.
-	BundleConfigFile string
+	// BundleConfig refers to config files that specify additional bundle
+	// configuration to be merged with the main bundle.
+	BundleConfigFile []string
 
 	// Channel holds the charmstore channel to use when obtaining
 	// the charm to be deployed.
@@ -540,7 +540,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
 	f.Var(&c.Config, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
-	f.StringVar(&c.BundleConfigFile, "bundle-config", "", "Config override values for a bundle")
+	f.Var(cmd.NewAppendStringsValue(&c.BundleConfigFile), "bundle-config", "Config override values for a bundle")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
