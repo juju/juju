@@ -403,9 +403,6 @@ func (cfg *InstanceConfig) AgentConfig(
 	tag names.Tag,
 	toolsVersion version.Number,
 ) (agent.ConfigSetter, error) {
-	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
-	// if the instance is a controller then to use localhost.  This may be
-	// sufficient, but needs thought in the new world order.
 	var password, cacert string
 	if cfg.Controller == nil {
 		password = cfg.APIInfo.Password
@@ -425,7 +422,6 @@ func (cfg *InstanceConfig) AgentConfig(
 		UpgradedToVersion: toolsVersion,
 		Password:          password,
 		Nonce:             cfg.MachineNonce,
-		StateAddresses:    cfg.stateHostAddrs(),
 		APIAddresses:      cfg.APIHostAddrs(),
 		CACert:            cacert,
 		Values:            cfg.AgentEnvironment,

@@ -57,16 +57,6 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	}, nil
 }
 
-// StateAddresses returns the list of addresses used to connect to the state.
-func (st *State) StateAddresses() ([]string, error) {
-	var result params.StringsResult
-	err := st.facade.FacadeCall("StateAddresses", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	return result.Result, nil
-}
-
 // ConnectionInfo returns all the address information that the deployer task
 // needs in one call.
 func (st *State) ConnectionInfo() (result params.DeployerConnectionValues, err error) {

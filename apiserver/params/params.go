@@ -702,8 +702,7 @@ type ProvisioningScriptResult struct {
 // DeployerConnectionValues containers the result of deployer.ConnectionInfo
 // API call.
 type DeployerConnectionValues struct {
-	StateAddresses []string `json:"state-addresses"`
-	APIAddresses   []string `json:"api-addresses"`
+	APIAddresses []string `json:"api-addresses"`
 }
 
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.

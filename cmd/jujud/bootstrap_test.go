@@ -310,7 +310,6 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		Nonce:             agent.BootstrapNonce,
 		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
-		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		APIAddresses:      []string{"0.1.2.3:1234"},
 		CACert:            testing.CACert,
 		Values: map[string]string{
