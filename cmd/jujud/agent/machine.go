@@ -586,7 +586,6 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			ControllerLeaseDuration:           time.Minute,
 			LogPruneInterval:                  5 * time.Minute,
 			TransactionPruneInterval:          time.Hour,
-			StopMongo:                         a.maybeStopMongo,
 			LoginValidator:                    a.limitLogins,
 			SetStatePool:                      a.statePool.set,
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
@@ -648,31 +647,6 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	err := a.AgentConfigWriter.ChangeConfig(mutate)
 	a.configChangedVal.Set(true)
 	return errors.Trace(err)
-}
-
-func (a *MachineAgent) maybeStopMongo(ver mongo.Version, isMaster bool) error {
-	if !a.mongoInitialized {
-		return nil
-	}
-
-	conf := a.AgentConfigWriter.CurrentConfig()
-	v := conf.MongoVersion()
-
-	logger.Errorf("Got version change %v", ver)
-	// TODO(perrito666) replace with "read-only" mode for environment when
-	// it is available.
-	if ver.NewerThan(v) > 0 {
-		err := a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
-			config.SetMongoVersion(mongo.MongoUpgrade)
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
-	}
-	return nil
-
 }
 
 // PrepareRestore will flag the agent to allow only a limited set

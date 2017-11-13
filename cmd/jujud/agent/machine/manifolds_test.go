@@ -67,7 +67,6 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"migration-fortress",
 		"migration-minion",
 		"migration-inactive-flag",
-		"mongo-upgrader",
 		"proxy-config-updater",
 		"pubsub-forwarder",
 		"reboot-executor",
@@ -151,7 +150,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	for name, manifold := range manifolds {
 		c.Logf(name)
 		switch name {
-		case "certificate-watcher", "is-primary-controller-flag", "mongo-upgrader":
+		case "certificate-watcher", "is-primary-controller-flag":
 			checkContains(c, manifold.Inputs, "is-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
 		case "external-controller-updater", "log-pruner", "transaction-pruner":

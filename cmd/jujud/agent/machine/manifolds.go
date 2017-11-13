@@ -54,7 +54,6 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
-	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/reboot"
@@ -187,9 +186,6 @@ type ManifoldsConfig struct {
 	// TransactionPruneInterval defines how frequently mgo/txn transactions
 	// are pruned from the database.
 	TransactionPruneInterval time.Duration
-
-	// StopMongo is a function used to stop a locally running MongoDB service.
-	StopMongo mongoupgrader.StopMongo
 
 	// LoginValidator is an apiserver.LoginValidator that will be passed
 	// to API server instances for validating logins.
@@ -658,14 +654,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		))),
 
-		mongoUpgraderName: ifNotMigrating(ifController(mongoupgrader.Manifold(
-			mongoupgrader.ManifoldConfig{
-				StateName: stateName,
-				Machine:   machineTag,
-				StopMongo: config.StopMongo,
-			},
-		))),
-
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:                         agentName,
 			ClockName:                         clockName,
@@ -765,7 +753,6 @@ const (
 	isControllerFlagName          = "is-controller-flag"
 	logPrunerName                 = "log-pruner"
 	txnPrunerName                 = "transaction-pruner"
-	mongoUpgraderName             = "mongo-upgrader"
 	apiServerName                 = "api-server"
 	certificateWatcherName        = "certificate-watcher"
 )
