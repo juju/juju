@@ -884,12 +884,17 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	session, err := mongo.DialWithInfo(*info, dialOpts)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer session.Close()
+
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
-		MongoInfo:          info,
-		MongoDialOpts:      dialOpts,
+		MongoSession:       session,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
@@ -1034,13 +1039,17 @@ func (a *MachineAgent) initController(agentConfig agent.Config) (*state.Controll
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	session, err := mongo.DialWithInfo(*info, dialOpts)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer session.Close()
 
 	ctlr, err := state.OpenController(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
-		MongoInfo:          info,
-		MongoDialOpts:      dialOpts,
+		MongoSession:       session,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
@@ -1324,12 +1333,17 @@ func openState(
 	if !ok {
 		return nil, nil, errors.Errorf("no state info available")
 	}
+	session, err := mongo.DialWithInfo(*info, dialOpts)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	defer session.Close()
+
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
-		MongoInfo:          info,
-		MongoDialOpts:      dialOpts,
+		MongoSession:       session,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),

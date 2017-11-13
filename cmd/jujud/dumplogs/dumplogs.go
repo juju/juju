@@ -109,12 +109,17 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no database connection info available (is this a controller host?)")
 	}
 
+	session, err := mongo.DialWithInfo(*info, mongo.DefaultDialOpts())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer session.Close()
+
 	st0, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
-		MongoInfo:          info,
-		MongoDialOpts:      mongo.DefaultDialOpts(),
+		MongoSession:       session,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to database")

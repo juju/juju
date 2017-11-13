@@ -1496,7 +1496,7 @@ func (s *withControllerSuite) TestStateAddresses(c *gc.C) {
 func (s *withControllerSuite) TestCACert(c *gc.C) {
 	result := s.provisioner.CACert()
 	c.Assert(result, gc.DeepEquals, params.BytesResult{
-		Result: []byte(s.State.CACert()),
+		Result: []byte(coretesting.CACert),
 	})
 }
 

@@ -479,11 +479,16 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 		return nil, errors.New("missing controller UUID")
 	}
 	config := environ.Config()
-	password := AdminSecret
 	modelTag := names.NewModelTag(config.UUID())
 
-	mongoInfo.Password = password
+	mongoInfo.Password = AdminSecret
 	opts := mongotest.DialOpts()
+	session, err := mongo.DialWithInfo(*mongoInfo, opts)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer session.Close()
+
 	newPolicyFunc := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
@@ -492,8 +497,7 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
-		MongoInfo:          mongoInfo,
-		MongoDialOpts:      opts,
+		MongoSession:       session,
 		NewPolicy:          newPolicyFunc,
 	}
 	st, err := state.Open(args)
@@ -712,7 +716,7 @@ func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, 
 	return app
 }
 
-func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {
+func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetterWriter {
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	paths := agent.DefaultPaths

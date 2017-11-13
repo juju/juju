@@ -319,7 +319,7 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 	var ids []bson.M
 	err := coll.Find(sel).Select(bson.D{{"_id", 1}}).All(&ids)
 	if err != nil {
-		// TODO(axw) we return nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	var ops []txn.Op
 	for _, id := range ids {
@@ -367,6 +367,13 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 
 	st.controllerTag = controllerTag
 
+	// Run the "connectionStatus" Mongo command to obtain the authenticated
+	// user name, if any. This is used below for the lease client ID.
+	// See: https://docs.mongodb.com/manual/reference/command/connectionStatus/
+	//
+	// TODO(axw) when we move the workers to a higher level state.Manager
+	// type, we should pass in a tag that identifies the agent running the
+	// worker. That can then be used to identify the lease manager.
 	var connectionStatus struct {
 		AuthInfo struct {
 			AuthenticatedUsers []struct {
@@ -379,9 +386,6 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 	}
 
 	if len(connectionStatus.AuthInfo.AuthenticatedUsers) == 1 {
-		// TODO(axw) when we move the workers to a higher level state.Manager
-		// type, we should pass in a tag that identifies the agent running the
-		// worker. That can then be used to identify the lease manager.
 		st.leaseClientId = connectionStatus.AuthInfo.AuthenticatedUsers[0].User
 	} else {
 		// If we're running state anonymously, we can still use the lease

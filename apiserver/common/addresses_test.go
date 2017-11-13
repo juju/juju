@@ -8,8 +8,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type stateAddresserSuite struct {
@@ -90,7 +92,7 @@ func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *gc.C) {
 
 func (s *apiAddresserSuite) TestCACert(c *gc.C) {
 	result := s.addresser.CACert()
-	c.Assert(string(result.Result), gc.Equals, "a cert")
+	c.Assert(string(result.Result), gc.Equals, coretesting.CACert)
 }
 
 func (s *apiAddresserSuite) TestModelUUID(c *gc.C) {
@@ -108,8 +110,8 @@ func (fakeAddresses) Addresses() ([]string, error) {
 	return []string{"addresses:1", "addresses:2"}, nil
 }
 
-func (fakeAddresses) CACert() string {
-	return "a cert"
+func (fakeAddresses) ControllerConfig() (controller.Config, error) {
+	return coretesting.FakeControllerConfig(), nil
 }
 
 func (fakeAddresses) ModelUUID() string {

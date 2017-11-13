@@ -68,7 +68,7 @@ func ensureMongoService(agentConfig agent.Config) error {
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (names.Tag, error) {
+func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) {
 	meta, backupReader, err := b.Get(backupId)
 	if err != nil {
 		return nil, errors.Annotatef(err, "could not fetch backup %q", backupId)

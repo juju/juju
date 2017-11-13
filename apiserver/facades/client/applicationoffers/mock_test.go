@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
+	"github.com/juju/juju/controller"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -492,8 +493,8 @@ func (m *mockState) APIHostPorts() ([][]network.HostPort, error) {
 	}, nil
 }
 
-func (m *mockState) CACert() string {
-	return testing.CACert
+func (m *mockState) ControllerConfig() (controller.Config, error) {
+	return testing.FakeControllerConfig(), nil
 }
 
 type mockStatePool struct {

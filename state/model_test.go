@@ -19,10 +19,8 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -1541,8 +1539,8 @@ func (s *ModelCloudValidationSuite) initializeState(
 			Regions:   regions,
 		},
 		CloudCredentials: credentials,
-		MongoInfo:        statetesting.NewMongoInfo(),
-		MongoDialOpts:    mongotest.DialOpts(),
+		MongoSession:     s.Session,
+		AdminPassword:    "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctlr.Close(), jc.ErrorIsNil)

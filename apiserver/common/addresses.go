@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -16,6 +17,7 @@ import (
 // controller addresses and the CA public certificate.
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
+	ControllerConfig() (controller.Config, error)
 	ModelUUID() string
 	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher

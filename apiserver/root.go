@@ -74,15 +74,6 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		serverHost: serverHost,
 	}
 
-	controllerConfig, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	caCert, ok := controllerConfig.CACert()
-	if !ok {
-		return nil, errors.New("CA certificate missing from controller config")
-	}
-
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -90,9 +81,6 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		return nil, errors.Trace(err)
 	}
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := r.resources.RegisterNamed("caCert", common.StringResource(caCert)); err != nil {
 		return nil, errors.Trace(err)
 	}
 
