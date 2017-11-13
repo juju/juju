@@ -98,7 +98,7 @@ func (p *Pruner) removeOldPings() error {
 	return nil
 }
 
-func (p *Pruner) removeUnusedBeings() error {
+func (p *Pruner) removeUnusedBeings(memCache map[int64]string) error {
 	var keyInfo collapsedBeingsInfo
 	seqSet, err := p.findActiveSeqs()
 	if err != nil {
@@ -140,6 +140,12 @@ func (p *Pruner) removeUnusedBeings() error {
 	if err := iter.Close(); err != nil {
 		return err
 	}
+	// now for the memory cache, also clear out any keys that aren't in the active set.
+	for seq, _ := range memCache {
+		if _, isActive := seqSet[seq]; !isActive {
+			delete(memCache, seq)
+		}
+	}
 	logger.Debugf("pruned %q for %q of %d sequence keys (evaluated %d) from %d keys in %v",
 		p.beingsC.Name, p.modelUUID, p.removedCount, seqCount, keyCount, time.Since(startTime))
 	return nil
@@ -172,12 +178,12 @@ func (p *Pruner) findActiveSeqs() (map[int64]struct{}, error) {
 // another entry with a higher sequence.
 // It also removes pings that are outside of the 'active' range
 // (the last few slots)
-func (p *Pruner) Prune() error {
+func (p *Pruner) Prune(memCache map[int64]string) error {
 	err := p.removeOldPings()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = p.removeUnusedBeings()
+	err = p.removeUnusedBeings(memCache)
 	if err != nil {
 		return errors.Trace(err)
 	}

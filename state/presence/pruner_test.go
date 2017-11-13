@@ -111,7 +111,7 @@ func (s *prunerSuite) TestPrunesOldPingsAndBeings(c *gc.C) {
 	// Now we prune them, and assert that it removed items, but preserved the
 	// latest beings (things referenced by the latest pings)
 	pruner := NewPruner(s.modelTag.Id(), s.beings, s.pings, 0)
-	c.Assert(pruner.Prune(), jc.ErrorIsNil)
+	c.Assert(pruner.Prune(nil), jc.ErrorIsNil)
 	checkCollectionCount(c, s.pings, 4)
 	checkCollectionCount(c, s.beings, 2*len(keys))
 	for i, key := range keys {
@@ -147,9 +147,54 @@ func (s *prunerSuite) TestPreservesLatestSequence(c *gc.C) {
 	c.Check(being.Seq, gc.Equals, p2.beingSeq)
 
 	pruner := NewPruner(s.modelTag.Id(), s.beings, s.pings, 0)
-	c.Assert(pruner.Prune(), jc.ErrorIsNil)
+	c.Assert(pruner.Prune(nil), jc.ErrorIsNil)
 	// After pruning, p2 should still be available
+	being, err = findBeing(c, s.beings, s.modelTag.Id(), p2.beingSeq)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(being.Seq, gc.Equals, p2.beingSeq)
+}
+
+func (s *prunerSuite) TestMultiplePingersClearMemoryCache(c *gc.C) {
+	FakePeriod(1)
+
+	key := "blah"
+	p1 := NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
+	p1.Start()
+	assertStopped(c, p1)
+	highestSeq := p1.beingSeq
+	memCache := make(map[int64]string)
+	memCache[p1.beingSeq] = key
+	for i := 1; i < 10; i++ {
+		FakeTimeSlot(i)
+		newP := NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
+		newP.Start()
+		assertStopped(c, newP)
+		highestSeq = newP.beingSeq
+		memCache[highestSeq] = key
+	}
+	// Before pruning, we expect the first and last beings to exist
+	being, err := findBeing(c, s.beings, s.modelTag.Id(), p1.beingSeq)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(being.Key, gc.Equals, key)
+	c.Check(being.Seq, gc.Equals, p1.beingSeq)
+	being, err = findBeing(c, s.beings, s.modelTag.Id(), highestSeq)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(being.Key, gc.Equals, key)
+	c.Check(being.Seq, gc.Equals, highestSeq)
+
+	c.Check(memCache[p1.beingSeq], gc.Equals, key)
+	c.Check(memCache[highestSeq], gc.Equals, key)
+	pruner := NewPruner(s.modelTag.Id(), s.beings, s.pings, 0)
+	c.Assert(pruner.Prune(memCache), jc.ErrorIsNil)
+	// The oldest should no longer be available, but the latest should
+	// And the old seq should be pruned from the memory cache
+	being, err = findBeing(c, s.beings, s.modelTag.Id(), highestSeq)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(memCache[highestSeq], gc.Equals, key)
+	being, err = findBeing(c, s.beings, s.modelTag.Id(), p1.beingSeq)
+	c.Assert(err, gc.ErrorMatches, "not found")
+	// Not found
+	c.Check(memCache[p1.beingSeq], gc.Equals, "")
 }
 
 func waitForFirstChange(c *gc.C, watch <-chan Change, want Change) {
@@ -270,7 +315,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 			case <-time.After(time.Duration(rand.Intn(500)+1000) * time.Millisecond):
 				oldPruner := NewPruner(s.modelTag.Id(), beings, s.pings, 0)
 				// Don't assert in a goroutine, as the panic may do bad things
-				c.Check(oldPruner.Prune(), jc.ErrorIsNil)
+				c.Check(oldPruner.Prune(nil), jc.ErrorIsNil)
 			}
 		}
 	}()
@@ -305,7 +350,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	seqCount := int64(len(keys) * (loopCount + 1))
 	c.Check(sequence.Seq, gc.Equals, seqCount)
 	oldPruner := NewPruner(s.modelTag.Id(), beings, s.pings, 0)
-	c.Assert(oldPruner.Prune(), jc.ErrorIsNil)
+	c.Assert(oldPruner.Prune(nil), jc.ErrorIsNil)
 	count, err := beings.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	// After pruning, we should have at least one sequence for each key,
@@ -314,7 +359,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	c.Check(count, jc.LessThan, len(keys)*8)
 	// Run the pruner again, it should essentially be a no-op
 	oldPruner = NewPruner(s.modelTag.Id(), beings, s.pings, 0)
-	c.Assert(oldPruner.Prune(), jc.ErrorIsNil)
+	c.Assert(oldPruner.Prune(nil), jc.ErrorIsNil)
 	close(done)
 	wg.Wait()
 	sort.Strings(deadKeys)
