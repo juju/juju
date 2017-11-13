@@ -24,7 +24,7 @@ github.com/juju/bundlechanges	git	3e438134ef5f0e77da65fc267da680e61bc42d1a	2017-
 github.com/juju/cmd	git	e74f39857ca013cf63947ba2843806f7afdd380d	2017-11-07T07:04:56Z
 github.com/juju/description	git	fc3fd7dfc2ebcda03985d7b741596bb42bc9a666	2017-09-27T13:38:51Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
-github.com/juju/gnuflag	git	4e76c56581859c14d9d87e1ddbe29e1c0f10195f	2016-08-09T16:52:14Z
+github.com/juju/gnuflag	git	2ce1bb71843d6d179b3f1c1c9cb4a72cd067fc65	2017-11-13T08:59:48Z
 github.com/juju/go-oracle-cloud	git	932a8cea00a1cd5cba3829a672c823955db674ae	2017-04-21T13:45:47Z
 github.com/juju/go4	git	40d72ab9641a2a8c36a9c46a51e28367115c8e59	2016-02-22T16:32:58Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
