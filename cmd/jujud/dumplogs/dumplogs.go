@@ -126,12 +126,15 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer st0.Close()
 
+	statePool := state.NewStatePool(st0)
+	defer statePool.Close()
+
 	modelUUIDs, err := st0.AllModelUUIDs()
 	if err != nil {
 		return errors.Annotate(err, "failed to look up models")
 	}
 	for _, modelUUID := range modelUUIDs {
-		err := c.dumpLogsForEnv(ctx, st0, names.NewModelTag(modelUUID))
+		err := c.dumpLogsForEnv(ctx, statePool, names.NewModelTag(modelUUID))
 		if err != nil {
 			return errors.Annotatef(err, "failed to dump logs for model %s", modelUUID)
 		}
@@ -156,12 +159,12 @@ func (c *dumpLogsCommand) findMachineId(dataDir string) (string, error) {
 	return "", errors.New("no machine agent configuration found")
 }
 
-func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag names.ModelTag) error {
-	st, err := st0.ForModel(tag)
+func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.StatePool, tag names.ModelTag) error {
+	st, release, err := statePool.Get(tag.Id())
 	if err != nil {
 		return errors.Annotate(err, "failed open model")
 	}
-	defer st.Close()
+	defer release()
 
 	logName := ctx.AbsPath(filepath.Join(c.outDir, fmt.Sprintf("%s.log", tag.Id())))
 	ctx.Infof("writing to %s", logName)

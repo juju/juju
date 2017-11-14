@@ -39,13 +39,15 @@ func runForAllModelStates(st *State, runner func(st *State) error) error {
 		return errors.Annotate(err, "failed to read models")
 	}
 
+	pool := NewStatePool(st)
+	defer pool.Close()
 	for _, modelDoc := range modelDocs {
 		modelUUID := modelDoc["_id"].(string)
-		envSt, err := st.ForModel(names.NewModelTag(modelUUID))
+		envSt, release, err := pool.Get(modelUUID)
 		if err != nil {
 			return errors.Annotatef(err, "failed to open model %q", modelUUID)
 		}
-		defer envSt.Close()
+		defer release()
 		if err := runner(envSt); err != nil {
 			return errors.Annotatef(err, "model UUID %q", modelUUID)
 		}

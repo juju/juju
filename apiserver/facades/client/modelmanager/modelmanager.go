@@ -763,20 +763,19 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 	}
 
 	destroyModel := func(modelUUID string, destroyStorage *bool) error {
-		model, releaseModel, err := m.state.GetModel(modelUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer releaseModel()
-		if err := m.authCheck(model.Owner()); err != nil {
-			return errors.Trace(err)
-		}
-
 		st, releaseSt, err := m.state.GetBackend(modelUUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		defer releaseSt()
+
+		model, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := m.authCheck(model.Owner()); err != nil {
+			return errors.Trace(err)
+		}
 
 		return errors.Trace(common.DestroyModel(st, destroyStorage))
 	}

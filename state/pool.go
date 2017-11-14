@@ -95,9 +95,9 @@ func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
 		return item.state, releaser, nil
 	}
 
-	st, err := p.systemState.ForModel(names.NewModelTag(modelUUID))
+	st, err := p.openState(modelUUID)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "failed to create state for model %v", modelUUID)
+		return nil, nil, errors.Trace(err)
 	}
 	p.pool[modelUUID] = &PoolItem{
 		state: st,
@@ -106,6 +106,23 @@ func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
 		},
 	}
 	return st, releaser, nil
+}
+
+func (p *StatePool) openState(modelUUID string) (*State, error) {
+	modelTag := names.NewModelTag(modelUUID)
+	session := p.systemState.session.Copy()
+	newSt, err := newState(
+		modelTag, p.systemState.controllerModelTag,
+		session, p.systemState.newPolicy, p.systemState.stateClock,
+		p.systemState.runTransactionObserver,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := newSt.start(p.systemState.controllerTag); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newSt, nil
 }
 
 // GetModel is a convenience method for getting a Model for a State.

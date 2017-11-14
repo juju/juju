@@ -821,8 +821,8 @@ func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
 	s.st.CheckCallNames(c,
 		"ControllerTag",
 		"ModelUUID",
-		"GetModel",
 		"GetBackend",
+		"Model",
 		"GetBlockForType",
 		"GetBlockForType",
 		"GetBlockForType",
@@ -929,9 +929,9 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 	c.Assert(model.Name, gc.Equals, "test-model")
 	// Make sure that the environment created does actually have the correct
 	// owner, and that owner is actually allowed to use the environment.
-	newState, err := s.State.ForModel(names.NewModelTag(model.UUID))
+	newState, release, err := s.StatePool.Get(model.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer newState.Close()
+	defer release()
 
 	newModel, err := newState.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1110,9 +1110,10 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	s.setAPIUser(c, owner)
 	m, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
-	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
+
+	st, release, err := s.StatePool.Get(m.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer release()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1145,9 +1146,10 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	s.setAPIUser(c, owner)
 	m, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
-	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
+
+	st, release, err := s.StatePool.Get(m.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer release()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1180,9 +1182,10 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	s.setAPIUser(c, owner)
 	m, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
-	st, err := s.State.ForModel(names.NewModelTag(m.UUID))
+
+	st, release, err := s.StatePool.Get(m.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer release()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1212,7 +1215,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		},
 	}, {
 		&params.Error{
-			Message: "model not found",
+			Message: `model "9f484882-2f18-4fd2-967d-db9663db7bea" not found`,
 			Code:    params.CodeNotFound,
 		},
 	}, {
@@ -1270,7 +1273,7 @@ func (s *modelManagerStateSuite) TestGrantMissingModelFails(c *gc.C) {
 	user := s.Factory.MakeModelUser(c, nil)
 	model := names.NewModelTag("17e4bd2d-3e08-4f3d-b945-087be7ebdce4")
 	err := s.grant(c, user.UserTag, params.ModelReadAccess, model)
-	expectedErr := `.*model not found`
+	expectedErr := `.*model "17e4bd2d-3e08-4f3d-b945-087be7ebdce4" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 

@@ -837,7 +837,7 @@ func (m *Model) refresh(uuid string) error {
 	defer closer()
 	err := models.FindId(uuid).One(&m.doc)
 	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("model")
+		return errors.NotFoundf("model %q", uuid)
 	}
 	return err
 }

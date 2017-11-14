@@ -332,23 +332,6 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 	return ops, nil
 }
 
-// ForModel returns a connection to mongo for the specified model. The
-// connection uses the same credentials and policy as the existing connection.
-func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
-	session := st.session.Copy()
-	newSt, err := newState(
-		modelTag, st.controllerModelTag, session, st.newPolicy, st.stateClock,
-		st.runTransactionObserver,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := newSt.start(st.controllerTag); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newSt, nil
-}
-
 // start makes a *State functional post-creation, by:
 //   * setting controllerTag, cloudName and leaseClientId
 //   * starting lease managers and watcher backends

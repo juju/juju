@@ -503,7 +503,7 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 // retrieved from the target controller.
 var runMigrationPrechecks = func(st, ctlrSt *state.State, targetInfo *coremigration.TargetInfo) error {
 	// Check model and source controller.
-	backend, err := migration.PrecheckShim(st)
+	backend, err := migration.PrecheckShim(st, ctlrSt)
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}
