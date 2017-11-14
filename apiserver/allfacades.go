@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/agent" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/agent/caasprovisioner"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
 	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
@@ -143,9 +144,6 @@ func AllFacades() *facade.Registry {
 	reg("Cleaner", 2, cleaner.NewCleanerAPI)
 	reg("Client", 1, client.NewFacade)
 	reg("Cloud", 1, cloud.NewFacade)
-	if featureflag.Enabled(feature.CAAS) {
-		reg("Cloud", 2, cloud.NewFacadeV2)
-	}
 
 	reg("Controller", 3, controller.NewControllerAPIv3)
 	reg("Controller", 4, controller.NewControllerAPIv4)
@@ -251,6 +249,13 @@ func AllFacades() *facade.Registry {
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
 	reg("UserManager", 1, usermanager.NewUserManagerAPI)
 	reg("UserManager", 2, usermanager.NewUserManagerAPI) // Adds ResetPassword
+
+	// CAAS related facades.
+	// Move these to the correct place above once the feature flag disappears.
+	if featureflag.Enabled(feature.CAAS) {
+		reg("Cloud", 2, cloud.NewFacadeV2)
+		reg("CAASProvisioner", 1, caasprovisioner.NewStateCAASProvisionerAPI)
+	}
 
 	regRaw("AllWatcher", 1, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	// Note: AllModelWatcher uses the same infrastructure as AllWatcher

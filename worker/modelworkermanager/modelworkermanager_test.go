@@ -169,8 +169,8 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	test(w, backend)
 }
 
-func (s *suite) startModelWorker(controllerUUID, modelUUID string) (worker.Worker, error) {
-	worker := newMockWorker(controllerUUID, modelUUID)
+func (s *suite) startModelWorker(controllerUUID, modelUUID string, modelType state.ModelType) (worker.Worker, error) {
+	worker := newMockWorker(controllerUUID, modelUUID, modelType)
 	s.workerC <- worker
 	return worker, nil
 }
@@ -181,6 +181,7 @@ func (s *suite) assertStarts(c *gc.C, expect ...string) {
 	workers := s.waitWorkers(c, count)
 	for i, worker := range workers {
 		actual[i] = worker.uuid
+		c.Assert(worker.modelType, gc.Equals, state.ModelTypeIAAS)
 	}
 	c.Assert(actual, jc.SameContents, expect)
 }
@@ -212,8 +213,8 @@ func (s *suite) assertNoWorkers(c *gc.C) {
 	}
 }
 
-func newMockWorker(_, modelUUID string) *mockWorker {
-	w := &mockWorker{uuid: modelUUID}
+func newMockWorker(_, modelUUID string, modelType state.ModelType) *mockWorker {
+	w := &mockWorker{uuid: modelUUID, modelType: modelType}
 	go func() {
 		defer w.tomb.Done()
 		<-w.tomb.Dying()
@@ -222,8 +223,9 @@ func newMockWorker(_, modelUUID string) *mockWorker {
 }
 
 type mockWorker struct {
-	tomb tomb.Tomb
-	uuid string
+	tomb      tomb.Tomb
+	uuid      string
+	modelType state.ModelType
 }
 
 func (mock *mockWorker) Kill() {
@@ -254,8 +256,8 @@ func (mock *mockBackend) WatchModels() state.StringsWatcher {
 	return mock.envWatcher
 }
 
-func (mock *mockBackend) ModelActive(uuid string) (bool, error) {
-	return mock.modelActive, mock.modelErr
+func (mock *mockBackend) ModelActive(uuid string) (bool, state.ModelType, error) {
+	return mock.modelActive, state.ModelTypeIAAS, mock.modelErr
 }
 
 func (mock *mockBackend) sendModelChange(uuids ...string) {

@@ -1247,8 +1247,8 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	uuid := s.BackingState.ModelUUID()
 
 	tracker := NewEngineTracker()
-	instrumented := TrackModels(c, tracker, modelManifolds)
-	s.PatchValue(&modelManifolds, instrumented)
+	instrumented := TrackModels(c, tracker, iaasModelManifolds)
+	s.PatchValue(&iaasModelManifolds, instrumented)
 
 	matcher := NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, aliveModelWorkers...))
@@ -1270,8 +1270,8 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	uuid := st.ModelUUID()
 
 	tracker := NewEngineTracker()
-	instrumented := TrackModels(c, tracker, modelManifolds)
-	s.PatchValue(&modelManifolds, instrumented)
+	instrumented := TrackModels(c, tracker, iaasModelManifolds)
+	s.PatchValue(&iaasModelManifolds, instrumented)
 
 	matcher := NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, aliveModelWorkers...))
@@ -1295,7 +1295,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	// TODO(mjs) - an alternative might be to provide a fake Facade
 	// and api.Open to the real migrationmaster but this test is
 	// awfully far away from the low level details of the worker.
-	origModelManifolds := modelManifolds
+	origModelManifolds := iaasModelManifolds
 	modelManifoldsDisablingMigrationMaster := func(config model.ManifoldsConfig) dependency.Manifolds {
 		config.NewMigrationMaster = func(config migrationmaster.Config) (worker.Worker, error) {
 			return &nullWorker{}, nil
@@ -1303,7 +1303,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 		return origModelManifolds(config)
 	}
 	instrumented := TrackModels(c, tracker, modelManifoldsDisablingMigrationMaster)
-	s.PatchValue(&modelManifolds, instrumented)
+	s.PatchValue(&iaasModelManifolds, instrumented)
 
 	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
 	_, err := st.CreateMigration(state.MigrationSpec{
@@ -1369,8 +1369,8 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 	// Then run a normal model-tracking test, just checking for
 	// a different set of workers.
 	tracker := NewEngineTracker()
-	instrumented := TrackModels(c, tracker, modelManifolds)
-	s.PatchValue(&modelManifolds, instrumented)
+	instrumented := TrackModels(c, tracker, iaasModelManifolds)
+	s.PatchValue(&iaasModelManifolds, instrumented)
 
 	matcher := NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {

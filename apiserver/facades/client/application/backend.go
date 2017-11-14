@@ -4,6 +4,7 @@
 package application
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
@@ -145,6 +146,7 @@ type Resources interface {
 type stateShim struct {
 	*state.State
 	*state.IAASModel
+	*state.CAASModel
 }
 
 type ExternalController state.ExternalController
@@ -154,15 +156,31 @@ func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, mode
 	return api.Save(controllerInfo, modelUUID)
 }
 
+func (s stateShim) ModelTag() names.ModelTag {
+	m, err := s.State.Model()
+	if err != nil {
+		return names.ModelTag{}
+	}
+	return m.ModelTag()
+}
+
 // NewStateBackend converts a state.State into a Backend.
 func NewStateBackend(st *state.State) (Backend, error) {
-	im, err := st.IAASModel()
+	m, err := st.Model()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
+	im, _ := m.IAASModel()
+	cm, _ := m.CAASModel()
+
+	if im == nil && cm == nil {
+		return nil, errors.Errorf("Could not convert state into either IAAS or CAASModel")
+	}
+
 	return &stateShim{
 		State:     st,
 		IAASModel: im,
+		CAASModel: cm,
 	}, nil
 }
 
