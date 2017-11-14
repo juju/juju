@@ -42,4 +42,9 @@ parts:
    jujud:
     after: juju
     install: |
-      cp -a etc/bash_completion.d/juju* $SNAPCRAFT_PART_INSTALL/bash_completions/.
+      #If you are releasing a build with public streams, copy in the agent directly
+      #If needed, grab the agent from streams
+      #curl http://streams.canonical.com/juju/tools/agent/2.3-beta3/juju-2.3-beta3-ubuntu-amd64.tgz | tar xz
+      #cp -a jujud $SNAPCRAFT_STAGE/bin
+      ./create-juju-versions
+      cp -a jujud-versions.yaml $SNAPCRAFT_PART_INSTALL/bin.

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-jujud=
+jujud=$SNAPCRAFT_STAGE/bin
 version=$(jujud version)
 hash=$(sha256sum $jujud | cut -d " " -f 1)
 
