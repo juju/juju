@@ -1531,7 +1531,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExistingMachines(c *gc.C) 
             0:
             1:
             2:
-    `, "--machine-map", "existing,2=3")
+    `, "--map-machines", "existing,2=3")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitsCreated(c, map[string]string{
 		"django/0": "0",

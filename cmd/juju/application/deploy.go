@@ -438,7 +438,7 @@ latter prefixed with "^", similar to the 'tags' constraint).
 
 When deploying bundles, machines specified in the bundle are added to the
 model as new machines. In order to use the existing machines in the model
-rather than create new machines, the option --machine-map=existing can be
+rather than create new machines, the option --map-machines=existing can be
 used. To specify particular machines for the mapping, multiple comma separated
 values of the form "bundle-id=existing-id" can be passed where the bundle-id
 and the existing-id refer to top level machine IDs. For example, if there was
@@ -447,7 +447,7 @@ a bundle that specified machines 1, 2, and 3, and the model had machines 1, 2,
 the model for machines 1 and 2 in the bundle and use machine 4 in the model
 for the bundle machine 3.
 
-  juju deploy some-bundle --machine-map existing,3=4
+  juju deploy some-bundle --map-machines existing,3=4
 
 Only top level machines can be mapped in this way, just as only top level
 machines can be defined in the machines section of the bundle.
@@ -528,7 +528,7 @@ var (
 	}
 	// TODO(thumper): support dry-run for apps as well as bundles.
 	bundleOnlyFlags = []string{
-		"bundle-config", "dry-run", "machine-map",
+		"bundle-config", "dry-run", "map-machines",
 	}
 )
 
@@ -548,7 +548,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
-	f.StringVar(&c.machineMap, "machine-map", "", "Specify the existing machines to use for bundle deployments")
+	f.StringVar(&c.machineMap, "map-machines", "", "Specify the existing machines to use for bundle deployments")
 
 	for _, step := range c.Steps {
 		step.SetFlags(f)
@@ -581,7 +581,7 @@ func (c *DeployCommand) Init(args []string) error {
 
 	useExisting, mapping, err := parseMachineMap(c.machineMap)
 	if err != nil {
-		return errors.Annotate(err, "error in --machine-map")
+		return errors.Annotate(err, "error in --map-machines")
 	}
 	c.UseExisting = useExisting
 	c.BundleMachines = mapping
