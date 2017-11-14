@@ -191,7 +191,7 @@ func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 	return matchPortRanges(patterns, portRanges...)
 }
 
-// buildApplicationMatcherShims adds for application name, application units and
+// buildApplicationMatcherShims adds matchers for application name, application units and
 // whether the application is exposed.
 func buildApplicationMatcherShims(a *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
 	// Match on name.
