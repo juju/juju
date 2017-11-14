@@ -178,7 +178,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not load model status values")
 	}
 	if context.applications, context.units, context.latestCharms, err =
-		fetchAllApplicationsAndUnits(c.api.stateAccessor, context.model, len(args.Patterns) <= 0); err != nil {
+		fetchAllApplicationsAndUnits(c.api.stateAccessor, context.model); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch applications and units")
 	}
 	if context.consumerRemoteApplications, err =
@@ -212,6 +212,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	logger.Debugf("Applications: %v", context.applications)
 	logger.Debugf("Remote applications: %v", context.consumerRemoteApplications)
 	logger.Debugf("Offers: %v", context.offers)
+	logger.Debugf("Relations: %v", context.relations)
 
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
@@ -265,13 +266,6 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			}
 		}
 
-		deleteRelations := func(appName string, rs []*state.Relation) {
-			for _, r := range rs {
-				delete(context.relationsById, r.Id())
-			}
-			delete(context.relations, appName)
-		}
-
 		// Filter applications
 		for appName, app := range context.applications {
 			if matchedSvcs.Contains(appName) {
@@ -282,21 +276,12 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			} else if !matches {
 				delete(context.applications, appName)
 				// delete relations for this app
-				if appRels, ok := context.relations[appName]; ok {
-					deleteRelations(appName, appRels)
+				if relations, ok := context.relations[appName]; ok {
+					for _, r := range relations {
+						delete(context.relationsById, r.Id())
+					}
+					delete(context.relations, appName)
 				}
-			}
-		}
-
-		// Filter relations
-		for appName, rs := range context.relations {
-			if matchedSvcs.Contains(appName) {
-				// There are matched units for this application.
-				continue
-			} else if matches, err := predicate(appName); err != nil {
-				return noStatus, errors.Annotate(err, "could not filter relations")
-			} else if !matches {
-				deleteRelations(appName, rs)
 			}
 		}
 
@@ -534,7 +519,6 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 func fetchAllApplicationsAndUnits(
 	st Backend,
 	model *state.Model,
-	matchAny bool,
 ) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
 
 	appMap := make(map[string]*state.Application)
@@ -561,10 +545,10 @@ func fetchAllApplicationsAndUnits(
 		}
 	}
 	for _, app := range applications {
+		appMap[app.Name()] = app
 		appUnits := allUnitsByApp[app.Name()]
-		if matchAny || len(appUnits) > 0 {
+		if len(appUnits) > 0 {
 			unitMap[app.Name()] = appUnits
-			appMap[app.Name()] = app
 			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
 			charmURL, _ := app.CharmURL()

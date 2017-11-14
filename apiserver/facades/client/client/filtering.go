@@ -99,7 +99,7 @@ func BuildPredicateFor(patterns []string) Predicate {
 	return func(i interface{}) (bool, error) {
 		switch i.(type) {
 		default:
-			panic(errors.Errorf("Programming error. We should only ever pass in machines, applications, units or application names (coming in for relations as strings). Received %T.", i))
+			panic(errors.Errorf("Programming error. We should only ever pass in machines, applications or units. Received %T.", i))
 		case *state.Machine:
 			shims, err := buildMachineMatcherShims(i.(*state.Machine), patterns)
 			if err != nil {
@@ -110,12 +110,6 @@ func BuildPredicateFor(patterns []string) Predicate {
 			return or(buildUnitMatcherShims(i.(*state.Unit), patterns)...)
 		case *state.Application:
 			shims, err := buildApplicationMatcherShims(i.(*state.Application), patterns...)
-			if err != nil {
-				return false, err
-			}
-			return or(shims...)
-		case string: // At this stage, only applicable for application name
-			shims, err := buildApplicationNameMatcherShims(i.(string), patterns...)
 			if err != nil {
 				return false, err
 			}
@@ -197,37 +191,25 @@ func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 	return matchPortRanges(patterns, portRanges...)
 }
 
-// buildApplicationNameMatcherShims constructs predicates for given patterns to check
-// a given application name.
-func buildApplicationNameMatcherShims(appName string, patterns ...string) (shims []closurePredicate, _ error) {
+// buildApplicationMatcherShims adds for application name, application units and
+// whether the application is exposed.
+func buildApplicationMatcherShims(a *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
 	// Match on name.
 	shims = append(shims, func() (bool, bool, error) {
 		for _, p := range patterns {
-			if strings.ToLower(appName) == strings.ToLower(p) {
+			if strings.ToLower(a.Name()) == strings.ToLower(p) {
 				return true, true, nil
 			}
 		}
 		return false, true, nil
 	})
-	return shims, nil
-}
-
-// buildApplicationMatcherShims adds more checks in addition to buildApplicationNameMatcherShims:
-// adding checks if the application is exposed as well as check for its units.
-func buildApplicationMatcherShims(s *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
-	// Match on name.
-	appNameShims, err := buildApplicationNameMatcherShims(s.Name(), patterns...)
-	if err != nil {
-		return nil, err
-	}
-	shims = append(shims, appNameShims...)
 
 	// Match on exposure.
-	shims = append(shims, func() (bool, bool, error) { return matchExposure(patterns, s) })
+	shims = append(shims, func() (bool, bool, error) { return matchExposure(patterns, a) })
 
 	// If the service has an unit instance that matches any of the
 	// given criteria, consider the service a match as well.
-	unitShims, err := buildShimsForUnit(s.AllUnits, patterns...)
+	unitShims, err := buildShimsForUnit(a.AllUnits, patterns...)
 	if err != nil {
 		return nil, err
 	}
