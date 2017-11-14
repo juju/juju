@@ -75,7 +75,7 @@ func UnitChainPredicateFn(
 func BuildPredicateFor(patterns []string) Predicate {
 
 	or := func(predicates ...closurePredicate) (bool, error) {
-		// Differentiate between a valid format that elimintated all
+		// Differentiate between a valid format that eliminated all
 		// elements, and an invalid query.
 		oneValidFmt := false
 		for _, p := range predicates {
@@ -99,7 +99,7 @@ func BuildPredicateFor(patterns []string) Predicate {
 	return func(i interface{}) (bool, error) {
 		switch i.(type) {
 		default:
-			panic(errors.Errorf("Programming error. We should only ever pass in machines, applications, or units. Received %T.", i))
+			panic(errors.Errorf("expected a machine or an applications or a unit, got %T", i))
 		case *state.Machine:
 			shims, err := buildMachineMatcherShims(i.(*state.Machine), patterns)
 			if err != nil {
@@ -109,7 +109,7 @@ func BuildPredicateFor(patterns []string) Predicate {
 		case *state.Unit:
 			return or(buildUnitMatcherShims(i.(*state.Unit), patterns)...)
 		case *state.Application:
-			shims, err := buildServiceMatcherShims(i.(*state.Application), patterns...)
+			shims, err := buildApplicationMatcherShims(i.(*state.Application), patterns...)
 			if err != nil {
 				return false, err
 			}
@@ -191,23 +191,25 @@ func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 	return matchPortRanges(patterns, portRanges...)
 }
 
-func buildServiceMatcherShims(s *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
+// buildApplicationMatcherShims adds matchers for application name, application units and
+// whether the application is exposed.
+func buildApplicationMatcherShims(a *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
 	// Match on name.
 	shims = append(shims, func() (bool, bool, error) {
 		for _, p := range patterns {
-			if strings.ToLower(s.Name()) == strings.ToLower(p) {
+			if strings.ToLower(a.Name()) == strings.ToLower(p) {
 				return true, true, nil
 			}
 		}
-		return false, false, nil
+		return false, true, nil
 	})
 
 	// Match on exposure.
-	shims = append(shims, func() (bool, bool, error) { return matchExposure(patterns, s) })
+	shims = append(shims, func() (bool, bool, error) { return matchExposure(patterns, a) })
 
 	// If the service has an unit instance that matches any of the
 	// given criteria, consider the service a match as well.
-	unitShims, err := buildShimsForUnit(s.AllUnits, patterns...)
+	unitShims, err := buildShimsForUnit(a.AllUnits, patterns...)
 	if err != nil {
 		return nil, err
 	}
