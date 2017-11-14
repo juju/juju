@@ -33,8 +33,13 @@ parts:
     go-packages:
       - github.com/juju/juju/cmd/juju
       #If you are releasing a build with public streams, you don't need to build the agent
+      #Instead, you should use the released agent
       - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
     install: |
       mkdir -p $SNAPCRAFT_PART_INSTALL/bash_completions
+      cp -a etc/bash_completion.d/juju* $SNAPCRAFT_PART_INSTALL/bash_completions/.
+   jujud:
+    after: juju
+    install: |
       cp -a etc/bash_completion.d/juju* $SNAPCRAFT_PART_INSTALL/bash_completions/.
