@@ -31,7 +31,6 @@ var attributeParams = AgentConfigParams{
 	UpgradedToVersion: jujuversion.Current,
 	Password:          "sekrit",
 	CACert:            "ca cert",
-	StateAddresses:    []string{"localhost:1234"},
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",
 	Controller:        testing.ControllerTag,

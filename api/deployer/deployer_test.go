@@ -226,19 +226,6 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 	c.Assert(s.subordinate.PasswordValid("phony-12345678901234567890"), jc.IsTrue)
 }
 
-func (s *deployerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	stateAddresses, err := s.State.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(stateAddresses), gc.Equals, 1)
-
-	addresses, err := s.st.StateAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.DeepEquals, stateAddresses)
-}
-
 func (s *deployerSuite) TestUnitSetStatus(c *gc.C) {
 	unit, err := s.st.Unit(s.principal.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)

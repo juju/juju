@@ -142,7 +142,6 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 			Model:             coretesting.ModelTag,
 			Password:          "placeholder",
 			Nonce:             "dummyNonce",
-			StateAddresses:    []string{"fakeStateAddress:1234"},
 			APIAddresses:      []string{"fakeAPIAddress:12345"},
 			CACert:            coretesting.CACert,
 		}
