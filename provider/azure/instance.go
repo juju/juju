@@ -416,7 +416,7 @@ func deleteInstanceNetworkSecurityRules(
 ) error {
 	nsg, err := nsgClient.Get(resourceGroup, internalSecurityGroupName, "")
 	if err != nil {
-		if err.(autorest.DetailedError).Response.StatusCode == http.StatusNotFound {
+		if err2, ok := err.(autorest.DetailedError); ok && err2.Response.StatusCode == http.StatusNotFound {
 			return nil
 		}
 		return errors.Annotate(err, "querying network security group")
