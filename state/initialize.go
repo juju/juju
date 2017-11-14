@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
@@ -56,13 +55,13 @@ type InitializeParams struct {
 	// to apply.
 	NewPolicy NewPolicyFunc
 
-	// MongoInfo contains the information required to address and
-	// authenticate with Mongo.
-	MongoInfo *mongo.MongoInfo
+	// MongoSession is the mgo.Session to use for storing and
+	// accessing state data. The caller remains responsible
+	// for closing this session; Initialize will copy it.
+	MongoSession *mgo.Session
 
-	// MongoDialOpts contains the dial options for connecting to
-	// Mongo.
-	MongoDialOpts mongo.DialOpts
+	// AdminPassword holds the password for the initial user.
+	AdminPassword string
 }
 
 // Validate checks that the state initialization parameters are valid.
@@ -81,8 +80,11 @@ func (p InitializeParams) Validate() error {
 	if uuid == controllerUUID {
 		return errors.NotValidf("same controller model uuid (%v) and controller-uuid (%v)", uuid, controllerUUID)
 	}
-	if p.MongoInfo == nil {
-		return errors.NotValidf("nil MongoInfo")
+	if p.MongoSession == nil {
+		return errors.NotValidf("nil MongoSession")
+	}
+	if p.AdminPassword == "" {
+		return errors.NotValidf("empty AdminPassword")
 	}
 	if err := validateCloud(p.Cloud); err != nil {
 		return errors.Annotate(err, "validating cloud")
@@ -131,8 +133,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 		Clock:              args.Clock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
-		MongoInfo:          args.MongoInfo,
-		MongoDialOpts:      args.MongoDialOpts,
+		MongoSession:       args.MongoSession,
 		NewPolicy:          args.NewPolicy,
 		InitDatabaseFunc:   InitDatabase,
 	})
@@ -190,7 +191,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 	ops := createInitialUserOps(
 		args.ControllerConfig.ControllerUUID(),
 		args.ControllerModelArgs.Owner,
-		args.MongoInfo.Password,
+		args.AdminPassword,
 		salt,
 		dateCreated,
 	)

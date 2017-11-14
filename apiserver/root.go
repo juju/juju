@@ -73,6 +73,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		modelUUID:  modelUUID,
 		serverHost: serverHost,
 	}
+
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -82,6 +83,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	// Facades involved with managing application offers need the auth context
 	// to mint and validate macaroons.
 	localOfferAccessEndpoint := url.URL{

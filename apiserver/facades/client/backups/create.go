@@ -29,7 +29,10 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 		return p, errors.Annotatef(err, "HA not ready; try again later")
 	}
 
-	mgoInfo := a.backend.MongoConnectionInfo()
+	mgoInfo, err := mongoInfo(a.paths.DataDir, a.machineID)
+	if err != nil {
+		return p, errors.Annotatef(err, "getting mongo info")
+	}
 	v, err := a.backend.MongoVersion()
 	if err != nil {
 		return p, errors.Annotatef(err, "discovering mongo version")

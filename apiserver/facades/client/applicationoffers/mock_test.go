@@ -483,19 +483,6 @@ func (m *mockState) GetOfferUsers(offerUUID string) (map[string]permission.Acces
 	return result, nil
 }
 
-func (m *mockState) APIHostPorts() ([][]network.HostPort, error) {
-	return [][]network.HostPort{
-		{
-			{Address: network.Address{Value: "192.168.1.1", Scope: network.ScopeCloudLocal}, Port: 17070},
-			{Address: network.Address{Value: "10.1.1.1", Scope: network.ScopeMachineLocal}, Port: 17070},
-		},
-	}, nil
-}
-
-func (m *mockState) CACert() string {
-	return testing.CACert
-}
-
 type mockStatePool struct {
 	st map[string]applicationoffers.Backend
 }
@@ -543,4 +530,8 @@ func (s *mockBakeryService) NewMacaroon(id string, key []byte, caveats []checker
 func (s *mockBakeryService) ExpireStorageAt(when time.Time) (authentication.ExpirableStorageBakeryService, error) {
 	s.MethodCall(s, "ExpireStorageAt", when)
 	return s, nil
+}
+
+func getFakeControllerInfo() ([]string, string, error) {
+	return []string{"192.168.1.1:17070"}, testing.CACert, nil
 }

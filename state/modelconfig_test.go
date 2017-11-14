@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -445,13 +444,11 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 	err = s.IAASModel.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	info := statetesting.NewMongoInfo()
 	anotherState, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
@@ -501,13 +498,11 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Then check in another state.
-	info := statetesting.NewMongoInfo()
 	anotherState, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()

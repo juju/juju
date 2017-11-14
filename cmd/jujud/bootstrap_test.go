@@ -27,6 +27,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
@@ -257,15 +258,7 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: testing.ModelTag,
-		MongoInfo: &mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
-				CACert:     testing.CACert,
-				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
-			},
-			Password: testPassword,
-		},
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -380,15 +373,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: testing.ModelTag,
-		MongoInfo: &mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
-				CACert:     testing.CACert,
-				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
-			},
-			Password: testPassword,
-		},
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -444,15 +429,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: testing.ModelTag,
-		MongoInfo: &mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
-				CACert:     testing.CACert,
-				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
-			},
-			Password: testPassword,
-		},
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -482,15 +459,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: testing.ModelTag,
-		MongoInfo: &mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
-				CACert:     testing.CACert,
-				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
-			},
-			Password: testPassword,
-		},
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -526,15 +495,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: testing.ModelTag,
-		MongoInfo: &mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
-				CACert:     testing.CACert,
-				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
-			},
-			Password: testPassword,
-		},
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -555,19 +516,11 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: testing.ModelTag,
-		MongoInfo: &mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
-				CACert:     testing.CACert,
-				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
-			},
-			Password: testPassword,
-		},
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
-
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
+
 	m, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
@@ -580,37 +533,38 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	info := &mongo.MongoInfo{
+	// Check we can log in to mongo as admin.
+	info := mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:      []string{gitjujutesting.MgoServer.Addr()},
 			CACert:     testing.CACert,
 			DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 		},
+		Tag:      nil, // admin user
+		Password: testPassword,
 	}
-
-	// Check we can log in to mongo as admin.
-	info.Tag, info.Password = nil, testPassword
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      testing.ControllerTag,
-		ControllerModelTag: testing.ModelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
-	})
+	session, err := mongo.DialWithInfo(info, mongotest.DialOpts())
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer session.Close()
 
 	// We're running Mongo with --noauth; let's explicitly verify
 	// that we can login as that user. Even with --noauth, an
 	// explicit Login will still be verified.
-	adminDB := st.MongoSession().DB("admin")
+	adminDB := session.DB("admin")
 	err = adminDB.Login("admin", "invalid-password")
 	c.Assert(err, gc.ErrorMatches, "(auth|(.*Authentication)) fail(s|ed)\\.?")
 	err = adminDB.Login("admin", info.Password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that the admin user has been given an appropriate
-	// password
+	// Check that the admin user has been given an appropriate password
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoSession:       session,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
 	u, err := st.User(names.NewLocalUserTag("admin"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.PasswordValid(testPassword), jc.IsTrue)
@@ -621,14 +575,16 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), names.NewMachineTag("0")))
 	c.Assert(err, jc.ErrorIsNil)
 
-	stateinfo, ok := machineConf1.MongoInfo()
+	machineMongoInfo, ok := machineConf1.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
+	session, err = mongo.DialWithInfo(*machineMongoInfo, mongotest.DialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
 	st, err = state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: testing.ModelTag,
-		MongoInfo:          stateinfo,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -759,15 +715,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: testing.ModelTag,
-		MongoInfo: &mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
-				CACert:     testing.CACert,
-				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
-			},
-			Password: testPassword,
-		},
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -811,22 +759,13 @@ func createImageMetadata() []*imagemetadata.ImageMetadata {
 	}}
 }
 
-func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
+func assertWrittenToState(c *gc.C, session *mgo.Session, metadata cloudimagemetadata.Metadata) {
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: testing.ModelTag,
-		MongoInfo: &mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:      []string{gitjujutesting.MgoServer.Addr()},
-				CACert:     testing.CACert,
-				DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
-			},
-			Password: testPassword,
-		},
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:       session,
 	})
-
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -867,7 +806,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 		Priority: simplestreams.CUSTOM_CLOUD_DATA,
 		ImageId:  "imageId",
 	}
-	assertWrittenToState(c, expect)
+	assertWrittenToState(c, s.Session, expect)
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {

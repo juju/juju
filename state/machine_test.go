@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -620,13 +621,11 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
-	info := testing.NewMongoInfo()
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
@@ -650,6 +649,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we cannot log in with the wrong password.
+	info := testing.NewMongoInfo()
 	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
@@ -658,12 +658,14 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
+	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
 	st1, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
@@ -1266,7 +1268,7 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 	//  Unit.Watch
 	//  State.WatchForModelConfigChanges
 	//  Unit.WatchConfigSettings
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.Watch()
@@ -1385,7 +1387,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 func (s *MachineSuite) TestWatchPrincipalUnitsDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.unitsWatcher, which
 	// is also used by Unit.WatchSubordinateUnits.
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchPrincipalUnits()
@@ -1500,7 +1502,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchUnits()

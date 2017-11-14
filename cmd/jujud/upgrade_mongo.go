@@ -553,7 +553,7 @@ func dialAndLogin(mongoInfo *mongo.MongoInfo, callArgs retry.CallArgs) (mgoSessi
 	callArgs.Func = func() error {
 		// Try to connect, retry a few times until the db comes up.
 		var err error
-		session, err = mongo.DialWithInfo(mongoInfo.Info, opts)
+		session, err = mongo.DialWithInfo(*mongoInfo, opts)
 		if err == nil {
 			return nil
 		}

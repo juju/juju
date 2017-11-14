@@ -226,6 +226,9 @@ func (c Config) ControllerUUID() string {
 
 // CACert returns the certificate of the CA that signed the controller
 // certificate, in PEM format, and whether the setting is available.
+//
+// TODO(axw) once the controller config is completely constructed,
+// there will always be a CA certificate. Get rid of the bool result.
 func (c Config) CACert() (string, bool) {
 	if s, ok := c[CACertKey]; ok {
 		return s.(string), true

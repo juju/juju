@@ -4,9 +4,7 @@
 package state
 
 import (
-	"fmt"
 	"runtime/pprof"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
@@ -32,13 +30,10 @@ type OpenParams struct {
 	// ControllerModelTag is the tag of the controller model.
 	ControllerModelTag names.ModelTag
 
-	// MongoInfo is the mongo.MongoInfo used for dialling the
-	// Mongo connection.
-	MongoInfo *mongo.MongoInfo
-
-	// MongoDialOpts is the mongo.DialOpts used to control how
-	// Mongo connections are made.
-	MongoDialOpts mongo.DialOpts
+	// MongoSession is the mgo.Session to use for storing and
+	// accessing state data. The caller remains responsible
+	// for closing this session; Open will copy it.
+	MongoSession *mgo.Session
 
 	// NewPolicy, if non-nil, returns a policy which will be used to
 	// validate and modify behaviour of certain operations in state.
@@ -65,8 +60,8 @@ func (p OpenParams) Validate() error {
 	if p.ControllerModelTag == (names.ModelTag{}) {
 		return errors.NotValidf("empty ControllerModelTag")
 	}
-	if p.MongoInfo == nil {
-		return errors.NotValidf("nil MongoInfo")
+	if p.MongoSession == nil {
+		return errors.NotValidf("nil MongoSession")
 	}
 	return nil
 }
@@ -80,24 +75,9 @@ func OpenController(args OpenParams) (*Controller, error) {
 		return nil, errors.Annotate(err, "validating args")
 	}
 
-	logger.Infof("opening controller state, mongo addresses: %q; entity %v",
-		args.MongoInfo.Addrs, args.MongoInfo.Tag)
-	logger.Debugf("dialing mongo")
-	session, err := mongo.DialWithInfo(args.MongoInfo.Info, args.MongoDialOpts)
-	if err != nil {
-		return nil, maybeUnauthorized(err, "cannot connect to mongodb")
-	}
-	logger.Debugf("connection established")
-
-	if err := mongodbLogin(session, args.MongoInfo); err != nil {
-		session.Close()
-		return nil, errors.Trace(err)
-	}
-	logger.Debugf("mongodb login successful")
-
+	session := args.MongoSession.Copy()
 	if args.InitDatabaseFunc != nil {
 		if err := args.InitDatabaseFunc(session, args.ControllerModelTag.Id(), nil); err != nil {
-			session.Close()
 			return nil, errors.Trace(err)
 		}
 		logger.Debugf("mongodb initialised")
@@ -107,7 +87,6 @@ func OpenController(args OpenParams) (*Controller, error) {
 		clock:                  args.Clock,
 		controllerTag:          args.ControllerTag,
 		controllerModelTag:     args.ControllerModelTag,
-		mongoInfo:              args.MongoInfo,
 		session:                session,
 		newPolicy:              args.NewPolicy,
 		runTransactionObserver: args.RunTransactionObserver,
@@ -123,10 +102,10 @@ func Open(args OpenParams) (*State, error) {
 	if err := args.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating args")
 	}
+	session := args.MongoSession.Copy()
 	st, err := open(
 		args.ControllerModelTag,
-		args.MongoInfo,
-		args.MongoDialOpts,
+		session,
 		args.InitDatabaseFunc,
 		nil,
 		args.NewPolicy,
@@ -134,13 +113,14 @@ func Open(args OpenParams) (*State, error) {
 		args.RunTransactionObserver,
 	)
 	if err != nil {
+		session.Close()
 		return nil, errors.Trace(err)
 	}
 	if _, err := st.Model(); err != nil {
 		if err := st.Close(); err != nil {
 			logger.Errorf("closing State for %s: %v", args.ControllerModelTag, err)
 		}
-		return nil, maybeUnauthorized(err, fmt.Sprintf("cannot read model %s", args.ControllerModelTag.Id()))
+		return nil, mongo.MaybeUnauthorizedf(err, "cannot read model %s", args.ControllerModelTag.Id())
 	}
 
 	// State should only be Opened on behalf of a controller environ; all
@@ -153,29 +133,14 @@ func Open(args OpenParams) (*State, error) {
 
 func open(
 	controllerModelTag names.ModelTag,
-	info *mongo.MongoInfo, opts mongo.DialOpts,
+	session *mgo.Session,
 	initDatabase InitDatabaseFunc,
 	controllerConfig *controller.Config,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
 ) (*State, error) {
-	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
-	logger.Debugf("dialing mongo")
-	session, err := mongo.DialWithInfo(info.Info, opts)
-	if err != nil {
-		return nil, maybeUnauthorized(err, "cannot connect to mongodb")
-	}
-	logger.Debugf("connection established")
-
-	err = mongodbLogin(session, info)
-	if err != nil {
-		session.Close()
-		return nil, errors.Trace(err)
-	}
-	logger.Debugf("mongodb login successful")
-
-	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy, clock, runTransactionObserver)
+	st, err := newState(controllerModelTag, controllerModelTag, session, newPolicy, clock, runTransactionObserver)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -190,52 +155,6 @@ func open(
 	return st, nil
 }
 
-// mongodbLogin logs in to the mongodb admin database.
-func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
-	admin := session.DB("admin")
-	if mongoInfo.Tag != nil {
-		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
-			return maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
-		}
-	} else if mongoInfo.Password != "" {
-		if err := admin.Login(mongo.AdminUser, mongoInfo.Password); err != nil {
-			return maybeUnauthorized(err, "cannot log in to admin database")
-		}
-	}
-	return nil
-}
-
-func maybeUnauthorized(err error, msg string) error {
-	if err == nil {
-		return nil
-	}
-	if isUnauthorized(err) {
-		return errors.Unauthorizedf("%s: unauthorized mongo access: %v", msg, err)
-	}
-	return errors.Annotatef(err, msg)
-}
-
-func isUnauthorized(err error) bool {
-	if err == nil {
-		return false
-	}
-	// Some unauthorized access errors have no error code,
-	// just a simple error string; and some do have error codes
-	// but are not of consistent types (LastError/QueryError).
-	for _, prefix := range []string{"auth fail", "not authorized", "server returned error on SASL authentication step: Authentication failed."} {
-		if strings.HasPrefix(err.Error(), prefix) {
-			return true
-		}
-	}
-	if err, ok := err.(*mgo.QueryError); ok {
-		return err.Code == 10057 ||
-			err.Code == 13 ||
-			err.Message == "need to login" ||
-			err.Message == "unauthorized"
-	}
-	return false
-}
-
 // newState creates an incomplete *State, with no running workers or
 // controllerTag. You must start() the returned *State before it will
 // function correctly.
@@ -245,7 +164,7 @@ func isUnauthorized(err error) bool {
 // close it if it cannot be returned under the aegis of a *State.
 func newState(
 	modelTag, controllerModelTag names.ModelTag,
-	session *mgo.Session, mongoInfo *mongo.MongoInfo,
+	session *mgo.Session,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
@@ -269,7 +188,6 @@ func newState(
 		stateClock:             clock,
 		modelTag:               modelTag,
 		controllerModelTag:     controllerModelTag,
-		mongoInfo:              mongoInfo,
 		session:                session,
 		database:               db,
 		newPolicy:              newPolicy,
@@ -281,16 +199,6 @@ func newState(
 	// Record this State instance with the global tracker.
 	profileTracker.Add(st, 1)
 	return st, nil
-}
-
-// MongoConnectionInfo returns information for connecting to mongo
-func (st *State) MongoConnectionInfo() *mongo.MongoInfo {
-	return st.mongoInfo
-}
-
-// CACert returns the certificate used to validate the state connection.
-func (st *State) CACert() string {
-	return st.mongoInfo.CACert
 }
 
 // Close the connection to the database.

@@ -24,6 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	mgotxn "gopkg.in/mgo.v2/txn"
 
@@ -2211,7 +2212,7 @@ func (s *StateSuite) TestWatchApplicationsDiesOnStateClose(c *gc.C) {
 	//     Application.WatchUnits
 	//     Application.WatchRelations
 	//     Machine.WatchContainers
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchApplications()
 		<-w.Changes()
 		return w
@@ -2985,12 +2986,16 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, info *mongo.MongoInfo) error {
+	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
+	if err != nil {
+		return err
+	}
+	defer session.Close()
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       session,
 	})
 	if err == nil {
 		err = st.Close()
@@ -3013,39 +3018,6 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	info.Tag, info.Password = nil, ""
 	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
 	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
-	info := statetesting.NewMongoInfo()
-	info.Addrs = []string{"0.1.2.3:1234"}
-	params := s.testOpenParams()
-	params.MongoInfo.Addrs = []string{"0.1.2.3:1234"}
-	params.MongoDialOpts.Timeout = time.Millisecond
-	st, err := state.Open(params)
-	if err == nil {
-		st.Close()
-	}
-	c.Assert(err, gc.ErrorMatches, "cannot connect to mongodb: no reachable servers")
-}
-
-func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
-	// Default mgo retry delay
-	retryDelay := 500 * time.Millisecond
-	info := statetesting.NewMongoInfo()
-	info.Addrs = []string{"0.1.2.3:1234"}
-
-	t0 := time.Now()
-	params := s.testOpenParams()
-	params.MongoInfo.Addrs = []string{"0.1.2.3:1234"}
-	params.MongoDialOpts.Timeout = time.Millisecond
-	st, err := state.Open(params)
-	if err == nil {
-		st.Close()
-	}
-	c.Assert(err, gc.ErrorMatches, "cannot connect to mongodb: no reachable servers")
-	if t1 := time.Since(t0); t1 < retryDelay {
-		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, retryDelay)
-	}
 }
 
 func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
@@ -3285,7 +3257,7 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchCleanupsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchCleanups()
 		<-w.Changes()
 		return w
@@ -3408,7 +3380,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchMinUnits()
 		<-w.Changes()
 		return w
@@ -3435,7 +3407,7 @@ func (s *StateSuite) TestWatchSubnets(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchSubnetsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchSubnets(nil)
 		<-w.Changes()
 		return w
@@ -3540,7 +3512,7 @@ func (s *StateSuite) TestWatchRemoteRelationsDestroyLocalApplication(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchRemoteRelationsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchRemoteRelations()
 		<-w.Changes()
 		return w
@@ -3855,13 +3827,18 @@ type waiter interface {
 // event, otherwise the watcher's initialisation logic may
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
-func testWatcherDiesWhenStateCloses(c *gc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, startWatcher func(c *gc.C, st *state.State) waiter) {
+func testWatcherDiesWhenStateCloses(
+	c *gc.C,
+	session *mgo.Session,
+	modelTag names.ModelTag,
+	controllerTag names.ControllerTag,
+	startWatcher func(c *gc.C, st *state.State) waiter,
+) {
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
-		MongoInfo:          statetesting.NewMongoInfo(),
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := startWatcher(c, st)
@@ -4710,11 +4687,15 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 			DisableTLS: true,
 		},
 	}
-	authInfo := &mongo.MongoInfo{
+
+	session, err := mongo.DialWithInfo(mongo.MongoInfo{
 		Info:     noAuthInfo.Info,
 		Tag:      owner,
 		Password: password,
-	}
+	}, mongotest.DialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
+
 	cfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
 	ctlr, st, err := state.Initialize(state.InitializeParams{
@@ -4732,8 +4713,8 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
-		MongoInfo:     authInfo,
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:  session,
+		AdminPassword: password,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -4916,7 +4897,6 @@ func (s *StateSuite) testOpenParams() state.OpenParams {
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
-		MongoInfo:          statetesting.NewMongoInfo(),
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	}
 }

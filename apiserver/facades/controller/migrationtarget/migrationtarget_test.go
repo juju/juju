@@ -104,7 +104,8 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 
 func (s *Suite) TestCACert(c *gc.C) {
 	api := s.mustNewAPI(c)
-	r := api.CACert()
+	r, err := api.CACert()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(r.Result), gc.Equals, jujutesting.CACert)
 }
 

@@ -385,7 +385,6 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		names.NewModelTag(uuid),
 		controllerInfo.ModelTag,
 		session,
-		st.mongoInfo,
 		st.newPolicy,
 		st.clock(),
 		st.runTransactionObserver,
