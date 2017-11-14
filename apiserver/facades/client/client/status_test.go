@@ -424,13 +424,29 @@ func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
 	status, err := client.Status([]string{a1.Name()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
-	c.Assert(status.Relations, gc.HasLen, 2)
+	assertApplicationRelations(c, a1.Name(), 2, status.Relations)
 
 	// test status filtering with application 3: should get 1 relation
 	status, err = client.Status([]string{a3.Name()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
-	c.Assert(status.Relations, gc.HasLen, 1)
+	assertApplicationRelations(c, a3.Name(), 1, status.Relations)
+}
+
+func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, relations []params.RelationStatus) {
+	c.Assert(relations, gc.HasLen, expectedNumber)
+	for _, relation := range relations {
+		belongs := false
+		for _, endpoint := range relation.Endpoints {
+			if endpoint.ApplicationName == appName {
+				belongs = true
+				continue
+			}
+		}
+		if !belongs {
+			c.Fatal("application %v is not part of the relation %v as expected", appName, relation.Id)
+		}
+	}
 }
 
 type statusUpgradeUnitSuite struct {
