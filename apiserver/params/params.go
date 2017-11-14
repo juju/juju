@@ -498,6 +498,18 @@ type DestroyApplicationParams struct {
 	DestroyStorage bool `json:"destroy-storage,omitempty"`
 }
 
+// DestroyConsumedApplicationsParams holds bulk parameters for the
+// Application.DestroyConsumedApplication call.
+type DestroyConsumedApplicationsParams struct {
+	Applications []DestroyConsumedApplicationParams `json:"applications"`
+}
+
+// DestroyConsumedApplicationParams holds the parameters for the
+// RemoteApplication.Destroy call.
+type DestroyConsumedApplicationParams struct {
+	ApplicationTag string `json:"application-tag"`
+}
+
 // Creds holds credentials for identifying an entity.
 type Creds struct {
 	AuthTag  string `json:"auth-tag"`
@@ -690,8 +702,7 @@ type ProvisioningScriptResult struct {
 // DeployerConnectionValues containers the result of deployer.ConnectionInfo
 // API call.
 type DeployerConnectionValues struct {
-	StateAddresses []string `json:"state-addresses"`
-	APIAddresses   []string `json:"api-addresses"`
+	APIAddresses []string `json:"api-addresses"`
 }
 
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.

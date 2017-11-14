@@ -529,6 +529,10 @@ func (api *OffersAPI) DestroyOffers(args params.DestroyApplicationOffers) (param
 			result[i].Error = common.ServerError(err)
 			continue
 		}
+		if models[i].err != nil {
+			result[i].Error = common.ServerError(models[i].err)
+			continue
+		}
 		backend, releaser, err := api.StatePool.Get(models[i].model.UUID())
 		if err != nil {
 			result[i].Error = common.ServerError(err)

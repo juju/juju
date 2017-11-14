@@ -458,6 +458,15 @@ func (s *clientSuite) TestDestroyVMFolder(c *gc.C) {
 	})
 }
 
+func (s *clientSuite) TestDestroyVMFolderRace(c *gc.C) {
+	s.roundTripper.taskError[destroyTask] = &types.LocalizedMethodFault{
+		Fault: &types.ManagedObjectNotFound{},
+	}
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	err := client.DestroyVMFolder(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *clientSuite) TestEnsureVMFolder(c *gc.C) {
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	folder, err := client.EnsureVMFolder(context.Background(), "foo/bar")
@@ -555,6 +564,15 @@ func (s *clientSuite) TestRemoveVirtualMachines(c *gc.C) {
 		testing.StubCall{"CreateFilter", nil},
 		testing.StubCall{"WaitForUpdatesEx", nil},
 	})
+}
+
+func (s *clientSuite) TestRemoveVirtualMachinesDestroyRace(c *gc.C) {
+	s.roundTripper.taskError[destroyTask] = &types.LocalizedMethodFault{
+		Fault: &types.ManagedObjectNotFound{},
+	}
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	err := client.RemoveVirtualMachines(context.Background(), "foo/bar/*")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestUpdateVirtualMachineExtraConfig(c *gc.C) {

@@ -238,18 +238,17 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	actionsToQuery := []actionQuery{}
 	for _, result := range runResults {
 		if result.Error != nil {
-			fmt.Fprintf(ctx.GetStderr(), "couldn't queue one action: %v", result.Error)
+			fmt.Fprintf(ctx.GetStderr(), "couldn't queue one action: %v\n", result.Error)
 			continue
 		}
 		actionTag, err := names.ParseActionTag(result.Action.Tag)
 		if err != nil {
-			fmt.Fprintf(ctx.GetStderr(), "got invalid action tag %v for receiver %v", result.Action.Tag, result.Action.Receiver)
+			fmt.Fprintf(ctx.GetStderr(), "got invalid action tag %v for receiver %v\n", result.Action.Tag, result.Action.Receiver)
 			continue
 		}
-
 		receiverTag, err := names.ActionReceiverFromTag(result.Action.Receiver)
 		if err != nil {
-			fmt.Fprintf(ctx.GetStderr(), "got invalid action receiver tag %v for action %v", result.Action.Receiver, result.Action.Tag)
+			fmt.Fprintf(ctx.GetStderr(), "got invalid action receiver tag %v for action %v\n", result.Action.Receiver, result.Action.Tag)
 			continue
 		}
 		var receiverType string

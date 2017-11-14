@@ -93,26 +93,28 @@ func (env *sessionEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]s
 	return results, err
 }
 
-// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
-func (env *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (name string, err error) {
+// DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
+func (env *environ) DeriveAvailabilityZones(args environs.StartInstanceParams) (names []string, err error) {
 	err = env.withSession(func(env *sessionEnviron) error {
-		name, err = env.DeriveAvailabilityZone(args)
+		names, err = env.DeriveAvailabilityZones(args)
 		return err
 	})
-	return name, err
+	return names, err
 }
 
-// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+// DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
+func (env *sessionEnviron) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
 	if args.Placement != "" {
 		// args.Placement will always be a zone name or empty.
 		placement, err := env.parsePlacement(args.Placement)
 		if err != nil {
-			return "", errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
-		return placement.Name(), nil
+		if placement.Name() != "" {
+			return []string{placement.Name()}, nil
+		}
 	}
-	return "", nil
+	return nil, nil
 }
 
 func (env *sessionEnviron) availZone(name string) (common.AvailabilityZone, error) {

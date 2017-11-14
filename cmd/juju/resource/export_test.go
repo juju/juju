@@ -15,7 +15,7 @@ func CharmResourcesCommandChannel(c modelcmd.Command) string {
 	return modelcmd.InnerCommand(c).(*CharmResourcesCommand).channel
 }
 
-func ShowServiceCommandTarget(c *ShowServiceCommand) string {
+func ListCommandTarget(c *ListCommand) string {
 	return c.target
 }
 
@@ -29,4 +29,4 @@ func UploadCommandService(c *UploadCommand) string {
 	return c.service
 }
 
-var FormatServiceResources = formatServiceResources
+var FormatApplicationResources = formatApplicationResources

@@ -4,6 +4,8 @@
 package featuretests
 
 import (
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -72,7 +74,6 @@ func (s *ResourcesCmdSuite) TestResourcesCommands(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
-[Service]
 Resource          Supplied by  Revision
 install-resource  upload       -
 store-resource    upload       -
@@ -83,14 +84,27 @@ upload-resource   upload       -
 	// check "juju resources <unit>"
 	context, err = runCommand(c, "resources", s.unitOneName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "No resources to display.\n")
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
+Resource          Revision
+install-resource  -
+store-resource    -
+upload-resource   -
+
+`[1:])
 
 	// check "juju attach-resource"
 	context, err = runCommand(c, "attach-resource", s.appOneName, "install-resource=oops")
 	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(cmdtesting.Stderr(context), jc.Contains, `ERROR failed to upload resource "install-resource": open oops: no such file or directory`)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+
+	// Empty files are fine.
+	filename := filepath.Join(c.MkDir(), "empty.txt")
+	err = ioutil.WriteFile(filename, []byte{}, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = runCommand(c, "attach-resource", s.appOneName, "install-resource="+filename)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *ResourcesCmdSuite) runCharmResourcesCommand(c *gc.C) {

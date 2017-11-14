@@ -271,22 +271,26 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 // available an empty string is returned.
 func SelectPeerAddress(addrs []network.Address) string {
 	logger.Debugf("selecting mongo peer address from %+v", addrs)
-	// ScopeMachineLocal addresses are OK if we can't pick by space, also the
-	// second bool return is ignored intentionally.
-	addr, _ := network.SelectControllerAddress(addrs, true)
+
+	// ScopeMachineLocal addresses are never suitable for mongo peers,
+	// as each controller runs on a separate machine.
+	const allowMachineLocal = false
+
+	// The second bool result is ignored intentionally (we return an empty
+	// string if no suitable address is available.)
+	addr, _ := network.SelectControllerAddress(addrs, allowMachineLocal)
 	return addr.Value
 }
 
 // SelectPeerHostPort returns the HostPort to use as the mongo replica set peer
 // by selecting it from the given hostPorts.
 func SelectPeerHostPort(hostPorts []network.HostPort) string {
-	// TODO(macgreagoir) IPv6. We were always choosing a cloud-local or
-	// falling back to machine-local here (with true arg) but this doesn't
-	// make sense in IPv6, where the IPv6 [public] address is ignored in
-	// favour of ip6-localhost. Only pass true if we find an IPv4 address
-	// in the slice.
 	logger.Debugf("selecting mongo peer hostPort by scope from %+v", hostPorts)
-	allowMachineLocal := network.HostPortsHasIPv4Address(hostPorts)
+
+	// ScopeMachineLocal addresses are never suitable for mongo peers,
+	// as each controller runs on a separate machine.
+	const allowMachineLocal = false
+
 	return network.SelectMongoHostPortsByScope(hostPorts, allowMachineLocal)[0]
 }
 

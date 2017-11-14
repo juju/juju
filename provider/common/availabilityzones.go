@@ -34,15 +34,16 @@ type ZonedEnviron interface {
 	// rules as Environ.Instances.
 	InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error)
 
-	// DeriveAvailabilityZone attempts to derive an availability zone from
+	// DeriveAvailabilityZones attempts to derive availability zones from
 	// the specified StartInstanceParams.
 	//
 	// The parameters for starting an instance may imply (or explicitly
-	// specify) an availability zone, e.g. due to placement, or due to the
-	// attachment of existing volumes. If there is no such restriction,
-	// then DeriveAvailabilityZone should return an empty string to
-	// indicate that the caller should choose an availability zone.
-	DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error)
+	// specify) availability zones, e.g. due to placement, or due to the
+	// attachment of existing volumes, or due to subnet placement. If
+	// there is no such restriction, then DeriveAvailabilityZones should
+	// return an empty string slice to indicate that the caller should
+	// choose an availability zone.
+	DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error)
 }
 
 // AvailabilityZoneInstances describes an availability zone and

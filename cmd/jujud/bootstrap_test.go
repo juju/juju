@@ -310,7 +310,6 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		Nonce:             agent.BootstrapNonce,
 		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
-		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		APIAddresses:      []string{"0.1.2.3:1234"},
 		CACert:            testing.CACert,
 		Values: map[string]string{
@@ -367,12 +366,11 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	gotDialAddrs := s.fakeEnsureMongo.InitiateParams.DialInfo.Addrs
 	c.Assert(gotDialAddrs, gc.DeepEquals, expectDialAddrs)
 
-	// TODO(macgreagoir) IPv6. This MemberHostPort check assumes a loopback
-	// address returned by mongo.SelectPeerAddress(), not the 'localhost'
-	// name we use for IPv4 and IPv6 compatibility. Replace it with
-	// something potentially useful, a loopback:port match, in the meantime.
-	// c.Assert(s.fakeEnsureMongo.InitiateParams.MemberHostPort, gc.Equals, expectDialAddrs[0])
-	c.Assert(s.fakeEnsureMongo.InitiateParams.MemberHostPort, gc.Matches, fmt.Sprintf("(127.0.0.1|::1):%d$", expectInfo.StatePort))
+	c.Assert(
+		s.fakeEnsureMongo.InitiateParams.MemberHostPort,
+		gc.Matches,
+		fmt.Sprintf("only-0.dns:%d$", expectInfo.StatePort),
+	)
 	c.Assert(s.fakeEnsureMongo.InitiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.InitiateParams.Password, gc.Equals, "")
 

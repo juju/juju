@@ -59,17 +59,16 @@ func FormatCharmResource(res charmresource.Resource) FormattedCharmResource {
 	}
 }
 
-// FormatSvcResource converts the resource info into a FormattedServiceResource.
-func FormatSvcResource(res resource.Resource) FormattedSvcResource {
+// FormatAppResource converts the resource info into a FormattedAppResource.
+func FormatAppResource(res resource.Resource) FormattedAppResource {
 	used := !res.IsPlaceholder()
-	return FormattedSvcResource{
+	result := FormattedAppResource{
 		ID:               res.ID,
 		ApplicationID:    res.ApplicationID,
 		Name:             res.Name,
 		Type:             res.Type.String(),
 		Path:             res.Path,
 		Description:      res.Description,
-		Revision:         res.Revision,
 		Origin:           res.Origin.String(),
 		Fingerprint:      res.Fingerprint.String(),
 		Size:             res.Size,
@@ -80,21 +79,28 @@ func FormatSvcResource(res resource.Resource) FormattedSvcResource {
 		CombinedOrigin:   combinedOrigin(used, res),
 		UsedYesNo:        usedYesNo(used),
 	}
+	// Have to check since revision 0 is still a valid revision.
+	if res.Revision >= 0 {
+		result.Revision = fmt.Sprintf("%v", res.Revision)
+	} else {
+		result.Revision = "-"
+	}
+	return result
 }
 
-func formatServiceResources(sr resource.ServiceResources) (FormattedServiceInfo, error) {
-	var formatted FormattedServiceInfo
+func formatApplicationResources(sr resource.ServiceResources) (FormattedApplicationInfo, error) {
+	var formatted FormattedApplicationInfo
 	updates, err := sr.Updates()
 	if err != nil {
 		return formatted, errors.Trace(err)
 	}
-	formatted = FormattedServiceInfo{
-		Resources: make([]FormattedSvcResource, len(sr.Resources)),
+	formatted = FormattedApplicationInfo{
+		Resources: make([]FormattedAppResource, len(sr.Resources)),
 		Updates:   make([]FormattedCharmResource, len(updates)),
 	}
 
 	for i, r := range sr.Resources {
-		formatted.Resources[i] = FormatSvcResource(r)
+		formatted.Resources[i] = FormatAppResource(r)
 	}
 	for i, u := range updates {
 		formatted.Updates[i] = FormatCharmResource(u)
@@ -102,10 +108,10 @@ func formatServiceResources(sr resource.ServiceResources) (FormattedServiceInfo,
 	return formatted, nil
 }
 
-// FormatServiceDetails converts a ServiceResources value into a formatted value
+// FormatApplicationDetails converts a ServiceResources value into a formatted value
 // for display on the command line.
-func FormatServiceDetails(sr resource.ServiceResources) (FormattedServiceDetails, error) {
-	var formatted FormattedServiceDetails
+func FormatApplicationDetails(sr resource.ServiceResources) (FormattedApplicationDetails, error) {
+	var formatted FormattedApplicationDetails
 	details, err := detailedResources("", sr)
 	if err != nil {
 		return formatted, errors.Trace(err)
@@ -114,7 +120,7 @@ func FormatServiceDetails(sr resource.ServiceResources) (FormattedServiceDetails
 	if err != nil {
 		return formatted, errors.Trace(err)
 	}
-	formatted = FormattedServiceDetails{
+	formatted = FormattedApplicationDetails{
 		Resources: details,
 		Updates:   make([]FormattedCharmResource, len(updates)),
 	}
@@ -134,8 +140,8 @@ func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progre
 		return FormattedDetailResource{}, errors.Trace(err)
 	}
 	progressStr := ""
-	fUnit := FormatSvcResource(unit)
-	expected := FormatSvcResource(svc)
+	fUnit := FormatAppResource(unit)
+	expected := FormatAppResource(svc)
 	revProgress := expected.CombinedRevision
 	if progress >= 0 {
 		progressStr = "100%"
@@ -159,7 +165,10 @@ func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progre
 func combinedRevision(r resource.Resource) string {
 	switch r.Origin {
 	case charmresource.OriginStore:
-		return fmt.Sprintf("%d", r.Revision)
+		// Have to check since 0+ is a valid revision number
+		if r.Revision >= 0 {
+			return fmt.Sprintf("%d", r.Revision)
+		}
 	case charmresource.OriginUpload:
 		if !r.Timestamp.IsZero() {
 			return r.Timestamp.Format("2006-02-01T15:04")

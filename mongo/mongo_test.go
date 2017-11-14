@@ -683,6 +683,10 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 
 func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
 	addresses := []network.Address{{
+		Value: "127.0.0.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeMachineLocal,
+	}, {
 		Value: "10.0.0.1",
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
@@ -700,17 +704,26 @@ func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
 
 	hostPorts := []network.HostPort{{
 		Address: network.Address{
+			Value: "127.0.0.1",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeMachineLocal,
+		},
+		Port: controller.DefaultStatePort,
+	}, {
+		Address: network.Address{
 			Value: "10.0.0.1",
 			Type:  network.IPv4Address,
 			Scope: network.ScopeCloudLocal,
 		},
-		Port: controller.DefaultStatePort}, {
+		Port: controller.DefaultStatePort,
+	}, {
 		Address: network.Address{
 			Value: "8.8.8.8",
 			Type:  network.IPv4Address,
 			Scope: network.ScopePublic,
 		},
-		Port: controller.DefaultStatePort}}
+		Port: controller.DefaultStatePort,
+	}}
 
 	address := mongo.SelectPeerHostPort(hostPorts)
 	c.Assert(address, gc.Equals, "10.0.0.1:"+strconv.Itoa(controller.DefaultStatePort))

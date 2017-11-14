@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -13,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
-	"time"
 )
 
 type relationSuite struct {

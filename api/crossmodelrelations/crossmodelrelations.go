@@ -170,6 +170,8 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 
 	var results params.RegisterRemoteRelationResults
 	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.RegisterRemoteRelationResults{}
 		err := c.facade.FacadeCall("RegisterRemoteRelations", args, &results)
 		if err != nil {
 			return errors.Trace(err)
@@ -210,7 +212,6 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 		return result, nil
 	}
 
-	results = params.RegisterRemoteRelationResults{}
 	if err := apiCall(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -233,6 +234,8 @@ func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteEntityArg) (w
 
 	var results params.RelationUnitsWatchResults
 	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.RelationUnitsWatchResults{}
 		if err := c.facade.FacadeCall("WatchRelationUnits", args, &results); err != nil {
 			return errors.Trace(err)
 		}
@@ -290,6 +293,8 @@ func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit)
 
 	var results params.SettingsResults
 	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.SettingsResults{}
 		err := c.facade.FacadeCall("RelationUnitSettings", args, &results)
 		if err != nil {
 			return errors.Trace(err)
@@ -330,7 +335,6 @@ func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit)
 		return result, nil
 	}
 
-	results = params.SettingsResults{}
 	if err := apiCall(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -355,6 +359,8 @@ func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.Remote
 
 	var results params.StringsWatchResults
 	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.StringsWatchResults{}
 		if err := c.facade.FacadeCall("WatchEgressAddressesForRelations", args, &results); err != nil {
 			return errors.Trace(err)
 		}
@@ -404,6 +410,8 @@ func (c *Client) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watch
 
 	var results params.RelationStatusWatchResults
 	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.RelationStatusWatchResults{}
 		if err := c.facade.FacadeCall("WatchRelationsSuspendedStatus", args, &results); err != nil {
 			return errors.Trace(err)
 		}
@@ -453,6 +461,8 @@ func (c *Client) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatch
 
 	var results params.OfferStatusWatchResults
 	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.OfferStatusWatchResults{}
 		if err := c.facade.FacadeCall("WatchOfferStatus", args, &results); err != nil {
 			return errors.Trace(err)
 		}

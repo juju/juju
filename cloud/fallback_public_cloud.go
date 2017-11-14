@@ -79,6 +79,8 @@ clouds:
         endpoint: https://www.googleapis.com
       asia-southeast1:
         endpoint: https://www.googleapis.com
+      asia-south1:
+        endpoint: https://www.googleapis.com
       australia-southeast1:
         endpoint: https://www.googleapis.com
       southamerica-east1:

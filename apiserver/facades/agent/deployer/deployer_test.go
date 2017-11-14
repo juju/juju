@@ -299,20 +299,6 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	})
 }
 
-func (s *deployerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine0.SetProviderAddresses(network.NewAddress("0.1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	addresses, err := s.State.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.deployer.StateAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: addresses,
-	})
-}
-
 func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
 	hostPorts := [][]network.HostPort{
 		network.NewHostPorts(1234, "0.1.2.3"),
@@ -347,8 +333,7 @@ func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.DeployerConnectionValues{
-		StateAddresses: []string{"1.2.3.4:1234"},
-		APIAddresses:   []string{"1.2.3.4:1234", "0.1.2.3:1234"},
+		APIAddresses: []string{"1.2.3.4:1234", "0.1.2.3:1234"},
 	}
 
 	result, err := s.deployer.ConnectionInfo()

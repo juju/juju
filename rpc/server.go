@@ -284,6 +284,9 @@ func (conn *Conn) Close() error {
 	}
 	conn.closing = true
 	if conn.root != nil {
+		// Kill calls down into the resources to stop all the resources which
+		// includes watchers. The watches need to be killed in order for their
+		// API methods to return, otherwise they are just waiting.
 		conn.root.Kill()
 	}
 	conn.mutex.Unlock()
@@ -291,6 +294,15 @@ func (conn *Conn) Close() error {
 	// Wait for any outstanding server requests to complete
 	// and write their replies before closing the codec.
 	conn.srvPending.Wait()
+
+	conn.mutex.Lock()
+	if conn.root != nil {
+		// It is possible that since we last Killed the root, other resources
+		// may have been added during some of the pending call resoulutions.
+		// So to release these resources, double tap the root.
+		conn.root.Kill()
+	}
+	conn.mutex.Unlock()
 
 	// Closing the codec should cause the input loop to terminate.
 	if err := conn.codec.Close(); err != nil {

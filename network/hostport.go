@@ -7,10 +7,10 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"strings"
 )
 
 // HostPort associates an address with a port.

@@ -243,9 +243,8 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 4)
 
-	expectedError := &params.Error{Message: "id not found", Code: "not found"}
 	emptyActionTag := names.ActionTag{}
-	c.Assert(res.Results[0].Error, gc.DeepEquals, expectedError)
+	c.Assert(res.Results[0].Error, gc.DeepEquals, &params.Error{Message: fmt.Sprintf("%s not valid", arg.Actions[0].Receiver), Code: ""})
 	c.Assert(res.Results[0].Action, gc.IsNil)
 
 	c.Assert(res.Results[1].Error, gc.IsNil)
@@ -253,7 +252,8 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(res.Results[1].Action.Receiver, gc.Equals, s.wordpressUnit.Tag().String())
 	c.Assert(res.Results[1].Action.Tag, gc.Not(gc.Equals), emptyActionTag)
 
-	c.Assert(res.Results[2].Error, gc.DeepEquals, expectedError)
+	errorString := fmt.Sprintf("action receiver interface on entity %s not implemented", arg.Actions[2].Receiver)
+	c.Assert(res.Results[2].Error, gc.DeepEquals, &params.Error{Message: errorString, Code: "not implemented"})
 	c.Assert(res.Results[2].Action, gc.IsNil)
 
 	c.Assert(res.Results[3].Error, gc.ErrorMatches, "no action name given")
