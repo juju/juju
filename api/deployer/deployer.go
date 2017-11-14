@@ -16,17 +16,13 @@ const deployerFacade = "Deployer"
 // State provides access to the deployer worker's idea of the state.
 type State struct {
 	facade base.FacadeCaller
-	*common.APIAddresser
 }
 
 // NewState creates a new State instance that makes API calls
 // through the given caller.
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, deployerFacade)
-	return &State{
-		facade:       facadeCaller,
-		APIAddresser: common.NewAPIAddresser(facadeCaller),
-	}
+	return &State{facade: facadeCaller}
 
 }
 
@@ -55,16 +51,6 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 		tag: tag,
 		st:  st,
 	}, nil
-}
-
-// StateAddresses returns the list of addresses used to connect to the state.
-func (st *State) StateAddresses() ([]string, error) {
-	var result params.StringsResult
-	err := st.facade.FacadeCall("StateAddresses", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	return result.Result, nil
 }
 
 // ConnectionInfo returns all the address information that the deployer task

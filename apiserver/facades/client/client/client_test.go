@@ -628,12 +628,6 @@ func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, msg string) 
 	s.AssertBlocked(c, err, msg)
 }
 
-func (s *serverSuite) TestCACert(c *gc.C) {
-	r, err := s.APIState.Client().CACert()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r, gc.Equals, coretesting.CACert)
-}
-
 func (s *clientSuite) TestBlockDestroyUnitResolved(c *gc.C) {
 	u := s.setupResolved(c)
 	s.BlockDestroyModel(c, "TestBlockDestroyUnitResolved")

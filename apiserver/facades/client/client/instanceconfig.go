@@ -74,10 +74,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	caCert, ok := controllerConfig.CACert()
-	if !ok {
-		return nil, errors.New("CA certificate missing from controller config")
-	}
+	caCert, _ := controllerConfig.CACert()
 
 	// Get the API connection info; attempt all API addresses.
 	apiHostPorts, err := st.APIHostPorts()

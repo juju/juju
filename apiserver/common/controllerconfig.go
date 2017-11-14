@@ -95,9 +95,6 @@ func StateControllerInfo(st *state.State) (addrs []string, caCert string, _ erro
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	caCert, ok := controllerConfig.CACert()
-	if !ok {
-		return nil, "", errors.New("CA certificate missing from controller config")
-	}
+	caCert, _ = controllerConfig.CACert()
 	return addr, caCert, nil
 }

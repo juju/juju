@@ -51,7 +51,8 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
+		getApplicationOffers, getEnviron, getFakeControllerInfo,
+		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1043,7 +1044,8 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
+		getApplicationOffers, getEnviron, getFakeControllerInfo,
+		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

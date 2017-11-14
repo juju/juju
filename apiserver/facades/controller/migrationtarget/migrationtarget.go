@@ -25,18 +25,11 @@ import (
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	addresser
 	state      *state.State
 	pool       *state.StatePool
 	authorizer facade.Authorizer
 	resources  facade.Resources
 	getEnviron stateenvirons.NewEnvironFunc
-}
-
-// addresser implements the subset of common.APIAddresser
-// methods that we choose to expose in the MigrationTarget facade.
-type addresser interface {
-	CACert() (params.BytesResult, error)
 }
 
 // NewFacade is used for API registration.
@@ -52,14 +45,12 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc) (*API, 
 	if err := checkAuth(auth, st); err != nil {
 		return nil, errors.Trace(err)
 	}
-	addresser := common.NewAPIAddresser(st, ctx.Resources())
 	return &API{
 		state:      st,
 		pool:       ctx.StatePool(),
 		authorizer: auth,
 		resources:  ctx.Resources(),
 		getEnviron: getEnviron,
-		addresser:  addresser,
 	}, nil
 }
 
@@ -300,4 +291,14 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 
 func errorResult(format string, args ...interface{}) params.ErrorResult {
 	return params.ErrorResult{Error: common.ServerError(errors.Errorf(format, args...))}
+}
+
+// CACert returns the certificate used to validate the state connection.
+func (a *API) CACert() (params.BytesResult, error) {
+	cfg, err := a.state.ControllerConfig()
+	if err != nil {
+		return params.BytesResult{}, errors.Trace(err)
+	}
+	caCert, _ := cfg.CACert()
+	return params.BytesResult{Result: []byte(caCert)}, nil
 }

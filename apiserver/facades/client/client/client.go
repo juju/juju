@@ -50,18 +50,11 @@ func (api *API) state() *state.State {
 	return api.stateAccessor.(*stateShim).State
 }
 
-// caCerter implements the subset of common.APIAddresser
-// methods that we choose to expose in the client facade.
-type caCerter interface {
-	CACert() (params.BytesResult, error)
-}
-
 // Client serves client-specific API methods.
 type Client struct {
 	// TODO(wallyworld) - we'll retain model config facade methods
 	// on the client facade until GUI and Python client library are updated.
 	*modelconfig.ModelConfigAPI
-	caCerter
 
 	api        *API
 	newEnviron func() (environs.Environ, error)
@@ -140,7 +133,6 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	addresser := common.NewAPIAddresser(st, resources)
 	return NewClient(
 		&stateShim{st, model},
 		&poolShim{ctx.StatePool()},
@@ -151,7 +143,6 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		toolsFinder,
 		newEnviron,
 		blockChecker,
-		addresser,
 	)
 }
 
@@ -166,14 +157,12 @@ func NewClient(
 	toolsFinder *common.ToolsFinder,
 	newEnviron func() (environs.Environ, error),
 	blockChecker *common.BlockChecker,
-	caCerter caCerter,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	client := &Client{
 		ModelConfigAPI: modelConfigAPI,
-		caCerter:       caCerter,
 		api: &API{
 			stateAccessor: backend,
 			pool:          pool,
@@ -704,4 +693,14 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	}
 	result.Servers = params.FromNetworkHostsPorts(servers)
 	return result, nil
+}
+
+// CACert returns the certificate used to validate the state connection.
+func (c *Client) CACert() (params.BytesResult, error) {
+	cfg, err := c.api.stateAccessor.ControllerConfig()
+	if err != nil {
+		return params.BytesResult{}, errors.Trace(err)
+	}
+	caCert, _ := cfg.CACert()
+	return params.BytesResult{Result: []byte(caCert)}, nil
 }

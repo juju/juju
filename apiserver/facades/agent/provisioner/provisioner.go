@@ -1124,3 +1124,13 @@ func (p *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess c
 func (p *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {
 	return p.SetObservedNetworkConfig(args)
 }
+
+// CACert returns the certificate used to validate the state connection.
+func (a *ProvisionerAPI) CACert() (params.BytesResult, error) {
+	cfg, err := a.st.ControllerConfig()
+	if err != nil {
+		return params.BytesResult{}, errors.Trace(err)
+	}
+	caCert, _ := cfg.CACert()
+	return params.BytesResult{Result: []byte(caCert)}, nil
+}

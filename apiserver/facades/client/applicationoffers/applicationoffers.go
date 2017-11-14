@@ -29,7 +29,6 @@ type environFromModelFunc func(string) (environs.Environ, error)
 // implementation of the api end point.
 type OffersAPI struct {
 	BaseAPI
-	*common.APIAddresser
 	dataDir     string
 	authContext *commoncrossmodel.AuthContext
 }
@@ -38,6 +37,7 @@ type OffersAPI struct {
 func createOffersAPI(
 	getApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers,
 	getEnviron environFromModelFunc,
+	getControllerInfo func() ([]string, string, error),
 	backend Backend,
 	statePool StatePool,
 	authorizer facade.Authorizer,
@@ -50,16 +50,17 @@ func createOffersAPI(
 
 	dataDir := resources.Get("dataDir").(common.StringResource)
 	api := &OffersAPI{
-		dataDir:      dataDir.String(),
-		authContext:  authContext,
-		APIAddresser: common.NewAPIAddresser(backend.GetAddressAndCertGetter(), resources),
+		dataDir:     dataDir.String(),
+		authContext: authContext,
 		BaseAPI: BaseAPI{
 			Authorizer:           authorizer,
 			GetApplicationOffers: getApplicationOffers,
 			ControllerModel:      backend,
 			StatePool:            statePool,
 			getEnviron:           getEnviron,
-		}}
+			getControllerInfo:    getControllerInfo,
+		},
+	}
 	return api, nil
 }
 
@@ -83,11 +84,17 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		return env, nil
 	}
 
+	st := ctx.State()
+	getControllerInfo := func() ([]string, string, error) {
+		return common.StateControllerInfo(st)
+	}
+
 	authContext := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
 	return createOffersAPI(
 		GetApplicationOffers,
 		environFromModel,
-		GetStateAccess(ctx.State()),
+		getControllerInfo,
+		GetStateAccess(st),
 		GetStatePool(ctx.StatePool()),
 		ctx.Auth(),
 		ctx.Resources(),
@@ -426,22 +433,15 @@ func (api *OffersAPI) GetConsumeDetails(args params.OfferURLs) (params.ConsumeOf
 		return consumeResults, common.ServerError(err)
 	}
 
-	addr, err := api.APIAddresser.APIAddresses()
-	if err != nil {
-		return consumeResults, common.ServerError(err)
-	}
-	if addr.Error != nil {
-		return consumeResults, common.ServerError(err)
-	}
-	caCertResult, err := api.APIAddresser.CACert()
+	addrs, caCert, err := api.getControllerInfo()
 	if err != nil {
 		return consumeResults, common.ServerError(err)
 	}
 
 	controllerInfo := &params.ExternalControllerInfo{
 		ControllerTag: api.ControllerModel.ControllerTag().String(),
-		Addrs:         addr.Result,
-		CACert:        string(caCertResult.Result),
+		Addrs:         addrs,
+		CACert:        caCert,
 	}
 
 	for i, result := range offers.Results {

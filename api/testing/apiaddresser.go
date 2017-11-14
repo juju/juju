@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
 )
@@ -28,7 +27,6 @@ func NewAPIAddresserTests(facade APIAddresserFacade, st *state.State) *APIAddres
 
 type APIAddresserFacade interface {
 	APIAddresses() ([]string, error)
-	CACert() (string, error)
 	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
 }
@@ -62,12 +60,6 @@ func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
 	serverAddrs, err := s.facade.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serverAddrs, gc.DeepEquals, expectServerAddrs)
-}
-
-func (s *APIAddresserTests) TestCACert(c *gc.C) {
-	caCert, err := s.facade.CACert()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(caCert, gc.DeepEquals, testing.CACert)
 }
 
 func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {

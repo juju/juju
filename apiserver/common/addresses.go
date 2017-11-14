@@ -4,10 +4,8 @@
 package common
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -17,7 +15,6 @@ import (
 // controller addresses and the CA public certificate.
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
-	ControllerConfig() (controller.Config, error)
 	ModelUUID() string
 	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher
@@ -86,16 +83,6 @@ func apiAddresses(getter APIHostPortsGetter) ([]string, error) {
 		}
 	}
 	return addrs, nil
-}
-
-// CACert returns the certificate used to validate the state connection.
-func (a *APIAddresser) CACert() (params.BytesResult, error) {
-	cfg, err := a.getter.ControllerConfig()
-	if err != nil {
-		return params.BytesResult{}, errors.Trace(err)
-	}
-	caCert, _ := cfg.CACert()
-	return params.BytesResult{Result: []byte(caCert)}, nil
 }
 
 // ModelUUID returns the model UUID to connect to the environment

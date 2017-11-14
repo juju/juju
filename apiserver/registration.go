@@ -185,10 +185,7 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	caCert, ok := controllerConfig.CACert()
-	if !ok {
-		return nil, errors.New("CA certificate missing from controller config")
-	}
+	caCert, _ := controllerConfig.CACert()
 	payload := params.SecretKeyLoginResponsePayload{
 		CACert:         caCert,
 		ControllerUUID: st.ControllerUUID(),

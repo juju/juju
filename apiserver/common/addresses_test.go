@@ -90,11 +90,6 @@ func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *gc.C) {
 	})
 }
 
-func (s *apiAddresserSuite) TestCACert(c *gc.C) {
-	result := s.addresser.CACert()
-	c.Assert(string(result.Result), gc.Equals, coretesting.CACert)
-}
-
 func (s *apiAddresserSuite) TestModelUUID(c *gc.C) {
 	result := s.addresser.ModelUUID()
 	c.Assert(string(result.Result), gc.Equals, "the environ uuid")
