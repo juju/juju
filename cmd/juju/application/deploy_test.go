@@ -108,8 +108,8 @@ var initErrorTests = []struct {
 		args: []string{"charm", "--attach-storage", "foo/0", "-n", "2"},
 		err:  `--attach-storage cannot be used with -n`,
 	}, {
-		args: []string{"bundle", "--machine-map", "foo"},
-		err:  `error in --machine-map: expected "existing" or "<bundle-id>=<machine-id>", got "foo"`,
+		args: []string{"bundle", "--map-machines", "foo"},
+		err:  `error in --map-machines: expected "existing" or "<bundle-id>=<machine-id>", got "foo"`,
 	},
 }
 
