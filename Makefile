@@ -49,6 +49,13 @@ godeps:
 endif
 
 build: godeps
+	go build $(PROJECT)/...
+
+#this is useful to run after release-build, or as needed
+remove-patches:
+	cat $(PWD)/patches/*.diff | patch -f -R -u -p1 -r- -d $(PWD)/../../../
+
+release-build: godeps
 	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/../../../
 	go build $(PROJECT)/...
 
