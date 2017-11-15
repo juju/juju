@@ -364,6 +364,15 @@ func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
 	}})
 }
 
+func (s *TrackerSuite) TestWaitMinionClaimerFails(c *gc.C) {
+	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, errors.New("mein leben!"))
+	tracker := s.newTrackerDirtyKill()
+	s.unblockRelease(c)
+
+	err := workertest.CheckKilled(c, tracker)
+	c.Assert(err, gc.ErrorMatches, "error while led-service/123 waiting for led-service leadership release: mein leben!")
+}
+
 func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
 	s.claimer.Stub.SetErrors(nil, coreleadership.ErrClaimDenied, nil)
 	tracker := s.newTracker()
