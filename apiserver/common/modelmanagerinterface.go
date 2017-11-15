@@ -30,6 +30,7 @@ type ModelManagerBackend interface {
 
 	ModelUUID() string
 	ModelUUIDsForUser(names.UserTag) ([]string, error)
+	ModelsInfoForUser(user names.UserTag) ([]state.ModelAccessInfo, error)
 	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)

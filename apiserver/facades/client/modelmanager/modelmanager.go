@@ -687,44 +687,19 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := m.state.ModelUUIDsForUser(userTag)
+	modelInfo, err := m.state.ModelsInfoForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, modelUUID := range modelUUIDs {
-		st, release, err := m.state.GetBackend(modelUUID)
-		if err != nil {
-			// This model could have been removed.
-			if errors.IsNotFound(err) {
-				continue
-			}
-			return result, errors.Trace(err)
-		}
-		defer release()
-
-		model, err := st.Model()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-
-		var lastConn *time.Time
-		userLastConn, err := model.LastModelConnection(userTag)
-		if err != nil {
-			if !state.IsNeverConnectedError(err) {
-				return result, errors.Trace(err)
-			}
-		} else {
-			lastConn = &userLastConn
-		}
-
+	for _, mi := range modelInfo {
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
-				Name:     model.Name(),
-				UUID:     model.UUID(),
-				OwnerTag: model.Owner().String(),
+				Name:     mi.Name,
+				UUID:     mi.UUID,
+				OwnerTag: names.NewUserTag(mi.Owner).String(),
 			},
-			LastConnection: lastConn,
+			LastConnection: &mi.LastConnection,
 		})
 	}
 

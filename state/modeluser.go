@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/permission"
 )
 
@@ -169,6 +170,88 @@ func (st *State) removeModelUser(user names.UserTag) error {
 	}
 	return nil
 }
+
+type ModelAccessInfo struct {
+	Name           string `bson:"name"`
+	UUID           string `bson:"_id"`
+	Owner          string `bson:"owner"`
+	LastConnection time.Time
+}
+
+// ModelsInfoForUser gives you the information about all models that a user has access to.
+// This includes the name and UUID, as well as the last time the user connected to that model.
+func (st *State) ModelsInfoForUser(user names.UserTag) ([]ModelAccessInfo, error) {
+	access, err := st.UserAccess(user, st.controllerTag)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	lastConnections, closer := st.db().GetRawCollection(modelUserLastConnectionC)
+	defer closer()
+
+	var modelQuery mongo.Query
+	models, closer := st.db().GetCollection(modelsC)
+	defer closer()
+	if access.Access == permission.SuperuserAccess {
+		logger.Criticalf("ModelsInfoForUser: user %v is superuser", user.Id())
+		// Fast path, we just return all the models that aren't Importing
+		modelQuery = models.Find(bson.M{"migration-mode": bson.M{"$ne": MigrationModeImporting}})
+	} else {
+		logger.Criticalf("ModelsInfoForUser: user %v not a superuser, using modelusers", user.Id())
+		// Start by looking up model uuids that the user has access to, and then load only the records that are
+		// included in that set
+		var modelUUID struct {
+			UUID string `bson:"object-uuid"`
+		}
+		modelUsers, userCloser := st.db().GetRawCollection(modelUsersC)
+		defer userCloser()
+		query := modelUsers.Find(bson.D{{"user", user.Id()}})
+		query.Select(bson.M{"object-uuid": 1, "_id": 0})
+		query.Batch(100)
+		iter := query.Iter()
+		var modelUUIDs []string
+		for iter.Next(&modelUUID) {
+			modelUUIDs = append(modelUUIDs, modelUUID.UUID)
+		}
+		if err := iter.Close(); err != nil {
+			return nil, err
+		}
+		modelQuery = models.Find(bson.M{
+			"_id":            bson.M{"$in": modelUUIDs},
+			"migration-mode": bson.M{"$ne": MigrationModeImporting},
+		})
+	}
+	modelQuery.Sort("name", "owner")
+	modelQuery.Select(bson.M{"_id": 1, "name": 1, "owner": 1})
+	var accessInfo []ModelAccessInfo
+	err = modelQuery.All(&accessInfo)
+	if err != nil {
+		return nil, err
+	}
+	// Now we need to find the last-connection time for each model for this user
+	username := user.Id()
+	connDocIds := make([]string, len(accessInfo))
+	for i, acc := range accessInfo {
+		connDocIds[i] = acc.UUID + ":" + username
+	}
+	query := lastConnections.Find(bson.M{"_id": bson.M{"$in": connDocIds}})
+	query.Select(bson.M{"last-connection": 1, "_id": 0, "model-uuid": 1})
+	query.Batch(100)
+	iter := query.Iter()
+	lastConns := make(map[string]time.Time, len(connDocIds))
+	var connInfo modelUserLastConnectionDoc
+	for iter.Next(&connInfo) {
+		lastConns[connInfo.ModelUUID] = connInfo.LastConnection
+	}
+	if err := iter.Close(); err != nil {
+		return nil, err
+	}
+	for i := range accessInfo {
+		uuid := accessInfo[i].UUID
+		accessInfo[i].LastConnection = lastConns[uuid]
+	}
+	return accessInfo, nil
+}
+
 
 // ModelUUIDsForUser returns a list of models that the user is able to
 // access.
