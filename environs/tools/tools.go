@@ -20,10 +20,23 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.tools")
 
+var streamFallbacks = map[string][]string{
+	ReleasedStream: {ReleasedStream},
+	ProposedStream: {ProposedStream, ReleasedStream},
+	DevelStream:    {DevelStream, ProposedStream, ReleasedStream},
+	TestingStream:  {TestingStream, DevelStream, ProposedStream, ReleasedStream},
+}
+
 func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, fallback bool, majorVersion, minorVersion int,
 	filter coretools.Filter) (*ToolsConstraint, error) {
 
 	var toolsConstraint *ToolsConstraint
+
+	streams := []string{stream}
+	if fallback {
+		streams = streamFallbacks[stream]
+	}
+
 	if filter.Number != version.Zero {
 		// A specific tools version is required, however, a general match based on major/minor
 		// version may also have been requested. This is used to ensure any agent version currently
@@ -35,11 +48,11 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, fallb
 		if majorMismatch || minorMismacth {
 			return nil, coretools.ErrNoMatches
 		}
-		toolsConstraint = NewVersionedToolsConstraint(filter.Number, fallback,
-			simplestreams.LookupParams{CloudSpec: cloudSpec, Stream: stream})
+		toolsConstraint = NewVersionedToolsConstraint(filter.Number,
+			simplestreams.LookupParams{CloudSpec: cloudSpec, Streams: streams})
 	} else {
-		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion, fallback,
-			simplestreams.LookupParams{CloudSpec: cloudSpec, Stream: stream})
+		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion,
+			simplestreams.LookupParams{CloudSpec: cloudSpec, Streams: streams})
 	}
 	if filter.Arch != "" {
 		toolsConstraint.Arches = []string{filter.Arch}

@@ -190,17 +190,26 @@ func (ic *ImageConstraint) IndexIds() []string {
 
 // ProductIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (ic *ImageConstraint) ProductIds() ([]string, error) {
-	stream := idStream(ic.Stream)
+	streams := ic.Streams
+	if len(streams) == 0 {
+		// If there are no streams specified use the default ""
+		streams = []string{""}
+	}
 	nrArches := len(ic.Arches)
 	nrSeries := len(ic.Series)
-	ids := make([]string, nrArches*nrSeries)
-	for i, arch := range ic.Arches {
-		for j, ser := range ic.Series {
-			version, err := series.SeriesVersion(ser)
-			if err != nil {
-				return nil, err
+	nrStreams := len(streams)
+
+	ids := make([]string, 0, nrArches*nrSeries*nrStreams)
+	for _, stream := range streams {
+		stream = idStream(stream)
+		for _, arch := range ic.Arches {
+			for _, ser := range ic.Series {
+				version, err := series.SeriesVersion(ser)
+				if err != nil {
+					return nil, err
+				}
+				ids = append(ids, fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch))
 			}
-			ids[j*nrArches+i] = fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch)
 		}
 	}
 	return ids, nil

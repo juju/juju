@@ -585,7 +585,7 @@ func bootstrapImageMetadata(
 	// This constraint will search image metadata for all supported architectures and series.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
-		Stream:    environ.Config().ImageStream(),
+		Streams:   []string{environ.Config().ImageStream()},
 	})
 	logger.Debugf("constraints for image metadata lookup %v", imageConstraint)
 

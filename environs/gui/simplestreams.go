@@ -53,7 +53,7 @@ func FetchMetadata(stream string, sources ...simplestreams.DataSource) ([]*Metad
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion: streamsVersion,
 		LookupConstraint: &constraint{
-			LookupParams: simplestreams.LookupParams{Stream: stream},
+			LookupParams: simplestreams.LookupParams{Streams: []string{stream}},
 			majorVersion: jujuversion.Current.Major,
 		},
 		ValueParams: simplestreams.ValueParams{
@@ -116,7 +116,11 @@ type constraint struct {
 // IndexIds generates a string array representing index ids formed similarly to
 // an ISCSI qualified name (IQN).
 func (c *constraint) IndexIds() []string {
-	return []string{contentId(c.Stream)}
+	var results []string
+	for _, stream := range c.Streams {
+		results = append(results, contentId(stream))
+	}
+	return results
 }
 
 // ProductIds generates a string array representing product ids formed

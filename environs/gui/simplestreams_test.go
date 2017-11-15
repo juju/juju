@@ -218,7 +218,7 @@ func (s *simplestreamsSuite) TestConstraint(c *gc.C) {
 
 	c.Assert(constraint.Endpoint, gc.Equals, "")
 	c.Assert(constraint.Region, gc.Equals, "")
-	c.Assert(constraint.Stream, gc.Equals, "test-stream")
+	c.Assert(constraint.Streams, gc.DeepEquals, []string{"test-stream"})
 }
 
 var guiData = map[string]string{

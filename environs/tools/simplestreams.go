@@ -64,55 +64,35 @@ const (
 	DevelStream = "devel"
 )
 
-var streamFallbacks = map[string][]string{
-	ReleasedStream: {ReleasedStream},
-	ProposedStream: {ProposedStream, ReleasedStream},
-	DevelStream:    {DevelStream, ProposedStream, ReleasedStream},
-	TestingStream:  {TestingStream, DevelStream, ProposedStream, ReleasedStream},
-}
-
 // ToolsConstraint defines criteria used to find a tools metadata record.
 type ToolsConstraint struct {
 	simplestreams.LookupParams
-	Version        version.Number
-	MajorVersion   int
-	MinorVersion   int
-	StreamFallback bool
+	Version      version.Number
+	MajorVersion int
+	MinorVersion int
 }
 
 // NewVersionedToolsConstraint returns a ToolsConstraint for a tools with a specific version.
-func NewVersionedToolsConstraint(vers version.Number, fallback bool, params simplestreams.LookupParams) *ToolsConstraint {
+func NewVersionedToolsConstraint(vers version.Number, params simplestreams.LookupParams) *ToolsConstraint {
 	return &ToolsConstraint{
-		LookupParams:   params,
-		Version:        vers,
-		StreamFallback: fallback,
+		LookupParams: params,
+		Version:      vers,
 	}
 }
 
 // NewGeneralToolsConstraint returns a ToolsConstraint for tools with matching major/minor version numbers.
-func NewGeneralToolsConstraint(majorVersion, minorVersion int, fallback bool, params simplestreams.LookupParams) *ToolsConstraint {
+func NewGeneralToolsConstraint(majorVersion, minorVersion int, params simplestreams.LookupParams) *ToolsConstraint {
 	return &ToolsConstraint{LookupParams: params, Version: version.Zero,
-		MajorVersion:   majorVersion,
-		MinorVersion:   minorVersion,
-		StreamFallback: fallback,
+		MajorVersion: majorVersion,
+		MinorVersion: minorVersion,
 	}
 }
 
 // IndexIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (tc *ToolsConstraint) IndexIds() []string {
-	if tc.Stream == "" {
-		return nil
-	}
-	streams := []string{tc.Stream}
-	if tc.StreamFallback {
-		fallbacks, found := streamFallbacks[tc.Stream]
-		if found {
-			streams = fallbacks
-		}
-	}
-	results := make([]string, len(streams))
-	for i, stream := range streams {
-		results[i] = ToolsContentId(stream)
+	var results []string
+	for _, stream := range tc.Streams {
+		results = append(results, ToolsContentId(stream))
 	}
 	return results
 }
@@ -193,11 +173,13 @@ func Fetch(
 		StreamsVersion:   currentStreamsVersion,
 		LookupConstraint: cons,
 		ValueParams: simplestreams.ValueParams{
-			DataType:        ContentDownload,
-			FilterFunc:      appendMatchingTools,
-			MirrorContentId: ToolsContentId(cons.Stream),
-			ValueTemplate:   ToolsMetadata{},
+			DataType:      ContentDownload,
+			FilterFunc:    appendMatchingTools,
+			ValueTemplate: ToolsMetadata{},
 		},
+	}
+	if len(cons.Streams) > 0 {
+		params.ValueParams.MirrorContentId = ToolsContentId(cons.Streams[0])
 	}
 	results, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {

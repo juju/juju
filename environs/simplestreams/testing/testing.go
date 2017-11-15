@@ -790,7 +790,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *g
 		CloudSpec: s.ValidConstraint.Params().CloudSpec,
 		Series:    []string{"precise"},
 		Arches:    []string{"bad"},
-		Stream:    "spec",
+		Streams:   []string{"spec"},
 	})
 	_, err = indexRef.GetProductsPath(ic)
 	c.Assert(err, gc.NotNil)
