@@ -347,9 +347,9 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 	params := environs.StartInstanceParams{
-		ControllerUUID: suite.controllerUUID,
-		Placement:      "zone=foo",
-		Constraints:    constraints.MustParse("mem=8G"),
+		ControllerUUID:   suite.controllerUUID,
+		AvailabilityZone: "foo",
+		Constraints:      constraints.MustParse("mem=8G"),
 	}
 	result, err := jujutesting.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2295,7 +2295,7 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
-	c.Check(err, gc.ErrorMatches, ".*cannot run instances.*")
+	c.Check(err, gc.ErrorMatches, "cannot start bootstrap instance: failed to start instance in any availability zone")
 }
 
 func (suite *maas2EnvironSuite) TestGetToolsMetadataSources(c *gc.C) {
