@@ -711,6 +711,19 @@ func (s *BootstrapSuite) TestBootstrapAttributesInheritedOverDefaults(c *gc.C) {
 	})
 }
 
+func (s *BootstrapSuite) TestBootstrapRegionConfigNoRegionSpecified(c *gc.C) {
+	resetJujuXDGDataHome(c)
+
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy-cloud-dummy-region-config")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(bootstrap.args.ControllerInheritedConfig["secret"], gc.Equals, "region-test")
+}
+
 func (s *BootstrapSuite) TestBootstrapRegionConfigAttributesOverCloudConfig(c *gc.C) {
 	/* Test that cloud config attributes are overwritten by region config
 	   attributes by setting both to something different in the config setup.
@@ -1692,24 +1705,25 @@ func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, `
 You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
-Cloud                           Credentials  Default Region
-aws                             fred         us-west-1
-                                mary         
-aws-china                                    
-aws-gov                                      
-azure                                        
-azure-china                                  
-cloudsigma                                   
-google                                       
-joyent                                       
-oracle                                       
-rackspace                                    
-localhost                                    
-dummy-cloud                     joe          home
-dummy-cloud-with-config                      
-dummy-cloud-with-region-config               
-dummy-cloud-without-regions                  
-many-credentials-no-auth-types               
+Cloud                            Credentials  Default Region
+aws                              fred         us-west-1
+                                 mary         
+aws-china                                     
+aws-gov                                       
+azure                                         
+azure-china                                   
+cloudsigma                                    
+google                                        
+joyent                                        
+oracle                                        
+rackspace                                     
+localhost                                     
+dummy-cloud                      joe          home
+dummy-cloud-dummy-region-config               
+dummy-cloud-with-config                       
+dummy-cloud-with-region-config                
+dummy-cloud-without-regions                   
+many-credentials-no-auth-types                
 
 You will need to have a credential if you want to bootstrap on a cloud, see
 ‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
@@ -1856,6 +1870,14 @@ clouds:
             region-2:
     dummy-cloud-without-regions:
         type: dummy
+    dummy-cloud-dummy-region-config:
+        type: dummy
+        regions:
+            region-1:
+            region-2:
+        region-config:
+            region-1:
+                secret: region-test
     dummy-cloud-with-region-config:
         type: dummy
         regions:
@@ -1872,16 +1894,6 @@ clouds:
             broken: Bootstrap
             controller: not-a-bool
             use-floating-ip: true
-    dummy-cloud-with-region-config:
-        type: dummy
-        regions:
-            region-1:
-            region-2:
-        config:
-            network: cloud-network
-        region-config:
-            region-1:
-                network: region-network
     many-credentials-no-auth-types:
         type: many-credentials
 `[1:]), 0644)
