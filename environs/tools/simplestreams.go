@@ -185,9 +185,7 @@ func Fetch(
 	if err != nil {
 		return nil, nil, err
 	}
-	if len(results) < 1 {
-		return nil, nil, errors.NotFoundf("simplestreams metadata results")
-	}
+	// GetMetadata returns NotFound if there are no results.
 	metadata := make([]*ToolsMetadata, len(results[0].Items))
 	for i, md := range results[0].Items {
 		metadata[i] = md.(*ToolsMetadata)

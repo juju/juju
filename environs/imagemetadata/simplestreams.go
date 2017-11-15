@@ -198,18 +198,24 @@ func (ic *ImageConstraint) ProductIds() ([]string, error) {
 	nrArches := len(ic.Arches)
 	nrSeries := len(ic.Series)
 	nrStreams := len(streams)
-
 	ids := make([]string, 0, nrArches*nrSeries*nrStreams)
-	for _, stream := range streams {
-		stream = idStream(stream)
+
+	addIdsForStream := func(stream string) error {
 		for _, arch := range ic.Arches {
 			for _, ser := range ic.Series {
 				version, err := series.SeriesVersion(ser)
 				if err != nil {
-					return nil, err
+					return errors.Trace(err)
 				}
 				ids = append(ids, fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch))
 			}
+		}
+		return nil
+	}
+
+	for _, stream := range streams {
+		if err := addIdsForStream(idStream(stream)); err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 	return ids, nil
@@ -258,9 +264,7 @@ func Fetch(
 	if err != nil {
 		return nil, nil, err
 	}
-	if len(results) < 1 {
-		return nil, nil, errors.NotFoundf("simplestreams metadata results")
-	}
+	// GetMetadata returns NotFound if there are 0 results.
 	metadata := make([]*ImageMetadata, len(results[0].Items))
 	for i, md := range results[0].Items {
 		metadata[i] = md.(*ImageMetadata)

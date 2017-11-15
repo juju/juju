@@ -384,7 +384,7 @@ type GetMetadataParams struct {
 	StreamsVersion   string
 	LookupConstraint LookupConstraint
 	ValueParams      ValueParams
-	AllResults       bool
+	UseAllSources    bool
 }
 
 type MetadataResult struct {
@@ -397,8 +397,9 @@ type MetadataResult struct {
 // onlySigned is false and no signed metadata is found in a source,
 // the source is used to look for unsigned metadata. Each source is
 // tried in turn - if AllResults is false then the results from the
-// first signed (or unsigned) match are returned. If AllResults is
-// true all of the matching results are returned.
+// first signed (or unsigned) datasource containing an index are
+// returned. If UseAllSources is true results are returned for all
+// sources with an index.
 func GetMetadata(sources []DataSource, params GetMetadataParams) ([]MetadataResult, error) {
 	var (
 		items       []interface{}

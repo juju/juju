@@ -67,9 +67,7 @@ func FetchMetadata(stream string, sources ...simplestreams.DataSource) ([]*Metad
 	if err != nil {
 		return nil, errors.Annotate(err, "error fetching simplestreams metadata")
 	}
-	if len(results) < 1 {
-		return nil, errors.NotFoundf("simplestreams metadata results")
-	}
+	// GetMetadata returns NotFound if there are 0 results.
 	result := results[0]
 	allMeta := make([]*Metadata, len(result.Items))
 	for i, item := range result.Items {

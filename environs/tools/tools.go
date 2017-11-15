@@ -34,7 +34,9 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, fallb
 
 	streams := []string{stream}
 	if fallback {
-		streams = streamFallbacks[stream]
+		if fallbacks, ok := streamFallbacks[stream]; ok {
+			streams = fallbacks
+		}
 	}
 
 	if filter.Number != version.Zero {
