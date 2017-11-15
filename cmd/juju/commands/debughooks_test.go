@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"regexp"
 	"runtime"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -114,7 +115,7 @@ var debugHooksTests = []struct {
 }, {
 	info:  `invalid hook`,
 	args:  []string{"mysql/0", "invalid-hook"},
-	error: `unit "mysql/0" does not contain hook nor action "invalid-hook"`,
+	error: `unit "mysql/0" contains neither hook nor action "invalid-hook", valid actions are [fakeaction] and valid hooks are [collect-metrics config-changed install juju-info-relation-broken juju-info-relation-changed juju-info-relation-departed juju-info-relation-joined leader-deposed leader-elected leader-settings-changed meter-status-changed server-admin-relation-broken server-admin-relation-changed server-admin-relation-departed server-admin-relation-joined server-relation-broken server-relation-changed server-relation-departed server-relation-joined start stop update-status upgrade-charm]`,
 }, {
 	info:  `no args at all`,
 	args:  nil,
@@ -137,7 +138,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 
 		ctx, err := cmdtesting.RunCommand(c, newDebugHooksCommand(s.hostChecker), t.args...)
 		if t.error != "" {
-			c.Check(err, gc.ErrorMatches, t.error)
+			c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(t.error))
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 			if t.expected != nil {
