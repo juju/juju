@@ -41,12 +41,12 @@ func StateWorkersManifold(config StateWorkersConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			st, err := stTracker.Use()
+			stPool, err := stTracker.Use()
 			if err != nil {
 				return nil, errors.Annotate(err, "acquiring state")
 			}
 
-			w, err := config.StartStateWorkers(st)
+			w, err := config.StartStateWorkers(stPool.SystemState())
 			if err != nil {
 				stTracker.Done()
 				return nil, errors.Annotate(err, "worker startup")

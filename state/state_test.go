@@ -2135,9 +2135,11 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st1.ProcessDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(model.UUID())
+	wc.AssertNoChange()
+
 	err = st1.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
 }
 

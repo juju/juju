@@ -299,7 +299,6 @@ func NewMachineAgent(
 		mongoTxnCollector:           mongometrics.NewTxnCollector(),
 		mongoDialCollector:          mongometrics.NewDialCollector(),
 		preUpgradeSteps:             preUpgradeSteps,
-		statePool:                   &statePoolHolder{},
 	}
 	if err := a.registerPrometheusCollectors(); err != nil {
 		return nil, errors.Trace(err)
@@ -368,24 +367,6 @@ type MachineAgent struct {
 	// Only API servers have hubs. This is temporary until the apiserver and
 	// peergrouper have manifolds.
 	centralHub *pubsub.StructuredHub
-
-	// The statePool holder holds a reference to the current state pool.
-	// The statePool is created by the machine agent and passed to the
-	// apiserver. This object adds a level of indirection so the introspection
-	// worker can have a single thing to hold that can report on the state pool.
-	// The content of the state pool holder is updated as the pool changes.
-	statePool *statePoolHolder
-}
-
-type statePoolHolder struct {
-	mu   sync.Mutex
-	pool *state.StatePool
-}
-
-func (h *statePoolHolder) set(pool *state.StatePool) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.pool = pool
 }
 
 // IsRestorePreparing returns bool representing if we are in restore mode
@@ -547,13 +528,14 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			})
 		}
 
-		// TODO(axw) the agent should not care about the state pool;
-		// that should be passed into the introspection worker by a
-		// manifold.
+		// statePoolReporter is an introspection.IntrospectionReporter,
+		// which is set to the current StatePool managed by the state
+		// tracker in controller agents.
+		var statePoolReporter statePoolIntrospectionReporter
 		registerIntrospectionHandlers := func(handle func(path string, h http.Handler)) {
 			introspection.RegisterHTTPHandlers(introspection.ReportSources{
 				DependencyEngine:   engine,
-				StatePool:          a.statePool,
+				StatePool:          &statePoolReporter,
 				PubSub:             pubsubReporter,
 				PrometheusGatherer: a.prometheusRegistry,
 			}, handle)
@@ -587,7 +569,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			LogPruneInterval:                  5 * time.Minute,
 			TransactionPruneInterval:          time.Hour,
 			LoginValidator:                    a.limitLogins,
-			SetStatePool:                      a.statePool.set,
+			SetStatePool:                      statePoolReporter.set,
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
@@ -599,7 +581,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		if err := startIntrospection(introspectionConfig{
 			Agent:              a,
 			Engine:             engine,
-			StatePoolReporter:  a.statePool,
+			StatePoolReporter:  &statePoolReporter,
 			PubSubReporter:     pubsubReporter,
 			NewSocketName:      a.newIntrospectionSocketName,
 			PrometheusGatherer: a.prometheusRegistry,

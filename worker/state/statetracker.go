@@ -14,40 +14,42 @@ import (
 var ErrStateClosed = errors.New("state closed")
 
 // StateTracker describes a type which wraps and manages the lifetime
-// of a *state.State.
+// of a *state.State and associated *state.StatePool.
 type StateTracker interface {
-	// Use returns wrapped State, recording the use of
-	// it. ErrStateClosed is returned if the State is closed.
-	Use() (*state.State, error)
+	// Use returns the wrapped StatePool, recording the use of
+	// it. ErrStateClosed is returned if the StatePool is closed.
+	Use() (*state.StatePool, error)
 
-	// Done records that there's one less user of the wrapped State,
+	// Done records that there's one less user of the wrapped StatePool,
 	// closing it if there's no more users. ErrStateClosed is returned
-	// if the State has already been closed (indicating that Done has
+	// if the StatePool has already been closed (indicating that Done has
 	// called too many times).
 	Done() error
 }
 
 // stateTracker wraps a *state.State, keeping a reference count and
-// closing the State when there are no longer any references to it. It
-// implements StateTracker.
+// closing the State and associated *state.StatePool when there are
+// no longer any references. It implements StateTracker.
 //
 // The reference count starts at 1. Done should be called exactly 1 +
 // number of calls to Use.
 type stateTracker struct {
 	mu         sync.Mutex
 	st         *state.State
+	pool       *state.StatePool
 	references int
 }
 
 func newStateTracker(st *state.State) StateTracker {
 	return &stateTracker{
 		st:         st,
+		pool:       state.NewStatePool(st),
 		references: 1,
 	}
 }
 
 // Use implements StateTracker.
-func (c *stateTracker) Use() (*state.State, error) {
+func (c *stateTracker) Use() (*state.StatePool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -55,7 +57,7 @@ func (c *stateTracker) Use() (*state.State, error) {
 		return nil, ErrStateClosed
 	}
 	c.references++
-	return c.st, nil
+	return c.pool, nil
 }
 
 // Done implements StateTracker.
@@ -68,8 +70,10 @@ func (c *stateTracker) Done() error {
 	}
 	c.references--
 	if c.references == 0 {
-		err := c.st.Close()
-		if err != nil {
+		if err := c.pool.Close(); err != nil {
+			logger.Errorf("error when closing state pool: %v", err)
+		}
+		if err := c.st.Close(); err != nil {
 			logger.Errorf("error when closing state: %v", err)
 		}
 	}

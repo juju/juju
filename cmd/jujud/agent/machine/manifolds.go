@@ -191,14 +191,9 @@ type ManifoldsConfig struct {
 	// to API server instances for validating logins.
 	LoginValidator apiserver.LoginValidator
 
-	// SetStatePool is used bythe API server for informing the agent of the
-	// StatePool that it creates, so we can pass it to the introspection
-	// worker.
-	//
-	// TODO(axw) we should have a manifold that maintains a StatePool, and
-	// pass that into the API server. We would also pass the StatePool into
-	// another manifold that will be responsible for un/registering the
-	// StatePool with an introspection reporter.
+	// SetStatePool is used by the state worker for informing the agent of
+	// the StatePool that it creates, so we can pass it to the introspection
+	// worker running outside of the dependency engine.
 	SetStatePool func(*state.StatePool)
 
 	// RegisterIntrospectionHTTPHandlers is a function that calls the
@@ -331,6 +326,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:              agentName,
 			StateConfigWatcherName: stateConfigWatcherName,
 			OpenState:              config.OpenState,
+			PrometheusRegisterer:   config.PrometheusRegisterer,
+			SetStatePool:           config.SetStatePool,
 		}),
 
 		// The stateworkers manifold starts workers which rely on a
@@ -663,7 +660,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 			LoginValidator:                    config.LoginValidator,
 			Hub:                               config.CentralHub,
-			SetStatePool:                      config.SetStatePool,
 			NewWorker:                         apiserver.NewWorker,
 			NewStoreAuditEntryFunc:            apiserver.NewStateStoreAuditEntryFunc,
 		}),
