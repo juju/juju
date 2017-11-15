@@ -39,6 +39,7 @@ type modelsCommand struct {
 	exactTime    bool
 	modelAPI     ModelManagerAPI
 	sysAPI       ModelsSysAPI
+	oldAPI       bool
 }
 
 var listModelsDoc = `
@@ -105,6 +106,7 @@ func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.all, "all", false, "Lists all models, regardless of user accessibility (administrative users only)")
 	f.BoolVar(&c.listUUID, "uuid", false, "Display UUID for models")
 	f.BoolVar(&c.exactTime, "exact-time", false, "Use full timestamps")
+	f.BoolVar(&c.oldAPI, "oldapi", false, "Use the old API to compare")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -146,7 +148,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 
 	now := time.Now()
 	var modelInfo []common.ModelInfo
-	if false {
+	if !c.oldAPI {
 		// New code path
 		modelInfo, err = c.getNewModelInfo(controllerName, now)
 		if err != nil {
