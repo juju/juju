@@ -49,11 +49,7 @@ godeps:
 endif
 
 build: godeps
-	patch -f -u -p1 -r- -d $(PWD)/../../../ < $(PWD)/patches/gosigma-race-fix.diff
-	patch -f -u -p1 -r- -d $(PWD)/../../../ < $(PWD)/patches/goyaml-pr-241.diff
-	patch -f -u -p1 -r- -d $(PWD)/../../../ < $(PWD)/patches/mgo_txn_flusher_pr360.diff
-	patch -f -u -p1 -r- -d $(PWD)/../../../ < $(PWD)/patches/stats-race-fix.diff
-	patch -f -u -p1 -r- -d $(PWD)/../../../ < $(PWD)/patches/txn-id-caching_pr454.diff
+	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/../../../
 	go build $(PROJECT)/...
 
 check: godeps
