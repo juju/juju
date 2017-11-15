@@ -145,13 +145,14 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	}
 
 	now := time.Now()
-	// New code path
-	modelInfo, err := c.getNewModelInfo(controllerName, now)
-	if err != nil {
-		return errors.Annotate(err, "unable to get model details")
-	}
-
+	var modelInfo []common.ModelInfo
 	if false {
+		// New code path
+		modelInfo, err = c.getNewModelInfo(controllerName, now)
+		if err != nil {
+			return errors.Annotate(err, "unable to get model details")
+		}
+	} else {
 		// First get a list of the models.
 		var models []base.UserModel
 		if c.all {
