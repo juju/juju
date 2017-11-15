@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 )
@@ -200,11 +201,12 @@ type ModelDetails struct {
 
 	// Needs ModelUser collection
 	Users []permission.UserAccess
+	// Need to add LastConnection information for each user
 
 	// Machines contains information about the machines in the model.
 	// This information is available to owners and users with write
 	// access or greater.
-	// DO WE EVEN WANT THIS DATA HERE?
+	// DO WE EVEN WANT THIS DATA HERE? The only thing we show in 'juju models' is the *count*
 	/// Machines []ModelMachineInfo `json:"machines"`
 
 	// Needs Migration collection
@@ -300,6 +302,109 @@ func (p *modelDetailProcessor) fillInFromConfig() error {
 	return nil
 }
 
+func (p *modelDetailProcessor) checkDeletedUser(username string) (bool, error) {
+	userTag := names.NewUserTag(username)
+	if !userTag.IsLocal() {
+		// Remote users can't be 'deleted' locally
+		return false, nil
+	}
+	// It would be nice if we loaded these in batches
+	if _, err := p.st.User(userTag); err == nil {
+		return false, nil
+	} else {
+		// err != nil
+		if _, ok := err.(DeletedUserError); ok {
+			return true, nil
+		} else {
+			return false, errors.Trace(err)
+		}
+	}
+}
+
+func (p *modelDetailProcessor) fillInFromStatus() error {
+	// We use the raw statuses because otherwise it filters by model-uuid
+	rawStatus, closer := p.st.database.GetRawCollection(statusesC)
+	defer closer()
+	statusIds := make([]string, len(p.modelUUIDs))
+	for i, uuid := range p.modelUUIDs {
+		statusIds[i] = uuid + ":" + modelGlobalKey
+	}
+	// TODO: Track remaining and error if we're missing any
+	query := rawStatus.Find(bson.M{"_id": bson.M{"$in": statusIds}})
+	var doc statusDoc
+	iter := query.Iter()
+	for iter.Next(&doc) {
+		idx, ok := p.indexByUUID[doc.ModelUUID]
+		if !ok {
+			// missing?
+			continue
+		}
+		p.details[idx].Status = status.StatusInfo{
+			Status:  doc.Status,
+			Message: doc.StatusInfo,
+			Data:    utils.UnescapeKeys(doc.StatusData),
+			Since:   unixNanoToTime(doc.Updated),
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (p *modelDetailProcessor) fillInFromModelUsers() error {
+	// We use the raw settings because we are reading across model UUIDs
+	rawModelUsers, closer := p.st.database.GetRawCollection(modelUsersC)
+	defer closer()
+
+	// TODO(jam): ensure that we have appropriate indexes so that users that aren't "admin" and only see a couple
+	// models don't do a COLLSCAN on the table.
+	isDeletedUser := make(map[string]bool)
+	query := rawModelUsers.Find(bson.M{"object-uuid": bson.M{"$in": p.modelUUIDs}})
+	var doc userAccessDoc
+	iter := query.Iter()
+	for iter.Next(&doc) {
+		idx, ok := p.indexByUUID[doc.ObjectUUID]
+		if !ok {
+			// How could it return a doc for a model we don't have?
+			continue
+		}
+
+		var isDeleted bool
+		var known bool
+		var err error
+		if isDeleted, known = isDeletedUser[doc.UserName]; !known {
+			// Need to check if this is a deleted local user
+			isDeleted, err = p.checkDeletedUser(doc.UserName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			isDeletedUser[doc.UserName] = isDeleted
+		}
+		if isDeleted {
+			// This is a known deleted user, omit it from the output
+			continue
+		}
+		// TODO: we really should load the Permissions in bulk as well
+		// We should be able to queue up all the objectKey and subjectKey that we care about and then query for them in
+		// bulk.
+		// For expediency, permissionsC is one of the few tables that doesn't get munged, so we can load the values from
+		// any State object
+		/// objectKey := modelKey(doc.ObjectUUID)
+		/// subjectKey := userGlobalKey(strings.ToLower(doc.UserName))
+		mu, err := NewModelUserAccess(p.st, doc)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		details := &p.details[idx]
+		details.Users = append(details.Users, mu)
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error) {
 	modelQuery, closer, err := st.modelQueryForUser(user)
 	if err != nil {
@@ -316,6 +421,12 @@ func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error)
 	p.fillInFromModelDocs(modelDocs)
 	modelDocs = nil
 	if err := p.fillInFromConfig(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := p.fillInFromStatus(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := p.fillInFromModelUsers(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return p.details, nil

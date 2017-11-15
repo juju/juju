@@ -697,7 +697,7 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelIn
 	// 'juju models' never shows, like []Machines. and those aren't particularly cheap to lookup.
 	// Sort through this a bit better.
 	for _, mi := range modelInfos {
-		result.Results = append(result.Results, params.ModelInfoResult{
+		info := params.ModelInfoResult{
 			Result: &params.ModelInfo{
 				Name:           mi.Name,
 				UUID:           mi.UUID,
@@ -717,8 +717,38 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelIn
 				DefaultSeries: mi.DefaultSeries,
 				ProviderType:  mi.ProviderType,
 				AgentVersion:  mi.AgentVersion,
+
+				Status: common.EntityStatusFromState(mi.Status),
 			},
-		})
+		}
+		result.Results = append(result.Results, info)
+		authorizedOwner := m.authCheck(names.NewUserTag(mi.Owner)) == nil
+		for _, user := range mi.Users {
+			if !authorizedOwner && m.authCheck(user.UserTag) != nil {
+				// The authenticated user is neither the owner
+				// nor administrator, nor the model user, so
+				// has no business knowing about the model user.
+				continue
+			}
+
+			// TODO: This was loading LastConnected in potato-style for each user we came across, we don't have the object here to do potatoes,
+			// so we need it fixed earlier, and included as part of the access
+			/// userInfo, err := common.ModelUserInfo(user, model)
+			/// if err != nil {
+			/// 	return params.ModelInfo{}, errors.Trace(err)
+			/// }
+			/// info.Users = append(info.Users, userInfo)
+			access, err := common.StateToParamsUserAccessPermission(user.Access)
+			if err != nil {
+				return params.ModelInfoResults{}, errors.Trace(err)
+			}
+			info.Result.Users = append(info.Result.Users, params.ModelUserInfo{
+				UserName:    user.UserName,
+				DisplayName: user.DisplayName,
+				// LastConnection: lastConn,
+				Access: access,
+			})
+		}
 	}
 
 	return result, nil
