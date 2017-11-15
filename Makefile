@@ -1,6 +1,7 @@
 #
 # Makefile for juju-core.
 #
+THIS_FILE := $(lastword $(MAKEFILE_LIST))
 
 ifndef GOPATH
 $(warning You need to set up a GOPATH.  See the README file.)
@@ -51,13 +52,19 @@ endif
 build: godeps
 	go build $(PROJECT)/...
 
+add-patches:
+	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/../../../
+
 #this is useful to run after release-build, or as needed
 remove-patches:
 	cat $(PWD)/patches/*.diff | patch -f -R -u -p1 -r- -d $(PWD)/../../../
 
-release-build: godeps
-	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/../../../
+release-build: godeps add-patches |
 	go build $(PROJECT)/...
+
+release-install: godeps	add-patches |
+	go install -v $(PROJECT)/...
+	@$(MAKE) -f $(THIS_FILE) remove-patches
 
 check: godeps
 	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
@@ -132,8 +139,9 @@ GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' github.com/juju/juju/...
 check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
-.PHONY: build check install
+.PHONY: build check install release-install release-build
 .PHONY: clean format simplify
 .PHONY: install-dependencies
 .PHONY: rebuild-dependencies.tsv
 .PHONY: check-deps
+.PHONY: add-patches remove-patches
