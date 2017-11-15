@@ -444,7 +444,7 @@ func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, rel
 			}
 		}
 		if !belongs {
-			c.Fatal("application %v is not part of the relation %v as expected", appName, relation.Id)
+			c.Fatalf("application %v is not part of the relation %v as expected", appName, relation.Id)
 		}
 	}
 }
