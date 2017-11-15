@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.workers.modelworkermanager")
 // Backend defines the State functionality used by the manager worker.
 type Backend interface {
 	WatchModels() state.StringsWatcher
-	ModelActive(string) (bool, error)
+	ModelActive(string) (bool, state.ModelType, error)
 }
 
 type BackendModel interface {
@@ -29,7 +29,7 @@ type BackendModel interface {
 // NewWorkerFunc should return a worker responsible for running
 // all a model's required workers; and for returning nil when
 // there's no more model to manage.
-type NewWorkerFunc func(controllerUUID, modelUUID string) (worker.Worker, error)
+type NewWorkerFunc func(controllerUUID, modelUUID string, modelType state.ModelType) (worker.Worker, error)
 
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
@@ -115,7 +115,7 @@ func (m *modelWorkerManager) loop() error {
 				return errors.New("changes stopped")
 			}
 			for _, modelUUID := range uuids {
-				isActive, err := m.config.Backend.ModelActive(modelUUID)
+				isActive, modelType, err := m.config.Backend.ModelActive(modelUUID)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -126,7 +126,7 @@ func (m *modelWorkerManager) loop() error {
 					// https://bugs.launchpad.net/juju/+bug/1646310
 					continue
 				}
-				if err := m.ensure(m.config.ControllerUUID, modelUUID); err != nil {
+				if err := m.ensure(m.config.ControllerUUID, modelUUID, modelType); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -134,18 +134,18 @@ func (m *modelWorkerManager) loop() error {
 	}
 }
 
-func (m *modelWorkerManager) ensure(controllerUUID, modelUUID string) error {
-	starter := m.starter(controllerUUID, modelUUID)
+func (m *modelWorkerManager) ensure(controllerUUID, modelUUID string, modelType state.ModelType) error {
+	starter := m.starter(controllerUUID, modelUUID, modelType)
 	if err := m.runner.StartWorker(modelUUID, starter); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (m *modelWorkerManager) starter(controllerUUID, modelUUID string) func() (worker.Worker, error) {
+func (m *modelWorkerManager) starter(controllerUUID, modelUUID string, modelType state.ModelType) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		logger.Debugf("starting workers for model %q", modelUUID)
-		worker, err := m.config.NewWorker(controllerUUID, modelUUID)
+		worker, err := m.config.NewWorker(controllerUUID, modelUUID, modelType)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot manage model %q", modelUUID)
 		}

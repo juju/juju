@@ -1043,139 +1043,19 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
-	im, err := st.IAASModel()
+
+	// Perform model specific arg processing.
+	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := addDefaultStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := validateStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
-		return nil, errors.Trace(err)
-	}
-	storagePools := make(set.Strings)
-	for _, storageParams := range args.Storage {
-		storagePools.Add(storageParams.Pool)
-	}
-
-	if args.Series == "" {
-		// args.Series is not set, so use the series in the URL.
-		args.Series = args.Charm.URL().Series
-		if args.Series == "" {
-			// Should not happen, but just in case.
-			return nil, errors.New("series is empty")
-		}
-	} else {
-		// User has specified series. Overriding supported series is
-		// handled by the client, so args.Series is not necessarily
-		// one of the charm's supported series. We require that the
-		// specified series is of the same operating system as one of
-		// the supported series. For old-style charms with the series
-		// in the URL, that series is the one and only supported
-		// series.
-		var supportedSeries []string
-		if series := args.Charm.URL().Series; series != "" {
-			supportedSeries = []string{series}
-		} else {
-			supportedSeries = args.Charm.Meta().Series
-		}
-		if len(supportedSeries) > 0 {
-			seriesOS, err := series.GetOSFromSeries(args.Series)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			supportedOperatingSystems := make(map[os.OSType]bool)
-			for _, supportedSeries := range supportedSeries {
-				os, err := series.GetOSFromSeries(supportedSeries)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				supportedOperatingSystems[os] = true
-			}
-			if !supportedOperatingSystems[seriesOS] {
-				return nil, errors.NewNotSupported(errors.Errorf(
-					"series %q (OS %q) not supported by charm, supported series are %q",
-					args.Series, seriesOS, strings.Join(supportedSeries, ", "),
-				), "")
-			}
-		}
-	}
-
-	// Ignore constraints that result from this call as
-	// these would be accumulation of model and application constraints
-	// but we only want application constraints to be persisted here.
-	_, err = st.resolveConstraints(args.Constraints)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	for _, placement := range args.Placement {
-		data, err := st.parsePlacement(placement)
-		if err != nil {
+	if model.Type() == ModelTypeIAAS {
+		if err := st.processIAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
 		}
-		switch data.placementType() {
-		case machinePlacement:
-			// Ensure that the machine and charm series match.
-			m, err := st.Machine(data.machineId)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			subordinate := args.Charm.Meta().Subordinate
-			if err := validateUnitMachineAssignment(
-				m, args.Series, subordinate, storagePools,
-			); err != nil {
-				return nil, errors.Annotatef(
-					err, "cannot deploy to machine %s", m,
-				)
-			}
-
-		case directivePlacement:
-			// Obtain volume attachment params corresponding to storage being
-			// attached. We need to pass them along to precheckInstance, in
-			// case the volumes cannot be attached to a machine with the given
-			// placement directive.
-			im, err := st.IAASModel()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
-			for _, storageTag := range args.AttachStorage {
-				v, err := im.StorageInstanceVolume(storageTag)
-				if errors.IsNotFound(err) {
-					continue
-				} else if err != nil {
-					return nil, errors.Trace(err)
-				}
-				volumeInfo, err := v.Info()
-				if err != nil {
-					// Volume has not been provisioned yet,
-					// so it cannot be attached.
-					continue
-				}
-				providerType, _, err := poolStorageProvider(im, volumeInfo.Pool)
-				if err != nil {
-					return nil, errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
-				}
-				storageName, _ := names.StorageName(storageTag.Id())
-				volumeAttachments = append(volumeAttachments, storage.VolumeAttachmentParams{
-					AttachmentParams: storage.AttachmentParams{
-						Provider: providerType,
-						ReadOnly: args.Charm.Meta().Storage[storageName].ReadOnly,
-					},
-					Volume:   v.VolumeTag(),
-					VolumeId: volumeInfo.VolumeId,
-				})
-			}
-			if err := st.precheckInstance(
-				args.Series,
-				args.Constraints,
-				data.directive,
-				volumeAttachments,
-			); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
+	} else {
+		// TODO(caas) - remove once units are supported.
+		args.NumUnits = 0
 	}
 
 	applicationID := st.docID(args.Name)
@@ -1314,6 +1194,144 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return app, nil
 	}
 	return nil, errors.Trace(err)
+}
+
+func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error {
+	im, err := st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := addDefaultStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
+		return errors.Trace(err)
+	}
+	if err := validateStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
+		return errors.Trace(err)
+	}
+	storagePools := make(set.Strings)
+	for _, storageParams := range args.Storage {
+		storagePools.Add(storageParams.Pool)
+	}
+
+	if args.Series == "" {
+		// args.Series is not set, so use the series in the URL.
+		args.Series = args.Charm.URL().Series
+		if args.Series == "" {
+			// Should not happen, but just in case.
+			return errors.New("series is empty")
+		}
+	} else {
+		// User has specified series. Overriding supported series is
+		// handled by the client, so args.Series is not necessarily
+		// one of the charm's supported series. We require that the
+		// specified series is of the same operating system as one of
+		// the supported series. For old-style charms with the series
+		// in the URL, that series is the one and only supported
+		// series.
+		var supportedSeries []string
+		if series := args.Charm.URL().Series; series != "" {
+			supportedSeries = []string{series}
+		} else {
+			supportedSeries = args.Charm.Meta().Series
+		}
+		if len(supportedSeries) > 0 {
+			seriesOS, err := series.GetOSFromSeries(args.Series)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			supportedOperatingSystems := make(map[os.OSType]bool)
+			for _, supportedSeries := range supportedSeries {
+				os, err := series.GetOSFromSeries(supportedSeries)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				supportedOperatingSystems[os] = true
+			}
+			if !supportedOperatingSystems[seriesOS] {
+				return errors.NewNotSupported(errors.Errorf(
+					"series %q (OS %q) not supported by charm, supported series are %q",
+					args.Series, seriesOS, strings.Join(supportedSeries, ", "),
+				), "")
+			}
+		}
+	}
+
+	// Ignore constraints that result from this call as
+	// these would be accumulation of model and application constraints
+	// but we only want application constraints to be persisted here.
+	_, err = st.resolveConstraints(args.Constraints)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, placement := range args.Placement {
+		data, err := st.parsePlacement(placement)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		switch data.placementType() {
+		case machinePlacement:
+			// Ensure that the machine and charm series match.
+			m, err := st.Machine(data.machineId)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			subordinate := args.Charm.Meta().Subordinate
+			if err := validateUnitMachineAssignment(
+				m, args.Series, subordinate, storagePools,
+			); err != nil {
+				return errors.Annotatef(
+					err, "cannot deploy to machine %s", m,
+				)
+			}
+
+		case directivePlacement:
+			// Obtain volume attachment params corresponding to storage being
+			// attached. We need to pass them along to precheckInstance, in
+			// case the volumes cannot be attached to a machine with the given
+			// placement directive.
+			im, err := st.IAASModel()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
+			for _, storageTag := range args.AttachStorage {
+				v, err := im.StorageInstanceVolume(storageTag)
+				if errors.IsNotFound(err) {
+					continue
+				} else if err != nil {
+					return errors.Trace(err)
+				}
+				volumeInfo, err := v.Info()
+				if err != nil {
+					// Volume has not been provisioned yet,
+					// so it cannot be attached.
+					continue
+				}
+				providerType, _, err := poolStorageProvider(im, volumeInfo.Pool)
+				if err != nil {
+					return errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
+				}
+				storageName, _ := names.StorageName(storageTag.Id())
+				volumeAttachments = append(volumeAttachments, storage.VolumeAttachmentParams{
+					AttachmentParams: storage.AttachmentParams{
+						Provider: providerType,
+						ReadOnly: args.Charm.Meta().Storage[storageName].ReadOnly,
+					},
+					Volume:   v.VolumeTag(),
+					VolumeId: volumeInfo.VolumeId,
+				})
+			}
+			if err := st.precheckInstance(
+				args.Series,
+				args.Constraints,
+				data.directive,
+				volumeAttachments,
+			); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	return nil
 }
 
 // removeNils removes any keys with nil values from the given map.

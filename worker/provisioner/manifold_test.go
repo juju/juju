@@ -32,7 +32,7 @@ func (s *ManifoldSuite) makeManifold() dependency.Manifold {
 		agentConf agent.Config,
 		environ environs.Environ,
 	) (provisioner.Provisioner, error) {
-		s.stub.AddCall("NewProvisionerFunc")
+		s.stub.AddCall("NewWorker")
 		return struct{ provisioner.Provisioner }{}, nil
 	}
 	return provisioner.Manifold(provisioner.ManifoldConfig{
@@ -92,7 +92,7 @@ func (s *ManifoldSuite) TestStarts(c *gc.C) {
 	}))
 	c.Check(w, gc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
-	s.stub.CheckCallNames(c, "NewProvisionerFunc")
+	s.stub.CheckCallNames(c, "NewWorker")
 }
 
 type fakeAgent struct {

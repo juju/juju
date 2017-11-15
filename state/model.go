@@ -228,20 +228,21 @@ func (st *State) ModelExists(uuid string) (bool, error) {
 	return count > 0, nil
 }
 
-// ModelActive returns true if a model with the supplied UUID exists
-// and is not being imported as part of a migration.
-func (st *State) ModelActive(uuid string) (bool, error) {
+// ModelActive returns true and the model type if a model
+// with the supplied UUID exists and is not being imported
+// as part of a migration.
+func (st *State) ModelActive(uuid string) (bool, ModelType, error) {
 	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
 	var doc modelDoc
 	err := models.FindId(uuid).One(&doc)
 	if err == mgo.ErrNotFound {
-		return false, nil
+		return false, modelTypeNone, nil
 	} else if err != nil {
-		return false, errors.Annotate(err, "querying model")
+		return false, modelTypeNone, errors.Annotate(err, "querying model")
 	}
-	return doc.MigrationMode != MigrationModeImporting, nil
+	return doc.MigrationMode != MigrationModeImporting, doc.Type, nil
 }
 
 // ModelArgs is a params struct for creating a new model.
@@ -573,6 +574,12 @@ func (m *Model) Name() string {
 // Type returns the human friendly name of the model.
 func (m *Model) Type() ModelType {
 	return m.doc.Type
+}
+
+// ModelActive returns true if the model is not being imported
+// as part of a migration.
+func (m *Model) ModelActive() bool {
+	return m.doc.MigrationMode != MigrationModeImporting
 }
 
 // Cloud returns the name of the cloud to which the model is deployed.
@@ -1260,21 +1267,23 @@ func (m *Model) destroyOps(
 		// that case we'll get errors if we try to enqueue hosted-model
 		// cleanups, because the cleanups collection is non-global.
 		ops = append(ops,
-			newCleanupOp(cleanupMachinesForDyingModel, modelUUID),
 			newCleanupOp(cleanupApplicationsForDyingModel, modelUUID),
 		)
-		if args.DestroyStorage != nil {
-			// The user has specified that the storage should be destroyed
-			// or released, which we can do in a cleanup. If the user did
-			// not specify either, then we have already added prereq ops
-			// to assert that there is no storage in the model.
-			ops = append(ops, newCleanupOp(
-				cleanupStorageForDyingModel, modelUUID,
-				// pass through DestroyModelArgs.DestroyStorage to the
-				// cleanup, so the storage can be destroyed/released
-				// according to the parameters.
-				*args.DestroyStorage,
-			))
+		if m.Type() == ModelTypeIAAS {
+			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID))
+			if args.DestroyStorage != nil {
+				// The user has specified that the storage should be destroyed
+				// or released, which we can do in a cleanup. If the user did
+				// not specify either, then we have already added prereq ops
+				// to assert that there is no storage in the model.
+				ops = append(ops, newCleanupOp(
+					cleanupStorageForDyingModel, modelUUID,
+					// pass through DestroyModelArgs.DestroyStorage to the
+					// cleanup, so the storage can be destroyed/released
+					// according to the parameters.
+					*args.DestroyStorage,
+				))
+			}
 		}
 	}
 	return append(prereqOps, ops...), nil

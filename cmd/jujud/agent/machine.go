@@ -104,8 +104,9 @@ var (
 	newMetadataUpdater    = imagemetadataworker.NewWorker
 	reportOpenedState     = func(*state.State) {}
 
-	modelManifolds   = model.Manifolds
-	machineManifolds = machine.Manifolds
+	caasModelManifolds = model.CAASManifolds
+	iaasModelManifolds = model.IAASManifolds
+	machineManifolds   = machine.Manifolds
 )
 
 // Variable to override in tests, default is true
@@ -1161,8 +1162,8 @@ func (a *MachineAgent) startStateWorkers(
 }
 
 // startModelWorkers starts the set of workers that run for every model
-// in each controller.
-func (a *MachineAgent) startModelWorkers(controllerUUID, modelUUID string) (worker.Worker, error) {
+// in each controller, both IAAS and CAAS.
+func (a *MachineAgent) startModelWorkers(controllerUUID, modelUUID string, modelType state.ModelType) (worker.Worker, error) {
 	modelAgent, err := model.WrapAgent(a, controllerUUID, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1179,7 +1180,7 @@ func (a *MachineAgent) startModelWorkers(controllerUUID, modelUUID string) (work
 		return nil, errors.Trace(err)
 	}
 
-	manifolds := modelManifolds(model.ManifoldsConfig{
+	manifoldsCfg := model.ManifoldsConfig{
 		Agent:                       modelAgent,
 		AgentConfigChanged:          a.configChangedVal,
 		Clock:                       clock.WallClock,
@@ -1190,7 +1191,13 @@ func (a *MachineAgent) startModelWorkers(controllerUUID, modelUUID string) (work
 		ActionPrunerInterval:        24 * time.Hour,
 		NewEnvironFunc:              newEnvirons,
 		NewMigrationMaster:          migrationmaster.NewWorker,
-	})
+	}
+	var manifolds dependency.Manifolds
+	if modelType == state.ModelTypeIAAS {
+		manifolds = iaasModelManifolds(manifoldsCfg)
+	} else {
+		manifolds = caasModelManifolds(manifoldsCfg)
+	}
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {
 			logger.Errorf("while stopping engine with bad manifolds: %v", err)
