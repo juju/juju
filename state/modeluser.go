@@ -16,10 +16,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/environs/config"
 )
 
 // modelUserLastConnectionDoc is updated by the apiserver whenever the user
@@ -180,7 +180,7 @@ type ModelDetails struct {
 	UUID           string
 	Owner          string
 	ControllerUUID string
-	Life               Life
+	Life           Life
 
 	CloudTag           string
 	CloudRegion        string
@@ -191,9 +191,9 @@ type ModelDetails struct {
 	SLAOwner string
 
 	// Needs Config()
-	ProviderType string
+	ProviderType  string
 	DefaultSeries string
-	AgentVersion *version.Number
+	AgentVersion  *version.Number
 
 	// Needs Statuses collection
 	Status status.StatusInfo
@@ -221,10 +221,10 @@ type ModelDetails struct {
 }
 
 type modelDetailProcessor struct {
-	st *State
-	details []ModelDetails
+	st          *State
+	details     []ModelDetails
 	indexByUUID map[string]int
-	modelUUIDs []string
+	modelUUIDs  []string
 
 	// incompleteUUIDs are ones that are missing some information, we should treat them as not being available
 	// we wait to strip them out until we're done doing all the processing steps.
@@ -301,10 +301,11 @@ func (p *modelDetailProcessor) fillInFromConfig() error {
 }
 
 func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error) {
-	modelQuery, err := st.modelQueryForUser(user)
+	modelQuery, closer, err := st.modelQueryForUser(user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	defer closer()
 	var modelDocs []modelDoc
 	if err := modelQuery.All(&modelDocs); err != nil {
 		return nil, errors.Trace(err)
@@ -322,14 +323,13 @@ func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error)
 
 // modelsForUser gives you the information about all models that a user has access to.
 // This includes the name and UUID, as well as the last time the user connected to that model.
-func (st *State) modelQueryForUser(user names.UserTag) (mongo.Query, error) {
+func (st *State) modelQueryForUser(user names.UserTag) (mongo.Query, SessionCloser, error) {
 	access, err := st.UserAccess(user, st.controllerTag)
 	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	var modelQuery mongo.Query
 	models, closer := st.db().GetCollection(modelsC)
-	defer closer()
 	if access.Access == permission.SuperuserAccess {
 		// Fast path, we just return all the models that aren't Importing
 		modelQuery = models.Find(bson.M{"migration-mode": bson.M{"$ne": MigrationModeImporting}})
@@ -350,7 +350,8 @@ func (st *State) modelQueryForUser(user names.UserTag) (mongo.Query, error) {
 			modelUUIDs = append(modelUUIDs, modelUUID.UUID)
 		}
 		if err := iter.Close(); err != nil {
-			return nil, errors.Trace(err)
+			closer()
+			return nil, nil, errors.Trace(err)
 		}
 		modelQuery = models.Find(bson.M{
 			"_id":            bson.M{"$in": modelUUIDs},
@@ -358,7 +359,7 @@ func (st *State) modelQueryForUser(user names.UserTag) (mongo.Query, error) {
 		})
 	}
 	modelQuery.Sort("name", "owner")
-	return modelQuery, nil
+	return modelQuery, closer, nil
 }
 
 type ModelAccessInfo struct {
@@ -371,10 +372,11 @@ type ModelAccessInfo struct {
 // ModelSummariesForUser gives you the information about all models that a user has access to.
 // This includes the name and UUID, as well as the last time the user connected to that model.
 func (st *State) ModelSummariesForUser(user names.UserTag) ([]ModelAccessInfo, error) {
-	modelQuery, err := st.modelQueryForUser(user)
+	modelQuery, closer1, err := st.modelQueryForUser(user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	defer closer1()
 	modelQuery.Select(bson.M{"_id": 1, "name": 1, "owner": 1})
 	var accessInfo []ModelAccessInfo
 	if err := modelQuery.All(&accessInfo); err != nil {
@@ -386,8 +388,8 @@ func (st *State) ModelSummariesForUser(user names.UserTag) ([]ModelAccessInfo, e
 	for i, acc := range accessInfo {
 		connDocIds[i] = acc.UUID + ":" + username
 	}
-	lastConnections, closer := st.db().GetRawCollection(modelUserLastConnectionC)
-	defer closer()
+	lastConnections, closer2 := st.db().GetRawCollection(modelUserLastConnectionC)
+	defer closer2()
 	query := lastConnections.Find(bson.M{"_id": bson.M{"$in": connDocIds}})
 	query.Select(bson.M{"last-connection": 1, "_id": 0, "model-uuid": 1})
 	query.Batch(100)

@@ -699,15 +699,15 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelIn
 	for _, mi := range modelInfos {
 		result.Results = append(result.Results, params.ModelInfoResult{
 			Result: &params.ModelInfo{
-				Name: mi.Name,
-				UUID: mi.UUID,
-				OwnerTag: names.NewUserTag(mi.Owner).String(),
+				Name:           mi.Name,
+				UUID:           mi.UUID,
+				OwnerTag:       names.NewUserTag(mi.Owner).String(),
 				ControllerUUID: mi.ControllerUUID,
-				Life: params.Life(mi.Life.String()),
+				Life:           params.Life(mi.Life.String()),
 
-				CloudTag: mi.CloudTag,
-				CloudRegion: mi.CloudRegion,
-				CloudCredentialTag:mi.CloudCredentialTag,
+				CloudTag:           mi.CloudTag,
+				CloudRegion:        mi.CloudRegion,
+				CloudCredentialTag: mi.CloudCredentialTag,
 
 				SLA: &params.ModelSLAInfo{
 					Level: mi.SLALevel,
@@ -715,8 +715,8 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelIn
 				},
 
 				DefaultSeries: mi.DefaultSeries,
-				ProviderType: mi.ProviderType,
-				AgentVersion: mi.AgentVersion,
+				ProviderType:  mi.ProviderType,
+				AgentVersion:  mi.AgentVersion,
 			},
 		})
 	}
