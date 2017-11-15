@@ -251,9 +251,11 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the hosted model has been added, model constraints
 	// set, and its config contains the same authorized-keys as the
 	// controller model.
-	hostedModelSt, err := st.ForModel(names.NewModelTag(hostedModelUUID))
+	statePool := state.NewStatePool(st)
+	defer statePool.Close()
+	hostedModelSt, release, err := statePool.Get(hostedModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer hostedModelSt.Close()
+	defer release()
 	gotModelConstraints, err = hostedModelSt.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)

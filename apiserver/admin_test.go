@@ -857,9 +857,9 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, api api.Connection, expected nam
 	// the expected model. We make a change in state on that model, and
 	// then check that it is picked up by a call to the API.
 
-	st, err := s.State.ForModel(tag)
+	st, release, err := s.StatePool.Get(tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer release()
 
 	expectedCons := constraints.MustParse("mem=8G")
 	err = st.SetModelConstraints(expectedCons)

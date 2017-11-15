@@ -195,7 +195,7 @@ func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
-	expect := fmt.Sprintf("cannot read model %s: model not found", uuid)
+	expect := fmt.Sprintf("cannot read model %s: model %q not found", uuid, uuid)
 	c.Check(err, gc.ErrorMatches, expect)
 }
 
@@ -2647,7 +2647,7 @@ func (s *StateSuite) checkUserModelNameExists(c *gc.C, args checkUserModelNameAr
 func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
 	// check to see if the model itself is gone
 	_, err := st.Model()
-	c.Assert(err, gc.ErrorMatches, `model not found`)
+	c.Assert(err, gc.ErrorMatches, `model "`+st.ModelUUID()+`" not found`)
 
 	// ensure all docs for all multiEnvCollections are removed
 	for _, collName := range state.MultiEnvCollections() {

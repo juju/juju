@@ -113,7 +113,11 @@ func main() {
 	checkErr("getting state connection", err)
 	defer st.Close()
 
-	modelSt, err := st.ForModel(names.NewModelTag(modelUUID))
+	statePool := state.NewStatePool(st)
+	defer statePool.Close()
+	modelSt, release, err := statePool.Get(modelUUID)
 	checkErr("open model", err)
+	defer release()
+
 	checkErr("set model agent version", modelSt.SetModelAgentVersion(agentVersion, true))
 }
