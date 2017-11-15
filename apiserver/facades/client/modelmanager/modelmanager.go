@@ -43,6 +43,7 @@ type ModelManagerV4 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.DumpModelRequest) params.StringResults
 	DumpModelsDB(args params.Entities) params.MapResults
+	ListModelsWithInfo(user params.Entity) (params.ModelInfoResults, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
 }
@@ -670,6 +671,52 @@ func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 	return results
 }
 
+// ListModelsWithInfo returns models that the specified user
+// has access to in the current server.  Only the controller owner
+// can list models for any user (at this stage).  Other users
+// can only ask about their own models.
+func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelInfoResults, error) {
+	result := params.ModelInfoResults{}
+
+	userTag, err := names.ParseUserTag(user.Tag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	err = m.authCheck(userTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	modelInfos, err := m.state.ModelDetailsForUser(userTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	// TODO (jam 2017-11-15): ModelInfoResult is missing things like LastConnection, and has a bunch of stuff that
+	// 'juju models' never shows, like []Machines. and those aren't particularly cheap to lookup.
+	// Sort through this a bit better.
+	controllerUUID := m.state.ControllerUUID()
+	for _, mi := range modelInfos {
+		result.Results = append(result.Results, params.ModelInfoResult{
+			Result: &params.ModelInfo{
+				Name: mi.Name,
+				UUID: mi.UUID,
+				ControllerUUID: controllerUUID,
+				// ControllerUUID     string `json:"controller-uuid"`
+				// ProviderType       string `json:"provider-type,omitempty"`
+				//WTF? why is DefaultSeries here
+				// DefaultSeries      string `json:"default-series,omitempty"`
+				// CloudTag           string `json:"cloud-tag"`
+				// CloudRegion        string `json:"cloud-region,omitempty"`
+				// CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
+			},
+		})
+	}
+
+	return result, nil
+}
+
 // ListModels returns the models that the specified user
 // has access to in the current server.  Only that controller owner
 // can list models for any user (at this stage).  Other users
@@ -687,12 +734,12 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		return result, errors.Trace(err)
 	}
 
-	modelInfo, err := m.state.ModelsInfoForUser(userTag)
+	modelInfos, err := m.state.ModelSummariesForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, mi := range modelInfo {
+	for _, mi := range modelInfos {
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     mi.Name,

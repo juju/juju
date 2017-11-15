@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -16,6 +18,8 @@ import (
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/environs/config"
 )
 
 // modelUserLastConnectionDoc is updated by the apiserver whenever the user
@@ -171,32 +175,162 @@ func (st *State) removeModelUser(user names.UserTag) error {
 	return nil
 }
 
-type ModelAccessInfo struct {
-	Name           string `bson:"name"`
-	UUID           string `bson:"_id"`
-	Owner          string `bson:"owner"`
-	LastConnection time.Time
+type ModelDetails struct {
+	Name           string
+	UUID           string
+	Owner          string
+	ControllerUUID string
+
+	CloudTag           string
+	CloudRegion        string
+	CloudCredentialTag string
+	Life               Life
+
+	// SLA contains the information about the SLA for the model, if set.
+	SLALevel string
+	SLAOwner string
+
+	// Needs Config()
+	ProviderType string
+	DefaultSeries string
+	AgentVersion *version.Number
+
+	// Needs Statuses collection
+	Status status.StatusInfo
+
+	// Needs ModelUser collection
+	Users []permission.UserAccess
+
+	// Machines contains information about the machines in the model.
+	// This information is available to owners and users with write
+	// access or greater.
+	// DO WE EVEN WANT THIS DATA HERE?
+	/// Machines []ModelMachineInfo `json:"machines"`
+
+	// Needs Migration collection
+	Migration ModelMigration
+	// Migration contains information about the latest failed or
+	// currently-running migration. It'll be nil if there isn't one.
+	/// Migration *ModelMigrationStatus `json:"migration,omitempty"`
+	// //	type ModelMigrationStatus struct {
+	// //	Status string     `json:"status"`
+	// //	Start  *time.Time `json:"start"`
+	// //	End    *time.Time `json:"end,omitempty"`
+	// //}
+
 }
 
-// ModelsInfoForUser gives you the information about all models that a user has access to.
+type modelDetailProcessor struct {
+	st *State
+	details []ModelDetails
+	indexByUUID map[string]int
+	modelUUIDs []string
+}
+
+func (p *modelDetailProcessor) fillInFromModelDocs(modelDocs []modelDoc) {
+	p.details = make([]ModelDetails, len(modelDocs))
+	p.indexByUUID = make(map[string]int, len(modelDocs))
+	p.modelUUIDs = make([]string, len(modelDocs))
+	for i, doc := range modelDocs {
+		var cloudCred string
+		if names.IsValidCloudCredential(doc.CloudCredential) {
+			cloudCred = names.NewCloudCredentialTag(doc.CloudCredential).String()
+		}
+		p.details[i] = ModelDetails{
+			Name:               doc.Name,
+			UUID:               doc.UUID,
+			Life:               doc.Life,
+			Owner:              doc.Owner,
+			ControllerUUID:     doc.ControllerUUID,
+			SLALevel:           string(doc.SLA.Level),
+			SLAOwner:           doc.SLA.Owner,
+			CloudTag:           names.NewCloudTag(doc.Cloud).String(),
+			CloudRegion:        doc.CloudRegion,
+			CloudCredentialTag: cloudCred,
+		}
+		p.indexByUUID[doc.UUID] = i
+		p.modelUUIDs[i] = doc.UUID
+	}
+}
+
+func (p *modelDetailProcessor) fillInFromConfig(modelDocs []modelDoc) error {
+	// We use the raw settings because we are reading across model UUIDs
+	rawSettings, closer := p.st.database.GetRawCollection(settingsC)
+	defer closer()
+
+	remaining := set.NewStrings(p.modelUUIDs...)
+	settingIds := make([]string, len(p.modelUUIDs))
+	for i, uuid := range p.modelUUIDs {
+		settingIds[i] = uuid + ":" + modelGlobalKey
+	}
+	query := rawSettings.Find(bson.M{"_id": bson.M{"$in": settingIds}})
+	var doc settingsDoc
+	iter := query.Iter()
+	for iter.Next(&doc) {
+		idx, ok := p.indexByUUID[doc.ModelUUID]
+		if !ok {
+			// How could it return a doc that we don't have?
+			continue
+		}
+		remaining.Remove(doc.ModelUUID)
+
+		cfg, err := config.New(config.NoDefaults, doc.Settings)
+		if err != nil {
+			// err on one model should kill all the other ones?
+			return errors.Trace(err)
+		}
+		detail := &(p.details[idx])
+		detail.ProviderType = cfg.Type()
+		detail.DefaultSeries = config.PreferredSeries(cfg)
+		if agentVersion, exists := cfg.AgentVersion(); exists {
+			detail.AgentVersion = &agentVersion
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if !remaining.IsEmpty() {
+		// XXX: What error is appropriate? Do we need to care about models that its ok to be missing?
+		return errors.Errorf("could not find settings/config for models: %v", remaining.SortedValues())
+	}
+	return nil
+}
+
+func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error) {
+	modelQuery, err := st.modelQueryForUser(user)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var modelDocs []modelDoc
+	if err := modelQuery.All(&modelDocs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	p := modelDetailProcessor{
+		st: st,
+	}
+	p.fillInFromModelDocs(modelDocs)
+	modelDocs = nil
+	p.fillInFromConfig()
+	return nil, nil
+}
+
+func (st *State) fillInConfigDetails(details []ModelDetails, indexByUUID map[string]int) error {
+}
+
+// modelsForUser gives you the information about all models that a user has access to.
 // This includes the name and UUID, as well as the last time the user connected to that model.
-func (st *State) ModelsInfoForUser(user names.UserTag) ([]ModelAccessInfo, error) {
+func (st *State) modelQueryForUser(user names.UserTag) (mongo.Query, error) {
 	access, err := st.UserAccess(user, st.controllerTag)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	lastConnections, closer := st.db().GetRawCollection(modelUserLastConnectionC)
-	defer closer()
-
 	var modelQuery mongo.Query
 	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 	if access.Access == permission.SuperuserAccess {
-		logger.Criticalf("ModelsInfoForUser: user %v is superuser", user.Id())
 		// Fast path, we just return all the models that aren't Importing
 		modelQuery = models.Find(bson.M{"migration-mode": bson.M{"$ne": MigrationModeImporting}})
 	} else {
-		logger.Criticalf("ModelsInfoForUser: user %v not a superuser, using modelusers", user.Id())
 		// Start by looking up model uuids that the user has access to, and then load only the records that are
 		// included in that set
 		var modelUUID struct {
@@ -213,7 +347,7 @@ func (st *State) ModelsInfoForUser(user names.UserTag) ([]ModelAccessInfo, error
 			modelUUIDs = append(modelUUIDs, modelUUID.UUID)
 		}
 		if err := iter.Close(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		modelQuery = models.Find(bson.M{
 			"_id":            bson.M{"$in": modelUUIDs},
@@ -221,11 +355,27 @@ func (st *State) ModelsInfoForUser(user names.UserTag) ([]ModelAccessInfo, error
 		})
 	}
 	modelQuery.Sort("name", "owner")
+	return modelQuery, nil
+}
+
+type ModelAccessInfo struct {
+	Name           string `bson:"name"`
+	UUID           string `bson:"_id"`
+	Owner          string `bson:"owner"`
+	LastConnection time.Time
+}
+
+// ModelSummariesForUser gives you the information about all models that a user has access to.
+// This includes the name and UUID, as well as the last time the user connected to that model.
+func (st *State) ModelSummariesForUser(user names.UserTag) ([]ModelAccessInfo, error) {
+	modelQuery, err := st.modelQueryForUser(user)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	modelQuery.Select(bson.M{"_id": 1, "name": 1, "owner": 1})
 	var accessInfo []ModelAccessInfo
-	err = modelQuery.All(&accessInfo)
-	if err != nil {
-		return nil, err
+	if err := modelQuery.All(&accessInfo); err != nil {
+		return nil, errors.Trace(err)
 	}
 	// Now we need to find the last-connection time for each model for this user
 	username := user.Id()
@@ -233,6 +383,8 @@ func (st *State) ModelsInfoForUser(user names.UserTag) ([]ModelAccessInfo, error
 	for i, acc := range accessInfo {
 		connDocIds[i] = acc.UUID + ":" + username
 	}
+	lastConnections, closer := st.db().GetRawCollection(modelUserLastConnectionC)
+	defer closer()
 	query := lastConnections.Find(bson.M{"_id": bson.M{"$in": connDocIds}})
 	query.Select(bson.M{"last-connection": 1, "_id": 0, "model-uuid": 1})
 	query.Batch(100)
@@ -243,7 +395,7 @@ func (st *State) ModelsInfoForUser(user names.UserTag) ([]ModelAccessInfo, error
 		lastConns[connInfo.ModelUUID] = connInfo.LastConnection
 	}
 	if err := iter.Close(); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	for i := range accessInfo {
 		uuid := accessInfo[i].UUID
@@ -251,7 +403,6 @@ func (st *State) ModelsInfoForUser(user names.UserTag) ([]ModelAccessInfo, error
 	}
 	return accessInfo, nil
 }
-
 
 // ModelUUIDsForUser returns a list of models that the user is able to
 // access.

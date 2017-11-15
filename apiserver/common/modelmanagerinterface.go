@@ -30,7 +30,8 @@ type ModelManagerBackend interface {
 
 	ModelUUID() string
 	ModelUUIDsForUser(names.UserTag) ([]string, error)
-	ModelsInfoForUser(user names.UserTag) ([]state.ModelAccessInfo, error)
+	ModelSummariesForUser(user names.UserTag) ([]state.ModelAccessInfo, error)
+	ModelDetailsForUser(user names.UserTag) ([]state.ModelDetails, error)
 	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)
@@ -161,6 +162,7 @@ func (st modelManagerStateShim) GetModel(modelUUID string) (Model, func() bool, 
 
 // Model implements ModelManagerBackend.
 func (st modelManagerStateShim) Model() (Model, error) {
+	st.State.Model()
 	return modelShim{st.model}, nil
 }
 

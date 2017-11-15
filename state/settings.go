@@ -43,7 +43,7 @@ type settingsDoc struct {
 	Settings settingsMap `bson:"settings"`
 
 	// Version is a version number for the settings,
-	// and is increased every time the settings change.
+	// and is increased every time the settingsechange.
 	Version int64 `bson:"version"`
 }
 
