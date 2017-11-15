@@ -63,6 +63,7 @@ See also:
 type ModelManagerAPI interface {
 	Close() error
 	ListModels(user string) ([]base.UserModel, error)
+	ListModelsWithInfo(user string) ([]params.ModelInfoResult, error)
 	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
 }
 
@@ -139,26 +140,35 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	}
 	c.loggedInUser = accountDetails.User
 
-	// First get a list of the models.
-	var models []base.UserModel
-	if c.all {
-		models, err = c.getAllModels()
-	} else {
-		if c.user == "" {
-			c.user = accountDetails.User
-		}
-		models, err = c.getUserModels()
-	}
-	if err != nil {
-		return errors.Annotate(err, "cannot list models")
+	if c.user == "" {
+		c.user = accountDetails.User
 	}
 
-	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
-	// And now get the full details of the models.
-	modelInfo, err := c.getModelInfo(controllerName, now, models)
+	// New code path
+	modelInfo, err := c.getNewModelInfo(controllerName, now)
 	if err != nil {
-		return errors.Annotate(err, "cannot get model details")
+		return errors.Annotate(err, "unable to get model details")
+	}
+
+	if false {
+		// First get a list of the models.
+		var models []base.UserModel
+		if c.all {
+			models, err = c.getAllModels()
+		} else {
+			models, err = c.getUserModels()
+		}
+		if err != nil {
+			return errors.Annotate(err, "cannot list models")
+		}
+
+		// TODO(perrito666) 2016-05-02 lp:1558657
+		// And now get the full details of the models.
+		modelInfo, err = c.getModelInfo(controllerName, now, models)
+		if err != nil {
+			return errors.Annotate(err, "cannot get model details")
+		}
 	}
 	// update client store here too...
 	modelsToStore := make(map[string]jujuclient.ModelDetails, len(modelInfo))
@@ -191,13 +201,38 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	if err := c.out.Write(ctx, modelSet); err != nil {
 		return err
 	}
-	if len(models) == 0 && c.out.Name() == "tabular" {
-		// When the output is tabular, we inform the user when there
-		// are no models available, and tell them how to go about
-		// creating or granting access to them.
-		fmt.Fprintln(ctx.Stderr, noModelsMessage)
-	}
+	/// if len(models) == 0 && c.out.Name() == "tabular" {
+	/// 	// When the output is tabular, we inform the user when there
+	/// 	// are no models available, and tell them how to go about
+	/// 	// creating or granting access to them.
+	/// 	fmt.Fprintln(ctx.Stderr, noModelsMessage)
+	/// }
 	return nil
+}
+
+func (c *modelsCommand) getNewModelInfo(controllerName string, now time.Time) ([]common.ModelInfo, error) {
+	client, err := c.getModelManagerAPI()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer client.Close()
+	results, err := client.ListModelsWithInfo(c.user)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	info := []common.ModelInfo{}
+	for _, result := range results {
+		if result.Error != nil {
+			return nil, errors.Trace(result.Error)
+		}
+		model, err := common.ModelInfoFromParams(*result.Result, now)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		model.ControllerName = controllerName
+		info = append(info, model)
+	}
+	return info, nil
 }
 
 func (c *modelsCommand) getModelInfo(controllerName string, now time.Time, userModels []base.UserModel) ([]common.ModelInfo, error) {

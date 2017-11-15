@@ -180,11 +180,11 @@ type ModelDetails struct {
 	UUID           string
 	Owner          string
 	ControllerUUID string
+	Life               Life
 
 	CloudTag           string
 	CloudRegion        string
 	CloudCredentialTag string
-	Life               Life
 
 	// SLA contains the information about the SLA for the model, if set.
 	SLALevel string
@@ -225,6 +225,10 @@ type modelDetailProcessor struct {
 	details []ModelDetails
 	indexByUUID map[string]int
 	modelUUIDs []string
+
+	// incompleteUUIDs are ones that are missing some information, we should treat them as not being available
+	// we wait to strip them out until we're done doing all the processing steps.
+	incompleteUUIDs set.Strings
 }
 
 func (p *modelDetailProcessor) fillInFromModelDocs(modelDocs []modelDoc) {
@@ -253,7 +257,7 @@ func (p *modelDetailProcessor) fillInFromModelDocs(modelDocs []modelDoc) {
 	}
 }
 
-func (p *modelDetailProcessor) fillInFromConfig(modelDocs []modelDoc) error {
+func (p *modelDetailProcessor) fillInFromConfig() error {
 	// We use the raw settings because we are reading across model UUIDs
 	rawSettings, closer := p.st.database.GetRawCollection(settingsC)
 	defer closer()
@@ -310,11 +314,10 @@ func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error)
 	}
 	p.fillInFromModelDocs(modelDocs)
 	modelDocs = nil
-	p.fillInFromConfig()
+	if err := p.fillInFromConfig(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return nil, nil
-}
-
-func (st *State) fillInConfigDetails(details []ModelDetails, indexByUUID map[string]int) error {
 }
 
 // modelsForUser gives you the information about all models that a user has access to.

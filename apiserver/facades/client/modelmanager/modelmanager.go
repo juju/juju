@@ -696,20 +696,27 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelIn
 	// TODO (jam 2017-11-15): ModelInfoResult is missing things like LastConnection, and has a bunch of stuff that
 	// 'juju models' never shows, like []Machines. and those aren't particularly cheap to lookup.
 	// Sort through this a bit better.
-	controllerUUID := m.state.ControllerUUID()
 	for _, mi := range modelInfos {
 		result.Results = append(result.Results, params.ModelInfoResult{
 			Result: &params.ModelInfo{
 				Name: mi.Name,
 				UUID: mi.UUID,
-				ControllerUUID: controllerUUID,
-				// ControllerUUID     string `json:"controller-uuid"`
-				// ProviderType       string `json:"provider-type,omitempty"`
-				//WTF? why is DefaultSeries here
-				// DefaultSeries      string `json:"default-series,omitempty"`
-				// CloudTag           string `json:"cloud-tag"`
-				// CloudRegion        string `json:"cloud-region,omitempty"`
-				// CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
+				OwnerTag: names.NewUserTag(mi.Owner).String(),
+				ControllerUUID: mi.ControllerUUID,
+				Life: params.Life(mi.Life.String()),
+
+				CloudTag: mi.CloudTag,
+				CloudRegion: mi.CloudRegion,
+				CloudCredentialTag:mi.CloudCredentialTag,
+
+				SLA: &params.ModelSLAInfo{
+					Level: mi.SLALevel,
+					Owner: mi.Owner,
+				},
+
+				DefaultSeries: mi.DefaultSeries,
+				ProviderType: mi.ProviderType,
+				AgentVersion: mi.AgentVersion,
 			},
 		})
 	}
