@@ -318,7 +318,7 @@ func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error)
 	if err := p.fillInFromConfig(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return nil, nil
+	return p.details, nil
 }
 
 // modelsForUser gives you the information about all models that a user has access to.
