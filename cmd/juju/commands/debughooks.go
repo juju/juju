@@ -23,9 +23,7 @@ import (
 
 func newDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 	c := new(debugHooksCommand)
-	c.newActionAPIF = func() (ActionsAPI, error) {
-		return c.newActionsAPI()
-	}
+	c.getActionAPI = c.newActionsAPI
 	c.setHostChecker(hostChecker)
 	return modelcmd.Wrap(c)
 }
@@ -35,7 +33,7 @@ type debugHooksCommand struct {
 	sshCommand
 	hooks []string
 
-	newActionAPIF func() (ActionsAPI, error)
+	getActionAPI func() (ActionsAPI, error)
 }
 
 const debugHooksDoc = `
@@ -48,7 +46,7 @@ accepted by the debug-hooks command.
 func (c *debugHooksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "debug-hooks",
-		Args:    "<application or unit name> [hook or action names]",
+		Args:    "<unit name> [hook or action names]",
 		Purpose: "Launch a tmux session to debug hooks and/or actions.",
 		Doc:     debugHooksDoc,
 	}
@@ -124,8 +122,12 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 	allValid := validHooks.Union(validActions)
 	for _, hook := range c.hooks {
 		if !allValid.Contains(hook) {
-			logger.Infof("unknown hook or action %s, valid hook or action names: %v", hook, allValid.SortedValues())
-			return errors.Errorf("unit %q does not contain hook nor action %q", c.Target, hook)
+			return errors.Errorf("unit %q contains neither hook nor action %q, valid actions are %v and valid hooks are %v",
+				c.Target,
+				hook,
+				validActions.SortedValues(),
+				validHooks.SortedValues(),
+			)
 		}
 	}
 	return nil
@@ -133,7 +135,7 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 
 func (c *debugHooksCommand) getValidActions(appName string) (set.Strings, error) {
 	appTag := names.NewApplicationTag(appName)
-	actionAPI, err := c.newActionAPIF()
+	actionAPI, err := c.getActionAPI()
 	if err != nil {
 		return nil, err
 	}

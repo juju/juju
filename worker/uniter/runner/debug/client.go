@@ -15,12 +15,12 @@ type hookArgs struct {
 }
 
 // ClientScript returns a bash script suitable for executing
-// on the unit system to intercept hooks or actions via tmux shell.
-func ClientScript(c *HooksContext, args []string) string {
+// on the unit system to intercept matching hooks or actions via tmux shell.
+func ClientScript(c *HooksContext, match []string) string {
 	// If any argument is "*", then the client is interested in all.
-	for _, arg := range args {
-		if arg == "*" {
-			args = nil
+	for _, m := range match {
+		if m == "*" {
+			match = nil
 			break
 		}
 	}
@@ -30,7 +30,7 @@ func ClientScript(c *HooksContext, args []string) string {
 	s = strings.Replace(s, "{entry_flock}", c.ClientFileLock(), -1)
 	s = strings.Replace(s, "{exit_flock}", c.ClientExitFileLock(), -1)
 
-	yamlArgs := encodeArgs(args)
+	yamlArgs := encodeArgs(match)
 	base64Args := base64.StdEncoding.EncodeToString(yamlArgs)
 	s = strings.Replace(s, "{hook_args}", base64Args, 1)
 	return s
