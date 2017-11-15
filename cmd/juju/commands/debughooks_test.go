@@ -114,7 +114,7 @@ var debugHooksTests = []struct {
 }, {
 	info:  `invalid hook`,
 	args:  []string{"mysql/0", "invalid-hook"},
-	error: `unit "mysql/0" does not contain hook "invalid-hook"`,
+	error: `unit "mysql/0" does not contain hook nor action "invalid-hook"`,
 }, {
 	info:  `no args at all`,
 	args:  nil,
