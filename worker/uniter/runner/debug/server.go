@@ -182,7 +182,7 @@ https://jujucharms.com/docs/authors-hook-debug.html
 
 const debugHooksInitScript = `#!/bin/bash
 envsubst < $JUJU_DEBUG/welcome.msg
-trap 'echo \$? > $JUJU_DEBUG/hook_exit_status' EXIT
+trap 'echo $? > $JUJU_DEBUG/hook_exit_status' EXIT
 `
 
 const debugHooksHookScript = `#!/bin/bash
