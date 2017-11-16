@@ -60,7 +60,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	w, err := config.NewWorker(Config{
-		Backend:        statePool.SystemState(),
+		ModelWatcher:   statePool.SystemState(),
+		ModelGetter:    StatePoolModelGetter{statePool},
 		NewModelWorker: config.NewModelWorker,
 		ErrorDelay:     jworker.RestartDelay,
 	})

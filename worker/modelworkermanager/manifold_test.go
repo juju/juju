@@ -24,6 +24,7 @@ type ManifoldSuite struct {
 	manifold     dependency.Manifold
 	context      dependency.Context
 	st           *state.State
+	pool         *state.StatePool
 	stateTracker stubStateTracker
 
 	stub testing.Stub
@@ -35,9 +36,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.st = new(state.State)
-	s.stateTracker = stubStateTracker{
-		pool: state.NewStatePool(s.st),
-	}
+	s.pool = state.NewStatePool(s.st)
+	s.stateTracker = stubStateTracker{pool: s.pool}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -107,8 +107,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.NewModelWorker = nil
 
 	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
-		Backend:    s.st,
-		ErrorDelay: jworker.RestartDelay,
+		ModelWatcher: s.st,
+		ModelGetter:  modelworkermanager.StatePoolModelGetter{s.pool},
+		ErrorDelay:   jworker.RestartDelay,
 	})
 }
 
