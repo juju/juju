@@ -1365,7 +1365,7 @@ func (s *DeployUnitTestSuite) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
-func (s *DeployUnitTestSuite) TestDeployLocalWithBundleConfig(c *gc.C) {
+func (s *DeployUnitTestSuite) TestDeployLocalWithBundleOverlay(c *gc.C) {
 	charmDir := s.makeCharmDir(c, "multi-series")
 	fakeAPI := s.fakeAPI()
 
@@ -1373,8 +1373,8 @@ func (s *DeployUnitTestSuite) TestDeployLocalWithBundleConfig(c *gc.C) {
 	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir)
 	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, nil)
 
-	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--bundle-config", "somefile")
-	c.Check(err, gc.ErrorMatches, "flags provided but not supported when deploying a charm: --bundle-config")
+	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--overlay", "somefile")
+	c.Check(err, gc.ErrorMatches, "flags provided but not supported when deploying a charm: --overlay")
 }
 
 func (s *DeployUnitTestSuite) TestDeployLocalCharmGivesCorrectUserMessage(c *gc.C) {

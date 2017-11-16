@@ -61,7 +61,7 @@ type deploymentLogger interface {
 func deployBundle(
 	bundleDir string,
 	data *charm.BundleData,
-	bundleConfigFile []string,
+	bundleOverlayFile []string,
 	channel csparams.Channel,
 	apiRoot DeployAPI,
 	ctx *cmd.Context,
@@ -71,7 +71,7 @@ func deployBundle(
 	bundleMachines map[string]string,
 ) (map[*charm.URL]*macaroon.Macaroon, error) {
 
-	if err := processBundleConfig(data, bundleConfigFile...); err != nil {
+	if err := processBundleOverlay(data, bundleOverlayFile...); err != nil {
 		return nil, err
 	}
 	verifyConstraints := func(s string) error {
@@ -1105,35 +1105,35 @@ func processValue(baseDir string, v interface{}) (interface{}, bool, error) {
 	return result, true, nil
 }
 
-type bundleConfigValueExists struct {
+type bundleOverlayValueExists struct {
 	Applications map[string]map[string]interface{} `yaml:"applications"`
 }
 
-func processBundleConfig(data *charm.BundleData, bundleConfigFiles ...string) error {
-	for _, filename := range bundleConfigFiles {
-		bundleConfigFile, err := utils.NormalizePath(filename)
+func processBundleOverlay(data *charm.BundleData, bundleOverlayFiles ...string) error {
+	for _, filename := range bundleOverlayFiles {
+		bundleOverlayFile, err := utils.NormalizePath(filename)
 		if err != nil {
-			return errors.Annotate(err, "unable to normalise bundle-config file")
+			return errors.Annotate(err, "unable to normalise bundle overlay file")
 		}
 		// Make sure the filename is absolute.
-		if !filepath.IsAbs(bundleConfigFile) {
+		if !filepath.IsAbs(bundleOverlayFile) {
 			cwd, err := os.Getwd()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			bundleConfigFile = filepath.Clean(filepath.Join(cwd, bundleConfigFile))
+			bundleOverlayFile = filepath.Clean(filepath.Join(cwd, bundleOverlayFile))
 		}
-		if err := processSingleBundleConfig(data, bundleConfigFile); err != nil {
+		if err := processSingleBundleOverlay(data, bundleOverlayFile); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func processSingleBundleConfig(data *charm.BundleData, bundleConfigFile string) error {
-	config, err := charmrepo.ReadBundleFile(bundleConfigFile)
+func processSingleBundleOverlay(data *charm.BundleData, bundleOverlayFile string) error {
+	config, err := charmrepo.ReadBundleFile(bundleOverlayFile)
 	if err != nil {
-		return errors.Annotatef(err, "unable to read bundle-config file %q", bundleConfigFile)
+		return errors.Annotatef(err, "unable to read bundle overlay file %q", bundleOverlayFile)
 	}
 
 	// From here we walk through the new bundleData, and override values
@@ -1146,26 +1146,26 @@ func processSingleBundleConfig(data *charm.BundleData, bundleConfigFile string) 
 	// If the application exists in both, values here override values there.
 	// If machines are defined, they override the entire machines section.
 
-	content, err := ioutil.ReadFile(bundleConfigFile)
+	content, err := ioutil.ReadFile(bundleOverlayFile)
 	if err != nil {
-		return errors.Annotate(err, "unable to open bundle-config file")
+		return errors.Annotate(err, "unable to open bundle overlay file")
 	}
-	baseDir := filepath.Dir(bundleConfigFile)
+	baseDir := filepath.Dir(bundleOverlayFile)
 
 	// If this works, then this deserialisation should certainly succeed.
 	// Since we are only looking to overwrite the values in the underlying bundle
 	// for config values that are set, we need to know if they were actually set,
 	// and not just zero. The configCheck structure is a map that allows us to check
 	// if the fields were actually in the underlying YAML.
-	var configCheck bundleConfigValueExists
+	var configCheck bundleOverlayValueExists
 	if err := yaml.Unmarshal(content, &configCheck); err != nil {
 		return errors.Annotate(err, "unable to deserialize config structure")
 	}
 	// Here there is a possibility that the config file uses top level
-	// services, whereas the bundleConfigValueExists only defines the newer
+	// services, whereas the bundleOverlayValueExists only defines the newer
 	// applications. If that is the case, we error out and tell the user.
 	if len(configCheck.Applications) == 0 && len(config.Applications) > 0 {
-		return errors.Errorf("bundle-config file %q used deprecated 'services' key, this is not valid for bundle-config files", bundleConfigFile)
+		return errors.Errorf("bundle overlay file %q used deprecated 'services' key, this is not valid for bundle overlay files", bundleOverlayFile)
 	}
 
 	// We want to confirm that all the applications mentioned in the config
@@ -1264,8 +1264,8 @@ func processSingleBundleConfig(data *charm.BundleData, bundleConfigFile string) 
 		data.Relations = append(data.Relations, relation)
 	}
 
-	// Finally, if the bundle-config overrode the machines definition
-	// use that.
+	// Finally, if the bundle overlay overrode the machines definition use
+	// that.
 	if config.Machines != nil {
 		data.Machines = config.Machines
 	}
