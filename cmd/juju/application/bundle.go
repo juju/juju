@@ -61,7 +61,7 @@ type deploymentLogger interface {
 func deployBundle(
 	bundleDir string,
 	data *charm.BundleData,
-	bundleConfigFile string,
+	bundleConfigFile []string,
 	channel csparams.Channel,
 	apiRoot DeployAPI,
 	ctx *cmd.Context,
@@ -71,7 +71,7 @@ func deployBundle(
 	bundleMachines map[string]string,
 ) (map[*charm.URL]*macaroon.Macaroon, error) {
 
-	if err := processBundleConfig(data, bundleConfigFile); err != nil {
+	if err := processBundleConfig(data, bundleConfigFile...); err != nil {
 		return nil, err
 	}
 	verifyConstraints := func(s string) error {
@@ -1105,44 +1105,53 @@ func processValue(baseDir string, v interface{}) (interface{}, bool, error) {
 	return result, true, nil
 }
 
-type bundleConfig struct {
-	Applications map[string]*charm.ApplicationSpec `yaml:"applications"`
-	// TODO soon, add machine mapping and space mapping.
-}
-
 type bundleConfigValueExists struct {
 	Applications map[string]map[string]interface{} `yaml:"applications"`
 }
 
-func processBundleConfig(data *charm.BundleData, bundleConfigFile string) error {
-	if bundleConfigFile == "" {
-		// Nothing to do here.
-		return nil
-	}
-
-	bundleConfigFile, err := utils.NormalizePath(bundleConfigFile)
-	if err != nil {
-		return errors.Annotate(err, "unable to normalise bundle-config file")
-	}
-	// Make sure the filename is absolute.
-	if !filepath.IsAbs(bundleConfigFile) {
-		cwd, err := os.Getwd()
+func processBundleConfig(data *charm.BundleData, bundleConfigFiles ...string) error {
+	for _, filename := range bundleConfigFiles {
+		bundleConfigFile, err := utils.NormalizePath(filename)
 		if err != nil {
+			return errors.Annotate(err, "unable to normalise bundle-config file")
+		}
+		// Make sure the filename is absolute.
+		if !filepath.IsAbs(bundleConfigFile) {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			bundleConfigFile = filepath.Clean(filepath.Join(cwd, bundleConfigFile))
+		}
+		if err := processSingleBundleConfig(data, bundleConfigFile); err != nil {
 			return errors.Trace(err)
 		}
-		bundleConfigFile = filepath.Clean(filepath.Join(cwd, bundleConfigFile))
 	}
+	return nil
+}
+
+func processSingleBundleConfig(data *charm.BundleData, bundleConfigFile string) error {
+	config, err := charmrepo.ReadBundleFile(bundleConfigFile)
+	if err != nil {
+		return errors.Annotatef(err, "unable to read bundle-config file %q", bundleConfigFile)
+	}
+
+	// From here we walk through the new bundleData, and override values
+	// in the current bundle.
+
+	// If a new application is added, the content is added.
+	// If an application is defined but with no content, that means
+	// remove the application from the parent bundle.
+	//   - if this is happening, all related relations are also removed.
+	// If the application exists in both, values here override values there.
+	// If machines are defined, they override the entire machines section.
+
 	content, err := ioutil.ReadFile(bundleConfigFile)
 	if err != nil {
 		return errors.Annotate(err, "unable to open bundle-config file")
 	}
 	baseDir := filepath.Dir(bundleConfigFile)
 
-	// Now that we have the content, attempt to deserialize into the bundleConfig.
-	var config bundleConfig
-	if err := yaml.Unmarshal(content, &config); err != nil {
-		return errors.Annotate(err, "unable to deserialize config structure")
-	}
 	// If this works, then this deserialisation should certainly succeed.
 	// Since we are only looking to overwrite the values in the underlying bundle
 	// for config values that are set, we need to know if they were actually set,
@@ -1152,19 +1161,11 @@ func processBundleConfig(data *charm.BundleData, bundleConfigFile string) error 
 	if err := yaml.Unmarshal(content, &configCheck); err != nil {
 		return errors.Annotate(err, "unable to deserialize config structure")
 	}
-	// Additional checks to make sure that only things that we know about
-	// are passed in as config.
-	var checkTopLevel map[string]interface{}
-	if err := yaml.Unmarshal(content, &checkTopLevel); err != nil {
-		return errors.Annotate(err, "unable to deserialize config structure")
-	}
-	for key := range checkTopLevel {
-		switch key {
-		case "applications":
-			// no-op, all good
-		default:
-			return errors.Errorf("unexpected key %q in config", key)
-		}
+	// Here there is a possibility that the config file uses top level
+	// services, whereas the bundleConfigValueExists only defines the newer
+	// applications. If that is the case, we error out and tell the user.
+	if len(configCheck.Applications) == 0 && len(config.Applications) > 0 {
+		return errors.Errorf("bundle-config file %q used deprecated 'services' key, this is not valid for bundle-config files", bundleConfigFile)
 	}
 
 	// We want to confirm that all the applications mentioned in the config
@@ -1172,7 +1173,15 @@ func processBundleConfig(data *charm.BundleData, bundleConfigFile string) error 
 	for appName, bc := range config.Applications {
 		app, found := data.Applications[appName]
 		if !found {
-			return errors.Errorf("application %q from config not found in bundle", appName)
+			// Add it in.
+			data.Applications[appName] = bc
+			continue
+		}
+		// If bc is nil, that means to remove it from data.
+		if bc == nil {
+			delete(data.Applications, appName)
+			data.Relations = removeRelations(data.Relations, appName)
+			continue
 		}
 
 		fieldCheck := configCheck.Applications[appName]
@@ -1244,7 +1253,43 @@ func processBundleConfig(data *charm.BundleData, bundleConfigFile string) error 
 			}
 		}
 	}
+
+	// If series is set in the config, it overrides the bundle.
+	if config.Series != "" {
+		data.Series = config.Series
+	}
+
+	// Next process relations.
+	for _, relation := range config.Relations {
+		data.Relations = append(data.Relations, relation)
+	}
+
+	// Finally, if the bundle-config overrode the machines definition
+	// use that.
+	if config.Machines != nil {
+		data.Machines = config.Machines
+	}
+
 	return nil
+}
+
+// removeRelations removes any relation defined in data that references
+// the application appName.
+func removeRelations(data [][]string, appName string) [][]string {
+	var result [][]string
+	for _, relation := range data {
+		// Keep the dud relation in the set, it will be caught by the bundle
+		// verify code.
+		if len(relation) == 2 {
+			left, right := relation[0], relation[1]
+			if left == appName || strings.HasPrefix(left, appName+":") ||
+				right == appName || strings.HasPrefix(right, appName+":") {
+				continue
+			}
+		}
+		result = append(result, relation)
+	}
+	return result
 }
 
 func buildModelRepresentation(

@@ -250,14 +250,13 @@ func startInstanceZones(env environs.Environ, args environs.StartInstanceParams)
 
 	// Attempt creating the instance in each of the availability
 	// zones, unless the args imply a specific zone.
-	zone, err := zonedEnviron.DeriveAvailabilityZone(args)
+	zones, err := zonedEnviron.DeriveAvailabilityZones(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if zone != "" {
-		return []string{zone}, nil
+	if len(zones) > 0 {
+		return zones, nil
 	}
-	var zones []string
 	allZones, err := zonedEnviron.AvailabilityZones()
 	if err != nil {
 		return nil, errors.Trace(err)

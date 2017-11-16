@@ -408,6 +408,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if c.controllerName == "" {
 		c.controllerName = defaultControllerName(cloud.Name, region.Name)
 	}
+	// set a Region so it's config can be found below.
+	if c.Region == "" {
+		c.Region = region.Name
+	}
 
 	config, err := c.bootstrapConfigs(ctx, cloud, provider)
 	if err != nil {

@@ -207,8 +207,8 @@ func (suite *environSuite) TestSelectNodeValidZone(c *gc.C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0", "zone": "bar"}`)
 
 	snArgs := selectNodeArgs{
-		AvailabilityZones: []string{"bar", "foo"},
-		Constraints:       constraints.Value{},
+		AvailabilityZone: "bar",
+		Constraints:      constraints.Value{},
 	}
 
 	node, err := env.selectNode(snArgs)
@@ -220,8 +220,8 @@ func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
 	env := suite.makeEnviron()
 
 	snArgs := selectNodeArgs{
-		AvailabilityZones: []string{"foo", "bar"},
-		Constraints:       constraints.Value{},
+		AvailabilityZone: "foo",
+		Constraints:      constraints.Value{},
 	}
 
 	_, err := env.selectNode(snArgs)

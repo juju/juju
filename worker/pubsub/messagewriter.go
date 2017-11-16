@@ -22,8 +22,8 @@ type MessageWriter interface {
 
 var dialOpts = api.DialOpts{
 	DialAddressInterval: 20 * time.Millisecond,
-	Timeout:             50 * time.Millisecond,
-	RetryDelay:          50 * time.Millisecond,
+	Timeout:             2 * time.Second,
+	RetryDelay:          500 * time.Millisecond,
 }
 
 // NewMessageWriter will connect to the remote defined by the info,

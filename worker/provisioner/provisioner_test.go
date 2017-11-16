@@ -298,6 +298,10 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 					c.Assert(o.Constraints, gc.DeepEquals, cons)
 					hc, err := m.HardwareCharacteristics()
 					c.Assert(err, jc.ErrorIsNil)
+					// At this point we don't care what the AvailabilityZone is,
+					// it can be a few different valid things.
+					zone := hc.AvailabilityZone
+					hc.AvailabilityZone = nil
 					c.Assert(*hc, gc.DeepEquals, instance.HardwareCharacteristics{
 						Arch:     cons.Arch,
 						Mem:      cons.Mem,
@@ -306,6 +310,7 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 						CpuPower: cons.CpuPower,
 						Tags:     cons.Tags,
 					})
+					hc.AvailabilityZone = zone
 				}
 				returnInstances[m.Id()] = inst
 				if found == len(machines) {
@@ -818,10 +823,6 @@ func (m *MockMachine) InstanceStatus() (status.Status, string, error) {
 
 func (m *MockMachine) Id() string {
 	return m.id
-}
-
-func (m *MockMachine) AvailabilityZone() (string, error) {
-	return "zone1", nil
 }
 
 type machineClassificationTest struct {
@@ -1517,12 +1518,14 @@ func assertAvailabilityZoneMachines(c *gc.C,
 		for _, m := range machines {
 			zone, err := m.AvailabilityZone()
 			c.Assert(err, jc.ErrorIsNil)
+			found := 0
 			for _, zoneInfo := range obtained {
 				if zone == zoneInfo.ZoneName {
-					c.Assert(zoneInfo.MachineIds.Contains(zone), gc.Equals, true)
-
+					c.Assert(zoneInfo.MachineIds.Contains(m.Id()), gc.Equals, true)
+					found += 1
 				}
 			}
+			c.Assert(found, gc.Equals, 1)
 		}
 	}
 	if len(failedAZMachines) > 0 {
@@ -1782,6 +1785,78 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesRestartTask(c *gc.C) {
 	c.Assert(availabilityZoneMachinesBefore, jc.DeepEquals, availabilityZoneMachinesAfter)
 }
 
+func (s *ProvisionerSuite) TestProvisioningMachinesClearAZFailures(c *gc.C) {
+	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
+	e := &mockBroker{
+		Environ:    s.Environ,
+		retryCount: make(map[string]int),
+		startInstanceFailureInfo: map[string]mockBrokerFailures{
+			"1": {whenSucceed: 3, err: environs.ErrAvailabilityZoneFailed},
+		},
+	}
+	retryStrategy := provisioner.NewRetryStrategy(5*time.Millisecond, 4)
+	task := s.newProvisionerTaskWithRetryStrategy(c, config.HarvestDestroyed,
+		e, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{}, retryStrategy)
+	defer workertest.CleanKill(c, task)
+
+	machine, err := s.addMachine()
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkStartInstance(c, machine)
+	count := e.retryCount[machine.Id()]
+	c.Assert(count, gc.Equals, 3)
+	machineAZ, err := machine.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machineAZ, gc.Equals, "zone1")
+}
+
+func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {
+	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
+	e := &mockBroker{
+		Environ:    s.Environ,
+		retryCount: make(map[string]int),
+		startInstanceFailureInfo: map[string]mockBrokerFailures{
+			"2": {whenSucceed: 3, err: environs.ErrAvailabilityZoneFailed},
+			"3": {whenSucceed: 1, err: environs.ErrAvailabilityZoneFailed},
+			"5": {whenSucceed: 1, err: errors.New("fail me once.")},
+		},
+		derivedAZ: map[string][]string{
+			"1": []string{"fail-zone"},
+			"2": []string{"zone4"},
+			"3": []string{"zone1", "zone4"},
+			"4": []string{"zone1"},
+			"5": []string{"zone3"},
+		},
+	}
+	retryStrategy := provisioner.NewRetryStrategy(5*time.Millisecond, 2)
+	task := s.newProvisionerTaskWithRetryStrategy(c, config.HarvestDestroyed,
+		e, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{}, retryStrategy)
+	defer workertest.CleanKill(c, task)
+
+	machines, err := s.addMachines(5)
+	c.Assert(err, jc.ErrorIsNil)
+	mFail := machines[:2]
+	mSucceed := machines[2:]
+
+	s.checkStartInstances(c, mSucceed)
+	c.Assert(e.retryCount[mFail[1].Id()], gc.Equals, 3)
+	c.Assert(e.retryCount[mSucceed[0].Id()], gc.Equals, 1)
+	c.Assert(e.retryCount[mSucceed[2].Id()], gc.Equals, 1)
+
+	_, err = mFail[0].InstanceId()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	_, err = mFail[1].InstanceId()
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+
+	availabilityZoneMachines := provisioner.GetCopyAvailabilityZoneMachines(task)
+	assertAvailabilityZoneMachines(c, mSucceed, nil, availabilityZoneMachines)
+
+	for i, zone := range []string{"zone1", "zone3"} {
+		machineAZ, err := mSucceed[i+1].AvailabilityZone()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(machineAZ, gc.Equals, zone)
+	}
+}
+
 func (s *ProvisionerSuite) TestProvisioningMachinesNoZonedEnviron(c *gc.C) {
 	// Make sure the provisioner still works for providers which do not
 	// implement the ZonedEnviron interface.
@@ -1816,6 +1891,7 @@ type mockBroker struct {
 	mu                       sync.Mutex
 	retryCount               map[string]int
 	startInstanceFailureInfo map[string]mockBrokerFailures
+	derivedAZ                map[string][]string
 }
 
 type mockBrokerFailures struct {
@@ -1856,8 +1932,14 @@ func (b *mockBroker) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string,
 	return b.Environ.(providercommon.ZonedEnviron).InstanceAvailabilityZoneNames(ids)
 }
 
-func (b *mockBroker) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	return b.Environ.(providercommon.ZonedEnviron).DeriveAvailabilityZone(args)
+func (b *mockBroker) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+	id := args.InstanceConfig.MachineId
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if derivedAZ, ok := b.derivedAZ[id]; ok {
+		return derivedAZ, nil
+	}
+	return b.Environ.(providercommon.ZonedEnviron).DeriveAvailabilityZones(args)
 }
 
 type mockToolsFinder struct {

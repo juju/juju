@@ -200,8 +200,8 @@ func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
 			storage: newStorage(s, c),
 			config:  configGetter(c),
 		},
-		deriveAvailabilityZone: func(environs.StartInstanceParams) (string, error) {
-			return "derived-zone", nil
+		deriveAvailabilityZones: func(environs.StartInstanceParams) ([]string, error) {
+			return []string{"derived-zone"}, nil
 		},
 	}
 
@@ -232,8 +232,8 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 			storage: newStorage(s, c),
 			config:  configGetter(c),
 		},
-		deriveAvailabilityZone: func(environs.StartInstanceParams) (string, error) {
-			return "", nil
+		deriveAvailabilityZones: func(environs.StartInstanceParams) ([]string, error) {
+			return nil, nil
 		},
 		availabilityZones: func() ([]common.AvailabilityZone, error) {
 			z0 := &mockAvailabilityZone{"z0", true}
@@ -271,8 +271,8 @@ func (s *BootstrapSuite) TestStartInstanceNoUsableZones(c *gc.C) {
 			storage: newStorage(s, c),
 			config:  configGetter(c),
 		},
-		deriveAvailabilityZone: func(environs.StartInstanceParams) (string, error) {
-			return "", nil
+		deriveAvailabilityZones: func(environs.StartInstanceParams) ([]string, error) {
+			return nil, nil
 		},
 		availabilityZones: func() ([]common.AvailabilityZone, error) {
 			z0 := &mockAvailabilityZone{"z0", false}

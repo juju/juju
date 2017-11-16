@@ -580,13 +580,18 @@ func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string
 	return zones, nil
 }
 
-// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
-func (e *maasEnviron) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	placement, err := e.parsePlacement(args.Placement)
-	if err != nil {
-		return "", err
+// DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
+func (e *maasEnviron) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+	if args.Placement != "" {
+		placement, err := e.parsePlacement(args.Placement)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if placement.zoneName != "" {
+			return []string{placement.zoneName}, nil
+		}
 	}
-	return placement.zoneName, nil
+	return nil, nil
 }
 
 type maasPlacement struct {
@@ -897,26 +902,31 @@ func (*maasEnviron) MaintainInstance(args environs.StartInstanceParams) error {
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	*environs.StartInstanceResult, error,
 ) {
-	var availabilityZone, nodeName, systemId string
+	availabilityZone := args.AvailabilityZone
+	var nodeName, systemId string
 	if args.Placement != "" {
 		placement, err := environ.parsePlacement(args.Placement)
 		if err != nil {
 			return nil, err
 		}
+		// NOTE(axw) we wipe out args.AvailabilityZone if the
+		// user specified a specific node or system ID via
+		// placement, as placement must always take precedence.
 		switch {
-		case placement.zoneName != "":
-			availabilityZone = placement.zoneName
 		case placement.systemId != "":
+			availabilityZone = ""
 			systemId = placement.systemId
-		default:
+		case placement.nodeName != "":
+			availabilityZone = ""
 			nodeName = placement.nodeName
 		}
-	} else if args.AvailabilityZone != "" {
-		availabilityZone = args.AvailabilityZone
+	}
+	if availabilityZone != "" {
 		if err := common.ValidateAvailabilityZone(environ, availabilityZone); err != nil {
 			logger.Errorf(err.Error())
 			return nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
 		}
+		logger.Debugf("attempting to acquire node in zone %q", availabilityZone)
 	}
 
 	// Storage.
@@ -935,12 +945,12 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		}
 	}
 	snArgs := selectNodeArgs{
-		Constraints:       args.Constraints,
-		AvailabilityZones: []string{availabilityZone},
-		NodeName:          nodeName,
-		SystemId:          systemId,
-		Interfaces:        interfaceBindings,
-		Volumes:           volumes,
+		Constraints:      args.Constraints,
+		AvailabilityZone: availabilityZone,
+		NodeName:         nodeName,
+		SystemId:         systemId,
+		Interfaces:       interfaceBindings,
+		Volumes:          volumes,
 	}
 	var inst maasInstance
 	if !environ.usingMAAS2() {
@@ -1261,70 +1271,53 @@ func deploymentStatusCall(nodes gomaasapi.MAASObject, ids ...instance.Id) (gomaa
 }
 
 type selectNodeArgs struct {
-	AvailabilityZones []string
-	NodeName          string
-	SystemId          string
-	Constraints       constraints.Value
-	Interfaces        []interfaceBinding
-	Volumes           []volumeInfo
+	AvailabilityZone string
+	NodeName         string
+	SystemId         string
+	Constraints      constraints.Value
+	Interfaces       []interfaceBinding
+	Volumes          []volumeInfo
 }
 
 func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObject, error) {
-	var err error
-	var node gomaasapi.MAASObject
-
-	for i, zoneName := range args.AvailabilityZones {
-		node, err = environ.acquireNode(
-			args.NodeName,
-			zoneName,
-			args.SystemId,
-			args.Constraints,
-			args.Interfaces,
-			args.Volumes,
-		)
-
-		if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
-			if i+1 < len(args.AvailabilityZones) {
-				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
-				return nil, environs.ErrAvailabilityZoneFailed
-			}
-		}
-		if err != nil {
-			return nil, errors.Errorf("cannot run instances: %v", err)
-		}
-		// Since a return at the end of the function is required
-		// just break here.
-		break
+	node, err := environ.acquireNode(
+		args.NodeName,
+		args.AvailabilityZone,
+		args.SystemId,
+		args.Constraints,
+		args.Interfaces,
+		args.Volumes,
+	)
+	if args.AvailabilityZone != "" && isConflictError(err) {
+		logger.Debugf("could not acquire a node in zone %q", args.AvailabilityZone)
+		return nil, environs.ErrAvailabilityZoneFailed
+	}
+	if err != nil {
+		return nil, errors.Errorf("cannot run instances: %v", err)
 	}
 	return &node, nil
 }
 
+func isConflictError(err error) bool {
+	serverErr, ok := errors.Cause(err).(gomaasapi.ServerError)
+	return ok && serverErr.StatusCode == http.StatusConflict
+}
+
 func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, error) {
-	var err error
-	var inst maasInstance
-
-	for i, zoneName := range args.AvailabilityZones {
-		inst, err = environ.acquireNode2(
-			args.NodeName,
-			zoneName,
-			args.SystemId,
-			args.Constraints,
-			args.Interfaces,
-			args.Volumes,
-		)
-
-		if gomaasapi.IsNoMatchError(err) {
-			if i+1 < len(args.AvailabilityZones) {
-				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
-				return nil, environs.ErrAvailabilityZoneFailed
-			}
-		}
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot run instance")
-		}
-		// Since a return at the end of the function is required
-		// just break here.
-		break
+	inst, err := environ.acquireNode2(
+		args.NodeName,
+		args.AvailabilityZone,
+		args.SystemId,
+		args.Constraints,
+		args.Interfaces,
+		args.Volumes,
+	)
+	if args.AvailabilityZone != "" && gomaasapi.IsNoMatchError(err) {
+		logger.Debugf("could not acquire a node in zone %q", args.AvailabilityZone)
+		return nil, environs.ErrAvailabilityZoneFailed
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot run instance")
 	}
 	return inst, nil
 }

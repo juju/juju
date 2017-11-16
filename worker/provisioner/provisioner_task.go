@@ -695,18 +695,6 @@ func (task *provisionerTask) constructStartInstanceParams(
 		StatusCallback:    machine.SetInstanceStatus,
 	}
 
-	if zonedEnv, ok := task.broker.(providercommon.ZonedEnviron); ok {
-		zone, err := zonedEnv.DeriveAvailabilityZone(startInstanceParams)
-		if err != nil {
-			return environs.StartInstanceParams{}, errors.Trace(err)
-		}
-		if zone != "" {
-			if startInstanceParams.Placement == "" {
-				startInstanceParams.Placement = fmt.Sprintf("zone=%s", zone)
-			}
-			task.addMachinetoAZMap(machine, zone)
-		}
-	}
 	return startInstanceParams, nil
 }
 
@@ -723,11 +711,17 @@ func (task *provisionerTask) maintainMachines(machines []*apiprovisioner.Machine
 	return nil
 }
 
-// AvailabilityZoneMachine exposed for testing
+// AvailabilityZoneMachine keeps track a single zone and which machines
+// are in it, which machines have failed to use it and which machines
+// shouldn't use it. This data is used to decide on how to distribute
+// machines across availability zones.
+//
+// Exposed for testing.
 type AvailabilityZoneMachine struct {
-	ZoneName         string
-	MachineIds       set.Strings
-	FailedMachineIds set.Strings
+	ZoneName           string
+	MachineIds         set.Strings
+	FailedMachineIds   set.Strings
+	ExcludedMachineIds set.Strings // Don't use these machines in the zone.
 }
 
 // populateAvailabilityZoneMachines fills in the map, availabilityZoneMachines,
@@ -775,9 +769,10 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 			}
 		}
 		task.availabilityZoneMachines[i] = &AvailabilityZoneMachine{
-			ZoneName:         instances.ZoneName,
-			MachineIds:       machineIds,
-			FailedMachineIds: set.NewStrings(),
+			ZoneName:           instances.ZoneName,
+			MachineIds:         machineIds,
+			FailedMachineIds:   set.NewStrings(),
+			ExcludedMachineIds: set.NewStrings(),
 		}
 	}
 	return nil
@@ -794,6 +789,7 @@ func (task *provisionerTask) populateDistributionGroupZoneMap(machineIds []strin
 			azm.ZoneName,
 			azm.MachineIds.Intersection(dgSet),
 			azm.FailedMachineIds,
+			azm.ExcludedMachineIds,
 		})
 	}
 	return dgAvailabilityZoneMachines
@@ -801,17 +797,18 @@ func (task *provisionerTask) populateDistributionGroupZoneMap(machineIds []strin
 
 // machineAvailabilityZoneDistribution returns a suggested availability zone
 // for the specified machine to start in.  If the current provider does not
-// implement availability zones, "" will be returned. Machines are spread across
-// availability zones based on lowest population of the "available" zones.
+// implement availability zones, "" and no error will be returned. Machines are
+// spread across availability zones based on lowest population of the "available" zones.
 // Machines in the same DistributionGroup are placed in different zones, spread
 // across availability zones based on lowest population of machines in that
-// DistributionGroup.
-func (task *provisionerTask) machineAvailabilityZoneDistribution(machine *apiprovisioner.Machine, distributionGroupMachineIds []string) string {
+// DistributionGroup.  Machines are not placed in a zone they are excluded from.
+// If availability zones are implemented and one isn't found, return NotFound error.
+func (task *provisionerTask) machineAvailabilityZoneDistribution(machineId string, distributionGroupMachineIds []string) (string, error) {
 	task.azMachinesMutex.Lock()
 	defer task.azMachinesMutex.Unlock()
 
 	if len(task.availabilityZoneMachines) == 0 {
-		return ""
+		return "", nil
 	}
 
 	var machineZone string
@@ -823,11 +820,12 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(machine *apipro
 		sort.Sort(byPopulationThenNames(dgZoneMap))
 
 		for _, dgZoneMachines := range dgZoneMap {
-			if !dgZoneMachines.FailedMachineIds.Contains(machine.Id()) {
+			if !dgZoneMachines.FailedMachineIds.Contains(machineId) &&
+				!dgZoneMachines.ExcludedMachineIds.Contains(machineId) {
 				machineZone = dgZoneMachines.ZoneName
 				for _, azm := range task.availabilityZoneMachines {
 					if azm.ZoneName == dgZoneMachines.ZoneName {
-						azm.MachineIds.Add(machine.Id())
+						azm.MachineIds.Add(machineId)
 						break
 					}
 				}
@@ -837,14 +835,18 @@ func (task *provisionerTask) machineAvailabilityZoneDistribution(machine *apipro
 	} else {
 		sort.Sort(byPopulationThenNames(task.availabilityZoneMachines))
 		for _, zoneMachines := range task.availabilityZoneMachines {
-			if !zoneMachines.FailedMachineIds.Contains(machine.Id()) {
+			if !zoneMachines.FailedMachineIds.Contains(machineId) &&
+				!zoneMachines.ExcludedMachineIds.Contains(machineId) {
 				machineZone = zoneMachines.ZoneName
-				zoneMachines.MachineIds.Add(machine.Id())
+				zoneMachines.MachineIds.Add(machineId)
 				break
 			}
 		}
 	}
-	return machineZone
+	if machineZone == "" {
+		return machineZone, errors.NotFoundf("suitable availability zone for machine %v", machineId)
+	}
+	return machineZone, nil
 }
 
 type byPopulationThenNames []*AvailabilityZoneMachine
@@ -980,6 +982,32 @@ func (task *provisionerTask) setupToStartMachine(machine *apiprovisioner.Machine
 	return startInstanceParams, nil
 }
 
+// populateExcludedMachines, translates the results of DeriveAvailabilityZones
+// into availabilityZoneMachines.ExcludedMachineIds for machines not to be used
+// in the given zone.
+func (task *provisionerTask) populateExcludedMachines(machineId string, startInstanceParams environs.StartInstanceParams) error {
+	zonedEnv, ok := task.broker.(providercommon.ZonedEnviron)
+	if !ok {
+		return nil
+	}
+	derivedZones, err := zonedEnv.DeriveAvailabilityZones(startInstanceParams)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(derivedZones) == 0 {
+		return nil
+	}
+	task.azMachinesMutex.Lock()
+	defer task.azMachinesMutex.Unlock()
+	useZones := set.NewStrings(derivedZones...)
+	for _, zoneMachines := range task.availabilityZoneMachines {
+		if !useZones.Contains(zoneMachines.ZoneName) {
+			zoneMachines.ExcludedMachineIds.Add(machineId)
+		}
+	}
+	return nil
+}
+
 func (task *provisionerTask) startMachine(
 	machine *apiprovisioner.Machine,
 	distributionGroupMachineIds []string,
@@ -988,14 +1016,16 @@ func (task *provisionerTask) startMachine(
 	if err != nil {
 		return err
 	}
-
 	startInstanceParams, err := task.setupToStartMachine(machine, v)
 	if err != nil {
-		// Attempt to future proof the AZMap with call to
-		// removeMachineFromAZMap(), and prevent the map becoming
-		// inconsistent
-		task.removeMachineFromAZMap(machine)
 		return task.setErrorStatus("%v", machine, err)
+	}
+
+	// Figure out if the zones available to use for a new instance are
+	// restricted based on placement, and if so exclude those machines
+	// from being started in any other zone.
+	if err := task.populateExcludedMachines(machine.Id(), startInstanceParams); err != nil {
+		return err
 	}
 
 	// TODO (jam): 2017-01-19 Should we be setting this earlier in the cycle?
@@ -1008,19 +1038,16 @@ func (task *provisionerTask) startMachine(
 	// Is rate limiting handled correctly?
 	var result *environs.StartInstanceResult
 
-	// Iff the provider has chosen a zone, then AvailabilityZone will be non-empty.
-	distributeAcrossZones := startInstanceParams.AvailabilityZone == ""
-
-	// Loop through based on the retryCount.  The interator will not
-	// increase if StartInstace failed with ErrAvailabilityZoneFailed
-	// until all availability zones have been tried.
+	// Loop through based on the retryCount. The interator will not increase
+	// if StartInstace failed with ErrAvailabilityZoneFailed until all
+	// availability zones have been tried.
 	for attemptsLeft := task.retryStartInstanceStrategy.retryCount; attemptsLeft >= 0; attemptsLeft-- {
-		if distributeAcrossZones {
-			newZone := task.machineAvailabilityZoneDistribution(machine, distributionGroupMachineIds)
-			if newZone != "" {
-				startInstanceParams.AvailabilityZone = newZone
-				logger.Infof("trying machine %s StartInstance in availability zone %s", machine, newZone)
-			}
+		startInstanceParams.AvailabilityZone, err = task.machineAvailabilityZoneDistribution(machine.Id(), distributionGroupMachineIds)
+		if err != nil {
+			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
+		}
+		if startInstanceParams.AvailabilityZone != "" {
+			logger.Infof("trying machine %s StartInstance in availability zone %s", machine, startInstanceParams.AvailabilityZone)
 		}
 
 		attemptResult, err := task.broker.StartInstance(startInstanceParams)
@@ -1038,11 +1065,7 @@ func (task *provisionerTask) startMachine(
 		// If the failure of StartInstance() is due the availability zone,
 		// find a new one to use when retrying.
 		if errors.Cause(err) == environs.ErrAvailabilityZoneFailed {
-			if !distributeAcrossZones {
-				// User specified availability zone failed, nothing to retry.
-				task.removeMachineFromAZMap(machine)
-				return task.setErrorStatus("cannot start instance for machine %q in placement zone: %v", machine, err)
-			}
+			// Clean up AZMap from failed availability zone attempt
 			azRemaining, err2 := task.markMachineFailedInAZ(machine, startInstanceParams.AvailabilityZone)
 			if err2 != nil {
 				if err = task.setErrorStatus("cannot start instance: %v", machine, err2); err != nil {
@@ -1050,22 +1073,27 @@ func (task *provisionerTask) startMachine(
 				}
 				return err2
 			}
-			if azRemaining {
+
+			// Setup for next interation.
+			switch {
+			case azRemaining:
 				// There are more availability zones to try, don't burn an attempt.
-				retryMsg = fmt.Sprintf("failed to start instance (%s) within attempt %d, retrying in %v with new availability zone",
-					err.Error(),
-					task.retryStartInstanceStrategy.retryCount-attemptsLeft,
-					task.retryStartInstanceStrategy.retryDelay)
 				attemptsLeft++
-			} else {
+			case !azRemaining:
 				// All availability zones have been attempted for this iteration,
-				// clear the failures for the next time around.
+				// clear the failures for the next time around.  A given zone may
+				// succeed after a prior failure.
 				task.clearMachineAZFailures(machine)
 			}
+
+			retryMsg = fmt.Sprintf("failed to start machine %s within attempt %d, retrying in %v with new availability zone",
+				machine,
+				task.retryStartInstanceStrategy.retryCount-attemptsLeft,
+				task.retryStartInstanceStrategy.retryDelay)
 		}
 		if retryMsg == "" {
-			retryMsg = fmt.Sprintf("failed to start instance (%s), retrying in %v (%d more attempts)",
-				err.Error(), task.retryStartInstanceStrategy.retryDelay, attemptsLeft)
+			retryMsg = fmt.Sprintf("failed to start machine %s (%s), retrying in %v (%d more attempts)",
+				machine, err.Error(), task.retryStartInstanceStrategy.retryDelay, attemptsLeft)
 		}
 		logger.Warningf(retryMsg)
 		if err3 := machine.SetInstanceStatus(status.Provisioning, retryMsg, nil); err3 != nil {
@@ -1134,7 +1162,8 @@ func (task *provisionerTask) markMachineFailedInAZ(machine *apiprovisioner.Machi
 				break
 			}
 		}
-		if !zoneMachines.FailedMachineIds.Contains(zone) {
+		if !zoneMachines.FailedMachineIds.Contains(machine.Id()) &&
+			!zoneMachines.ExcludedMachineIds.Contains(machine.Id()) {
 			azRemaining = true
 		}
 	}

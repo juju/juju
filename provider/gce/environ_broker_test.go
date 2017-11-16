@@ -102,15 +102,15 @@ func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
 	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
 		VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
-	derivedZone, err := s.Env.DeriveAvailabilityZone(s.StartInstArgs)
+	derivedZones, err := s.Env.DeriveAvailabilityZones(s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(derivedZone), jc.GreaterThan, 0)
-	s.StartInstArgs.AvailabilityZone = derivedZone
+	c.Assert(derivedZones, gc.HasLen, 1)
+	s.StartInstArgs.AvailabilityZone = derivedZones[0]
 
 	result, err := s.Env.StartInstance(s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, derivedZone)
+	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, derivedZones[0])
 }
 
 func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {

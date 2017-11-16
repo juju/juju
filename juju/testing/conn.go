@@ -730,7 +730,6 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			UpgradedToVersion: jujuversion.Current,
 			Password:          password,
 			Nonce:             "nonce",
-			StateAddresses:    s.MongoInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
 			Controller:        s.State.ControllerTag(),

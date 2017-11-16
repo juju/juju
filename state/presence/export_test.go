@@ -53,3 +53,7 @@ func (pb *PingBatcher) ForceUpdatesUsingInc() {
 	logger.Debugf("forcing $inc operations from (was %t)", pb.useInc)
 	pb.useInc = true
 }
+
+func (w *Watcher) BeingLoads() uint64 {
+	return w.beingLoads
+}

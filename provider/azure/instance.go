@@ -5,9 +5,11 @@ package azure
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/arm/network"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -414,6 +416,9 @@ func deleteInstanceNetworkSecurityRules(
 ) error {
 	nsg, err := nsgClient.Get(resourceGroup, internalSecurityGroupName, "")
 	if err != nil {
+		if err2, ok := err.(autorest.DetailedError); ok && err2.Response.StatusCode == http.StatusNotFound {
+			return nil
+		}
 		return errors.Annotate(err, "querying network security group")
 	}
 	if nsg.SecurityRules == nil {

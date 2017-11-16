@@ -182,9 +182,10 @@ func New(config Config) (*Worker, error) {
 // Worker waits until a migration is active and its configured
 // Fortress is locked down, and then orchestrates a model migration.
 type Worker struct {
-	catacomb catacomb.Catacomb
-	config   Config
-	logger   loggo.Logger
+	catacomb    catacomb.Catacomb
+	config      Config
+	logger      loggo.Logger
+	lastFailure string
 }
 
 // Kill implements worker.Worker.
@@ -276,6 +277,7 @@ func (w *Worker) setInfoStatus(s string, a ...interface{}) {
 }
 
 func (w *Worker) setErrorStatus(s string, a ...interface{}) {
+	w.lastFailure = fmt.Sprintf(s, a...)
 	w.setStatusAndLog(w.logger.Errorf, s, a...)
 }
 
@@ -405,6 +407,11 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 	err = targetClient.Import(serialized.Bytes)
 	if err != nil {
 		return errors.Annotate(err, "failed to import model into target controller")
+	}
+
+	if wrench.IsActive("migrationmaster", "die-in-export") {
+		// Simulate a abort causing failure to test last status not over written.
+		return errors.New("wrench in the transferModel works")
 	}
 
 	w.setInfoStatus("uploading model binaries into target controller")
@@ -612,7 +619,7 @@ func (w *Worker) doREAP() (coremigration.Phase, error) {
 }
 
 func (w *Worker) doABORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	w.setInfoStatus("aborted, removing model from target controller")
+	w.setInfoStatus("aborted, removing model from target controller: %s", w.lastFailure)
 	if err := w.removeImportedModel(targetInfo, modelUUID); err != nil {
 		// This isn't fatal. Removing the imported model is a best
 		// efforts attempt so just report the error and proceed.

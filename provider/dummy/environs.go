@@ -1036,15 +1036,29 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	// To match current system capability, only provide hardware characteristics for
 	// environ machines, not containers.
 	if state.ParentId(machineId) == "" {
+		// Assume that the provided Availability Zone won't fail,
+		// though one is required.
+		var zone string
+		if args.Placement != "" {
+			split := strings.Split(args.Placement, "=")
+			if len(split) == 2 && split[0] == "zone" {
+				zone = split[1]
+			}
+		}
+		if zone == "" && args.AvailabilityZone != "" {
+			zone = args.AvailabilityZone
+		}
+
 		// We will just assume the instance hardware characteristics exactly matches
 		// the supplied constraints (if specified).
 		hc = &instance.HardwareCharacteristics{
-			Arch:     args.Constraints.Arch,
-			Mem:      args.Constraints.Mem,
-			RootDisk: args.Constraints.RootDisk,
-			CpuCores: args.Constraints.CpuCores,
-			CpuPower: args.Constraints.CpuPower,
-			Tags:     args.Constraints.Tags,
+			Arch:             args.Constraints.Arch,
+			Mem:              args.Constraints.Mem,
+			RootDisk:         args.Constraints.RootDisk,
+			CpuCores:         args.Constraints.CpuCores,
+			CpuPower:         args.Constraints.CpuPower,
+			Tags:             args.Constraints.Tags,
+			AvailabilityZone: &zone,
 		}
 		// Fill in some expected instance hardware characteristics if constraints not specified.
 		if hc.Arch == nil {
@@ -1346,9 +1360,9 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 	return returnValue, nil
 }
 
-// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
-func (env *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	return "", nil
+// DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
+func (env *environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+	return nil, nil
 }
 
 // Subnets implements environs.Environ.Subnets.

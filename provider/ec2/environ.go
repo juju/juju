@@ -246,13 +246,13 @@ func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 	return zones, err
 }
 
-// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
-func (e *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	availabilityZone, err := e.startInstanceAvailabilityZone(args)
-	if err != nil {
-		return "", errors.Trace(err)
+// DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
+func (e *environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+	availabilityZone, err := e.deriveAvailabilityZone(args)
+	if availabilityZone != "" {
+		return []string{availabilityZone}, errors.Trace(err)
 	}
-	return availabilityZone, nil
+	return nil, errors.Trace(err)
 }
 
 type ec2Placement struct {
@@ -298,7 +298,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 		for _, subnet := range subnetResp.Subnets {
 			allSubnets = append(allSubnets, fmt.Sprintf("%q:%q", subnet.Id, subnet.CIDRBlock))
 			if matcher.Match(subnet) {
-				// We found the CIDR, now see if we can find the AZ
+				// We found the CIDR, now see if we can find the AZs.
 				for _, zone := range zones {
 					if zone.Name() == subnet.AvailZone {
 						ec2AZ := zone.(*ec2AvailabilityZone)
@@ -318,7 +318,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
 func (e *environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
-	if _, _, err := e.startInstanceAvailabilityZoneAndSubnetID(
+	if _, _, err := e.deriveAvailabilityZoneAndSubnetID(
 		environs.StartInstanceParams{
 			Placement:         args.Placement,
 			VolumeAttachments: args.VolumeAttachments,
@@ -389,8 +389,6 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 	return common.DistributeInstances(e, candidates, distributionGroup)
 }
 
-var availabilityZoneAllocations = common.AvailabilityZoneAllocations
-
 // MaintainInstance is specified in the InstanceBroker interface.
 func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 	return nil
@@ -419,12 +417,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		}
 	}()
 
-	callback(status.Allocating, "Determining availability zones", nil)
+	callback(status.Allocating, "Verifying availability zone", nil)
 
-	// Determine the availability zones of existing volumes that are to be
-	// attached to the machine. They must all match, and must be the same
+	// Verify the provided availability zone to start the instance in.  It's
+	// provided via StartInstanceParams Constraints or AvailabilityZone.
+	// The availability zone of existing volumes that are to be
+	// attached to the machine must all match, and must be the same
 	// as specified zone (if any).
-	availabilityZone, placementSubnetID, err := e.startInstanceAvailabilityZoneAndSubnetID(args)
+	availabilityZone, placementSubnetID, err := e.deriveAvailabilityZoneAndSubnetID(args)
 	switch {
 	case err != nil && errors.IsNotValid(err):
 		return nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
@@ -520,11 +520,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		ImageId:             spec.Image.Id,
 	}
 
-	haveVPCID := isVPCIDSet(e.ecfg().vpcID())
-
 	runArgs := commonRunArgs
 	runArgs.AvailZone = availabilityZone
 
+	haveVPCID := isVPCIDSet(e.ecfg().vpcID())
 	var subnetIDsForZone []string
 	var subnetErr error
 	if haveVPCID {
@@ -633,12 +632,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	}, nil
 }
 
-func (e *environ) startInstanceAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	availabilityZone, _, err := e.startInstanceAvailabilityZoneAndSubnetID(args)
+func (e *environ) deriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+	availabilityZone, _, err := e.deriveAvailabilityZoneAndSubnetID(args)
 	return availabilityZone, err
 }
 
-func (e *environ) startInstanceAvailabilityZoneAndSubnetID(args environs.StartInstanceParams) (string, string, error) {
+func (e *environ) deriveAvailabilityZoneAndSubnetID(args environs.StartInstanceParams) (string, string, error) {
 	// Determine the availability zones of existing volumes that are to be
 	// attached to the machine. They must all match, and must be the same
 	// as specified zone (if any).

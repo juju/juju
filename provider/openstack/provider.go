@@ -574,13 +574,16 @@ type openstackPlacement struct {
 	zoneName string
 }
 
-// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
-func (e *Environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+// DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
+func (e *Environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
 	availabilityZone, err := e.deriveAvailabilityZone(args.Placement, args.VolumeAttachments)
 	if err != nil && !errors.IsNotImplemented(err) {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return availabilityZone, nil
+	if availabilityZone != "" {
+		return []string{availabilityZone}, nil
+	}
+	return nil, nil
 }
 
 func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) {

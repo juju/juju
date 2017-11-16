@@ -21,9 +21,38 @@ const loggerName = "juju.worker.logsender"
 // a channel and sends them to the JES via the logsink API.
 func New(logs LogRecordCh, logSenderAPI *logsender.API) worker.Worker {
 	loop := func(stop <-chan struct{}) error {
-		logWriter, err := logSenderAPI.LogWriter()
-		if err != nil {
+		// It has been observed that sometimes the logsender.API gets wedged
+		// attempting to get the LogWriter while the agent is being torn down,
+		// and the call to logSenderAPI.LogWriter() doesn't return. This stops
+		// the logsender worker from shutting down, and causes the entire
+		// agent to get wedged. To mitigate this, we get the LogWriter in a
+		// different goroutine allowing the worker to interrupt this.
+		sender := make(chan logsender.LogWriter)
+		errChan := make(chan error)
+		go func() {
+			logWriter, err := logSenderAPI.LogWriter()
+			if err != nil {
+				select {
+				case errChan <- err:
+				case <-stop:
+				}
+				return
+			}
+			select {
+			case sender <- logWriter:
+			case <-stop:
+				logWriter.Close()
+			}
+			return
+		}()
+		var logWriter logsender.LogWriter
+		var err error
+		select {
+		case logWriter = <-sender:
+		case err = <-errChan:
 			return errors.Annotate(err, "logsender dial failed")
+		case <-stop:
+			return nil
 		}
 		defer logWriter.Close()
 		for {

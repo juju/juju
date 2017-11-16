@@ -114,6 +114,11 @@ type Watcher struct {
 	beingKey map[int64]string
 	beingSeq map[string]int64
 
+	// ignoredSeqs are sequences that are active pingers, but are superseded by another pinger.
+	// We know who they represent, but there is a newer being that applies. This is because some agents
+	// (like the Controller agents), maintain multiple active connections.
+	ignoredSeqs map[int64]string
+
 	// watches has the per-key observer channels from Watch/Unwatch.
 	watches map[string][]chan<- Change
 
@@ -137,6 +142,9 @@ type Watcher struct {
 	// syncsSinceLastPrune is a counter that tracks how long it has been
 	// since we've run a prune on the Beings and Pings collections.
 	syncsSinceLastPrune int
+
+	// beingLoads tracks the number of beings that we've had to refresh from the database
+	beingLoads uint64
 }
 
 func (w Watcher) String() string {
@@ -167,14 +175,15 @@ func NewDeadWatcher(err error) *Watcher {
 // NewWatcher returns a new Watcher.
 func NewWatcher(base *mgo.Collection, modelTag names.ModelTag) *Watcher {
 	w := &Watcher{
-		modelUUID: modelTag.Id(),
-		base:      base,
-		pings:     pingsC(base),
-		beings:    beingsC(base),
-		beingKey:  make(map[int64]string),
-		beingSeq:  make(map[string]int64),
-		watches:   make(map[string][]chan<- Change),
-		request:   make(chan interface{}),
+		modelUUID:   modelTag.Id(),
+		base:        base,
+		pings:       pingsC(base),
+		beings:      beingsC(base),
+		beingKey:    make(map[int64]string),
+		beingSeq:    make(map[string]int64),
+		watches:     make(map[string][]chan<- Change),
+		request:     make(chan interface{}),
+		ignoredSeqs: make(map[int64]string),
 	}
 	go func() {
 		err := w.loop()
@@ -359,10 +368,11 @@ func (w *Watcher) checkShouldPrune() {
 	if chanceToPrune < 1.0 && rand.Float64() > chanceToPrune {
 		return
 	}
+	// When we decide to prune, we also drop our old cached beings
 	logger.Debugf("watcher %q decided to prune %q and %q", w.modelUUID, w.beings.Name, w.pings.Name)
 	w.syncsSinceLastPrune = 0
 	pruner := NewPruner(w.modelUUID, w.beings, w.pings, w.delta)
-	err := pruner.Prune()
+	err := pruner.Prune(w.ignoredSeqs)
 	if err != nil {
 		logger.Warningf("error while pruning %q for %q: %v", w.beings.Name, w.modelUUID, err)
 	}
@@ -528,6 +538,17 @@ func (w *Watcher) handleAlive(pings []pingInfo) (map[int64]bool, []int64, error)
 			// need to do any more work for this sequence
 			continue
 		}
+		if key, ok := w.ignoredSeqs[seq]; ok {
+			// This is a known sequence that has been superseded
+			if _, ok := w.beingSeq[key]; ok {
+				// The sequence that supersedes this one is still alive
+				continue
+			} else {
+				// What was a living pinger has now died, and this one might be promoted to primary pinger
+				// Treat it as Unknown
+				delete(w.ignoredSeqs, seq)
+			}
+		}
 		unknownSeqs = append(unknownSeqs, seq)
 	}
 	return alive, unknownSeqs, nil
@@ -569,6 +590,7 @@ func (w *Watcher) lookupUnknownSeqs(unknownSeqs []int64, dead map[int64]bool, se
 		being := beingInfo{}
 		for beingIter.Next(&being) {
 			seqToBeing[being.Seq] = being
+			w.beingLoads++
 		}
 		if err := beingIter.Close(); err != nil {
 			if err != mgo.ErrNotFound {
@@ -595,9 +617,13 @@ func (w *Watcher) lookupUnknownSeqs(unknownSeqs []int64, dead map[int64]bool, se
 		cur := w.beingSeq[being.Key]
 		if cur < seq {
 			delete(w.beingKey, cur)
+			if cur > 0 {
+				w.ignoredSeqs[cur] = being.Key
+			}
 		} else {
 			// We already have a sequence for this key, and it is
 			// newer than the one we just saw.
+			w.ignoredSeqs[seq] = being.Key
 			continue
 		}
 		// Start tracking the new sequence for this key

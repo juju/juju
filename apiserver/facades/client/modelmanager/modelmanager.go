@@ -718,11 +718,6 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 			lastConn = &userLastConn
 		}
 
-		model, err = st.Model()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     model.Name(),
