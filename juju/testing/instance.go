@@ -160,8 +160,8 @@ func fillinStartInstanceParams(env environs.Environ, machineId string, isControl
 	if params.Constraints.Arch != nil {
 		filter.Arch = *params.Constraints.Arch
 	}
-	stream := tools.PreferredStream(&agentVersion, env.Config().Development(), env.Config().AgentStream())
-	possibleTools, err := tools.FindTools(env, -1, -1, stream, filter)
+	streams := tools.PreferredStreams(&agentVersion, env.Config().Development(), env.Config().AgentStream())
+	possibleTools, err := tools.FindTools(env, -1, -1, streams, filter)
 	if err != nil {
 		return errors.Trace(err)
 	}
