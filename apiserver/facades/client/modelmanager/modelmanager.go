@@ -46,6 +46,7 @@ type ModelManagerV4 interface {
 	ListModelsWithInfo(user params.Entity) (params.ModelInfoResults, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
+	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
 }
 
 // ModelManagerV3 defines the methods on the version 2 facade for the
@@ -56,6 +57,7 @@ type ModelManagerV3 interface {
 	DumpModelsDB(args params.Entities) params.MapResults
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.Entities) (params.ErrorResults, error)
+	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
 }
 
 // ModelManagerV2 defines the methods on the version 2 facade for the
@@ -743,10 +745,10 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelIn
 				return params.ModelInfoResults{}, errors.Trace(err)
 			}
 			info.Result.Users = append(info.Result.Users, params.ModelUserInfo{
-				UserName:    user.UserName,
-				DisplayName: user.DisplayName,
-				// LastConnection: lastConn,
-				Access: access,
+				UserName:       user.UserName,
+				DisplayName:    user.DisplayName,
+				LastConnection: user.LastConnection,
+				Access:         access,
 			})
 		}
 	}

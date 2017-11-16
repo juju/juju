@@ -176,6 +176,11 @@ func (st *State) removeModelUser(user names.UserTag) error {
 	return nil
 }
 
+type UserAccessInfo struct {
+	permission.UserAccess
+	LastConnection *time.Time
+}
+
 type ModelDetails struct {
 	Name           string
 	UUID           string
@@ -199,8 +204,9 @@ type ModelDetails struct {
 	// Needs Statuses collection
 	Status status.StatusInfo
 
-	// Needs ModelUser collection
-	Users []permission.UserAccess
+	// Needs ModelUser, ModelUserLastConnection, and Permissions collections
+	Users map[string]UserAccessInfo
+
 	// Need to add LastConnection information for each user
 
 	// Machines contains information about the machines in the model.
@@ -222,18 +228,25 @@ type ModelDetails struct {
 
 }
 
+// modelDetailProcessor provides the working space for extracting details for models that a user has access to.
 type modelDetailProcessor struct {
 	st          *State
 	details     []ModelDetails
 	indexByUUID map[string]int
 	modelUUIDs  []string
 
+	//invalidLocalUsers are usernames that show up as we're walking the database, but ultimately are considered deleted
+	invalidLocalUsers set.Strings
+
 	// incompleteUUIDs are ones that are missing some information, we should treat them as not being available
 	// we wait to strip them out until we're done doing all the processing steps.
 	incompleteUUIDs set.Strings
 }
 
-func (p *modelDetailProcessor) fillInFromModelDocs(modelDocs []modelDoc) {
+func newProcessorFromModelDocs(st *State, modelDocs []modelDoc) *modelDetailProcessor {
+	p := &modelDetailProcessor{
+		st: st,
+	}
 	p.details = make([]ModelDetails, len(modelDocs))
 	p.indexByUUID = make(map[string]int, len(modelDocs))
 	p.modelUUIDs = make([]string, len(modelDocs))
@@ -257,6 +270,7 @@ func (p *modelDetailProcessor) fillInFromModelDocs(modelDocs []modelDoc) {
 		p.indexByUUID[doc.UUID] = i
 		p.modelUUIDs[i] = doc.UUID
 	}
+	return p
 }
 
 func (p *modelDetailProcessor) fillInFromConfig() error {
@@ -302,23 +316,26 @@ func (p *modelDetailProcessor) fillInFromConfig() error {
 	return nil
 }
 
-func (p *modelDetailProcessor) checkDeletedUser(username string) (bool, error) {
-	userTag := names.NewUserTag(username)
-	if !userTag.IsLocal() {
-		// Remote users can't be 'deleted' locally
-		return false, nil
+// removeExistingUsers takes a set of usernames, and removes any of them that are known-valid users.
+// it leaves behind names that could not be validated
+func (p *modelDetailProcessor) removeExistingUsers(names set.Strings) error {
+	// usersC is a global collection, so we can access it from any state
+	users, closer := p.st.db().GetCollection(usersC)
+	defer closer()
+
+	var doc struct {
+		Id string `bson:"_id"`
 	}
-	// It would be nice if we loaded these in batches
-	if _, err := p.st.User(userTag); err == nil {
-		return false, nil
-	} else {
-		// err != nil
-		if _, ok := err.(DeletedUserError); ok {
-			return true, nil
-		} else {
-			return false, errors.Trace(err)
-		}
+	query := users.Find(bson.M{"_id": bson.M{"$in": names.Values()}}).Select(bson.M{"_id": 1})
+	query.Batch(100)
+	iter := query.Iter()
+	for iter.Next(&doc) {
+		names.Remove(doc.Id)
 	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (p *modelDetailProcessor) fillInFromStatus() error {
@@ -352,6 +369,72 @@ func (p *modelDetailProcessor) fillInFromStatus() error {
 	return nil
 }
 
+func (p *modelDetailProcessor) fillInPermissions(permissionIdToUserAccessDoc map[string]userAccessDoc, permissionIds []string) error {
+	// permissionsC is a global collection, so can be accessed from any state
+	perms, closer := p.st.db().GetCollection(permissionsC)
+	defer closer()
+	query := perms.Find(bson.M{"_id": bson.M{"$in": permissionIds}})
+	iter := query.Iter()
+
+	var doc permissionDoc
+	for iter.Next(&doc) {
+		userDoc, ok := permissionIdToUserAccessDoc[doc.ID]
+		if !ok {
+			continue
+		}
+		modelIdx, ok := p.indexByUUID[userDoc.ObjectUUID]
+		if !ok {
+			// ??
+			continue
+		}
+		details := &p.details[modelIdx]
+		username := strings.ToLower(userDoc.UserName)
+		// mu, err := NewModelUserAccess(m.st, doc)
+		details.Users[username] = UserAccessInfo{
+			// newUserAccess?
+			UserAccess: permission.UserAccess{
+				UserID:      userDoc.ID,
+				UserTag:     names.NewUserTag(userDoc.UserName),
+				Object:      names.NewModelTag(userDoc.ObjectUUID),
+				Access:      stringToAccess(doc.Access),
+				CreatedBy:   names.NewUserTag(userDoc.CreatedBy),
+				DateCreated: userDoc.DateCreated.UTC(),
+				DisplayName: userDoc.DisplayName,
+				UserName:    userDoc.UserName,
+			},
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (p *modelDetailProcessor) fillInLastConnection(lastAccessIds []string) error {
+	lastConnections, closer2 := p.st.db().GetRawCollection(modelUserLastConnectionC)
+	defer closer2()
+	query := lastConnections.Find(bson.M{"_id": bson.M{"$in": lastAccessIds}})
+	query.Batch(100)
+	iter := query.Iter()
+	var connInfo modelUserLastConnectionDoc
+	for iter.Next(&connInfo) {
+		idx, ok := p.indexByUUID[connInfo.ModelUUID]
+		if !ok {
+			continue
+		}
+		details := &p.details[idx]
+		username := strings.ToLower(connInfo.UserName)
+		t := connInfo.LastConnection
+		userInfo := details.Users[username]
+		userInfo.LastConnection = &t
+		details.Users[username] = userInfo
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (p *modelDetailProcessor) fillInFromModelUsers() error {
 	// We use the raw settings because we are reading across model UUIDs
 	rawModelUsers, closer := p.st.database.GetRawCollection(modelUsersC)
@@ -359,49 +442,41 @@ func (p *modelDetailProcessor) fillInFromModelUsers() error {
 
 	// TODO(jam): ensure that we have appropriate indexes so that users that aren't "admin" and only see a couple
 	// models don't do a COLLSCAN on the table.
-	isDeletedUser := make(map[string]bool)
 	query := rawModelUsers.Find(bson.M{"object-uuid": bson.M{"$in": p.modelUUIDs}})
 	var doc userAccessDoc
 	iter := query.Iter()
+	permissionIdToAccessDoc := make(map[string]userAccessDoc)
+	// does this need to be a set, or just a simple slice, we shouldn't have duplicates
+	permissionIds := make([]string, 0)
+	lastAccessIds := make([]string, 0)
+	// These need to be checked if they have been deleted
+	localUsers := set.NewStrings()
 	for iter.Next(&doc) {
-		idx, ok := p.indexByUUID[doc.ObjectUUID]
-		if !ok {
-			// How could it return a doc for a model we don't have?
-			continue
+		username := strings.ToLower(doc.UserName)
+		userTag := names.NewUserTag(username)
+		if userTag.IsLocal() {
+			localUsers.Add(username)
 		}
-
-		var isDeleted bool
-		var known bool
-		var err error
-		if isDeleted, known = isDeletedUser[doc.UserName]; !known {
-			// Need to check if this is a deleted local user
-			isDeleted, err = p.checkDeletedUser(doc.UserName)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			isDeletedUser[doc.UserName] = isDeleted
-		}
-		if isDeleted {
-			// This is a known deleted user, omit it from the output
-			continue
-		}
-		// TODO: we really should load the Permissions in bulk as well
-		// We should be able to queue up all the objectKey and subjectKey that we care about and then query for them in
-		// bulk.
-		// For expediency, permissionsC is one of the few tables that doesn't get munged, so we can load the values from
-		// any State object
-		/// objectKey := modelKey(doc.ObjectUUID)
-		/// subjectKey := userGlobalKey(strings.ToLower(doc.UserName))
-		mu, err := NewModelUserAccess(p.st, doc)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		details := &p.details[idx]
-		details.Users = append(details.Users, mu)
+		permId := permissionID(modelKey(doc.ObjectUUID), userGlobalKey(username))
+		permissionIds = append(permissionIds, permId)
+		permissionIdToAccessDoc[permId] = doc
+		lastAccessIds = append(lastAccessIds, doc.ObjectUUID+":"+username)
 	}
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
 	}
+	// Now we check if any of these Users are actually deleted
+	// TODO: wait to add this check for an actual test case covering it
+	if err := p.removeExistingUsers(localUsers); err != nil {
+		return errors.Trace(err)
+	}
+	if err := p.fillInPermissions(permissionIdToAccessDoc, permissionIds); err != nil {
+		return errors.Trace(err)
+	}
+	if err := p.fillInLastConnection(lastAccessIds); err != nil {
+		return errors.Trace(err)
+	}
+	// TODO: We need to add machine information
 	return nil
 }
 
@@ -415,10 +490,7 @@ func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error)
 	if err := modelQuery.All(&modelDocs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	p := modelDetailProcessor{
-		st: st,
-	}
-	p.fillInFromModelDocs(modelDocs)
+	p := newProcessorFromModelDocs(st, modelDocs)
 	modelDocs = nil
 	if err := p.fillInFromConfig(); err != nil {
 		return nil, errors.Trace(err)
