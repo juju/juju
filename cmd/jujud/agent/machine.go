@@ -79,7 +79,6 @@ import (
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/logsender/logsendermetrics"
 	"github.com/juju/juju/worker/migrationmaster"
-	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	psworker "github.com/juju/juju/worker/pubsub"
@@ -571,6 +570,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			LoginValidator:                    a.limitLogins,
 			SetStatePool:                      statePoolReporter.set,
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
+			NewModelWorker:                    a.startModelWorkers,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -1093,18 +1093,6 @@ func (a *MachineAgent) startStateWorkers(
 			// Implemented elsewhere with workers that use the API.
 		case state.JobManageModel:
 			useMultipleCPUs()
-			a.startWorkerAfterUpgrade(runner, "model worker manager", func() (worker.Worker, error) {
-				w, err := modelworkermanager.New(modelworkermanager.Config{
-					ControllerUUID: st.ControllerUUID(),
-					Backend:        st,
-					NewWorker:      a.startModelWorkers,
-					ErrorDelay:     jworker.RestartDelay,
-				})
-				if err != nil {
-					return nil, errors.Annotate(err, "cannot start model worker manager")
-				}
-				return w, nil
-			})
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
 				env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
 				if err != nil {
@@ -1144,7 +1132,8 @@ func (a *MachineAgent) startStateWorkers(
 
 // startModelWorkers starts the set of workers that run for every model
 // in each controller.
-func (a *MachineAgent) startModelWorkers(controllerUUID, modelUUID string) (worker.Worker, error) {
+func (a *MachineAgent) startModelWorkers(modelUUID string) (worker.Worker, error) {
+	controllerUUID := a.CurrentConfig().Controller().Id()
 	modelAgent, err := model.WrapAgent(a, controllerUUID, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)

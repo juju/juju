@@ -54,6 +54,7 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
+	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/reboot"
@@ -201,6 +202,10 @@ type ManifoldsConfig struct {
 	// function will be passed a path and a handler; the function may
 	// alter the path as it sees fit, e.g. by adding a prefix.
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
+
+	// NewModelWorker returns a new worker for managing the model with
+	// the specified UUID.
+	NewModelWorker func(modelUUID string) (worker.Worker, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -634,6 +639,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				NewExternalControllerWatcherClient: newExternalControllerWatcherClient,
 			},
 		))),
+
 		logPrunerName: ifNotMigrating(ifPrimaryController(dblogpruner.Manifold(
 			dblogpruner.ManifoldConfig{
 				ClockName:     clockName,
@@ -642,6 +648,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				NewWorker:     dblogpruner.NewWorker,
 			},
 		))),
+
 		txnPrunerName: ifNotMigrating(ifPrimaryController(txnpruner.Manifold(
 			txnpruner.ManifoldConfig{
 				ClockName:     clockName,
@@ -663,6 +670,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                         apiserver.NewWorker,
 			NewStoreAuditEntryFunc:            apiserver.NewStateStoreAuditEntryFunc,
 		}),
+
+		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
+			StateName:      stateName,
+			NewWorker:      modelworkermanager.New,
+			NewModelWorker: config.NewModelWorker,
+		})),
 	}
 }
 
@@ -751,4 +764,5 @@ const (
 	txnPrunerName                 = "transaction-pruner"
 	apiServerName                 = "api-server"
 	certificateWatcherName        = "certificate-watcher"
+	modelWorkerManagerName        = "model-worker-manager"
 )

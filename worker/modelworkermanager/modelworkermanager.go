@@ -26,31 +26,27 @@ type BackendModel interface {
 	MigrationMode() state.MigrationMode
 }
 
-// NewWorkerFunc should return a worker responsible for running
-// all a model's required workers; and for returning nil when
-// there's no more model to manage.
-type NewWorkerFunc func(controllerUUID, modelUUID string) (worker.Worker, error)
+// NewModelWorkerFunc should return a worker responsible for running
+// all a model's required workers; and for returning nil when there's
+// no more model to manage.
+type NewModelWorkerFunc func(modelUUID string) (worker.Worker, error)
 
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
 type Config struct {
-	ControllerUUID string
 	Backend        Backend
-	NewWorker      NewWorkerFunc
+	NewModelWorker NewModelWorkerFunc
 	ErrorDelay     time.Duration
 }
 
 // Validate returns an error if config cannot be expected to drive
 // a functional model worker manager.
 func (config Config) Validate() error {
-	if config.ControllerUUID == "" {
-		return errors.NotValidf("missing controller UUID")
-	}
 	if config.Backend == nil {
 		return errors.NotValidf("nil Backend")
 	}
-	if config.NewWorker == nil {
-		return errors.NotValidf("nil NewWorker")
+	if config.NewModelWorker == nil {
+		return errors.NotValidf("nil NewModelWorker")
 	}
 	if config.ErrorDelay <= 0 {
 		return errors.NotValidf("non-positive ErrorDelay")
@@ -126,7 +122,7 @@ func (m *modelWorkerManager) loop() error {
 					// https://bugs.launchpad.net/juju/+bug/1646310
 					continue
 				}
-				if err := m.ensure(m.config.ControllerUUID, modelUUID); err != nil {
+				if err := m.ensure(modelUUID); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -134,18 +130,18 @@ func (m *modelWorkerManager) loop() error {
 	}
 }
 
-func (m *modelWorkerManager) ensure(controllerUUID, modelUUID string) error {
-	starter := m.starter(controllerUUID, modelUUID)
+func (m *modelWorkerManager) ensure(modelUUID string) error {
+	starter := m.starter(modelUUID)
 	if err := m.runner.StartWorker(modelUUID, starter); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (m *modelWorkerManager) starter(controllerUUID, modelUUID string) func() (worker.Worker, error) {
+func (m *modelWorkerManager) starter(modelUUID string) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		logger.Debugf("starting workers for model %q", modelUUID)
-		worker, err := m.config.NewWorker(controllerUUID, modelUUID)
+		worker, err := m.config.NewModelWorker(modelUUID)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot manage model %q", modelUUID)
 		}

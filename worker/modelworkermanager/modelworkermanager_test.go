@@ -158,9 +158,8 @@ func (s *suite) runDirtyTest(c *gc.C, test testFunc) {
 func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	backend := newMockBackend()
 	config := modelworkermanager.Config{
-		ControllerUUID: coretesting.ControllerTag.Id(),
 		Backend:        backend,
-		NewWorker:      s.startModelWorker,
+		NewModelWorker: s.startModelWorker,
 		ErrorDelay:     time.Millisecond,
 	}
 	w, err := modelworkermanager.New(config)
@@ -169,8 +168,8 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	test(w, backend)
 }
 
-func (s *suite) startModelWorker(controllerUUID, modelUUID string) (worker.Worker, error) {
-	worker := newMockWorker(controllerUUID, modelUUID)
+func (s *suite) startModelWorker(modelUUID string) (worker.Worker, error) {
+	worker := newMockWorker(modelUUID)
 	s.workerC <- worker
 	return worker, nil
 }
@@ -212,7 +211,7 @@ func (s *suite) assertNoWorkers(c *gc.C) {
 	}
 }
 
-func newMockWorker(_, modelUUID string) *mockWorker {
+func newMockWorker(modelUUID string) *mockWorker {
 	w := &mockWorker{uuid: modelUUID}
 	go func() {
 		defer w.tomb.Done()
