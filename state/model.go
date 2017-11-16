@@ -1244,21 +1244,23 @@ func (m *Model) destroyOps(
 		// that case we'll get errors if we try to enqueue hosted-model
 		// cleanups, because the cleanups collection is non-global.
 		ops = append(ops,
-			newCleanupOp(cleanupMachinesForDyingModel, modelUUID),
 			newCleanupOp(cleanupApplicationsForDyingModel, modelUUID),
 		)
-		if args.DestroyStorage != nil {
-			// The user has specified that the storage should be destroyed
-			// or released, which we can do in a cleanup. If the user did
-			// not specify either, then we have already added prereq ops
-			// to assert that there is no storage in the model.
-			ops = append(ops, newCleanupOp(
-				cleanupStorageForDyingModel, modelUUID,
-				// pass through DestroyModelArgs.DestroyStorage to the
-				// cleanup, so the storage can be destroyed/released
-				// according to the parameters.
-				*args.DestroyStorage,
-			))
+		if m.Type() == ModelTypeIAAS {
+			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID))
+			if args.DestroyStorage != nil {
+				// The user has specified that the storage should be destroyed
+				// or released, which we can do in a cleanup. If the user did
+				// not specify either, then we have already added prereq ops
+				// to assert that there is no storage in the model.
+				ops = append(ops, newCleanupOp(
+					cleanupStorageForDyingModel, modelUUID,
+					// pass through DestroyModelArgs.DestroyStorage to the
+					// cleanup, so the storage can be destroyed/released
+					// according to the parameters.
+					*args.DestroyStorage,
+				))
+			}
 		}
 	}
 	return append(prereqOps, ops...), nil

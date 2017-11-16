@@ -204,8 +204,8 @@ type ManifoldsConfig struct {
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 
 	// NewModelWorker returns a new worker for managing the model with
-	// the specified UUID.
-	NewModelWorker func(modelUUID string) (worker.Worker, error)
+	// the specified UUID and type.
+	NewModelWorker func(modelUUID string, modelType state.ModelType) (worker.Worker, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the

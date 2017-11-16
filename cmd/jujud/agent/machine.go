@@ -1131,8 +1131,8 @@ func (a *MachineAgent) startStateWorkers(
 }
 
 // startModelWorkers starts the set of workers that run for every model
-// in each controller.
-func (a *MachineAgent) startModelWorkers(modelUUID string) (worker.Worker, error) {
+// in each controller, both IAAS and CAAS.
+func (a *MachineAgent) startModelWorkers(modelUUID string, modelType state.ModelType) (worker.Worker, error) {
 	controllerUUID := a.CurrentConfig().Controller().Id()
 	modelAgent, err := model.WrapAgent(a, controllerUUID, modelUUID)
 	if err != nil {

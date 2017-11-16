@@ -154,6 +154,9 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		loginResult.ModelTag = model.Tag().String()
 		loginResult.Facades = filterFacades(a.srv.facades, append(filters, IsModelFacade)...)
 		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
+		if model.Type() == state.ModelTypeCAAS {
+			apiRoot = restrictRoot(apiRoot, caasModelFacadesOnly)
+		}
 	}
 
 	a.root.rpcConn.ServeRoot(apiRoot, serverError)
