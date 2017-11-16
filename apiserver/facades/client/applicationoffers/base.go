@@ -60,21 +60,24 @@ func (api *BaseAPI) checkAdmin(backend Backend) error {
 	return nil
 }
 
-// modelForName looks up the model details for the named model.
-func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, bool, error) {
+// modelForName looks up the model details for the named model and returns
+// the model (if found), the absolute model model path which was used in the lookup,
+// and a bool indicating if the model was found,
+func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, string, bool, error) {
 	user := api.Authorizer.GetAuthTag()
 	if ownerName == "" {
 		ownerName = user.Id()
 	}
+	modelPath := fmt.Sprintf("%s/%s", ownerName, modelName)
 	var model Model
 	uuids, err := api.ControllerModel.AllModelUUIDs()
 	if err != nil {
-		return nil, false, errors.Trace(err)
+		return nil, modelPath, false, errors.Trace(err)
 	}
 	for _, uuid := range uuids {
 		m, release, err := api.StatePool.GetModel(uuid)
 		if err != nil {
-			return nil, false, errors.Trace(err)
+			return nil, modelPath, false, errors.Trace(err)
 		}
 		defer release()
 		if m.Name() == modelName && m.Owner().Id() == ownerName {
@@ -82,7 +85,7 @@ func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, bool, erro
 			break
 		}
 	}
-	return model, model != nil, nil
+	return model, modelPath, model != nil, nil
 }
 
 func (api *BaseAPI) userDisplayName(backend Backend, userTag names.UserTag) (string, error) {
@@ -270,12 +273,12 @@ func (api *BaseAPI) getModelsFromOffers(offerURLs ...string) ([]offerModel, erro
 			return model, nil
 		}
 
-		model, ok, err := api.modelForName(url.ModelName, url.User)
+		model, absModelPath, ok, err := api.modelForName(url.ModelName, url.User)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if !ok {
-			return nil, errors.NotFoundf("model %q", modelPath)
+			return nil, errors.NotFoundf("model %q", absModelPath)
 		}
 		return model, nil
 	}
@@ -312,12 +315,12 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 		)
 		if modelUUID, ok = modelUUIDs[f.ModelName]; !ok {
 			var err error
-			model, ok, err := api.modelForName(f.ModelName, f.OwnerName)
+			model, absModelPath, ok, err := api.modelForName(f.ModelName, f.OwnerName)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
 			if !ok {
-				err := errors.NotFoundf("model %q", f.ModelName)
+				err := errors.NotFoundf("model %q", absModelPath)
 				return nil, nil, errors.Trace(err)
 			}
 			// Record the UUID and model for next time.

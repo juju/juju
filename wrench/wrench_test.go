@@ -32,11 +32,18 @@ var _ = gc.Suite(&wrenchSuite{})
 
 func (s *wrenchSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
 	// BaseSuite turns off wrench so restore the non-testing default.
 	wrench.SetEnabled(true)
+
+	logger := loggo.GetLogger("juju.wrench")
+	oldLevel := logger.LogLevel()
+	logger.SetLogLevel(loggo.TRACE)
+
 	c.Assert(loggo.RegisterWriter("wrench-tests", &s.logWriter), gc.IsNil)
 	s.AddCleanup(func(*gc.C) {
 		s.logWriter.Clear()
+		logger.SetLogLevel(oldLevel)
 		loggo.RemoveWriter("wrench-tests")
 		// Ensure the wrench is turned off when these tests are done.
 		wrench.SetEnabled(false)
@@ -174,7 +181,7 @@ var notJujuUid = uint32(os.Getuid() + 1)
 
 func (s *wrenchSuite) AssertActivationLogged(c *gc.C) {
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.DEBUG, `wrench for foo/bar is active`}})
+		{loggo.TRACE, `wrench for foo/bar is active`}})
 }
 
 func (s *wrenchSuite) AssertNothingLogged(c *gc.C) {
@@ -183,10 +190,10 @@ func (s *wrenchSuite) AssertNothingLogged(c *gc.C) {
 
 func (s *wrenchSuite) AssertFileErrorLogged(c *gc.C) {
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.DEBUG, `no wrench data for foo/bar \(ignored\): ` + fileNotFound}})
+		{loggo.TRACE, `no wrench data for foo/bar \(ignored\): ` + fileNotFound}})
 }
 
 func (s *wrenchSuite) AssertDirErrorLogged(c *gc.C) {
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.DEBUG, `couldn't read wrench directory: ` + fileNotFound}})
+		{loggo.TRACE, `couldn't read wrench directory: ` + fileNotFound}})
 }

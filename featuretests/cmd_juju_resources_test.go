@@ -4,6 +4,8 @@
 package featuretests
 
 import (
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
@@ -96,6 +98,13 @@ upload-resource   -
 	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(cmdtesting.Stderr(context), jc.Contains, `ERROR failed to upload resource "install-resource": open oops: no such file or directory`)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+
+	// Empty files are fine.
+	filename := filepath.Join(c.MkDir(), "empty.txt")
+	err = ioutil.WriteFile(filename, []byte{}, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = runCommand(c, "attach-resource", s.appOneName, "install-resource="+filename)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *ResourcesCmdSuite) runCharmResourcesCommand(c *gc.C) {

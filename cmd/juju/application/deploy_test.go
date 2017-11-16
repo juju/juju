@@ -108,17 +108,8 @@ var initErrorTests = []struct {
 		args: []string{"charm", "--attach-storage", "foo/0", "-n", "2"},
 		err:  `--attach-storage cannot be used with -n`,
 	}, {
-		args: []string{"bundle", "--bundle-machine", "foo"},
-		err:  `invalid value "foo" for flag --bundle-machine: expected key=value format`,
-	}, {
-		args: []string{"bundle", "--bundle-machine", "foo=bar"},
-		err:  `--bundle-machine value "foo=bar", first value be a top level machine id`,
-	}, {
-		args: []string{"bundle", "--bundle-machine", "2=bar"},
-		err:  `--bundle-machine value "2=bar", second value be a top level machine id`,
-	}, {
-		args: []string{"bundle", "--bundle-machine", "2=-3"},
-		err:  `--bundle-machine value "2=-3", second value be a top level machine id`,
+		args: []string{"bundle", "--map-machines", "foo"},
+		err:  `error in --map-machines: expected "existing" or "<bundle-id>=<machine-id>", got "foo"`,
 	},
 }
 
@@ -1277,6 +1268,63 @@ func (s *ParseBindSuite) checkParseFailsForArgs(c *gc.C, args string, expectedEr
 	err, parsedBindings := s.runParseBindWithArgs(args)
 	c.Check(err.Error(), gc.Equals, parseBindErrorPrefix+expectedErrorSuffix)
 	c.Check(parsedBindings, gc.IsNil)
+}
+
+type ParseMachineMapSuite struct{}
+
+var _ = gc.Suite(&ParseMachineMapSuite{})
+
+func (s *ParseMachineMapSuite) TestEmptyString(c *gc.C) {
+	existing, mapping, err := parseMachineMap("")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(existing, jc.IsFalse)
+	c.Check(mapping, gc.HasLen, 0)
+}
+
+func (s *ParseMachineMapSuite) TestExisting(c *gc.C) {
+	existing, mapping, err := parseMachineMap("existing")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(existing, jc.IsTrue)
+	c.Check(mapping, gc.HasLen, 0)
+}
+
+func (s *ParseMachineMapSuite) TestMapping(c *gc.C) {
+	existing, mapping, err := parseMachineMap("1=2,3=4")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(existing, jc.IsFalse)
+	c.Check(mapping, jc.DeepEquals, map[string]string{
+		"1": "2", "3": "4",
+	})
+}
+
+func (s *ParseMachineMapSuite) TestMappingWithExisting(c *gc.C) {
+	existing, mapping, err := parseMachineMap("1=2,3=4,existing")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(existing, jc.IsTrue)
+	c.Check(mapping, jc.DeepEquals, map[string]string{
+		"1": "2", "3": "4",
+	})
+}
+
+func (s *ParseMachineMapSuite) TestSpaces(c *gc.C) {
+	existing, mapping, err := parseMachineMap("1=2, 3=4, existing")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(existing, jc.IsTrue)
+	c.Check(mapping, jc.DeepEquals, map[string]string{
+		"1": "2", "3": "4",
+	})
+}
+
+func (s *ParseMachineMapSuite) TestErrors(c *gc.C) {
+	checkErr := func(value, expect string) {
+		_, _, err := parseMachineMap(value)
+		c.Check(err, gc.ErrorMatches, expect)
+	}
+
+	checkErr("blah", `expected "existing" or "<bundle-id>=<machine-id>", got "blah"`)
+	checkErr("1=2=3", `expected "existing" or "<bundle-id>=<machine-id>", got "1=2=3"`)
+	checkErr("1=-1", `machine-id "-1" is not a top level machine id`)
+	checkErr("-1=1", `bundle-id "-1" is not a top level machine id`)
 }
 
 type DeployUnitTestSuite struct {

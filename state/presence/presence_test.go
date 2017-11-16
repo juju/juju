@@ -610,3 +610,30 @@ func (s *PresenceSuite) TestRemovePresenceForModel(c *gc.C) {
 	err = presence.RemovePresenceForModel(s.presence, s.modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *PresenceSuite) TestMultiplePingersForEntity(c *gc.C) {
+	// We should be able to track multiple sequences for a given Entity, without having to reread the database all the time
+	key := "a"
+
+	// Start a pinger in this model
+	w := presence.NewWatcher(s.presence, s.modelTag)
+	defer assertStopped(c, w)
+	p1 := presence.NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
+	p1.Start()
+	assertStopped(c, p1)
+	p2 := presence.NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
+	p2.Start()
+	assertStopped(c, p2)
+	p3 := presence.NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
+	p3.Start()
+	assertStopped(c, p3)
+	w.Sync()
+	loads := w.BeingLoads()
+	c.Check(loads, jc.GreaterThan, uint64(0))
+	alive, err := w.Alive(key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(alive, jc.IsTrue)
+	// When we sync a second time, all of the above entities should already be cached, so we don't have to load them again
+	w.Sync()
+	c.Check(w.BeingLoads(), gc.Equals, loads)
+}

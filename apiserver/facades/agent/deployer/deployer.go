@@ -19,6 +19,7 @@ type DeployerAPI struct {
 	*common.Remover
 	*common.PasswordChanger
 	*common.LifeGetter
+	*common.APIAddresser
 	*common.UnitsWatcher
 	*common.StatusSetter
 
@@ -62,6 +63,7 @@ func NewDeployerAPI(
 		Remover:         common.NewRemover(st, true, getAuthFunc),
 		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
+		APIAddresser:    common.NewAPIAddresser(st, resources),
 		UnitsWatcher:    common.NewUnitsWatcher(st, resources, getCanWatch),
 		StatusSetter:    common.NewStatusSetter(st, getAuthFunc),
 		st:              st,
@@ -73,23 +75,13 @@ func NewDeployerAPI(
 // ConnectionInfo returns all the address information that the
 // deployer task needs in one call.
 func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	stateAddresser := common.NewStateAddresser(d.st)
-	stateAddrs, err := stateAddresser.StateAddresses()
+	apiAddrs, err := d.APIAddresses()
 	if err != nil {
 		return result, err
 	}
-
-	apiAddresser := common.NewAPIAddresser(d.st, d.resources)
-	apiAddrs, err := apiAddresser.APIAddresses()
-	if err != nil {
-		return result, err
-	}
-
 	result = params.DeployerConnectionValues{
-		StateAddresses: stateAddrs.Result,
-		APIAddresses:   apiAddrs.Result,
+		APIAddresses: apiAddrs.Result,
 	}
-
 	return result, err
 }
 

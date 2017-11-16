@@ -131,7 +131,6 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("state addresses: %q", result.StateAddresses)
 	logger.Debugf("API addresses: %q", result.APIAddresses)
 	containerType := ctx.agentConfig.Value(agent.ContainerType)
 	namespace := ctx.agentConfig.Value(agent.Namespace)
@@ -148,10 +147,8 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 			Nonce:             "unused",
 			Controller:        ctx.agentConfig.Controller(),
 			Model:             ctx.agentConfig.Model(),
-			// TODO: remove the state addresses here and test when api only.
-			StateAddresses: result.StateAddresses,
-			APIAddresses:   result.APIAddresses,
-			CACert:         ctx.agentConfig.CACert(),
+			APIAddresses:      result.APIAddresses,
+			CACert:            ctx.agentConfig.CACert(),
 			Values: map[string]string{
 				agent.ContainerType: containerType,
 				agent.Namespace:     namespace,
@@ -268,7 +265,12 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 // service returns a service.Service corresponding to the specified
 // unit.
 func (ctx *SimpleContext) service(unitName string, renderer shell.Renderer) (deployerService, error) {
-	tag := names.NewUnitTag(unitName).String()
+	// Service name can be at most 64 characters long, we limit it to 56 just to be safe.
+	tag, err := names.NewUnitTag(unitName).ShortenedString(56)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	svcName := "jujud-" + tag
 
 	info := service.NewAgentInfo(

@@ -160,11 +160,7 @@ func (st modelManagerStateShim) GetModel(modelUUID string) (Model, func() bool, 
 
 // Model implements ModelManagerBackend.
 func (st modelManagerStateShim) Model() (Model, error) {
-	m, err := st.State.Model()
-	if err != nil {
-		return nil, err
-	}
-	return modelShim{m}, nil
+	return modelShim{st.model}, nil
 }
 
 var _ Model = (*modelShim)(nil)

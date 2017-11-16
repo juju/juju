@@ -1272,15 +1272,20 @@ func (s *consumeSuite) TestDestroyOffers(c *gc.C) {
 
 	s.authorizer.Tag = names.NewUserTag("admin")
 	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
-		OfferURLs: []string{"fred/prod.hosted-mysql", "fred/prod.unknown"},
+		OfferURLs: []string{
+			"fred/prod.hosted-mysql", "fred/prod.unknown", "garbage/badmodel.someoffer", "badmodel.someoffer"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results, gc.HasLen, 4)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
 		{},
 		{
 			Error: &params.Error{Message: `application offer "unknown" not found`, Code: "not found"},
+		}, {
+			Error: &params.Error{Message: `model "garbage/badmodel" not found`, Code: "not found"},
+		}, {
+			Error: &params.Error{Message: `model "admin/badmodel" not found`, Code: "not found"},
 		},
 	})
 

@@ -842,12 +842,12 @@ func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (inst
 		},
 	}
 	zonedEnviron := env.(common.ZonedEnviron)
-	zone, err := zonedEnviron.DeriveAvailabilityZone(params)
+	zones, err := zonedEnviron.DeriveAvailabilityZones(params)
 	if err != nil {
 		return nil, err
 	}
-	if zone != "" {
-		params.AvailabilityZone = zone
+	if len(zones) > 0 {
+		params.AvailabilityZone = zones[0]
 		result, err := testing.StartInstanceWithParams(env, "1", params)
 		if err != nil {
 			return nil, err
@@ -871,7 +871,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *gc.C) {
 		},
 	}
 	zonedEnviron := env.(common.ZonedEnviron)
-	_, err := zonedEnviron.DeriveAvailabilityZone(params)
+	_, err := zonedEnviron.DeriveAvailabilityZones(params)
 	c.Assert(err, gc.ErrorMatches, `unknown placement directive: subnet=0.1.2.0/24`)
 }
 
@@ -946,7 +946,7 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 	return t.result, t.err
 }
 
-func (t *localServerSuite) TestDeriveAvailabilityZone(c *gc.C) {
+func (t *localServerSuite) TestDeriveAvailabilityZones(c *gc.C) {
 	var resultZones []amzec2.AvailabilityZoneInfo
 	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
 		resp := &amzec2.AvailabilityZonesResp{
@@ -961,12 +961,12 @@ func (t *localServerSuite) TestDeriveAvailabilityZone(c *gc.C) {
 	resultZones[0].State = "available"
 	resultZones[1].State = "impaired"
 
-	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "zone=az1"})
+	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{Placement: "zone=az1"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "az1")
+	c.Assert(zones, gc.DeepEquals, []string{"az1"})
 }
 
-func (t *localServerSuite) TestDeriveAvailabilityZoneImpaired(c *gc.C) {
+func (t *localServerSuite) TestDeriveAvailabilityZonesImpaired(c *gc.C) {
 	var resultZones []amzec2.AvailabilityZoneInfo
 	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
 		resp := &amzec2.AvailabilityZonesResp{
@@ -981,12 +981,12 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneImpaired(c *gc.C) {
 	resultZones[0].State = "available"
 	resultZones[1].State = "impaired"
 
-	zone, err := env.DeriveAvailabilityZone(environs.StartInstanceParams{Placement: "zone=az2"})
+	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{Placement: "zone=az2"})
 	c.Assert(err, gc.ErrorMatches, "availability zone \"az2\" is \"impaired\"")
-	c.Assert(zone, gc.Equals, "")
+	c.Assert(zones, gc.HasLen, 0)
 }
 
-func (t *localServerSuite) TestDeriveAvailabilityZoneConflictVolume(c *gc.C) {
+func (t *localServerSuite) TestDeriveAvailabilityZonesConflictVolume(c *gc.C) {
 	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
 		VolumeSize: 1,
 		VolumeType: "gp2",
@@ -1008,12 +1008,12 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneConflictVolume(c *gc.C) {
 		}},
 	}
 	env := t.Prepare(c).(common.ZonedEnviron)
-	zone, err := env.DeriveAvailabilityZone(args)
+	zones, err := env.DeriveAvailabilityZones(args)
 	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
-	c.Assert(zone, gc.Equals, "")
+	c.Assert(zones, gc.HasLen, 0)
 }
 
-func (t *localServerSuite) TestDeriveAvailabilityZoneVolumeNoPlacement(c *gc.C) {
+func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C) {
 	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
 		VolumeSize: 1,
 		VolumeType: "gp2",
@@ -1034,9 +1034,9 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneVolumeNoPlacement(c *gc.C) 
 		}},
 	}
 	env := t.Prepare(c).(common.ZonedEnviron)
-	zone, err := env.DeriveAvailabilityZone(args)
+	zones, err := env.DeriveAvailabilityZones(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(zone, gc.Equals, "volume-zone")
+	c.Assert(zones, gc.DeepEquals, []string{"volume-zone"})
 }
 
 var azConstrainedErr = &amzec2.Error{
@@ -1219,10 +1219,10 @@ func (t *localServerSuite) assertStartInstanceWithParamsFindAZ(
 	params environs.StartInstanceParams,
 ) {
 	zonedEnviron := env.(common.ZonedEnviron)
-	zone, err := zonedEnviron.DeriveAvailabilityZone(params)
+	zones, err := zonedEnviron.DeriveAvailabilityZones(params)
 	c.Assert(err, jc.ErrorIsNil)
-	if zone != "" {
-		params.AvailabilityZone = zone
+	if len(zones) > 0 {
+		params.AvailabilityZone = zones[0]
 		_, err = testing.StartInstanceWithParams(env, "1", params)
 		c.Assert(err, jc.ErrorIsNil)
 		return
@@ -1261,7 +1261,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 	}
 	//_, err := testing.StartInstanceWithParams(env, "1", params)
 	zonedEnviron := env.(common.ZonedEnviron)
-	_, err := zonedEnviron.DeriveAvailabilityZone(params)
+	_, err := zonedEnviron.DeriveAvailabilityZones(params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
 }
 

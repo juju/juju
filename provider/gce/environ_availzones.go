@@ -54,9 +54,13 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 	return results, err
 }
 
-// DeriveAvailabilityZone is part of the common.ZonedEnviron interface.
-func (env *environ) DeriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	return env.deriveAvailabilityZone(args.Placement, args.VolumeAttachments)
+// DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
+func (env *environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+	zone, err := env.deriveAvailabilityZones(args.Placement, args.VolumeAttachments)
+	if zone != "" {
+		return []string{zone}, errors.Trace(err)
+	}
+	return nil, errors.Trace(err)
 }
 
 func (env *environ) availZone(name string) (*google.AvailabilityZone, error) {
@@ -125,7 +129,7 @@ func (env *environ) instancePlacementZone(placement string, volumeAttachmentsZon
 	return instPlacement.Zone.Name(), nil
 }
 
-func (e *environ) deriveAvailabilityZone(
+func (e *environ) deriveAvailabilityZones(
 	placement string,
 	volumeAttachments []storage.VolumeAttachmentParams,
 ) (string, error) {

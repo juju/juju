@@ -190,8 +190,9 @@ func openCalls(model names.ModelTag, entity names.Tag, passwords ...string) []te
 		calls[i] = testing.StubCall{
 			FuncName: "apiOpen",
 			Args: []interface{}{info, api.DialOpts{
-				DialTimeout: time.Second,
+				DialTimeout: 3 * time.Second,
 				RetryDelay:  200 * time.Millisecond,
+				Timeout:     time.Minute,
 			}},
 		}
 	}
