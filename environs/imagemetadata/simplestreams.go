@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
@@ -189,17 +190,32 @@ func (ic *ImageConstraint) IndexIds() []string {
 
 // ProductIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (ic *ImageConstraint) ProductIds() ([]string, error) {
-	stream := idStream(ic.Stream)
+	streams := ic.Streams
+	if len(streams) == 0 {
+		// If there are no streams specified use the default ""
+		streams = []string{""}
+	}
 	nrArches := len(ic.Arches)
 	nrSeries := len(ic.Series)
-	ids := make([]string, nrArches*nrSeries)
-	for i, arch := range ic.Arches {
-		for j, ser := range ic.Series {
-			version, err := series.SeriesVersion(ser)
-			if err != nil {
-				return nil, err
+	nrStreams := len(streams)
+	ids := make([]string, 0, nrArches*nrSeries*nrStreams)
+
+	addIdsForStream := func(stream string) error {
+		for _, arch := range ic.Arches {
+			for _, ser := range ic.Series {
+				version, err := series.SeriesVersion(ser)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				ids = append(ids, fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch))
 			}
-			ids[j*nrArches+i] = fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch)
+		}
+		return nil
+	}
+
+	for _, stream := range streams {
+		if err := addIdsForStream(idStream(stream)); err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 	return ids, nil
@@ -244,18 +260,19 @@ func Fetch(
 			ValueTemplate: ImageMetadata{},
 		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
+	results, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {
-		return nil, resolveInfo, err
+		return nil, nil, err
 	}
-	metadata := make([]*ImageMetadata, len(items))
-	for i, md := range items {
+	// GetMetadata returns NotFound if there are 0 results.
+	metadata := make([]*ImageMetadata, len(results[0].Items))
+	for i, md := range results[0].Items {
 		metadata[i] = md.(*ImageMetadata)
 	}
 	// Sorting the metadata is not strictly necessary, but it ensures consistent ordering for
 	// all compilers, and it just makes it easier to look at the data.
 	Sort(metadata)
-	return metadata, resolveInfo, nil
+	return metadata, results[0].ResolveInfo, nil
 }
 
 // Sort sorts a slice of ImageMetadata in ascending order of their id

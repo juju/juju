@@ -20,10 +20,25 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.tools")
 
-func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, majorVersion, minorVersion int,
+var streamFallbacks = map[string][]string{
+	ReleasedStream: {ReleasedStream},
+	ProposedStream: {ProposedStream, ReleasedStream},
+	DevelStream:    {DevelStream, ProposedStream, ReleasedStream},
+	TestingStream:  {TestingStream, DevelStream, ProposedStream, ReleasedStream},
+}
+
+func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, fallback bool, majorVersion, minorVersion int,
 	filter coretools.Filter) (*ToolsConstraint, error) {
 
 	var toolsConstraint *ToolsConstraint
+
+	streams := []string{stream}
+	if fallback {
+		if fallbacks, ok := streamFallbacks[stream]; ok {
+			streams = fallbacks
+		}
+	}
+
 	if filter.Number != version.Zero {
 		// A specific tools version is required, however, a general match based on major/minor
 		// version may also have been requested. This is used to ensure any agent version currently
@@ -36,10 +51,10 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 			return nil, coretools.ErrNoMatches
 		}
 		toolsConstraint = NewVersionedToolsConstraint(filter.Number,
-			simplestreams.LookupParams{CloudSpec: cloudSpec, Stream: stream})
+			simplestreams.LookupParams{CloudSpec: cloudSpec, Streams: streams})
 	} else {
 		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion,
-			simplestreams.LookupParams{CloudSpec: cloudSpec, Stream: stream})
+			simplestreams.LookupParams{CloudSpec: cloudSpec, Streams: streams})
 	}
 	if filter.Arch != "" {
 		toolsConstraint.Arches = []string{filter.Arch}
@@ -131,7 +146,7 @@ func FindTools(env environs.Environ, majorVersion, minorVersion int, stream stri
 func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestreams.CloudSpec, stream string,
 	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
 
-	toolsConstraint, err := makeToolsConstraint(cloudSpec, stream, majorVersion, minorVersion, filter)
+	toolsConstraint, err := makeToolsConstraint(cloudSpec, stream, true, majorVersion, minorVersion, filter)
 	if err != nil {
 		return nil, err
 	}

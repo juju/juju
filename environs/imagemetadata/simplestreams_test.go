@@ -319,7 +319,7 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 		Arches: []string{"amd64"},
 	})
 	for _, stream := range []string{"", "released"} {
-		imageConstraint.Stream = stream
+		imageConstraint.Streams = []string{stream}
 		ids, err := imageConstraint.ProductIds()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
@@ -328,9 +328,9 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 
 func (s *productSpecSuite) TestId(c *gc.C) {
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Series: []string{"precise"},
-		Arches: []string{"amd64"},
-		Stream: "daily",
+		Series:  []string{"precise"},
+		Arches:  []string{"amd64"},
+		Streams: []string{"daily"},
 	})
 	ids, err := imageConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)
@@ -339,9 +339,9 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Series: []string{"precise"},
-		Arches: []string{"amd64", "i386"},
-		Stream: "daily",
+		Series:  []string{"precise"},
+		Arches:  []string{"amd64", "i386"},
+		Streams: []string{"daily"},
 	})
 	ids, err := imageConstraint.ProductIds()
 	c.Assert(err, jc.ErrorIsNil)

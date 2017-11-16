@@ -14,7 +14,7 @@ var (
 
 func NewConstraint(stream string, majorVersion int) *constraint {
 	return &constraint{
-		LookupParams: simplestreams.LookupParams{Stream: stream},
+		LookupParams: simplestreams.LookupParams{Streams: []string{stream}},
 		majorVersion: majorVersion,
 	}
 }

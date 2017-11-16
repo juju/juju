@@ -29,9 +29,9 @@ func ValidateImageMetadata(params *simplestreams.MetadataLookupParams) ([]string
 			Region:   params.Region,
 			Endpoint: params.Endpoint,
 		},
-		Series: []string{params.Series},
-		Arches: params.Architectures,
-		Stream: params.Stream,
+		Series:  []string{params.Series},
+		Arches:  params.Architectures,
+		Streams: []string{params.Stream},
 	})
 	matchingImages, resolveInfo, err := Fetch(params.Sources, imageConstraint)
 	if err != nil {

@@ -74,21 +74,27 @@ type ToolsConstraint struct {
 
 // NewVersionedToolsConstraint returns a ToolsConstraint for a tools with a specific version.
 func NewVersionedToolsConstraint(vers version.Number, params simplestreams.LookupParams) *ToolsConstraint {
-	return &ToolsConstraint{LookupParams: params, Version: vers}
+	return &ToolsConstraint{
+		LookupParams: params,
+		Version:      vers,
+	}
 }
 
 // NewGeneralToolsConstraint returns a ToolsConstraint for tools with matching major/minor version numbers.
 func NewGeneralToolsConstraint(majorVersion, minorVersion int, params simplestreams.LookupParams) *ToolsConstraint {
 	return &ToolsConstraint{LookupParams: params, Version: version.Zero,
-		MajorVersion: majorVersion, MinorVersion: minorVersion}
+		MajorVersion: majorVersion,
+		MinorVersion: minorVersion,
+	}
 }
 
 // IndexIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (tc *ToolsConstraint) IndexIds() []string {
-	if tc.Stream == "" {
-		return nil
+	var results []string
+	for _, stream := range tc.Streams {
+		results = append(results, ToolsContentId(stream))
 	}
-	return []string{ToolsContentId(tc.Stream)}
+	return results
 }
 
 // ProductIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
@@ -167,24 +173,27 @@ func Fetch(
 		StreamsVersion:   currentStreamsVersion,
 		LookupConstraint: cons,
 		ValueParams: simplestreams.ValueParams{
-			DataType:        ContentDownload,
-			FilterFunc:      appendMatchingTools,
-			MirrorContentId: ToolsContentId(cons.Stream),
-			ValueTemplate:   ToolsMetadata{},
+			DataType:      ContentDownload,
+			FilterFunc:    appendMatchingTools,
+			ValueTemplate: ToolsMetadata{},
 		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
+	if len(cons.Streams) > 0 {
+		params.ValueParams.MirrorContentId = ToolsContentId(cons.Streams[0])
+	}
+	results, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {
 		return nil, nil, err
 	}
-	metadata := make([]*ToolsMetadata, len(items))
-	for i, md := range items {
+	// GetMetadata returns NotFound if there are no results.
+	metadata := make([]*ToolsMetadata, len(results[0].Items))
+	for i, md := range results[0].Items {
 		metadata[i] = md.(*ToolsMetadata)
 	}
 	// Sorting the metadata is not strictly necessary, but it ensures consistent ordering for
 	// all compilers, and it just makes it easier to look at the data.
 	Sort(metadata)
-	return metadata, resolveInfo, nil
+	return metadata, results[0].ResolveInfo, nil
 }
 
 // Sort sorts a slice of ToolsMetadata in ascending order of their version
@@ -348,7 +357,7 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 // ReadMetadata returns the tools metadata from the given storage for the specified stream.
 func ReadMetadata(store storage.StorageReader, stream string) ([]*ToolsMetadata, error) {
 	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath, simplestreams.EXISTING_CLOUD_DATA, false)
-	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, -1, -1, coretools.Filter{})
+	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, false, -1, -1, coretools.Filter{})
 	if err != nil {
 		return nil, err
 	}

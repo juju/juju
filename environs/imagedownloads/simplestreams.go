@@ -99,18 +99,19 @@ func Fetch(
 			ValueTemplate: Metadata{},
 		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(src, params)
+	results, err := simplestreams.GetMetadata(src, params)
 	if err != nil {
-		return nil, resolveInfo, err
+		return nil, nil, err
 	}
-	md := make([]*Metadata, len(items))
-	for i, im := range items {
+	// GetMetadata returns NotFound if there are no results.
+	md := make([]*Metadata, len(results[0].Items))
+	for i, im := range results[0].Items {
 		md[i] = im.(*Metadata)
 	}
 
 	Sort(md)
 
-	return md, resolveInfo, nil
+	return md, results[0].ResolveInfo, nil
 }
 
 func validateArgs(arch, release, ftype string) error {

@@ -36,9 +36,9 @@ func findImageMetadata(env environs.Environ, args environs.StartInstanceParams) 
 	series := args.Tools.OneSeries()
 	ic := &imagemetadata.ImageConstraint{
 		LookupParams: simplestreams.LookupParams{
-			Series: []string{series},
-			Arches: arches,
-			Stream: env.Config().ImageStream(),
+			Series:  []string{series},
+			Arches:  arches,
+			Streams: []string{env.Config().ImageStream()},
 		},
 	}
 	sources, err := environs.ImageMetadataSources(env)
@@ -67,12 +67,14 @@ func imageMetadataFetch(sources []simplestreams.DataSource, cons *imagemetadata.
 			ValueTemplate: OvaFileMetadata{},
 		},
 	}
-	items, _, err := simplestreams.GetMetadata(sources, params)
+	results, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	metadata := make([]*OvaFileMetadata, len(items))
-	for i, md := range items {
+	// If there were no results, GetMetadata would have returned a
+	// NotFound error.
+	metadata := make([]*OvaFileMetadata, len(results[0].Items))
+	for i, md := range results[0].Items {
 		metadata[i] = md.(*OvaFileMetadata)
 	}
 	return metadata, nil

@@ -96,10 +96,10 @@ type LookupParams struct {
 	CloudSpec
 	Series []string
 	Arches []string
-	// Stream can be "" or "released" for the default "released" stream,
+	// Streams can be "" or "released" for the default "released" stream,
 	// or "daily" for daily images, or any other stream that the available
 	// simplestreams metadata supports.
-	Stream string
+	Streams []string
 }
 
 func (p LookupParams) Params() LookupParams {
@@ -384,12 +384,28 @@ type GetMetadataParams struct {
 	StreamsVersion   string
 	LookupConstraint LookupConstraint
 	ValueParams      ValueParams
+	UseAllSources    bool
 }
 
-// GetMetadata returns metadata records matching the specified constraint,looking in each source for signed metadata.
-// If onlySigned is false and no signed metadata is found in a source, the source is used to look for unsigned metadata.
-// Each source is tried in turn until at least one signed (or unsigned) match is found.
-func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
+type MetadataResult struct {
+	Items       []interface{}
+	ResolveInfo *ResolveInfo
+}
+
+// GetMetadata returns metadata records matching the specified
+// constraint,looking in each source for signed metadata. If
+// onlySigned is false and no signed metadata is found in a source,
+// the source is used to look for unsigned metadata. Each source is
+// tried in turn - if AllResults is false then the results from the
+// first signed (or unsigned) datasource containing an index are
+// returned. If UseAllSources is true results are returned for all
+// sources with an index.
+func GetMetadata(sources []DataSource, params GetMetadataParams) ([]MetadataResult, error) {
+	var (
+		items       []interface{}
+		resolveInfo *ResolveInfo
+		err         error
+	)
 	for _, source := range sources {
 		logger.Tracef("searching for signed metadata in datasource %q", source.Description())
 		items, resolveInfo, err = getMaybeSignedMetadata(source, params, true)
@@ -406,7 +422,7 @@ func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interf
 		// no matching products is an internal error only
 		err = nil
 	}
-	return items, resolveInfo, err
+	return []MetadataResult{{Items: items, ResolveInfo: resolveInfo}}, err
 }
 
 // getMaybeSignedMetadata returns metadata records matching the specified constraint in params.

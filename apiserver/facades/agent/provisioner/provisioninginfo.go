@@ -403,8 +403,8 @@ func (p *ProvisionerAPI) availableImageMetadata(m *state.Machine, env environs.E
 // constructImageConstraint returns model-specific criteria used to look for image metadata.
 func (p *ProvisionerAPI) constructImageConstraint(m *state.Machine, env environs.Environ) (*imagemetadata.ImageConstraint, error) {
 	lookup := simplestreams.LookupParams{
-		Series: []string{m.Series()},
-		Stream: env.Config().ImageStream(),
+		Series:  []string{m.Series()},
+		Streams: []string{env.Config().ImageStream()},
 	}
 
 	mcons, err := m.Constraints()
@@ -466,11 +466,15 @@ func (p *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageC
 // imageMetadataFromState returns image metadata stored in state
 // that matches given criteria.
 func (p *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
+	if len(constraint.Streams) != 1 {
+		return nil, errors.Errorf("expected one stream in image constraint, got %q",
+			strings.Join(constraint.Streams, ","))
+	}
 	filter := cloudimagemetadata.MetadataFilter{
 		Series: constraint.Series,
 		Arches: constraint.Arches,
 		Region: constraint.Region,
-		Stream: constraint.Stream,
+		Stream: constraint.Streams[0],
 	}
 	stored, err := p.st.CloudImageMetadataStorage.FindMetadata(filter)
 	if err != nil {
@@ -528,8 +532,8 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
 		// Once correct value is read from simplestreams, this needs to go.
 		// Bug# 1616295
-		if result.Stream == "" {
-			result.Stream = constraint.Stream
+		if result.Stream == "" && len(constraint.Streams) > 0 {
+			result.Stream = constraint.Streams[0]
 		}
 		if result.Stream == "" {
 			result.Stream = cfg.ImageStream()

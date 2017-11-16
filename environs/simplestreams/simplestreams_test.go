@@ -350,10 +350,11 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 		ValueParams:      simplestreams.ValueParams{DataType: "image-ids"},
 	}
 
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
+	results, err := simplestreams.GetMetadata(sources, params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(items, gc.HasLen, 0)
-	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
+	c.Assert(results, gc.HasLen, 1)
+	c.Assert(results[0].Items, gc.HasLen, 0)
+	c.Assert(results[0].ResolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
 		IndexURL:  "test:/daily/streams/v1/index.json",

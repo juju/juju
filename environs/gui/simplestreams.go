@@ -53,7 +53,7 @@ func FetchMetadata(stream string, sources ...simplestreams.DataSource) ([]*Metad
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion: streamsVersion,
 		LookupConstraint: &constraint{
-			LookupParams: simplestreams.LookupParams{Stream: stream},
+			LookupParams: simplestreams.LookupParams{Streams: []string{stream}},
 			majorVersion: jujuversion.Current.Major,
 		},
 		ValueParams: simplestreams.ValueParams{
@@ -63,12 +63,14 @@ func FetchMetadata(stream string, sources ...simplestreams.DataSource) ([]*Metad
 			ValueTemplate:   Metadata{},
 		},
 	}
-	items, _, err := simplestreams.GetMetadata(sources, params)
+	results, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {
 		return nil, errors.Annotate(err, "error fetching simplestreams metadata")
 	}
-	allMeta := make([]*Metadata, len(items))
-	for i, item := range items {
+	// GetMetadata returns NotFound if there are 0 results.
+	result := results[0]
+	allMeta := make([]*Metadata, len(result.Items))
+	for i, item := range result.Items {
 		allMeta[i] = item.(*Metadata)
 	}
 	sort.Sort(byVersion(allMeta))
@@ -112,7 +114,11 @@ type constraint struct {
 // IndexIds generates a string array representing index ids formed similarly to
 // an ISCSI qualified name (IQN).
 func (c *constraint) IndexIds() []string {
-	return []string{contentId(c.Stream)}
+	var results []string
+	for _, stream := range c.Streams {
+		results = append(results, contentId(stream))
+	}
+	return results
 }
 
 // ProductIds generates a string array representing product ids formed

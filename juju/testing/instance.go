@@ -231,7 +231,7 @@ func SetImageMetadata(env environs.Environ, series, arches []string, out *[]*ima
 		CloudSpec: region,
 		Series:    series,
 		Arches:    arches,
-		Stream:    env.Config().ImageStream(),
+		Streams:   []string{env.Config().ImageStream()},
 	})
 	imageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint)
 	if err != nil {
