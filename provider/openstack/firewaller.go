@@ -856,7 +856,9 @@ func (c *neutronFirewaller) openPortsInGroup(nameRegExp string, rules []network.
 
 // secGroupMatchesIngressRule checks if supplied nova security group rule matches the ingress rule
 func secGroupMatchesIngressRule(secGroupRule neutron.SecurityGroupRuleV2, rule network.IngressRule) bool {
-	if secGroupRule.IPProtocol == nil || *secGroupRule.PortRangeMax == 0 || *secGroupRule.PortRangeMin == 0 {
+	if secGroupRule.IPProtocol == nil ||
+		secGroupRule.PortRangeMax == nil || *secGroupRule.PortRangeMax == 0 ||
+		secGroupRule.PortRangeMin == nil || *secGroupRule.PortRangeMin == 0 {
 		return false
 	}
 	portsMatch := *secGroupRule.IPProtocol == rule.Protocol &&
