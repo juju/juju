@@ -71,9 +71,15 @@ func GetOrDetectCredential(
 	if err != nil {
 		return fail(err)
 	}
+
+	credential, err = modelcmd.FinalizeFileContent(&oneCredential, provider)
+	if err != nil {
+		return nil, "", "", false, modelcmd.AnnotateWithFinalizationError(err, chosenCredentialName, args.Cloud.Name)
+	}
+
 	credential, err = provider.FinalizeCredential(
 		ctx, environs.FinalizeCredentialParams{
-			Credential:            oneCredential,
+			Credential:            *credential,
 			CloudEndpoint:         region.Endpoint,
 			CloudStorageEndpoint:  region.StorageEndpoint,
 			CloudIdentityEndpoint: region.IdentityEndpoint,
