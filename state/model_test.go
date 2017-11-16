@@ -1261,12 +1261,20 @@ func addModelUsers(c *gc.C, st *state.State) (expected []permission.UserAccess) 
 
 func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers []permission.UserAccess) {
 	c.Assert(len(obtainedUsers), gc.Equals, len(expectedUsers))
-	for i, obtained := range obtainedUsers {
-		c.Assert(obtained.Object.Id(), gc.Equals, expectedUsers[i].Object.Id())
-		c.Assert(obtained.UserTag, gc.Equals, expectedUsers[i].UserTag)
-		c.Assert(obtained.DisplayName, gc.Equals, expectedUsers[i].DisplayName)
-		c.Assert(obtained.CreatedBy, gc.Equals, expectedUsers[i].CreatedBy)
+	expectedByUser := make(map[string]permission.UserAccess, len(expectedUsers))
+	for _, access := range expectedUsers {
+		expectedByUser[access.UserName] = access
 	}
+	for _, obtained := range obtainedUsers {
+		expect := expectedByUser[obtained.UserName]
+		// We shouldn't get the same entry again
+		delete(expectedByUser, obtained.UserName)
+		c.Check(obtained.Object.Id(), gc.Equals, expect.Object.Id())
+		c.Check(obtained.UserTag, gc.Equals, expect.UserTag)
+		c.Check(obtained.DisplayName, gc.Equals, expect.DisplayName)
+		c.Check(obtained.CreatedBy, gc.Equals, expect.CreatedBy)
+	}
+	c.Check(expectedByUser, jc.DeepEquals, map[string]permission.UserAccess{})
 }
 
 func (s *ModelSuite) TestAllModelUUIDs(c *gc.C) {
