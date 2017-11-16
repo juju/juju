@@ -192,13 +192,13 @@ type fakeClock struct {
 
 type stubStateTracker struct {
 	testing.Stub
-	st   state.State
+	pool state.StatePool
 	done chan struct{}
 }
 
-func (s *stubStateTracker) Use() (*state.State, error) {
+func (s *stubStateTracker) Use() (*state.StatePool, error) {
 	s.MethodCall(s, "Use")
-	return &s.st, s.NextErr()
+	return &s.pool, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {

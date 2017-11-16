@@ -66,9 +66,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		LoginValidator:                    func(names.Tag) error { return nil },
 		Hub:                               &s.hub,
-		SetStatePool:                      func(*state.StatePool) {},
-		NewStoreAuditEntryFunc:            s.newStoreAuditEntryFunc,
-		NewWorker:                         s.newWorker,
+		NewStoreAuditEntryFunc: s.newStoreAuditEntryFunc,
+		NewWorker:              s.newWorker,
 	})
 }
 
@@ -134,9 +133,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.RegisterIntrospectionHTTPHandlers, gc.NotNil)
 	config.RegisterIntrospectionHTTPHandlers = nil
 
-	c.Assert(config.SetStatePool, gc.NotNil)
-	config.SetStatePool = nil
-
 	// NewServer is hard-coded by the manifold to an internal shim.
 	c.Assert(config.NewServer, gc.NotNil)
 	config.NewServer = nil
@@ -144,7 +140,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config, jc.DeepEquals, apiserver.Config{
 		AgentConfig:          &s.agent.conf,
 		Clock:                s.clock,
-		State:                &s.state.st,
+		StatePool:            &s.state.pool,
 		PrometheusRegisterer: &s.prometheusRegisterer,
 		Hub:                  &s.hub,
 	})
@@ -217,13 +213,13 @@ func (c *mockAgentConfig) Value(key string) string {
 
 type stubStateTracker struct {
 	testing.Stub
-	st   state.State
+	pool state.StatePool
 	done chan struct{}
 }
 
-func (s *stubStateTracker) Use() (*state.State, error) {
+func (s *stubStateTracker) Use() (*state.StatePool, error) {
 	s.MethodCall(s, "Use")
-	return &s.st, s.NextErr()
+	return &s.pool, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {

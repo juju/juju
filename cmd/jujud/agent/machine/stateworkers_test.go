@@ -104,10 +104,10 @@ type mockStateTracker struct {
 	doneCalled bool
 }
 
-func (t *mockStateTracker) Use() (*state.State, error) {
+func (t *mockStateTracker) Use() (*state.StatePool, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return new(state.State), nil
+	return new(state.StatePool), nil
 }
 
 func (t *mockStateTracker) Done() error {

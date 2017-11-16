@@ -32,8 +32,6 @@ type ManifoldConfig struct {
 	LoginValidator                    LoginValidator
 	Hub                               *pubsub.StructuredHub
 
-	// TODO(axw) once we pass in StatePool, we can get rid of this.
-	SetStatePool           func(*state.StatePool)
 	NewStoreAuditEntryFunc func(*state.State) StoreAuditEntryFunc
 	NewWorker              func(Config) (worker.Worker, error)
 }
@@ -63,9 +61,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
-	}
-	if config.SetStatePool == nil {
-		return errors.NotValidf("nil SetStatePool")
 	}
 	if config.NewStoreAuditEntryFunc == nil {
 		return errors.NotValidf("nil NewStoreAuditEntryFunc")
@@ -115,7 +110,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
-	st, err := stTracker.Use()
+	statePool, err := stTracker.Use()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -123,15 +118,16 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	w, err := config.NewWorker(Config{
 		AgentConfig:                       agent.CurrentConfig(),
 		Clock:                             clock,
-		State:                             st,
+		StatePool:                         statePool,
 		PrometheusRegisterer:              config.PrometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 		LoginValidator:                    config.LoginValidator,
-		SetStatePool:                      config.SetStatePool,
 		Hub:                               config.Hub,
 		GetCertificate:                    getCertificate,
 		NewServer:                         newServerShim,
-		StoreAuditEntry:                   config.NewStoreAuditEntryFunc(st),
+		StoreAuditEntry: config.NewStoreAuditEntryFunc(
+			statePool.SystemState(),
+		),
 	})
 	if err != nil {
 		stTracker.Done()

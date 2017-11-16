@@ -43,7 +43,7 @@ func (s *WorkerStateSuite) TearDownSuite(c *gc.C) {
 func (s *WorkerStateSuite) SetUpTest(c *gc.C) {
 	s.workerFixture.SetUpTest(c)
 	s.StateSuite.SetUpTest(c)
-	s.config.State = s.State
+	s.config.StatePool = s.StatePool
 }
 
 func (s *WorkerStateSuite) TearDownTest(c *gc.C) {

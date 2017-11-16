@@ -54,10 +54,9 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		AgentConfig:                       &s.agentConfig,
 		Clock:                             s.clock,
 		Hub:                               &s.hub,
-		State:                             &state.State{},
+		StatePool:                         &state.StatePool{},
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
-		SetStatePool:                      func(*state.StatePool) {},
 		LoginValidator:                    func(names.Tag) error { return nil },
 		GetCertificate:                    func() *tls.Certificate { return nil },
 		StoreAuditEntry:                   s.storeAuditEntry,
@@ -105,17 +104,14 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *apiserver.Config) { cfg.Hub = nil },
 		"nil Hub not valid",
 	}, {
-		func(cfg *apiserver.Config) { cfg.State = nil },
-		"nil State not valid",
+		func(cfg *apiserver.Config) { cfg.StatePool = nil },
+		"nil StatePool not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.PrometheusRegisterer = nil },
 		"nil PrometheusRegisterer not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.RegisterIntrospectionHTTPHandlers = nil },
 		"nil RegisterIntrospectionHTTPHandlers not valid",
-	}, {
-		func(cfg *apiserver.Config) { cfg.SetStatePool = nil },
-		"nil SetStatePool not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.LoginValidator = nil },
 		"nil LoginValidator not valid",

@@ -405,7 +405,10 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 		}
 	}
 
-	go srv.run()
+	go func() {
+		defer srv.tomb.Done()
+		srv.tomb.Kill(srv.loop())
+	}()
 	return srv, nil
 }
 
@@ -520,7 +523,8 @@ func (w *loggoWrapper) Write(content []byte) (int, error) {
 	return len(content), nil
 }
 
-func (srv *Server) run() {
+// loop is the main loop for the server.
+func (srv *Server) loop() error {
 	logger.Infof("listening on %q", srv.lis.Addr())
 
 	defer func() {
@@ -529,21 +533,8 @@ func (srv *Server) run() {
 		logger.Infof("closed listening socket %q with final error: %v", addr, err)
 
 		srv.wg.Wait() // wait for any outstanding requests to complete.
-		srv.tomb.Done()
 		srv.dbloggers.dispose()
 		srv.logSinkWriter.Close()
-	}()
-
-	srv.wg.Add(1)
-	go func() {
-		defer srv.wg.Done()
-		srv.tomb.Kill(srv.expireLocalLoginInteractions())
-	}()
-
-	srv.wg.Add(1)
-	go func() {
-		defer srv.wg.Done()
-		srv.tomb.Kill(srv.processModelRemovals())
 	}()
 
 	// for pat based handlers, they are matched in-order of being
@@ -553,6 +544,9 @@ func (srv *Server) run() {
 	for _, endpoint := range srv.endpoints() {
 		registerEndpoint(endpoint, mux)
 	}
+
+	// TODO(axw) graceful HTTP server shutdown. Then we'll shutdown the
+	// server, rather than closing the listener.
 
 	go func() {
 		logger.Debugf("Starting API http server on address %q", srv.lis.Addr())
@@ -571,7 +565,15 @@ func (srv *Server) run() {
 		logger.Debugf("API http server exited, final error was: %v", err)
 	}()
 
-	<-srv.tomb.Dying()
+	for {
+		select {
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		case <-srv.clock.After(authentication.LocalLoginInteractionTimeout):
+			now := srv.loginAuthCtxt.clock.Now()
+			srv.loginAuthCtxt.localUserInteractions.Expire(now)
+		}
+	}
 }
 
 func (srv *Server) endpoints() []apihttp.Endpoint {
@@ -807,18 +809,6 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	return endpoints
 }
 
-func (srv *Server) expireLocalLoginInteractions() error {
-	for {
-		select {
-		case <-srv.tomb.Dying():
-			return tomb.ErrDying
-		case <-srv.clock.After(authentication.LocalLoginInteractionTimeout):
-			now := srv.loginAuthCtxt.clock.Now()
-			srv.loginAuthCtxt.localUserInteractions.Expire(now)
-		}
-	}
-}
-
 // trackRequests wraps a http.Handler, incrementing and decrementing
 // the apiserver's WaitGroup and blocking request when the apiserver
 // is shutting down.
@@ -980,37 +970,4 @@ func serverError(err error) error {
 		return err
 	}
 	return nil
-}
-
-func (srv *Server) processModelRemovals() error {
-	st := srv.statePool.SystemState()
-	w := st.WatchModelLives()
-	defer w.Stop()
-	for {
-		select {
-		case <-srv.tomb.Dying():
-			return tomb.ErrDying
-		case modelUUIDs := <-w.Changes():
-			for _, modelUUID := range modelUUIDs {
-				model, release, err := srv.statePool.GetModel(modelUUID)
-				gone := errors.IsNotFound(err)
-				dead := err == nil && model.Life() == state.Dead
-				if release != nil {
-					release()
-				}
-				if err != nil && !gone {
-					return errors.Trace(err)
-				}
-				if dead || gone {
-					// Model's gone away - ensure that it gets removed
-					// from from the state pool once people are finished
-					// with it.
-					logger.Debugf("removing model %v from the state pool", modelUUID)
-					if _, err := srv.statePool.Remove(modelUUID); err != nil {
-						return errors.Trace(err)
-					}
-				}
-			}
-		}
-	}
 }
