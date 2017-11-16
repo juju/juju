@@ -212,6 +212,8 @@ type ModelDetails struct {
 	// Machines contains information about the machines in the model.
 	// This information is available to owners and users with write
 	// access or greater.
+	MachineCount int64
+	CoreCount int64
 	// DO WE EVEN WANT THIS DATA HERE? The only thing we show in 'juju models' is the *count*
 	/// Machines []ModelMachineInfo `json:"machines"`
 
@@ -436,6 +438,30 @@ func (p *modelDetailProcessor) fillInLastConnection(lastAccessIds []string) erro
 	return nil
 }
 
+func (p *modelDetailProcessor) fillInMigration() error {
+	lastConnections, closer2 := p.st.db().GetRawCollection(modelUserLastConnectionC)
+	defer closer2()
+	query := lastConnections.Find(bson.M{"_id": bson.M{"$in": lastAccessIds}})
+	query.Batch(100)
+	iter := query.Iter()
+	var connInfo modelUserLastConnectionDoc
+	for iter.Next(&connInfo) {
+		idx, ok := p.indexByUUID[connInfo.ModelUUID]
+		if !ok {
+			continue
+		}
+		details := &p.details[idx]
+		username := strings.ToLower(connInfo.UserName)
+		t := connInfo.LastConnection
+		userInfo := details.Users[username]
+		userInfo.LastConnection = &t
+		details.Users[username] = userInfo
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
 func (p *modelDetailProcessor) fillInFromModelUsers() error {
 	// We use the raw settings because we are reading across model UUIDs
 	rawModelUsers, closer := p.st.database.GetRawCollection(modelUsersC)
@@ -478,6 +504,7 @@ func (p *modelDetailProcessor) fillInFromModelUsers() error {
 		return errors.Trace(err)
 	}
 	// TODO: We need to add machine information
+	// TODO: We need to add migration information
 	return nil
 }
 
