@@ -120,7 +120,7 @@ func allCollections() collectionSchema {
 		migrationsC: {
 			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
+				Key: []string{"model-uuid", "-attempt"},
 			}},
 		},
 
@@ -444,8 +444,6 @@ func allCollections() collectionSchema {
 		remoteEntitiesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "token"},
-			}, {
-				Key: []string{"model-uuid"},
 			}},
 		},
 		// externalControllersC holds connection information for other
