@@ -266,6 +266,7 @@ func newProcessorFromModelDocs(st *State, modelDocs []modelDoc) *modelDetailProc
 			CloudTag:           names.NewCloudTag(doc.Cloud).String(),
 			CloudRegion:        doc.CloudRegion,
 			CloudCredentialTag: cloudCred,
+			Users:              make(map[string]UserAccessInfo),
 		}
 		p.indexByUUID[doc.UUID] = i
 		p.modelUUIDs[i] = doc.UUID
