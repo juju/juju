@@ -25,6 +25,11 @@ func (m *Model) IAASModel() (*IAASModel, error) {
 	}, nil
 }
 
+// CloudRegion returns the name of the cloud region to which the model is deployed.
+func (m *IAASModel) CloudRegion() string {
+	return m.doc.CloudRegion
+}
+
 // IAASModel returns an Infrastructure-As-A-Service (IAAS) model.
 //
 // TODO(caas): This is a convenience helper only and will go away
