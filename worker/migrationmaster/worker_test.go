@@ -571,7 +571,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *gc.C) {
 	lastMessages := s.facade.statuses[len(s.facade.statuses)-2:]
 	c.Assert(lastMessages, gc.DeepEquals, []string{
 		"machine sanity check failed, 1 error found",
-		"aborted, removing model from target controller",
+		"aborted, removing model from target controller: machine sanity check failed, 1 error found",
 	})
 }
 
@@ -594,7 +594,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *gc.C) {
 	lastMessages := s.facade.statuses[len(s.facade.statuses)-2:]
 	c.Assert(lastMessages, gc.DeepEquals, []string{
 		"machine sanity check failed, 2 errors found",
-		"aborted, removing model from target controller",
+		"aborted, removing model from target controller: machine sanity check failed, 2 errors found",
 	})
 }
 
