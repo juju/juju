@@ -165,12 +165,12 @@ exit $exitstatus
 `
 
 const debugHooksWelcomeMessage = `This is a Juju debug-hooks tmux session. Remember:
-1. You need to execute hooks manually if you want them to run for trapped events.
+1. You need to execute hooks/actions manually if you want them to run for trapped events.
 2. When you are finished with an event, you can run 'exit' to close the current window and allow Juju to continue processing
 new events for this unit without exiting a current debug-session.
-3. To run a hook and end the debugging session avoiding processing any more events manually, use:
+3. To run an action or hook and end the debugging session avoiding processing any more events manually, use:
 
-./hooks/$JUJU_HOOK_NAME
+./hooks/$JUJU_HOOK_NAME # or, equivalently, ./actions/$JUJU_HOOK_NAME
 tmux kill-session -t $JUJU_UNIT_NAME # or, equivalently, CTRL+a d
 
 4. CTRL+a is tmux prefix.
