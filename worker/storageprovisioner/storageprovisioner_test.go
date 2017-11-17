@@ -19,6 +19,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/storageprovisioner"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type storageProvisionerSuite struct {
@@ -741,6 +742,28 @@ func (s *storageProvisionerSuite) TestVolumeNeedsInstance(c *gc.C) {
 	args.machines.instanceIds[names.NewMachineTag("1")] = "inst-id"
 	args.machines.watcher.changes <- struct{}{}
 	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
+}
+
+// TestVolumeIncoherent tests that we do not panic when observing
+// a pending volume that has no attachments. We send a volume
+// update for a volume that is alive and unprovisioned, but has
+// no machine attachment. Such volumes are ignored by the storage
+// provisioner.
+//
+// See: https://bugs.launchpad.net/juju/+bug/1732616
+func (s *storageProvisionerSuite) TestVolumeIncoherent(c *gc.C) {
+	volumeAccessor := newMockVolumeAccessor()
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
+	worker := newStorageProvisioner(c, args)
+	defer workertest.CleanKill(c, worker)
+
+	// Send 3 times, because the channel has a buffer size of 1.
+	// The third send guarantees we've sent at least the 2nd one
+	// through, which means at least the 1st has been processed
+	// (and ignored).
+	for i := 0; i < 3; i++ {
+		volumeAccessor.volumesWatcher.changes <- []string{noAttachmentVolumeId}
+	}
 }
 
 func (s *storageProvisionerSuite) TestVolumeNonDynamic(c *gc.C) {
