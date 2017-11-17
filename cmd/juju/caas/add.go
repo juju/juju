@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	cloudapi "github.com/juju/juju/api/cloud"
-	caascfg "github.com/juju/juju/caas/clientconfig"
+	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -67,7 +67,7 @@ type AddCAASCommand struct {
 	fileCredentialStore   jujuclient.CredentialStore
 	apiRoot               api.Connection
 	newCloudAPI           func(base.APICallCloser) CloudAPI
-	newClientConfigReader func(string) (caascfg.ClientConfigFunc, error)
+	newClientConfigReader func(string) (clientconfig.ClientConfigFunc, error)
 }
 
 // NewAddCAASCommand returns a command to add caas information.
@@ -78,13 +78,13 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		newCloudAPI: func(caller base.APICallCloser) CloudAPI {
 			return cloudapi.NewClient(caller)
 		},
-		newClientConfigReader: func(caasType string) (caascfg.ClientConfigFunc, error) {
-			return caascfg.NewClientConfigReader(caasType)
+		newClientConfigReader: func(caasType string) (clientconfig.ClientConfigFunc, error) {
+			return clientconfig.NewClientConfigReader(caasType)
 		},
 	}
 	return modelcmd.Wrap(cmd)
 }
-func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, fileCredentialStore jujuclient.CredentialStore, clientStore jujuclient.ClientStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) CloudAPI, newClientConfigReaderFunc func(string) (caascfg.ClientConfigFunc, error)) cmd.Command {
+func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, fileCredentialStore jujuclient.CredentialStore, clientStore jujuclient.ClientStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) CloudAPI, newClientConfigReaderFunc func(string) (clientconfig.ClientConfigFunc, error)) cmd.Command {
 	cmd := &AddCAASCommand{
 		cloudMetadataStore:    cloudMetadataStore,
 		fileCredentialStore:   fileCredentialStore,

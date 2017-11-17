@@ -44,6 +44,7 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
@@ -103,8 +104,9 @@ var (
 	newMetadataUpdater    = imagemetadataworker.NewWorker
 	reportOpenedState     = func(*state.State) {}
 
-	modelManifolds   = model.Manifolds
-	machineManifolds = machine.Manifolds
+	caasModelManifolds = model.CAASManifolds
+	iaasModelManifolds = model.IAASManifolds
+	machineManifolds   = machine.Manifolds
 )
 
 // Variable to override in tests, default is true
@@ -716,7 +718,12 @@ func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct
 	}
 }
 
-var newEnvirons = environs.New
+var (
+	newEnvirons = environs.New
+
+	// TODO(caas) - don't hard code a kubernetes provider
+	newCAASBroker = provider.NewK8sProvider
+)
 
 // startAPIWorkers is called to start workers which rely on the
 // machine agent's API connection (via the apiworkers manifold). It
@@ -1150,7 +1157,7 @@ func (a *MachineAgent) startModelWorkers(modelUUID string, modelType state.Model
 		return nil, errors.Trace(err)
 	}
 
-	manifolds := modelManifolds(model.ManifoldsConfig{
+	manifoldsCfg := model.ManifoldsConfig{
 		Agent:                       modelAgent,
 		AgentConfigChanged:          a.configChangedVal,
 		Clock:                       clock.WallClock,
@@ -1160,8 +1167,15 @@ func (a *MachineAgent) startModelWorkers(modelUUID string, modelType state.Model
 		StatusHistoryPrunerInterval: 5 * time.Minute,
 		ActionPrunerInterval:        24 * time.Hour,
 		NewEnvironFunc:              newEnvirons,
+		NewContainerBrokerFunc:      newCAASBroker,
 		NewMigrationMaster:          migrationmaster.NewWorker,
-	})
+	}
+	var manifolds dependency.Manifolds
+	if modelType == state.ModelTypeIAAS {
+		manifolds = iaasModelManifolds(manifoldsCfg)
+	} else {
+		manifolds = caasModelManifolds(manifoldsCfg)
+	}
 	if err := dependency.Install(engine, manifolds); err != nil {
 		if err := worker.Stop(engine); err != nil {
 			logger.Errorf("while stopping engine with bad manifolds: %v", err)

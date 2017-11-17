@@ -1,4 +1,4 @@
-package caas
+package clientconfig
 
 import (
 	"github.com/juju/errors"

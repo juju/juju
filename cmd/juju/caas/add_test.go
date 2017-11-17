@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	caascfg "github.com/juju/juju/caas/clientconfig"
+	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/jujuclient"
@@ -26,7 +26,7 @@ type addCAASSuite struct {
 	fakeCloudAPI        *fakeCloudAPI
 	store               *fakeCloudMetadataStore
 	fileCredentialStore *fakeCredentialStore
-	fakeK8SConfigFunc   caascfg.ClientConfigFunc
+	fakeK8SConfigFunc   clientconfig.ClientConfigFunc
 }
 
 var _ = gc.Suite(&addCAASSuite{})
@@ -83,15 +83,15 @@ func (api *fakeCloudAPI) AddCredential(tag string, credential cloud.Credential) 
 	return nil
 }
 
-func fakeK8SClientConfig() (*caascfg.ClientConfig, error) {
-	return &caascfg.ClientConfig{
-		Contexts: map[string]caascfg.Context{"somekey": caascfg.Context{
+func fakeK8SClientConfig() (*clientconfig.ClientConfig, error) {
+	return &clientconfig.ClientConfig{
+		Contexts: map[string]clientconfig.Context{"somekey": clientconfig.Context{
 			CloudName:      "mrcloud",
 			CredentialName: "credname",
 		},
 		},
 		CurrentContext: "somekey",
-		Clouds: map[string]caascfg.CloudConfig{"mrcloud": caascfg.CloudConfig{
+		Clouds: map[string]clientconfig.CloudConfig{"mrcloud": clientconfig.CloudConfig{
 			Endpoint: "fakeendpoint",
 			Attributes: map[string]interface{}{
 				"CAData": "fakecadata",
@@ -101,8 +101,8 @@ func fakeK8SClientConfig() (*caascfg.ClientConfig, error) {
 	}, nil
 }
 
-func fakeEmptyK8SClientConfig() (*caascfg.ClientConfig, error) {
-	return &caascfg.ClientConfig{}, nil
+func fakeEmptyK8SClientConfig() (*clientconfig.ClientConfig, error) {
+	return &clientconfig.ClientConfig{}, nil
 }
 
 type fakeCredentialStore struct {
@@ -177,7 +177,7 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientCon
 		func(caller base.APICallCloser) caas.CloudAPI {
 			return s.fakeCloudAPI
 		},
-		func(caasType string) (caascfg.ClientConfigFunc, error) {
+		func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			if !cloudTypeExists {
 				return nil, errors.Errorf("unsupported cloud type '%s'", caasType)
 			}

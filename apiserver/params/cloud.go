@@ -101,6 +101,7 @@ type CloudSpec struct {
 	IdentityEndpoint string           `json:"identity-endpoint,omitempty"`
 	StorageEndpoint  string           `json:"storage-endpoint,omitempty"`
 	Credential       *CloudCredential `json:"credential,omitempty"`
+	CACertificates   []string         `json:"cacertificates,omitempty"`
 }
 
 // CloudSpecResult contains a CloudSpec or an error.
