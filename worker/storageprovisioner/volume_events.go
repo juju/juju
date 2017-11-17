@@ -120,6 +120,16 @@ func updateVolume(ctx *context, info storage.Volume) {
 // ID, updatePendingVolume will request that the machine be watched so its
 // instance ID can be learned.
 func updatePendingVolume(ctx *context, params storage.VolumeParams) {
+	if params.Attachment == nil {
+		// NOTE(axw) this would only happen if the model is
+		// in an incoherent state; we should never have an
+		// alive, unprovisioned, and unattached volume.
+		logger.Warningf(
+			"%s is in an incoherent state, ignoring",
+			names.ReadableString(params.Tag),
+		)
+		return
+	}
 	if params.Attachment.InstanceId == "" {
 		watchMachine(ctx, params.Attachment.Machine)
 		ctx.incompleteVolumeParams[params.Tag] = params
