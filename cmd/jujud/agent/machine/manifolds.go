@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/reboot"
+	"github.com/juju/juju/worker/restorewatcher"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
@@ -212,6 +213,16 @@ type ManifoldsConfig struct {
 	// not the controller model, represented by the given *state.State,
 	// supports network spaces.
 	ControllerSupportsSpaces func(*state.State) (bool, error)
+
+	// RestoreStatusChanged is called by the restorewatcher worker whenever
+	// the restore status changes.
+	//
+	// TODO(axw) this is used purely to record the current state on
+	// the agent so the API server can limit logins. Instead of
+	// trampolining like this, we should have the manifolds communicate
+	// via a worker/gate or similar, and define the logic for limiting
+	// inside worker/apiserver.
+	RestoreStatusChanged restorewatcher.RestoreStatusChangedFunc
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -691,6 +702,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                peergrouper.New,
 			ControllerSupportsSpaces: config.ControllerSupportsSpaces,
 		})),
+
+		restoreWatcherName: ifFullyUpgraded(restorewatcher.Manifold(restorewatcher.ManifoldConfig{
+			StateName:            stateName,
+			NewWorker:            restorewatcher.NewWorker,
+			RestoreStatusChanged: config.RestoreStatusChanged,
+		})),
 	}
 }
 
@@ -781,4 +798,5 @@ const (
 	certificateWatcherName        = "certificate-watcher"
 	modelWorkerManagerName        = "model-worker-manager"
 	peergrouperName               = "peer-grouper"
+	restoreWatcherName            = "restore-watcher"
 )
