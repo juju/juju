@@ -147,10 +147,11 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	expectErr:      "no more recent supported versions available",
 }, {
-	about:          "latest supported stable, when client is dev",
+	about:          "latest supported stable, when client is dev, explicit upload",
 	tools:          []string{"2.1-dev1-quantal-amd64", "2.1.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
 	currentVersion: "2.1-dev0-quantal-amd64",
 	agentVersion:   "2.0.0",
+	args:           []string{"--build-agent"},
 	expectVersion:  "2.1-dev0.1",
 }, {
 	about:          "latest current, when agent is dev",
@@ -298,11 +299,17 @@ var upgradeJujuTests = []struct {
 	expectVersion:  "2.7.3.2",
 	expectUploaded: []string{"2.7.3.2-quantal-amd64", "2.7.3.2-%LTS%-amd64", "2.7.3.2-raring-amd64"},
 }, {
-	about:          "latest supported stable release",
+	about:          "latest supported stable release increments by one minor version number",
 	tools:          []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
 	currentVersion: "1.22.1-quantal-amd64",
 	agentVersion:   "1.20.14",
-	expectVersion:  "1.22.1.1",
+	expectVersion:  "1.21.3",
+}, {
+	about:          "latest supported stable release from custom version",
+	tools:          []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
+	currentVersion: "1.22.1-quantal-amd64",
+	agentVersion:   "1.20.14.1",
+	expectVersion:  "1.21.3",
 }}
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
@@ -474,7 +481,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadDevAgent(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
-	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.99.99.1"))
+	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.99.99.2"))
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNewerClient(c *gc.C) {
@@ -592,7 +599,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			currentVersion: "2.1.3-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `upgrade to this version by running
-    juju upgrade-juju --agent-version="2.1.3"
+    juju upgrade-juju --build-agent
 `,
 		},
 		{
