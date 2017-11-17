@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caas_test
+package clientconfig_test
 
 import (
 	"io/ioutil"
@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	caascfg "github.com/juju/juju/caas/clientconfig"
+	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/testing"
 )
@@ -127,14 +127,14 @@ func (s *k8sConfigSuite) writeTempKubeConfig(c *gc.C, filename string, data stri
 func (s *k8sConfigSuite) TestGetEmptyConfig(c *gc.C) {
 	s.writeTempKubeConfig(c, "emptyConfig", emptyConfig)
 
-	cfg, err := caascfg.K8SClientConfig()
+	cfg, err := clientconfig.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals,
-		&caascfg.ClientConfig{
+		&clientconfig.ClientConfig{
 			Type:           "kubernetes",
-			Contexts:       map[string]caascfg.Context{},
+			Contexts:       map[string]clientconfig.Context{},
 			CurrentContext: "",
-			Clouds:         map[string]caascfg.CloudConfig{},
+			Clouds:         map[string]clientconfig.CloudConfig{},
 			Credentials:    map[string]cloud.Credential{},
 		})
 }
@@ -142,19 +142,19 @@ func (s *k8sConfigSuite) TestGetEmptyConfig(c *gc.C) {
 func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
 	s.writeTempKubeConfig(c, "singleConfig", singleConfig)
 
-	cfg, err := caascfg.K8SClientConfig()
+	cfg, err := clientconfig.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals,
-		&caascfg.ClientConfig{
+		&clientconfig.ClientConfig{
 
 			Type: "kubernetes",
-			Contexts: map[string]caascfg.Context{
-				"the-context": caascfg.Context{
+			Contexts: map[string]clientconfig.Context{
+				"the-context": clientconfig.Context{
 					CloudName:      "the-cluster",
 					CredentialName: "the-user"}},
 			CurrentContext: "the-context",
-			Clouds: map[string]caascfg.CloudConfig{
-				"the-cluster": caascfg.CloudConfig{
+			Clouds: map[string]clientconfig.CloudConfig{
+				"the-cluster": clientconfig.CloudConfig{
 					Endpoint:   "https://1.1.1.1:8888",
 					Attributes: map[string]interface{}{"CAData": "A"}}},
 			Credentials: map[string]cloud.Credential{
@@ -167,26 +167,26 @@ func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
 func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 	s.writeTempKubeConfig(c, "multiConfig", multiConfig)
 
-	cfg, err := caascfg.K8SClientConfig()
+	cfg, err := clientconfig.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals,
-		&caascfg.ClientConfig{
+		&clientconfig.ClientConfig{
 
 			Type: "kubernetes",
-			Contexts: map[string]caascfg.Context{
-				"default-context": caascfg.Context{
+			Contexts: map[string]clientconfig.Context{
+				"default-context": clientconfig.Context{
 					CloudName:      "default-cluster",
 					CredentialName: "default-user"},
-				"the-context": caascfg.Context{
+				"the-context": clientconfig.Context{
 					CloudName:      "the-cluster",
 					CredentialName: "the-user"},
 			},
 			CurrentContext: "default-context",
-			Clouds: map[string]caascfg.CloudConfig{
-				"default-cluster": caascfg.CloudConfig{
+			Clouds: map[string]clientconfig.CloudConfig{
+				"default-cluster": clientconfig.CloudConfig{
 					Endpoint:   "https://10.10.10.10:1010",
 					Attributes: map[string]interface{}{"CAData": ""}},
-				"the-cluster": caascfg.CloudConfig{
+				"the-cluster": clientconfig.CloudConfig{
 					Endpoint:   "https://1.1.1.1:8888",
 					Attributes: map[string]interface{}{"CAData": "A"}}},
 			Credentials: map[string]cloud.Credential{

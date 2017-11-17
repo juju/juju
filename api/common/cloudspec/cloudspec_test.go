@@ -33,11 +33,11 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		c.Assert(name, gc.Equals, "CloudSpec")
-		c.Assert(args, jc.DeepEquals, params.Entities{[]params.Entity{
-			{coretesting.ModelTag.String()},
+		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
+			{Tag: coretesting.ModelTag.String()},
 		}})
 		*(response.(*params.CloudSpecResults)) = params.CloudSpecResults{
-			[]params.CloudSpecResult{{
+			Results: []params.CloudSpecResult{{
 				Result: &params.CloudSpec{
 					Type:             "type",
 					Name:             "name",
@@ -49,6 +49,7 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 						AuthType:   "auth-type",
 						Attributes: map[string]string{"k": "v"},
 					},
+					CACertificates: []string{coretesting.CACert},
 				},
 			}},
 		}
@@ -70,6 +71,7 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 		IdentityEndpoint: "identity-endpoint",
 		StorageEndpoint:  "storage-endpoint",
 		Credential:       &credential,
+		CACertificates:   []string{coretesting.CACert},
 	})
 }
 
@@ -98,7 +100,7 @@ func (s *CloudSpecSuite) TestCloudSpecResultError(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
 		*(response.(*params.CloudSpecResults)) = params.CloudSpecResults{
-			[]params.CloudSpecResult{{
+			Results: []params.CloudSpecResult{{
 				Error: &params.Error{
 					Code:    params.CodeUnauthorized,
 					Message: "dang",
@@ -116,7 +118,7 @@ func (s *CloudSpecSuite) TestCloudSpecResultError(c *gc.C) {
 func (s *CloudSpecSuite) TestCloudSpecInvalidCloudSpec(c *gc.C) {
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
 	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		*(response.(*params.CloudSpecResults)) = params.CloudSpecResults{[]params.CloudSpecResult{{
+		*(response.(*params.CloudSpecResults)) = params.CloudSpecResults{Results: []params.CloudSpecResult{{
 			Result: &params.CloudSpec{
 				Type: "",
 			},

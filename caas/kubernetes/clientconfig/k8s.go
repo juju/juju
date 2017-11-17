@@ -1,4 +1,4 @@
-package caas
+package clientconfig
 
 import (
 	"os"
@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/cloud"
 )
 
-var logger = loggo.GetLogger("juju.caas.clientconfig")
+var logger = loggo.GetLogger("juju.caas.kubernetes.clientconfig")
 
 // K8SClientConfig parses Kubernetes client configuration from the default location or $KUBECONFIG.
 func K8SClientConfig() (*ClientConfig, error) {
