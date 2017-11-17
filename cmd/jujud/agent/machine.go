@@ -70,7 +70,6 @@ import (
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
-	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
@@ -97,10 +96,9 @@ var (
 	// be expressed as explicit dependencies, but nobody has yet had
 	// the intestinal fortitude to untangle this package. Be that
 	// person! Juju Needs You.
-	useMultipleCPUs       = utils.UseMultipleCPUs
-	newCertificateUpdater = certupdater.NewCertificateUpdater
-	newMetadataUpdater    = imagemetadataworker.NewWorker
-	reportOpenedState     = func(*state.State) {}
+	useMultipleCPUs    = utils.UseMultipleCPUs
+	newMetadataUpdater = imagemetadataworker.NewWorker
+	reportOpenedState  = func(*state.State) {}
 
 	caasModelManifolds = model.CAASManifolds
 	iaasModelManifolds = model.IAASManifolds
@@ -450,8 +448,9 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(*cmd.Context) error {
-
 	defer a.tomb.Done()
+
+	useMultipleCPUs()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
@@ -515,10 +514,6 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 		if err != nil {
 			return nil, err
 		}
-		startStateWorkers := func(st *state.State) (worker.Worker, error) {
-			var reporter dependency.Reporter = engine
-			return a.startStateWorkers(st, reporter)
-		}
 		pubsubReporter := psworker.NewReporter()
 		updateAgentConfLogging := func(loggingConfig string) error {
 			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
@@ -567,7 +562,6 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			OpenController:       a.initController,
 			OpenState:            a.initState,
 			OpenStateForUpgrade:  a.openStateForUpgrade,
-			StartStateWorkers:    startStateWorkers,
 			StartAPIWorkers:      a.startAPIWorkers,
 			PreUpgradeSteps:      a.preUpgradeSteps,
 			LogSource:            a.bufferedLogger.Logs(),
@@ -1048,49 +1042,6 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error)
 	return st, nil
 }
 
-// startStateWorkers returns a worker running all the workers that
-// require a *state.State connection.
-func (a *MachineAgent) startStateWorkers(
-	st *state.State,
-	dependencyReporter dependency.Reporter,
-) (worker.Worker, error) {
-	agentConfig := a.CurrentConfig()
-
-	m, err := getMachine(st, agentConfig.Tag())
-	if err != nil {
-		return nil, errors.Annotate(err, "machine lookup")
-	}
-
-	runner := worker.NewRunner(worker.RunnerParams{
-		IsFatal:       cmdutil.PingerIsFatal(logger, st),
-		MoreImportant: cmdutil.MoreImportant,
-		RestartDelay:  jworker.RestartDelay,
-	})
-
-	for _, job := range m.Jobs() {
-		switch job {
-		case state.JobHostUnits:
-			// Implemented elsewhere with workers that use the API.
-		case state.JobManageModel:
-			useMultipleCPUs()
-
-			// TODO(axw) move the certificate updater to the machine manifold.
-			stateServingSetter := func(info params.StateServingInfo, done <-chan struct{}) error {
-				return a.ChangeConfig(func(config agent.ConfigSetter) error {
-					config.SetStateServingInfo(info)
-					return nil
-				})
-			}
-			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
-			})
-		default:
-			return nil, errors.Errorf("unknown job type %q", job)
-		}
-	}
-	return runner, nil
-}
-
 // startModelWorkers starts the set of workers that run for every model
 // in each controller, both IAAS and CAAS.
 func (a *MachineAgent) startModelWorkers(modelUUID string, modelType state.ModelType) (worker.Worker, error) {
@@ -1315,14 +1266,6 @@ func openState(
 		return nil, nil, jworker.ErrTerminateAgent
 	}
 	return st, m, nil
-}
-
-func getMachine(st *state.State, tag names.Tag) (*state.Machine, error) {
-	m0, err := st.FindEntity(tag)
-	if err != nil {
-		return nil, err
-	}
-	return m0.(*state.Machine), nil
 }
 
 // startWorkerAfterUpgrade starts a worker to run the specified child worker
