@@ -170,8 +170,8 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	test(w, watcher, getter)
 }
 
-func (s *suite) startModelWorker(modelUUID string) (worker.Worker, error) {
-	worker := newMockWorker(modelUUID)
+func (s *suite) startModelWorker(modelUUID string, modelType state.ModelType) (worker.Worker, error) {
+	worker := newMockWorker(modelUUID, modelType)
 	s.workerC <- worker
 	return worker, nil
 }
@@ -182,6 +182,7 @@ func (s *suite) assertStarts(c *gc.C, expect ...string) {
 	workers := s.waitWorkers(c, count)
 	for i, worker := range workers {
 		actual[i] = worker.uuid
+		c.Assert(worker.modelType, gc.Equals, state.ModelTypeIAAS)
 	}
 	c.Assert(actual, jc.SameContents, expect)
 }
@@ -213,8 +214,8 @@ func (s *suite) assertNoWorkers(c *gc.C) {
 	}
 }
 
-func newMockWorker(modelUUID string) *mockWorker {
-	w := &mockWorker{uuid: modelUUID}
+func newMockWorker(modelUUID string, modelType state.ModelType) *mockWorker {
+	w := &mockWorker{uuid: modelUUID, modelType: modelType}
 	go func() {
 		defer w.tomb.Done()
 		<-w.tomb.Dying()
@@ -223,8 +224,9 @@ func newMockWorker(modelUUID string) *mockWorker {
 }
 
 type mockWorker struct {
-	tomb tomb.Tomb
-	uuid string
+	tomb      tomb.Tomb
+	uuid      string
+	modelType state.ModelType
 }
 
 func (mock *mockWorker) Kill() {
@@ -266,6 +268,7 @@ func newMockModelGetter() *mockModelGetter {
 	return &mockModelGetter{
 		model: mockModel{
 			migrationMode: state.MigrationModeNone,
+			modelType:     state.ModelTypeIAAS,
 		},
 	}
 }
@@ -283,10 +286,15 @@ func (mock *mockModelGetter) Model(uuid string) (modelworkermanager.Model, func(
 
 type mockModel struct {
 	migrationMode state.MigrationMode
+	modelType     state.ModelType
 }
 
 func (m *mockModel) MigrationMode() state.MigrationMode {
 	return m.migrationMode
+}
+
+func (m *mockModel) Type() state.ModelType {
+	return m.modelType
 }
 
 type mockEnvWatcher struct {

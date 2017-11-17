@@ -32,12 +32,13 @@ type ModelGetter interface {
 // Model represents a model.
 type Model interface {
 	MigrationMode() state.MigrationMode
+	Type() state.ModelType
 }
 
 // NewModelWorkerFunc should return a worker responsible for running
 // all a model's required workers; and for returning nil when there's
 // no more model to manage.
-type NewModelWorkerFunc func(modelUUID string) (worker.Worker, error)
+type NewModelWorkerFunc func(modelUUID string, modelType state.ModelType) (worker.Worker, error)
 
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
@@ -131,7 +132,7 @@ func (m *modelWorkerManager) loop() error {
 			// https://bugs.launchpad.net/juju/+bug/1646310
 			return nil
 		}
-		return errors.Trace(m.ensure(modelUUID))
+		return errors.Trace(m.ensure(modelUUID, model.Type()))
 	}
 
 	for {
@@ -151,18 +152,18 @@ func (m *modelWorkerManager) loop() error {
 	}
 }
 
-func (m *modelWorkerManager) ensure(modelUUID string) error {
-	starter := m.starter(modelUUID)
+func (m *modelWorkerManager) ensure(modelUUID string, modelType state.ModelType) error {
+	starter := m.starter(modelUUID, modelType)
 	if err := m.runner.StartWorker(modelUUID, starter); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (m *modelWorkerManager) starter(modelUUID string) func() (worker.Worker, error) {
+func (m *modelWorkerManager) starter(modelUUID string, modelType state.ModelType) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		logger.Debugf("starting workers for model %q", modelUUID)
-		worker, err := m.config.NewModelWorker(modelUUID)
+		worker, err := m.config.NewModelWorker(modelUUID, modelType)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot manage model %q", modelUUID)
 		}

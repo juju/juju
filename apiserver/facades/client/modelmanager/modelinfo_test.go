@@ -922,6 +922,11 @@ func (m *mockModel) ModelTag() names.ModelTag {
 	return m.tag
 }
 
+func (m *mockModel) Type() state.ModelType {
+	m.MethodCall(m, "Type")
+	return state.ModelTypeIAAS
+}
+
 func (m *mockModel) Life() state.Life {
 	m.MethodCall(m, "Life")
 	return m.life

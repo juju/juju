@@ -153,6 +153,13 @@ func TestingModelOnlyRoot() rpc.Root {
 	return restrictRoot(r, modelFacadesOnly)
 }
 
+// TestingCAASModelOnlyRoot returns a restricted srvRoot as if
+// logged in to a CAAS model.
+func TestingCAASModelOnlyRoot() rpc.Root {
+	r := TestingAPIRoot(AllFacades())
+	return restrictRoot(r, caasModelFacadesOnly)
+}
+
 // TestingRestrictedRoot returns a restricted srvRoot.
 func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
 	r := TestingAPIRoot(AllFacades())
