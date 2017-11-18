@@ -213,7 +213,7 @@ type ModelDetails struct {
 	// This information is available to owners and users with write
 	// access or greater.
 	MachineCount int64
-	CoreCount int64
+	CoreCount    int64
 	// DO WE EVEN WANT THIS DATA HERE? The only thing we show in 'juju models' is the *count*
 	/// Machines []ModelMachineInfo `json:"machines"`
 
@@ -438,30 +438,135 @@ func (p *modelDetailProcessor) fillInLastConnection(lastAccessIds []string) erro
 	return nil
 }
 
-func (p *modelDetailProcessor) fillInMigration() error {
-	lastConnections, closer2 := p.st.db().GetRawCollection(modelUserLastConnectionC)
-	defer closer2()
-	query := lastConnections.Find(bson.M{"_id": bson.M{"$in": lastAccessIds}})
-	query.Batch(100)
+func (p *modelDetailProcessor) fillInMachines() error {
+	// TODO: (jam) 2017-11-18 we should have filled in the authorization information already. So just use that
+	// information to know what machine information we should be reporting.
+	// Then again, if we are just returning summary information instead of the details, do we care about exposing it to
+	// readonly users?
+	// We'd want to do this to collect the model uuids that we will collect machine information for.
+	//// canSeeMachines := authorizedOwner
+	//// if !canSeeMachines {
+	//// 	if canSeeMachines, err = m.hasWriteAccess(tag); err != nil {
+	//// 		return params.ModelInfo{}, errors.Trace(err)
+	//// 	}
+	//// }
+	//// if canSeeMachines {
+	//// 	if info.Machines, err = common.ModelMachineInfo(st); shouldErr(err) {
+	//// 		return params.ModelInfo{}, err
+	//// 	}
+	//// }
+	machines, closer := p.st.db().GetRawCollection(machinesC)
+	defer closer()
+	query := machines.Find(bson.M{
+		"model-uuid": bson.M{"$in": p.modelUUIDs},
+		"life":       Alive,
+	})
+	query.Select(bson.M{"life": 1, "model-uuid": 1, "_id": 1, "machineid": 1})
 	iter := query.Iter()
-	var connInfo modelUserLastConnectionDoc
-	for iter.Next(&connInfo) {
-		idx, ok := p.indexByUUID[connInfo.ModelUUID]
+	var doc machineDoc
+	machineIds := make([]string, 0)
+	for iter.Next(&doc) {
+		if doc.Life != Alive {
+			continue
+		}
+		idx, ok := p.indexByUUID[doc.ModelUUID]
+		if !ok {
+			continue
+		}
+		// There was a lot of data that was collected from things like Machine.Status.
+		// However, if we're just aggregating the counts, we don't care about any of that.
+		details := &p.details[idx]
+		details.MachineCount++
+		// TODO: Don't double count Containers
+		machineIds = append(machineIds, doc.ModelUUID+":"+doc.Id)
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	instances, closer2 := p.st.db().GetRawCollection(instanceDataC)
+	defer closer2()
+	query = instances.Find(bson.M{"_id": bson.M{"$in": machineIds}})
+	query.Select(bson.M{"cpucores": 1, "model-uuid": 1})
+	iter = query.Iter()
+	var instData instanceData
+	for iter.Next(&instData) {
+		idx, ok := p.indexByUUID[instData.ModelUUID]
 		if !ok {
 			continue
 		}
 		details := &p.details[idx]
-		username := strings.ToLower(connInfo.UserName)
-		t := connInfo.LastConnection
-		userInfo := details.Users[username]
-		userInfo.LastConnection = &t
-		details.Users[username] = userInfo
+		if instData.CpuCores != nil {
+			details.CoreCount += int64(*instData.CpuCores)
+		}
 	}
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
+
+func (p *modelDetailProcessor) fillInMigration() error {
+	// For now, we just potato the Migration information. Its a little unfortunate, but the expectation is that most
+	// models won't have been migrated, and thus the table is mostly empty anyway.
+	// It might be possible to do it differently with an aggregation and $first queries.
+	// $first appears to have been available since Mongo 2.4.
+	// Migrations is a global collection so can be accessed from any State
+	migrations, closer := p.st.db().GetCollection(migrationsC)
+	defer closer()
+	pipe := migrations.Pipe([]bson.M{
+		{"$match": bson.M{"model-uuid": bson.M{"$in": p.modelUUIDs}}},
+		{"$sort": bson.M{"model-uuid": 1, "attempt": -1}},
+		{"$group": bson.M{
+			"_id":     "$model-uuid",
+			"attempt": -1,
+		},
+		},
+	})
+	pipe.Batch(100)
+	iter := pipe.Iter()
+	modelMigDocs := make(map[string]modelMigDoc)
+	docIds := make([]string, 0)
+	var doc modelMigDoc
+	for iter.Next(&doc) {
+		if _, ok := p.indexByUUID[doc.ModelUUID]; !ok {
+			continue
+		}
+		modelMigDocs[doc.Id] = doc
+		docIds = append(docIds, doc.Id)
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	// Now look up the status documents and join them together
+	migStatus, closer2 := p.st.db().GetCollection(migrationsStatusC)
+	defer closer2()
+	query := migStatus.Find(bson.M{"_id": bson.M{"$in": docIds}})
+	query.Batch(100)
+	iter = query.Iter()
+	var statusDoc modelMigStatusDoc
+	for iter.Next(&statusDoc) {
+		doc, ok := modelMigDocs[statusDoc.Id]
+		if !ok {
+			continue
+		}
+		idx, ok := p.indexByUUID[doc.ModelUUID]
+		if !ok {
+			continue
+		}
+		details := &p.details[idx]
+		// TODO (jam): Can we make modelMigration *not* accept a State object so that we know we won't potato more stuff in the future?
+		details.Migration = &modelMigration{
+			doc:       doc,
+			statusDoc: statusDoc,
+			st:        p.st,
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (p *modelDetailProcessor) fillInFromModelUsers() error {
 	// We use the raw settings because we are reading across model UUIDs
 	rawModelUsers, closer := p.st.database.GetRawCollection(modelUsersC)
@@ -503,8 +608,12 @@ func (p *modelDetailProcessor) fillInFromModelUsers() error {
 	if err := p.fillInLastConnection(lastAccessIds); err != nil {
 		return errors.Trace(err)
 	}
-	// TODO: We need to add machine information
-	// TODO: We need to add migration information
+	if err := p.fillInMachines(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := p.fillInMigration(); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
