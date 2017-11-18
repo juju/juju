@@ -515,12 +515,23 @@ func (p *modelDetailProcessor) fillInMigration() error {
 	defer closer()
 	pipe := migrations.Pipe([]bson.M{
 		{"$match": bson.M{"model-uuid": bson.M{"$in": p.modelUUIDs}}},
-		{"$sort": bson.M{"model-uuid": 1, "attempt": -1}},
+		{"$sort": bson.M{"model-uuid": 1, "$attempt": -1}},
 		{"$group": bson.M{
-			"_id":     "$model-uuid",
-			"attempt": -1,
-		},
-		},
+			"_id":   "$model-uuid",
+			"docid": bson.M{"$first": "$_id"},
+			// TODO: Do we need all of these, do we care about anything but doc _id?
+			"attempt":           bson.M{"$first": "$attempt"},
+			"initiated-by":      bson.M{"$first": "$initiated-by"},
+			"target-controller": bson.M{"$first": "$target-controller"},
+			"target-addrs":      bson.M{"$first": "$target-addrs"},
+			"target-cacert":     bson.M{"$first": "$target-cacert"},
+			"target-entity":     bson.M{"$first": "$target-entity"},
+		}},
+		// We grouped on model-uuid, but need to project back to normal fields
+		{"$project": bson.M{
+			"_id":        "$docid",
+			"model-uuid": "$_id",
+		}},
 	})
 	pipe.Batch(100)
 	iter := pipe.Iter()
