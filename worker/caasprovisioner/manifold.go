@@ -5,6 +5,7 @@ package caasprovisioner
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/api/caasprovisioner"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -65,9 +66,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.New("API connection is controller-only (should never happen)")
 	}
 
-	// TODO(caas) - construct new facade from apiCaller.
-	api := CAASProvisionerFacade(nil)
-
+	api := caasprovisioner.NewClient(apiCaller)
 	agentConfig := agent.CurrentConfig()
 	w, err := config.NewWorker(api, broker, modelTag, agentConfig)
 	if err != nil {
@@ -83,6 +82,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.APICallerName,
+			config.BrokerName,
 		},
 		Start: config.start,
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/agent" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/agent/caasprovisioner"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
 	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
@@ -144,7 +145,10 @@ func AllFacades() *facade.Registry {
 	reg("Client", 1, client.NewFacade)
 	reg("Cloud", 1, cloud.NewFacade)
 	if featureflag.Enabled(feature.CAAS) {
+		// CAAS related facades.
+		// Move these to the correct place above once the feature flag disappears.
 		reg("Cloud", 2, cloud.NewFacadeV2)
+		reg("CAASProvisioner", 1, caasprovisioner.NewStateCAASProvisionerAPI)
 	}
 
 	reg("Controller", 3, controller.NewControllerAPIv3)
