@@ -66,6 +66,7 @@ type ModelManagerAPI interface {
 	ListModels(user string) ([]base.UserModel, error)
 	ListModelsWithInfo(user string) ([]params.ModelInfoResult, error)
 	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
+	BestAPIVersion() int
 }
 
 // ModelsSysAPI defines the methods on the controller manager API that the
@@ -147,10 +148,18 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	}
 
 	now := time.Now()
+
+	modelmanagerAPI, err := c.getModelManagerAPI()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer modelmanagerAPI.Close()
+
 	var modelInfo []common.ModelInfo
-	if !c.oldAPI {
+	// TODO (anastasiamac 2017-11-6) oldAPI will need to be removed before merging into develop.
+	if !c.oldAPI && modelmanagerAPI.BestAPIVersion() > 3 {
 		// New code path
-		modelInfo, err = c.getNewModelInfo(controllerName, now)
+		modelInfo, err = c.getNewModelInfo(ctx, modelmanagerAPI, controllerName, now)
 		if err != nil {
 			return errors.Annotate(err, "unable to get model details")
 		}
@@ -160,7 +169,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		if c.all {
 			models, err = c.getAllModels()
 		} else {
-			models, err = c.getUserModels()
+			models, err = c.getUserModels(modelmanagerAPI)
 		}
 		if err != nil {
 			return errors.Annotate(err, "cannot list models")
@@ -168,7 +177,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 
 		// TODO(perrito666) 2016-05-02 lp:1558657
 		// And now get the full details of the models.
-		modelInfo, err = c.getModelInfo(controllerName, now, models)
+		modelInfo, err = c.getModelInfo(modelmanagerAPI, controllerName, now, models)
 		if err != nil {
 			return errors.Annotate(err, "cannot get model details")
 		}
@@ -184,7 +193,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 
 	modelSet := ModelSet{Models: modelInfo}
 	current, err := c.ClientStore().CurrentModel(controllerName)
-	if err == nil || errors.IsNotFound(err) {
+	if err == nil {
 		// It is not a problem if we could not get current model -
 		// it could have been destroyed since last time we've used this client.
 		// However, if we do find it, we'd want to mark it in the output.
@@ -204,33 +213,33 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	if err := c.out.Write(ctx, modelSet); err != nil {
 		return err
 	}
-	/// if len(models) == 0 && c.out.Name() == "tabular" {
-	/// 	// When the output is tabular, we inform the user when there
-	/// 	// are no models available, and tell them how to go about
-	/// 	// creating or granting access to them.
-	/// 	fmt.Fprintln(ctx.Stderr, noModelsMessage)
-	/// }
+	if len(modelInfo) == 0 && c.out.Name() == "tabular" {
+		// When the output is tabular, we inform the user when there
+		// are no models available, and tell them how to go about
+		// creating or granting access to them.
+		fmt.Fprintln(ctx.Stderr, noModelsMessage)
+	}
 	return nil
 }
 
-func (c *modelsCommand) getNewModelInfo(controllerName string, now time.Time) ([]common.ModelInfo, error) {
-	client, err := c.getModelManagerAPI()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer client.Close()
+func (c *modelsCommand) getNewModelInfo(ctx *cmd.Context, client ModelManagerAPI, controllerName string, now time.Time) ([]common.ModelInfo, error) {
 	results, err := client.ListModelsWithInfo(c.user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	info := []common.ModelInfo{}
 	for _, result := range results {
+		// Since we do not want to throw away all results if we have an
+		// an issue with a model, we will display errors in Stderr
+		// and will continue processing the rest.
 		if result.Error != nil {
-			return nil, errors.Trace(result.Error)
+			ctx.Infof(result.Error.Error())
+			continue
 		}
 		model, err := common.ModelInfoFromParams(*result.Result, now)
 		if err != nil {
-			return nil, errors.Trace(err)
+			ctx.Infof(err.Error())
+			continue
 		}
 		model.ControllerName = controllerName
 		info = append(info, model)
@@ -238,13 +247,7 @@ func (c *modelsCommand) getNewModelInfo(controllerName string, now time.Time) ([
 	return info, nil
 }
 
-func (c *modelsCommand) getModelInfo(controllerName string, now time.Time, userModels []base.UserModel) ([]common.ModelInfo, error) {
-	client, err := c.getModelManagerAPI()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer client.Close()
-
+func (c *modelsCommand) getModelInfo(client ModelManagerAPI, controllerName string, now time.Time, userModels []base.UserModel) ([]common.ModelInfo, error) {
 	tags := make([]names.ModelTag, len(userModels))
 	for i, m := range userModels {
 		tags[i] = names.NewModelTag(m.UUID)
@@ -288,12 +291,7 @@ func (c *modelsCommand) getAllModels() ([]base.UserModel, error) {
 	return client.AllModels()
 }
 
-func (c *modelsCommand) getUserModels() ([]base.UserModel, error) {
-	client, err := c.getModelManagerAPI()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer client.Close()
+func (c *modelsCommand) getUserModels(client ModelManagerAPI) ([]base.UserModel, error) {
 	return client.ListModels(c.user)
 }
 
