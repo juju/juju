@@ -179,8 +179,8 @@ func (c *Client) ListModels(user string) ([]base.UserModel, error) {
 	return result, nil
 }
 
-func (c *Client) ListModelsWithInfo(user string) ([]params.ModelInfoResult, error) {
-	entity := params.Entity{names.NewUserTag(user).String()}
+func (c *Client) ListModelsWithInfo(user names.UserTag) ([]params.ModelInfoResult, error) {
+	entity := params.Entity{user.String()}
 	var results params.ModelInfoResults
 	err := c.facade.FacadeCall("ListModelsWithInfo", entity, &results)
 	if err != nil {
