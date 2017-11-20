@@ -77,8 +77,8 @@ func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	expectedOutput := `
 Use --refresh flag with this command to see the latest information.
 
-Controller  Model       User   Access     Cloud/Region        Models  Machines  HA  Version
-kontroll*   controller  admin  superuser  dummy/dummy-region       1         -   -  (unknown)  
+Controller  Model             User   Access     Cloud/Region        Models  Machines  HA  Version
+kontroll*   admin/controller  admin  superuser  dummy/dummy-region       1         -   -  (unknown)  
 
 `[1:]
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOutput)
@@ -140,7 +140,7 @@ models:
       cores: 2
   sla: unsupported
   agent-version: %v
-current-model: controller
+current-model: admin/controller
 `[1:]
 	c.Assert(cmdtesting.Stdout(context), gc.Matches, fmt.Sprintf(expectedOutput, version.Current))
 }
