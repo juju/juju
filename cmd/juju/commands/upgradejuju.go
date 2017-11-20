@@ -132,7 +132,7 @@ func (c *upgradeJujuCommand) Init(args []string) error {
 
 var (
 	errUpToDate            = stderrors.New("no upgrades available")
-	downgradeErrMsg        = "cannot change version from %s to %s"
+	downgradeErrMsg        = "cannot change version from %s to lower version %s"
 	minMajorUpgradeVersion = map[int]version.Number{
 		2: version.MustParse("1.25.4"),
 	}
@@ -276,7 +276,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		// environment version (can't guarantee API compatibility).
 		return errors.Errorf("cannot upgrade a %s model with a %s client",
 			agentVersion, jujuversion.Current)
-	case c.Version != version.Zero && c.Version.Major < agentVersion.Major:
+	case c.Version != version.Zero && compareNoBuild(agentVersion, c.Version) == 1:
 		// The specified version would downgrade the environment.
 		// Don't upgrade and return an error.
 		return errors.Errorf(downgradeErrMsg, agentVersion, c.Version)
@@ -651,4 +651,10 @@ func makeUploadVersion(vers version.Number, existing coretools.List) version.Num
 		}
 	}
 	return vers
+}
+
+func compareNoBuild(a, b version.Number) int {
+	a.Build = 0
+	b.Build = 0
+	return a.Compare(b)
 }

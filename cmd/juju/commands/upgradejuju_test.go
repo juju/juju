@@ -100,17 +100,18 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--agent-version", "5.2.0"},
 	expectErr:      `unknown version "5.2.0"`,
 }, {
-	about:          "major version downgrade to incompatible version",
+	about:          "version downgrade",
+	tools:          []string{"4.2-beta2-quantal-amd64"},
 	currentVersion: "4.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
-	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "cannot change version from 4.2.0 to 3.2.0",
+	args:           []string{"--agent-version", "4.2-beta2"},
+	expectErr:      "cannot change version from 4.2.0 to lower version 4.2-beta2",
 }, {
 	about:          "--build-agent with inappropriate version 1",
 	currentVersion: "4.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
 	args:           []string{"--build-agent", "--agent-version", "3.1.0"},
-	expectErr:      "cannot change version from 4.2.0 to 3.1.0",
+	expectErr:      "cannot change version from 4.2.0 to lower version 3.1.0",
 }, {
 	about:          "--build-agent with inappropriate version 2",
 	currentVersion: "3.2.7-quantal-amd64",
@@ -241,7 +242,7 @@ var upgradeJujuTests = []struct {
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "3.3-dev0",
 	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "cannot change version from 3.3-dev0 to 3.2.0",
+	expectErr:      "cannot change version from 3.3-dev0 to lower version 3.2.0",
 }, {
 	about:          "nothing available",
 	currentVersion: "2.0.0-quantal-amd64",
