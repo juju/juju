@@ -730,9 +730,8 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelIn
 		authorizedOwner := m.authCheck(names.NewUserTag(mi.Owner)) == nil
 		for _, user := range mi.Users {
 			if !authorizedOwner && m.authCheck(user.UserTag) != nil {
-				// The authenticated user is neither the owner
-				// nor administrator, nor the model user, so
-				// has no business knowing about the model user.
+				// The authenticated user is not an admin,
+				// so should only see themselves in the list of model users.
 				continue
 			}
 

@@ -558,6 +558,8 @@ type mockState struct {
 	block           state.BlockType
 	migration       *mockMigration
 	modelConfig     *config.Config
+
+	modelDetailsForUser func() ([]state.ModelDetails, error)
 }
 
 type fakeModelDescription struct {
@@ -744,7 +746,7 @@ func (st *mockState) ModelSummariesForUser(user names.UserTag) ([]state.ModelAcc
 
 func (st *mockState) ModelDetailsForUser(user names.UserTag) ([]state.ModelDetails, error) {
 	st.MethodCall(st, "ModelDetailsForUser", user)
-	return []state.ModelDetails{}, st.NextErr()
+	return st.modelDetailsForUser()
 }
 
 func (st *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
@@ -1027,6 +1029,22 @@ func (m *mockModel) AutoConfigureContainerNetworking(environ environs.Environ) e
 func (m *mockModel) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
 	m.MethodCall(m, "ModelConfigDefaultValues")
 	return m.cfgDefaults, nil
+}
+
+func (m *mockModel) getModelDetails() state.ModelDetails {
+	cred, _ := m.CloudCredential()
+	return state.ModelDetails{
+		Name:               m.Name(),
+		UUID:               m.UUID(),
+		Life:               m.Life(),
+		Owner:              m.Owner().Id(),
+		ControllerUUID:     m.ControllerUUID(),
+		SLALevel:           m.SLALevel(),
+		SLAOwner:           m.SLAOwner(),
+		CloudTag:           m.Cloud(),
+		CloudRegion:        m.CloudRegion(),
+		CloudCredentialTag: cred.String(),
+	}
 }
 
 type mockModelUser struct {
