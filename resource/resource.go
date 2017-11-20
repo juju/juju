@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charm.v6/resource"
 )
 
 // Resource defines a single resource within a Juju model.

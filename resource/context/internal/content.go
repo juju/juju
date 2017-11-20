@@ -11,7 +11,7 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 
 	"github.com/juju/juju/resource"
 )

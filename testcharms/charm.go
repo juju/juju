@@ -10,10 +10,10 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"gopkg.in/juju/charmrepo.v2-unstable/testing"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v2/csclient"
+	"gopkg.in/juju/charmrepo.v2/csclient/params"
+	"gopkg.in/juju/charmrepo.v2/testing"
 )
 
 // Repo provides access to the test charm repository.
@@ -69,7 +69,8 @@ func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL
 		for _, r := range current {
 			if r.Revision == -1 {
 				// The resource doesn't exist so upload one.
-				_, err := client.UploadResource(id, r.Name, "", strings.NewReader(r.Name+" content"))
+				content := r.Name + " content"
+				_, err := client.UploadResource(id, r.Name, "", strings.NewReader(content), int64(len(content)), nil)
 				c.Assert(err, jc.ErrorIsNil)
 				r.Revision = 0
 			}

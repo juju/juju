@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/charmstore"

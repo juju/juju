@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"

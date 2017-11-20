@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"

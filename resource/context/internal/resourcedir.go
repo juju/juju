@@ -10,7 +10,7 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 )
 
 // DirectorySpec identifies information for a resource directory.
