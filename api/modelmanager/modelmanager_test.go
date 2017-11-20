@@ -4,6 +4,7 @@
 package modelmanager_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -400,6 +402,73 @@ func (s *modelmanagerSuite) TestModelStatusError(c *gc.C) {
 	client := modelmanager.NewClient(apiCaller)
 	out, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, gc.ErrorMatches, "model error")
+	c.Assert(out, gc.IsNil)
+}
+
+func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
+	user := "commander"
+	modelInfo := params.ModelInfo{
+		Name:               "name",
+		UUID:               "uuid",
+		ControllerUUID:     "controllerUUID",
+		ProviderType:       "aws",
+		DefaultSeries:      "xenial",
+		CloudTag:           "cloud-aws",
+		CloudRegion:        "us-east-1",
+		CloudCredentialTag: "credential-cred",
+		OwnerTag:           "user-admin",
+		Life:               params.Alive,
+		Status:             params.EntityStatus{Status: status.Status("active")},
+		Users:              []params.ModelUserInfo{},
+		Machines:           []params.ModelMachineInfo{},
+	}
+
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListModelsWithInfo")
+			c.Check(arg, gc.Equals, params.Entity{Tag: fmt.Sprintf("user-%v", user)})
+			c.Check(result, gc.FitsTypeOf, &params.ModelInfoResults{})
+
+			out := result.(*params.ModelInfoResults)
+			out.Results = []params.ModelInfoResult{
+				params.ModelInfoResult{Result: &modelInfo},
+				params.ModelInfoResult{Error: common.ServerError(errors.New("model error"))},
+			}
+			return nil
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	results, err := client.ListModelsWithInfo(user)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []params.ModelInfoResult{
+		{Result: &modelInfo},
+		{Error: &params.Error{Message: "model error"}},
+	})
+}
+
+func (s *modelmanagerSuite) TestListModelsWithInfoInvalidUser(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			return nil
+		})
+	client := modelmanager.NewClient(apiCaller)
+	out, err := client.ListModelsWithInfo("")
+	c.Assert(err, gc.ErrorMatches, `user "" not valid`)
+	c.Assert(out, gc.IsNil)
+}
+
+func (s *modelmanagerSuite) TestListModelsWithInfoError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			return errors.New("captain, error")
+		})
+	client := modelmanager.NewClient(apiCaller)
+	out, err := client.ListModelsWithInfo("captain")
+	c.Assert(err, gc.ErrorMatches, "captain, error")
 	c.Assert(out, gc.IsNil)
 }
 

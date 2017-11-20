@@ -180,6 +180,13 @@ func (c *Client) ListModels(user string) ([]base.UserModel, error) {
 }
 
 func (c *Client) ListModelsWithInfo(user string) ([]params.ModelInfoResult, error) {
+	// Need to check the validity of user name here, otherwise
+	// we could panic when constructing user tag.
+	// TODO (anastasiamac 2017-11-20) in most api calls, we expect this string to be a user tag...
+	// I think we should change it so. Happy to do it in this PR, if you are....
+	if !names.IsValidUser(user) {
+		return nil, errors.NotValidf("user %q", user)
+	}
 	entity := params.Entity{names.NewUserTag(user).String()}
 	var results params.ModelInfoResults
 	err := c.facade.FacadeCall("ListModelsWithInfo", entity, &results)
