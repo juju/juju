@@ -4,7 +4,6 @@
 package modelmanager_test
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -406,7 +405,7 @@ func (s *modelmanagerSuite) TestModelStatusError(c *gc.C) {
 }
 
 func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
-	user := "commander"
+	userTag := names.NewUserTag("commander")
 	modelInfo := params.ModelInfo{
 		Name:               "name",
 		UUID:               "uuid",
@@ -429,7 +428,7 @@ func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 			c.Check(objType, gc.Equals, "ModelManager")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ListModelsWithInfo")
-			c.Check(arg, gc.Equals, params.Entity{Tag: fmt.Sprintf("user-%v", user)})
+			c.Check(arg, gc.Equals, params.Entity{Tag: userTag.String()})
 			c.Check(result, gc.FitsTypeOf, &params.ModelInfoResults{})
 
 			out := result.(*params.ModelInfoResults)
@@ -442,23 +441,12 @@ func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 	}
 
 	client := modelmanager.NewClient(apiCaller)
-	results, err := client.ListModelsWithInfo(user)
+	results, err := client.ListModelsWithInfo(userTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []params.ModelInfoResult{
 		{Result: &modelInfo},
 		{Error: &params.Error{Message: "model error"}},
 	})
-}
-
-func (s *modelmanagerSuite) TestListModelsWithInfoInvalidUser(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string, version int, id, request string, args, result interface{}) error {
-			return nil
-		})
-	client := modelmanager.NewClient(apiCaller)
-	out, err := client.ListModelsWithInfo("")
-	c.Assert(err, gc.ErrorMatches, `user "" not valid`)
-	c.Assert(out, gc.IsNil)
 }
 
 func (s *modelmanagerSuite) TestListModelsWithInfoError(c *gc.C) {
@@ -467,7 +455,7 @@ func (s *modelmanagerSuite) TestListModelsWithInfoError(c *gc.C) {
 			return errors.New("captain, error")
 		})
 	client := modelmanager.NewClient(apiCaller)
-	out, err := client.ListModelsWithInfo("captain")
+	out, err := client.ListModelsWithInfo(names.NewUserTag("captain"))
 	c.Assert(err, gc.ErrorMatches, "captain, error")
 	c.Assert(out, gc.IsNil)
 }
