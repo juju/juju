@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/modelworkermanager"
+	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/reboot"
@@ -206,6 +207,11 @@ type ManifoldsConfig struct {
 	// NewModelWorker returns a new worker for managing the model with
 	// the specified UUID and type.
 	NewModelWorker func(modelUUID string, modelType state.ModelType) (worker.Worker, error)
+
+	// ControllerSupportsSpaces is a function that reports whether or
+	// not the controller model, represented by the given *state.State,
+	// supports network spaces.
+	ControllerSupportsSpaces func(*state.State) (bool, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -676,6 +682,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:      modelworkermanager.New,
 			NewModelWorker: config.NewModelWorker,
 		})),
+
+		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
+			AgentName:                agentName,
+			ClockName:                clockName,
+			StateName:                stateName,
+			Hub:                      config.CentralHub,
+			NewWorker:                peergrouper.New,
+			ControllerSupportsSpaces: config.ControllerSupportsSpaces,
+		})),
 	}
 }
 
@@ -765,4 +780,5 @@ const (
 	apiServerName                 = "api-server"
 	certificateWatcherName        = "certificate-watcher"
 	modelWorkerManagerName        = "model-worker-manager"
+	peergrouperName               = "peer-grouper"
 )

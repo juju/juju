@@ -5,6 +5,7 @@ package peergrouper
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 	"strings"
@@ -73,9 +74,12 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			about:    "extra member with >1 votes",
 			machines: mkMachines("11v", ipVersion),
 			members: append(mkMembers("1v", ipVersion), replicaset.Member{
-				Id:      2,
-				Votes:   newInt(2),
-				Address: fmt.Sprintf(ipVersion.formatHostPort, 12, mongoPort),
+				Id:    2,
+				Votes: newInt(2),
+				Address: net.JoinHostPort(
+					fmt.Sprintf(ipVersion.formatHost, 12),
+					fmt.Sprint(mongoPort),
+				),
 			}),
 			statuses:     mkStatuses("1p 2s", ipVersion),
 			expectVoting: []bool{true},
@@ -155,13 +159,10 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			machines: append(mkMachines("11v 12v", ipVersion), &machineTracker{
 				id:        "13",
 				wantsVote: true,
-				mongoHostPorts: []network.HostPort{{
-					Address: network.Address{
-						Value: ipVersion.extraHost,
-						Type:  ipVersion.addressType,
-						Scope: network.ScopeCloudLocal,
-					},
-					Port: 1234,
+				addresses: []network.Address{{
+					Value: ipVersion.extraHost,
+					Type:  ipVersion.addressType,
+					Scope: network.ScopeCloudLocal,
 				}},
 			}),
 			statuses:     mkStatuses("1s 2p 3p", ipVersion),
@@ -169,15 +170,14 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectVoting: []bool{true, true, true},
 			expectMembers: append(mkMembers("1v 2v", ipVersion), replicaset.Member{
 				Id:      3,
-				Address: ipVersion.extraAddress,
+				Address: net.JoinHostPort(ipVersion.extraHost, fmt.Sprint(mongoPort)),
 				Tags:    memberTag("13"),
 			}),
 		}, {
 			about: "a machine's address is ignored if it changes to empty",
 			machines: append(mkMachines("11v 12v", ipVersion), &machineTracker{
-				id:             "13",
-				wantsVote:      true,
-				mongoHostPorts: nil,
+				id:        "13",
+				wantsVote: true,
 			}),
 			statuses:      mkStatuses("1s 2p 3p", ipVersion),
 			members:       mkMembers("1v 2v 3v", ipVersion),
@@ -196,6 +196,7 @@ func (s *desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 				trackerMap[m.Id()] = m
 			}
 			info := &peerGroupInfo{
+				mongoPort:       mongoPort,
 				machineTrackers: trackerMap,
 				statuses:        test.statuses,
 				members:         test.members,
@@ -269,13 +270,10 @@ func mkMachines(description string, ipVersion TestIPVersion) []*machineTracker {
 	for i, d := range descrs {
 		ms[i] = &machineTracker{
 			id: fmt.Sprint(d.id),
-			mongoHostPorts: []network.HostPort{{
-				Address: network.Address{
-					Value: fmt.Sprintf(ipVersion.machineFormatHost, d.id),
-					Type:  ipVersion.addressType,
-					Scope: network.ScopeCloudLocal,
-				},
-				Port: mongoPort,
+			addresses: []network.Address{{
+				Value: fmt.Sprintf(ipVersion.formatHost, d.id),
+				Type:  ipVersion.addressType,
+				Scope: network.ScopeCloudLocal,
 			}},
 			wantsVote: strings.Contains(d.flags, "v"),
 		}
@@ -301,9 +299,12 @@ func mkMembers(description string, ipVersion TestIPVersion) []replicaset.Member 
 	for i, d := range descrs {
 		machineId := d.id + 10
 		m := replicaset.Member{
-			Id:      d.id,
-			Address: fmt.Sprintf(ipVersion.formatHostPort, machineId, mongoPort),
-			Tags:    memberTag(fmt.Sprint(machineId)),
+			Id: d.id,
+			Address: net.JoinHostPort(
+				fmt.Sprintf(ipVersion.formatHost, machineId),
+				fmt.Sprint(mongoPort),
+			),
+			Tags: memberTag(fmt.Sprint(machineId)),
 		}
 		if !strings.Contains(d.flags, "v") {
 			m.Priority = newFloat64(0)
@@ -336,8 +337,11 @@ func mkStatuses(description string, ipVersion TestIPVersion) []replicaset.Member
 	for i, d := range descrs {
 		machineId := d.id + 10
 		s := replicaset.MemberStatus{
-			Id:      d.id,
-			Address: fmt.Sprintf(ipVersion.formatHostPort, machineId, mongoPort),
+			Id: d.id,
+			Address: net.JoinHostPort(
+				fmt.Sprintf(ipVersion.formatHost, machineId),
+				fmt.Sprint(mongoPort),
+			),
 			Healthy: !strings.Contains(d.flags, "H"),
 			State:   replicaset.UnknownState,
 		}

@@ -80,7 +80,6 @@ import (
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/logsender/logsendermetrics"
 	"github.com/juju/juju/worker/migrationmaster"
-	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -99,7 +98,6 @@ var (
 	// the intestinal fortitude to untangle this package. Be that
 	// person! Juju Needs You.
 	useMultipleCPUs       = utils.UseMultipleCPUs
-	peergrouperNew        = peergrouper.New
 	newCertificateUpdater = certupdater.NewCertificateUpdater
 	newMetadataUpdater    = imagemetadataworker.NewWorker
 	reportOpenedState     = func(*state.State) {}
@@ -542,6 +540,23 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			}, handle)
 		}
 
+		// We need to pass this in for the peergrouper, which wants to
+		// know whether the controller model supports spaces.
+		//
+		// TODO(axw) this seems unnecessary, and perhaps even wrong.
+		// Even if the provider supports spaces, you could have manual
+		// machines in the mix, in which case they won't necessarily
+		// be in the same space. I think the peergrouper should just
+		// check what spaces the machines are in, rather than trying
+		// to short cut anything.
+		controllerSupportsSpaces := func(st *state.State) (bool, error) {
+			env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
+			if err != nil {
+				return false, errors.Annotate(err, "getting environ from state")
+			}
+			return environs.SupportsSpaces(env), nil
+		}
+
 		manifolds := machineManifolds(machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			Agent:                agent.APIHostPortsSetter{Agent: a},
@@ -573,6 +588,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			SetStatePool:                      statePoolReporter.set,
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 			NewModelWorker:                    a.startModelWorkers,
+			ControllerSupportsSpaces:          controllerSupportsSpaces,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -1100,18 +1116,6 @@ func (a *MachineAgent) startStateWorkers(
 			// Implemented elsewhere with workers that use the API.
 		case state.JobManageModel:
 			useMultipleCPUs()
-			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
-				env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
-				if err != nil {
-					return nil, errors.Annotate(err, "getting environ from state")
-				}
-				supportsSpaces := environs.SupportsSpaces(env)
-				w, err := peergrouperNew(st, clock.WallClock, supportsSpaces, a.centralHub)
-				if err != nil {
-					return nil, errors.Annotate(err, "cannot start peergrouper worker")
-				}
-				return w, nil
-			})
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
 				w, err := a.newRestoreStateWatcherWorker(st)
 				if err != nil {

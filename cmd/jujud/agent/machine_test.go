@@ -19,7 +19,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/cert"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
@@ -61,7 +60,6 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationmaster"
-	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/workertest"
@@ -420,22 +418,6 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		}
 		c.Logf("waiting for machine %q address to be updated", m.Id())
 	}
-}
-
-func (s *MachineSuite) TestManageModelRunsPeergrouper(c *gc.C) {
-	started := newSignal()
-	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State, _ clock.Clock, _ bool, _ peergrouper.Hub) (worker.Worker, error) {
-		c.Check(st, gc.NotNil)
-		started.trigger()
-		return newDummyWorker(), nil
-	})
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
-	}()
-	started.assertTriggered(c, "peergrouperworker to start")
 }
 
 func (s *MachineSuite) TestManageModelCallsUseMultipleCPUs(c *gc.C) {

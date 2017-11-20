@@ -4,52 +4,46 @@
 package peergrouper
 
 import (
+	"reflect"
 	"sync"
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
 
-type apiHostPortsSetter interface {
-	SetAPIHostPorts([][]network.HostPort) error
+// CachingAPIHostPortsSetter is an APIHostPortsSetter that caches the
+// most recently set values, suppressing further calls to the underlying
+// setter if any call's arguments match those of the preceding call.
+type CachingAPIHostPortsSetter struct {
+	APIHostPortsSetter
+
+	mu   sync.Mutex
+	last [][]network.HostPort
 }
 
-type publisher struct {
-	st apiHostPortsSetter
-
-	mu             sync.Mutex
-	lastAPIServers [][]network.HostPort
-}
-
-func newPublisher(st apiHostPortsSetter) *publisher {
-	return &publisher{st: st}
-}
-
-func (pub *publisher) publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
+func (s *CachingAPIHostPortsSetter) SetAPIHostPorts(apiServers [][]network.HostPort) error {
 	if len(apiServers) == 0 {
-		return errors.Errorf("no api servers specified")
+		return errors.Errorf("no API servers specified")
 	}
-	pub.mu.Lock()
-	defer pub.mu.Unlock()
 
-	sortedAPIServers := make([][]network.HostPort, len(apiServers))
+	sorted := make([][]network.HostPort, len(apiServers))
 	for i, hostPorts := range apiServers {
-		sortedAPIServers[i] = append([]network.HostPort{}, hostPorts...)
-		network.SortHostPorts(sortedAPIServers[i])
+		sorted[i] = append([]network.HostPort{}, hostPorts...)
+		network.SortHostPorts(sorted[i])
 	}
-	if apiServersEqual(sortedAPIServers, pub.lastAPIServers) {
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if reflect.DeepEqual(sorted, s.last) {
 		logger.Debugf("API host ports have not changed")
 		return nil
 	}
 
-	// TODO(rog) publish instanceIds in environment storage.
-	err := pub.st.SetAPIHostPorts(sortedAPIServers)
-	if err != nil {
-		return err
+	if err := s.APIHostPortsSetter.SetAPIHostPorts(sorted); err != nil {
+		return errors.Annotate(err, "setting API host ports")
 	}
-	pub.lastAPIServers = sortedAPIServers
+	s.last = sorted
 	return nil
 }
 
