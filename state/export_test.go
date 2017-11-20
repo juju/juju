@@ -740,3 +740,7 @@ func AddVolumeOps(st *State, params VolumeParams, machineId string) ([]txn.Op, n
 func ModelBackendFromIAASModel(im *IAASModel) modelBackend {
 	return im.mb
 }
+
+func (st *State) ModelQueryForUser(user names.UserTag) (mongo.Query, SessionCloser, error) {
+	return st.modelQueryForUser(user)
+}
