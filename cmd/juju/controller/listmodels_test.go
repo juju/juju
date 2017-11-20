@@ -4,11 +4,14 @@
 package controller_test
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -28,98 +31,83 @@ type ModelsSuite struct {
 	store *jujuclient.MemStore
 }
 
+type ModelsSuiteV4 struct {
+	ModelsSuite
+}
+
 var _ = gc.Suite(&ModelsSuite{})
+var _ = gc.Suite(&ModelsSuiteV4{})
 
 type fakeModelMgrAPIClient struct {
-	err          error
-	user         string
-	models       []base.UserModel
-	all          bool
-	inclMachines bool
-	denyAccess   bool
-	infos        []params.ModelInfoResult
+	*gitjujutesting.Stub
+
+	err   error
+	infos []params.ModelInfoResult
+
+	version int
+}
+
+func (f *fakeModelMgrAPIClient) BestAPIVersion() int {
+	f.MethodCall(f, "BestAPIVersion")
+	return f.version
 }
 
 func (f *fakeModelMgrAPIClient) Close() error {
+	f.MethodCall(f, "Close")
 	return nil
 }
 
 func (f *fakeModelMgrAPIClient) ListModels(user string) ([]base.UserModel, error) {
+	f.MethodCall(f, "ListModels", user)
 	if f.err != nil {
 		return nil, f.err
 	}
-
-	f.user = user
-	return f.models, nil
+	return f.convertInfosToUserModels(), nil
 }
 
 func (f *fakeModelMgrAPIClient) AllModels() ([]base.UserModel, error) {
+	f.MethodCall(f, "AllModels")
 	if f.err != nil {
 		return nil, f.err
 	}
-	f.all = true
-	return f.models, nil
+	return f.convertInfosToUserModels(), nil
+}
+
+func (f *fakeModelMgrAPIClient) ListModelsWithInfo(user names.UserTag) ([]params.ModelInfoResult, error) {
+	f.MethodCall(f, "ListModelsWithInfo", user)
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.infos, nil
 }
 
 func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error) {
+	f.MethodCall(f, "ModelInfo", tags)
 	if f.infos != nil {
 		return f.infos, nil
 	}
-	agentVersion, _ := version.Parse("2.55.5")
 	results := make([]params.ModelInfoResult, len(tags))
 	for i, tag := range tags {
-		for _, model := range f.models {
-			if model.UUID != tag.Id() {
-				continue
+		for _, model := range f.infos {
+			if model.Error == nil {
+				if model.Result.UUID != tag.Id() {
+					continue
+				}
+				results[i] = model
 			}
-			result := &params.ModelInfo{
-				Name:         model.Name,
-				UUID:         model.UUID,
-				OwnerTag:     names.NewUserTag(model.Owner).String(),
-				CloudTag:     "cloud-dummy",
-				Status:       params.EntityStatus{},
-				AgentVersion: &agentVersion,
-			}
-			switch model.Name {
-			case "test-model1":
-				last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
-				result.Status.Status = status.Active
-				if f.user != "" {
-					result.Users = []params.ModelUserInfo{{
-						UserName:       f.user,
-						LastConnection: &last1,
-						Access:         params.ModelReadAccess,
-					}}
-				}
-				if f.inclMachines {
-					one := uint64(1)
-					result.Machines = []params.ModelMachineInfo{
-						{Id: "0", Hardware: &params.MachineHardware{Cores: &one}}, {Id: "1"},
-					}
-				}
-			case "test-model2":
-				last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
-				result.Status.Status = status.Active
-				if f.user != "" {
-					result.Users = []params.ModelUserInfo{{
-						UserName:       f.user,
-						LastConnection: &last2,
-						Access:         params.ModelWriteAccess,
-					}}
-				}
-			case "test-model3":
-				if f.denyAccess {
-					results[i].Error = &params.Error{
-						Message: "permission denied",
-						Code:    params.CodeUnauthorized,
-					}
-				}
-				result.Status.Status = status.Destroying
-			}
-			results[i].Result = result
 		}
 	}
 	return results, nil
+}
+
+func (f *fakeModelMgrAPIClient) convertInfosToUserModels() []base.UserModel {
+	models := make([]base.UserModel, len(f.infos))
+	for i, info := range f.infos {
+		if info.Error == nil {
+			models[i] = base.UserModel{UUID: info.Result.UUID}
+		}
+	}
+	return models
 }
 
 func (s *ModelsSuite) SetUpTest(c *gc.C) {
@@ -140,10 +128,7 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 			UUID:  "test-model3-UUID",
 		},
 	}
-	s.api = &fakeModelMgrAPIClient{
-		models: models,
-		user:   "admin",
-	}
+
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "fake"
 	s.store.Controllers["fake"] = jujuclient.ControllerDetails{}
@@ -154,16 +139,37 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 		User:     "admin",
 		Password: "password",
 	}
-}
 
-func (s *ModelsSuite) newCommand() cmd.Command {
-	return controller.NewListModelsCommandForTest(s.api, s.api, s.store)
+	s.api = &fakeModelMgrAPIClient{
+		Stub:    &gitjujutesting.Stub{},
+		version: 3,
+	}
+	s.api.infos = convert(models)
+
+	// Make api results interesting...
+	// 1st model
+	firstModel := s.api.infos[0].Result
+	last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
+	firstModel.Users = []params.ModelUserInfo{{
+		UserName:       "admin",
+		LastConnection: &last1,
+		Access:         params.ModelReadAccess,
+	}}
+	//2nd model
+	secondModel := s.api.infos[1].Result
+	last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
+	secondModel.Users = []params.ModelUserInfo{{
+		UserName:       "admin",
+		LastConnection: &last2,
+		Access:         params.ModelWriteAccess,
+	}}
+	// 3rd model
+	s.api.infos[2].Result.Status.Status = status.Destroying
 }
 
 func (s *ModelsSuite) TestModelsOwner(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.user, gc.Equals, "admin")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
@@ -172,12 +178,12 @@ func (s *ModelsSuite) TestModelsOwner(c *gc.C) {
 		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
 		"\n")
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
 func (s *ModelsSuite) TestModelsYaml(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.user, gc.Equals, "admin")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 models:
 - name: admin/test-model1
@@ -223,20 +229,31 @@ models:
   agent-version: 2.55.5
 current-model: test-model1
 `[1:])
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
 func (s *ModelsSuite) TestModelsJson(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.user, gc.Equals, "admin")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","controller-uuid":"","controller-name":"fake","owner":"admin","cloud":"dummy","life":"","status":{"current":"active"},"users":{"admin":{"access":"read","last-connection":"2015-03-20"}},"agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","controller-uuid":"","controller-name":"fake","owner":"carlotta","cloud":"dummy","life":"","status":{"current":"active"},"users":{"admin":{"access":"write","last-connection":"2015-03-01"}},"agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","controller-uuid":"","controller-name":"fake","owner":"daiwik@external","cloud":"dummy","life":"","status":{"current":"destroying"},"agent-version":"2.55.5"}],"current-model":"test-model1"}
 `)
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
 func (s *ModelsSuite) TestModelsNonOwner(c *gc.C) {
+	// Ensure fake api caters to user 'bob'
+	for _, apiInfo := range s.api.infos {
+		if apiInfo.Error == nil {
+			bobs := make([]params.ModelUserInfo, len(apiInfo.Result.Users))
+			for i, u := range apiInfo.Result.Users {
+				u.UserName = "bob"
+				bobs[i] = u
+			}
+			apiInfo.Result.Users = bobs
+		}
+	}
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--user", "bob")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.user, gc.Equals, "bob")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
@@ -245,18 +262,18 @@ func (s *ModelsSuite) TestModelsNonOwner(c *gc.C) {
 		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
 		"\n")
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
 func (s *ModelsSuite) TestAllModels(c *gc.C) {
 	c.Assert(s.store.Models["fake"].Models, gc.HasLen, 0)
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--all")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.all, jc.IsTrue)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
 		"Model                        Cloud/Region  Status      Access  Last connection\n"+
-		"admin/test-model1*           dummy         active      read    2015-03-20\n"+
+		"test-model1*                 dummy         active      read    2015-03-20\n"+
 		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
 		"\n")
@@ -265,6 +282,7 @@ func (s *ModelsSuite) TestAllModels(c *gc.C) {
 		"carlotta/test-model2":        jujuclient.ModelDetails{"test-model2-UUID"},
 		"daiwik@external/test-model3": jujuclient.ModelDetails{"test-model3-UUID"},
 	})
+	s.checkAPICalls(c, "BestAPIVersion", "AllModels", "Close", "ModelInfo", "Close")
 }
 
 func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
@@ -279,13 +297,17 @@ func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
 		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  dummy         destroying  -       never connected\n"+
 		"\n")
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
 func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
-	s.api.inclMachines = true
+	one := uint64(1)
+	s.api.infos[0].Result.Machines = []params.ModelMachineInfo{
+		{Id: "0", Hardware: &params.MachineHardware{Cores: &one}}, {Id: "1"},
+	}
+
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--uuid")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.user, gc.Equals, "admin")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
@@ -294,13 +316,17 @@ func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
 		"carlotta/test-model2         test-model2-UUID  dummy         active             0      -  write   2015-03-01\n"+
 		"daiwik@external/test-model3  test-model3-UUID  dummy         destroying         0      -  -       never connected\n"+
 		"\n")
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
 func (s *ModelsSuite) TestModelsMachineInfo(c *gc.C) {
-	s.api.inclMachines = true
+	one := uint64(1)
+	s.api.infos[0].Result.Machines = []params.ModelMachineInfo{
+		{Id: "0", Hardware: &params.MachineHardware{Cores: &one}}, {Id: "1"},
+	}
+
 	context, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.user, gc.Equals, "admin")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
@@ -309,11 +335,19 @@ func (s *ModelsSuite) TestModelsMachineInfo(c *gc.C) {
 		"carlotta/test-model2         dummy         active             0      -  write   2015-03-01\n"+
 		"daiwik@external/test-model3  dummy         destroying         0      -  -       never connected\n"+
 		"\n")
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
+// This test is only needed for older api versions as
+// whether the user has an access to a model will be checked on
+// the api side and the model data will not be sent.
 func (s *ModelsSuite) TestAllModelsWithOneUnauthorised(c *gc.C) {
 	c.Assert(s.store.Models["fake"].Models, gc.HasLen, 0)
-	s.api.denyAccess = true
+	s.api.infos[2].Error = &params.Error{
+		Message: "permission denied",
+		Code:    params.CodeUnauthorized,
+	}
+
 	context, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
@@ -327,31 +361,26 @@ func (s *ModelsSuite) TestAllModelsWithOneUnauthorised(c *gc.C) {
 		"admin/test-model1":    jujuclient.ModelDetails{"test-model1-UUID"},
 		"carlotta/test-model2": jujuclient.ModelDetails{"test-model2-UUID"},
 	})
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
 func (s *ModelsSuite) TestUnrecognizedArg(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newCommand(), "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
+	s.api.CheckNoCalls(c)
+}
+
+func (s *ModelsSuite) TestInvalidUser(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, s.newCommand(), "--user", "+bob")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`user "+bob" not valid`))
+	s.api.CheckNoCalls(c)
 }
 
 func (s *ModelsSuite) TestModelsError(c *gc.C) {
 	s.api.err = common.ErrPerm
 	_, err := cmdtesting.RunCommand(c, s.newCommand())
-	c.Assert(err, gc.ErrorMatches, "cannot list models: permission denied")
-}
-
-func createBasicModelInfo() *params.ModelInfo {
-	agentVersion, _ := version.Parse("2.55.5")
-	return &params.ModelInfo{
-		Name:           "basic-model",
-		UUID:           testing.ModelTag.Id(),
-		ControllerUUID: testing.ControllerTag.Id(),
-		OwnerTag:       names.NewUserTag("owner").String(),
-		Life:           params.Dead,
-		CloudTag:       names.NewCloudTag("altostratus").String(),
-		CloudRegion:    "mid-level",
-		AgentVersion:   &agentVersion,
-	}
+	c.Assert(err, gc.ErrorMatches, ".*: permission denied")
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "Close")
 }
 
 func (s *ModelsSuite) TestWithIncompleteModels(c *gc.C) {
@@ -389,6 +418,24 @@ owner/basic-model  altostratus/mid-level  -              0      -  admin   never
 owner/basic-model  altostratus/mid-level  -              2      -  -       never connected
 
 `[1:])
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
+}
+
+func (s *ModelsSuite) TestListModelsWithAgent(c *gc.C) {
+	basicInfo := createBasicModelInfo()
+	s.assertAgentVersionPresent(c, basicInfo, jc.Contains)
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
+}
+
+func (s *ModelsSuite) TestListModelsWithNoAgent(c *gc.C) {
+	basicInfo := createBasicModelInfo()
+	basicInfo.AgentVersion = nil
+	s.assertAgentVersionPresent(c, basicInfo, gc.Not(jc.Contains))
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
+}
+
+func (s *ModelsSuite) newCommand() cmd.Command {
+	return controller.NewListModelsCommandForTest(s.api, s.api, s.store)
 }
 
 func (s *ModelsSuite) assertAgentVersionPresent(c *gc.C, testInfo *params.ModelInfo, checker gc.Checker) {
@@ -400,13 +447,62 @@ func (s *ModelsSuite) assertAgentVersionPresent(c *gc.C, testInfo *params.ModelI
 	c.Assert(cmdtesting.Stdout(context), checker, "agent-version")
 }
 
-func (s *ModelsSuite) TestListModelsWithAgent(c *gc.C) {
-	basicInfo := createBasicModelInfo()
-	s.assertAgentVersionPresent(c, basicInfo, jc.Contains)
+func (s *ModelsSuite) checkAPICalls(c *gc.C, expectedCalls ...string) {
+	actualCalls := []string{}
+
+	switch s.api.version {
+	case 4:
+		oldCalls := set.NewStrings("ModelInfo", "AllModels", "ListModels")
+		// need to add Close here too because in previous implementations it could
+		// have been called more than once.
+		oldCalls.Add("Close")
+		for _, call := range expectedCalls {
+			if !oldCalls.Contains(call) {
+				actualCalls = append(actualCalls, call)
+			}
+		}
+		actualCalls = append(actualCalls, "ListModelsWithInfo", "Close")
+	default:
+		actualCalls = expectedCalls
+	}
+
+	s.api.CheckCallNames(c, actualCalls...)
 }
 
-func (s *ModelsSuite) TestListModelsWithNoAgent(c *gc.C) {
-	basicInfo := createBasicModelInfo()
-	basicInfo.AgentVersion = nil
-	s.assertAgentVersionPresent(c, basicInfo, gc.Not(jc.Contains))
+func createBasicModelInfo() *params.ModelInfo {
+	agentVersion, _ := version.Parse("2.55.5")
+	return &params.ModelInfo{
+		Name:           "basic-model",
+		UUID:           testing.ModelTag.Id(),
+		ControllerUUID: testing.ControllerTag.Id(),
+		OwnerTag:       names.NewUserTag("owner").String(),
+		Life:           params.Dead,
+		CloudTag:       names.NewCloudTag("altostratus").String(),
+		CloudRegion:    "mid-level",
+		AgentVersion:   &agentVersion,
+	}
+}
+
+func convert(models []base.UserModel) []params.ModelInfoResult {
+	agentVersion, _ := version.Parse("2.55.5")
+	infoResults := make([]params.ModelInfoResult, len(models))
+	for i, model := range models {
+		infoResult := params.ModelInfoResult{}
+		infoResult.Result = &params.ModelInfo{
+			Name:         model.Name,
+			UUID:         model.UUID,
+			OwnerTag:     names.NewUserTag(model.Owner).String(),
+			CloudTag:     "cloud-dummy",
+			AgentVersion: &agentVersion,
+			Status:       params.EntityStatus{Status: status.Active},
+		}
+		infoResults[i] = infoResult
+	}
+	return infoResults
+}
+
+func (s *ModelsSuiteV4) SetUpTest(c *gc.C) {
+	s.ModelsSuite.SetUpTest(c)
+	// re-run all the test for ModelManager v4
+	s.ModelsSuite.api.version = 4
 }
