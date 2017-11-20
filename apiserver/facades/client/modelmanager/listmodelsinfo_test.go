@@ -78,26 +78,6 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.api = modelmanager
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelsWithInfoForSelf(c *gc.C) {
-	user := names.NewUserTag("external@remote")
-	s.setAPIUser(c, user)
-	s.st.model = s.createModel(c, user)
-	result, err := s.api.ListModelsWithInfo(params.Entity{Tag: user.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-}
-
-func (s *ListModelsWithInfoSuite) TestListModelsWithInfoForSelfLocalUser(c *gc.C) {
-	// When the user's credentials cache stores the simple name, but the
-	// api server converts it to a fully qualified name.
-	user := names.NewUserTag("local-user")
-	s.setAPIUser(c, user)
-	s.st.model = s.createModel(c, user)
-	result, err := s.api.ListModelsWithInfo(params.Entity{Tag: user.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-}
-
 func (s *ListModelsWithInfoSuite) TestListModelsWithInfoAdminSelf(c *gc.C) {
 	result, err := s.api.ListModelsWithInfo(params.Entity{Tag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
