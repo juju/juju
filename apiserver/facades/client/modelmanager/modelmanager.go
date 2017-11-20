@@ -47,6 +47,7 @@ type ModelManagerV4 interface {
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
 	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
+	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
 // ModelManagerV3 defines the methods on the version 2 facade for the
@@ -58,6 +59,7 @@ type ModelManagerV3 interface {
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.Entities) (params.ErrorResults, error)
 	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
+	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
 // ModelManagerV2 defines the methods on the version 2 facade for the
@@ -68,6 +70,7 @@ type ModelManagerV2 interface {
 	DumpModelsDB(args params.Entities) params.MapResults
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.Entities) (params.ErrorResults, error)
+	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
 // ModelManagerAPI implements the model manager interface and is

@@ -737,6 +737,15 @@ func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission
 	}
 	return permission.UserAccess{}, st.NextErr()
 }
+func (st *mockState) ModelSummariesForUser(user names.UserTag) ([]state.ModelAccessInfo, error) {
+	st.MethodCall(st, "ModelSummariesForUser", user)
+	return []state.ModelAccessInfo{}, st.NextErr()
+}
+
+func (st *mockState) ModelDetailsForUser(user names.UserTag) ([]state.ModelDetails, error) {
+	st.MethodCall(st, "ModelDetailsForUser", user)
+	return []state.ModelDetails{}, st.NextErr()
+}
 
 func (st *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
 	st.MethodCall(st, "RemoveUserAccess", subject, target)
