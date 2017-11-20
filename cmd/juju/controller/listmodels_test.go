@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/juju/cmd"
@@ -72,7 +73,7 @@ func (f *fakeModelMgrAPIClient) AllModels() ([]base.UserModel, error) {
 	return f.convertInfosToUserModels(), nil
 }
 
-func (f *fakeModelMgrAPIClient) ListModelsWithInfo(user string) ([]params.ModelInfoResult, error) {
+func (f *fakeModelMgrAPIClient) ListModelsWithInfo(user names.UserTag) ([]params.ModelInfoResult, error) {
 	f.MethodCall(f, "ListModelsWithInfo", user)
 	if f.err != nil {
 		return nil, f.err
@@ -366,6 +367,12 @@ func (s *ModelsSuite) TestAllModelsWithOneUnauthorised(c *gc.C) {
 func (s *ModelsSuite) TestUnrecognizedArg(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newCommand(), "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
+	s.api.CheckNoCalls(c)
+}
+
+func (s *ModelsSuite) TestInvalidUser(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, s.newCommand(), "--user", "+bob")
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`user "+bob" not valid`))
 	s.api.CheckNoCalls(c)
 }
 

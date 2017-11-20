@@ -64,7 +64,7 @@ See also:
 type ModelManagerAPI interface {
 	Close() error
 	ListModels(user string) ([]base.UserModel, error)
-	ListModelsWithInfo(user string) ([]params.ModelInfoResult, error)
+	ListModelsWithInfo(user names.UserTag) ([]params.ModelInfoResult, error)
 	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
 	BestAPIVersion() int
 }
@@ -146,6 +146,9 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	if c.user == "" {
 		c.user = accountDetails.User
 	}
+	if !names.IsValidUser(c.user) {
+		return errors.NotValidf("user %q", c.user)
+	}
 
 	now := time.Now()
 
@@ -223,7 +226,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *modelsCommand) getNewModelInfo(ctx *cmd.Context, client ModelManagerAPI, controllerName string, now time.Time) ([]common.ModelInfo, error) {
-	results, err := client.ListModelsWithInfo(c.user)
+	results, err := client.ListModelsWithInfo(names.NewUserTag(c.user))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
