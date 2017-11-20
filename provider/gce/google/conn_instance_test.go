@@ -45,7 +45,7 @@ func (s *connSuite) TestConnectionSimpleAddInstanceAPI(c *gc.C) {
 func (s *instanceSuite) TestConnectionAddInstance(c *gc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 
-	inst, err := s.Conn.AddInstance(s.InstanceSpec, "a-zone")
+	inst, err := s.Conn.AddInstance(s.InstanceSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(inst.ID, gc.Equals, "spam")
@@ -60,7 +60,7 @@ func (s *instanceSuite) TestConnectionAddInstance(c *gc.C) {
 func (s *instanceSuite) TestConnectionAddInstanceAPI(c *gc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 
-	_, err := s.Conn.AddInstance(s.InstanceSpec, "a-zone")
+	_, err := s.Conn.AddInstance(s.InstanceSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)

@@ -899,15 +899,29 @@ func (*maasEnviron) MaintainInstance(args environs.StartInstanceParams) error {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
-	*environs.StartInstanceResult, error,
-) {
+func (environ *maasEnviron) StartInstance(
+	args environs.StartInstanceParams,
+) (_ *environs.StartInstanceResult, err error) {
+
+	zoneIndependentError := func(err error) error {
+		if err == nil {
+			return nil
+		}
+		return &common.StartInstanceError{
+			Err:             err,
+			ZoneIndependent: true,
+		}
+	}
+	zoneSpecificError := func(err error) error {
+		return err
+	}
+
 	availabilityZone := args.AvailabilityZone
 	var nodeName, systemId string
 	if args.Placement != "" {
 		placement, err := environ.parsePlacement(args.Placement)
 		if err != nil {
-			return nil, err
+			return nil, zoneIndependentError(errors.Trace(err))
 		}
 		// NOTE(axw) we wipe out args.AvailabilityZone if the
 		// user specified a specific node or system ID via
@@ -923,8 +937,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	if availabilityZone != "" {
 		if err := common.ValidateAvailabilityZone(environ, availabilityZone); err != nil {
-			logger.Errorf(err.Error())
-			return nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
+			return nil, zoneSpecificError(errors.Trace(err))
 		}
 		logger.Debugf("attempting to acquire node in zone %q", availabilityZone)
 	}
@@ -932,7 +945,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	// Storage.
 	volumes, err := buildMAASVolumeParameters(args.Volumes, args.Constraints)
 	if err != nil {
-		return nil, errors.Annotate(err, "invalid volume parameters")
+		return nil, zoneIndependentError(errors.Annotate(err, "invalid volume parameters"))
 	}
 
 	var interfaceBindings []interfaceBinding
@@ -944,31 +957,27 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			})
 		}
 	}
-	snArgs := selectNodeArgs{
+	selectNode := environ.selectNode2
+	if !environ.usingMAAS2() {
+		selectNode = environ.selectNode
+	}
+	inst, selectNodeErr := selectNode(selectNodeArgs{
 		Constraints:      args.Constraints,
 		AvailabilityZone: availabilityZone,
 		NodeName:         nodeName,
 		SystemId:         systemId,
 		Interfaces:       interfaceBindings,
 		Volumes:          volumes,
-	}
-	var inst maasInstance
-	if !environ.usingMAAS2() {
-		selectedNode, err := environ.selectNode(snArgs)
-		if err != nil {
-			return nil, errors.Errorf("cannot run instances: %v", err)
+	})
+	if selectNodeErr != nil {
+		err := errors.Annotate(selectNodeErr, "failed to acquire node")
+		if selectNodeErr.noMatch && availabilityZone != "" {
+			// The error was due to MAAS not being able to
+			// find provide a machine matching the specified
+			// constraints in the zone; try again in another.
+			return nil, zoneSpecificError(err)
 		}
-
-		inst = &maas1Instance{
-			maasObject:   selectedNode,
-			environ:      environ,
-			statusGetter: environ.deploymentStatusOne,
-		}
-	} else {
-		inst, err = environ.selectNode2(snArgs)
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot run instances")
-		}
+		return nil, zoneIndependentError(err)
 	}
 
 	defer func() {
@@ -981,7 +990,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 	hc, err := inst.hardwareCharacteristics()
 	if err != nil {
-		return nil, err
+		return nil, zoneIndependentError(errors.Trace(err))
 	}
 
 	series := args.Tools.OneSeries()
@@ -989,34 +998,36 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Arch: *hc.Arch,
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, zoneIndependentError(errors.Trace(err))
 	}
 	if err := args.InstanceConfig.SetTools(selectedTools); err != nil {
-		return nil, errors.Trace(err)
+		return nil, zoneIndependentError(errors.Trace(err))
 	}
 
 	hostname, err := inst.hostname()
 	if err != nil {
-		return nil, err
+		return nil, zoneIndependentError(errors.Trace(err))
 	}
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
-		return nil, errors.Trace(err)
+		return nil, zoneIndependentError(errors.Trace(err))
 	}
 
 	subnetsMap, err := environ.subnetToSpaceIds()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, zoneIndependentError(errors.Trace(err))
 	}
 
 	cloudcfg, err := environ.newCloudinitConfig(hostname, series)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, zoneIndependentError(errors.Trace(err))
 	}
 
 	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, MAASRenderer{})
 	if err != nil {
-		return nil, errors.Annotatef(err, "could not compose userdata for bootstrap node")
+		return nil, zoneIndependentError(errors.Annotate(
+			err, "could not compose userdata for bootstrap node",
+		))
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
@@ -1025,7 +1036,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		inst1 := inst.(*maas1Instance)
 		startedNode, err := environ.startNode(*inst1.maasObject, series, userdata)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, zoneIndependentError(errors.Trace(err))
 		}
 		// Once the instance has started the response should contain the
 		// assigned IP addresses, even when NICs are set to "auto" instead of
@@ -1035,18 +1046,18 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// interfaces.
 		interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, zoneIndependentError(errors.Trace(err))
 		}
 		environ.tagInstance1(inst1, args.InstanceConfig)
 	} else {
 		inst2 := inst.(*maas2Instance)
 		startedInst, err := environ.startNode2(*inst2, series, userdata)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, zoneIndependentError(errors.Trace(err))
 		}
 		interfaces, err = maas2NetworkInterfaces(startedInst, subnetsMap)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, zoneIndependentError(errors.Trace(err))
 		}
 		environ.tagInstance2(inst2, args.InstanceConfig)
 	}
@@ -1061,11 +1072,13 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		requestedVolumes,
 	)
 	if err != nil {
-		return nil, err
+		return nil, zoneIndependentError(errors.Trace(err))
 	}
 	if len(resultVolumes) != len(requestedVolumes) {
-		err = errors.Errorf("requested %v storage volumes. %v returned.", len(requestedVolumes), len(resultVolumes))
-		return nil, err
+		return nil, zoneIndependentError(errors.Errorf(
+			"requested %v storage volumes. %v returned",
+			len(requestedVolumes), len(resultVolumes),
+		))
 	}
 
 	return &environs.StartInstanceResult{
@@ -1279,7 +1292,12 @@ type selectNodeArgs struct {
 	Volumes          []volumeInfo
 }
 
-func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObject, error) {
+type selectNodeError struct {
+	error
+	noMatch bool
+}
+
+func (environ *maasEnviron) selectNode(args selectNodeArgs) (maasInstance, *selectNodeError) {
 	node, err := environ.acquireNode(
 		args.NodeName,
 		args.AvailabilityZone,
@@ -1288,14 +1306,17 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 		args.Interfaces,
 		args.Volumes,
 	)
-	if args.AvailabilityZone != "" && isConflictError(err) {
-		logger.Debugf("could not acquire a node in zone %q", args.AvailabilityZone)
-		return nil, environs.ErrAvailabilityZoneFailed
-	}
 	if err != nil {
-		return nil, errors.Errorf("cannot run instances: %v", err)
+		return nil, &selectNodeError{
+			error:   errors.Trace(err),
+			noMatch: isConflictError(err),
+		}
 	}
-	return &node, nil
+	return &maas1Instance{
+		maasObject:   &node,
+		environ:      environ,
+		statusGetter: environ.deploymentStatusOne,
+	}, nil
 }
 
 func isConflictError(err error) bool {
@@ -1303,7 +1324,7 @@ func isConflictError(err error) bool {
 	return ok && serverErr.StatusCode == http.StatusConflict
 }
 
-func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, error) {
+func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, *selectNodeError) {
 	inst, err := environ.acquireNode2(
 		args.NodeName,
 		args.AvailabilityZone,
@@ -1312,12 +1333,11 @@ func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, erro
 		args.Interfaces,
 		args.Volumes,
 	)
-	if args.AvailabilityZone != "" && gomaasapi.IsNoMatchError(err) {
-		logger.Debugf("could not acquire a node in zone %q", args.AvailabilityZone)
-		return nil, environs.ErrAvailabilityZoneFailed
-	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot run instance")
+		return nil, &selectNodeError{
+			error:   errors.Trace(err),
+			noMatch: gomaasapi.IsNoMatchError(err),
+		}
 	}
 	return inst, nil
 }

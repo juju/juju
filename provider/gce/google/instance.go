@@ -12,37 +12,46 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// InstanceSpec holds all the information needed to create a new GCE
-// instance within some zone.
+// InstanceSpec holds all the information needed to create a new GCE instance.
 // TODO(ericsnow) Validate the invariants?
 type InstanceSpec struct {
 	// ID is the "name" of the instance.
 	ID string
+
 	// Type is the name of the GCE instance type. The value is resolved
 	// relative to an availability zone when the API request is sent.
 	// The type must match one of the GCE-recognized types.
 	Type string
+
 	// Disks holds the information needed to request each of the disks
 	// that should be attached to a new instance. This must include a
 	// single root disk.
 	Disks []DiskSpec
+
 	// Network identifies the information for the network that a new
 	// instance should use. If the network does not exist then it will
 	// be added when the instance is. At least the network's name must
 	// be set.
 	Network NetworkSpec
+
 	// NetworkInterfaces is the names of the network interfaces to
 	// associate with the instance. They will be connected to the the
 	// network identified by the instance spec. At least one name must
 	// be provided.
 	NetworkInterfaces []string
+
 	// Metadata is the GCE instance "user-specified" metadata that will
 	// be initialized on the new instance.
 	Metadata map[string]string
+
 	// Tags are the labels to associate with the instance. This is
 	// useful when making bulk calls or in relation to some API methods
 	// (e.g. related to firewalls access rules).
 	Tags []string
+
+	// AvailabilityZone holds the name of the availability zone in which
+	// to create the instance.
+	AvailabilityZone string
 }
 
 func (is InstanceSpec) raw() *compute.Instance {

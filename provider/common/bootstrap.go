@@ -195,22 +195,25 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	for i, zone := range zones {
 		startInstanceArgs.AvailabilityZone = zone
 		result, err = env.StartInstance(startInstanceArgs)
-		if errors.Cause(err) == environs.ErrAvailabilityZoneFailed {
-			if i < len(zones)-1 {
-				// Try the next zone.
-				continue
-			}
-			// This is the last zone in the list, error.
-			if len(zones) > 1 {
-				err = errors.New("failed to start instance in any availability zone")
-			} else {
-				err = errors.Errorf("failed to start instance in availability zone %q", zone)
-			}
+		if err == nil {
+			break
 		}
-		if err != nil {
+		if zone == "" || environs.IsAvailabilityZoneIndependent(err) {
 			return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
 		}
-		break
+		if i < len(zones)-1 {
+			// Try the next zone.
+			logger.Debugf("failed to start instance in availability zone %q: %s", zone, err)
+			continue
+		}
+		// This is the last zone in the list, error.
+		if len(zones) > 1 {
+			return nil, "", nil, errors.Errorf(
+				"cannot start bootstrap instance in any availability zone (%s)",
+				strings.Join(zones, ", "),
+			)
+		}
+		return nil, "", nil, errors.Annotatef(err, "cannot start bootstrap instance in availability zone %q", zone)
 	}
 
 	msg := fmt.Sprintf(" - %s (%s)", result.Instance.Id(), formatHardware(result.Hardware))

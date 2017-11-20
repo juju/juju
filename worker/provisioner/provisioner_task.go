@@ -1038,10 +1038,12 @@ func (task *provisionerTask) startMachine(
 	// Is rate limiting handled correctly?
 	var result *environs.StartInstanceResult
 
-	// Loop through based on the retryCount. The interator will not increase
-	// if StartInstace failed with ErrAvailabilityZoneFailed until all
-	// availability zones have been tried.
-	for attemptsLeft := task.retryStartInstanceStrategy.retryCount; attemptsLeft >= 0; attemptsLeft-- {
+	// Attempt creating the instance "retryCount" times. If the provider
+	// supports availability zones and we're automatically distributing
+	// across the zones, then we try each zone for every attempt, or until
+	// one of the StartInstance calls returns an error satisfying
+	// environs.IsAvailabilityZoneIndependent.
+	for attemptsLeft := task.retryStartInstanceStrategy.retryCount; attemptsLeft >= 0; {
 		startInstanceParams.AvailabilityZone, err = task.machineAvailabilityZoneDistribution(machine.Id(), distributionGroupMachineIds)
 		if err != nil {
 			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
@@ -1061,11 +1063,11 @@ func (task *provisionerTask) startMachine(
 			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 		}
 
-		var retryMsg string
-		// If the failure of StartInstance() is due the availability zone,
-		// find a new one to use when retrying.
-		if errors.Cause(err) == environs.ErrAvailabilityZoneFailed {
-			// Clean up AZMap from failed availability zone attempt
+		retrying := true
+		retryMsg := ""
+		if startInstanceParams.AvailabilityZone != "" && !environs.IsAvailabilityZoneIndependent(err) {
+			// We've specified a zone, and the error may be specific to
+			// that zone. Retry in another zone if there are any untried.
 			azRemaining, err2 := task.markMachineFailedInAZ(machine, startInstanceParams.AvailabilityZone)
 			if err2 != nil {
 				if err = task.setErrorStatus("cannot start instance: %v", machine, err2); err != nil {
@@ -1073,35 +1075,35 @@ func (task *provisionerTask) startMachine(
 				}
 				return err2
 			}
-
-			// Setup for next interation.
-			switch {
-			case azRemaining:
-				// There are more availability zones to try, don't burn an attempt.
-				attemptsLeft++
-			case !azRemaining:
+			if azRemaining {
+				retryMsg = fmt.Sprintf(
+					"failed to start machine %s in zone %q, retrying in %v with new availability zone: %s",
+					machine, startInstanceParams.AvailabilityZone,
+					task.retryStartInstanceStrategy.retryDelay, err,
+				)
+				logger.Debugf("%s", retryMsg)
+				// There's still more zones to try, so don't decrement "attemptsLeft" yet.
+				retrying = false
+			} else {
 				// All availability zones have been attempted for this iteration,
-				// clear the failures for the next time around.  A given zone may
+				// clear the failures for the next time around. A given zone may
 				// succeed after a prior failure.
 				task.clearMachineAZFailures(machine)
 			}
+		}
+		if retrying {
+			retryMsg = fmt.Sprintf(
+				"failed to start machine %s (%s), retrying in %v (%d more attempts)",
+				machine, err.Error(), task.retryStartInstanceStrategy.retryDelay, attemptsLeft,
+			)
+			logger.Warningf("%s", retryMsg)
+			attemptsLeft--
+		}
 
-			retryMsg = fmt.Sprintf("failed to start machine %s within attempt %d, retrying in %v with new availability zone",
-				machine,
-				task.retryStartInstanceStrategy.retryCount-attemptsLeft,
-				task.retryStartInstanceStrategy.retryDelay)
-		}
-		if retryMsg == "" {
-			retryMsg = fmt.Sprintf("failed to start machine %s (%s), retrying in %v (%d more attempts)",
-				machine, err.Error(), task.retryStartInstanceStrategy.retryDelay, attemptsLeft)
-		}
-		logger.Warningf(retryMsg)
 		if err3 := machine.SetInstanceStatus(status.Provisioning, retryMsg, nil); err3 != nil {
-			logger.Errorf("%v", err3)
+			logger.Warningf("failed to set instance status: %v", err3)
 		}
 
-		// Before retrying, make sure we shouldn't be stopping.
-		// Wait before retrying.
 		select {
 		case <-task.catacomb.Dying():
 			return task.catacomb.ErrDying()

@@ -192,6 +192,7 @@ func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C
 	startInstArgs.Tools[0].Version.Arch = "someArch"
 	_, err := s.env.StartInstance(startInstArgs)
 	c.Assert(err, gc.ErrorMatches, "no matching images found for given constraints: .*")
+	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
 }
 
 // if tools for multiple architectures are avaliable, provider should filter tools by arch of the selected image
@@ -298,7 +299,7 @@ func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C)
 	s.client.SetErrors(nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err := s.env.StartInstance(startInstArgs)
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 
 	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "Close")
 	createVMCall1 := s.client.Calls()[1]

@@ -298,7 +298,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceError(c *gc.C) {
 	})
 	env := suite.makeEnviron(c, nil)
 	_, err := env.StartInstance(environs.StartInstanceParams{})
-	c.Assert(err, gc.ErrorMatches, ".* cannot run instance: Charles Babbage")
+	c.Assert(err, gc.ErrorMatches, "failed to acquire node: Charles Babbage")
 }
 
 func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
@@ -2267,7 +2267,7 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
-	c.Check(err, gc.ErrorMatches, "cannot start bootstrap instance: failed to start instance in any availability zone")
+	c.Check(err, gc.ErrorMatches, "cannot start bootstrap instance in any availability zone \\(mossack, fonseca\\)")
 }
 
 func (suite *maas2EnvironSuite) TestGetToolsMetadataSources(c *gc.C) {
