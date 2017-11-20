@@ -1170,12 +1170,9 @@ func (s *MachineSuite) TestMachineAgentSetsPrepareRestore(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	c.Check(a.IsRestorePreparing(), jc.IsFalse)
 	c.Check(a.IsRestoreRunning(), jc.IsFalse)
-	err := a.PrepareRestore()
-	c.Assert(err, jc.ErrorIsNil)
+	a.PrepareRestore()
 	c.Assert(a.IsRestorePreparing(), jc.IsTrue)
 	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
-	err = a.PrepareRestore()
-	c.Assert(err, gc.ErrorMatches, "already in restore mode")
 }
 
 func (s *MachineSuite) TestMachineAgentSetsRestoreInProgress(c *gc.C) {
@@ -1186,14 +1183,10 @@ func (s *MachineSuite) TestMachineAgentSetsRestoreInProgress(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	c.Check(a.IsRestorePreparing(), jc.IsFalse)
 	c.Check(a.IsRestoreRunning(), jc.IsFalse)
-	err := a.PrepareRestore()
-	c.Assert(err, jc.ErrorIsNil)
+	a.PrepareRestore()
 	c.Assert(a.IsRestorePreparing(), jc.IsTrue)
-	err = a.BeginRestore()
-	c.Assert(err, jc.ErrorIsNil)
+	a.BeginRestore()
 	c.Assert(a.IsRestoreRunning(), jc.IsTrue)
-	err = a.BeginRestore()
-	c.Assert(err, gc.ErrorMatches, "already restoring")
 }
 
 func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
@@ -1204,8 +1197,7 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	c.Check(a.IsRestorePreparing(), jc.IsFalse)
 	c.Check(a.IsRestoreRunning(), jc.IsFalse)
-	err := a.BeginRestore()
-	c.Assert(err, gc.ErrorMatches, "not in restore mode, cannot begin restoration")
+	a.BeginRestore()
 	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
 }
 

@@ -589,6 +589,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 			NewModelWorker:                    a.startModelWorkers,
 			ControllerSupportsSpaces:          controllerSupportsSpaces,
+			RestoreStatusChanged:              a.restoreStatusChanged,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -656,26 +657,17 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 // Backups.Restore: this will ensure that we can do all the file movements
 // required for restore and no one will do changes while we do that.
 // it will return error if the machine is already in this state.
-func (a *MachineAgent) PrepareRestore() error {
-	if a.restoreMode {
-		return errors.Errorf("already in restore mode")
-	}
+func (a *MachineAgent) PrepareRestore() {
 	a.restoreMode = true
-	return nil
 }
 
 // BeginRestore will flag the agent to disallow all commands since
 // restore should be running and therefore making changes that
 // would override anything done.
-func (a *MachineAgent) BeginRestore() error {
-	switch {
-	case !a.restoreMode:
-		return errors.Errorf("not in restore mode, cannot begin restoration")
-	case a.restoring:
-		return errors.Errorf("already restoring")
+func (a *MachineAgent) BeginRestore() {
+	if a.restoreMode {
+		a.restoring = true
 	}
-	a.restoring = true
-	return nil
 }
 
 // EndRestore will flag the agent to allow all commands
@@ -686,23 +678,8 @@ func (a *MachineAgent) EndRestore() {
 	a.restoring = false
 }
 
-// newRestoreStateWatcherWorker will return a worker or err if there
-// is a failure, the worker takes care of watching the state of
-// restoreInfo doc and put the agent in the different restore modes.
-func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Worker, error) {
-	rWorker := func(stopch <-chan struct{}) error {
-		return a.restoreStateWatcher(st, stopch)
-	}
-	return jworker.NewSimpleWorker(rWorker), nil
-}
-
-// restoreChanged will be called whenever restoreInfo doc changes signaling a new
-// step in the restore process.
-func (a *MachineAgent) restoreChanged(st *state.State) error {
-	status, err := st.RestoreInfo().Status()
-	if err != nil {
-		return errors.Annotate(err, "cannot read restore state")
-	}
+// restoreChanged will be called whenever the restore status changes.
+func (a *MachineAgent) restoreStatusChanged(status state.RestoreStatus) error {
 	switch status {
 	case state.RestorePending:
 		a.PrepareRestore()
@@ -712,26 +689,6 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 		a.EndRestore()
 	}
 	return nil
-}
-
-// restoreStateWatcher watches for restoreInfo looking for changes in the restore process.
-func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct{}) error {
-	restoreWatch := st.WatchRestoreInfoChanges()
-	defer func() {
-		restoreWatch.Kill()
-		restoreWatch.Wait()
-	}()
-
-	for {
-		select {
-		case <-restoreWatch.Changes():
-			if err := a.restoreChanged(st); err != nil {
-				return err
-			}
-		case <-stopch:
-			return nil
-		}
-	}
 }
 
 var (
@@ -1116,13 +1073,6 @@ func (a *MachineAgent) startStateWorkers(
 			// Implemented elsewhere with workers that use the API.
 		case state.JobManageModel:
 			useMultipleCPUs()
-			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
-				w, err := a.newRestoreStateWatcherWorker(st)
-				if err != nil {
-					return nil, errors.Annotate(err, "cannot start backup-restorer worker")
-				}
-				return w, nil
-			})
 
 			// TODO(axw) move the certificate updater to the machine manifold.
 			stateServingSetter := func(info params.StateServingInfo, done <-chan struct{}) error {
