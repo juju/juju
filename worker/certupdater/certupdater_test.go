@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/certupdater"
+	"github.com/juju/juju/worker/workertest"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -109,7 +110,7 @@ func (g *mockAPIHostGetter) APIHostPorts() ([][]network.HostPort, error) {
 
 func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 	var initialAddresses []string
-	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
+	setter := func(info params.StateServingInfo) error {
 		// Only care about first time called.
 		if len(initialAddresses) > 0 {
 			return nil
@@ -123,11 +124,14 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 		return nil
 	}
 	changes := make(chan struct{})
-	worker := certupdater.NewCertificateUpdater(
-		&mockMachine{changes}, s, &mockConfigGetter{}, &mockAPIHostGetter{}, setter,
-	)
-	worker.Kill()
-	c.Assert(worker.Wait(), gc.IsNil)
+	worker := certupdater.NewCertificateUpdater(certupdater.Config{
+		AddressWatcher:         &mockMachine{changes},
+		APIHostPortsGetter:     &mockAPIHostGetter{},
+		ControllerConfigGetter: &mockConfigGetter{},
+		StateServingInfoGetter: s,
+		StateServingInfoSetter: setter,
+	})
+	workertest.CleanKill(c, worker)
 	// Initial cert addresses initialised to cloud local ones.
 	c.Assert(initialAddresses, jc.DeepEquals, []string{"192.168.1.1"})
 }
@@ -136,7 +140,7 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	coretesting.SkipFlaky(c, "lp:1466514")
 	var srvCert *x509.Certificate
 	updated := make(chan struct{})
-	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
+	setter := func(info params.StateServingInfo) error {
 		s.stateServingInfo = info
 		var err error
 		srvCert, err = cert.ParseCert(info.Cert)
@@ -152,11 +156,14 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 		return nil
 	}
 	changes := make(chan struct{})
-	worker := certupdater.NewCertificateUpdater(
-		&mockMachine{changes}, s, &mockConfigGetter{}, &mockAPIHostGetter{}, setter,
-	)
-	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
-	defer worker.Kill()
+	worker := certupdater.NewCertificateUpdater(certupdater.Config{
+		AddressWatcher:         &mockMachine{changes},
+		APIHostPortsGetter:     &mockAPIHostGetter{},
+		ControllerConfigGetter: &mockConfigGetter{},
+		StateServingInfoGetter: s,
+		StateServingInfoSetter: setter,
+	})
+	defer workertest.CleanKill(c, worker)
 
 	changes <- struct{}{}
 	// Certificate should be updated with the address value.
@@ -188,16 +195,19 @@ func (g *mockStateServingGetterNoCAKey) StateServingInfo() (params.StateServingI
 
 func (s *CertUpdaterSuite) TestAddressChangeNoCAKey(c *gc.C) {
 	updated := make(chan struct{})
-	setter := func(info params.StateServingInfo, dying <-chan struct{}) error {
+	setter := func(info params.StateServingInfo) error {
 		close(updated)
 		return nil
 	}
 	changes := make(chan struct{})
-	worker := certupdater.NewCertificateUpdater(
-		&mockMachine{changes}, &mockStateServingGetterNoCAKey{}, &mockConfigGetter{}, &mockAPIHostGetter{}, setter,
-	)
-	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
-	defer worker.Kill()
+	worker := certupdater.NewCertificateUpdater(certupdater.Config{
+		AddressWatcher:         &mockMachine{changes},
+		APIHostPortsGetter:     &mockAPIHostGetter{},
+		ControllerConfigGetter: &mockConfigGetter{},
+		StateServingInfoGetter: &mockStateServingGetterNoCAKey{},
+		StateServingInfoSetter: setter,
+	})
+	defer workertest.CleanKill(c, worker)
 
 	changes <- struct{}{}
 	// Certificate should not be updated with the address value.

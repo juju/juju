@@ -54,7 +54,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
-	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
@@ -420,41 +419,19 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestManageModelCallsUseMultipleCPUs(c *gc.C) {
-	// If it has been enabled, the JobManageModel agent should call utils.UseMultipleCPUs
-	usefulVersion := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: "quantal", // to match the charm created below
-	}
-	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
+func (s *MachineSuite) TestCallsUseMultipleCPUs(c *gc.C) {
+	// All machine agents call UseMultipleCPUs.
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	calledChan := make(chan struct{}, 1)
 	s.AgentSuite.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
-	// Now, start the agent, and observe that a JobManageModel agent
-	// calls UseMultipleCPUs
 	a := s.newAgent(c, m)
 	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
-	}()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+
 	// Wait for configuration to be finished
 	<-a.WorkersStarted()
 	s.assertChannelActive(c, calledChan, "UseMultipleCPUs() to be called")
-
 	c.Check(a.Stop(), jc.ErrorIsNil)
-	// However, an agent that just JobHostUnits doesn't call UseMultipleCPUs
-	m2, _, _ := s.primeAgent(c, state.JobHostUnits)
-	a2 := s.newAgent(c, m2)
-	defer a2.Stop()
-	go func() {
-		c.Check(a2.Run(nil), jc.ErrorIsNil)
-	}()
-	// Wait until all the workers have been started, and then kill everything
-	<-a2.workersStarted
-	c.Check(a2.Stop(), jc.ErrorIsNil)
-	s.assertChannelInactive(c, calledChan, "UseMultipleCPUs() was called")
 }
 
 func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
@@ -951,75 +928,6 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	started.assertTriggered(c, "storage worker to start")
 }
 
-func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForController(c *gc.C) {
-	started := newSignal()
-	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
-	) worker.Worker {
-		started.trigger()
-		return jworker.NewNoOpWorker()
-	}
-	s.PatchValue(&newCertificateUpdater, newUpdater)
-
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	started.assertTriggered(c, "certificate to be updated")
-}
-
-func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonController(c *gc.C) {
-	started := newSignal()
-	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
-	) worker.Worker {
-		started.trigger()
-		return jworker.NewNoOpWorker()
-	}
-	s.PatchValue(&newCertificateUpdater, newUpdater)
-
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	started.assertNotTriggered(c, startWorkerWait, "certificate was updated")
-}
-
-func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
-	coretesting.SkipFlaky(c, "lp:1466514")
-	// Set up the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	a.ReadConfig(names.NewMachineTag(m.Id()).String())
-
-	// Set up check that certificate has been updated.
-	updated := make(chan struct{})
-	go func() {
-		for {
-			stateInfo, _ := a.CurrentConfig().StateServingInfo()
-			srvCert, err := cert.ParseCert(stateInfo.Cert)
-			if !c.Check(err, jc.ErrorIsNil) {
-				break
-			}
-			sanIPs := make([]string, len(srvCert.IPAddresses))
-			for i, ip := range srvCert.IPAddresses {
-				sanIPs[i] = ip.String()
-			}
-			if len(sanIPs) == 1 && sanIPs[0] == "0.1.2.3" {
-				close(updated)
-				break
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}()
-
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	s.assertChannelActive(c, updated, "certificate to be updated")
-}
-
 func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
@@ -1043,15 +951,6 @@ func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *gc.C) {
 }
 
 func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
-	// Disable the certificate worker so that the certificate could
-	// only have been updated during agent startup.
-	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
-	) worker.Worker {
-		return jworker.NewNoOpWorker()
-	}
-	s.PatchValue(&newCertificateUpdater, newUpdater)
-
 	// Set up a channel which fires when State is opened.
 	started := make(chan struct{}, 16)
 	s.PatchValue(&reportOpenedState, func(*state.State) {

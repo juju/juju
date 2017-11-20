@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/worker/apiservercertwatcher"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/centralhub"
+	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
@@ -123,13 +124,6 @@ type ManifoldsConfig struct {
 	// OpenStateForUpgrade is a function the upgradesteps worker can
 	// use to establish a connection to state.
 	OpenStateForUpgrade func() (*state.State, error)
-
-	// StartStateWorkers is function called by the stateworkers
-	// manifold to start workers which rely on a *state.State but
-	// which haven't been converted to run directly under the
-	// dependency engine yet. This will go once these workers have
-	// been converted.
-	StartStateWorkers func(*state.State) (worker.Worker, error)
 
 	// StartAPIWorkers is passed to the apiworkers manifold. It starts
 	// workers which rely on an API connection (which have not yet
@@ -350,18 +344,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			OpenState:              config.OpenState,
 			PrometheusRegisterer:   config.PrometheusRegisterer,
 			SetStatePool:           config.SetStatePool,
-		}),
-
-		// The stateworkers manifold starts workers which rely on a
-		// *state.State but which haven't been converted to run
-		// directly under the dependency engine yet. This manifold
-		// will be removed once all such workers have been converted;
-		// until then, the workers are expected to handle their own
-		// checks for upgrades etc, rather than blocking this whole
-		// worker on upgrade completion.
-		stateWorkersName: StateWorkersManifold(StateWorkersConfig{
-			StateName:         stateName,
-			StartStateWorkers: config.StartStateWorkers,
 		}),
 
 		// The api-config-watcher manifold monitors the API server
@@ -708,6 +690,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            restorewatcher.NewWorker,
 			RestoreStatusChanged: config.RestoreStatusChanged,
 		})),
+
+		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
+			AgentName:                agentName,
+			StateName:                stateName,
+			NewWorker:                certupdater.NewCertificateUpdater,
+			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
+		})),
 	}
 }
 
@@ -752,7 +741,6 @@ const (
 	stateConfigWatcherName = "state-config-watcher"
 	controllerName         = "controller"
 	stateName              = "state"
-	stateWorkersName       = "unconverted-state-workers"
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
 	centralHubName         = "central-hub"
@@ -799,4 +787,5 @@ const (
 	modelWorkerManagerName        = "model-worker-manager"
 	peergrouperName               = "peer-grouper"
 	restoreWatcherName            = "restore-watcher"
+	certificateUpdaterName        = "certificate-updater"
 )
