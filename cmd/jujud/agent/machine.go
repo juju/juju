@@ -89,7 +89,6 @@ import (
 	"github.com/juju/juju/worker/logsender/logsendermetrics"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/modelworkermanager"
-	"github.com/juju/juju/worker/mongoupgrader"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	psworker "github.com/juju/juju/worker/pubsub"
@@ -112,7 +111,6 @@ var (
 	peergrouperNew        = peergrouper.New
 	newCertificateUpdater = certupdater.NewCertificateUpdater
 	newMetadataUpdater    = imagemetadataworker.NewWorker
-	newUpgradeMongoWorker = mongoupgrader.New
 	reportOpenedState     = func(*state.State) {}
 
 	modelManifolds   = model.Manifolds
@@ -1153,9 +1151,6 @@ func (a *MachineAgent) startStateWorkers(
 				}
 				return w, nil
 			})
-			a.startWorkerAfterUpgrade(runner, "mongoupgrade", func() (worker.Worker, error) {
-				return newUpgradeMongoWorker(st, a.machineId, a.maybeStopMongo)
-			})
 
 			// certChangedChan is shared by multiple workers it's up
 			// to the agent to close it rather than any one of the
@@ -1589,24 +1584,7 @@ func (a *MachineAgent) limitLogins(authTag names.Tag) error {
 	if err := a.limitLoginsDuringRestore(authTag); err != nil {
 		return err
 	}
-	if err := a.limitLoginsDuringUpgrade(authTag); err != nil {
-		return err
-	}
-	return a.limitLoginsDuringMongoUpgrade()
-}
-
-func (a *MachineAgent) limitLoginsDuringMongoUpgrade() error {
-	// If upgrade is running we will not be able to lock AgentConfigWriter
-	// and it also means we are not upgrading mongo.
-	if a.isUpgradeRunning() {
-		return nil
-	}
-	cfg := a.AgentConfigWriter.CurrentConfig()
-	ver := cfg.MongoVersion()
-	if ver == mongo.MongoUpgrade {
-		return errors.New("Upgrading Mongo")
-	}
-	return nil
+	return a.limitLoginsDuringUpgrade(authTag)
 }
 
 // limitLoginsDuringRestore will only allow logins for restore related purposes
