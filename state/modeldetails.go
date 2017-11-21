@@ -5,6 +5,7 @@ package state
 
 import (
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -13,10 +14,25 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 )
+
+// UserAccessInfo contains just the information about a single user's access to a model and when they last connected.
+type UserAccessInfo struct {
+	permission.UserAccess
+	LastConnection *time.Time
+}
+
+// MachineModelInfo contains the summary information about a machine for a given model.
+type MachineModelInfo struct {
+	Id         string
+	Hardware   *instance.HardwareCharacteristics
+	InstanceId string
+	Status     string
+}
 
 // ModelDetails describe interesting information for a given model. This is meant to match the values that a user wants
 // to see as part of either show-model or list-models.
@@ -44,29 +60,20 @@ type ModelDetails struct {
 	Status status.StatusInfo
 
 	// Needs ModelUser, ModelUserLastConnection, and Permissions collections
+	// This information will only be filled out if includeUsers is true and the user has at least Admin (write?) access
+	// Otherwise only this user's information will be included.
 	Users map[string]UserAccessInfo
-
-	// Need to add LastConnection information for each user
 
 	// Machines contains information about the machines in the model.
 	// This information is available to owners and users with write
 	// access or greater.
+	// The information will also only be filled out if includeMachineDetails is true
+	Machines     []MachineModelInfo
 	MachineCount int64
 	CoreCount    int64
-	// DO WE EVEN WANT THIS DATA HERE? The only thing we show in 'juju models' is the *count*
-	/// Machines []ModelMachineInfo `json:"machines"`
 
 	// Needs Migration collection
 	Migration ModelMigration
-	// Migration contains information about the latest failed or
-	// currently-running migration. It'll be nil if there isn't one.
-	/// Migration *ModelMigrationStatus `json:"migration,omitempty"`
-	// //	type ModelMigrationStatus struct {
-	// //	Status string     `json:"status"`
-	// //	Start  *time.Time `json:"start"`
-	// //	End    *time.Time `json:"end,omitempty"`
-	// //}
-
 }
 
 // modelDetailProcessor provides the working space for extracting details for models that a user has access to.
@@ -277,7 +284,7 @@ func (p *modelDetailProcessor) fillInLastConnection(lastAccessIds []string) erro
 	return nil
 }
 
-func (p *modelDetailProcessor) fillInMachines() error {
+func (p *modelDetailProcessor) fillInMachineSummary() error {
 	// TODO: (jam) 2017-11-18 we should have filled in the authorization information already. So just use that
 	// information to know what machine information we should be reporting.
 	// Then again, if we are just returning summary information instead of the details, do we care about exposing it to

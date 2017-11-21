@@ -122,6 +122,13 @@ type ModelMigrationStatus struct {
 	End    *time.Time `json:"end,omitempty"`
 }
 
+// ModelsForUserRequest gives details about what information we want from a ListModelsWithInfo request
+type ModelsForUserRequest struct {
+	User                  Entity `json:"user"`
+	IncludeMachineDetails bool   `json:"include-machine-details"`
+	IncludeUserDetails    bool   `json:"include-user-details"`
+}
+
 // ModelInfo holds information about the Juju model.
 type ModelInfo struct {
 	Name               string `json:"name"`

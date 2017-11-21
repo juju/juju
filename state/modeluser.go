@@ -171,12 +171,7 @@ func (st *State) removeModelUser(user names.UserTag) error {
 	return nil
 }
 
-type UserAccessInfo struct {
-	permission.UserAccess
-	LastConnection *time.Time
-}
-
-func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error) {
+func (st *State) ModelDetailsForUser(user names.UserTag, includeUsers bool, includeMachineDetails bool) ([]ModelDetails, error) {
 	modelQuery, closer, err := st.modelQueryForUser(user)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -194,11 +189,27 @@ func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error)
 	if err := p.fillInFromStatus(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := p.fillInFromModelUsers(); err != nil {
-		return nil, errors.Trace(err)
+	// TODO: We do 2 passes for user information.
+	// First we grab the access information for only *this* user, because that lets us know whether this user should
+	// be able to see any information about any other users.
+	/// if err := p.fillInUser(user); err != nil {
+	/// 	return nil, errors.Trace(err)
+	/// }
+	if includeUsers {
+		// TODO: This needs to take user tag and use the pre-information from fillInUser to filter out any models
+		// that the user doesn't have proper accesse
+		if err := p.fillInFromModelUsers(); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	if err := p.fillInMachines(); err != nil {
-		return nil, errors.Trace(err)
+	if includeMachineDetails {
+		// 	if err := p.fillInMachineDetails(); err != nil {
+		// 		return nil, errors.Trace(err)
+		// 	}
+	} else {
+		if err := p.fillInMachineSummary(); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	if err := p.fillInMigration(); err != nil {
 		return nil, errors.Trace(err)
@@ -209,6 +220,8 @@ func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error)
 // modelsForUser gives you the information about all models that a user has access to.
 // This includes the name and UUID, as well as the last time the user connected to that model.
 func (st *State) modelQueryForUser(user names.UserTag) (mongo.Query, SessionCloser, error) {
+	// TODO: either we should be passing in permission.Access or we should be returning it
+	// we don't want to be looking it up twice, and we need the info elsewhere.
 	access, err := st.UserAccess(user, st.controllerTag)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, nil, errors.Trace(err)
