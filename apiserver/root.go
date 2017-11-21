@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"fmt"
 	"net/url"
 	"reflect"
 	"sync"
@@ -183,23 +184,57 @@ func rpcRoot(srv *Server, root *apiHandler, authTag names.Tag) (rpc.Root, error)
 		root.resources,
 		root,
 	)
+	return maybeRestrictRoot(srv, apiRoot, root.state.IsController(), authTag)
+}
 
-	// Use the login validation function, if one was specified.
-	if srv.validator != nil {
-		err := srv.validator(authTag)
-		switch err {
-		case params.UpgradeInProgressError:
-			apiRoot = restrictRoot(apiRoot, upgradeMethodsOnly)
-		case AboutToRestoreError:
-			apiRoot = restrictRoot(apiRoot, aboutToRestoreMethodsOnly)
-		case RestoreInProgressError:
-			apiRoot = restrictAll(apiRoot, restoreInProgressError)
-		case nil:
-			// in this case no need to wrap authed api so we do nothing
-		default:
-			return nil, errors.Trace(err)
-		}
+func maybeRestrictRoot(
+	srv *Server,
+	apiRoot rpc.Root,
+	isControllerModel bool,
+	authTag names.Tag,
+) (rpc.Root, error) {
+
+	if isControllerModel && authTag == srv.tag {
+		// The local controller machine agent is
+		// always allowed to connect to itself.
+		//
+		// TODO(axw) allow all controller
+		// machine agents. See lp:1733259.
+		return apiRoot, nil
 	}
+
+	describeLogin := func() string {
+		if authTag == nil {
+			return "anonymous login"
+		}
+		return fmt.Sprintf("login for %s", names.ReadableString(authTag))
+	}
+
+	switch status := srv.restoreStatus(); status {
+	case state.RestorePending, state.RestoreInProgress:
+		if _, ok := authTag.(names.UserTag); ok {
+			// Users get access to a limited set of functionality
+			// while a restore is pending or in progress.
+			if status == state.RestorePending {
+				return restrictRoot(apiRoot, aboutToRestoreMethodsOnly), nil
+			} else {
+				return restrictAll(apiRoot, restoreInProgressError), nil
+			}
+		}
+		// Agent and anonymous logins are blocked during restore.
+		return nil, errors.Errorf("%s blocked because restore is in progress", describeLogin())
+	}
+
+	if !srv.upgradeComplete() {
+		if _, ok := authTag.(names.UserTag); ok {
+			// Users get access to a limited set of functionality
+			// while an upgrade is in progress.
+			return restrictRoot(apiRoot, upgradeMethodsOnly), nil
+		}
+		// Agent and anonymous logins are blocked during upgrade.
+		return nil, errors.Errorf("%s blocked because upgrade is in progress", describeLogin())
+	}
+
 	return apiRoot, nil
 }
 

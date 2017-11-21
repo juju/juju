@@ -233,6 +233,8 @@ func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.Structure
 		Hub:             hub,
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
+		UpgradeComplete: func() bool { return true },
+		RestoreStatus:   func() state.RestoreStatus { return state.RestoreNotActive },
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	port := listener.Addr().(*net.TCPAddr).Port

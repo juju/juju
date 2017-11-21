@@ -528,7 +528,7 @@ func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools)
-	c.Assert(a.isInitialUpgradeCheckPending(), jc.IsTrue)
+	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
@@ -543,7 +543,7 @@ func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
 	}
 	defer a.Stop() // in case of failure
 	s.waitStopped(c, state.JobManageModel, a, done)
-	c.Assert(a.isInitialUpgradeCheckPending(), jc.IsFalse)
+	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), jc.IsTrue)
 }
 
 func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
@@ -1178,53 +1178,6 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 		c.Fatalf("timed out waiting for the machiner to start")
 	}
 	s.waitStopped(c, state.JobHostUnits, a, doneCh)
-}
-
-func (s *MachineSuite) TestMachineAgentSetsPrepareRestore(c *gc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	c.Check(a.IsRestorePreparing(), jc.IsFalse)
-	c.Check(a.IsRestoreRunning(), jc.IsFalse)
-	err := a.PrepareRestore()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a.IsRestorePreparing(), jc.IsTrue)
-	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
-	err = a.PrepareRestore()
-	c.Assert(err, gc.ErrorMatches, "already in restore mode")
-}
-
-func (s *MachineSuite) TestMachineAgentSetsRestoreInProgress(c *gc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	c.Check(a.IsRestorePreparing(), jc.IsFalse)
-	c.Check(a.IsRestoreRunning(), jc.IsFalse)
-	err := a.PrepareRestore()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a.IsRestorePreparing(), jc.IsTrue)
-	err = a.BeginRestore()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a.IsRestoreRunning(), jc.IsTrue)
-	err = a.BeginRestore()
-	c.Assert(err, gc.ErrorMatches, "already restoring")
-}
-
-func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	c.Check(a.IsRestorePreparing(), jc.IsFalse)
-	c.Check(a.IsRestoreRunning(), jc.IsFalse)
-	err := a.BeginRestore()
-	c.Assert(err, gc.ErrorMatches, "not in restore mode, cannot begin restoration")
-	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
