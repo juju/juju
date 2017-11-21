@@ -610,7 +610,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `upgrade to this version by running
-    juju upgrade-juju --agent-version="2.1.3"
+    juju upgrade-juju
 `,
 		},
 		{
@@ -620,7 +620,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `upgrade to this version by running
-    juju upgrade-juju --agent-version="2.1.3"
+    juju upgrade-juju
 `,
 		},
 	}

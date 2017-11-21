@@ -366,7 +366,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		if c.BuildAgent {
 			fmt.Fprint(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-juju --build-agent\n")
 		} else {
-			fmt.Fprintf(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-juju --agent-version=\"%s\"\n", context.chosen)
+			fmt.Fprintf(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-juju\n")
 		}
 	} else {
 		if c.ResetPrevious {
