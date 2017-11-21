@@ -13,8 +13,8 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/hooks"
 
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/output"

@@ -4,7 +4,7 @@
 package crossmodel
 
 import (
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"

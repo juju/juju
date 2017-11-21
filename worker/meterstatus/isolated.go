@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
