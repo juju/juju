@@ -181,10 +181,9 @@ func modelSLAOwnerFromParams(sla *params.ModelSLAInfo) string {
 }
 
 // OwnerQualifiedModelName returns the model name qualified with the
-// model owner if the owner is not the same as the given canonical
-// user name. If the owner is a local user, we omit the domain.
+// model owner.
 func OwnerQualifiedModelName(modelName string, owner, user names.UserTag) string {
-	if owner.Id() == user.Id() {
+	if jujuclient.IsQualifiedModelName(modelName) {
 		return modelName
 	}
 	return jujuclient.JoinOwnerModelName(owner, modelName)

@@ -126,7 +126,7 @@ func (s *WhoAmITestSuite) assertWhoAmIForUser(c *gc.C, user, format string) {
 func (s *WhoAmITestSuite) TestWhoAmISameUser(c *gc.C) {
 	s.expectedOutput = `
 Controller:  controller
-Model:       model
+Model:       admin/model
 User:        admin
 `[1:]
 	s.assertWhoAmIForUser(c, "admin", "tabular")
@@ -135,7 +135,7 @@ User:        admin
 func (s *WhoAmITestSuite) TestWhoAmIYaml(c *gc.C) {
 	s.expectedOutput = `
 controller: controller
-model: model
+model: admin/model
 user: admin
 `[1:]
 	s.assertWhoAmIForUser(c, "admin", "yaml")
@@ -143,7 +143,7 @@ user: admin
 
 func (s *WhoAmITestSuite) TestWhoAmIJson(c *gc.C) {
 	s.expectedOutput = `
-{"controller":"controller","model":"model","user":"admin"}
+{"controller":"controller","model":"admin/model","user":"admin"}
 `[1:]
 	s.assertWhoAmIForUser(c, "admin", "json")
 }

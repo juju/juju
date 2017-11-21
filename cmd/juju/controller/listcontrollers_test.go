@@ -50,7 +50,7 @@ Use --refresh flag with this command to see the latest information.
 
 Controller           Model             User   Access     Cloud/Region        Models  Machines  HA  Version
 aws-test             admin/controller  -      -          aws/us-east-1            1         5   -  2.0.1      
-mallards*            my-model          admin  superuser  mallards/mallards1       2         -   -  (unknown)  
+mallards*            admin/my-model    admin  superuser  mallards/mallards1       2         -   -  (unknown)  
 mark-test-prodstack  -                 admin  (unknown)  prodstack                -         -   -  (unknown)  
 
 `[1:]
@@ -75,10 +75,10 @@ func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
 		return fakeController
 	}
 	s.expectedOutput = `
-Controller           Model       User   Access     Cloud/Region        Models  Machines  HA  Version
-aws-test             controller  admin  (unknown)  aws/us-east-1            1         2   -  2.0.1      
-mallards*            my-model    admin  superuser  mallards/mallards1       2         4   -  (unknown)  
-mark-test-prodstack  -           admin  (unknown)  prodstack                -         -   -  (unknown)  
+Controller           Model             User   Access     Cloud/Region        Models  Machines  HA  Version
+aws-test             admin/controller  admin  (unknown)  aws/us-east-1            1         2   -  2.0.1      
+mallards*            admin/my-model    admin  superuser  mallards/mallards1       2         4   -  (unknown)  
+mark-test-prodstack  -                 admin  (unknown)  prodstack                -         -   -  (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
@@ -122,10 +122,10 @@ func (s *ListControllersSuite) TestListControllersKnownHAStatus(c *gc.C) {
 	s.createTestClientStore(c)
 	s.setupAPIForControllerMachines()
 	s.expectedOutput = `
-Controller           Model       User   Access     Cloud/Region        Models  Machines    HA  Version
-aws-test             controller  admin  (unknown)  aws/us-east-1            1         2   1/3  2.0.1      
-mallards*            my-model    admin  superuser  mallards/mallards1       2         4  none  (unknown)  
-mark-test-prodstack  -           admin  (unknown)  prodstack                -         -     -  (unknown)  
+Controller           Model             User   Access     Cloud/Region        Models  Machines    HA  Version
+aws-test             admin/controller  admin  (unknown)  aws/us-east-1            1         2   1/3  2.0.1      
+mallards*            admin/my-model    admin  superuser  mallards/mallards1       2         4  none  (unknown)  
+mark-test-prodstack  -                 admin  (unknown)  prodstack                -         -     -  (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
@@ -135,7 +135,7 @@ func (s *ListControllersSuite) TestListControllersYaml(c *gc.C) {
 	s.expectedOutput = `
 controllers:
   aws-test:
-    current-model: controller
+    current-model: admin/controller
     user: admin
     recent-server: this-is-aws-test-of-many-api-endpoints
     uuid: this-is-the-aws-test-uuid
@@ -150,7 +150,7 @@ controllers:
       active: 1
       total: 3
   mallards:
-    current-model: my-model
+    current-model: admin/my-model
     user: admin
     access: superuser
     recent-server: this-is-another-of-many-api-endpoints
@@ -194,7 +194,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 		Controllers: map[string]controller.ControllerItem{
 			"aws-test": {
 				ControllerUUID: "this-is-the-aws-test-uuid",
-				ModelName:      "controller",
+				ModelName:      "admin/controller",
 				User:           "admin",
 				Server:         "this-is-aws-test-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-aws-test-of-many-api-endpoints"},
@@ -207,7 +207,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 			},
 			"mallards": {
 				ControllerUUID: "this-is-another-uuid",
-				ModelName:      "my-model",
+				ModelName:      "admin/my-model",
 				User:           "admin",
 				Access:         "superuser",
 				Server:         "this-is-another-of-many-api-endpoints",
