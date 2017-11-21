@@ -205,7 +205,17 @@ func (w *collect) stop() {
 }
 
 // Do satisfies the worker.PeriodWorkerCall function type.
-func (w *collect) Do(stop <-chan struct{}) error {
+func (w *collect) Do(stop <-chan struct{}) (err error) {
+	defer func() {
+		// See bug https://pad/lv/1733469
+		// If this function which is run by a PeriodicWorker
+		// exits with an error, we need to call stop() to
+		// ensure the listener socket is closed.
+		if err != nil {
+			w.stop()
+		}
+	}()
+
 	config := w.agent.CurrentConfig()
 	tag := config.Tag()
 	unitTag, ok := tag.(names.UnitTag)
