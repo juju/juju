@@ -84,16 +84,19 @@ func (p *collectionPruner) pruneByAge() error {
 
 	t := p.st.clock().Now().Add(-p.maxAge)
 	var age interface{}
+	var notSet interface{}
 
 	if p.timeUnit == NanoSeconds {
 		age = t.UnixNano()
+		notSet = 0
 	} else {
 		age = t
+		notSet = time.Time{}
 	}
 
 	iter := p.coll.Find(bson.D{
 		{"model-uuid", p.st.modelUUID()},
-		{p.ageField, bson.M{"$lt": age}},
+		{p.ageField, bson.M{"$gt": notSet, "$lt": age}},
 	}).Select(bson.M{"_id": 1}).Iter()
 
 	modelName, err := p.st.modelName()
