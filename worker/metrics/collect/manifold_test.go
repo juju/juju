@@ -112,6 +112,25 @@ func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ManifoldSuite) TestCollectWorkerErrorStopsListener(c *gc.C) {
+	s.PatchValue(collect.NewRecorder,
+		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+			return nil, errors.New("blah")
+		})
+	listener := &mockListener{}
+	s.PatchValue(collect.NewSocketListener, collect.NewSocketListenerFnc(listener))
+	s.PatchValue(collect.ReadCharm,
+		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+			return corecharm.MustParseURL("local:ubuntu-1"), map[string]corecharm.Metric{"pings": {Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+		})
+	worker, err := s.manifold.Start(s.resources.Context())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(worker, gc.NotNil)
+	err = worker.Wait()
+	c.Assert(err, gc.ErrorMatches, ".*blah")
+	listener.CheckCallNames(c, "Stop")
+}
+
 // TestJujuUnitsBuiltinMetric tests that the juju-units built-in metric is collected
 // with a mock implementation of newRecorder.
 func (s *ManifoldSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {

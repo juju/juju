@@ -35,7 +35,17 @@ type sender struct {
 
 // Do sends metrics from the metric spool to the
 // controller via an api call.
-func (s *sender) Do(stop <-chan struct{}) error {
+func (s *sender) Do(stop <-chan struct{}) (err error) {
+	defer func() {
+		// See bug https://pad/lv/1733469
+		// If this function which is run by a PeriodicWorker
+		// exits with an error, we need to call stop() to
+		// ensure the sender socket is closed.
+		if err != nil {
+			s.stop()
+		}
+	}()
+
 	reader, err := s.factory.Reader()
 	if err != nil {
 		return errors.Trace(err)
@@ -116,10 +126,18 @@ func newSender(client metricsadder.MetricsAdderClient, factory spool.MetricFacto
 		client:  client,
 		factory: factory,
 	}
-	listener, err := spool.NewSocketListener(socketName(baseDir, unitTag), s)
+	listener, err := newListener(s, baseDir, unitTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	s.listener = listener
 	return s, nil
+}
+
+var newListener = func(s spool.ConnectionHandler, baseDir, unitTag string) (stopper, error) {
+	listener, err := spool.NewSocketListener(socketName(baseDir, unitTag), s)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return listener, nil
 }

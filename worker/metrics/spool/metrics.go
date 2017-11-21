@@ -28,6 +28,7 @@ var logger = loggo.GetLogger("juju.worker.uniter.metrics")
 type metricFile struct {
 	*os.File
 	finalName string
+	encodeErr error
 }
 
 func createMetricFile(path string) (*metricFile, error) {
@@ -54,6 +55,10 @@ func (f *metricFile) Close() error {
 	err := f.File.Close()
 	if err != nil {
 		return errors.Trace(err)
+	}
+	// If the file contents are garbage, don't try and use it.
+	if f.encodeErr != nil {
+		return nil
 	}
 	ok, err := utils.MoveFile(f.Name(), f.finalName)
 	if err != nil {
@@ -264,8 +269,8 @@ func (m *JSONMetricRecorder) recordMetaData() error {
 	}
 	defer metaWriter.Close()
 	enc := json.NewEncoder(metaWriter)
-	err = enc.Encode(metadata)
-	if err != nil {
+	if err = enc.Encode(metadata); err != nil {
+		metaWriter.encodeErr = err
 		return errors.Trace(err)
 	}
 	return nil
