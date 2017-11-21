@@ -297,8 +297,15 @@ class Status:
     def get_unit(self, unit_name):
         """Return metadata about a unit."""
         for name, service in sorted(self.get_applications().items()):
-            if unit_name in service.get('units', {}):
+            units = service.get('units', {})
+            if unit_name in units:
                 return service['units'][unit_name]
+            # The unit might be a subordinate, in which case it won't
+            # be under its application, but under the principal
+            # unit.
+            for _, unit in units.items():
+                if unit_name in unit.get('subordinates', {}):
+                    return unit['subordinates'][unit_name]
         raise KeyError(unit_name)
 
     def service_subordinate_units(self, service_name):
