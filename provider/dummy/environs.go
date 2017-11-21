@@ -849,6 +849,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 					}))
 				},
 				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
+				UpgradeComplete: func() bool {
+					return true
+				},
+				RestoreStatus: func() state.RestoreStatus {
+					return state.RestoreNotActive
+				},
 			})
 			if err != nil {
 				statePool.Close()
