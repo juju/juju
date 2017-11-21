@@ -76,16 +76,10 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (result *en
 func (env *sessionEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	img, err := findImageMetadata(env, args)
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 	if err := env.finishMachineConfig(args, img); err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	vm, hw, err := env.newRawInstance(args, img)
@@ -129,19 +123,13 @@ func (env *sessionEnviron) newRawInstance(
 
 	vmName, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
-		return nil, nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, nil, common.ZoneIndependentError(err)
 	}
 
 	series := args.Tools.OneSeries()
 	cloudcfg, err := cloudinit.New(series)
 	if err != nil {
-		return nil, nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, nil, common.ZoneIndependentError(err)
 	}
 	cloudcfg.AddPackage("open-vm-tools")
 	cloudcfg.AddPackage("iptables-persistent")
@@ -163,10 +151,9 @@ func (env *sessionEnviron) newRawInstance(
 
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, VsphereRenderer{})
 	if err != nil {
-		return nil, nil, &common.StartInstanceError{
-			Err:             errors.Annotate(err, "cannot make user data"),
-			ZoneIndependent: true,
-		}
+		return nil, nil, common.ZoneIndependentError(
+			errors.Annotate(err, "cannot make user data"),
+		)
 	}
 	logger.Debugf("Vmware user data; %d bytes", len(userData))
 
@@ -220,19 +207,13 @@ func (env *sessionEnviron) newRawInstance(
 	logger.Debugf("attempting to create VM in availability zone %s", args.AvailabilityZone)
 	availZone, err := env.availZone(args.AvailabilityZone)
 	if err != nil {
-		return nil, nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: false,
-		}
+		return nil, nil, errors.Trace(err)
 	}
 	createVMArgs.ComputeResource = &availZone.(*vmwareAvailZone).r
 
 	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs)
 	if err != nil {
-		return nil, nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: false,
-		}
+		return nil, nil, errors.Trace(err)
 	}
 
 	hw := &instance.HardwareCharacteristics{

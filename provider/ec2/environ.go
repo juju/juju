@@ -426,20 +426,17 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		// An IsNotValid error is returned if the zone is invalid;
 		// this is a zone-specific error.
 		zoneSpecific := errors.IsNotValid(err)
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: !zoneSpecific,
+		if !zoneSpecific {
+			err = common.ZoneIndependentError(err)
 		}
+		return nil, err
 	}
 
 	arches := args.Tools.Arches()
 
 	instanceTypes, err := e.supportedInstanceTypes()
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	spec, err := findInstanceSpec(
@@ -455,17 +452,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		},
 	)
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(
+			errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches),
+		)
 	}
 
 	if spec.InstanceType.Deprecated {
@@ -473,25 +466,18 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	}
 
 	if err := args.InstanceConfig.SetTools(tools); err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	callback(status.Allocating, "Making user data", nil)
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AmazonRenderer{})
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Annotate(err, "cannot make user data"),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(
+			errors.Annotate(err, "cannot make user data"),
+		)
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	var apiPort int
@@ -503,10 +489,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	callback(status.Allocating, "Setting up groups", nil)
 	groups, err := e.setUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Annotate(err, "cannot set up groups"),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(
+			errors.Annotate(err, "cannot set up groups"),
+		)
 	}
 
 	blockDeviceMappings := getBlockDeviceMappings(
@@ -590,10 +575,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", availabilityZone), nil)
 	instResp, err = runInstances(e.ec2, runArgs, callback)
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Annotate(err, "cannot run instances"),
-			ZoneIndependent: !isZoneOrSubnetConstrainedError(err),
+		err := errors.Annotate(err, "cannot run instances")
+		if !isZoneOrSubnetConstrainedError(err) {
+			err = common.ZoneIndependentError(err)
 		}
+		return nil, err
 	}
 	if len(instResp.Instances) != 1 {
 		return nil, errors.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
@@ -618,10 +604,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	)
 	args.InstanceConfig.Tags[tagName] = instanceName
 	if err := tagResources(e.ec2, args.InstanceConfig.Tags, string(inst.Id())); err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Annotate(err, "tagging instance"),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(
+			errors.Annotate(err, "tagging instance"),
+		)
 	}
 
 	// Tag the machine's root EBS volume, if it has one.
@@ -634,10 +619,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		)
 		tags[tagName] = instanceName + "-root"
 		if err := tagRootDisk(e.ec2, tags, inst.Instance); err != nil {
-			return nil, &common.StartInstanceError{
-				Err:             errors.Annotate(err, "tagging root disk"),
-				ZoneIndependent: true,
-			}
+			return nil, common.ZoneIndependentError(
+				errors.Annotate(err, "tagging root disk"),
+			)
 		}
 	}
 
@@ -1917,7 +1901,7 @@ func isZoneOrSubnetConstrainedError(err error) bool {
 // constrained for the instance type being provisioned, or is
 // otherwise unusable for the specific request made.
 func isZoneConstrainedError(err error) bool {
-	switch err := err.(type) {
+	switch err := errors.Cause(err).(type) {
 	case *ec2.Error:
 		switch err.Code {
 		case "Unsupported", "InsufficientInstanceCapacity":
@@ -1943,7 +1927,7 @@ func isZoneConstrainedError(err error) bool {
 // the instance type being provisioned, or is otherwise unusable for the
 // specific request made.
 func isSubnetConstrainedError(err error) bool {
-	switch err := err.(type) {
+	switch err := errors.Cause(err).(type) {
 	case *ec2.Error:
 		switch err.Code {
 		case "InsufficientFreeAddressesInSubnet", "InsufficientInstanceCapacity":

@@ -903,25 +903,12 @@ func (environ *maasEnviron) StartInstance(
 	args environs.StartInstanceParams,
 ) (_ *environs.StartInstanceResult, err error) {
 
-	zoneIndependentError := func(err error) error {
-		if err == nil {
-			return nil
-		}
-		return &common.StartInstanceError{
-			Err:             err,
-			ZoneIndependent: true,
-		}
-	}
-	zoneSpecificError := func(err error) error {
-		return err
-	}
-
 	availabilityZone := args.AvailabilityZone
 	var nodeName, systemId string
 	if args.Placement != "" {
 		placement, err := environ.parsePlacement(args.Placement)
 		if err != nil {
-			return nil, zoneIndependentError(errors.Trace(err))
+			return nil, common.ZoneIndependentError(err)
 		}
 		// NOTE(axw) we wipe out args.AvailabilityZone if the
 		// user specified a specific node or system ID via
@@ -937,7 +924,7 @@ func (environ *maasEnviron) StartInstance(
 	}
 	if availabilityZone != "" {
 		if err := common.ValidateAvailabilityZone(environ, availabilityZone); err != nil {
-			return nil, zoneSpecificError(errors.Trace(err))
+			return nil, errors.Trace(err)
 		}
 		logger.Debugf("attempting to acquire node in zone %q", availabilityZone)
 	}
@@ -945,7 +932,7 @@ func (environ *maasEnviron) StartInstance(
 	// Storage.
 	volumes, err := buildMAASVolumeParameters(args.Volumes, args.Constraints)
 	if err != nil {
-		return nil, zoneIndependentError(errors.Annotate(err, "invalid volume parameters"))
+		return nil, common.ZoneIndependentError(errors.Annotate(err, "invalid volume parameters"))
 	}
 
 	var interfaceBindings []interfaceBinding
@@ -975,9 +962,9 @@ func (environ *maasEnviron) StartInstance(
 			// The error was due to MAAS not being able to
 			// find provide a machine matching the specified
 			// constraints in the zone; try again in another.
-			return nil, zoneSpecificError(err)
+			return nil, errors.Trace(err)
 		}
-		return nil, zoneIndependentError(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	defer func() {
@@ -990,7 +977,7 @@ func (environ *maasEnviron) StartInstance(
 
 	hc, err := inst.hardwareCharacteristics()
 	if err != nil {
-		return nil, zoneIndependentError(errors.Trace(err))
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	series := args.Tools.OneSeries()
@@ -998,34 +985,34 @@ func (environ *maasEnviron) StartInstance(
 		Arch: *hc.Arch,
 	})
 	if err != nil {
-		return nil, zoneIndependentError(errors.Trace(err))
+		return nil, common.ZoneIndependentError(err)
 	}
 	if err := args.InstanceConfig.SetTools(selectedTools); err != nil {
-		return nil, zoneIndependentError(errors.Trace(err))
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	hostname, err := inst.hostname()
 	if err != nil {
-		return nil, zoneIndependentError(errors.Trace(err))
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, environ.Config()); err != nil {
-		return nil, zoneIndependentError(errors.Trace(err))
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	subnetsMap, err := environ.subnetToSpaceIds()
 	if err != nil {
-		return nil, zoneIndependentError(errors.Trace(err))
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	cloudcfg, err := environ.newCloudinitConfig(hostname, series)
 	if err != nil {
-		return nil, zoneIndependentError(errors.Trace(err))
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, MAASRenderer{})
 	if err != nil {
-		return nil, zoneIndependentError(errors.Annotate(
+		return nil, common.ZoneIndependentError(errors.Annotate(
 			err, "could not compose userdata for bootstrap node",
 		))
 	}
@@ -1036,7 +1023,7 @@ func (environ *maasEnviron) StartInstance(
 		inst1 := inst.(*maas1Instance)
 		startedNode, err := environ.startNode(*inst1.maasObject, series, userdata)
 		if err != nil {
-			return nil, zoneIndependentError(errors.Trace(err))
+			return nil, common.ZoneIndependentError(err)
 		}
 		// Once the instance has started the response should contain the
 		// assigned IP addresses, even when NICs are set to "auto" instead of
@@ -1046,18 +1033,18 @@ func (environ *maasEnviron) StartInstance(
 		// interfaces.
 		interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
 		if err != nil {
-			return nil, zoneIndependentError(errors.Trace(err))
+			return nil, common.ZoneIndependentError(err)
 		}
 		environ.tagInstance1(inst1, args.InstanceConfig)
 	} else {
 		inst2 := inst.(*maas2Instance)
 		startedInst, err := environ.startNode2(*inst2, series, userdata)
 		if err != nil {
-			return nil, zoneIndependentError(errors.Trace(err))
+			return nil, common.ZoneIndependentError(err)
 		}
 		interfaces, err = maas2NetworkInterfaces(startedInst, subnetsMap)
 		if err != nil {
-			return nil, zoneIndependentError(errors.Trace(err))
+			return nil, common.ZoneIndependentError(err)
 		}
 		environ.tagInstance2(inst2, args.InstanceConfig)
 	}
@@ -1072,10 +1059,10 @@ func (environ *maasEnviron) StartInstance(
 		requestedVolumes,
 	)
 	if err != nil {
-		return nil, zoneIndependentError(errors.Trace(err))
+		return nil, common.ZoneIndependentError(err)
 	}
 	if len(resultVolumes) != len(requestedVolumes) {
-		return nil, zoneIndependentError(errors.Errorf(
+		return nil, common.ZoneIndependentError(errors.Errorf(
 			"requested %v storage volumes. %v returned",
 			len(requestedVolumes), len(resultVolumes),
 		))

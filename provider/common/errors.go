@@ -3,24 +3,25 @@
 
 package common
 
-// StartInstanceError is an error type that may be returned from providers'
-// StartInstance methods to include more details of the error.
-type StartInstanceError struct {
-	// Err is the underlying error that caused StartInstance to fail.
-	Err error
+import "github.com/juju/errors"
 
-	// ZoneIndependent, if true, indicates that the error is due to some
-	// condition that holds regardless of the availability zone specified.
-	ZoneIndependent bool
+// ZoneIndependentError wraps the given error such that it
+// satisfies environs.IsAvailabilityZoneIndependent.
+func ZoneIndependentError(err error) error {
+	if err == nil {
+		return nil
+	}
+	wrapped := errors.Wrap(err, zoneIndependentError{err})
+	wrapped.(*errors.Err).SetLocation(1)
+	return wrapped
 }
 
-// Error is part of the error interface.
-func (err *StartInstanceError) Error() string {
-	return err.Err.Error()
+type zoneIndependentError struct {
+	error
 }
 
-// AvailabilityZoneIndependent is part of the environs.AvailabilityZoneError
-// interface.
-func (err *StartInstanceError) AvailabilityZoneIndependent() bool {
-	return err.ZoneIndependent
+// AvailabilityZoneIndependent is part of the
+// environs.AvailabilityZoneError interface.
+func (zoneIndependentError) AvailabilityZoneIndependent() bool {
+	return true
 }

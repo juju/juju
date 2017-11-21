@@ -34,32 +34,20 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 
 	spec, err := buildInstanceSpec(env, args)
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	if err := env.finishInstanceConfig(args, spec); err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	// Validate availability zone.
 	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 	if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: false,
-		}
+		return nil, errors.Trace(err)
 	}
 
 	raw, err := newRawInstance(env, args, spec)
@@ -149,26 +137,17 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 
 	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	os, err := series.GetOSFromSeries(args.InstanceConfig.Series)
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	metadata, err := getMetadata(args, os)
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 	tags := []string{
 		env.globalFirewallName(),
@@ -182,10 +161,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		env.Config().ImageStream() == "daily",
 	)
 	if err != nil {
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: true,
-		}
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	// TODO(ericsnow) Use the env ID for the network name (instead of default)?
@@ -206,10 +182,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		// We currently treat all AddInstance failures
 		// as being zone-specific, so we'll retry in
 		// another zone.
-		return nil, &common.StartInstanceError{
-			Err:             errors.Trace(err),
-			ZoneIndependent: false,
-		}
+		return nil, errors.Trace(err)
 	}
 	return inst, nil
 }

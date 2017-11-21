@@ -653,14 +653,12 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
 	defer cleanup()
 
-	retryableError := &providercommon.StartInstanceError{
-		Err:             errors.New("container failed to start and was destroyed"),
-		ZoneIndependent: true,
-	}
-	destroyError := &providercommon.StartInstanceError{
-		Err:             errors.New("container failed to start and failed to destroy: manual cleanup of containers needed"),
-		ZoneIndependent: true,
-	}
+	retryableError := providercommon.ZoneIndependentError(
+		errors.New("container failed to start and was destroyed"),
+	)
+	destroyError := providercommon.ZoneIndependentError(
+		errors.New("container failed to start and failed to destroy: manual cleanup of containers needed"),
+	)
 	// send the error message three times, because the provisioner will retry twice as patched above.
 	errorInjectionChannel <- retryableError
 	errorInjectionChannel <- retryableError
@@ -1823,10 +1821,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {
 		startInstanceFailureInfo: map[string]mockBrokerFailures{
 			"2": {whenSucceed: 3, err: errors.New("zing")},
 			"3": {whenSucceed: 1, err: errors.New("zing")},
-			"5": {whenSucceed: 1, err: &providercommon.StartInstanceError{
-				Err:             errors.New("arf"),
-				ZoneIndependent: true,
-			}},
+			"5": {whenSucceed: 1, err: providercommon.ZoneIndependentError(errors.New("arf"))},
 		},
 		derivedAZ: map[string][]string{
 			"1": []string{"fail-zone"},
