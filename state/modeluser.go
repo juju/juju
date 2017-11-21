@@ -171,8 +171,20 @@ func (st *State) removeModelUser(user names.UserTag) error {
 	return nil
 }
 
-func (st *State) ModelDetailsForUser(user names.UserTag, includeUsers bool, includeMachineDetails bool) ([]ModelDetails, error) {
-	modelQuery, closer, err := st.modelQueryForUser(user)
+// isUserSuperuser if this user has the Superuser access on the controller.
+func (st *State) isUserSuperuser(user names.UserTag) (bool, error) {
+	access, err := st.UserAccess(user, st.controllerTag)
+	if err != nil {
+		// We don't suppress NotFound becaus
+		return false, errors.Trace(err)
+	}
+	isControllerSuperuser := (access.Access == permission.SuperuserAccess)
+	return isControllerSuperuser, nil
+}
+
+func (st *State) ModelDetailsForUser(user names.UserTag, includeUsersAndMachines bool) ([]ModelDetails, error) {
+	isControllerSuperuser, err := st.isUserSuperuser(user)
+	modelQuery, closer, err := st.modelQueryForUser(user, isControllerSuperuser)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -181,7 +193,7 @@ func (st *State) ModelDetailsForUser(user names.UserTag, includeUsers bool, incl
 	if err := modelQuery.All(&modelDocs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	p := newProcessorFromModelDocs(st, modelDocs)
+	p := newProcessorFromModelDocs(st, modelDocs, user, isControllerSuperuser)
 	modelDocs = nil
 	if err := p.fillInFromConfig(); err != nil {
 		return nil, errors.Trace(err)
@@ -192,21 +204,23 @@ func (st *State) ModelDetailsForUser(user names.UserTag, includeUsers bool, incl
 	// TODO: We do 2 passes for user information.
 	// First we grab the access information for only *this* user, because that lets us know whether this user should
 	// be able to see any information about any other users.
-	/// if err := p.fillInUser(user); err != nil {
-	/// 	return nil, errors.Trace(err)
-	/// }
-	if includeUsers {
-		// TODO: This needs to take user tag and use the pre-information from fillInUser to filter out any models
+	if err := p.fillInJustUser(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if includeUsersAndMachines {
+		p.computeAdminModels()
+		// TODO: This needs to take user tag and use the pre-information from fillInJustUser to filter out any models
 		// that the user doesn't have proper accesse
 		if err := p.fillInFromModelUsers(); err != nil {
 			return nil, errors.Trace(err)
 		}
-	}
-	if includeMachineDetails {
-		// 	if err := p.fillInMachineDetails(); err != nil {
-		// 		return nil, errors.Trace(err)
-		// 	}
+		if err := p.fillInMachineDetails(); err != nil {
+			return nil, errors.Trace(err)
+		}
 	} else {
+		if err := p.fillInLastAccess(); err != nil {
+			return nil, errors.Trace(err)
+		}
 		if err := p.fillInMachineSummary(); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -219,21 +233,13 @@ func (st *State) ModelDetailsForUser(user names.UserTag, includeUsers bool, incl
 
 // modelsForUser gives you the information about all models that a user has access to.
 // This includes the name and UUID, as well as the last time the user connected to that model.
-func (st *State) modelQueryForUser(user names.UserTag) (mongo.Query, SessionCloser, error) {
-	// TODO: either we should be passing in permission.Access or we should be returning it
-	// we don't want to be looking it up twice, and we need the info elsewhere.
-	access, err := st.UserAccess(user, st.controllerTag)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, nil, errors.Trace(err)
-	}
+func (st *State) modelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.Query, SessionCloser, error) {
 	var modelQuery mongo.Query
 	models, closer := st.db().GetCollection(modelsC)
-	if access.Access == permission.SuperuserAccess {
-		logger.Debugf("modelQueryFor SuperUser: %v", user.Name())
+	if isSuperuser {
 		// Fast path, we just return all the models that aren't Importing
 		modelQuery = models.Find(bson.M{"migration-mode": bson.M{"$ne": MigrationModeImporting}})
 	} else {
-		logger.Debugf("modelQueryFor normal user: %v", user.Name())
 		// Start by looking up model uuids that the user has access to, and then load only the records that are
 		// included in that set
 		var modelUUID struct {
@@ -272,7 +278,11 @@ type ModelAccessInfo struct {
 // ModelSummariesForUser gives you the information about all models that a user has access to.
 // This includes the name and UUID, as well as the last time the user connected to that model.
 func (st *State) ModelSummariesForUser(user names.UserTag) ([]ModelAccessInfo, error) {
-	modelQuery, closer1, err := st.modelQueryForUser(user)
+	isSuperuser, err := st.isUserSuperuser(user)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelQuery, closer1, err := st.modelQueryForUser(user, isSuperuser)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

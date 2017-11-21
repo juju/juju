@@ -124,9 +124,8 @@ type ModelMigrationStatus struct {
 
 // ModelsForUserRequest gives details about what information we want from a ListModelsWithInfo request
 type ModelsForUserRequest struct {
-	User                  Entity `json:"user"`
-	IncludeMachineDetails bool   `json:"include-machine-details"`
-	IncludeUserDetails    bool   `json:"include-user-details"`
+	User                      Entity `json:"user"`
+	IncludeMachineUserDetails bool   `json:"include-machine-user-details"`
 }
 
 // ModelInfo holds information about the Juju model.

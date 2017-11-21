@@ -43,7 +43,7 @@ type ModelManagerV4 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.DumpModelRequest) params.StringResults
 	DumpModelsDB(args params.Entities) params.MapResults
-	ListModelsWithInfo(user params.Entity) (params.ModelInfoResults, error)
+	ListModelsWithInfo(req params.ModelsForUserRequest) (params.ModelInfoResults, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
 	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
@@ -680,10 +680,10 @@ func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 // has access to in the current server.  Only the controller owner
 // can list models for any user (at this stage).  Other users
 // can only ask about their own models.
-func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelInfoResults, error) {
+func (m *ModelManagerAPI) ListModelsWithInfo(req params.ModelsForUserRequest) (params.ModelInfoResults, error) {
 	result := params.ModelInfoResults{}
 
-	userTag, err := names.ParseUserTag(user.Tag)
+	userTag, err := names.ParseUserTag(req.User.Tag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -693,14 +693,11 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelIn
 		return result, errors.Trace(err)
 	}
 
-	modelInfos, err := m.state.ModelDetailsForUser(userTag)
+	modelInfos, err := m.state.ModelDetailsForUser(userTag, req.IncludeMachineUserDetails)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	// TODO (jam 2017-11-15): ModelInfoResult is missing things like LastConnection, and has a bunch of stuff that
-	// 'juju models' never shows, like []Machines. and those aren't particularly cheap to lookup.
-	// Sort through this a bit better.
 	for _, mi := range modelInfos {
 		info := params.ModelInfoResult{
 			Result: &params.ModelInfo{
@@ -727,6 +724,7 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelIn
 			},
 		}
 		result.Results = append(result.Results, info)
+		// TODO: This should be moved in to ModelDetailsForUser rather than as part of APIServer
 		authorizedOwner := m.authCheck(names.NewUserTag(mi.Owner)) == nil
 		for _, user := range mi.Users {
 			if !authorizedOwner && m.authCheck(user.UserTag) != nil {

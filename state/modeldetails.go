@@ -68,7 +68,7 @@ type ModelDetails struct {
 	// This information is available to owners and users with write
 	// access or greater.
 	// The information will also only be filled out if includeMachineDetails is true
-	Machines     []MachineModelInfo
+	Machines     map[string]MachineModelInfo
 	MachineCount int64
 	CoreCount    int64
 
@@ -78,10 +78,13 @@ type ModelDetails struct {
 
 // modelDetailProcessor provides the working space for extracting details for models that a user has access to.
 type modelDetailProcessor struct {
-	st          *State
-	details     []ModelDetails
-	indexByUUID map[string]int
-	modelUUIDs  []string
+	st              *State
+	details         []ModelDetails
+	user            names.UserTag
+	isSuperuser     bool
+	indexByUUID     map[string]int
+	modelUUIDs      []string
+	writeModelUUIDs []string // models that we have admin access to
 
 	//invalidLocalUsers are usernames that show up as we're walking the database, but ultimately are considered deleted
 	invalidLocalUsers set.Strings
@@ -91,9 +94,11 @@ type modelDetailProcessor struct {
 	incompleteUUIDs set.Strings
 }
 
-func newProcessorFromModelDocs(st *State, modelDocs []modelDoc) *modelDetailProcessor {
+func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserTag, isSuperuser bool) *modelDetailProcessor {
 	p := &modelDetailProcessor{
-		st: st,
+		st:          st,
+		user:        user,
+		isSuperuser: isSuperuser,
 	}
 	p.details = make([]ModelDetails, len(modelDocs))
 	p.indexByUUID = make(map[string]int, len(modelDocs))
@@ -115,6 +120,7 @@ func newProcessorFromModelDocs(st *State, modelDocs []modelDoc) *modelDetailProc
 			CloudRegion:        doc.CloudRegion,
 			CloudCredentialTag: cloudCred,
 			Users:              make(map[string]UserAccessInfo),
+			Machines:           make(map[string]MachineModelInfo),
 		}
 		p.indexByUUID[doc.UUID] = i
 		p.modelUUIDs[i] = doc.UUID
@@ -285,26 +291,10 @@ func (p *modelDetailProcessor) fillInLastConnection(lastAccessIds []string) erro
 }
 
 func (p *modelDetailProcessor) fillInMachineSummary() error {
-	// TODO: (jam) 2017-11-18 we should have filled in the authorization information already. So just use that
-	// information to know what machine information we should be reporting.
-	// Then again, if we are just returning summary information instead of the details, do we care about exposing it to
-	// readonly users?
-	// We'd want to do this to collect the model uuids that we will collect machine information for.
-	//// canSeeMachines := authorizedOwner
-	//// if !canSeeMachines {
-	//// 	if canSeeMachines, err = m.hasWriteAccess(tag); err != nil {
-	//// 		return params.ModelInfo{}, errors.Trace(err)
-	//// 	}
-	//// }
-	//// if canSeeMachines {
-	//// 	if info.Machines, err = common.ModelMachineInfo(st); shouldErr(err) {
-	//// 		return params.ModelInfo{}, err
-	//// 	}
-	//// }
 	machines, closer := p.st.db().GetRawCollection(machinesC)
 	defer closer()
 	query := machines.Find(bson.M{
-		"model-uuid": bson.M{"$in": p.modelUUIDs},
+		"model-uuid": bson.M{"$in": p.writeModelUUIDs},
 		"life":       Alive,
 	})
 	query.Select(bson.M{"life": 1, "model-uuid": 1, "_id": 1, "machineid": 1})
@@ -323,7 +313,6 @@ func (p *modelDetailProcessor) fillInMachineSummary() error {
 		// However, if we're just aggregating the counts, we don't care about any of that.
 		details := &p.details[idx]
 		details.MachineCount++
-		// TODO: Don't double count Containers
 		machineIds = append(machineIds, doc.ModelUUID+":"+doc.Id)
 	}
 	if err := iter.Close(); err != nil {
@@ -343,6 +332,94 @@ func (p *modelDetailProcessor) fillInMachineSummary() error {
 		details := &p.details[idx]
 		if instData.CpuCores != nil {
 			details.CoreCount += int64(*instData.CpuCores)
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (p *modelDetailProcessor) fillInMachineDetails() error {
+	// machinedocs
+	machines, closer := p.st.db().GetRawCollection(machinesC)
+	defer closer()
+	query := machines.Find(bson.M{
+		"model-uuid": bson.M{"$in": p.modelUUIDs},
+		"life":       Alive,
+	})
+	query.Select(bson.M{"life": 1, "model-uuid": 1, "_id": 1, "machineid": 1})
+	iter := query.Iter()
+	var doc machineDoc
+	machineIds := make([]string, 0)
+	statusIds := make([]string, 0)
+	for iter.Next(&doc) {
+		if doc.Life != Alive {
+			continue
+		}
+		idx, ok := p.indexByUUID[doc.ModelUUID]
+		if !ok {
+			continue
+		}
+		// There was a lot of data that was collected from things like Machine.Status.
+		// However, if we're just aggregating the counts, we don't care about any of that.
+		details := &p.details[idx]
+		details.MachineCount++
+		machineIds = append(machineIds, doc.DocID)
+		statusIds = append(statusIds, doc.ModelUUID+":"+machineGlobalKey(doc.Id))
+	}
+	instances, closer2 := p.st.db().GetRawCollection(instanceDataC)
+	defer closer2()
+	query = instances.Find(bson.M{"_id": bson.M{"$in": machineIds}})
+	//query.Select(bson.M{"cpucores": 1, "model-uuid": 1})
+	iter = query.Iter()
+	var instData instanceData
+	for iter.Next(&instData) {
+		idx, ok := p.indexByUUID[instData.ModelUUID]
+		if !ok {
+			continue
+		}
+		details := &p.details[idx]
+		if instData.CpuCores != nil {
+			details.CoreCount += int64(*instData.CpuCores)
+		}
+		details.Machines[instData.MachineId] = MachineModelInfo{
+			Id:       instData.MachineId,
+			Hardware: hardwareCharacteristics(instData),
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	statuses, closer3 := p.st.db().GetRawCollection(statusesC)
+	defer closer3()
+	query = statuses.Find(bson.M{"_id": bson.M{"$in": statusIds}})
+	query.Select(bson.M{"model-uuid": 1, "status": 1, "_id": 1})
+	iter = query.Iter()
+	var stDoc struct {
+		// We can't use statusDoc because it doesn't have a field for _id
+		Id        string `bson:"_id"`
+		ModelUUID string `bson:"model-uuid"`
+		Status    string `bson:"status"`
+	}
+	for iter.Next(&stDoc) {
+		idx, ok := p.indexByUUID[stDoc.ModelUUID]
+		if !ok {
+			continue
+		}
+		details := &p.details[idx]
+		// This is taken as "<model-uuid>:m#<machine-id>"
+		prefixLen := len(stDoc.ModelUUID) + 3
+		if len(stDoc.Id) > prefixLen {
+			machineId := stDoc.Id[prefixLen:]
+			mInfo := details.Machines[machineId]
+			mInfo.Status = stDoc.Status
+			details.Machines[machineId] = mInfo
+			// apiserver/common.MachineStatus needs access to each individual State object to ask about AgentPresence
+			// *sigh*.
+			// that would allow us to override machine status with "Down" when appropriate
+		} else {
+			// Invalid machineId for status document
 		}
 	}
 	if err := iter.Close(); err != nil {
@@ -430,6 +507,72 @@ func (p *modelDetailProcessor) fillInMigration() error {
 	return nil
 }
 
+// fillInJustUser fills in the Access rights for this user on every model (but not other users).
+// We will use this information later to determine whether it is reasonable to include the information from other models.
+func (p *modelDetailProcessor) fillInJustUser() error {
+	if p.isSuperuser {
+		// we skip this check, because we're the superuser, so we'll fill in everything anyway.
+		return nil
+	}
+	rawModelUsers, closer := p.st.database.GetRawCollection(modelUsersC)
+	defer closer()
+
+	// TODO(jam): ensure that we have appropriate indexes so that users that aren't "admin" and only see a couple
+	// models don't do a COLLSCAN on the table.
+	username := strings.ToLower(p.user.Name())
+	var permissionIds []string
+	permIdToUserDoc := make(map[string]userAccessDoc)
+	// TODO: Do we have to read the user access docs? We know the user and the model already, but if we want any details
+	// for this user (DisplayName), then we need to read it.
+	query := rawModelUsers.Find(bson.M{"object-uuid": bson.M{"$in": p.modelUUIDs}, "user": p.user.Name()})
+	var doc userAccessDoc
+	iter := query.Iter()
+	for iter.Next(&doc) {
+		permId := permissionID(modelKey(doc.ObjectUUID), userGlobalKey(username))
+		permissionIds = append(permissionIds, permId)
+		permIdToUserDoc[permId] = doc
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := p.fillInPermissions(permIdToUserDoc, permissionIds); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (p *modelDetailProcessor) computeAdminModels() {
+	// After calling fillInJustUser we can check for what models this user has Admin access to
+	var writeModelUUIDs []string
+	if p.isSuperuser {
+		writeModelUUIDs = p.modelUUIDs
+	} else {
+		username := strings.ToLower(p.user.Name())
+		for _, detail := range p.details {
+			userInfo, ok := detail.Users[username]
+			if ok && userInfo.Access.EqualOrGreaterModelAccessThan(permission.WriteAccess) {
+				// See the Machines listing happens at Write access, and its a bit annoying to have Machines
+				// at Write but Users at Admin, so we'll just set both at Write
+				writeModelUUIDs = append(writeModelUUIDs, detail.UUID)
+			}
+		}
+	}
+	p.writeModelUUIDs = writeModelUUIDs
+}
+
+func (p *modelDetailProcessor) fillInLastAccess() error {
+	// We fill in the last access only for the requesting user.
+	lastAccessIds := make([]string, len(p.modelUUIDs))
+	suffix := ":" + strings.ToLower(p.user.Name())
+	for i, modelUUID := range p.modelUUIDs {
+		lastAccessIds[i] = modelUUID + suffix
+	}
+	if err := p.fillInLastConnection(lastAccessIds); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (p *modelDetailProcessor) fillInFromModelUsers() error {
 	// We use the raw settings because we are reading across model UUIDs
 	rawModelUsers, closer := p.st.database.GetRawCollection(modelUsersC)
@@ -437,7 +580,7 @@ func (p *modelDetailProcessor) fillInFromModelUsers() error {
 
 	// TODO(jam): ensure that we have appropriate indexes so that users that aren't "admin" and only see a couple
 	// models don't do a COLLSCAN on the table.
-	query := rawModelUsers.Find(bson.M{"object-uuid": bson.M{"$in": p.modelUUIDs}})
+	query := rawModelUsers.Find(bson.M{"object-uuid": bson.M{"$in": p.writeModelUUIDs}})
 	var doc userAccessDoc
 	iter := query.Iter()
 	permissionIdToAccessDoc := make(map[string]userAccessDoc)
