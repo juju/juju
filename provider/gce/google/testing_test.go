@@ -127,6 +127,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		NetworkInterfaces: []string{"somenetif"},
 		Metadata:          s.Metadata,
 		Tags:              []string{"spam"},
+		AvailabilityZone:  "a-zone",
 	}
 	s.Instance = Instance{
 		InstanceSummary: InstanceSummary{

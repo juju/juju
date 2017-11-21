@@ -538,11 +538,10 @@ func (fc *fakeConn) Instances(prefix string, statuses ...string) ([]google.Insta
 	return fc.Insts, fc.err()
 }
 
-func (fc *fakeConn) AddInstance(spec google.InstanceSpec, zone string) (*google.Instance, error) {
+func (fc *fakeConn) AddInstance(spec google.InstanceSpec) (*google.Instance, error) {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "AddInstance",
 		InstanceSpec: spec,
-		ZoneName:     zone,
 	})
 	return fc.Inst, fc.err()
 }

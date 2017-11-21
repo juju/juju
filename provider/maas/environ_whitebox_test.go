@@ -746,7 +746,7 @@ func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
 func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	_, err := s.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 }
 
 func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
@@ -759,13 +759,24 @@ func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instanc
 	return result.Instance, nil
 }
 
+func (s *environSuite) TestStartInstanceZoneIndependentError(c *gc.C) {
+	s.testMAASObject.TestServer.AddZone("test-available", "description")
+	env := s.bootstrap(c)
+	params := environs.StartInstanceParams{
+		ControllerUUID: s.controllerUUID,
+		Placement:      "foo=bar",
+	}
+	_, err := testing.StartInstanceWithParams(env, "1", params)
+	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
+}
+
 func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {
 	env := s.bootstrap(c)
 	s.newNode(c, "thenode1", "host1", nil)
 	s.addSubnet(c, 1, 1, "thenode1")
 	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID, Constraints: constraints.MustParse("mem=8G")}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
-	c.Assert(err, gc.ErrorMatches, "cannot run instances:.* 409.*")
+	c.Assert(err, gc.ErrorMatches, "failed to acquire node: .* 409.*")
 }
 
 func (s *environSuite) TestStartInstanceConstraints(c *gc.C) {
@@ -882,7 +893,7 @@ func (s *environSuite) TestStartInstanceUnsupportedStorage(c *gc.C) {
 			{Tag: names.NewVolumeTag("3"), Size: 2000000},
 		}}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
-	c.Assert(err, gc.ErrorMatches, "requested 2 storage volumes. 0 returned.")
+	c.Assert(err, gc.ErrorMatches, "requested 2 storage volumes. 0 returned")
 	operations := s.testMAASObject.TestServer.NodesOperations()
 	c.Check(operations, gc.DeepEquals, []string{"acquire", "acquire", "release"})
 	c.Assert(s.testMAASObject.TestServer.OwnedNodes()["node0"], jc.IsTrue)

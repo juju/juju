@@ -653,8 +653,12 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
 	defer cleanup()
 
-	retryableError := errors.New("container failed to start and was destroyed")
-	destroyError := errors.New("container failed to start and failed to destroy: manual cleanup of containers needed")
+	retryableError := providercommon.ZoneIndependentError(
+		errors.New("container failed to start and was destroyed"),
+	)
+	destroyError := providercommon.ZoneIndependentError(
+		errors.New("container failed to start and failed to destroy: manual cleanup of containers needed"),
+	)
 	// send the error message three times, because the provisioner will retry twice as patched above.
 	errorInjectionChannel <- retryableError
 	errorInjectionChannel <- retryableError
@@ -1620,7 +1624,7 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailures(c
 		Environ:    s.Environ,
 		retryCount: make(map[string]int),
 		startInstanceFailureInfo: map[string]mockBrokerFailures{
-			"2": {whenSucceed: 1, err: environs.ErrAvailabilityZoneFailed},
+			"2": {whenSucceed: 1, err: errors.New("zing")},
 		},
 	}
 	retryStrategy := provisioner.NewRetryStrategy(5*time.Millisecond, 2)
@@ -1668,7 +1672,7 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailuresWi
 		Environ:    s.Environ,
 		retryCount: make(map[string]int),
 		startInstanceFailureInfo: map[string]mockBrokerFailures{
-			"2": {whenSucceed: 1, err: environs.ErrAvailabilityZoneFailed},
+			"2": {whenSucceed: 1, err: errors.New("zing")},
 		},
 	}
 	dgFinder := &mockDistributionGroupFinder{groups: map[names.MachineTag][]string{
@@ -1791,7 +1795,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesClearAZFailures(c *gc.C) {
 		Environ:    s.Environ,
 		retryCount: make(map[string]int),
 		startInstanceFailureInfo: map[string]mockBrokerFailures{
-			"1": {whenSucceed: 3, err: environs.ErrAvailabilityZoneFailed},
+			"1": {whenSucceed: 3, err: errors.New("zing")},
 		},
 	}
 	retryStrategy := provisioner.NewRetryStrategy(5*time.Millisecond, 4)
@@ -1815,9 +1819,9 @@ func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {
 		Environ:    s.Environ,
 		retryCount: make(map[string]int),
 		startInstanceFailureInfo: map[string]mockBrokerFailures{
-			"2": {whenSucceed: 3, err: environs.ErrAvailabilityZoneFailed},
-			"3": {whenSucceed: 1, err: environs.ErrAvailabilityZoneFailed},
-			"5": {whenSucceed: 1, err: errors.New("fail me once.")},
+			"2": {whenSucceed: 3, err: errors.New("zing")},
+			"3": {whenSucceed: 1, err: errors.New("zing")},
+			"5": {whenSucceed: 1, err: providercommon.ZoneIndependentError(errors.New("arf"))},
 		},
 		derivedAZ: map[string][]string{
 			"1": []string{"fail-zone"},

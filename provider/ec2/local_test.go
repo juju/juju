@@ -742,7 +742,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneImpaired(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 	c.Assert(errors.Details(err), gc.Matches, `.*availability zone \"\" not valid.*`)
 }
 
@@ -807,6 +807,21 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZonePlacementC
 	}
 	_, err = testing.StartInstanceWithParams(env, "1", args)
 	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
+}
+
+func (t *localServerSuite) TestStartInstanceZoneIndependent(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+	params := environs.StartInstanceParams{
+		ControllerUUID:   t.ControllerUUID,
+		StatusCallback:   fakeCallback,
+		AvailabilityZone: "test-available",
+		Placement:        "nonsense",
+	}
+	_, err := testing.StartInstanceWithParams(env, "1", params)
+	c.Assert(err, gc.ErrorMatches, "unknown placement directive: nonsense")
+	// The returned error should indicate that it is independent
+	// of the availability zone specified.
+	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
 }
 
 func (t *localServerSuite) TestStartInstanceSubnet(c *gc.C) {
@@ -1093,9 +1108,10 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 	}
 
 	_, err := testing.StartInstanceWithParams(env, "1", params)
-	// All AZConstrained failures should return environs.ErrAvailabilityZoneFailed
+	// All AZConstrained failures should return an error that does
+	// *not* satisfy environs.IsAvailabilityZoneIndependent,
 	// so the caller knows to try a new zone, rather than fail.
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 	c.Assert(errors.Details(err), jc.Contains, runInstancesError.Message)
 }
 
@@ -1173,7 +1189,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 	c.Assert(errors.Details(err), gc.Matches, `.*subnets in AZ "test-available" not found.*`)
 }
 
@@ -1237,7 +1253,7 @@ func (t *localServerSuite) assertStartInstanceWithParamsFindAZ(
 		_, err = testing.StartInstanceWithParams(env, "1", params)
 		if err == nil {
 			return
-		} else if errors.Cause(err) == environs.ErrAvailabilityZoneFailed {
+		} else if !environs.IsAvailabilityZoneIndependent(err) {
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
@@ -1305,7 +1321,7 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 		_, err = testing.StartInstanceWithParams(env, "1", params)
 		if err == nil {
 			break
-		} else if errors.Cause(err) == environs.ErrAvailabilityZoneFailed {
+		} else if !environs.IsAvailabilityZoneIndependent(err) {
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
