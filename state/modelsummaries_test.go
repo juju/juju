@@ -307,14 +307,16 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(summaries, gc.HasLen, 2)
-	var sharedSummary *state.ModelSummary
-	for _, summary := range summaries {
-		if summary.Name == "shared" {
-			s := summary
-			sharedSummary = &s
-		}
+	summaryMap := make(map[string]*state.ModelSummary)
+	for i := range summaries {
+		summaryMap[summaries[i].Name] = &summaries[i]
 	}
+	sharedSummary := summaryMap["shared"]
 	c.Assert(sharedSummary, gc.NotNil)
 	c.Check(sharedSummary.MachineCount, gc.Equals, int64(5))
 	c.Check(sharedSummary.CoreCount, gc.Equals, int64(1+2+3))
+	userSummary := summaryMap["user1model"]
+	c.Assert(userSummary, gc.NotNil)
+	c.Check(userSummary.MachineCount, gc.Equals, int64(0))
+	c.Check(userSummary.CoreCount, gc.Equals, int64(0))
 }
