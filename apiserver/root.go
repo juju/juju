@@ -182,14 +182,18 @@ func restrictAPIRoot(
 	srv *Server,
 	apiRoot rpc.Root,
 	model *state.Model,
-	isControllerModel bool,
 	auth authResult,
 ) (rpc.Root, error) {
-	apiRoot, err := restrictAPIRootDuringMaintenance(
-		srv, apiRoot, model, isControllerModel, auth.tag,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if !auth.controllerMachineLogin {
+		// Controller agents are allowed to
+		// connect even during maintenance.
+		restrictedRoot, err := restrictAPIRootDuringMaintenance(
+			srv, apiRoot, model, auth.tag, auth.controllerMachineLogin,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		apiRoot = restrictedRoot
 	}
 	if auth.controllerOnlyLogin {
 		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
@@ -206,19 +210,9 @@ func restrictAPIRootDuringMaintenance(
 	srv *Server,
 	apiRoot rpc.Root,
 	model *state.Model,
-	isControllerModel bool,
 	authTag names.Tag,
+	controllerMachineLogin bool,
 ) (rpc.Root, error) {
-
-	if isControllerModel && authTag == srv.tag {
-		// The local controller machine agent is
-		// always allowed to connect to itself.
-		//
-		// TODO(axw) allow all controller
-		// machine agents. See lp:1733259.
-		return apiRoot, nil
-	}
-
 	describeLogin := func() string {
 		if authTag == nil {
 			return "anonymous login"

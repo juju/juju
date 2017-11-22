@@ -117,7 +117,6 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		a.srv,
 		apiRoot,
 		a.root.model,
-		a.root.state.IsController(),
 		*authResult,
 	)
 	if err != nil {
@@ -149,11 +148,12 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 }
 
 type authResult struct {
-	tag                 names.Tag
-	anonymousLogin      bool
-	userLogin           bool
-	controllerOnlyLogin bool
-	userInfo            *params.AuthUserInfo
+	tag                    names.Tag // nil if external user login
+	anonymousLogin         bool
+	userLogin              bool // false if anonymous user
+	controllerOnlyLogin    bool
+	controllerMachineLogin bool
+	userInfo               *params.AuthUserInfo
 }
 
 func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
@@ -203,30 +203,37 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 	// Only attempt to login with credentials if we are not doing an anonymous login.
 	var (
 		lastConnection *time.Time
+		entity         state.Entity
 		err            error
+		startPinger    = true
 	)
 	if !result.anonymousLogin {
-		a.root.entity, lastConnection, err = a.checkCreds(req, result.tag, result.userLogin)
-	}
-
-	// If above login fails, we may still be a login to a controller
-	// machine in the controller model.
-	controllerMachineLogin, err := a.handleAuthError(req, result.tag, err)
-	if err != nil {
-		return nil, errors.Trace(err)
+		entity, lastConnection, err = a.checkCreds(req, result.tag, result.userLogin)
+		if err != nil {
+			// If above login fails, we may still be a login to a controller
+			// machine in the controller model.
+			entity, err = a.handleAuthError(req, result.tag, err)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			// We only need to run a pinger for controller machine
+			// agents when logging into the controller model.
+			startPinger = false
+		}
 	}
 	a.loggedIn = true
 
 	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
-	if a.root.entity != nil {
-		a.apiObserver.Login(a.root.entity.Tag(), a.root.model.ModelTag(), controllerMachineLogin, req.UserData)
+	if entity != nil {
+		if machine, ok := entity.(*state.Machine); ok && machine.IsManager() {
+			result.controllerMachineLogin = true
+		}
+		a.root.entity = entity
+		a.apiObserver.Login(entity.Tag(), a.root.model.ModelTag(), result.controllerMachineLogin, req.UserData)
 	}
 
-	// For controller machine logins, we don't need a pinger
-	// for it as we already have one running in the machine agent api
-	// worker for the controller model.
-	if !controllerMachineLogin {
-		if err := startPingerIfAgent(a.srv.pingClock, a.root, a.root.entity); err != nil {
+	if startPinger {
+		if err := startPingerIfAgent(a.srv.pingClock, a.root, entity); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -236,12 +243,13 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 	return result, nil
 }
 
-func (a *admin) handleAuthError(req params.LoginRequest, authTag names.Tag, err error) (controllerLogin bool, _ error) {
-	if err == nil {
-		return false, nil
-	}
+func (a *admin) handleAuthError(
+	req params.LoginRequest,
+	authTag names.Tag,
+	err error,
+) (state.Entity, error) {
 	if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
-		return false, err
+		return nil, err
 	}
 	if a.maintenanceInProgress() {
 		// An upgrade, restore or similar operation is in
@@ -249,7 +257,7 @@ func (a *admin) handleAuthError(req params.LoginRequest, authTag names.Tag, err 
 		// is complete due to incomplete or updating data. Mask
 		// transitory and potentially confusing errors from failed
 		// logins with a more helpful one.
-		return false, MaintenanceNoLoginError
+		return nil, MaintenanceNoLoginError
 	}
 	// Here we have a special case.  The machine agents that manage
 	// models in the controller model need to be able to
@@ -262,18 +270,14 @@ func (a *admin) handleAuthError(req params.LoginRequest, authTag names.Tag, err 
 	// machine.
 	machineTag, ok := authTag.(names.MachineTag)
 	if !ok {
-		return false, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if errors.Cause(err) != common.ErrBadCreds {
-		return false, err
+		return nil, err
 	}
 	// If we are here, we may be logging into a controller machine
 	// in the controller model.
-	a.root.entity, err = a.checkControllerMachineCreds(req, machineTag)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return true, nil
+	return a.checkControllerMachineCreds(req, machineTag)
 }
 
 func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) error {
