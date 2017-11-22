@@ -730,20 +730,6 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelIn
 		//mi.CoreCount
 		//mi.Access
 		//mi.UserLastConnection
-
-		// TODO (anastasaiamac 2017-11-22) should just ignore mi.Machines?
-		//  Dealing with machines
-		if len(mi.Machines) > 0 {
-			returnedMachines := []params.ModelMachineInfo{}
-			for machineId, machine := range mi.Machines {
-				// TODO (anastasiamac 2017-11-22) fill this out with details
-				returnedMachines = append(returnedMachines, params.ModelMachineInfo{
-					Id:         machineId,
-					InstanceId: machine.InstanceId,
-				})
-			}
-			info.Result.Machines = returnedMachines
-		}
 	}
 	return result, nil
 }

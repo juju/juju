@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -253,4 +254,67 @@ func (s *ModelSummariesSuite) TestContainsAccessInformation(c *gc.C) {
 		"shared":     permission.WriteAccess,
 		"user1model": permission.AdminAccess,
 	})
+}
+
+func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
+	modelNameToUUID := s.Setup4Models(c)
+	shared, releaser, err := s.StatePool.Get(modelNameToUUID["shared"])
+	defer releaser()
+	c.Assert(err, jc.ErrorIsNil)
+	onecore := uint64(1)
+	twocores := uint64(2)
+	threecores := uint64(3)
+	m0, err := shared.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m0.Life(), gc.Equals, state.Alive)
+	err = m0.SetInstanceInfo("i-12345", "nonce", &instance.HardwareCharacteristics{
+		CpuCores: &onecore,
+	}, nil, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	m1, err := shared.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m1.SetInstanceInfo("i-45678", "nonce", &instance.HardwareCharacteristics{
+		CpuCores: &twocores,
+	}, nil, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	m2, err := shared.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m2.SetInstanceInfo("i-78901", "nonce", &instance.HardwareCharacteristics{
+		CpuCores: &threecores,
+	}, nil, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// No instance
+	_, err = shared.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	// Dying instance, should not count to Cores or Machine count
+	mDying, err := shared.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mDying.SetInstanceInfo("i-78901", "nonce", &instance.HardwareCharacteristics{
+		CpuCores: &threecores,
+	}, nil, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mDying.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// Instance data, but no core count
+	m4, err := shared.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	arch := "amd64"
+	err = m4.SetInstanceInfo("i-78901", "nonce", &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}, nil, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(summaries, gc.HasLen, 2)
+	var sharedSummary *state.ModelSummary
+	for _, summary := range summaries {
+		if summary.Name == "shared" {
+			s := summary
+			sharedSummary = &s
+		}
+	}
+	c.Assert(sharedSummary, gc.NotNil)
+	c.Check(sharedSummary.MachineCount, gc.Equals, int64(5))
+	c.Check(sharedSummary.CoreCount, gc.Equals, int64(1+2+3))
 }

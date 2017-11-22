@@ -66,11 +66,6 @@ type ModelSummary struct {
 	Access             permission.Access
 	UserLastConnection *time.Time
 
-	// Machines contains information about the machines in the model.
-	// This information is available to owners and users with write
-	// access or greater.
-	// The information will also only be filled out if includeMachineDetails is true
-	Machines     map[string]MachineModelInfo
 	MachineCount int64
 	CoreCount    int64
 
@@ -80,13 +75,12 @@ type ModelSummary struct {
 
 // modelSummaryProcessor provides the working space for extracting details for models that a user has access to.
 type modelSummaryProcessor struct {
-	st              *State
-	summaries       []ModelSummary
-	user            names.UserTag
-	isSuperuser     bool
-	indexByUUID     map[string]int
-	modelUUIDs      []string
-	writeModelUUIDs []string // models that we have admin access to
+	st          *State
+	summaries   []ModelSummary
+	user        names.UserTag
+	isSuperuser bool
+	indexByUUID map[string]int
+	modelUUIDs  []string
 
 	//invalidLocalUsers are usernames that show up as we're walking the database, but ultimately are considered deleted
 	invalidLocalUsers set.Strings
@@ -263,7 +257,7 @@ func (p *modelSummaryProcessor) fillInMachineSummary() error {
 	machines, closer := p.st.db().GetRawCollection(machinesC)
 	defer closer()
 	query := machines.Find(bson.M{
-		"model-uuid": bson.M{"$in": p.writeModelUUIDs},
+		"model-uuid": bson.M{"$in": p.modelUUIDs},
 		"life":       Alive,
 	})
 	query.Select(bson.M{"life": 1, "model-uuid": 1, "_id": 1, "machineid": 1})
@@ -375,7 +369,8 @@ func (p *modelSummaryProcessor) fillInMigration() error {
 			continue
 		}
 		details := &p.summaries[idx]
-		// TODO (jam): Can we make modelMigration *not* accept a State object so that we know we won't potato more stuff in the future?
+		// TODO (jam): Can we make modelMigration *not* accept a State object so that we know we won't potato
+		// more stuff in the future?
 		details.Migration = &modelMigration{
 			doc:       doc,
 			statusDoc: statusDoc,
