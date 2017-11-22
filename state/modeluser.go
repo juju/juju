@@ -201,30 +201,15 @@ func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error)
 	if err := p.fillInFromStatus(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO: We do 2 passes for user information.
-	// First we grab the access information for only *this* user, because that lets us know whether this user should
-	// be able to see any information about any other users.
 	if err := p.fillInJustUser(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	/// if includeUsersAndMachines {
-	/// 	p.computeAdminModels()
-	/// 	// TODO: This needs to take user tag and use the pre-information from fillInJustUser to filter out any models
-	/// 	// that the user doesn't have proper accesse
-	/// 	if err := p.fillInFromModelUsers(); err != nil {
-	/// 		return nil, errors.Trace(err)
-	/// 	}
-	/// 	if err := p.fillInMachineDetails(); err != nil {
-	/// 		return nil, errors.Trace(err)
-	/// 	}
-	/// } else {
 	if err := p.fillInLastAccess(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := p.fillInMachineSummary(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	/// }
 	if err := p.fillInMigration(); err != nil {
 		return nil, errors.Trace(err)
 	}
