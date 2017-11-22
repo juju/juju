@@ -295,7 +295,6 @@ func NewMachineAgent(
 		mongoTxnCollector:           mongometrics.NewTxnCollector(),
 		mongoDialCollector:          mongometrics.NewDialCollector(),
 		preUpgradeSteps:             preUpgradeSteps,
-		restoreStatus:               state.RestoreNotActive,
 	}
 	if err := a.registerPrometheusCollectors(); err != nil {
 		return nil, errors.Trace(err)
@@ -341,9 +340,6 @@ type MachineAgent struct {
 	configChangedVal *voyeur.Value
 	upgradeComplete  gate.Lock
 	workersStarted   chan struct{}
-
-	restoreStatusMu sync.Mutex
-	restoreStatus   state.RestoreStatus
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -557,12 +553,10 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			ControllerLeaseDuration:           time.Minute,
 			LogPruneInterval:                  5 * time.Minute,
 			TransactionPruneInterval:          time.Hour,
-			LoginValidator:                    a.limitLogins,
 			SetStatePool:                      statePoolReporter.set,
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 			NewModelWorker:                    a.startModelWorkers,
 			ControllerSupportsSpaces:          controllerSupportsSpaces,
-			RestoreStatusChanged:              a.restoreStatusChanged,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -621,24 +615,6 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	err := a.AgentConfigWriter.ChangeConfig(mutate)
 	a.configChangedVal.Set(true)
 	return errors.Trace(err)
-}
-
-func (a *MachineAgent) getRestoreStatus() state.RestoreStatus {
-	a.restoreStatusMu.Lock()
-	defer a.restoreStatusMu.Unlock()
-	return a.restoreStatus
-}
-
-// restoreStatusChanged will be called whenever the restore status changes.
-func (a *MachineAgent) restoreStatusChanged(st *state.State) error {
-	status, err := st.RestoreInfo().Status()
-	if err != nil {
-		return errors.Annotate(err, "cannot read restore state")
-	}
-	a.restoreStatusMu.Lock()
-	a.restoreStatus = status
-	a.restoreStatusMu.Unlock()
-	return nil
 }
 
 var (

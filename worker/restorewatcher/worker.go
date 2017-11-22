@@ -4,8 +4,9 @@
 package restorewatcher
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/catacomb"
@@ -13,17 +14,13 @@ import (
 
 // Config holds the worker configuration.
 type Config struct {
-	RestoreInfoWatcher   RestoreInfoWatcher
-	RestoreStatusChanged RestoreStatusChangedFunc
+	RestoreInfoWatcher RestoreInfoWatcher
 }
 
 // Validate validates the worker configuration.
 func (config Config) Validate() error {
 	if config.RestoreInfoWatcher == nil {
 		return errors.NotValidf("nil RestoreInfoWatcher")
-	}
-	if config.RestoreStatusChanged == nil {
-		return errors.NotValidf("nil RestoreStatusChanged")
 	}
 	return nil
 }
@@ -35,22 +32,24 @@ type RestoreInfoWatcher interface {
 	RestoreStatus() (state.RestoreStatus, error)
 }
 
-// RestoreStatusChangedFunc is the type of a function that will be
-// called by the worker whenever the restore status changes.
-type RestoreStatusChangedFunc func(state.RestoreStatus) error
-
 // NewWorker returns a new worker that watches for changes to restore
 // info, and reports the status to the provided function.
-func NewWorker(config Config) (worker.Worker, error) {
+func NewWorker(config Config) (RestoreStatusWorker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	w := &restoreWorker{config: config}
-	err := catacomb.Invoke(catacomb.Plan{
+	restoreStatus, err := config.RestoreInfoWatcher.RestoreStatus()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	w := &restoreWorker{
+		config: config,
+		status: restoreStatus,
+	}
+	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return w, nil
@@ -59,6 +58,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 type restoreWorker struct {
 	catacomb catacomb.Catacomb
 	config   Config
+
+	mu     sync.Mutex
+	status state.RestoreStatus
 }
 
 func (w *restoreWorker) loop() error {
@@ -73,11 +75,18 @@ func (w *restoreWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err := w.config.RestoreStatusChanged(status); err != nil {
-				return errors.Trace(err)
-			}
+			w.mu.Lock()
+			w.status = status
+			w.mu.Unlock()
 		}
 	}
+}
+
+// RestoreStatus returns the most recently observed restore status.
+func (w *restoreWorker) RestoreStatus() state.RestoreStatus {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.status
 }
 
 // Kill is part of the worker.Worker interface.

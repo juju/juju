@@ -31,6 +31,7 @@ type Config struct {
 	StatePool                         *state.StatePool
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
+	RestoreStatus                     func() state.RestoreStatus
 	UpgradeComplete                   func() bool
 	GetCertificate                    func() *tls.Certificate
 	StoreAuditEntry                   StoreAuditEntryFunc
@@ -60,6 +61,9 @@ func (config Config) Validate() error {
 	}
 	if config.RegisterIntrospectionHTTPHandlers == nil {
 		return errors.NotValidf("nil RegisterIntrospectionHTTPHandlers")
+	}
+	if config.RestoreStatus == nil {
+		return errors.NotValidf("nil RestoreStatus")
 	}
 	if config.UpgradeComplete == nil {
 		return errors.NotValidf("nil UpgradeComplete")
@@ -122,6 +126,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LogDir:                        logDir,
 		Hub:                           config.Hub,
 		GetCertificate:                config.GetCertificate,
+		RestoreStatus:                 config.RestoreStatus,
 		UpgradeComplete:               config.UpgradeComplete,
 		AutocertURL:                   controllerConfig.AutocertURL(),
 		AutocertDNSName:               controllerConfig.AutocertDNSName(),

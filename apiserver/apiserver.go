@@ -121,7 +121,6 @@ type ServerConfig struct {
 	Tag       names.Tag
 	DataDir   string
 	LogDir    string
-	Validator LoginValidator
 	Hub       *pubsub.StructuredHub
 
 	// GetCertificate holds a function that returns the current

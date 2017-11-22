@@ -203,16 +203,6 @@ type ManifoldsConfig struct {
 	// not the controller model, represented by the given *state.State,
 	// supports network spaces.
 	ControllerSupportsSpaces func(*state.State) (bool, error)
-
-	// RestoreStatusChanged is called by the restorewatcher worker whenever
-	// the restore status changes.
-	//
-	// TODO(axw) this is used purely to record the current state on
-	// the agent so the API server can limit logins. Instead of
-	// trampolining like this, we should have the manifolds communicate
-	// via a worker/gate or similar, and define the logic for limiting
-	// inside worker/apiserver.
-	RestoreStatusChanged restorewatcher.RestoreStatusChangedFunc
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -658,6 +648,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:                         clockName,
 			StateName:                         stateName,
 			UpgradeGateName:                   upgradeStepsGateName,
+			RestoreStatusName:                 restoreWatcherName,
 			CertWatcherName:                   certificateWatcherName,
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
@@ -681,11 +672,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerSupportsSpaces: config.ControllerSupportsSpaces,
 		})),
 
-		restoreWatcherName: ifFullyUpgraded(restorewatcher.Manifold(restorewatcher.ManifoldConfig{
-			StateName:            stateName,
-			NewWorker:            restorewatcher.NewWorker,
-			RestoreStatusChanged: config.RestoreStatusChanged,
-		})),
+		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{
+			StateName: stateName,
+			NewWorker: restorewatcher.NewWorker,
+		}),
 
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
 			AgentName:                agentName,
