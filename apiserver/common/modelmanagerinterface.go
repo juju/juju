@@ -123,7 +123,7 @@ func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelMana
 }
 
 func (st modelManagerStateShim) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
-	return st.ModelConfigDefaultValues()
+	return st.model.ModelConfigDefaultValues()
 }
 
 // UpdateModelConfigDefaultValues implements the ModelManagerBackend method.
