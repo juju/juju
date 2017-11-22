@@ -70,6 +70,7 @@ type ModelSummary struct {
 	CoreCount    int64
 
 	// Needs Migration collection
+	// Do we need all the Migration fields?
 	Migration ModelMigration
 }
 

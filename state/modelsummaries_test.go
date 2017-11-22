@@ -10,13 +10,18 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
+	"github.com/juju/utils"
+	//"gopkg.in/macaroon.v1"
+	jc "github.com/juju/testing/checkers"
 
+	//"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
-	jc "github.com/juju/testing/checkers"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/storage"
 )
 
 type ModelSummariesSuite struct {
@@ -121,7 +126,6 @@ func (s *ModelSummariesSuite) TestModelsForUser1(c *gc.C) {
 	// User1 is only added to the model they own and the shared model
 	s.Setup4Models(c)
 	names := s.modelNamesForUser(c, "user1write")
-	// Admin always gets to see all models
 	c.Check(names, gc.DeepEquals, []string{"shared", "user1model"})
 }
 
@@ -129,15 +133,41 @@ func (s *ModelSummariesSuite) TestModelsForUser2(c *gc.C) {
 	// User1 is only added to the model they own and the shared model
 	s.Setup4Models(c)
 	names := s.modelNamesForUser(c, "user2read")
-	// Admin always gets to see all models
 	c.Check(names, gc.DeepEquals, []string{"shared", "user2model"})
 }
 
 func (s *ModelSummariesSuite) TestModelsForUser3(c *gc.C) {
 	s.Setup4Models(c)
 	names := s.modelNamesForUser(c, "user3admin")
-	// Admin always gets to see all models
 	c.Check(names, gc.DeepEquals, []string{"shared", "user3model"})
+}
+
+func (s *ModelSummariesSuite) TestModelsForIgnoresImportingModels(c *gc.C) {
+	s.Setup4Models(c)
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
+		"name": "importing",
+		"uuid": utils.MustNewUUID().String(),
+		"type": state.ModelTypeIAAS,
+	})
+	_, stImporting, err := s.State.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeIAAS,
+		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
+		Config:                  cfg,
+		Owner:                   names.NewUserTag("user1write"),
+		MigrationMode:           state.MigrationModeImporting,
+		EnvironVersion:          s.Model.EnvironVersion(),
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	defer stImporting.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Since the new model is importing, when we do the list we shouldn't see it.
+	names := s.modelNamesForUser(c, "user3admin")
+	c.Check(names, gc.DeepEquals, []string{"shared", "user3model"})
+	// Superuser doesn't see importing models, either
+	names = s.modelNamesForUser(c, s.Model.Owner().Name())
+	c.Check(names, gc.DeepEquals, []string{"shared", "testenv", "user1model", "user2model", "user3model"})
 }
 
 func (s *ModelSummariesSuite) TestContainsConfigInformation(c *gc.C) {
@@ -319,4 +349,9 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	c.Assert(userSummary, gc.NotNil)
 	c.Check(userSummary.MachineCount, gc.Equals, int64(0))
 	c.Check(userSummary.CoreCount, gc.Equals, int64(0))
+}
+
+func (s *ModelSummariesSuite) TestContainsMigrationInformation(c *gc.C) {
+	//modelNameToUUID := s.Setup4Models(c)
+	// TODO: Figure out how to create a multiple-attempt migration information, and assert that we expose the right info
 }
