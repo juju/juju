@@ -236,7 +236,7 @@ func (p *modelSummaryProcessor) fillInPermissions(permissionIds []string) error 
 	var doc permissionDoc
 	for iter.Next(&doc) {
 		var modelUUID string
-		if strings.HasPrefix(doc.ObjectGlobalKey, modelGlobalKey + "#") {
+		if strings.HasPrefix(doc.ObjectGlobalKey, modelGlobalKey+"#") {
 			modelUUID = doc.ObjectGlobalKey[2:]
 		} else {
 			// Invalid ObjectGlobalKey
@@ -439,5 +439,7 @@ func (p *modelSummaryProcessor) fillInLastAccess() error {
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
 	}
+	// Note: We don't care if there are lastAccessIds that are not found, because its possible the user never
+	// actually connected to a model they were given access to.
 	return nil
 }

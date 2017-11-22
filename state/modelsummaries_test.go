@@ -5,12 +5,15 @@ package state_test
 
 import (
 	"sort"
+	"time"
 
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing/factory"
 	jc "github.com/juju/testing/checkers"
 )
@@ -21,7 +24,8 @@ type ModelSummariesSuite struct {
 
 var _ = gc.Suite(&ModelSummariesSuite{})
 
-func (s *ModelSummariesSuite) Setup4Models(c *gc.C) {
+func (s *ModelSummariesSuite) Setup4Models(c *gc.C) map[string]string {
+	modelUUIDs := make(map[string]string)
 	user1 := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        "user1write",
 		NoModelUser: true,
@@ -30,6 +34,7 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) {
 		Name:  "user1model",
 		Owner: user1.Tag(),
 	})
+	modelUUIDs["user1model"] = st1.ModelUUID()
 	st1.Close()
 	user2 := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        "user2read",
@@ -39,6 +44,7 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) {
 		Name:  "user2model",
 		Owner: user2.Tag(),
 	})
+	modelUUIDs["user2model"] = st2.ModelUUID()
 	st2.Close()
 	user3 := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        "user3admin",
@@ -48,6 +54,7 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) {
 		Name:  "user3model",
 		Owner: user3.Tag(),
 	})
+	modelUUIDs["user3model"] = st3.ModelUUID()
 	st3.Close()
 	owner := s.Model.Owner()
 	sharedSt := s.Factory.MakeModel(c, &factory.ModelParams{
@@ -55,6 +62,7 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) {
 		// Owned by test-admin
 		Owner: owner,
 	})
+	modelUUIDs["shared"] = sharedSt.ModelUUID()
 	defer sharedSt.Close()
 	sharedModel, err := sharedSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -77,6 +85,7 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) {
 		Access:    "admin",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	return modelUUIDs
 }
 
 func (s *ModelSummariesSuite) modelNamesForUser(c *gc.C, user string) []string {
@@ -128,4 +137,120 @@ func (s *ModelSummariesSuite) TestModelsForUser3(c *gc.C) {
 	names := s.modelNamesForUser(c, "user3admin")
 	// Admin always gets to see all models
 	c.Check(names, gc.DeepEquals, []string{"shared", "user3model"})
+}
+
+func (s *ModelSummariesSuite) TestContainsConfigInformation(c *gc.C) {
+	s.Setup4Models(c)
+	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(summaries, gc.HasLen, 2)
+	// We don't guarantee the order of the summaries, but the data for each model should match the same
+	// information you would get if you instantiate the model directly
+	summaryA := summaries[0]
+	model, closer, err := s.StatePool.GetModel(summaryA.UUID)
+	defer closer()
+	c.Assert(err, jc.ErrorIsNil)
+	conf, err := model.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(summaryA.ProviderType, gc.Equals, conf.Type())
+	version, ok := conf.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Check(summaryA.AgentVersion, gc.NotNil)
+	c.Check(*summaryA.AgentVersion, gc.Equals, version)
+	series, ok := conf.DefaultSeries()
+	c.Assert(ok, jc.IsTrue)
+	c.Check(summaryA.DefaultSeries, gc.Equals, series)
+}
+
+func (s *ModelSummariesSuite) TestContainsProviderType(c *gc.C) {
+	s.Setup4Models(c)
+	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(summaries, gc.HasLen, 2)
+	// We don't guarantee the order of the summaries, but both should have the same ProviderType
+	summaryA := summaries[0]
+	model, closer, err := s.StatePool.GetModel(summaryA.UUID)
+	defer closer()
+	c.Assert(err, jc.ErrorIsNil)
+	conf, err := model.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(summaryA.ProviderType, gc.Equals, conf.Type())
+}
+
+func (s *ModelSummariesSuite) TestContainsModelStatus(c *gc.C) {
+	modelNameToUUID := s.Setup4Models(c)
+	expectedStatus := map[string]status.StatusInfo{
+		"shared": {
+			Status:  status.Available,
+			Message: "human message",
+		},
+		"user1model": {
+			Status:  status.Busy,
+			Message: "human message",
+		},
+	}
+	shared, releaser, err := s.StatePool.GetModel(modelNameToUUID["shared"])
+	defer releaser()
+	c.Assert(err, jc.ErrorIsNil)
+	err = shared.SetStatus(expectedStatus["shared"])
+	user1, releaser, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
+	defer releaser()
+	c.Assert(err, jc.ErrorIsNil)
+	err = user1.SetStatus(expectedStatus["user1model"])
+	c.Assert(err, jc.ErrorIsNil)
+	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(summaries, gc.HasLen, 2)
+	statuses := make(map[string]status.StatusInfo)
+	for _, summary := range summaries {
+		// We nil the time, because we don't want to compare it, we nil the Data map to avoid comparing an
+		// empty map to a nil map
+		st := summary.Status
+		st.Since = nil
+		st.Data = nil
+		statuses[summary.Name] = st
+	}
+	c.Check(statuses, jc.DeepEquals, expectedStatus)
+}
+
+func (s *ModelSummariesSuite) TestContainsAccessInformation(c *gc.C) {
+	modelNameToUUID := s.Setup4Models(c)
+	shared, releaser, err := s.StatePool.GetModel(modelNameToUUID["shared"])
+	defer releaser()
+	c.Assert(err, jc.ErrorIsNil)
+	err = shared.UpdateLastModelConnection(names.NewUserTag("auser"))
+	s.Clock.Advance(time.Hour)
+	c.Assert(err, jc.ErrorIsNil)
+	timeShared := s.Clock.Now().Round(time.Second).UTC()
+	err = shared.UpdateLastModelConnection(names.NewUserTag("user1write"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.Clock.Advance(time.Hour) // give a different time for user2 accessing the shared model
+	err = shared.UpdateLastModelConnection(names.NewUserTag("user2read"))
+	c.Assert(err, jc.ErrorIsNil)
+	user1, releaser, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
+	defer releaser()
+	c.Assert(err, jc.ErrorIsNil)
+	s.Clock.Advance(time.Hour)
+	timeUser1 := s.Clock.Now().Round(time.Second).UTC()
+	err = user1.UpdateLastModelConnection(names.NewUserTag("user1write"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(summaries, gc.HasLen, 2)
+	times := make(map[string]time.Time)
+	access := make(map[string]permission.Access)
+	for _, summary := range summaries {
+		c.Assert(summary.UserLastConnection, gc.NotNil, gc.Commentf("nil time for %v", summary.Name))
+		times[summary.Name] = summary.UserLastConnection.UTC()
+		access[summary.Name] = summary.Access
+	}
+	c.Check(times, gc.DeepEquals, map[string]time.Time{
+		"shared":     timeShared,
+		"user1model": timeUser1,
+	})
+	c.Check(access, gc.DeepEquals, map[string]permission.Access{
+		"shared":     permission.WriteAccess,
+		"user1model": permission.AdminAccess,
+	})
 }
