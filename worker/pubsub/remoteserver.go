@@ -159,16 +159,19 @@ func (r *remoteServer) Publish(message *params.PubSubMessage) {
 		r.logger.Tracef("dying, don't send %q", message.Topic)
 	default:
 		r.mutex.Lock()
-		defer r.mutex.Unlock()
 		// Only queue the message up if we are currently connected.
+		notifyData := false
 		if r.connection != nil {
 			r.logger.Tracef("queue up topic %q", message.Topic)
 			r.pending.PushBack(message)
-			if r.pending.Len() == 1 {
-				r.data <- struct{}{}
-			}
+			notifyData = r.pending.Len() == 1
+
 		} else {
 			r.logger.Tracef("skipping %q for %s as not connected", message.Topic, r.target)
+		}
+		r.mutex.Unlock()
+		if notifyData {
+			r.data <- struct{}{}
 		}
 	}
 }
