@@ -227,6 +227,11 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 	if entity != nil {
 		if machine, ok := entity.(*state.Machine); ok && machine.IsManager() {
 			result.controllerMachineLogin = true
+			if machine.Tag() != a.srv.tag {
+				// We don't want to run pingers for other
+				// controller machines; they run their own.
+				startPinger = false
+			}
 		}
 		a.root.entity = entity
 		a.apiObserver.Login(entity.Tag(), a.root.model.ModelTag(), result.controllerMachineLogin, req.UserData)
