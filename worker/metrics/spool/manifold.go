@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	corecharm "gopkg.in/juju/charm.v6"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"

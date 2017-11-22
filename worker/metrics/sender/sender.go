@@ -51,7 +51,12 @@ func (s *sender) Do(stop <-chan struct{}) (err error) {
 		return errors.Trace(err)
 	}
 	defer reader.Close()
-	return s.sendMetrics(reader)
+	err = s.sendMetrics(reader)
+	if spool.IsMetricsDataError(err) {
+		logger.Debugf("cannot send metrics: %v", err)
+		return nil
+	}
+	return err
 }
 
 func (s *sender) sendMetrics(reader spool.MetricReader) error {

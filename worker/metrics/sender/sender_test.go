@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"path"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	corecharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/params"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
 )
@@ -25,12 +28,15 @@ import (
 var _ = gc.Suite(&senderSuite{})
 
 type senderSuite struct {
+	jujutesting.BaseSuite
+
 	spoolDir      string
 	socketDir     string
 	metricfactory spool.MetricFactory
 }
 
 func (s *senderSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.spoolDir = c.MkDir()
 	s.socketDir = c.MkDir()
 
@@ -163,6 +169,19 @@ func (s *senderSuite) TestSendingFails(c *gc.C) {
 	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 1)
+}
+
+func (s *senderSuite) TestDataErrorIgnored(c *gc.C) {
+	err := ioutil.WriteFile(filepath.Join(s.spoolDir, "foo.meta"), []byte{}, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	apiSender := newTestAPIMetricSender()
+
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "test-unit-0")
+	c.Assert(err, jc.ErrorIsNil)
+	stopCh := make(chan struct{})
+	err = metricSender.Do(stopCh)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(apiSender.batches, gc.HasLen, 0)
 }
 
 func (s *senderSuite) TestNoSpoolDirectory(c *gc.C) {
