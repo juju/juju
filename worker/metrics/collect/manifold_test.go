@@ -131,6 +131,41 @@ func (s *ManifoldSuite) TestCollectWorkerErrorStopsListener(c *gc.C) {
 	listener.CheckCallNames(c, "Stop")
 }
 
+type errorRecorder struct {
+	*spool.JSONMetricRecorder
+}
+
+func (e *errorRecorder) AddMetric(key, value string, created time.Time) (err error) {
+	return e.JSONMetricRecorder.AddMetric(key, "bad", created)
+}
+
+func (s *ManifoldSuite) TestRecordMetricsError(c *gc.C) {
+	// An error recording a metric does not propagate the error
+	// to the worker which could cause a bounce.
+	recorder, err := spool.NewJSONMetricRecorder(
+		spool.MetricRecorderConfig{
+			SpoolDir: c.MkDir(),
+			Metrics: map[string]corecharm.Metric{
+				"juju-units": corecharm.Metric{},
+			},
+			CharmURL: "local:precise/wordpress",
+			UnitTag:  "unit-wordpress-0",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(collect.NewRecorder,
+		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+			return &errorRecorder{recorder}, nil
+		})
+	s.PatchValue(collect.ReadCharm,
+		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+			return corecharm.MustParseURL("cs:wordpress-37"), nil, nil
+		})
+	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
+	c.Assert(err, jc.ErrorIsNil)
+	err = collectEntity.Do(nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 // TestJujuUnitsBuiltinMetric tests that the juju-units built-in metric is collected
 // with a mock implementation of newRecorder.
 func (s *ManifoldSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {

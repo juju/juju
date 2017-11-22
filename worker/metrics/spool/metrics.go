@@ -25,6 +25,17 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.metrics")
 
+type errMetricsData struct {
+	error
+}
+
+// IsMetricsDataError returns true if the error
+// cause is errMetricsData.
+func IsMetricsDataError(err error) bool {
+	_, ok := errors.Cause(err).(*errMetricsData)
+	return ok
+}
+
 type metricFile struct {
 	*os.File
 	finalName string
@@ -180,8 +191,13 @@ func (m *JSONMetricRecorder) Close() error {
 }
 
 // AddMetric implements the MetricsRecorder interface.
-func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) error {
-	err := m.validateMetric(key, value)
+func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) (err error) {
+	defer func() {
+		if err != nil {
+			err = &errMetricsData{err}
+		}
+	}()
+	err = m.validateMetric(key, value)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -294,7 +310,13 @@ func NewJSONMetricReader(spoolDir string) (*JSONMetricReader, error) {
 // Read implements the MetricsReader interface.
 // Due to the way the batches are stored in the file system,
 // they will be returned in an arbitrary order. This does not affect the behavior.
-func (r *JSONMetricReader) Read() ([]MetricBatch, error) {
+func (r *JSONMetricReader) Read() (_ []MetricBatch, err error) {
+	defer func() {
+		if err != nil {
+			err = &errMetricsData{err}
+		}
+	}()
+
 	var batches []MetricBatch
 
 	walker := func(path string, info os.FileInfo, err error) error {

@@ -239,6 +239,10 @@ func (w *collect) Do(stop <-chan struct{}) (err error) {
 		logger.Tracef("cannot execute collect-metrics: %v", err)
 		return nil
 	}
+	if spool.IsMetricsDataError(err) {
+		logger.Debugf("cannot record metrics: %v", err)
+		return nil
+	}
 	return err
 }
 
