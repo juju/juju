@@ -210,7 +210,7 @@ func (st *State) ModelDetailsForUser(user names.UserTag, includeUsersAndMachines
 	if includeUsersAndMachines {
 		p.computeAdminModels()
 		// TODO: This needs to take user tag and use the pre-information from fillInJustUser to filter out any models
-		// that the user doesn't have proper accesse
+		// that the user doesn't have proper access
 		if err := p.fillInFromModelUsers(); err != nil {
 			return nil, errors.Trace(err)
 		}

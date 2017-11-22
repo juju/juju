@@ -73,8 +73,8 @@ func (f *fakeModelMgrAPIClient) AllModels() ([]base.UserModel, error) {
 	return f.convertInfosToUserModels(), nil
 }
 
-func (f *fakeModelMgrAPIClient) ListModelsWithInfo(user names.UserTag) ([]params.ModelInfoResult, error) {
-	f.MethodCall(f, "ListModelsWithInfo", user)
+func (f *fakeModelMgrAPIClient) ListModelsWithInfo(user names.UserTag, includeUsersAndMachines bool) ([]params.ModelInfoResult, error) {
+	f.MethodCall(f, "ListModelsWithInfo", user, includeUsersAndMachines)
 	if f.err != nil {
 		return nil, f.err
 	}

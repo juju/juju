@@ -744,8 +744,8 @@ func (st *mockState) ModelSummariesForUser(user names.UserTag) ([]state.ModelAcc
 	return []state.ModelAccessInfo{}, st.NextErr()
 }
 
-func (st *mockState) ModelDetailsForUser(user names.UserTag) ([]state.ModelDetails, error) {
-	st.MethodCall(st, "ModelDetailsForUser", user)
+func (st *mockState) ModelDetailsForUser(user names.UserTag, includeUsersAndMachines bool) ([]state.ModelDetails, error) {
+	st.MethodCall(st, "ModelDetailsForUser", user, includeUsersAndMachines)
 	return st.modelDetailsForUser()
 }
 

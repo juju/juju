@@ -428,7 +428,10 @@ func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 			c.Check(objType, gc.Equals, "ModelManager")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ListModelsWithInfo")
-			c.Check(arg, gc.Equals, params.Entity{Tag: userTag.String()})
+			c.Check(arg, gc.Equals, params.ModelsForUserRequest{
+				User: params.Entity{Tag: userTag.String()},
+				IncludeMachineUserDetails: true,
+			})
 			c.Check(result, gc.FitsTypeOf, &params.ModelInfoResults{})
 
 			out := result.(*params.ModelInfoResults)
@@ -441,7 +444,7 @@ func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 	}
 
 	client := modelmanager.NewClient(apiCaller)
-	results, err := client.ListModelsWithInfo(userTag)
+	results, err := client.ListModelsWithInfo(userTag, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []params.ModelInfoResult{
 		{Result: &modelInfo},
@@ -450,12 +453,21 @@ func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 }
 
 func (s *modelmanagerSuite) TestListModelsWithInfoError(c *gc.C) {
+	userTag := names.NewUserTag("captain")
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, result interface{}) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListModelsWithInfo")
+			c.Check(args, gc.Equals, params.ModelsForUserRequest{
+				User: params.Entity{Tag: userTag.String()},
+				IncludeMachineUserDetails: false,
+			})
+			c.Check(result, gc.FitsTypeOf, &params.ModelInfoResults{})
 			return errors.New("captain, error")
 		})
 	client := modelmanager.NewClient(apiCaller)
-	out, err := client.ListModelsWithInfo(names.NewUserTag("captain"))
+	out, err := client.ListModelsWithInfo(userTag, false)
 	c.Assert(err, gc.ErrorMatches, "captain, error")
 	c.Assert(out, gc.IsNil)
 }
