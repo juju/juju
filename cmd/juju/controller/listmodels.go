@@ -63,7 +63,7 @@ See also:
 type ModelManagerAPI interface {
 	Close() error
 	ListModels(user string) ([]base.UserModel, error)
-	ListModelsWithInfo(user names.UserTag, includeUsersAndMachines bool) ([]params.ModelInfoResult, error)
+	ListModelsWithInfo(user names.UserTag) ([]params.ModelInfoResult, error)
 	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
 	BestAPIVersion() int
 }
@@ -223,9 +223,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *modelsCommand) getNewModelInfo(ctx *cmd.Context, client ModelManagerAPI, controllerName string, now time.Time) ([]common.ModelInfo, error) {
-	// Tabular format does not display model machines' nor model users' details.
-	includeUsersAndMachines := c.out.Name() != "tabular"
-	results, err := client.ListModelsWithInfo(names.NewUserTag(c.user), includeUsersAndMachines)
+	results, err := client.ListModelsWithInfo(names.NewUserTag(c.user))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

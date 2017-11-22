@@ -179,15 +179,9 @@ func (c *Client) ListModels(user string) ([]base.UserModel, error) {
 	return result, nil
 }
 
-func (c *Client) ListModelsWithInfo(user names.UserTag, includeUsersAndMachines bool) ([]params.ModelInfoResult, error) {
+func (c *Client) ListModelsWithInfo(user names.UserTag) ([]params.ModelInfoResult, error) {
 	var results params.ModelInfoResults
-	err := c.facade.FacadeCall("ListModelsWithInfo",
-		params.ModelsForUserRequest{
-			User: params.Entity{user.String()},
-			IncludeMachineUserDetails: includeUsersAndMachines,
-		},
-		&results,
-	)
+	err := c.facade.FacadeCall("ListModelsWithInfo", params.Entity{user.String()}, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

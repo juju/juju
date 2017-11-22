@@ -43,7 +43,7 @@ type ModelManagerV4 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.DumpModelRequest) params.StringResults
 	DumpModelsDB(args params.Entities) params.MapResults
-	ListModelsWithInfo(req params.ModelsForUserRequest) (params.ModelInfoResults, error)
+	ListModelsWithInfo(user params.Entity) (params.ModelInfoResults, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
 	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
@@ -680,10 +680,10 @@ func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 // has access to in the current server.  Only the controller owner
 // can list models for any user (at this stage).  Other users
 // can only ask about their own models.
-func (m *ModelManagerAPI) ListModelsWithInfo(req params.ModelsForUserRequest) (params.ModelInfoResults, error) {
+func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelInfoResults, error) {
 	result := params.ModelInfoResults{}
 
-	userTag, err := names.ParseUserTag(req.User.Tag)
+	userTag, err := names.ParseUserTag(user.Tag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -725,55 +725,26 @@ func (m *ModelManagerAPI) ListModelsWithInfo(req params.ModelsForUserRequest) (p
 		}
 		result.Results = append(result.Results, info)
 
-		// TODO (anastasiamac 2017-11-22) does machine count always gets passed? shall we add it as field to returned params?
-		// TODO (anastasiamac 2017-11-22) to cleanup... we proabbly do not need to check this flag here, just collections lengths
-		if req.IncludeMachineUserDetails {
+		//TODO (anastasaiamac 2017-11-22) cater for
+		//mi.MachineCount
+		//mi.CoreCount
+		//mi.Access
+		//mi.UserLastConnection
 
-			// Dealing with machines
-			if len(mi.Machines) > 0 {
-				returnedMachines := []params.ModelMachineInfo{}
-				for machineId, machine := range mi.Machines {
-					// TODO (anastasiamac 2017-11-22) fill this out with details
-					returnedMachines = append(returnedMachines, params.ModelMachineInfo{
-						Id:         machineId,
-						InstanceId: machine.InstanceId,
-					})
-				}
-				info.Result.Machines = returnedMachines
-			}
-
-			// Dealing with users
-
-			// TODO: This should be moved in to ModelDetailsForUser rather than as part of APIServer
-			authorizedOwner := m.authCheck(names.NewUserTag(mi.Owner)) == nil
-			for _, user := range mi.Users {
-				if !authorizedOwner && m.authCheck(user.UserTag) != nil {
-					// The authenticated user is not an admin,
-					// so should only see themselves in the list of model users.
-					continue
-				}
-
-				// TODO: This was loading LastConnected in potato-style for each user we came across, we don't have the object here to do potatoes,
-				// so we need it fixed earlier, and included as part of the access
-				/// userInfo, err := common.ModelUserInfo(user, model)
-				/// if err != nil {
-				/// 	return params.ModelInfo{}, errors.Trace(err)
-				/// }
-				/// info.Users = append(info.Users, userInfo)
-				access, err := common.StateToParamsUserAccessPermission(user.Access)
-				if err != nil {
-					return params.ModelInfoResults{}, errors.Trace(err)
-				}
-				info.Result.Users = append(info.Result.Users, params.ModelUserInfo{
-					UserName:       user.UserName,
-					DisplayName:    user.DisplayName,
-					LastConnection: user.LastConnection,
-					Access:         access,
+		// TODO (anastasaiamac 2017-11-22) should just ignore mi.Machines?
+		//  Dealing with machines
+		if len(mi.Machines) > 0 {
+			returnedMachines := []params.ModelMachineInfo{}
+			for machineId, machine := range mi.Machines {
+				// TODO (anastasiamac 2017-11-22) fill this out with details
+				returnedMachines = append(returnedMachines, params.ModelMachineInfo{
+					Id:         machineId,
+					InstanceId: machine.InstanceId,
 				})
 			}
+			info.Result.Machines = returnedMachines
 		}
 	}
-
 	return result, nil
 }
 
