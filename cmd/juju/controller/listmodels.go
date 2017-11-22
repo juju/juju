@@ -63,7 +63,7 @@ See also:
 type ModelManagerAPI interface {
 	Close() error
 	ListModels(user string) ([]base.UserModel, error)
-	ListModelsWithInfo(user names.UserTag) ([]params.ModelInfoResult, error)
+	ListModelsWithInfo(user names.UserTag) ([]params.ModelSummaryResult, error)
 	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
 	BestAPIVersion() int
 }

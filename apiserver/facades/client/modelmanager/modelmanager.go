@@ -43,7 +43,7 @@ type ModelManagerV4 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.DumpModelRequest) params.StringResults
 	DumpModelsDB(args params.Entities) params.MapResults
-	ListModelsWithInfo(user params.Entity) (params.ModelInfoResults, error)
+	ListModelsWithInfo(user params.Entity) (params.ModelSummaryResults, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
 	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
@@ -680,8 +680,8 @@ func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 // has access to in the current server.  Only the controller owner
 // can list models for any user (at this stage).  Other users
 // can only ask about their own models.
-func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelInfoResults, error) {
-	result := params.ModelInfoResults{}
+func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelSummaryResults, error) {
+	result := params.ModelSummaryResults{}
 
 	userTag, err := names.ParseUserTag(user.Tag)
 	if err != nil {
@@ -699,51 +699,47 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelIn
 	}
 
 	for _, mi := range modelInfos {
-		info := params.ModelInfoResult{
-			Result: &params.ModelInfo{
-				Name:           mi.Name,
-				UUID:           mi.UUID,
-				OwnerTag:       names.NewUserTag(mi.Owner).String(),
-				ControllerUUID: mi.ControllerUUID,
-				Life:           params.Life(mi.Life.String()),
+		summary := &params.ModelSummary{
+			Name:           mi.Name,
+			UUID:           mi.UUID,
+			OwnerTag:       names.NewUserTag(mi.Owner).String(),
+			ControllerUUID: mi.ControllerUUID,
+			Life:           params.Life(mi.Life.String()),
 
-				CloudTag:           mi.CloudTag,
-				CloudRegion:        mi.CloudRegion,
-				CloudCredentialTag: mi.CloudCredentialTag,
+			CloudTag:           mi.CloudTag,
+			CloudRegion:        mi.CloudRegion,
+			CloudCredentialTag: mi.CloudCredentialTag,
 
-				SLA: &params.ModelSLAInfo{
-					Level: mi.SLALevel,
-					Owner: mi.Owner,
-				},
+			SLA: &params.ModelSLAInfo{
+				Level: mi.SLALevel,
+				Owner: mi.Owner,
+			},
 
-				DefaultSeries: mi.DefaultSeries,
-				ProviderType:  mi.ProviderType,
-				AgentVersion:  mi.AgentVersion,
+			DefaultSeries: mi.DefaultSeries,
+			ProviderType:  mi.ProviderType,
+			AgentVersion:  mi.AgentVersion,
 
-				Status: common.EntityStatusFromState(mi.Status),
+			Status: common.EntityStatusFromState(mi.Status),
+			Counts: []params.ModelEntityCount{},
+			User: params.ModelUserInfo{
+				LastConnection: mi.UserLastConnection,
 			},
 		}
-		result.Results = append(result.Results, info)
 
-		//TODO (anastasaiamac 2017-11-22) cater for
-		//mi.MachineCount
-		//mi.CoreCount
-		//mi.Access
-		//mi.UserLastConnection
-
-		// TODO (anastasaiamac 2017-11-22) should just ignore mi.Machines?
-		//  Dealing with machines
-		if len(mi.Machines) > 0 {
-			returnedMachines := []params.ModelMachineInfo{}
-			for machineId, machine := range mi.Machines {
-				// TODO (anastasiamac 2017-11-22) fill this out with details
-				returnedMachines = append(returnedMachines, params.ModelMachineInfo{
-					Id:         machineId,
-					InstanceId: machine.InstanceId,
-				})
-			}
-			info.Result.Machines = returnedMachines
+		if mi.MachineCount > 0 {
+			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, uint64(mi.MachineCount)})
 		}
+
+		if mi.CoreCount > 0 {
+			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, uint64(mi.CoreCount)})
+		}
+
+		access, err := common.StateToParamsUserAccessPermission(mi.Access)
+		if err == nil {
+			summary.User.Access = access
+		}
+		result.Results = append(result.Results, params.ModelSummaryResult{Result: summary})
+
 	}
 	return result, nil
 }
