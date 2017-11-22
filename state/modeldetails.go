@@ -63,7 +63,7 @@ type ModelDetails struct {
 	// This information will only be filled out if includeUsers is true and the user has at least Admin (write?) access
 	// Otherwise only this user's information will be included.
 	// Users map[string]UserAccessInfo
-	Access permission.Access
+	Access             permission.Access
 	UserLastConnection *time.Time
 
 	// Machines contains information about the machines in the model.

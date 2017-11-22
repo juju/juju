@@ -218,12 +218,12 @@ func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error)
 	/// 		return nil, errors.Trace(err)
 	/// 	}
 	/// } else {
-		if err := p.fillInLastAccess(); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if err := p.fillInMachineSummary(); err != nil {
-			return nil, errors.Trace(err)
-		}
+	if err := p.fillInLastAccess(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := p.fillInMachineSummary(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	/// }
 	if err := p.fillInMigration(); err != nil {
 		return nil, errors.Trace(err)
