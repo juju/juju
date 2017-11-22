@@ -182,7 +182,7 @@ func (st *State) isUserSuperuser(user names.UserTag) (bool, error) {
 	return isControllerSuperuser, nil
 }
 
-func (st *State) ModelDetailsForUser(user names.UserTag, includeUsersAndMachines bool) ([]ModelDetails, error) {
+func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error) {
 	isControllerSuperuser, err := st.isUserSuperuser(user)
 	modelQuery, closer, err := st.modelQueryForUser(user, isControllerSuperuser)
 	if err != nil {
@@ -207,24 +207,24 @@ func (st *State) ModelDetailsForUser(user names.UserTag, includeUsersAndMachines
 	if err := p.fillInJustUser(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if includeUsersAndMachines {
-		p.computeAdminModels()
-		// TODO: This needs to take user tag and use the pre-information from fillInJustUser to filter out any models
-		// that the user doesn't have proper accesse
-		if err := p.fillInFromModelUsers(); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if err := p.fillInMachineDetails(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	} else {
+	/// if includeUsersAndMachines {
+	/// 	p.computeAdminModels()
+	/// 	// TODO: This needs to take user tag and use the pre-information from fillInJustUser to filter out any models
+	/// 	// that the user doesn't have proper accesse
+	/// 	if err := p.fillInFromModelUsers(); err != nil {
+	/// 		return nil, errors.Trace(err)
+	/// 	}
+	/// 	if err := p.fillInMachineDetails(); err != nil {
+	/// 		return nil, errors.Trace(err)
+	/// 	}
+	/// } else {
 		if err := p.fillInLastAccess(); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if err := p.fillInMachineSummary(); err != nil {
 			return nil, errors.Trace(err)
 		}
-	}
+	/// }
 	if err := p.fillInMigration(); err != nil {
 		return nil, errors.Trace(err)
 	}

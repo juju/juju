@@ -62,7 +62,9 @@ type ModelDetails struct {
 	// Needs ModelUser, ModelUserLastConnection, and Permissions collections
 	// This information will only be filled out if includeUsers is true and the user has at least Admin (write?) access
 	// Otherwise only this user's information will be included.
-	Users map[string]UserAccessInfo
+	// Users map[string]UserAccessInfo
+	Access permission.Access
+	UserLastConnection *time.Time
 
 	// Machines contains information about the machines in the model.
 	// This information is available to owners and users with write
@@ -119,8 +121,8 @@ func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserT
 			CloudTag:           names.NewCloudTag(doc.Cloud).String(),
 			CloudRegion:        doc.CloudRegion,
 			CloudCredentialTag: cloudCred,
-			Users:              make(map[string]UserAccessInfo),
-			Machines:           make(map[string]MachineModelInfo),
+			/// Users:              make(map[string]UserAccessInfo),
+			/// Machines:           make(map[string]MachineModelInfo),
 		}
 		p.indexByUUID[doc.UUID] = i
 		p.modelUUIDs[i] = doc.UUID
@@ -244,20 +246,23 @@ func (p *modelDetailProcessor) fillInPermissions(permissionIdToUserAccessDoc map
 		}
 		details := &p.details[modelIdx]
 		username := strings.ToLower(userDoc.UserName)
+		_ = details
+		_ = username
+		/// BROKEN
 		// mu, err := NewModelUserAccess(m.st, doc)
-		details.Users[username] = UserAccessInfo{
-			// newUserAccess?
-			UserAccess: permission.UserAccess{
-				UserID:      userDoc.ID,
-				UserTag:     names.NewUserTag(userDoc.UserName),
-				Object:      names.NewModelTag(userDoc.ObjectUUID),
-				Access:      stringToAccess(doc.Access),
-				CreatedBy:   names.NewUserTag(userDoc.CreatedBy),
-				DateCreated: userDoc.DateCreated.UTC(),
-				DisplayName: userDoc.DisplayName,
-				UserName:    userDoc.UserName,
-			},
-		}
+		/// details.Users[username] = UserAccessInfo{
+		/// 	// newUserAccess?
+		/// 	UserAccess: permission.UserAccess{
+		/// 		UserID:      userDoc.ID,
+		/// 		UserTag:     names.NewUserTag(userDoc.UserName),
+		/// 		Object:      names.NewModelTag(userDoc.ObjectUUID),
+		/// 		Access:      stringToAccess(doc.Access),
+		/// 		CreatedBy:   names.NewUserTag(userDoc.CreatedBy),
+		/// 		DateCreated: userDoc.DateCreated.UTC(),
+		/// 		DisplayName: userDoc.DisplayName,
+		/// 		UserName:    userDoc.UserName,
+		/// 	},
+		/// }
 	}
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
@@ -278,11 +283,13 @@ func (p *modelDetailProcessor) fillInLastConnection(lastAccessIds []string) erro
 			continue
 		}
 		details := &p.details[idx]
-		username := strings.ToLower(connInfo.UserName)
-		t := connInfo.LastConnection
-		userInfo := details.Users[username]
-		userInfo.LastConnection = &t
-		details.Users[username] = userInfo
+		/// BROKEN
+		_ = details
+		/// username := strings.ToLower(connInfo.UserName)
+		/// t := connInfo.LastConnection
+		/// userInfo := details.Users[username]
+		/// userInfo.LastConnection = &t
+		/// details.Users[username] = userInfo
 	}
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
@@ -340,93 +347,93 @@ func (p *modelDetailProcessor) fillInMachineSummary() error {
 	return nil
 }
 
-func (p *modelDetailProcessor) fillInMachineDetails() error {
-	// machinedocs
-	machines, closer := p.st.db().GetRawCollection(machinesC)
-	defer closer()
-	query := machines.Find(bson.M{
-		"model-uuid": bson.M{"$in": p.modelUUIDs},
-		"life":       Alive,
-	})
-	query.Select(bson.M{"life": 1, "model-uuid": 1, "_id": 1, "machineid": 1})
-	iter := query.Iter()
-	var doc machineDoc
-	machineIds := make([]string, 0)
-	statusIds := make([]string, 0)
-	for iter.Next(&doc) {
-		if doc.Life != Alive {
-			continue
-		}
-		idx, ok := p.indexByUUID[doc.ModelUUID]
-		if !ok {
-			continue
-		}
-		// There was a lot of data that was collected from things like Machine.Status.
-		// However, if we're just aggregating the counts, we don't care about any of that.
-		details := &p.details[idx]
-		details.MachineCount++
-		machineIds = append(machineIds, doc.DocID)
-		statusIds = append(statusIds, doc.ModelUUID+":"+machineGlobalKey(doc.Id))
-	}
-	instances, closer2 := p.st.db().GetRawCollection(instanceDataC)
-	defer closer2()
-	query = instances.Find(bson.M{"_id": bson.M{"$in": machineIds}})
-	//query.Select(bson.M{"cpucores": 1, "model-uuid": 1})
-	iter = query.Iter()
-	var instData instanceData
-	for iter.Next(&instData) {
-		idx, ok := p.indexByUUID[instData.ModelUUID]
-		if !ok {
-			continue
-		}
-		details := &p.details[idx]
-		if instData.CpuCores != nil {
-			details.CoreCount += int64(*instData.CpuCores)
-		}
-		details.Machines[instData.MachineId] = MachineModelInfo{
-			Id:       instData.MachineId,
-			Hardware: hardwareCharacteristics(instData),
-		}
-	}
-	if err := iter.Close(); err != nil {
-		return errors.Trace(err)
-	}
-	statuses, closer3 := p.st.db().GetRawCollection(statusesC)
-	defer closer3()
-	query = statuses.Find(bson.M{"_id": bson.M{"$in": statusIds}})
-	query.Select(bson.M{"model-uuid": 1, "status": 1, "_id": 1})
-	iter = query.Iter()
-	var stDoc struct {
-		// We can't use statusDoc because it doesn't have a field for _id
-		Id        string `bson:"_id"`
-		ModelUUID string `bson:"model-uuid"`
-		Status    string `bson:"status"`
-	}
-	for iter.Next(&stDoc) {
-		idx, ok := p.indexByUUID[stDoc.ModelUUID]
-		if !ok {
-			continue
-		}
-		details := &p.details[idx]
-		// This is taken as "<model-uuid>:m#<machine-id>"
-		prefixLen := len(stDoc.ModelUUID) + 3
-		if len(stDoc.Id) > prefixLen {
-			machineId := stDoc.Id[prefixLen:]
-			mInfo := details.Machines[machineId]
-			mInfo.Status = stDoc.Status
-			details.Machines[machineId] = mInfo
-			// apiserver/common.MachineStatus needs access to each individual State object to ask about AgentPresence
-			// *sigh*.
-			// that would allow us to override machine status with "Down" when appropriate
-		} else {
-			// Invalid machineId for status document
-		}
-	}
-	if err := iter.Close(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
+/// func (p *modelDetailProcessor) fillInMachineDetails() error {
+/// 	// machinedocs
+/// 	machines, closer := p.st.db().GetRawCollection(machinesC)
+/// 	defer closer()
+/// 	query := machines.Find(bson.M{
+/// 		"model-uuid": bson.M{"$in": p.modelUUIDs},
+/// 		"life":       Alive,
+/// 	})
+/// 	query.Select(bson.M{"life": 1, "model-uuid": 1, "_id": 1, "machineid": 1})
+/// 	iter := query.Iter()
+/// 	var doc machineDoc
+/// 	machineIds := make([]string, 0)
+/// 	statusIds := make([]string, 0)
+/// 	for iter.Next(&doc) {
+/// 		if doc.Life != Alive {
+/// 			continue
+/// 		}
+/// 		idx, ok := p.indexByUUID[doc.ModelUUID]
+/// 		if !ok {
+/// 			continue
+/// 		}
+/// 		// There was a lot of data that was collected from things like Machine.Status.
+/// 		// However, if we're just aggregating the counts, we don't care about any of that.
+/// 		details := &p.details[idx]
+/// 		details.MachineCount++
+/// 		machineIds = append(machineIds, doc.DocID)
+/// 		statusIds = append(statusIds, doc.ModelUUID+":"+machineGlobalKey(doc.Id))
+/// 	}
+/// 	instances, closer2 := p.st.db().GetRawCollection(instanceDataC)
+/// 	defer closer2()
+/// 	query = instances.Find(bson.M{"_id": bson.M{"$in": machineIds}})
+/// 	//query.Select(bson.M{"cpucores": 1, "model-uuid": 1})
+/// 	iter = query.Iter()
+/// 	var instData instanceData
+/// 	for iter.Next(&instData) {
+/// 		idx, ok := p.indexByUUID[instData.ModelUUID]
+/// 		if !ok {
+/// 			continue
+/// 		}
+/// 		details := &p.details[idx]
+/// 		if instData.CpuCores != nil {
+/// 			details.CoreCount += int64(*instData.CpuCores)
+/// 		}
+/// 		details.Machines[instData.MachineId] = MachineModelInfo{
+/// 			Id:       instData.MachineId,
+/// 			Hardware: hardwareCharacteristics(instData),
+/// 		}
+/// 	}
+/// 	if err := iter.Close(); err != nil {
+/// 		return errors.Trace(err)
+/// 	}
+/// 	statuses, closer3 := p.st.db().GetRawCollection(statusesC)
+/// 	defer closer3()
+/// 	query = statuses.Find(bson.M{"_id": bson.M{"$in": statusIds}})
+/// 	query.Select(bson.M{"model-uuid": 1, "status": 1, "_id": 1})
+/// 	iter = query.Iter()
+/// 	var stDoc struct {
+/// 		// We can't use statusDoc because it doesn't have a field for _id
+/// 		Id        string `bson:"_id"`
+/// 		ModelUUID string `bson:"model-uuid"`
+/// 		Status    string `bson:"status"`
+/// 	}
+/// 	for iter.Next(&stDoc) {
+/// 		idx, ok := p.indexByUUID[stDoc.ModelUUID]
+/// 		if !ok {
+/// 			continue
+/// 		}
+/// 		details := &p.details[idx]
+/// 		// This is taken as "<model-uuid>:m#<machine-id>"
+/// 		prefixLen := len(stDoc.ModelUUID) + 3
+/// 		if len(stDoc.Id) > prefixLen {
+/// 			machineId := stDoc.Id[prefixLen:]
+/// 			mInfo := details.Machines[machineId]
+/// 			mInfo.Status = stDoc.Status
+/// 			details.Machines[machineId] = mInfo
+/// 			// apiserver/common.MachineStatus needs access to each individual State object to ask about AgentPresence
+/// 			// *sigh*.
+/// 			// that would allow us to override machine status with "Down" when appropriate
+/// 		} else {
+/// 			// Invalid machineId for status document
+/// 		}
+/// 	}
+/// 	if err := iter.Close(); err != nil {
+/// 		return errors.Trace(err)
+/// 	}
+/// 	return nil
+/// }
 
 func (p *modelDetailProcessor) fillInMigration() error {
 	// For now, we just potato the Migration information. Its a little unfortunate, but the expectation is that most
@@ -541,24 +548,24 @@ func (p *modelDetailProcessor) fillInJustUser() error {
 	return nil
 }
 
-func (p *modelDetailProcessor) computeAdminModels() {
-	// After calling fillInJustUser we can check for what models this user has Admin access to
-	var writeModelUUIDs []string
-	if p.isSuperuser {
-		writeModelUUIDs = p.modelUUIDs
-	} else {
-		username := strings.ToLower(p.user.Name())
-		for _, detail := range p.details {
-			userInfo, ok := detail.Users[username]
-			if ok && userInfo.Access.EqualOrGreaterModelAccessThan(permission.WriteAccess) {
-				// See the Machines listing happens at Write access, and its a bit annoying to have Machines
-				// at Write but Users at Admin, so we'll just set both at Write
-				writeModelUUIDs = append(writeModelUUIDs, detail.UUID)
-			}
-		}
-	}
-	p.writeModelUUIDs = writeModelUUIDs
-}
+/// func (p *modelDetailProcessor) computeAdminModels() {
+/// 	// After calling fillInJustUser we can check for what models this user has Admin access to
+/// 	var writeModelUUIDs []string
+/// 	if p.isSuperuser {
+/// 		writeModelUUIDs = p.modelUUIDs
+/// 	} else {
+/// 		username := strings.ToLower(p.user.Name())
+/// 		for _, detail := range p.details {
+/// 			userInfo, ok := detail.Users[username]
+/// 			if ok && userInfo.Access.EqualOrGreaterModelAccessThan(permission.WriteAccess) {
+/// 				// See the Machines listing happens at Write access, and its a bit annoying to have Machines
+/// 				// at Write but Users at Admin, so we'll just set both at Write
+/// 				writeModelUUIDs = append(writeModelUUIDs, detail.UUID)
+/// 			}
+/// 		}
+/// 	}
+/// 	p.writeModelUUIDs = writeModelUUIDs
+/// }
 
 func (p *modelDetailProcessor) fillInLastAccess() error {
 	// We fill in the last access only for the requesting user.
@@ -573,46 +580,46 @@ func (p *modelDetailProcessor) fillInLastAccess() error {
 	return nil
 }
 
-func (p *modelDetailProcessor) fillInFromModelUsers() error {
-	// We use the raw settings because we are reading across model UUIDs
-	rawModelUsers, closer := p.st.database.GetRawCollection(modelUsersC)
-	defer closer()
-
-	// TODO(jam): ensure that we have appropriate indexes so that users that aren't "admin" and only see a couple
-	// models don't do a COLLSCAN on the table.
-	query := rawModelUsers.Find(bson.M{"object-uuid": bson.M{"$in": p.writeModelUUIDs}})
-	var doc userAccessDoc
-	iter := query.Iter()
-	permissionIdToAccessDoc := make(map[string]userAccessDoc)
-	// does this need to be a set, or just a simple slice, we shouldn't have duplicates
-	permissionIds := make([]string, 0)
-	lastAccessIds := make([]string, 0)
-	// These need to be checked if they have been deleted
-	localUsers := set.NewStrings()
-	for iter.Next(&doc) {
-		username := strings.ToLower(doc.UserName)
-		userTag := names.NewUserTag(username)
-		if userTag.IsLocal() {
-			localUsers.Add(username)
-		}
-		permId := permissionID(modelKey(doc.ObjectUUID), userGlobalKey(username))
-		permissionIds = append(permissionIds, permId)
-		permissionIdToAccessDoc[permId] = doc
-		lastAccessIds = append(lastAccessIds, doc.ObjectUUID+":"+username)
-	}
-	if err := iter.Close(); err != nil {
-		return errors.Trace(err)
-	}
-	// Now we check if any of these Users are actually deleted
-	// TODO: wait to add this check for an actual test case covering it
-	if err := p.removeExistingUsers(localUsers); err != nil {
-		return errors.Trace(err)
-	}
-	if err := p.fillInPermissions(permissionIdToAccessDoc, permissionIds); err != nil {
-		return errors.Trace(err)
-	}
-	if err := p.fillInLastConnection(lastAccessIds); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
+/// func (p *modelDetailProcessor) fillInFromModelUsers() error {
+/// 	// We use the raw settings because we are reading across model UUIDs
+/// 	rawModelUsers, closer := p.st.database.GetRawCollection(modelUsersC)
+/// 	defer closer()
+///
+/// 	// TODO(jam): ensure that we have appropriate indexes so that users that aren't "admin" and only see a couple
+/// 	// models don't do a COLLSCAN on the table.
+/// 	query := rawModelUsers.Find(bson.M{"object-uuid": bson.M{"$in": p.writeModelUUIDs}})
+/// 	var doc userAccessDoc
+/// 	iter := query.Iter()
+/// 	permissionIdToAccessDoc := make(map[string]userAccessDoc)
+/// 	// does this need to be a set, or just a simple slice, we shouldn't have duplicates
+/// 	permissionIds := make([]string, 0)
+/// 	lastAccessIds := make([]string, 0)
+/// 	// These need to be checked if they have been deleted
+/// 	localUsers := set.NewStrings()
+/// 	for iter.Next(&doc) {
+/// 		username := strings.ToLower(doc.UserName)
+/// 		userTag := names.NewUserTag(username)
+/// 		if userTag.IsLocal() {
+/// 			localUsers.Add(username)
+/// 		}
+/// 		permId := permissionID(modelKey(doc.ObjectUUID), userGlobalKey(username))
+/// 		permissionIds = append(permissionIds, permId)
+/// 		permissionIdToAccessDoc[permId] = doc
+/// 		lastAccessIds = append(lastAccessIds, doc.ObjectUUID+":"+username)
+/// 	}
+/// 	if err := iter.Close(); err != nil {
+/// 		return errors.Trace(err)
+/// 	}
+/// 	// Now we check if any of these Users are actually deleted
+/// 	// TODO: wait to add this check for an actual test case covering it
+/// 	if err := p.removeExistingUsers(localUsers); err != nil {
+/// 		return errors.Trace(err)
+/// 	}
+/// 	if err := p.fillInPermissions(permissionIdToAccessDoc, permissionIds); err != nil {
+/// 		return errors.Trace(err)
+/// 	}
+/// 	if err := p.fillInLastConnection(lastAccessIds); err != nil {
+/// 		return errors.Trace(err)
+/// 	}
+/// 	return nil
+/// }

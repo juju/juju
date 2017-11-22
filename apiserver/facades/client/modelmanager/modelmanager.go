@@ -693,7 +693,7 @@ func (m *ModelManagerAPI) ListModelsWithInfo(req params.ModelsForUserRequest) (p
 		return result, errors.Trace(err)
 	}
 
-	modelInfos, err := m.state.ModelDetailsForUser(userTag, req.IncludeMachineUserDetails)
+	modelInfos, err := m.state.ModelDetailsForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
