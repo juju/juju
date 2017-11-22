@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/context/internal"

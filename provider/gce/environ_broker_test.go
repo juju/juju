@@ -13,6 +13,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -94,6 +95,14 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Check(result.Hardware, jc.DeepEquals, s.hardware)
 }
 
+func (s *environBrokerSuite) TestStartInstanceAvailabilityZoneIndependentError(c *gc.C) {
+	s.FakeEnviron.Err = errors.New("blargh")
+
+	_, err := s.Env.StartInstance(s.StartInstArgs)
+	c.Assert(err, gc.ErrorMatches, "blargh")
+	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
+}
+
 func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
 	s.FakeEnviron.Spec = s.spec
 	s.FakeEnviron.Inst = s.BaseInstance
@@ -147,6 +156,14 @@ func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(inst, jc.DeepEquals, s.BaseInstance)
+}
+
+func (s *environBrokerSuite) TestNewRawInstanceZoneSpecificError(c *gc.C) {
+	s.FakeConn.Err = errors.New("blargh")
+
+	_, err := gce.NewRawInstance(s.Env, s.StartInstArgs, s.spec)
+	c.Assert(err, gc.ErrorMatches, "blargh")
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 }
 
 func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {

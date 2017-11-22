@@ -5,7 +5,7 @@ package application
 
 import (
 	"github.com/juju/utils/series"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 )
 
 const (

@@ -27,6 +27,7 @@ import (
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/tomb.v1"
 
@@ -43,7 +44,6 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
-	"gopkg.in/macaroon-bakery.v1/bakery"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")
@@ -78,7 +78,6 @@ type Server struct {
 	logDir                 string
 	limiter                utils.Limiter
 	loginRetryPause        time.Duration
-	validator              LoginValidator
 	facades                *facade.Registry
 	modelUUID              string
 	loginAuthCtxt          *authContext
@@ -95,6 +94,8 @@ type Server struct {
 	logSinkWriter          io.WriteCloser
 	logsinkRateLimitConfig logsink.RateLimitConfig
 	dbloggers              dbloggers
+	upgradeComplete        func() bool
+	restoreStatus          func() state.RestoreStatus
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -113,11 +114,6 @@ type Server struct {
 	registerIntrospectionHandlers func(func(string, http.Handler))
 }
 
-// LoginValidator functions are used to decide whether login requests
-// are to be allowed. The validator is called before credentials are
-// checked.
-type LoginValidator func(authUser names.Tag) error
-
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
 	Clock     clock.Clock
@@ -133,6 +129,18 @@ type ServerConfig struct {
 	// return updated values, so should be called whenever a
 	// new connection is accepted.
 	GetCertificate func() *tls.Certificate
+
+	// UpgradeComplete is a function that reports whether or not
+	// the if the agent running the API server has completed
+	// running upgrade steps. This is used by the API server to
+	// limit logins during upgrades.
+	UpgradeComplete func() bool
+
+	// RestoreStatus is a function that reports the restore
+	// status most recently observed by the agent running the
+	// API server. This is used by the API server to limit logins
+	// during a restore.
+	RestoreStatus func() state.RestoreStatus
 
 	// AutocertDNSName holds the DNS name for which
 	// official TLS certificates will be obtained. If this is
@@ -186,6 +194,12 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.NewObserver == nil {
 		return errors.NotValidf("missing NewObserver")
+	}
+	if c.UpgradeComplete == nil {
+		return errors.NotValidf("nil UpgradeComplete")
+	}
+	if c.RestoreStatus == nil {
+		return errors.NotValidf("nil RestoreStatus")
 	}
 	if err := c.RateLimitConfig.Validate(); err != nil {
 		return errors.Annotate(err, "validating rate limit configuration")
@@ -356,7 +370,8 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 		logDir:                        cfg.LogDir,
 		limiter:                       limiter,
 		loginRetryPause:               cfg.RateLimitConfig.LoginRetryPause,
-		validator:                     cfg.Validator,
+		upgradeComplete:               cfg.UpgradeComplete,
+		restoreStatus:                 cfg.RestoreStatus,
 		facades:                       AllFacades(),
 		centralHub:                    cfg.Hub,
 		getCertificate:                cfg.GetCertificate,

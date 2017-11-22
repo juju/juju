@@ -184,10 +184,6 @@ type ManifoldsConfig struct {
 	// are pruned from the database.
 	TransactionPruneInterval time.Duration
 
-	// LoginValidator is an apiserver.LoginValidator that will be passed
-	// to API server instances for validating logins.
-	LoginValidator apiserver.LoginValidator
-
 	// SetStatePool is used by the state worker for informing the agent of
 	// the StatePool that it creates, so we can pass it to the introspection
 	// worker running outside of the dependency engine.
@@ -661,13 +657,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:                         agentName,
 			ClockName:                         clockName,
 			StateName:                         stateName,
+			UpgradeGateName:                   upgradeStepsGateName,
 			CertWatcherName:                   certificateWatcherName,
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
-			LoginValidator:                    config.LoginValidator,
-			Hub:                               config.CentralHub,
-			NewWorker:                         apiserver.NewWorker,
-			NewStoreAuditEntryFunc:            apiserver.NewStateStoreAuditEntryFunc,
+			Hub:                    config.CentralHub,
+			NewWorker:              apiserver.NewWorker,
+			NewStoreAuditEntryFunc: apiserver.NewStateStoreAuditEntryFunc,
 		}),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{

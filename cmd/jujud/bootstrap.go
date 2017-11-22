@@ -150,8 +150,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if ok && desiredVersion != jujuversion.Current {
 		// If we have been asked for a newer version, ensure the newer
 		// tools can actually be found, or else bootstrap won't complete.
-		stream := envtools.PreferredStream(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
-		logger.Infof("newer agent binaries requested, looking for %v in stream %v", desiredVersion, stream)
+		streams := envtools.PreferredStreams(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
+		logger.Infof("newer agent binaries requested, looking for %v in streams: %v", desiredVersion, strings.Join(streams, ","))
 		hostSeries, err := series.HostSeries()
 		if err != nil {
 			return errors.Trace(err)
@@ -161,7 +161,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			Arch:   arch.HostArch(),
 			Series: hostSeries,
 		}
-		_, toolsErr := envtools.FindTools(env, -1, -1, stream, filter)
+		_, toolsErr := envtools.FindTools(env, -1, -1, streams, filter)
 		if toolsErr == nil {
 			logger.Infof("agent binaries are available, upgrade will occur after bootstrap")
 		}

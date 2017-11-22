@@ -637,6 +637,7 @@ func (s *localServerSuite) TestStartInstanceGetServerFail(c *gc.C) {
 		"caused by: "+
 		"request \\(.*/servers\\) returned unexpected status: "+
 		"500; error info: .*GetServer failed on purpose")
+	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
 }
 
 func (s *localServerSuite) TestStartInstanceWaitForActiveDetails(c *gc.C) {
@@ -1987,12 +1988,12 @@ func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnavailable(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unavailable")
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 }
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {

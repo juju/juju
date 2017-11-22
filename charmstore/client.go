@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charmrepo.v2/csclient"
+	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 )

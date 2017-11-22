@@ -27,7 +27,7 @@ import (
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
@@ -42,7 +42,6 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	apimachiner "github.com/juju/juju/api/machiner"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cert"
@@ -296,6 +295,7 @@ func NewMachineAgent(
 		mongoTxnCollector:           mongometrics.NewTxnCollector(),
 		mongoDialCollector:          mongometrics.NewDialCollector(),
 		preUpgradeSteps:             preUpgradeSteps,
+		restoreStatus:               state.RestoreNotActive,
 	}
 	if err := a.registerPrometheusCollectors(); err != nil {
 		return nil, errors.Trace(err)
@@ -342,9 +342,8 @@ type MachineAgent struct {
 	upgradeComplete  gate.Lock
 	workersStarted   chan struct{}
 
-	// XXX(fwereade): these smell strongly of goroutine-unsafeness.
-	restoreMode bool
-	restoring   bool
+	restoreStatusMu sync.Mutex
+	restoreStatus   state.RestoreStatus
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -364,26 +363,6 @@ type MachineAgent struct {
 	// Only API servers have hubs. This is temporary until the apiserver and
 	// peergrouper have manifolds.
 	centralHub *pubsub.StructuredHub
-}
-
-// IsRestorePreparing returns bool representing if we are in restore mode
-// but not running restore.
-func (a *MachineAgent) IsRestorePreparing() bool {
-	return a.restoreMode && !a.restoring
-}
-
-// IsRestoreRunning returns bool representing if we are in restore mode
-// and running the actual restore process.
-func (a *MachineAgent) IsRestoreRunning() bool {
-	return a.restoring
-}
-
-func (a *MachineAgent) isUpgradeRunning() bool {
-	return !a.upgradeComplete.IsUnlocked()
-}
-
-func (a *MachineAgent) isInitialUpgradeCheckPending() bool {
-	return !a.initialUpgradeCheckComplete.IsUnlocked()
 }
 
 // Wait waits for the machine agent to finish.
@@ -644,44 +623,21 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 	return errors.Trace(err)
 }
 
-// PrepareRestore will flag the agent to allow only a limited set
-// of commands defined in
-// "github.com/juju/juju/apiserver".allowedMethodsAboutToRestore
-// the most noteworthy is:
-// Backups.Restore: this will ensure that we can do all the file movements
-// required for restore and no one will do changes while we do that.
-// it will return error if the machine is already in this state.
-func (a *MachineAgent) PrepareRestore() {
-	a.restoreMode = true
+func (a *MachineAgent) getRestoreStatus() state.RestoreStatus {
+	a.restoreStatusMu.Lock()
+	defer a.restoreStatusMu.Unlock()
+	return a.restoreStatus
 }
 
-// BeginRestore will flag the agent to disallow all commands since
-// restore should be running and therefore making changes that
-// would override anything done.
-func (a *MachineAgent) BeginRestore() {
-	if a.restoreMode {
-		a.restoring = true
+// restoreStatusChanged will be called whenever the restore status changes.
+func (a *MachineAgent) restoreStatusChanged(st *state.State) error {
+	status, err := st.RestoreInfo().Status()
+	if err != nil {
+		return errors.Annotate(err, "cannot read restore state")
 	}
-}
-
-// EndRestore will flag the agent to allow all commands
-// This being invoked means that restore process failed
-// since success restarts the agent.
-func (a *MachineAgent) EndRestore() {
-	a.restoreMode = false
-	a.restoring = false
-}
-
-// restoreChanged will be called whenever the restore status changes.
-func (a *MachineAgent) restoreStatusChanged(status state.RestoreStatus) error {
-	switch status {
-	case state.RestorePending:
-		a.PrepareRestore()
-	case state.RestoreInProgress:
-		a.BeginRestore()
-	case state.RestoreFailed:
-		a.EndRestore()
-	}
+	a.restoreStatusMu.Lock()
+	a.restoreStatus = status
+	a.restoreStatusMu.Unlock()
 	return nil
 }
 
@@ -1096,87 +1052,6 @@ func (a *MachineAgent) startModelWorkers(modelUUID string, modelType state.Model
 // This must be overridden in tests, as it assumes
 // journaling is enabled.
 var stateWorkerDialOpts mongo.DialOpts
-
-// limitLogins is called by the API server for each login attempt.
-// it returns an error if upgrades or restore are running.
-func (a *MachineAgent) limitLogins(authTag names.Tag) error {
-	if err := a.limitLoginsDuringRestore(authTag); err != nil {
-		return err
-	}
-	if err := a.limitLoginsDuringUpgrade(authTag); err != nil {
-		return err
-	}
-	return a.limitLoginsDuringMongoUpgrade()
-}
-
-func (a *MachineAgent) limitLoginsDuringMongoUpgrade() error {
-	// If upgrade is running we will not be able to lock AgentConfigWriter
-	// and it also means we are not upgrading mongo.
-	if a.isUpgradeRunning() {
-		return nil
-	}
-	cfg := a.AgentConfigWriter.CurrentConfig()
-	ver := cfg.MongoVersion()
-	if ver == mongo.MongoUpgrade {
-		return errors.New("Upgrading Mongo")
-	}
-	return nil
-}
-
-// limitLoginsDuringRestore will only allow logins for restore related purposes
-// while the different steps of restore are running.
-func (a *MachineAgent) limitLoginsDuringRestore(authTag names.Tag) error {
-	var err error
-	switch {
-	case a.IsRestoreRunning():
-		err = apiserver.RestoreInProgressError
-	case a.IsRestorePreparing():
-		err = apiserver.AboutToRestoreError
-	}
-	if err != nil {
-		// If anonymous login, disallow.
-		if authTag == nil {
-			return errors.Errorf("anonymous login blocked because restore is in progress")
-		}
-		switch authTag := authTag.(type) {
-		case names.UserTag:
-			// use a restricted API mode
-			return err
-		case names.MachineTag:
-			if authTag == a.Tag() {
-				// allow logins from the local machine
-				return nil
-			}
-		}
-		return errors.Errorf("login for %q blocked because restore is in progress", authTag)
-	}
-	return nil
-}
-
-// limitLoginsDuringUpgrade is called by the API server for each login
-// attempt. It returns an error if upgrades are in progress unless the
-// login is for a user (i.e. a client) or the local machine.
-func (a *MachineAgent) limitLoginsDuringUpgrade(authTag names.Tag) error {
-	if a.isUpgradeRunning() || a.isInitialUpgradeCheckPending() {
-		// If anonymous login, disallow.
-		if authTag == nil {
-			return errors.Errorf("anonymous login blocked because %s", params.CodeUpgradeInProgress)
-		}
-		switch authTag := authTag.(type) {
-		case names.UserTag:
-			// use a restricted API mode
-			return params.UpgradeInProgressError
-		case names.MachineTag:
-			if authTag == a.Tag() {
-				// allow logins from the local machine
-				return nil
-			}
-		}
-		return errors.Errorf("login for %q blocked because %s", authTag, params.CodeUpgradeInProgress)
-	} else {
-		return nil // allow all logins
-	}
-}
 
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 
 	"github.com/juju/juju/apiserver/facades/client/resources"
 	"github.com/juju/juju/apiserver/params"

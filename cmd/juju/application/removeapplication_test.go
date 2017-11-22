@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2"
 
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"

@@ -390,7 +390,7 @@ def deploy_simple_server_to_new_model(
     # Need to wait for the subordinate charms too.
     new_model.wait_for(AllApplicationActive())
     new_model.wait_for(AllApplicationWorkloads())
-    new_model.wait_for(AllAgentsIdle())
+    new_model.wait_for(AgentsIdle(['ntp/0', 'ntp/1']))
     assert_deployed_charm_is_responding(new_model, resource_contents)
 
     return new_model, application
@@ -431,13 +431,18 @@ class AllApplicationWorkloads(BaseCondition):
             'Timed out waiting for all application workloads to be active.')
 
 
-class AllAgentsIdle(BaseCondition):
-    """Ensure all agents are finished doing setup work."""
+class AgentsIdle(BaseCondition):
+    """Ensure all specified agents are finished doing setup work."""
+
+    def __init__(self, units, *args, **kws):
+        self.units = units
+        super(AgentsIdle, self).__init__(*args, **kws)
 
     def iter_blocking_state(self, status):
         idles = []
-        for name, unit in status.iter_units():
+        for name in self.units:
             try:
+                unit = status.get_unit(name)
                 state = unit['juju-status']['current'] == 'idle'
             except KeyError:
                 state = False

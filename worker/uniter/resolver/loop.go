@@ -5,7 +5,7 @@ package resolver
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/operation"

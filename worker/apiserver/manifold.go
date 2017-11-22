@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -26,6 +27,7 @@ type ManifoldConfig struct {
 	CertWatcherName string
 	ClockName       string
 	StateName       string
+	UpgradeGateName string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -49,6 +51,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
+	}
+	if config.UpgradeGateName == "" {
+		return errors.NotValidf("empty UpgradeGateName")
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
@@ -80,6 +85,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.CertWatcherName,
 			config.ClockName,
 			config.StateName,
+			config.UpgradeGateName,
 		},
 		Start: config.start,
 	}
@@ -115,13 +121,18 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var upgradeLock gate.Waiter
+	if err := context.Get(config.UpgradeGateName, &upgradeLock); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewWorker(Config{
 		AgentConfig:                       agent.CurrentConfig(),
 		Clock:                             clock,
 		StatePool:                         statePool,
 		PrometheusRegisterer:              config.PrometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
-		LoginValidator:                    config.LoginValidator,
+		UpgradeComplete:                   upgradeLock.IsUnlocked,
 		Hub:                               config.Hub,
 		GetCertificate:                    getCertificate,
 		NewServer:                         newServerShim,

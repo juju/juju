@@ -26,7 +26,7 @@ import (
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -487,7 +487,7 @@ func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools)
-	c.Assert(a.isInitialUpgradeCheckPending(), jc.IsTrue)
+	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
@@ -502,7 +502,7 @@ func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
 	}
 	defer a.Stop() // in case of failure
 	s.waitStopped(c, state.JobManageModel, a, done)
-	c.Assert(a.isInitialUpgradeCheckPending(), jc.IsFalse)
+	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), jc.IsTrue)
 }
 
 func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
@@ -1059,45 +1059,6 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 		c.Fatalf("timed out waiting for the machiner to start")
 	}
 	s.waitStopped(c, state.JobHostUnits, a, doneCh)
-}
-
-func (s *MachineSuite) TestMachineAgentSetsPrepareRestore(c *gc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	c.Check(a.IsRestorePreparing(), jc.IsFalse)
-	c.Check(a.IsRestoreRunning(), jc.IsFalse)
-	a.PrepareRestore()
-	c.Assert(a.IsRestorePreparing(), jc.IsTrue)
-	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
-}
-
-func (s *MachineSuite) TestMachineAgentSetsRestoreInProgress(c *gc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	c.Check(a.IsRestorePreparing(), jc.IsFalse)
-	c.Check(a.IsRestoreRunning(), jc.IsFalse)
-	a.PrepareRestore()
-	c.Assert(a.IsRestorePreparing(), jc.IsTrue)
-	a.BeginRestore()
-	c.Assert(a.IsRestoreRunning(), jc.IsTrue)
-}
-
-func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	c.Check(a.IsRestorePreparing(), jc.IsFalse)
-	c.Check(a.IsRestoreRunning(), jc.IsFalse)
-	a.BeginRestore()
-	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestMachineWorkers(c *gc.C) {

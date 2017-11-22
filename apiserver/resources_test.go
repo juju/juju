@@ -18,7 +18,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver"

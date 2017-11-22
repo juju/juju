@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"github.com/juju/version"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 

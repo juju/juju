@@ -449,90 +449,62 @@ func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
 	assertInvalidEntityPassword(c, err)
 }
 
-func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
-	validator := func(names.Tag) error {
-		return nil
-	}
-	checker := func(c *gc.C, loginErr error, st api.Connection) {
-		c.Assert(loginErr, gc.IsNil)
-
-		// Ensure an API call that would be restricted during
-		// upgrades works after a normal login.
-		err := st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	s.checkLoginWithValidator(c, validator, checker)
-}
-
-func (s *loginSuite) TestLoginValidationFail(c *gc.C) {
-	validator := func(names.Tag) error {
-		return errors.New("Login not allowed")
-	}
-	checker := func(c *gc.C, loginErr error, _ api.Connection) {
-		// error is wrapped in API server
-		c.Assert(loginErr, gc.ErrorMatches, "Login not allowed")
-	}
-	s.checkLoginWithValidator(c, validator, checker)
-}
-
 func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
-	validator := func(names.Tag) error {
-		return params.UpgradeInProgressError
+	cfg := defaultServerConfig(c)
+	cfg.UpgradeComplete = func() bool {
+		// upgrade is in progress
+		return false
 	}
-	checker := func(c *gc.C, loginErr error, st api.Connection) {
-		c.Assert(loginErr, gc.IsNil)
-
+	s.testLoginDuringMaintenance(c, cfg, func(st api.Connection) {
 		var statusResult params.FullStatus
 		err := st.APICall("Client", 1, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
 		c.Assert(err, jc.Satisfies, params.IsCodeUpgradeInProgress)
-	}
-	s.checkLoginWithValidator(c, validator, checker)
+	})
 }
 
-func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
+func (s *loginSuite) TestLoginWhileRestorePending(c *gc.C) {
 	cfg := defaultServerConfig(c)
-	cfg.Validator = func(names.Tag) error {
-		return errors.New("something")
+	cfg.RestoreStatus = func() state.RestoreStatus {
+		return state.RestorePending
 	}
-	info, srv := newServerWithConfig(c, s.pool, cfg)
-	defer assertStop(c, srv)
-	info.ModelTag = s.IAASModel.ModelTag()
+	s.testLoginDuringMaintenance(c, cfg, func(st api.Connection) {
+		var statusResult params.FullStatus
+		err := st.APICall("Client", 1, "", "FullStatus", params.StatusParams{}, &statusResult)
+		c.Assert(err, jc.ErrorIsNil)
 
-	checkLogin := func(tag names.Tag) {
-		st := s.openAPIWithoutLogin(c, info)
-		err := st.Login(tag, "dummy-secret", "nonce", nil)
-		c.Assert(err, gc.ErrorMatches, "something")
-	}
-	checkLogin(names.NewUserTag("definitelywontexist"))
-	checkLogin(names.NewMachineTag("99999"))
+		err = st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
+		c.Assert(err, gc.ErrorMatches, `juju restore is in progress - functionality is limited to avoid data loss`)
+	})
 }
 
-type validationChecker func(c *gc.C, err error, st api.Connection)
-
-func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginValidator, checker validationChecker) {
+func (s *loginSuite) TestLoginWhileRestoreInProgress(c *gc.C) {
 	cfg := defaultServerConfig(c)
-	cfg.Validator = validator
+	cfg.RestoreStatus = func() state.RestoreStatus {
+		return state.RestoreInProgress
+	}
+	s.testLoginDuringMaintenance(c, cfg, func(st api.Connection) {
+		var statusResult params.FullStatus
+		err := st.APICall("Client", 1, "", "FullStatus", params.StatusParams{}, &statusResult)
+		c.Assert(err, gc.ErrorMatches, `juju restore is in progress - API is disabled to prevent data loss`)
+
+		err = st.APICall("Client", 1, "", "ModelSet", params.ModelSet{}, nil)
+		c.Assert(err, gc.ErrorMatches, `juju restore is in progress - API is disabled to prevent data loss`)
+	})
+}
+
+func (s *loginSuite) testLoginDuringMaintenance(c *gc.C, cfg apiserver.ServerConfig, check func(api.Connection)) {
 	info, srv := newServerWithConfig(c, s.pool, cfg)
 	defer assertStop(c, srv)
 	info.ModelTag = s.IAASModel.ModelTag()
 
 	st := s.openAPIWithoutLogin(c, info)
+	err := st.Login(s.AdminUserTag(c), "dummy-secret", "", nil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	// Ensure not already logged in.
-	_, err := apimachiner.NewState(st).Machine(names.NewMachineTag("0"))
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `unknown object type "Machiner"`,
-		Code:    "not implemented",
-	})
-
-	adminUser := s.AdminUserTag(c)
-	// Since these are user login tests, the nonce is empty.
-	err = st.Login(adminUser, "dummy-secret", "", nil)
-
-	checker(c, err, st)
+	check(st)
 }
 
 func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info0 *api.Info) api.Connection {

@@ -71,8 +71,6 @@ func (a *admin) RedirectInfo() (params.RedirectInfoResult, error) {
 	return params.RedirectInfoResult{}, fmt.Errorf("not redirected")
 }
 
-var AboutToRestoreError = errors.New("restore preparation in progress")
-var RestoreInProgressError = errors.New("restore in progress")
 var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress")
 var errAlreadyLoggedIn = errors.New("already logged in")
 
@@ -415,19 +413,14 @@ func (a *admin) authenticator() authentication.EntityAuthenticator {
 }
 
 func (a *admin) maintenanceInProgress() bool {
-	if a.srv.validator == nil {
-		return false
+	if !a.srv.upgradeComplete() {
+		return true
 	}
-	// jujud's login validator will return an error for any user tag
-	// if jujud is upgrading or restoring. The tag of the entity
-	// trying to log in can't be used because jujud's login validator
-	// will always return nil for the local machine agent and here we
-	// need to know if maintenance is in progress irrespective of the
-	// the authenticating entity.
-	//
-	// TODO(mjs): 2014-09-29 bug 1375110
-	// This needs improving but I don't have the cycles right now.
-	return a.srv.validator(names.NewUserTag("arbitrary")) != nil
+	switch a.srv.restoreStatus() {
+	case state.RestorePending, state.RestoreInProgress:
+		return true
+	}
+	return false
 }
 
 var doCheckCreds = checkCreds

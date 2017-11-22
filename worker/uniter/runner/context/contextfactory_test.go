@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"

@@ -5,7 +5,7 @@ package resource
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charm.v6/resource"
 )
 
 // DeserializeFingerprint converts the serialized fingerprint back into

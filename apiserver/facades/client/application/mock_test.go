@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 

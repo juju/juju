@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
