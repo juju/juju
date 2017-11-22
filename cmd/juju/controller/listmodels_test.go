@@ -73,12 +73,45 @@ func (f *fakeModelMgrAPIClient) AllModels() ([]base.UserModel, error) {
 	return f.convertInfosToUserModels(), nil
 }
 
-func (f *fakeModelMgrAPIClient) ListModelsWithInfo(user names.UserTag) ([]params.ModelInfoResult, error) {
+func (f *fakeModelMgrAPIClient) ListModelsWithInfo(user names.UserTag) ([]params.ModelSummaryResult, error) {
 	f.MethodCall(f, "ListModelsWithInfo", user)
 	if f.err != nil {
 		return nil, f.err
 	}
-	return f.infos, nil
+	results := make([]params.ModelSummaryResult, len(f.infos))
+	for i, info := range f.infos {
+		results[i] = params.ModelSummaryResult{}
+		if info.Error != nil {
+			results[i].Error = info.Error
+			continue
+		}
+		results[i].Result = &params.ModelSummary{
+			Name:               info.Result.Name,
+			UUID:               info.Result.UUID,
+			ControllerUUID:     info.Result.ControllerUUID,
+			ProviderType:       info.Result.ProviderType,
+			DefaultSeries:      info.Result.DefaultSeries,
+			CloudTag:           info.Result.CloudTag,
+			CloudRegion:        info.Result.CloudRegion,
+			CloudCredentialTag: info.Result.CloudCredentialTag,
+			OwnerTag:           info.Result.OwnerTag,
+			Life:               info.Result.Life,
+			Status:             info.Result.Status,
+			Migration:          info.Result.Migration,
+			SLA:                info.Result.SLA,
+			AgentVersion:       info.Result.AgentVersion,
+		}
+		if len(info.Result.Users) > 0 {
+			results[i].Result.User = info.Result.Users[0]
+		}
+		// TODO (anastasiamac 2017-11-22) need to cater for cores count too
+		if len(info.Result.Machines) > 0 {
+			results[i].Result.Counts = []params.ModelEntityCount{
+				params.ModelEntityCount{params.Machines, len(info.Result.Machines)},
+			}
+		}
+	}
+	return results, nil
 }
 
 func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error) {

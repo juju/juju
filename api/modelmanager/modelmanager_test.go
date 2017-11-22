@@ -406,7 +406,7 @@ func (s *modelmanagerSuite) TestModelStatusError(c *gc.C) {
 
 func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 	userTag := names.NewUserTag("commander")
-	modelInfo := params.ModelInfo{
+	modelInfo := params.ModelSummary{
 		Name:               "name",
 		UUID:               "uuid",
 		ControllerUUID:     "controllerUUID",
@@ -418,8 +418,8 @@ func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 		OwnerTag:           "user-admin",
 		Life:               params.Alive,
 		Status:             params.EntityStatus{Status: status.Status("active")},
-		Users:              []params.ModelUserInfo{},
-		Machines:           []params.ModelMachineInfo{},
+		User:               params.ModelUserInfo{},
+		Counts:             []params.ModelEntityCount{},
 	}
 
 	apiCaller := basetesting.BestVersionCaller{
@@ -429,12 +429,12 @@ func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ListModelsWithInfo")
 			c.Check(arg, gc.Equals, params.Entity{Tag: userTag.String()})
-			c.Check(result, gc.FitsTypeOf, &params.ModelInfoResults{})
+			c.Check(result, gc.FitsTypeOf, &params.ModelSummaryResults{})
 
-			out := result.(*params.ModelInfoResults)
-			out.Results = []params.ModelInfoResult{
-				params.ModelInfoResult{Result: &modelInfo},
-				params.ModelInfoResult{Error: common.ServerError(errors.New("model error"))},
+			out := result.(*params.ModelSummaryResults)
+			out.Results = []params.ModelSummaryResult{
+				params.ModelSummaryResult{Result: &modelInfo},
+				params.ModelSummaryResult{Error: common.ServerError(errors.New("model error"))},
 			}
 			return nil
 		},
@@ -443,7 +443,7 @@ func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 	client := modelmanager.NewClient(apiCaller)
 	results, err := client.ListModelsWithInfo(userTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []params.ModelInfoResult{
+	c.Assert(results, jc.DeepEquals, []params.ModelSummaryResult{
 		{Result: &modelInfo},
 		{Error: &params.Error{Message: "model error"}},
 	})

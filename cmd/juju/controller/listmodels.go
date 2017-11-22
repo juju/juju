@@ -63,7 +63,7 @@ See also:
 type ModelManagerAPI interface {
 	Close() error
 	ListModels(user string) ([]base.UserModel, error)
-	ListModelsWithInfo(user names.UserTag) ([]params.ModelInfoResult, error)
+	ListModelsWithInfo(user names.UserTag) ([]params.ModelSummaryResult, error)
 	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
 	BestAPIVersion() int
 }
@@ -236,7 +236,9 @@ func (c *modelsCommand) getNewModelInfo(ctx *cmd.Context, client ModelManagerAPI
 			ctx.Infof(result.Error.Error())
 			continue
 		}
-		model, err := common.ModelInfoFromParams(*result.Result, now)
+		mi := params.ModelInfo{}
+		//*result.Result
+		model, err := common.ModelInfoFromParams(mi, now)
 		if err != nil {
 			ctx.Infof(err.Error())
 			continue
