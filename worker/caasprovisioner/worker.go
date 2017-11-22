@@ -5,14 +5,14 @@ package caasprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/watcher"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -62,26 +62,7 @@ func (p *provisioner) Wait() error {
 	return p.catacomb.Wait()
 }
 
-// TODO(caas) - remove
-type fakeFacade struct {
-	watcher.CoreWatcher
-}
-
-func (f *fakeFacade) WatchApplications() (watcher.StringsWatcher, error) {
-	return f, nil
-}
-
-func (f *fakeFacade) Changes() watcher.StringsChannel {
-	return make(watcher.StringsChannel)
-}
-
 func (p *provisioner) loop() error {
-	// TODO(caas) - remove
-	if p.provisionerFacade == nil {
-		logger.Criticalf("Started CAAS Provisioner worker with fake facade and broker %v", p.broker)
-		p.provisionerFacade = &fakeFacade{}
-	}
-
 	newConfig := func(appName string) (*caas.OperatorConfig, error) {
 		return p.newOperatorConfig(appName)
 	}
@@ -107,6 +88,7 @@ func (p *provisioner) loop() error {
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
+			// TODO(caas) - cleanup when an application is deleted
 			for _, app := range apps {
 				logger.Debugf("Received change notification for app: %s", app)
 				if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), newConfig); err != nil {
@@ -135,7 +117,7 @@ func (p *provisioner) newOperatorConfig(appName string) (*caas.OperatorConfig, e
 			// This isn't actually used but needs to be supplied.
 			UpgradedToVersion: version.Current,
 			Tag:               appTag,
-			Password:          p.agentConfig.OldPassword(),
+			Password:          "todo(caas) - will be filled in next PR",
 			Controller:        p.agentConfig.Controller(),
 			Model:             p.modelTag,
 			APIAddresses:      apiAddrs,

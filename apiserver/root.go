@@ -382,6 +382,12 @@ func (r *apiHandler) AuthMachineAgent() bool {
 	return isMachine
 }
 
+// AuthApplicationAgent returns whether the current client is an application operator.
+func (r *apiHandler) AuthApplicationAgent() bool {
+	_, isApp := r.GetAuthTag().(names.ApplicationTag)
+	return isApp
+}
+
 // AuthUnitAgent returns whether the current client is a unit agent.
 func (r *apiHandler) AuthUnitAgent() bool {
 	_, isUnit := r.GetAuthTag().(names.UnitTag)

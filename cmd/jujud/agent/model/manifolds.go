@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/applicationscaler"
 	"github.com/juju/juju/worker/caasbroker"
+	"github.com/juju/juju/worker/caasmodelupgrader"
 	"github.com/juju/juju/worker/caasprovisioner"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
@@ -268,6 +269,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				OpenFn: sinks.OpenSyslog,
 			}},
 		})),
+		// The model upgrader runs on all controller agents, and
+		// unlocks the gate when the model is up-to-date. The
+		// environ tracker will be supplied only to the leader,
+		// which is the agent that will run the upgrade steps;
+		// the other controller agents will wait for it to complete
+		// running those steps before allowing logins to the model.
+		modelUpgradeGateName: gate.Manifold(),
+		modelUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  modelUpgradeGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
 	}
 	return result
 }
@@ -355,17 +367,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			EnvironName:   environTrackerName,
 			NewWorker:     machineundertaker.NewWorker,
 		})),
-		// The model upgrader runs on all controller agents, and
-		// unlocks the gate when the model is up-to-date. The
-		// environ tracker will be supplied only to the leader,
-		// which is the agent that will run the upgrade steps;
-		// the other controller agents will wait for it to complete
-		// running those steps before allowing logins to the model.
-		modelUpgradeGateName: gate.Manifold(),
-		modelUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
-			GateName:  modelUpgradeGateName,
-			NewWorker: gate.NewFlagWorker,
-		}),
 		modelUpgraderName: modelupgrader.Manifold(modelupgrader.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
@@ -386,19 +387,28 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // CAASManifolds returns a set of interdependent dependency manifolds that will
 // run together to administer a CAAS model, as configured.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	agentConfig := config.Agent.CurrentConfig()
+	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
 		caasBrokerTrackerName: ifResponsible(caasbroker.Manifold(caasbroker.ManifoldConfig{
 			APICallerName:          apiCallerName,
 			NewContainerBrokerFunc: config.NewContainerBrokerFunc,
 		})),
-
 		caasProvisionerName: ifNotMigrating(caasprovisioner.Manifold(
 			caasprovisioner.ManifoldConfig{
 				AgentName:     agentName,
 				APICallerName: apiCallerName,
+				BrokerName:    caasBrokerTrackerName,
 				NewWorker:     caasprovisioner.NewProvisionerWorker,
 			},
 		)),
+		modelUpgraderName: caasmodelupgrader.Manifold(caasmodelupgrader.ManifoldConfig{
+			APICallerName: apiCallerName,
+			GateName:      modelUpgradeGateName,
+			ModelTag:      modelTag,
+			NewFacade:     caasmodelupgrader.NewFacade,
+			NewWorker:     caasmodelupgrader.NewWorker,
+		}),
 	}
 	result := commonManifolds(config)
 	for name, manifold := range manifolds {
