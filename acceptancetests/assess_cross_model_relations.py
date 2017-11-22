@@ -10,9 +10,12 @@ This test will exercise the following aspects:
   - Ensure a user is able to create an offer of an applications' endpoint
     including:
       - A user is able to consume and relate to the offer
+      - Workload data successfully provided
       - The offer appears in the list-offers output
       - The user is able to name the offer
       - The user is able to remove the offer
+  - Ensure an admin can grant a user access to an offer
+      - The consuming user finds the offer via 'find-offer'
 
 The above feature tests will be run on:
   - A single controller environment
@@ -25,23 +28,25 @@ The above feature tests will be run on:
 from __future__ import print_function
 
 import argparse
+import errno
 import logging
+import os
 import sys
 import yaml
 from contextlib import contextmanager
 from subprocess import CalledProcessError
 from textwrap import dedent
 
-from assess_recovery import check_token
+from assess_user_grant_revoke import User
 from deploy_stack import (
     BootstrapManager,
-    get_random_string,
     )
 from jujucharm import local_charm_path
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
+    temp_dir,
     )
 
 
@@ -60,6 +65,7 @@ def assess_cross_model_relations_single_controller(args):
                 ensure_cmr_offer_management(first_model)
                 ensure_cmr_offer_consumption_and_relation(
                     first_model, second_model)
+                ensure_user_can_consume_offer(first_model, second_model)
 
 
 def assess_cross_model_relations_multiple_controllers(args):
@@ -77,6 +83,7 @@ def assess_cross_model_relations_multiple_controllers(args):
             second_model = second_bs_manager.client
             ensure_cmr_offer_consumption_and_relation(
                 first_model, second_model)
+            ensure_user_can_consume_offer(first_model, second_model)
 
 
 def ensure_cmr_offer_management(client):
@@ -104,6 +111,66 @@ def ensure_cmr_offer_management(client):
         assert_offer_can_be_deleted(management_model, offer_url)
 
 
+def ensure_cmr_offer_consumption_and_relation(first_client, second_client):
+    """Ensure offers can be consumed by another model.
+
+    :param first_client: ModelClient model that will be the source of the
+      offer.
+    :param second_client: ModelClient model that will consume the offered
+      application endpoint.
+    """
+    with temporary_model(first_client, 'relation-source') as source_client:
+        with temporary_model(second_client, 'relation-sink') as sink_client:
+            offer_url, offer_name = deploy_and_offer_db_app(source_client)
+            assert_relating_to_offer_succeeds(sink_client, offer_url)
+            assert_saas_url_is_correct(sink_client, offer_name, offer_url)
+
+
+def ensure_user_can_consume_offer(first_client, second_client):
+    """Ensure admin is able to grant a user access to an offer.
+
+    Almost the same as `ensure_cmr_offer_consumption_and_relation` except in
+    this a user is created on all controllers (might be a single controller
+    or 2) with the permissions of 'login' for the source controller and 'write'
+    for the model the user will deploy an application to consume the offer.
+
+    :param first_client: ModelClient model that will be the source of the
+      offer.
+    :param second_client: ModelClient model that will consume the offered
+      application endpoint.
+    """
+    with temporary_model(first_client, 'relation-source') as source_client:
+        with temporary_model(second_client, 'relation-sink') as sink_client:
+            username = 'theundertaker'
+            source_controller_name = source_client.env.controller.name
+            sink_controller_name = sink_client.env.controller.name
+            with temp_dir() as tmp_dir:
+                # The models might be on the same controller, create a user
+                # only once per controller.
+                user_sink_client = create_user_on_controller(
+                    sink_client, username, tmp_dir, 'sink_controller', 'write')
+                if sink_controller_name != source_controller_name:
+                    create_user_on_controller(
+                        source_client, username, tmp_dir, 'source_controller')
+
+                offer_url, offer_name = deploy_and_offer_db_app(source_client)
+
+                source_client.controller_juju(
+                    'grant',
+                    (username, 'consume', offer_url))
+
+                offers_found = yaml.safe_load(
+                    user_sink_client.get_juju_output(
+                        'find-offers', '--format', 'yaml', include_e=False))
+                # There must only be one offer
+                user_offer_url = offers_found.keys()[0]
+
+                assert_relating_to_offer_succeeds(
+                    user_sink_client, user_offer_url)
+                assert_saas_url_is_correct(
+                    user_sink_client, offer_name, user_offer_url)
+
+
 def assert_offer_is_listed(client, app_name, offer_name=None):
     """Assert that an offered endpoint is listed.
 
@@ -115,7 +182,8 @@ def assert_offer_is_listed(client, app_name, offer_name=None):
     log.info('Assessing {} offers.'.format(
         'named' if offer_name else 'unnamed'))
 
-    expected_url, offer_key = offer_endpoint(client, app_name, offer_name)
+    expected_url, offer_key = offer_endpoint(
+        client, app_name, 'sink', offer_name=offer_name)
     offer_output = yaml.safe_load(
         client.get_juju_output('offers', '--format', 'yaml'))
 
@@ -147,37 +215,44 @@ def assert_offer_can_be_deleted(client, offer_url):
     log.info('PASS: Assert offer is removed.')
 
 
-def ensure_cmr_offer_consumption_and_relation(first_client, second_client):
-    """Ensure offers can be consumed by another model.
+def assert_relating_to_offer_succeeds(client, offer_url):
+    """Deploy mediawiki on client and relate to provided `offer_url`.
 
-    :param first_client: ModelClient model that will be the source of the
-      offer.
-    :param second_client: ModelClient model that will consume the offered
-      application endpoint.
+    Raises an exception if the workload status does not move to 'active' within
+    the default timeout (600 seconds).
     """
-    token = get_random_string()
-    deploy_local_charm(first_client, 'dummy-source')
-    first_client.set_config('dummy-source', {'token': token})
-    first_client.wait_for_workloads()
+    client.deploy('cs:mediawiki')
+    # No need to check workloads until the relation is set.
+    client.wait_for_started()
+    # mediawiki workload is blocked ('Database needed') until a db
+    # relation is successfully made.
+    client.juju('relate', ('mediawiki:db', offer_url))
+    client.wait_for_workloads()
 
-    deploy_local_charm(second_client, 'dummy-sink')
 
-    offer_url, offer_name = offer_endpoint(first_client, 'dummy-source')
-
-    second_client.juju('relate', ('dummy-sink', offer_url))
-    second_client.wait_for_workloads()
-    check_token(second_client, token)
-
-    status_saas_check = second_client.get_status()
+def assert_saas_url_is_correct(client, offer_name, offer_url):
+    """Offer url of Saas status field must match the expected `offer_url`."""
+    status_saas_check = client.get_status()
     status_saas_url = status_saas_check.status[
         'application-endpoints'][offer_name]['url']
     if status_saas_url != offer_url:
         raise JujuAssertionError(
-            'Consuming models status does not state status of the consumed'
-            ' offer.')
+            'Consuming models status does not state status of the'
+            'consumed offer.')
 
 
-def offer_endpoint(client, app_name, offer_name=None):
+def deploy_and_offer_db_app(client):
+    """Deploy mysql application and offer it's db endpoint.
+
+    :return: tuple of (resulting offer url, offer name)
+    """
+    client.deploy('cs:mysql')
+    client.wait_for_started()
+    client.wait_for_workloads()
+    return offer_endpoint(client, 'mysql', 'db')
+
+
+def offer_endpoint(client, app_name, relation_name, offer_name=None):
     """Create an endpoint offer for `app_name` with optional name.
 
     :param client: ModelClient of model to operate on.
@@ -190,7 +265,7 @@ def offer_endpoint(client, app_name, offer_name=None):
     offer_endpoint = '{model}.{app}:{relation}'.format(
         model=model_name,
         app=app_name,
-        relation='sink')
+        relation=relation_name)
     offer_args = [offer_endpoint, '-c', client.env.controller.name]
     if offer_name:
         offer_args.append(offer_name)
@@ -203,6 +278,20 @@ def offer_endpoint(client, app_name, offer_name=None):
         model=client.env.environment,
         offer=offer_name)
     return offer_url, offer_name
+
+
+def create_user_on_controller(
+        client, username, temp_dir, controller_name, permission='login'):
+    """Create new user on `client`s controller."""
+    new_user_home = os.path.join(temp_dir, username)
+    try:
+        os.makedirs(new_user_home)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+        log.info('User dir already exists, continuing.')
+    new_user = User(username, permission, [])
+    return client.register_user(new_user, new_user_home, controller_name)
 
 
 def deploy_local_charm(client, app_name):

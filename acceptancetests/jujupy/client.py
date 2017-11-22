@@ -569,6 +569,9 @@ class ModelClient:
 
     controller_permissions = frozenset(['login', 'addmodel', 'superuser'])
 
+    # Granting 'login' will error as a created user has that at creation.
+    ignore_permissions = frozenset(['login'])
+
     reserved_spaces = frozenset([
         'endpoint-bindings-data', 'endpoint-bindings-public'])
 
@@ -1935,6 +1938,9 @@ class ModelClient:
 
     def grant(self, user_name, permission, model=None):
         """Grant the user with model or controller permission."""
+        if permission in self.ignore_permissions:
+            log.info('Ignoring permission "{}".'.format(permission))
+            return
         if permission in self.controller_permissions:
             self.juju(
                 'grant',
