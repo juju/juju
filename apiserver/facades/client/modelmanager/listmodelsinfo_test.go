@@ -46,8 +46,8 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	s.st = &mockState{
 		model: s.createModel(c, s.adminUser),
 	}
-	s.st.modelDetailsForUser = func() ([]state.ModelDetails, error) {
-		return []state.ModelDetails{s.st.model.getModelDetails()}, s.st.NextErr()
+	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
+		return []state.ModelSummary{s.st.model.getModelDetails()}, s.st.NextErr()
 	}
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
@@ -110,15 +110,15 @@ func (s *ListModelsWithInfoSuite) TestListModelsWithInfoInvalidUser(c *gc.C) {
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelsWithInfoStateError(c *gc.C) {
-	errMsg := "captain error for ModelDetailsForUser"
+	errMsg := "captain error for ModelSummariesForUser"
 	s.st.Stub.SetErrors(errors.New(errMsg))
 	_, err := s.api.ListModelsWithInfo(params.Entity{Tag: s.adminUser.String()})
 	c.Assert(err, gc.ErrorMatches, errMsg)
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelsWithInfoNoModelsForUser(c *gc.C) {
-	s.st.modelDetailsForUser = func() ([]state.ModelDetails, error) {
-		return []state.ModelDetails{}, nil
+	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
+		return []state.ModelSummary{}, nil
 	}
 	results, err := s.api.ListModelsWithInfo(params.Entity{Tag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)

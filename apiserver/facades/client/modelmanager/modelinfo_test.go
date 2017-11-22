@@ -559,7 +559,7 @@ type mockState struct {
 	migration       *mockMigration
 	modelConfig     *config.Config
 
-	modelDetailsForUser func() ([]state.ModelDetails, error)
+	modelDetailsForUser func() ([]state.ModelSummary, error)
 }
 
 type fakeModelDescription struct {
@@ -740,12 +740,12 @@ func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission
 	return permission.UserAccess{}, st.NextErr()
 }
 func (st *mockState) ModelSummariesForUser(user names.UserTag) ([]state.ModelAccessInfo, error) {
-	st.MethodCall(st, "ModelSummariesForUser", user)
+	st.MethodCall(st, "ModelBasicInfoForUser", user)
 	return []state.ModelAccessInfo{}, st.NextErr()
 }
 
-func (st *mockState) ModelDetailsForUser(user names.UserTag) ([]state.ModelDetails, error) {
-	st.MethodCall(st, "ModelDetailsForUser", user)
+func (st *mockState) ModelDetailsForUser(user names.UserTag) ([]state.ModelSummary, error) {
+	st.MethodCall(st, "ModelSummariesForUser", user)
 	return st.modelDetailsForUser()
 }
 
@@ -1031,9 +1031,9 @@ func (m *mockModel) ModelConfigDefaultValues() (config.ModelDefaultAttributes, e
 	return m.cfgDefaults, nil
 }
 
-func (m *mockModel) getModelDetails() state.ModelDetails {
+func (m *mockModel) getModelDetails() state.ModelSummary {
 	cred, _ := m.CloudCredential()
-	return state.ModelDetails{
+	return state.ModelSummary{
 		Name:               m.Name(),
 		UUID:               m.UUID(),
 		Life:               m.Life(),

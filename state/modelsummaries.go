@@ -34,9 +34,9 @@ type MachineModelInfo struct {
 	Status     string
 }
 
-// ModelDetails describe interesting information for a given model. This is meant to match the values that a user wants
+// ModelSummary describe interesting information for a given model. This is meant to match the values that a user wants
 // to see as part of either show-model or list-models.
-type ModelDetails struct {
+type ModelSummary struct {
 	Name           string
 	UUID           string
 	Owner          string
@@ -78,10 +78,10 @@ type ModelDetails struct {
 	Migration ModelMigration
 }
 
-// modelDetailProcessor provides the working space for extracting details for models that a user has access to.
-type modelDetailProcessor struct {
+// modelSummaryProcessor provides the working space for extracting details for models that a user has access to.
+type modelSummaryProcessor struct {
 	st              *State
-	details         []ModelDetails
+	summaries       []ModelSummary
 	user            names.UserTag
 	isSuperuser     bool
 	indexByUUID     map[string]int
@@ -96,13 +96,13 @@ type modelDetailProcessor struct {
 	incompleteUUIDs set.Strings
 }
 
-func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserTag, isSuperuser bool) *modelDetailProcessor {
-	p := &modelDetailProcessor{
+func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserTag, isSuperuser bool) *modelSummaryProcessor {
+	p := &modelSummaryProcessor{
 		st:          st,
 		user:        user,
 		isSuperuser: isSuperuser,
 	}
-	p.details = make([]ModelDetails, len(modelDocs))
+	p.summaries = make([]ModelSummary, len(modelDocs))
 	p.indexByUUID = make(map[string]int, len(modelDocs))
 	p.modelUUIDs = make([]string, len(modelDocs))
 	for i, doc := range modelDocs {
@@ -110,7 +110,7 @@ func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserT
 		if names.IsValidCloudCredential(doc.CloudCredential) {
 			cloudCred = names.NewCloudCredentialTag(doc.CloudCredential).String()
 		}
-		p.details[i] = ModelDetails{
+		p.summaries[i] = ModelSummary{
 			Name:               doc.Name,
 			UUID:               doc.UUID,
 			Life:               doc.Life,
@@ -130,7 +130,7 @@ func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserT
 	return p
 }
 
-func (p *modelDetailProcessor) fillInFromConfig() error {
+func (p *modelSummaryProcessor) fillInFromConfig() error {
 	// We use the raw settings because we are reading across model UUIDs
 	rawSettings, closer := p.st.database.GetRawCollection(settingsC)
 	defer closer()
@@ -156,7 +156,7 @@ func (p *modelDetailProcessor) fillInFromConfig() error {
 			// err on one model should kill all the other ones?
 			return errors.Trace(err)
 		}
-		detail := &(p.details[idx])
+		detail := &(p.summaries[idx])
 		detail.ProviderType = cfg.Type()
 		detail.DefaultSeries = config.PreferredSeries(cfg)
 		if agentVersion, exists := cfg.AgentVersion(); exists {
@@ -175,7 +175,7 @@ func (p *modelDetailProcessor) fillInFromConfig() error {
 
 // removeExistingUsers takes a set of usernames, and removes any of them that are known-valid users.
 // it leaves behind names that could not be validated
-func (p *modelDetailProcessor) removeExistingUsers(names set.Strings) error {
+func (p *modelSummaryProcessor) removeExistingUsers(names set.Strings) error {
 	// usersC is a global collection, so we can access it from any state
 	users, closer := p.st.db().GetCollection(usersC)
 	defer closer()
@@ -195,7 +195,7 @@ func (p *modelDetailProcessor) removeExistingUsers(names set.Strings) error {
 	return nil
 }
 
-func (p *modelDetailProcessor) fillInFromStatus() error {
+func (p *modelSummaryProcessor) fillInFromStatus() error {
 	// We use the raw statuses because otherwise it filters by model-uuid
 	rawStatus, closer := p.st.database.GetRawCollection(statusesC)
 	defer closer()
@@ -213,7 +213,7 @@ func (p *modelDetailProcessor) fillInFromStatus() error {
 			// missing?
 			continue
 		}
-		p.details[idx].Status = status.StatusInfo{
+		p.summaries[idx].Status = status.StatusInfo{
 			Status:  doc.Status,
 			Message: doc.StatusInfo,
 			Data:    utils.UnescapeKeys(doc.StatusData),
@@ -226,7 +226,7 @@ func (p *modelDetailProcessor) fillInFromStatus() error {
 	return nil
 }
 
-func (p *modelDetailProcessor) fillInPermissions(permissionIds []string) error {
+func (p *modelSummaryProcessor) fillInPermissions(permissionIds []string) error {
 	// permissionsC is a global collection, so can be accessed from any state
 	perms, closer := p.st.db().GetCollection(permissionsC)
 	defer closer()
@@ -247,7 +247,7 @@ func (p *modelDetailProcessor) fillInPermissions(permissionIds []string) error {
 			// ??
 			continue
 		}
-		details := &p.details[modelIdx]
+		details := &p.summaries[modelIdx]
 		access := permission.Access(doc.Access)
 		if err := access.Validate(); err == nil {
 			details.Access = access
@@ -259,7 +259,7 @@ func (p *modelDetailProcessor) fillInPermissions(permissionIds []string) error {
 	return nil
 }
 
-func (p *modelDetailProcessor) fillInMachineSummary() error {
+func (p *modelSummaryProcessor) fillInMachineSummary() error {
 	machines, closer := p.st.db().GetRawCollection(machinesC)
 	defer closer()
 	query := machines.Find(bson.M{
@@ -280,7 +280,7 @@ func (p *modelDetailProcessor) fillInMachineSummary() error {
 		}
 		// There was a lot of data that was collected from things like Machine.Status.
 		// However, if we're just aggregating the counts, we don't care about any of that.
-		details := &p.details[idx]
+		details := &p.summaries[idx]
 		details.MachineCount++
 		machineIds = append(machineIds, doc.ModelUUID+":"+doc.Id)
 	}
@@ -298,7 +298,7 @@ func (p *modelDetailProcessor) fillInMachineSummary() error {
 		if !ok {
 			continue
 		}
-		details := &p.details[idx]
+		details := &p.summaries[idx]
 		if instData.CpuCores != nil {
 			details.CoreCount += int64(*instData.CpuCores)
 		}
@@ -309,7 +309,7 @@ func (p *modelDetailProcessor) fillInMachineSummary() error {
 	return nil
 }
 
-func (p *modelDetailProcessor) fillInMigration() error {
+func (p *modelSummaryProcessor) fillInMigration() error {
 	// For now, we just potato the Migration information. Its a little unfortunate, but the expectation is that most
 	// models won't have been migrated, and thus the table is mostly empty anyway.
 	// It might be possible to do it differently with an aggregation and $first queries.
@@ -374,7 +374,7 @@ func (p *modelDetailProcessor) fillInMigration() error {
 		if !ok {
 			continue
 		}
-		details := &p.details[idx]
+		details := &p.summaries[idx]
 		// TODO (jam): Can we make modelMigration *not* accept a State object so that we know we won't potato more stuff in the future?
 		details.Migration = &modelMigration{
 			doc:       doc,
@@ -390,11 +390,11 @@ func (p *modelDetailProcessor) fillInMigration() error {
 
 // fillInJustUser fills in the Access rights for this user on every model (but not other users).
 // We will use this information later to determine whether it is reasonable to include the information from other models.
-func (p *modelDetailProcessor) fillInJustUser() error {
+func (p *modelSummaryProcessor) fillInJustUser() error {
 	if p.isSuperuser {
 		// we skip this check, because we're the superuser, so we'll fill in everything anyway.
-		for i := range p.details {
-			p.details[i].Access = permission.AdminAccess
+		for i := range p.summaries {
+			p.summaries[i].Access = permission.AdminAccess
 		}
 		return nil
 	}
@@ -413,7 +413,7 @@ func (p *modelDetailProcessor) fillInJustUser() error {
 	return nil
 }
 
-func (p *modelDetailProcessor) fillInLastAccess() error {
+func (p *modelSummaryProcessor) fillInLastAccess() error {
 	// We fill in the last access only for the requesting user.
 	lastAccessIds := make([]string, len(p.modelUUIDs))
 	suffix := ":" + strings.ToLower(p.user.Name())
@@ -432,7 +432,7 @@ func (p *modelDetailProcessor) fillInLastAccess() error {
 		if !ok {
 			continue
 		}
-		details := &p.details[idx]
+		details := &p.summaries[idx]
 		t := connInfo.LastConnection
 		details.UserLastConnection = &t
 	}

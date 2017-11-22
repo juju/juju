@@ -693,7 +693,7 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelIn
 		return result, errors.Trace(err)
 	}
 
-	modelInfos, err := m.state.ModelDetailsForUser(userTag)
+	modelInfos, err := m.state.ModelSummariesForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -765,7 +765,7 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		return result, errors.Trace(err)
 	}
 
-	modelInfos, err := m.state.ModelSummariesForUser(userTag)
+	modelInfos, err := m.state.ModelBasicInfoForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

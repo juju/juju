@@ -741,6 +741,10 @@ func ModelBackendFromIAASModel(im *IAASModel) modelBackend {
 	return im.mb
 }
 
-func (st *State) ModelQueryForUser(user names.UserTag) (mongo.Query, SessionCloser, error) {
-	return st.modelQueryForUser(user)
+func (st *State) IsUserSuperuser(user names.UserTag) (bool, error) {
+	return st.isUserSuperuser(user)
+}
+
+func (st *State) ModelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.Query, SessionCloser, error) {
+	return st.modelQueryForUser(user, isSuperuser)
 }

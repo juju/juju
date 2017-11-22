@@ -15,15 +15,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 )
 
-type ModelDetailsSuite struct {
+type ModelSummariesSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&ModelDetailsSuite{})
+var _ = gc.Suite(&ModelSummariesSuite{})
 
-func (s *ModelDetailsSuite) Setup3Models(c *gc.C) {
+func (s *ModelSummariesSuite) Setup4Models(c *gc.C) {
 	user1 := s.Factory.MakeUser(c, &factory.UserParams{
-		Name:        "user1",
+		Name:        "user1write",
 		NoModelUser: true,
 	})
 	st1 := s.Factory.MakeModel(c, &factory.ModelParams{
@@ -32,7 +32,7 @@ func (s *ModelDetailsSuite) Setup3Models(c *gc.C) {
 	})
 	st1.Close()
 	user2 := s.Factory.MakeUser(c, &factory.UserParams{
-		Name:        "user2",
+		Name:        "user2read",
 		NoModelUser: true,
 	})
 	st2 := s.Factory.MakeModel(c, &factory.ModelParams{
@@ -40,6 +40,15 @@ func (s *ModelDetailsSuite) Setup3Models(c *gc.C) {
 		Owner: user2.Tag(),
 	})
 	st2.Close()
+	user3 := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        "user3admin",
+		NoModelUser: true,
+	})
+	st3 := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name:  "user3model",
+		Owner: user3.Tag(),
+	})
+	st3.Close()
 	owner := s.Model.Owner()
 	sharedSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "shared",
@@ -62,11 +71,19 @@ func (s *ModelDetailsSuite) Setup3Models(c *gc.C) {
 		Access:    "read",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = sharedModel.AddUser(state.UserAccessSpec{
+		User:      user3.UserTag(),
+		CreatedBy: owner,
+		Access:    "admin",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelDetailsSuite) modelNamesForUser(c *gc.C, user string) []string {
+func (s *ModelSummariesSuite) modelNamesForUser(c *gc.C, user string) []string {
 	tag := names.NewUserTag(user)
-	modelQuery, closer, err := s.State.ModelQueryForUser(tag)
+	isSuper, err := s.State.IsUserSuperuser(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	modelQuery, closer, err := s.State.ModelQueryForUser(tag, isSuper)
 	defer closer()
 	c.Assert(err, jc.ErrorIsNil)
 	var docs []struct {
@@ -83,17 +100,32 @@ func (s *ModelDetailsSuite) modelNamesForUser(c *gc.C, user string) []string {
 	return names
 }
 
-func (s *ModelDetailsSuite) TestModelsForUserAdmin(c *gc.C) {
-	s.Setup3Models(c)
+func (s *ModelSummariesSuite) TestModelsForUserAdmin(c *gc.C) {
+	s.Setup4Models(c)
 	names := s.modelNamesForUser(c, s.Model.Owner().Name())
 	// Admin always gets to see all models
-	c.Check(names, gc.DeepEquals, []string{"shared", "testenv", "user1model", "user2model"})
+	c.Check(names, gc.DeepEquals, []string{"shared", "testenv", "user1model", "user2model", "user3model"})
 }
 
-func (s *ModelDetailsSuite) TestModelsForUser1(c *gc.C) {
+func (s *ModelSummariesSuite) TestModelsForUser1(c *gc.C) {
 	// User1 is only added to the model they own and the shared model
-	s.Setup3Models(c)
-	names := s.modelNamesForUser(c, "user1")
+	s.Setup4Models(c)
+	names := s.modelNamesForUser(c, "user1write")
 	// Admin always gets to see all models
 	c.Check(names, gc.DeepEquals, []string{"shared", "user1model"})
+}
+
+func (s *ModelSummariesSuite) TestModelsForUser2(c *gc.C) {
+	// User1 is only added to the model they own and the shared model
+	s.Setup4Models(c)
+	names := s.modelNamesForUser(c, "user2read")
+	// Admin always gets to see all models
+	c.Check(names, gc.DeepEquals, []string{"shared", "user2model"})
+}
+
+func (s *ModelSummariesSuite) TestModelsForUser3(c *gc.C) {
+	s.Setup4Models(c)
+	names := s.modelNamesForUser(c, "user3admin")
+	// Admin always gets to see all models
+	c.Check(names, gc.DeepEquals, []string{"shared", "user3model"})
 }

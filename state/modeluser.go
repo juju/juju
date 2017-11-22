@@ -182,7 +182,7 @@ func (st *State) isUserSuperuser(user names.UserTag) (bool, error) {
 	return isControllerSuperuser, nil
 }
 
-func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error) {
+func (st *State) ModelSummariesForUser(user names.UserTag) ([]ModelSummary, error) {
 	isControllerSuperuser, err := st.isUserSuperuser(user)
 	modelQuery, closer, err := st.modelQueryForUser(user, isControllerSuperuser)
 	if err != nil {
@@ -213,7 +213,7 @@ func (st *State) ModelDetailsForUser(user names.UserTag) ([]ModelDetails, error)
 	if err := p.fillInMigration(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.details, nil
+	return p.summaries, nil
 }
 
 // modelsForUser gives you the information about all models that a user has access to.
@@ -260,9 +260,9 @@ type ModelAccessInfo struct {
 	LastConnection time.Time
 }
 
-// ModelSummariesForUser gives you the information about all models that a user has access to.
+// ModelBasicInfoForUser gives you the information about all models that a user has access to.
 // This includes the name and UUID, as well as the last time the user connected to that model.
-func (st *State) ModelSummariesForUser(user names.UserTag) ([]ModelAccessInfo, error) {
+func (st *State) ModelBasicInfoForUser(user names.UserTag) ([]ModelAccessInfo, error) {
 	isSuperuser, err := st.isUserSuperuser(user)
 	if err != nil {
 		return nil, errors.Trace(err)
