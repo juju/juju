@@ -404,7 +404,7 @@ func (s *modelmanagerSuite) TestModelStatusError(c *gc.C) {
 	c.Assert(out, gc.IsNil)
 }
 
-func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
+func (s *modelmanagerSuite) TesListModelSummaries(c *gc.C) {
 	userTag := names.NewUserTag("commander")
 	modelInfo := params.ModelSummary{
 		Name:               "name",
@@ -418,7 +418,7 @@ func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 		OwnerTag:           "user-admin",
 		Life:               params.Alive,
 		Status:             params.EntityStatus{Status: status.Status("active")},
-		User:               params.ModelUserInfo{},
+		UserAccess:         params.ModelAdminAccess,
 		Counts:             []params.ModelEntityCount{},
 	}
 
@@ -427,7 +427,7 @@ func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 			c.Check(objType, gc.Equals, "ModelManager")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ListModelsWithInfo")
+			c.Check(request, gc.Equals, "ListModelSummaries")
 			c.Check(arg, gc.Equals, params.Entity{Tag: userTag.String()})
 			c.Check(result, gc.FitsTypeOf, &params.ModelSummaryResults{})
 
@@ -441,7 +441,7 @@ func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 	}
 
 	client := modelmanager.NewClient(apiCaller)
-	results, err := client.ListModelsWithInfo(userTag)
+	results, err := client.ListModelSummaries(userTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []params.ModelSummaryResult{
 		{Result: &modelInfo},
@@ -449,14 +449,14 @@ func (s *modelmanagerSuite) TestListModelsWithInfo(c *gc.C) {
 	})
 }
 
-func (s *modelmanagerSuite) TestListModelsWithInfoError(c *gc.C) {
+func (s *modelmanagerSuite) TestListModelSummariesError(c *gc.C) {
 	userTag := names.NewUserTag("captain")
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, result interface{}) error {
 			return errors.New("captain, error")
 		})
 	client := modelmanager.NewClient(apiCaller)
-	out, err := client.ListModelsWithInfo(userTag)
+	out, err := client.ListModelSummaries(userTag)
 	c.Assert(err, gc.ErrorMatches, "captain, error")
 	c.Assert(out, gc.IsNil)
 }

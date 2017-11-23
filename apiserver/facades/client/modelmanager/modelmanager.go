@@ -43,7 +43,7 @@ type ModelManagerV4 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.DumpModelRequest) params.StringResults
 	DumpModelsDB(args params.Entities) params.MapResults
-	ListModelsWithInfo(user params.Entity) (params.ModelSummaryResults, error)
+	ListModelSummaries(user params.Entity) (params.ModelSummaryResults, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
 	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
@@ -676,11 +676,11 @@ func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 	return results
 }
 
-// ListModelsWithInfo returns models that the specified user
+// ListModelSummaries returns models that the specified user
 // has access to in the current server.  Only the controller owner
 // can list models for any user (at this stage).  Other users
 // can only ask about their own models.
-func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelSummaryResults, error) {
+func (m *ModelManagerAPI) ListModelSummaries(user params.Entity) (params.ModelSummaryResults, error) {
 	result := params.ModelSummaryResults{}
 
 	userTag, err := names.ParseUserTag(user.Tag)
@@ -719,27 +719,24 @@ func (m *ModelManagerAPI) ListModelsWithInfo(user params.Entity) (params.ModelSu
 			ProviderType:  mi.ProviderType,
 			AgentVersion:  mi.AgentVersion,
 
-			Status: common.EntityStatusFromState(mi.Status),
-			Counts: []params.ModelEntityCount{},
-			User: params.ModelUserInfo{
-				LastConnection: mi.UserLastConnection,
-			},
+			Status:             common.EntityStatusFromState(mi.Status),
+			Counts:             []params.ModelEntityCount{},
+			UserLastConnection: mi.UserLastConnection,
 		}
 
 		if mi.MachineCount > 0 {
-			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, uint64(mi.MachineCount)})
+			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, mi.MachineCount})
 		}
 
 		if mi.CoreCount > 0 {
-			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, uint64(mi.CoreCount)})
+			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, mi.CoreCount})
 		}
 
 		access, err := common.StateToParamsUserAccessPermission(mi.Access)
 		if err == nil {
-			summary.User.Access = access
+			summary.UserAccess = access
 		}
 		result.Results = append(result.Results, params.ModelSummaryResult{Result: summary})
-
 	}
 	return result, nil
 }

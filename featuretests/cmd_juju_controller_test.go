@@ -99,12 +99,14 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
+	// TODO (anastasiamac 2017-11-23) currently logged in user does not have any right to the model,
+	// except that they are a superuser on the controller?..
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: kontroll\n"+
 		"\n"+
-		"Model              Cloud/Region        Status     Access  Last connection\n"+
-		"admin/controller*  dummy/dummy-region  available  admin   just now\n"+
-		"test/new-model     dummy/dummy-region  available  -       never connected\n"+
+		"Model           Cloud/Region        Status     Access  Last connection\n"+
+		"controller*     dummy/dummy-region  available  admin   just now\n"+
+		"test/new-model  dummy/dummy-region  available  admin   never connected\n"+
 		"\n")
 }
 
@@ -128,17 +130,9 @@ models:
   status:
     current: available
     since: .*
-  users:
-    admin:
-      display-name: admin
-      access: admin
-      last-connection: just now
-  machines:
-    "0":
-      cores: 0
-    "1":
-      cores: 2
-  sla: unsupported
+  access: admin
+  last-connection: just now
+  sla-owner: admin
   agent-version: %v
 current-model: controller
 `[1:]

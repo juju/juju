@@ -6,9 +6,11 @@ package controller
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"time"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -27,6 +29,16 @@ func NewListModelsCommand() cmd.Command {
 	return modelcmd.WrapController(&modelsCommand{})
 }
 
+// ModelManagerAPI defines the methods on the model manager API that
+// the models command calls.
+type ModelManagerAPI interface {
+	Close() error
+	ListModels(user string) ([]base.UserModel, error)
+	ListModelSummaries(user names.UserTag) ([]params.ModelSummaryResult, error)
+	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
+	BestAPIVersion() int
+}
+
 // modelsCommand returns the list of all the models the
 // current user can access on the current controller.
 type modelsCommand struct {
@@ -39,40 +51,8 @@ type modelsCommand struct {
 	exactTime    bool
 	modelAPI     ModelManagerAPI
 	sysAPI       ModelsSysAPI
-}
 
-var listModelsDoc = `
-The models listed here are either models you have created yourself, or
-models which have been shared with you. Default values for user and
-controller are, respectively, the current user and the current controller.
-The active model is denoted by an asterisk.
-
-Examples:
-
-    juju models
-    juju models --user bob
-
-See also:
-    add-model
-    share-model
-    unshare-model
-`
-
-// ModelManagerAPI defines the methods on the model manager API that
-// the models command calls.
-type ModelManagerAPI interface {
-	Close() error
-	ListModels(user string) ([]base.UserModel, error)
-	ListModelsWithInfo(user names.UserTag) ([]params.ModelSummaryResult, error)
-	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
-	BestAPIVersion() int
-}
-
-// ModelsSysAPI defines the methods on the controller manager API that the
-// list models command calls.
-type ModelsSysAPI interface {
-	Close() error
-	AllModels() ([]base.UserModel, error)
+	runVars modelsRunValues
 }
 
 // Info implements Command.Info
@@ -83,20 +63,6 @@ func (c *modelsCommand) Info() *cmd.Info {
 		Doc:     listModelsDoc,
 		Aliases: []string{"list-models"},
 	}
-}
-
-func (c *modelsCommand) getModelManagerAPI() (ModelManagerAPI, error) {
-	if c.modelAPI != nil {
-		return c.modelAPI, nil
-	}
-	return c.NewModelManagerAPIClient()
-}
-
-func (c *modelsCommand) getSysAPI() (ModelsSysAPI, error) {
-	if c.sysAPI != nil {
-		return c.sysAPI, nil
-	}
-	return c.NewControllerAPIClient()
 }
 
 // SetFlags implements Command.SetFlags.
@@ -111,22 +77,6 @@ func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": c.formatTabular,
 	})
-}
-
-// ModelSet contains the set of models known to the client,
-// and UUID of the current model.
-type ModelSet struct {
-	Models []common.ModelInfo `yaml:"models" json:"models"`
-
-	// CurrentModel is the name of the current model, qualified for the
-	// user for which we're listing models. i.e. for the user admin,
-	// and the model admin/foo, this field will contain "foo"; for
-	// bob and the same model, the field will contain "admin/foo".
-	CurrentModel string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
-
-	// CurrentModelQualified is the fully qualified name for the current
-	// model, i.e. having the format $owner/$model.
-	CurrentModelQualified string `yaml:"-" json:"-"`
 }
 
 // Run implements Command.Run
@@ -148,6 +98,11 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		return errors.NotValidf("user %q", c.user)
 	}
 
+	c.runVars = modelsRunValues{
+		currentUser:    names.NewUserTag(c.user),
+		controllerName: controllerName,
+	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	now := time.Now()
 
 	modelmanagerAPI, err := c.getModelManagerAPI()
@@ -156,64 +111,17 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	}
 	defer modelmanagerAPI.Close()
 
-	var modelInfo []common.ModelInfo
+	haveModels := false
 	if modelmanagerAPI.BestAPIVersion() > 3 {
 		// New code path
-		modelInfo, err = c.getNewModelInfo(ctx, modelmanagerAPI, controllerName, now)
-		if err != nil {
-			return errors.Annotate(err, "cannot list models")
-		}
+		haveModels, err = c.getModelSummaries(ctx, modelmanagerAPI, now)
 	} else {
-		// First get a list of the models.
-		var models []base.UserModel
-		if c.all {
-			models, err = c.getAllModels()
-		} else {
-			models, err = c.getUserModels(modelmanagerAPI)
-		}
-		if err != nil {
-			return errors.Annotate(err, "cannot list models")
-		}
-
-		// TODO(perrito666) 2016-05-02 lp:1558657
-		// And now get the full details of the models.
-		modelInfo, err = c.getModelInfo(modelmanagerAPI, controllerName, now, models)
-		if err != nil {
-			return errors.Annotate(err, "cannot get model details")
-		}
+		haveModels, err = c.oldModelsCommandBehaviour(ctx, modelmanagerAPI, now)
 	}
-	// update client store here too...
-	modelsToStore := make(map[string]jujuclient.ModelDetails, len(modelInfo))
-	for _, model := range modelInfo {
-		modelsToStore[model.Name] = jujuclient.ModelDetails{model.UUID}
+	if err != nil {
+		return errors.Annotate(err, "cannot list models")
 	}
-	if err := c.ClientStore().SetModels(controllerName, modelsToStore); err != nil {
-		return errors.Trace(err)
-	}
-
-	modelSet := ModelSet{Models: modelInfo}
-	current, err := c.ClientStore().CurrentModel(controllerName)
-	if err == nil {
-		// It is not a problem if we could not get current model -
-		// it could have been destroyed since last time we've used this client.
-		// However, if we do find it, we'd want to mark it in the output.
-		modelSet.CurrentModelQualified = current
-		modelSet.CurrentModel = current
-		if c.user != "" {
-			userForListing := names.NewUserTag(c.user)
-			unqualifiedModelName, owner, err := jujuclient.SplitModelName(current)
-			if err == nil {
-				modelSet.CurrentModel = common.OwnerQualifiedModelName(
-					unqualifiedModelName, owner, userForListing,
-				)
-			}
-		}
-	}
-
-	if err := c.out.Write(ctx, modelSet); err != nil {
-		return err
-	}
-	if len(modelInfo) == 0 && c.out.Name() == "tabular" {
+	if !haveModels && c.out.Name() == "tabular" {
 		// When the output is tabular, we inform the user when there
 		// are no models available, and tell them how to go about
 		// creating or granting access to them.
@@ -222,12 +130,37 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *modelsCommand) getNewModelInfo(ctx *cmd.Context, client ModelManagerAPI, controllerName string, now time.Time) ([]common.ModelInfo, error) {
-	results, err := client.ListModelsWithInfo(names.NewUserTag(c.user))
-	if err != nil {
-		return nil, errors.Trace(err)
+func (c *modelsCommand) currentModelName() (qualified, name string) {
+	current, err := c.ClientStore().CurrentModel(c.runVars.controllerName)
+	if err == nil {
+		qualified, name = current, current
+		if c.user != "" {
+			unqualifiedModelName, owner, err := jujuclient.SplitModelName(current)
+			if err == nil {
+				// If current model's owner is this user, un-qualify model name.
+				name = common.OwnerQualifiedModelName(
+					unqualifiedModelName, owner, c.runVars.currentUser,
+				)
+			}
+		}
 	}
-	info := []common.ModelInfo{}
+	return
+}
+
+func (c *modelsCommand) getModelManagerAPI() (ModelManagerAPI, error) {
+	if c.modelAPI != nil {
+		return c.modelAPI, nil
+	}
+	return c.NewModelManagerAPIClient()
+}
+
+func (c *modelsCommand) getModelSummaries(ctx *cmd.Context, client ModelManagerAPI, now time.Time) (bool, error) {
+	results, err := client.ListModelSummaries(c.runVars.currentUser)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	summaries := []ModelSummary{}
+	modelsToStore := map[string]jujuclient.ModelDetails{}
 	for _, result := range results {
 		// Since we do not want to throw away all results if we have an
 		// an issue with a model, we will display errors in Stderr
@@ -236,119 +169,213 @@ func (c *modelsCommand) getNewModelInfo(ctx *cmd.Context, client ModelManagerAPI
 			ctx.Infof(result.Error.Error())
 			continue
 		}
-		mi := params.ModelInfo{}
-		//*result.Result
-		model, err := common.ModelInfoFromParams(mi, now)
+		model, err := c.modelSummaryFromParams(*result.Result, now)
 		if err != nil {
 			ctx.Infof(err.Error())
 			continue
 		}
-		model.ControllerName = controllerName
-		info = append(info, model)
+		model.ControllerName = c.runVars.controllerName
+		summaries = append(summaries, model)
+		modelsToStore[model.Name] = jujuclient.ModelDetails{model.UUID}
 	}
-	return info, nil
+	found := len(summaries) == 0
+
+	if err := c.ClientStore().SetModels(c.runVars.controllerName, modelsToStore); err != nil {
+		return found, errors.Trace(err)
+	}
+
+	// Identifying current model has to be done after models in client store have been updated
+	// since that call determines/updates current model information.
+	modelSummarySet := ModelSummarySet{Models: summaries}
+	modelSummarySet.CurrentModelQualified, modelSummarySet.CurrentModel = c.currentModelName()
+	if err := c.out.Write(ctx, modelSummarySet); err != nil {
+		return found, err
+	}
+	return found, err
 }
 
-func (c *modelsCommand) getModelInfo(client ModelManagerAPI, controllerName string, now time.Time, userModels []base.UserModel) ([]common.ModelInfo, error) {
-	tags := make([]names.ModelTag, len(userModels))
-	for i, m := range userModels {
-		tags[i] = names.NewModelTag(m.UUID)
-	}
-	results, err := client.ModelInfo(tags)
+// ModelSummarySet contains the set of summaries for models.
+type ModelSummarySet struct {
+	Models []ModelSummary `yaml:"models" json:"models"`
+
+	// CurrentModel is the name of the current model, qualified for the
+	// user for which we're listing models. i.e. for the user admin,
+	// and the model admin/foo, this field will contain "foo"; for
+	// bob and the same model, the field will contain "admin/foo".
+	CurrentModel string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
+
+	// CurrentModelQualified is the fully qualified name for the current
+	// model, i.e. having the format $owner/$model.
+	CurrentModelQualified string `yaml:"-" json:"-"`
+}
+
+// ModelSummary contains a summary of some information about a model.
+type ModelSummary struct {
+	// Name is a fully qualified model name, i.e. having the format $owner/$model.
+	Name string `json:"name" yaml:"name"`
+
+	// ShortName is un-qualified model name.
+	ShortName string `json:"short-name" yaml:"short-name"`
+	UUID      string `json:"model-uuid" yaml:"model-uuid"`
+
+	// TODO (anastasiamac 2017-11-23) not sure why wed need controller name and uuid,
+	// since these will be the same for all models here...
+	ControllerUUID     string              `json:"controller-uuid" yaml:"controller-uuid"`
+	ControllerName     string              `json:"controller-name" yaml:"controller-name"`
+	Owner              string              `json:"owner" yaml:"owner"`
+	Cloud              string              `json:"cloud" yaml:"cloud"`
+	CloudRegion        string              `json:"region,omitempty" yaml:"region,omitempty"`
+	ProviderType       string              `json:"type,omitempty" yaml:"type,omitempty"`
+	Life               string              `json:"life" yaml:"life"`
+	Status             *common.ModelStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	UserAccess         string              `yaml:"access" json:"access"`
+	UserLastConnection string              `yaml:"last-connection" json:"last-connection"`
+
+	// Counts is the map of different counts where key is the entity that was counted
+	// and value is the number, for e.g. {"machines":10,"cores":3}.
+	Counts       map[string]int64 `json:"-" yaml:"-"`
+	SLA          string           `json:"sla,omitempty" yaml:"sla,omitempty"`
+	SLAOwner     string           `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
+	AgentVersion string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
+}
+
+func (c *modelsCommand) modelSummaryFromParams(info params.ModelSummary, now time.Time) (ModelSummary, error) {
+	ownerTag, err := names.ParseUserTag(info.OwnerTag)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return ModelSummary{}, errors.Trace(err)
 	}
-
-	info := []common.ModelInfo{}
-	for i, result := range results {
-		if result.Error != nil {
-			if params.IsCodeUnauthorized(result.Error) {
-				// If we get this, then the model was removed
-				// between the initial listing and the call
-				// to query its details.
-				continue
-			}
-			return nil, errors.Annotatef(
-				result.Error, "getting model %s (%q) info",
-				userModels[i].UUID, userModels[i].Name,
-			)
-		}
-
-		model, err := common.ModelInfoFromParams(*result.Result, now)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		model.ControllerName = controllerName
-		info = append(info, model)
-	}
-	return info, nil
-}
-
-func (c *modelsCommand) getAllModels() ([]base.UserModel, error) {
-	client, err := c.getSysAPI()
+	cloudTag, err := names.ParseCloudTag(info.CloudTag)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return ModelSummary{}, errors.Trace(err)
 	}
-	defer client.Close()
-	return client.AllModels()
+	summary := ModelSummary{
+		ShortName:      info.Name,
+		Name:           jujuclient.JoinOwnerModelName(ownerTag, info.Name),
+		UUID:           info.UUID,
+		ControllerUUID: info.ControllerUUID,
+		Owner:          ownerTag.Id(),
+		Life:           string(info.Life),
+		Cloud:          cloudTag.Id(),
+		CloudRegion:    info.CloudRegion,
+		UserAccess:     string(info.UserAccess),
+	}
+	if info.AgentVersion != nil {
+		summary.AgentVersion = info.AgentVersion.String()
+	}
+	// Although this may be more performance intensive, we have to use reflection
+	// since structs containing map[string]interface {} cannot be compared, i.e
+	// cannot use simple '==' here.
+	if !reflect.DeepEqual(info.Status, params.EntityStatus{}) {
+		summary.Status = &common.ModelStatus{
+			Current: info.Status.Status,
+			Message: info.Status.Info,
+			Since:   common.FriendlyDuration(info.Status.Since, now),
+		}
+	}
+	if info.Migration != nil {
+		status := summary.Status
+		if status == nil {
+			status = &common.ModelStatus{}
+			summary.Status = status
+		}
+		status.Migration = info.Migration.Status
+		status.MigrationStart = common.FriendlyDuration(info.Migration.Start, now)
+		status.MigrationEnd = common.FriendlyDuration(info.Migration.End, now)
+	}
+
+	if info.ProviderType != "" {
+		summary.ProviderType = info.ProviderType
+
+	}
+	if info.UserLastConnection != nil {
+		summary.UserLastConnection = common.UserFriendlyDuration(*info.UserLastConnection, now)
+	} else {
+		summary.UserLastConnection = "never connected"
+	}
+	if info.SLA != nil {
+		summary.SLA = common.ModelSLAFromParams(info.SLA)
+		summary.SLAOwner = common.ModelSLAOwnerFromParams(info.SLA)
+	}
+	summary.Counts = map[string]int64{}
+	for _, v := range info.Counts {
+		summary.Counts[string(v.Entity)] = v.Count
+	}
+
+	// If hasMachinesCounts is not yet set, check if we should set it based on this model summary.
+	if !c.runVars.hasMachinesCount {
+		if _, ok := summary.Counts[string(params.Machines)]; ok {
+			c.runVars.hasMachinesCount = true
+		}
+	}
+
+	// If hasCoresCounts is not yet set, check if we should set it based on this model summary.
+	if !c.runVars.hasCoresCount {
+		if _, ok := summary.Counts[string(params.Cores)]; ok {
+			c.runVars.hasCoresCount = true
+		}
+	}
+	return summary, nil
 }
 
-func (c *modelsCommand) getUserModels(client ModelManagerAPI) ([]base.UserModel, error) {
-	return client.ListModels(c.user)
+// These values are specific to an individual Run() of the model command.
+type modelsRunValues struct {
+	currentUser      names.UserTag
+	controllerName   string
+	hasMachinesCount bool
+	hasCoresCount    bool
 }
 
 // formatTabular takes an interface{} to adhere to the cmd.Formatter interface
 func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error {
-	modelSet, ok := value.(ModelSet)
+	summariesSet, ok := value.(ModelSummarySet)
 	if !ok {
-		return errors.Errorf("expected value of type %T, got %T", modelSet, value)
+		modelSet, k := value.(ModelSet)
+		if !k {
+			return errors.Errorf("expected value of type ModelSummarySet or ModelSet, got %T", value)
+		}
+		return c.tabularSet(writer, modelSet)
 	}
-	// We need the tag of the user for which we're listing models,
-	// and for the logged-in user. We use these below when formatting
-	// the model display names.
-	loggedInUser := names.NewUserTag(c.loggedInUser)
-	userForLastConn := loggedInUser
-	var currentUser names.UserTag
-	if c.user != "" {
-		currentUser = names.NewUserTag(c.user)
-		userForLastConn = currentUser
-	}
+	return c.tabularSummaries(writer, summariesSet)
+}
 
-	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	w.Println("Controller: " + controllerName)
+func (c *modelsCommand) tabularColumns(tw *ansiterm.TabWriter, w output.Wrapper) {
+	w.Println("Controller: " + c.runVars.controllerName)
 	w.Println()
 	w.Print("Model")
 	if c.listUUID {
 		w.Print("UUID")
 	}
-	// Only owners, or users with write access or above get to see machines and cores.
-	haveMachineInfo := false
-	for _, m := range modelSet.Models {
-		if haveMachineInfo = len(m.Machines) > 0; haveMachineInfo {
-			break
-		}
-	}
-	if haveMachineInfo {
-		w.Println("Cloud/Region", "Status", "Machines", "Cores", "Access", "Last connection")
+	w.Print("Cloud/Region", "Status")
+	printColumnHeader := func(columnName string, columnNumber int) {
+		w.Print(columnName)
 		offset := 0
 		if c.listUUID {
 			offset++
 		}
-		tw.SetColumnAlignRight(3 + offset)
-		tw.SetColumnAlignRight(4 + offset)
-	} else {
-		w.Println("Cloud/Region", "Status", "Access", "Last connection")
+		tw.SetColumnAlignRight(columnNumber + offset)
 	}
+
+	if c.runVars.hasMachinesCount {
+		printColumnHeader("Machines", 3)
+	}
+
+	if c.runVars.hasCoresCount {
+		printColumnHeader("Cores", 4)
+	}
+	w.Println("Access", "Last connection")
+}
+
+// formatTabular takes model summaries set to adhere to the cmd.Formatter interface
+func (c *modelsCommand) tabularSummaries(writer io.Writer, modelSet ModelSummarySet) error {
+	tw := output.TabWriter(writer)
+	w := output.Wrapper{tw}
+	c.tabularColumns(tw, w)
+
 	for _, model := range modelSet.Models {
 		cloudRegion := strings.Trim(model.Cloud+"/"+model.CloudRegion, "/")
 		owner := names.NewUserTag(model.Owner)
 		name := model.Name
-		if currentUser == owner {
+		if c.runVars.currentUser == owner {
 			// No need to display fully qualified model name to its owner.
 			name = model.ShortName
 		}
@@ -361,37 +388,48 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 		if c.listUUID {
 			w.Print(model.UUID)
 		}
-		userForAccess := loggedInUser
-		if c.user != "" {
-			userForAccess = names.NewUserTag(c.user)
-		}
 		status := "-"
 		if model.Status != nil {
 			status = model.Status.Current.String()
 		}
 		w.Print(cloudRegion, status)
-		if haveMachineInfo {
-			machineInfo := fmt.Sprintf("%d", len(model.Machines))
-			cores := uint64(0)
-			for _, m := range model.Machines {
-				cores += m.Cores
+		if c.runVars.hasMachinesCount {
+			if v, ok := model.Counts[string(params.Machines)]; ok {
+				w.Print(v)
+			} else {
+				w.Print(0)
 			}
-			coresInfo := "-"
-			if cores > 0 {
-				coresInfo = fmt.Sprintf("%d", cores)
-			}
-			w.Print(machineInfo, coresInfo)
 		}
-		access := model.Users[userForAccess.Id()].Access
+		if c.runVars.hasCoresCount {
+			if v, ok := model.Counts[string(params.Cores)]; ok {
+				w.Print(v)
+			} else {
+				w.Print("-")
+			}
+		}
+		access := model.UserAccess
 		if access == "" {
 			access = "-"
 		}
-		lastConnection := model.Users[userForLastConn.Id()].LastConnection
-		if lastConnection == "" {
-			lastConnection = "never connected"
-		}
-		w.Println(access, lastConnection)
+		w.Println(access, model.UserLastConnection)
 	}
 	tw.Flush()
 	return nil
 }
+
+var listModelsDoc = `
+The models listed here are either models you have created yourself, or
+models which have been shared with you. Default values for user and
+controller are, respectively, the current user and the current controller.
+The active model is denoted by an asterisk.
+
+Examples:
+
+    juju models
+    juju models --user bob
+
+See also:
+    add-model
+    share-model
+    unshare-model
+`

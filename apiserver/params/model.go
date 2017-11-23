@@ -183,9 +183,12 @@ type ModelSummary struct {
 	// Status is the current status of the model.
 	Status EntityStatus `json:"status,omitempty"`
 
-	// User contains information about current user's access
-	// to the model.
-	User ModelUserInfo `json:"user"`
+	// UserAccess is model access level for the  current user.
+	UserAccess UserAccessPermission `json:"user-access"`
+
+	// UserLastConnection contains the time when current user logged in
+	// into the model last.
+	UserLastConnection *time.Time `json:"last-connection"`
 
 	// Counts contains counts of interesting entities
 	// in the model, for example machines, cores, containers, units, etc.
@@ -206,7 +209,7 @@ type ModelSummary struct {
 // machines, units, etc...
 type ModelEntityCount struct {
 	Entity CountedEntity `json:"entity"`
-	Count  uint64        `json:"count"`
+	Count  int64         `json:"count"`
 }
 
 // CountedEntity identifies an entity that has a count.
