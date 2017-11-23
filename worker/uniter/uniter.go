@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -423,7 +424,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 			return errors.Trace(err)
 		}
 	}
-	if err := jujuc.EnsureSymlinks(u.paths.ToolsDir); err != nil {
+	if err := tools.EnsureSymlinks(u.paths.ToolsDir, u.paths.ToolsDir, jujuc.CommandNames()); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(u.paths.State.RelationsDir, 0755); err != nil {

@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package jujuc_test
+package tools_test
 
 import (
 	"io/ioutil"
@@ -20,16 +20,15 @@ import (
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/names"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-type ToolsSuite struct {
+type SymlinksSuite struct {
 	dataDir, toolsDir string
 }
 
-var _ = gc.Suite(&ToolsSuite{})
+var _ = gc.Suite(&SymlinksSuite{})
 
-func (s *ToolsSuite) SetUpTest(c *gc.C) {
+func (s *SymlinksSuite) SetUpTest(c *gc.C) {
 	s.dataDir = c.MkDir()
 	s.toolsDir = tools.SharedToolsDir(s.dataDir, version.Binary{
 		Number: jujuversion.Current,
@@ -42,18 +41,18 @@ func (s *ToolsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ToolsSuite) TestEnsureSymlinks(c *gc.C) {
+func (s *SymlinksSuite) TestEnsureSymlinks(c *gc.C) {
 	s.testEnsureSymlinks(c, s.toolsDir)
 }
 
-func (s *ToolsSuite) TestEnsureSymlinksSymlinkedDir(c *gc.C) {
-	toolsDirSymlink := filepath.Join(c.MkDir(), "unit-ubuntu-0")
-	err := symlink.New(s.toolsDir, toolsDirSymlink)
+func (s *SymlinksSuite) TestEnsureSymlinksSymlinkedDir(c *gc.C) {
+	dirSymlink := filepath.Join(c.MkDir(), "commands")
+	err := symlink.New(s.toolsDir, dirSymlink)
 	c.Assert(err, jc.ErrorIsNil)
-	s.testEnsureSymlinks(c, toolsDirSymlink)
+	s.testEnsureSymlinks(c, dirSymlink)
 }
 
-func (s *ToolsSuite) testEnsureSymlinks(c *gc.C, dir string) {
+func (s *SymlinksSuite) testEnsureSymlinks(c *gc.C, dir string) {
 	jujudPath := filepath.Join(s.toolsDir, names.Jujud)
 	err := ioutil.WriteFile(jujudPath, []byte("assume sane"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -67,24 +66,27 @@ func (s *ToolsSuite) testEnsureSymlinks(c *gc.C, dir string) {
 		return fi.ModTime()
 	}
 
+	commands := []string{"foo", "bar"}
+
 	// Check that EnsureSymlinks writes appropriate symlinks.
-	err = jujuc.EnsureSymlinks(dir)
+	err = tools.EnsureSymlinks(dir, dir, commands)
 	c.Assert(err, jc.ErrorIsNil)
 	mtimes := map[string]time.Time{}
-	for _, name := range jujuc.CommandNames() {
+	for _, name := range commands {
 		tool := filepath.Join(s.toolsDir, name)
 		mtimes[tool] = assertLink(tool)
 	}
 
 	// Check that EnsureSymlinks doesn't overwrite things that don't need to be.
-	err = jujuc.EnsureSymlinks(s.toolsDir)
+	err = tools.EnsureSymlinks(s.toolsDir, s.toolsDir, commands)
 	c.Assert(err, jc.ErrorIsNil)
 	for tool, mtime := range mtimes {
 		c.Assert(assertLink(tool), gc.Equals, mtime)
 	}
 }
 
-func (s *ToolsSuite) TestEnsureSymlinksBadDir(c *gc.C) {
-	err := jujuc.EnsureSymlinks(filepath.Join(c.MkDir(), "noexist"))
-	c.Assert(err, gc.ErrorMatches, "cannot initialize hook commands in .*: "+utils.NoSuchFileErrRegexp)
+func (s *SymlinksSuite) TestEnsureSymlinksBadDir(c *gc.C) {
+	dir := filepath.Join(c.MkDir(), "noexist")
+	err := tools.EnsureSymlinks(dir, dir, []string{"foo"})
+	c.Assert(err, gc.ErrorMatches, "cannot initialize commands in .*: "+utils.NoSuchFileErrRegexp)
 }
