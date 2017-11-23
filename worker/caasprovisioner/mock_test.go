@@ -11,6 +11,7 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
+	apicaasprovisioner "github.com/juju/juju/api/caasprovisioner"
 	"github.com/juju/juju/caas"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
@@ -22,6 +23,7 @@ type mockProvisionerFacade struct {
 	stub *testing.Stub
 	caasprovisioner.CAASProvisionerFacade
 	applicationsWatcher *mockStringsWatcher
+	passwords           []apicaasprovisioner.ApplicationPassword
 }
 
 func newMockProvisionerFacade(stub *testing.Stub) *mockProvisionerFacade {
@@ -39,6 +41,17 @@ func (m *mockProvisionerFacade) WatchApplications() (watcher.StringsWatcher, err
 		return nil, err
 	}
 	return m.applicationsWatcher, nil
+}
+
+func (m *mockProvisionerFacade) SetPasswords(passwords []apicaasprovisioner.ApplicationPassword) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "SetPasswords", passwords)
+	if err := m.stub.NextErr(); err != nil {
+		return err
+	}
+	m.passwords = passwords
+	return nil
 }
 
 type mockAgentConfig struct {
@@ -78,7 +91,7 @@ type mockBroker struct {
 func (m *mockBroker) EnsureOperator(appName, agentPath string, newConfig caas.NewOperatorConfigFunc) error {
 	m.appName = appName
 	m.agentPath = agentPath
-	config, err := newConfig(appName)
+	config, err := newConfig()
 	if err != nil {
 		return err
 	}

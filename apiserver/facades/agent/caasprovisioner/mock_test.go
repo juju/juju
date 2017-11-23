@@ -4,7 +4,9 @@
 package caasprovisioner_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state"
@@ -13,6 +15,7 @@ import (
 type mockState struct {
 	testing.Stub
 	applicationWatcher *mockStringsWatcher
+	app                *mockApplication
 }
 
 func newMockState() *mockState {
@@ -24,6 +27,28 @@ func newMockState() *mockState {
 func (st *mockState) WatchApplications() state.StringsWatcher {
 	st.MethodCall(st, "WatchApplications")
 	return st.applicationWatcher
+}
+
+func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
+	if st.app.tag == tag {
+		return st.app, nil
+	}
+	return nil, errors.NotFoundf("entity %v", tag)
+}
+
+type mockApplication struct {
+	state.Authenticator
+	tag      names.Tag
+	password string
+}
+
+func (m *mockApplication) Tag() names.Tag {
+	return m.tag
+}
+
+func (m *mockApplication) SetPassword(password string) error {
+	m.password = password
+	return nil
 }
 
 type mockWatcher struct {

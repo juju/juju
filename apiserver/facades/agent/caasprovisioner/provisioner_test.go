@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/caasprovisioner"
+	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -63,4 +64,26 @@ func (s *CAASProvisionerSuite) TestWatchApplications(c *gc.C) {
 	resource := s.resources.Get("1")
 	c.Assert(resource, gc.NotNil)
 	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
+}
+
+func (s *CAASProvisionerSuite) TestSetPasswords(c *gc.C) {
+	s.st.app = &mockApplication{
+		tag: names.NewApplicationTag("app")}
+	s.authorizer.Controller = true
+
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{
+			{Tag: "application-app", Password: "xxx-12345678901234567890"},
+			{Tag: "application-another", Password: "yyy-12345678901234567890"},
+		},
+	}
+	results, err := s.api.SetPasswords(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{&params.Error{Message: "entity application-another not found", Code: "not found"}},
+		},
+	})
+	c.Assert(s.st.app.password, gc.Equals, "xxx-12345678901234567890")
 }

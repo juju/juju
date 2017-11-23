@@ -6,10 +6,12 @@ package caasprovisioner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
+	apicaasprovisioner "github.com/juju/juju/api/caasprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
@@ -21,6 +23,7 @@ var logger = loggo.GetLogger("juju.workers.caasprovisioner")
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
 	WatchApplications() (watcher.StringsWatcher, error)
+	SetPasswords([]apicaasprovisioner.ApplicationPassword) error
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
@@ -63,8 +66,10 @@ func (p *provisioner) Wait() error {
 }
 
 func (p *provisioner) loop() error {
-	newConfig := func(appName string) (*caas.OperatorConfig, error) {
-		return p.newOperatorConfig(appName)
+	newConfigFunc := func(appName, password string) func() (*caas.OperatorConfig, error) {
+		return func() (*caas.OperatorConfig, error) {
+			return p.newOperatorConfig(appName, password)
+		}
 	}
 
 	// TODO(caas) -  this loop should also keep an eye on kubernetes and ensure
@@ -89,17 +94,27 @@ func (p *provisioner) loop() error {
 				return errors.New("watcher closed channel")
 			}
 			// TODO(caas) - cleanup when an application is deleted
+
+			var appPasswords []apicaasprovisioner.ApplicationPassword
 			for _, app := range apps {
 				logger.Debugf("Received change notification for app: %s", app)
-				if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), newConfig); err != nil {
+				password, err := utils.RandomPassword()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), newConfigFunc(app, password)); err != nil {
 					return errors.Annotatef(err, "failed to start operator for %q", app)
 				}
+				appPasswords = append(appPasswords, apicaasprovisioner.ApplicationPassword{Name: app, Password: password})
+			}
+			if err := p.provisionerFacade.SetPasswords(appPasswords); err != nil {
+				return errors.Annotate(err, "failed to set application api passwords")
 			}
 		}
 	}
 }
 
-func (p *provisioner) newOperatorConfig(appName string) (*caas.OperatorConfig, error) {
+func (p *provisioner) newOperatorConfig(appName string, password string) (*caas.OperatorConfig, error) {
 	appTag := names.NewApplicationTag(appName)
 
 	// TODO(caas) - restart operator when api addresses change
@@ -117,7 +132,7 @@ func (p *provisioner) newOperatorConfig(appName string) (*caas.OperatorConfig, e
 			// This isn't actually used but needs to be supplied.
 			UpgradedToVersion: version.Current,
 			Tag:               appTag,
-			Password:          "todo(caas) - will be filled in next PR",
+			Password:          password,
 			Controller:        p.agentConfig.Controller(),
 			Model:             p.modelTag,
 			APIAddresses:      apiAddrs,

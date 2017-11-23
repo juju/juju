@@ -104,4 +104,9 @@ func (s *CAASProvisionerSuite) TestOperatorCreated(c *gc.C) {
 	addr, err := cfg.APIAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, jc.DeepEquals, []string{"10.0.0.1:17070"})
+
+	passwords := s.provisionerFacade.passwords
+	c.Assert(passwords, gc.HasLen, 1)
+	c.Assert(passwords[0].Name, gc.Equals, "myApp")
+	c.Assert(passwords[0].Password, gc.Not(gc.Equals), "")
 }
