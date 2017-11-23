@@ -338,9 +338,11 @@ func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelT
 			return nil
 		}
 		if status[0].Error != nil {
-			// This most likely occurred because a model was
-			// destroyed half-way through the call.
-			ctx.Infof("Could not get the model status from the API: %v.", status[0].Error)
+			if !errors.IsNotFound(status[0].Error) {
+				// No need to give the user a warning that the model they asked
+				// to destroy is no longer there.
+				ctx.Infof("Could not get the model status from the API: %v.", status[0].Error)
+			}
 			return nil
 		}
 		return &modelData{
