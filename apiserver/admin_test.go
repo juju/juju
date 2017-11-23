@@ -507,6 +507,55 @@ func (s *loginSuite) testLoginDuringMaintenance(c *gc.C, cfg apiserver.ServerCon
 	check(st)
 }
 
+func (s *loginSuite) TestMachineLoginDuringMaintenance(c *gc.C) {
+	cfg := defaultServerConfig(c)
+	cfg.UpgradeComplete = func() bool {
+		// upgrade is in progress
+		return false
+	}
+	info, srv := newServerWithConfig(c, s.pool, cfg)
+	defer assertStop(c, srv)
+
+	machine, password := s.addMachine(c, state.JobHostUnits)
+	info.Tag = machine.Tag()
+	info.Password = password
+	info.Nonce = "fake_nonce"
+
+	_, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.ErrorMatches, "login for machine "+machine.Id()+" blocked because upgrade is in progress")
+}
+
+func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
+	cfg := defaultServerConfig(c)
+	cfg.UpgradeComplete = func() bool {
+		// upgrade is in progress
+		return false
+	}
+	info, srv := newServerWithConfig(c, s.pool, cfg)
+	defer assertStop(c, srv)
+
+	machine, password := s.addMachine(c, state.JobManageModel)
+	info.Tag = machine.Tag()
+	info.Password = password
+	info.Nonce = "fake_nonce"
+
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.Close(), jc.ErrorIsNil)
+}
+
+func (s *baseLoginSuite) addMachine(c *gc.C, job state.MachineJob) (*state.Machine, string) {
+	machine, err := s.State.AddMachine("quantal", job)
+	c.Assert(err, jc.ErrorIsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	return machine, password
+}
+
 func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info0 *api.Info) api.Connection {
 	info := *info0
 	info.Tag = nil

@@ -74,8 +74,18 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 	if err != nil {
 		return nil, nil, nil, errors.NewUnauthorized(err, "")
 	}
+
+	var authTag names.Tag
+	if req.AuthTag != "" {
+		tag, err := names.ParseTag(req.AuthTag)
+		if err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+		authTag = tag
+	}
+
 	authenticator := ctxt.srv.loginAuthCtxt.authenticator(r.Host)
-	entity, _, err := checkCreds(st, req, true, authenticator)
+	entity, _, err := checkCreds(st, req, authTag, true, authenticator)
 	if err != nil {
 		if common.IsDischargeRequiredError(err) {
 			return nil, nil, nil, errors.Trace(err)
@@ -83,8 +93,10 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 
 		// Handle the special case of a worker on a controller machine
 		// acting on behalf of a hosted model.
-		if isMachineTag(req.AuthTag) {
-			entity, err := checkControllerMachineCreds(ctxt.srv.statePool.SystemState(), req, authenticator)
+		if machineTag, ok := authTag.(names.MachineTag); ok {
+			entity, err := checkControllerMachineCreds(
+				ctxt.srv.statePool.SystemState(), req, machineTag, authenticator,
+			)
 			if err != nil {
 				return nil, nil, nil, errors.NewUnauthorized(err, "")
 			}
