@@ -175,34 +175,44 @@ func newAPIRoot(st *state.State, pool *state.StatePool, facades *facade.Registry
 	return r
 }
 
-func rpcRoot(srv *Server, root *apiHandler, authTag names.Tag) (rpc.Root, error) {
-	// apiRoot is the API root exposed to the client.
-	var apiRoot rpc.Root = newAPIRoot(
-		root.state,
-		srv.statePool,
-		srv.facades,
-		root.resources,
-		root,
-	)
-	return maybeRestrictRoot(srv, apiRoot, root.state.IsController(), authTag)
-}
-
-func maybeRestrictRoot(
+// restrictAPIRoot calls restrictAPIRootDuringMaintenance, and
+// then restricts the result further to the contoller or model
+// facades, depending on the type of login.
+func restrictAPIRoot(
 	srv *Server,
 	apiRoot rpc.Root,
-	isControllerModel bool,
-	authTag names.Tag,
+	model *state.Model,
+	auth authResult,
 ) (rpc.Root, error) {
-
-	if isControllerModel && authTag == srv.tag {
-		// The local controller machine agent is
-		// always allowed to connect to itself.
-		//
-		// TODO(axw) allow all controller
-		// machine agents. See lp:1733259.
-		return apiRoot, nil
+	if !auth.controllerMachineLogin {
+		// Controller agents are allowed to
+		// connect even during maintenance.
+		restrictedRoot, err := restrictAPIRootDuringMaintenance(
+			srv, apiRoot, model, auth.tag, auth.controllerMachineLogin,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		apiRoot = restrictedRoot
 	}
+	if auth.controllerOnlyLogin {
+		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
+	} else {
+		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
+	}
+	return apiRoot, nil
+}
 
+// restrictAPIRootDuringMaintenance restricts the API root during
+// maintenance events (upgrade, restore, or migration), depending
+// on the authenticated client.
+func restrictAPIRootDuringMaintenance(
+	srv *Server,
+	apiRoot rpc.Root,
+	model *state.Model,
+	authTag names.Tag,
+	controllerMachineLogin bool,
+) (rpc.Root, error) {
 	describeLogin := func() string {
 		if authTag == nil {
 			return "anonymous login"
@@ -233,6 +243,20 @@ func maybeRestrictRoot(
 		}
 		// Agent and anonymous logins are blocked during upgrade.
 		return nil, errors.Errorf("%s blocked because upgrade is in progress", describeLogin())
+	}
+
+	// For user logins, we limit access during migrations.
+	if _, ok := authTag.(names.UserTag); ok {
+		switch model.MigrationMode() {
+		case state.MigrationModeImporting:
+			// The user is not able to access a model that is currently being
+			// imported until the model has been activated.
+			apiRoot = restrictAll(apiRoot, errors.New("migration in progress, model is importing"))
+		case state.MigrationModeExporting:
+			// The user is not allowed to change anything in a model that is
+			// currently being moved to another controller.
+			apiRoot = restrictRoot(apiRoot, migrationClientMethodsOnly)
+		}
 	}
 
 	return apiRoot, nil
