@@ -34,7 +34,6 @@ type Config struct {
 	RestoreStatus                     func() state.RestoreStatus
 	UpgradeComplete                   func() bool
 	GetCertificate                    func() *tls.Certificate
-	StoreAuditEntry                   StoreAuditEntryFunc
 	NewServer                         NewServerFunc
 }
 
@@ -70,9 +69,6 @@ func (config Config) Validate() error {
 	}
 	if config.GetCertificate == nil {
 		return errors.NotValidf("nil GetCertificate")
-	}
-	if config.StoreAuditEntry == nil {
-		return errors.NotValidf("nil StoreAuditEntry")
 	}
 	if config.NewServer == nil {
 		return errors.NotValidf("nil NewServer")
@@ -112,7 +108,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		config.AgentConfig,
 		controllerConfig,
 		config.Clock,
-		newAuditEntrySink(config.StoreAuditEntry, logDir),
 		config.PrometheusRegisterer,
 	)
 	if err != nil {

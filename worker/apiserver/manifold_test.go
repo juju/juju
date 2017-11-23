@@ -69,9 +69,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		UpgradeGateName:                   "upgrade",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
-		Hub: &s.hub,
-		NewStoreAuditEntryFunc: s.newStoreAuditEntryFunc,
-		NewWorker:              s.newWorker,
+		Hub:       &s.hub,
+		NewWorker: s.newWorker,
 	})
 }
 
@@ -93,11 +92,6 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 func (s *ManifoldSuite) RestoreStatus() state.RestoreStatus {
 	s.stub.MethodCall(s, "RestoreStatus")
 	return ""
-}
-
-func (s *ManifoldSuite) newStoreAuditEntryFunc(st *state.State) apiserver.StoreAuditEntryFunc {
-	s.stub.MethodCall(s, "NewStoreAuditEntryFunc", st)
-	return nil
 }
 
 func (s *ManifoldSuite) newWorker(config apiserver.Config) (worker.Worker, error) {
@@ -130,8 +124,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
-	s.stub.CheckCallNames(c, "NewStoreAuditEntryFunc", "NewWorker")
-	args := s.stub.Calls()[1].Args
+	s.stub.CheckCallNames(c, "NewWorker")
+	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, apiserver.Config{})
 	config := args[0].(apiserver.Config)
@@ -148,7 +142,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.RestoreStatus, gc.NotNil)
 	config.RestoreStatus()
 	config.RestoreStatus = nil
-	s.stub.CheckCallNames(c, "NewStoreAuditEntryFunc", "NewWorker", "RestoreStatus")
+	s.stub.CheckCallNames(c, "NewWorker", "RestoreStatus")
 
 	c.Assert(config.RegisterIntrospectionHTTPHandlers, gc.NotNil)
 	config.RegisterIntrospectionHTTPHandlers = nil

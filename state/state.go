@@ -30,7 +30,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
 	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
@@ -40,7 +39,6 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/globalclock"
-	stateaudit "github.com/juju/juju/state/internal/audit"
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
@@ -2225,20 +2223,6 @@ func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId net
 
 func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
 	return st.docID(globalKey + ":" + string(providerId))
-}
-
-// PutAuditEntryFn returns a function which will persist
-// audit.AuditEntry instances to the database.
-func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
-	insert := func(collectionName string, docs ...interface{}) error {
-		collection, closeCollection := st.db().GetCollection(collectionName)
-		defer closeCollection()
-
-		writeableCollection := collection.Writeable()
-
-		return errors.Trace(writeableCollection.Insert(docs...))
-	}
-	return stateaudit.PutAuditEntryFn(auditingC, insert)
 }
 
 // SetSLA sets the SLA on the current connected model.
