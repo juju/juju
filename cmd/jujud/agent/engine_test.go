@@ -11,9 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
@@ -133,6 +134,15 @@ var (
 		"unconverted-api-workers",
 		"unit-agent-deployer",
 	}
+
+	alwaysCAASWorkers = []string{
+		"agent",
+		"api-caller",
+		"operator",
+	}
+	notMigratingCAASWorkers = []string{
+	// TODO(caas)
+	}
 )
 
 type ModelManifoldsFunc func(config model.ManifoldsConfig) dependency.Manifolds
@@ -165,6 +175,19 @@ type UnitManifoldsFunc func(config unit.ManifoldsConfig) dependency.Manifolds
 
 func TrackUnits(c *gc.C, tracker *engineTracker, inner UnitManifoldsFunc) UnitManifoldsFunc {
 	return func(config unit.ManifoldsConfig) dependency.Manifolds {
+		raw := inner(config)
+		id := config.Agent.CurrentConfig().Tag().String()
+		if err := tracker.Install(raw, id); err != nil {
+			c.Errorf("cannot install tracker: %v", err)
+		}
+		return raw
+	}
+}
+
+type CAASOperatorManifoldsFunc func(config caasoperator.ManifoldsConfig) dependency.Manifolds
+
+func TrackCAASOperator(c *gc.C, tracker *engineTracker, inner CAASOperatorManifoldsFunc) CAASOperatorManifoldsFunc {
+	return func(config caasoperator.ManifoldsConfig) dependency.Manifolds {
 		raw := inner(config)
 		id := config.Agent.CurrentConfig().Tag().String()
 		if err := tracker.Install(raw, id); err != nil {

@@ -46,9 +46,10 @@ import (
 )
 
 const (
-	initialMachinePassword = "machine-password-1234567890"
-	initialUnitPassword    = "unit-password-1234567890"
-	startWorkerWait        = 250 * time.Millisecond
+	initialMachinePassword     = "machine-password-1234567890"
+	initialUnitPassword        = "unit-password-1234567890"
+	initialApplicationPassword = "application-password-1234567890"
+	startWorkerWait            = 250 * time.Millisecond
 )
 
 var fastDialOpts = api.DialOpts{
