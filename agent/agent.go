@@ -814,7 +814,7 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 		// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4
 		// loopback, and when/if this changes localhost should resolve
 		// to IPv6 loopback in any case (lp:1644009). Review.
-		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
+		localAPIAddr := net.JoinHostPort("juju-apiserver", strconv.Itoa(port))
 		newAddrs := []string{localAPIAddr}
 		for _, addr := range addrs {
 			if addr != localAPIAddr {
@@ -842,7 +842,7 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
 	// and when/if this changes localhost should resolve to IPv6 loopback
 	// in any case (lp:1644009). Review.
-	addr := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
+	addr := net.JoinHostPort("juju-mongodb", strconv.Itoa(ssi.StatePort))
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
