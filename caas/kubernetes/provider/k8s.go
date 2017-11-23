@@ -4,8 +4,12 @@
 package provider
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"k8s.io/client-go/kubernetes"
 	k8serrors "k8s.io/client-go/pkg/api/errors"
@@ -64,15 +68,17 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 	}, nil
 }
 
-// EnsureOperator creates a new operator for appName if it doesn't exist.
+// EnsureOperator creates a new operator for appName, replacing any existing operator.
 func (k *kubernetesClient) EnsureOperator(appName, agentPath string, newConfig caas.NewOperatorConfigFunc) error {
 	if exists, err := k.operatorExists(appName); err != nil {
 		return errors.Trace(err)
 	} else if exists {
-		logger.Debugf("%s operator already deployed", appName)
-		return nil
+		logger.Debugf("%s operator already deployed - deleting", appName)
+		if err := k.deleteOperator(appName); err != nil {
+			return errors.Trace(err)
+		}
 	}
-	logger.Infof("deploying %s operator", appName)
+	logger.Debugf("deploying %s operator", appName)
 
 	// TODO(caas) use secrets for storing agent password?
 	configMapName, err := k.ensureConfigMap(appName, newConfig)
@@ -84,22 +90,24 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, newConfig c
 }
 
 func (k *kubernetesClient) ensureConfigMap(appName string, newConfig caas.NewOperatorConfigFunc) (string, error) {
-	mapName := podName(appName) + "-config"
+	mapName := configMapName(appName)
 
 	exists, err := k.configMapExists(mapName)
 	if err != nil {
 		return "", errors.Trace(err)
+	} else if exists {
+		logger.Debugf("ConfigMap %s already exists - deleting", mapName)
+		if err := k.deleteConfigMap(mapName); err != nil {
+			return "", errors.Trace(err)
+		}
 	}
-	if exists {
-		logger.Infof("ConfigMap %s already exists", mapName)
-	} else {
-		config, err := newConfig(appName)
-		if err != nil {
-			return "", errors.Annotate(err, "creating config")
-		}
-		if err := k.createConfigMap(mapName, config); err != nil {
-			return "", errors.Annotate(err, "creating ConfigMap")
-		}
+
+	config, err := newConfig()
+	if err != nil {
+		return "", errors.Annotate(err, "creating config")
+	}
+	if err := k.createConfigMap(mapName, config); err != nil {
+		return "", errors.Annotate(err, "creating ConfigMap")
 	}
 	return mapName, nil
 }
@@ -112,6 +120,16 @@ func (k *kubernetesClient) configMapExists(configMapName string) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	return true, nil
+}
+
+func (k *kubernetesClient) deleteConfigMap(configMapName string) error {
+	err := k.CoreV1().ConfigMaps(namespace).Delete(configMapName, &v1.DeleteOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func (k *kubernetesClient) createConfigMap(configMapName string, config *caas.OperatorConfig) error {
@@ -134,6 +152,42 @@ func (k *kubernetesClient) operatorExists(appName string) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	return true, nil
+}
+
+func (k *kubernetesClient) deleteOperator(appName string) error {
+	podName := podName(appName)
+	orphanDependents := false
+	err := k.CoreV1().Pods(namespace).Delete(
+		podName,
+		&v1.DeleteOptions{OrphanDependents: &orphanDependents})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Wait for operator to be deleted.
+	existsErr := errors.New("exists")
+	retryArgs := retry.CallArgs{
+		Clock: clock.WallClock,
+		IsFatalError: func(err error) bool {
+			return errors.Cause(err) != existsErr
+		},
+		Func: func() error {
+			exists, err := k.operatorExists(appName)
+			if err != nil {
+				return err
+			}
+			if !exists {
+				return nil
+			}
+			return existsErr
+		},
+		Delay:       5 * time.Second,
+		MaxDuration: time.Minute,
+	}
+	return retry.Call(retryArgs)
 }
 
 func (k *kubernetesClient) deployOperator(appName, agentPath string, configMapName string) error {
@@ -182,4 +236,8 @@ func (k *kubernetesClient) deployOperator(appName, agentPath string, configMapNa
 
 func podName(appName string) string {
 	return "juju-operator-" + appName
+}
+
+func configMapName(appName string) string {
+	return podName(appName) + "-config"
 }
