@@ -141,14 +141,12 @@ func (s *clientSuite) TestAddLocalCharmOtherModel(c *gc.C) {
 }
 
 func (s *clientSuite) otherModel(c *gc.C) (*state.State, api.Connection) {
-	otherSt := s.Factory.MakeModel(c, nil)
+	model := s.Factory.MakeModel(c, nil)
 	info := s.APIInfo(c)
-	model, err := otherSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = model.ModelTag()
 	apiState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
-	return otherSt, apiState
+	return model.State(), apiState
 }
 
 func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {

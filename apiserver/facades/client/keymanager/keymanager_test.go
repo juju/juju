@@ -218,21 +218,18 @@ func (s *keyManagerSuite) TestAddKeysSuperUser(c *gc.C) {
 }
 
 func (s *keyManagerSuite) TestAddKeysModelAdmin(c *gc.C) {
-	otherState := s.Factory.MakeModel(c, nil)
-	defer otherState.Close()
-
-	otherModel, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
 
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "admin" + otherModel.ModelTag().String()})
-	s.assertAddKeys(c, otherState, user.UserTag(), true)
+	s.assertAddKeys(c, otherModel.State(), user.UserTag(), true)
 }
 
 func (s *keyManagerSuite) TestAddKeysModelOwner(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{Owner: user.UserTag()})
-	defer otherModel.Close()
-	s.assertAddKeys(c, otherModel, user.UserTag(), true)
+	defer otherModel.CloseDBConnection()
+	s.assertAddKeys(c, otherModel.State(), user.UserTag(), true)
 }
 
 func (s *keyManagerSuite) TestAddKeysNonAuthorised(c *gc.C) {
@@ -322,21 +319,18 @@ func (s *keyManagerSuite) TestDeleteKeysSuperUser(c *gc.C) {
 }
 
 func (s *keyManagerSuite) TestDeleteKeysModelAdmin(c *gc.C) {
-	otherState := s.Factory.MakeModel(c, nil)
-	defer otherState.Close()
-
-	otherModel, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
 
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "admin" + otherModel.ModelTag().String()})
-	s.assertDeleteKeys(c, otherState, user.UserTag(), true)
+	s.assertDeleteKeys(c, otherModel.State(), user.UserTag(), true)
 }
 
 func (s *keyManagerSuite) TestDeleteKeysModelOwner(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{Owner: user.UserTag()})
-	defer otherModel.Close()
-	s.assertDeleteKeys(c, otherModel, user.UserTag(), true)
+	defer otherModel.CloseDBConnection()
+	s.assertDeleteKeys(c, otherModel.State(), user.UserTag(), true)
 }
 
 func (s *keyManagerSuite) TestDeleteKeysNonAuthorised(c *gc.C) {
@@ -509,21 +503,18 @@ func (s *keyManagerSuite) TestImportKeysSuperUser(c *gc.C) {
 }
 
 func (s *keyManagerSuite) TestImportKeysModelAdmin(c *gc.C) {
-	otherState := s.Factory.MakeModel(c, nil)
-	defer otherState.Close()
-
-	otherModel, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
 
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "admin" + otherModel.ModelTag().String()})
-	s.assertImportKeys(c, otherState, user.UserTag(), true)
+	s.assertImportKeys(c, otherModel.State(), user.UserTag(), true)
 }
 
 func (s *keyManagerSuite) TestImportKeysModelOwner(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{Owner: user.UserTag()})
-	defer otherModel.Close()
-	s.assertImportKeys(c, otherModel, user.UserTag(), true)
+	defer otherModel.CloseDBConnection()
+	s.assertImportKeys(c, otherModel.State(), user.UserTag(), true)
 }
 
 func (s *keyManagerSuite) TestImportKeysNonAuthorised(c *gc.C) {

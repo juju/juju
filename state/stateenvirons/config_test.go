@@ -44,19 +44,16 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 	err := s.State.UpdateCloudCredential(tag, emptyCredential)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	m := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:            "foo",
 		CloudName:       "dummy",
 		CloudCredential: tag,
 		Owner:           owner,
 	})
-	defer st.Close()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	defer m.CloseDBConnection()
 
 	emptyCredential.Label = "empty-credential"
-	cloudSpec, err := stateenvirons.EnvironConfigGetter{st, m}.CloudSpec()
+	cloudSpec, err := stateenvirons.EnvironConfigGetter{m.State(), m}.CloudSpec()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudSpec, jc.DeepEquals, environs.CloudSpec{
 		Type:             "dummy",

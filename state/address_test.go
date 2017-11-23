@@ -64,9 +64,9 @@ func (s *ControllerAddressesSuite) TestControllerEnv(c *gc.C) {
 }
 
 func (s *ControllerAddressesSuite) TestOtherEnv(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	addresses, err := st.Addresses()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
+	addresses, err := model.State().Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, jc.SameContents, []string{"10.0.1.2:1234"})
 }

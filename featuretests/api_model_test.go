@@ -114,11 +114,8 @@ func lastConnPointer(c *gc.C, mod *state.Model, modelUser permission.UserAccess)
 
 func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
 	// setup other environment
-	otherState := s.Factory.MakeModel(c, nil)
-	defer otherState.Close()
-
-	otherModel, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
 
 	info := s.APIInfo(c)
 	info.ModelTag = otherModel.ModelTag()
@@ -140,7 +137,7 @@ func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
 	c.Assert(toolsList, gc.HasLen, 1)
 	c.Assert(toolsList[0].SHA256, gc.Equals, checksum)
 
-	toolStrg, err := otherState.ToolsStorage()
+	toolStrg, err := otherModel.State().ToolsStorage()
 	defer toolStrg.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	meta, closer, err := toolStrg.Open(vers)

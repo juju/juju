@@ -336,6 +336,7 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 	defer st.Close()
 
 	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	modelCfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)

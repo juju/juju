@@ -225,13 +225,13 @@ func (s *cmdControllerSuite) TestControllerDestroyUsingAPI(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	model := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:        "just-a-controller",
 		ConfigAttrs: testing.Attrs{"controller": true},
 		CloudRegion: "dummy-region",
 	})
-	defer st.Close()
-	factory.NewFactory(st).MakeApplication(c, nil)
+	defer model.CloseDBConnection()
+	factory.NewFactory(model.State()).MakeApplication(c, nil)
 
 	stop := make(chan struct{})
 	done := make(chan struct{})
@@ -245,9 +245,9 @@ func (s *cmdControllerSuite) testControllerDestroy(c *gc.C, forceAPI bool) {
 		for a.Next() {
 			err := s.State.Cleanup()
 			c.Check(err, jc.ErrorIsNil)
-			err = st.Cleanup()
+			err = model.State().Cleanup()
 			c.Check(err, jc.ErrorIsNil)
-			err = st.ProcessDyingModel()
+			err = model.State().ProcessDyingModel()
 			if errors.Cause(err) != state.ErrModelNotDying {
 				c.Check(err, jc.ErrorIsNil)
 				if err == nil {
@@ -300,13 +300,13 @@ func (s *cmdControllerSuite) TestEnableDestroyController(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	m := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:        "foo",
 		CloudRegion: "dummy-region",
 	})
 
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
-	st.Close()
+	m.State().SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
+	m.CloseDBConnection()
 
 	s.run(c, "kill-controller", "kontroll", "-y")
 
@@ -316,13 +316,13 @@ func (s *cmdControllerSuite) TestControllerKill(c *gc.C) {
 }
 
 func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	model := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "foo",
 	})
-	defer st.Close()
+	defer model.CloseDBConnection()
 
-	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
-	st.Close()
+	model.State().SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
+	model.CloseDBConnection()
 
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
@@ -337,7 +337,7 @@ func (s *cmdControllerSuite) TestSystemKillCallsEnvironDestroyOnHostedEnviron(c 
 	// TODO(fwereade): how do we know it's the hosted environ?
 	// what actual interactions made it ok to destroy any environ
 	// here? (there used to be an undertaker that didn't work...)
-	opRecvTimeout(c, st, opc, dummy.OpDestroy{})
+	opRecvTimeout(c, model.State(), opc, dummy.OpDestroy{})
 
 	// ... and that the details were removed removed from
 	// the client store.

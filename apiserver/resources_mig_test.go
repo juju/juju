@@ -28,7 +28,6 @@ type resourcesUploadSuite struct {
 	authHTTPSuite
 	appName        string
 	unit           *state.Unit
-	importingState *state.State
 	importingModel *state.Model
 }
 
@@ -48,12 +47,10 @@ func (s *resourcesUploadSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create an importing model to work with.
-	s.importingState = s.Factory.MakeModel(c, nil)
-	s.AddCleanup(func(*gc.C) { s.importingState.Close() })
-	s.importingModel, err = s.importingState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	s.importingModel = s.Factory.MakeModel(c, nil)
+	s.AddCleanup(func(*gc.C) { s.importingModel.CloseDBConnection() })
 
-	newFactory := factory.NewFactory(s.importingState)
+	newFactory := factory.NewFactory(s.importingModel.State())
 	app := newFactory.MakeApplication(c, nil)
 	s.appName = app.Name()
 
@@ -145,7 +142,7 @@ func (s *resourcesUploadSuite) TestUpload(c *gc.C) {
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
 
-	rSt, err := s.importingState.Resources()
+	rSt, err := s.importingModel.State().Resources()
 	c.Assert(err, jc.ErrorIsNil)
 	res, reader, err := rSt.OpenResource(s.appName, "bin")
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,7 +179,7 @@ func (s *resourcesUploadSuite) TestPlaceholder(c *gc.C) {
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsTrue)
 
-	rSt, err := s.importingState.Resources()
+	rSt, err := s.importingModel.State().Resources()
 	c.Assert(err, jc.ErrorIsNil)
 	res, err := rSt.GetResource(s.appName, "bin")
 	c.Assert(err, jc.ErrorIsNil)

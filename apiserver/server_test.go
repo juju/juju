@@ -530,17 +530,17 @@ func (s *serverSuite) TestAPIHandlerTeardownInitialEnviron(c *gc.C) {
 }
 
 func (s *serverSuite) TestAPIHandlerTeardownOtherEnviron(c *gc.C) {
-	otherState := s.Factory.MakeModel(c, nil)
-	defer otherState.Close()
-	s.checkAPIHandlerTeardown(c, s.State, otherState)
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
+	s.checkAPIHandlerTeardown(c, s.State, otherModel.State())
 }
 
 func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
-	otherState := s.Factory.MakeModel(c, nil)
-	defer otherState.Close()
-	handler, _ := apiserver.TestingAPIHandler(c, s.pool, otherState)
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
+	handler, _ := apiserver.TestingAPIHandler(c, s.pool, otherModel.State())
 	defer handler.Kill()
-	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
+	c.Check(handler.ConnectedModel(), gc.Equals, otherModel.UUID())
 }
 
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
@@ -556,8 +556,8 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	// Initial change.
 	assertChange(c, w)
 
-	otherState := s.Factory.MakeModel(c, nil)
-	defer otherState.Close()
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
 
 	s.State.StartSync()
 	// This ensures that the model exists for more than one of the
@@ -567,11 +567,8 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	// Many Bothans died to bring us this information.
 	assertChange(c, w)
 
-	model, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Ensure the model's in the pool but not referenced.
-	st, releaser, err := pool.Get(otherState.ModelUUID())
+	st, releaser, err := pool.Get(otherModel.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	releaser()
 
@@ -583,7 +580,7 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	conn.Close()
 
 	// When the model goes away the API server should ensure st gets closed.
-	err = model.Destroy(state.DestroyModelParams{})
+	err = otherModel.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.State.StartSync()

@@ -56,7 +56,7 @@ func (s *StatusHistorySuite) TestPruneStatusBySizeOnlyForController(c *gc.C) {
 	clock := testing.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
-	st := s.Factory.MakeModel(c, &factory.ModelParams{})
+	st := s.Factory.MakeModel(c, &factory.ModelParams{}).State()
 	defer st.Close()
 
 	localFactory := factory.NewFactory(st)

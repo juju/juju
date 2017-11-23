@@ -228,13 +228,15 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	startingLogsS0 := 10
 	s.generateLogs(c, s0, now, startingLogsS0)
 
-	s1 := s.Factory.MakeModel(c, nil)
-	defer s1.Close()
+	m1 := s.Factory.MakeModel(c, nil)
+	defer m1.CloseDBConnection()
+	s1 := m1.State()
 	startingLogsS1 := 10000
 	s.generateLogs(c, s1, now, startingLogsS1)
 
-	s2 := s.Factory.MakeModel(c, nil)
-	defer s2.Close()
+	m2 := s.Factory.MakeModel(c, nil)
+	defer m2.CloseDBConnection()
+	s2 := m2.State()
 	startingLogsS2 := 12000
 	s.generateLogs(c, s2, now, startingLogsS2)
 

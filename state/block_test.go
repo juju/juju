@@ -162,15 +162,15 @@ func (s *blockSuite) TestRemoveAllBlocksForControllerNoBlocks(c *gc.C) {
 }
 
 func (s *blockSuite) TestModelUUID(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	err := st.SwitchBlockOn(state.ChangeBlock, "blocktest")
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
+	err := m.State().SwitchBlockOn(state.ChangeBlock, "blocktest")
 	c.Assert(err, jc.ErrorIsNil)
 
-	blocks, err := st.AllBlocks()
+	blocks, err := m.State().AllBlocks()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(blocks), gc.Equals, 1)
-	c.Assert(blocks[0].ModelUUID(), gc.Equals, st.ModelUUID())
+	c.Assert(blocks[0].ModelUUID(), gc.Equals, m.UUID())
 }
 
 func (s *blockSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {

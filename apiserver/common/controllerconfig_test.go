@@ -106,13 +106,12 @@ var _ = gc.Suite(&controllerInfoSuite{})
 
 func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.localState = s.Factory.MakeModel(c, nil)
+
 	s.AddCleanup(func(*gc.C) {
 		s.localState.Close()
 	})
-	model, err := s.localState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	s.localModel = model
+	s.localModel = s.Factory.MakeModel(c, nil)
+	s.localState = s.localModel.State()
 }
 
 func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {

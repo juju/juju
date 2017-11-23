@@ -3826,11 +3826,11 @@ func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
 	const statusText = "foo bar"
 
 	f := factory.NewFactory(s.BackingState)
-	hostedSt := f.MakeModel(c, &factory.ModelParams{
+	hostedModel := f.MakeModel(c, &factory.ModelParams{
 		Name: hostedModelName,
 	})
 
-	mig, err := hostedSt.CreateMigration(state.MigrationSpec{
+	mig, err := hostedModel.State().CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
@@ -3844,7 +3844,7 @@ func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
 	err = mig.SetStatusMessage(statusText)
 	c.Assert(err, jc.ErrorIsNil)
 
-	return hostedSt
+	return hostedModel.State()
 }
 
 type fakeAPIClient struct {

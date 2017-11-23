@@ -44,7 +44,7 @@ func (s *SSHHostKeysSuite) TestModelIsolation(c *gc.C) {
 	keysA := state.SSHHostKeys{"rsaA", "dsaA"}
 	c.Assert(stA.SetSSHHostKeys(tagA, keysA), jc.ErrorIsNil)
 
-	stB := s.Factory.MakeModel(c, nil)
+	stB := s.Factory.MakeModel(c, nil).State()
 	defer stB.Close()
 	factoryB := factory.NewFactory(stB)
 	tagB := factoryB.MakeMachine(c, nil).MachineTag()

@@ -497,20 +497,15 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeModelNil(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
-	env, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	re := regexp.MustCompile(`^testenv-\d+$`)
-	c.Assert(re.MatchString(env.Name()), jc.IsTrue)
-	c.Assert(env.UUID() == s.State.ModelUUID(), jc.IsFalse)
+	c.Assert(re.MatchString(m.Name()), jc.IsTrue)
+	c.Assert(m.UUID() == s.IAASModel.UUID(), jc.IsFalse)
 	origEnv, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Owner(), gc.Equals, origEnv.Owner())
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.Owner(), gc.Equals, origEnv.Owner())
 
 	cfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -527,17 +522,13 @@ func (s *factorySuite) TestMakeModel(c *gc.C) {
 		ConfigAttrs: testing.Attrs{"default-series": "precise"},
 	}
 
-	st := s.Factory.MakeModel(c, params)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, params)
+	defer m.CloseDBConnection()
 
-	env, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Name(), gc.Equals, "foo")
-	c.Assert(env.UUID() == s.State.ModelUUID(), jc.IsFalse)
-	c.Assert(env.Owner(), gc.Equals, owner.UserTag())
+	c.Assert(m.Name(), gc.Equals, "foo")
+	c.Assert(m.UUID() == s.IAASModel.UUID(), jc.IsFalse)
+	c.Assert(m.Owner(), gc.Equals, owner.UserTag())
 
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "precise")

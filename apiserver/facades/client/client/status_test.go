@@ -326,11 +326,8 @@ func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
 func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 
 	// Create a host model because controller models can't be migrated.
-	state2 := s.Factory.MakeModel(c, nil)
-	defer state2.Close()
-
-	model2, err := state2.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	model2 := s.Factory.MakeModel(c, nil)
+	defer model2.CloseDBConnection()
 
 	// Get API connection to hosted model.
 	apiInfo := s.APIInfo(c)
@@ -352,7 +349,7 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	checkMigStatus("")
 
 	// Start it migrating.
-	mig, err := state2.CreateMigration(state.MigrationSpec{
+	mig, err := model2.State().CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
 			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),

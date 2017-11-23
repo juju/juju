@@ -37,6 +37,7 @@ type internalStateSuite struct {
 	testing.BaseSuite
 	controller *Controller
 	state      *State
+	model      *Model
 	owner      names.UserTag
 	modelCount int
 }
@@ -99,6 +100,9 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctlr
 	s.state = st
+	m, err := s.state.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	s.model = m
 	s.AddCleanup(func(*gc.C) {
 		s.state.Close()
 		s.controller.Close()

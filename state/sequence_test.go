@@ -43,7 +43,7 @@ func (s *sequenceSuite) TestMultipleSequences(c *gc.C) {
 
 func (s *sequenceSuite) TestSequenceWithMultipleEnvs(c *gc.C) {
 	state1 := s.State
-	state2 := s.Factory.MakeModel(c, nil)
+	state2 := s.Factory.MakeModel(c, nil).State()
 	defer state2.Close()
 
 	s.incAndCheck(c, state1, "foo", 0)

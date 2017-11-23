@@ -333,25 +333,21 @@ func (s *ModelSuite) TestModelActiveNoModel(c *gc.C) {
 }
 
 func (s *ModelSuite) TestModelActiveImporting(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.SetMigrationMode(state.MigrationModeImporting), jc.ErrorIsNil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
+	c.Assert(m.SetMigrationMode(state.MigrationModeImporting), jc.ErrorIsNil)
 
-	modelActive, err := s.State.ModelActive(model.UUID())
+	modelActive, err := s.State.ModelActive(m.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelActive, jc.IsFalse)
 }
 
 func (s *ModelSuite) TestModelActiveExporting(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.SetMigrationMode(state.MigrationModeExporting), jc.ErrorIsNil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
+	c.Assert(m.SetMigrationMode(state.MigrationModeExporting), jc.ErrorIsNil)
 
-	modelActive, err := s.State.ModelActive(model.UUID())
+	modelActive, err := s.State.ModelActive(m.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelActive, jc.IsTrue)
 }
@@ -441,10 +437,8 @@ func (s *ModelSuite) TestMeterStatus(c *gc.C) {
 }
 
 func (s *ModelSuite) TestConfigForOtherModel(c *gc.C) {
-	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "other"})
-	defer otherState.Close()
-	otherModel, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{Name: "other"})
+	defer otherModel.CloseDBConnection()
 
 	// Obtain another instance of the model via the StatePool
 	model, release, err := s.StatePool.GetModel(otherModel.UUID())
@@ -509,14 +503,12 @@ func (s *ModelSuite) TestModelConfigSameModelAsState(c *gc.C) {
 }
 
 func (s *ModelSuite) TestModelConfigDifferentModelThanState(c *gc.C) {
-	otherState := s.Factory.MakeModel(c, nil)
-	defer otherState.Close()
-	model, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := model.Config()
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
+	cfg, err := otherModel.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	uuid := cfg.UUID()
-	c.Assert(uuid, gc.Equals, model.UUID())
+	c.Assert(uuid, gc.Equals, otherModel.UUID())
 	c.Assert(uuid, gc.Not(gc.Equals), s.State.ModelUUID())
 }
 
@@ -528,46 +520,41 @@ func (s *ModelSuite) TestDestroyControllerModel(c *gc.C) {
 }
 
 func (s *ModelSuite) TestDestroyOtherModel(c *gc.C) {
-	st2 := s.Factory.MakeModel(c, nil)
-	defer st2.Close()
-	model, err := st2.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.Destroy(state.DestroyModelParams{})
+	m2 := s.Factory.MakeModel(c, nil)
+	defer m2.CloseDBConnection()
+	err := m2.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Destroying an empty model also removes the name index doc.
-	c.Assert(model.UniqueIndexExists(), jc.IsFalse)
+	c.Assert(m2.UniqueIndexExists(), jc.IsFalse)
 }
 
 func (s *ModelSuite) TestDestroyControllerNonEmptyModelFails(c *gc.C) {
-	st2 := s.Factory.MakeModel(c, nil)
-	defer st2.Close()
-	factory.NewFactory(st2).MakeApplication(c, nil)
+	m2 := s.Factory.MakeModel(c, nil)
+	defer m2.CloseDBConnection()
+	factory.NewFactory(m2.State()).MakeApplication(c, nil)
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Destroy(state.DestroyModelParams{}), gc.ErrorMatches, "failed to destroy model: hosting 1 other model")
+	c.Assert(s.IAASModel.Destroy(state.DestroyModelParams{}), gc.ErrorMatches, "failed to destroy model: hosting 1 other model")
 }
 
 func (s *ModelSuite) TestDestroyControllerEmptyModel(c *gc.C) {
-	st2 := s.Factory.MakeModel(c, nil)
-	defer st2.Close()
+	m2 := s.Factory.MakeModel(c, nil)
+	defer m2.CloseDBConnection()
 
-	controllerModel, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerModel := s.IAASModel
+
 	c.Assert(controllerModel.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Life(), gc.Equals, state.Dying)
 
-	hostedModel, err := st2.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("model %s, life %s", hostedModel.UUID(), hostedModel.Life())
-	c.Assert(hostedModel.Life(), gc.Equals, state.Dead)
+	m2.Refresh()
+	c.Logf("model %s, life %s", m2.UUID(), m2.Life())
+	c.Assert(m2.Life(), gc.Equals, state.Dead)
 }
 
 func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
-	st2 := s.Factory.MakeModel(c, nil)
-	defer st2.Close()
-	factory.NewFactory(st2).MakeApplication(c, nil)
+	m2 := s.Factory.MakeModel(c, nil)
+	defer m2.CloseDBConnection()
+	factory.NewFactory(m2.State()).MakeApplication(c, nil)
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -577,36 +564,34 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
 		DestroyStorage:      &destroyStorage,
 	}), jc.ErrorIsNil)
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Dying)
+	controllerModel.Refresh()
+	c.Assert(controllerModel.Life(), gc.Equals, state.Dying)
 
 	assertNeedsCleanup(c, s.State)
 	assertCleanupRuns(c, s.State)
 
 	// Cleanups for hosted model enqueued by controller model cleanups.
-	assertNeedsCleanup(c, st2)
-	assertCleanupRuns(c, st2)
+	assertNeedsCleanup(c, m2.State())
+	assertCleanupRuns(c, m2.State())
 
-	model2, err := st2.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model2.Life(), gc.Equals, state.Dying)
+	m2.Refresh()
+	c.Assert(m2.Life(), gc.Equals, state.Dying)
+	c.Assert(m2.State().ProcessDyingModel(), jc.ErrorIsNil)
 
-	c.Assert(st2.ProcessDyingModel(), jc.ErrorIsNil)
-
-	c.Assert(model2.Refresh(), jc.ErrorIsNil)
-	c.Assert(model2.Life(), gc.Equals, state.Dead)
-	err = st2.RemoveAllModelDocs()
+	c.Assert(m2.Refresh(), jc.ErrorIsNil)
+	c.Assert(m2.Life(), gc.Equals, state.Dead)
+	err = m2.State().RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
-	c.Assert(model.Refresh(), jc.ErrorIsNil)
-	c.Assert(model2.Life(), gc.Equals, state.Dead)
+	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)
+	c.Assert(m2.Life(), gc.Equals, state.Dead)
 }
 
 func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) {
-	otherSt := s.Factory.MakeModel(c, nil)
-	defer otherSt.Close()
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
+	otherSt := otherModel.State()
 
 	assertModel := func(model *state.Model, st *state.State, life state.Life, expectedMachines, expectedServices int) {
 		c.Assert(model.Refresh(), jc.ErrorIsNil)
@@ -621,10 +606,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 		c.Assert(services, gc.HasLen, expectedServices)
 	}
 
-	// add some machines and services
-	otherModel, err := otherSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = otherSt.AddMachine("quantal", state.JobHostUnits)
+	_, err := otherSt.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	service := s.Factory.MakeApplication(c, nil)
 	ch, _, err := service.Charm()
@@ -673,12 +655,12 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 }
 
 func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithPersistentStorage(c *gc.C) {
-	otherSt := s.Factory.MakeModel(c, nil)
-	defer otherSt.Close()
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
 
 	// Add a unit with persistent storage, which will prevent Destroy
 	// from succeeding on account of DestroyStorage being nil.
-	otherFactory := factory.NewFactory(otherSt)
+	otherFactory := factory.NewFactory(otherModel.State())
 	otherFactory.MakeUnit(c, &factory.UnitParams{
 		Application: otherFactory.MakeApplication(c, &factory.ApplicationParams{
 			Charm: otherFactory.MakeCharm(c, &factory.CharmParams{
@@ -700,12 +682,12 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithPersistentStorage(c
 }
 
 func (s *ModelSuite) TestDestroyControllerEmptyModelRace(c *gc.C) {
-	defer s.Factory.MakeModel(c, nil).Close()
+	defer s.Factory.MakeModel(c, nil).CloseDBConnection()
 
 	// Simulate an empty model being added just before the
 	// remove txn is called.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		s.Factory.MakeModel(c, nil).Close()
+		s.Factory.MakeModel(c, nil).CloseDBConnection()
 	}).Check()
 
 	model, err := s.State.Model()
@@ -714,39 +696,35 @@ func (s *ModelSuite) TestDestroyControllerEmptyModelRace(c *gc.C) {
 }
 
 func (s *ModelSuite) TestDestroyControllerRemoveEmptyAddNonEmptyModel(c *gc.C) {
-	st2 := s.Factory.MakeModel(c, nil)
-	defer st2.Close()
+	m2 := s.Factory.MakeModel(c, nil)
+	defer m2.CloseDBConnection()
 
 	// Simulate an empty model being removed, and a new non-empty
 	// model being added, just before the remove txn is called.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		// Destroy the empty model, which should move it right
 		// along to Dead, and then remove it.
-		model, err := st2.Model()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-		err = st2.RemoveAllModelDocs()
+		c.Assert(m2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+		err := m2.State().RemoveAllModelDocs()
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Add a new, non-empty model. This should still prevent
 		// the controller from being destroyed.
-		st3 := s.Factory.MakeModel(c, nil)
-		defer st3.Close()
-		factory.NewFactory(st3).MakeApplication(c, nil)
+		m3 := s.Factory.MakeModel(c, nil)
+		defer m3.CloseDBConnection()
+		factory.NewFactory(m3.State()).MakeApplication(c, nil)
 	}).Check()
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Destroy(state.DestroyModelParams{}), gc.ErrorMatches, "failed to destroy model: hosting 1 other model")
+	c.Assert(s.IAASModel.Destroy(state.DestroyModelParams{}), gc.ErrorMatches, "failed to destroy model: hosting 1 other model")
 }
 
 func (s *ModelSuite) TestDestroyControllerNonEmptyModelRace(c *gc.C) {
 	// Simulate an empty model being added just before the
 	// remove txn is called.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		st := s.Factory.MakeModel(c, nil)
-		defer st.Close()
-		factory.NewFactory(st).MakeApplication(c, nil)
+		m := s.Factory.MakeModel(c, nil)
+		defer m.CloseDBConnection()
+		factory.NewFactory(m.State()).MakeApplication(c, nil)
 	}).Check()
 
 	model, err := s.State.Model()
@@ -899,10 +877,9 @@ func (s *ModelSuite) TestDestroyModelReleaseStorageUnreleasable(c *gc.C) {
 }
 
 func (s *ModelSuite) TestDestroyModelAddServiceConcurrently(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
+	st := m.State()
 
 	defer state.SetBeforeHooks(c, st, func() {
 		factory.NewFactory(st).MakeApplication(c, nil)
@@ -914,10 +891,9 @@ func (s *ModelSuite) TestDestroyModelAddServiceConcurrently(c *gc.C) {
 }
 
 func (s *ModelSuite) TestDestroyModelAddMachineConcurrently(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
+	st := m.State()
 
 	defer state.SetBeforeHooks(c, st, func() {
 		factory.NewFactory(st).MakeMachine(c, nil)
@@ -929,10 +905,8 @@ func (s *ModelSuite) TestDestroyModelAddMachineConcurrently(c *gc.C) {
 }
 
 func (s *ModelSuite) TestDestroyModelEmpty(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
 	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(m.Refresh(), jc.ErrorIsNil)
@@ -974,9 +948,9 @@ func (s *ModelSuite) TestProcessDyingServerModelTransitionDyingToDead(c *gc.C) {
 }
 
 func (s *ModelSuite) TestProcessDyingHostedModelTransitionDyingToDead(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	s.assertDyingModelTransitionDyingToDead(c, st)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
+	s.assertDyingModelTransitionDyingToDead(c, m.State())
 }
 
 func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.State) {
@@ -1009,16 +983,16 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 }
 
 func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
+	st := m.State()
 
 	// calling ProcessDyingModel on a live environ should fail.
-	err := st.ProcessDyingModel()
+	err := m.State().ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
 	// add some machines and services
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+
 	_, err = st.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	service := s.Factory.MakeApplication(c, nil)
@@ -1032,8 +1006,8 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertModel := func(life state.Life, expectedMachines, expectedServices int) {
-		c.Assert(model.Refresh(), jc.ErrorIsNil)
-		c.Assert(model.Life(), gc.Equals, life)
+		c.Assert(m.Refresh(), jc.ErrorIsNil)
+		c.Assert(m.Life(), gc.Equals, life)
 
 		machines, err := st.AllMachines()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1053,21 +1027,18 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine, 1 application`)
 	}).Check()
 
-	c.Assert(model.Refresh(), jc.ErrorIsNil)
-	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(m.Refresh(), jc.ErrorIsNil)
+	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 }
 
 func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
-	model, err := st.Model()
+	imodel, err := m.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
-	imodel, err := model.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	machine, err := st.AddOneMachine(state.MachineTemplate{
+	machine, err := m.State().AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.MachineFilesystemParams{{
@@ -1104,22 +1075,19 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 
 	// The filesystem will be gone, but the volume is persistent and should
 	// not have been removed.
-	err = st.ProcessDyingModel()
+	err = m.State().ProcessDyingModel()
 	c.Assert(err, jc.Satisfies, state.IsModelNotEmptyError)
 	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume, 1 filesystem`)
 }
 
 func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
-	model, err := st.Model()
+	imodel, err := m.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
-	imodel, err := model.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	machine, err := st.AddOneMachine(state.MachineTemplate{
+	machine, err := m.State().AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.MachineVolumeParams{{
@@ -1153,16 +1121,16 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 
 	// The volume is persistent and should not have been removed along with
 	// the machine it was attached to.
-	err = st.ProcessDyingModel()
+	err = m.State().ProcessDyingModel()
 	c.Assert(err, jc.Satisfies, state.IsModelNotEmptyError)
 	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume`)
 }
 
 func (s *ModelSuite) TestProcessDyingControllerModelWithHostedModelsNoOp(c *gc.C) {
 	// Add a non-empty model to the controller.
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	factory.NewFactory(st).MakeApplication(c, nil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
+	factory.NewFactory(m.State()).MakeApplication(c, nil)
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1213,14 +1181,12 @@ func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	otherModelState := s.Factory.MakeModel(c, nil)
-	defer otherModelState.Close()
-	otherModel, err := otherModelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
 
 	// Add users to both models
 	expectedUsers := addModelUsers(c, s.State)
-	expectedUsersOtherModel := addModelUsers(c, otherModelState)
+	expectedUsersOtherModel := addModelUsers(c, otherModel.State())
 
 	// test that only the expected users are listed for each model
 	obtainedUsers, err := model.Users()
@@ -1278,18 +1244,18 @@ func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers
 }
 
 func (s *ModelSuite) TestAllModelUUIDs(c *gc.C) {
-	st1 := s.Factory.MakeModel(c, nil)
-	defer st1.Close()
+	m1 := s.Factory.MakeModel(c, nil)
+	defer m1.CloseDBConnection()
 
-	st2 := s.Factory.MakeModel(c, nil)
-	defer st2.Close()
+	m2 := s.Factory.MakeModel(c, nil)
+	defer m2.CloseDBConnection()
 
 	obtained, err := s.State.AllModelUUIDs()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []string{
 		s.State.ModelUUID(),
-		st1.ModelUUID(),
-		st2.ModelUUID(),
+		m1.UUID(),
+		m2.UUID(),
 	}
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
@@ -1297,36 +1263,30 @@ func (s *ModelSuite) TestAllModelUUIDs(c *gc.C) {
 func (s *ModelSuite) TestHostedModelCount(c *gc.C) {
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
 
-	st1 := s.Factory.MakeModel(c, nil)
-	defer st1.Close()
+	m1 := s.Factory.MakeModel(c, nil)
+	defer m1.CloseDBConnection()
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 1)
 
-	st2 := s.Factory.MakeModel(c, nil)
-	defer st2.Close()
+	m2 := s.Factory.MakeModel(c, nil)
+	defer m2.CloseDBConnection()
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 2)
 
-	model1, err := st1.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model1.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	c.Assert(st1.RemoveAllModelDocs(), jc.ErrorIsNil)
+	c.Assert(m1.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(m1.State().RemoveAllModelDocs(), jc.ErrorIsNil)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 1)
 
-	model2, err := st2.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	c.Assert(st2.RemoveAllModelDocs(), jc.ErrorIsNil)
+	c.Assert(m2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(m2.State().RemoveAllModelDocs(), jc.ErrorIsNil)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
 }
 
 func (s *ModelSuite) TestNewModelEnvironVersion(c *gc.C) {
 	v := 123
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	m := s.Factory.MakeModel(c, &factory.ModelParams{
 		EnvironVersion: v,
 	})
-	defer st.Close()
+	defer m.CloseDBConnection()
 
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.EnvironVersion(), gc.Equals, v)
 }
 

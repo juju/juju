@@ -74,10 +74,8 @@ func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 }
 
 func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *gc.C) {
-	otherState := factory.NewFactory(s.State).MakeModel(c, nil)
-	defer otherState.Close()
-	otherModel, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = backupsAPI.NewAPI(&stateShim{otherState, otherModel}, s.resources, s.authorizer)
+	otherModel := factory.NewFactory(s.State).MakeModel(c, nil)
+	defer otherModel.CloseDBConnection()
+	_, err := backupsAPI.NewAPI(&stateShim{otherModel.State(), otherModel}, s.resources, s.authorizer)
 	c.Check(err, gc.ErrorMatches, "backups are not supported for hosted models")
 }

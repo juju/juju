@@ -19,7 +19,7 @@ var disallowedModelConfigAttrs = [...]string{
 	"ca-private-key",
 }
 
-// ModelConfig returns the complete config for the model
+// ModelConfig returns the complete config for the model.
 func (m *Model) ModelConfig() (*config.Config, error) {
 	return getModelConfig(m.st.db())
 }

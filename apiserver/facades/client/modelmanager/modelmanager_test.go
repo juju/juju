@@ -1253,14 +1253,11 @@ func (s *modelManagerStateSuite) revoke(c *gc.C, user names.UserTag, access para
 
 func (s *modelManagerStateSuite) TestGrantMissingUserFails(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
 	user := names.NewLocalUserTag("foobar")
-	err = s.grant(c, user, params.ModelReadAccess, m.ModelTag())
+	err := s.grant(c, user, params.ModelReadAccess, m.ModelTag())
 	expectedErr := `could not grant model access: user "foobar" does not exist locally: user "foobar" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -1299,30 +1296,24 @@ func (s *modelManagerStateSuite) TestRevokeReadRemovesModelUser(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestRevokeModelMissingUser(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
 	user := names.NewUserTag("bob")
-	err = s.revoke(c, user, params.ModelReadAccess, m.ModelTag())
+	err := s.revoke(c, user, params.ModelReadAccess, m.ModelTag())
 	c.Assert(err, gc.ErrorMatches, `could not revoke model access: model user "bob" does not exist`)
 
-	_, err = st.UserAccess(user, m.ModelTag())
+	_, err = m.State().UserAccess(user, m.ModelTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *modelManagerStateSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
 	s.setAPIUser(c, s.AdminUserTag(c))
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.grant(c, user.UserTag(), params.ModelReadAccess, m.ModelTag())
+	err := s.grant(c, user.UserTag(), params.ModelReadAccess, m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.grant(c, user.UserTag(), params.ModelReadAccess, m.ModelTag())
@@ -1350,138 +1341,119 @@ func (s *modelManagerStateSuite) TestGrantModelAddLocalUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
 	apiUser := s.AdminUserTag(c)
 	s.setAPIUser(c, apiUser)
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
-	m, err := st.Model()
+	err := s.grant(c, user.UserTag(), params.ModelReadAccess, m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.grant(c, user.UserTag(), params.ModelReadAccess, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelUser, err := st.UserAccess(user.UserTag(), m.ModelTag())
+	modelUser, err := m.State().UserAccess(user.UserTag(), m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 	s.setAPIUser(c, user.UserTag())
-	s.assertModelAccess(c, st)
+	s.assertModelAccess(c, m.State())
 }
 
 func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
 	userTag := names.NewUserTag("foobar@ubuntuone")
 	apiUser := s.AdminUserTag(c)
 	s.setAPIUser(c, apiUser)
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
-	m, err := st.Model()
+	err := s.grant(c, userTag, params.ModelReadAccess, m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.grant(c, userTag, params.ModelReadAccess, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelUser, err := st.UserAccess(userTag, m.ModelTag())
+	modelUser, err := m.State().UserAccess(userTag, m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertNewUser(c, modelUser, userTag, apiUser)
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 	s.setAPIUser(c, userTag)
-	s.assertModelAccess(c, st)
+	s.assertModelAccess(c, m.State())
 }
 
 func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoModelUser: true})
 	apiUser := s.AdminUserTag(c)
 	s.setAPIUser(c, apiUser)
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	err := s.grant(c, user.UserTag(), params.ModelWriteAccess, m.ModelTag())
 
-	err = s.grant(c, user.UserTag(), params.ModelWriteAccess, m.ModelTag())
-
-	modelUser, err := st.UserAccess(user.UserTag(), m.ModelTag())
+	modelUser, err := m.State().UserAccess(user.UserTag(), m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 	s.setAPIUser(c, user.UserTag())
-	s.assertModelAccess(c, st)
+	s.assertModelAccess(c, m.State())
 }
 
 func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	stFactory := factory.NewFactory(st)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
+	stFactory := factory.NewFactory(m.State())
 	user := stFactory.MakeModelUser(c, &factory.ModelUserParams{Access: permission.ReadAccess})
 
-	m, err := st.Model()
+	err := s.grant(c, user.UserTag, params.ModelWriteAccess, m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.grant(c, user.UserTag, params.ModelWriteAccess, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelUser, err := st.UserAccess(user.UserTag, m.ModelTag())
+	modelUser, err := m.State().UserAccess(user.UserTag, m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 }
 
 func (s *modelManagerStateSuite) TestGrantToModelNoAccess(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
 	apiUser := names.NewUserTag("bob@remote")
 	s.setAPIUser(c, apiUser)
 
 	other := names.NewUserTag("other@remote")
-	err = s.grant(c, other, params.ModelReadAccess, m.ModelTag())
+	err := s.grant(c, other, params.ModelReadAccess, m.ModelTag())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *modelManagerStateSuite) TestGrantToModelReadAccess(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
 	apiUser := names.NewUserTag("bob@remote")
 	s.setAPIUser(c, apiUser)
 
-	stFactory := factory.NewFactory(st)
+	stFactory := factory.NewFactory(m.State())
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
 		User: apiUser.Id(), Access: permission.ReadAccess})
 
 	other := names.NewUserTag("other@remote")
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.grant(c, other, params.ModelReadAccess, m.ModelTag())
+	err := s.grant(c, other, params.ModelReadAccess, m.ModelTag())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
 
 	apiUser := names.NewUserTag("admin@remote")
 	s.setAPIUser(c, apiUser)
-	stFactory := factory.NewFactory(st)
+	stFactory := factory.NewFactory(m.State())
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
 		User: apiUser.Id(), Access: permission.AdminAccess})
 
 	other := names.NewUserTag("other@remote")
-	m, err := st.Model()
+
+	err := s.grant(c, other, params.ModelReadAccess, m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.grant(c, other, params.ModelReadAccess, m.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelUser, err := st.UserAccess(other, m.ModelTag())
+	modelUser, err := m.State().UserAccess(other, m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, other, apiUser)
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)

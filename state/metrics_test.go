@@ -772,13 +772,13 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a new model and add a metric batch.
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	f := factory.NewFactory(st)
+	newModel := s.Factory.MakeModel(c, nil)
+	defer newModel.CloseDBConnection()
+	f := factory.NewFactory(newModel.State())
 	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-1"})
 	service := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	unit := f.MakeUnit(c, &factory.UnitParams{Application: service, SetCharmURL: true})
-	_, err = st.AddMetrics(
+	_, err = newModel.State().AddMetrics(
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
@@ -821,7 +821,7 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 	c.Check(second.Metrics()[0].Value, gc.Equals, "10")
 
 	// And a single metric batch in the second model.
-	metricBatches, err = st.MetricBatchesForModel()
+	metricBatches, err = newModel.State().MetricBatchesForModel()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 1)
 }
@@ -996,15 +996,15 @@ func (s *CrossModelMetricSuite) SetUpTest(c *gc.C) {
 }
 
 func mustCreateMeteredModel(c *gc.C, stateFactory *factory.Factory) (modelData, func(*gc.C)) {
-	st := stateFactory.MakeModel(c, nil)
-	localFactory := factory.NewFactory(st)
+	m := stateFactory.MakeModel(c, nil)
+	localFactory := factory.NewFactory(m.State())
 
 	meteredCharm := localFactory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-1"})
 	application := localFactory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
 	unit := localFactory.MakeUnit(c, &factory.UnitParams{Application: application, SetCharmURL: true})
-	cleanup := func(*gc.C) { st.Close() }
+	cleanup := func(*gc.C) { m.CloseDBConnection() }
 	return modelData{
-		state:        st,
+		state:        m.State(),
 		application:  application,
 		unit:         unit,
 		meteredCharm: meteredCharm,

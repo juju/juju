@@ -48,9 +48,9 @@ func (s *legacySuite) OpenAPI(c *gc.C) *controller.Client {
 func (s *legacySuite) TestAllModels(c *gc.C) {
 	owner := names.NewUserTag("user@remote")
 	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "first", Owner: owner}).Close()
+		Name: "first", Owner: owner}).CloseDBConnection()
 	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "second", Owner: owner}).Close()
+		Name: "second", Owner: owner}).CloseDBConnection()
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
@@ -91,9 +91,9 @@ func (s *legacySuite) TestControllerConfig(c *gc.C) {
 }
 
 func (s *legacySuite) TestDestroyController(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{Name: "foo"})
-	factory.NewFactory(st).MakeMachine(c, nil) // make it non-empty
-	st.Close()
+	m := s.Factory.MakeModel(c, &factory.ModelParams{Name: "foo"})
+	factory.NewFactory(m.State()).MakeMachine(c, nil) // make it non-empty
+	m.CloseDBConnection()
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()

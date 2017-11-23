@@ -207,10 +207,9 @@ func (s *toolsSuite) TestMigrateTools(c *gc.C) {
 	expectedTools, v, toolPath := s.setupToolsForUpload(c)
 	vers := v.String()
 
-	newSt := s.Factory.MakeModel(c, nil)
-	defer newSt.Close()
-	importedModel, err := newSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	importedModel := s.Factory.MakeModel(c, nil)
+	defer importedModel.CloseDBConnection()
+
 	err = importedModel.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 	s.extraHeaders = map[string]string{
@@ -229,11 +228,11 @@ func (s *toolsSuite) TestMigrateTools(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
-	metadata, uploadedData := s.getToolsFromStorage(c, newSt, vers)
+	metadata, uploadedData := s.getToolsFromStorage(c, importedModel.State(), vers)
 	expectedData, err := ioutil.ReadFile(toolPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
-	allMetadata := s.getToolsMetadataFromStorage(c, newSt)
+	allMetadata := s.getToolsMetadataFromStorage(c, importedModel.State())
 	c.Assert(allMetadata, jc.DeepEquals, []binarystorage.Metadata{metadata})
 }
 
@@ -246,10 +245,10 @@ func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
 	_, v, toolPath := s.setupToolsForUpload(c)
 	vers := v.String()
 
-	newSt := s.Factory.MakeModel(c, nil)
-	defer newSt.Close()
+	importedModel := s.Factory.MakeModel(c, nil)
+	defer importedModel.CloseDBConnection()
 	s.extraHeaders = map[string]string{
-		params.MigrationModelHTTPHeader: newSt.ModelUUID(),
+		params.MigrationModelHTTPHeader: importedModel.UUID(),
 	}
 
 	uri := s.baseURL(c)

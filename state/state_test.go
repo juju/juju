@@ -111,7 +111,7 @@ func (s *StateSuite) TestOpenControllerTwice(c *gc.C) {
 
 func (s *StateSuite) TestIsController(c *gc.C) {
 	c.Assert(s.State.IsController(), jc.IsTrue)
-	st2 := s.Factory.MakeModel(c, nil)
+	st2 := s.Factory.MakeModel(c, nil).State()
 	defer st2.Close()
 	c.Assert(st2.IsController(), jc.IsFalse)
 }
@@ -122,7 +122,7 @@ func (s *StateSuite) TestControllerOwner(c *gc.C) {
 	c.Assert(owner, gc.Equals, s.Owner)
 
 	// Check that other models return the same controller owner.
-	otherSt := s.Factory.MakeModel(c, nil)
+	otherSt := s.Factory.MakeModel(c, nil).State()
 	defer otherSt.Close()
 
 	owner2, err := otherSt.ControllerOwner()
@@ -323,10 +323,8 @@ func (s *MultiModelStateSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
-	s.OtherState = s.Factory.MakeModel(c, nil)
-	m, err := s.OtherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	s.OtherModel = m
+	s.OtherModel = s.Factory.MakeModel(c, nil)
+	s.OtherState = s.OtherModel.State()
 }
 
 func (s *MultiModelStateSuite) TearDownTest(c *gc.C) {
@@ -919,7 +917,7 @@ func (s *StateSuite) TestAddMachine(c *gc.C) {
 	check(m[0], "0", "quantal", allJobs)
 	check(m[1], "1", "blahblah", oneJob)
 
-	st2 := s.Factory.MakeModel(c, nil)
+	st2 := s.Factory.MakeModel(c, nil).State()
 	defer st2.Close()
 	_, err = st2.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: controller jobs specified but not allowed")
@@ -2071,23 +2069,21 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	alive := s.model
 
 	// Dying model...
-	st1 := s.Factory.MakeModel(c, nil)
-	defer st1.Close()
+	m1 := s.Factory.MakeModel(c, nil)
+	defer m1.CloseDBConnection()
+	st1 := m1.State()
 	// Add a service so Destroy doesn't advance to Dead.
 	app := factory.NewFactory(st1).MakeApplication(c, nil)
-	dying, err := st1.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = dying.Destroy(state.DestroyModelParams{})
+	dying := m1
+	err := dying.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an empty model, destroy and remove it; we should
 	// never see it reported.
-	st2 := s.Factory.MakeModel(c, nil)
-	defer st2.Close()
-	model2, err := st2.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	model2 := s.Factory.MakeModel(c, nil)
+	defer model2.CloseDBConnection()
 	c.Assert(model2.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	err = st2.RemoveAllModelDocs()
+	err = model2.State().RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// All except the removed model are reported in initial event.
@@ -2115,16 +2111,16 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a non-empty model: reported.
-	st1 := s.Factory.MakeModel(c, nil)
-	defer st1.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
+	st1 := model.State()
 	app := factory.NewFactory(st1).MakeApplication(c, nil)
-	model, err := st1.Model()
-	c.Assert(err, jc.ErrorIsNil)
+
 	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
 
 	// Make it Dying: reported.
-	err = model.Destroy(state.DestroyModelParams{})
+	err := model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
@@ -2686,7 +2682,7 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveAllModelDocsAliveEnvFails(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
+	st := s.Factory.MakeModel(c, nil).State()
 	defer st.Close()
 
 	err := st.RemoveAllModelDocs()
@@ -2694,7 +2690,7 @@ func (s *StateSuite) TestRemoveAllModelDocsAliveEnvFails(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
+	st := s.Factory.MakeModel(c, nil).State()
 	defer st.Close()
 
 	err := st.RemoveImportingModelDocs()
@@ -2702,11 +2698,11 @@ func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsFailsExporting(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetMigrationMode(state.MigrationModeExporting)
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
+	st := model.State()
+
+	err := model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveImportingModelDocs()
@@ -2714,15 +2710,13 @@ func (s *StateSuite) TestRemoveImportingModelDocsFailsExporting(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	m := s.Factory.MakeModel(c, nil)
+	defer m.CloseDBConnection()
+	st := m.State()
 	userModelKey := s.insertFakeModelDocs(c, st)
 	c.Assert(state.HostedModelCount(c, st), gc.Equals, 1)
 
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = m.SetMigrationMode(state.MigrationModeImporting)
+	err := m.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.model.SetMigrationMode(state.MigrationModeImporting)
@@ -2742,7 +2736,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveExportingModelDocsFailsActive(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
+	st := s.Factory.MakeModel(c, nil).State()
 	defer st.Close()
 
 	err := st.RemoveExportingModelDocs()
@@ -2750,29 +2744,25 @@ func (s *StateSuite) TestRemoveExportingModelDocsFailsActive(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveExportingModelDocsFailsImporting(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
 
-	model, err := st.Model()
+	err := model.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = model.SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.RemoveExportingModelDocs()
+	err = model.State().RemoveExportingModelDocs()
 	c.Assert(err, gc.ErrorMatches, "can't remove model: model not being exported for migration")
 }
 
 func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
+	st := model.State()
+
 	userModelKey := s.insertFakeModelDocs(c, st)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 1)
 
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = model.SetMigrationMode(state.MigrationModeExporting)
+	err := model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveExportingModelDocs()
@@ -2791,13 +2781,11 @@ func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogs(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
+	st := model.State()
 
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = model.SetMigrationMode(state.MigrationModeExporting)
+	err := model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	writeLogs(c, st, 5)
@@ -2811,13 +2799,11 @@ func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogs(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsRemovesLogs(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
+	st := model.State()
 
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = model.SetMigrationMode(state.MigrationModeImporting)
+	err := model.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	writeLogs(c, st, 5)
@@ -2831,12 +2817,11 @@ func (s *StateSuite) TestRemoveImportingModelDocsRemovesLogs(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
+	st := model.State()
 
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetDead()
+	err := model.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
 
 	writeLogs(c, st, 5)
@@ -2850,13 +2835,11 @@ func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
 }
 
 func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogTrackers(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
+	model := s.Factory.MakeModel(c, nil)
+	defer model.CloseDBConnection()
+	st := model.State()
 
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = model.SetMigrationMode(state.MigrationModeExporting)
+	err := model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t1 := state.NewLastSentLogTracker(st, model.UUID(), "go-away")
@@ -3731,7 +3714,7 @@ func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 	s.PatchValue(&series.MustHostSeries, func() string { return current.Series })
 
-	otherSt := s.Factory.MakeModel(c, nil)
+	otherSt := s.Factory.MakeModel(c, nil).State()
 	defer otherSt.Close()
 
 	higher := version.MustParseBinary("1.25.0-trusty-amd64")

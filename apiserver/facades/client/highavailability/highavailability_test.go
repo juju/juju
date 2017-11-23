@@ -357,10 +357,10 @@ func (s *clientSuite) TestEnableHAErrors(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAHostedEnvErrors(c *gc.C) {
-	st2 := s.Factory.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
-	defer st2.Close()
+	model2 := s.Factory.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
+	defer model2.CloseDBConnection()
 
-	haServer, err := highavailability.NewHighAvailabilityAPI(st2, s.resources, s.authoriser)
+	haServer, err := highavailability.NewHighAvailabilityAPI(model2.State(), s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 
 	enableHAResult, err := enableHA(c, haServer, 3, constraints.MustParse("mem=4G"), defaultSeries, nil)
@@ -371,7 +371,7 @@ func (s *clientSuite) TestEnableHAHostedEnvErrors(c *gc.C) {
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
-	machines, err := st2.AllMachines()
+	machines, err := model2.State().AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 0)
 }

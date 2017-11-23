@@ -71,7 +71,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 		ConfigAttrs: testing.Attrs{
 			"controller": false,
 		},
-	})
+	}).State()
 	s.AddCleanup(func(c *gc.C) { s.otherState.Close() })
 	s.otherModelUUID = s.otherState.ModelUUID()
 

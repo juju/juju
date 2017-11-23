@@ -101,8 +101,8 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: owner.Tag(),
 	}
-	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner.Tag()})
-	defer st.Close()
+	m := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner.Tag()})
+	defer m.CloseDBConnection()
 	endpoint, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
@@ -111,11 +111,8 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 			StatePool_: s.pool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	req := params.Entities{
-		Entities: []params.Entity{{Tag: model.ModelTag().String()}},
+		Entities: []params.Entity{{Tag: m.ModelTag().String()}},
 	}
 	_, err = endpoint.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,14 +120,14 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 
 func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	otherModelOwner := s.Factory.MakeModelUser(c, nil)
-	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
+	otherModel := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name:  "dummytoo",
 		Owner: otherModelOwner.UserTag,
 		ConfigAttrs: testing.Attrs{
 			"controller": false,
 		},
 	})
-	defer otherSt.Close()
+	defer otherModel.CloseDBConnection()
 
 	eight := uint64(8)
 	s.Factory.MakeMachine(c, &factory.MachineParams{
@@ -163,15 +160,12 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, nil),
 	})
 
-	otherFactory := factory.NewFactory(otherSt)
+	otherFactory := factory.NewFactory(otherModel.State())
 	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-8"})
 	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-9"})
 	otherFactory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: otherFactory.MakeCharm(c, nil),
 	})
-
-	otherModel, err := otherSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModelTag := s.IAASModel.ModelTag().String()
 	hostedModelTag := otherModel.ModelTag().String()
