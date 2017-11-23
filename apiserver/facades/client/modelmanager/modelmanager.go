@@ -43,7 +43,7 @@ type ModelManagerV4 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.DumpModelRequest) params.StringResults
 	DumpModelsDB(args params.Entities) params.MapResults
-	ListModelSummaries(user params.Entity) (params.ModelSummaryResults, error)
+	ListModelSummaries(request params.ModelSummariesRequest) (params.ModelSummaryResults, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
 	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
@@ -680,10 +680,10 @@ func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 // has access to in the current server.  Only the controller owner
 // can list models for any user (at this stage).  Other users
 // can only ask about their own models.
-func (m *ModelManagerAPI) ListModelSummaries(user params.Entity) (params.ModelSummaryResults, error) {
+func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (params.ModelSummaryResults, error) {
 	result := params.ModelSummaryResults{}
 
-	userTag, err := names.ParseUserTag(user.Tag)
+	userTag, err := names.ParseUserTag(req.UserTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -693,7 +693,7 @@ func (m *ModelManagerAPI) ListModelSummaries(user params.Entity) (params.ModelSu
 		return result, errors.Trace(err)
 	}
 
-	modelInfos, err := m.state.ModelSummariesForUser(userTag)
+	modelInfos, err := m.state.ModelSummariesForUser(userTag, req.All)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

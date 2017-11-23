@@ -237,6 +237,12 @@ type ModelSummaryResults struct {
 	Results []ModelSummaryResult `json:"results"`
 }
 
+// ModelSummariesRequest encapsulates how we request a list of model summaries
+type ModelSummariesRequest struct {
+	UserTag string `json:"user-tag"`
+	All     bool   `json:"all,omitempty"`
+}
+
 // ModelInfoResult holds the result of a ModelInfo call.
 type ModelInfoResult struct {
 	Result *ModelInfo `json:"result,omitempty"`

@@ -182,8 +182,16 @@ func (st *State) isUserSuperuser(user names.UserTag) (bool, error) {
 	return isControllerSuperuser, nil
 }
 
-func (st *State) ModelSummariesForUser(user names.UserTag) ([]ModelSummary, error) {
-	isControllerSuperuser, err := st.isUserSuperuser(user)
+func (st *State) ModelSummariesForUser(user names.UserTag, all bool) ([]ModelSummary, error) {
+	// We only treat the user as a superuser if they pass --all
+	isControllerSuperuser := false
+	if all {
+		var err error
+		isControllerSuperuser, err = st.isUserSuperuser(user)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	modelQuery, closer, err := st.modelQueryForUser(user, isControllerSuperuser)
 	if err != nil {
 		return nil, errors.Trace(err)

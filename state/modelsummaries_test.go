@@ -122,6 +122,39 @@ func (s *ModelSummariesSuite) TestModelsForUserAdmin(c *gc.C) {
 	c.Check(names, gc.DeepEquals, []string{"shared", "testenv", "user1model", "user2model", "user3model"})
 }
 
+func (s *ModelSummariesSuite) TestModelsForSuperuserWithoutAll(c *gc.C) {
+	s.Setup4Models(c)
+	summaries, err := s.State.ModelSummariesForUser(s.Model.Owner(), false)
+	c.Assert(err, jc.ErrorIsNil)
+	names := make([]string, len(summaries))
+	for i, summary := range summaries {
+		names[i] = summary.Name
+	}
+	sort.Strings(names)
+	c.Check(names, gc.DeepEquals, []string{"shared", "testenv"})
+}
+
+func (s *ModelSummariesSuite) TestModelsForSuperuserWithAll(c *gc.C) {
+	s.Setup4Models(c)
+	summaries, err := s.State.ModelSummariesForUser(s.Model.Owner(), true)
+	c.Assert(err, jc.ErrorIsNil)
+	names := make([]string, len(summaries))
+	access := make(map[string]string)
+	for i, summary := range summaries {
+		names[i] = summary.Name
+		access[summary.Name] = string(summary.Access)
+	}
+	sort.Strings(names)
+	c.Check(names, gc.DeepEquals, []string{"shared", "testenv", "user1model", "user2model", "user3model"})
+	c.Check(access, gc.DeepEquals, map[string]string{
+		"shared":     "admin",
+		"testenv":    "admin",
+		"user1model": "",
+		"user2model": "",
+		"user3model": "",
+	})
+}
+
 func (s *ModelSummariesSuite) TestModelsForUser1(c *gc.C) {
 	// User1 is only added to the model they own and the shared model
 	s.Setup4Models(c)
@@ -172,7 +205,7 @@ func (s *ModelSummariesSuite) TestModelsForIgnoresImportingModels(c *gc.C) {
 
 func (s *ModelSummariesSuite) TestContainsConfigInformation(c *gc.C) {
 	s.Setup4Models(c)
-	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"))
+	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(summaries, gc.HasLen, 2)
 	// We don't guarantee the order of the summaries, but the data for each model should match the same
@@ -195,7 +228,7 @@ func (s *ModelSummariesSuite) TestContainsConfigInformation(c *gc.C) {
 
 func (s *ModelSummariesSuite) TestContainsProviderType(c *gc.C) {
 	s.Setup4Models(c)
-	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"))
+	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(summaries, gc.HasLen, 2)
 	// We don't guarantee the order of the summaries, but both should have the same ProviderType
@@ -229,7 +262,7 @@ func (s *ModelSummariesSuite) TestContainsModelStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = user1.SetStatus(expectedStatus["user1model"])
 	c.Assert(err, jc.ErrorIsNil)
-	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"))
+	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(summaries, gc.HasLen, 2)
 	statuses := make(map[string]status.StatusInfo)
@@ -266,7 +299,7 @@ func (s *ModelSummariesSuite) TestContainsAccessInformation(c *gc.C) {
 	err = user1.UpdateLastModelConnection(names.NewUserTag("user1write"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"))
+	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(summaries, gc.HasLen, 2)
 	times := make(map[string]time.Time)
@@ -334,7 +367,7 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	}, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"))
+	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag("user1write"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(summaries, gc.HasLen, 2)
 	summaryMap := make(map[string]*state.ModelSummary)

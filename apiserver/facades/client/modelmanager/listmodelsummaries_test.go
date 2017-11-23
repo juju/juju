@@ -81,7 +81,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
-	result, err := s.api.ListModelSummaries(params.Entity{Tag: s.adminUser.String()})
+	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ModelSummaryResults{
 		Results: []params.ModelSummaryResult{
@@ -109,7 +109,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithUserAccess(c *gc.C) 
 		summary.Access = permission.AdminAccess
 		return []state.ModelSummary{summary}, nil
 	}
-	result, err := s.api.ListModelSummaries(params.Entity{Tag: s.adminUser.String()})
+	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Result.UserAccess, jc.DeepEquals, params.ModelAdminAccess)
 }
@@ -121,7 +121,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithLastConnected(c *gc.
 		summary.UserLastConnection = &now
 		return []state.ModelSummary{summary}, nil
 	}
-	result, err := s.api.ListModelSummaries(params.Entity{Tag: s.adminUser.String()})
+	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Result.UserLastConnection, jc.DeepEquals, &now)
 }
@@ -132,7 +132,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineCount(c *gc.C
 		summary.MachineCount = int64(64)
 		return []state.ModelSummary{summary}, nil
 	}
-	result, err := s.api.ListModelSummaries(params.Entity{Tag: s.adminUser.String()})
+	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Result.Counts[0], jc.DeepEquals, params.ModelEntityCount{params.Machines, 64})
 }
@@ -143,7 +143,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithCoreCount(c *gc.C) {
 		summary.CoreCount = int64(43)
 		return []state.ModelSummary{summary}, nil
 	}
-	result, err := s.api.ListModelSummaries(params.Entity{Tag: s.adminUser.String()})
+	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Result.Counts[0], jc.DeepEquals, params.ModelEntityCount{params.Cores, 43})
 }
@@ -158,7 +158,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithAll(c *gc.C) {
 		summary.CoreCount = int64(42)
 		return []state.ModelSummary{summary}, nil
 	}
-	result, err := s.api.ListModelSummaries(params.Entity{Tag: s.adminUser.String()})
+	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ModelSummaryResults{
 		Results: []params.ModelSummaryResult{
@@ -188,7 +188,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithAll(c *gc.C) {
 func (s *ListModelsWithInfoSuite) TestListModelSummariesAdminListsOther(c *gc.C) {
 	otherTag := names.NewUserTag("someotheruser")
 	s.st.model = s.createModel(c, otherTag)
-	result, err := s.api.ListModelSummaries(params.Entity{Tag: s.adminUser.String()})
+	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Result.OwnerTag, gc.DeepEquals, otherTag.String())
@@ -198,19 +198,19 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesDenied(c *gc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("other@remote")
-	_, err := s.api.ListModelSummaries(params.Entity{Tag: other.String()})
+	_, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: other.String()})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesInvalidUser(c *gc.C) {
-	_, err := s.api.ListModelSummaries(params.Entity{Tag: "invalid"})
+	_, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: "invalid"})
 	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesStateError(c *gc.C) {
 	errMsg := "captain error for ModelSummariesForUser"
 	s.st.Stub.SetErrors(errors.New(errMsg))
-	_, err := s.api.ListModelSummaries(params.Entity{Tag: s.adminUser.String()})
+	_, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, gc.ErrorMatches, errMsg)
 }
 
@@ -218,7 +218,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesNoModelsForUser(c *gc.C)
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		return []state.ModelSummary{}, nil
 	}
-	results, err := s.api.ListModelSummaries(params.Entity{Tag: s.adminUser.String()})
+	results, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }

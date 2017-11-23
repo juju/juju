@@ -740,8 +740,8 @@ func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission
 	return permission.UserAccess{}, st.NextErr()
 }
 
-func (st *mockState) ModelSummariesForUser(user names.UserTag) ([]state.ModelSummary, error) {
-	st.MethodCall(st, "ModelSummariesForUser", user)
+func (st *mockState) ModelSummariesForUser(user names.UserTag, all bool) ([]state.ModelSummary, error) {
+	st.MethodCall(st, "ModelSummariesForUser", user, all)
 	return st.modelDetailsForUser()
 }
 

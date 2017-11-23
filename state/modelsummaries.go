@@ -387,14 +387,7 @@ func (p *modelSummaryProcessor) fillInMigration() error {
 // fillInJustUser fills in the Access rights for this user on every model (but not other users).
 // We will use this information later to determine whether it is reasonable to include the information from other models.
 func (p *modelSummaryProcessor) fillInJustUser() error {
-	if p.isSuperuser {
-		// we skip this check, because we're the superuser, so we'll fill in everything anyway.
-		for i := range p.summaries {
-			p.summaries[i].Access = permission.AdminAccess
-		}
-		return nil
-	}
-
+	// Note: Even for Superuser we track the individual Access for each model.
 	// TODO(jam): ensure that we have appropriate indexes so that users that aren't "admin" and only see a couple
 	// models don't do a COLLSCAN on the table.
 	username := strings.ToLower(p.user.Name())
