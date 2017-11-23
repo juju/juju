@@ -425,7 +425,6 @@ func (st *State) removeMachineFilesystemsOps(m *Machine) ([]txn.Op, error) {
 		})
 	}
 	for _, f := range machineFilesystems {
-		filesystemId := f.Tag().Id()
 		if f.doc.StorageId != "" {
 			// The volume is assigned to a storage instance;
 			// make sure we also remove the storage instance.
@@ -442,15 +441,11 @@ func (st *State) removeMachineFilesystemsOps(m *Machine) ([]txn.Op, error) {
 				},
 			)
 		}
-		ops = append(ops,
-			txn.Op{
-				C:      filesystemsC,
-				Id:     filesystemId,
-				Assert: txn.DocExists,
-				Remove: true,
-			},
-			removeModelFilesystemRefOp(st, filesystemId),
-		)
+		fsOps, err := removeFilesystemOps(st, f)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, fsOps...)
 	}
 	return ops, nil
 }

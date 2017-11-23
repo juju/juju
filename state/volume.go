@@ -393,7 +393,6 @@ func (st *State) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) {
 		})
 	}
 	for _, v := range machineVolumes {
-		volumeId := v.Tag().Id()
 		if v.doc.StorageId != "" {
 			// The volume is assigned to a storage instance;
 			// make sure we also remove the storage instance.
@@ -410,15 +409,7 @@ func (st *State) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) {
 				},
 			)
 		}
-		ops = append(ops,
-			txn.Op{
-				C:      volumesC,
-				Id:     volumeId,
-				Assert: txn.DocExists,
-				Remove: true,
-			},
-			removeModelVolumeRefOp(st, volumeId),
-		)
+		ops = append(ops, st.removeVolumeOps(v.VolumeTag())...)
 	}
 	return ops, nil
 }
@@ -718,18 +709,22 @@ func (st *State) RemoveVolume(tag names.VolumeTag) (err error) {
 		if volume.Life() != Dead {
 			return nil, errors.New("volume is not dead")
 		}
-		return []txn.Op{
-			{
-				C:      volumesC,
-				Id:     tag.Id(),
-				Assert: txn.DocExists,
-				Remove: true,
-			},
-			removeModelVolumeRefOp(st, tag.Id()),
-			removeStatusOp(st, volumeGlobalKey(tag.Id())),
-		}, nil
+		return st.removeVolumeOps(tag), nil
 	}
 	return st.run(buildTxn)
+}
+
+func (st *State) removeVolumeOps(tag names.VolumeTag) []txn.Op {
+	return []txn.Op{
+		{
+			C:      volumesC,
+			Id:     tag.Id(),
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+		removeModelVolumeRefOp(st, tag.Id()),
+		removeStatusOp(st, volumeGlobalKey(tag.Id())),
+	}
 }
 
 // newVolumeName returns a unique volume name.
