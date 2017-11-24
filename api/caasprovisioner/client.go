@@ -4,11 +4,13 @@
 package caasprovisioner
 
 import (
+	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
-	"gopkg.in/juju/names.v2"
 )
 
 // Client allows access to the CAAS provisioner API endpoint.
@@ -46,7 +48,7 @@ type ApplicationPassword struct {
 }
 
 // SetPasswords sets API passwords for the specified applications.
-func (c *Client) SetPasswords(appPasswords []ApplicationPassword) error {
+func (c *Client) SetPasswords(appPasswords []ApplicationPassword) (params.ErrorResults, error) {
 	var result params.ErrorResults
 	args := params.EntityPasswords{Changes: make([]params.EntityPassword, len(appPasswords))}
 	for i, p := range appPasswords {
@@ -56,7 +58,10 @@ func (c *Client) SetPasswords(appPasswords []ApplicationPassword) error {
 	}
 	err := c.facade.FacadeCall("SetPasswords", args, &result)
 	if err != nil {
-		return err
+		return params.ErrorResults{}, err
 	}
-	return result.Combine()
+	if len(result.Results) != len(args.Changes) {
+		return params.ErrorResults{}, errors.Errorf("expected %d result(s), got %d", len(args.Changes), len(result.Results))
+	}
+	return result, nil
 }

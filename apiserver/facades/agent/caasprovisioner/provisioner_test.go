@@ -68,8 +68,8 @@ func (s *CAASProvisionerSuite) TestWatchApplications(c *gc.C) {
 
 func (s *CAASProvisionerSuite) TestSetPasswords(c *gc.C) {
 	s.st.app = &mockApplication{
-		tag: names.NewApplicationTag("app")}
-	s.authorizer.Controller = true
+		tag: names.NewApplicationTag("app"),
+	}
 
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{

@@ -57,11 +57,29 @@ func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{},
+			Results: []params.ErrorResult{{}},
 		}
 		return nil
 	})
-	err := client.SetPasswords(passwords)
+	result, err := client.SetPasswords(passwords)
 	c.Check(err, jc.ErrorIsNil)
+	c.Check(result.Combine(), jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestSetPasswordsCount(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{
+				{Error: &params.Error{Message: "FAIL"}},
+				{Error: &params.Error{Message: "FAIL"}},
+			},
+		}
+		return nil
+	})
+	passwords := []caasprovisioner.ApplicationPassword{
+		{Name: "app", Password: "secret"},
+	}
+	_, err := client.SetPasswords(passwords)
+	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }

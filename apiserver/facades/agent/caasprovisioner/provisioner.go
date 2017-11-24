@@ -4,8 +4,6 @@
 package caasprovisioner
 
 import (
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -38,14 +36,8 @@ func NewCAASProvisionerAPI(
 	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
-	getAuthFunc := func() (common.AuthFunc, error) {
-		return func(names.Tag) bool {
-			return authorizer.AuthController()
-		}, nil
-	}
-
 	return &API{
-		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
+		PasswordChanger: common.NewPasswordChanger(st, common.AuthAlways()),
 		auth:            authorizer,
 		resources:       resources,
 		state:           st,

@@ -5,6 +5,7 @@ package caasprovisioner
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
@@ -23,7 +24,7 @@ var logger = loggo.GetLogger("juju.workers.caasprovisioner")
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
 	WatchApplications() (watcher.StringsWatcher, error)
-	SetPasswords([]apicaasprovisioner.ApplicationPassword) error
+	SetPasswords([]apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error)
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
@@ -107,7 +108,11 @@ func (p *provisioner) loop() error {
 				}
 				appPasswords = append(appPasswords, apicaasprovisioner.ApplicationPassword{Name: app, Password: password})
 			}
-			if err := p.provisionerFacade.SetPasswords(appPasswords); err != nil {
+			errorResults, err := p.provisionerFacade.SetPasswords(appPasswords)
+			if err != nil {
+				return errors.Annotate(err, "failed to set application api passwords")
+			}
+			if err := errorResults.Combine(); err != nil {
 				return errors.Annotate(err, "failed to set application api passwords")
 			}
 		}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/caasprovisioner"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
@@ -43,15 +44,15 @@ func (m *mockProvisionerFacade) WatchApplications() (watcher.StringsWatcher, err
 	return m.applicationsWatcher, nil
 }
 
-func (m *mockProvisionerFacade) SetPasswords(passwords []apicaasprovisioner.ApplicationPassword) error {
+func (m *mockProvisionerFacade) SetPasswords(passwords []apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "SetPasswords", passwords)
 	if err := m.stub.NextErr(); err != nil {
-		return err
+		return params.ErrorResults{}, err
 	}
 	m.passwords = passwords
-	return nil
+	return params.ErrorResults{}, nil
 }
 
 type mockAgentConfig struct {

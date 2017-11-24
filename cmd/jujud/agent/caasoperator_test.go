@@ -24,31 +24,10 @@ import (
 )
 
 type CAASOperatorSuite struct {
-	coretesting.GitSuite
 	agenttest.AgentSuite
 }
 
 var _ = gc.Suite(&CAASOperatorSuite{})
-
-func (s *CAASOperatorSuite) SetUpSuite(c *gc.C) {
-	s.GitSuite.SetUpSuite(c)
-	s.AgentSuite.SetUpSuite(c)
-}
-
-func (s *CAASOperatorSuite) TearDownSuite(c *gc.C) {
-	s.AgentSuite.TearDownSuite(c)
-	s.GitSuite.TearDownSuite(c)
-}
-
-func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
-	s.GitSuite.SetUpTest(c)
-	s.AgentSuite.SetUpTest(c)
-}
-
-func (s *CAASOperatorSuite) TearDownTest(c *gc.C) {
-	s.AgentSuite.TearDownTest(c)
-	s.GitSuite.TearDownTest(c)
-}
 
 // primeAgent creates an application, and sets up the application agent's directory.
 // It returns new application and the agent's configuration.
