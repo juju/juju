@@ -41,9 +41,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.manifold = restorewatcher.Manifold(restorewatcher.ManifoldConfig{
-		StateName:            "state",
-		NewWorker:            s.newWorker,
-		RestoreStatusChanged: s.restoreStatusChanged,
+		StateName: "state",
+		NewWorker: s.newWorker,
 	})
 }
 
@@ -55,19 +54,22 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	return dt.StubContext(nil, resources)
 }
 
-func (s *ManifoldSuite) newWorker(config restorewatcher.Config) (worker.Worker, error) {
+func (s *ManifoldSuite) newWorker(config restorewatcher.Config) (restorewatcher.RestoreStatusWorker, error) {
 	s.stub.MethodCall(s, "NewWorker", config)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
 	w := worker.NewRunner(worker.RunnerParams{})
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
-	return w, nil
+	return restoreStatusWorker{w}, nil
 }
 
-func (s *ManifoldSuite) restoreStatusChanged(status state.RestoreStatus) error {
-	s.stub.MethodCall(s, "RestoreStatusChanged", status)
-	return s.stub.NextErr()
+type restoreStatusWorker struct {
+	worker.Worker
+}
+
+func (restoreStatusWorker) RestoreStatus() state.RestoreStatus {
+	panic("RestoreStatus should not be called")
 }
 
 var expectedInputs = []string{"state"}
@@ -95,12 +97,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, restorewatcher.Config{})
 	config := args[0].(restorewatcher.Config)
-
-	c.Assert(config.RestoreStatusChanged, gc.NotNil)
-	err := config.RestoreStatusChanged(state.RestorePending)
-	c.Assert(err, jc.ErrorIsNil)
-	s.stub.CheckCall(c, 1, "RestoreStatusChanged", state.RestorePending)
-	config.RestoreStatusChanged = nil
 
 	c.Assert(config, jc.DeepEquals, restorewatcher.Config{
 		RestoreInfoWatcher: restorewatcher.RestoreInfoWatcherShim{s.st},
