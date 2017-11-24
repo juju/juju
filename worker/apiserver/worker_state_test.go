@@ -80,8 +80,11 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 	c.Assert(config.GetCertificate, gc.NotNil)
 	config.GetCertificate = nil
 
-	c.Assert(config.Validator, gc.NotNil)
-	config.Validator = nil
+	c.Assert(config.UpgradeComplete, gc.NotNil)
+	config.UpgradeComplete = nil
+
+	c.Assert(config.RestoreStatus, gc.NotNil)
+	config.RestoreStatus = nil
 
 	c.Assert(config.NewObserver, gc.NotNil)
 	config.NewObserver = nil

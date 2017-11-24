@@ -71,28 +71,15 @@ func GetCredentials(
 		cloudIdentityEndpoint = region.IdentityEndpoint
 	}
 
-	readFile := func(f string) ([]byte, error) {
-		f, err := utils.NormalizePath(f)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ioutil.ReadFile(f)
-	}
-
 	// Finalize credential against schemas supported by the provider.
 	provider, err := environs.Provider(args.Cloud.Type)
 	if err != nil {
 		return nil, "", "", errors.Trace(err)
 	}
 
-	credential, err = cloud.FinalizeCredential(
-		*credential, provider.CredentialSchemas(), readFile,
-	)
+	credential, err = FinalizeFileContent(credential, provider)
 	if err != nil {
-		return nil, "", "", errors.Annotatef(
-			err, "finalizing %q credential for cloud %q",
-			credentialName, args.Cloud.Name,
-		)
+		return nil, "", "", AnnotateWithFinalizationError(err, credentialName, args.Cloud.Name)
 	}
 
 	credential, err = provider.FinalizeCredential(
@@ -104,13 +91,38 @@ func GetCredentials(
 		},
 	)
 	if err != nil {
-		return nil, "", "", errors.Annotatef(
-			err, "finalizing %q credential for cloud %q",
-			credentialName, args.Cloud.Name,
-		)
+		return nil, "", "", AnnotateWithFinalizationError(err, credentialName, args.Cloud.Name)
 	}
 
 	return credential, credentialName, regionName, nil
+}
+
+// FinalizeFileContent replaces the path content of cloud credentials "file" attribute with its content.
+func FinalizeFileContent(credential *cloud.Credential, provider environs.EnvironProvider) (*cloud.Credential, error) {
+	readFile := func(f string) ([]byte, error) {
+		f, err := utils.NormalizePath(f)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ioutil.ReadFile(f)
+	}
+
+	var err error
+	credential, err = cloud.FinalizeCredential(
+		*credential, provider.CredentialSchemas(), readFile,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return credential, nil
+}
+
+func AnnotateWithFinalizationError(err error, credentialName, cloudName string) error {
+	return errors.Annotatef(
+		err, "finalizing %q credential for cloud %q",
+		credentialName, cloudName,
+	)
 }
 
 // credentialByName returns the credential and default region to use for the

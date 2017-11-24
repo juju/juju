@@ -12,7 +12,6 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
@@ -57,7 +56,8 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		StatePool:                         &state.StatePool{},
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
-		LoginValidator:                    func(names.Tag) error { return nil },
+		UpgradeComplete:                   func() bool { return true },
+		RestoreStatus:                     func() state.RestoreStatus { return "" },
 		GetCertificate:                    func() *tls.Certificate { return nil },
 		StoreAuditEntry:                   s.storeAuditEntry,
 		NewServer:                         s.newServer,
@@ -113,8 +113,11 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *apiserver.Config) { cfg.RegisterIntrospectionHTTPHandlers = nil },
 		"nil RegisterIntrospectionHTTPHandlers not valid",
 	}, {
-		func(cfg *apiserver.Config) { cfg.LoginValidator = nil },
-		"nil LoginValidator not valid",
+		func(cfg *apiserver.Config) { cfg.UpgradeComplete = nil },
+		"nil UpgradeComplete not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.RestoreStatus = nil },
+		"nil RestoreStatus not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.GetCertificate = nil },
 		"nil GetCertificate not valid",

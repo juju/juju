@@ -132,3 +132,7 @@ func (p *mockEnvironProvider) FinalizeCredential(
 	out.Label = "finalized"
 	return &out, nil
 }
+
+func (p *mockEnvironProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: cloud.CredentialSchema{}}
+}

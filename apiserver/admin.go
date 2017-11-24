@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 	statepresence "github.com/juju/juju/state/presence"
@@ -71,8 +72,6 @@ func (a *admin) RedirectInfo() (params.RedirectInfoResult, error) {
 	return params.RedirectInfoResult{}, fmt.Errorf("not redirected")
 }
 
-var AboutToRestoreError = errors.New("restore preparation in progress")
-var RestoreInProgressError = errors.New("restore in progress")
 var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress")
 var errAlreadyLoggedIn = errors.New("already logged in")
 
@@ -85,20 +84,6 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	if a.loggedIn {
 		// This can only happen if Login is called concurrently.
 		return fail, errAlreadyLoggedIn
-	}
-
-	var authTag names.Tag
-	if req.AuthTag != "" {
-		var err error
-		authTag, err = names.ParseTag(req.AuthTag)
-		if err != nil {
-			return fail, errors.Annotate(err, "could not parse auth tag")
-		}
-	}
-	// apiRoot is the API root exposed to the client after login.
-	apiRoot, err := rpcRoot(a.srv, a.root, authTag)
-	if err != nil {
-		return fail, errors.Trace(err)
 	}
 
 	authResult, err := a.authenticate(req)
@@ -120,55 +105,55 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		return fail, errors.Trace(err)
 	}
 
-	model := a.root.model
-
-	if authResult.userLogin || authResult.anonymousLogin {
-		switch model.MigrationMode() {
-		case state.MigrationModeImporting:
-			// The user is not able to access a model that is currently being
-			// imported until the model has been activated.
-			apiRoot = restrictAll(apiRoot, errors.New("migration in progress, model is importing"))
-		case state.MigrationModeExporting:
-			// The user is not allowed to change anything in a model that is
-			// currently being moved to another controller.
-			apiRoot = restrictRoot(apiRoot, migrationClientMethodsOnly)
-		}
+	// apiRoot is the API root exposed to the client after login.
+	var apiRoot rpc.Root = newAPIRoot(
+		a.root.state,
+		a.srv.statePool,
+		a.srv.facades,
+		a.root.resources,
+		a.root,
+	)
+	apiRoot, err = restrictAPIRoot(
+		a.srv,
+		apiRoot,
+		a.root.model,
+		*authResult,
+	)
+	if err != nil {
+		return fail, errors.Trace(err)
 	}
 
-	loginResult := params.LoginResult{
-		Servers:       params.FromNetworkHostsPorts(hostPorts),
-		ControllerTag: model.ControllerTag().String(),
-		UserInfo:      authResult.userInfo,
-		ServerVersion: jujuversion.Current.String(),
-		PublicDNSName: a.srv.publicDNSName(),
-	}
-
-	var filters []facadeFilterFunc
+	var facadeFilters []facadeFilterFunc
+	var modelTag string
 	if authResult.anonymousLogin {
-		filters = append(filters, IsAnonymousFacade)
+		facadeFilters = append(facadeFilters, IsAnonymousFacade)
 	}
 	if authResult.controllerOnlyLogin {
-		loginResult.Facades = filterFacades(a.srv.facades, append(filters, IsControllerFacade)...)
-		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
+		facadeFilters = append(facadeFilters, IsControllerFacade)
 	} else {
-		loginResult.ModelTag = model.Tag().String()
-		loginResult.Facades = filterFacades(a.srv.facades, append(filters, IsModelFacade)...)
-		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
-		if model.Type() == state.ModelTypeCAAS {
-			apiRoot = restrictRoot(apiRoot, caasModelFacadesOnly)
-		}
+		facadeFilters = append(facadeFilters, IsModelFacade)
+		modelTag = a.root.model.Tag().String()
 	}
 
 	a.root.rpcConn.ServeRoot(apiRoot, serverError)
-
-	return loginResult, nil
+	return params.LoginResult{
+		Servers:       params.FromNetworkHostsPorts(hostPorts),
+		ControllerTag: a.root.model.ControllerTag().String(),
+		UserInfo:      authResult.userInfo,
+		ServerVersion: jujuversion.Current.String(),
+		PublicDNSName: a.srv.publicDNSName(),
+		ModelTag:      modelTag,
+		Facades:       filterFacades(a.srv.facades, facadeFilters...),
+	}, nil
 }
 
 type authResult struct {
-	anonymousLogin      bool
-	userLogin           bool
-	controllerOnlyLogin bool
-	userInfo            *params.AuthUserInfo
+	tag                    names.Tag // nil if external user login
+	anonymousLogin         bool
+	userLogin              bool // false if anonymous user
+	controllerOnlyLogin    bool
+	controllerMachineLogin bool
+	userInfo               *params.AuthUserInfo
 }
 
 func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
@@ -178,28 +163,17 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 	}
 
 	// Maybe rate limit non-user auth attempts.
-	machineAgent := false
 	if req.AuthTag != "" {
-		var err error
-		kind, err := names.TagKind(req.AuthTag)
-		// Check for anonymous user login.
-		if kind == names.UserTagKind {
-			userTag, err := names.ParseUserTag(req.AuthTag)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			result.anonymousLogin = userTag.Id() == api.AnonymousUsername && len(req.Macaroons) == 0
-			result.userLogin = !result.anonymousLogin
+		tag, err := names.ParseTag(req.AuthTag)
+		if err == nil {
+			result.tag = tag
 		}
-		if err != nil || kind != names.UserTagKind {
-			addCount := func(delta int64) {
-				atomic.AddInt64(&a.srv.loginAttempts, delta)
-			}
-			addCount(1)
-			defer addCount(-1)
+		if err != nil || tag.Kind() != names.UserTagKind {
+			// Either the tag is invalid, or
+			// it's not a user; rate limit it.
+			atomic.AddInt64(&a.srv.loginAttempts, 1)
+			defer atomic.AddInt64(&a.srv.loginAttempts, -1)
 
-			result.userLogin = false
-			machineAgent = kind == names.MachineTagKind
 			// Users are not rate limited, all other entities are.
 			if !a.srv.limiter.Acquire() {
 				logger.Debugf("rate limiting for agent %s", req.AuthTag)
@@ -210,35 +184,61 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 			}
 			defer a.srv.limiter.Release()
 		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	switch result.tag.(type) {
+	case nil:
+	case names.UserTag:
+		if result.tag.Id() == api.AnonymousUsername && len(req.Macaroons) == 0 {
+			result.anonymousLogin = true
+			result.userLogin = false
+		}
+	default:
+		result.userLogin = false
 	}
 
 	// Only attempt to login with credentials if we are not doing an anonymous login.
 	var (
 		lastConnection *time.Time
+		entity         state.Entity
 		err            error
+		startPinger    = true
 	)
 	if !result.anonymousLogin {
-		a.root.entity, lastConnection, err = a.checkCreds(req, result.userLogin)
-	}
-
-	// If above login fails, we may still be a login to a controller
-	// machine in the controller model.
-	controllerMachineLogin, err := a.handleAuthError(req, machineAgent, err)
-	if err != nil {
-		return nil, errors.Trace(err)
+		entity, lastConnection, err = a.checkCreds(req, result.tag, result.userLogin)
+		if err != nil {
+			// If above login fails, we may still be a login to a controller
+			// machine in the controller model.
+			entity, err = a.handleAuthError(req, result.tag, err)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			// We only need to run a pinger for controller machine
+			// agents when logging into the controller model.
+			startPinger = false
+		}
 	}
 	a.loggedIn = true
 
 	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
-	if a.root.entity != nil {
-		a.apiObserver.Login(a.root.entity.Tag(), a.root.model.ModelTag(), controllerMachineLogin, req.UserData)
+	if entity != nil {
+		if machine, ok := entity.(*state.Machine); ok && machine.IsManager() {
+			result.controllerMachineLogin = true
+			if machine.Tag() != a.srv.tag {
+				// We don't want to run pingers for other
+				// controller machines; they run their own.
+				startPinger = false
+			}
+		}
+		a.root.entity = entity
+		a.apiObserver.Login(entity.Tag(), a.root.model.ModelTag(), result.controllerMachineLogin, req.UserData)
 	}
 
-	// For controller machine logins, we don't need a pinger
-	// for it as we already have one running in the machine agent api
-	// worker for the controller model.
-	if !controllerMachineLogin {
-		if err := startPingerIfAgent(a.srv.pingClock, a.root, a.root.entity); err != nil {
+	if startPinger {
+		if err := startPingerIfAgent(a.srv.pingClock, a.root, entity); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -248,12 +248,13 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 	return result, nil
 }
 
-func (a *admin) handleAuthError(req params.LoginRequest, machineAgent bool, err error) (controllerLogin bool, _ error) {
-	if err == nil {
-		return false, nil
-	}
+func (a *admin) handleAuthError(
+	req params.LoginRequest,
+	authTag names.Tag,
+	err error,
+) (state.Entity, error) {
 	if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
-		return false, err
+		return nil, err
 	}
 	if a.maintenanceInProgress() {
 		// An upgrade, restore or similar operation is in
@@ -261,7 +262,7 @@ func (a *admin) handleAuthError(req params.LoginRequest, machineAgent bool, err 
 		// is complete due to incomplete or updating data. Mask
 		// transitory and potentially confusing errors from failed
 		// logins with a more helpful one.
-		return false, MaintenanceNoLoginError
+		return nil, MaintenanceNoLoginError
 	}
 	// Here we have a special case.  The machine agents that manage
 	// models in the controller model need to be able to
@@ -272,19 +273,16 @@ func (a *admin) handleAuthError(req params.LoginRequest, machineAgent bool, err 
 	// machine has the manage state job.  If all those parts are valid, we
 	// can then check the credentials against the controller model
 	// machine.
-	if !machineAgent {
-		return false, errors.Trace(err)
+	machineTag, ok := authTag.(names.MachineTag)
+	if !ok {
+		return nil, errors.Trace(err)
 	}
 	if errors.Cause(err) != common.ErrBadCreds {
-		return false, err
+		return nil, err
 	}
 	// If we are here, we may be logging into a controller machine
 	// in the controller model.
-	a.root.entity, err = a.checkControllerMachineCreds(req)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return true, nil
+	return a.checkControllerMachineCreds(req, machineTag)
 }
 
 func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) error {
@@ -402,12 +400,12 @@ func filterFacades(registry *facade.Registry, allowFacadeAllMustMatch ...facadeF
 	return out
 }
 
-func (a *admin) checkCreds(req params.LoginRequest, lookForModelUser bool) (state.Entity, *time.Time, error) {
-	return doCheckCreds(a.root.state, req, lookForModelUser, a.authenticator())
+func (a *admin) checkCreds(req params.LoginRequest, authTag names.Tag, userLogin bool) (state.Entity, *time.Time, error) {
+	return doCheckCreds(a.root.state, req, authTag, userLogin, a.authenticator())
 }
 
-func (a *admin) checkControllerMachineCreds(req params.LoginRequest) (state.Entity, error) {
-	return checkControllerMachineCreds(a.srv.statePool.SystemState(), req, a.authenticator())
+func (a *admin) checkControllerMachineCreds(req params.LoginRequest, authTag names.MachineTag) (state.Entity, error) {
+	return checkControllerMachineCreds(a.srv.statePool.SystemState(), req, authTag, a.authenticator())
 }
 
 func (a *admin) authenticator() authentication.EntityAuthenticator {
@@ -415,50 +413,43 @@ func (a *admin) authenticator() authentication.EntityAuthenticator {
 }
 
 func (a *admin) maintenanceInProgress() bool {
-	if a.srv.validator == nil {
-		return false
+	if !a.srv.upgradeComplete() {
+		return true
 	}
-	// jujud's login validator will return an error for any user tag
-	// if jujud is upgrading or restoring. The tag of the entity
-	// trying to log in can't be used because jujud's login validator
-	// will always return nil for the local machine agent and here we
-	// need to know if maintenance is in progress irrespective of the
-	// the authenticating entity.
-	//
-	// TODO(mjs): 2014-09-29 bug 1375110
-	// This needs improving but I don't have the cycles right now.
-	return a.srv.validator(names.NewUserTag("arbitrary")) != nil
+	switch a.srv.restoreStatus() {
+	case state.RestorePending, state.RestoreInProgress:
+		return true
+	}
+	return false
 }
 
 var doCheckCreds = checkCreds
 
 // checkCreds validates the entities credentials in the current model.
-// If the entity is a user, and lookForModelUser is true, a model user must exist
-// for the model.  In the case of a user logging in to the controller, but
-// not a model, there is no env user needed.  While we have the env
+// If the entity is a user, and userLogin==true, a model user must exist
+// for the model. In the case of a user logging in to the controller,
+// but not a model, there is no env user needed.  While we have the env
 // user, if we do have it, update the last login time.
 //
-// Note that when logging in with lookForModelUser true, the returned
-// entity will be modelUserEntity, not *state.User (external users
-// don't have user entries) or *state.ModelUser (we
-// don't want to lose the local user information associated with that).
-func checkCreds(st *state.State, req params.LoginRequest, lookForModelUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
-	var tag names.Tag
-	if req.AuthTag != "" {
-		var err error
-		tag, err = names.ParseTag(req.AuthTag)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-	}
+// Note that when logging in with userLogin==true, the returned entity
+// will be modelUserEntity, not *state.User (external users don't have
+// user entries) or *state.ModelUser (we don't want to lose the local
+// user information associated with that).
+func checkCreds(
+	st *state.State,
+	req params.LoginRequest,
+	authTag names.Tag,
+	userLogin bool,
+	authenticator authentication.EntityAuthenticator,
+) (state.Entity, *time.Time, error) {
 	var entityFinder authentication.EntityFinder = st
-	if lookForModelUser {
+	if userLogin {
 		// When looking up model users, use a custom
 		// entity finder that looks up both the local user (if the user
 		// tag is in the local domain) and the model user.
 		entityFinder = modelUserEntityFinder{st}
 	}
-	entity, err := authenticator.Authenticate(entityFinder, tag, req)
+	entity, err := authenticator.Authenticate(entityFinder, authTag, req)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -482,9 +473,16 @@ func checkCreds(st *state.State, req params.LoginRequest, lookForModelUser bool,
 func checkControllerMachineCreds(
 	controllerSt *state.State,
 	req params.LoginRequest,
+	authTag names.MachineTag,
 	authenticator authentication.EntityAuthenticator,
 ) (state.Entity, error) {
-	entity, _, err := doCheckCreds(controllerSt, req, false, authenticator)
+	entity, _, err := doCheckCreds(
+		controllerSt,
+		req,
+		authTag,
+		false,
+		authenticator,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

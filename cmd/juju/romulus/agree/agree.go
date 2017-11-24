@@ -16,7 +16,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/terms-client/api"
 	"github.com/juju/terms-client/api/wireformat"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )

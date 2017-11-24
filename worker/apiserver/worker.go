@@ -31,7 +31,8 @@ type Config struct {
 	StatePool                         *state.StatePool
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
-	LoginValidator                    LoginValidator
+	RestoreStatus                     func() state.RestoreStatus
+	UpgradeComplete                   func() bool
 	GetCertificate                    func() *tls.Certificate
 	StoreAuditEntry                   StoreAuditEntryFunc
 	NewServer                         NewServerFunc
@@ -61,8 +62,11 @@ func (config Config) Validate() error {
 	if config.RegisterIntrospectionHTTPHandlers == nil {
 		return errors.NotValidf("nil RegisterIntrospectionHTTPHandlers")
 	}
-	if config.LoginValidator == nil {
-		return errors.NotValidf("nil LoginValidator")
+	if config.RestoreStatus == nil {
+		return errors.NotValidf("nil RestoreStatus")
+	}
+	if config.UpgradeComplete == nil {
+		return errors.NotValidf("nil UpgradeComplete")
 	}
 	if config.GetCertificate == nil {
 		return errors.NotValidf("nil GetCertificate")
@@ -75,8 +79,6 @@ func (config Config) Validate() error {
 	}
 	return nil
 }
-
-type LoginValidator apiserver.LoginValidator
 
 // NewWorker returns a new API server worker, with the given configuration.
 func NewWorker(config Config) (worker.Worker, error) {
@@ -122,9 +124,10 @@ func NewWorker(config Config) (worker.Worker, error) {
 		Tag:                           config.AgentConfig.Tag(),
 		DataDir:                       config.AgentConfig.DataDir(),
 		LogDir:                        logDir,
-		Validator:                     apiserver.LoginValidator(config.LoginValidator),
 		Hub:                           config.Hub,
 		GetCertificate:                config.GetCertificate,
+		RestoreStatus:                 config.RestoreStatus,
+		UpgradeComplete:               config.UpgradeComplete,
 		AutocertURL:                   controllerConfig.AutocertURL(),
 		AutocertDNSName:               controllerConfig.AutocertDNSName(),
 		AllowModelAccess:              controllerConfig.AllowModelAccess(),

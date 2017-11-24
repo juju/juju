@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/workertest"
 )
 
@@ -38,6 +39,7 @@ type ManifoldSuite struct {
 	prometheusRegisterer stubPrometheusRegisterer
 	certWatcher          stubCertWatcher
 	hub                  pubsub.StructuredHub
+	upgradeGate          stubGateWaiter
 
 	stub testing.Stub
 }
@@ -54,6 +56,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.certWatcher = stubCertWatcher{}
+	s.upgradeGate = stubGateWaiter{}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -61,11 +64,12 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:                         "agent",
 		CertWatcherName:                   "cert-watcher",
 		ClockName:                         "clock",
+		RestoreStatusName:                 "restore-status",
 		StateName:                         "state",
+		UpgradeGateName:                   "upgrade",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
-		LoginValidator:                    func(names.Tag) error { return nil },
-		Hub:                               &s.hub,
+		Hub: &s.hub,
 		NewStoreAuditEntryFunc: s.newStoreAuditEntryFunc,
 		NewWorker:              s.newWorker,
 	})
@@ -73,15 +77,22 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent":        s.agent,
-		"cert-watcher": s.certWatcher.get,
-		"clock":        s.clock,
-		"state":        &s.state,
+		"agent":          s.agent,
+		"cert-watcher":   s.certWatcher.get,
+		"clock":          s.clock,
+		"restore-status": s.RestoreStatus,
+		"state":          &s.state,
+		"upgrade":        &s.upgradeGate,
 	}
 	for k, v := range overlay {
 		resources[k] = v
 	}
 	return dt.StubContext(nil, resources)
+}
+
+func (s *ManifoldSuite) RestoreStatus() state.RestoreStatus {
+	s.stub.MethodCall(s, "RestoreStatus")
+	return ""
 }
 
 func (s *ManifoldSuite) newStoreAuditEntryFunc(st *state.State) apiserver.StoreAuditEntryFunc {
@@ -97,7 +108,9 @@ func (s *ManifoldSuite) newWorker(config apiserver.Config) (worker.Worker, error
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"agent", "cert-watcher", "clock", "state"}
+var expectedInputs = []string{
+	"agent", "cert-watcher", "clock", "restore-status", "state", "upgrade",
+}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -127,8 +140,15 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.GetCertificate(), gc.Equals, &s.certWatcher.cert)
 	config.GetCertificate = nil
 
-	c.Assert(config.LoginValidator, gc.NotNil)
-	config.LoginValidator = nil
+	c.Assert(config.UpgradeComplete, gc.NotNil)
+	config.UpgradeComplete()
+	config.UpgradeComplete = nil
+	s.upgradeGate.CheckCallNames(c, "IsUnlocked")
+
+	c.Assert(config.RestoreStatus, gc.NotNil)
+	config.RestoreStatus()
+	config.RestoreStatus = nil
+	s.stub.CheckCallNames(c, "NewStoreAuditEntryFunc", "NewWorker", "RestoreStatus")
 
 	c.Assert(config.RegisterIntrospectionHTTPHandlers, gc.NotNil)
 	config.RegisterIntrospectionHTTPHandlers = nil
@@ -264,4 +284,14 @@ type stubCertWatcher struct {
 func (w *stubCertWatcher) get() *tls.Certificate {
 	w.MethodCall(w, "get")
 	return &w.cert
+}
+
+type stubGateWaiter struct {
+	testing.Stub
+	gate.Waiter
+}
+
+func (w *stubGateWaiter) IsUnlocked() bool {
+	w.MethodCall(w, "IsUnlocked")
+	return true
 }

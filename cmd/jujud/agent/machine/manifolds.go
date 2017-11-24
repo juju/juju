@@ -184,10 +184,6 @@ type ManifoldsConfig struct {
 	// are pruned from the database.
 	TransactionPruneInterval time.Duration
 
-	// LoginValidator is an apiserver.LoginValidator that will be passed
-	// to API server instances for validating logins.
-	LoginValidator apiserver.LoginValidator
-
 	// SetStatePool is used by the state worker for informing the agent of
 	// the StatePool that it creates, so we can pass it to the introspection
 	// worker running outside of the dependency engine.
@@ -207,16 +203,6 @@ type ManifoldsConfig struct {
 	// not the controller model, represented by the given *state.State,
 	// supports network spaces.
 	ControllerSupportsSpaces func(*state.State) (bool, error)
-
-	// RestoreStatusChanged is called by the restorewatcher worker whenever
-	// the restore status changes.
-	//
-	// TODO(axw) this is used purely to record the current state on
-	// the agent so the API server can limit logins. Instead of
-	// trampolining like this, we should have the manifolds communicate
-	// via a worker/gate or similar, and define the logic for limiting
-	// inside worker/apiserver.
-	RestoreStatusChanged restorewatcher.RestoreStatusChangedFunc
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -661,13 +647,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:                         agentName,
 			ClockName:                         clockName,
 			StateName:                         stateName,
+			UpgradeGateName:                   upgradeStepsGateName,
+			RestoreStatusName:                 restoreWatcherName,
 			CertWatcherName:                   certificateWatcherName,
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
-			LoginValidator:                    config.LoginValidator,
-			Hub:                               config.CentralHub,
-			NewWorker:                         apiserver.NewWorker,
-			NewStoreAuditEntryFunc:            apiserver.NewStateStoreAuditEntryFunc,
+			Hub:                    config.CentralHub,
+			NewWorker:              apiserver.NewWorker,
+			NewStoreAuditEntryFunc: apiserver.NewStateStoreAuditEntryFunc,
 		}),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
@@ -685,11 +672,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerSupportsSpaces: config.ControllerSupportsSpaces,
 		})),
 
-		restoreWatcherName: ifFullyUpgraded(restorewatcher.Manifold(restorewatcher.ManifoldConfig{
-			StateName:            stateName,
-			NewWorker:            restorewatcher.NewWorker,
-			RestoreStatusChanged: config.RestoreStatusChanged,
-		})),
+		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{
+			StateName: stateName,
+			NewWorker: restorewatcher.NewWorker,
+		}),
 
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
 			AgentName:                agentName,

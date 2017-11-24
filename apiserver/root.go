@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"reflect"
 	"sync"
@@ -171,32 +172,93 @@ func newAPIRoot(st *state.State, pool *state.StatePool, facades *facade.Registry
 	return r
 }
 
-func rpcRoot(srv *Server, root *apiHandler, authTag names.Tag) (rpc.Root, error) {
-	// apiRoot is the API root exposed to the client.
-	var apiRoot rpc.Root = newAPIRoot(
-		root.state,
-		srv.statePool,
-		srv.facades,
-		root.resources,
-		root,
-	)
-
-	// Use the login validation function, if one was specified.
-	if srv.validator != nil {
-		err := srv.validator(authTag)
-		switch err {
-		case params.UpgradeInProgressError:
-			apiRoot = restrictRoot(apiRoot, upgradeMethodsOnly)
-		case AboutToRestoreError:
-			apiRoot = restrictRoot(apiRoot, aboutToRestoreMethodsOnly)
-		case RestoreInProgressError:
-			apiRoot = restrictAll(apiRoot, restoreInProgressError)
-		case nil:
-			// in this case no need to wrap authed api so we do nothing
-		default:
+// restrictAPIRoot calls restrictAPIRootDuringMaintenance, and
+// then restricts the result further to the contoller or model
+// facades, depending on the type of login.
+func restrictAPIRoot(
+	srv *Server,
+	apiRoot rpc.Root,
+	model *state.Model,
+	auth authResult,
+) (rpc.Root, error) {
+	if !auth.controllerMachineLogin {
+		// Controller agents are allowed to
+		// connect even during maintenance.
+		restrictedRoot, err := restrictAPIRootDuringMaintenance(
+			srv, apiRoot, model, auth.tag, auth.controllerMachineLogin,
+		)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		apiRoot = restrictedRoot
 	}
+	if auth.controllerOnlyLogin {
+		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
+	} else {
+		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
+		if model.Type() == state.ModelTypeCAAS {
+			apiRoot = restrictRoot(apiRoot, caasModelFacadesOnly)
+		}
+	}
+	return apiRoot, nil
+}
+
+// restrictAPIRootDuringMaintenance restricts the API root during
+// maintenance events (upgrade, restore, or migration), depending
+// on the authenticated client.
+func restrictAPIRootDuringMaintenance(
+	srv *Server,
+	apiRoot rpc.Root,
+	model *state.Model,
+	authTag names.Tag,
+	controllerMachineLogin bool,
+) (rpc.Root, error) {
+	describeLogin := func() string {
+		if authTag == nil {
+			return "anonymous login"
+		}
+		return fmt.Sprintf("login for %s", names.ReadableString(authTag))
+	}
+
+	switch status := srv.restoreStatus(); status {
+	case state.RestorePending, state.RestoreInProgress:
+		if _, ok := authTag.(names.UserTag); ok {
+			// Users get access to a limited set of functionality
+			// while a restore is pending or in progress.
+			if status == state.RestorePending {
+				return restrictRoot(apiRoot, aboutToRestoreMethodsOnly), nil
+			} else {
+				return restrictAll(apiRoot, restoreInProgressError), nil
+			}
+		}
+		// Agent and anonymous logins are blocked during restore.
+		return nil, errors.Errorf("%s blocked because restore is in progress", describeLogin())
+	}
+
+	if !srv.upgradeComplete() {
+		if _, ok := authTag.(names.UserTag); ok {
+			// Users get access to a limited set of functionality
+			// while an upgrade is in progress.
+			return restrictRoot(apiRoot, upgradeMethodsOnly), nil
+		}
+		// Agent and anonymous logins are blocked during upgrade.
+		return nil, errors.Errorf("%s blocked because upgrade is in progress", describeLogin())
+	}
+
+	// For user logins, we limit access during migrations.
+	if _, ok := authTag.(names.UserTag); ok {
+		switch model.MigrationMode() {
+		case state.MigrationModeImporting:
+			// The user is not able to access a model that is currently being
+			// imported until the model has been activated.
+			apiRoot = restrictAll(apiRoot, errors.New("migration in progress, model is importing"))
+		case state.MigrationModeExporting:
+			// The user is not allowed to change anything in a model that is
+			// currently being moved to another controller.
+			apiRoot = restrictRoot(apiRoot, migrationClientMethodsOnly)
+		}
+	}
+
 	return apiRoot, nil
 }
 

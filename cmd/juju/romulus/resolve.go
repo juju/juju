@@ -5,9 +5,9 @@ package cmd
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/charmrepo.v2/csclient"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 )
 

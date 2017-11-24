@@ -17,7 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -25,9 +25,21 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.metrics")
 
+type errMetricsData struct {
+	error
+}
+
+// IsMetricsDataError returns true if the error
+// cause is errMetricsData.
+func IsMetricsDataError(err error) bool {
+	_, ok := errors.Cause(err).(*errMetricsData)
+	return ok
+}
+
 type metricFile struct {
 	*os.File
 	finalName string
+	encodeErr error
 }
 
 func createMetricFile(path string) (*metricFile, error) {
@@ -54,6 +66,10 @@ func (f *metricFile) Close() error {
 	err := f.File.Close()
 	if err != nil {
 		return errors.Trace(err)
+	}
+	// If the file contents are garbage, don't try and use it.
+	if f.encodeErr != nil {
+		return nil
 	}
 	ok, err := utils.MoveFile(f.Name(), f.finalName)
 	if err != nil {
@@ -175,8 +191,13 @@ func (m *JSONMetricRecorder) Close() error {
 }
 
 // AddMetric implements the MetricsRecorder interface.
-func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) error {
-	err := m.validateMetric(key, value)
+func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) (err error) {
+	defer func() {
+		if err != nil {
+			err = &errMetricsData{err}
+		}
+	}()
+	err = m.validateMetric(key, value)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -264,8 +285,8 @@ func (m *JSONMetricRecorder) recordMetaData() error {
 	}
 	defer metaWriter.Close()
 	enc := json.NewEncoder(metaWriter)
-	err = enc.Encode(metadata)
-	if err != nil {
+	if err = enc.Encode(metadata); err != nil {
+		metaWriter.encodeErr = err
 		return errors.Trace(err)
 	}
 	return nil
@@ -289,7 +310,13 @@ func NewJSONMetricReader(spoolDir string) (*JSONMetricReader, error) {
 // Read implements the MetricsReader interface.
 // Due to the way the batches are stored in the file system,
 // they will be returned in an arbitrary order. This does not affect the behavior.
-func (r *JSONMetricReader) Read() ([]MetricBatch, error) {
+func (r *JSONMetricReader) Read() (_ []MetricBatch, err error) {
+	defer func() {
+		if err != nil {
+			err = &errMetricsData{err}
+		}
+	}()
+
 	var batches []MetricBatch
 
 	walker := func(path string, info os.FileInfo, err error) error {

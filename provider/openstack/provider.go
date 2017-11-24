@@ -936,24 +936,19 @@ func (*Environ) MaintainInstance(args environs.StartInstanceParams) error {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.ControllerUUID == "" {
-		return nil, errors.New("missing controller UUID")
-	}
-
+func (e *Environ) StartInstance(args environs.StartInstanceParams) (_ *environs.StartInstanceResult, err error) {
 	if args.AvailabilityZone != "" {
 		// args.AvailabilityZone should only be set if this OpenStack
 		// supports zones; validate the zone.
 		volumeAttachmentsZone, err := e.volumeAttachmentsZone(args.VolumeAttachments)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, common.ZoneIndependentError(err)
 		}
 		if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
-			return nil, errors.Trace(err)
+			return nil, common.ZoneIndependentError(err)
 		}
 		if err := common.ValidateAvailabilityZone(e, args.AvailabilityZone); err != nil {
-			logger.Errorf(err.Error())
-			return nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
+			return nil, errors.Trace(err)
 		}
 	}
 
@@ -966,39 +961,41 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Constraints: args.Constraints,
 	}, args.ImageMetadata)
 	if err != nil {
-		return nil, err
+		return nil, common.ZoneIndependentError(err)
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, common.ZoneIndependentError(
+			errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches),
+		)
 	}
 
 	if err := args.InstanceConfig.SetTools(tools); err != nil {
-		return nil, errors.Trace(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
-		return nil, err
+		return nil, common.ZoneIndependentError(err)
 	}
 	cloudcfg, err := e.configurator.GetCloudConfig(args)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, OpenstackRenderer{})
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot make user data")
+		return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot make user data"))
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
 	networks, err := e.networking.DefaultNetworks()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting initial networks")
+		return nil, common.ZoneIndependentError(errors.Annotate(err, "getting initial networks"))
 	}
 	usingNetwork := e.ecfg().network()
 	if usingNetwork != "" {
 		networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
 		if err != nil {
-			return nil, err
+			return nil, common.ZoneIndependentError(err)
 		}
 		logger.Debugf("using network id %q", networkId)
 		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
@@ -1014,7 +1011,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		for _, n := range networks {
 			net, err := client.GetNetworkV2(n.NetworkId)
 			if err != nil {
-				return nil, err
+				return nil, common.ZoneIndependentError(err)
 			}
 			if net.PortSecurityEnabled != nil &&
 				*net.PortSecurityEnabled == false {
@@ -1036,7 +1033,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 		groupNames, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot set up groups")
+			return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot set up groups"))
 		}
 		novaGroupNames = make([]nova.SecurityGroupName, len(groupNames))
 		for i, name := range groupNames {
@@ -1130,19 +1127,21 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	e.configurator.ModifyRunServerOptions(&opts)
 
 	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
-	if isNoValidHostsError(err) {
+	if err != nil {
 		// 'No valid host available' is typically a resource error,
 		// let the provisioner know it is a good idea to try another
 		// AZ if available.
-		return nil, errors.Wrap(err, environs.ErrAvailabilityZoneFailed)
-	}
-	if err != nil {
-		return nil, errors.Trace(errors.Annotate(err, "cannot run instance"))
+		err := errors.Annotate(err, "cannot run instance")
+		zoneSpecific := isNoValidHostsError(err)
+		if !zoneSpecific {
+			err = common.ZoneIndependentError(err)
+		}
+		return nil, err
 	}
 
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot get started instance")
+		return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot get started instance"))
 	}
 
 	inst := &openstackInstance{
@@ -1162,7 +1161,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		var publicIP *string
 		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.networking.AllocatePublicIP(inst.Id()); err != nil {
-			return nil, errors.Annotate(err, "cannot allocate a public IP as needed")
+			return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot allocate a public IP as needed"))
 		} else {
 			publicIP = fip
 			logger.Infof("allocated public IP %s", *publicIP)
@@ -1172,7 +1171,10 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, errors.Annotatef(err, "cannot assign public address %s to instance %q", publicIP, inst.Id())
+			return nil, common.ZoneIndependentError(errors.Annotatef(err,
+				"cannot assign public address %s to instance %q",
+				publicIP, inst.Id(),
+			))
 		}
 		inst.floatingIP = publicIP
 	}

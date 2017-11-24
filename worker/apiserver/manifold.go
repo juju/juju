@@ -16,20 +16,22 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
 // ManifoldConfig holds the information necessary to run an apiserver
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName       string
-	CertWatcherName string
-	ClockName       string
-	StateName       string
+	AgentName         string
+	CertWatcherName   string
+	ClockName         string
+	RestoreStatusName string
+	StateName         string
+	UpgradeGateName   string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
-	LoginValidator                    LoginValidator
 	Hub                               *pubsub.StructuredHub
 
 	NewStoreAuditEntryFunc func(*state.State) StoreAuditEntryFunc
@@ -47,17 +49,20 @@ func (config ManifoldConfig) Validate() error {
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
 	}
+	if config.RestoreStatusName == "" {
+		return errors.NotValidf("empty RestoreStatusName")
+	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
+	}
+	if config.UpgradeGateName == "" {
+		return errors.NotValidf("empty UpgradeGateName")
 	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	if config.RegisterIntrospectionHTTPHandlers == nil {
 		return errors.NotValidf("nil RegisterIntrospectionHTTPHandlers")
-	}
-	if config.LoginValidator == nil {
-		return errors.NotValidf("nil LoginValidator")
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
@@ -79,7 +84,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.CertWatcherName,
 			config.ClockName,
+			config.RestoreStatusName,
 			config.StateName,
+			config.UpgradeGateName,
 		},
 		Start: config.start,
 	}
@@ -106,6 +113,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var restoreStatus func() state.RestoreStatus
+	if err := context.Get(config.RestoreStatusName, &restoreStatus); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var stTracker workerstate.StateTracker
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
@@ -115,13 +127,19 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var upgradeLock gate.Waiter
+	if err := context.Get(config.UpgradeGateName, &upgradeLock); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewWorker(Config{
 		AgentConfig:                       agent.CurrentConfig(),
 		Clock:                             clock,
 		StatePool:                         statePool,
 		PrometheusRegisterer:              config.PrometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
-		LoginValidator:                    config.LoginValidator,
+		RestoreStatus:                     restoreStatus,
+		UpgradeComplete:                   upgradeLock.IsUnlocked,
 		Hub:                               config.Hub,
 		GetCertificate:                    getCertificate,
 		NewServer:                         newServerShim,

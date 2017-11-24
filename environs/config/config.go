@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
