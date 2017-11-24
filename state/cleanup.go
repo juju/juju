@@ -12,6 +12,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/status"
 )
 
 type cleanupKind string
@@ -703,8 +705,10 @@ func cleanupDyingMachineResources(m *Machine) error {
 			// have been set to Dying by the destruction of the machine
 			// filesystems, or filesystem detachment, above.
 			var remove bool
+			var updateStatus func() error
 			if !detachable {
 				remove = true
+				updateStatus = func() error { return nil }
 			} else {
 				f, err := im.Filesystem(fsa.Filesystem())
 				if err != nil {
@@ -714,11 +718,19 @@ func cleanupDyingMachineResources(m *Machine) error {
 					// Filesystem is volume-backed.
 					remove = true
 				}
+				updateStatus = func() error {
+					return f.SetStatus(status.StatusInfo{
+						Status: status.Detached,
+					})
+				}
 			}
 			if remove {
 				if err := im.RemoveFilesystemAttachment(
 					fsa.Machine(), fsa.Filesystem(),
 				); err != nil {
+					return errors.Trace(err)
+				}
+				if err := updateStatus(); err != nil {
 					return errors.Trace(err)
 				}
 			}

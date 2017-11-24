@@ -537,8 +537,10 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 
 	// If removal conditions satisfied by machine & container docs, we can
 	// destroy it, in addition to removing the unit principal.
+	var cleanupOps []txn.Op
 	if machineCheck && containerCheck {
 		machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
+		cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id)}
 	}
 
 	ops = append(ops, txn.Op{
@@ -547,6 +549,8 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 		Assert: machineAssert,
 		Update: machineUpdate,
 	})
+	ops = append(ops, cleanupOps...)
+
 	return ops, nil
 }
 

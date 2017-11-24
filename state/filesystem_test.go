@@ -953,15 +953,48 @@ func (s *FilesystemStateSuite) TestDestroyMachineDetachesDetachableFilesystems(c
 	// detachable filesystems to be detached, but not destroyed.
 	c.Assert(machine.Destroy(), jc.ErrorIsNil)
 	assertCleanupRuns(c, s.State)
+	s.testDestroyMachineDetachesDetachableFilesystems(
+		c, machine.MachineTag(), filesystem.FilesystemTag(),
+	)
+}
 
-	filesystem, err := s.IAASModel.Filesystem(filesystem.FilesystemTag())
+func (s *FilesystemStateSuite) TestDestroyUnitHostMachineDetachesDetachableFilesystems(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "modelscoped-block")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem := s.storageInstanceFilesystem(c, storageTag)
+	machineId, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machineTag := names.NewMachineTag(machineId)
+
+	// Destroying the unit should destroy its host machine, which
+	// triggers the detachment of storage.
+	s.obliterateUnit(c, u.UnitTag())
+	assertCleanupRuns(c, s.State)
+
+	s.testDestroyMachineDetachesDetachableFilesystems(
+		c, machineTag, filesystem.FilesystemTag(),
+	)
+}
+
+func (s *FilesystemStateSuite) testDestroyMachineDetachesDetachableFilesystems(
+	c *gc.C,
+	machineTag names.MachineTag,
+	filesystemTag names.FilesystemTag,
+) {
+	// Filesystem is still alive...
+	filesystem, err := s.IAASModel.Filesystem(filesystemTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(filesystem.Life(), gc.Equals, state.Alive)
-	_, err = s.IAASModel.FilesystemAttachment(
-		machine.MachineTag(),
-		filesystem.FilesystemTag(),
-	)
+
+	// ... but it has been detached.
+	_, err = s.IAASModel.FilesystemAttachment(machineTag, filesystemTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	filesystemStatus, err := filesystem.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystemStatus.Status, gc.Equals, status.Detached)
+	c.Assert(filesystemStatus.Message, gc.Equals, "")
 }
 
 func (s *FilesystemStateSuite) TestDestroyManualMachineDoesntRemoveNonDetachableFilesystems(c *gc.C) {
