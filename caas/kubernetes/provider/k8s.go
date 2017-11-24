@@ -92,44 +92,29 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, newConfig c
 func (k *kubernetesClient) ensureConfigMap(appName string, newConfig caas.NewOperatorConfigFunc) (string, error) {
 	mapName := configMapName(appName)
 
-	exists, err := k.configMapExists(mapName)
-	if err != nil {
-		return "", errors.Trace(err)
-	} else if exists {
-		logger.Debugf("ConfigMap %s already exists - deleting", mapName)
-		if err := k.deleteConfigMap(mapName); err != nil {
-			return "", errors.Trace(err)
-		}
-	}
-
 	config, err := newConfig()
 	if err != nil {
 		return "", errors.Annotate(err, "creating config")
 	}
-	if err := k.createConfigMap(mapName, config); err != nil {
-		return "", errors.Annotate(err, "creating ConfigMap")
+	if err := k.updateConfigMap(mapName, config); err != nil {
+		return "", errors.Annotate(err, "creating or updating ConfigMap")
 	}
 	return mapName, nil
 }
 
-func (k *kubernetesClient) configMapExists(configMapName string) (bool, error) {
-	_, err := k.CoreV1().ConfigMaps(namespace).Get(configMapName)
+func (k *kubernetesClient) updateConfigMap(configMapName string, config *caas.OperatorConfig) error {
+	_, err := k.CoreV1().ConfigMaps(namespace).Update(&v1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name: configMapName,
+		},
+		Data: map[string]string{
+			"agent.conf": string(config.AgentConf),
+		},
+	})
 	if k8serrors.IsNotFound(err) {
-		return false, nil
-	} else if err != nil {
-		return false, errors.Trace(err)
+		return k.createConfigMap(configMapName, config)
 	}
-	return true, nil
-}
-
-func (k *kubernetesClient) deleteConfigMap(configMapName string) error {
-	err := k.CoreV1().ConfigMaps(namespace).Delete(configMapName, &v1.DeleteOptions{})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 func (k *kubernetesClient) createConfigMap(configMapName string, config *caas.OperatorConfig) error {
