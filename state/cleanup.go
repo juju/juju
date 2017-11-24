@@ -663,6 +663,84 @@ func cleanupDyingMachineResources(m *Machine) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Destroy non-detachable machine filesystems first.
+	filesystems, err := im.filesystems(bson.D{{"machineid", m.Id()}})
+	if err != nil {
+		return errors.Annotate(err, "getting machine filesystems")
+	}
+	for _, f := range filesystems {
+		if err := im.DestroyFilesystem(f.FilesystemTag()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Check if the machine is manual, to decide whether or not to
+	// short circuit the removal of non-detachable filesystems.
+	manual, err := m.IsManual()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Detach all filesystems from the machine.
+	filesystemAttachments, err := im.MachineFilesystemAttachments(m.MachineTag())
+	if err != nil {
+		return errors.Annotate(err, "getting machine filesystem attachments")
+	}
+	for _, fsa := range filesystemAttachments {
+		detachable, err := isDetachableFilesystemTag(im.mb.db(), fsa.Filesystem())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if detachable {
+			if err := im.DetachFilesystem(fsa.Machine(), fsa.Filesystem()); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		if !manual {
+			// For non-manual machines we immediately remove the attachments
+			// for non-detachable or volume-backed filesystems, which should
+			// have been set to Dying by the destruction of the machine
+			// filesystems, or filesystem detachment, above.
+			var remove bool
+			if !detachable {
+				remove = true
+			} else {
+				f, err := im.Filesystem(fsa.Filesystem())
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if _, err := f.Volume(); err == nil {
+					// Filesystem is volume-backed.
+					remove = true
+				}
+			}
+			if remove {
+				if err := im.RemoveFilesystemAttachment(
+					fsa.Machine(), fsa.Filesystem(),
+				); err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+	}
+
+	// For non-manual machines we immediately remove the non-detachable
+	// filesystems, which should have been detached above. Short circuiting
+	// the removal of machine filesystems means we can avoid stuck
+	// filesystems preventing any model-scoped backing volumes from being
+	// detached and destroyed. For non-manual machines this is safe, because
+	// the machine is about to be terminated. For manual machines, stuck
+	// filesystems will have to be fixed manually.
+	if !manual {
+		for _, f := range filesystems {
+			if err := im.RemoveFilesystem(f.FilesystemTag()); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+
+	// Detach all remaining volumes from the machine.
 	volumeAttachments, err := im.MachineVolumeAttachments(m.MachineTag())
 	if err != nil {
 		return errors.Annotate(err, "getting machine volume attachments")
@@ -681,21 +759,6 @@ func cleanupDyingMachineResources(m *Machine) error {
 				// destruction is initiated below.
 				continue
 			}
-			return errors.Trace(err)
-		}
-	}
-	filesystemAttachments, err := im.MachineFilesystemAttachments(m.MachineTag())
-	if err != nil {
-		return errors.Annotate(err, "getting machine filesystem attachments")
-	}
-	for _, fsa := range filesystemAttachments {
-		if detachable, err := isDetachableFilesystemTag(im.mb.db(), fsa.Filesystem()); err != nil {
-			return errors.Trace(err)
-		} else if !detachable {
-			// Non-detachable filesystems will be removed along with the machine.
-			continue
-		}
-		if err := im.DetachFilesystem(fsa.Machine(), fsa.Filesystem()); err != nil {
 			return errors.Trace(err)
 		}
 	}

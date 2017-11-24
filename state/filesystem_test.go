@@ -933,6 +933,85 @@ func (s *FilesystemStateSuite) TestRemoveMachineRemovesFilesystems(c *gc.C) {
 	c.Assert(attachments, gc.HasLen, 0)
 }
 
+func (s *FilesystemStateSuite) TestDestroyMachineRemovesNonDetachableFilesystems(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "loop")
+
+	// Destroy the machine and run cleanups, which should cause the
+	// non-detachable filesystems to be destroyed, detached, and
+	// finally removed.
+	c.Assert(machine.Destroy(), jc.ErrorIsNil)
+	assertCleanupRuns(c, s.State)
+
+	_, err := s.IAASModel.Filesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *FilesystemStateSuite) TestDestroyMachineDetachesDetachableFilesystems(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped-block")
+
+	// Destroy the machine and run cleanups, which should cause the
+	// detachable filesystems to be detached, but not destroyed.
+	c.Assert(machine.Destroy(), jc.ErrorIsNil)
+	assertCleanupRuns(c, s.State)
+
+	filesystem, err := s.IAASModel.Filesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystem.Life(), gc.Equals, state.Alive)
+	_, err = s.IAASModel.FilesystemAttachment(
+		machine.MachineTag(),
+		filesystem.FilesystemTag(),
+	)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *FilesystemStateSuite) TestDestroyManualMachineDoesntRemoveNonDetachableFilesystems(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "loop")
+
+	// Make this a manual machine, so the cleanup.
+	err := machine.SetProvisioned("inst-id", "manual:machine", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Destroy the machine and run cleanups, which should cause the
+	// non-detachable filesystems and attachments to be set to Dying,
+	// but not completely removed.
+	c.Assert(machine.Destroy(), jc.ErrorIsNil)
+	assertCleanupRuns(c, s.State)
+
+	filesystem, err = s.IAASModel.Filesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystem.Life(), gc.Equals, state.Dying)
+	attachment, err := s.IAASModel.FilesystemAttachment(
+		machine.MachineTag(),
+		filesystem.FilesystemTag(),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attachment.Life(), gc.Equals, state.Dying)
+}
+
+func (s *FilesystemStateSuite) TestDestroyManualMachineDoesntDetachDetachableFilesystems(c *gc.C) {
+	filesystem, machine := s.setupFilesystemAttachment(c, "modelscoped-block")
+
+	// Make this a manual machine, so the cleanup.
+	err := machine.SetProvisioned("inst-id", "manual:machine", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Destroy the machine and run cleanups, which should cause the
+	// detachable filesystem attachments to be set to Dying, but not
+	// completely removed. The filesystem itself should be left Alive.
+	c.Assert(machine.Destroy(), jc.ErrorIsNil)
+	assertCleanupRuns(c, s.State)
+
+	filesystem, err = s.IAASModel.Filesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(filesystem.Life(), gc.Equals, state.Alive)
+	attachment, err := s.IAASModel.FilesystemAttachment(
+		machine.MachineTag(),
+		filesystem.FilesystemTag(),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attachment.Life(), gc.Equals, state.Dying)
+}
+
 func (s *FilesystemStateSuite) TestFilesystemMachineScoped(c *gc.C) {
 	// Machine-scoped filesystems created unassigned to a storage
 	// instance are bound to the machine.
