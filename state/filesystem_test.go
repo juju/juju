@@ -765,6 +765,53 @@ func (s *FilesystemStateSuite) TestRemoveMachineRemovesFilesystems(c *gc.C) {
 	c.Assert(attachments, gc.HasLen, 0)
 }
 
+func (s *FilesystemStateSuite) TestRemoveMachineDestroysBackingVolumes(c *gc.C) {
+	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "modelscoped-block")
+	err := s.State.AssignUnit(u, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	filesystem := s.storageInstanceFilesystem(c, storageTag)
+	volume := s.filesystemVolume(c, filesystem.FilesystemTag())
+
+	assignedMachineId, err := u.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(assignedMachineId)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remove the unit and its storage instances/attachments.
+	// This will trigger the detachment of the filesystem from
+	// the unit's machine.
+	s.obliterateUnit(c, u.UnitTag())
+
+	// Remove the filesystem attachment. This should trigger the
+	// detachment, but not destruction, of the volume.
+	err = s.State.RemoveFilesystemAttachment(machine.MachineTag(), filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remove the volume attachment. The volume is not dying, so
+	// it should remain in the model.
+	err = s.State.RemoveVolumeAttachment(machine.MachineTag(), volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.Filesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now that there are no filesystem or volume attachments,
+	// the machine should be removable.
+	c.Assert(machine.Destroy(), jc.ErrorIsNil)
+	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(machine.Remove(), jc.ErrorIsNil)
+
+	// Machine is gone: filesystem should have been removed along
+	// with it. Removal of the filesystem should have triggered
+	// the destruction of the backing volume.
+	_, err = s.State.Filesystem(filesystem.FilesystemTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	volume, err = s.State.Volume(volume.VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volume.Life(), gc.Equals, state.Dead)
+}
+
 func (s *FilesystemStateSuite) TestFilesystemMachineScoped(c *gc.C) {
 	// Machine-scoped filesystems created unassigned to a storage
 	// instance are bound to the machine.
