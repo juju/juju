@@ -80,6 +80,8 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.api = modelmanager
 }
 
+// TODO (anastasiamac 2017-11-24) add test with migration and SLA
+
 func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -148,7 +150,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithCoreCount(c *gc.C) {
 	c.Assert(result.Results[0].Result.Counts[0], jc.DeepEquals, params.ModelEntityCount{params.Cores, 43})
 }
 
-func (s *ListModelsWithInfoSuite) TestListModelSummariesWithAll(c *gc.C) {
+func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetails(c *gc.C) {
 	now := time.Now()
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		summary := s.st.model.getModelDetails()
@@ -183,15 +185,6 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithAll(c *gc.C) {
 			},
 		},
 	})
-}
-
-func (s *ListModelsWithInfoSuite) TestListModelSummariesAdminListsOther(c *gc.C) {
-	otherTag := names.NewUserTag("someotheruser")
-	s.st.model = s.createModel(c, otherTag)
-	result, err := s.api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Result.OwnerTag, gc.DeepEquals, otherTag.String())
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesDenied(c *gc.C) {

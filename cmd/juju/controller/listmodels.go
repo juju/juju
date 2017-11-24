@@ -6,7 +6,6 @@ package controller
 import (
 	"fmt"
 	"io"
-	"reflect"
 	"strings"
 	"time"
 
@@ -34,7 +33,7 @@ func NewListModelsCommand() cmd.Command {
 type ModelManagerAPI interface {
 	Close() error
 	ListModels(user string) ([]base.UserModel, error)
-	ListModelSummaries(user names.UserTag) ([]params.ModelSummaryResult, error)
+	ListModelSummaries(user string, all bool) ([]base.UserModelSummary, error)
 	ModelInfo([]names.ModelTag) ([]params.ModelInfoResult, error)
 	BestAPIVersion() int
 }
@@ -155,7 +154,7 @@ func (c *modelsCommand) getModelManagerAPI() (ModelManagerAPI, error) {
 }
 
 func (c *modelsCommand) getModelSummaries(ctx *cmd.Context, client ModelManagerAPI, now time.Time) (bool, error) {
-	results, err := client.ListModelSummaries(c.runVars.currentUser)
+	results, err := client.ListModelSummaries(c.user, c.all)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -169,7 +168,7 @@ func (c *modelsCommand) getModelSummaries(ctx *cmd.Context, client ModelManagerA
 			ctx.Infof(result.Error.Error())
 			continue
 		}
-		model, err := c.modelSummaryFromParams(*result.Result, now)
+		model, err := c.modelSummaryFromParams(result, now)
 		if err != nil {
 			ctx.Infof(err.Error())
 			continue
@@ -239,65 +238,52 @@ type ModelSummary struct {
 	AgentVersion string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 }
 
-func (c *modelsCommand) modelSummaryFromParams(info params.ModelSummary, now time.Time) (ModelSummary, error) {
-	ownerTag, err := names.ParseUserTag(info.OwnerTag)
-	if err != nil {
-		return ModelSummary{}, errors.Trace(err)
-	}
-	cloudTag, err := names.ParseCloudTag(info.CloudTag)
-	if err != nil {
-		return ModelSummary{}, errors.Trace(err)
-	}
+func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary, now time.Time) (ModelSummary, error) {
 	summary := ModelSummary{
-		ShortName:      info.Name,
-		Name:           jujuclient.JoinOwnerModelName(ownerTag, info.Name),
-		UUID:           info.UUID,
-		ControllerUUID: info.ControllerUUID,
-		Owner:          ownerTag.Id(),
-		Life:           string(info.Life),
-		Cloud:          cloudTag.Id(),
-		CloudRegion:    info.CloudRegion,
-		UserAccess:     string(info.UserAccess),
+		ShortName:      apiSummary.Name,
+		Name:           jujuclient.JoinOwnerModelName(names.NewUserTag(apiSummary.Owner), apiSummary.Name),
+		UUID:           apiSummary.UUID,
+		ControllerUUID: apiSummary.ControllerUUID,
+		Owner:          apiSummary.Owner,
+		Life:           apiSummary.Life,
+		Cloud:          apiSummary.Cloud,
+		CloudRegion:    apiSummary.CloudRegion,
+		UserAccess:     apiSummary.ModelUserAccess,
+		Status: &common.ModelStatus{
+			Current: apiSummary.Status.Status,
+			Message: apiSummary.Status.Info,
+			Since:   common.FriendlyDuration(apiSummary.Status.Since, now),
+		},
 	}
-	if info.AgentVersion != nil {
-		summary.AgentVersion = info.AgentVersion.String()
+	if apiSummary.AgentVersion != nil {
+		summary.AgentVersion = apiSummary.AgentVersion.String()
 	}
-	// Although this may be more performance intensive, we have to use reflection
-	// since structs containing map[string]interface {} cannot be compared, i.e
-	// cannot use simple '==' here.
-	if !reflect.DeepEqual(info.Status, params.EntityStatus{}) {
-		summary.Status = &common.ModelStatus{
-			Current: info.Status.Status,
-			Message: info.Status.Info,
-			Since:   common.FriendlyDuration(info.Status.Since, now),
-		}
-	}
-	if info.Migration != nil {
+	if apiSummary.Migration != nil {
 		status := summary.Status
 		if status == nil {
 			status = &common.ModelStatus{}
 			summary.Status = status
 		}
-		status.Migration = info.Migration.Status
-		status.MigrationStart = common.FriendlyDuration(info.Migration.Start, now)
-		status.MigrationEnd = common.FriendlyDuration(info.Migration.End, now)
+		status.Migration = apiSummary.Migration.Status
+		status.MigrationStart = common.FriendlyDuration(apiSummary.Migration.StartTime, now)
+		status.MigrationEnd = common.FriendlyDuration(apiSummary.Migration.EndTime, now)
 	}
 
-	if info.ProviderType != "" {
-		summary.ProviderType = info.ProviderType
+	if apiSummary.ProviderType != "" {
+		summary.ProviderType = apiSummary.ProviderType
 
 	}
-	if info.UserLastConnection != nil {
-		summary.UserLastConnection = common.UserFriendlyDuration(*info.UserLastConnection, now)
+	if apiSummary.UserLastConnection != nil {
+		summary.UserLastConnection = common.UserFriendlyDuration(*apiSummary.UserLastConnection, now)
 	} else {
 		summary.UserLastConnection = "never connected"
 	}
-	if info.SLA != nil {
-		summary.SLA = common.ModelSLAFromParams(info.SLA)
-		summary.SLAOwner = common.ModelSLAOwnerFromParams(info.SLA)
+	if apiSummary.SLA != nil {
+		summary.SLA = apiSummary.SLA.Level
+		summary.SLAOwner = apiSummary.SLA.Owner
 	}
 	summary.Counts = map[string]int64{}
-	for _, v := range info.Counts {
+	for _, v := range apiSummary.Counts {
 		summary.Counts[string(v.Entity)] = v.Count
 	}
 
@@ -389,7 +375,7 @@ func (c *modelsCommand) tabularSummaries(writer io.Writer, modelSet ModelSummary
 			w.Print(model.UUID)
 		}
 		status := "-"
-		if model.Status != nil {
+		if model.Status != nil && model.Status.Current.String() != "" {
 			status = model.Status.Current.String()
 		}
 		w.Print(cloudRegion, status)

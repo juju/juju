@@ -237,7 +237,7 @@ type ModelSummaryResults struct {
 	Results []ModelSummaryResult `json:"results"`
 }
 
-// ModelSummariesRequest encapsulates how we request a list of model summaries
+// ModelSummariesRequest encapsulates how we request a list of model summaries.
 type ModelSummariesRequest struct {
 	UserTag string `json:"user-tag"`
 	All     bool   `json:"all,omitempty"`

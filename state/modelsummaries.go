@@ -71,6 +71,7 @@ type ModelSummary struct {
 
 	// Needs Migration collection
 	// Do we need all the Migration fields?
+	// Migration needs to be a pointer as we may not always have one.
 	Migration ModelMigration
 }
 

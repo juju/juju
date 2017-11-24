@@ -106,7 +106,7 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 		"\n"+
 		"Model           Cloud/Region        Status     Access  Last connection\n"+
 		"controller*     dummy/dummy-region  available  admin   just now\n"+
-		"test/new-model  dummy/dummy-region  available  admin   never connected\n"+
+		"test/new-model  dummy/dummy-region  available  -       never connected\n"+
 		"\n")
 }
 

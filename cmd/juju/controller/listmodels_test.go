@@ -77,41 +77,78 @@ func (f *fakeModelMgrAPIClient) AllModels() ([]base.UserModel, error) {
 	return f.convertInfosToUserModels(), nil
 }
 
-func (f *fakeModelMgrAPIClient) ListModelSummaries(user names.UserTag) ([]params.ModelSummaryResult, error) {
-	f.MethodCall(f, "ListModelSummaries", user)
+func (f *fakeModelMgrAPIClient) ListModelSummaries(user string, all bool) ([]base.UserModelSummary, error) {
+	f.MethodCall(f, "ListModelSummaries", user, all)
 	if f.err != nil {
 		return nil, f.err
 	}
-	results := make([]params.ModelSummaryResult, len(f.infos))
+	results := make([]base.UserModelSummary, len(f.infos))
 	for i, info := range f.infos {
-		results[i] = params.ModelSummaryResult{}
+		results[i] = base.UserModelSummary{}
 		if info.Error != nil {
 			results[i].Error = info.Error
 			continue
 		}
-		results[i].Result = &params.ModelSummary{
-			Name:               info.Result.Name,
-			UUID:               info.Result.UUID,
-			ControllerUUID:     info.Result.ControllerUUID,
-			ProviderType:       info.Result.ProviderType,
-			DefaultSeries:      info.Result.DefaultSeries,
-			CloudTag:           info.Result.CloudTag,
-			CloudRegion:        info.Result.CloudRegion,
-			CloudCredentialTag: info.Result.CloudCredentialTag,
-			OwnerTag:           info.Result.OwnerTag,
-			Life:               info.Result.Life,
-			Status:             info.Result.Status,
-			Migration:          info.Result.Migration,
-			SLA:                info.Result.SLA,
-			AgentVersion:       info.Result.AgentVersion,
+		cloud, err := names.ParseCloudTag(info.Result.CloudTag)
+		if err != nil {
+			cloud = names.NewCloudTag("aws")
+
+		}
+		cred, err := names.ParseCloudCredentialTag(info.Result.CloudCredentialTag)
+		if err != nil {
+			cred = names.NewCloudCredentialTag("foo/bob/one")
+
+		}
+		owner, err := names.ParseUserTag(info.Result.OwnerTag)
+		if err != nil {
+			owner = names.NewUserTag("admin")
+
+		}
+		results[i] = base.UserModelSummary{
+			Name:            info.Result.Name,
+			UUID:            info.Result.UUID,
+			ControllerUUID:  info.Result.ControllerUUID,
+			ProviderType:    info.Result.ProviderType,
+			DefaultSeries:   info.Result.DefaultSeries,
+			Cloud:           cloud.Id(),
+			CloudRegion:     info.Result.CloudRegion,
+			CloudCredential: cred.Id(),
+			Owner:           owner.Id(),
+			Life:            string(info.Result.Life),
+			Status: base.Status{
+				Status: info.Result.Status.Status,
+				Info:   info.Result.Status.Info,
+				Data:   make(map[string]interface{}),
+				Since:  info.Result.Status.Since,
+			},
+			AgentVersion: info.Result.AgentVersion,
+		}
+		if info.Result.Migration != nil {
+			migration := info.Result.Migration
+			results[i].Migration = &base.MigrationSummary{
+				Status:    migration.Status,
+				StartTime: migration.Start,
+				EndTime:   migration.End,
+			}
+		}
+		if info.Result.SLA != nil {
+			results[i].SLA = &base.SLASummary{
+				Level: info.Result.SLA.Level,
+				Owner: info.Result.SLA.Owner,
+			}
 		}
 		if len(info.Result.Users) > 0 {
-			results[i].Result.UserAccess = info.Result.Users[0].Access
-			results[i].Result.UserLastConnection = info.Result.Users[0].LastConnection
+			for _, u := range info.Result.Users {
+				if u.UserName == user {
+					results[i].ModelUserAccess = string(u.Access)
+					results[i].UserLastConnection = u.LastConnection
+					break
+				}
+			}
 		}
 		if len(info.Result.Machines) > 0 {
-			results[i].Result.Counts = []params.ModelEntityCount{
-				params.ModelEntityCount{params.Machines, int64(len(info.Result.Machines))},
+			results[i].Counts = []base.EntityCount{
+				base.EntityCount{string(params.Machines), int64(len(info.Result.Machines))},
 			}
 			cores := uint64(0)
 			for _, machine := range info.Result.Machines {
@@ -120,7 +157,7 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(user names.UserTag) ([]params
 				}
 			}
 			if cores > 0 {
-				results[i].Result.Counts = append(results[i].Result.Counts, params.ModelEntityCount{params.Cores, int64(cores)})
+				results[i].Counts = append(results[i].Counts, base.EntityCount{string(params.Cores), int64(cores)})
 			}
 		}
 	}
@@ -212,6 +249,9 @@ func (s *BaseModelsSuite) SetUpTest(c *gc.C) {
 	// 3rd model
 	s.api.infos[2].Result.Status.Status = status.Destroying
 }
+
+//TODO (anastasiamac 2017-11-24) add test where :
+// base.usermodelsummary contains an error
 
 func (s *BaseModelsSuite) TestModelsOwner(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand())

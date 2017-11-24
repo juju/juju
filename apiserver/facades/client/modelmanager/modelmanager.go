@@ -736,6 +736,24 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 		if err == nil {
 			summary.UserAccess = access
 		}
+		// TODO (anastasiamac 2017-11-24) what happens here if there is no migration in progress?
+		if mi.Migration != nil {
+			migration := mi.Migration
+			startTime := migration.StartTime()
+			endTime := new(time.Time)
+			*endTime = migration.EndTime()
+			var zero time.Time
+			if *endTime == zero {
+				endTime = nil
+			}
+
+			summary.Migration = &params.ModelMigrationStatus{
+				Status: migration.StatusMessage(),
+				Start:  &startTime,
+				End:    endTime,
+			}
+		}
+
 		result.Results = append(result.Results, params.ModelSummaryResult{Result: summary})
 	}
 	return result, nil
