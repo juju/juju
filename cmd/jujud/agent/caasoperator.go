@@ -30,9 +30,9 @@ import (
 )
 
 var (
-
-	// should be an explicit dependency, can't do it cleanly yet
-	caasOperatorManifolds = caasoperator.Manifolds
+	// Should be an explicit dependency, can't do it cleanly yet.
+	// Exported for testing.
+	CaasOperatorManifolds = caasoperator.Manifolds
 )
 
 // CaasOperatorAgent is a cmd.Command responsible for running a CAAS operator agent.
@@ -133,15 +133,15 @@ func (op *CaasOperatorAgent) Run(ctx *cmd.Context) error {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
 
-	op.runner.StartWorker("api", op.APIWorkers)
+	op.runner.StartWorker("api", op.Workers)
 	err := cmdutil.AgentDone(logger, op.runner.Wait())
 	op.tomb.Kill(err)
 	return err
 }
 
-// APIWorkers returns a dependency.Engine running the operator's responsibilities.
-func (op *CaasOperatorAgent) APIWorkers() (worker.Worker, error) {
-	manifolds := caasOperatorManifolds(caasoperator.ManifoldsConfig{
+// Workers returns a dependency.Engine running the operator's responsibilities.
+func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
+	manifolds := CaasOperatorManifolds(caasoperator.ManifoldsConfig{
 		Agent:                op,
 		AgentDir:             filepath.Dir(os.Args[0]),
 		LogSource:            op.bufferedLogger.Logs(),

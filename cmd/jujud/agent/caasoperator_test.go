@@ -4,9 +4,7 @@
 package agent
 
 import (
-	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -14,38 +12,25 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
-	"github.com/juju/juju/worker/caasoperator/commands"
 	"github.com/juju/juju/worker/logsender"
 )
 
 type CAASOperatorSuite struct {
-	agenttest.AgentSuite
+	coretesting.BaseSuite
+
+	rootDir string
 }
 
 var _ = gc.Suite(&CAASOperatorSuite{})
 
-// primeAgent creates an application, and sets up the application agent's directory.
-// It returns new application and the agent's configuration.
-func (s *CAASOperatorSuite) primeAgent(c *gc.C) (*state.Application, agent.Config, *tools.Tools) {
-	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	err := app.SetPassword(initialApplicationPassword)
-	c.Assert(err, jc.ErrorIsNil)
-	conf, tools := s.PrimeAgent(c, app.Tag(), initialApplicationPassword)
-	return app, conf, tools
+func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.rootDir = c.MkDir()
 }
 
-func (s *CAASOperatorSuite) newAgent(c *gc.C, app *state.Application) *CaasOperatorAgent {
-	a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter())
-	c.Assert(err, jc.ErrorIsNil)
-	s.InitAgent(c, a, "--application-name", app.Name(), "--log-to-stderr=true")
-	err = a.ReadConfig(app.Tag().String())
-	c.Assert(err, jc.ErrorIsNil)
-	return a
+func (s *CAASOperatorSuite) dataDir() string {
+	return filepath.Join(s.rootDir, "/var/lib/juju")
 }
 
 func (s *CAASOperatorSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
@@ -55,18 +40,16 @@ func (s *CAASOperatorSuite) newBufferedLogWriter() *logsender.BufferedLogWriter 
 }
 
 func (s *CAASOperatorSuite) TestParseSuccess(c *gc.C) {
-	s.primeAgent(c)
 	// Now init actually reads the agent configuration file.
-	// So use the prime agent call which installs a wordpress unit.
 	a, err := NewCaasOperatorAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmdtesting.InitCommand(a, []string{
-		"--data-dir", s.DataDir(),
+		"--data-dir", s.dataDir(),
 		"--application-name", "wordpress",
 		"--log-to-stderr",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(a.AgentConf.DataDir(), gc.Equals, s.DataDir())
+	c.Check(a.AgentConf.DataDir(), gc.Equals, s.dataDir())
 	c.Check(a.ApplicationName, gc.Equals, "wordpress")
 }
 
@@ -105,43 +88,6 @@ func (s *CAASOperatorSuite) TestParseUnknown(c *gc.C) {
 		"thundering typhoons",
 	})
 	c.Check(err, gc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
-}
-
-func waitForApplicationActive(c *gc.C, agentDir string) {
-	timeout := time.After(coretesting.LongWait)
-
-	for {
-		select {
-		case <-timeout:
-			c.Fatalf("no activity detected")
-		case <-time.After(coretesting.ShortWait):
-			link := filepath.Join(agentDir, commands.CommandNames()[0])
-			if _, err := os.Lstat(link); err == nil {
-				target, err := os.Readlink(link)
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(target, gc.Equals, filepath.Join(filepath.Dir(os.Args[0]), "jujud"))
-				return
-			}
-		}
-	}
-}
-
-func (s *CAASOperatorSuite) TestRunStop(c *gc.C) {
-	app, config, _ := s.primeAgent(c)
-	a := s.newAgent(c, app)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	waitForApplicationActive(c, filepath.Join(config.DataDir(), "tools"))
-}
-
-func (s *CAASOperatorSuite) TestOpenStateFails(c *gc.C) {
-	app, config, _ := s.primeAgent(c)
-	a := s.newAgent(c, app)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	waitForApplicationActive(c, filepath.Join(config.DataDir(), "tools"))
-
-	s.AssertCannotOpenState(c, config.Tag(), config.DataDir())
 }
 
 func (s *CAASOperatorSuite) TestUseLumberjack(c *gc.C) {
@@ -184,24 +130,4 @@ func (s *CAASOperatorSuite) TestDontUseLumberjack(c *gc.C) {
 
 	_, ok := ctx.Stderr.(*lumberjack.Logger)
 	c.Assert(ok, jc.IsFalse)
-}
-
-func (s *CAASOperatorSuite) TestWorkers(c *gc.C) {
-	coretesting.SkipIfWindowsBug(c, "lp:1610993")
-	tracker := NewEngineTracker()
-	instrumented := TrackCAASOperator(c, tracker, caasOperatorManifolds)
-	s.PatchValue(&caasOperatorManifolds, instrumented)
-
-	app, _, _ := s.primeAgent(c)
-	ctx := cmdtesting.Context(c)
-	a, err := NewCaasOperatorAgent(ctx, s.newBufferedLogWriter())
-	c.Assert(err, jc.ErrorIsNil)
-	s.InitAgent(c, a, "--application-name", app.Name())
-
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-
-	matcher := NewWorkerMatcher(c, tracker, a.Tag().String(),
-		append(alwaysCAASWorkers, notMigratingCAASWorkers...))
-	WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 }
