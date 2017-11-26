@@ -46,7 +46,7 @@ func (c *modelsCommand) oldModelsCommandBehaviour(
 	if err != nil {
 		return false, errors.Annotate(err, "cannot get model details")
 	}
-	found := len(modelInfo) == 0
+	found := len(modelInfo) > 0
 
 	if err := c.ClientStore().SetModels(c.runVars.controllerName, modelsToStore); err != nil {
 		return found, errors.Trace(err)

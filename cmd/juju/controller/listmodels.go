@@ -177,7 +177,7 @@ func (c *modelsCommand) getModelSummaries(ctx *cmd.Context, client ModelManagerA
 		summaries = append(summaries, model)
 		modelsToStore[model.Name] = jujuclient.ModelDetails{model.UUID}
 	}
-	found := len(summaries) == 0
+	found := len(summaries) > 0
 
 	if err := c.ClientStore().SetModels(c.runVars.controllerName, modelsToStore); err != nil {
 		return found, errors.Trace(err)
