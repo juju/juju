@@ -327,24 +327,21 @@ func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelT
 	return func(wait time.Duration) *modelData {
 		sleepFunc(wait)
 		status, err := api.ModelStatus(tag)
+		if err == nil && len(status) == 1 && status[0].Error != nil {
+			// In 2.2 an error of one model generate an error for the entire request,
+			// in 2.3 this was corrected to just be an error for the requested model.
+			err = status[0].Error
+		}
 		if err != nil {
 			if params.ErrCode(err) != params.CodeNotFound {
 				ctx.Infof("Unable to get the model status from the API: %v.", err)
+			} else {
+				ctx.Infof("Model destroyed.")
 			}
 			return nil
 		}
 		if l := len(status); l != 1 {
 			ctx.Infof("error finding model status: expected one result, got %d", l)
-			return nil
-		}
-		if status[0].Error != nil {
-			// No need to give the user a warning that the model they asked
-			// to destroy is no longer there.
-			if errors.IsNotFound(status[0].Error) || params.IsCodeNotFound(status[0].Error) {
-				ctx.Infof("Model destroyed.")
-			} else {
-				ctx.Infof("Could not get the model status from the API: %v", status[0].Error)
-			}
 			return nil
 		}
 		return &modelData{
