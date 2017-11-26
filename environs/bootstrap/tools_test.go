@@ -85,12 +85,12 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	var called int
 	var filter tools.Filter
-	var findStream string
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
+	var findStreams []string
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		called++
 		c.Check(major, gc.Equals, jujuversion.Current.Major)
 		c.Check(minor, gc.Equals, jujuversion.Current.Minor)
-		findStream = stream
+		findStreams = streams
 		filter = f
 		return nil, nil
 	})
@@ -105,7 +105,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 		series  *string
 		dev     bool
 		filter  tools.Filter
-		stream  string
+		streams []string
 	}
 	tests := []test{{
 		version: nil,
@@ -140,33 +140,33 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 		arch:    &arm64,
 		series:  nil,
 		filter:  tools.Filter{Arch: arm64, Number: devVers},
-		stream:  "devel",
+		streams: []string{"devel", "proposed", "released"},
 	}}
 
 	for i, test := range tests {
 		c.Logf("test %d: %#v", i, test)
 		extra := map[string]interface{}{"development": test.dev}
-		if test.stream != "" {
-			extra["agent-stream"] = test.stream
+		if test.streams != nil {
+			extra["agent-stream"] = test.streams[0]
 		}
 		env := newEnviron("foo", useDefaultKeys, extra)
 		bootstrap.FindBootstrapTools(env, test.version, test.arch, test.series)
 		c.Assert(called, gc.Equals, i+1)
 		c.Assert(filter, gc.Equals, test.filter)
-		if test.stream != "" {
-			c.Check(findStream, gc.Equals, test.stream)
+		if test.streams != nil {
+			c.Check(findStreams, gc.DeepEquals, test.streams)
 		} else {
 			if test.dev || jujuversion.IsDev(*test.version) {
-				c.Check(findStream, gc.Equals, "devel")
+				c.Check(findStreams, gc.DeepEquals, []string{"devel", "proposed", "released"})
 			} else {
-				c.Check(findStream, gc.Equals, "released")
+				c.Check(findStreams, gc.DeepEquals, []string{"released"})
 			}
 		}
 	}
 }
 
 func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return nil, errors.New("splat")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -175,7 +175,7 @@ func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -195,11 +195,11 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	currentVersion.Minor = 3
 	s.PatchValue(&jujuversion.Current, currentVersion.Number)
 	var findToolsCalled int
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		c.Assert(f.Number.Major, gc.Equals, 10)
 		c.Assert(f.Number.Minor, gc.Equals, 11)
 		c.Assert(f.Number.Patch, gc.Equals, 12)
-		c.Assert(stream, gc.Equals, "released")
+		c.Assert(streams, gc.DeepEquals, []string{"released"})
 		findToolsCalled++
 		return []*tools.Tools{
 			&tools.Tools{
@@ -237,7 +237,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 		})
 	}
 
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, stream string, f tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		return allTools, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)

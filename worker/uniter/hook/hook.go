@@ -7,7 +7,7 @@ package hook
 import (
 	"fmt"
 
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 )
 

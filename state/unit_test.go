@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/instance"

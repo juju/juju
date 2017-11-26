@@ -6,7 +6,7 @@ package state
 import (
 	"fmt"
 
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 )
 
 // counterpartRole returns the RelationRole that this RelationRole

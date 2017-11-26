@@ -343,6 +343,11 @@ func (env *maasEnviron) createAndPopulateDevice(params deviceCreatorParams) (gom
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	defer func() {
+		if err != nil {
+			device.Delete()
+		}
+	}()
 	interface_set := device.InterfaceSet()
 	if len(interface_set) != 1 {
 		// Shouldn't be possible as machine.CreateDevice always
@@ -351,8 +356,9 @@ func (env *maasEnviron) createAndPopulateDevice(params deviceCreatorParams) (gom
 		for i, iface := range interface_set {
 			names[i] = iface.Name()
 		}
-		return nil, errors.Errorf("unexpected number of interfaces "+
+		err = errors.Errorf("unexpected number of interfaces "+
 			"in response from creating device: %v", names)
+		return nil, err
 	}
 	primaryNIC := interface_set[0]
 	primaryNICVLAN := primaryNIC.VLAN()
@@ -401,7 +407,7 @@ func (env *maasEnviron) createAndPopulateDevice(params deviceCreatorParams) (gom
 		}
 
 		if err := createdNIC.LinkSubnet(linkArgs); err != nil {
-			logger.Warningf("linking NIC %v to subnet %v failed: %v", nic.InterfaceName, subnet.CIDR(), err)
+			return nil, errors.Annotatef(err, "linking NIC %v to subnet %v", nic.InterfaceName, subnet.CIDR())
 		} else {
 			logger.Debugf("linked device interface to subnet: %+v", createdNIC)
 		}
@@ -416,7 +422,8 @@ func (env *maasEnviron) createAndPopulateDevice(params deviceCreatorParams) (gom
 			return nil, errors.Trace(err)
 		}
 		if len(devices) != 1 {
-			return nil, errors.Errorf("unexpected response requesting device %v: %v", deviceID, devices)
+			err = errors.Errorf("unexpected response requesting device %v: %v", deviceID, devices)
+			return nil, err
 		}
 		device = devices[0]
 	}

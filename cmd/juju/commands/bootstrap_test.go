@@ -1407,6 +1407,38 @@ func (s *BootstrapSuite) TestBootstrapProviderManyDetectedCredentials(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ambiguousDetectedCredentialError.Error())
 }
 
+func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
+	dummyProvider, err := environs.Provider("dummy")
+	c.Assert(err, jc.ErrorIsNil)
+
+	tmpFile, err := ioutil.TempFile("", "juju-bootstrap-test")
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { err := os.Remove(tmpFile.Name()); c.Assert(err, jc.ErrorIsNil) }()
+
+	contents := []byte("{something: special}\n")
+	err = ioutil.WriteFile(tmpFile.Name(), contents, 0644)
+
+	unfinalizedCredential := cloud.NewEmptyCredential()
+	finalizedCredential := cloud.NewEmptyCredential()
+	fp := fileCredentialProvider{dummyProvider, tmpFile.Name(), &unfinalizedCredential, &finalizedCredential}
+	environs.RegisterProvider("file-credentials", fp)
+
+	resetJujuXDGDataHome(c)
+	_, err = cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(), "file-credentials", "ctrl",
+		"--config", "default-series=precise",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// When credentials are "finalized" any credential attribute indicated
+	// to be a file path is replaced by that file's contents. Here we check to see
+	// that the state of the credential under test before finalization is
+	// indeed the file path itself and that the state of the credential
+	// after finalization is the contents of that file.
+	c.Assert(unfinalizedCredential.Attributes()["file"], gc.Matches, tmpFile.Name())
+	c.Assert(finalizedCredential.Attributes()["file"], gc.Matches, string(contents))
+}
+
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegionsInvalid(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy/not-dummy", "ctrl")
@@ -1903,7 +1935,7 @@ clouds:
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 	list, err := envtools.FindTools(
-		env, jujuversion.Current.Major, jujuversion.Current.Minor, "released", coretools.Filter{})
+		env, jujuversion.Current.Major, jujuversion.Current.Minor, []string{"released"}, coretools.Filter{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
@@ -1998,7 +2030,7 @@ func (noCloudRegionsProvider) DetectRegions() ([]cloud.Region, error) {
 }
 
 func (noCloudRegionsProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return nil
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: cloud.CredentialSchema{}}
 }
 
 type noCredentialsProvider struct {
@@ -2039,6 +2071,41 @@ func (manyCredentialsProvider) CredentialSchemas() map[cloud.AuthType]cloud.Cred
 }
 
 type cloudDetectorFunc func() ([]cloud.Cloud, error)
+
+type fileCredentialProvider struct {
+	environs.EnvironProvider
+	testFileName          string
+	unFinalizedCredential *cloud.Credential
+	finalizedCredential   *cloud.Credential
+}
+
+func (f fileCredentialProvider) DetectRegions() ([]cloud.Region, error) {
+	return []cloud.Region{{Name: "region"}}, nil
+}
+
+func (f fileCredentialProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	credential := cloud.NewCredential(cloud.JSONFileAuthType,
+		map[string]string{"file": f.testFileName})
+	cc := &cloud.CloudCredential{AuthCredentials: map[string]cloud.Credential{
+		"cred": credential,
+	}}
+	*f.unFinalizedCredential = credential
+	return cc, nil
+}
+
+func (fileCredentialProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.JSONFileAuthType: cloud.CredentialSchema{cloud.NamedCredentialAttr{
+		Name: "file",
+		CredentialAttr: cloud.CredentialAttr{
+			FilePath: true,
+		}},
+	}}
+}
+
+func (f fileCredentialProvider) FinalizeCredential(_ environs.FinalizeCredentialContext, fp environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	*f.finalizedCredential = fp.Credential
+	return &fp.Credential, nil
+}
 
 func (c cloudDetectorFunc) DetectCloud(name string) (cloud.Cloud, error) {
 	clouds, err := c.DetectClouds()

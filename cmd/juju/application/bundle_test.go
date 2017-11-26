@@ -17,10 +17,10 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/charmrepo.v2/csclient"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
@@ -702,11 +702,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentBadConfig(c
         relations:
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath),
-		"--bundle-config", "missing-file")
-	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to read bundle-config file .*")
+		"--overlay", "missing-file")
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: unable to read bundle overlay file .*")
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleConfig(c *gc.C) {
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *gc.C) {
 	configDir := c.MkDir()
 	configFile := filepath.Join(configDir, "config.yaml")
 	c.Assert(
@@ -738,7 +738,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleC
         relations:
             - ["wordpress:db", "mysql:server"]
     `, wordpressPath, mysqlPath),
-		"--bundle-config", configFile)
+		"--overlay", configFile)
 
 	c.Assert(err, jc.ErrorIsNil)
 	// Now check the blog-title of the wordpress.	le")
@@ -1706,15 +1706,15 @@ func (*ProcessIncludesSuite) TestBundleReplacements(c *gc.C) {
 	c.Check(annotations["baz"], gc.Equals, "wibble")
 }
 
-type ProcessBundleConfigSuite struct {
+type ProcessBundleOverlaySuite struct {
 	coretesting.BaseSuite
 
 	bundleData *charm.BundleData
 }
 
-var _ = gc.Suite(&ProcessBundleConfigSuite{})
+var _ = gc.Suite(&ProcessBundleOverlaySuite{})
 
-func (s *ProcessBundleConfigSuite) SetUpTest(c *gc.C) {
+func (s *ProcessBundleOverlaySuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	baseBundle := `
@@ -1750,7 +1750,7 @@ func (s *ProcessBundleConfigSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ProcessBundleConfigSuite) writeFile(c *gc.C, content string) string {
+func (s *ProcessBundleOverlaySuite) writeFile(c *gc.C, content string) string {
 	// Write the content to a file in a new directoryt and return the file.
 	baseDir := c.MkDir()
 	filename := filepath.Join(baseDir, "config.yaml")
@@ -1759,23 +1759,23 @@ func (s *ProcessBundleConfigSuite) writeFile(c *gc.C, content string) string {
 	return filename
 }
 
-func (s *ProcessBundleConfigSuite) TestNoFile(c *gc.C) {
-	err := processBundleConfig(s.bundleData)
+func (s *ProcessBundleOverlaySuite) TestNoFile(c *gc.C) {
+	err := processBundleOverlay(s.bundleData)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ProcessBundleConfigSuite) TestBadFile(c *gc.C) {
-	err := processBundleConfig(s.bundleData, "bad")
-	c.Assert(err, gc.ErrorMatches, `unable to read bundle-config file ".*": bundle not found: .*bad`)
+func (s *ProcessBundleOverlaySuite) TestBadFile(c *gc.C) {
+	err := processBundleOverlay(s.bundleData, "bad")
+	c.Assert(err, gc.ErrorMatches, `unable to read bundle overlay file ".*": bundle not found: .*bad`)
 }
 
-func (s *ProcessBundleConfigSuite) TestGoodYAML(c *gc.C) {
+func (s *ProcessBundleOverlaySuite) TestGoodYAML(c *gc.C) {
 	filename := s.writeFile(c, "bad:\n\tindent")
-	err := processBundleConfig(s.bundleData, filename)
-	c.Assert(err, gc.ErrorMatches, `unable to read bundle-config file ".*": cannot unmarshal bundle data: yaml: line 1: found character that cannot start any token`)
+	err := processBundleOverlay(s.bundleData, filename)
+	c.Assert(err, gc.ErrorMatches, `unable to read bundle overlay file ".*": cannot unmarshal bundle data: yaml: line 1: found character that cannot start any token`)
 }
 
-func (s *ProcessBundleConfigSuite) TestReplaceZeroValues(c *gc.C) {
+func (s *ProcessBundleOverlaySuite) TestReplaceZeroValues(c *gc.C) {
 	config := `
         applications:
             django:
@@ -1783,7 +1783,7 @@ func (s *ProcessBundleConfigSuite) TestReplaceZeroValues(c *gc.C) {
                 num_units: 0
     `
 	filename := s.writeFile(c, config)
-	err := processBundleConfig(s.bundleData, filename)
+	err := processBundleOverlay(s.bundleData, filename)
 	c.Assert(err, jc.ErrorIsNil)
 	django := s.bundleData.Applications["django"]
 
@@ -1791,14 +1791,14 @@ func (s *ProcessBundleConfigSuite) TestReplaceZeroValues(c *gc.C) {
 	c.Check(django.NumUnits, gc.Equals, 0)
 }
 
-func (s *ProcessBundleConfigSuite) TestMachineReplacement(c *gc.C) {
+func (s *ProcessBundleOverlaySuite) TestMachineReplacement(c *gc.C) {
 	config := `
         machines:
             1:
             2:
     `
 	filename := s.writeFile(c, config)
-	err := processBundleConfig(s.bundleData, filename)
+	err := processBundleOverlay(s.bundleData, filename)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var machines []string
@@ -1809,7 +1809,7 @@ func (s *ProcessBundleConfigSuite) TestMachineReplacement(c *gc.C) {
 	c.Assert(machines, jc.DeepEquals, []string{"1", "2"})
 }
 
-func (s *ProcessBundleConfigSuite) assertApplications(c *gc.C, appNames ...string) {
+func (s *ProcessBundleOverlaySuite) assertApplications(c *gc.C, appNames ...string) {
 	var applications []string
 	for key := range s.bundleData.Applications {
 		applications = append(applications, key)
@@ -1819,7 +1819,7 @@ func (s *ProcessBundleConfigSuite) assertApplications(c *gc.C, appNames ...strin
 	c.Assert(applications, jc.DeepEquals, appNames)
 }
 
-func (s *ProcessBundleConfigSuite) TestNewApplication(c *gc.C) {
+func (s *ProcessBundleOverlaySuite) TestNewApplication(c *gc.C) {
 	config := `
         applications:
             postgresql:
@@ -1830,7 +1830,7 @@ func (s *ProcessBundleConfigSuite) TestNewApplication(c *gc.C) {
               - "django:pgsql"
     `
 	filename := s.writeFile(c, config)
-	err := processBundleConfig(s.bundleData, filename)
+	err := processBundleOverlay(s.bundleData, filename)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplications(c, "django", "memcached", "postgresql")
 	c.Assert(s.bundleData.Relations, jc.DeepEquals, [][]string{
@@ -1839,19 +1839,19 @@ func (s *ProcessBundleConfigSuite) TestNewApplication(c *gc.C) {
 	})
 }
 
-func (s *ProcessBundleConfigSuite) TestRemoveApplication(c *gc.C) {
+func (s *ProcessBundleOverlaySuite) TestRemoveApplication(c *gc.C) {
 	config := `
         applications:
             memcached:
     `
 	filename := s.writeFile(c, config)
-	err := processBundleConfig(s.bundleData, filename)
+	err := processBundleOverlay(s.bundleData, filename)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplications(c, "django")
 	c.Assert(s.bundleData.Relations, gc.HasLen, 0)
 }
 
-func (s *ProcessBundleConfigSuite) TestIncludes(c *gc.C) {
+func (s *ProcessBundleOverlaySuite) TestIncludes(c *gc.C) {
 	config := `
         applications:
             django:
@@ -1874,7 +1874,7 @@ func (s *ProcessBundleConfigSuite) TestIncludes(c *gc.C) {
 			[]byte("value3"), 0644),
 		jc.ErrorIsNil)
 
-	err := processBundleConfig(s.bundleData, filename)
+	err := processBundleOverlay(s.bundleData, filename)
 	c.Assert(err, jc.ErrorIsNil)
 	django := s.bundleData.Applications["django"]
 	c.Check(django.Annotations, jc.DeepEquals, map[string]string{
@@ -1886,7 +1886,7 @@ func (s *ProcessBundleConfigSuite) TestIncludes(c *gc.C) {
 		"private": "KgwAFwg="})
 }
 
-func (s *ProcessBundleConfigSuite) TestRemainingFields(c *gc.C) {
+func (s *ProcessBundleOverlaySuite) TestRemainingFields(c *gc.C) {
 	// Note that we don't care about the actual values here
 	// as bundle validation is done after replacement.
 	config := `
@@ -1905,7 +1905,7 @@ func (s *ProcessBundleConfigSuite) TestRemainingFields(c *gc.C) {
                   where: dmz
     `
 	filename := s.writeFile(c, config)
-	err := processBundleConfig(s.bundleData, filename)
+	err := processBundleOverlay(s.bundleData, filename)
 	c.Assert(err, jc.ErrorIsNil)
 	django := s.bundleData.Applications["django"]
 
@@ -1921,7 +1921,7 @@ func (s *ProcessBundleConfigSuite) TestRemainingFields(c *gc.C) {
 		"where": "dmz"})
 }
 
-func (s *ProcessBundleConfigSuite) TestYAMLInterpolation(c *gc.C) {
+func (s *ProcessBundleOverlaySuite) TestYAMLInterpolation(c *gc.C) {
 
 	removeDjango := s.writeFile(c, `
 applications:
@@ -1948,7 +1948,7 @@ relations:
       - "memcached"
 `)
 
-	err := processBundleConfig(s.bundleData, removeDjango, addWiki)
+	err := processBundleOverlay(s.bundleData, removeDjango, addWiki)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertApplications(c, "memcached", "wiki")

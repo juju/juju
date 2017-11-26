@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
 )
 
 func (*environSuite) TestConvertConstraints(c *gc.C) {
@@ -212,7 +211,7 @@ func (suite *environSuite) TestSelectNodeValidZone(c *gc.C) {
 	}
 
 	node, err := env.selectNode(snArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.IsNil)
 	c.Assert(node, gc.NotNil)
 }
 
@@ -225,7 +224,9 @@ func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
 	}
 
 	_, err := env.selectNode(snArgs)
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrAvailabilityZoneFailed)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.noMatch, jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, ".*409.*")
 }
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {

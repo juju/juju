@@ -89,12 +89,18 @@ func connectFallback(
 	// than the alternatives.
 	var tryConnect = func() {
 		conn, err = apiOpen(info, api.DialOpts{
-			// NOTE we set DialTimeout but not Timeout, because
-			// the server may apply server-side rate-limiting
-			// before responding to the Login request. The dial
-			// should be fast, but the login may not be.
-			DialTimeout: time.Second,
+			// The DialTimeout is for connecting to the underlying
+			// socket. We use three seconds because it should be fast
+			// but it is possible to add a manual machine to a distant
+			// controller such that the round trip time could be as high
+			// as 500ms.
+			DialTimeout: 3 * time.Second,
 			RetryDelay:  200 * time.Millisecond,
+			// The timeout is for the complete login handshake.
+			// If the server is rate limiting, it will normally pause
+			// before responding to the login request, but the pause is
+			// in the realm of five to ten seconds.
+			Timeout: time.Minute,
 		})
 	}
 

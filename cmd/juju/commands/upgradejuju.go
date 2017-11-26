@@ -132,7 +132,7 @@ func (c *upgradeJujuCommand) Init(args []string) error {
 
 var (
 	errUpToDate            = stderrors.New("no upgrades available")
-	downgradeErrMsg        = "cannot change version from %s to %s"
+	downgradeErrMsg        = "cannot change version from %s to lower version %s"
 	minMajorUpgradeVersion = map[int]version.Number{
 		2: version.MustParse("1.25.4"),
 	}
@@ -276,7 +276,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		// environment version (can't guarantee API compatibility).
 		return errors.Errorf("cannot upgrade a %s model with a %s client",
 			agentVersion, jujuversion.Current)
-	case c.Version != version.Zero && c.Version.Major < agentVersion.Major:
+	case c.Version != version.Zero && compareNoBuild(agentVersion, c.Version) == 1:
 		// The specified version would downgrade the environment.
 		// Don't upgrade and return an error.
 		return errors.Errorf(downgradeErrMsg, agentVersion, c.Version)
@@ -326,11 +326,21 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	// If we're running a custom build or the user has asked for a new agent
-	// to be built, upload a local jujud binary if possible.
-	uploadLocalBinary := isControllerModel && c.Version == version.Zero && tryImplicit
-	if !warnCompat && (uploadLocalBinary || c.BuildAgent) && !c.DryRun {
-		if err := context.uploadTools(c.BuildAgent); err != nil {
+
+	// Look for any packaged binaries but only if we haven't been asked to build an agent.
+	var packagedAgentErr error
+	if !c.BuildAgent {
+		if packagedAgentErr = context.maybeChoosePackagedAgent(); packagedAgentErr != nil {
+			ctx.Verbosef("%v", packagedAgentErr)
+		}
+	}
+
+	// If there's no packaged binaries, or we're running a custom build
+	// or the user has asked for a new agent to be built, upload a local
+	// jujud binary if possible.
+	uploadLocalBinary := isControllerModel && packagedAgentErr != nil && tryImplicit
+	if !warnCompat && (uploadLocalBinary || c.BuildAgent) {
+		if err := context.uploadTools(c.BuildAgent, agentVersion, c.DryRun); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 		builtMsg := ""
@@ -338,21 +348,26 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 			builtMsg = " (built from source)"
 		}
 		fmt.Fprintf(ctx.Stdout, "no prepackaged agent binaries available, using local agent binary %v%s\n", context.chosen, builtMsg)
+		packagedAgentErr = nil
+	}
+	if packagedAgentErr != nil {
+		return packagedAgentErr
 	}
 
-	// If there was an error implicitly uploading a binary, we'll still look for any packaged binaries
-	// since there may still be a valid upgrade and the user didn't ask for any local binary.
 	if err := context.validate(); err != nil {
 		return err
 	}
-	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
 	ctx.Verbosef("available agent binaries:\n%s", formatTools(context.tools))
 	ctx.Verbosef("best version:\n    %s", context.chosen)
 	if warnCompat {
 		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", context.chosen, jujuversion.Current)
 	}
 	if c.DryRun {
-		fmt.Fprintf(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-juju --agent-version=\"%s\"\n", context.chosen)
+		if c.BuildAgent {
+			fmt.Fprint(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-juju --build-agent\n")
+		} else {
+			fmt.Fprintf(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-juju\n")
+		}
 	} else {
 		if c.ResetPrevious {
 			if ok, err := c.confirmResetPreviousUpgrade(ctx); !ok || err != nil {
@@ -491,7 +506,7 @@ type upgradeContext struct {
 // than that of any otherwise-matching available envtools.
 // uploadTools resets the chosen version and replaces the available tools
 // with the ones just uploaded.
-func (context *upgradeContext) uploadTools(buildAgent bool) (err error) {
+func (context *upgradeContext) uploadTools(buildAgent bool, agentVersion version.Number, dryRun bool) (err error) {
 	// TODO(fwereade): this is kinda crack: we should not assume that
 	// jujuversion.Current matches whatever source happens to be built. The
 	// ideal would be:
@@ -508,10 +523,24 @@ func (context *upgradeContext) uploadTools(buildAgent bool) (err error) {
 	// TODO(cherylj) If the determination of version changes, we will
 	// need to also change the upgrade version checks in Run() that check
 	// if a major upgrade is allowed.
-	if context.chosen == version.Zero {
-		context.chosen = context.client
+	uploadBaseVersion := context.chosen
+	if uploadBaseVersion == version.Zero {
+		uploadBaseVersion = context.client
 	}
-	context.chosen = uploadVersion(context.chosen, context.tools)
+	// If the Juju client matches the current running agent (excluding build number),
+	// make sure the build number gets incremented.
+	agentVersionCopy := agentVersion
+	agentVersionCopy.Build = 0
+	uploadBaseVersionCopy := uploadBaseVersion
+	uploadBaseVersion.Build = 0
+	if agentVersionCopy.Compare(uploadBaseVersionCopy) == 0 {
+		uploadBaseVersion = agentVersion
+	}
+	context.chosen = makeUploadVersion(uploadBaseVersion, context.tools)
+
+	if dryRun {
+		return nil
+	}
 
 	builtTools, err := sync.BuildAgentTarball(buildAgent, &context.chosen, "upgrade")
 	if err != nil {
@@ -545,11 +574,7 @@ func (context *upgradeContext) uploadTools(buildAgent bool) (err error) {
 	return nil
 }
 
-// validate chooses an upgrade version, if one has not already been chosen,
-// and ensures the tools list contains no entries that do not have that version.
-// If validate returns no error, the environment agent-version can be set to
-// the value of the chosen field.
-func (context *upgradeContext) validate() (err error) {
+func (context *upgradeContext) maybeChoosePackagedAgent() (err error) {
 	if context.chosen == version.Zero {
 		// No explicitly specified version, so find the version to which we
 		// need to upgrade. We find next available stable release to upgrade
@@ -587,6 +612,13 @@ func (context *upgradeContext) validate() (err error) {
 		}
 		context.chosen, context.tools = context.tools.Newest()
 	}
+	return nil
+}
+
+// validate ensures an upgrade can be done using the chosen agent version.
+// If validate returns no error, the environment agent-version can be set to
+// the value of the chosen agent field.
+func (context *upgradeContext) validate() (err error) {
 	if context.chosen == context.agent {
 		return errUpToDate
 	}
@@ -606,9 +638,9 @@ func (context *upgradeContext) validate() (err error) {
 	return nil
 }
 
-// uploadVersion returns a copy of the supplied version with a build number
+// makeUploadVersion returns a copy of the supplied version with a build number
 // higher than any of the supplied tools that share its major, minor and patch.
-func uploadVersion(vers version.Number, existing coretools.List) version.Number {
+func makeUploadVersion(vers version.Number, existing coretools.List) version.Number {
 	vers.Build++
 	for _, t := range existing {
 		if t.Version.Major != vers.Major || t.Version.Minor != vers.Minor || t.Version.Patch != vers.Patch {
@@ -619,4 +651,10 @@ func uploadVersion(vers version.Number, existing coretools.List) version.Number 
 		}
 	}
 	return vers
+}
+
+func compareNoBuild(a, b version.Number) int {
+	a.Build = 0
+	b.Build = 0
+	return a.Compare(b)
 }

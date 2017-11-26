@@ -7,7 +7,6 @@ import (
 	"path"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs"
 	"google.golang.org/api/compute/v1"
 )
 
@@ -32,12 +31,10 @@ func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType 
 	// Check if the instance was created.
 	realized, err := gce.raw.GetInstance(gce.projectID, zone, inst.Name)
 	if err != nil {
-		if waitErr == nil {
-			return errors.Trace(err)
+		if waitErr != nil {
+			return errors.Trace(waitErr)
 		}
-		logger.Errorf("failed to get new instance in zone %q: %v", zone, waitErr)
-		// Let the provisioner or bootstrap know to try the next zone.
-		return errors.Wrap(waitErr, environs.ErrAvailabilityZoneFailed)
+		return errors.Trace(err)
 	}
 
 	// Success!
@@ -48,9 +45,9 @@ func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType 
 // AddInstance creates a new instance based on the spec's data and
 // returns it. The instance will be created using the provided
 // connection and in the provided zone.
-func (gce *Connection) AddInstance(spec InstanceSpec, zone string) (*Instance, error) {
+func (gce *Connection) AddInstance(spec InstanceSpec) (*Instance, error) {
 	raw := spec.raw()
-	if err := gce.addInstance(raw, spec.Type, zone); err != nil {
+	if err := gce.addInstance(raw, spec.Type, spec.AvailabilityZone); err != nil {
 		return nil, errors.Trace(err)
 	}
 
