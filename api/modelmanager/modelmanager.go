@@ -179,6 +179,88 @@ func (c *Client) ListModels(user string) ([]base.UserModel, error) {
 	return result, nil
 }
 
+func (c *Client) ListModelSummaries(user string, all bool) ([]base.UserModelSummary, error) {
+	var out params.ModelSummaryResults
+	if !names.IsValidUser(user) {
+		return nil, errors.Errorf("invalid user name %q", user)
+	}
+	in := params.ModelSummariesRequest{UserTag: names.NewUserTag(user).String(), All: all}
+	err := c.facade.FacadeCall("ListModelSummaries", in, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	summaries := make([]base.UserModelSummary, len(out.Results))
+	for i, r := range out.Results {
+		if r.Error != nil {
+			// cope with typed error
+			summaries[i] = base.UserModelSummary{Error: errors.Trace(r.Error)}
+			continue
+		}
+		summary := r.Result
+		summaries[i] = base.UserModelSummary{
+			Name:               summary.Name,
+			UUID:               summary.UUID,
+			ControllerUUID:     summary.ControllerUUID,
+			ProviderType:       summary.ProviderType,
+			DefaultSeries:      summary.DefaultSeries,
+			CloudRegion:        summary.CloudRegion,
+			Life:               string(summary.Life),
+			ModelUserAccess:    string(summary.UserAccess),
+			UserLastConnection: summary.UserLastConnection,
+			Counts:             make([]base.EntityCount, len(summary.Counts)),
+			AgentVersion:       summary.AgentVersion,
+		}
+		for pos, count := range summary.Counts {
+			summaries[i].Counts[pos] = base.EntityCount{string(count.Entity), count.Count}
+		}
+		summaries[i].Status = base.Status{
+			Status: summary.Status.Status,
+			Info:   summary.Status.Info,
+			Data:   make(map[string]interface{}),
+			Since:  summary.Status.Since,
+		}
+		//TODO (anastasiamac 2017-11-24) do we need status data for summaries?
+		// we do not translate it at cmd/presentation layer and is it really a summary?...
+		for k, v := range summary.Status.Data {
+			summaries[i].Status.Data[k] = v
+		}
+		if owner, err := names.ParseUserTag(summary.OwnerTag); err != nil {
+			summaries[i].Error = errors.Annotatef(err, "while parsing model owner tag")
+			continue
+		} else {
+			summaries[i].Owner = owner.Id()
+		}
+		if cloud, err := names.ParseCloudTag(summary.CloudTag); err != nil {
+			summaries[i].Error = errors.Annotatef(err, "while parsing model cloud tag")
+			continue
+		} else {
+			summaries[i].Cloud = cloud.Id()
+		}
+		if summary.CloudCredentialTag != "" {
+			if credTag, err := names.ParseCloudCredentialTag(summary.CloudCredentialTag); err != nil {
+				summaries[i].Error = errors.Annotatef(err, "while parsing model cloud credential tag")
+				continue
+			} else {
+				summaries[i].CloudCredential = credTag.Id()
+			}
+		}
+		if summary.Migration != nil {
+			summaries[i].Migration = &base.MigrationSummary{
+				Status:    summary.Migration.Status,
+				StartTime: summary.Migration.Start,
+				EndTime:   summary.Migration.End,
+			}
+		}
+		if summary.SLA != nil {
+			summaries[i].SLA = &base.SLASummary{
+				Level: summary.SLA.Level,
+				Owner: summary.SLA.Owner,
+			}
+		}
+	}
+	return summaries, nil
+}
+
 func (c *Client) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error) {
 	entities := params.Entities{
 		Entities: make([]params.Entity, len(tags)),

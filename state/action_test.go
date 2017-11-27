@@ -1057,7 +1057,7 @@ func (s *ActionPruningSuite) TestPruneActionsBySizeOldestFirst(c *gc.C) {
 }
 
 func (s *ActionPruningSuite) TestPruneActionByAge(c *gc.C) {
-	clock := test.NewClock(coretesting.NonZeroTime())
+	clock := test.NewClock(time.Now())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
@@ -1065,7 +1065,7 @@ func (s *ActionPruningSuite) TestPruneActionByAge(c *gc.C) {
 
 	const numCurrentActionEntries = 5
 	const numExpiredActionEntries = 5
-	const ageOfExpired = 2 * time.Hour
+	const ageOfExpired = 10 * time.Hour
 
 	state.PrimeActions(c, clock.Now(), unit, numCurrentActionEntries)
 	state.PrimeActions(c, clock.Now().Add(-1*ageOfExpired), unit, numExpiredActionEntries)
@@ -1081,5 +1081,32 @@ func (s *ActionPruningSuite) TestPruneActionByAge(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	actionsLen := len(actions)
 
+	c.Log(actions)
 	c.Assert(actionsLen, gc.Equals, numCurrentActionEntries)
+}
+
+// Pruner should not prune actions with age of epoch time since the epoch is a
+// special value denoting an incomplete action.
+func (s *ActionPruningSuite) TestDoNotPruneIncompleteActions(c *gc.C) {
+	clock := test.NewClock(time.Now())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	// Completed times with the zero value are designated not complete
+	const numZeroValueEntries = 5
+	state.PrimeActions(c, time.Time{}, unit, numZeroValueEntries)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = state.PruneActions(s.State, 1*time.Hour, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err = unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	actionsLen := len(actions)
+
+	c.Assert(actionsLen, gc.Equals, numZeroValueEntries)
 }

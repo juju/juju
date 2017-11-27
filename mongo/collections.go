@@ -33,6 +33,7 @@ type Collection interface {
 	Count() (int, error)
 	Find(query interface{}) Query
 	FindId(id interface{}) Query
+	Pipe(pipeline interface{}) *mgo.Pipe
 
 	// Writeable gives access to methods that enable direct DB access. It
 	// should be used with judicious care, and for only the best of reasons.
@@ -102,6 +103,11 @@ func (cw collectionWrapper) Name() string {
 // Find is part of the Collection interface.
 func (cw collectionWrapper) Find(query interface{}) Query {
 	return queryWrapper{cw.Collection.Find(query)}
+}
+
+// Pipe is part of the Collection interface
+func (cw collectionWrapper) Pipe(pipeline interface{}) *mgo.Pipe {
+	return cw.Collection.Pipe(pipeline)
 }
 
 // FindId is part of the Collection interface.

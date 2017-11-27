@@ -84,15 +84,19 @@ juju-heap-profile () {
 }
 
 juju-engine-report () {
-  jujuMachineOrUnit depengine/ $@
+  jujuMachineOrUnit depengine $@
 }
 
 juju-statepool-report () {
-  jujuMachineOrUnit statepool/ $@
+  jujuMachineOrUnit statepool $@
 }
 
 juju-pubsub-report () {
-  jujuMachineOrUnit pubsub/ $@
+  jujuMachineOrUnit pubsub $@
+}
+
+juju-metrics () {
+  jujuMachineOrUnit metrics $@
 }
 
 juju-statetracker-report () {
@@ -106,6 +110,7 @@ export -f juju-goroutines
 export -f juju-cpu-profile
 export -f juju-heap-profile
 export -f juju-engine-report
+export -f juju-metrics
 export -f juju-statepool-report
 export -f juju-statetracker-report
 export -f juju-pubsub-report

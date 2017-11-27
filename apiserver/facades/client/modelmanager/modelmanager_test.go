@@ -1038,24 +1038,6 @@ func (s *modelManagerStateSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 	}
 }
 
-func (s *modelManagerStateSuite) TestListModelsForSelf(c *gc.C) {
-	user := names.NewUserTag("external@remote")
-	s.setAPIUser(c, user)
-	result, err := s.modelmanager.ListModels(params.Entity{Tag: user.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserModels, gc.HasLen, 0)
-}
-
-func (s *modelManagerStateSuite) TestListModelsForSelfLocalUser(c *gc.C) {
-	// When the user's credentials cache stores the simple name, but the
-	// api server converts it to a fully qualified name.
-	user := names.NewUserTag("local-user")
-	s.setAPIUser(c, names.NewUserTag("local-user"))
-	result, err := s.modelmanager.ListModels(params.Entity{Tag: user.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.UserModels, gc.HasLen, 0)
-}
-
 func (s *modelManagerStateSuite) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
 	c.Check(model.Name, gc.Equals, expected.Name())
 	c.Check(model.UUID, gc.Equals, expected.UUID())
