@@ -22,6 +22,7 @@ type ManifoldConfig struct {
 	ClockName     string
 
 	NewWorker func(Config) (worker.Worker, error)
+	NewClient func(base.APICaller) Client
 }
 
 func (config ManifoldConfig) Validate() error {
@@ -36,6 +37,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("missing NewWorker")
+	}
+	if config.NewClient == nil {
+		return errors.NotValidf("missing NewClient")
 	}
 	return nil
 }
@@ -56,17 +60,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			var agent agent.Agent
 			if err := context.Get(config.AgentName, &agent); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 
 			var apiCaller base.APICaller
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
+			client := config.NewClient(apiCaller)
 
 			var clock clock.Clock
 			if err := context.Get(config.ClockName, &clock); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 
 			// Configure and start the caasoperator worker.
@@ -77,9 +82,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Errorf("expected an application tag, got %v", tag)
 			}
 			w, err := config.NewWorker(Config{
-				Application: applicationTag.Id(),
-				Clock:       clock,
-				DataDir:     agentConfig.DataDir(),
+				Application:  applicationTag.Id(),
+				Clock:        clock,
+				DataDir:      agentConfig.DataDir(),
+				StatusSetter: client,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

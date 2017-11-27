@@ -51,6 +51,10 @@ type Config struct {
 	// Clock holds the clock to be used by the CAAS operator
 	// for time-related operations.
 	Clock clock.Clock
+
+	// StatusSetter is an interface used for setting the
+	// application status.
+	StatusSetter StatusSetter
 }
 
 func (config Config) Validate() error {
@@ -62,6 +66,9 @@ func (config Config) Validate() error {
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("missing Clock")
+	}
+	if config.StatusSetter == nil {
+		return errors.NotValidf("missing StatusSetter")
 	}
 	return nil
 }
