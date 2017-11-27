@@ -35,6 +35,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	expectedKeys := []string{
 		"agent",
 		"api-caller",
+		"clock",
 		"operator",
 	}
 	keys := make([]string, 0, len(manifolds))
