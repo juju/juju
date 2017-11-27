@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -1171,6 +1172,23 @@ func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {
 	subnets, err := env.Subnets(instance.Id(""), []network.Id{"missing"})
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
 	c.Assert(subnets, gc.HasLen, 0)
+}
+
+func (s *localServerSuite) TestSuperSubnets(c *gc.C) {
+	env := s.prepareNetworkingEnviron(c)
+	obtainedSubnets, err := env.SuperSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	neutronClient := openstack.GetNeutronClient(s.env)
+	openstackSubnets, err := neutronClient.ListSubnetsV2()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSubnets := make([]string, len(openstackSubnets))
+	for i, os := range openstackSubnets {
+		expectedSubnets[i] = os.Cidr
+	}
+	sort.Strings(obtainedSubnets)
+	sort.Strings(expectedSubnets)
+	c.Check(obtainedSubnets, jc.DeepEquals, expectedSubnets)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {

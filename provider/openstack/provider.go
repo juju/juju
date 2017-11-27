@@ -1750,8 +1750,16 @@ func (e *Environ) SupportsContainerAddresses() (bool, error) {
 }
 
 // SuperSubnets is specified on environs.Networking
-func (*Environ) SuperSubnets() ([]string, error) {
-	return nil, errors.NotSupportedf("super subnets")
+func (e *Environ) SuperSubnets() ([]string, error) {
+	subnets, err := e.networking.Subnets("", nil)
+	if err != nil {
+		return nil, err
+	}
+	cidrs := make([]string, len(subnets))
+	for i, subnet := range subnets {
+		cidrs[i] = subnet.CIDR
+	}
+	return cidrs, nil
 }
 
 // AllocateContainerAddresses is specified on environs.Networking.
