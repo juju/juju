@@ -1848,22 +1848,8 @@ class ModelClient:
         user_client = self.create_cloned_environment(juju_home,
                                                      controller_name,
                                                      username)
-
-        try:
-            child = user_client.expect('register', (token), include_e=False)
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
-            child.expect('(?i)name')
-            child.sendline(controller_name)
-            self._end_pexpect_session(child)
-        except pexpect.TIMEOUT:
-            log.error('Buffer: {}'.format(child.buffer))
-            log.error('Before: {}'.format(child.before))
-            raise Exception(
-                'Registering user failed: pexpect session timed out')
         user_client.env.user_name = username
+        register_user_interactively(user_client, token, controller_name)
         return user_client
 
     def login_user(self, username=None, password=None):
@@ -2114,6 +2100,30 @@ class ModelClient:
         if not args:
             raise ValueError('No target to switch to has been given.')
         self.juju('switch', (':'.join(args),), include_e=False)
+
+
+def register_user_interactively(client, token, controller_name):
+    """Register a user with the supplied token and controller name.
+
+    :param client: ModelClient on which to register the user (using the models
+      controller.)
+    :param token: Token string to use when registering.
+    :param controller_name: String to use when naming the controller.
+    """
+    try:
+        child = client.expect('register', (token), include_e=False)
+        child.expect('(?i)password')
+        child.sendline(client.env.user_name + '_password')
+        child.expect('(?i)password')
+        child.sendline(client.env.user_name + '_password')
+        child.expect('(?i)name')
+        child.sendline(controller_name)
+        client._end_pexpect_session(child)
+    except pexpect.TIMEOUT:
+        log.error('Buffer: {}'.format(child.buffer))
+        log.error('Before: {}'.format(child.before))
+        raise Exception(
+            'Registering user failed: pexpect session timed out')
 
 
 def juju_home_path(juju_home, dir_name):

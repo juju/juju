@@ -28,25 +28,25 @@ The above feature tests will be run on:
 from __future__ import print_function
 
 import argparse
-import errno
 import logging
-import os
 import sys
 import yaml
 from contextlib import contextmanager
 from subprocess import CalledProcessError
 from textwrap import dedent
 
-from assess_user_grant_revoke import User
 from deploy_stack import (
     BootstrapManager,
+    )
+from jujupy.client import (
+    Controller,
+    register_user_interactively,
     )
 from jujucharm import local_charm_path
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
     JujuAssertionError,
-    temp_dir,
     )
 
 
@@ -65,7 +65,6 @@ def assess_cross_model_relations_single_controller(args):
                 ensure_cmr_offer_management(first_model)
                 ensure_cmr_offer_consumption_and_relation(
                     first_model, second_model)
-                ensure_user_can_consume_offer(first_model, second_model)
 
 
 def assess_cross_model_relations_multiple_controllers(args):
@@ -76,13 +75,8 @@ def assess_cross_model_relations_multiple_controllers(args):
     first_bs_manager = BootstrapManager.from_args(args)
     with first_bs_manager.booted_context(args.upload_tools):
         first_model = first_bs_manager.client
-        # Need to share juju_data/home
-        second_bs_manager.client.env.juju_home = first_model.env.juju_home
-        with second_bs_manager.existing_booted_context(
-                second_args.upload_tools):
+        with second_bs_manager.booted_context(second_args.upload_tools):
             second_model = second_bs_manager.client
-            ensure_cmr_offer_consumption_and_relation(
-                first_model, second_model)
             ensure_user_can_consume_offer(first_model, second_model)
 
 
@@ -132,7 +126,8 @@ def ensure_user_can_consume_offer(first_client, second_client):
     Almost the same as `ensure_cmr_offer_consumption_and_relation` except in
     this a user is created on all controllers (might be a single controller
     or 2) with the permissions of 'login' for the source controller and 'write'
-    for the model the user will deploy an application to consume the offer.
+    for the model into which the user will deploy an application to consume the
+    offer.
 
     :param first_client: ModelClient model that will be the source of the
       offer.
@@ -141,34 +136,29 @@ def ensure_user_can_consume_offer(first_client, second_client):
     """
     with temporary_model(first_client, 'relation-source') as source_client:
         with temporary_model(second_client, 'relation-sink') as sink_client:
+            offer_url, offer_name = deploy_and_offer_db_app(source_client)
+
             username = 'theundertaker'
-            source_controller_name = source_client.env.controller.name
-            sink_controller_name = sink_client.env.controller.name
-            with temp_dir() as tmp_dir:
-                # The models might be on the same controller, create a user
-                # only once per controller.
-                user_sink_client = create_user_on_controller(
-                    sink_client, username, tmp_dir, 'sink_controller', 'write')
-                if sink_controller_name != source_controller_name:
-                    create_user_on_controller(
-                        source_client, username, tmp_dir, 'source_controller')
+            token = source_client.add_user_perms(username)
+            user_sink_client = register_user_on_controller(
+                sink_client, username, token)
 
-                offer_url, offer_name = deploy_and_offer_db_app(source_client)
+            source_client.controller_juju(
+                'grant',
+                (username, 'consume', offer_url))
 
-                source_client.controller_juju(
-                    'grant',
-                    (username, 'consume', offer_url))
+            offers_found = yaml.safe_load(
+                user_sink_client.get_juju_output(
+                    'find-offers',
+                    '--interface', 'mysql',
+                    '--format', 'yaml',
+                    include_e=False))
+            # There must only be one offer
+            user_offer_url = offers_found.keys()[0]
 
-                offers_found = yaml.safe_load(
-                    user_sink_client.get_juju_output(
-                        'find-offers', '--format', 'yaml', include_e=False))
-                # There must only be one offer
-                user_offer_url = offers_found.keys()[0]
-
-                assert_relating_to_offer_succeeds(
-                    user_sink_client, user_offer_url)
-                assert_saas_url_is_correct(
-                    user_sink_client, offer_name, user_offer_url)
+            assert_relating_to_offer_succeeds(sink_client, user_offer_url)
+            assert_saas_url_is_correct(
+                sink_client, offer_name, user_offer_url)
 
 
 def assert_offer_is_listed(client, app_name, offer_name=None):
@@ -280,18 +270,17 @@ def offer_endpoint(client, app_name, relation_name, offer_name=None):
     return offer_url, offer_name
 
 
-def create_user_on_controller(
-        client, username, temp_dir, controller_name, permission='login'):
-    """Create new user on `client`s controller."""
-    new_user_home = os.path.join(temp_dir, username)
-    try:
-        os.makedirs(new_user_home)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-        log.info('User dir already exists, continuing.')
-    new_user = User(username, permission, [])
-    return client.register_user(new_user, new_user_home, controller_name)
+def register_user_on_controller(client, username, token):
+    """Register user with `token` on `client`s controller.
+
+    :return: ModelClient object for the registered user.
+    """
+    controller_name = 'cmr_test'
+    user_client = client.clone(env=client.env.clone())
+    user_client.env.user_name = username
+    user_client.env.controller = Controller(controller_name)
+    register_user_interactively(user_client, token, controller_name)
+    return user_client
 
 
 def deploy_local_charm(client, app_name):
