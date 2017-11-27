@@ -781,9 +781,12 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 	}
 
 	for _, mi := range modelInfos {
-		ownerTag, err := names.ParseUserTag(mi.Owner)
-		if err != nil {
-			return params.UserModelList{}, err
+		var ownerTag names.UserTag
+		if names.IsValidUser(mi.Owner) {
+			ownerTag = names.NewUserTag(mi.Owner)
+		} else {
+			// no reason to fail the request here, as it wasn't the users fault
+			logger.Warningf("for model %v, got an invalid owner: %q", mi.UUID, mi.Owner)
 		}
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
