@@ -162,7 +162,6 @@ func (st modelManagerStateShim) GetModel(modelUUID string) (Model, func() bool, 
 
 // Model implements ModelManagerBackend.
 func (st modelManagerStateShim) Model() (Model, error) {
-	st.State.Model()
 	return modelShim{st.model}, nil
 }
 

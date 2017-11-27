@@ -112,7 +112,6 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 
 	haveModels := false
 	if modelmanagerAPI.BestAPIVersion() > 3 {
-		// New code path
 		haveModels, err = c.getModelSummaries(ctx, modelmanagerAPI, now)
 	} else {
 		haveModels, err = c.oldModelsCommandBehaviour(ctx, modelmanagerAPI, now)
@@ -351,7 +350,7 @@ func (c *modelsCommand) tabularColumns(tw *ansiterm.TabWriter, w output.Wrapper)
 	w.Println("Access", "Last connection")
 }
 
-// formatTabular takes model summaries set to adhere to the cmd.Formatter interface
+// tabularSummaries takes model summaries set to adhere to the cmd.Formatter interface
 func (c *modelsCommand) tabularSummaries(writer io.Writer, modelSet ModelSummarySet) error {
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}

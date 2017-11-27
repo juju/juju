@@ -99,8 +99,6 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
-	// TODO (anastasiamac 2017-11-23) currently logged in user does not have any right to the model,
-	// except that they are a superuser on the controller?..
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: kontroll\n"+
 		"\n"+

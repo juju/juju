@@ -677,8 +677,8 @@ func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 }
 
 // ListModelSummaries returns models that the specified user
-// has access to in the current server.  Only the controller owner
-// can list models for any user (at this stage).  Other users
+// has access to in the current server.  Controller admins (superuser)
+// can list models for any user.  Other users
 // can only ask about their own models.
 func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (params.ModelSummaryResults, error) {
 	result := params.ModelSummaryResults{}
@@ -736,7 +736,6 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 		if err == nil {
 			summary.UserAccess = access
 		}
-		// TODO (anastasiamac 2017-11-24) what happens here if there is no migration in progress?
 		if mi.Migration != nil {
 			migration := mi.Migration
 			startTime := migration.StartTime()
@@ -760,8 +759,8 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 }
 
 // ListModels returns the models that the specified user
-// has access to in the current server.  Only that controller owner
-// can list models for any user (at this stage).  Other users
+// has access to in the current server.  Controller admins (superuser)
+// can list models for any user.  Other users
 // can only ask about their own models.
 func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, error) {
 	result := params.UserModelList{}
@@ -782,11 +781,15 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 	}
 
 	for _, mi := range modelInfos {
+		ownerTag, err := names.ParseUserTag(mi.Owner)
+		if err != nil {
+			return params.UserModelList{}, err
+		}
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     mi.Name,
 				UUID:     mi.UUID,
-				OwnerTag: names.NewUserTag(mi.Owner).String(),
+				OwnerTag: ownerTag.String(),
 			},
 			LastConnection: &mi.LastConnection,
 		})

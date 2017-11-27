@@ -59,11 +59,9 @@ type ModelSummary struct {
 	// Needs Statuses collection
 	Status status.StatusInfo
 
-	// Needs ModelUser, ModelUserLastConnection, and Permissions collections
-	// This information will only be filled out if includeUsers is true and the user has at least Admin (write?) access
-	// Otherwise only this user's information will be included.
-	// Users map[string]UserAccessInfo
-	Access             permission.Access
+	// Access is the access level the supplied user has on this model
+	Access permission.Access
+	// UserLastConnection is the last time this user has accessed this model
 	UserLastConnection *time.Time
 
 	MachineCount int64
@@ -169,28 +167,6 @@ func (p *modelSummaryProcessor) fillInFromConfig() error {
 	return nil
 }
 
-// removeExistingUsers takes a set of usernames, and removes any of them that are known-valid users.
-// it leaves behind names that could not be validated
-func (p *modelSummaryProcessor) removeExistingUsers(names set.Strings) error {
-	// usersC is a global collection, so we can access it from any state
-	users, closer := p.st.db().GetCollection(usersC)
-	defer closer()
-
-	var doc struct {
-		Id string `bson:"_id"`
-	}
-	query := users.Find(bson.M{"_id": bson.M{"$in": names.Values()}}).Select(bson.M{"_id": 1})
-	query.Batch(100)
-	iter := query.Iter()
-	for iter.Next(&doc) {
-		names.Remove(doc.Id)
-	}
-	if err := iter.Close(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 func (p *modelSummaryProcessor) fillInFromStatus() error {
 	// We use the raw statuses because otherwise it filters by model-uuid
 	rawStatus, closer := p.st.database.GetRawCollection(statusesC)
@@ -199,7 +175,7 @@ func (p *modelSummaryProcessor) fillInFromStatus() error {
 	for i, uuid := range p.modelUUIDs {
 		statusIds[i] = uuid + ":" + modelGlobalKey
 	}
-	// TODO: Track remaining and error if we're missing any
+	// TODO(jam): 2017-11-27 Track remaining and error if we're missing any
 	query := rawStatus.Find(bson.M{"_id": bson.M{"$in": statusIds}})
 	var doc statusDoc
 	iter := query.Iter()
@@ -240,7 +216,8 @@ func (p *modelSummaryProcessor) fillInPermissions(permissionIds []string) error 
 		}
 		modelIdx, ok := p.indexByUUID[modelUUID]
 		if !ok {
-			// ??
+			// How did we get a document that isn't in our list of documents?
+			// TODO(jam) 2017-11-27, probably should be treated at least as a logged warning
 			continue
 		}
 		details := &p.summaries[modelIdx]
@@ -319,7 +296,7 @@ func (p *modelSummaryProcessor) fillInMigration() error {
 		{"$group": bson.M{
 			"_id":   "$model-uuid",
 			"docid": bson.M{"$first": "$_id"},
-			// TODO: Do we need all of these, do we care about anything but doc _id?
+			// TODO(jam): 2017-11-27 Do we need all of these, do we care about anything but doc _id?
 			"attempt":           bson.M{"$first": "$attempt"},
 			"initiated-by":      bson.M{"$first": "$initiated-by"},
 			"target-controller": bson.M{"$first": "$target-controller"},
@@ -371,7 +348,7 @@ func (p *modelSummaryProcessor) fillInMigration() error {
 			continue
 		}
 		details := &p.summaries[idx]
-		// TODO (jam): Can we make modelMigration *not* accept a State object so that we know we won't potato
+		// TODO(jam): 2017-11-27 Can we make modelMigration *not* accept a State object so that we know we won't potato
 		// more stuff in the future?
 		details.Migration = &modelMigration{
 			doc:       doc,
@@ -389,7 +366,7 @@ func (p *modelSummaryProcessor) fillInMigration() error {
 // We will use this information later to determine whether it is reasonable to include the information from other models.
 func (p *modelSummaryProcessor) fillInJustUser() error {
 	// Note: Even for Superuser we track the individual Access for each model.
-	// TODO(jam): ensure that we have appropriate indexes so that users that aren't "admin" and only see a couple
+	// TODO(jam): 2017-11-27 ensure that we have appropriate indexes so that users that aren't "admin" and only see a couple
 	// models don't do a COLLSCAN on the table.
 	username := strings.ToLower(p.user.Name())
 	var permissionIds []string

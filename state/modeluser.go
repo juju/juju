@@ -175,7 +175,9 @@ func (st *State) removeModelUser(user names.UserTag) error {
 func (st *State) isUserSuperuser(user names.UserTag) (bool, error) {
 	access, err := st.UserAccess(user, st.controllerTag)
 	if err != nil {
-		// We don't suppress NotFound becaus
+		// TODO(jam): 2017-11-27 We weren't suppressing NotFound here so that we would know when someone asked for
+		// the list of models of a user that doesn't exist.
+		// However, now we will not even check if its a known user if they aren't asking for all=true.
 		return false, errors.Trace(err)
 	}
 	isControllerSuperuser := (access.Access == permission.SuperuserAccess)

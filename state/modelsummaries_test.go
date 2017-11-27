@@ -7,21 +7,19 @@ import (
 	"sort"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
-	"github.com/juju/utils"
-	//"gopkg.in/macaroon.v1"
-	jc "github.com/juju/testing/checkers"
 
-	//"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type ModelSummariesSuite struct {
@@ -156,20 +154,21 @@ func (s *ModelSummariesSuite) TestModelsForSuperuserWithAll(c *gc.C) {
 }
 
 func (s *ModelSummariesSuite) TestModelsForUser1(c *gc.C) {
-	// User1 is only added to the model they own and the shared model
+	// User1 is only added to the model they own and the shared model as write
 	s.Setup4Models(c)
 	names := s.modelNamesForUser(c, "user1write")
 	c.Check(names, gc.DeepEquals, []string{"shared", "user1model"})
 }
 
 func (s *ModelSummariesSuite) TestModelsForUser2(c *gc.C) {
-	// User1 is only added to the model they own and the shared model
+	// User2 is only added to the model they own and the shared model as read
 	s.Setup4Models(c)
 	names := s.modelNamesForUser(c, "user2read")
 	c.Check(names, gc.DeepEquals, []string{"shared", "user2model"})
 }
 
 func (s *ModelSummariesSuite) TestModelsForUser3(c *gc.C) {
+	// User2 is only added to the model they own and the shared model as admin
 	s.Setup4Models(c)
 	names := s.modelNamesForUser(c, "user3admin")
 	c.Check(names, gc.DeepEquals, []string{"shared", "user3model"})

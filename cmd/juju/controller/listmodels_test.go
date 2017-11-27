@@ -365,9 +365,6 @@ func (s *BaseModelsSuite) TestModelsMachineInfo(c *gc.C) {
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
-// This test is only needed for older api versions as
-// whether the user has an access to a model will be checked on
-// the api side and the model data will not be sent.
 func (s *BaseModelsSuite) TestAllModelsWithOneUnauthorised(c *gc.C) {
 	c.Assert(s.store.Models["fake"].Models, gc.HasLen, 0)
 	s.api.infos[2].Error = &params.Error{

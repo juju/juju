@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package modelmanager_test
@@ -66,7 +66,6 @@ func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mock
 	attrs["agent-version"] = jujuversion.Current.String()
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-
 	return &mockModel{
 		owner: user,
 		cfg:   cfg,
