@@ -18,7 +18,7 @@ func GetDefaultRoute() (net.IP, string, error) {
 		os = runtime.GOOS
 	}
 	// TODO(wpk) 2017-11-20 Add Windows support here, hence the switch.
-	switch simulatedOS {
+	switch os {
 	case "linux":
 		return getDefaultRouteLinux()
 	default:
@@ -54,7 +54,6 @@ func getDefaultRouteLinux() (net.IP, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-
 	var defaultRouteMetric = ^uint64(0)
 	var defaultRoute string
 	var defaultRouteDevice string

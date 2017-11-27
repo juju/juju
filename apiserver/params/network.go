@@ -156,6 +156,9 @@ type NetworkConfig struct {
 	// Routes is a list of routes that should be applied when this interface is
 	// active.
 	Routes []NetworkRoute `json:"routes,omitempty"`
+
+	// IsDefaultGateway marks an interface that is a default gateway for a machine.
+	IsDefaultGateway bool `json:"is-default-gateway,omitempty"`
 }
 
 // DeviceBridgeInfo lists the host device and the expected bridge to be
