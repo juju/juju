@@ -50,6 +50,43 @@ var twoSubnets = []network.SubnetInfo{
 	},
 }
 
+var twoSubnetsAndIgnored = []network.SubnetInfo{
+	{
+		ProviderId:        "1",
+		AvailabilityZones: []string{"1", "2"},
+		CIDR:              "10.0.0.1/24",
+	},
+	{
+		ProviderId:        "2",
+		AvailabilityZones: []string{"3", "4"},
+		CIDR:              "10.100.30.1/24",
+	},
+	// Interface-local multicast:
+	{
+		ProviderId:        "foo",
+		AvailabilityZones: []string{"bar", "baz"},
+		CIDR:              "ff51:dead:beef::/48",
+	},
+	// Link-local multicast:
+	{
+		ProviderId:        "moo",
+		AvailabilityZones: []string{"bar", "baz"},
+		CIDR:              "ff32:dead:beef::/48",
+	},
+	// IPv6 link-local unicast:
+	{
+		ProviderId:        "baa",
+		AvailabilityZones: []string{"bar", "baz"},
+		CIDR:              "fe80:dead:beef::/48",
+	},
+	// IPv4 link-local unicast:
+	{
+		ProviderId:        "maa",
+		AvailabilityZones: []string{"bar", "baz"},
+		CIDR:              "169.254.13.0/24",
+	},
+}
+
 var anotherTwoSubnets = []network.SubnetInfo{
 	{
 		ProviderId:        "3",
@@ -91,6 +128,13 @@ var spaceOne = []network.SpaceInfo{
 		Name:       "space1",
 		ProviderId: "1",
 		Subnets:    twoSubnets,
+	},
+}
+var spaceOneAndIgnored = []network.SpaceInfo{
+	{
+		Name:       "space1",
+		ProviderId: "1",
+		Subnets:    twoSubnetsAndIgnored,
 	},
 }
 var spaceTwo = []network.SpaceInfo{
@@ -400,4 +444,37 @@ func (s *SpacesDiscoverySuite) TestReloadSpacesWithFAN(c *gc.C) {
 	spaces, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	checkSpacesEqual(c, spaces, spaceOneAfterFAN)
+}
+
+func (s *SpacesDiscoverySuite) TestReloadSubnetsIgnored(c *gc.C) {
+	s.environ = networkedEnviron{
+		stub:           &testing.Stub{},
+		spaceDiscovery: false,
+		subnets:        twoSubnetsAndIgnored,
+	}
+	s.usedEnviron = &s.environ
+
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnets, err := s.State.AllSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkSubnetsEqual(c, subnets, twoSubnets)
+}
+
+func (s *SpacesDiscoverySuite) TestReloadSpacesIgnored(c *gc.C) {
+	s.environ = networkedEnviron{
+		stub:           &testing.Stub{},
+		spaceDiscovery: true,
+		spaces:         spaceOneAndIgnored,
+	}
+	s.usedEnviron = &s.environ
+
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	spaces, err := s.State.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	checkSpacesEqual(c, spaces, spaceOne)
 }
