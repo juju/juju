@@ -59,19 +59,19 @@ func (s *CAASOperatorSuite) newBufferedLogWriter() *logsender.BufferedLogWriter 
 	return logger
 }
 
-func waitForApplicationActive(c *gc.C, agentDir string) {
+func waitForApplicationActive(c *gc.C, dataDir string) {
 	timeout := time.After(coretesting.LongWait)
-
 	for {
 		select {
 		case <-timeout:
 			c.Fatalf("no activity detected")
 		case <-time.After(coretesting.ShortWait):
-			link := filepath.Join(agentDir, commands.CommandNames()[0])
+			agentBinaryDir := filepath.Join(dataDir, "tools")
+			link := filepath.Join(agentBinaryDir, commands.CommandNames()[0])
 			if _, err := os.Lstat(link); err == nil {
 				target, err := os.Readlink(link)
 				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(target, gc.Equals, filepath.Join(filepath.Dir(os.Args[0]), "jujud"))
+				c.Assert(target, gc.Equals, filepath.Join(agentBinaryDir, "jujud"))
 				return
 			}
 		}
@@ -83,7 +83,7 @@ func (s *CAASOperatorSuite) TestRunStop(c *gc.C) {
 	a := s.newAgent(c, app)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	waitForApplicationActive(c, filepath.Join(config.DataDir(), "tools"))
+	waitForApplicationActive(c, config.DataDir())
 }
 
 func (s *CAASOperatorSuite) TestOpenStateFails(c *gc.C) {
@@ -91,7 +91,7 @@ func (s *CAASOperatorSuite) TestOpenStateFails(c *gc.C) {
 	a := s.newAgent(c, app)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	waitForApplicationActive(c, filepath.Join(config.DataDir(), "tools"))
+	waitForApplicationActive(c, config.DataDir())
 
 	s.AssertCannotOpenState(c, config.Tag(), config.DataDir())
 }
@@ -113,6 +113,7 @@ var (
 	alwaysCAASWorkers = []string{
 		"agent",
 		"api-caller",
+		"clock",
 		"operator",
 	}
 	notMigratingCAASWorkers = []string{

@@ -6,9 +6,11 @@ package caasoperator
 import (
 	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/caasoperator"
@@ -23,8 +25,8 @@ type ManifoldsConfig struct {
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
 
-	// AgentDir is the location of the jujud binary.
-	AgentDir string
+	// Clock contains the clock that will be made available to manifolds.
+	Clock clock.Clock
 
 	// LogSource will be read from by the logsender component.
 	LogSource logsender.LogRecordCh
@@ -46,7 +48,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
-		// (Currently, that is "all manifolds", but consider a shared clock.)
 		agentName: agent.Manifold(config.Agent),
 
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
@@ -55,23 +56,34 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewConnection: apicaller.OnlyConnect,
 		}),
 
+		clockName: clockManifold(config.Clock),
+
 		// The operator installs and deploys charm containers;
 		// manages the unit's presence in its relations;
 		// creates suboordinate units; runs all the hooks;
 		// sends metrics; etc etc etc.
 
 		operatorName: caasoperator.Manifold(caasoperator.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
-			Clock:                clock.WallClock,
-			TranslateResolverErr: caasoperator.TranslateFortressErrors,
-			AgentDir:             config.AgentDir,
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			ClockName:     clockName,
+			NewWorker:     caasoperator.NewWorker,
 		}),
+	}
+}
+
+func clockManifold(clock clock.Clock) dependency.Manifold {
+	return dependency.Manifold{
+		Start: func(dependency.Context) (worker.Worker, error) {
+			return engine.NewValueWorker(clock)
+		},
+		Output: engine.ValueWorkerOutput,
 	}
 }
 
 const (
 	agentName     = "agent"
 	apiCallerName = "api-caller"
+	clockName     = "clock"
 	operatorName  = "operator"
 )

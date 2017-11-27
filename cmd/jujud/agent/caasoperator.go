@@ -4,14 +4,13 @@
 package agent
 
 import (
-	"os"
-	"path/filepath"
 	"runtime"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
@@ -143,7 +142,7 @@ func (op *CaasOperatorAgent) Run(ctx *cmd.Context) error {
 func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 	manifolds := CaasOperatorManifolds(caasoperator.ManifoldsConfig{
 		Agent:                op,
-		AgentDir:             filepath.Dir(os.Args[0]),
+		Clock:                clock.WallClock,
 		LogSource:            op.bufferedLogger.Logs(),
 		PrometheusRegisterer: op.prometheusRegistry,
 	})
