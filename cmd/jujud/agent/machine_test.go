@@ -15,6 +15,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -1062,7 +1063,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
-	tracker := NewEngineTracker()
+	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackMachines(c, tracker, machineManifolds)
 	s.PatchValue(&machineManifolds, instrumented)
 
@@ -1072,22 +1073,22 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Wait for it to stabilise, running as normal.
-	matcher := NewWorkerMatcher(c, tracker, a.Tag().String(),
+	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysMachineWorkers, notMigratingMachineWorkers...))
-	WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 }
 
 func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	uuid := s.BackingState.ModelUUID()
 
-	tracker := NewEngineTracker()
+	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackModels(c, tracker, iaasModelManifolds)
 	s.PatchValue(&iaasModelManifolds, instrumented)
 
-	matcher := NewWorkerMatcher(c, tracker, uuid,
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, aliveModelWorkers...))
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 	})
 }
 
@@ -1103,14 +1104,14 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	defer closer()
 	uuid := st.ModelUUID()
 
-	tracker := NewEngineTracker()
+	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackModels(c, tracker, iaasModelManifolds)
 	s.PatchValue(&iaasModelManifolds, instrumented)
 
-	matcher := NewWorkerMatcher(c, tracker, uuid,
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, aliveModelWorkers...))
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
 	})
 }
 
@@ -1119,7 +1120,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	defer closer()
 	uuid := st.ModelUUID()
 
-	tracker := NewEngineTracker()
+	tracker := agenttest.NewEngineTracker()
 
 	// Replace the real migrationmaster worker with a fake one which
 	// does nothing. This is required to make this test be reliable as
@@ -1152,10 +1153,10 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	matcher := NewWorkerMatcher(c, tracker, uuid,
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, migratingModelWorkers...))
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
 	})
 }
 
@@ -1202,13 +1203,13 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 
 	// Then run a normal model-tracking test, just checking for
 	// a different set of workers.
-	tracker := NewEngineTracker()
+	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackModels(c, tracker, iaasModelManifolds)
 	s.PatchValue(&iaasModelManifolds, instrumented)
 
-	matcher := NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 	})
 }
 

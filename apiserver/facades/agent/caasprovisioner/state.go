@@ -4,6 +4,8 @@
 package caasprovisioner
 
 import (
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/state"
 )
 
@@ -11,4 +13,5 @@ import (
 // required by the CAAS provisioner facade.
 type CAASProvisionerState interface {
 	WatchApplications() state.StringsWatcher
+	FindEntity(tag names.Tag) (state.Entity, error)
 }

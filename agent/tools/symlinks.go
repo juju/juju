@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package jujuc
+package tools
 
 import (
 	"os"
@@ -13,14 +13,14 @@ import (
 	"github.com/juju/juju/juju/names"
 )
 
-// EnsureSymlinks creates a symbolic link to jujuc within dir for each
-// hook command. If the commands already exist, this operation does nothing.
+// EnsureSymlinks creates a symbolic link to jujud within dir for each
+// command. If the commands already exist, this operation does nothing.
 // If dir is a symbolic link, it will be dereferenced first.
-func EnsureSymlinks(dir string) (err error) {
+func EnsureSymlinks(jujuDir, dir string, commands []string) (err error) {
 	logger.Infof("ensure jujuc symlinks in %s", dir)
 	defer func() {
 		if err != nil {
-			err = errors.Annotatef(err, "cannot initialize hook commands in %q", dir)
+			err = errors.Annotatef(err, "cannot initialize commands in %q", dir)
 		}
 	}()
 	isSymlink, err := symlink.IsSymlink(dir)
@@ -40,9 +40,9 @@ func EnsureSymlinks(dir string) (err error) {
 		logger.Infof("was a symlink, now looking at %s", dir)
 	}
 
-	jujudPath := filepath.Join(dir, names.Jujud)
+	jujudPath := filepath.Join(jujuDir, names.Jujud)
 	logger.Debugf("jujud path %s", jujudPath)
-	for _, name := range CommandNames() {
+	for _, name := range commands {
 		// The link operation fails when the target already exists,
 		// so this is a no-op when the command names already
 		// exist.

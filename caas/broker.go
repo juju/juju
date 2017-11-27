@@ -10,7 +10,7 @@ type NewContainerBrokerFunc func(environs.CloudSpec) (Broker, error)
 
 // NewOperatorConfigFunc functions return the agent config to use for
 // a CAAS jujud operator.
-type NewOperatorConfigFunc func(appName string) (*OperatorConfig, error)
+type NewOperatorConfigFunc func() (*OperatorConfig, error)
 
 // Broker instances interact with the CAAS substrate.
 type Broker interface {

@@ -180,6 +180,12 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 	jujud.Register(unitAgent)
 
+	caasOperatorAgent, err := agentcmd.NewCaasOperatorAgent(ctx, bufferedLogger)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+	jujud.Register(caasOperatorAgent)
+
 	jujud.Register(NewUpgradeMongoCommand())
 	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
 

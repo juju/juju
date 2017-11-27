@@ -11,6 +11,8 @@ import (
 )
 
 type API struct {
+	*common.PasswordChanger
+
 	auth      facade.Authorizer
 	resources facade.Resources
 
@@ -34,11 +36,11 @@ func NewCAASProvisionerAPI(
 	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
-
 	return &API{
-		auth:      authorizer,
-		resources: resources,
-		state:     st,
+		PasswordChanger: common.NewPasswordChanger(st, common.AuthAlways()),
+		auth:            authorizer,
+		resources:       resources,
+		state:           st,
 	}, nil
 }
 

@@ -77,7 +77,7 @@ func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *gc.C) {
 	_, srv := newServer(c, s.pool)
 	defer srv.Stop()
-	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewApplicationTag("not-support"))
+	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewCloudTag("not-support"))
 	c.Assert(err, gc.ErrorMatches, "unexpected login entity tag: invalid request")
 	c.Assert(authenticator, gc.IsNil)
 }

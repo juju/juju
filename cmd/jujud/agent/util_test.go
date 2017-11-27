@@ -277,23 +277,6 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 	}
 }
 
-type mockAgentConfig struct {
-	agent.Config
-	providerType string
-	tag          names.Tag
-}
-
-func (m *mockAgentConfig) Tag() names.Tag {
-	return m.tag
-}
-
-func (m *mockAgentConfig) Value(key string) string {
-	if key == agent.ProviderType {
-		return m.providerType
-	}
-	return ""
-}
-
 type mockLoopDeviceManager struct {
 	detachLoopDevicesArgRootfs string
 	detachLoopDevicesArgPrefix string
