@@ -4,6 +4,7 @@
 package state
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
@@ -355,6 +356,38 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) {
 	}
 	history, closer := db.GetCollection(statusesHistoryC)
 	defer closer()
+
+	// Find the current value to see if it is worthwhile adding the new
+	// status value.
+	var latest []historicalStatusDoc
+	query := history.Find(bson.D{{globalKeyField, globalKey}})
+	query = query.Sort("-updated").Limit(1)
+	err := query.All(&latest)
+	if err == nil && len(latest) == 1 {
+		current := latest[0]
+		// Short circuit the writing to the DB if the status, message,
+		// and data match.
+		dataSame := func(left, right map[string]interface{}) bool {
+			// If they are both empty, then it is the same.
+			if len(left) == 0 && len(right) == 0 {
+				return true
+			}
+			// If either are now empty, they aren't the same.
+			if len(left) == 0 || len(right) == 0 {
+				return false
+			}
+			// Failing that, use reflect.
+			return reflect.DeepEqual(left, right)
+		}
+		// Check the data last as the short circuit evaluation may mean
+		// we rarely need to drop down into the reflect library.
+		if current.Status == doc.Status &&
+			current.StatusInfo == doc.StatusInfo &&
+			dataSame(current.StatusData, doc.StatusData) {
+			return
+		}
+	}
+
 	historyW := history.Writeable()
 	if err := historyW.Insert(historyDoc); err != nil {
 		logger.Errorf("failed to write status history: %v", err)
