@@ -233,6 +233,7 @@ def main():
         charm_path = local_charm_path(
             charm='fill-logs', juju_ver=client.version, series='trusty')
         client.deploy(charm_path)
+        client.wait_for_workloads()
         if args.agent == "unit":
             test_unit_rotation(client)
         if args.agent == "machine":

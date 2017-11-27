@@ -294,3 +294,25 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	c.Assert(history[1].Message, gc.Equals, "waiting for machine")
 	c.Assert(history[2].Message, gc.Equals, "2 days ago")
 }
+
+func (s *StatusHistorySuite) TestSameValueNotRepeated(c *gc.C) {
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	now := time.Now()
+	for i := 0; i < 10; i++ {
+		when := now.Add(time.Duration(i) * time.Second)
+		err := unit.SetStatus(status.StatusInfo{
+			Status:  status.Active,
+			Message: "current status",
+			Since:   &when,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	history, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 50})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 2)
+	c.Assert(history[0].Message, gc.Equals, "current status")
+	c.Assert(history[1].Message, gc.Equals, "waiting for machine")
+}
