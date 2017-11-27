@@ -1097,6 +1097,9 @@ func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
 		ControllerTag: "controller-" + s.ControllerConfig.ControllerUUID(),
 		ServerVersion: "2.3-rc2",
 	}
+	// Pass an already-closed channel so we don't wait for the monitor
+	// to signal the rpc connection is dead when closing the state
+	// (because there's no monitor running).
 	broken := make(chan struct{})
 	close(broken)
 	testState := api.NewTestingState(api.TestingStateParams{

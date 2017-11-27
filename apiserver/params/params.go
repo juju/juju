@@ -529,7 +529,7 @@ type LoginRequest struct {
 	Credentials string           `json:"credentials"`
 	Nonce       string           `json:"nonce"`
 	Macaroons   []macaroon.Slice `json:"macaroons"`
-	CLIArgs     string           `json:"cli-args"`
+	CLIArgs     string           `json:"cli-args,omitempty"`
 	UserData    string           `json:"user-data"`
 }
 
