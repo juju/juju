@@ -1682,12 +1682,10 @@ class ModelClient:
         out = self.get_juju_output("show-action-output", id, "--wait", timeout)
         status = yaml.safe_load(out)["status"]
         if status != "completed":
-            name = ""
-            if action is not None:
-                name = " " + action
+            action_name = '' if not action else ' "{}"'.format(action)
             raise Exception(
-                "timed out waiting for action%s to complete during fetch" %
-                name)
+                'Timed out waiting for action{} to complete during fetch '
+                'with status: {}.'.format(action_name, status))
         return out
 
     def action_do(self, unit, action, *args):

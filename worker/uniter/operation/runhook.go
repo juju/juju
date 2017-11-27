@@ -82,8 +82,13 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	if err := rh.beforeHook(state); err != nil {
 		return nil, err
 	}
-	if err := rh.callbacks.SetExecutingStatus(message); err != nil {
-		return nil, err
+	// In order to reduce controller load, the uniter no longer
+	// records when it is running the update-status hook. If the
+	// hook fails, that is recorded.
+	if hooks.Kind(rh.name) != hooks.UpdateStatus {
+		if err := rh.callbacks.SetExecutingStatus(message); err != nil {
+			return nil, err
+		}
 	}
 	// The before hook may have updated unit status and we don't want that
 	// to count so reset it here before running the hook.

@@ -1514,7 +1514,7 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 // removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
 func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
-	ops, err := u.destroyHostOps(a)
+	hostOps, err := u.destroyHostOps(a)
 	if err != nil {
 		return nil, err
 	}
@@ -1534,14 +1534,13 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ops = append(ops, resOps...)
 
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
 		{"machineid", u.doc.MachineId},
 	}
-	ops = append(ops,
-		txn.Op{
+	ops := []txn.Op{
+		{
 			C:      unitsC,
 			Id:     u.doc.DocID,
 			Assert: append(observedFieldsMatch, asserts...),
@@ -1553,9 +1552,12 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		removeConstraintsOp(u.globalAgentKey()),
 		annotationRemoveOp(a.st, u.globalKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name),
-	)
+	}
 	ops = append(ops, portsOps...)
 	ops = append(ops, storageInstanceOps...)
+	ops = append(ops, resOps...)
+	ops = append(ops, hostOps...)
+
 	if u.doc.CharmURL != nil {
 		// If the unit has a different URL to the application, allow any final
 		// cleanup to happen; otherwise we just do it when the app itself is removed.
