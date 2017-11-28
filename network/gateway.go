@@ -54,22 +54,21 @@ func getDefaultRouteLinux() (net.IP, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	logger.Tracef("ip route show output:\n%s", output)
 	var defaultRouteMetric = ^uint64(0)
 	var defaultRoute string
 	var defaultRouteDevice string
 	for _, line := range strings.Split(output, "\n") {
 		to, values := parseIpRouteShowLine(line)
+		logger.Tracef("parsing ip r s line to %q, values %+v ", to, values)
 		if to == "default" {
-			var metric = ^uint64(0)
+			var metric = uint64(0)
 			if v, ok := values["metric"]; ok {
 				if i, err := strconv.ParseUint(v, 10, 64); err == nil {
 					metric = i
 				} else {
 					return nil, "", err
 				}
-			} else {
-				// No "metric" field means 0.
-				metric = 0
 			}
 			if metric < defaultRouteMetric {
 				// We want to replace our current default route if it's valid.
