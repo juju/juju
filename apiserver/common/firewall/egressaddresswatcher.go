@@ -424,10 +424,10 @@ func (w *EgressAddressWatcher) Err() error {
 	return w.catacomb.Err()
 }
 
-func newMachineAddressWorker(machine Machine, addressChanges chan<- string) (*machineAddressWorker, error) {
+func newMachineAddressWorker(machine Machine, out chan<- string) (*machineAddressWorker, error) {
 	w := &machineAddressWorker{
-		machine:        machine,
-		addressChanges: addressChanges,
+		machine: machine,
+		out:     out,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -439,9 +439,9 @@ func newMachineAddressWorker(machine Machine, addressChanges chan<- string) (*ma
 // machineAddressWorker watches for machine address changes and
 // notifies the dest channel when it sees them.
 type machineAddressWorker struct {
-	catacomb       catacomb.Catacomb
-	machine        Machine
-	addressChanges chan<- string
+	catacomb catacomb.Catacomb
+	machine  Machine
+	out      chan<- string
 }
 
 func (w *machineAddressWorker) loop() error {
@@ -449,12 +449,16 @@ func (w *machineAddressWorker) loop() error {
 	if err := w.catacomb.Add(aw); err != nil {
 		return errors.Trace(err)
 	}
+	machineId := w.machine.Id()
+	var out chan<- string
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-aw.Changes():
-			w.addressChanges <- w.machine.Id()
+			out = w.out
+		case out <- machineId:
+			out = nil
 		}
 	}
 }
