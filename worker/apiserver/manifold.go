@@ -34,8 +34,7 @@ type ManifoldConfig struct {
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	Hub                               *pubsub.StructuredHub
 
-	NewStoreAuditEntryFunc func(*state.State) StoreAuditEntryFunc
-	NewWorker              func(Config) (worker.Worker, error)
+	NewWorker func(Config) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
@@ -66,9 +65,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
-	}
-	if config.NewStoreAuditEntryFunc == nil {
-		return errors.NotValidf("nil NewStoreAuditEntryFunc")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -143,9 +139,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Hub:                               config.Hub,
 		GetCertificate:                    getCertificate,
 		NewServer:                         newServerShim,
-		StoreAuditEntry: config.NewStoreAuditEntryFunc(
-			statePool.SystemState(),
-		),
 	})
 	if err != nil {
 		stTracker.Done()

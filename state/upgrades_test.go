@@ -1905,3 +1905,50 @@ func (s *upgradesSuite) TestMigrateLeasesToGlobalTime(c *gc.C) {
 		expectUpgradedData{leases, expectedLeases},
 	)
 }
+
+func (s *upgradesSuite) TestMoveOldAuditLogNoRecords(c *gc.C) {
+	// Ensure an empty audit log collection exists.
+	auditLog, closer := s.state.db().GetRawCollection("audit.log")
+	defer closer()
+	err := auditLog.Create(&mgo.CollectionInfo{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Sanity check.
+	count, err := auditLog.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 0)
+
+	err = MoveOldAuditLog(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	db := s.state.MongoSession().DB("juju")
+	names, err := db.CollectionNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)
+
+	err = MoveOldAuditLog(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestMoveOldAuditLogRename(c *gc.C) {
+	auditLog, closer := s.state.db().GetRawCollection("audit.log")
+	defer closer()
+	oldLog, oldCloser := s.state.db().GetRawCollection("old-audit.log")
+	defer oldCloser()
+
+	// Put some rows into audit log and check that they're moved.
+	data := []bson.M{
+		{"_id": "band", "king": "gizzard", "lizard": "wizard"},
+		{"_id": "song", "crumbling": "castle"},
+	}
+	err := auditLog.Insert(data[0], data[1])
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUpgradedData(c, MoveOldAuditLog,
+		expectUpgradedData{oldLog, data},
+	)
+
+	db := s.state.MongoSession().DB("juju")
+	names, err := db.CollectionNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)
+}

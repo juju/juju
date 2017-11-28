@@ -652,9 +652,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			CertWatcherName:                   certificateWatcherName,
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
-			Hub:                    config.CentralHub,
-			NewWorker:              apiserver.NewWorker,
-			NewStoreAuditEntryFunc: apiserver.NewStateStoreAuditEntryFunc,
+			Hub:       config.CentralHub,
+			NewWorker: apiserver.NewWorker,
 		}),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{

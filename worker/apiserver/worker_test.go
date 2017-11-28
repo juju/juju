@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/agent"
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/audit"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/workertest"
@@ -59,14 +58,8 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		UpgradeComplete:                   func() bool { return true },
 		RestoreStatus:                     func() state.RestoreStatus { return "" },
 		GetCertificate:                    func() *tls.Certificate { return nil },
-		StoreAuditEntry:                   s.storeAuditEntry,
 		NewServer:                         s.newServer,
 	}
-}
-
-func (s *workerFixture) storeAuditEntry(entry audit.AuditEntry) error {
-	s.stub.MethodCall(s, "StoreAuditEntry", entry)
-	return s.stub.NextErr()
 }
 
 func (s *workerFixture) newServer(
@@ -121,9 +114,6 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.GetCertificate = nil },
 		"nil GetCertificate not valid",
-	}, {
-		func(cfg *apiserver.Config) { cfg.StoreAuditEntry = nil },
-		"nil StoreAuditEntry not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.NewServer = nil },
 		"nil NewServer not valid",
