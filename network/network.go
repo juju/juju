@@ -262,6 +262,9 @@ type InterfaceInfo struct {
 	// Routes defines a list of routes that should be added when this interface
 	// is brought up, and removed when this interface is stopped.
 	Routes []Route
+
+	// IsDefaultGateway is set if this device is a default gw on a machine.
+	IsDefaultGateway bool
 }
 
 // Route defines a single route to a subnet via a defined gateway.

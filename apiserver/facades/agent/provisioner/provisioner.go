@@ -871,6 +871,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 				info.CIDR = parentDeviceSubnet.CIDR()
 				info.ProviderSubnetId = parentDeviceSubnet.ProviderId()
 				info.VLANTag = parentDeviceSubnet.VLANTag()
+				info.IsDefaultGateway = firstAddress.IsDefaultGateway()
 			} else {
 				info.ConfigType = network.ConfigDHCP
 				info.CIDR = firstAddress.SubnetCIDR()

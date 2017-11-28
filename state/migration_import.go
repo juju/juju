@@ -1349,6 +1349,7 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 		DNSServers:       addr.DNSServers(),
 		DNSSearchDomains: addr.DNSSearchDomains(),
 		GatewayAddress:   addr.GatewayAddress(),
+		IsDefaultGateway: addr.IsDefaultGateway(),
 	}
 
 	ops := []txn.Op{{

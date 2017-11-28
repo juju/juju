@@ -5,6 +5,7 @@ package status
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/status"
 )
@@ -30,8 +32,15 @@ func NewStatusHistoryCommand() cmd.Command {
 	return modelcmd.Wrap(&statusHistoryCommand{})
 }
 
+// HistoryAPI is the API surface for the show-status-log command.
+type HistoryAPI interface {
+	StatusHistory(kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error)
+	Close() error
+}
+
 type statusHistoryCommand struct {
 	modelcmd.ModelCommandBase
+	api                  HistoryAPI
 	out                  cmd.Output
 	outputContent        string
 	backlogSize          int
@@ -139,8 +148,15 @@ func (c *statusHistoryCommand) Init(args []string) error {
 
 const runningHookMSG = "running update-status hook"
 
+func (c *statusHistoryCommand) getAPI() (HistoryAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	return c.NewAPIClient()
+}
+
 func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.NewAPIClient()
+	apiclient, err := c.getAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -190,24 +206,19 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("no status history available")
 	}
 
-	table := [][]string{{"TIME", "TYPE", "STATUS", "MESSAGE"}}
-	lengths := []int{1, 1, 1, 1}
-
-	statuses = statuses.SquashLogs(1)
-	statuses = statuses.SquashLogs(2)
-	statuses = statuses.SquashLogs(3)
-	for _, v := range statuses {
-		fields := []string{common.FormatTime(v.Since, c.isoTime), string(v.Kind), string(v.Status), v.Info}
-		for k, v := range fields {
-			if len(v) > lengths[k] {
-				lengths[k] = len(v)
-			}
-		}
-		table = append(table, fields)
-	}
-	f := fmt.Sprintf("%%-%ds\t%%-%ds\t%%-%ds\t%%-%ds\n", lengths[0], lengths[1], lengths[2], lengths[3])
-	for _, v := range table {
-		fmt.Printf(f, v[0], v[1], v[2], v[3])
-	}
+	c.writeTabular(ctx.Stdout, statuses)
 	return nil
+}
+
+func (c *statusHistoryCommand) writeTabular(writer io.Writer, statuses status.History) {
+	tw := output.TabWriter(writer)
+	w := output.Wrapper{tw}
+
+	w.Println("Time", "Type", "Status", "Message")
+	for _, v := range statuses {
+		w.Print(common.FormatTime(v.Since, c.isoTime), v.Kind)
+		w.PrintStatus(v.Status)
+		w.Println(v.Info)
+	}
+	tw.Flush()
 }
