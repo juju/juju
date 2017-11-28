@@ -188,11 +188,10 @@ func (k *kubernetesClient) deployOperator(appName, agentPath string, configMapNa
 				Name:            "juju-operator",
 				ImagePullPolicy: v1.PullIfNotPresent,
 				// TODO(caas) use proper image
-				Image:   "ubuntu:16.04",
-				Command: []string{"sleep"},
-				Args:    []string{"infinity"},
-				//Args:    []string{"caasoperator", "--application-name", appName, "--debug"},
-
+				Image: "wallyworld/caas-jujud-operator",
+				Env: []v1.EnvVar{
+					{Name: "JUJU_APPLICATION", Value: appName},
+				},
 				VolumeMounts: []v1.VolumeMount{{
 					Name:      configVolName,
 					MountPath: agent.Dir(agentPath, appTag) + "/agent.conf",
