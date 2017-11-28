@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
@@ -414,7 +413,6 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 }
 
 func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
-	mongoInfo := s.State.MongoConnectionInfo()
 	newPolicy := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
@@ -422,8 +420,7 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.IAASModel.ModelTag(),
-		MongoInfo:          mongoInfo,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       s.State.MongoSession(),
 		NewPolicy:          newPolicy,
 	})
 	if err != nil {

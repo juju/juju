@@ -4,6 +4,7 @@
 package leadership
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/state"
 )
 
 const (
@@ -33,10 +33,8 @@ const (
 
 // NewLeadershipServiceFacade constructs a new LeadershipService and presents
 // a signature that can be used for facade registration.
-func NewLeadershipServiceFacade(
-	state *state.State, resources facade.Resources, authorizer facade.Authorizer,
-) (LeadershipService, error) {
-	return NewLeadershipService(state.LeadershipClaimer(), authorizer)
+func NewLeadershipServiceFacade(context facade.Context) (LeadershipService, error) {
+	return NewLeadershipService(context.State().LeadershipClaimer(), context.Auth())
 }
 
 // NewLeadershipService constructs a new LeadershipService.
@@ -97,12 +95,12 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 }
 
 // BlockUntilLeadershipReleased implements the LeadershipService interface.
-func (m *leadershipService) BlockUntilLeadershipReleased(ApplicationTag names.ApplicationTag) (params.ErrorResult, error) {
+func (m *leadershipService) BlockUntilLeadershipReleased(ctx context.Context, ApplicationTag names.ApplicationTag) (params.ErrorResult, error) {
 	if !m.authMember(ApplicationTag) {
 		return params.ErrorResult{Error: common.ServerError(common.ErrPerm)}, nil
 	}
 
-	if err := m.claimer.BlockUntilLeadershipReleased(ApplicationTag.Id()); err != nil {
+	if err := m.claimer.BlockUntilLeadershipReleased(ApplicationTag.Id(), ctx.Done()); err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil

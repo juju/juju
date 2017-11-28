@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"net/http"
 	"runtime"
 	"time"
 
@@ -32,8 +33,11 @@ import (
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
+	"github.com/juju/juju/worker/apiserver"
+	"github.com/juju/juju/worker/apiservercertwatcher"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/centralhub"
+	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
@@ -51,9 +55,12 @@ import (
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
+	"github.com/juju/juju/worker/modelworkermanager"
+	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/reboot"
+	"github.com/juju/juju/worker/restorewatcher"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
@@ -118,13 +125,6 @@ type ManifoldsConfig struct {
 	// use to establish a connection to state.
 	OpenStateForUpgrade func() (*state.State, error)
 
-	// StartStateWorkers is function called by the stateworkers
-	// manifold to start workers which rely on a *state.State but
-	// which haven't been converted to run directly under the
-	// dependency engine yet. This will go once these workers have
-	// been converted.
-	StartStateWorkers func(*state.State) (worker.Worker, error)
-
 	// StartAPIWorkers is passed to the apiworkers manifold. It starts
 	// workers which rely on an API connection (which have not yet
 	// been converted to work directly with the dependency engine).
@@ -183,6 +183,26 @@ type ManifoldsConfig struct {
 	// TransactionPruneInterval defines how frequently mgo/txn transactions
 	// are pruned from the database.
 	TransactionPruneInterval time.Duration
+
+	// SetStatePool is used by the state worker for informing the agent of
+	// the StatePool that it creates, so we can pass it to the introspection
+	// worker running outside of the dependency engine.
+	SetStatePool func(*state.StatePool)
+
+	// RegisterIntrospectionHTTPHandlers is a function that calls the
+	// supplied function to register introspection HTTP handlers. The
+	// function will be passed a path and a handler; the function may
+	// alter the path as it sees fit, e.g. by adding a prefix.
+	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
+
+	// NewModelWorker returns a new worker for managing the model with
+	// the specified UUID and type.
+	NewModelWorker func(modelUUID string, modelType state.ModelType) (worker.Worker, error)
+
+	// ControllerSupportsSpaces is a function that reports whether or
+	// not the controller model, represented by the given *state.State,
+	// supports network spaces.
+	ControllerSupportsSpaces func(*state.State) (bool, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -308,18 +328,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:              agentName,
 			StateConfigWatcherName: stateConfigWatcherName,
 			OpenState:              config.OpenState,
-		}),
-
-		// The stateworkers manifold starts workers which rely on a
-		// *state.State but which haven't been converted to run
-		// directly under the dependency engine yet. This manifold
-		// will be removed once all such workers have been converted;
-		// until then, the workers are expected to handle their own
-		// checks for upgrades etc, rather than blocking this whole
-		// worker on upgrade completion.
-		stateWorkersName: StateWorkersManifold(StateWorkersConfig{
-			StateName:         stateName,
-			StartStateWorkers: config.StartStateWorkers,
+			PrometheusRegisterer:   config.PrometheusRegisterer,
+			SetStatePool:           config.SetStatePool,
 		}),
 
 		// The api-config-watcher manifold monitors the API server
@@ -329,6 +339,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
 		}),
+
+		// The certificate-watcher manifold monitors the API server
+		// certificate in the agent config for changes, and parses
+		// and offers the result to other manifolds. This is only
+		// run by state servers.
+		certificateWatcherName: ifController(apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
+			AgentName:          agentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+		})),
 
 		// The api caller is a thin concurrent wrapper around a connection
 		// to some API server. It's used by many other manifolds, which all
@@ -605,6 +624,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				NewExternalControllerWatcherClient: newExternalControllerWatcherClient,
 			},
 		))),
+
 		logPrunerName: ifNotMigrating(ifPrimaryController(dblogpruner.Manifold(
 			dblogpruner.ManifoldConfig{
 				ClockName:     clockName,
@@ -613,6 +633,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				NewWorker:     dblogpruner.NewWorker,
 			},
 		))),
+
 		txnPrunerName: ifNotMigrating(ifPrimaryController(txnpruner.Manifold(
 			txnpruner.ManifoldConfig{
 				ClockName:     clockName,
@@ -621,6 +642,46 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				NewWorker:     txnpruner.New,
 			},
 		))),
+
+		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
+			AgentName:                         agentName,
+			ClockName:                         clockName,
+			StateName:                         stateName,
+			UpgradeGateName:                   upgradeStepsGateName,
+			RestoreStatusName:                 restoreWatcherName,
+			CertWatcherName:                   certificateWatcherName,
+			PrometheusRegisterer:              config.PrometheusRegisterer,
+			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
+			Hub:       config.CentralHub,
+			NewWorker: apiserver.NewWorker,
+		}),
+
+		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
+			StateName:      stateName,
+			NewWorker:      modelworkermanager.New,
+			NewModelWorker: config.NewModelWorker,
+		})),
+
+		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
+			AgentName:                agentName,
+			ClockName:                clockName,
+			StateName:                stateName,
+			Hub:                      config.CentralHub,
+			NewWorker:                peergrouper.New,
+			ControllerSupportsSpaces: config.ControllerSupportsSpaces,
+		})),
+
+		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{
+			StateName: stateName,
+			NewWorker: restorewatcher.NewWorker,
+		}),
+
+		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
+			AgentName:                agentName,
+			StateName:                stateName,
+			NewWorker:                certupdater.NewCertificateUpdater,
+			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
+		})),
 	}
 }
 
@@ -665,7 +726,6 @@ const (
 	stateConfigWatcherName = "state-config-watcher"
 	controllerName         = "controller"
 	stateName              = "state"
-	stateWorkersName       = "unconverted-state-workers"
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
 	centralHubName         = "central-hub"
@@ -707,4 +767,10 @@ const (
 	isControllerFlagName          = "is-controller-flag"
 	logPrunerName                 = "log-pruner"
 	txnPrunerName                 = "transaction-pruner"
+	apiServerName                 = "api-server"
+	certificateWatcherName        = "certificate-watcher"
+	modelWorkerManagerName        = "model-worker-manager"
+	peergrouperName               = "peer-grouper"
+	restoreWatcherName            = "restore-watcher"
+	certificateUpdaterName        = "certificate-updater"
 )

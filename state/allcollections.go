@@ -464,10 +464,6 @@ func allCollections() collectionSchema {
 
 		// metrics; status-history; logs; ..?
 
-		auditingC: {
-			global:    true,
-			rawAccess: true,
-		},
 	}
 	return result
 }
@@ -483,7 +479,6 @@ const (
 	annotationsC             = "annotations"
 	autocertCacheC           = "autocertCache"
 	assignUnitC              = "assignUnits"
-	auditingC                = "audit.log"
 	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"

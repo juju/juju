@@ -151,7 +151,7 @@ func (s *ClientSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	})
 
 	client := leadership.NewClient(apiCaller)
-	err := client.BlockUntilLeadershipReleased(StubServiceNm)
+	err := client.BlockUntilLeadershipReleased(StubServiceNm, nil)
 
 	c.Check(numStubCalls, gc.Equals, 1)
 	c.Check(err, jc.ErrorIsNil)
@@ -172,7 +172,7 @@ func (s *ClientSuite) TestBlockUntilLeadershipReleasedError(c *gc.C) {
 	})
 
 	client := leadership.NewClient(apiCaller)
-	err := client.BlockUntilLeadershipReleased(StubServiceNm)
+	err := client.BlockUntilLeadershipReleased(StubServiceNm, nil)
 
 	c.Check(numStubCalls, gc.Equals, 1)
 	c.Check(err, gc.ErrorMatches, "error blocking on leadership release: splat")
@@ -187,7 +187,7 @@ func (s *ClientSuite) TestBlockUntilLeadershipReleasedFacadeCallError(c *gc.C) {
 	})
 
 	client := leadership.NewClient(apiCaller)
-	err := client.BlockUntilLeadershipReleased(StubServiceNm)
+	err := client.BlockUntilLeadershipReleased(StubServiceNm, nil)
 	c.Check(numStubCalls, gc.Equals, 1)
 	c.Check(err, gc.ErrorMatches, "error blocking on leadership release: "+errMsg)
 }

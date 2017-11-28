@@ -7,7 +7,6 @@ import (
 	"github.com/juju/replicaset"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -15,62 +14,32 @@ import (
 // to the interface expected internally by the
 // worker.
 
-type stateShim struct {
+type StateShim struct {
 	*state.State
-	mongoPort int
-	apiPort   int
 }
 
-func (s *stateShim) Machine(id string) (stateMachine, error) {
-	m, err := s.State.Machine(id)
-	if err != nil {
-		return nil, err
-	}
-	return &machineShim{
-		Machine:   m,
-		mongoPort: s.mongoPort,
-		apiPort:   s.apiPort,
-	}, nil
+func (s StateShim) Machine(id string) (Machine, error) {
+	return s.State.Machine(id)
 }
 
-type SpaceReader interface {
-	Name() string
-}
-
-func (s *stateShim) Space(name string) (SpaceReader, error) {
+func (s StateShim) Space(name string) (Space, error) {
 	return s.State.Space(name)
 }
 
-func (s *stateShim) MongoSession() mongoSession {
-	return mongoSessionShim{s.State.MongoSession()}
+// MongoSessionShim wraps a *mgo.Session to conform to the
+// MongoSession interface.
+type MongoSessionShim struct {
+	*mgo.Session
 }
 
-func (m *machineShim) APIHostPorts() []network.HostPort {
-	return network.AddressesWithPort(m.Addresses(), m.apiPort)
+func (s MongoSessionShim) CurrentStatus() (*replicaset.Status, error) {
+	return replicaset.CurrentStatus(s.Session)
 }
 
-func (m *machineShim) MongoHostPorts() []network.HostPort {
-	return network.AddressesWithPort(m.Addresses(), m.mongoPort)
+func (s MongoSessionShim) CurrentMembers() ([]replicaset.Member, error) {
+	return replicaset.CurrentMembers(s.Session)
 }
 
-type machineShim struct {
-	*state.Machine
-	mongoPort int
-	apiPort   int
-}
-
-type mongoSessionShim struct {
-	session *mgo.Session
-}
-
-func (s mongoSessionShim) CurrentStatus() (*replicaset.Status, error) {
-	return replicaset.CurrentStatus(s.session)
-}
-
-func (s mongoSessionShim) CurrentMembers() ([]replicaset.Member, error) {
-	return replicaset.CurrentMembers(s.session)
-}
-
-func (s mongoSessionShim) Set(members []replicaset.Member) error {
-	return replicaset.Set(s.session, members)
+func (s MongoSessionShim) Set(members []replicaset.Member) error {
+	return replicaset.Set(s.Session, members)
 }

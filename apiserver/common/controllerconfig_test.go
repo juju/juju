@@ -125,7 +125,7 @@ func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Addresses, gc.HasLen, 1)
 	c.Assert(results.Results[0].Addresses[0], gc.Equals, apiAddr[0][0].String())
-	c.Assert(results.Results[0].CACert, gc.Equals, s.State.CACert())
+	c.Assert(results.Results[0].CACert, gc.Equals, testing.CACert)
 }
 
 func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {

@@ -130,7 +130,7 @@ func (s *pingerSuite) TestAgentConnectionsShutDownWhenAPIServerDies(c *gc.C) {
 	server.Kill()
 
 	// We know this is less than the client ping interval.
-	clock.Advance(apiserver.MongoPingInterval)
+	clock.Advance(3 * time.Minute)
 	checkConnectionDies(c, conn)
 }
 

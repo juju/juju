@@ -15,11 +15,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/cert"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
@@ -55,13 +55,11 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
-	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationmaster"
-	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/workertest"
@@ -422,57 +420,19 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestManageModelRunsPeergrouper(c *gc.C) {
-	started := newSignal()
-	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State, _ clock.Clock, _ bool, _ peergrouper.Hub) (worker.Worker, error) {
-		c.Check(st, gc.NotNil)
-		started.trigger()
-		return newDummyWorker(), nil
-	})
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
-	}()
-	started.assertTriggered(c, "peergrouperworker to start")
-}
-
-func (s *MachineSuite) TestManageModelCallsUseMultipleCPUs(c *gc.C) {
-	// If it has been enabled, the JobManageModel agent should call utils.UseMultipleCPUs
-	usefulVersion := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: "quantal", // to match the charm created below
-	}
-	envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
+func (s *MachineSuite) TestCallsUseMultipleCPUs(c *gc.C) {
+	// All machine agents call UseMultipleCPUs.
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	calledChan := make(chan struct{}, 1)
 	s.AgentSuite.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
-	// Now, start the agent, and observe that a JobManageModel agent
-	// calls UseMultipleCPUs
 	a := s.newAgent(c, m)
 	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), jc.ErrorIsNil)
-	}()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+
 	// Wait for configuration to be finished
 	<-a.WorkersStarted()
 	s.assertChannelActive(c, calledChan, "UseMultipleCPUs() to be called")
-
 	c.Check(a.Stop(), jc.ErrorIsNil)
-	// However, an agent that just JobHostUnits doesn't call UseMultipleCPUs
-	m2, _, _ := s.primeAgent(c, state.JobHostUnits)
-	a2 := s.newAgent(c, m2)
-	defer a2.Stop()
-	go func() {
-		c.Check(a2.Run(nil), jc.ErrorIsNil)
-	}()
-	// Wait until all the workers have been started, and then kill everything
-	<-a2.workersStarted
-	c.Check(a2.Stop(), jc.ErrorIsNil)
-	s.assertChannelInactive(c, calledChan, "UseMultipleCPUs() was called")
 }
 
 func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
@@ -969,75 +929,6 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	started.assertTriggered(c, "storage worker to start")
 }
 
-func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForController(c *gc.C) {
-	started := newSignal()
-	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
-	) worker.Worker {
-		started.trigger()
-		return jworker.NewNoOpWorker()
-	}
-	s.PatchValue(&newCertificateUpdater, newUpdater)
-
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	started.assertTriggered(c, "certificate to be updated")
-}
-
-func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonController(c *gc.C) {
-	started := newSignal()
-	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
-	) worker.Worker {
-		started.trigger()
-		return jworker.NewNoOpWorker()
-	}
-	s.PatchValue(&newCertificateUpdater, newUpdater)
-
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	started.assertNotTriggered(c, startWorkerWait, "certificate was updated")
-}
-
-func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
-	coretesting.SkipFlaky(c, "lp:1466514")
-	// Set up the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	a.ReadConfig(names.NewMachineTag(m.Id()).String())
-
-	// Set up check that certificate has been updated.
-	updated := make(chan struct{})
-	go func() {
-		for {
-			stateInfo, _ := a.CurrentConfig().StateServingInfo()
-			srvCert, err := cert.ParseCert(stateInfo.Cert)
-			if !c.Check(err, jc.ErrorIsNil) {
-				break
-			}
-			sanIPs := make([]string, len(srvCert.IPAddresses))
-			for i, ip := range srvCert.IPAddresses {
-				sanIPs[i] = ip.String()
-			}
-			if len(sanIPs) == 1 && sanIPs[0] == "0.1.2.3" {
-				close(updated)
-				break
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}()
-
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	s.assertChannelActive(c, updated, "certificate to be updated")
-}
-
 func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
@@ -1061,15 +952,6 @@ func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *gc.C) {
 }
 
 func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
-	// Disable the certificate worker so that the certificate could
-	// only have been updated during agent startup.
-	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
-		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
-	) worker.Worker {
-		return jworker.NewNoOpWorker()
-	}
-	s.PatchValue(&newCertificateUpdater, newUpdater)
-
 	// Set up a channel which fires when State is opened.
 	started := make(chan struct{}, 16)
 	s.PatchValue(&reportOpenedState, func(*state.State) {
@@ -1181,7 +1063,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
-	tracker := NewEngineTracker()
+	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackMachines(c, tracker, machineManifolds)
 	s.PatchValue(&machineManifolds, instrumented)
 
@@ -1191,22 +1073,22 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Wait for it to stabilise, running as normal.
-	matcher := NewWorkerMatcher(c, tracker, a.Tag().String(),
+	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysMachineWorkers, notMigratingMachineWorkers...))
-	WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 }
 
 func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	uuid := s.BackingState.ModelUUID()
 
-	tracker := NewEngineTracker()
-	instrumented := TrackModels(c, tracker, modelManifolds)
-	s.PatchValue(&modelManifolds, instrumented)
+	tracker := agenttest.NewEngineTracker()
+	instrumented := TrackModels(c, tracker, iaasModelManifolds)
+	s.PatchValue(&iaasModelManifolds, instrumented)
 
-	matcher := NewWorkerMatcher(c, tracker, uuid,
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, aliveModelWorkers...))
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 	})
 }
 
@@ -1222,14 +1104,14 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	defer closer()
 	uuid := st.ModelUUID()
 
-	tracker := NewEngineTracker()
-	instrumented := TrackModels(c, tracker, modelManifolds)
-	s.PatchValue(&modelManifolds, instrumented)
+	tracker := agenttest.NewEngineTracker()
+	instrumented := TrackModels(c, tracker, iaasModelManifolds)
+	s.PatchValue(&iaasModelManifolds, instrumented)
 
-	matcher := NewWorkerMatcher(c, tracker, uuid,
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, aliveModelWorkers...))
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
 	})
 }
 
@@ -1238,7 +1120,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	defer closer()
 	uuid := st.ModelUUID()
 
-	tracker := NewEngineTracker()
+	tracker := agenttest.NewEngineTracker()
 
 	// Replace the real migrationmaster worker with a fake one which
 	// does nothing. This is required to make this test be reliable as
@@ -1248,7 +1130,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	// TODO(mjs) - an alternative might be to provide a fake Facade
 	// and api.Open to the real migrationmaster but this test is
 	// awfully far away from the low level details of the worker.
-	origModelManifolds := modelManifolds
+	origModelManifolds := iaasModelManifolds
 	modelManifoldsDisablingMigrationMaster := func(config model.ManifoldsConfig) dependency.Manifolds {
 		config.NewMigrationMaster = func(config migrationmaster.Config) (worker.Worker, error) {
 			return &nullWorker{}, nil
@@ -1256,7 +1138,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 		return origModelManifolds(config)
 	}
 	instrumented := TrackModels(c, tracker, modelManifoldsDisablingMigrationMaster)
-	s.PatchValue(&modelManifolds, instrumented)
+	s.PatchValue(&iaasModelManifolds, instrumented)
 
 	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
 	_, err := st.CreateMigration(state.MigrationSpec{
@@ -1271,10 +1153,10 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	matcher := NewWorkerMatcher(c, tracker, uuid,
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
 		append(alwaysModelWorkers, migratingModelWorkers...))
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
 	})
 }
 
@@ -1321,13 +1203,13 @@ func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C
 
 	// Then run a normal model-tracking test, just checking for
 	// a different set of workers.
-	tracker := NewEngineTracker()
-	instrumented := TrackModels(c, tracker, modelManifolds)
-	s.PatchValue(&modelManifolds, instrumented)
+	tracker := agenttest.NewEngineTracker()
+	instrumented := TrackModels(c, tracker, iaasModelManifolds)
+	s.PatchValue(&iaasModelManifolds, instrumented)
 
-	matcher := NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
-		WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+		agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 	})
 }
 

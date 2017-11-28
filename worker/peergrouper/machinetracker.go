@@ -5,6 +5,7 @@ package peergrouper
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
 	"github.com/juju/errors"
@@ -19,27 +20,25 @@ import (
 type machineTracker struct {
 	catacomb catacomb.Catacomb
 	notifyCh chan struct{}
-	stm      stateMachine
+	stm      Machine
 
 	mu sync.Mutex
 
 	// Outside of the machineTracker implementation itself, these
 	// should always be accessed via the getter methods in order to be
 	// protected by the mutex.
-	id             string
-	wantsVote      bool
-	apiHostPorts   []network.HostPort
-	mongoHostPorts []network.HostPort
+	id        string
+	wantsVote bool
+	addresses []network.Address
 }
 
-func newMachineTracker(stm stateMachine, notifyCh chan struct{}) (*machineTracker, error) {
+func newMachineTracker(stm Machine, notifyCh chan struct{}) (*machineTracker, error) {
 	m := &machineTracker{
-		notifyCh:       notifyCh,
-		id:             stm.Id(),
-		stm:            stm,
-		apiHostPorts:   stm.APIHostPorts(),
-		mongoHostPorts: stm.MongoHostPorts(),
-		wantsVote:      stm.WantsVote(),
+		notifyCh:  notifyCh,
+		id:        stm.Id(),
+		stm:       stm,
+		addresses: stm.Addresses(),
+		wantsVote: stm.WantsVote(),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &m.catacomb,
@@ -76,34 +75,26 @@ func (m *machineTracker) WantsVote() bool {
 	return m.wantsVote
 }
 
-// WantsVote returns the MongoDB hostports from state.
-func (m *machineTracker) MongoHostPorts() []network.HostPort {
+// Addresses returns the machine addresses from state.
+func (m *machineTracker) Addresses() []network.Address {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	out := make([]network.HostPort, len(m.mongoHostPorts))
-	copy(out, m.mongoHostPorts)
-	return out
-}
-
-// APIHostPorts returns the API server hostports from state.
-func (m *machineTracker) APIHostPorts() []network.HostPort {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	out := make([]network.HostPort, len(m.apiHostPorts))
-	copy(out, m.apiHostPorts)
+	out := make([]network.Address, len(m.addresses))
+	copy(out, m.addresses)
 	return out
 }
 
 // SelectMongoHostPort returns the best hostport for the machine for
 // MongoDB use, perhaps using the space provided.
-func (m *machineTracker) SelectMongoHostPort(mongoSpace network.SpaceName) string {
+func (m *machineTracker) SelectMongoHostPort(port int, space network.SpaceName) string {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	hostPorts := network.AddressesWithPort(m.addresses, port)
+	m.mu.Unlock()
 
-	if mongoSpace != "" {
-		return mongo.SelectPeerHostPortBySpace(m.mongoHostPorts, mongoSpace)
+	if space != "" {
+		return mongo.SelectPeerHostPortBySpace(hostPorts, space)
 	}
-	return mongo.SelectPeerHostPort(m.mongoHostPorts)
+	return mongo.SelectPeerHostPort(hostPorts)
 }
 
 func (m *machineTracker) String() string {
@@ -114,8 +105,10 @@ func (m *machineTracker) GoString() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return fmt.Sprintf("&peergrouper.machine{id: %q, wantsVote: %v, hostPorts: %v}",
-		m.id, m.wantsVote, m.mongoHostPorts)
+	return fmt.Sprintf(
+		"&peergrouper.machine{id: %q, wantsVote: %v, addresses: %v}",
+		m.id, m.wantsVote, m.addresses,
+	)
 }
 
 func (m *machineTracker) loop() error {
@@ -167,25 +160,9 @@ func (m *machineTracker) hasChanged() (bool, error) {
 		m.wantsVote = wantsVote
 		changed = true
 	}
-	if hps := m.stm.MongoHostPorts(); !hostPortsEqual(hps, m.mongoHostPorts) {
-		m.mongoHostPorts = hps
-		changed = true
-	}
-	if hps := m.stm.APIHostPorts(); !hostPortsEqual(hps, m.apiHostPorts) {
-		m.apiHostPorts = hps
+	if addrs := m.stm.Addresses(); !reflect.DeepEqual(addrs, m.addresses) {
+		m.addresses = addrs
 		changed = true
 	}
 	return changed, nil
-}
-
-func hostPortsEqual(hps1, hps2 []network.HostPort) bool {
-	if len(hps1) != len(hps2) {
-		return false
-	}
-	for i := range hps1 {
-		if hps1[i] != hps2[i] {
-			return false
-		}
-	}
-	return true
 }

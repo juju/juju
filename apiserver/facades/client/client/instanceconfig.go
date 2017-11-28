@@ -70,6 +70,12 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	}
 	toolsList := findToolsResult.List
 
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	caCert, _ := controllerConfig.CACert()
+
 	// Get the API connection info; attempt all API addresses.
 	apiHostPorts, err := st.APIHostPorts()
 	if err != nil {
@@ -83,12 +89,11 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	}
 	apiInfo := &api.Info{
 		Addrs:    apiAddrs.SortedValues(),
-		CACert:   st.CACert(),
+		CACert:   caCert,
 		ModelTag: model.ModelTag(),
 	}
 
-	auth := authentication.NewAuthenticator(st.MongoConnectionInfo(), apiInfo)
-	_, apiInfo, err = auth.SetupAuthentication(machine)
+	_, apiInfo, err = authentication.SetupAuthentication(machine, nil, apiInfo)
 	if err != nil {
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}

@@ -11,7 +11,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -80,23 +79,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 		return errors.Annotatef(err, "HA not ready; try again later")
 	}
 
-	mgoInfo := a.backend.MongoConnectionInfo()
-	logger.Debugf("mongo info from state %+v", mgoInfo)
-	v, err := a.backend.MongoVersion()
-	if err != nil {
-		return errors.Annotatef(err, "discovering mongo version")
-	}
-	mongoVersion, err := mongo.NewVersion(v)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	dbInfo, err := backups.NewDBInfo(mgoInfo, session, mongoVersion)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	oldTagString, err := backup.Restore(p.BackupId, dbInfo, restoreArgs)
+	oldTagString, err := backup.Restore(p.BackupId, restoreArgs)
 	if err != nil {
 		return errors.Annotate(err, "restore failed")
 	}

@@ -9,13 +9,9 @@ import "github.com/juju/errors"
 // Infrastructure-As-A-Service (IAAS) model. It embeds a Model so that
 // all generic Model functionality is also available.
 type IAASModel struct {
+	// TODO(caas) - this is all still messy until things shake out.
 	*Model
-
 	mb modelBackend
-
-	// TODO(caas): This should be removed once things
-	// have been sufficiently untangled.
-	st *State
 }
 
 // IAASModel returns an Infrastructure-As-A-Service (IAAS) model.
@@ -26,7 +22,6 @@ func (m *Model) IAASModel() (*IAASModel, error) {
 	return &IAASModel{
 		Model: m,
 		mb:    m.st,
-		st:    m.st,
 	}, nil
 }
 

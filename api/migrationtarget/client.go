@@ -19,7 +19,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/resource"
@@ -225,7 +224,12 @@ func (c *Client) AdoptResources(modelUUID string) error {
 // CACert returns the CA certificate associated with
 // the connection.
 func (c *Client) CACert() (string, error) {
-	return common.NewAPIAddresser(c.caller).CACert()
+	var result params.BytesResult
+	err := c.caller.FacadeCall("CACert", nil, &result)
+	if err != nil {
+		return "", err
+	}
+	return string(result.Result), nil
 }
 
 // CheckMachines compares the machines in state with the ones reported

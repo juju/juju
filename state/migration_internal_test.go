@@ -161,11 +161,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// and are not to be migrated.
 		globalSettingsC,
 
-		// The auditing collection stores a large amount of historical data
-		// and will be streamed across after migration in a similar way to
-		// logging.
-		auditingC,
-
 		// There is a precheck to ensure that there are no pending reboots
 		// for the model being migrated, and as such, there is no need to
 		// migrate that information.
@@ -368,6 +363,8 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		// RelationCount is handled by the number of times the application name
 		// appears in relation endpoints.
 		"RelationCount",
+		// TODO(caas) - add to export/import
+		"PasswordHash",
 	)
 	migrated := set.NewStrings(
 		"Name",

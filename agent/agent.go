@@ -326,7 +326,15 @@ func LogFilename(c Config) string {
 
 type ConfigMutator func(ConfigSetter) error
 
+type ConfigRenderer interface {
+	// Render generates the agent configuration
+	// as a byte array.
+	Render() ([]byte, error)
+}
+
 type ConfigWriter interface {
+	ConfigRenderer
+
 	// Write writes the agent configuration.
 	Write() error
 }
@@ -407,10 +415,12 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		return nil, errors.Trace(requiredError("entity tag"))
 	}
 	switch configParams.Tag.(type) {
-	case names.MachineTag, names.UnitTag:
-		// these are the only two type of tags that can represent an agent
+	case names.MachineTag, names.UnitTag, names.ApplicationTag:
+		// These are the only three type of tags that can represent an agent
+		// IAAS - machine and unit
+		// CAAS - application
 	default:
-		return nil, errors.Errorf("entity tag must be MachineTag or UnitTag, got %T", configParams.Tag)
+		return nil, errors.Errorf("entity tag must be MachineTag, UnitTag or ApplicationTag, got %T", configParams.Tag)
 	}
 	if configParams.UpgradedToVersion == version.Zero {
 		return nil, errors.Trace(requiredError("upgradedToVersion"))
@@ -603,7 +613,7 @@ func (c *configInternal) SetPassword(newPassword string) {
 }
 
 func (c *configInternal) Write() error {
-	data, err := c.fileContents()
+	data, err := c.Render()
 	if err != nil {
 		return err
 	}
@@ -754,7 +764,7 @@ func checkAddrs(addrs []string, what string) error {
 	return nil
 }
 
-func (c *configInternal) fileContents() ([]byte, error) {
+func (c *configInternal) Render() ([]byte, error) {
 	data, err := currentFormat.marshal(c)
 	if err != nil {
 		return nil, err
@@ -767,7 +777,7 @@ func (c *configInternal) fileContents() ([]byte, error) {
 
 // WriteCommands is defined on Config interface.
 func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error) {
-	data, err := c.fileContents()
+	data, err := c.Render()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

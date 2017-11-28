@@ -48,9 +48,12 @@ func (c *client) ClaimLeadership(serviceId, unitId string, duration time.Duratio
 }
 
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
-func (c *client) BlockUntilLeadershipReleased(serviceId string) error {
+func (c *client) BlockUntilLeadershipReleased(serviceId string, cancel <-chan struct{}) error {
 	const friendlyErrMsg = "error blocking on leadership release"
 	var result params.ErrorResult
+	// TODO(axw) make it possible to plumb a context.Context
+	// through the API/RPC client, so we can cancel or abandon
+	// requests.
 	err := c.FacadeCall("BlockUntilLeadershipReleased", names.NewApplicationTag(serviceId), &result)
 	if err != nil {
 		return errors.Annotate(err, friendlyErrMsg)

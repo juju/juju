@@ -27,6 +27,7 @@ type BaseAPI struct {
 	ControllerModel      Backend
 	StatePool            StatePool
 	getEnviron           environFromModelFunc
+	getControllerInfo    func() (apiAddrs []string, caCert string, _ error)
 }
 
 // checkPermission ensures that the logged in user holds the given permission on an entity.

@@ -156,7 +156,7 @@ func (manager *Manager) Claim(leaseName, holderName string, duration time.Durati
 		holderName: holderName,
 		duration:   duration,
 		response:   make(chan bool),
-		abort:      manager.catacomb.Dying(),
+		stop:       manager.catacomb.Dying(),
 	}.invoke(manager.claims)
 }
 
@@ -208,7 +208,7 @@ func (manager *Manager) Token(leaseName, holderName string) lease.Token {
 		holderName: holderName,
 		secretary:  manager.config.Secretary,
 		checks:     manager.checks,
-		abort:      manager.catacomb.Dying(),
+		stop:       manager.catacomb.Dying(),
 	}
 }
 
@@ -239,14 +239,15 @@ func (manager *Manager) handleCheck(check check) error {
 }
 
 // WaitUntilExpired is part of the lease.Claimer interface.
-func (manager *Manager) WaitUntilExpired(leaseName string) error {
+func (manager *Manager) WaitUntilExpired(leaseName string, cancel <-chan struct{}) error {
 	if err := manager.config.Secretary.CheckLease(leaseName); err != nil {
 		return errors.Annotatef(err, "cannot wait for lease %q expiry", leaseName)
 	}
 	return block{
 		leaseName: leaseName,
 		unblock:   make(chan struct{}),
-		abort:     manager.catacomb.Dying(),
+		stop:      manager.catacomb.Dying(),
+		cancel:    cancel,
 	}.invoke(manager.blocks)
 }
 
