@@ -28,6 +28,7 @@ type ManifoldSuite struct {
 	context   dependency.Context
 	agent     fakeAgent
 	apiCaller fakeAPICaller
+	client    fakeClient
 	clock     *testing.Clock
 	dataDir   string
 	stub      testing.Stub
@@ -54,13 +55,14 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		APICallerName: "api-caller",
 		ClockName:     "clock",
 		NewWorker:     s.newWorker,
+		NewClient:     s.newClient,
 	})
 }
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
 		"agent":      &s.agent,
-		"api-caller": s.apiCaller,
+		"api-caller": &s.apiCaller,
 		"clock":      s.clock,
 	}
 	for k, v := range overlay {
@@ -77,6 +79,11 @@ func (s *ManifoldSuite) newWorker(config caasoperator.Config) (worker.Worker, er
 	w := worker.NewRunner(worker.RunnerParams{})
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
 	return w, nil
+}
+
+func (s *ManifoldSuite) newClient(caller base.APICaller) caasoperator.Client {
+	s.stub.MethodCall(s, "NewClient", caller)
+	return &s.client
 }
 
 var expectedInputs = []string{"agent", "api-caller", "clock"}
@@ -99,16 +106,19 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
-	s.stub.CheckCallNames(c, "NewWorker")
-	args := s.stub.Calls()[0].Args
+	s.stub.CheckCallNames(c, "NewClient", "NewWorker")
+	s.stub.CheckCall(c, 0, "NewClient", &s.apiCaller)
+
+	args := s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, caasoperator.Config{})
 	config := args[0].(caasoperator.Config)
 
 	c.Assert(config, jc.DeepEquals, caasoperator.Config{
-		Application: "gitlab",
-		DataDir:     s.dataDir,
-		Clock:       s.clock,
+		Application:  "gitlab",
+		DataDir:      s.dataDir,
+		Clock:        s.clock,
+		StatusSetter: &s.client,
 	})
 }
 
@@ -144,4 +154,8 @@ func (c *fakeAgentConfig) DataDir() string {
 
 type fakeAPICaller struct {
 	base.APICaller
+}
+
+type fakeClient struct {
+	caasoperator.Client
 }

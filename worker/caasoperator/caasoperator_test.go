@@ -21,6 +21,7 @@ type WorkerSuite struct {
 
 	clock  *testing.Clock
 	config caasoperator.Config
+	client fakeClient
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -29,10 +30,12 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.clock = testing.NewClock(time.Time{})
+	s.client = fakeClient{}
 	s.config = caasoperator.Config{
-		Application: "gitlab",
-		DataDir:     c.MkDir(),
-		Clock:       s.clock,
+		Application:  "gitlab",
+		DataDir:      c.MkDir(),
+		Clock:        s.clock,
+		StatusSetter: &s.client,
 	}
 
 	agentBinaryDir := agenttools.ToolsDir(s.config.DataDir, "application-gitlab")
@@ -52,6 +55,10 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.Clock = nil
 	}, `missing Clock not valid`)
+
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.StatusSetter = nil
+	}, `missing StatusSetter not valid`)
 }
 
 func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasoperator.Config), expect string) {

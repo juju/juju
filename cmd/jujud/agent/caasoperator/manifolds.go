@@ -10,6 +10,8 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	caasoperatorapi "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
@@ -68,6 +70,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
 			NewWorker:     caasoperator.NewWorker,
+			NewClient: func(caller base.APICaller) caasoperator.Client {
+				return caasoperatorapi.NewClient(caller)
+			},
 		}),
 	}
 }
