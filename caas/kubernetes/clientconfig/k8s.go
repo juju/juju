@@ -1,6 +1,7 @@
 package clientconfig
 
 import (
+	"io/ioutil"
 	"os"
 
 	"github.com/juju/errors"
@@ -61,6 +62,17 @@ func cloudsFromConfig(config *clientcmdapi.Config) (map[string]CloudConfig, erro
 	rv := map[string]CloudConfig{}
 	for name, cluster := range config.Clusters {
 		attrs := map[string]interface{}{}
+
+		// TODO(axw) if the CA cert is specified by path, then we
+		// should just store the path in the cloud definition, and
+		// rely on cloud finalization to read it at time of use.
+		if cluster.CertificateAuthority != "" {
+			caData, err := ioutil.ReadFile(cluster.CertificateAuthority)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cluster.CertificateAuthorityData = caData
+		}
 		attrs["CAData"] = string(cluster.CertificateAuthorityData)
 
 		rv[name] = CloudConfig{
@@ -76,6 +88,28 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 	for name, user := range config.AuthInfos {
 		var hasCert bool
 		attrs := map[string]string{}
+
+		// TODO(axw) if the certificate/key are specified by path,
+		// then we should just store the path in the credential,
+		// and rely on credential finalization to read it at time
+		// of use.
+
+		if user.ClientCertificate != "" {
+			certData, err := ioutil.ReadFile(user.ClientCertificate)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			user.ClientCertificateData = certData
+		}
+
+		if user.ClientKey != "" {
+			keyData, err := ioutil.ReadFile(user.ClientKey)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			user.ClientKeyData = keyData
+		}
+
 		if len(user.ClientCertificateData) > 0 {
 			attrs["ClientCertificateData"] = string(user.ClientCertificateData)
 			hasCert = true

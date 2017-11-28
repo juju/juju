@@ -10,6 +10,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
@@ -24,7 +25,7 @@ type k8sConfigSuite struct {
 var _ = gc.Suite(&k8sConfigSuite{})
 
 var (
-	emptyConfig = `
+	emptyConfigYAML = `
 apiVersion: v1
 kind: Config
 clusters: []
@@ -34,7 +35,7 @@ preferences: {}
 users: []
 `
 
-	singleConfig = `
+	singleConfigYAML = `
 apiVersion: v1
 kind: Config
 clusters:
@@ -55,7 +56,8 @@ users:
     password: thepassword
     username: theuser
 `
-	multiConfig = `
+
+	multiConfigYAML = `
 apiVersion: v1
 kind: Config
 clusters:
@@ -125,7 +127,7 @@ func (s *k8sConfigSuite) writeTempKubeConfig(c *gc.C, filename string, data stri
 }
 
 func (s *k8sConfigSuite) TestGetEmptyConfig(c *gc.C) {
-	s.writeTempKubeConfig(c, "emptyConfig", emptyConfig)
+	s.writeTempKubeConfig(c, "emptyConfig", emptyConfigYAML)
 
 	cfg, err := clientconfig.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,8 +142,11 @@ func (s *k8sConfigSuite) TestGetEmptyConfig(c *gc.C) {
 }
 
 func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
-	s.writeTempKubeConfig(c, "singleConfig", singleConfig)
+	s.writeTempKubeConfig(c, "singleConfig", singleConfigYAML)
+	s.assertSingleConfig(c)
+}
 
+func (s *k8sConfigSuite) assertSingleConfig(c *gc.C) {
 	cfg, err := clientconfig.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals,
@@ -165,7 +170,7 @@ func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
 }
 
 func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
-	s.writeTempKubeConfig(c, "multiConfig", multiConfig)
+	s.writeTempKubeConfig(c, "multiConfig", multiConfigYAML)
 
 	cfg, err := clientconfig.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -207,4 +212,47 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 					map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "Username": "fifth-user", "Password": "userpasscertpass"}),
 			},
 		})
+}
+
+// TestGetSingleConfigReadsFilePaths checks that we handle config
+// with certificate/key file paths the same as we do those with
+// the data inline.
+func (s *k8sConfigSuite) TestGetSingleConfigReadsFilePaths(c *gc.C) {
+
+	singleConfig, err := clientcmd.Load([]byte(singleConfigYAML))
+	c.Assert(err, jc.ErrorIsNil)
+
+	tempdir := c.MkDir()
+	divert := func(name string, data *[]byte, path *string) {
+		*path = filepath.Join(tempdir, name)
+		err := ioutil.WriteFile(*path, *data, 0644)
+		c.Assert(err, jc.ErrorIsNil)
+		*data = nil
+	}
+
+	for name, cluster := range singleConfig.Clusters {
+		divert(
+			"cluster-"+name+".ca",
+			&cluster.CertificateAuthorityData,
+			&cluster.CertificateAuthority,
+		)
+	}
+
+	for name, authInfo := range singleConfig.AuthInfos {
+		divert(
+			"auth-"+name+".cert",
+			&authInfo.ClientCertificateData,
+			&authInfo.ClientCertificate,
+		)
+		divert(
+			"auth-"+name+".key",
+			&authInfo.ClientKeyData,
+			&authInfo.ClientKey,
+		)
+	}
+
+	singleConfigWithPathsYAML, err := clientcmd.Write(*singleConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	s.writeTempKubeConfig(c, "singleConfigWithPaths", string(singleConfigWithPathsYAML))
+	s.assertSingleConfig(c)
 }
