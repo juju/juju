@@ -219,7 +219,7 @@ var agentConfigTests = []struct {
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 	},
-	checkErr: "entity tag must be MachineTag or UnitTag, got names.UserTag",
+	checkErr: "entity tag must be MachineTag, UnitTag or ApplicationTag, got names.UserTag",
 }, {
 	about: "agentConfig accepts a Unit tag",
 	params: agent.AgentConfigParams{
@@ -234,6 +234,21 @@ var agentConfigTests = []struct {
 	},
 	inspectConfig: func(c *gc.C, cfg agent.Config) {
 		c.Check(cfg.Dir(), gc.Equals, "/data/dir/agents/unit-ubuntu-1")
+	},
+}, {
+	about: "agentConfig accepts an Application tag",
+	params: agent.AgentConfigParams{
+		Paths:             agent.Paths{DataDir: "/data/dir"},
+		Tag:               names.NewApplicationTag("ubuntu"),
+		Password:          "sekrit",
+		UpgradedToVersion: jujuversion.Current,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
+		CACert:            "ca cert",
+		APIAddresses:      []string{"localhost:1235"},
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.Dir(), gc.Equals, "/data/dir/agents/application-ubuntu")
 	},
 }}
 

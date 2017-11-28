@@ -1723,6 +1723,12 @@ func (s *ApplicationSuite) TestServiceRefresh(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *ApplicationSuite) TestSetPassword(c *gc.C) {
+	testSetPassword(c, func() (state.Authenticator, error) {
+		return s.State.Application(s.mysql.Name())
+	})
+}
+
 func (s *ApplicationSuite) TestServiceExposed(c *gc.C) {
 	// Check that querying for the exposed flag works correctly.
 	c.Assert(s.mysql.IsExposed(), jc.IsFalse)

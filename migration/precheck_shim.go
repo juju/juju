@@ -11,15 +11,16 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// PrecheckShim wraps a *state.State to implement PrecheckBackend.
-func PrecheckShim(st *state.State) (PrecheckBackend, error) {
-	rSt, err := st.Resources()
+// PrecheckShim wraps a pair of *state.States to implement PrecheckBackend.
+func PrecheckShim(modelState, controllerState *state.State) (PrecheckBackend, error) {
+	rSt, err := modelState.Resources()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &precheckShim{
-		State:       st,
-		resourcesSt: rSt,
+		State:           modelState,
+		controllerState: controllerState,
+		resourcesSt:     rSt,
 	}, nil
 }
 
@@ -27,7 +28,8 @@ func PrecheckShim(st *state.State) (PrecheckBackend, error) {
 // inspection.
 type precheckShim struct {
 	*state.State
-	resourcesSt state.Resources
+	controllerState *state.State
+	resourcesSt     state.Resources
 }
 
 // Model implements PrecheckBackend.
@@ -110,20 +112,8 @@ func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, er
 }
 
 // ControllerBackend implements PrecheckBackend.
-func (s *precheckShim) ControllerBackend() (PrecheckBackendCloser, error) {
-	st, err := s.State.ForModel(s.State.ControllerModelTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	rSt, err := st.Resources()
-	if err != nil {
-		st.Close()
-		return nil, errors.Trace(err)
-	}
-	return &precheckShim{
-		State:       st,
-		resourcesSt: rSt,
-	}, nil
+func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
+	return PrecheckShim(s.controllerState, s.controllerState)
 }
 
 // PoolShim wraps a state.StatePool to produce a Pool.

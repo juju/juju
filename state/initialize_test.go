@@ -15,9 +15,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -51,8 +49,7 @@ func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
 		Clock:              clock.WallClock,
 		ControllerTag:      testing.ControllerTag,
 		ControllerModelTag: modelTag,
-		MongoInfo:          statetesting.NewMongoInfo(),
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
@@ -119,8 +116,8 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 			Regions: []cloud.Region{{Name: "dummy-region"}},
 		},
 		CloudCredentials: cloudCredentialsIn,
-		MongoInfo:        statetesting.NewMongoInfo(),
-		MongoDialOpts:    mongotest.DialOpts(),
+		MongoSession:     s.Session,
+		AdminPassword:    "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
@@ -218,8 +215,8 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 		CloudCredentials: map[names.CloudCredentialTag]cloud.Credential{
 			credentialTag: cloud.NewCredential(cloud.UserPassAuthType, nil),
 		},
-		MongoInfo:     statetesting.NewMongoInfo(),
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:  s.Session,
+		AdminPassword: "dummy-secret",
 	})
 	c.Assert(err, gc.ErrorMatches,
 		`validating initialization args: validating cloud credentials: credential "dummy/initialize-admin/borken" with auth-type "userpass" is not supported \(expected one of \["access-key" "oauth1"\]\)`,
@@ -252,8 +249,8 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
 		ControllerInheritedConfig: controllerInheritedConfigIn,
-		MongoInfo:                 statetesting.NewMongoInfo(),
-		MongoDialOpts:             mongotest.DialOpts(),
+		MongoSession:              s.Session,
+		AdminPassword:             "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
@@ -291,8 +288,6 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	owner := names.NewLocalUserTag("initialize-admin")
 
-	mgoInfo := statetesting.NewMongoInfo()
-	dialOpts := mongotest.DialOpts()
 	controllerCfg := testing.FakeControllerConfig()
 
 	args := state.InitializeParams{
@@ -310,8 +305,8 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
-		MongoInfo:     mgoInfo,
-		MongoDialOpts: dialOpts,
+		MongoSession:  s.Session,
+		AdminPassword: "dummy-secret",
 	}
 	ctlr, st, err := state.Initialize(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -373,8 +368,8 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			Regions:   []cloud.Region{{Name: "dummy-region"}},
 		},
-		MongoInfo:     statetesting.NewMongoInfo(),
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:  s.Session,
+		AdminPassword: "dummy-secret",
 	}
 	_, _, err = state.Initialize(args)
 	c.Assert(err, gc.ErrorMatches, expect)
@@ -427,8 +422,8 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
-		MongoInfo:     statetesting.NewMongoInfo(),
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:  s.Session,
+		AdminPassword: "dummy-secret",
 	}
 
 	for _, badAttrName := range badAttrNames {
@@ -471,8 +466,8 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 			AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
 			RegionConfig: regionInheritedConfigIn, // Init with phony region-config
 		},
-		MongoInfo:     statetesting.NewMongoInfo(),
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:  s.Session,
+		AdminPassword: "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
@@ -537,8 +532,8 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 			RegionConfig: regionInheritedConfigIn, // Init with phony region-config
 		},
 		ControllerInheritedConfig: controllerInheritedConfigIn,
-		MongoInfo:                 statetesting.NewMongoInfo(),
-		MongoDialOpts:             mongotest.DialOpts(),
+		MongoSession:              s.Session,
+		AdminPassword:             "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
@@ -598,8 +593,8 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 			RegionConfig: regionInheritedConfigIn, // Init with phony region-config
 		},
 		ControllerInheritedConfig: controllerInheritedConfigIn,
-		MongoInfo:                 statetesting.NewMongoInfo(),
-		MongoDialOpts:             mongotest.DialOpts(),
+		MongoSession:              s.Session,
+		AdminPassword:             "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)

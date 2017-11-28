@@ -571,8 +571,7 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 	defer statePool.Close()
 	srv, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
-		Cert:            jtesting.ServerCert,
-		Key:             jtesting.ServerKey,
+		GetCertificate:  func() *tls.Certificate { return jtesting.ServerTLSCert },
 		Tag:             machineTag,
 		Hub:             centralhub.New(machineTag),
 		DataDir:         c.MkDir(),

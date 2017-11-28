@@ -18,11 +18,8 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -204,71 +201,6 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelSuite) TestNewModelCAAS(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
-
-	cfg, uuid := s.createTestModelConfig(c)
-	modelTag := names.NewModelTag(uuid)
-	owner := names.NewUserTag("test@remote")
-	model, st, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     owner,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-
-	c.Assert(model.Type(), gc.Equals, state.ModelTypeCAAS)
-	c.Assert(model.UUID(), gc.Equals, modelTag.Id())
-	c.Assert(model.Tag(), gc.Equals, modelTag)
-	c.Assert(model.ControllerTag(), gc.Equals, s.State.ControllerTag())
-	c.Assert(model.Owner(), gc.Equals, owner)
-	c.Assert(model.Name(), gc.Equals, "testing")
-	c.Assert(model.Life(), gc.Equals, state.Alive)
-	c.Assert(model.CloudRegion(), gc.Equals, "")
-}
-
-func (s *ModelSuite) TestCAASModelsCantHaveCloudRegion(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
-	cfg, _ := s.createTestModelConfig(c)
-	_, _, err := s.State.NewModel(state.ModelArgs{
-		Type:        state.ModelTypeCAAS,
-		CloudName:   "dummy",
-		CloudRegion: "fork",
-		Config:      cfg,
-		Owner:       names.NewUserTag("test@remote"),
-	})
-	c.Assert(err, gc.ErrorMatches, "CAAS model with CloudRegion not supported")
-}
-
-func (s *ModelSuite) TestNewModelCAASNeedsFeature(c *gc.C) {
-	cfg, _ := s.createTestModelConfig(c)
-	owner := names.NewUserTag("test@remote")
-	_, _, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     owner,
-	})
-	c.Assert(err, gc.ErrorMatches, "model type not supported")
-}
-
-func (s *ModelSuite) TestNewModelCAASWithStorageRegistry(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
-
-	cfg, _ := s.createTestModelConfig(c)
-	owner := names.NewUserTag("test@remote")
-	_, _, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, gc.ErrorMatches, "CAAS model with StorageProviderRegistry not valid")
-}
-
 func (s *ModelSuite) TestNewModelImportingMode(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
@@ -318,42 +250,6 @@ func (s *ModelSuite) TestModelExistsNoModel(c *gc.C) {
 	modelExists, err := s.State.ModelExists("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelExists, jc.IsFalse)
-}
-
-func (s *ModelSuite) TestModelActive(c *gc.C) {
-	modelActive, err := s.State.ModelActive(s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelActive, jc.IsTrue)
-}
-
-func (s *ModelSuite) TestModelActiveNoModel(c *gc.C) {
-	modelActive, err := s.State.ModelActive("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelActive, jc.IsFalse)
-}
-
-func (s *ModelSuite) TestModelActiveImporting(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.SetMigrationMode(state.MigrationModeImporting), jc.ErrorIsNil)
-
-	modelActive, err := s.State.ModelActive(model.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelActive, jc.IsFalse)
-}
-
-func (s *ModelSuite) TestModelActiveExporting(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.SetMigrationMode(state.MigrationModeExporting), jc.ErrorIsNil)
-
-	modelActive, err := s.State.ModelActive(model.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelActive, jc.IsTrue)
 }
 
 func (s *ModelSuite) TestSLA(c *gc.C) {
@@ -1549,8 +1445,8 @@ func (s *ModelCloudValidationSuite) initializeState(
 			Regions:   regions,
 		},
 		CloudCredentials: credentials,
-		MongoInfo:        statetesting.NewMongoInfo(),
-		MongoDialOpts:    mongotest.DialOpts(),
+		MongoSession:     s.Session,
+		AdminPassword:    "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctlr.Close(), jc.ErrorIsNil)

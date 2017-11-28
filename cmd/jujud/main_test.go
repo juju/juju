@@ -82,6 +82,9 @@ func (s *MainSuite) TestParseErrors(c *gc.C) {
 	checkMessage(c, msga, "machine",
 		"--machine-id", "42",
 		"toastie")
+	checkMessage(c, msga, "caasoperator",
+		"--application-name", "app",
+		"toastie")
 }
 
 var expectedProviders = []string{

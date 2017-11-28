@@ -8,7 +8,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/network"
@@ -56,7 +55,6 @@ func (pool statePoolShim) GetModel(modelUUID string) (Model, func(), error) {
 // Backend provides selected methods off the state.State struct.
 type Backend interface {
 	commoncrossmodel.Backend
-	GetAddressAndCertGetter() common.AddressAndCertGetter
 	Charm(*charm.URL) (commoncrossmodel.Charm, error)
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
@@ -80,10 +78,6 @@ var GetStateAccess = func(st *state.State) Backend {
 type stateShim struct {
 	commoncrossmodel.Backend
 	st *state.State
-}
-
-func (s stateShim) GetAddressAndCertGetter() common.AddressAndCertGetter {
-	return s.st
 }
 
 func (s stateShim) CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {

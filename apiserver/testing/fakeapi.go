@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
@@ -72,10 +73,10 @@ func (srv *Server) serveAPI(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	srv.serveConn(conn, req.URL.Query().Get(":modeluuid"))
+	srv.serveConn(req.Context(), conn, req.URL.Query().Get(":modeluuid"))
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string) {
+func (srv *Server) serveConn(ctx context.Context, wsConn *websocket.Conn, modelUUID string) {
 	codec := jsoncodec.NewWebsocket(wsConn)
 	conn := rpc.NewConn(codec, &fakeobserver.Instance{})
 
@@ -83,7 +84,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string) {
 		rpcreflect.ValueOf(reflect.ValueOf(srv.newRoot(modelUUID))),
 	}
 	conn.ServeRoot(root, nil)
-	conn.Start()
+	conn.Start(ctx)
 	<-conn.Dead()
 	conn.Close()
 }

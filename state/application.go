@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
@@ -50,6 +51,7 @@ type applicationDoc struct {
 	MinUnits             int        `bson:"minunits"`
 	TxnRevno             int64      `bson:"txn-revno"`
 	MetricCredentials    []byte     `bson:"metric-credentials"`
+	PasswordHash         string     `bson:"passwordhash"`
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
@@ -2062,4 +2064,35 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 		Assert: txn.DocMissing,
 	})
 	return ops, nil
+}
+
+// SetPassword sets the password for the application's agent.
+// TODO(caas) - consider a separate CAAS application entity
+func (a *Application) SetPassword(password string) error {
+	if len(password) < utils.MinAgentPasswordLength {
+		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
+	}
+	passwordHash := utils.AgentPasswordHash(password)
+	ops := []txn.Op{{
+		C:      applicationsC,
+		Id:     a.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
+	}}
+	err := a.st.db().RunTransaction(ops)
+	if err != nil {
+		return fmt.Errorf("cannot set password of application %q: %v", a, onAbort(err, ErrDead))
+	}
+	a.doc.PasswordHash = passwordHash
+	return nil
+}
+
+// PasswordValid returns whether the given password is valid
+// for the given application.
+func (a *Application) PasswordValid(password string) bool {
+	agentHash := utils.AgentPasswordHash(password)
+	if agentHash == a.doc.PasswordHash {
+		return true
+	}
+	return false
 }

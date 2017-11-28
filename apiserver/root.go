@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -28,12 +29,6 @@ var (
 	// Move to API (e.g. params) so that the pinging there may
 	// depend on the interval.
 	maxClientPingInterval = 3 * time.Minute
-
-	// mongoPingInterval defines the interval at which an API server
-	// will ping the mongo session to make sure that it's still
-	// alive. When the ping returns an error, the server will be
-	// terminated.
-	mongoPingInterval = 10 * time.Second
 )
 
 type objectKey struct {
@@ -79,6 +74,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		modelUUID:  modelUUID,
 		serverHost: serverHost,
 	}
+
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -88,6 +84,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	// Facades involved with managing application offers need the auth context
 	// to mint and validate macaroons.
 	localOfferAccessEndpoint := url.URL{
@@ -143,12 +140,12 @@ func (s *srvCaller) ResultType() reflect.Type {
 
 // Call takes the object Id and an instance of ParamsType to create an object and place
 // a call on its method. It then returns an instance of ResultType.
-func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
+func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error) {
 	objVal, err := s.creator(objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	return s.objMethod.Call(objVal, arg)
+	return s.objMethod.Call(ctx, objVal, arg)
 }
 
 // apiRoot implements basic method dispatching to the facade registry.
@@ -199,6 +196,9 @@ func restrictAPIRoot(
 		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
 	} else {
 		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
+		if model.Type() == state.ModelTypeCAAS {
+			apiRoot = restrictRoot(apiRoot, caasModelFacadesOnly)
+		}
 	}
 	return apiRoot, nil
 }
@@ -376,11 +376,6 @@ type facadeContext struct {
 	key objectKey
 }
 
-// Abort is part of of the facade.Context interface.
-func (ctx *facadeContext) Abort() <-chan struct{} {
-	return nil
-}
-
 // Auth is part of of the facade.Context interface.
 func (ctx *facadeContext) Auth() facade.Authorizer {
 	return ctx.r.authorizer
@@ -447,6 +442,12 @@ func (r *adminRoot) FindMethod(rootName string, version int, methodName string) 
 func (r *apiHandler) AuthMachineAgent() bool {
 	_, isMachine := r.GetAuthTag().(names.MachineTag)
 	return isMachine
+}
+
+// AuthApplicationAgent returns whether the current client is an application operator.
+func (r *apiHandler) AuthApplicationAgent() bool {
+	_, isApp := r.GetAuthTag().(names.ApplicationTag)
+	return isApp
 }
 
 // AuthUnitAgent returns whether the current client is a unit agent.

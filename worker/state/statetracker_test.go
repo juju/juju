@@ -14,7 +14,7 @@ import (
 
 type StateTrackerSuite struct {
 	statetesting.StateSuite
-	st           *state.State
+	pool         *state.State
 	stateTracker workerstate.StateTracker
 }
 
@@ -42,12 +42,12 @@ func (s *StateTrackerSuite) TestTooManyDones(c *gc.C) {
 }
 
 func (s *StateTrackerSuite) TestUse(c *gc.C) {
-	st, err := s.stateTracker.Use()
-	c.Check(st, gc.Equals, s.State)
+	pool, err := s.stateTracker.Use()
+	c.Check(pool.SystemState(), gc.Equals, s.State)
 	c.Check(err, jc.ErrorIsNil)
 
-	st, err = s.stateTracker.Use()
-	c.Check(st, gc.Equals, s.State)
+	pool, err = s.stateTracker.Use()
+	c.Check(pool.SystemState(), gc.Equals, s.State)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -86,8 +86,8 @@ func (s *StateTrackerSuite) TestUseAndDone(c *gc.C) {
 func (s *StateTrackerSuite) TestUseWhenClosed(c *gc.C) {
 	c.Assert(s.stateTracker.Done(), jc.ErrorIsNil)
 
-	st, err := s.stateTracker.Use()
-	c.Check(st, gc.IsNil)
+	pool, err := s.stateTracker.Use()
+	c.Check(pool, gc.IsNil)
 	c.Check(err, gc.Equals, workerstate.ErrStateClosed)
 }
 

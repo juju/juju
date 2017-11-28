@@ -15,7 +15,6 @@ import (
 // controller addresses and the CA public certificate.
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
-	CACert() string
 	ModelUUID() string
 	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher
@@ -84,13 +83,6 @@ func apiAddresses(getter APIHostPortsGetter) ([]string, error) {
 		}
 	}
 	return addrs, nil
-}
-
-// CACert returns the certificate used to validate the state connection.
-func (a *APIAddresser) CACert() params.BytesResult {
-	return params.BytesResult{
-		Result: []byte(a.getter.CACert()),
-	}
 }
 
 // ModelUUID returns the model UUID to connect to the environment

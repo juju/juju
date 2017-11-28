@@ -4,6 +4,7 @@
 package singular
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,7 +18,10 @@ import (
 )
 
 // NewExternalFacade is for API registration.
-func NewExternalFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*Facade, error) {
+func NewExternalFacade(context facade.Context) (*Facade, error) {
+	st := context.State()
+	auth := context.Auth()
+
 	m, err := st.Model()
 	if err != nil {
 		return nil, err
@@ -80,7 +84,7 @@ type Facade struct {
 // Wait waits for the singular-controller lease to expire for all supplied
 // entities. (In practice, any requests that do not refer to the connection's
 // model or controller will be rejected.)
-func (facade *Facade) Wait(args params.Entities) (result params.ErrorResults) {
+func (facade *Facade) Wait(ctx context.Context, args params.Entities) (result params.ErrorResults) {
 	result.Results = make([]params.ErrorResult, len(args.Entities))
 	for i, entity := range args.Entities {
 		leaseId, err := facade.tagLeaseId(entity.Tag)
@@ -91,7 +95,7 @@ func (facade *Facade) Wait(args params.Entities) (result params.ErrorResults) {
 		// TODO(axw) 2017-10-30 #1728594
 		// We should be waiting for the leases in parallel,
 		// so the waits do not affect one another.
-		err = facade.claimer.WaitUntilExpired(leaseId)
+		err = facade.claimer.WaitUntilExpired(leaseId, ctx.Done())
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result

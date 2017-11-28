@@ -66,6 +66,7 @@ func (api *CloudSpecAPI) MakeCloudSpec(pSpec *params.CloudSpec) (environs.CloudS
 		Endpoint:         pSpec.Endpoint,
 		IdentityEndpoint: pSpec.IdentityEndpoint,
 		StorageEndpoint:  pSpec.StorageEndpoint,
+		CACertificates:   pSpec.CACertificates,
 		Credential:       credential,
 	}
 	if err := spec.Validate(); err != nil {

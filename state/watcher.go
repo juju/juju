@@ -210,9 +210,8 @@ func (st *State) WatchModels() StringsWatcher {
 }
 
 // WatchModelLives returns a StringsWatcher that notifies of changes
-// to any model life values. The most important difference between
-// this and WatchModels is that this will signal one last time if a
-// model is removed.
+// to any model life values. The watcher will not send any more events
+// for a model after it has been observed to be Dead.
 func (st *State) WatchModelLives() StringsWatcher {
 	return newLifecycleWatcher(st, modelsC, nil, nil, nil)
 }

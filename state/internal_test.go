@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/dummy"
@@ -56,14 +54,6 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.owner = names.NewLocalUserTag("test-admin")
-	// Copied from NewMongoInfo (due to import loops).
-	info := &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:      []string{jujutesting.MgoServer.Addr()},
-			CACert:     testing.CACert,
-			DisableTLS: !jujutesting.MgoServer.SSLEnabled(),
-		},
-	}
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
 	ctlr, st, err := Initialize(InitializeParams{
@@ -90,8 +80,8 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 				},
 			},
 		},
-		MongoInfo:     info,
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:  s.Session,
+		AdminPassword: "dummy-secret",
 		NewPolicy: func(*State) Policy {
 			return internalStatePolicy{}
 		},

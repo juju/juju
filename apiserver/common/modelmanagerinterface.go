@@ -79,6 +79,7 @@ type ModelManagerBackend interface {
 // All the interface methods are defined directly on state.Model
 // and are reproduced here for use in tests.
 type Model interface {
+	Type() state.ModelType
 	Config() (*config.Config, error)
 	Life() state.Life
 	ModelTag() names.ModelTag

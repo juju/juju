@@ -20,6 +20,10 @@ import (
 // leadership claim has been denied.
 var ErrClaimDenied = errors.New("leadership claim denied")
 
+// ErrBlockCancelled is returned from BlockUntilLeadershipReleased
+// if the client cancels the request by closing the cancel channel.
+var ErrBlockCancelled = errors.New("waiting for leadership cancelled by client")
+
 // Claimer exposes leadership acquisition capabilities.
 type Claimer interface {
 
@@ -31,7 +35,7 @@ type Claimer interface {
 	// BlockUntilLeadershipReleased blocks until the named application is known
 	// to have no leader, in which case it returns no error; or until the
 	// manager is stopped, in which case it will fail.
-	BlockUntilLeadershipReleased(applicationId string) (err error)
+	BlockUntilLeadershipReleased(applicationId string, cancel <-chan struct{}) (err error)
 }
 
 // Token represents a unit's leadership of its application.

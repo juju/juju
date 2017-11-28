@@ -19,6 +19,7 @@
 package dummy
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -121,15 +122,15 @@ func PatchTransientErrorInjectionChannel(c chan error) func() {
 	return gitjujutesting.PatchValue(&transientErrorInjection, c)
 }
 
-// stateInfo returns a *state.Info which allows clients to connect to the
+// mongoInfo returns a mongo.MongoInfo which allows clients to connect to the
 // shared dummy state, if it exists.
-func stateInfo() *mongo.MongoInfo {
+func mongoInfo() mongo.MongoInfo {
 	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	mongoPort := strconv.Itoa(gitjujutesting.MgoServer.Port())
 	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
-	return &mongo.MongoInfo{
+	return mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:      addrs,
 			CACert:     testing.CACert,
@@ -774,7 +775,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				cloudCredentials[cloudCredentialTag] = *icfg.Bootstrap.ControllerCloudCredential
 			}
 
-			info := stateInfo()
+			session, err := mongo.DialWithInfo(mongoInfo(), mongotest.DialOpts())
+			if err != nil {
+				return err
+			}
+			defer session.Close()
+
 			// Since the admin user isn't setup until after here,
 			// the password in the info structure is empty, so the admin
 			// user is constructed with an empty password here.
@@ -794,9 +800,9 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				},
 				Cloud:            icfg.Bootstrap.ControllerCloud,
 				CloudCredentials: cloudCredentials,
-				MongoInfo:        info,
-				MongoDialOpts:    mongotest.DialOpts(),
+				MongoSession:     session,
 				NewPolicy:        estate.newStatePolicy,
+				AdminPassword:    icfg.Controller.MongoInfo.Password,
 			})
 			if err != nil {
 				return err
@@ -833,14 +839,13 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			statePool := state.NewStatePool(st)
 			machineTag := names.NewMachineTag("0")
 			estate.apiServer, err = apiserver.NewServer(statePool, estate.apiListener, apiserver.ServerConfig{
-				Clock:       clock.WallClock,
-				Cert:        testing.ServerCert,
-				Key:         testing.ServerKey,
-				Tag:         machineTag,
-				DataDir:     DataDir,
-				LogDir:      LogDir,
-				Hub:         centralhub.New(machineTag),
-				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
+				Clock:          clock.WallClock,
+				GetCertificate: func() *tls.Certificate { return testing.ServerTLSCert },
+				Tag:            machineTag,
+				DataDir:        DataDir,
+				LogDir:         LogDir,
+				Hub:            centralhub.New(machineTag),
+				NewObserver:    func() observer.Observer { return &fakeobserver.Instance{} },
 				// Should never be used but prevent external access just in case.
 				AutocertURL: "https://0.1.2.3/no-autocert-here",
 				RegisterIntrospectionHandlers: func(f func(path string, h http.Handler)) {

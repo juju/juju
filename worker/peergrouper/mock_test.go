@@ -6,10 +6,8 @@ package peergrouper
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"path"
 	"reflect"
-	"strconv"
 	"sync"
 
 	"github.com/juju/errors"
@@ -19,7 +17,7 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/apiserver/testing"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -42,9 +40,9 @@ type fakeState struct {
 }
 
 var (
-	_ stateInterface = (*fakeState)(nil)
-	_ stateMachine   = (*fakeMachine)(nil)
-	_ mongoSession   = (*fakeMongoSession)(nil)
+	_ State        = (*fakeState)(nil)
+	_ Machine      = (*fakeMachine)(nil)
+	_ MongoSession = (*fakeMongoSession)(nil)
 )
 
 type errorPatterns struct {
@@ -116,10 +114,6 @@ func NewFakeState() *fakeState {
 	return st
 }
 
-func (st *fakeState) MongoSession() mongoSession {
-	return st.session
-}
-
 func (st *fakeState) checkInvariants() {
 	if st.check == nil {
 		return
@@ -177,7 +171,7 @@ func (st *fakeState) machine(id string) *fakeMachine {
 	return st.machines[id]
 }
 
-func (st *fakeState) Machine(id string) (stateMachine, error) {
+func (st *fakeState) Machine(id string) (Machine, error) {
 	if err := st.errors.errorFor("State.Machine", id); err != nil {
 		return nil, err
 	}
@@ -237,13 +231,13 @@ func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 	return WatchStrings(&st.statuses)
 }
 
-func (st *fakeState) Space(name string) (SpaceReader, error) {
+func (st *fakeState) Space(name string) (Space, error) {
 	foo := []networkingcommon.BackingSpace{
-		&testing.FakeSpace{SpaceName: "Space" + name},
-		&testing.FakeSpace{SpaceName: "Space" + name},
-		&testing.FakeSpace{SpaceName: "Space" + name},
+		&apiservertesting.FakeSpace{SpaceName: "Space" + name},
+		&apiservertesting.FakeSpace{SpaceName: "Space" + name},
+		&apiservertesting.FakeSpace{SpaceName: "Space" + name},
 	}
-	return foo[0].(SpaceReader), nil
+	return foo[0].(Space), nil
 }
 
 func (st *fakeState) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
@@ -290,12 +284,11 @@ type fakeMachine struct {
 }
 
 type machineDoc struct {
-	id             string
-	wantsVote      bool
-	hasVote        bool
-	instanceId     instance.Id
-	mongoHostPorts []network.HostPort
-	apiHostPorts   []network.HostPort
+	id         string
+	wantsVote  bool
+	hasVote    bool
+	instanceId instance.Id
+	addresses  []network.Address
 }
 
 func (m *fakeMachine) Refresh() error {
@@ -320,15 +313,6 @@ func (m *fakeMachine) Id() string {
 	return m.doc.id
 }
 
-func (m *fakeMachine) InstanceId() (instance.Id, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if err := m.errors.errorFor("Machine.InstanceId", m.doc.id); err != nil {
-		return "", err
-	}
-	return m.doc.instanceId, nil
-}
-
 func (m *fakeMachine) Watch() state.NotifyWatcher {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -347,16 +331,10 @@ func (m *fakeMachine) HasVote() bool {
 	return m.doc.hasVote
 }
 
-func (m *fakeMachine) MongoHostPorts() []network.HostPort {
+func (m *fakeMachine) Addresses() []network.Address {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.mongoHostPorts
-}
-
-func (m *fakeMachine) APIHostPorts() []network.HostPort {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.doc.apiHostPorts
+	return m.doc.addresses
 }
 
 func (m *fakeMachine) Status() (status.StatusInfo, error) {
@@ -377,45 +355,13 @@ func (m *fakeMachine) mutate(f func(*machineDoc)) {
 	m.checker.checkInvariants()
 }
 
-func (m *fakeMachine) setStateHostPort(hostPort string) {
-	var mongoHostPorts []network.HostPort
-	if hostPort != "" {
-		host, portStr, err := net.SplitHostPort(hostPort)
-		if err != nil {
-			panic(err)
-		}
-		port, err := strconv.Atoi(portStr)
-		if err != nil {
-			panic(err)
-		}
-		mongoHostPorts = network.NewHostPorts(port, host)
-		mongoHostPorts[0].Scope = network.ScopeCloudLocal
-	}
-
+func (m *fakeMachine) setAddresses(addrs ...network.Address) {
 	m.mutate(func(doc *machineDoc) {
-		doc.mongoHostPorts = mongoHostPorts
+		doc.addresses = addrs
 	})
 }
 
-func (m *fakeMachine) setMongoHostPorts(hostPorts []network.HostPort) {
-	m.mutate(func(doc *machineDoc) {
-		doc.mongoHostPorts = hostPorts
-	})
-}
-
-func (m *fakeMachine) setAPIHostPorts(hostPorts []network.HostPort) {
-	m.mutate(func(doc *machineDoc) {
-		doc.apiHostPorts = hostPorts
-	})
-}
-
-func (m *fakeMachine) setInstanceId(instanceId instance.Id) {
-	m.mutate(func(doc *machineDoc) {
-		doc.instanceId = instanceId
-	})
-}
-
-// SetHasVote implements stateMachine.SetHasVote.
+// SetHasVote implements Machine.SetHasVote.
 func (m *fakeMachine) SetHasVote(hasVote bool) error {
 	if err := m.errors.errorFor("Machine.SetHasVote", m.doc.id, hasVote); err != nil {
 		return err

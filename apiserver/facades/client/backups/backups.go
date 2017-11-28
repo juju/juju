@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
@@ -29,7 +28,6 @@ type Backend interface {
 	IsController() bool
 	Machine(id string) (*state.Machine, error)
 	MachineSeries(id string) (string, error)
-	MongoConnectionInfo() *mongo.MongoInfo
 	MongoSession() *mgo.Session
 	MongoVersion() (string, error)
 	ModelTag() names.ModelTag

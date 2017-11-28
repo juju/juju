@@ -57,7 +57,12 @@ func (mock *mockBackend) Claim(lease, holder string, duration time.Duration) err
 }
 
 // WaitUntilExpired is part of the lease.Claimer interface.
-func (mock *mockBackend) WaitUntilExpired(lease string) error {
-	mock.stub.AddCall("WaitUntilExpired", lease)
+func (mock *mockBackend) WaitUntilExpired(leaseId string, cancel <-chan struct{}) error {
+	mock.stub.AddCall("WaitUntilExpired", leaseId)
+	select {
+	case <-cancel:
+		return lease.ErrWaitCancelled
+	default:
+	}
 	return mock.stub.NextErr()
 }

@@ -4,6 +4,7 @@
 package pubsub_test
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -226,8 +227,7 @@ func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.Structure
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
-		Cert:            coretesting.ServerCert,
-		Key:             coretesting.ServerKey,
+		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
 		Tag:             names.NewMachineTag("0"),
 		LogDir:          c.MkDir(),
 		Hub:             hub,

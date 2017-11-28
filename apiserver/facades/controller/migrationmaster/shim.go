@@ -16,7 +16,8 @@ import (
 // NewFacade exists to provide the required signature for API
 // registration, converting st to backend.
 func NewFacade(ctx facade.Context) (*API, error) {
-	precheckBackend, err := migration.PrecheckShim(ctx.State())
+	controllerState := ctx.StatePool().SystemState()
+	precheckBackend, err := migration.PrecheckShim(ctx.State(), controllerState)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating precheck backend")
 	}

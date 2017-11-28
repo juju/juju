@@ -24,7 +24,6 @@ import (
 var (
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = maxClientPingInterval
-	MongoPingInterval     = mongoPingInterval
 	NewBackups            = &newBackups
 	BZMimeType            = bzMimeType
 	JSMimeType            = jsMimeType
@@ -158,6 +157,13 @@ func TestingControllerOnlyRoot() rpc.Root {
 func TestingModelOnlyRoot() rpc.Root {
 	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, modelFacadesOnly)
+}
+
+// TestingCAASModelOnlyRoot returns a restricted srvRoot as if
+// logged in to a CAAS model.
+func TestingCAASModelOnlyRoot() rpc.Root {
+	r := TestingAPIRoot(AllFacades())
+	return restrictRoot(r, caasModelFacadesOnly)
 }
 
 // TestingRestrictedRoot returns a restricted srvRoot.

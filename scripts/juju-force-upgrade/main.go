@@ -49,12 +49,17 @@ func getState() (*state.State, error) {
 	if !available {
 		return nil, errors.New("mongo info not available from agent config")
 	}
+	session, err := mongo.DialWithInfo(*mongoInfo, mongo.DefaultDialOpts())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer session.Close()
+
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
-		MongoInfo:          mongoInfo,
-		MongoDialOpts:      mongo.DefaultDialOpts(),
+		MongoSession:       session,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "opening state connection")
@@ -108,7 +113,11 @@ func main() {
 	checkErr("getting state connection", err)
 	defer st.Close()
 
-	modelSt, err := st.ForModel(names.NewModelTag(modelUUID))
+	statePool := state.NewStatePool(st)
+	defer statePool.Close()
+	modelSt, release, err := statePool.Get(modelUUID)
 	checkErr("open model", err)
+	defer release()
+
 	checkErr("set model agent version", modelSt.SetModelAgentVersion(agentVersion, true))
 }

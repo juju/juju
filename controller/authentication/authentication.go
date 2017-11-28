@@ -22,14 +22,6 @@ type TaggedPasswordChanger interface {
 	Tag() names.Tag
 }
 
-// NewAuthenticator returns a simpleAuth populated with connectionInfo and apiInfo
-func NewAuthenticator(connectionInfo *mongo.MongoInfo, apiInfo *api.Info) AuthenticationProvider {
-	return &simpleAuth{
-		stateInfo: connectionInfo,
-		apiInfo:   apiInfo,
-	}
-}
-
 // AuthenticationProvider defines the single method that the provisioner
 // task needs to set up authentication for a machine.
 type AuthenticationProvider interface {
@@ -69,6 +61,18 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 	return &simpleAuth{stateInfo, apiInfo}, nil
 }
 
+// SetupAuthentication generates a random password for the given machine,
+// recording it via the machine's SetPassword method, and updates the
+// info arguments with the tag and password.
+func SetupAuthentication(
+	machine TaggedPasswordChanger,
+	stateInfo *mongo.MongoInfo,
+	apiInfo *api.Info,
+) (*mongo.MongoInfo, *api.Info, error) {
+	auth := simpleAuth{stateInfo, apiInfo}
+	return auth.SetupAuthentication(machine)
+}
+
 type simpleAuth struct {
 	stateInfo *mongo.MongoInfo
 	apiInfo   *api.Info
@@ -82,11 +86,19 @@ func (auth *simpleAuth) SetupAuthentication(machine TaggedPasswordChanger) (*mon
 	if err := machine.SetPassword(password); err != nil {
 		return nil, nil, fmt.Errorf("cannot set API password for machine %v: %v", machine, err)
 	}
-	stateInfo := *auth.stateInfo
-	stateInfo.Tag = machine.Tag()
-	stateInfo.Password = password
-	apiInfo := *auth.apiInfo
-	apiInfo.Tag = machine.Tag()
-	apiInfo.Password = password
-	return &stateInfo, &apiInfo, nil
+	var stateInfo *mongo.MongoInfo
+	if auth.stateInfo != nil {
+		stateInfoCopy := *auth.stateInfo
+		stateInfo = &stateInfoCopy
+		stateInfo.Tag = machine.Tag()
+		stateInfo.Password = password
+	}
+	var apiInfo *api.Info
+	if auth.apiInfo != nil {
+		apiInfoCopy := *auth.apiInfo
+		apiInfo = &apiInfoCopy
+		apiInfo.Tag = machine.Tag()
+		apiInfo.Password = password
+	}
+	return stateInfo, apiInfo, nil
 }

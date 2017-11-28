@@ -39,13 +39,15 @@ func runForAllModelStates(st *State, runner func(st *State) error) error {
 		return errors.Annotate(err, "failed to read models")
 	}
 
+	pool := NewStatePool(st)
+	defer pool.Close()
 	for _, modelDoc := range modelDocs {
 		modelUUID := modelDoc["_id"].(string)
-		envSt, err := st.ForModel(names.NewModelTag(modelUUID))
+		envSt, release, err := pool.Get(modelUUID)
 		if err != nil {
 			return errors.Annotatef(err, "failed to open model %q", modelUUID)
 		}
-		defer envSt.Close()
+		defer release()
 		if err := runner(envSt); err != nil {
 			return errors.Annotatef(err, "model UUID %q", modelUUID)
 		}
@@ -1261,4 +1263,34 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 		return ops, nil
 	})
 	return errors.Annotate(err, "upgrading legacy lease documents")
+}
+
+// MoveOldAuditLog renames the no-longer-needed audit.log collection
+// to old-audit.log if it has any rows - if it's empty it deletes it.
+func MoveOldAuditLog(st *State) error {
+	names, err := st.MongoSession().DB("juju").CollectionNames()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !set.NewStrings(names...).Contains("audit.log") {
+		// No audit log collection to move.
+		return nil
+	}
+
+	coll, closer := st.db().GetRawCollection("audit.log")
+	defer closer()
+
+	rows, err := coll.Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if rows == 0 {
+		return errors.Trace(coll.DropCollection())
+	}
+	session := st.MongoSession()
+	renameCommand := bson.D{
+		{"renameCollection", "juju.audit.log"},
+		{"to", "juju.old-audit.log"},
+	}
+	return errors.Trace(session.Run(renameCommand, nil))
 }
