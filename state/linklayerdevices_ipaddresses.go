@@ -56,6 +56,9 @@ type ipAddressDoc struct {
 	// GatewayAddress is the IP address of the gateway this IP address's device
 	// uses. Can be empty.
 	GatewayAddress string `bson:"gateway-address,omitempty"`
+
+	// IsDefaultGateway is set to true if that device/subnet is the default gw for the machine
+	IsDefaultGateway bool `bson:"is-default-gateway,omitempty"`
 }
 
 // AddressConfigMethod is the method used to configure a link-layer device's IP
@@ -182,6 +185,11 @@ func (addr *Address) DNSSearchDomains() []string {
 // GatewayAddress returns the gateway address to use, which can be empty.
 func (addr *Address) GatewayAddress() string {
 	return addr.doc.GatewayAddress
+}
+
+// IsDefaultGateway returns true if this address is used for the default gw on the machine.
+func (addr *Address) IsDefaultGateway() bool {
+	return addr.doc.IsDefaultGateway
 }
 
 // String returns a human-readable representation of the IP address.

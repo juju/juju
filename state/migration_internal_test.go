@@ -641,6 +641,7 @@ func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
 		"MachineID",
 		"DNSSearchDomains",
 		"GatewayAddress",
+		"IsDefaultGateway",
 		"ProviderID",
 		"DNSServers",
 		"SubnetCIDR",
