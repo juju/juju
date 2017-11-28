@@ -20,21 +20,22 @@ import (
 
 var logger = loggo.GetLogger("core.auditlog")
 
-// Call represents a high-level juju command from the juju client (or
-// other client). There'll be one Call per API connection, with zero
-// or more associated FacadeMethods.
-type Call struct {
-	Who          string `json:"who"`        // username@idm
-	What         string `json:"what"`       // "juju deploy ./foo/bar"
-	When         string `json:"when"`       // ISO 8601 to second precision
-	ModelName    string `json:"model-name"` // full representation "user/name"
-	ModelUUID    string `json:"model-uuid"`
-	CallID       string `json:"call-id"`       // uint64 in hex
-	ConnectionID string `json:"connection-id"` // uint64 in hex (using %X to match the value in log files)
+// Conversation represents a high-level juju command from the juju
+// client (or other client). There'll be one Conversation per API
+// connection from the client, with zero or more associated
+// Request/ResponseErrors pairs.
+type Conversation struct {
+	Who            string `json:"who"`        // username@idm
+	What           string `json:"what"`       // "juju deploy ./foo/bar"
+	When           string `json:"when"`       // ISO 8601 to second precision
+	ModelName      string `json:"model-name"` // full representation "user/name"
+	ModelUUID      string `json:"model-uuid"`
+	ConversationID string `json:"conversation-id"` // uint64 in hex
+	ConnectionID   string `json:"connection-id"`   // uint64 in hex (using %X to match the value in log files)
 }
 
-// CallArgs is the information needed to create a method recorder.
-type CallArgs struct {
+// ConversationArgs is the information needed to create a method recorder.
+type ConversationArgs struct {
 	Who          string
 	What         string
 	When         time.Time
@@ -43,16 +44,16 @@ type CallArgs struct {
 	ConnectionID uint64
 }
 
-// FacadeRequest represents a call to an API facade made as part of
-// executing a specific high-level command.
-type FacadeRequest struct {
-	CallID       string `json:"call-id"`
-	ConnectionID string `json:"connection-id"`
-	RequestID    uint64 `json:"request-id"`
-	Facade       string `json:"facade"`
-	Method       string `json:"method"`
-	Version      int    `json:"version"`
-	Args         string `json:"args,omitempty"`
+// Request represents a call to an API facade made as part of
+// a specific conversation.
+type Request struct {
+	ConversationID string `json:"conversation-id"`
+	ConnectionID   string `json:"connection-id"`
+	RequestID      uint64 `json:"request-id"`
+	Facade         string `json:"facade"`
+	Method         string `json:"method"`
+	Version        int    `json:"version"`
+	Args           string `json:"args,omitempty"`
 }
 
 // RequestArgs is the information about an API call that we want to
@@ -65,18 +66,18 @@ type RequestArgs struct {
 	RequestID uint64
 }
 
-// FacadeResponse captures any errors coming back from the API in
+// ResponseErrors captures any errors coming back from the API in
 // response to a request.
-type FacadeResponse struct {
-	CallID       string   `json:"call-id"`
-	ConnectionID string   `json:"connection-id"`
-	RequestID    uint64   `json:"request-id"`
-	Errors       []*Error `json:"errors"`
+type ResponseErrors struct {
+	ConversationID string   `json:"conversation-id"`
+	ConnectionID   string   `json:"connection-id"`
+	RequestID      uint64   `json:"request-id"`
+	Errors         []*Error `json:"errors"`
 }
 
-// ResponseArgs is the information about an API response to record in
-// the audit log.
-type ResponseArgs struct {
+// ResponseErrorsArgs has errors from an API response to record in the
+// audit log.
+type ResponseErrorsArgs struct {
 	RequestID uint64
 	Errors    []*Error
 }
@@ -88,19 +89,19 @@ type Error struct {
 }
 
 // Record is the top-level entry type in an audit log, which serves as
-// a type discriminator. Only one of Call/Request/Response should be set.
+// a type discriminator. Only one of Conversation/Request/Errors should be set.
 type Record struct {
-	Call     *Call           `json:"call,omitempty"`
-	Request  *FacadeRequest  `json:"request,omitempty"`
-	Response *FacadeResponse `json:"response,omitempty"`
+	Conversation *Conversation   `json:"conversation,omitempty"`
+	Request      *Request        `json:"request,omitempty"`
+	Errors       *ResponseErrors `json:"errors,omitempty"`
 }
 
 // AuditLog represents something that can store calls, requests and
 // responses somewhere.
 type AuditLog interface {
-	AddCall(c Call) error
-	AddRequest(r FacadeRequest) error
-	AddResponse(r FacadeResponse) error
+	AddConversation(c Conversation) error
+	AddRequest(r Request) error
+	AddResponse(r ResponseErrors) error
 	Close() error
 }
 
@@ -113,17 +114,17 @@ type Recorder struct {
 
 // NewRecorder creates a Recorder for the connection described (and
 // stores details of the initial call in the log).
-func NewRecorder(log AuditLog, c CallArgs) (*Recorder, error) {
-	callID := newCallID()
+func NewRecorder(log AuditLog, c ConversationArgs) (*Recorder, error) {
+	callID := newConversationID()
 	connectionID := idString(c.ConnectionID)
-	err := log.AddCall(Call{
-		CallID:       callID,
-		ConnectionID: connectionID,
-		Who:          c.Who,
-		What:         c.What,
-		When:         c.When.Format(time.RFC3339),
-		ModelName:    c.ModelName,
-		ModelUUID:    c.ModelUUID,
+	err := log.AddConversation(Conversation{
+		ConversationID: callID,
+		ConnectionID:   connectionID,
+		Who:            c.Who,
+		What:           c.What,
+		When:           c.When.Format(time.RFC3339),
+		ModelName:      c.ModelName,
+		ModelUUID:      c.ModelUUID,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -137,40 +138,50 @@ func NewRecorder(log AuditLog, c CallArgs) (*Recorder, error) {
 
 // AddRequest records a method call to the API.
 func (r *Recorder) AddRequest(m RequestArgs) error {
-	return errors.Trace(r.log.AddRequest(FacadeRequest{
-		CallID:       r.callID,
-		ConnectionID: r.connectionID,
-		RequestID:    m.RequestID,
-		Facade:       m.Facade,
-		Method:       m.Method,
-		Version:      m.Version,
-		Args:         m.Args,
+	return errors.Trace(r.log.AddRequest(Request{
+		ConversationID: r.callID,
+		ConnectionID:   r.connectionID,
+		RequestID:      m.RequestID,
+		Facade:         m.Facade,
+		Method:         m.Method,
+		Version:        m.Version,
+		Args:           m.Args,
 	}))
 }
 
 // AddResponse records the result of a method call to the API.
-func (r *Recorder) AddResponse(m ResponseArgs) error {
-	return errors.Trace(r.log.AddResponse(FacadeResponse{
-		CallID:       r.callID,
-		ConnectionID: r.connectionID,
-		RequestID:    m.RequestID,
-		Errors:       m.Errors,
+func (r *Recorder) AddResponse(m ResponseErrorsArgs) error {
+	return errors.Trace(r.log.AddResponse(ResponseErrors{
+		ConversationID: r.callID,
+		ConnectionID:   r.connectionID,
+		RequestID:      m.RequestID,
+		Errors:         m.Errors,
 	}))
 }
 
-func newCallID() string {
+// newConversationID generates a random 64bit integer as hex - this
+// will be used to link the requests and responses with the command
+// the user issued. We don't use the API server's connection ID here
+// because that starts from 0 and increments, so it resets when the
+// API server is restarted. The conversation ID needs to be unique
+// across restarts, otherwise we'd attribute requests to the wrong
+// conversation.
+func newConversationID() string {
 	buf := make([]byte, 8)
 	rand.Read(buf) // Can't fail
 	return hex.EncodeToString(buf)
 }
 
-type AuditLogFile struct {
+type auditLogFile struct {
 	fileLogger io.WriteCloser
 }
 
 // NewLogFile returns an audit entry sink which writes to an audit.log
-// file in the specified directory.
-func NewLogFile(logDir string) *AuditLogFile {
+// file in the specified directory. maxSize is the maximum size (in
+// megabytes) of the log file before it gets rotated. maxBackups is
+// the maximum number of old compressed log files to keep (or 0 to
+// keep all of them).
+func NewLogFile(logDir string, maxSize, maxBackups int) AuditLog {
 	logPath := filepath.Join(logDir, "audit.log")
 	if err := primeLogFile(logPath); err != nil {
 		// This isn't a fatal error so log and continue if priming
@@ -178,38 +189,38 @@ func NewLogFile(logDir string) *AuditLogFile {
 		logger.Errorf("Unable to prime %s (proceeding anyway): %v", logPath, err)
 	}
 
-	return &AuditLogFile{
+	return &auditLogFile{
 		fileLogger: &lumberjack.Logger{
 			Filename:   logPath,
-			MaxSize:    300, // MB
-			MaxBackups: 10,
+			MaxSize:    maxSize,
+			MaxBackups: maxBackups,
 			Compress:   true,
 		},
 	}
 }
 
-// AddCall implements AuditLog.
-func (a *AuditLogFile) AddCall(c Call) error {
-	return errors.Trace(a.addRecord(Record{Call: &c}))
+// AddConversation implements AuditLog.
+func (a *auditLogFile) AddConversation(c Conversation) error {
+	return errors.Trace(a.addRecord(Record{Conversation: &c}))
 }
 
 // AddRequest implements AuditLog.
-func (a *AuditLogFile) AddRequest(m FacadeRequest) error {
+func (a *auditLogFile) AddRequest(m Request) error {
 	return errors.Trace(a.addRecord(Record{Request: &m}))
 
 }
 
 // AddResponse implements AuditLog.
-func (a *AuditLogFile) AddResponse(m FacadeResponse) error {
-	return errors.Trace(a.addRecord(Record{Response: &m}))
+func (a *auditLogFile) AddResponse(m ResponseErrors) error {
+	return errors.Trace(a.addRecord(Record{Errors: &m}))
 }
 
 // Close implements AuditLog.
-func (a *AuditLogFile) Close() error {
+func (a *auditLogFile) Close() error {
 	return errors.Trace(a.fileLogger.Close())
 }
 
-func (a *AuditLogFile) addRecord(r Record) error {
+func (a *auditLogFile) addRecord(r Record) error {
 	bytes, err := json.Marshal(r)
 	if err != nil {
 		return errors.Trace(err)
