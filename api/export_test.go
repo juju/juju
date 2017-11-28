@@ -70,7 +70,7 @@ type TestingStateParams struct {
 	ServerRoot     string
 	RPCConnection  RPCConnection
 	Clock          clock.Clock
-	Broken         chan struct{}
+	Broken, Closed chan struct{}
 }
 
 // NewTestingState creates an api.State object that can be used for testing. It
@@ -95,6 +95,7 @@ func NewTestingState(params TestingStateParams) Connection {
 		serverScheme:      params.ServerScheme,
 		serverRootAddress: params.ServerRoot,
 		broken:            params.Broken,
+		closed:            params.Closed,
 	}
 	return st
 }
