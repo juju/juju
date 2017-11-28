@@ -5,7 +5,6 @@ package firewall_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -65,11 +64,16 @@ func (s *addressWatcherSuite) setupRelation(c *gc.C, addr string) *mockRelation 
 
 func (s *addressWatcherSuite) TestInitial(c *gc.C) {
 	rel := s.setupRelation(c, "54.1.2.3")
-	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	// django/0 is initially in scope
+	rel.ruw.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"django/0": {},
+		},
+	}
 
 	wc.AssertChange("54.1.2.3/32")
 	wc.AssertNoChange()
@@ -81,6 +85,7 @@ func (s *addressWatcherSuite) TestUnitEntersScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	rel.ruw.changes <- params.RelationUnitsChange{}
 
 	// Initial event.
 	wc.AssertChange()
@@ -109,6 +114,7 @@ func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	rel.ruw.changes <- params.RelationUnitsChange{}
 
 	unit := newMockUnit("django/1")
 	unit.publicAddress = network.Address{Value: "54.4.5.6"}
@@ -136,6 +142,7 @@ func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	rel.ruw.changes <- params.RelationUnitsChange{}
 
 	// Initial event.
 	wc.AssertChange()
@@ -169,7 +176,6 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNoPublicAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
-
 	rel.ruw.changes <- params.RelationUnitsChange{
 		Changed: map[string]params.UnitSettings{
 			"django/0": {},
@@ -241,6 +247,7 @@ func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	rel.ruw.changes <- params.RelationUnitsChange{}
 
 	unit := newMockUnit("django/1")
 	unit.publicAddress = network.Address{Value: "54.4.5.6"}
@@ -275,6 +282,7 @@ func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	rel.ruw.changes <- params.RelationUnitsChange{}
 
 	unit := newMockUnit("django/1")
 	unit.publicAddress = network.Address{Value: "54.1.2.3"}
@@ -312,11 +320,16 @@ func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 
 func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
 	rel := s.setupRelation(c, "55.1.2.3")
-	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	// django/0 is initially in scope
+	rel.ruw.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"django/0": {},
+		},
+	}
 
 	wc.AssertChange("55.1.2.3/32")
 	wc.AssertNoChange()
@@ -345,11 +358,16 @@ func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
 
 func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *gc.C) {
 	rel := s.setupRelation(c, "2.3.4.5")
-	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	// django/0 is initially in scope
+	rel.ruw.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"django/0": {},
+		},
+	}
 
 	wc.AssertChange("2.3.4.5/32")
 	wc.AssertNoChange()
@@ -363,11 +381,16 @@ func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *gc.C) {
 
 func (s *addressWatcherSuite) TestHandlesMachineAddressChangesWithNoEffect(c *gc.C) {
 	rel := s.setupRelation(c, "2.3.4.5")
-	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	// django/0 is initially in scope
+	rel.ruw.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"django/0": {},
+		},
+	}
 
 	wc.AssertChange("2.3.4.5/32")
 	wc.AssertNoChange()
@@ -384,8 +407,13 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 	unit.publicAddress = network.Address{Value: "2.3.4.5"}
 	unit.machineId = "0"
 	s.st.units["django/1"] = unit
+	rel.ruw.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"django/0": {},
+			"django/1": {},
+		},
+	}
 
-	s.st.relations["remote-db2:db django:db"].inScope = set.NewStrings("django/0", "django/1")
 	w, err := firewall.NewEgressAddressWatcher(s.st, rel, "django")
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
@@ -394,7 +422,9 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 	wc.AssertChange("2.3.4.5/32")
 	wc.AssertNoChange()
 
-	delete(s.st.units, "django/1")
+	rel.ruw.changes <- params.RelationUnitsChange{
+		Departed: []string{"django/1"},
+	}
 	s.st.units["django/0"].updateAddress("6.7.8.9")
 	s.st.machines["0"].watcher.changes <- struct{}{}
 
@@ -409,6 +439,7 @@ func (s *addressWatcherSuite) TestModelEgressAddressUsed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	rel.ruw.changes <- params.RelationUnitsChange{}
 
 	// Initial event.
 	wc.AssertChange()
@@ -451,6 +482,7 @@ func (s *addressWatcherSuite) TestRelationEgressAddressUsed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
+	rel.ruw.changes <- params.RelationUnitsChange{}
 
 	// Initial event.
 	wc.AssertChange()
