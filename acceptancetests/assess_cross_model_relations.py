@@ -60,24 +60,24 @@ def assess_cross_model_relations_single_controller(args):
     """Assess that offers can be consumed in models on the same controller."""
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        first_model = bs_manager.client
-        with temporary_model(first_model, 'second-model') as second_model:
-                ensure_cmr_offer_management(first_model)
+        offer_model = bs_manager.client
+        with temporary_model(offer_model, 'consume-model') as consume_model:
+                ensure_cmr_offer_management(offer_model)
                 ensure_cmr_offer_consumption_and_relation(
-                    first_model, second_model)
+                    offer_model, consume_model)
 
 
 def assess_cross_model_relations_multiple_controllers(args):
     """Offers must be able to consume models on different controllers."""
-    second_args = extract_second_provider_details(args)
-    second_bs_manager = BootstrapManager.from_args(second_args)
+    consume_bs_args = extract_second_provider_details(args)
+    consume_bs_manager = BootstrapManager.from_args(consume_bs_args)
 
-    first_bs_manager = BootstrapManager.from_args(args)
-    with first_bs_manager.booted_context(args.upload_tools):
-        first_model = first_bs_manager.client
-        with second_bs_manager.booted_context(second_args.upload_tools):
-            second_model = second_bs_manager.client
-            ensure_user_can_consume_offer(first_model, second_model)
+    offer_bs_manager = BootstrapManager.from_args(args)
+    with offer_bs_manager.booted_context(args.upload_tools):
+        offer_model = offer_bs_manager.client
+        with consume_bs_manager.booted_context(consume_bs_args.upload_tools):
+            consume_model = consume_bs_manager.client
+            ensure_user_can_consume_offer(offer_model, consume_model)
 
 
 def ensure_cmr_offer_management(client):
@@ -105,22 +105,22 @@ def ensure_cmr_offer_management(client):
         assert_offer_can_be_deleted(management_model, offer_url)
 
 
-def ensure_cmr_offer_consumption_and_relation(first_client, second_client):
+def ensure_cmr_offer_consumption_and_relation(offer_client, consume_client):
     """Ensure offers can be consumed by another model.
 
-    :param first_client: ModelClient model that will be the source of the
+    :param offer_client: ModelClient model that will be the source of the
       offer.
-    :param second_client: ModelClient model that will consume the offered
+    :param consume_client: ModelClient model that will consume the offered
       application endpoint.
     """
-    with temporary_model(first_client, 'relation-source') as source_client:
-        with temporary_model(second_client, 'relation-sink') as sink_client:
+    with temporary_model(offer_client, 'relation-source') as source_client:
+        with temporary_model(consume_client, 'relation-sink') as sink_client:
             offer_url, offer_name = deploy_and_offer_db_app(source_client)
             assert_relating_to_offer_succeeds(sink_client, offer_url)
             assert_saas_url_is_correct(sink_client, offer_name, offer_url)
 
 
-def ensure_user_can_consume_offer(first_client, second_client):
+def ensure_user_can_consume_offer(offer_client, consume_client):
     """Ensure admin is able to grant a user access to an offer.
 
     Almost the same as `ensure_cmr_offer_consumption_and_relation` except in
@@ -129,13 +129,13 @@ def ensure_user_can_consume_offer(first_client, second_client):
     for the model into which the user will deploy an application to consume the
     offer.
 
-    :param first_client: ModelClient model that will be the source of the
+    :param offer_client: ModelClient model that will be the source of the
       offer.
-    :param second_client: ModelClient model that will consume the offered
+    :param consume_client: ModelClient model that will consume the offered
       application endpoint.
     """
-    with temporary_model(first_client, 'relation-source') as source_client:
-        with temporary_model(second_client, 'relation-sink') as sink_client:
+    with temporary_model(offer_client, 'relation-source') as source_client:
+        with temporary_model(consume_client, 'relation-sink') as sink_client:
             offer_url, offer_name = deploy_and_offer_db_app(source_client)
 
             username = 'theundertaker'
