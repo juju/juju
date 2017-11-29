@@ -33,11 +33,18 @@ type workers struct {
 	state *State
 	//	model *Model
 	*worker.Runner
+
+	sharedTxnWatcher *watcher.Watcher
 }
 
 const pingFlushInterval = time.Second
 
-func newWorkers(st *State) (*workers, error) {
+// newWorkers starts the workers used for the state instance.
+// The txnWatcher passed in can be nil, in which case a txnWatcher
+// is created for the state instance. If the watcher is not nil, it
+// is a shared txnWatcher, owned by the controller model, and is not
+// to be managed by the runner.
+func newWorkers(st *State, txnWatcher *watcher.Watcher) (*workers, error) {
 	ws := &workers{
 		state: st,
 		Runner: worker.NewRunner(worker.RunnerParams{
@@ -47,10 +54,13 @@ func newWorkers(st *State) (*workers, error) {
 			RestartDelay: time.Second,
 			Clock:        st.clock(),
 		}),
+		sharedTxnWatcher: txnWatcher,
 	}
-	ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
-		return watcher.New(st.getTxnLogCollection()), nil
-	})
+	if ws.sharedTxnWatcher == nil {
+		ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+			return watcher.New(st.getTxnLogCollection()), nil
+		})
+	}
 	ws.StartWorker(presenceWorker, func() (worker.Worker, error) {
 		return presence.NewWatcher(st.getPresenceCollection(), st.modelTag), nil
 	})
@@ -103,6 +113,10 @@ func (st *State) newLeaseManager(
 }
 
 func (ws *workers) txnLogWatcher() *watcher.Watcher {
+	if ws.sharedTxnWatcher != nil {
+		return ws.sharedTxnWatcher
+	}
+
 	w, err := ws.Worker(txnLogWorker, nil)
 	if err != nil {
 		return watcher.NewDead(errors.Trace(err))

@@ -67,7 +67,7 @@ func (ctlr *Controller) NewState(modelTag names.ModelTag) (*State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := st.start(ctlr.controllerTag); err != nil {
+	if err := st.start(ctlr.controllerTag, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
