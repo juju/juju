@@ -15,11 +15,11 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/worker/common/hookcommands"
-	"github.com/juju/juju/worker/common/hooks/testing"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 )
 
 type statusGetSuite struct {
-	testing.ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&statusGetSuite{})
@@ -45,7 +45,7 @@ var statusGetTests = []struct {
 	{[]string{"--format", "yaml"}, formatYaml, map[string]interface{}{"status": "error"}},
 }
 
-func setFakeStatus(ctx *testing.FakeHookContext) {
+func setFakeStatus(ctx *hooktesting.FakeHookContext) {
 	ctx.SetUnitStatus(hookcommands.StatusInfo{
 		Status: statusAttributes["status"].(string),
 		Info:   statusAttributes["message"].(string),
@@ -53,7 +53,7 @@ func setFakeStatus(ctx *testing.FakeHookContext) {
 	})
 }
 
-func setFakeServiceStatus(ctx *testing.FakeHookContext) {
+func setFakeServiceStatus(ctx *hooktesting.FakeHookContext) {
 	ctx.Info.Status.SetApplicationStatus(
 		hookcommands.StatusInfo{
 			Status: "active",
@@ -73,7 +73,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
 		setFakeStatus(hctx)
-		com, err := testing.NewCommand(hctx, "status-get", hookcommands.NewStatusGetCommand)
+		com, err := hooktesting.NewCommand(hctx, "status-get", hookcommands.NewStatusGetCommand)
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -98,7 +98,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 
 func (s *statusGetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
-	com, err := testing.NewCommand(hctx, "status-get", hookcommands.NewStatusGetCommand)
+	com, err := hooktesting.NewCommand(hctx, "status-get", hookcommands.NewStatusGetCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -130,7 +130,7 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
 	setFakeStatus(hctx)
-	com, err := testing.NewCommand(hctx, "status-get", hookcommands.NewStatusGetCommand)
+	com, err := hooktesting.NewCommand(hctx, "status-get", hookcommands.NewStatusGetCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--format", "json", "--output", "some-file", "--include-data"})
@@ -161,7 +161,7 @@ func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
 	}
 	hctx := s.GetStatusHookContext(c)
 	setFakeServiceStatus(hctx)
-	com, err := testing.NewCommand(hctx, "status-get", hookcommands.NewStatusGetCommand)
+	com, err := hooktesting.NewCommand(hctx, "status-get", hookcommands.NewStatusGetCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--format", "json", "--include-data", "--application"})

@@ -12,14 +12,14 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/common/hookcommands"
-	"github.com/juju/juju/worker/common/hooks/testing"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var _ = gc.Suite(&ActionSetSuite{})
 
 type ActionSetSuite struct {
-	testing.ContextSuite
+	hooktesting.ContextSuite
 }
 
 type actionSettingContext struct {

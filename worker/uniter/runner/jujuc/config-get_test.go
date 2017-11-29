@@ -15,12 +15,12 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/worker/common/hooks/testing"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type ConfigGetSuite struct {
-	testing.ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&ConfigGetSuite{})

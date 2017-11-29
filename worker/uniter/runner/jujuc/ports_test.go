@@ -14,12 +14,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/common/hooks/testing"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type PortsSuite struct {
-	testing.ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&PortsSuite{})

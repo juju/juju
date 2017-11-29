@@ -10,11 +10,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/common/hookcommands"
-	"github.com/juju/juju/worker/common/hooks/testing"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 )
 
 type statusSetSuite struct {
-	testing.ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&statusSetSuite{})
@@ -39,7 +39,7 @@ func (s *statusSetSuite) TestStatusSetInit(c *gc.C) {
 	for i, t := range statusSetInitTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
-		com, err := testing.NewCommand(hctx, "status-set", hookcommands.NewStatusSetCommand)
+		com, err := hooktesting.NewCommand(hctx, "status-set", hookcommands.NewStatusSetCommand)
 		c.Assert(err, jc.ErrorIsNil)
 		cmdtesting.TestInit(c, com, t.args, t.err)
 	}
@@ -47,7 +47,7 @@ func (s *statusSetSuite) TestStatusSetInit(c *gc.C) {
 
 func (s *statusSetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
-	com, err := testing.NewCommand(hctx, "status-set", hookcommands.NewStatusSetCommand)
+	com, err := hooktesting.NewCommand(hctx, "status-set", hookcommands.NewStatusSetCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -78,7 +78,7 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
-		com, err := testing.NewCommand(hctx, "status-set", hookcommands.NewStatusSetCommand)
+		com, err := hooktesting.NewCommand(hctx, "status-set", hookcommands.NewStatusSetCommand)
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, args)
@@ -99,7 +99,7 @@ func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
-		com, err := testing.NewCommand(hctx, "status-set", hookcommands.NewStatusSetCommand)
+		com, err := hooktesting.NewCommand(hctx, "status-set", hookcommands.NewStatusSetCommand)
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, args)

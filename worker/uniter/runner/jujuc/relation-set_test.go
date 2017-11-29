@@ -15,7 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/common/hooks/testing"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -333,17 +333,17 @@ func (s *RelationSetSuite) TestInit(c *gc.C) {
 // Tests start with a relation with the settings {"base": "value"}
 var relationSetRunTests = []struct {
 	change map[string]string
-	expect testing.Settings
+	expect hooktesting.Settings
 }{
 	{
 		map[string]string{"base": ""},
-		testing.Settings{},
+		hooktesting.Settings{},
 	}, {
 		map[string]string{"foo": "bar"},
-		testing.Settings{"base": "value", "foo": "bar"},
+		hooktesting.Settings{"base": "value", "foo": "bar"},
 	}, {
 		map[string]string{"base": "changed"},
-		testing.Settings{"base": "changed"},
+		hooktesting.Settings{"base": "changed"},
 	},
 }
 
@@ -352,9 +352,9 @@ func (s *RelationSetSuite) TestRun(c *gc.C) {
 	for i, t := range relationSetRunTests {
 		c.Logf("test %d", i)
 
-		pristine := testing.Settings{"pristine": "untouched"}
+		pristine := hooktesting.Settings{"pristine": "untouched"}
 		info.rels[0].Units["u/0"] = pristine
-		basic := testing.Settings{"base": "value"}
+		basic := hooktesting.Settings{"base": "value"}
 		info.rels[1].Units["u/0"] = basic
 
 		// Run the command.

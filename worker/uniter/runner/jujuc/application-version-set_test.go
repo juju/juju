@@ -10,17 +10,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/common/hooks/testing"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type ApplicationVersionSetSuite struct {
-	testing.ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&ApplicationVersionSetSuite{})
 
-func (s *ApplicationVersionSetSuite) createCommand(c *gc.C, err error) (*testing.FakeHookContext, cmd.Command) {
+func (s *ApplicationVersionSetSuite) createCommand(c *gc.C, err error) (*hooktesting.FakeHookContext, cmd.Command) {
 	hctx := s.GetHookContext(c, -1, "")
 	s.Stub.SetErrors(err)
 

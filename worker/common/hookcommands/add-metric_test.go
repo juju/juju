@@ -13,18 +13,18 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/common/hookcommands"
-	"github.com/juju/juju/worker/common/hooks/testing"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 )
 
 type AddMetricSuite struct {
-	testing.ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&AddMetricSuite{})
 
 func (s *AddMetricSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := testing.NewCommand(hctx, "add-metric", hookcommands.NewAddMetricCommand)
+	com, err := hooktesting.NewCommand(hctx, "add-metric", hookcommands.NewAddMetricCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -149,7 +149,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		hctx := s.GetHookContext(c, -1, "")
 		hctx.CanAddMetrics = t.canAddMetrics
-		com, err := testing.NewCommand(hctx, t.cmd[0], hookcommands.NewAddMetricCommand)
+		com, err := hooktesting.NewCommand(hctx, t.cmd[0], hookcommands.NewAddMetricCommand)
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		ret := cmd.Main(com, ctx, t.cmd[1:])

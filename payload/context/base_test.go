@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/context"
-	hooktesting "github.com/juju/juju/worker/common/hooks/testing"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 )
 
 type baseSuite struct {

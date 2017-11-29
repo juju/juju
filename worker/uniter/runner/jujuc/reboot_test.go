@@ -12,12 +12,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/common/hookcommands"
-	"github.com/juju/juju/worker/common/hooks/testing"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type JujuRebootSuite struct {
-	testing.ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&JujuRebootSuite{})
@@ -51,37 +51,37 @@ func (s *JujuRebootSuite) TestSetFlags(c *gc.C) {
 func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
 	var jujuRebootTests = []struct {
 		summary  string
-		hctx     *testing.FakeHookContext
+		hctx     *hooktesting.FakeHookContext
 		args     []string
 		code     int
 		priority hookcommands.RebootPriority
 	}{{
 		summary:  "test reboot priority defaulting to RebootAfterHook",
-		hctx:     &testing.FakeHookContext{ShouldError: false, RebootPriority: jujuc.RebootSkip},
+		hctx:     &hooktesting.FakeHookContext{ShouldError: false, RebootPriority: jujuc.RebootSkip},
 		args:     []string{},
 		code:     0,
 		priority: jujuc.RebootAfterHook,
 	}, {
 		summary:  "test reboot priority being set to RebootNow",
-		hctx:     &testing.FakeHookContext{ShouldError: false, RebootPriority: jujuc.RebootSkip},
+		hctx:     &hooktesting.FakeHookContext{ShouldError: false, RebootPriority: jujuc.RebootSkip},
 		args:     []string{"--now"},
 		code:     0,
 		priority: jujuc.RebootNow,
 	}, {
 		summary:  "test a failed running of juju-reboot",
-		hctx:     &testing.FakeHookContext{ShouldError: true, RebootPriority: jujuc.RebootSkip},
+		hctx:     &hooktesting.FakeHookContext{ShouldError: true, RebootPriority: jujuc.RebootSkip},
 		args:     []string{},
 		code:     1,
 		priority: jujuc.RebootAfterHook,
 	}, {
 		summary:  "test a failed running with parameter provided",
-		hctx:     &testing.FakeHookContext{ShouldError: true, RebootPriority: jujuc.RebootSkip},
+		hctx:     &hooktesting.FakeHookContext{ShouldError: true, RebootPriority: jujuc.RebootSkip},
 		args:     []string{"--now"},
 		code:     1,
 		priority: jujuc.RebootNow,
 	}, {
 		summary:  "test invalid args provided",
-		hctx:     &testing.FakeHookContext{ShouldError: false, RebootPriority: jujuc.RebootSkip},
+		hctx:     &hooktesting.FakeHookContext{ShouldError: false, RebootPriority: jujuc.RebootSkip},
 		args:     []string{"--way", "--too", "--many", "--args"},
 		code:     2,
 		priority: jujuc.RebootSkip,

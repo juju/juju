@@ -9,11 +9,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	hookstesting "github.com/juju/juju/worker/common/hooks/testing"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 )
 
 type NewCommandSuite struct {
-	hookstesting.ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&NewCommandSuite{})

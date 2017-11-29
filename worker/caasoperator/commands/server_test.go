@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator/commands"
-	hookstesting "github.com/juju/juju/worker/common/hooks/testing"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 )
 
 type RpcCommand struct {
@@ -242,7 +242,7 @@ func (s *ServerSuite) TestBrokenCommand(c *gc.C) {
 }
 
 type NewCommandSuite struct {
-	hookstesting.ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&NewCommandSuite{})
