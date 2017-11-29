@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -58,14 +57,15 @@ type machineData struct {
 // NewEgressAddressWatcher creates an EgressAddressWatcher.
 func NewEgressAddressWatcher(backend State, rel Relation, appName string) (*EgressAddressWatcher, error) {
 	w := &EgressAddressWatcher{
-		backend:        backend,
-		appName:        appName,
-		rel:            rel,
-		known:          make(map[string]string),
-		out:            make(chan []string),
-		addressChanges: make(chan string),
-		machines:       make(map[string]*machineData),
-		unitToMachine:  make(map[string]string),
+		backend:          backend,
+		appName:          appName,
+		rel:              rel,
+		known:            make(map[string]string),
+		out:              make(chan []string),
+		addressChanges:   make(chan string),
+		machines:         make(map[string]*machineData),
+		unitToMachine:    make(map[string]string),
+		knownModelEgress: set.NewStrings(),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -74,45 +74,9 @@ func NewEgressAddressWatcher(backend State, rel Relation, appName string) (*Egre
 	return w, err
 }
 
-func (w *EgressAddressWatcher) initialise() error {
-	app, err := w.backend.Application(w.appName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	units, err := app.AllUnits()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, u := range units {
-		inScope, err := w.rel.UnitInScope(u)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !inScope {
-			continue
-		}
-
-		addr, ok, err := w.unitAddress(u)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if ok {
-			w.known[u.Name()] = addr
-		}
-		if err := w.trackUnit(u); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	cfg, err := w.backend.ModelConfig()
-	if err != nil {
-		return err
-	}
-	w.knownModelEgress = set.NewStrings(cfg.EgressSubnets()...)
-	return nil
-}
-
 func (w *EgressAddressWatcher) loop() error {
 	defer close(w.out)
+
 	ruw, err := w.rel.WatchUnits(w.appName)
 	if errors.IsNotFound(err) {
 		return nil
@@ -131,67 +95,70 @@ func (w *EgressAddressWatcher) loop() error {
 	if err := w.catacomb.Add(mw); err != nil {
 		return errors.Trace(err)
 	}
-	// Consume initial event.
-	if _, ok := <-mw.Changes(); !ok {
-		return watcher.EnsureErr(mw)
-	}
 
 	rw := w.rel.WatchRelationEgressNetworks()
 	if err := w.catacomb.Add(rw); err != nil {
 		return errors.Trace(err)
 	}
-	// Consume initial event.
-	if networks, ok := <-rw.Changes(); !ok {
-		return watcher.EnsureErr(rw)
-	} else {
-		w.knownRelationEgress = set.NewStrings(networks...)
-	}
 
 	var (
-		sentInitial bool
-		out         chan<- []string
-		addresses   []string
+		changed       bool
+		sentInitial   bool
+		out           chan<- []string
+		addresses     set.Strings
+		lastAddresses set.Strings
+		addressesCIDR []string
 	)
-	err = w.initialise()
-	if errors.IsNotFound(err) {
-		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	unitAddressesChanged := false
-	userConfiguredEgressChanged := false
+
+	// Wait for each of the watchers started above to
+	// send an initial change before sending any changes
+	// from this watcher.
+	var haveInitialRelationUnits bool
+	var haveInitialRelationEgressNetworks bool
+	var haveInitialModelConfig bool
+
 	for {
-		if !sentInitial || unitAddressesChanged || (userConfiguredEgressChanged && len(w.known) > 0) {
-			var addressSet set.Strings
-			// Egress cidrs, if configured, override unit machine addresses.
+		var ready bool
+		if !sentInitial {
+			ready = haveInitialRelationUnits && haveInitialRelationEgressNetworks && haveInitialModelConfig
+		}
+		if ready || changed {
+			addresses = nil
 			if len(w.known) > 0 {
-				// Try relation cidrs first.
-				addressSet = set.NewStrings(w.knownRelationEgress.Values()...)
-				if addressSet.Size() == 0 {
-					// If none of those, try model cidrs.
-					addressSet = set.NewStrings(w.knownModelEgress.Values()...)
+				// Egress CIDRs, if configured, override unit
+				// machine addresses. Relation CIDRs take
+				// precedence over those specified in model
+				// config.
+				addresses = set.NewStrings(w.knownRelationEgress.Values()...)
+				if addresses.Size() == 0 {
+					addresses = set.NewStrings(w.knownModelEgress.Values()...)
 				}
-				if addressSet.Size() == 0 {
+				if addresses.Size() == 0 {
 					// No user configured egress so just use the unit addresses.
 					for _, addr := range w.known {
-						addressSet.Add(addr)
+						addresses.Add(addr)
 					}
 				}
 			}
-			unitAddressesChanged = false
-			addresses = network.FormatAsCIDR(addressSet.Values())
+			changed = false
+			if !setEquals(addresses, lastAddresses) {
+				addressesCIDR = network.FormatAsCIDR(addresses.Values())
+				ready = ready || sentInitial
+			}
+		}
+		if ready {
 			out = w.out
 		}
-		userConfiguredEgressChanged = false
 
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		// Send initial event or subsequent changes.
-		case out <- addresses:
+
+		case out <- addressesCIDR:
 			sentInitial = true
+			lastAddresses = addresses
 			out = nil
+
 		case _, ok := <-mw.Changes():
 			if !ok {
 				return w.catacomb.ErrDying()
@@ -200,25 +167,34 @@ func (w *EgressAddressWatcher) loop() error {
 			if err != nil {
 				return err
 			}
+			haveInitialModelConfig = true
 			egress := set.NewStrings(cfg.EgressSubnets()...)
-			// Have the egress addresses changed.
-			if egress.Size() != w.knownModelEgress.Size() ||
-				egress.Difference(w.knownModelEgress).Size() != 0 || w.knownModelEgress.Difference(egress).Size() != 0 {
-				// We only care about model egress changes if there's no relation specific egress.
-				userConfiguredEgressChanged = w.knownRelationEgress.Size() == 0
+			if !setEquals(egress, w.knownModelEgress) {
+				logger.Debugf(
+					"model config egress subnets changed to %s (was %s)",
+					egress.SortedValues(),
+					w.knownModelEgress.SortedValues(),
+				)
+				changed = true
 				w.knownModelEgress = egress
 			}
+
 		case changes, ok := <-rw.Changes():
 			if !ok {
 				return w.catacomb.ErrDying()
 			}
+			haveInitialRelationEgressNetworks = true
 			egress := set.NewStrings(changes...)
-			// Have the egress addresses changed.
-			if egress.Size() != w.knownRelationEgress.Size() ||
-				egress.Difference(w.knownRelationEgress).Size() != 0 || w.knownRelationEgress.Difference(egress).Size() != 0 {
-				userConfiguredEgressChanged = true
+			if !setEquals(egress, w.knownRelationEgress) {
+				logger.Debugf(
+					"relation egress subnets changed to %s (was %s)",
+					egress.SortedValues(),
+					w.knownRelationEgress.SortedValues(),
+				)
+				changed = true
 				w.knownRelationEgress = egress
 			}
+
 		case c, ok := <-ruw.Changes():
 			if !ok {
 				return w.catacomb.ErrDying()
@@ -226,20 +202,23 @@ func (w *EgressAddressWatcher) loop() error {
 			// A unit has entered or left scope.
 			// Get the new set of addresses resulting from that
 			// change, and if different to what we know, send the change.
-			unitAddressesChanged, err = w.processUnitChanges(c)
+			haveInitialRelationUnits = true
+			addressesChanged, err := w.processUnitChanges(c)
 			if err != nil {
 				return err
 			}
+			changed = changed || addressesChanged
+
 		case machineId, ok := <-w.addressChanges:
 			if !ok {
 				continue
 			}
-			unitAddressesChanged, err = w.processMachineAddresses(machineId)
+			addressesChanged, err := w.processMachineAddresses(machineId)
 			if err != nil {
 				return errors.Trace(err)
 			}
+			changed = changed || addressesChanged
 		}
-
 	}
 }
 
@@ -445,10 +424,10 @@ func (w *EgressAddressWatcher) Err() error {
 	return w.catacomb.Err()
 }
 
-func newMachineAddressWorker(machine Machine, addressChanges chan<- string) (*machineAddressWorker, error) {
+func newMachineAddressWorker(machine Machine, out chan<- string) (*machineAddressWorker, error) {
 	w := &machineAddressWorker{
-		machine:        machine,
-		addressChanges: addressChanges,
+		machine: machine,
+		out:     out,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -460,9 +439,9 @@ func newMachineAddressWorker(machine Machine, addressChanges chan<- string) (*ma
 // machineAddressWorker watches for machine address changes and
 // notifies the dest channel when it sees them.
 type machineAddressWorker struct {
-	catacomb       catacomb.Catacomb
-	machine        Machine
-	addressChanges chan<- string
+	catacomb catacomb.Catacomb
+	machine  Machine
+	out      chan<- string
 }
 
 func (w *machineAddressWorker) loop() error {
@@ -470,12 +449,16 @@ func (w *machineAddressWorker) loop() error {
 	if err := w.catacomb.Add(aw); err != nil {
 		return errors.Trace(err)
 	}
+	machineId := w.machine.Id()
+	var out chan<- string
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-aw.Changes():
-			w.addressChanges <- w.machine.Id()
+			out = w.out
+		case out <- machineId:
+			out = nil
 		}
 	}
 }
@@ -486,4 +469,11 @@ func (w *machineAddressWorker) Kill() {
 
 func (w *machineAddressWorker) Wait() error {
 	return w.catacomb.Wait()
+}
+
+func setEquals(a, b set.Strings) bool {
+	if a.Size() != b.Size() {
+		return false
+	}
+	return a.Intersection(b).Size() == a.Size()
 }

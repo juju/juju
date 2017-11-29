@@ -1387,7 +1387,7 @@ func (rd *remoteRelationData) providerEndpointLoop() error {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
 		case cidrs := <-ingressAddressWatcher.Changes():
-			logger.Debugf("relation egress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
+			logger.Debugf("relation ingress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
 			if err := rd.updateIngressNetworks(cidrs); err != nil {
 				return errors.Trace(err)
 			}

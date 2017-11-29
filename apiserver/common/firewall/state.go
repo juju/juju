@@ -52,21 +52,12 @@ type Relation interface {
 	status.StatusSetter
 	Endpoints() []state.Endpoint
 	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
-	UnitInScope(Unit) (bool, error)
 	WatchRelationIngressNetworks() state.StringsWatcher
 	WatchRelationEgressNetworks() state.StringsWatcher
 }
 
 type relationShim struct {
 	*state.Relation
-}
-
-func (r relationShim) UnitInScope(u Unit) (bool, error) {
-	ru, err := r.Relation.Unit(u.(*state.Unit))
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return ru.InScope()
 }
 
 func (st stateShim) Application(name string) (Application, error) {
@@ -79,22 +70,10 @@ func (st stateShim) Application(name string) (Application, error) {
 
 type Application interface {
 	Name() string
-	AllUnits() ([]Unit, error)
 }
 
 type applicationShim struct {
 	*state.Application
-}
-
-func (a applicationShim) AllUnits() (results []Unit, err error) {
-	units, err := a.Application.AllUnits()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, unit := range units {
-		results = append(results, unit)
-	}
-	return results, nil
 }
 
 type Unit interface {

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/tomb.v1"
@@ -268,15 +267,13 @@ type mockRelation struct {
 	ruw       *mockRelationUnitsWatcher
 	ew        *mockStringsWatcher
 	ruwApp    string
-	inScope   set.Strings
 }
 
 func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
-		id:      id,
-		ruw:     newMockRelationUnitsWatcher(),
-		ew:      newMockStringsWatcher(),
-		inScope: make(set.Strings),
+		id:  id,
+		ruw: newMockRelationUnitsWatcher(),
+		ew:  newMockStringsWatcher(),
 	}
 }
 
@@ -295,10 +292,6 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 		return nil, errors.Errorf("unexpected app %v", applicationName)
 	}
 	return r.ruw, nil
-}
-
-func (r *mockRelation) UnitInScope(u firewall.Unit) (bool, error) {
-	return r.inScope.Contains(u.Name()), nil
 }
 
 func (r *mockRelation) WatchRelationEgressNetworks() state.StringsWatcher {
