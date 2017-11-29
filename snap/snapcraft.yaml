@@ -30,6 +30,9 @@ parts:
     #source-tag: juju-2.0.2
     #source-commit: a83896d913d7e43c960e441c1e41612116d92d46
     #source-branch: develop
+    #apply patches before building
+    prepare: |
+      cat patches/*.diff | patch -f -u -p1 -r- -d ../go/src
     go-packages:
       - github.com/juju/juju/cmd/juju
       #If you are releasing a build with public streams, you don't need to build the agent
