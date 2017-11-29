@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/fortress"
@@ -326,7 +326,7 @@ func (r *dummyRecorder) AddMetric(key, value string, created time.Time) error {
 		CharmURL: r.charmURL,
 		UUID:     utils.MustNewUUID().String(),
 		Created:  then,
-		Metrics: []hooks.Metric{{
+		Metrics: []hookcommands.Metric{{
 			Key:   key,
 			Value: value,
 			Time:  then,

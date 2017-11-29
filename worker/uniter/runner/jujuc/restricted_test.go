@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -16,4 +16,4 @@ type restrictedContext struct {
 // RestrictedContext leaves out.
 func (*restrictedContext) UnitName() string { return "restricted" }
 
-var _ hooks.Context = (*restrictedContext)(nil)
+var _ hookcommands.Context = (*restrictedContext)(nil)

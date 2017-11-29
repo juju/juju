@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/relation"
-	commonhooks "github.com/juju/juju/worker/common/hooks"
+	commonhooks "github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"

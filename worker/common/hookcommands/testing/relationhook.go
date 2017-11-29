@@ -6,12 +6,12 @@ package testing
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // RelationHook holds the values for the hook context.
 type RelationHook struct {
-	HookRelation   hooks.ContextRelation
+	HookRelation   hookcommands.ContextRelation
 	RemoteUnitName string
 }
 
@@ -28,7 +28,7 @@ type ContextRelationHook struct {
 }
 
 // HookRelation implements hooks.RelationHookContext.
-func (c *ContextRelationHook) HookRelation() (hooks.ContextRelation, error) {
+func (c *ContextRelationHook) HookRelation() (hookcommands.ContextRelation, error) {
 	c.stub.AddCall("HookRelation")
 	var err error
 	if c.info.HookRelation == nil {

@@ -23,7 +23,7 @@ import (
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")
@@ -32,50 +32,50 @@ var logger = loggo.GetLogger("worker.uniter.jujuc")
 // stdin, and none is supplied.
 var ErrNoStdin = errors.New("hook tool requires stdin, none supplied")
 
-var registeredCommands = map[string]hooks.NewCommandFunc{}
+var registeredCommands = map[string]hookcommands.NewCommandFunc{}
 
-func RegisterCommand(name string, f hooks.NewCommandFunc) {
-	registeredCommands[name+hooks.CmdSuffix] = f
+func RegisterCommand(name string, f hookcommands.NewCommandFunc) {
+	registeredCommands[name+hookcommands.CmdSuffix] = f
 }
 
 // baseCommands maps Command names to creators.
-var baseCommands = map[string]hooks.NewCommandFunc{
-	"close-port" + hooks.CmdSuffix:              NewClosePortCommand,
-	"config-get" + hooks.CmdSuffix:              NewConfigGetCommand,
-	"juju-log" + hooks.CmdSuffix:                NewJujuLogCommand,
-	"open-port" + hooks.CmdSuffix:               NewOpenPortCommand,
-	"opened-ports" + hooks.CmdSuffix:            NewOpenedPortsCommand,
-	"relation-get" + hooks.CmdSuffix:            NewRelationGetCommand,
-	"action-get" + hooks.CmdSuffix:              NewActionGetCommand,
-	"action-set" + hooks.CmdSuffix:              NewActionSetCommand,
-	"action-fail" + hooks.CmdSuffix:             NewActionFailCommand,
-	"relation-ids" + hooks.CmdSuffix:            NewRelationIdsCommand,
-	"relation-list" + hooks.CmdSuffix:           NewRelationListCommand,
-	"relation-set" + hooks.CmdSuffix:            NewRelationSetCommand,
-	"unit-get" + hooks.CmdSuffix:                NewUnitGetCommand,
-	"add-metric" + hooks.CmdSuffix:              hooks.NewAddMetricCommand,
-	"juju-reboot" + hooks.CmdSuffix:             NewJujuRebootCommand,
-	"status-get" + hooks.CmdSuffix:              hooks.NewStatusGetCommand,
-	"status-set" + hooks.CmdSuffix:              hooks.NewStatusSetCommand,
-	"network-get" + hooks.CmdSuffix:             NewNetworkGetCommand,
-	"application-version-set" + hooks.CmdSuffix: NewApplicationVersionSetCommand,
+var baseCommands = map[string]hookcommands.NewCommandFunc{
+	"close-port" + hookcommands.CmdSuffix:              NewClosePortCommand,
+	"config-get" + hookcommands.CmdSuffix:              NewConfigGetCommand,
+	"juju-log" + hookcommands.CmdSuffix:                NewJujuLogCommand,
+	"open-port" + hookcommands.CmdSuffix:               NewOpenPortCommand,
+	"opened-ports" + hookcommands.CmdSuffix:            NewOpenedPortsCommand,
+	"relation-get" + hookcommands.CmdSuffix:            NewRelationGetCommand,
+	"action-get" + hookcommands.CmdSuffix:              NewActionGetCommand,
+	"action-set" + hookcommands.CmdSuffix:              NewActionSetCommand,
+	"action-fail" + hookcommands.CmdSuffix:             NewActionFailCommand,
+	"relation-ids" + hookcommands.CmdSuffix:            NewRelationIdsCommand,
+	"relation-list" + hookcommands.CmdSuffix:           NewRelationListCommand,
+	"relation-set" + hookcommands.CmdSuffix:            NewRelationSetCommand,
+	"unit-get" + hookcommands.CmdSuffix:                NewUnitGetCommand,
+	"add-metric" + hookcommands.CmdSuffix:              hookcommands.NewAddMetricCommand,
+	"juju-reboot" + hookcommands.CmdSuffix:             NewJujuRebootCommand,
+	"status-get" + hookcommands.CmdSuffix:              hookcommands.NewStatusGetCommand,
+	"status-set" + hookcommands.CmdSuffix:              hookcommands.NewStatusSetCommand,
+	"network-get" + hookcommands.CmdSuffix:             NewNetworkGetCommand,
+	"application-version-set" + hookcommands.CmdSuffix: NewApplicationVersionSetCommand,
 }
 
-var storageCommands = map[string]hooks.NewCommandFunc{
-	"storage-add" + hooks.CmdSuffix:  NewStorageAddCommand,
-	"storage-get" + hooks.CmdSuffix:  NewStorageGetCommand,
-	"storage-list" + hooks.CmdSuffix: NewStorageListCommand,
+var storageCommands = map[string]hookcommands.NewCommandFunc{
+	"storage-add" + hookcommands.CmdSuffix:  NewStorageAddCommand,
+	"storage-get" + hookcommands.CmdSuffix:  NewStorageGetCommand,
+	"storage-list" + hookcommands.CmdSuffix: NewStorageListCommand,
 }
 
-var leaderCommands = map[string]hooks.NewCommandFunc{
-	"is-leader" + hooks.CmdSuffix:  NewIsLeaderCommand,
-	"leader-get" + hooks.CmdSuffix: NewLeaderGetCommand,
-	"leader-set" + hooks.CmdSuffix: NewLeaderSetCommand,
+var leaderCommands = map[string]hookcommands.NewCommandFunc{
+	"is-leader" + hookcommands.CmdSuffix:  NewIsLeaderCommand,
+	"leader-get" + hookcommands.CmdSuffix: NewLeaderGetCommand,
+	"leader-set" + hookcommands.CmdSuffix: NewLeaderSetCommand,
 }
 
-func allEnabledCommands() map[string]hooks.NewCommandFunc {
-	all := map[string]hooks.NewCommandFunc{}
-	add := func(m map[string]hooks.NewCommandFunc) {
+func allEnabledCommands() map[string]hookcommands.NewCommandFunc {
+	all := map[string]hookcommands.NewCommandFunc{}
+	add := func(m map[string]hookcommands.NewCommandFunc) {
 		for k, v := range m {
 			all[k] = v
 		}
@@ -98,8 +98,8 @@ func CommandNames() (names []string) {
 
 // NewCommand returns an instance of the named Command, initialized to execute
 // against the supplied Context.
-func NewCommand(ctx hooks.Context, name string) (cmd.Command, error) {
-	return hooks.NewCommand(ctx, name, allEnabledCommands)
+func NewCommand(ctx hookcommands.Context, name string) (cmd.Command, error) {
+	return hookcommands.NewCommand(ctx, name, allEnabledCommands)
 }
 
 // Request contains the information necessary to run a Command remotely.

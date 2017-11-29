@@ -13,24 +13,24 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 func cmdString(cmd string) string {
-	return cmd + hooks.CmdSuffix
+	return cmd + hookcommands.CmdSuffix
 }
 
-func namedCommandsFunc(name string, f hooks.NewCommandFunc) hooks.EnabledCommandsFunc {
-	return func() map[string]hooks.NewCommandFunc {
-		return map[string]hooks.NewCommandFunc{
+func namedCommandsFunc(name string, f hookcommands.NewCommandFunc) hookcommands.EnabledCommandsFunc {
+	return func() map[string]hookcommands.NewCommandFunc {
+		return map[string]hookcommands.NewCommandFunc{
 			name: f,
 		}
 	}
 }
 
-func NewCommand(ctx *FakeHookContext, name string, f hooks.NewCommandFunc) (cmd.Command, error) {
+func NewCommand(ctx *FakeHookContext, name string, f hookcommands.NewCommandFunc) (cmd.Command, error) {
 	name = cmdString(name)
-	return hooks.NewCommand(ctx, name, namedCommandsFunc(name, f))
+	return hookcommands.NewCommand(ctx, name, namedCommandsFunc(name, f))
 }
 
 type ContextSuite struct {
@@ -88,13 +88,13 @@ func (s *ContextSuite) GetStatusHookContext(c *gc.C) *FakeHookContext {
 }
 
 type FakeHookContext struct {
-	hooks.Context
+	hookcommands.Context
 
 	Info          *ContextInfo
-	Metrics       []hooks.Metric
+	Metrics       []hookcommands.Metric
 	CanAddMetrics bool
 
-	RebootPriority hooks.RebootPriority
+	RebootPriority hookcommands.RebootPriority
 	ShouldError    bool
 }
 
@@ -102,7 +102,7 @@ func (c *FakeHookContext) AddMetric(key, value string, created time.Time) error 
 	if !c.CanAddMetrics {
 		return fmt.Errorf("metrics disabled")
 	}
-	c.Metrics = append(c.Metrics, hooks.Metric{
+	c.Metrics = append(c.Metrics, hookcommands.Metric{
 		Key:   key,
 		Value: value,
 		Time:  created,
@@ -110,7 +110,7 @@ func (c *FakeHookContext) AddMetric(key, value string, created time.Time) error 
 	return c.Context.AddMetric(key, value, created)
 }
 
-func (c *FakeHookContext) RequestReboot(priority hooks.RebootPriority) error {
+func (c *FakeHookContext) RequestReboot(priority hookcommands.RebootPriority) error {
 	c.RebootPriority = priority
 	if c.ShouldError {
 		return fmt.Errorf("RequestReboot error!")

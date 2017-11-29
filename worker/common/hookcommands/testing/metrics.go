@@ -8,17 +8,17 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // Metrics holds the values for the hook sub-context.
 type Metrics struct {
-	Metrics []hooks.Metric
+	Metrics []hookcommands.Metric
 }
 
 // AddMetric adds a Metric for the provided data.
 func (m *Metrics) AddMetric(key, value string, created time.Time) {
-	m.Metrics = append(m.Metrics, hooks.Metric{
+	m.Metrics = append(m.Metrics, hookcommands.Metric{
 		Key:   key,
 		Value: value,
 		Time:  created,

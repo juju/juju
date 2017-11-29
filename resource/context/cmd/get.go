@@ -9,14 +9,14 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // GetCmdName is the name of the resource-get command.
 const GetCmdName = "resource-get"
 
 // NewGetCmd creates a new GetCmd for the given hook context.
-func NewGetCmd(c hooks.ContextComponent) (*GetCmd, error) {
+func NewGetCmd(c hookcommands.ContextComponent) (*GetCmd, error) {
 	return &GetCmd{
 		compContext: c,
 	}, nil
@@ -26,7 +26,7 @@ func NewGetCmd(c hooks.ContextComponent) (*GetCmd, error) {
 type GetCmd struct {
 	cmd.CommandBase
 
-	compContext  hooks.ContextComponent
+	compContext  hookcommands.ContextComponent
 	resourceName string
 }
 

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // StorageListCommand implements the storage-list command.
@@ -17,12 +17,12 @@ import (
 // StorageListCommand implements cmd.Command.
 type StorageListCommand struct {
 	cmd.CommandBase
-	ctx         hooks.Context
+	ctx         hookcommands.Context
 	out         cmd.Output
 	storageName string
 }
 
-func NewStorageListCommand(ctx hooks.Context) (cmd.Command, error) {
+func NewStorageListCommand(ctx hookcommands.Context) (cmd.Command, error) {
 	return &StorageListCommand{ctx: ctx}, nil
 }
 

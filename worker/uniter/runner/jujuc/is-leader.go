@@ -8,18 +8,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // isLeaderCommand implements the is-leader command.
 type isLeaderCommand struct {
 	cmd.CommandBase
-	ctx hooks.Context
+	ctx hookcommands.Context
 	out cmd.Output
 }
 
 // NewIsLeaderCommand returns a new isLeaderCommand with the given context.
-func NewIsLeaderCommand(ctx hooks.Context) (cmd.Command, error) {
+func NewIsLeaderCommand(ctx hookcommands.Context) (cmd.Command, error) {
 	return &isLeaderCommand{ctx: ctx}, nil
 }
 

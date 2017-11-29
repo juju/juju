@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
@@ -119,7 +119,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 
 func (s *HookContextSuite) GetContext(
 	c *gc.C, relId int, remoteName string,
-) hooks.Context {
+) hookcommands.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return s.getHookContext(

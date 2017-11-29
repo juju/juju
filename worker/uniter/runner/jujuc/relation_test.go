@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 	hookstesting "github.com/juju/juju/worker/common/hooks/testing"
 )
 
@@ -16,7 +16,7 @@ type relationSuite struct {
 	hookstesting.ContextSuite
 }
 
-func (s *relationSuite) newHookContext(relid int, remote string) (hooks.Context, *relationInfo) {
+func (s *relationSuite) newHookContext(relid int, remote string) (hookcommands.Context, *relationInfo) {
 	hctx, info := s.ContextSuite.NewHookContextAndInfo()
 	rInfo := &relationInfo{ContextInfo: info, stub: s.Stub}
 	settings := hookstesting.Settings{

@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/common/hooks/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -54,7 +54,7 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
 		hctx     *testing.FakeHookContext
 		args     []string
 		code     int
-		priority hooks.RebootPriority
+		priority hookcommands.RebootPriority
 	}{{
 		summary:  "test reboot priority defaulting to RebootAfterHook",
 		hctx:     &testing.FakeHookContext{ShouldError: false, RebootPriority: jujuc.RebootSkip},

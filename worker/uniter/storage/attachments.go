@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
-	commonhooks "github.com/juju/juju/worker/common/hooks"
+	commonhooks "github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/hook"
 )
 

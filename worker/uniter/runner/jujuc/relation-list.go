@@ -10,22 +10,22 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // RelationListCommand implements the relation-list command.
 type RelationListCommand struct {
 	cmd.CommandBase
-	ctx             hooks.Context
+	ctx             hookcommands.Context
 	RelationId      int
 	relationIdProxy gnuflag.Value
 	out             cmd.Output
 }
 
-func NewRelationListCommand(ctx hooks.Context) (cmd.Command, error) {
+func NewRelationListCommand(ctx hookcommands.Context) (cmd.Command, error) {
 	c := &RelationListCommand{ctx: ctx}
 
-	rV, err := hooks.NewRelationIdValue(c.ctx, &c.RelationId)
+	rV, err := hookcommands.NewRelationIdValue(c.ctx, &c.RelationId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -9,12 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // Relations holds the values for the hook context.
 type Relations struct {
-	Relations map[int]hooks.ContextRelation
+	Relations map[int]hookcommands.ContextRelation
 }
 
 // Reset clears the Relations data.
@@ -23,9 +23,9 @@ func (r *Relations) Reset() {
 }
 
 // SetRelation adds the relation to the set of known relations.
-func (r *Relations) SetRelation(id int, relCtx hooks.ContextRelation) {
+func (r *Relations) SetRelation(id int, relCtx hookcommands.ContextRelation) {
 	if r.Relations == nil {
-		r.Relations = make(map[int]hooks.ContextRelation)
+		r.Relations = make(map[int]hookcommands.ContextRelation)
 	}
 	r.Relations[id] = relCtx
 }
@@ -59,7 +59,7 @@ type ContextRelations struct {
 }
 
 // Relation implements hooks..ContextRelations.
-func (c *ContextRelations) Relation(id int) (hooks.ContextRelation, error) {
+func (c *ContextRelations) Relation(id int) (hookcommands.ContextRelation, error) {
 	c.stub.AddCall("Relation", id)
 
 	r, ok := c.info.Relations[id]

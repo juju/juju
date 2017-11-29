@@ -7,18 +7,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // Components holds the values for the hook context.
 type Components struct {
-	Components map[string]hooks.ContextComponent
+	Components map[string]hookcommands.ContextComponent
 }
 
 // SetComponent sets the component on the registry.
-func (c *Components) SetComponent(name string, comp hooks.ContextComponent) {
+func (c *Components) SetComponent(name string, comp hookcommands.ContextComponent) {
 	if c.Components == nil {
-		c.Components = make(map[string]hooks.ContextComponent)
+		c.Components = make(map[string]hookcommands.ContextComponent)
 	}
 	c.Components[name] = comp
 }
@@ -41,7 +41,7 @@ type ContextComponents struct {
 }
 
 // ContextComponents implements hooks.ContextComponents.
-func (cc ContextComponents) Component(name string) (hooks.ContextComponent, error) {
+func (cc ContextComponents) Component(name string) (hookcommands.ContextComponent, error) {
 	cc.stub.AddCall("Component", name)
 	if err := cc.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

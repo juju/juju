@@ -13,23 +13,23 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // Storage holds the values for the hook context.
 type Storage struct {
-	Storage    map[names.StorageTag]hooks.ContextStorageAttachment
+	Storage    map[names.StorageTag]hookcommands.ContextStorageAttachment
 	StorageTag names.StorageTag
 	Added      map[string]params.StorageConstraints
 }
 
 // SetAttachment adds the attachment to the storage.
-func (s *Storage) SetAttachment(attach hooks.ContextStorageAttachment) {
-	if attach == nil || attach == hooks.ContextStorageAttachment(nil) {
+func (s *Storage) SetAttachment(attach hookcommands.ContextStorageAttachment) {
+	if attach == nil || attach == hookcommands.ContextStorageAttachment(nil) {
 		return
 	}
 	if s.Storage == nil {
-		s.Storage = make(map[names.StorageTag]hooks.ContextStorageAttachment)
+		s.Storage = make(map[names.StorageTag]hookcommands.ContextStorageAttachment)
 	}
 	s.Storage[attach.Tag()] = attach
 }
@@ -98,7 +98,7 @@ func (c *ContextStorage) StorageTags() ([]names.StorageTag, error) {
 }
 
 // Storage implements hooks.ContextStorage.
-func (c *ContextStorage) Storage(tag names.StorageTag) (hooks.ContextStorageAttachment, error) {
+func (c *ContextStorage) Storage(tag names.StorageTag) (hookcommands.ContextStorageAttachment, error) {
 	c.stub.AddCall("Storage")
 
 	storage, ok := c.info.Storage[tag]
@@ -111,7 +111,7 @@ func (c *ContextStorage) Storage(tag names.StorageTag) (hooks.ContextStorageAtta
 }
 
 // HookStorage implements hooks.ContextStorage.
-func (c *ContextStorage) HookStorage() (hooks.ContextStorageAttachment, error) {
+func (c *ContextStorage) HookStorage() (hookcommands.ContextStorageAttachment, error) {
 	c.stub.AddCall("HookStorage")
 
 	return c.Storage(c.info.StorageTag)

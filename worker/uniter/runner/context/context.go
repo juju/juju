@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -69,7 +69,7 @@ type ComponentConfig struct {
 }
 
 // ComponentFunc is a factory function for Context components.
-type ComponentFunc func(ComponentConfig) (hooks.ContextComponent, error)
+type ComponentFunc func(ComponentConfig) (hookcommands.ContextComponent, error)
 
 var registeredComponentFuncs = map[string]ComponentFunc{}
 
@@ -142,7 +142,7 @@ type HookContext struct {
 	unitName string
 
 	// status is the status of the local unit.
-	status *hooks.StatusInfo
+	status *hookcommands.StatusInfo
 
 	// relationId identifies the relation for which a relation hook is
 	// executing. If it is -1, the context is not running a relation hook;
@@ -186,7 +186,7 @@ type HookContext struct {
 
 	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is hooks.RebootNow
 	// the hook will be killed and requeued
-	rebootPriority hooks.RebootPriority
+	rebootPriority hookcommands.RebootPriority
 
 	// storage provides access to the information about storage attached to the unit.
 	storage StorageContextAccessor
@@ -218,7 +218,7 @@ type HookContext struct {
 }
 
 // Component implements hooks.Context.
-func (ctx *HookContext) Component(name string) (hooks.ContextComponent, error) {
+func (ctx *HookContext) Component(name string) (hookcommands.ContextComponent, error) {
 	compCtxFunc, ok := ctx.componentFuncs[name]
 	if !ok {
 		return nil, errors.NotFoundf("context component %q", name)
@@ -237,7 +237,7 @@ func (ctx *HookContext) Component(name string) (hooks.ContextComponent, error) {
 	return compCtx, nil
 }
 
-func (ctx *HookContext) RequestReboot(priority hooks.RebootPriority) error {
+func (ctx *HookContext) RequestReboot(priority hookcommands.RebootPriority) error {
 	// Must set reboot priority first, because killing the hook
 	// process will trigger the completion of the hook. If killing
 	// the hook fails, then we can reset the priority.
@@ -258,13 +258,13 @@ func (ctx *HookContext) RequestReboot(priority hooks.RebootPriority) error {
 	return err
 }
 
-func (ctx *HookContext) GetRebootPriority() hooks.RebootPriority {
+func (ctx *HookContext) GetRebootPriority() hookcommands.RebootPriority {
 	mutex.Lock()
 	defer mutex.Unlock()
 	return ctx.rebootPriority
 }
 
-func (ctx *HookContext) SetRebootPriority(priority hooks.RebootPriority) {
+func (ctx *HookContext) SetRebootPriority(priority hookcommands.RebootPriority) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	ctx.rebootPriority = priority
@@ -291,14 +291,14 @@ func (ctx *HookContext) UnitName() string {
 }
 
 // UnitStatus will return the status for the current Unit.
-func (ctx *HookContext) UnitStatus() (*hooks.StatusInfo, error) {
+func (ctx *HookContext) UnitStatus() (*hookcommands.StatusInfo, error) {
 	if ctx.status == nil {
 		var err error
 		status, err := ctx.unit.UnitStatus()
 		if err != nil {
 			return nil, err
 		}
-		ctx.status = &hooks.StatusInfo{
+		ctx.status = &hookcommands.StatusInfo{
 			Status: string(status.Status),
 			Info:   status.Info,
 			Data:   status.Data,
@@ -310,27 +310,27 @@ func (ctx *HookContext) UnitStatus() (*hooks.StatusInfo, error) {
 // ApplicationStatus returns the status for the application and all the units on
 // the service to which this context unit belongs, only if this unit is
 // the leader.
-func (ctx *HookContext) ApplicationStatus() (hooks.ApplicationStatusInfo, error) {
+func (ctx *HookContext) ApplicationStatus() (hookcommands.ApplicationStatusInfo, error) {
 	var err error
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
-		return hooks.ApplicationStatusInfo{}, errors.Annotatef(err, "cannot determine leadership")
+		return hookcommands.ApplicationStatusInfo{}, errors.Annotatef(err, "cannot determine leadership")
 	}
 	if !isLeader {
-		return hooks.ApplicationStatusInfo{}, ErrIsNotLeader
+		return hookcommands.ApplicationStatusInfo{}, ErrIsNotLeader
 	}
 	service, err := ctx.unit.Application()
 	if err != nil {
-		return hooks.ApplicationStatusInfo{}, errors.Trace(err)
+		return hookcommands.ApplicationStatusInfo{}, errors.Trace(err)
 	}
 	status, err := service.Status(ctx.unit.Name())
 	if err != nil {
-		return hooks.ApplicationStatusInfo{}, errors.Trace(err)
+		return hookcommands.ApplicationStatusInfo{}, errors.Trace(err)
 	}
-	us := make([]hooks.StatusInfo, len(status.Units))
+	us := make([]hookcommands.StatusInfo, len(status.Units))
 	i := 0
 	for t, s := range status.Units {
-		us[i] = hooks.StatusInfo{
+		us[i] = hookcommands.StatusInfo{
 			Tag:    t,
 			Status: string(s.Status),
 			Info:   s.Info,
@@ -338,8 +338,8 @@ func (ctx *HookContext) ApplicationStatus() (hooks.ApplicationStatusInfo, error)
 		}
 		i++
 	}
-	return hooks.ApplicationStatusInfo{
-		Application: hooks.StatusInfo{
+	return hookcommands.ApplicationStatusInfo{
+		Application: hookcommands.StatusInfo{
 			Tag:    service.Tag().String(),
 			Status: string(status.Application.Status),
 			Info:   status.Application.Info,
@@ -350,7 +350,7 @@ func (ctx *HookContext) ApplicationStatus() (hooks.ApplicationStatusInfo, error)
 }
 
 // SetUnitStatus will set the given status for this unit.
-func (ctx *HookContext) SetUnitStatus(unitStatus hooks.StatusInfo) error {
+func (ctx *HookContext) SetUnitStatus(unitStatus hookcommands.StatusInfo) error {
 	ctx.hasRunStatusSet = true
 	logger.Tracef("[WORKLOAD-STATUS] %s: %s", unitStatus.Status, unitStatus.Info)
 	return ctx.unit.SetUnitStatus(
@@ -362,7 +362,7 @@ func (ctx *HookContext) SetUnitStatus(unitStatus hooks.StatusInfo) error {
 
 // SetApplicationStatus will set the given status to the service to which this
 // unit's belong, only if this unit is the leader.
-func (ctx *HookContext) SetApplicationStatus(serviceStatus hooks.StatusInfo) error {
+func (ctx *HookContext) SetApplicationStatus(serviceStatus hookcommands.StatusInfo) error {
 	logger.Tracef("[APPLICATION-STATUS] %s: %s", serviceStatus.Status, serviceStatus.Info)
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
@@ -417,11 +417,11 @@ func (ctx *HookContext) StorageTags() ([]names.StorageTag, error) {
 	return ctx.storage.StorageTags()
 }
 
-func (ctx *HookContext) HookStorage() (hooks.ContextStorageAttachment, error) {
+func (ctx *HookContext) HookStorage() (hookcommands.ContextStorageAttachment, error) {
 	return ctx.Storage(ctx.storageTag)
 }
 
-func (ctx *HookContext) Storage(tag names.StorageTag) (hooks.ContextStorageAttachment, error) {
+func (ctx *HookContext) Storage(tag names.StorageTag) (hookcommands.ContextStorageAttachment, error) {
 	return ctx.storage.Storage(tag)
 }
 
@@ -529,7 +529,7 @@ func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
 	return nil
 }
 
-func (ctx *HookContext) HookRelation() (hooks.ContextRelation, error) {
+func (ctx *HookContext) HookRelation() (hookcommands.ContextRelation, error) {
 	return ctx.Relation(ctx.relationId)
 }
 
@@ -540,7 +540,7 @@ func (ctx *HookContext) RemoteUnitName() (string, error) {
 	return ctx.remoteUnitName, nil
 }
 
-func (ctx *HookContext) Relation(id int) (hooks.ContextRelation, error) {
+func (ctx *HookContext) Relation(id int) (hookcommands.ContextRelation, error) {
 	r, found := ctx.relations[id]
 	if !found {
 		return nil, errors.NotFoundf("relation")

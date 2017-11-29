@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package hooks_test
+package hookcommands_test
 
 import (
 	"encoding/json"
@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/common/hooks/testing"
 )
 
@@ -46,7 +46,7 @@ var statusGetTests = []struct {
 }
 
 func setFakeStatus(ctx *testing.FakeHookContext) {
-	ctx.SetUnitStatus(hooks.StatusInfo{
+	ctx.SetUnitStatus(hookcommands.StatusInfo{
 		Status: statusAttributes["status"].(string),
 		Info:   statusAttributes["message"].(string),
 		Data:   statusAttributes["status-data"].(map[string]interface{}),
@@ -55,12 +55,12 @@ func setFakeStatus(ctx *testing.FakeHookContext) {
 
 func setFakeServiceStatus(ctx *testing.FakeHookContext) {
 	ctx.Info.Status.SetApplicationStatus(
-		hooks.StatusInfo{
+		hookcommands.StatusInfo{
 			Status: "active",
 			Info:   "this is a application status",
 			Data:   nil,
 		},
-		[]hooks.StatusInfo{{
+		[]hookcommands.StatusInfo{{
 			Status: "active",
 			Info:   "this is a unit status",
 			Data:   nil,
@@ -73,7 +73,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
 		setFakeStatus(hctx)
-		com, err := testing.NewCommand(hctx, "status-get", hooks.NewStatusGetCommand)
+		com, err := testing.NewCommand(hctx, "status-get", hookcommands.NewStatusGetCommand)
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -98,7 +98,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 
 func (s *statusGetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
-	com, err := testing.NewCommand(hctx, "status-get", hooks.NewStatusGetCommand)
+	com, err := testing.NewCommand(hctx, "status-get", hookcommands.NewStatusGetCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -130,7 +130,7 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
 	setFakeStatus(hctx)
-	com, err := testing.NewCommand(hctx, "status-get", hooks.NewStatusGetCommand)
+	com, err := testing.NewCommand(hctx, "status-get", hookcommands.NewStatusGetCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--format", "json", "--output", "some-file", "--include-data"})
@@ -161,7 +161,7 @@ func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
 	}
 	hctx := s.GetStatusHookContext(c)
 	setFakeServiceStatus(hctx)
-	com, err := testing.NewCommand(hctx, "status-get", hooks.NewStatusGetCommand)
+	com, err := testing.NewCommand(hctx, "status-get", hookcommands.NewStatusGetCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--format", "json", "--include-data", "--application"})

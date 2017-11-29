@@ -18,11 +18,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker/common/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 var logger = loggo.GetLogger("worker.caasoperator.commands")
@@ -33,8 +33,8 @@ var ErrNoStdin = errors.New("hook tool requires stdin, none supplied")
 
 // NewCommand returns an instance of the named Command, initialized to execute
 // against the supplied Context.
-func NewCommand(ctx hooks.Context, name string) (cmd.Command, error) {
-	return hooks.NewCommand(ctx, name, allEnabledCommands)
+func NewCommand(ctx hookcommands.Context, name string) (cmd.Command, error) {
+	return hookcommands.NewCommand(ctx, name, allEnabledCommands)
 }
 
 // Request contains the information necessary to run a Command remotely.

@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
-	commonhooks "github.com/juju/juju/worker/common/hooks"
+	commonhooks "github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"

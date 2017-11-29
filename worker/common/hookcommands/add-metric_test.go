@@ -1,7 +1,7 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package hooks_test
+package hookcommands_test
 
 import (
 	"sort"
@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/common/hooks/testing"
 )
 
@@ -24,7 +24,7 @@ var _ = gc.Suite(&AddMetricSuite{})
 
 func (s *AddMetricSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := testing.NewCommand(hctx, "add-metric", hooks.NewAddMetricCommand)
+	com, err := testing.NewCommand(hctx, "add-metric", hookcommands.NewAddMetricCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -46,7 +46,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		result        int
 		stdout        string
 		stderr        string
-		expect        []hooks.Metric
+		expect        []hookcommands.Metric
 	}{
 		{
 			"add single metric",
@@ -55,7 +55,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			0,
 			"",
 			"",
-			[]hooks.Metric{{"key", "50", time.Now()}},
+			[]hookcommands.Metric{{"key", "50", time.Now()}},
 		}, {
 			"no parameters error",
 			[]string{"add-metric"},
@@ -111,7 +111,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			0,
 			"",
 			"",
-			[]hooks.Metric{{"key", "60", time.Now()}, {"key2", "50.4", time.Now()}},
+			[]hookcommands.Metric{{"key", "60", time.Now()}, {"key2", "50.4", time.Now()}},
 		}, {
 			"multiple metrics, matching keys",
 			[]string{"add-metric", "key=60", "key=50.4"},
@@ -127,7 +127,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			0,
 			"",
 			"",
-			[]hooks.Metric{{"key", "60", time.Now()}, {"key2", "30", time.Now()}, {"key3", "15", time.Now()}},
+			[]hookcommands.Metric{{"key", "60", time.Now()}, {"key2", "30", time.Now()}, {"key3", "15", time.Now()}},
 		}, {
 			"can't add metrics",
 			[]string{"add-metric", "key=60", "key2=50.4"},
@@ -149,7 +149,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		hctx := s.GetHookContext(c, -1, "")
 		hctx.CanAddMetrics = t.canAddMetrics
-		com, err := testing.NewCommand(hctx, t.cmd[0], hooks.NewAddMetricCommand)
+		com, err := testing.NewCommand(hctx, t.cmd[0], hookcommands.NewAddMetricCommand)
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		ret := cmd.Main(com, ctx, t.cmd[1:])
@@ -168,7 +168,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 	}
 }
 
-type SortedMetrics []hooks.Metric
+type SortedMetrics []hookcommands.Metric
 
 func (m SortedMetrics) Len() int           { return len(m) }
 func (m SortedMetrics) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }

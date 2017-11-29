@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 const (
@@ -25,5 +25,5 @@ func bufferString(w io.Writer) string {
 }
 
 func cmdString(cmd string) string {
-	return cmd + hooks.CmdSuffix
+	return cmd + hookcommands.CmdSuffix
 }

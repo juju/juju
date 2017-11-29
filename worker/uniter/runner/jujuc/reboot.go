@@ -9,12 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 const (
 	// RebootSkip is a noop.
-	RebootSkip hooks.RebootPriority = iota
+	RebootSkip hookcommands.RebootPriority = iota
 	// RebootAfterHook means wait for current hook to finish before
 	// rebooting.
 	RebootAfterHook
@@ -26,11 +26,11 @@ const (
 // JujuRebootCommand implements the juju-reboot command.
 type JujuRebootCommand struct {
 	cmd.CommandBase
-	ctx hooks.Context
+	ctx hookcommands.Context
 	Now bool
 }
 
-func NewJujuRebootCommand(ctx hooks.Context) (cmd.Command, error) {
+func NewJujuRebootCommand(ctx hookcommands.Context) (cmd.Command, error) {
 	return &JujuRebootCommand{ctx: ctx}, nil
 }
 

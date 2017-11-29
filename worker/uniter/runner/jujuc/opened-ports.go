@@ -7,17 +7,17 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // OpenedPortsCommand implements the opened-ports command.
 type OpenedPortsCommand struct {
 	cmd.CommandBase
-	ctx hooks.Context
+	ctx hookcommands.Context
 	out cmd.Output
 }
 
-func NewOpenedPortsCommand(ctx hooks.Context) (cmd.Command, error) {
+func NewOpenedPortsCommand(ctx hookcommands.Context) (cmd.Command, error) {
 	return &OpenedPortsCommand{ctx: ctx}, nil
 }
 

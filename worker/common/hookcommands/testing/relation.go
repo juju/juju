@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // Relation holds the data for the test double.
@@ -70,7 +70,7 @@ func (r *ContextRelation) FakeId() string {
 }
 
 // Settings implements hooks.ContextRelation.
-func (r *ContextRelation) Settings() (hooks.Settings, error) {
+func (r *ContextRelation) Settings() (hookcommands.Settings, error) {
 	r.stub.AddCall("Settings")
 	if err := r.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

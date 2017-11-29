@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/resource/context"
 	contextcmd "github.com/juju/juju/resource/context/cmd"
 	"github.com/juju/juju/resource/resourceadapters"
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -64,7 +64,7 @@ func (r resources) registerHookContext() {
 
 	unitercontext.RegisterComponentFunc(
 		resource.ComponentName,
-		func(config unitercontext.ComponentConfig) (hooks.ContextComponent, error) {
+		func(config unitercontext.ComponentConfig) (hookcommands.ContextComponent, error) {
 			unitID := names.NewUnitTag(config.UnitName).String()
 			hctxClient, err := r.newUnitFacadeClient(unitID, config.APICaller)
 			if err != nil {
@@ -85,7 +85,7 @@ func (r resources) registerHookContextCommands() {
 
 	jujuc.RegisterCommand(
 		contextcmd.GetCmdName,
-		func(ctx hooks.Context) (jujucmd.Command, error) {
+		func(ctx hookcommands.Context) (jujucmd.Command, error) {
 			compCtx, err := ctx.Component(resource.ComponentName)
 			if err != nil {
 				return nil, errors.Trace(err)

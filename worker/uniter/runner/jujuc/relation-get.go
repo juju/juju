@@ -11,13 +11,13 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // RelationGetCommand implements the relation-get command.
 type RelationGetCommand struct {
 	cmd.CommandBase
-	ctx hooks.Context
+	ctx hookcommands.Context
 
 	RelationId      int
 	relationIdProxy gnuflag.Value
@@ -27,10 +27,10 @@ type RelationGetCommand struct {
 	out      cmd.Output
 }
 
-func NewRelationGetCommand(ctx hooks.Context) (cmd.Command, error) {
+func NewRelationGetCommand(ctx hookcommands.Context) (cmd.Command, error) {
 	var err error
 	cmd := &RelationGetCommand{ctx: ctx}
-	cmd.relationIdProxy, err = hooks.NewRelationIdValue(ctx, &cmd.RelationId)
+	cmd.relationIdProxy, err = hookcommands.NewRelationIdValue(ctx, &cmd.RelationId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

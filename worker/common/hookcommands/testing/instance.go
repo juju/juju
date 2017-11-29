@@ -6,13 +6,13 @@ package testing
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // Instance holds the values for the hook context.
 type Instance struct {
 	AvailabilityZone string
-	RebootPriority   *hooks.RebootPriority
+	RebootPriority   *hookcommands.RebootPriority
 }
 
 // ContextInstance is a test double for hooks.ContextInstance.
@@ -29,7 +29,7 @@ func (c *ContextInstance) AvailabilityZone() (string, error) {
 }
 
 // RequestReboot implements hooks.ContextInstance.
-func (c *ContextInstance) RequestReboot(priority hooks.RebootPriority) error {
+func (c *ContextInstance) RequestReboot(priority hookcommands.RebootPriority) error {
 	c.stub.AddCall("RequestReboot", priority)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)

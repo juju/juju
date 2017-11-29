@@ -6,20 +6,20 @@ package commands
 import (
 	"sort"
 
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // CmdSuffix is the filename suffix to use for executables.
 const cmdSuffix = ""
 
-var registeredCommands = map[string]hooks.NewCommandFunc{}
+var registeredCommands = map[string]hookcommands.NewCommandFunc{}
 
 // baseCommands maps Command names to creators.
-var baseCommands = map[string]hooks.NewCommandFunc{
+var baseCommands = map[string]hookcommands.NewCommandFunc{
 	"config-get" + cmdSuffix:              nil,
 	"juju-log" + cmdSuffix:                nil,
-	"status-get" + cmdSuffix:              hooks.NewStatusGetCommand,
-	"status-set" + cmdSuffix:              hooks.NewStatusSetCommand,
+	"status-get" + cmdSuffix:              hookcommands.NewStatusGetCommand,
+	"status-set" + cmdSuffix:              hookcommands.NewStatusSetCommand,
 	"application-version-set" + cmdSuffix: nil,
 	"relation-ids" + cmdSuffix:            nil,
 	"relation-list" + cmdSuffix:           nil,
@@ -28,9 +28,9 @@ var baseCommands = map[string]hooks.NewCommandFunc{
 	"container-spec-set" + cmdSuffix:      nil,
 }
 
-func allEnabledCommands() map[string]hooks.NewCommandFunc {
-	all := map[string]hooks.NewCommandFunc{}
-	add := func(m map[string]hooks.NewCommandFunc) {
+func allEnabledCommands() map[string]hookcommands.NewCommandFunc {
+	all := map[string]hookcommands.NewCommandFunc{}
+	add := func(m map[string]hookcommands.NewCommandFunc) {
 		for k, v := range m {
 			all[k] = v
 		}

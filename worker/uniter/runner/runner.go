@@ -20,7 +20,7 @@ import (
 	jujuos "github.com/juju/utils/os"
 
 	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/debug"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -46,7 +46,7 @@ type Runner interface {
 
 // Context exposes hooks.Context, and additional methods needed by Runner.
 type Context interface {
-	hooks.Context
+	hookcommands.Context
 	Id() string
 	HookVars(paths context.Paths) ([]string, error)
 	ActionData() (*context.ActionData, error)

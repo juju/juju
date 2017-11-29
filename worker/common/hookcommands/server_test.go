@@ -1,11 +1,11 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package hooks_test
+package hookcommands_test
 
 import (
 	"github.com/juju/cmd"
-	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hookcommands"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -24,16 +24,16 @@ type command struct {
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
 	ctx := s.ContextSuite.NewHookContext(c)
-	f := func() map[string]hooks.NewCommandFunc {
-		return map[string]hooks.NewCommandFunc{
-			"command": func(hooks.Context) (cmd.Command, error) {
+	f := func() map[string]hookcommands.NewCommandFunc {
+		return map[string]hookcommands.NewCommandFunc{
+			"command": func(hookcommands.Context) (cmd.Command, error) {
 				return &command{}, nil
 			},
 		}
 	}
-	com, err := hooks.NewCommand(ctx, "command", f)
+	com, err := hookcommands.NewCommand(ctx, "command", f)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(com, gc.NotNil)
-	_, err = hooks.NewCommand(ctx, "invalid", f)
+	_, err = hookcommands.NewCommand(ctx, "invalid", f)
 	c.Assert(err, gc.ErrorMatches, "unknown command.*")
 }
