@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/context"
-	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
+	"github.com/juju/juju/worker/common/hooks/testing"
 )
 
 type contextSuite struct {
@@ -137,7 +137,7 @@ func (s *contextSuite) TestContextComponentMissing(c *gc.C) {
 
 func (s *contextSuite) TestContextComponentWrong(c *gc.C) {
 	hctx, info := s.NewHookContext()
-	compCtx := &jujuctesting.ContextComponent{}
+	compCtx := &testing.ContextComponent{}
 	info.SetComponent(payload.ComponentName, compCtx)
 
 	_, err := context.ContextComponent(hctx)

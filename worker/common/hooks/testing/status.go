@@ -6,31 +6,31 @@ package testing
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/common/hooks"
 )
 
 // Status  holds the values for the hook context.
 type Status struct {
-	UnitStatus        jujuc.StatusInfo
-	ApplicationStatus jujuc.ApplicationStatusInfo
+	UnitStatus        hooks.StatusInfo
+	ApplicationStatus hooks.ApplicationStatusInfo
 }
 
 // SetApplicationStatus builds a service status and sets it on the Status.
-func (s *Status) SetApplicationStatus(service jujuc.StatusInfo, units []jujuc.StatusInfo) {
-	s.ApplicationStatus = jujuc.ApplicationStatusInfo{
+func (s *Status) SetApplicationStatus(service hooks.StatusInfo, units []hooks.StatusInfo) {
+	s.ApplicationStatus = hooks.ApplicationStatusInfo{
 		Application: service,
 		Units:       units,
 	}
 }
 
-// ContextStatus is a test double for jujuc.ContextStatus.
+// ContextStatus is a test double for hooks.ContextStatus.
 type ContextStatus struct {
 	contextBase
 	info *Status
 }
 
-// UnitStatus implements jujuc.ContextStatus.
-func (c *ContextStatus) UnitStatus() (*jujuc.StatusInfo, error) {
+// UnitStatus implements hooks.ContextStatus.
+func (c *ContextStatus) UnitStatus() (*hooks.StatusInfo, error) {
 	c.stub.AddCall("UnitStatus")
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -39,8 +39,8 @@ func (c *ContextStatus) UnitStatus() (*jujuc.StatusInfo, error) {
 	return &c.info.UnitStatus, nil
 }
 
-// SetUnitStatus implements jujuc.ContextStatus.
-func (c *ContextStatus) SetUnitStatus(status jujuc.StatusInfo) error {
+// SetUnitStatus implements hooks.ContextStatus.
+func (c *ContextStatus) SetUnitStatus(status hooks.StatusInfo) error {
 	c.stub.AddCall("SetUnitStatus", status)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
@@ -50,18 +50,18 @@ func (c *ContextStatus) SetUnitStatus(status jujuc.StatusInfo) error {
 	return nil
 }
 
-// ApplicationStatus implements jujuc.ContextStatus.
-func (c *ContextStatus) ApplicationStatus() (jujuc.ApplicationStatusInfo, error) {
+// ApplicationStatus implements hooks.ContextStatus.
+func (c *ContextStatus) ApplicationStatus() (hooks.ApplicationStatusInfo, error) {
 	c.stub.AddCall("ApplicationStatus")
 	if err := c.stub.NextErr(); err != nil {
-		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
+		return hooks.ApplicationStatusInfo{}, errors.Trace(err)
 	}
 
 	return c.info.ApplicationStatus, nil
 }
 
-// SetApplicationStatus implements jujuc.ContextStatus.
-func (c *ContextStatus) SetApplicationStatus(status jujuc.StatusInfo) error {
+// SetApplicationStatus implements hooks.ContextStatus.
+func (c *ContextStatus) SetApplicationStatus(status hooks.StatusInfo) error {
 	c.stub.AddCall("SetApplicationStatus", status)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)

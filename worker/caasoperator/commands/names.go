@@ -5,21 +5,21 @@ package commands
 
 import (
 	"sort"
+
+	"github.com/juju/juju/worker/common/hooks"
 )
 
 // CmdSuffix is the filename suffix to use for executables.
 const cmdSuffix = ""
 
-type command interface{}
-
-var registeredCommands = map[string]command{}
+var registeredCommands = map[string]hooks.NewCommandFunc{}
 
 // baseCommands maps Command names to creators.
-var baseCommands = map[string]command{
+var baseCommands = map[string]hooks.NewCommandFunc{
 	"config-get" + cmdSuffix:              nil,
 	"juju-log" + cmdSuffix:                nil,
-	"status-get" + cmdSuffix:              nil,
-	"status-set" + cmdSuffix:              nil,
+	"status-get" + cmdSuffix:              hooks.NewStatusGetCommand,
+	"status-set" + cmdSuffix:              hooks.NewStatusSetCommand,
 	"application-version-set" + cmdSuffix: nil,
 	"relation-ids" + cmdSuffix:            nil,
 	"relation-list" + cmdSuffix:           nil,
@@ -28,9 +28,9 @@ var baseCommands = map[string]command{
 	"container-spec-set" + cmdSuffix:      nil,
 }
 
-func allEnabledCommands() map[string]command {
-	all := map[string]command{}
-	add := func(m map[string]command) {
+func allEnabledCommands() map[string]hooks.NewCommandFunc {
+	all := map[string]hooks.NewCommandFunc{}
+	add := func(m map[string]hooks.NewCommandFunc) {
 		for k, v := range m {
 			all[k] = v
 		}

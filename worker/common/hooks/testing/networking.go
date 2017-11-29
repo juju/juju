@@ -51,13 +51,13 @@ func (ni *NetworkInterface) RemovePorts(protocol string, from, to int) {
 	network.SortPortRanges(ni.Ports)
 }
 
-// ContextNetworking is a test double for jujuc.ContextNetworking.
+// ContextNetworking is a test double for hooks.ContextNetworking.
 type ContextNetworking struct {
 	contextBase
 	info *NetworkInterface
 }
 
-// PublicAddress implements jujuc.ContextNetworking.
+// PublicAddress implements hooks.ContextNetworking.
 func (c *ContextNetworking) PublicAddress() (string, error) {
 	c.stub.AddCall("PublicAddress")
 
@@ -65,7 +65,7 @@ func (c *ContextNetworking) PublicAddress() (string, error) {
 
 }
 
-// PrivateAddress implements jujuc.ContextNetworking.
+// PrivateAddress implements hooks.ContextNetworking.
 func (c *ContextNetworking) PrivateAddress() (string, error) {
 	c.stub.AddCall("PrivateAddress")
 
@@ -73,7 +73,7 @@ func (c *ContextNetworking) PrivateAddress() (string, error) {
 
 }
 
-// OpenPorts implements jujuc.ContextNetworking.
+// OpenPorts implements hooks.ContextNetworking.
 func (c *ContextNetworking) OpenPorts(protocol string, from, to int) error {
 	c.stub.AddCall("OpenPorts", protocol, from, to)
 	if err := c.stub.NextErr(); err != nil {
@@ -84,7 +84,7 @@ func (c *ContextNetworking) OpenPorts(protocol string, from, to int) error {
 	return nil
 }
 
-// ClosePorts implements jujuc.ContextNetworking.
+// ClosePorts implements hooks.ContextNetworking.
 func (c *ContextNetworking) ClosePorts(protocol string, from, to int) error {
 	c.stub.AddCall("ClosePorts", protocol, from, to)
 	if err := c.stub.NextErr(); err != nil {
@@ -95,7 +95,7 @@ func (c *ContextNetworking) ClosePorts(protocol string, from, to int) error {
 	return nil
 }
 
-// OpenedPorts implements jujuc.ContextNetworking.
+// OpenedPorts implements hooks.ContextNetworking.
 func (c *ContextNetworking) OpenedPorts() []network.PortRange {
 	c.stub.AddCall("OpenedPorts")
 	c.stub.NextErr()
@@ -103,7 +103,7 @@ func (c *ContextNetworking) OpenedPorts() []network.PortRange {
 	return c.info.Ports
 }
 
-// NetworkInfo implements jujuc.ContextNetworking.
+// NetworkInfo implements hooks.ContextNetworking.
 func (c *ContextNetworking) NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error) {
 	c.stub.AddCall("NetworkInfo", bindingNames, relationId)
 	if err := c.stub.NextErr(); err != nil {

@@ -11,12 +11,12 @@ import (
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/relation"
+	commonhooks "github.com/juju/juju/worker/common/hooks"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type MockGetArchiveInfo struct {
@@ -263,7 +263,7 @@ type MockContext struct {
 	testing.Stub
 	actionData      *context.ActionData
 	setStatusCalled bool
-	status          jujuc.StatusInfo
+	status          commonhooks.StatusInfo
 	isLeader        bool
 	relation        *MockRelation
 }
@@ -283,7 +283,7 @@ func (mock *MockContext) ResetExecutionSetUnitStatus() {
 	mock.setStatusCalled = false
 }
 
-func (mock *MockContext) SetUnitStatus(status jujuc.StatusInfo) error {
+func (mock *MockContext) SetUnitStatus(status commonhooks.StatusInfo) error {
 	mock.setStatusCalled = true
 	mock.status = status
 	return nil
@@ -293,7 +293,7 @@ func (mock *MockContext) UnitName() string {
 	return "unit/0"
 }
 
-func (mock *MockContext) UnitStatus() (*jujuc.StatusInfo, error) {
+func (mock *MockContext) UnitStatus() (*commonhooks.StatusInfo, error) {
 	return &mock.status, nil
 }
 
@@ -306,12 +306,12 @@ func (mock *MockContext) IsLeader() (bool, error) {
 	return mock.isLeader, nil
 }
 
-func (mock *MockContext) Relation(id int) (jujuc.ContextRelation, error) {
+func (mock *MockContext) Relation(id int) (commonhooks.ContextRelation, error) {
 	return mock.relation, nil
 }
 
 type MockRelation struct {
-	jujuc.ContextRelation
+	commonhooks.ContextRelation
 	suspended bool
 	status    relation.Status
 }

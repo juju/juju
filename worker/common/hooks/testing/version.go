@@ -12,13 +12,13 @@ type Version struct {
 	WorkloadVersion string
 }
 
-// ContextVersion is a test double for jujuc.ContextVersion.
+// ContextVersion is a test double for hooks.ContextVersion.
 type ContextVersion struct {
 	contextBase
 	info *Version
 }
 
-// UnitWorkloadVersion implements jujuc.ContextVersion.
+// UnitWorkloadVersion implements hooks.ContextVersion.
 func (c *ContextVersion) UnitWorkloadVersion() (string, error) {
 	c.stub.AddCall("UnitWorkloadVersion")
 	if err := c.stub.NextErr(); err != nil {
@@ -27,7 +27,7 @@ func (c *ContextVersion) UnitWorkloadVersion() (string, error) {
 	return c.info.WorkloadVersion, nil
 }
 
-// SetUnitWorkloadVersion implements jujuc.ContextVersion.
+// SetUnitWorkloadVersion implements hooks.ContextVersion.
 func (c *ContextVersion) SetUnitWorkloadVersion(version string) error {
 	c.stub.AddCall("SetUnitWorkloadVersion", version)
 	if err := c.stub.NextErr(); err != nil {

@@ -13,11 +13,11 @@ import (
 
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/context"
-	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
+	hooktesting "github.com/juju/juju/worker/common/hooks/testing"
 )
 
 type baseSuite struct {
-	jujuctesting.ContextSuite
+	hooktesting.ContextSuite
 	payload payload.Payload
 }
 
@@ -40,8 +40,8 @@ func (s *baseSuite) newPayload(name, ptype, id, status string) payload.Payload {
 	return pl
 }
 
-func (s *baseSuite) NewHookContext() (*stubHookContext, *jujuctesting.ContextInfo) {
-	ctx, info := s.ContextSuite.NewHookContext()
+func (s *baseSuite) NewHookContext() (*stubHookContext, *hooktesting.ContextInfo) {
+	ctx, info := s.ContextSuite.NewHookContextAndInfo()
 	return &stubHookContext{ctx}, info
 }
 
@@ -65,7 +65,7 @@ func checkPayloads(c *gc.C, payloads, expected []payload.Payload) {
 }
 
 type stubHookContext struct {
-	*jujuctesting.Context
+	*hooktesting.Context
 }
 
 func (c stubHookContext) Component(name string) (context.Component, error) {

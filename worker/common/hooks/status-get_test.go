@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package jujuc_test
+package hooks_test
 
 import (
 	"encoding/json"
@@ -14,11 +14,12 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hooks/testing"
 )
 
 type statusGetSuite struct {
-	ContextSuite
+	testing.ContextSuite
 }
 
 var _ = gc.Suite(&statusGetSuite{})
@@ -44,22 +45,22 @@ var statusGetTests = []struct {
 	{[]string{"--format", "yaml"}, formatYaml, map[string]interface{}{"status": "error"}},
 }
 
-func setFakeStatus(ctx *Context) {
-	ctx.SetUnitStatus(jujuc.StatusInfo{
+func setFakeStatus(ctx *testing.FakeHookContext) {
+	ctx.SetUnitStatus(hooks.StatusInfo{
 		Status: statusAttributes["status"].(string),
 		Info:   statusAttributes["message"].(string),
 		Data:   statusAttributes["status-data"].(map[string]interface{}),
 	})
 }
 
-func setFakeServiceStatus(ctx *Context) {
-	ctx.info.Status.SetApplicationStatus(
-		jujuc.StatusInfo{
+func setFakeServiceStatus(ctx *testing.FakeHookContext) {
+	ctx.Info.Status.SetApplicationStatus(
+		hooks.StatusInfo{
 			Status: "active",
 			Info:   "this is a application status",
 			Data:   nil,
 		},
-		[]jujuc.StatusInfo{{
+		[]hooks.StatusInfo{{
 			Status: "active",
 			Info:   "this is a unit status",
 			Data:   nil,
@@ -72,7 +73,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
 		setFakeStatus(hctx)
-		com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
+		com, err := testing.NewCommand(hctx, "status-get", hooks.NewStatusGetCommand)
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -97,7 +98,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 
 func (s *statusGetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
-	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
+	com, err := testing.NewCommand(hctx, "status-get", hooks.NewStatusGetCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -129,7 +130,7 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
 	setFakeStatus(hctx)
-	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
+	com, err := testing.NewCommand(hctx, "status-get", hooks.NewStatusGetCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--format", "json", "--output", "some-file", "--include-data"})
@@ -160,7 +161,7 @@ func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
 	}
 	hctx := s.GetStatusHookContext(c)
 	setFakeServiceStatus(hctx)
-	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
+	com, err := testing.NewCommand(hctx, "status-get", hooks.NewStatusGetCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--format", "json", "--include-data", "--application"})

@@ -11,15 +11,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/worker/common/hooks"
+	"github.com/juju/juju/worker/common/hooks/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type ActionFailSuite struct {
-	ContextSuite
+	testing.ContextSuite
 }
 
 type actionFailContext struct {
-	jujuc.Context
+	hooks.Context
 	actionFailed  bool
 	actionMessage string
 }
@@ -35,7 +37,7 @@ func (ctx *actionFailContext) SetActionFailed() error {
 }
 
 type nonActionFailContext struct {
-	jujuc.Context
+	hooks.Context
 }
 
 func (ctx *nonActionFailContext) SetActionMessage(message string) error {
@@ -99,7 +101,7 @@ func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *gc.C) {
 }
 
 func (s *ActionFailSuite) TestHelp(c *gc.C) {
-	hctx, _ := s.NewHookContext()
+	hctx := s.ContextSuite.NewHookContext(c)
 	com, err := jujuc.NewCommand(hctx, cmdString("action-fail"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)

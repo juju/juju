@@ -8,18 +8,20 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+
+	"github.com/juju/juju/worker/common/hooks"
 )
 
 // ConfigGetCommand implements the config-get command.
 type ConfigGetCommand struct {
 	cmd.CommandBase
-	ctx Context
+	ctx hooks.Context
 	Key string // The key to show. If empty, show all.
 	All bool
 	out cmd.Output
 }
 
-func NewConfigGetCommand(ctx Context) (cmd.Command, error) {
+func NewConfigGetCommand(ctx hooks.Context) (cmd.Command, error) {
 	return &ConfigGetCommand{ctx: ctx}, nil
 }
 

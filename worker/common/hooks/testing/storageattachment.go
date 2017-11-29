@@ -16,7 +16,7 @@ type StorageAttachment struct {
 	Location string
 }
 
-// ContextStorageAttachment is a test double for jujuc.ContextStorageAttachment.
+// ContextStorageAttachment is a test double for hooks.ContextStorageAttachment.
 type ContextStorageAttachment struct {
 	contextBase
 	info *StorageAttachment

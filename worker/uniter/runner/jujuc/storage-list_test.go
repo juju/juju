@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/worker/common/hooks/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
 )
 
 type storageListSuite struct {
@@ -22,8 +22,8 @@ type storageListSuite struct {
 
 var _ = gc.Suite(&storageListSuite{})
 
-func (s *storageListSuite) newHookContext() *jujuctesting.Context {
-	ctx, info := s.NewHookContext()
+func (s *storageListSuite) newHookContext() *testing.Context {
+	ctx, info := s.storageSuite.ContextSuite.NewHookContextAndInfo()
 	info.SetBlockStorage("data/0", "/dev/sda", s.Stub)
 	info.SetBlockStorage("data/1", "/dev/sdb", s.Stub)
 	info.SetBlockStorage("data/2", "/dev/sdc", s.Stub)

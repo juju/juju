@@ -13,13 +13,13 @@ type Leadership struct {
 	LeaderSettings map[string]string
 }
 
-// ContextLeader is a test double for jujuc.ContextLeader.
+// ContextLeader is a test double for hooks.ContextLeader.
 type ContextLeader struct {
 	contextBase
 	info *Leadership
 }
 
-// IsLeader implements jujuc.ContextLeader.
+// IsLeader implements hooks.ContextLeader.
 func (c *ContextLeader) IsLeader() (bool, error) {
 	c.stub.AddCall("IsLeader")
 	if err := c.stub.NextErr(); err != nil {
@@ -29,7 +29,7 @@ func (c *ContextLeader) IsLeader() (bool, error) {
 	return c.info.IsLeader, nil
 }
 
-// LeaderSettings implements jujuc.ContextLeader.
+// LeaderSettings implements hooks.ContextLeader.
 func (c *ContextLeader) LeaderSettings() (map[string]string, error) {
 	c.stub.AddCall("LeaderSettings")
 	if err := c.stub.NextErr(); err != nil {
@@ -39,7 +39,7 @@ func (c *ContextLeader) LeaderSettings() (map[string]string, error) {
 	return c.info.LeaderSettings, nil
 }
 
-// WriteLeaderSettings implements jujuc.ContextLeader.
+// WriteLeaderSettings implements hooks.ContextLeader.
 func (c *ContextLeader) WriteLeaderSettings(settings map[string]string) error {
 	c.stub.AddCall("WriteLeaderSettings")
 	if err := c.stub.NextErr(); err != nil {

@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/common/hooks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -113,7 +114,7 @@ func (s *isLeaderSuite) testParseOutput(c *gc.C, leader bool, args []string, che
 }
 
 type isLeaderContext struct {
-	jujuc.Context
+	hooks.Context
 	called bool
 	leader bool
 	err    error

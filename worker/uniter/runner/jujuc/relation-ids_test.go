@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/worker/common/hooks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -21,7 +22,7 @@ type RelationIdsSuite struct {
 
 var _ = gc.Suite(&RelationIdsSuite{})
 
-func (s *RelationIdsSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
+func (s *RelationIdsSuite) newHookContext(relid int, remote string) (hooks.Context, *relationInfo) {
 	hctx, info := s.relationSuite.newHookContext(-1, "")
 	info.reset()
 	info.addRelatedServices("x", 3)

@@ -49,7 +49,7 @@ type contextBase struct {
 	stub *testing.Stub
 }
 
-// Context is a test double for jujuc.Context.
+// Context is a test double for hooks.Context.
 type Context struct {
 	ContextUnit
 	ContextStatus
@@ -65,7 +65,7 @@ type Context struct {
 	ContextVersion
 }
 
-// NewContext builds a jujuc.Context test double.
+// NewContext builds a hooks.Context test double.
 func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	var ctx Context
 	ctx.ContextUnit.stub = stub

@@ -2,6 +2,6 @@
 // Copyright 2014 Cloudbase Solutions
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package jujuc
+package hooks
 
 const cmdSuffix = ".exe"

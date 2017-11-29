@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/worker/common/hooks"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -117,7 +118,7 @@ func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
 
 func (s *InterfaceSuite) TestSetUnitStatus(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
-	status := jujuc.StatusInfo{
+	status := hooks.StatusInfo{
 		Status: "maintenance",
 		Info:   "doing work",
 	}
@@ -133,7 +134,7 @@ func (s *InterfaceSuite) TestSetUnitStatus(c *gc.C) {
 func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	c.Assert(ctx.(runner.Context).HasExecutionSetUnitStatus(), jc.IsFalse)
-	status := jujuc.StatusInfo{
+	status := hooks.StatusInfo{
 		Status: "maintenance",
 		Info:   "doing work",
 	}

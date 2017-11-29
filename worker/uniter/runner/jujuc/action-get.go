@@ -8,12 +8,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+
+	"github.com/juju/juju/worker/common/hooks"
 )
 
 // ActionGetCommand implements the action-get command.
 type ActionGetCommand struct {
 	cmd.CommandBase
-	ctx      Context
+	ctx      hooks.Context
 	keys     []string
 	response interface{}
 	out      cmd.Output
@@ -21,7 +23,7 @@ type ActionGetCommand struct {
 
 // NewActionGetCommand returns an ActionGetCommand for use with the given
 // context.
-func NewActionGetCommand(ctx Context) (cmd.Command, error) {
+func NewActionGetCommand(ctx hooks.Context) (cmd.Command, error) {
 	return &ActionGetCommand{ctx: ctx}, nil
 }
 

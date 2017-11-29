@@ -10,17 +10,19 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
+	"github.com/juju/juju/worker/common/hooks"
 )
 
 // RelationIdsCommand implements the relation-ids command.
 type RelationIdsCommand struct {
 	cmd.CommandBase
-	ctx  Context
+	ctx  hooks.Context
 	Name string
 	out  cmd.Output
 }
 
-func NewRelationIdsCommand(ctx Context) (cmd.Command, error) {
+func NewRelationIdsCommand(ctx hooks.Context) (cmd.Command, error) {
 	name := ""
 	if r, err := ctx.HookRelation(); err == nil {
 		name = r.Name()
