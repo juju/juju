@@ -74,3 +74,38 @@ func (f *Facade) setStatus(tag names.ApplicationTag, info status.StatusInfo) err
 	}
 	return app.SetStatus(info)
 }
+
+// Charm returns the charm info for all given applications.
+func (f *Facade) Charm(args params.Entities) (params.ApplicationCharmResults, error) {
+	result := params.ApplicationCharmResults{
+		Results: make([]params.ApplicationCharmResult, len(args.Entities)),
+	}
+	authTag := f.auth.GetAuthTag()
+	for i, entity := range args.Entities {
+		tag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if tag != authTag {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		application, err := f.state.Application(tag.Id())
+		if tag != authTag {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		charm, force, err := application.Charm()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		result.Results[i].Result = &params.ApplicationCharm{
+			URL:          charm.URL().String(),
+			ForceUpgrade: force,
+			SHA256:       charm.BundleSha256(),
+		}
+	}
+	return result, nil
+}

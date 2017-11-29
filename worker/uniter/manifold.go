@@ -78,7 +78,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			downloader := api.NewCharmDownloader(apiConn.Client())
+			downloader := api.NewCharmDownloader(apiConn)
 
 			manifoldConfig := config
 			// Configure and start the uniter.

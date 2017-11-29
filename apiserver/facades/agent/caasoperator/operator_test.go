@@ -86,3 +86,36 @@ func (s *CAASOperatorSuite) TestSetStatus(c *gc.C) {
 		},
 	})
 }
+
+func (s *CAASOperatorSuite) TestCharm(c *gc.C) {
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+			{Tag: "application-other"},
+			{Tag: "machine-0"},
+		},
+	}
+
+	results, err := s.facade.Charm(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ApplicationCharmResults{
+		Results: []params.ApplicationCharmResult{{
+			Result: &params.ApplicationCharm{
+				URL:          "cs:gitlab-1",
+				ForceUpgrade: false,
+				SHA256:       "fake-sha256",
+			},
+		}, {
+			Error: &params.Error{
+				Code:    "unauthorized access",
+				Message: "permission denied",
+			},
+		}, {
+			Error: &params.Error{Message: `"machine-0" is not a valid application tag`},
+		}},
+	})
+
+	s.st.CheckCallNames(c, "Application")
+	s.st.CheckCall(c, 0, "Application", "gitlab")
+	s.st.app.CheckCallNames(c, "Charm")
+}

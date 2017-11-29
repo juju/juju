@@ -60,5 +60,56 @@ func (s *operatorSuite) TestSetStatusInvalidApplicationName(c *gc.C) {
 	}))
 	err := client.SetStatus("", "foo", "bar", nil)
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
+}
 
+func (s *operatorSuite) TestCharm(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Charm")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ApplicationCharmResults{})
+		*(result.(*params.ApplicationCharmResults)) = params.ApplicationCharmResults{
+			Results: []params.ApplicationCharmResult{{
+				Result: &params.ApplicationCharm{
+					URL:          "cs:foo/bar-1",
+					ForceUpgrade: true,
+					SHA256:       "fake-sha256",
+				},
+			}},
+		}
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	curl, sha256, err := client.Charm("gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(curl, gc.NotNil)
+	c.Assert(curl.String(), gc.Equals, "cs:foo/bar-1")
+	c.Assert(sha256, gc.Equals, "fake-sha256")
+}
+
+func (s *operatorSuite) TestCharmError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.ApplicationCharmResults)) = params.ApplicationCharmResults{
+			Results: []params.ApplicationCharmResult{{Error: &params.Error{Message: "bletch"}}},
+		}
+		return nil
+	})
+	client := caasoperator.NewClient(apiCaller)
+	_, _, err := client.Charm("gitlab")
+	c.Assert(err, gc.ErrorMatches, "bletch")
+}
+
+func (s *operatorSuite) TestCharmInvalidApplicationName(c *gc.C) {
+	client := caasoperator.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
+		return errors.New("should not be called")
+	}))
+	_, _, err := client.Charm("")
+	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
