@@ -104,7 +104,8 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 
 func (s *Suite) TestCACert(c *gc.C) {
 	api := s.mustNewAPI(c)
-	r := api.CACert()
+	r, err := api.CACert()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(r.Result), gc.Equals, jujutesting.CACert)
 }
 
@@ -157,7 +158,7 @@ func (s *Suite) TestAbortMissingEnv(c *gc.C) {
 	api := s.mustNewAPI(c)
 	newUUID := utils.MustNewUUID().String()
 	err := api.Abort(params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
-	c.Assert(err, gc.ErrorMatches, `model not found`)
+	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
 func (s *Suite) TestAbortNotImportingEnv(c *gc.C) {
@@ -194,7 +195,7 @@ func (s *Suite) TestActivateMissingEnv(c *gc.C) {
 	api := s.mustNewAPI(c)
 	newUUID := utils.MustNewUUID().String()
 	err := api.Activate(params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
-	c.Assert(err, gc.ErrorMatches, `model not found`)
+	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
 func (s *Suite) TestActivateNotImportingEnv(c *gc.C) {

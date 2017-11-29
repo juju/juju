@@ -186,18 +186,19 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		opts.Clock = clock.WallClock
 	}
 	ctx := context.TODO()
+	dialCtx := ctx
 	if opts.Timeout > 0 {
-		ctx1, cancel := utils.ContextWithTimeout(ctx, opts.Clock, opts.Timeout)
+		ctx1, cancel := utils.ContextWithTimeout(dialCtx, opts.Clock, opts.Timeout)
 		defer cancel()
-		ctx = ctx1
+		dialCtx = ctx1
 	}
-	dialResult, err := dialAPI(ctx, info, opts)
+	dialResult, err := dialAPI(dialCtx, info, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	client := rpc.NewConn(jsoncodec.New(dialResult.conn), observer.None())
-	client.Start()
+	client.Start(ctx)
 
 	bakeryClient := opts.BakeryClient
 	if bakeryClient == nil {
@@ -246,7 +247,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		modelTag:     info.ModelTag,
 	}
 	if !info.SkipLogin {
-		if err := loginWithContext(ctx, st, info); err != nil {
+		if err := loginWithContext(dialCtx, st, info); err != nil {
 			dialResult.conn.Close()
 			return nil, errors.Trace(err)
 		}

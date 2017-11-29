@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
@@ -743,10 +743,6 @@ type fakeBackend struct {
 	controllerBackend *fakeBackend
 }
 
-func (b *fakeBackend) Close() error {
-	return nil
-}
-
 func (b *fakeBackend) Model() (migration.PrecheckModel, error) {
 	return &b.model, nil
 }
@@ -791,7 +787,7 @@ func (b *fakeBackend) ListPendingResources(app string) ([]resource.Resource, err
 	return b.pendingResources, b.pendingResourcesErr
 }
 
-func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackendCloser, error) {
+func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
 	if b.controllerBackend == nil {
 		return b, nil
 	}

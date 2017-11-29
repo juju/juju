@@ -11,11 +11,11 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/metrics/spool"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type metricsBatchSuite struct {
@@ -28,7 +28,7 @@ func (s *metricsBatchSuite) TestAPIMetricBatch(c *gc.C) {
 		CharmURL: "local:trusty/test-charm",
 		UUID:     "test-uuid",
 		Created:  time.Now(),
-		Metrics: []jujuc.Metric{
+		Metrics: []hookcommands.Metric{
 			{
 				Key:   "test-key-1",
 				Value: "test-value-1",
@@ -43,7 +43,7 @@ func (s *metricsBatchSuite) TestAPIMetricBatch(c *gc.C) {
 		CharmURL: "local:trusty/test-charm",
 		UUID:     "test-uuid",
 		Created:  time.Now(),
-		Metrics:  []jujuc.Metric{},
+		Metrics:  []hookcommands.Metric{},
 	},
 	}
 	for _, batch := range batches {

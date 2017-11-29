@@ -212,7 +212,7 @@ func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
 		error,
 	) {
 		c.Assert(args.AvailabilityZone, gc.Equals, "derived-zone")
-		return nil, nil, nil, environs.ErrAvailabilityZoneFailed
+		return nil, nil, nil, errors.New("bloop")
 	}
 
 	ctx := envtesting.BootstrapContext(c)
@@ -221,7 +221,7 @@ func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
 		AvailableTools:   fakeAvailableTools(),
 	})
 	c.Assert(err, gc.ErrorMatches,
-		`cannot start bootstrap instance: failed to start instance in availability zone "derived-zone"`,
+		`cannot start bootstrap instance in availability zone "derived-zone": bloop`,
 	)
 }
 
@@ -251,7 +251,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 		error,
 	) {
 		callZones = append(callZones, args.AvailabilityZone)
-		return nil, nil, nil, environs.ErrAvailabilityZoneFailed
+		return nil, nil, nil, errors.New("bloop")
 	}
 
 	ctx := envtesting.BootstrapContext(c)
@@ -260,8 +260,46 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 		AvailableTools:   fakeAvailableTools(),
 	})
 	c.Assert(err, gc.ErrorMatches,
-		`cannot start bootstrap instance: failed to start instance in any availability zone`,
+		`cannot start bootstrap instance in any availability zone \(z0, z2\)`,
 	)
+	c.Assert(callZones, jc.SameContents, []string{"z0", "z2"})
+}
+
+func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	env := &mockZonedEnviron{
+		mockEnviron: mockEnviron{
+			storage: newStorage(s, c),
+			config:  configGetter(c),
+		},
+		deriveAvailabilityZones: func(environs.StartInstanceParams) ([]string, error) {
+			return nil, nil
+		},
+		availabilityZones: func() ([]common.AvailabilityZone, error) {
+			z0 := &mockAvailabilityZone{"z0", true}
+			z1 := &mockAvailabilityZone{"z1", true}
+			return []common.AvailabilityZone{z0, z1}, nil
+		},
+	}
+
+	var callZones []string
+	env.startInstance = func(args environs.StartInstanceParams) (
+		instance.Instance,
+		*instance.HardwareCharacteristics,
+		[]network.InterfaceInfo,
+		error,
+	) {
+		callZones = append(callZones, args.AvailabilityZone)
+		return nil, nil, nil, common.ZoneIndependentError(errors.New("bloop"))
+	}
+
+	ctx := envtesting.BootstrapContext(c)
+	_, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AvailableTools:   fakeAvailableTools(),
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot start bootstrap instance: bloop`)
+	c.Assert(callZones, jc.SameContents, []string{"z0"})
 }
 
 func (s *BootstrapSuite) TestStartInstanceNoUsableZones(c *gc.C) {

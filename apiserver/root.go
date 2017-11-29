@@ -4,6 +4,8 @@
 package apiserver
 
 import (
+	"context"
+	"fmt"
 	"net/url"
 	"reflect"
 	"sync"
@@ -27,12 +29,6 @@ var (
 	// Move to API (e.g. params) so that the pinging there may
 	// depend on the interval.
 	maxClientPingInterval = 3 * time.Minute
-
-	// mongoPingInterval defines the interval at which an API server
-	// will ping the mongo session to make sure that it's still
-	// alive. When the ping returns an error, the server will be
-	// terminated.
-	mongoPingInterval = 10 * time.Second
 )
 
 type objectKey struct {
@@ -78,6 +74,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		modelUUID:  modelUUID,
 		serverHost: serverHost,
 	}
+
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -87,6 +84,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	// Facades involved with managing application offers need the auth context
 	// to mint and validate macaroons.
 	localOfferAccessEndpoint := url.URL{
@@ -142,12 +140,12 @@ func (s *srvCaller) ResultType() reflect.Type {
 
 // Call takes the object Id and an instance of ParamsType to create an object and place
 // a call on its method. It then returns an instance of ResultType.
-func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
+func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error) {
 	objVal, err := s.creator(objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	return s.objMethod.Call(objVal, arg)
+	return s.objMethod.Call(ctx, objVal, arg)
 }
 
 // apiRoot implements basic method dispatching to the facade registry.
@@ -174,32 +172,93 @@ func newAPIRoot(st *state.State, pool *state.StatePool, facades *facade.Registry
 	return r
 }
 
-func rpcRoot(srv *Server, root *apiHandler, authTag names.Tag) (rpc.Root, error) {
-	// apiRoot is the API root exposed to the client.
-	var apiRoot rpc.Root = newAPIRoot(
-		root.state,
-		srv.statePool,
-		srv.facades,
-		root.resources,
-		root,
-	)
-
-	// Use the login validation function, if one was specified.
-	if srv.validator != nil {
-		err := srv.validator(authTag)
-		switch err {
-		case params.UpgradeInProgressError:
-			apiRoot = restrictRoot(apiRoot, upgradeMethodsOnly)
-		case AboutToRestoreError:
-			apiRoot = restrictRoot(apiRoot, aboutToRestoreMethodsOnly)
-		case RestoreInProgressError:
-			apiRoot = restrictAll(apiRoot, restoreInProgressError)
-		case nil:
-			// in this case no need to wrap authed api so we do nothing
-		default:
+// restrictAPIRoot calls restrictAPIRootDuringMaintenance, and
+// then restricts the result further to the contoller or model
+// facades, depending on the type of login.
+func restrictAPIRoot(
+	srv *Server,
+	apiRoot rpc.Root,
+	model *state.Model,
+	auth authResult,
+) (rpc.Root, error) {
+	if !auth.controllerMachineLogin {
+		// Controller agents are allowed to
+		// connect even during maintenance.
+		restrictedRoot, err := restrictAPIRootDuringMaintenance(
+			srv, apiRoot, model, auth.tag, auth.controllerMachineLogin,
+		)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		apiRoot = restrictedRoot
 	}
+	if auth.controllerOnlyLogin {
+		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
+	} else {
+		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
+		if model.Type() == state.ModelTypeCAAS {
+			apiRoot = restrictRoot(apiRoot, caasModelFacadesOnly)
+		}
+	}
+	return apiRoot, nil
+}
+
+// restrictAPIRootDuringMaintenance restricts the API root during
+// maintenance events (upgrade, restore, or migration), depending
+// on the authenticated client.
+func restrictAPIRootDuringMaintenance(
+	srv *Server,
+	apiRoot rpc.Root,
+	model *state.Model,
+	authTag names.Tag,
+	controllerMachineLogin bool,
+) (rpc.Root, error) {
+	describeLogin := func() string {
+		if authTag == nil {
+			return "anonymous login"
+		}
+		return fmt.Sprintf("login for %s", names.ReadableString(authTag))
+	}
+
+	switch status := srv.restoreStatus(); status {
+	case state.RestorePending, state.RestoreInProgress:
+		if _, ok := authTag.(names.UserTag); ok {
+			// Users get access to a limited set of functionality
+			// while a restore is pending or in progress.
+			if status == state.RestorePending {
+				return restrictRoot(apiRoot, aboutToRestoreMethodsOnly), nil
+			} else {
+				return restrictAll(apiRoot, restoreInProgressError), nil
+			}
+		}
+		// Agent and anonymous logins are blocked during restore.
+		return nil, errors.Errorf("%s blocked because restore is in progress", describeLogin())
+	}
+
+	if !srv.upgradeComplete() {
+		if _, ok := authTag.(names.UserTag); ok {
+			// Users get access to a limited set of functionality
+			// while an upgrade is in progress.
+			return restrictRoot(apiRoot, upgradeMethodsOnly), nil
+		}
+		// Agent and anonymous logins are blocked during upgrade.
+		return nil, errors.Errorf("%s blocked because upgrade is in progress", describeLogin())
+	}
+
+	// For user logins, we limit access during migrations.
+	if _, ok := authTag.(names.UserTag); ok {
+		switch model.MigrationMode() {
+		case state.MigrationModeImporting:
+			// The user is not able to access a model that is currently being
+			// imported until the model has been activated.
+			apiRoot = restrictAll(apiRoot, errors.New("migration in progress, model is importing"))
+		case state.MigrationModeExporting:
+			// The user is not allowed to change anything in a model that is
+			// currently being moved to another controller.
+			apiRoot = restrictRoot(apiRoot, migrationClientMethodsOnly)
+		}
+	}
+
 	return apiRoot, nil
 }
 
@@ -317,11 +376,6 @@ type facadeContext struct {
 	key objectKey
 }
 
-// Abort is part of of the facade.Context interface.
-func (ctx *facadeContext) Abort() <-chan struct{} {
-	return nil
-}
-
 // Auth is part of of the facade.Context interface.
 func (ctx *facadeContext) Auth() facade.Authorizer {
 	return ctx.r.authorizer
@@ -388,6 +442,12 @@ func (r *adminRoot) FindMethod(rootName string, version int, methodName string) 
 func (r *apiHandler) AuthMachineAgent() bool {
 	_, isMachine := r.GetAuthTag().(names.MachineTag)
 	return isMachine
+}
+
+// AuthApplicationAgent returns whether the current client is an application operator.
+func (r *apiHandler) AuthApplicationAgent() bool {
+	_, isApp := r.GetAuthTag().(names.ApplicationTag)
+	return isApp
 }
 
 // AuthUnitAgent returns whether the current client is a unit agent.

@@ -22,15 +22,14 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
 	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
@@ -40,7 +39,6 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/globalclock"
-	stateaudit "github.com/juju/juju/state/internal/audit"
 	statelease "github.com/juju/juju/state/lease"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
@@ -82,7 +80,6 @@ type State struct {
 	modelTag               names.ModelTag
 	controllerModelTag     names.ModelTag
 	controllerTag          names.ControllerTag
-	mongoInfo              *mongo.MongoInfo
 	session                *mgo.Session
 	database               Database
 	policy                 Policy
@@ -333,23 +330,6 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 	return ops, nil
 }
 
-// ForModel returns a connection to mongo for the specified model. The
-// connection uses the same credentials and policy as the existing connection.
-func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
-	session := st.session.Copy()
-	newSt, err := newState(
-		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.stateClock,
-		st.runTransactionObserver,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := newSt.start(st.controllerTag); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newSt, nil
-}
-
 // start makes a *State functional post-creation, by:
 //   * setting controllerTag, cloudName and leaseClientId
 //   * starting lease managers and watcher backends
@@ -368,12 +348,26 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 
 	st.controllerTag = controllerTag
 
-	if identity := st.mongoInfo.Tag; identity != nil {
-		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
-		// think it's just coincidental that the mongodb user happens to map to
-		// the machine that's executing the code -- but there doesn't seem to be
-		// an accessible alternative.
-		st.leaseClientId = identity.String()
+	// Run the "connectionStatus" Mongo command to obtain the authenticated
+	// user name, if any. This is used below for the lease client ID.
+	// See: https://docs.mongodb.com/manual/reference/command/connectionStatus/
+	//
+	// TODO(axw) when we move the workers to a higher level state.Manager
+	// type, we should pass in a tag that identifies the agent running the
+	// worker. That can then be used to identify the lease manager.
+	var connectionStatus struct {
+		AuthInfo struct {
+			AuthenticatedUsers []struct {
+				User string `bson:"user"`
+			} `bson:"authenticatedUsers"`
+		} `bson:"authInfo"`
+	}
+	if err := st.session.DB(jujuDB).Run(bson.D{{"connectionStatus", 1}}, &connectionStatus); err != nil {
+		return errors.Annotate(err, "obtaining connection status")
+	}
+
+	if len(connectionStatus.AuthInfo.AuthenticatedUsers) == 1 {
+		st.leaseClientId = connectionStatus.AuthInfo.AuthenticatedUsers[0].User
 	} else {
 		// If we're running state anonymously, we can still use the lease
 		// manager; but we need to make sure we use a unique client ID, and
@@ -402,26 +396,6 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 
 	logger.Infof("started state for %s successfully", st.modelTag)
 	return nil
-}
-
-// KillWorkers tells the state's internal workers to die. This is
-// mainly used to kill the leadership manager to prevent it from
-// interfering with apiserver shutdown.
-func (st *State) KillWorkers() {
-	// TODO(fwereade): 2015-08-07 lp:1482634
-	// obviously, this should not exist: it's a quick hack to address lp:1481368 in
-	// 1.24.4, and should be quickly replaced with something that isn't so heinous.
-	//
-	// But.
-	//
-	// I *believe* that what it'll take to fix this is to extract the mongo-session-
-	// opening from state.Open, so we can create a mongosessioner Manifold on which
-	// state, leadership, watching, tools storage, etc etc etc can all independently
-	// depend. (Each dependency would/should have a separate session so they can
-	// close them all on their own schedule, without panics -- but the failure of
-	// the shared component should successfully goose them all into shutting down,
-	// in parallel, of their own accord.)
-	st.workers.Kill()
 }
 
 // ApplicationLeaders returns a map of the application name to the
@@ -1067,139 +1041,19 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
-	im, err := st.IAASModel()
+
+	// Perform model specific arg processing.
+	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := addDefaultStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := validateStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
-		return nil, errors.Trace(err)
-	}
-	storagePools := make(set.Strings)
-	for _, storageParams := range args.Storage {
-		storagePools.Add(storageParams.Pool)
-	}
-
-	if args.Series == "" {
-		// args.Series is not set, so use the series in the URL.
-		args.Series = args.Charm.URL().Series
-		if args.Series == "" {
-			// Should not happen, but just in case.
-			return nil, errors.New("series is empty")
-		}
-	} else {
-		// User has specified series. Overriding supported series is
-		// handled by the client, so args.Series is not necessarily
-		// one of the charm's supported series. We require that the
-		// specified series is of the same operating system as one of
-		// the supported series. For old-style charms with the series
-		// in the URL, that series is the one and only supported
-		// series.
-		var supportedSeries []string
-		if series := args.Charm.URL().Series; series != "" {
-			supportedSeries = []string{series}
-		} else {
-			supportedSeries = args.Charm.Meta().Series
-		}
-		if len(supportedSeries) > 0 {
-			seriesOS, err := series.GetOSFromSeries(args.Series)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			supportedOperatingSystems := make(map[os.OSType]bool)
-			for _, supportedSeries := range supportedSeries {
-				os, err := series.GetOSFromSeries(supportedSeries)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				supportedOperatingSystems[os] = true
-			}
-			if !supportedOperatingSystems[seriesOS] {
-				return nil, errors.NewNotSupported(errors.Errorf(
-					"series %q (OS %q) not supported by charm, supported series are %q",
-					args.Series, seriesOS, strings.Join(supportedSeries, ", "),
-				), "")
-			}
-		}
-	}
-
-	// Ignore constraints that result from this call as
-	// these would be accumulation of model and application constraints
-	// but we only want application constraints to be persisted here.
-	_, err = st.resolveConstraints(args.Constraints)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	for _, placement := range args.Placement {
-		data, err := st.parsePlacement(placement)
-		if err != nil {
+	if model.Type() == ModelTypeIAAS {
+		if err := st.processIAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
 		}
-		switch data.placementType() {
-		case machinePlacement:
-			// Ensure that the machine and charm series match.
-			m, err := st.Machine(data.machineId)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			subordinate := args.Charm.Meta().Subordinate
-			if err := validateUnitMachineAssignment(
-				m, args.Series, subordinate, storagePools,
-			); err != nil {
-				return nil, errors.Annotatef(
-					err, "cannot deploy to machine %s", m,
-				)
-			}
-
-		case directivePlacement:
-			// Obtain volume attachment params corresponding to storage being
-			// attached. We need to pass them along to precheckInstance, in
-			// case the volumes cannot be attached to a machine with the given
-			// placement directive.
-			im, err := st.IAASModel()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
-			for _, storageTag := range args.AttachStorage {
-				v, err := im.StorageInstanceVolume(storageTag)
-				if errors.IsNotFound(err) {
-					continue
-				} else if err != nil {
-					return nil, errors.Trace(err)
-				}
-				volumeInfo, err := v.Info()
-				if err != nil {
-					// Volume has not been provisioned yet,
-					// so it cannot be attached.
-					continue
-				}
-				providerType, _, err := poolStorageProvider(im, volumeInfo.Pool)
-				if err != nil {
-					return nil, errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
-				}
-				storageName, _ := names.StorageName(storageTag.Id())
-				volumeAttachments = append(volumeAttachments, storage.VolumeAttachmentParams{
-					AttachmentParams: storage.AttachmentParams{
-						Provider: providerType,
-						ReadOnly: args.Charm.Meta().Storage[storageName].ReadOnly,
-					},
-					Volume:   v.VolumeTag(),
-					VolumeId: volumeInfo.VolumeId,
-				})
-			}
-			if err := st.precheckInstance(
-				args.Series,
-				args.Constraints,
-				data.directive,
-				volumeAttachments,
-			); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
+	} else {
+		// TODO(caas) - remove once units are supported.
+		args.NumUnits = 0
 	}
 
 	applicationID := st.docID(args.Name)
@@ -1338,6 +1192,144 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return app, nil
 	}
 	return nil, errors.Trace(err)
+}
+
+func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error {
+	im, err := st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := addDefaultStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
+		return errors.Trace(err)
+	}
+	if err := validateStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
+		return errors.Trace(err)
+	}
+	storagePools := make(set.Strings)
+	for _, storageParams := range args.Storage {
+		storagePools.Add(storageParams.Pool)
+	}
+
+	if args.Series == "" {
+		// args.Series is not set, so use the series in the URL.
+		args.Series = args.Charm.URL().Series
+		if args.Series == "" {
+			// Should not happen, but just in case.
+			return errors.New("series is empty")
+		}
+	} else {
+		// User has specified series. Overriding supported series is
+		// handled by the client, so args.Series is not necessarily
+		// one of the charm's supported series. We require that the
+		// specified series is of the same operating system as one of
+		// the supported series. For old-style charms with the series
+		// in the URL, that series is the one and only supported
+		// series.
+		var supportedSeries []string
+		if series := args.Charm.URL().Series; series != "" {
+			supportedSeries = []string{series}
+		} else {
+			supportedSeries = args.Charm.Meta().Series
+		}
+		if len(supportedSeries) > 0 {
+			seriesOS, err := series.GetOSFromSeries(args.Series)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			supportedOperatingSystems := make(map[os.OSType]bool)
+			for _, supportedSeries := range supportedSeries {
+				os, err := series.GetOSFromSeries(supportedSeries)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				supportedOperatingSystems[os] = true
+			}
+			if !supportedOperatingSystems[seriesOS] {
+				return errors.NewNotSupported(errors.Errorf(
+					"series %q (OS %q) not supported by charm, supported series are %q",
+					args.Series, seriesOS, strings.Join(supportedSeries, ", "),
+				), "")
+			}
+		}
+	}
+
+	// Ignore constraints that result from this call as
+	// these would be accumulation of model and application constraints
+	// but we only want application constraints to be persisted here.
+	_, err = st.resolveConstraints(args.Constraints)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, placement := range args.Placement {
+		data, err := st.parsePlacement(placement)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		switch data.placementType() {
+		case machinePlacement:
+			// Ensure that the machine and charm series match.
+			m, err := st.Machine(data.machineId)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			subordinate := args.Charm.Meta().Subordinate
+			if err := validateUnitMachineAssignment(
+				m, args.Series, subordinate, storagePools,
+			); err != nil {
+				return errors.Annotatef(
+					err, "cannot deploy to machine %s", m,
+				)
+			}
+
+		case directivePlacement:
+			// Obtain volume attachment params corresponding to storage being
+			// attached. We need to pass them along to precheckInstance, in
+			// case the volumes cannot be attached to a machine with the given
+			// placement directive.
+			im, err := st.IAASModel()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
+			for _, storageTag := range args.AttachStorage {
+				v, err := im.StorageInstanceVolume(storageTag)
+				if errors.IsNotFound(err) {
+					continue
+				} else if err != nil {
+					return errors.Trace(err)
+				}
+				volumeInfo, err := v.Info()
+				if err != nil {
+					// Volume has not been provisioned yet,
+					// so it cannot be attached.
+					continue
+				}
+				providerType, _, err := poolStorageProvider(im, volumeInfo.Pool)
+				if err != nil {
+					return errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
+				}
+				storageName, _ := names.StorageName(storageTag.Id())
+				volumeAttachments = append(volumeAttachments, storage.VolumeAttachmentParams{
+					AttachmentParams: storage.AttachmentParams{
+						Provider: providerType,
+						ReadOnly: args.Charm.Meta().Storage[storageName].ReadOnly,
+					},
+					Volume:   v.VolumeTag(),
+					VolumeId: volumeInfo.VolumeId,
+				})
+			}
+			if err := st.precheckInstance(
+				args.Series,
+				args.Constraints,
+				data.directive,
+				volumeAttachments,
+			); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	return nil
 }
 
 // removeNils removes any keys with nil values from the given map.
@@ -2231,20 +2223,6 @@ func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId net
 
 func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
 	return st.docID(globalKey + ":" + string(providerId))
-}
-
-// PutAuditEntryFn returns a function which will persist
-// audit.AuditEntry instances to the database.
-func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
-	insert := func(collectionName string, docs ...interface{}) error {
-		collection, closeCollection := st.db().GetCollection(collectionName)
-		defer closeCollection()
-
-		writeableCollection := collection.Writeable()
-
-		return errors.Trace(writeableCollection.Insert(docs...))
-	}
-	return stateaudit.PutAuditEntryFn(auditingC, insert)
 }
 
 // SetSLA sets the SLA on the current connected model.

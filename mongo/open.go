@@ -9,6 +9,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -184,13 +185,14 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 }
 
 // DialWithInfo establishes a new session to the cluster identified by info,
-// with the specified options.
-func DialWithInfo(info Info, opts DialOpts) (*mgo.Session, error) {
+// with the specified options. If either Tag or Password are specified, then
+// a Login call on the admin database will be made.
+func DialWithInfo(info MongoInfo, opts DialOpts) (*mgo.Session, error) {
 	if opts.Timeout == 0 {
 		return nil, errors.New("a non-zero Timeout must be specified")
 	}
 
-	dialInfo, err := DialInfo(info, opts)
+	dialInfo, err := DialInfo(info.Info, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -211,5 +213,58 @@ func DialWithInfo(info Info, opts DialOpts) (*mgo.Session, error) {
 			return nil, errors.Annotate(err, "PostDial failed")
 		}
 	}
+	if info.Tag != nil || info.Password != "" {
+		user := AdminUser
+		if info.Tag != nil {
+			user = info.Tag.String()
+		}
+		if err := Login(session, user, info.Password); err != nil {
+			session.Close()
+			return nil, errors.Trace(err)
+		}
+	}
 	return session, nil
+}
+
+// Login logs in to the mongodb admin database.
+func Login(session *mgo.Session, user, password string) error {
+	admin := session.DB("admin")
+	if err := admin.Login(user, password); err != nil {
+		return MaybeUnauthorizedf(err, "cannot log in to admin database as %q", user)
+	}
+	return nil
+}
+
+// MaybeUnauthorized checks if the cause of the given error is a Mongo
+// authorization error, and if so, wraps the error with errors.Unauthorizedf.
+func MaybeUnauthorizedf(err error, message string, args ...interface{}) error {
+	if isUnauthorized(errors.Cause(err)) {
+		err = errors.Unauthorizedf("unauthorized mongo access: %s", err)
+	}
+	return errors.Annotatef(err, message, args...)
+}
+
+func isUnauthorized(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Some unauthorized access errors have no error code,
+	// just a simple error string; and some do have error codes
+	// but are not of consistent types (LastError/QueryError).
+	for _, prefix := range []string{
+		"auth fail",
+		"not authorized",
+		"server returned error on SASL authentication step: Authentication failed.",
+	} {
+		if strings.HasPrefix(err.Error(), prefix) {
+			return true
+		}
+	}
+	if err, ok := err.(*mgo.QueryError); ok {
+		return err.Code == 10057 ||
+			err.Code == 13 ||
+			err.Message == "need to login" ||
+			err.Message == "unauthorized"
+	}
+	return false
 }

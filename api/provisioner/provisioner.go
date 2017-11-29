@@ -341,3 +341,13 @@ func (st *State) DistributionGroupByMachineId(tags ...names.MachineTag) ([]Distr
 	}
 	return results, nil
 }
+
+// CACert returns the certificate used to validate the API and state connections.
+func (a *State) CACert() (string, error) {
+	var result params.BytesResult
+	err := a.facade.FacadeCall("CACert", nil, &result)
+	if err != nil {
+		return "", err
+	}
+	return string(result.Result), nil
+}

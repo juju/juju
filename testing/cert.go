@@ -32,7 +32,7 @@ var (
 
 	CACertX509, CAKeyRSA = mustParseCertAndKey(CACert, CAKey)
 
-	ServerCert, ServerKey = mustNewServer()
+	ServerTLSCert, ServerCert, ServerKey = mustNewServer()
 
 	Certs = serverCerts()
 
@@ -63,13 +63,22 @@ func mustNewCA() (string, string) {
 	return string(caCert), string(caKey)
 }
 
-func mustNewServer() (string, string) {
+func mustNewServer() (*tls.Certificate, string, string) {
 	var hostnames []string
 	srvCert, srvKey, err := cert.NewServer(CACert, CAKey, time.Now().AddDate(10, 0, 0), hostnames)
 	if err != nil {
 		panic(err)
 	}
-	return string(srvCert), string(srvKey)
+	tlsCert, err := tls.X509KeyPair([]byte(srvCert), []byte(srvKey))
+	if err != nil {
+		panic(err)
+	}
+	x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+	if err != nil {
+		panic(err)
+	}
+	tlsCert.Leaf = x509Cert
+	return &tlsCert, srvCert, srvKey
 }
 
 func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey) {

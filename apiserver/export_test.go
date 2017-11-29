@@ -24,7 +24,6 @@ import (
 var (
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = maxClientPingInterval
-	MongoPingInterval     = mongoPingInterval
 	NewBackups            = &newBackups
 	BZMimeType            = bzMimeType
 	JSMimeType            = jsMimeType
@@ -73,9 +72,15 @@ func DelayLogins() (nextChan chan struct{}, cleanup func()) {
 	cleanup = func() {
 		doCheckCreds = checkCreds
 	}
-	delayedCheckCreds := func(st *state.State, c params.LoginRequest, lookForModelUser bool, authenticator authentication.EntityAuthenticator) (state.Entity, *time.Time, error) {
+	delayedCheckCreds := func(
+		st *state.State,
+		c params.LoginRequest,
+		authTag names.Tag,
+		lookForModelUser bool,
+		authenticator authentication.EntityAuthenticator,
+	) (state.Entity, *time.Time, error) {
 		<-nextChan
-		return checkCreds(st, c, lookForModelUser, authenticator)
+		return checkCreds(st, c, authTag, lookForModelUser, authenticator)
 	}
 	doCheckCreds = delayedCheckCreds
 	return
@@ -152,6 +157,13 @@ func TestingControllerOnlyRoot() rpc.Root {
 func TestingModelOnlyRoot() rpc.Root {
 	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, modelFacadesOnly)
+}
+
+// TestingCAASModelOnlyRoot returns a restricted srvRoot as if
+// logged in to a CAAS model.
+func TestingCAASModelOnlyRoot() rpc.Root {
+	r := TestingAPIRoot(AllFacades())
+	return restrictRoot(r, caasModelFacadesOnly)
 }
 
 // TestingRestrictedRoot returns a restricted srvRoot.

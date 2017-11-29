@@ -123,11 +123,18 @@ type StartInstanceResult struct {
 // stop that from being possible right now.
 type InstanceBroker interface {
 	// StartInstance asks for a new instance to be created, associated with
-	// the provided config in machineConfig. The given config describes the juju
-	// state for the new instance to connect to. The config MachineNonce, which must be
-	// unique within an environment, is used by juju to protect against the
-	// consequences of multiple instances being started with the same machine
-	// id.
+	// the provided config in machineConfig. The given config describes the
+	// juju state for the new instance to connect to. The config
+	// MachineNonce, which must be unique within an environment, is used by
+	// juju to protect against the consequences of multiple instances being
+	// started with the same machine id.
+	//
+	// Callers may attempt to distribute instances across a set of
+	// availability zones. If one zone fails, then the caller is expected
+	// to attempt in another zone. If the provider can determine that
+	// the StartInstanceParams can never be fulfilled in any zone, then
+	// it may return an error satisfying the IsAvailabilityZoneIndependent
+	// function in this package.
 	StartInstance(args StartInstanceParams) (*StartInstanceResult, error)
 
 	// StopInstances shuts down the instances with the specified IDs.

@@ -39,7 +39,8 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, nil, s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
+		getApplicationOffers, nil, getFakeControllerInfo,
+		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

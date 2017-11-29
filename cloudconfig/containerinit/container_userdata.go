@@ -261,6 +261,20 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 	namesInOrder[0] = "lo"
 	autoStarted := set.NewStrings("lo")
 
+	// We need to check if we have a host-provided default GW and use it.
+	// Otherwise we'll use the first device with a gateway address,
+	// it'll be filled in the second loop.
+	for _, info := range interfaces {
+		if info.IsDefaultGateway {
+			switch info.GatewayAddress.Type {
+			case network.IPv4Address:
+				gateway4Address = info.GatewayAddress.Value
+			case network.IPv6Address:
+				gateway6Address = info.GatewayAddress.Value
+			}
+		}
+	}
+
 	for _, info := range interfaces {
 		ifaceName := strings.Replace(info.MACAddress, ":", "_", -1)
 		// prepend eth because .format of python wont like a tag starting with numbers.

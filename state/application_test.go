@@ -14,7 +14,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -1721,6 +1721,12 @@ func (s *ApplicationSuite) TestServiceRefresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ApplicationSuite) TestSetPassword(c *gc.C) {
+	testSetPassword(c, func() (state.Authenticator, error) {
+		return s.State.Application(s.mysql.Name())
+	})
 }
 
 func (s *ApplicationSuite) TestServiceExposed(c *gc.C) {

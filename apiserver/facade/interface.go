@@ -21,11 +21,6 @@ type Factory func(Context) (Facade, error)
 // Context exposes useful capabilities to a Facade.
 type Context interface {
 
-	// Abort will be closed with the client connection. Any long-
-	// running methods should pay attention to Abort, and terminate
-	// with a sensible (non-nil) error when requested.
-	Abort() <-chan struct{}
-
 	// Auth represents information about the connected client. You
 	// should always be checking individual requests against Auth:
 	// both state changes *and* data retrieval should be blocked
@@ -87,23 +82,22 @@ type Authorizer interface {
 	// GetAuthTag, as the other methods all are.
 	AuthController() bool
 
-	// AuthMachineAgent returns true if the entity is a machine
-	// agent. Doesn't need to be on this interface, should be a
-	// utility func if anything.
+	// TODO(wallyworld - bug 1733759) - the following auth methods should not be on this interface
+	// eg introduce a utility func or something.
+
+	// AuthMachineAgent returns true if the entity is a machine agent.
 	AuthMachineAgent() bool
 
+	// AuthApplicationAgent returns true if the entity is an application operator.
+	AuthApplicationAgent() bool
+
 	// AuthUnitAgent returns true if the entity is a unit agent.
-	// Doesn't need to be on this interface, should be a utility
-	// func if anything.
 	AuthUnitAgent() bool
 
-	// AuthOwner returns true if tag == .GetAuthTag(). Doesn't need
-	// to be on this interface, should be a utility fun if anything.
+	// AuthOwner returns true if tag == .GetAuthTag().
 	AuthOwner(tag names.Tag) bool
 
 	// AuthClient returns true if the entity is an external user.
-	// Doesn't need to be on this interface, should be a utility
-	// func if anything.
 	AuthClient() bool
 
 	// HasPermission reports whether the given access is allowed for the given

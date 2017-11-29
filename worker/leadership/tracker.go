@@ -26,7 +26,7 @@ type Tracker struct {
 	duration        time.Duration
 	isMinion        bool
 
-	claimLease        chan struct{}
+	claimLease        chan error
 	renewLease        <-chan time.Time
 	claimTickets      chan chan bool
 	waitLeaderTickets chan chan bool
@@ -65,6 +65,11 @@ func NewTracker(tag names.UnitTag, claimer leadership.Claimer, clock clock.Clock
 			}
 			for _, ticketCh := range t.waitingMinion {
 				close(ticketCh)
+			}
+			if t.claimLease != nil {
+				// wait for the goroutine started
+				// by setLeader to exit.
+				<-t.claimLease
 			}
 		}()
 		err := t.loop()
@@ -131,9 +136,19 @@ func (t *Tracker) loop() error {
 		select {
 		case <-t.tomb.Dying():
 			return tomb.ErrDying
-		case <-t.claimLease:
-			logger.Tracef("%s claiming lease for %s leadership", t.unitName, t.applicationName)
+		case err := <-t.claimLease:
 			t.claimLease = nil
+			if errors.Cause(err) == leadership.ErrBlockCancelled {
+				// BlockUntilLeadershipReleased was cancelled,
+				// which means that the tracker is terminating.
+				continue
+			} else if err != nil {
+				return errors.Annotatef(err,
+					"error while %s waiting for %s leadership release",
+					t.unitName, t.applicationName,
+				)
+			}
+			logger.Tracef("%s claiming lease for %s leadership", t.unitName, t.applicationName)
 			if err := t.refresh(); err != nil {
 				return errors.Trace(err)
 			}
@@ -209,20 +224,12 @@ func (t *Tracker) setMinion() error {
 	t.isMinion = true
 	t.renewLease = nil
 	if t.claimLease == nil {
-		t.claimLease = make(chan struct{})
+		t.claimLease = make(chan error, 1)
 		go func() {
 			defer close(t.claimLease)
 			logger.Debugf("%s waiting for %s leadership release", t.unitName, t.applicationName)
-			err := t.claimer.BlockUntilLeadershipReleased(t.applicationName)
-			if err != nil {
-				logger.Debugf("error while %s waiting for %s leadership release: %v", t.unitName, t.applicationName, err)
-			}
-			// We don't need to do anything else with the error, because we just
-			// close the claimLease channel and trigger a leadership claim on the
-			// main loop; if anything's gone seriously wrong we'll find out right
-			// away and shut down anyway. (And if this goroutine outlives the
-			// Tracker, it keeps it around as a zombie, but I don't see a way
-			// around that...)
+			err := t.claimer.BlockUntilLeadershipReleased(t.applicationName, t.tomb.Dying())
+			t.claimLease <- err
 		}()
 	}
 

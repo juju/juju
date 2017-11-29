@@ -4,6 +4,7 @@
 package rpcreflect
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"sort"
@@ -11,8 +12,9 @@ import (
 )
 
 var (
-	errorType  = reflect.TypeOf((*error)(nil)).Elem()
-	stringType = reflect.TypeOf("")
+	errorType   = reflect.TypeOf((*error)(nil)).Elem()
+	stringType  = reflect.TypeOf("")
+	contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
 )
 
 var (
@@ -213,9 +215,11 @@ type ObjMethod struct {
 	Result reflect.Type
 
 	// Call calls the method with the given argument
-	// on the given receiver value. If the method does
-	// not return a value, the returned value will not be valid.
-	Call func(rcvr, arg reflect.Value) (reflect.Value, error)
+	// on the given receiver value, and given context
+	// if the method has a context parameter. If the
+	// method does not return a value, the returned
+	// value will not be valid.
+	Call func(ctx context.Context, rcvr, arg reflect.Value) (reflect.Value, error)
 }
 
 // ObjTypeOf returns information on all RPC methods
@@ -269,7 +273,7 @@ func newMethod(m reflect.Method, receiverKind reflect.Kind) *ObjMethod {
 		return nil
 	}
 	var p ObjMethod
-	var assemble func(arg reflect.Value) []reflect.Value
+	var assemble func(ctx context.Context, arg reflect.Value) []reflect.Value
 	// N.B. The method type has the receiver as its first argument
 	// unless the receiver is an interface.
 	receiverArgCount := 1
@@ -277,17 +281,34 @@ func newMethod(m reflect.Method, receiverKind reflect.Kind) *ObjMethod {
 		receiverArgCount = 0
 	}
 	t := m.Type
-	switch {
-	case t.NumIn() == 0+receiverArgCount:
+	switch t.NumIn() - receiverArgCount {
+	case 0:
 		// Method() ...
-		assemble = func(arg reflect.Value) []reflect.Value {
+		assemble = func(_ context.Context, arg reflect.Value) []reflect.Value {
 			return nil
 		}
-	case t.NumIn() == 1+receiverArgCount:
-		// Method(T) ...
-		p.Params = t.In(receiverArgCount)
-		assemble = func(arg reflect.Value) []reflect.Value {
-			return []reflect.Value{arg}
+	case 2:
+		// Method(context.Context, T) ...
+		contextParam := t.In(receiverArgCount)
+		if !contextType.AssignableTo(contextParam) {
+			return nil
+		}
+		p.Params = t.In(receiverArgCount + 1)
+		assemble = func(ctx context.Context, arg reflect.Value) []reflect.Value {
+			return []reflect.Value{reflect.ValueOf(ctx), arg}
+		}
+	case 1:
+		// Method([context.Context,]T) ...
+		param := t.In(receiverArgCount)
+		if contextType.AssignableTo(param) {
+			assemble = func(ctx context.Context, _ reflect.Value) []reflect.Value {
+				return []reflect.Value{reflect.ValueOf(ctx)}
+			}
+		} else {
+			p.Params = param
+			assemble = func(_ context.Context, arg reflect.Value) []reflect.Value {
+				return []reflect.Value{arg}
+			}
 		}
 	default:
 		return nil
@@ -296,14 +317,14 @@ func newMethod(m reflect.Method, receiverKind reflect.Kind) *ObjMethod {
 	switch {
 	case t.NumOut() == 0:
 		// Method(...)
-		p.Call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
-			rcvr.Method(m.Index).Call(assemble(arg))
+		p.Call = func(ctx context.Context, rcvr, arg reflect.Value) (r reflect.Value, err error) {
+			rcvr.Method(m.Index).Call(assemble(ctx, arg))
 			return
 		}
 	case t.NumOut() == 1 && t.Out(0) == errorType:
 		// Method(...) error
-		p.Call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
-			out := rcvr.Method(m.Index).Call(assemble(arg))
+		p.Call = func(ctx context.Context, rcvr, arg reflect.Value) (r reflect.Value, err error) {
+			out := rcvr.Method(m.Index).Call(assemble(ctx, arg))
 			if !out[0].IsNil() {
 				err = out[0].Interface().(error)
 			}
@@ -312,15 +333,15 @@ func newMethod(m reflect.Method, receiverKind reflect.Kind) *ObjMethod {
 	case t.NumOut() == 1:
 		// Method(...) R
 		p.Result = t.Out(0)
-		p.Call = func(rcvr, arg reflect.Value) (reflect.Value, error) {
-			out := rcvr.Method(m.Index).Call(assemble(arg))
+		p.Call = func(ctx context.Context, rcvr, arg reflect.Value) (reflect.Value, error) {
+			out := rcvr.Method(m.Index).Call(assemble(ctx, arg))
 			return out[0], nil
 		}
 	case t.NumOut() == 2 && t.Out(1) == errorType:
 		// Method(...) (R, error)
 		p.Result = t.Out(0)
-		p.Call = func(rcvr, arg reflect.Value) (r reflect.Value, err error) {
-			out := rcvr.Method(m.Index).Call(assemble(arg))
+		p.Call = func(ctx context.Context, rcvr, arg reflect.Value) (r reflect.Value, err error) {
+			out := rcvr.Method(m.Index).Call(assemble(ctx, arg))
 			r = out[0]
 			if !out[1].IsNil() {
 				err = out[1].Interface().(error)

@@ -16,7 +16,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -463,7 +463,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchWatchScopeDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		pr := newPeerRelation(c, st)
 		w := pr.ru0.WatchScope()
 		<-w.Changes()

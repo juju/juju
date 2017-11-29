@@ -22,8 +22,8 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
@@ -50,6 +50,7 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/stateenvirons"
 	statestorage "github.com/juju/juju/state/storage"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -153,8 +154,8 @@ func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
-	info := s.State.MongoConnectionInfo()
-	info.Password = "dummy-secret"
+	info := statetesting.NewMongoInfo()
+	info.Password = AdminSecret
 	return info
 }
 
@@ -396,7 +397,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.BackingState = getStater.GetStateInAPIServer()
 	s.BackingStatePool = getStater.GetStatePoolInAPIServer()
 
-	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.BackingState.MongoConnectionInfo())
+	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.MongoInfo(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.StatePool = state.NewStatePool(s.State)
@@ -478,14 +479,16 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 		return nil, errors.New("missing controller UUID")
 	}
 	config := environ.Config()
-	password := AdminSecret
-	if password == "" {
-		return nil, errors.Errorf("cannot connect without admin-secret")
-	}
 	modelTag := names.NewModelTag(config.UUID())
 
-	mongoInfo.Password = password
+	mongoInfo.Password = AdminSecret
 	opts := mongotest.DialOpts()
+	session, err := mongo.DialWithInfo(*mongoInfo, opts)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer session.Close()
+
 	newPolicyFunc := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
@@ -494,8 +497,7 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
-		MongoInfo:          mongoInfo,
-		MongoDialOpts:      opts,
+		MongoSession:       session,
 		NewPolicy:          newPolicyFunc,
 	}
 	st, err := state.Open(args)
@@ -714,7 +716,7 @@ func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, 
 	return app
 }
 
-func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {
+func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetterWriter {
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	paths := agent.DefaultPaths

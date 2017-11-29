@@ -207,12 +207,15 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 		Timeout:       5 * time.Second,
 		SocketTimeout: 5 * time.Second,
 	}
+	session, err := mongo.DialWithInfo(*mongoInfo, dialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
+
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.IAASModel.ModelTag(),
-		MongoInfo:          mongoInfo,
-		MongoDialOpts:      dialOpts,
+		MongoSession:       session,
 	})
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
@@ -633,14 +636,17 @@ func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
 	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
 		Clock:           clock.WallClock,
-		Cert:            coretesting.ServerCert,
-		Key:             coretesting.ServerKey,
+		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
 		Tag:             names.NewMachineTag("0"),
 		LogDir:          c.MkDir(),
 		Hub:             hub,
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL:     "https://0.1.2.3/no-autocert-here",
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
+		UpgradeComplete: func() bool { return true },
+		RestoreStatus: func() state.RestoreStatus {
+			return state.RestoreNotActive
+		},
 	}
 }
 

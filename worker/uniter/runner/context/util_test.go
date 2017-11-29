@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -25,8 +25,8 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
@@ -119,7 +119,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 
 func (s *HookContextSuite) GetContext(
 	c *gc.C, relId int, remoteName string,
-) jujuc.Context {
+) hookcommands.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return s.getHookContext(

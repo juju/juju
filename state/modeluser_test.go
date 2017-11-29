@@ -379,14 +379,10 @@ func (s *ModelUserSuite) TestModelUUIDsForUser(c *gc.C) {
 	c.Assert(models, jc.DeepEquals, []string{s.State.ModelUUID()})
 
 	modelTag := names.NewModelTag(models[0])
-	st, err := s.State.ForModel(modelTag)
-	c.Assert(err, jc.ErrorIsNil)
-
 	access, err := s.State.UserAccess(user.UserTag(), modelTag)
 	when, err := s.Model.LastModelConnection(access.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(when.IsZero(), jc.IsTrue)
-	c.Assert(st.Close(), jc.ErrorIsNil)
 }
 
 func (s *ModelUserSuite) TestImportingModelUUIDsForUser(c *gc.C) {

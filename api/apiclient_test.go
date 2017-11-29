@@ -11,6 +11,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -571,8 +573,7 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 	defer statePool.Close()
 	srv, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
-		Cert:            jtesting.ServerCert,
-		Key:             jtesting.ServerKey,
+		GetCertificate:  func() *tls.Certificate { return jtesting.ServerTLSCert },
 		Tag:             machineTag,
 		Hub:             centralhub.New(machineTag),
 		DataDir:         c.MkDir(),
@@ -581,6 +582,8 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL:     "https://0.1.2.3/no-autocert-here",
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
+		UpgradeComplete: func() bool { return true },
+		RestoreStatus:   func() state.RestoreStatus { return state.RestoreNotActive },
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(srv)
@@ -1085,6 +1088,39 @@ func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
 	c.Assert(conn.IsBroken(), jc.IsTrue)
 }
 
+func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
+	s.PatchValue(&os.Args, []string{"this", "is", "the test", "command"})
+
+	info := s.APIInfo(c)
+	conn := newRPCConnection()
+	conn.response = &params.LoginResult{
+		ControllerTag: "controller-" + s.ControllerConfig.ControllerUUID(),
+		ServerVersion: "2.3-rc2",
+	}
+	// Pass an already-closed channel so we don't wait for the monitor
+	// to signal the rpc connection is dead when closing the state
+	// (because there's no monitor running).
+	broken := make(chan struct{})
+	close(broken)
+	testState := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: conn,
+		Clock:         &fakeClock{},
+		Address:       "localhost:1234",
+		Broken:        broken,
+		Closed:        make(chan struct{}),
+	})
+	err := testState.Login(info.Tag, info.Password, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	calls := conn.stub.Calls()
+	c.Assert(calls, gc.HasLen, 1)
+	call := calls[0]
+	c.Assert(call.FuncName, gc.Equals, "Admin.Login")
+	c.Assert(call.Args, gc.HasLen, 2)
+	request := call.Args[1].(*params.LoginRequest)
+	c.Assert(request.CLIArgs, gc.Equals, `this is "the test" command`)
+}
+
 type fakeClock struct {
 	clock.Clock
 
@@ -1121,7 +1157,8 @@ func newRPCConnection(errs ...error) *fakeRPCConnection {
 }
 
 type fakeRPCConnection struct {
-	stub testing.Stub
+	stub     testing.Stub
+	response interface{}
 }
 
 func (f *fakeRPCConnection) Dead() <-chan struct{} {
@@ -1134,6 +1171,11 @@ func (f *fakeRPCConnection) Close() error {
 
 func (f *fakeRPCConnection) Call(req rpc.Request, params, response interface{}) error {
 	f.stub.AddCall(req.Type+"."+req.Action, req.Version, params)
+	if f.response != nil {
+		rv := reflect.ValueOf(response)
+		target := reflect.Indirect(rv)
+		target.Set(reflect.Indirect(reflect.ValueOf(f.response)))
+	}
 	return f.stub.NextErr()
 }
 

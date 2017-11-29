@@ -5,7 +5,7 @@ package meterstatus
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/meterstatus"

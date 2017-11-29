@@ -34,6 +34,12 @@ func (fa FakeAuthorizer) AuthMachineAgent() bool {
 	return isMachine
 }
 
+// AuthApplicationAgent returns whether the current client is an application operator.
+func (fa FakeAuthorizer) AuthApplicationAgent() bool {
+	_, isApp := fa.GetAuthTag().(names.ApplicationTag)
+	return isApp
+}
+
 // AuthUnitAgent returns whether the current client is a unit agent.
 func (fa FakeAuthorizer) AuthUnitAgent() bool {
 	_, isUnit := fa.GetAuthTag().(names.UnitTag)

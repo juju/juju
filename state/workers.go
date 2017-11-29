@@ -184,8 +184,8 @@ func (l lazyLeaseManager) Claim(leaseName, holderName string, duration time.Dura
 }
 
 // WaitUntilExpired is part of the lease.Claimer interface.
-func (l lazyLeaseManager) WaitUntilExpired(leaseName string) error {
-	return l.leaseManager().WaitUntilExpired(leaseName)
+func (l lazyLeaseManager) WaitUntilExpired(leaseName string, cancel <-chan struct{}) error {
+	return l.leaseManager().WaitUntilExpired(leaseName, cancel)
 }
 
 // Token is part of the lease.Checker interface.

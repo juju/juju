@@ -16,7 +16,7 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
@@ -626,12 +626,6 @@ func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
 func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, msg string) {
 	err := s.APIState.Client().Resolved("wordpress/0", false)
 	s.AssertBlocked(c, err, msg)
-}
-
-func (s *serverSuite) TestCACert(c *gc.C) {
-	r, err := s.APIState.Client().CACert()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r, gc.Equals, coretesting.CACert)
 }
 
 func (s *clientSuite) TestBlockDestroyUnitResolved(c *gc.C) {

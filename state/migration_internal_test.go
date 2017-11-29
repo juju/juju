@@ -6,7 +6,7 @@ package state
 import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/testing"
 )
@@ -160,11 +160,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Global settings store controller specific configuration settings
 		// and are not to be migrated.
 		globalSettingsC,
-
-		// The auditing collection stores a large amount of historical data
-		// and will be streamed across after migration in a similar way to
-		// logging.
-		auditingC,
 
 		// There is a precheck to ensure that there are no pending reboots
 		// for the model being migrated, and as such, there is no need to
@@ -368,6 +363,8 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		// RelationCount is handled by the number of times the application name
 		// appears in relation endpoints.
 		"RelationCount",
+		// TODO(caas) - add to export/import
+		"PasswordHash",
 	)
 	migrated := set.NewStrings(
 		"Name",
@@ -641,6 +638,7 @@ func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
 		"MachineID",
 		"DNSSearchDomains",
 		"GatewayAddress",
+		"IsDefaultGateway",
 		"ProviderID",
 		"DNSServers",
 		"SubnetCIDR",

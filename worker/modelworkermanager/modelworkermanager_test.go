@@ -32,53 +32,53 @@ func (s *suite) SetUpTest(c *gc.C) {
 }
 
 func (s *suite) TestStartEmpty(c *gc.C) {
-	s.runTest(c, func(_ worker.Worker, backend *mockBackend) {
-		backend.sendModelChange()
+	s.runTest(c, func(_ worker.Worker, w *mockModelWatcher, _ *mockModelGetter) {
+		w.sendModelChange()
 
 		s.assertNoWorkers(c)
 	})
 }
 
 func (s *suite) TestStartsInitialWorker(c *gc.C) {
-	s.runTest(c, func(_ worker.Worker, backend *mockBackend) {
-		backend.sendModelChange("uuid")
+	s.runTest(c, func(_ worker.Worker, w *mockModelWatcher, _ *mockModelGetter) {
+		w.sendModelChange("uuid")
 
 		s.assertStarts(c, "uuid")
 	})
 }
 
 func (s *suite) TestStartsLaterWorker(c *gc.C) {
-	s.runTest(c, func(_ worker.Worker, backend *mockBackend) {
-		backend.sendModelChange()
-		backend.sendModelChange("uuid")
+	s.runTest(c, func(_ worker.Worker, w *mockModelWatcher, _ *mockModelGetter) {
+		w.sendModelChange()
+		w.sendModelChange("uuid")
 
 		s.assertStarts(c, "uuid")
 	})
 }
 
 func (s *suite) TestStartsMultiple(c *gc.C) {
-	s.runTest(c, func(_ worker.Worker, backend *mockBackend) {
-		backend.sendModelChange("uuid1")
-		backend.sendModelChange("uuid2", "uuid3")
-		backend.sendModelChange("uuid4")
+	s.runTest(c, func(_ worker.Worker, w *mockModelWatcher, _ *mockModelGetter) {
+		w.sendModelChange("uuid1")
+		w.sendModelChange("uuid2", "uuid3")
+		w.sendModelChange("uuid4")
 
 		s.assertStarts(c, "uuid1", "uuid2", "uuid3", "uuid4")
 	})
 }
 
 func (s *suite) TestIgnoresRepetition(c *gc.C) {
-	s.runTest(c, func(_ worker.Worker, backend *mockBackend) {
-		backend.sendModelChange("uuid")
-		backend.sendModelChange("uuid", "uuid")
-		backend.sendModelChange("uuid")
+	s.runTest(c, func(_ worker.Worker, w *mockModelWatcher, _ *mockModelGetter) {
+		w.sendModelChange("uuid")
+		w.sendModelChange("uuid", "uuid")
+		w.sendModelChange("uuid")
 
 		s.assertStarts(c, "uuid")
 	})
 }
 
 func (s *suite) TestRestartsErrorWorker(c *gc.C) {
-	s.runTest(c, func(w worker.Worker, backend *mockBackend) {
-		backend.sendModelChange("uuid")
+	s.runTest(c, func(w worker.Worker, mw *mockModelWatcher, _ *mockModelGetter) {
+		mw.sendModelChange("uuid")
 		workers := s.waitWorkers(c, 1)
 		workers[0].tomb.Kill(errors.New("blaf"))
 
@@ -91,22 +91,22 @@ func (s *suite) TestRestartsFinishedWorker(c *gc.C) {
 	// It must be possible to restart the workers for a model due to
 	// model migrations: a model can be migrated away from a
 	// controller and then migrated back later.
-	s.runTest(c, func(w worker.Worker, backend *mockBackend) {
-		backend.sendModelChange("uuid")
+	s.runTest(c, func(w worker.Worker, mw *mockModelWatcher, _ *mockModelGetter) {
+		mw.sendModelChange("uuid")
 		workers := s.waitWorkers(c, 1)
 		workertest.CleanKill(c, workers[0])
 
 		s.assertNoWorkers(c)
 
-		backend.sendModelChange("uuid")
+		mw.sendModelChange("uuid")
 		workertest.CheckAlive(c, w)
 		s.waitWorkers(c, 1)
 	})
 }
 
 func (s *suite) TestKillsManagers(c *gc.C) {
-	s.runTest(c, func(w worker.Worker, backend *mockBackend) {
-		backend.sendModelChange("uuid1", "uuid2")
+	s.runTest(c, func(w worker.Worker, mw *mockModelWatcher, _ *mockModelGetter) {
+		mw.sendModelChange("uuid1", "uuid2")
 		workers := s.waitWorkers(c, 2)
 
 		workertest.CleanKill(c, w)
@@ -118,11 +118,11 @@ func (s *suite) TestKillsManagers(c *gc.C) {
 }
 
 func (s *suite) TestClosedChangesChannel(c *gc.C) {
-	s.runDirtyTest(c, func(w worker.Worker, backend *mockBackend) {
-		backend.sendModelChange("uuid1", "uuid2")
+	s.runDirtyTest(c, func(w worker.Worker, mw *mockModelWatcher, _ *mockModelGetter) {
+		mw.sendModelChange("uuid1", "uuid2")
 		workers := s.waitWorkers(c, 2)
 
-		close(backend.envWatcher.changes)
+		close(mw.envWatcher.changes)
 		err := workertest.CheckKilled(c, w)
 		c.Check(err, gc.ErrorMatches, "changes stopped")
 		for _, worker := range workers {
@@ -136,15 +136,15 @@ func (s *suite) TestNoStartingWorkersForImportingModel(c *gc.C) {
 	// We shouldn't start workers while the model is importing,
 	// otherwise the migrationmaster gets very confused.
 	// https://bugs.launchpad.net/juju/+bug/1646310
-	s.runTest(c, func(w worker.Worker, backend *mockBackend) {
-		backend.modelActive = false
-		backend.sendModelChange("uuid1")
+	s.runTest(c, func(_ worker.Worker, w *mockModelWatcher, g *mockModelGetter) {
+		g.model.migrationMode = state.MigrationModeImporting
+		w.sendModelChange("uuid1")
 
 		s.assertNoWorkers(c)
 	})
 }
 
-type testFunc func(worker.Worker, *mockBackend)
+type testFunc func(worker.Worker, *mockModelWatcher, *mockModelGetter)
 type killFunc func(*gc.C, worker.Worker)
 
 func (s *suite) runTest(c *gc.C, test testFunc) {
@@ -156,21 +156,22 @@ func (s *suite) runDirtyTest(c *gc.C, test testFunc) {
 }
 
 func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
-	backend := newMockBackend()
+	watcher := newMockModelWatcher()
+	getter := newMockModelGetter()
 	config := modelworkermanager.Config{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		Backend:        backend,
-		NewWorker:      s.startModelWorker,
+		ModelWatcher:   watcher,
+		ModelGetter:    getter,
+		NewModelWorker: s.startModelWorker,
 		ErrorDelay:     time.Millisecond,
 	}
 	w, err := modelworkermanager.New(config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer kill(c, w)
-	test(w, backend)
+	test(w, watcher, getter)
 }
 
-func (s *suite) startModelWorker(controllerUUID, modelUUID string) (worker.Worker, error) {
-	worker := newMockWorker(controllerUUID, modelUUID)
+func (s *suite) startModelWorker(modelUUID string, modelType state.ModelType) (worker.Worker, error) {
+	worker := newMockWorker(modelUUID, modelType)
 	s.workerC <- worker
 	return worker, nil
 }
@@ -181,6 +182,7 @@ func (s *suite) assertStarts(c *gc.C, expect ...string) {
 	workers := s.waitWorkers(c, count)
 	for i, worker := range workers {
 		actual[i] = worker.uuid
+		c.Assert(worker.modelType, gc.Equals, state.ModelTypeIAAS)
 	}
 	c.Assert(actual, jc.SameContents, expect)
 }
@@ -212,8 +214,8 @@ func (s *suite) assertNoWorkers(c *gc.C) {
 	}
 }
 
-func newMockWorker(_, modelUUID string) *mockWorker {
-	w := &mockWorker{uuid: modelUUID}
+func newMockWorker(modelUUID string, modelType state.ModelType) *mockWorker {
+	w := &mockWorker{uuid: modelUUID, modelType: modelType}
 	go func() {
 		defer w.tomb.Done()
 		<-w.tomb.Dying()
@@ -222,8 +224,9 @@ func newMockWorker(_, modelUUID string) *mockWorker {
 }
 
 type mockWorker struct {
-	tomb tomb.Tomb
-	uuid string
+	tomb      tomb.Tomb
+	uuid      string
+	modelType state.ModelType
 }
 
 func (mock *mockWorker) Kill() {
@@ -234,32 +237,64 @@ func (mock *mockWorker) Wait() error {
 	return mock.tomb.Wait()
 }
 
-func newMockBackend() *mockBackend {
-	return &mockBackend{
+func newMockModelWatcher() *mockModelWatcher {
+	return &mockModelWatcher{
 		envWatcher: &mockEnvWatcher{
 			Worker:  workertest.NewErrorWorker(nil),
 			changes: make(chan []string),
 		},
-		modelActive: true,
 	}
 }
 
-type mockBackend struct {
-	envWatcher  *mockEnvWatcher
-	modelActive bool
-	modelErr    error
+type mockModelWatcher struct {
+	envWatcher *mockEnvWatcher
+	modelErr   error
 }
 
-func (mock *mockBackend) WatchModels() state.StringsWatcher {
+func (mock *mockModelWatcher) WatchModels() state.StringsWatcher {
 	return mock.envWatcher
 }
 
-func (mock *mockBackend) ModelActive(uuid string) (bool, error) {
-	return mock.modelActive, mock.modelErr
+func (mock *mockModelWatcher) sendModelChange(uuids ...string) {
+	mock.envWatcher.changes <- uuids
 }
 
-func (mock *mockBackend) sendModelChange(uuids ...string) {
-	mock.envWatcher.changes <- uuids
+type mockModelGetter struct {
+	testing.Stub
+	model mockModel
+}
+
+func newMockModelGetter() *mockModelGetter {
+	return &mockModelGetter{
+		model: mockModel{
+			migrationMode: state.MigrationModeNone,
+			modelType:     state.ModelTypeIAAS,
+		},
+	}
+}
+
+func (mock *mockModelGetter) Model(uuid string) (modelworkermanager.Model, func(), error) {
+	mock.MethodCall(mock, "Model", uuid)
+	if err := mock.NextErr(); err != nil {
+		return nil, nil, err
+	}
+	release := func() {
+		mock.MethodCall(mock, "release")
+	}
+	return &mock.model, release, nil
+}
+
+type mockModel struct {
+	migrationMode state.MigrationMode
+	modelType     state.ModelType
+}
+
+func (m *mockModel) MigrationMode() state.MigrationMode {
+	return m.migrationMode
+}
+
+func (m *mockModel) Type() state.ModelType {
+	return m.modelType
 }
 
 type mockEnvWatcher struct {

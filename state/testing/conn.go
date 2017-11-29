@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -54,8 +53,10 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) (*state.Controller, *state
 	if args.InitialConfig == nil {
 		args.InitialConfig = testing.ModelConfig(c)
 	}
-	mgoInfo := NewMongoInfo()
-	dialOpts := mongotest.DialOpts()
+
+	session, err := jujutesting.MgoServer.Dial()
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
 
 	controllerCfg := testing.FakeControllerConfig()
 	for k, v := range args.ControllerConfig {
@@ -102,9 +103,9 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) (*state.Controller, *state
 			},
 			RegionConfig: args.RegionConfig,
 		},
-		MongoInfo:     mgoInfo,
-		MongoDialOpts: dialOpts,
+		MongoSession:  session,
 		NewPolicy:     args.NewPolicy,
+		AdminPassword: "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return ctlr, st

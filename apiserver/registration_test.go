@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type registrationSuite struct {
@@ -83,7 +84,7 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 	var responsePayload params.SecretKeyLoginResponsePayload
 	err = json.Unmarshal(plaintext, &responsePayload)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(responsePayload.CACert, gc.Equals, s.BackingState.CACert())
+	c.Assert(responsePayload.CACert, gc.Equals, coretesting.CACert)
 	model, err := s.BackingState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(responsePayload.ControllerUUID, gc.Equals, model.ControllerUUID())

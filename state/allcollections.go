@@ -120,7 +120,7 @@ func allCollections() collectionSchema {
 		migrationsC: {
 			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
+				Key: []string{"model-uuid", "-attempt"},
 			}},
 		},
 
@@ -218,7 +218,11 @@ func allCollections() collectionSchema {
 
 		// This collection holds users related to a model and will be used as one
 		// of the intersection axis of permissionsC
-		modelUsersC: {},
+		modelUsersC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "user"},
+			}},
+		},
 
 		// This collection contains governors that prevent certain kinds of
 		// changes from being accepted.
@@ -440,8 +444,6 @@ func allCollections() collectionSchema {
 		remoteEntitiesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "token"},
-			}, {
-				Key: []string{"model-uuid"},
 			}},
 		},
 		// externalControllersC holds connection information for other
@@ -462,10 +464,6 @@ func allCollections() collectionSchema {
 
 		// metrics; status-history; logs; ..?
 
-		auditingC: {
-			global:    true,
-			rawAccess: true,
-		},
 	}
 	return result
 }
@@ -481,7 +479,6 @@ const (
 	annotationsC             = "annotations"
 	autocertCacheC           = "autocertCache"
 	assignUnitC              = "assignUnits"
-	auditingC                = "audit.log"
 	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"

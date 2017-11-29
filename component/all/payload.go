@@ -15,6 +15,7 @@ import (
 	internalclient "github.com/juju/juju/payload/api/private/client"
 	"github.com/juju/juju/payload/context"
 	"github.com/juju/juju/payload/status"
+	"github.com/juju/juju/worker/common/hookcommands"
 	unitercontext "github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -72,7 +73,7 @@ func (c payloads) registerHookContext() {
 	}
 
 	unitercontext.RegisterComponentFunc(payload.ComponentName,
-		func(config unitercontext.ComponentConfig) (jujuc.ContextComponent, error) {
+		func(config unitercontext.ComponentConfig) (hookcommands.ContextComponent, error) {
 			hctxClient := c.newUnitFacadeClient(config.APICaller)
 			// TODO(ericsnow) Pass the unit's tag through to the component?
 			component, err := context.NewContextAPI(hctxClient, config.DataDir)
@@ -87,7 +88,7 @@ func (c payloads) registerHookContext() {
 }
 
 type payloadsHookContext struct {
-	jujuc.Context
+	hookcommands.Context
 }
 
 // Component implements context.HookContext.
@@ -113,7 +114,7 @@ func (payloads) registerHookContextCommands() {
 		return
 	}
 
-	jujuc.RegisterCommand(context.RegisterCmdName, func(ctx jujuc.Context) (cmd.Command, error) {
+	jujuc.RegisterCommand(context.RegisterCmdName, func(ctx hookcommands.Context) (cmd.Command, error) {
 		compCtx := payloadsHookContext{ctx}
 		cmd, err := context.NewRegisterCmd(compCtx)
 		if err != nil {
@@ -122,7 +123,7 @@ func (payloads) registerHookContextCommands() {
 		return cmd, nil
 	})
 
-	jujuc.RegisterCommand(context.StatusSetCmdName, func(ctx jujuc.Context) (cmd.Command, error) {
+	jujuc.RegisterCommand(context.StatusSetCmdName, func(ctx hookcommands.Context) (cmd.Command, error) {
 		compCtx := payloadsHookContext{ctx}
 		cmd, err := context.NewStatusSetCmd(compCtx)
 		if err != nil {
@@ -131,7 +132,7 @@ func (payloads) registerHookContextCommands() {
 		return cmd, nil
 	})
 
-	jujuc.RegisterCommand(context.UnregisterCmdName, func(ctx jujuc.Context) (cmd.Command, error) {
+	jujuc.RegisterCommand(context.UnregisterCmdName, func(ctx hookcommands.Context) (cmd.Command, error) {
 		compCtx := payloadsHookContext{ctx}
 		cmd, err := context.NewUnregisterCmd(compCtx)
 		if err != nil {

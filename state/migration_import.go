@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -1349,6 +1349,7 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 		DNSServers:       addr.DNSServers(),
 		DNSSearchDomains: addr.DNSSearchDomains(),
 		GatewayAddress:   addr.GatewayAddress(),
+		IsDefaultGateway: addr.IsDefaultGateway(),
 	}
 
 	ops := []txn.Op{{

@@ -83,13 +83,20 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get network interfaces")
 	}
-
+	defaultRoute, defaultRouteDevice, err := network.GetDefaultRoute()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get default route")
+	}
 	var namesOrder []string
 	nameToConfigs := make(map[string][]params.NetworkConfig)
 	sysClassNetPath := source.SysClassNetPath()
 	for _, nic := range interfaces {
 		nicType := network.ParseInterfaceType(sysClassNetPath, nic.Name)
 		nicConfig := interfaceToNetworkConfig(nic, nicType)
+		if nicConfig.InterfaceName == defaultRouteDevice {
+			nicConfig.IsDefaultGateway = true
+			nicConfig.GatewayAddress = defaultRoute.String()
+		}
 
 		if nicType == network.BridgeInterface {
 			updateParentForBridgePorts(nic.Name, sysClassNetPath, nameToConfigs)

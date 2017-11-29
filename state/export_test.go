@@ -17,7 +17,7 @@ import (
 	txntesting "github.com/juju/txn/testing"
 	jutils "github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
@@ -739,4 +739,12 @@ func AddVolumeOps(st *State, params VolumeParams, machineId string) ([]txn.Op, n
 
 func ModelBackendFromIAASModel(im *IAASModel) modelBackend {
 	return im.mb
+}
+
+func (st *State) IsUserSuperuser(user names.UserTag) (bool, error) {
+	return st.isUserSuperuser(user)
+}
+
+func (st *State) ModelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.Query, SessionCloser, error) {
+	return st.modelQueryForUser(user, isSuperuser)
 }

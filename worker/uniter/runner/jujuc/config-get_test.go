@@ -15,11 +15,12 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type ConfigGetSuite struct {
-	ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&ConfigGetSuite{})
@@ -80,11 +81,6 @@ var (
 		"title":               "My Title",
 		"username":            "admin001",
 	}
-)
-
-const (
-	formatYaml = iota
-	formatJson
 )
 
 var configGetAllTests = []struct {

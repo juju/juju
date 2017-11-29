@@ -70,16 +70,12 @@ func (s *offerConnectionsSuite) TestAddOfferConnection(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
-	rc, err := anotherState.RemoteConnectionStatus("offer-uuid")
+	rc, err := s.State.RemoteConnectionStatus("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc.TotalConnectionCount(), gc.Equals, 2)
 	c.Assert(rc.ActiveConnectionCount(), gc.Equals, 1)
 
-	all, err := anotherState.OfferConnections("offer-uuid")
+	all, err := s.State.OfferConnections("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 2)
 	c.Assert(all[0].SourceModelUUID(), gc.Equals, testing.ModelTag.Id())
@@ -108,10 +104,6 @@ func (s *offerConnectionsSuite) TestAddOfferConnectionTwice(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: testing.ModelTag.Id(),
 		RelationId:      s.activeRel.Id(),
@@ -132,13 +124,9 @@ func (s *offerConnectionsSuite) TestOfferConnectionForRelation(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
-	_, err = anotherState.OfferConnectionForRelation("some-key")
+	_, err = s.State.OfferConnectionForRelation("some-key")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	obtained, err := anotherState.OfferConnectionForRelation(s.activeRel.Tag().Id())
+	obtained, err := s.State.OfferConnectionForRelation(s.activeRel.Tag().Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained.RelationId(), gc.Equals, oc.RelationId())
 	c.Assert(obtained.RelationKey(), gc.Equals, oc.RelationKey())
@@ -155,14 +143,10 @@ func (s *offerConnectionsSuite) TestOfferConnectionsForUser(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := s.State.ForModel(s.IAASModel.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
-	obtained, err := anotherState.OfferConnectionsForUser("mary")
+	obtained, err := s.State.OfferConnectionsForUser("mary")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.HasLen, 0)
-	obtained, err = anotherState.OfferConnectionsForUser("fred")
+	obtained, err = s.State.OfferConnectionsForUser("fred")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.HasLen, 1)
 	c.Assert(obtained[0].OfferUUID(), gc.Equals, oc.OfferUUID())

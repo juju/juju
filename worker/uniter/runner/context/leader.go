@@ -21,7 +21,7 @@ type LeadershipSettingsAccessor interface {
 	Merge(serviceName string, settings map[string]string) error
 }
 
-// LeadershipContext provides several jujuc.Context methods. It
+// LeadershipContext provides several hooks.Context methods. It
 // exists separately of HookContext for clarity, and ease of testing.
 type LeadershipContext interface {
 	IsLeader() (bool, error)
@@ -50,7 +50,7 @@ func NewLeadershipContext(accessor LeadershipSettingsAccessor, tracker leadershi
 // factory tests.
 var newLeadershipContext = NewLeadershipContext
 
-// IsLeader is part of the jujuc.Context interface.
+// IsLeader is part of the hooks.Context interface.
 func (ctx *leadershipContext) IsLeader() (bool, error) {
 	// This doesn't technically need an error return, but that feels like a
 	// happy accident of the current implementation and not a reason to change
@@ -65,7 +65,7 @@ func (ctx *leadershipContext) IsLeader() (bool, error) {
 	return false, errors.Trace(err)
 }
 
-// WriteLeaderSettings is part of the jujuc.Context interface.
+// WriteLeaderSettings is part of the hooks.Context interface.
 func (ctx *leadershipContext) WriteLeaderSettings(settings map[string]string) error {
 	// This may trigger a lease refresh; it would be desirable to use a less
 	// eager approach here, but we're working around a race described in
@@ -82,7 +82,7 @@ func (ctx *leadershipContext) WriteLeaderSettings(settings map[string]string) er
 	return errors.Annotate(err, "cannot write settings")
 }
 
-// LeaderSettings is part of the jujuc.Context interface.
+// LeaderSettings is part of the hooks.Context interface.
 func (ctx *leadershipContext) LeaderSettings() (map[string]string, error) {
 	if ctx.settings == nil {
 		var err error

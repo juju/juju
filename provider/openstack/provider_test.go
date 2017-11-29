@@ -310,6 +310,26 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 		},
 		expected: false,
 	}, {
+		about: "nil rule component: PortRangeMin",
+		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		secGroupRule: neutron.SecurityGroupRuleV2{
+			IPProtocol:     &proto_tcp,
+			PortRangeMin:   nil,
+			PortRangeMax:   &port_85,
+			RemoteIPPrefix: "192.168.100.0/24",
+		},
+		expected: false,
+	}, {
+		about: "nil rule component: PortRangeMax",
+		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		secGroupRule: neutron.SecurityGroupRuleV2{
+			IPProtocol:     &proto_tcp,
+			PortRangeMin:   &port_85,
+			PortRangeMax:   nil,
+			RemoteIPPrefix: "192.168.100.0/24",
+		},
+		expected: false,
+	}, {
 		about: "mismatched port range and rule",
 		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
 		secGroupRule: neutron.SecurityGroupRuleV2{

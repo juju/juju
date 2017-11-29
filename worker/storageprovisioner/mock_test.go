@@ -22,6 +22,7 @@ import (
 
 const attachedVolumeId = "1"
 const needsInstanceVolumeId = "23"
+const noAttachmentVolumeId = "66"
 
 var (
 	releasingVolumeId     = "2"
@@ -185,12 +186,14 @@ func (v *mockVolumeAccessor) VolumeParams(volumes []names.VolumeTag) ([]params.V
 				"very": "fancy",
 			},
 		}
-		volumeParams.Attachment = &params.VolumeAttachmentParams{
-			VolumeTag:  tag.String(),
-			MachineTag: "machine-1",
-			InstanceId: string(v.provisionedMachines["machine-1"]),
-			Provider:   "dummy",
-			ReadOnly:   tag.String() == "volume-1",
+		if tag.Id() != noAttachmentVolumeId {
+			volumeParams.Attachment = &params.VolumeAttachmentParams{
+				VolumeTag:  tag.String(),
+				MachineTag: "machine-1",
+				InstanceId: string(v.provisionedMachines["machine-1"]),
+				Provider:   "dummy",
+				ReadOnly:   tag.String() == "volume-1",
+			}
 		}
 		result = append(result, params.VolumeParamsResult{Result: volumeParams})
 	}

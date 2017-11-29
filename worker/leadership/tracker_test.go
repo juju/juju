@@ -55,16 +55,6 @@ func (s *TrackerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *TrackerSuite) TearDownTest(c *gc.C) {
-	if s.claimer != nil {
-		// It's not impossible that there's a goroutine waiting for a
-		// BlockUntilLeadershipReleased. Make sure it completes.
-		close(s.claimer.releases)
-		s.claimer = nil
-	}
-	s.IsolationSuite.TearDownTest(c)
-}
-
 func (s *TrackerSuite) unblockRelease(c *gc.C) {
 	select {
 	case s.claimer.releases <- struct{}{}:
@@ -124,9 +114,6 @@ func (s *TrackerSuite) TestOnLeaderFailure(c *gc.C) {
 	// Stop the tracker before trying to look at its mocks.
 	workertest.CleanKill(c, tracker)
 
-	// Unblock the release goroutine, lest data races.
-	s.unblockRelease(c)
-
 	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
@@ -172,9 +159,6 @@ func (s *TrackerSuite) TestLoseLeadership(c *gc.C) {
 
 	// Stop the tracker before trying to look at its stub.
 	workertest.CleanKill(c, tracker)
-
-	// Unblock the release goroutine, lest data races.
-	s.unblockRelease(c)
 
 	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
@@ -254,9 +238,6 @@ func (s *TrackerSuite) TestFailGainLeadership(c *gc.C) {
 
 	// ...but it won't, because we Stop the tracker...
 	workertest.CleanKill(c, tracker)
-
-	// ...and clear out the release goroutine before we look at the stub.
-	s.unblockRelease(c)
 
 	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
@@ -348,9 +329,6 @@ func (s *TrackerSuite) TestWaitLeaderNeverBecomeLeader(c *gc.C) {
 	assertTicket(c, ticket, false)
 	assertTicket(c, ticket, false)
 
-	// Unblock the release goroutine and stop the tracker before trying to
-	// look at its stub.
-	s.unblockRelease(c)
 	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",
 		Args: []interface{}{
@@ -386,6 +364,15 @@ func (s *TrackerSuite) TestWaitMinionAlreadyMinion(c *gc.C) {
 	}})
 }
 
+func (s *TrackerSuite) TestWaitMinionClaimerFails(c *gc.C) {
+	s.claimer.Stub.SetErrors(coreleadership.ErrClaimDenied, errors.New("mein leben!"))
+	tracker := s.newTrackerDirtyKill()
+	s.unblockRelease(c)
+
+	err := workertest.CheckKilled(c, tracker)
+	c.Assert(err, gc.ErrorMatches, "error while led-service/123 waiting for led-service leadership release: mein leben!")
+}
+
 func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
 	s.claimer.Stub.SetErrors(nil, coreleadership.ErrClaimDenied, nil)
 	tracker := s.newTracker()
@@ -400,9 +387,6 @@ func (s *TrackerSuite) TestWaitMinionBecomeMinion(c *gc.C) {
 
 	// Stop the tracker before trying to look at its stub.
 	workertest.CleanKill(c, tracker)
-
-	// Unblock the release goroutine, lest data races.
-	s.unblockRelease(c)
 
 	s.claimer.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ClaimLeadership",

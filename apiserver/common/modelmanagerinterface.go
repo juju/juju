@@ -30,6 +30,8 @@ type ModelManagerBackend interface {
 
 	ModelUUID() string
 	ModelUUIDsForUser(names.UserTag) ([]string, error)
+	ModelBasicInfoForUser(user names.UserTag) ([]state.ModelAccessInfo, error)
+	ModelSummariesForUser(user names.UserTag, all bool) ([]state.ModelSummary, error)
 	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)
@@ -77,6 +79,7 @@ type ModelManagerBackend interface {
 // All the interface methods are defined directly on state.Model
 // and are reproduced here for use in tests.
 type Model interface {
+	Type() state.ModelType
 	Config() (*config.Config, error)
 	Life() state.Life
 	ModelTag() names.ModelTag
@@ -123,7 +126,7 @@ func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelMana
 }
 
 func (st modelManagerStateShim) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
-	return st.ModelConfigDefaultValues()
+	return st.model.ModelConfigDefaultValues()
 }
 
 // UpdateModelConfigDefaultValues implements the ModelManagerBackend method.

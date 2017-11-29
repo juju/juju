@@ -4,6 +4,7 @@
 package rpc_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -35,7 +36,7 @@ func (s *dispatchSuite) SetUpSuite(c *gc.C) {
 		conn := rpc.NewConn(codec, &notifier{})
 
 		conn.Serve(&DispatchRoot{}, nil)
-		conn.Start()
+		conn.Start(context.Background())
 
 		<-conn.Dead()
 	}

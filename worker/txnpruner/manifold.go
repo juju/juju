@@ -67,12 +67,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
-	st, err := stTracker.Use()
+	statePool, err := stTracker.Use()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	worker := config.NewWorker(st, config.PruneInterval, clock)
+	worker := config.NewWorker(statePool.SystemState(), config.PruneInterval, clock)
 	go func() {
 		worker.Wait()
 		stTracker.Done()

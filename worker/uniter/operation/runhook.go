@@ -7,14 +7,14 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
+	commonhooks "github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type runHook struct {
@@ -82,8 +82,13 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	if err := rh.beforeHook(state); err != nil {
 		return nil, err
 	}
-	if err := rh.callbacks.SetExecutingStatus(message); err != nil {
-		return nil, err
+	// In order to reduce controller load, the uniter no longer
+	// records when it is running the update-status hook. If the
+	// hook fails, that is recorded.
+	if hooks.Kind(rh.name) != hooks.UpdateStatus {
+		if err := rh.callbacks.SetExecutingStatus(message); err != nil {
+			return nil, err
+		}
 	}
 	// The before hook may have updated unit status and we don't want that
 	// to count so reset it here before running the hook.
@@ -137,13 +142,13 @@ func (rh *runHook) beforeHook(state State) error {
 		// If the charm has already updated the unit status in a previous hook,
 		// then don't overwrite that here.
 		if !state.StatusSet {
-			err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+			err = rh.runner.Context().SetUnitStatus(commonhooks.StatusInfo{
 				Status: string(status.Maintenance),
 				Info:   status.MessageInstallingCharm,
 			})
 		}
 	case hooks.Stop:
-		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+		err = rh.runner.Context().SetUnitStatus(commonhooks.StatusInfo{
 			Status: string(status.Maintenance),
 			Info:   "cleaning up prior to charm deletion",
 		})
@@ -170,7 +175,7 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 	switch rh.info.Kind {
 	case hooks.Stop:
 		// Charm is no longer of this world.
-		err = ctx.SetUnitStatus(jujuc.StatusInfo{
+		err = ctx.SetUnitStatus(commonhooks.StatusInfo{
 			Status: string(status.Terminated),
 		})
 	case hooks.Start:
@@ -180,7 +185,7 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 		logger.Debugf("unit %v has started but has not yet set status", ctx.UnitName())
 		// We've finished the start hook and the charm has not updated its
 		// own status so we'll set it to unknown.
-		err = ctx.SetUnitStatus(jujuc.StatusInfo{
+		err = ctx.SetUnitStatus(commonhooks.StatusInfo{
 			Status: string(status.Unknown),
 		})
 	case hooks.RelationBroken:

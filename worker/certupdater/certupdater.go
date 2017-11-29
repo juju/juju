@@ -56,7 +56,7 @@ type StateServingInfoGetter interface {
 
 // StateServingInfoSetter defines a function that is called to set a
 // StateServingInfo value with a newly generated certificate.
-type StateServingInfoSetter func(info params.StateServingInfo, done <-chan struct{}) error
+type StateServingInfoSetter func(info params.StateServingInfo) error
 
 // APIHostPortsGetter is an interface that is provided to NewCertificateUpdater
 // whose APIHostPorts method will be invoked to get controller addresses.
@@ -64,18 +64,25 @@ type APIHostPortsGetter interface {
 	APIHostPorts() ([][]network.HostPort, error)
 }
 
+// Config holds the configuration for the certificate updater worker.
+type Config struct {
+	AddressWatcher         AddressWatcher
+	StateServingInfoGetter StateServingInfoGetter
+	StateServingInfoSetter StateServingInfoSetter
+	ControllerConfigGetter ControllerConfigGetter
+	APIHostPortsGetter     APIHostPortsGetter
+}
+
 // NewCertificateUpdater returns a worker.Worker that watches for changes to
 // machine addresses and then generates a new controller certificate with those
 // addresses in the certificate's SAN value.
-func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInfoGetter,
-	configGetter ControllerConfigGetter, hostPortsGetter APIHostPortsGetter, setter StateServingInfoSetter,
-) worker.Worker {
+func NewCertificateUpdater(config Config) worker.Worker {
 	return legacy.NewNotifyWorker(&CertificateUpdater{
-		addressWatcher:  addressWatcher,
-		configGetter:    configGetter,
-		hostPortsGetter: hostPortsGetter,
-		getter:          getter,
-		setter:          setter,
+		addressWatcher:  config.AddressWatcher,
+		configGetter:    config.ControllerConfigGetter,
+		hostPortsGetter: config.APIHostPortsGetter,
+		getter:          config.StateServingInfoGetter,
+		setter:          config.StateServingInfoSetter,
 	})
 }
 
@@ -95,10 +102,9 @@ func (c *CertificateUpdater) SetUp() (state.NotifyWatcher, error) {
 			initialSANAddresses = append(initialSANAddresses, nhp.Address)
 		}
 	}
-	if err := c.updateCertificate(initialSANAddresses, make(chan struct{})); err != nil {
+	if err := c.updateCertificate(initialSANAddresses); err != nil {
 		return nil, errors.Annotate(err, "setting initial cerificate SAN list")
 	}
-	// Return
 	return c.addressWatcher.WatchAddresses(), nil
 }
 
@@ -111,10 +117,10 @@ func (c *CertificateUpdater) Handle(done <-chan struct{}) error {
 		logger.Debugf("addresses haven't really changed since last updated cert")
 		return nil
 	}
-	return c.updateCertificate(addresses, done)
+	return c.updateCertificate(addresses)
 }
 
-func (c *CertificateUpdater) updateCertificate(addresses []network.Address, done <-chan struct{}) error {
+func (c *CertificateUpdater) updateCertificate(addresses []network.Address) error {
 	logger.Debugf("new machine addresses: %#v", addresses)
 	c.addresses = addresses
 
@@ -167,7 +173,7 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address, done
 	}
 	stateInfo.Cert = string(newCert)
 	stateInfo.PrivateKey = string(newKey)
-	err = c.setter(stateInfo, done)
+	err = c.setter(stateInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot write agent config")
 	}

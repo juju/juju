@@ -71,7 +71,7 @@ func (s *SingularSuite) TestExpire(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wait := make(chan error)
 	go func() {
-		wait <- claimer.WaitUntilExpired(s.modelTag.Id())
+		wait <- claimer.WaitUntilExpired(s.modelTag.Id(), nil)
 	}()
 
 	g, err := s.State.GlobalClockUpdater()

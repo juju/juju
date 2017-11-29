@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -32,16 +32,9 @@ type PrecheckBackend interface {
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
 	AllRelations() ([]PrecheckRelation, error)
-	ControllerBackend() (PrecheckBackendCloser, error)
+	ControllerBackend() (PrecheckBackend, error)
 	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
 	ListPendingResources(string) ([]resource.Resource, error)
-}
-
-// PrecheckBackendCloser adds the Close method to the standard
-// PrecheckBackend.
-type PrecheckBackendCloser interface {
-	PrecheckBackend
-	Close() error
 }
 
 // Pool defines the interface to a StatePool used by the migration
@@ -143,7 +136,6 @@ func SourcePrecheck(backend PrecheckBackend) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer controllerBackend.Close()
 	if err := checkController(controllerBackend); err != nil {
 		return errors.Annotate(err, "controller")
 	}

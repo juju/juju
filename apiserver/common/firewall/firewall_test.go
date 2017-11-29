@@ -6,9 +6,8 @@ package firewall_test
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -61,9 +60,15 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 			},
 		},
 	}
-	db2Relation.inScope = set.NewStrings("django/0", "django/1")
 	s.st.relations["remote-db2:db django:db"] = db2Relation
 	s.st.remoteEntities[names.NewRelationTag("remote-db2:db django:db")] = "token-db2:db django:db"
+	// django/0 and django/1 are initially in scope
+	db2Relation.ruw.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"django/0": {},
+			"django/1": {},
+		},
+	}
 
 	unit := newMockUnit("django/0")
 	unit.publicAddress = network.NewScopedAddress("1.2.3.4", network.ScopePublic)
@@ -97,8 +102,9 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"KeyRelation", []interface{}{"remote-db2:db django:db"}},
 		{"Application", []interface{}{"django"}},
-		{"Application", []interface{}{"django"}},
+		{"Unit", []interface{}{"django/0"}},
 		{"Machine", []interface{}{"0"}},
+		{"Unit", []interface{}{"django/1"}},
 		{"Machine", []interface{}{"1"}},
 	})
 }

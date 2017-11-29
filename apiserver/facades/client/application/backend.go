@@ -4,8 +4,9 @@
 package application
 
 import (
-	"gopkg.in/juju/charm.v6-unstable"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6"
+	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -145,6 +146,7 @@ type Resources interface {
 type stateShim struct {
 	*state.State
 	*state.IAASModel
+	*state.CAASModel
 }
 
 type ExternalController state.ExternalController
@@ -154,16 +156,32 @@ func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, mode
 	return api.Save(controllerInfo, modelUUID)
 }
 
+func (s stateShim) ModelTag() names.ModelTag {
+	m, err := s.State.Model()
+	if err != nil {
+		return names.ModelTag{}
+	}
+	return m.ModelTag()
+}
+
 // NewStateBackend converts a state.State into a Backend.
 func NewStateBackend(st *state.State) (Backend, error) {
-	im, err := st.IAASModel()
+	m, err := st.Model()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return &stateShim{
-		State:     st,
-		IAASModel: im,
-	}, nil
+
+	result := &stateShim{State: st}
+	if m.Type() == state.ModelTypeIAAS {
+		result.IAASModel, err = m.IAASModel()
+	} else {
+		result.CAASModel, err = m.CAASModel()
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "could not convert state into either IAAS or CAASModel")
+	}
+
+	return result, nil
 }
 
 // NewStateApplication converts a state.Application into an Application.

@@ -6,10 +6,11 @@ package client
 import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -42,6 +43,7 @@ type Backend interface {
 	Application(string) (*state.Application, error)
 	ApplicationLeaders() (map[string]string, error)
 	Charm(*charm.URL) (*state.Charm, error)
+	ControllerConfig() (controller.Config, error)
 	ControllerTag() names.ControllerTag
 	EndpointsRelation(...state.Endpoint) (*state.Relation, error)
 	FindEntity(names.Tag) (state.Entity, error)

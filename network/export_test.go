@@ -8,4 +8,7 @@ var (
 	NetListen                      = &netListen
 	RunCommand                     = runCommand
 	NewEtcNetworkInterfacesBridger = newEtcNetworkInterfacesBridger
+	SimulatedOS                    = &simulatedOS
+	LaunchIpRouteShow              = &launchIpRouteShow
+	LaunchIpRouteShowReal          = launchIpRouteShowReal
 )

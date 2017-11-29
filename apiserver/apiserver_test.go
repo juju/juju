@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 
@@ -49,14 +50,17 @@ func (s *apiserverBaseSuite) sampleConfig(c *gc.C) apiserver.ServerConfig {
 	machineTag := names.NewMachineTag("0")
 	return apiserver.ServerConfig{
 		Clock:           clock.WallClock,
-		Cert:            coretesting.ServerCert,
-		Key:             coretesting.ServerKey,
+		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
 		Tag:             machineTag,
 		LogDir:          c.MkDir(),
 		Hub:             centralhub.New(machineTag),
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL:     "https://0.1.2.3/no-autocert-here",
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
+		UpgradeComplete: func() bool { return true },
+		RestoreStatus: func() state.RestoreStatus {
+			return state.RestoreNotActive
+		},
 	}
 }
 

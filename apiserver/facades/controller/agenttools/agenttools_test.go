@@ -44,14 +44,14 @@ func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
 	var (
 		calledWithMajor, calledWithMinor int
 	)
-	fakeToolFinder := func(e environs.Environ, maj int, min int, stream string, filter coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(e environs.Environ, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		calledWithMajor = maj
 		calledWithMinor = min
 		ver := version.Binary{Number: version.Number{Major: maj, Minor: min}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
 		c.Assert(calledWithMajor, gc.Equals, 2)
 		c.Assert(calledWithMinor, gc.Equals, 5)
-		c.Assert(stream, gc.Equals, "released")
+		c.Assert(streams, gc.DeepEquals, []string{"released"})
 		return coretools.List{&t}, nil
 	}
 
@@ -71,13 +71,13 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var (
 		calledWithMajor, calledWithMinor int
-		calledWithStreams                []string
+		calledWithStreams                [][]string
 	)
-	fakeToolFinder := func(e environs.Environ, maj int, min int, stream string, filter coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(e environs.Environ, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		calledWithMajor = maj
 		calledWithMinor = min
-		calledWithStreams = append(calledWithStreams, stream)
-		if stream == "released" {
+		calledWithStreams = append(calledWithStreams, streams)
+		if len(streams) == 1 && streams[0] == "released" {
 			return nil, coretools.ErrNoMatches
 		}
 		ver := version.Binary{Number: version.Number{Major: maj, Minor: min}}
@@ -88,7 +88,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 	}
 	ver, err := checkToolsAvailability(getDummyEnviron, cfg, fakeToolFinder)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(calledWithStreams, gc.DeepEquals, []string{"released", "proposed"})
+	c.Assert(calledWithStreams, gc.DeepEquals, [][]string{{"released"}, {"proposed"}})
 	c.Assert(ver, gc.Not(gc.Equals), version.Zero)
 	c.Assert(ver, gc.Equals, version.Number{Major: 2, Minor: 5, Patch: 0})
 }
@@ -111,7 +111,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
 	}
 	s.PatchValue(&modelConfig, fakeModelConfig)
 
-	fakeToolFinder := func(_ environs.Environ, _ int, _ int, _ string, _ coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ environs.Environ, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
 		ver := version.Binary{Number: version.Number{Major: 2, Minor: 5, Patch: 2}}
 		olderVer := version.Binary{Number: version.Number{Major: 2, Minor: 5, Patch: 1}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
@@ -145,7 +145,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 	s.PatchValue(&modelConfig, fakeModelConfig)
 
 	// No new tools available.
-	fakeToolFinder := func(_ environs.Environ, _ int, _ int, _ string, _ coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ environs.Environ, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	}
 

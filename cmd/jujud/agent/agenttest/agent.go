@@ -198,7 +198,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	vers version.Binary,
 	modelTag names.ModelTag,
 ) agent.ConfigSetterWriter {
-	stateInfo := s.State.MongoConnectionInfo()
+	stateInfo := s.MongoInfo(c)
 	apiPort := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
@@ -252,12 +252,14 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	c.Assert(err, jc.ErrorIsNil)
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
+	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       session,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),

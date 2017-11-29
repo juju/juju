@@ -6,17 +6,19 @@ package jujuc
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // ActionFailCommand implements the action-fail command.
 type ActionFailCommand struct {
 	cmd.CommandBase
-	ctx         Context
+	ctx         hookcommands.Context
 	failMessage string
 }
 
 // NewActionFailCommand returns a new ActionFailCommand with the given context.
-func NewActionFailCommand(ctx Context) (cmd.Command, error) {
+func NewActionFailCommand(ctx hookcommands.Context) (cmd.Command, error) {
 	return &ActionFailCommand{ctx: ctx}, nil
 }
 

@@ -456,13 +456,13 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	}
 
 	var credential *cloud.Credential
+	bootstrapCloud := cloud.Cloud{
+		Name:             bootstrapConfig.Cloud,
+		Type:             bootstrapConfig.CloudType,
+		Endpoint:         bootstrapConfig.CloudEndpoint,
+		IdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
+	}
 	if bootstrapConfig.Credential != "" {
-		bootstrapCloud := cloud.Cloud{
-			Name:             bootstrapConfig.Cloud,
-			Type:             bootstrapConfig.CloudType,
-			Endpoint:         bootstrapConfig.CloudEndpoint,
-			IdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
-		}
 		if bootstrapConfig.CloudRegion != "" {
 			bootstrapCloud.Regions = []cloud.Region{{
 				Name:             bootstrapConfig.CloudRegion,
@@ -493,8 +493,14 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		}
 		// DetectCredential ensures that there is only one credential
 		// to choose from. It's still in a map, though, hence for..range.
-		for _, one := range cloudCredential.AuthCredentials {
+		var credentialName string
+		for name, one := range cloudCredential.AuthCredentials {
 			credential = &one
+			credentialName = name
+		}
+		credential, err = FinalizeFileContent(credential, provider)
+		if err != nil {
+			return nil, nil, AnnotateWithFinalizationError(err, credentialName, bootstrapCloud.Name)
 		}
 		credential, err = provider.FinalizeCredential(
 			g.ctx, environs.FinalizeCredentialParams{
@@ -523,16 +529,16 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		return nil, nil, errors.Trace(err)
 	}
 	return bootstrapConfig, &environs.PrepareConfigParams{
-		environs.CloudSpec{
-			bootstrapConfig.CloudType,
-			bootstrapConfig.Cloud,
-			bootstrapConfig.CloudRegion,
-			bootstrapConfig.CloudEndpoint,
-			bootstrapConfig.CloudIdentityEndpoint,
-			bootstrapConfig.CloudStorageEndpoint,
-			credential,
+		Cloud: environs.CloudSpec{
+			Type:             bootstrapConfig.CloudType,
+			Name:             bootstrapConfig.Cloud,
+			Region:           bootstrapConfig.CloudRegion,
+			Endpoint:         bootstrapConfig.CloudEndpoint,
+			IdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
+			StorageEndpoint:  bootstrapConfig.CloudStorageEndpoint,
+			Credential:       credential,
 		},
-		cfg,
+		Config: cfg,
 	}, nil
 }
 

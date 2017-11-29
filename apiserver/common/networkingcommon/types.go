@@ -187,6 +187,7 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []pa
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      v.GatewayAddress.Value,
 			Routes:              routes,
+			IsDefaultGateway:    v.IsDefaultGateway,
 		}
 	}
 	return result
@@ -267,6 +268,7 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 			DNSServers:       netConfig.DNSServers,
 			DNSSearchDomains: netConfig.DNSSearchDomains,
 			GatewayAddress:   netConfig.GatewayAddress,
+			IsDefaultGateway: netConfig.IsDefaultGateway,
 		}
 		logger.Tracef("state address args for device: %+v", addr)
 		devicesAddrs = append(devicesAddrs, addr)
@@ -369,6 +371,7 @@ func networkConfigsByAddress(input []params.NetworkConfig) map[string]params.Net
 }
 
 func mergeObservedAndProviderInterfaceConfig(observedConfig, providerConfig params.NetworkConfig) params.NetworkConfig {
+	logger.Debugf("mergeObservedAndProviderInterfaceConfig %+v %+v", observedConfig, providerConfig)
 	finalConfig := observedConfig
 
 	// The following fields cannot be observed and are only known by the
@@ -391,6 +394,7 @@ func mergeObservedAndProviderInterfaceConfig(observedConfig, providerConfig para
 	if observedConfig.ParentInterfaceName == "" {
 		finalConfig.ParentInterfaceName = providerConfig.ParentInterfaceName
 	}
+	logger.Debugf("mergeObservedAndProviderInterfaceConfig %+v", finalConfig)
 
 	return finalConfig
 }

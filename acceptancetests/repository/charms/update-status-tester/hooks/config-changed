@@ -1,0 +1,4 @@
+#!/bin/bash
+set -eux
+
+echo "Config changed"

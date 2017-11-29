@@ -26,7 +26,7 @@ import (
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	goyaml "gopkg.in/yaml.v2"
@@ -476,7 +476,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	if err != nil {
 		panic(err.Error())
 	}
-	downloader := api.NewCharmDownloader(ctx.apiConn.Client())
+	downloader := api.NewCharmDownloader(ctx.apiConn)
 	operationExecutor := operation.NewExecutor
 	if s.newExecutorFunc != nil {
 		operationExecutor = s.newExecutorFunc

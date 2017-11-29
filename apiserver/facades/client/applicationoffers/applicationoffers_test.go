@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 
@@ -51,7 +51,8 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
+		getApplicationOffers, getEnviron, getFakeControllerInfo,
+		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1043,7 +1044,8 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api, err = applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
+		getApplicationOffers, getEnviron, getFakeControllerInfo,
+		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

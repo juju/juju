@@ -4,8 +4,8 @@
 package apiserver
 
 import (
+	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"io"
 	"log"
 	"net"
@@ -27,6 +27,7 @@ import (
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/tomb.v1"
 
@@ -37,14 +38,12 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
-	"gopkg.in/macaroon-bakery.v1/bakery"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")
@@ -79,7 +78,6 @@ type Server struct {
 	logDir                 string
 	limiter                utils.Limiter
 	loginRetryPause        time.Duration
-	validator              LoginValidator
 	facades                *facade.Registry
 	modelUUID              string
 	loginAuthCtxt          *authContext
@@ -90,12 +88,14 @@ type Server struct {
 	connCount              int64
 	totalConn              int64
 	loginAttempts          int64
-	certChanged            <-chan params.StateServingInfo
+	getCertificate         func() *tls.Certificate
 	tlsConfig              *tls.Config
 	allowModelAccess       bool
 	logSinkWriter          io.WriteCloser
 	logsinkRateLimitConfig logsink.RateLimitConfig
 	dbloggers              dbloggers
+	upgradeComplete        func() bool
+	restoreStatus          func() state.RestoreStatus
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -107,12 +107,6 @@ type Server struct {
 	// hence it's here guarded by the mutex.
 	publicDNSName_ string
 
-	// cert holds the current certificate used for tls.Config.
-	cert *tls.Certificate
-
-	// certDNSNames holds the DNS names associated with cert.
-	certDNSNames []string
-
 	// registerIntrospectionHandlers is a function that will
 	// call a function with (path, http.Handler) tuples. This
 	// is to support registering the handlers underneath the
@@ -120,23 +114,32 @@ type Server struct {
 	registerIntrospectionHandlers func(func(string, http.Handler))
 }
 
-// LoginValidator functions are used to decide whether login requests
-// are to be allowed. The validator is called before credentials are
-// checked.
-type LoginValidator func(authUser names.Tag) error
-
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
-	Clock       clock.Clock
-	PingClock   clock.Clock
-	Cert        string
-	Key         string
-	Tag         names.Tag
-	DataDir     string
-	LogDir      string
-	Validator   LoginValidator
-	Hub         *pubsub.StructuredHub
-	CertChanged <-chan params.StateServingInfo
+	Clock     clock.Clock
+	PingClock clock.Clock
+	Tag       names.Tag
+	DataDir   string
+	LogDir    string
+	Hub       *pubsub.StructuredHub
+
+	// GetCertificate holds a function that returns the current
+	// local TLS certificate for the server. The function may
+	// return updated values, so should be called whenever a
+	// new connection is accepted.
+	GetCertificate func() *tls.Certificate
+
+	// UpgradeComplete is a function that reports whether or not
+	// the if the agent running the API server has completed
+	// running upgrade steps. This is used by the API server to
+	// limit logins during upgrades.
+	UpgradeComplete func() bool
+
+	// RestoreStatus is a function that reports the restore
+	// status most recently observed by the agent running the
+	// API server. This is used by the API server to limit logins
+	// during a restore.
+	RestoreStatus func() state.RestoreStatus
 
 	// AutocertDNSName holds the DNS name for which
 	// official TLS certificates will be obtained. If this is
@@ -185,8 +188,17 @@ func (c ServerConfig) Validate() error {
 	if c.Clock == nil {
 		return errors.NotValidf("missing Clock")
 	}
+	if c.GetCertificate == nil {
+		return errors.NotValidf("missing GetCertificate")
+	}
 	if c.NewObserver == nil {
 		return errors.NotValidf("missing NewObserver")
+	}
+	if c.UpgradeComplete == nil {
+		return errors.NotValidf("nil UpgradeComplete")
+	}
+	if c.RestoreStatus == nil {
+		return errors.NotValidf("nil RestoreStatus")
 	}
 	if err := c.RateLimitConfig.Validate(); err != nil {
 		return errors.Annotate(err, "validating rate limit configuration")
@@ -357,10 +369,11 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 		logDir:                        cfg.LogDir,
 		limiter:                       limiter,
 		loginRetryPause:               cfg.RateLimitConfig.LoginRetryPause,
-		validator:                     cfg.Validator,
+		upgradeComplete:               cfg.UpgradeComplete,
+		restoreStatus:                 cfg.RestoreStatus,
 		facades:                       AllFacades(),
 		centralHub:                    cfg.Hub,
-		certChanged:                   cfg.CertChanged,
+		getCertificate:                cfg.GetCertificate,
 		allowModelAccess:              cfg.AllowModelAccess,
 		publicDNSName_:                cfg.AutocertDNSName,
 		registerIntrospectionHandlers: cfg.RegisterIntrospectionHandlers,
@@ -392,10 +405,6 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 		return nil, errors.Trace(err)
 	}
 
-	if err := srv.updateCertificate(cfg.Cert, cfg.Key); err != nil {
-		return nil, errors.Annotatef(err, "cannot set initial certificate")
-	}
-
 	logSinkWriter, err := logsink.NewFileWriter(filepath.Join(srv.logDir, "logsink.log"))
 	if err != nil {
 		return nil, errors.Annotate(err, "creating logsink writer")
@@ -410,7 +419,10 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 		}
 	}
 
-	go srv.run()
+	go func() {
+		defer srv.tomb.Done()
+		srv.tomb.Kill(srv.loop())
+	}()
 	return srv, nil
 }
 
@@ -525,7 +537,8 @@ func (w *loggoWrapper) Write(content []byte) (int, error) {
 	return len(content), nil
 }
 
-func (srv *Server) run() {
+// loop is the main loop for the server.
+func (srv *Server) loop() error {
 	logger.Infof("listening on %q", srv.lis.Addr())
 
 	defer func() {
@@ -533,38 +546,9 @@ func (srv *Server) run() {
 		err := srv.lis.Close()
 		logger.Infof("closed listening socket %q with final error: %v", addr, err)
 
-		// Break deadlocks caused by leadership BlockUntil... calls.
-		srv.statePool.KillWorkers()
-		srv.statePool.SystemState().KillWorkers()
-
 		srv.wg.Wait() // wait for any outstanding requests to complete.
-		srv.tomb.Done()
 		srv.dbloggers.dispose()
 		srv.logSinkWriter.Close()
-	}()
-
-	srv.wg.Add(1)
-	go func() {
-		defer srv.wg.Done()
-		srv.tomb.Kill(srv.mongoPinger())
-	}()
-
-	srv.wg.Add(1)
-	go func() {
-		defer srv.wg.Done()
-		srv.tomb.Kill(srv.expireLocalLoginInteractions())
-	}()
-
-	srv.wg.Add(1)
-	go func() {
-		defer srv.wg.Done()
-		srv.tomb.Kill(srv.processCertChanges())
-	}()
-
-	srv.wg.Add(1)
-	go func() {
-		defer srv.wg.Done()
-		srv.tomb.Kill(srv.processModelRemovals())
 	}()
 
 	// for pat based handlers, they are matched in-order of being
@@ -574,6 +558,9 @@ func (srv *Server) run() {
 	for _, endpoint := range srv.endpoints() {
 		registerEndpoint(endpoint, mux)
 	}
+
+	// TODO(axw) graceful HTTP server shutdown. Then we'll shutdown the
+	// server, rather than closing the listener.
 
 	go func() {
 		logger.Debugf("Starting API http server on address %q", srv.lis.Addr())
@@ -592,7 +579,15 @@ func (srv *Server) run() {
 		logger.Debugf("API http server exited, final error was: %v", err)
 	}()
 
-	<-srv.tomb.Dying()
+	for {
+		select {
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		case <-srv.clock.After(authentication.LocalLoginInteractionTimeout):
+			now := srv.loginAuthCtxt.clock.Now()
+			srv.loginAuthCtxt.localUserInteractions.Expire(now)
+		}
+	}
 }
 
 func (srv *Server) endpoints() []apihttp.Endpoint {
@@ -828,18 +823,6 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	return endpoints
 }
 
-func (srv *Server) expireLocalLoginInteractions() error {
-	for {
-		select {
-		case <-srv.tomb.Dying():
-			return tomb.ErrDying
-		case <-srv.clock.After(authentication.LocalLoginInteractionTimeout):
-			now := srv.loginAuthCtxt.clock.Now()
-			srv.loginAuthCtxt.localUserInteractions.Expire(now)
-		}
-	}
-}
-
 // trackRequests wraps a http.Handler, incrementing and decrementing
 // the apiserver's WaitGroup and blocking request when the apiserver
 // is shutting down.
@@ -900,13 +883,25 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	websocket.Serve(w, req, func(conn *websocket.Conn) {
 		modelUUID := req.URL.Query().Get(":modeluuid")
 		logger.Tracef("got a request for model %q", modelUUID)
-		if err := srv.serveConn(conn, modelUUID, apiObserver, req.Host); err != nil {
+		if err := srv.serveConn(
+			req.Context(),
+			conn,
+			modelUUID,
+			apiObserver,
+			req.Host,
+		); err != nil {
 			logger.Errorf("error serving RPCs: %v", err)
 		}
 	})
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer, host string) error {
+func (srv *Server) serveConn(
+	ctx context.Context,
+	wsConn *websocket.Conn,
+	modelUUID string,
+	apiObserver observer.Observer,
+	host string,
+) error {
 	codec := jsoncodec.NewWebsocket(wsConn.Conn)
 	conn := rpc.NewConn(codec, apiObserver)
 
@@ -944,28 +939,12 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 		}
 		conn.ServeRoot(newAdminRoot(h, adminAPIs), serverError)
 	}
-	conn.Start()
+	conn.Start(ctx)
 	select {
 	case <-conn.Dead():
 	case <-srv.tomb.Dying():
 	}
 	return conn.Close()
-}
-
-func (srv *Server) mongoPinger() error {
-	session := srv.statePool.SystemState().MongoSession().Copy()
-	defer session.Close()
-	for {
-		if err := session.Ping(); err != nil {
-			logger.Infof("got error pinging mongo: %v", err)
-			return errors.Annotate(err, "error pinging mongo")
-		}
-		select {
-		case <-srv.clock.After(mongoPingInterval):
-		case <-srv.tomb.Dying():
-			return tomb.ErrDying
-		}
-	}
 }
 
 // publicDNSName returns the current public hostname.
@@ -979,68 +958,25 @@ func (srv *Server) publicDNSName() string {
 // whether it should be used to serve a connection addressed to the
 // given server name.
 func (srv *Server) localCertificate(serverName string) (*tls.Certificate, bool) {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
+	cert := srv.getCertificate()
 	if net.ParseIP(serverName) != nil {
 		// IP address connections always use the local certificate.
-		return srv.cert, true
+		return cert, true
 	}
 	if !strings.Contains(serverName, ".") {
 		// If the server name doesn't contain a period there's no
 		// way we can obtain a certificate for it.
 		// This applies to the common case where "juju-apiserver" is
 		// used as the server name.
-		return srv.cert, true
+		return cert, true
 	}
 	// Perhaps the server name is explicitly mentioned by the server certificate.
-	for _, name := range srv.certDNSNames {
+	for _, name := range cert.Leaf.DNSNames {
 		if name == serverName {
-			return srv.cert, true
+			return cert, true
 		}
 	}
-	return srv.cert, false
-}
-
-// processCertChanges receives new certificate information and
-// calls a method to update the listener's certificate.
-func (srv *Server) processCertChanges() error {
-	for {
-		select {
-		case info := <-srv.certChanged:
-			if info.Cert == "" {
-				break
-			}
-			logger.Infof("received API server certificate")
-			if err := srv.updateCertificate(info.Cert, info.PrivateKey); err != nil {
-				logger.Errorf("cannot update certificate: %v", err)
-			}
-		case <-srv.tomb.Dying():
-			return tomb.ErrDying
-		}
-	}
-}
-
-// updateCertificate updates the current CA certificate and key
-// from the given cert and key.
-func (srv *Server) updateCertificate(cert, key string) error {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	tlsCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
-	if err != nil {
-		return errors.Annotatef(err, "cannot create new TLS certificate")
-	}
-	x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
-	if err != nil {
-		return errors.Annotatef(err, "parsing x509 cert")
-	}
-	var addr []string
-	for _, ip := range x509Cert.IPAddresses {
-		addr = append(addr, ip.String())
-	}
-	logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
-	srv.cert = &tlsCert
-	srv.certDNSNames = x509Cert.DNSNames
-	return nil
+	return cert, false
 }
 
 func serverError(err error) error {
@@ -1048,37 +984,4 @@ func serverError(err error) error {
 		return err
 	}
 	return nil
-}
-
-func (srv *Server) processModelRemovals() error {
-	st := srv.statePool.SystemState()
-	w := st.WatchModelLives()
-	defer w.Stop()
-	for {
-		select {
-		case <-srv.tomb.Dying():
-			return tomb.ErrDying
-		case modelUUIDs := <-w.Changes():
-			for _, modelUUID := range modelUUIDs {
-				model, release, err := srv.statePool.GetModel(modelUUID)
-				gone := errors.IsNotFound(err)
-				dead := err == nil && model.Life() == state.Dead
-				if release != nil {
-					release()
-				}
-				if err != nil && !gone {
-					return errors.Trace(err)
-				}
-				if dead || gone {
-					// Model's gone away - ensure that it gets removed
-					// from from the state pool once people are finished
-					// with it.
-					logger.Debugf("removing model %v from the state pool", modelUUID)
-					if _, err := srv.statePool.Remove(modelUUID); err != nil {
-						return errors.Trace(err)
-					}
-				}
-			}
-		}
-	}
 }

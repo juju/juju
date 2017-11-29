@@ -43,8 +43,11 @@ type ModelManagerV4 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.DumpModelRequest) params.StringResults
 	DumpModelsDB(args params.Entities) params.MapResults
+	ListModelSummaries(request params.ModelSummariesRequest) (params.ModelSummaryResults, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
+	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
+	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
 // ModelManagerV3 defines the methods on the version 2 facade for the
@@ -55,6 +58,8 @@ type ModelManagerV3 interface {
 	DumpModelsDB(args params.Entities) params.MapResults
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.Entities) (params.ErrorResults, error)
+	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
+	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
 // ModelManagerV2 defines the methods on the version 2 facade for the
@@ -65,6 +70,7 @@ type ModelManagerV2 interface {
 	DumpModelsDB(args params.Entities) params.MapResults
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.Entities) (params.ErrorResults, error)
+	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
 // ModelManagerAPI implements the model manager interface and is
@@ -670,9 +676,91 @@ func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 	return results
 }
 
+// ListModelSummaries returns models that the specified user
+// has access to in the current server.  Controller admins (superuser)
+// can list models for any user.  Other users
+// can only ask about their own models.
+func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (params.ModelSummaryResults, error) {
+	result := params.ModelSummaryResults{}
+
+	userTag, err := names.ParseUserTag(req.UserTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	err = m.authCheck(userTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	modelInfos, err := m.state.ModelSummariesForUser(userTag, req.All)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	for _, mi := range modelInfos {
+		summary := &params.ModelSummary{
+			Name:           mi.Name,
+			UUID:           mi.UUID,
+			OwnerTag:       names.NewUserTag(mi.Owner).String(),
+			ControllerUUID: mi.ControllerUUID,
+			Life:           params.Life(mi.Life.String()),
+
+			CloudTag:           mi.CloudTag,
+			CloudRegion:        mi.CloudRegion,
+			CloudCredentialTag: mi.CloudCredentialTag,
+
+			SLA: &params.ModelSLAInfo{
+				Level: mi.SLALevel,
+				Owner: mi.Owner,
+			},
+
+			DefaultSeries: mi.DefaultSeries,
+			ProviderType:  mi.ProviderType,
+			AgentVersion:  mi.AgentVersion,
+
+			Status:             common.EntityStatusFromState(mi.Status),
+			Counts:             []params.ModelEntityCount{},
+			UserLastConnection: mi.UserLastConnection,
+		}
+
+		if mi.MachineCount > 0 {
+			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, mi.MachineCount})
+		}
+
+		if mi.CoreCount > 0 {
+			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, mi.CoreCount})
+		}
+
+		access, err := common.StateToParamsUserAccessPermission(mi.Access)
+		if err == nil {
+			summary.UserAccess = access
+		}
+		if mi.Migration != nil {
+			migration := mi.Migration
+			startTime := migration.StartTime()
+			endTime := new(time.Time)
+			*endTime = migration.EndTime()
+			var zero time.Time
+			if *endTime == zero {
+				endTime = nil
+			}
+
+			summary.Migration = &params.ModelMigrationStatus{
+				Status: migration.StatusMessage(),
+				Start:  &startTime,
+				End:    endTime,
+			}
+		}
+
+		result.Results = append(result.Results, params.ModelSummaryResult{Result: summary})
+	}
+	return result, nil
+}
+
 // ListModels returns the models that the specified user
-// has access to in the current server.  Only that controller owner
-// can list models for any user (at this stage).  Other users
+// has access to in the current server.  Controller admins (superuser)
+// can list models for any user.  Other users
 // can only ask about their own models.
 func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, error) {
 	result := params.UserModelList{}
@@ -687,44 +775,26 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := m.state.ModelUUIDsForUser(userTag)
+	modelInfos, err := m.state.ModelBasicInfoForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, modelUUID := range modelUUIDs {
-		st, release, err := m.state.GetBackend(modelUUID)
-		if err != nil {
-			// This model could have been removed.
-			if errors.IsNotFound(err) {
-				continue
-			}
-			return result, errors.Trace(err)
-		}
-		defer release()
-
-		model, err := st.Model()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-
-		var lastConn *time.Time
-		userLastConn, err := model.LastModelConnection(userTag)
-		if err != nil {
-			if !state.IsNeverConnectedError(err) {
-				return result, errors.Trace(err)
-			}
+	for _, mi := range modelInfos {
+		var ownerTag names.UserTag
+		if names.IsValidUser(mi.Owner) {
+			ownerTag = names.NewUserTag(mi.Owner)
 		} else {
-			lastConn = &userLastConn
+			// no reason to fail the request here, as it wasn't the users fault
+			logger.Warningf("for model %v, got an invalid owner: %q", mi.UUID, mi.Owner)
 		}
-
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
-				Name:     model.Name(),
-				UUID:     model.UUID(),
-				OwnerTag: model.Owner().String(),
+				Name:     mi.Name,
+				UUID:     mi.UUID,
+				OwnerTag: ownerTag.String(),
 			},
-			LastConnection: lastConn,
+			LastConnection: &mi.LastConnection,
 		})
 	}
 
@@ -758,20 +828,19 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 	}
 
 	destroyModel := func(modelUUID string, destroyStorage *bool) error {
-		model, releaseModel, err := m.state.GetModel(modelUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer releaseModel()
-		if err := m.authCheck(model.Owner()); err != nil {
-			return errors.Trace(err)
-		}
-
 		st, releaseSt, err := m.state.GetBackend(modelUUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		defer releaseSt()
+
+		model, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := m.authCheck(model.Owner()); err != nil {
+			return errors.Trace(err)
+		}
 
 		return errors.Trace(common.DestroyModel(st, destroyStorage))
 	}

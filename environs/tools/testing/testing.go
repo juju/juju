@@ -222,19 +222,20 @@ type metadataFile struct {
 	data []byte
 }
 
-func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []metadataFile {
-	var metadata = make([]*tools.ToolsMetadata, len(versions))
-	for i, vers := range versions {
-		basePath := fmt.Sprintf("%s/tools-%s.tar.gz", stream, vers.String())
-		metadata[i] = &tools.ToolsMetadata{
-			Release: vers.Series,
-			Version: vers.Number.String(),
-			Arch:    vers.Arch,
-			Path:    basePath,
+func generateMetadata(c *gc.C, streamVersions StreamVersions) []metadataFile {
+	streamMetadata := map[string][]*tools.ToolsMetadata{}
+	for stream, versions := range streamVersions {
+		metadata := make([]*tools.ToolsMetadata, len(versions))
+		for i, vers := range versions {
+			basePath := fmt.Sprintf("%s/tools-%s.tar.gz", stream, vers.String())
+			metadata[i] = &tools.ToolsMetadata{
+				Release: vers.Series,
+				Version: vers.Number.String(),
+				Arch:    vers.Arch,
+				Path:    basePath,
+			}
 		}
-	}
-	var streamMetadata = map[string][]*tools.ToolsMetadata{
-		stream: metadata,
+		streamMetadata[stream] = metadata
 	}
 	// TODO(perrito666) 2016-05-02 lp:1558657
 	index, legacyIndex, products, err := tools.MarshalToolsMetadataJSON(streamMetadata, time.Now())
@@ -253,7 +254,7 @@ func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []meta
 	}
 
 	addTools(simplestreams.UnsignedIndex("v1", 2), index)
-	if stream == "released" {
+	if legacyIndex != nil {
 		addTools(simplestreams.UnsignedIndex("v1", 1), legacyIndex)
 	}
 	for stream, metadata := range products {
@@ -279,7 +280,7 @@ func UploadToStorage(c *gc.C, stor storage.Storage, stream string, versions ...v
 		uploaded[vers], err = stor.URL(filename)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	objects := generateMetadata(c, stream, versions...)
+	objects := generateMetadata(c, StreamVersions{stream: versions})
 	for _, object := range objects {
 		toolspath := path.Join("tools", object.path)
 		err = stor.Put(toolspath, bytes.NewReader(object.data), int64(len(object.data)))
@@ -288,17 +289,24 @@ func UploadToStorage(c *gc.C, stor storage.Storage, stream string, versions ...v
 	return uploaded
 }
 
+// StreamVersions is a map of stream name to binaries in that stream.
+type StreamVersions map[string][]version.Binary
+
 // UploadToDirectory uploads tools and metadata for the specified versions to dir.
-func UploadToDirectory(c *gc.C, stream, dir string, versions ...version.Binary) map[version.Binary]string {
-	uploaded := map[version.Binary]string{}
-	if len(versions) == 0 {
-		return uploaded
+func UploadToDirectory(c *gc.C, dir string, streamVersions StreamVersions) map[string]map[version.Binary]string {
+	allUploaded := map[string]map[version.Binary]string{}
+	if len(streamVersions) == 0 {
+		return allUploaded
 	}
-	for _, vers := range versions {
-		basePath := fmt.Sprintf("%s/tools-%s.tar.gz", stream, vers.String())
-		uploaded[vers] = utils.MakeFileURL(fmt.Sprintf("%s/%s", dir, basePath))
+	for stream, versions := range streamVersions {
+		uploaded := map[version.Binary]string{}
+		for _, vers := range versions {
+			basePath := fmt.Sprintf("%s/tools-%s.tar.gz", stream, vers.String())
+			uploaded[vers] = utils.MakeFileURL(fmt.Sprintf("%s/%s", dir, basePath))
+		}
+		allUploaded[stream] = uploaded
 	}
-	objects := generateMetadata(c, stream, versions...)
+	objects := generateMetadata(c, streamVersions)
 	for _, object := range objects {
 		path := filepath.Join(dir, object.path)
 		dir := filepath.Dir(path)
@@ -308,5 +316,5 @@ func UploadToDirectory(c *gc.C, stream, dir string, versions ...version.Binary) 
 		err := ioutil.WriteFile(path, object.data, 0644)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	return uploaded
+	return allUploaded
 }

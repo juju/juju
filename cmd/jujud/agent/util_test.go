@@ -14,12 +14,11 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -44,7 +43,6 @@ import (
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/peergrouper"
 )
 
 const (
@@ -87,10 +85,6 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	fakeCmd(filepath.Join(testpath, "stop"))
 
 	s.PatchValue(&upstart.InitDir, c.MkDir())
-
-	s.PatchValue(&peergrouperNew, func(*state.State, clock.Clock, bool, peergrouper.Hub) (worker.Worker, error) {
-		return newDummyWorker(), nil
-	})
 
 	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
 }
@@ -281,23 +275,6 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 			c.Fatalf("time out wating for operation")
 		}
 	}
-}
-
-type mockAgentConfig struct {
-	agent.Config
-	providerType string
-	tag          names.Tag
-}
-
-func (m *mockAgentConfig) Tag() names.Tag {
-	return m.tag
-}
-
-func (m *mockAgentConfig) Value(key string) string {
-	if key == agent.ProviderType {
-		return m.providerType
-	}
-	return ""
 }
 
 type mockLoopDeviceManager struct {

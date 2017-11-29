@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"time"
@@ -220,8 +221,7 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 
 	srv, err := apiserver.NewServer(statePool, lis, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
-		Cert:            testing.ServerCert,
-		Key:             testing.ServerKey,
+		GetCertificate:  func() *tls.Certificate { return testing.ServerTLSCert },
 		Tag:             names.NewMachineTag("0"),
 		Hub:             pubsub.NewStructuredHub(nil),
 		DataDir:         c.MkDir(),
@@ -229,6 +229,8 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL:     "https://0.1.2.3/no-autocert-here",
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
+		UpgradeComplete: func() bool { return true },
+		RestoreStatus:   func() state.RestoreStatus { return state.RestoreNotActive },
 	})
 	c.Assert(err, gc.IsNil)
 

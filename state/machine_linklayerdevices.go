@@ -590,6 +590,10 @@ type LinkLayerDeviceAddress struct {
 
 	// GatewayAddress is the address of the gateway to use, which can be empty.
 	GatewayAddress string
+
+	// IsDefaultGateway is set to true if this address on this device is the
+	// default gw on a machine.
+	IsDefaultGateway bool
 }
 
 // SetDevicesAddresses sets the addresses of all devices in devicesAddresses,
@@ -760,6 +764,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 		DNSServers:       args.DNSServers,
 		DNSSearchDomains: args.DNSSearchDomains,
 		GatewayAddress:   args.GatewayAddress,
+		IsDefaultGateway: args.IsDefaultGateway,
 	}
 	return newDoc, nil
 }

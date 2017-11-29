@@ -8,13 +8,13 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/relation"
+	commonhooks "github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type RunHookSuite struct {
@@ -275,7 +275,7 @@ func (s *RunHookSuite) TestExecuteOtherError(c *gc.C) {
 
 func (s *RunHookSuite) TestInstallHookPreservesStatus(c *gc.C) {
 	op, callbacks, f := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, hooks.Install, nil)
-	err := f.MockNewHookRunner.runner.Context().SetUnitStatus(jujuc.StatusInfo{Status: "blocked", Info: "no database"})
+	err := f.MockNewHookRunner.runner.Context().SetUnitStatus(commonhooks.StatusInfo{Status: "blocked", Info: "no database"})
 	c.Assert(err, jc.ErrorIsNil)
 	st := operation.State{
 		StatusSet: true,
@@ -374,7 +374,7 @@ func (s *RunHookSuite) testExecuteThenCharmStatus(
 	testAfterHookStatus(c, kind, status, after.StatusSet)
 }
 
-func testBeforeHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo) {
+func testBeforeHookStatus(c *gc.C, kind hooks.Kind, status *commonhooks.StatusInfo) {
 	switch kind {
 	case hooks.Install:
 		c.Assert(status.Status, gc.Equals, "maintenance")
@@ -387,7 +387,7 @@ func testBeforeHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo) {
 	}
 }
 
-func testAfterHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo, statusSetCalled bool) {
+func testAfterHookStatus(c *gc.C, kind hooks.Kind, status *commonhooks.StatusInfo, statusSetCalled bool) {
 	switch kind {
 	case hooks.Install:
 		c.Assert(status.Status, gc.Equals, "maintenance")

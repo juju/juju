@@ -12,9 +12,10 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils"
 	"github.com/juju/utils/series"
-	"gopkg.in/juju/charm.v6-unstable"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -50,6 +51,7 @@ type applicationDoc struct {
 	MinUnits             int        `bson:"minunits"`
 	TxnRevno             int64      `bson:"txn-revno"`
 	MetricCredentials    []byte     `bson:"metric-credentials"`
+	PasswordHash         string     `bson:"passwordhash"`
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
@@ -1512,7 +1514,7 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 // removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
 func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
-	ops, err := u.destroyHostOps(a)
+	hostOps, err := u.destroyHostOps(a)
 	if err != nil {
 		return nil, err
 	}
@@ -1532,14 +1534,13 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ops = append(ops, resOps...)
 
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
 		{"machineid", u.doc.MachineId},
 	}
-	ops = append(ops,
-		txn.Op{
+	ops := []txn.Op{
+		{
 			C:      unitsC,
 			Id:     u.doc.DocID,
 			Assert: append(observedFieldsMatch, asserts...),
@@ -1551,9 +1552,12 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		removeConstraintsOp(u.globalAgentKey()),
 		annotationRemoveOp(a.st, u.globalKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name),
-	)
+	}
 	ops = append(ops, portsOps...)
 	ops = append(ops, storageInstanceOps...)
+	ops = append(ops, resOps...)
+	ops = append(ops, hostOps...)
+
 	if u.doc.CharmURL != nil {
 		// If the unit has a different URL to the application, allow any final
 		// cleanup to happen; otherwise we just do it when the app itself is removed.
@@ -2060,4 +2064,35 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 		Assert: txn.DocMissing,
 	})
 	return ops, nil
+}
+
+// SetPassword sets the password for the application's agent.
+// TODO(caas) - consider a separate CAAS application entity
+func (a *Application) SetPassword(password string) error {
+	if len(password) < utils.MinAgentPasswordLength {
+		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
+	}
+	passwordHash := utils.AgentPasswordHash(password)
+	ops := []txn.Op{{
+		C:      applicationsC,
+		Id:     a.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
+	}}
+	err := a.st.db().RunTransaction(ops)
+	if err != nil {
+		return fmt.Errorf("cannot set password of application %q: %v", a, onAbort(err, ErrDead))
+	}
+	a.doc.PasswordHash = passwordHash
+	return nil
+}
+
+// PasswordValid returns whether the given password is valid
+// for the given application.
+func (a *Application) PasswordValid(password string) bool {
+	agentHash := utils.AgentPasswordHash(password)
+	if agentHash == a.doc.PasswordHash {
+		return true
+	}
+	return false
 }

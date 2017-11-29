@@ -10,16 +10,17 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-// dummyHookContext implements jujuc.Context,
-// as expected by jujuc.NewCommand.
-type dummyHookContext struct{ jujuc.Context }
+// dummyHookContext implements hooks.Context,
+// as expected by hooks.NewCommand.
+type dummyHookContext struct{ hookcommands.Context }
 
 func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
 	return nil
@@ -48,20 +49,20 @@ func (dummyHookContext) OpenedPorts() []network.PortRange {
 func (dummyHookContext) ConfigSettings() (charm.Settings, error) {
 	return charm.NewConfig().DefaultSettings(), nil
 }
-func (dummyHookContext) HookRelation() (jujuc.ContextRelation, error) {
+func (dummyHookContext) HookRelation() (hookcommands.ContextRelation, error) {
 	return nil, errors.NotFoundf("HookRelation")
 }
 func (dummyHookContext) RemoteUnitName() (string, error) {
 	return "", errors.NotFoundf("RemoteUnitName")
 }
-func (dummyHookContext) Relation(id int) (jujuc.ContextRelation, error) {
+func (dummyHookContext) Relation(id int) (hookcommands.ContextRelation, error) {
 	return nil, errors.NotFoundf("Relation")
 }
 func (dummyHookContext) RelationIds() ([]int, error) {
 	return []int{}, errors.NotFoundf("RelationIds")
 }
 
-func (dummyHookContext) RequestReboot(prio jujuc.RebootPriority) error {
+func (dummyHookContext) RequestReboot(prio hookcommands.RebootPriority) error {
 	return nil
 }
 
@@ -69,7 +70,7 @@ func (dummyHookContext) HookStorageInstance() (*storage.StorageInstance, error) 
 	return nil, errors.NotFoundf("HookStorageInstance")
 }
 
-func (dummyHookContext) HookStorage() (jujuc.ContextStorageAttachment, error) {
+func (dummyHookContext) HookStorage() (hookcommands.ContextStorageAttachment, error) {
 	return nil, errors.NotFoundf("HookStorage")
 }
 
@@ -77,15 +78,15 @@ func (dummyHookContext) StorageInstance(id string) (*storage.StorageInstance, er
 	return nil, errors.NotFoundf("StorageInstance")
 }
 
-func (dummyHookContext) UnitStatus() (*jujuc.StatusInfo, error) {
-	return &jujuc.StatusInfo{}, nil
+func (dummyHookContext) UnitStatus() (*hookcommands.StatusInfo, error) {
+	return &hookcommands.StatusInfo{}, nil
 }
 
-func (dummyHookContext) SetStatus(jujuc.StatusInfo) error {
+func (dummyHookContext) SetStatus(hookcommands.StatusInfo) error {
 	return nil
 }
 
-func (dummyHookContext) Component(name string) (jujuc.ContextComponent, error) {
+func (dummyHookContext) Component(name string) (hookcommands.ContextComponent, error) {
 	return nil, nil
 }
 

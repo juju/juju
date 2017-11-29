@@ -169,7 +169,7 @@ func (a authenticator) authenticatorForTag(tag names.Tag) (authentication.Entity
 		return auth, nil
 	}
 	switch tag.Kind() {
-	case names.UnitTagKind, names.MachineTagKind:
+	case names.UnitTagKind, names.MachineTagKind, names.ApplicationTagKind:
 		return &a.ctxt.agentAuth, nil
 	case names.UserTagKind:
 		return a.localUserAuth(), nil

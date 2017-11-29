@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 type RelationInfo struct {
@@ -17,7 +17,7 @@ type RelationInfo struct {
 	MemberNames  []string
 }
 
-// ContextRelation is the implementation of jujuc.ContextRelation.
+// ContextRelation is the implementation of hooks.ContextRelation.
 type ContextRelation struct {
 	ru           *uniter.RelationUnit
 	relationId   int
@@ -61,7 +61,7 @@ func (ctx *ContextRelation) ReadSettings(unit string) (settings params.Settings,
 	return ctx.cache.Settings(unit)
 }
 
-func (ctx *ContextRelation) Settings() (jujuc.Settings, error) {
+func (ctx *ContextRelation) Settings() (hookcommands.Settings, error) {
 	if ctx.settings == nil {
 		node, err := ctx.ru.Settings()
 		if err != nil {

@@ -21,6 +21,7 @@ type peerGroupInfo struct {
 	machineTrackers map[string]*machineTracker // id -> machine
 	statuses        []replicaset.MemberStatus
 	members         []replicaset.Member
+	mongoPort       int
 	mongoSpace      network.SpaceName
 }
 
@@ -82,8 +83,8 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machineTra
 	}
 	adjustVotes(toRemoveVote, toAddVote, setVoting)
 
-	addNewMembers(members, toKeep, maxId, setVoting, info.mongoSpace)
-	if updateAddresses(members, info.machineTrackers, info.mongoSpace) {
+	addNewMembers(members, toKeep, maxId, setVoting, info.mongoPort, info.mongoSpace)
+	if updateAddresses(members, info.machineTrackers, info.mongoPort, info.mongoSpace) {
 		changed = true
 	}
 	if !changed {
@@ -155,13 +156,14 @@ func possiblePeerGroupChanges(
 func updateAddresses(
 	members map[*machineTracker]*replicaset.Member,
 	machines map[string]*machineTracker,
+	mongoPort int,
 	mongoSpace network.SpaceName,
 ) bool {
 	changed := false
 
 	// Make sure all members' machine addresses are up to date.
 	for _, m := range machines {
-		hp := m.SelectMongoHostPort(mongoSpace)
+		hp := m.SelectMongoHostPort(mongoPort, mongoSpace)
 		if hp == "" {
 			continue
 		}
@@ -217,10 +219,11 @@ func addNewMembers(
 	toKeep []*machineTracker,
 	maxId int,
 	setVoting func(*machineTracker, bool),
+	mongoPort int,
 	mongoSpace network.SpaceName,
 ) {
 	for _, m := range toKeep {
-		hasAddress := m.SelectMongoHostPort(mongoSpace) != ""
+		hasAddress := m.SelectMongoHostPort(mongoPort, mongoSpace) != ""
 		if members[m] == nil && hasAddress {
 			// This machine was not previously in the members list,
 			// so add it (as non-voting). We maintain the

@@ -7,13 +7,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 var (
@@ -103,10 +103,10 @@ func SetEnvironmentHookContextRelation(
 	}
 }
 
-func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]interface{}) func() {
+func PatchCachedStatus(ctx hookcommands.Context, status, info string, data map[string]interface{}) func() {
 	hctx := ctx.(*HookContext)
 	oldStatus := hctx.status
-	hctx.status = &jujuc.StatusInfo{
+	hctx.status = &hookcommands.StatusInfo{
 		Status: status,
 		Info:   info,
 		Data:   data,

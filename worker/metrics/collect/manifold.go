@@ -16,8 +16,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/os"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	corecharm "gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -205,7 +205,17 @@ func (w *collect) stop() {
 }
 
 // Do satisfies the worker.PeriodWorkerCall function type.
-func (w *collect) Do(stop <-chan struct{}) error {
+func (w *collect) Do(stop <-chan struct{}) (err error) {
+	defer func() {
+		// See bug https://pad/lv/1733469
+		// If this function which is run by a PeriodicWorker
+		// exits with an error, we need to call stop() to
+		// ensure the listener socket is closed.
+		if err != nil {
+			w.stop()
+		}
+	}()
+
 	config := w.agent.CurrentConfig()
 	tag := config.Tag()
 	unitTag, ok := tag.(names.UnitTag)
@@ -227,6 +237,10 @@ func (w *collect) Do(stop <-chan struct{}) error {
 	}, stop)
 	if err == fortress.ErrAborted {
 		logger.Tracef("cannot execute collect-metrics: %v", err)
+		return nil
+	}
+	if spool.IsMetricsDataError(err) {
+		logger.Debugf("cannot record metrics: %v", err)
 		return nil
 	}
 	return err

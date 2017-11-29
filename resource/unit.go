@@ -4,7 +4,7 @@
 package resource
 
 import (
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 )
 
 // TODO(ericsnow) Move Unit to an internal package?

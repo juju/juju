@@ -3,12 +3,15 @@
 
 package lease
 
+import "github.com/juju/juju/core/lease"
+
 // block is used to deliver lease-expiry-notification requests to a manager's
 // loop goroutine on behalf of BlockUntilLeadershipReleased.
 type block struct {
 	leaseName string
 	unblock   chan struct{}
-	abort     <-chan struct{}
+	stop      <-chan struct{}
+	cancel    <-chan struct{}
 }
 
 // invoke sends the block request on the supplied channel, and waits for the
@@ -16,8 +19,10 @@ type block struct {
 func (b block) invoke(ch chan<- block) error {
 	for {
 		select {
-		case <-b.abort:
+		case <-b.stop:
 			return errStopped
+		case <-b.cancel:
+			return lease.ErrWaitCancelled
 		case ch <- b:
 			ch = nil
 		case <-b.unblock:
