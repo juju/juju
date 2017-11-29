@@ -129,12 +129,12 @@ DOCKER_USERNAME?=juju
 JUJUD_STAGING_DIR=/tmp/jujud-operator
 JUJUD_BIN_DIR=${GOPATH}/bin
 
-operator-image: install
+operator-image: install caas/jujud-operator-dockerfile caas/jujud-operator-requirements.txt
 	rm -rf ${JUJUD_STAGING_DIR}
 	mkdir ${JUJUD_STAGING_DIR}
 	cp ${JUJUD_BIN_DIR}/jujud ${JUJUD_STAGING_DIR}
-	cp jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
-	cp jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
+	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
+	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
 	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${DOCKER_USERNAME}/caas-jujud-operator ${JUJUD_STAGING_DIR}
 
 push-operator-image: operator-image

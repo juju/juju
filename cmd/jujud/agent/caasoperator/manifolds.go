@@ -73,6 +73,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewClient: func(caller base.APICaller) caasoperator.Client {
 				return caasoperatorapi.NewClient(caller)
 			},
+			NewCharmDownloader: func(caller base.APICaller) caasoperator.Downloader {
+				return api.NewCharmDownloader(caller)
+			},
 		}),
 	}
 }

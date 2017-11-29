@@ -21,8 +21,9 @@ type ManifoldConfig struct {
 	APICallerName string
 	ClockName     string
 
-	NewWorker func(Config) (worker.Worker, error)
-	NewClient func(base.APICaller) Client
+	NewWorker          func(Config) (worker.Worker, error)
+	NewClient          func(base.APICaller) Client
+	NewCharmDownloader func(base.APICaller) Downloader
 }
 
 func (config ManifoldConfig) Validate() error {
@@ -40,6 +41,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewClient == nil {
 		return errors.NotValidf("missing NewClient")
+	}
+	if config.NewCharmDownloader == nil {
+		return errors.NotValidf("missing NewCharmDownloader")
 	}
 	return nil
 }
@@ -68,6 +72,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 			client := config.NewClient(apiCaller)
+			downloader := config.NewCharmDownloader(apiCaller)
 
 			var clock clock.Clock
 			if err := context.Get(config.ClockName, &clock); err != nil {
@@ -84,7 +89,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := config.NewWorker(Config{
 				Application:  applicationTag.Id(),
 				Clock:        clock,
+				CharmGetter:  client,
 				DataDir:      agentConfig.DataDir(),
+				Downloader:   downloader,
 				StatusSetter: client,
 			})
 			if err != nil {

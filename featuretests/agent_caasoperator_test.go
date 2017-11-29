@@ -16,6 +16,7 @@ import (
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -34,6 +35,11 @@ type CAASOperatorSuite struct {
 
 var _ = gc.Suite(&CAASOperatorSuite{})
 
+func (s *CAASOperatorSuite) SetUpSuite(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CAAS)
+	s.AgentSuite.SetUpSuite(c)
+}
+
 // primeAgent creates an application, and sets up the application agent's directory.
 // It returns new application and the agent's configuration.
 func (s *CAASOperatorSuite) primeAgent(c *gc.C) (*state.Application, agent.Config, *tools.Tools) {
@@ -47,7 +53,7 @@ func (s *CAASOperatorSuite) primeAgent(c *gc.C) (*state.Application, agent.Confi
 func (s *CAASOperatorSuite) newAgent(c *gc.C, app *state.Application) *jujudagent.CaasOperatorAgent {
 	a, err := jujudagent.NewCaasOperatorAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
-	s.InitAgent(c, a, "--application-name", app.Name(), "--log-to-stderr=true")
+	s.InitAgent(c, a, "--application-name", app.Name())
 	err = a.ReadConfig(app.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	return a

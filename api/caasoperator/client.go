@@ -5,6 +5,7 @@ package caasoperator
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
@@ -49,4 +50,34 @@ func (c *Client) SetStatus(
 		return errors.Trace(err)
 	}
 	return result.OneError()
+}
+
+// Charm returns information about the charm currently assigned
+// to the application.
+func (c *Client) Charm(application string) (_ *charm.URL, sha256 string, _ error) {
+	if !names.IsValidApplication(application) {
+		return nil, "", errors.NotValidf("application name %q", application)
+	}
+	var results params.ApplicationCharmResults
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewApplicationTag(application).String(),
+		}},
+	}
+	err := c.facade.FacadeCall("Charm", args, &results)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	if n := len(results.Results); n != 1 {
+		return nil, "", errors.Errorf("expected 1 result, got %d", n)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	result := results.Results[0].Result
+	curl, err := charm.ParseURL(result.URL)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	return curl, result.SHA256, nil
 }

@@ -476,7 +476,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	if err != nil {
 		panic(err.Error())
 	}
-	downloader := api.NewCharmDownloader(ctx.apiConn.Client())
+	downloader := api.NewCharmDownloader(ctx.apiConn)
 	operationExecutor := operation.NewExecutor
 	if s.newExecutorFunc != nil {
 		operationExecutor = s.newExecutorFunc

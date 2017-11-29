@@ -46,7 +46,6 @@ func (s *CAASOperatorSuite) TestParseSuccess(c *gc.C) {
 	err = cmdtesting.InitCommand(a, []string{
 		"--data-dir", s.dataDir(),
 		"--application-name", "wordpress",
-		"--log-to-stderr",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(a.AgentConf.DataDir(), gc.Equals, s.dataDir())
@@ -90,7 +89,7 @@ func (s *CAASOperatorSuite) TestParseUnknown(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
 }
 
-func (s *CAASOperatorSuite) TestUseLumberjack(c *gc.C) {
+func (s *CAASOperatorSuite) TestLogStderr(c *gc.C) {
 	ctx, err := cmd.DefaultContext()
 	c.Assert(err, gc.IsNil)
 
@@ -98,31 +97,6 @@ func (s *CAASOperatorSuite) TestUseLumberjack(c *gc.C) {
 		AgentConf:       FakeAgentConfig{},
 		ctx:             ctx,
 		ApplicationName: "mysql",
-	}
-
-	err = a.Init(nil)
-	c.Assert(err, gc.IsNil)
-
-	l, ok := ctx.Stderr.(*lumberjack.Logger)
-	c.Assert(ok, jc.IsTrue)
-	c.Check(l.MaxAge, gc.Equals, 0)
-	c.Check(l.MaxBackups, gc.Equals, 2)
-	c.Check(l.Filename, gc.Equals, filepath.FromSlash("/var/log/juju/machine-42.log"))
-	c.Check(l.MaxSize, gc.Equals, 300)
-}
-
-func (s *CAASOperatorSuite) TestDontUseLumberjack(c *gc.C) {
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, gc.IsNil)
-
-	a := CaasOperatorAgent{
-		AgentConf:       FakeAgentConfig{},
-		ctx:             ctx,
-		ApplicationName: "mysql",
-
-		// this is what would get set by the CLI flags to tell us not to log to
-		// the file.
-		logToStdErr: true,
 	}
 
 	err = a.Init(nil)
