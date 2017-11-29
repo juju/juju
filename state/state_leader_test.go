@@ -69,8 +69,8 @@ func (s *LeadershipSuite) TestCheckValidatesUnitName(c *gc.C) {
 }
 
 func (s *LeadershipSuite) TestBlockValidatesApplicationname(c *gc.C) {
-	err := s.claimer.BlockUntilLeadershipReleased("not/a/service")
-	c.Check(err, gc.ErrorMatches, `cannot wait for lease "not/a/service" expiry: not an application name`)
+	err := s.claimer.BlockUntilLeadershipReleased("not/an/application")
+	c.Check(err, gc.ErrorMatches, `cannot wait for lease "not/an/application" expiry: not an application name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
@@ -81,14 +81,14 @@ func (s *LeadershipSuite) TestClaimExpire(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Claim on behalf of another.
-	err = s.claimer.ClaimLeadership("application", "service/1", time.Minute)
+	err = s.claimer.ClaimLeadership("application", "application/1", time.Minute)
 	c.Check(err, gc.Equals, leadership.ErrClaimDenied)
 
 	// Allow the first claim to expire.
 	s.expire(c, "application")
 
 	// Reclaim on behalf of another.
-	err = s.claimer.ClaimLeadership("application", "service/1", time.Minute)
+	err = s.claimer.ClaimLeadership("application", "application/1", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -128,7 +128,7 @@ func (s *LeadershipSuite) TestKillWorkersUnblocksClaimer(c *gc.C) {
 	select {
 	case err := <-s.expiryChan("blah"):
 		c.Check(err, gc.ErrorMatches, "lease manager stopped")
-	case <-s.Clock.After(coretesting.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out while waiting for unblock")
 	}
 }
@@ -170,22 +170,35 @@ func (s *LeadershipSuite) TestApplicationLeaders(c *gc.C) {
 }
 
 func (s *LeadershipSuite) expire(c *gc.C, applicationname string) {
-	s.Clock.Advance(time.Hour)
 	err := s.globalClock.Advance(time.Hour)
 	c.Assert(err, jc.ErrorIsNil)
-	s.Session.Fsync(false)
-	select {
-	case err := <-s.expiryChan(applicationname):
-		c.Assert(err, jc.ErrorIsNil)
-	case <-s.Clock.After(coretesting.LongWait):
-		c.Fatalf("never unblocked")
+
+	// The lease manager starts a new timer each time it
+	// is waiting for something to do, so we can't know
+	// how many clients are waiting on the clock without
+	// being tying ourselves too closely to the implementation.
+	// Instead, advance the clock by an hour and then unblock
+	// all timers until the lease is expired.
+	s.Clock.Advance(time.Hour)
+
+	unblocked := s.expiryChan(applicationname)
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("never unblocked")
+		case err := <-unblocked:
+			c.Assert(err, jc.ErrorIsNil)
+			return
+		case <-s.Clock.Alarms():
+		}
 	}
 }
 
 func (s *LeadershipSuite) expiryChan(applicationname string) <-chan error {
 	expired := make(chan error, 1)
 	go func() {
-		expired <- s.claimer.BlockUntilLeadershipReleased("blah")
+		expired <- s.claimer.BlockUntilLeadershipReleased(applicationname)
 	}()
 	return expired
 }
