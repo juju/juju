@@ -13,11 +13,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type NetworkGetSuite struct {
-	ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&NetworkGetSuite{})
@@ -104,7 +105,7 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 		IngressAddresses: []string{"100.1.2.3", "100.4.3.2"},
 		EgressSubnets:    []string{"192.168.1.0/8", "10.0.0.0/8"},
 	}
-	hctx.info.NetworkInterface.NetworkInfoResults = presetBindings
+	hctx.Info.NetworkInterface.NetworkInfoResults = presetBindings
 
 	com, err := jujuc.NewCommand(hctx, cmdString("network-get"))
 	c.Assert(err, jc.ErrorIsNil)

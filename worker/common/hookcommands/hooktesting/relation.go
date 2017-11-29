@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+package hooktesting
 
 import (
 	"fmt"
@@ -11,18 +11,18 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // Relation holds the data for the test double.
 type Relation struct {
-	// Id is data for jujuc.ContextRelation.
+	// Id is data for hooks.ContextRelation.
 	Id int
-	// Name is data for jujuc.ContextRelation.
+	// Name is data for hooks.ContextRelation.
 	Name string
-	// Units is data for jujuc.ContextRelation.
+	// Units is data for hooks.ContextRelation.
 	Units map[string]Settings
-	// UnitName is data for jujuc.ContextRelation.
+	// UnitName is data for hooks.ContextRelation.
 	UnitName string
 }
 
@@ -39,13 +39,13 @@ func (r *Relation) SetRelated(name string, settings Settings) {
 	r.Units[name] = settings
 }
 
-// ContextRelation is a test double for jujuc.ContextRelation.
+// ContextRelation is a test double for hooks.ContextRelation.
 type ContextRelation struct {
 	contextBase
 	info *Relation
 }
 
-// Id implements jujuc.ContextRelation.
+// Id implements hooks.ContextRelation.
 func (r *ContextRelation) Id() int {
 	r.stub.AddCall("Id")
 	r.stub.NextErr()
@@ -53,7 +53,7 @@ func (r *ContextRelation) Id() int {
 	return r.info.Id
 }
 
-// Name implements jujuc.ContextRelation.
+// Name implements hooks.ContextRelation.
 func (r *ContextRelation) Name() string {
 	r.stub.AddCall("Name")
 	r.stub.NextErr()
@@ -61,7 +61,7 @@ func (r *ContextRelation) Name() string {
 	return r.info.Name
 }
 
-// FakeId implements jujuc.ContextRelation.
+// FakeId implements hooks.ContextRelation.
 func (r *ContextRelation) FakeId() string {
 	r.stub.AddCall("FakeId")
 	r.stub.NextErr()
@@ -69,8 +69,8 @@ func (r *ContextRelation) FakeId() string {
 	return fmt.Sprintf("%s:%d", r.info.Name, r.info.Id)
 }
 
-// Settings implements jujuc.ContextRelation.
-func (r *ContextRelation) Settings() (jujuc.Settings, error) {
+// Settings implements hooks.ContextRelation.
+func (r *ContextRelation) Settings() (hookcommands.Settings, error) {
 	r.stub.AddCall("Settings")
 	if err := r.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -83,7 +83,7 @@ func (r *ContextRelation) Settings() (jujuc.Settings, error) {
 	return settings, nil
 }
 
-// UnitNames implements jujuc.ContextRelation.
+// UnitNames implements hooks.ContextRelation.
 func (r *ContextRelation) UnitNames() []string {
 	r.stub.AddCall("UnitNames")
 	r.stub.NextErr()
@@ -96,7 +96,7 @@ func (r *ContextRelation) UnitNames() []string {
 	return s
 }
 
-// ReadSettings implements jujuc.ContextRelation.
+// ReadSettings implements hooks.ContextRelation.
 func (r *ContextRelation) ReadSettings(name string) (params.Settings, error) {
 	r.stub.AddCall("ReadSettings", name)
 	if err := r.stub.NextErr(); err != nil {
@@ -110,12 +110,12 @@ func (r *ContextRelation) ReadSettings(name string) (params.Settings, error) {
 	return s.Map(), nil
 }
 
-// Suspended implements jujuc.ContextRelation.
+// Suspended implements hooks.ContextRelation.
 func (r *ContextRelation) Suspended() bool {
 	return true
 }
 
-// SetStatus implements jujuc.ContextRelation.
+// SetStatus implements hooks.ContextRelation.
 func (r *ContextRelation) SetStatus(status relation.Status) error {
 	return nil
 }

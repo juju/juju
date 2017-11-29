@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+package hooktesting
 
 import (
 	"fmt"
@@ -13,23 +13,23 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // Storage holds the values for the hook context.
 type Storage struct {
-	Storage    map[names.StorageTag]jujuc.ContextStorageAttachment
+	Storage    map[names.StorageTag]hookcommands.ContextStorageAttachment
 	StorageTag names.StorageTag
 	Added      map[string]params.StorageConstraints
 }
 
 // SetAttachment adds the attachment to the storage.
-func (s *Storage) SetAttachment(attach jujuc.ContextStorageAttachment) {
-	if attach == nil || attach == jujuc.ContextStorageAttachment(nil) {
+func (s *Storage) SetAttachment(attach hookcommands.ContextStorageAttachment) {
+	if attach == nil || attach == hookcommands.ContextStorageAttachment(nil) {
 		return
 	}
 	if s.Storage == nil {
-		s.Storage = make(map[names.StorageTag]jujuc.ContextStorageAttachment)
+		s.Storage = make(map[names.StorageTag]hookcommands.ContextStorageAttachment)
 	}
 	s.Storage[attach.Tag()] = attach
 }
@@ -76,13 +76,13 @@ func (s *Storage) AddUnitStorage(all map[string]params.StorageConstraints) {
 	}
 }
 
-// ContextStorage is a test double for jujuc.ContextStorage.
+// ContextStorage is a test double for hooks.ContextStorage.
 type ContextStorage struct {
 	contextBase
 	info *Storage
 }
 
-// StorageTags implements jujuc.ContextStorage.
+// StorageTags implements hooks.ContextStorage.
 func (c *ContextStorage) StorageTags() ([]names.StorageTag, error) {
 	c.stub.AddCall("StorageTags")
 
@@ -97,8 +97,8 @@ func (c *ContextStorage) StorageTags() ([]names.StorageTag, error) {
 	return storageTags, c.stub.NextErr()
 }
 
-// Storage implements jujuc.ContextStorage.
-func (c *ContextStorage) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
+// Storage implements hooks.ContextStorage.
+func (c *ContextStorage) Storage(tag names.StorageTag) (hookcommands.ContextStorageAttachment, error) {
 	c.stub.AddCall("Storage")
 
 	storage, ok := c.info.Storage[tag]
@@ -110,14 +110,14 @@ func (c *ContextStorage) Storage(tag names.StorageTag) (jujuc.ContextStorageAtta
 
 }
 
-// HookStorage implements jujuc.ContextStorage.
-func (c *ContextStorage) HookStorage() (jujuc.ContextStorageAttachment, error) {
+// HookStorage implements hooks.ContextStorage.
+func (c *ContextStorage) HookStorage() (hookcommands.ContextStorageAttachment, error) {
 	c.stub.AddCall("HookStorage")
 
 	return c.Storage(c.info.StorageTag)
 }
 
-// AddUnitStorage implements jujuc.ContextStorage.
+// AddUnitStorage implements hooks.ContextStorage.
 func (c *ContextStorage) AddUnitStorage(all map[string]params.StorageConstraints) error {
 	c.stub.AddCall("AddUnitStorage", all)
 	c.info.AddUnitStorage(all)

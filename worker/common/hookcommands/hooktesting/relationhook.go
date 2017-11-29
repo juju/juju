@@ -1,17 +1,17 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+package hooktesting
 
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // RelationHook holds the values for the hook context.
 type RelationHook struct {
-	HookRelation   jujuc.ContextRelation
+	HookRelation   hookcommands.ContextRelation
 	RemoteUnitName string
 }
 
@@ -21,14 +21,14 @@ func (rh *RelationHook) Reset() {
 	rh.RemoteUnitName = ""
 }
 
-// ContextRelationHook is a test double for jujuc.RelationHookContext.
+// ContextRelationHook is a test double for hooks.RelationHookContext.
 type ContextRelationHook struct {
 	contextBase
 	info *RelationHook
 }
 
-// HookRelation implements jujuc.RelationHookContext.
-func (c *ContextRelationHook) HookRelation() (jujuc.ContextRelation, error) {
+// HookRelation implements hooks.RelationHookContext.
+func (c *ContextRelationHook) HookRelation() (hookcommands.ContextRelation, error) {
 	c.stub.AddCall("HookRelation")
 	var err error
 	if c.info.HookRelation == nil {
@@ -38,7 +38,7 @@ func (c *ContextRelationHook) HookRelation() (jujuc.ContextRelation, error) {
 	return c.info.HookRelation, err
 }
 
-// RemoteUnitName implements jujuc.RelationHookContext.
+// RemoteUnitName implements hooks.RelationHookContext.
 func (c *ContextRelationHook) RemoteUnitName() (string, error) {
 	c.stub.AddCall("RemoteUnitName")
 	c.stub.NextErr()

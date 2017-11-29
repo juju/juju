@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+package hooktesting
 
 import (
 	"gopkg.in/juju/names.v2"
@@ -16,7 +16,7 @@ type StorageAttachment struct {
 	Location string
 }
 
-// ContextStorageAttachment is a test double for jujuc.ContextStorageAttachment.
+// ContextStorageAttachment is a test double for hooks.ContextStorageAttachment.
 type ContextStorageAttachment struct {
 	contextBase
 	info *StorageAttachment

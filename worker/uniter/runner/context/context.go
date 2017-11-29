@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package context contains the ContextFactory and Context definitions. Context implements
-// jujuc.Context and is used together with uniter.Runner to run hooks, commands and actions.
+// hooks.Context and is used together with uniter.Runner to run hooks, commands and actions.
 package context
 
 import (
@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -68,7 +69,7 @@ type ComponentConfig struct {
 }
 
 // ComponentFunc is a factory function for Context components.
-type ComponentFunc func(ComponentConfig) (jujuc.ContextComponent, error)
+type ComponentFunc func(ComponentConfig) (hookcommands.ContextComponent, error)
 
 var registeredComponentFuncs = map[string]ComponentFunc{}
 
@@ -93,7 +94,7 @@ type HookProcess interface {
 	Kill() error
 }
 
-// HookContext is the implementation of jujuc.Context.
+// HookContext is the implementation of hooks.Context.
 type HookContext struct {
 	unit *uniter.Unit
 
@@ -104,7 +105,7 @@ type HookContext struct {
 	// not fully there yet.
 	state *uniter.State
 
-	// LeadershipContext supplies several jujuc.Context methods.
+	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
 
 	// principal is the unitName of the principal charm.
@@ -141,7 +142,7 @@ type HookContext struct {
 	unitName string
 
 	// status is the status of the local unit.
-	status *jujuc.StatusInfo
+	status *hookcommands.StatusInfo
 
 	// relationId identifies the relation for which a relation hook is
 	// executing. If it is -1, the context is not running a relation hook;
@@ -183,9 +184,9 @@ type HookContext struct {
 	// like a juju-run command or a hook
 	process HookProcess
 
-	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is jujuc.RebootNow
+	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is hooks.RebootNow
 	// the hook will be killed and requeued
-	rebootPriority jujuc.RebootPriority
+	rebootPriority hookcommands.RebootPriority
 
 	// storage provides access to the information about storage attached to the unit.
 	storage StorageContextAccessor
@@ -216,8 +217,8 @@ type HookContext struct {
 	slaLevel string
 }
 
-// Component implements jujuc.Context.
-func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
+// Component implements hooks.Context.
+func (ctx *HookContext) Component(name string) (hookcommands.ContextComponent, error) {
 	compCtxFunc, ok := ctx.componentFuncs[name]
 	if !ok {
 		return nil, errors.NotFoundf("context component %q", name)
@@ -236,7 +237,7 @@ func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
 	return compCtx, nil
 }
 
-func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
+func (ctx *HookContext) RequestReboot(priority hookcommands.RebootPriority) error {
 	// Must set reboot priority first, because killing the hook
 	// process will trigger the completion of the hook. If killing
 	// the hook fails, then we can reset the priority.
@@ -257,13 +258,13 @@ func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
 	return err
 }
 
-func (ctx *HookContext) GetRebootPriority() jujuc.RebootPriority {
+func (ctx *HookContext) GetRebootPriority() hookcommands.RebootPriority {
 	mutex.Lock()
 	defer mutex.Unlock()
 	return ctx.rebootPriority
 }
 
-func (ctx *HookContext) SetRebootPriority(priority jujuc.RebootPriority) {
+func (ctx *HookContext) SetRebootPriority(priority hookcommands.RebootPriority) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	ctx.rebootPriority = priority
@@ -290,14 +291,14 @@ func (ctx *HookContext) UnitName() string {
 }
 
 // UnitStatus will return the status for the current Unit.
-func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
+func (ctx *HookContext) UnitStatus() (*hookcommands.StatusInfo, error) {
 	if ctx.status == nil {
 		var err error
 		status, err := ctx.unit.UnitStatus()
 		if err != nil {
 			return nil, err
 		}
-		ctx.status = &jujuc.StatusInfo{
+		ctx.status = &hookcommands.StatusInfo{
 			Status: string(status.Status),
 			Info:   status.Info,
 			Data:   status.Data,
@@ -309,27 +310,27 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 // ApplicationStatus returns the status for the application and all the units on
 // the service to which this context unit belongs, only if this unit is
 // the leader.
-func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error) {
+func (ctx *HookContext) ApplicationStatus() (hookcommands.ApplicationStatusInfo, error) {
 	var err error
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
-		return jujuc.ApplicationStatusInfo{}, errors.Annotatef(err, "cannot determine leadership")
+		return hookcommands.ApplicationStatusInfo{}, errors.Annotatef(err, "cannot determine leadership")
 	}
 	if !isLeader {
-		return jujuc.ApplicationStatusInfo{}, ErrIsNotLeader
+		return hookcommands.ApplicationStatusInfo{}, ErrIsNotLeader
 	}
 	service, err := ctx.unit.Application()
 	if err != nil {
-		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
+		return hookcommands.ApplicationStatusInfo{}, errors.Trace(err)
 	}
 	status, err := service.Status(ctx.unit.Name())
 	if err != nil {
-		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
+		return hookcommands.ApplicationStatusInfo{}, errors.Trace(err)
 	}
-	us := make([]jujuc.StatusInfo, len(status.Units))
+	us := make([]hookcommands.StatusInfo, len(status.Units))
 	i := 0
 	for t, s := range status.Units {
-		us[i] = jujuc.StatusInfo{
+		us[i] = hookcommands.StatusInfo{
 			Tag:    t,
 			Status: string(s.Status),
 			Info:   s.Info,
@@ -337,8 +338,8 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 		}
 		i++
 	}
-	return jujuc.ApplicationStatusInfo{
-		Application: jujuc.StatusInfo{
+	return hookcommands.ApplicationStatusInfo{
+		Application: hookcommands.StatusInfo{
 			Tag:    service.Tag().String(),
 			Status: string(status.Application.Status),
 			Info:   status.Application.Info,
@@ -349,7 +350,7 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 }
 
 // SetUnitStatus will set the given status for this unit.
-func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
+func (ctx *HookContext) SetUnitStatus(unitStatus hookcommands.StatusInfo) error {
 	ctx.hasRunStatusSet = true
 	logger.Tracef("[WORKLOAD-STATUS] %s: %s", unitStatus.Status, unitStatus.Info)
 	return ctx.unit.SetUnitStatus(
@@ -361,7 +362,7 @@ func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
 
 // SetApplicationStatus will set the given status to the service to which this
 // unit's belong, only if this unit is the leader.
-func (ctx *HookContext) SetApplicationStatus(serviceStatus jujuc.StatusInfo) error {
+func (ctx *HookContext) SetApplicationStatus(serviceStatus hookcommands.StatusInfo) error {
 	logger.Tracef("[APPLICATION-STATUS] %s: %s", serviceStatus.Status, serviceStatus.Info)
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
@@ -416,11 +417,11 @@ func (ctx *HookContext) StorageTags() ([]names.StorageTag, error) {
 	return ctx.storage.StorageTags()
 }
 
-func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, error) {
+func (ctx *HookContext) HookStorage() (hookcommands.ContextStorageAttachment, error) {
 	return ctx.Storage(ctx.storageTag)
 }
 
-func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
+func (ctx *HookContext) Storage(tag names.StorageTag) (hookcommands.ContextStorageAttachment, error) {
 	return ctx.storage.Storage(tag)
 }
 
@@ -528,7 +529,7 @@ func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
 	return nil
 }
 
-func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, error) {
+func (ctx *HookContext) HookRelation() (hookcommands.ContextRelation, error) {
 	return ctx.Relation(ctx.relationId)
 }
 
@@ -539,7 +540,7 @@ func (ctx *HookContext) RemoteUnitName() (string, error) {
 	return ctx.remoteUnitName, nil
 }
 
-func (ctx *HookContext) Relation(id int) (jujuc.ContextRelation, error) {
+func (ctx *HookContext) Relation(id int) (hookcommands.ContextRelation, error) {
 	r, found := ctx.relations[id]
 	if !found {
 		return nil, errors.NotFoundf("relation")

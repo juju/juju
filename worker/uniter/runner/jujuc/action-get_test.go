@@ -12,18 +12,20 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/worker/common/hookcommands"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type ActionGetSuite struct {
-	ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&ActionGetSuite{})
 
 type actionGetContext struct {
 	actionParams map[string]interface{}
-	jujuc.Context
+	hookcommands.Context
 }
 
 func (ctx *actionGetContext) ActionParams() (map[string]interface{}, error) {
@@ -31,7 +33,7 @@ func (ctx *actionGetContext) ActionParams() (map[string]interface{}, error) {
 }
 
 type nonActionContext struct {
-	jujuc.Context
+	hookcommands.Context
 }
 
 func (ctx *nonActionContext) ActionParams() (map[string]interface{}, error) {

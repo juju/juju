@@ -1,24 +1,24 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+package hooktesting
 
 import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // Components holds the values for the hook context.
 type Components struct {
-	Components map[string]jujuc.ContextComponent
+	Components map[string]hookcommands.ContextComponent
 }
 
 // SetComponent sets the component on the registry.
-func (c *Components) SetComponent(name string, comp jujuc.ContextComponent) {
+func (c *Components) SetComponent(name string, comp hookcommands.ContextComponent) {
 	if c.Components == nil {
-		c.Components = make(map[string]jujuc.ContextComponent)
+		c.Components = make(map[string]hookcommands.ContextComponent)
 	}
 	c.Components[name] = comp
 }
@@ -34,14 +34,14 @@ func (c *Components) SetNewComponent(name string, stub *testing.Stub) *Component
 	return info
 }
 
-// ContextComponents is a test double for jujuc.ContextComponents.
+// ContextComponents is a test double for hooks.ContextComponents.
 type ContextComponents struct {
 	contextBase
 	info *Components
 }
 
-// ContextComponents implements jujuc.ContextComponents.
-func (cc ContextComponents) Component(name string) (jujuc.ContextComponent, error) {
+// ContextComponents implements hooks.ContextComponents.
+func (cc ContextComponents) Component(name string) (hookcommands.ContextComponent, error) {
 	cc.stub.AddCall("Component", name)
 	if err := cc.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -59,7 +59,7 @@ type Component struct {
 	Name string
 }
 
-// ContextComponent is a test double for jujuc.ContextComponent.
+// ContextComponent is a test double for hooks.ContextComponent.
 type ContextComponent struct {
 	contextBase
 	info *Component
@@ -73,7 +73,7 @@ func NewContextComponent(stub *testing.Stub, info *Component) *ContextComponent 
 	return compCtx
 }
 
-// Get implements jujuc.ContextComponent.
+// Get implements hooks.ContextComponent.
 func (cc ContextComponent) Get(name string, result interface{}) error {
 	cc.stub.AddCall("Get", name, result)
 	if err := cc.stub.NextErr(); err != nil {
@@ -83,7 +83,7 @@ func (cc ContextComponent) Get(name string, result interface{}) error {
 	return nil
 }
 
-// Set implements jujuc.ContextComponent.
+// Set implements hooks.ContextComponent.
 func (cc ContextComponent) Set(name string, value interface{}) error {
 	cc.stub.AddCall("Set", name, value)
 	if err := cc.stub.NextErr(); err != nil {
@@ -93,7 +93,7 @@ func (cc ContextComponent) Set(name string, value interface{}) error {
 	return nil
 }
 
-// Flush implements jujuc.ContextComponent.
+// Flush implements hooks.ContextComponent.
 func (cc ContextComponent) Flush() error {
 	cc.stub.AddCall("Flush")
 	if err := cc.stub.NextErr(); err != nil {

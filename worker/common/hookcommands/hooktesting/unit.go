@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+package hooktesting
 
 import (
 	"github.com/juju/errors"
@@ -14,13 +14,13 @@ type Unit struct {
 	ConfigSettings charm.Settings
 }
 
-// ContextUnit is a test double for jujuc.ContextUnit.
+// ContextUnit is a test double for hooks.ContextUnit.
 type ContextUnit struct {
 	contextBase
 	info *Unit
 }
 
-// UnitName implements jujuc.ContextUnit.
+// UnitName implements hooks.ContextUnit.
 func (c *ContextUnit) UnitName() string {
 	c.stub.AddCall("UnitName")
 	c.stub.NextErr()
@@ -28,7 +28,7 @@ func (c *ContextUnit) UnitName() string {
 	return c.info.Name
 }
 
-// ConfigSettings implements jujuc.ContextUnit.
+// ConfigSettings implements hooks.ContextUnit.
 func (c *ContextUnit) ConfigSettings() (charm.Settings, error) {
 	c.stub.AddCall("ConfigSettings")
 	if err := c.stub.NextErr(); err != nil {

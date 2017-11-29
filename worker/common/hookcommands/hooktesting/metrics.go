@@ -1,37 +1,37 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package testing
+package hooktesting
 
 import (
 	"time"
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // Metrics holds the values for the hook sub-context.
 type Metrics struct {
-	Metrics []jujuc.Metric
+	Metrics []hookcommands.Metric
 }
 
 // AddMetric adds a Metric for the provided data.
 func (m *Metrics) AddMetric(key, value string, created time.Time) {
-	m.Metrics = append(m.Metrics, jujuc.Metric{
+	m.Metrics = append(m.Metrics, hookcommands.Metric{
 		Key:   key,
 		Value: value,
 		Time:  created,
 	})
 }
 
-// ContextMetrics is a test double for jujuc.ContextMetrics.
+// ContextMetrics is a test double for hooks.ContextMetrics.
 type ContextMetrics struct {
 	contextBase
 	info *Metrics
 }
 
-// AddMetric implements jujuc.ContextMetrics.
+// AddMetric implements hooks.ContextMetrics.
 func (c *ContextMetrics) AddMetric(key, value string, created time.Time) error {
 	c.stub.AddCall("AddMetric", key, value, created)
 	if err := c.stub.NextErr(); err != nil {

@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 type fops interface {
@@ -91,7 +91,7 @@ func (s *StorageContextAccessor) StorageTags() ([]names.StorageTag, error) {
 	return storageTags, nil
 }
 
-func (s *StorageContextAccessor) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
+func (s *StorageContextAccessor) Storage(tag names.StorageTag) (hookcommands.ContextStorageAttachment, error) {
 	storage, ok := s.CStorage[tag]
 	if !ok {
 		return nil, errors.NotFoundf("storage")

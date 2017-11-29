@@ -20,7 +20,7 @@ import (
 	corecharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.metrics")
@@ -88,11 +88,11 @@ func (f *metricFile) Close() error {
 
 // MetricBatch stores the information relevant to a single metrics batch.
 type MetricBatch struct {
-	CharmURL string         `json:"charmurl"`
-	UUID     string         `json:"uuid"`
-	Created  time.Time      `json:"created"`
-	Metrics  []jujuc.Metric `json:"metrics"`
-	UnitTag  string         `json:"unit-tag"`
+	CharmURL string                `json:"charmurl"`
+	UUID     string                `json:"uuid"`
+	Created  time.Time             `json:"created"`
+	Metrics  []hookcommands.Metric `json:"metrics"`
+	UnitTag  string                `json:"unit-tag"`
 }
 
 // APIMetricBatch converts the specified MetricBatch to a params.MetricBatch,
@@ -203,7 +203,7 @@ func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) (er
 	}
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return errors.Trace(m.enc.Encode(jujuc.Metric{Key: key, Value: value, Time: created}))
+	return errors.Trace(m.enc.Encode(hookcommands.Metric{Key: key, Value: value, Time: created}))
 }
 
 func (m *JSONMetricRecorder) validateMetric(key, value string) error {
@@ -383,8 +383,8 @@ func decodeBatch(file string) (MetricBatch, error) {
 	return batch, nil
 }
 
-func decodeMetrics(file string) ([]jujuc.Metric, error) {
-	var metrics []jujuc.Metric
+func decodeMetrics(file string) ([]hookcommands.Metric, error) {
+	var metrics []hookcommands.Metric
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -392,7 +392,7 @@ func decodeMetrics(file string) ([]jujuc.Metric, error) {
 	defer f.Close()
 	dec := json.NewDecoder(f)
 	for {
-		var metric jujuc.Metric
+		var metric hookcommands.Metric
 		err := dec.Decode(&metric)
 		if err == io.EOF {
 			break

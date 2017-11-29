@@ -1,7 +1,7 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package jujuc_test
+package hookcommands_test
 
 import (
 	"sort"
@@ -12,18 +12,19 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/common/hookcommands"
+	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 )
 
 type AddMetricSuite struct {
-	ContextSuite
+	hooktesting.ContextSuite
 }
 
 var _ = gc.Suite(&AddMetricSuite{})
 
 func (s *AddMetricSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, cmdString("add-metric"))
+	com, err := hooktesting.NewCommand(hctx, "add-metric", hookcommands.NewAddMetricCommand)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -45,7 +46,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		result        int
 		stdout        string
 		stderr        string
-		expect        []jujuc.Metric
+		expect        []hookcommands.Metric
 	}{
 		{
 			"add single metric",
@@ -54,7 +55,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			0,
 			"",
 			"",
-			[]jujuc.Metric{{"key", "50", time.Now()}},
+			[]hookcommands.Metric{{"key", "50", time.Now()}},
 		}, {
 			"no parameters error",
 			[]string{"add-metric"},
@@ -110,7 +111,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			0,
 			"",
 			"",
-			[]jujuc.Metric{{"key", "60", time.Now()}, {"key2", "50.4", time.Now()}},
+			[]hookcommands.Metric{{"key", "60", time.Now()}, {"key2", "50.4", time.Now()}},
 		}, {
 			"multiple metrics, matching keys",
 			[]string{"add-metric", "key=60", "key=50.4"},
@@ -126,7 +127,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			0,
 			"",
 			"",
-			[]jujuc.Metric{{"key", "60", time.Now()}, {"key2", "30", time.Now()}, {"key3", "15", time.Now()}},
+			[]hookcommands.Metric{{"key", "60", time.Now()}, {"key2", "30", time.Now()}, {"key3", "15", time.Now()}},
 		}, {
 			"can't add metrics",
 			[]string{"add-metric", "key=60", "key2=50.4"},
@@ -147,27 +148,27 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		hctx := s.GetHookContext(c, -1, "")
-		hctx.canAddMetrics = t.canAddMetrics
-		com, err := jujuc.NewCommand(hctx, cmdString(t.cmd[0]))
+		hctx.CanAddMetrics = t.canAddMetrics
+		com, err := hooktesting.NewCommand(hctx, t.cmd[0], hookcommands.NewAddMetricCommand)
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		ret := cmd.Main(com, ctx, t.cmd[1:])
 		c.Check(ret, gc.Equals, t.result)
 		c.Check(bufferString(ctx.Stdout), gc.Equals, t.stdout)
 		c.Check(bufferString(ctx.Stderr), gc.Equals, t.stderr)
-		c.Check(hctx.metrics, gc.HasLen, len(t.expect))
+		c.Check(hctx.Metrics, gc.HasLen, len(t.expect))
 
-		sort.Sort(SortedMetrics(hctx.metrics))
+		sort.Sort(SortedMetrics(hctx.Metrics))
 		sort.Sort(SortedMetrics(t.expect))
 
 		for i, expected := range t.expect {
-			c.Check(expected.Key, gc.Equals, hctx.metrics[i].Key)
-			c.Check(expected.Value, gc.Equals, hctx.metrics[i].Value)
+			c.Check(expected.Key, gc.Equals, hctx.Metrics[i].Key)
+			c.Check(expected.Value, gc.Equals, hctx.Metrics[i].Value)
 		}
 	}
 }
 
-type SortedMetrics []jujuc.Metric
+type SortedMetrics []hookcommands.Metric
 
 func (m SortedMetrics) Len() int           { return len(m) }
 func (m SortedMetrics) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }

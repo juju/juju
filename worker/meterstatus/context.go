@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -24,7 +25,7 @@ type limitedContext struct {
 }
 
 // NewLimitedContext creates a new context that implements just the bare minimum
-// of the jujuc.Context interface.
+// of the hooks.Context interface.
 func NewLimitedContext(unitName string) *limitedContext {
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	id := fmt.Sprintf("%s-%s-%d", unitName, "meter-status", rand.New(rand.NewSource(time.Now().Unix())).Int63())
@@ -90,6 +91,6 @@ func (ctx *limitedContext) Prepare() error {
 }
 
 // Component implements runner.Context.
-func (ctx *limitedContext) Component(name string) (jujuc.ContextComponent, error) {
+func (ctx *limitedContext) Component(name string) (hookcommands.ContextComponent, error) {
 	return nil, errors.NotFoundf("context component %q", name)
 }

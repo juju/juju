@@ -1,10 +1,10 @@
-// Copyright 2012, 2013, 2014 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The worker/uniter/runner/jujuc package implements the server side of the
-// jujuc proxy tool, which forwards command invocations to the unit agent
-// process so that they can be executed against specific state.
-package jujuc
+// This package implements the server side of the
+// hook tool CLI, which forwards command invocations to the CAAS operator
+// process so that they can be executed in the Juju controller.
+package commands
 
 import (
 	"bytes"
@@ -14,7 +14,6 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 
 	"github.com/juju/cmd"
@@ -26,75 +25,11 @@ import (
 	"github.com/juju/juju/worker/common/hookcommands"
 )
 
-var logger = loggo.GetLogger("worker.uniter.jujuc")
+var logger = loggo.GetLogger("worker.caasoperator.commands")
 
-// ErrNoStdin is returned by Jujuc.Main if the hook tool requests
+// ErrNoStdin is returned by HookCommand.Main if the hook tool requests
 // stdin, and none is supplied.
 var ErrNoStdin = errors.New("hook tool requires stdin, none supplied")
-
-var registeredCommands = map[string]hookcommands.NewCommandFunc{}
-
-func RegisterCommand(name string, f hookcommands.NewCommandFunc) {
-	registeredCommands[name+hookcommands.CmdSuffix] = f
-}
-
-// baseCommands maps Command names to creators.
-var baseCommands = map[string]hookcommands.NewCommandFunc{
-	"close-port" + hookcommands.CmdSuffix:              NewClosePortCommand,
-	"config-get" + hookcommands.CmdSuffix:              NewConfigGetCommand,
-	"juju-log" + hookcommands.CmdSuffix:                NewJujuLogCommand,
-	"open-port" + hookcommands.CmdSuffix:               NewOpenPortCommand,
-	"opened-ports" + hookcommands.CmdSuffix:            NewOpenedPortsCommand,
-	"relation-get" + hookcommands.CmdSuffix:            NewRelationGetCommand,
-	"action-get" + hookcommands.CmdSuffix:              NewActionGetCommand,
-	"action-set" + hookcommands.CmdSuffix:              NewActionSetCommand,
-	"action-fail" + hookcommands.CmdSuffix:             NewActionFailCommand,
-	"relation-ids" + hookcommands.CmdSuffix:            NewRelationIdsCommand,
-	"relation-list" + hookcommands.CmdSuffix:           NewRelationListCommand,
-	"relation-set" + hookcommands.CmdSuffix:            NewRelationSetCommand,
-	"unit-get" + hookcommands.CmdSuffix:                NewUnitGetCommand,
-	"add-metric" + hookcommands.CmdSuffix:              hookcommands.NewAddMetricCommand,
-	"juju-reboot" + hookcommands.CmdSuffix:             NewJujuRebootCommand,
-	"status-get" + hookcommands.CmdSuffix:              hookcommands.NewStatusGetCommand,
-	"status-set" + hookcommands.CmdSuffix:              hookcommands.NewStatusSetCommand,
-	"network-get" + hookcommands.CmdSuffix:             NewNetworkGetCommand,
-	"application-version-set" + hookcommands.CmdSuffix: NewApplicationVersionSetCommand,
-}
-
-var storageCommands = map[string]hookcommands.NewCommandFunc{
-	"storage-add" + hookcommands.CmdSuffix:  NewStorageAddCommand,
-	"storage-get" + hookcommands.CmdSuffix:  NewStorageGetCommand,
-	"storage-list" + hookcommands.CmdSuffix: NewStorageListCommand,
-}
-
-var leaderCommands = map[string]hookcommands.NewCommandFunc{
-	"is-leader" + hookcommands.CmdSuffix:  NewIsLeaderCommand,
-	"leader-get" + hookcommands.CmdSuffix: NewLeaderGetCommand,
-	"leader-set" + hookcommands.CmdSuffix: NewLeaderSetCommand,
-}
-
-func allEnabledCommands() map[string]hookcommands.NewCommandFunc {
-	all := map[string]hookcommands.NewCommandFunc{}
-	add := func(m map[string]hookcommands.NewCommandFunc) {
-		for k, v := range m {
-			all[k] = v
-		}
-	}
-	add(baseCommands)
-	add(storageCommands)
-	add(leaderCommands)
-	add(registeredCommands)
-	return all
-}
-
-// CommandNames returns the names of all jujuc commands.
-func CommandNames() (names []string) {
-	for name := range allEnabledCommands() {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return
-}
 
 // NewCommand returns an instance of the named Command, initialized to execute
 // against the supplied Context.
@@ -119,8 +54,8 @@ type Request struct {
 // CmdGetter looks up a Command implementation connected to a particular Context.
 type CmdGetter func(contextId, cmdName string) (cmd.Command, error)
 
-// Jujuc implements the jujuc command in the form required by net/rpc.
-type Jujuc struct {
+// HookCommand implements the hook command in the form required by net/rpc.
+type HookCommand struct {
 	mu     sync.Mutex
 	getCmd CmdGetter
 }
@@ -132,7 +67,7 @@ func badReqErrorf(format string, v ...interface{}) error {
 
 // Main runs the Command specified by req, and fills in resp. A single command
 // is run at a time.
-func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
+func (j *HookCommand) Main(req Request, resp *exec.ExecResponse) error {
 	if req.CommandName == "" {
 		return badReqErrorf("command not specified")
 	}
@@ -191,12 +126,12 @@ type Server struct {
 // actually do so until Run is called.
 func NewServer(getCmd CmdGetter, socketPath string) (*Server, error) {
 	server := rpc.NewServer()
-	if err := server.Register(&Jujuc{getCmd: getCmd}); err != nil {
+	if err := server.Register(&HookCommand{getCmd: getCmd}); err != nil {
 		return nil, err
 	}
 	listener, err := sockets.Listen(socketPath)
 	if err != nil {
-		return nil, errors.Annotate(err, "listening to jujuc socket")
+		return nil, errors.Annotate(err, "listening to hook command socket")
 	}
 	s := &Server{
 		socketPath: socketPath,
