@@ -23,4 +23,4 @@ WORKDIR $JUJUD_DIR
 COPY jujud $JUJUD_DIR
 
 ENTRYPOINT ["sh", "-c"]
-CMD ["./jujud caasoperator --application-name ${JUJU_APPLICATION}"]
+CMD ["./jujud caasoperator --debug --application-name ${JUJU_APPLICATION}"]
