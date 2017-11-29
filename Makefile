@@ -138,7 +138,6 @@ GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' github.com/juju/juju/...
 check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
-=======
 # CAAS related targets
 DOCKER_USERNAME?=juju
 JUJUD_STAGING_DIR=/tmp/jujud-operator
