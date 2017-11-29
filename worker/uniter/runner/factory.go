@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/actions"
+	commonrunner "github.com/juju/juju/worker/common/runner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
@@ -93,14 +94,14 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 
 	ok := names.IsValidAction(actionId)
 	if !ok {
-		return nil, &badActionError{actionId, "not valid actionId"}
+		return nil, commonrunner.NewBadActionError(actionId, "not valid actionId")
 	}
 	tag := names.NewActionTag(actionId)
 	action, err := f.state.Action(tag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
-		return nil, ErrActionNotAvailable
+		return nil, commonrunner.ErrActionNotAvailable
 	} else if params.IsCodeActionNotAvailable(err) {
-		return nil, ErrActionNotAvailable
+		return nil, commonrunner.ErrActionNotAvailable
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -112,13 +113,13 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 		var ok bool
 		spec, ok = ch.Actions().ActionSpecs[name]
 		if !ok {
-			return nil, &badActionError{name, "not defined"}
+			return nil, commonrunner.NewBadActionError(name, "not defined")
 		}
 	}
 
 	params := action.Params()
 	if err := spec.ValidateParams(params); err != nil {
-		return nil, &badActionError{name, err.Error()}
+		return nil, commonrunner.NewBadActionError(name, err.Error())
 	}
 
 	actionData := context.NewActionData(name, &tag, params)

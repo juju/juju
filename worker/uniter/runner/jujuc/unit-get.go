@@ -9,19 +9,17 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // UnitGetCommand implements the unit-get command.
 type UnitGetCommand struct {
 	cmd.CommandBase
-	ctx hookcommands.Context
+	ctx Context
 	Key string
 	out cmd.Output
 }
 
-func NewUnitGetCommand(ctx hookcommands.Context) (cmd.Command, error) {
+func NewUnitGetCommand(ctx Context) (cmd.Command, error) {
 	return &UnitGetCommand{ctx: ctx}, nil
 }
 

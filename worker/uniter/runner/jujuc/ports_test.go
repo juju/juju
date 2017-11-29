@@ -14,12 +14,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type PortsSuite struct {
-	hooktesting.ContextSuite
+	ContextSuite
 }
 
 var _ = gc.Suite(&PortsSuite{})
@@ -88,7 +87,7 @@ func (s *PortsSuite) TestOpenClose(c *gc.C) {
 		c.Check(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		hctx.Info.CheckPorts(c, t.expect)
+		hctx.info.CheckPorts(c, t.expect)
 	}
 }
 

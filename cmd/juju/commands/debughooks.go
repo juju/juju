@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/network/ssh"
-	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
+	unitdebug "github.com/juju/juju/worker/common/runner/debug"
 )
 
 func newDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {

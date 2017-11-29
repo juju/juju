@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -83,7 +82,7 @@ func (s *leaderSetSuite) TestWriteError(c *gc.C) {
 }
 
 type leaderSetContext struct {
-	hookcommands.Context
+	jujuc.Context
 	gotSettings map[string]string
 	err         error
 }

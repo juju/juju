@@ -11,21 +11,19 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // JujuLogCommand implements the juju-log command.
 type JujuLogCommand struct {
 	cmd.CommandBase
-	ctx        hookcommands.Context
+	ctx        Context
 	Message    string
 	Debug      bool
 	Level      string
 	formatFlag string // deprecated
 }
 
-func NewJujuLogCommand(ctx hookcommands.Context) (cmd.Command, error) {
+func NewJujuLogCommand(ctx Context) (cmd.Command, error) {
 	return &JujuLogCommand{ctx: ctx}, nil
 }
 

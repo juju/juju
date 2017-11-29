@@ -20,9 +20,9 @@ import (
 	jujuos "github.com/juju/utils/os"
 
 	"github.com/juju/juju/core/actions"
-	"github.com/juju/juju/worker/common/hookcommands"
+	commonrunner "github.com/juju/juju/worker/common/runner"
+	"github.com/juju/juju/worker/common/runner/debug"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/debug"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -46,7 +46,7 @@ type Runner interface {
 
 // Context exposes hooks.Context, and additional methods needed by Runner.
 type Context interface {
-	hookcommands.Context
+	jujuc.Context
 	Id() string
 	HookVars(paths context.Paths) ([]string, error)
 	ActionData() (*context.ActionData, error)
@@ -248,12 +248,8 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 	}
 	ps.Stdout = outWriter
 	ps.Stderr = outWriter
-	hookLogger := &hookLogger{
-		r:      outReader,
-		done:   make(chan struct{}),
-		logger: runner.getLogger(hookName),
-	}
-	go hookLogger.run()
+	hookLogger := commonrunner.NewHookLogger(runner.getLogger(hookName), outReader)
+	go hookLogger.Run()
 	err = ps.Start()
 	outWriter.Close()
 	if err == nil {
@@ -262,7 +258,7 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 		// Block until execution finishes
 		err = ps.Wait()
 	}
-	hookLogger.stop()
+	hookLogger.Stop()
 	return errors.Trace(err)
 }
 

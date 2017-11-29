@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator/commands"
-	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 )
 
 type RpcCommand struct {
@@ -241,9 +240,7 @@ func (s *ServerSuite) TestBrokenCommand(c *gc.C) {
 	c.Assert(string(resp.Stderr), gc.Equals, "ERROR blam\n")
 }
 
-type NewCommandSuite struct {
-	hooktesting.ContextSuite
-}
+type NewCommandSuite struct{}
 
 var _ = gc.Suite(&NewCommandSuite{})
 
@@ -251,15 +248,15 @@ var newCommandTests = []struct {
 	name string
 	err  string
 }{
-	// TODO(caas) - add other commands as they get implemnted
-	{"status-get", ""},
-	{"status-set", ""},
+	// TODO(caas) - add commands as they get implemnted
+	//{"status-get", ""},
+	//{"status-set", ""},
 	// The error message contains .exe on Windows
 	{"random", "unknown command: random(.exe)?"},
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
-	ctx := s.NewHookContext(c)
+	var ctx interface{}
 	for _, t := range newCommandTests {
 		com, err := commands.NewCommand(ctx, t.name)
 		if t.err == "" {

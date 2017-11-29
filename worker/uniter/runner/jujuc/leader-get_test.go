@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -164,7 +163,7 @@ func newLeaderGetContext(err error) *leaderGetContext {
 }
 
 type leaderGetContext struct {
-	hookcommands.Context
+	jujuc.Context
 	called   bool
 	settings map[string]string
 	err      error

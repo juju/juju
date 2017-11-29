@@ -6,13 +6,11 @@ package jujuc
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // newStorageIdValue returns a gnuflag.Value for convenient parsing of storage
 // ids in ctx.
-func newStorageIdValue(ctx hookcommands.Context, result *names.StorageTag) (*storageIdValue, error) {
+func newStorageIdValue(ctx Context, result *names.StorageTag) (*storageIdValue, error) {
 	v := &storageIdValue{result: result, ctx: ctx}
 	if s, err := ctx.HookStorage(); err == nil {
 		*v.result = s.Tag()
@@ -25,7 +23,7 @@ func newStorageIdValue(ctx hookcommands.Context, result *names.StorageTag) (*sto
 // storageIdValue implements gnuflag.Value for use in storage commands.
 type storageIdValue struct {
 	result *names.StorageTag
-	ctx    hookcommands.Context
+	ctx    Context
 }
 
 // String returns the current value.

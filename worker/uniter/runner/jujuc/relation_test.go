@@ -8,18 +8,18 @@ import (
 
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/worker/common/hookcommands"
-	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
 )
 
 type relationSuite struct {
-	hooktesting.ContextSuite
+	ContextSuite
 }
 
-func (s *relationSuite) newHookContext(relid int, remote string) (hookcommands.Context, *relationInfo) {
-	hctx, info := s.ContextSuite.NewHookContextAndInfo()
+func (s *relationSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
+	hctx, info := s.ContextSuite.NewHookContext()
 	rInfo := &relationInfo{ContextInfo: info, stub: s.Stub}
-	settings := hooktesting.Settings{
+	settings := jujuctesting.Settings{
 		"private-address": "u-0.testing.invalid",
 	}
 	rInfo.setNextRelation("", s.Unit, settings) // peer0
@@ -32,10 +32,10 @@ func (s *relationSuite) newHookContext(relid int, remote string) (hookcommands.C
 }
 
 type relationInfo struct {
-	*hooktesting.ContextInfo
+	*jujuctesting.ContextInfo
 
 	stub *testing.Stub
-	rels map[int]*hooktesting.Relation
+	rels map[int]*jujuctesting.Relation
 }
 
 func (ri *relationInfo) reset() {
@@ -44,9 +44,9 @@ func (ri *relationInfo) reset() {
 	ri.rels = nil
 }
 
-func (ri *relationInfo) setNextRelation(name, unit string, settings hooktesting.Settings) int {
+func (ri *relationInfo) setNextRelation(name, unit string, settings jujuctesting.Settings) int {
 	if ri.rels == nil {
-		ri.rels = make(map[int]*hooktesting.Relation)
+		ri.rels = make(map[int]*jujuctesting.Relation)
 	}
 	id := len(ri.rels)
 	if name == "" {
@@ -63,7 +63,7 @@ func (ri *relationInfo) setNextRelation(name, unit string, settings hooktesting.
 
 func (ri *relationInfo) addRelatedServices(relname string, count int) {
 	if ri.rels == nil {
-		ri.rels = make(map[int]*hooktesting.Relation)
+		ri.rels = make(map[int]*jujuctesting.Relation)
 	}
 	for i := 0; i < count; i++ {
 		ri.setNextRelation(relname, "", nil)

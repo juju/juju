@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/worker/common/hookcommands"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var (
@@ -103,10 +103,10 @@ func SetEnvironmentHookContextRelation(
 	}
 }
 
-func PatchCachedStatus(ctx hookcommands.Context, status, info string, data map[string]interface{}) func() {
+func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]interface{}) func() {
 	hctx := ctx.(*HookContext)
 	oldStatus := hctx.status
-	hctx.status = &hookcommands.StatusInfo{
+	hctx.status = &jujuc.StatusInfo{
 		Status: status,
 		Info:   info,
 		Data:   data,

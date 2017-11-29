@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	commonhooks "github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // CommandInfo specifies the information necessary to run a command.
@@ -53,7 +53,7 @@ type StorageContextAccessor interface {
 
 	// Storage returns the hooks.ContextStorageAttachment with the
 	// supplied tag if it was found, and whether it was found.
-	Storage(names.StorageTag) (commonhooks.ContextStorageAttachment, error)
+	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, error)
 }
 
 // RelationsFunc is used to get snapshots of relation membership at context

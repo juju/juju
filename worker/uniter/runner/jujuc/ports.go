@@ -12,8 +12,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 const (
@@ -171,7 +169,7 @@ var openPortInfo = &cmd.Info{
 	Doc:     "The port range will only be open while the application is exposed.",
 }
 
-func NewOpenPortCommand(ctx hookcommands.Context) (cmd.Command, error) {
+func NewOpenPortCommand(ctx Context) (cmd.Command, error) {
 	return &portCommand{
 		info: openPortInfo,
 		action: func(c *portCommand) error {
@@ -186,7 +184,7 @@ var closePortInfo = &cmd.Info{
 	Purpose: "ensure a port or range is always closed",
 }
 
-func NewClosePortCommand(ctx hookcommands.Context) (cmd.Command, error) {
+func NewClosePortCommand(ctx Context) (cmd.Command, error) {
 	return &portCommand{
 		info: closePortInfo,
 		action: func(c *portCommand) error {

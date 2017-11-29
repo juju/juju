@@ -9,19 +9,17 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
-
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // StorageAddCommand implements the status-set command.
 type StorageAddCommand struct {
 	cmd.CommandBase
-	ctx hookcommands.Context
+	ctx Context
 	all map[string]params.StorageConstraints
 }
 
 // NewStorageAddCommand makes a jujuc storage-add command.
-func NewStorageAddCommand(ctx hookcommands.Context) (cmd.Command, error) {
+func NewStorageAddCommand(ctx Context) (cmd.Command, error) {
 	return &StorageAddCommand{ctx: ctx}, nil
 }
 

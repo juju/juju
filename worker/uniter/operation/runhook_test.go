@@ -11,10 +11,11 @@ import (
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/relation"
-	commonhooks "github.com/juju/juju/worker/common/hookcommands"
+	"github.com/juju/juju/worker/common/runner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type RunHookSuite struct {
@@ -196,7 +197,7 @@ func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, newHook newHook, kind hooks
 }
 
 func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
-	runErr := context.NewMissingHookError("blah-blah")
+	runErr := runner.NewMissingHookError("blah-blah")
 	for _, kind := range hooks.UnitHooks() {
 		c.Logf("hook %v", kind)
 		op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, kind, runErr)
@@ -275,7 +276,7 @@ func (s *RunHookSuite) TestExecuteOtherError(c *gc.C) {
 
 func (s *RunHookSuite) TestInstallHookPreservesStatus(c *gc.C) {
 	op, callbacks, f := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, hooks.Install, nil)
-	err := f.MockNewHookRunner.runner.Context().SetUnitStatus(commonhooks.StatusInfo{Status: "blocked", Info: "no database"})
+	err := f.MockNewHookRunner.runner.Context().SetUnitStatus(jujuc.StatusInfo{Status: "blocked", Info: "no database"})
 	c.Assert(err, jc.ErrorIsNil)
 	st := operation.State{
 		StatusSet: true,
@@ -374,7 +375,7 @@ func (s *RunHookSuite) testExecuteThenCharmStatus(
 	testAfterHookStatus(c, kind, status, after.StatusSet)
 }
 
-func testBeforeHookStatus(c *gc.C, kind hooks.Kind, status *commonhooks.StatusInfo) {
+func testBeforeHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo) {
 	switch kind {
 	case hooks.Install:
 		c.Assert(status.Status, gc.Equals, "maintenance")
@@ -387,7 +388,7 @@ func testBeforeHookStatus(c *gc.C, kind hooks.Kind, status *commonhooks.StatusIn
 	}
 }
 
-func testAfterHookStatus(c *gc.C, kind hooks.Kind, status *commonhooks.StatusInfo, statusSetCalled bool) {
+func testAfterHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo, statusSetCalled bool) {
 	switch kind {
 	case hooks.Install:
 		c.Assert(status.Status, gc.Equals, "maintenance")

@@ -10,9 +10,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/worker/common/runner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 

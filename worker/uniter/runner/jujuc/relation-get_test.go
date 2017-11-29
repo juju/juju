@@ -14,9 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/common/hookcommands"
-	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
 )
 
 type RelationGetSuite struct {
@@ -25,11 +24,11 @@ type RelationGetSuite struct {
 
 var _ = gc.Suite(&RelationGetSuite{})
 
-func (s *RelationGetSuite) newHookContext(relid int, remote string) (hookcommands.Context, *relationInfo) {
+func (s *RelationGetSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
 	hctx, info := s.relationSuite.newHookContext(relid, remote)
 	info.rels[0].Units["u/0"]["private-address"] = "foo: bar\n"
-	info.rels[1].SetRelated("m/0", hooktesting.Settings{"pew": "pew\npew\n"})
-	info.rels[1].SetRelated("u/1", hooktesting.Settings{"value": "12345"})
+	info.rels[1].SetRelated("m/0", jujuctesting.Settings{"pew": "pew\npew\n"})
+	info.rels[1].SetRelated("u/1", jujuctesting.Settings{"value": "12345"})
 	return hctx, info
 }
 

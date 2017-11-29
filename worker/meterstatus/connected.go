@@ -6,11 +6,11 @@ package meterstatus
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6/hooks"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/meterstatus"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/common/runner"
 )
 
 // connectedStatusHandler implements the NotifyWatchHandler interface.
@@ -108,7 +108,7 @@ func (w *connectedStatusHandler) applyStatus(code, info string, abort <-chan str
 	err := w.config.Runner.RunHook(code, info, abort)
 	cause := errors.Cause(err)
 	switch {
-	case context.IsMissingHookError(cause):
+	case runner.IsMissingHookError(cause):
 		logger.Infof("skipped %q hook (missing)", string(hooks.MeterStatusChanged))
 	case err != nil:
 		logger.Errorf("meter status worker encountered hook error: %v", err)

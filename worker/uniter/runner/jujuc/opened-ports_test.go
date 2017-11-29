@@ -12,12 +12,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type OpenedPortsSuite struct {
-	hooktesting.ContextSuite
+	ContextSuite
 }
 
 var _ = gc.Suite(&OpenedPortsSuite{})
@@ -55,7 +54,7 @@ func (s *OpenedPortsSuite) TestRunAllFormats(c *gc.C) {
 		}
 		c.Check(stdout, gc.Equals, expectedOutput)
 		c.Check(stderr, gc.Equals, "")
-		hctx.Info.CheckPorts(c, expectedPorts)
+		hctx.info.CheckPorts(c, expectedPorts)
 	}
 }
 
@@ -84,7 +83,7 @@ Each list entry has format <port>/<protocol> (e.g. "80/tcp") or
 `[1:])
 }
 
-func (s *OpenedPortsSuite) getContextAndOpenPorts(c *gc.C) *hooktesting.FakeHookContext {
+func (s *OpenedPortsSuite) getContextAndOpenPorts(c *gc.C) *Context {
 	hctx := s.GetHookContext(c, -1, "")
 	hctx.OpenPorts("tcp", 80, 80)
 	hctx.OpenPorts("tcp", 10, 20)
@@ -93,7 +92,7 @@ func (s *OpenedPortsSuite) getContextAndOpenPorts(c *gc.C) *hooktesting.FakeHook
 	return hctx
 }
 
-func (s *OpenedPortsSuite) runCommand(c *gc.C, hctx *hooktesting.FakeHookContext, args ...string) (stdout, stderr string) {
+func (s *OpenedPortsSuite) runCommand(c *gc.C, hctx *Context, args ...string) (stdout, stderr string) {
 	com, err := jujuc.NewCommand(hctx, cmdString("opened-ports"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)

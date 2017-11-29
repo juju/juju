@@ -10,8 +10,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
-
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 var keyRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
@@ -19,12 +17,12 @@ var keyRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 // ActionSetCommand implements the action-set command.
 type ActionSetCommand struct {
 	cmd.CommandBase
-	ctx  hookcommands.Context
+	ctx  Context
 	args [][]string
 }
 
 // NewActionSetCommand returns a new ActionSetCommand with the given context.
-func NewActionSetCommand(ctx hookcommands.Context) (cmd.Command, error) {
+func NewActionSetCommand(ctx Context) (cmd.Command, error) {
 	return &ActionSetCommand{ctx: ctx}, nil
 }
 

@@ -6,19 +6,17 @@ package jujuc
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 type applicationVersionSetCommand struct {
 	cmd.CommandBase
-	ctx hookcommands.Context
+	ctx Context
 
 	version string
 }
 
 // NewApplicationVersionSetCommand creates an application-version-set command.
-func NewApplicationVersionSetCommand(ctx hookcommands.Context) (cmd.Command, error) {
+func NewApplicationVersionSetCommand(ctx Context) (cmd.Command, error) {
 	cmd := &applicationVersionSetCommand{ctx: ctx}
 	return cmd, nil
 }

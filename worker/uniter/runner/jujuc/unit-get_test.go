@@ -16,12 +16,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type UnitGetSuite struct {
-	hooktesting.ContextSuite
+	ContextSuite
 }
 
 var _ = gc.Suite(&UnitGetSuite{})
@@ -156,7 +155,7 @@ func (s *UnitGetSuite) TestNetworkInfoPrivateAddress(c *gc.C) {
 
 	launchCommand := func(input map[string]params.NetworkInfoResult, expected string) {
 		hctx := s.GetHookContext(c, -1, "")
-		hctx.Info.NetworkInterface.NetworkInfoResults = input
+		hctx.info.NetworkInterface.NetworkInfoResults = input
 		com, err := jujuc.NewCommand(hctx, cmdString("unit-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)

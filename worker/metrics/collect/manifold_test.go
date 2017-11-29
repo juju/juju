@@ -17,13 +17,13 @@ import (
 
 	"github.com/juju/juju/agent"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/metrics/collect"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type ManifoldSuite struct {
@@ -326,7 +326,7 @@ func (r *dummyRecorder) AddMetric(key, value string, created time.Time) error {
 		CharmURL: r.charmURL,
 		UUID:     utils.MustNewUUID().String(),
 		Created:  then,
-		Metrics: []hookcommands.Metric{{
+		Metrics: []jujuc.Metric{{
 			Key:   key,
 			Value: value,
 			Time:  then,

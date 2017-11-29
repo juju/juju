@@ -17,8 +17,8 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
-	commonhooks "github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.storage")
@@ -47,7 +47,7 @@ type StorageAccessor interface {
 
 type storageAttachment struct {
 	*stateFile
-	commonhooks.ContextStorageAttachment
+	jujuc.ContextStorageAttachment
 }
 
 // Attachments generates storage hooks in response to changes to
@@ -174,7 +174,7 @@ func (a *Attachments) Empty() bool {
 
 // Storage returns the ContextStorage with the supplied tag if it was
 // found, and whether it was found.
-func (a *Attachments) Storage(tag names.StorageTag) (commonhooks.ContextStorageAttachment, error) {
+func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
 	if attachment, ok := a.storageAttachments[tag]; ok {
 		return attachment, nil
 	}
