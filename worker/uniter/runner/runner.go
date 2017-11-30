@@ -20,7 +20,7 @@ import (
 	jujuos "github.com/juju/utils/os"
 
 	"github.com/juju/juju/core/actions"
-	commonrunner "github.com/juju/juju/worker/common/runner"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/debug"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -248,7 +248,7 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 	}
 	ps.Stdout = outWriter
 	ps.Stderr = outWriter
-	hookLogger := commonrunner.NewHookLogger(runner.getLogger(hookName), outReader)
+	hookLogger := charmrunner.NewHookLogger(runner.getLogger(hookName), outReader)
 	go hookLogger.Run()
 	err = ps.Start()
 	outWriter.Close()

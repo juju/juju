@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/common/runner"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -250,7 +250,7 @@ func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
 	}
 
 	switch err {
-	case nil, runner.ErrNoProcess:
+	case nil, charmrunner.ErrNoProcess:
 		// ErrNoProcess almost certainly means we are running in debug hooks
 	default:
 		ctx.SetRebootPriority(jujuc.RebootSkip)
@@ -752,7 +752,7 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 	// and discard the error state.  Actions should not error the uniter.
 	if err != nil {
 		message = err.Error()
-		if runner.IsMissingHookError(err) {
+		if charmrunner.IsMissingHookError(err) {
 			message = fmt.Sprintf("action not implemented on unit %q", ctx.unitName)
 		}
 		status = params.ActionFailed
@@ -770,7 +770,7 @@ func (ctx *HookContext) killCharmHook() error {
 	proc := ctx.GetProcess()
 	if proc == nil {
 		// nothing to kill
-		return runner.ErrNoProcess
+		return charmrunner.ErrNoProcess
 	}
 	logger.Infof("trying to kill context process %v", proc.Pid())
 

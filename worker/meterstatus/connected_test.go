@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/common/runner"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/meterstatus"
 )
 
@@ -122,7 +122,7 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerRunsHookOnChanges(c *gc.C) {
 // TestStatusHandlerHandlesHookMissingError tests that the handler does not report errors
 // caused by a missing meter-status-changed hook.
 func (s *ConnectedWorkerSuite) TestStatusHandlerHandlesHookMissingError(c *gc.C) {
-	s.stub.SetErrors(runner.NewMissingHookError("meter-status-changed"))
+	s.stub.SetErrors(charmrunner.NewMissingHookError("meter-status-changed"))
 	handler, err := meterstatus.NewConnectedStatusHandler(
 		meterstatus.ConnectedConfig{
 			Runner:    &stubRunner{stub: s.stub},

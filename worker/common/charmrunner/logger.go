@@ -1,7 +1,7 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package runner
+package charmrunner
 
 import (
 	"bufio"
@@ -14,7 +14,7 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.common.runner")
 
-// MewHookLogger creates a new hook logger.
+// NewHookLogger creates a new hook logger.
 func NewHookLogger(logger loggo.Logger, outReader io.ReadCloser) *HookLogger {
 	return &HookLogger{
 		r:      outReader,

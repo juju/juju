@@ -19,7 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
 
-	commonrunner "github.com/juju/juju/worker/common/runner"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -136,7 +136,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 		if t.err == "" && hookExists {
 			c.Assert(err, jc.ErrorIsNil)
 		} else if !hookExists {
-			c.Assert(commonrunner.IsMissingHookError(err), jc.IsTrue)
+			c.Assert(charmrunner.IsMissingHookError(err), jc.IsTrue)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}

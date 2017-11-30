@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
-	commonrunner "github.com/juju/juju/worker/common/runner"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -101,7 +101,7 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	err := rh.runner.RunHook(rh.name)
 	cause := errors.Cause(err)
 	switch {
-	case commonrunner.IsMissingHookError(cause):
+	case charmrunner.IsMissingHookError(cause):
 		ranHook = false
 		err = nil
 	case cause == context.ErrRequeueAndReboot:

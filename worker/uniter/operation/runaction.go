@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	commonrunner "github.com/juju/juju/worker/common/runner"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
@@ -35,12 +35,12 @@ func (ra *runAction) String() string {
 // Prepare is part of the Operation interface.
 func (ra *runAction) Prepare(state State) (*State, error) {
 	rnr, err := ra.runnerFactory.NewActionRunner(ra.actionId)
-	if cause := errors.Cause(err); commonrunner.IsBadActionError(cause) {
+	if cause := errors.Cause(err); charmrunner.IsBadActionError(cause) {
 		if err := ra.callbacks.FailAction(ra.actionId, err.Error()); err != nil {
 			return nil, err
 		}
 		return nil, ErrSkipExecute
-	} else if cause == commonrunner.ErrActionNotAvailable {
+	} else if cause == charmrunner.ErrActionNotAvailable {
 		return nil, ErrSkipExecute
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "cannot create runner for action %q", ra.actionId)
