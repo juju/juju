@@ -1593,6 +1593,14 @@ func (im *IAASModel) WatchFilesystemAttachment(m names.MachineTag, f names.Files
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
+// application's configuration settings. The returned watcher will be
+// valid only while the application's charm URL is not changed.
+func (a *Application) WatchConfigSettings() (NotifyWatcher, error) {
+	settingsKey := a.settingsKey()
+	return newEntityWatcher(a.st, settingsC, a.st.docID(settingsKey)), nil
+}
+
+// WatchConfigSettings returns a watcher for observing changes to the
 // unit's service configuration settings. The unit must have a charm URL
 // set before this method is called, and the returned watcher will be
 // valid only while the unit's charm URL is not changed.

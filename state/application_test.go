@@ -3091,3 +3091,51 @@ func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithMoreThanOneUnit(c 
 	c.Assert(err, gc.ErrorMatches, `*would break relation "mysql:replication"*`)
 	c.Assert(s.mysql.CharmModifiedVersion() == obtainedV, jc.IsTrue)
 }
+
+func (s *ApplicationSuite) TestWatchConfigSettings(c *gc.C) {
+	oldCharm := s.AddTestingCharm(c, "wordpress")
+	app := s.AddTestingApplication(c, "wordpress", oldCharm)
+	// Add a unit so when we change the application's charm,
+	// the old charm isn't removed (due to a reference).
+	u, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.SetCharmURL(oldCharm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := app.WatchConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	defer testing.AssertStop(c, w)
+
+	// Initial event.
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	// Update config a couple of times, check a single event.
+	err = app.UpdateConfigSettings(charm.Settings{
+		"blog-title": "superhero paparazzi",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.UpdateConfigSettings(charm.Settings{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Non-change is not reported.
+	err = app.UpdateConfigSettings(charm.Settings{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Change application's charm; nothing detected.
+	newCharm := s.AddConfigCharm(c, "wordpress", stringConfig, 123)
+	err = app.SetCharm(state.SetCharmConfig{Charm: newCharm})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Change application config for new charm; nothing detected.
+	err = app.UpdateConfigSettings(charm.Settings{"key": "value"})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+}

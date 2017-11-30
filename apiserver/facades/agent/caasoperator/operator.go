@@ -5,11 +5,13 @@ package caasoperator
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
-	names "gopkg.in/juju/names.v2"
 )
 
 type Facade struct {
@@ -77,35 +79,107 @@ func (f *Facade) setStatus(tag names.ApplicationTag, info status.StatusInfo) err
 
 // Charm returns the charm info for all given applications.
 func (f *Facade) Charm(args params.Entities) (params.ApplicationCharmResults, error) {
-	result := params.ApplicationCharmResults{
+	results := params.ApplicationCharmResults{
 		Results: make([]params.ApplicationCharmResult, len(args.Entities)),
 	}
 	authTag := f.auth.GetAuthTag()
 	for i, entity := range args.Entities {
 		tag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		if tag != authTag {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		application, err := f.state.Application(tag.Id())
-		if tag != authTag {
-			result.Results[i].Error = common.ServerError(err)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		charm, force, err := application.Charm()
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		result.Results[i].Result = &params.ApplicationCharm{
+		results.Results[i].Result = &params.ApplicationCharm{
 			URL:          charm.URL().String(),
 			ForceUpgrade: force,
 			SHA256:       charm.BundleSha256(),
 		}
 	}
-	return result, nil
+	return results, nil
+}
+
+// WatchApplicationConfig returns a NotifyWatcher that notifies when
+// the application's config settings have changed.
+func (f *Facade) WatchApplicationConfig(args params.Entities) (params.NotifyWatchResults, error) {
+	results := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	authTag := f.auth.GetAuthTag()
+	for i, arg := range args.Entities {
+		watcherId, err := f.watchApplicationConfig(arg, authTag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].NotifyWatcherId = watcherId
+	}
+	return results, nil
+}
+
+func (f *Facade) watchApplicationConfig(arg params.Entity, authTag names.Tag) (string, error) {
+	tag, err := names.ParseApplicationTag(arg.Tag)
+	if err != nil {
+		return "", err
+	}
+	if tag != authTag {
+		return "", common.ErrPerm
+	}
+	application, err := f.state.Application(tag.Id())
+	if err != nil {
+		return "", err
+	}
+	w, err := application.WatchConfigSettings()
+	if err != nil {
+		return "", err
+	}
+	// Consume the initial event.
+	if _, ok := <-w.Changes(); !ok {
+		return "", watcher.EnsureErr(w)
+	}
+	return f.resources.Register(w), nil
+}
+
+// ApplicationConfig returns the application's config settings.
+func (f *Facade) ApplicationConfig(args params.Entities) (params.ConfigSettingsResults, error) {
+	results := params.ConfigSettingsResults{
+		Results: make([]params.ConfigSettingsResult, len(args.Entities)),
+	}
+	authTag := f.auth.GetAuthTag()
+	for i, arg := range args.Entities {
+		tag, err := names.ParseApplicationTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if tag != authTag {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		application, err := f.state.Application(tag.Id())
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		settings, err := application.ConfigSettings()
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Settings = params.ConfigSettings(settings)
+	}
+	return results, nil
 }

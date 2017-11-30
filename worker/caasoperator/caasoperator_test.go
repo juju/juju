@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -28,6 +30,7 @@ type WorkerSuite struct {
 
 	clock           *testing.Clock
 	config          caasoperator.Config
+	settingsChanges chan struct{}
 	client          fakeClient
 	charmDownloader fakeDownloader
 	charmSHA256     string
@@ -57,14 +60,17 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 
 	s.clock = testing.NewClock(time.Time{})
 	s.client = fakeClient{}
+	s.settingsChanges = make(chan struct{})
+	s.client.settingsWatcher = watchertest.NewMockNotifyWatcher(s.settingsChanges)
 	s.charmDownloader.ResetCalls()
 	s.config = caasoperator.Config{
-		Application:  "gitlab",
-		CharmGetter:  &s.client,
-		Clock:        s.clock,
-		DataDir:      c.MkDir(),
-		Downloader:   &s.charmDownloader,
-		StatusSetter: &s.client,
+		Application:             "gitlab",
+		ApplicationConfigGetter: &s.client,
+		CharmGetter:             &s.client,
+		Clock:                   s.clock,
+		DataDir:                 c.MkDir(),
+		Downloader:              &s.charmDownloader,
+		StatusSetter:            &s.client,
 	}
 
 	agentBinaryDir := agenttools.ToolsDir(s.config.DataDir, "application-gitlab")
@@ -76,6 +82,10 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.Application = ""
 	}, `application name "" not valid`)
+
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.ApplicationConfigGetter = nil
+	}, `missing ApplicationConfigGetter not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.CharmGetter = nil
@@ -118,9 +128,10 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	w, err := caasoperator.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	workertest.CleanKill(c, w)
+	defer workertest.CleanKill(c, w)
 
-	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetStatus")
+	s.settingsChanges <- struct{}{}
+	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetStatus", "WatchApplicationConfig", "ApplicationConfig")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
 
 	s.charmDownloader.CheckCallNames(c, "Download")
@@ -165,4 +176,14 @@ func (s *WorkerSuite) TestWorkerSetsStatus(c *gc.C) {
 
 	s.client.CheckCall(c, 1, "SetStatus", "gitlab", status.Maintenance, "downloading charm (cs:gitlab-1)", map[string]interface{}(nil))
 	s.client.CheckCall(c, 2, "SetStatus", "gitlab", status.Active, "", map[string]interface{}(nil))
+}
+
+func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {
+	w, err := caasoperator.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	s.client.settingsWatcher.KillErr(errors.New("splat"))
+	err = workertest.CheckKilled(c, w)
+	c.Assert(err, gc.ErrorMatches, "splat")
 }

@@ -8,6 +8,8 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 )
 
@@ -17,12 +19,17 @@ type mockState struct {
 }
 
 func newMockState() *mockState {
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+	settingsWatcher := statetesting.NewMockNotifyWatcher(ch)
 	return &mockState{
 		app: mockApplication{
 			charm: mockCharm{
 				url:    charm.MustParseURL("cs:gitlab-1"),
 				sha256: "fake-sha256",
 			},
+			settings:        charm.Settings{"k": 123},
+			settingsWatcher: settingsWatcher,
 		},
 	}
 }
@@ -37,8 +44,10 @@ func (st *mockState) Application(id string) (caasoperator.Application, error) {
 
 type mockApplication struct {
 	testing.Stub
-	charm        mockCharm
-	forceUpgrade bool
+	charm           mockCharm
+	forceUpgrade    bool
+	settings        charm.Settings
+	settingsWatcher *statetesting.MockNotifyWatcher
 }
 
 func (app *mockApplication) SetStatus(info status.StatusInfo) error {
@@ -52,6 +61,22 @@ func (app *mockApplication) Charm() (caasoperator.Charm, bool, error) {
 		return nil, false, err
 	}
 	return &app.charm, app.forceUpgrade, nil
+}
+
+func (app *mockApplication) ConfigSettings() (charm.Settings, error) {
+	app.MethodCall(app, "ConfigSettings")
+	if err := app.NextErr(); err != nil {
+		return nil, err
+	}
+	return app.settings, nil
+}
+
+func (app *mockApplication) WatchConfigSettings() (state.NotifyWatcher, error) {
+	app.MethodCall(app, "WatchConfigSettings")
+	if err := app.NextErr(); err != nil {
+		return nil, err
+	}
+	return app.settingsWatcher, nil
 }
 
 type mockCharm struct {

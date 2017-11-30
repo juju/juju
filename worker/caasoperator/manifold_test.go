@@ -122,12 +122,13 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config := args[0].(caasoperator.Config)
 
 	c.Assert(config, jc.DeepEquals, caasoperator.Config{
-		Application:  "gitlab",
-		DataDir:      s.dataDir,
-		Clock:        s.clock,
-		Downloader:   &s.charmDownloader,
-		CharmGetter:  &s.client,
-		StatusSetter: &s.client,
+		Application:             "gitlab",
+		ApplicationConfigGetter: &s.client,
+		DataDir:                 s.dataDir,
+		Clock:                   s.clock,
+		Downloader:              &s.charmDownloader,
+		CharmGetter:             &s.client,
+		StatusSetter:            &s.client,
 	})
 }
 
