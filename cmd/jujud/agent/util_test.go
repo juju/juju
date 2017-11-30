@@ -234,7 +234,6 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 	}
 	orig := newDeployContext
 	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {
-		ctx.st = st
 		ctx.agentConfig = agentConfig
 		ctx.inited.trigger()
 		return ctx
@@ -257,9 +256,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 
 // opRecvTimeout waits for any of the given kinds of operation to
 // be received from ops, and times out if not.
-func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
-	st.StartSync()
-	timeout := time.After(coretesting.LongWait)
+func opRecvTimeout(c *gc.C, opc <-chan dummy.Operation, kinds ...dummy.Operation) dummy.Operation {
 	for {
 		select {
 		case op := <-opc:
@@ -269,9 +266,7 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 				}
 			}
 			c.Logf("discarding unknown event %#v", op)
-		case <-time.After(coretesting.ShortWait):
-			st.StartSync()
-		case <-timeout:
+		case <-time.After(coretesting.LongWait):
 			c.Fatalf("time out wating for operation")
 		}
 	}

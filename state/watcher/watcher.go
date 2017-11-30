@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	retry "gopkg.in/retry.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/mongo"
@@ -23,6 +24,18 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.state.watcher")
+
+// PollStrategy is used to determine how long
+// to delay between poll intervals. A new timer
+// is created each time some watcher event is
+// fired or if the old timer completes.
+//
+// It must not be changed when any watchers are active.
+var PollStrategy retry.Strategy = retry.Exponential{
+	Initial:  10 * time.Millisecond,
+	Factor:   1.5,
+	MaxDelay: 5 * time.Second,
+}
 
 // A Watcher can watch any number of collections and documents for changes.
 type Watcher struct {
@@ -108,10 +121,6 @@ type event struct {
 	revno int64
 }
 
-// Period is the delay between each sync.
-// It must not be changed when any watchers are active.
-var Period time.Duration = 5 * time.Second
-
 // New returns a new Watcher observing the changelog collection,
 // which must be a capped collection maintained by mgo/txn.
 func New(changelog *mgo.Collection) *Watcher {
@@ -130,7 +139,7 @@ func newWatcher(changelog *mgo.Collection, iteratorFunc func() mongo.Iterator) *
 		w.iteratorFunc = w.iter
 	}
 	go func() {
-		err := w.loop(Period)
+		err := w.loop()
 		cause := errors.Cause(err)
 		// tomb expects ErrDying or ErrStillAlive as
 		// exact values, so we need to log and unwrap
@@ -246,16 +255,17 @@ func (w *Watcher) StartSync() {
 }
 
 // loop implements the main watcher loop.
-// period is the delay between each sync.
-func (w *Watcher) loop(period time.Duration) error {
-	next := time.After(period)
+func (w *Watcher) loop() error {
 	w.needSync = true
 	if err := w.initLastId(); err != nil {
 		return errors.Trace(err)
 	}
+	backoff := PollStrategy.NewTimer(time.Now())
+	next := time.After(0)
 	for {
 		if w.needSync {
-			if err := w.sync(); err != nil {
+			added, err := w.sync()
+			if err != nil {
 				// If the txn log collection overflows from underneath us,
 				// the easiest cause of action to recover is to cause the
 				// agen tto restart.
@@ -267,13 +277,23 @@ func (w *Watcher) loop(period time.Duration) error {
 				return errors.Trace(err)
 			}
 			w.flush()
-			next = time.After(period)
+			if added {
+				// Something's happened, so reset the exponential backoff
+				// so we'll retry again quickly.
+				backoff = PollStrategy.NewTimer(time.Now())
+				next = time.After(0)
+			}
 		}
 		select {
 		case <-w.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
 		case <-next:
-			next = time.After(period)
+			d, ok := backoff.NextSleep(time.Now())
+			if !ok {
+				// This shouldn't happen, but be defensive.
+				backoff = PollStrategy.NewTimer(time.Now())
+			}
+			next = time.After(d)
 			w.needSync = true
 		case req := <-w.request:
 			w.handle(req)
@@ -391,7 +411,8 @@ var cappedPositionLostError = errors.New("capped position lost")
 
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
-func (w *Watcher) sync() error {
+// It reports whether any events have been added to syncEvents.
+func (w *Watcher) sync() (bool, error) {
 	w.needSync = false
 	// Iterate through log events in reverse insertion order (newest first).
 	iter := w.iteratorFunc()
@@ -399,6 +420,7 @@ func (w *Watcher) sync() error {
 	first := true
 	lastId := w.lastId
 	var entry bson.D
+	added := false
 	for iter.Next(&entry) {
 		if len(entry) == 0 {
 			logger.Tracef("got empty changelog document")
@@ -455,6 +477,7 @@ func (w *Watcher) sync() error {
 						continue
 					}
 					w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+					added = true
 				}
 				// Queue notifications for per-document watches.
 				infos := w.watches[key]
@@ -462,6 +485,7 @@ func (w *Watcher) sync() error {
 					if revno > info.revno || revno < 0 && info.revno >= 0 {
 						infos[i].revno = revno
 						w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+						added = true
 					}
 				}
 			}
@@ -476,7 +500,7 @@ func (w *Watcher) sync() error {
 				err = cappedPositionLostError
 			}
 		}
-		return errors.Annotate(err, "watcher iteration error")
+		return false, errors.Annotate(err, "watcher iteration error")
 	}
-	return nil
+	return added, nil
 }

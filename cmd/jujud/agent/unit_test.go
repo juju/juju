@@ -179,7 +179,6 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 				c.Logf("waiting...")
 				continue
 			case status.Error:
-				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:
 				c.Fatalf("unexpected status %s %s %v", statusInfo.Status, statusInfo.Message, statusInfo.Data)
@@ -328,7 +327,6 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for config to be updated.
-	s.BackingState.StartSync()
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		addrs, err := a.CurrentConfig().APIAddresses()
 		c.Assert(err, jc.ErrorIsNil)
@@ -431,5 +429,5 @@ func (s *UnitSuite) TestWorkers(c *gc.C) {
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysUnitWorkers, notMigratingUnitWorkers...))
-	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
 }
