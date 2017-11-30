@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // ErrRestrictedContext indicates a method is not implemented in the given context.
@@ -27,20 +26,20 @@ type RestrictedContext struct{}
 func (*RestrictedContext) ConfigSettings() (charm.Settings, error) { return nil, ErrRestrictedContext }
 
 // UnitStatus implements hooks.Context.
-func (*RestrictedContext) UnitStatus() (*hookcommands.StatusInfo, error) {
+func (*RestrictedContext) UnitStatus() (*StatusInfo, error) {
 	return nil, ErrRestrictedContext
 }
 
 // SetUnitStatus implements hooks.Context.
-func (*RestrictedContext) SetUnitStatus(hookcommands.StatusInfo) error { return ErrRestrictedContext }
+func (*RestrictedContext) SetUnitStatus(StatusInfo) error { return ErrRestrictedContext }
 
 // ApplicationStatus implements hooks.Context.
-func (*RestrictedContext) ApplicationStatus() (hookcommands.ApplicationStatusInfo, error) {
-	return hookcommands.ApplicationStatusInfo{}, ErrRestrictedContext
+func (*RestrictedContext) ApplicationStatus() (ApplicationStatusInfo, error) {
+	return ApplicationStatusInfo{}, ErrRestrictedContext
 }
 
 // SetApplicationStatus implements hooks.Context.
-func (*RestrictedContext) SetApplicationStatus(hookcommands.StatusInfo) error {
+func (*RestrictedContext) SetApplicationStatus(StatusInfo) error {
 	return ErrRestrictedContext
 }
 
@@ -48,7 +47,7 @@ func (*RestrictedContext) SetApplicationStatus(hookcommands.StatusInfo) error {
 func (*RestrictedContext) AvailabilityZone() (string, error) { return "", ErrRestrictedContext }
 
 // RequestReboot implements hooks.Context.
-func (*RestrictedContext) RequestReboot(prio hookcommands.RebootPriority) error {
+func (*RestrictedContext) RequestReboot(prio RebootPriority) error {
 	return ErrRestrictedContext
 }
 
@@ -94,12 +93,12 @@ func (*RestrictedContext) AddMetric(string, string, time.Time) error { return Er
 func (*RestrictedContext) StorageTags() ([]names.StorageTag, error) { return nil, ErrRestrictedContext }
 
 // Storage implements hooks.Context.
-func (*RestrictedContext) Storage(names.StorageTag) (hookcommands.ContextStorageAttachment, error) {
+func (*RestrictedContext) Storage(names.StorageTag) (ContextStorageAttachment, error) {
 	return nil, ErrRestrictedContext
 }
 
 // HookStorage implements hooks.Context.
-func (*RestrictedContext) HookStorage() (hookcommands.ContextStorageAttachment, error) {
+func (*RestrictedContext) HookStorage() (ContextStorageAttachment, error) {
 	return nil, ErrRestrictedContext
 }
 
@@ -109,7 +108,7 @@ func (*RestrictedContext) AddUnitStorage(map[string]params.StorageConstraints) e
 }
 
 // Relation implements hooks.Context.
-func (*RestrictedContext) Relation(id int) (hookcommands.ContextRelation, error) {
+func (*RestrictedContext) Relation(id int) (ContextRelation, error) {
 	return nil, ErrRestrictedContext
 }
 
@@ -117,7 +116,7 @@ func (*RestrictedContext) Relation(id int) (hookcommands.ContextRelation, error)
 func (*RestrictedContext) RelationIds() ([]int, error) { return nil, ErrRestrictedContext }
 
 // HookRelation implements hooks.Context.
-func (*RestrictedContext) HookRelation() (hookcommands.ContextRelation, error) {
+func (*RestrictedContext) HookRelation() (ContextRelation, error) {
 	return nil, ErrRestrictedContext
 }
 
@@ -141,7 +140,7 @@ func (*RestrictedContext) SetActionMessage(string) error { return ErrRestrictedC
 func (*RestrictedContext) SetActionFailed() error { return ErrRestrictedContext }
 
 // Component implements jujc.Context.
-func (*RestrictedContext) Component(string) (hookcommands.ContextComponent, error) {
+func (*RestrictedContext) Component(string) (ContextComponent, error) {
 	return nil, ErrRestrictedContext
 }
 

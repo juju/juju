@@ -6,7 +6,7 @@ package jujuc_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
+	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 )
 
 type storageSuite struct {
-	hooktesting.ContextSuite
+	jujuctesting.ContextSuite
 
 	storageName string
 	location    string
@@ -32,8 +32,8 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.location = "/dev/sda"
 }
 
-func (s *storageSuite) newHookContext() (*hooktesting.Context, *hooktesting.ContextInfo) {
-	hctx, info := s.ContextSuite.NewHookContextAndInfo()
+func (s *storageSuite) newHookContext() (*jujuctesting.Context, *jujuctesting.ContextInfo) {
+	hctx, info := s.ContextSuite.NewHookContext()
 	info.SetBlockStorage(s.storageName, s.location, s.Stub)
 	info.SetStorageTag(s.storageName)
 	return hctx, info

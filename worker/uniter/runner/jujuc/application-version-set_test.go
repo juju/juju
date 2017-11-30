@@ -10,17 +10,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/common/hookcommands/hooktesting"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type ApplicationVersionSetSuite struct {
-	hooktesting.ContextSuite
+	ContextSuite
 }
 
 var _ = gc.Suite(&ApplicationVersionSetSuite{})
 
-func (s *ApplicationVersionSetSuite) createCommand(c *gc.C, err error) (*hooktesting.FakeHookContext, cmd.Command) {
+func (s *ApplicationVersionSetSuite) createCommand(c *gc.C, err error) (*Context, cmd.Command) {
 	hctx := s.GetHookContext(c, -1, "")
 	s.Stub.SetErrors(err)
 
@@ -36,7 +35,7 @@ func (s *ApplicationVersionSetSuite) TestApplicationVersionSetNoArguments(c *gc.
 	c.Check(code, gc.Equals, 2)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
 	c.Check(bufferString(ctx.Stderr), gc.Equals, "ERROR no version specified\n")
-	c.Check(hctx.Info.Version.WorkloadVersion, gc.Equals, "")
+	c.Check(hctx.info.Version.WorkloadVersion, gc.Equals, "")
 }
 
 func (s *ApplicationVersionSetSuite) TestApplicationVersionSetWithArguments(c *gc.C) {
@@ -46,7 +45,7 @@ func (s *ApplicationVersionSetSuite) TestApplicationVersionSetWithArguments(c *g
 	c.Check(code, gc.Equals, 0)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
 	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
-	c.Check(hctx.Info.Version.WorkloadVersion, gc.Equals, "dia de los muertos")
+	c.Check(hctx.info.Version.WorkloadVersion, gc.Equals, "dia de los muertos")
 }
 
 func (s *ApplicationVersionSetSuite) TestApplicationVersionSetError(c *gc.C) {
@@ -56,7 +55,7 @@ func (s *ApplicationVersionSetSuite) TestApplicationVersionSetError(c *gc.C) {
 	c.Check(code, gc.Equals, 1)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
 	c.Check(bufferString(ctx.Stderr), gc.Equals, "ERROR uh oh spaghettio\n")
-	c.Check(hctx.Info.Version.WorkloadVersion, gc.Equals, "")
+	c.Check(hctx.info.Version.WorkloadVersion, gc.Equals, "")
 }
 
 func (s *ApplicationVersionSetSuite) TestHelp(c *gc.C) {

@@ -12,11 +12,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/meterstatus"
-	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
 const (
@@ -121,7 +121,7 @@ func (s *IsolatedWorkerSuite) TestTriggering(c *gc.C) {
 
 // TestMissingHookError tests that errors caused by missing hooks do not stop the worker.
 func (s *IsolatedWorkerSuite) TestMissingHookError(c *gc.C) {
-	s.stub.SetErrors(context.NewMissingHookError("meter-status-changed"))
+	s.stub.SetErrors(charmrunner.NewMissingHookError("meter-status-changed"))
 
 	assertSignal(c, s.triggersCreated)
 	s.clk.Advance(AmberGracePeriod + time.Second)

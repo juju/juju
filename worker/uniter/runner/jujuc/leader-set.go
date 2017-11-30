@@ -7,19 +7,17 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
-
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // leaderSetCommand implements the leader-set command.
 type leaderSetCommand struct {
 	cmd.CommandBase
-	ctx      hookcommands.Context
+	ctx      Context
 	settings map[string]string
 }
 
 // NewLeaderSetCommand returns a new leaderSetCommand with the given context.
-func NewLeaderSetCommand(ctx hookcommands.Context) (cmd.Command, error) {
+func NewLeaderSetCommand(ctx Context) (cmd.Command, error) {
 	return &leaderSetCommand{ctx: ctx}, nil
 }
 

@@ -8,21 +8,19 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
-
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // StorageGetCommand implements the storage-get command.
 type StorageGetCommand struct {
 	cmd.CommandBase
-	ctx             hookcommands.Context
+	ctx             Context
 	storageTag      names.StorageTag
 	storageTagProxy gnuflag.Value
 	key             string
 	out             cmd.Output
 }
 
-func NewStorageGetCommand(ctx hookcommands.Context) (cmd.Command, error) {
+func NewStorageGetCommand(ctx Context) (cmd.Command, error) {
 	c := &StorageGetCommand{ctx: ctx}
 	sV, err := newStorageIdValue(ctx, &c.storageTag)
 	if err != nil {

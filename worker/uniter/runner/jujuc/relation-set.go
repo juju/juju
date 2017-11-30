@@ -13,8 +13,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/keyvalues"
 	goyaml "gopkg.in/yaml.v2"
-
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 const relationSetDoc = `
@@ -34,7 +32,7 @@ key-value arguments. A value of "-" for the filename means <stdin>.
 // RelationSetCommand implements the relation-set command.
 type RelationSetCommand struct {
 	cmd.CommandBase
-	ctx             hookcommands.Context
+	ctx             Context
 	RelationId      int
 	relationIdProxy gnuflag.Value
 	Settings        map[string]string
@@ -42,10 +40,10 @@ type RelationSetCommand struct {
 	formatFlag      string // deprecated
 }
 
-func NewRelationSetCommand(ctx hookcommands.Context) (cmd.Command, error) {
+func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
 	c := &RelationSetCommand{ctx: ctx}
 
-	rV, err := hookcommands.NewRelationIdValue(ctx, &c.RelationId)
+	rV, err := NewRelationIdValue(ctx, &c.RelationId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

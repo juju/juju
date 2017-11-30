@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/common/hookcommands"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -91,6 +90,6 @@ func (ctx *limitedContext) Prepare() error {
 }
 
 // Component implements runner.Context.
-func (ctx *limitedContext) Component(name string) (hookcommands.ContextComponent, error) {
+func (ctx *limitedContext) Component(name string) (jujuc.ContextComponent, error) {
 	return nil, errors.NotFoundf("context component %q", name)
 }

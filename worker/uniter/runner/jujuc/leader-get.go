@@ -9,20 +9,18 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // leaderGetCommand implements the leader-get command.
 type leaderGetCommand struct {
 	cmd.CommandBase
-	ctx hookcommands.Context
+	ctx Context
 	key string
 	out cmd.Output
 }
 
 // NewLeaderGetCommand returns a new leaderGetCommand with the given context.
-func NewLeaderGetCommand(ctx hookcommands.Context) (cmd.Command, error) {
+func NewLeaderGetCommand(ctx Context) (cmd.Command, error) {
 	return &leaderGetCommand{ctx: ctx}, nil
 }
 

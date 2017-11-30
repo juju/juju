@@ -9,14 +9,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-
-	"github.com/juju/juju/worker/common/hookcommands"
 )
 
 // NetworkGetCommand implements the network-get command.
 type NetworkGetCommand struct {
 	cmd.CommandBase
-	ctx hookcommands.Context
+	ctx Context
 
 	RelationId      int
 	relationIdProxy gnuflag.Value
@@ -34,9 +32,9 @@ type NetworkGetCommand struct {
 	out cmd.Output
 }
 
-func NewNetworkGetCommand(ctx hookcommands.Context) (_ cmd.Command, err error) {
+func NewNetworkGetCommand(ctx Context) (_ cmd.Command, err error) {
 	cmd := &NetworkGetCommand{ctx: ctx}
-	cmd.relationIdProxy, err = hookcommands.NewRelationIdValue(ctx, &cmd.RelationId)
+	cmd.relationIdProxy, err = NewRelationIdValue(ctx, &cmd.RelationId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
