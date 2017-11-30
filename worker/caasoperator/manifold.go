@@ -87,7 +87,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Errorf("expected an application tag, got %v", tag)
 			}
 			w, err := config.NewWorker(Config{
-				Application:  applicationTag.Id(),
+				Application:             applicationTag.Id(),
+				ApplicationConfigGetter: client,
 				Clock:        clock,
 				CharmGetter:  client,
 				DataDir:      agentConfig.DataDir(),

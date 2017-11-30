@@ -12,11 +12,14 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasoperator"
 )
 
 var (
 	gitlabCharmURL = charm.MustParseURL("cs:gitlab-1")
+	gitlabSettings = charm.Settings{"k": 123}
 
 	fakeCharmContent = []byte("abc")
 	fakeCharmSHA256  = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
@@ -52,6 +55,7 @@ type fakeAPICaller struct {
 type fakeClient struct {
 	testing.Stub
 	caasoperator.Client
+	settingsWatcher *watchertest.MockNotifyWatcher
 }
 
 func (c *fakeClient) SetStatus(application string, status status.Status, message string, data map[string]interface{}) error {
@@ -65,6 +69,22 @@ func (c *fakeClient) Charm(application string) (*charm.URL, string, error) {
 		return nil, "", err
 	}
 	return gitlabCharmURL, fakeCharmSHA256, nil
+}
+
+func (c *fakeClient) ApplicationConfig(application string) (charm.Settings, error) {
+	c.MethodCall(c, "ApplicationConfig", application)
+	if err := c.NextErr(); err != nil {
+		return nil, err
+	}
+	return gitlabSettings, nil
+}
+
+func (c *fakeClient) WatchApplicationConfig(application string) (watcher.NotifyWatcher, error) {
+	c.MethodCall(c, "WatchApplicationConfig", application)
+	if err := c.NextErr(); err != nil {
+		return nil, err
+	}
+	return c.settingsWatcher, nil
 }
 
 type fakeDownloader struct {

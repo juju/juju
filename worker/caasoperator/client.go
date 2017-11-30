@@ -7,12 +7,14 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 )
 
 // Client provides an interface for interacting
 // with the CAASOperator API. Subsets of this
 // should be passed to the CAASOperator worker.
 type Client interface {
+	ApplicationConfigGetter
 	CharmGetter
 	StatusSetter
 }
@@ -34,4 +36,11 @@ type StatusSetter interface {
 		info string,
 		data map[string]interface{},
 	) error
+}
+
+// ApplicationConfigGetter provides an interface for
+// watching and getting the application's config settings.
+type ApplicationConfigGetter interface {
+	ApplicationConfig(string) (charm.Settings, error)
+	WatchApplicationConfig(string) (watcher.NotifyWatcher, error)
 }

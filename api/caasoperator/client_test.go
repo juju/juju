@@ -8,6 +8,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/caasoperator"
@@ -112,4 +113,56 @@ func (s *operatorSuite) TestCharmInvalidApplicationName(c *gc.C) {
 	}))
 	_, _, err := client.Charm("")
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
+}
+
+func (s *operatorSuite) TestApplicationConfig(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ApplicationConfig")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ConfigSettingsResults{})
+		*(result.(*params.ConfigSettingsResults)) = params.ConfigSettingsResults{
+			Results: []params.ConfigSettingsResult{{
+				Settings: params.ConfigSettings{"k": 123},
+			}},
+		}
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	settings, err := client.ApplicationConfig("gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, charm.Settings{"k": 123})
+}
+
+func (s *operatorSuite) TestWatchApplicationConfig(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchApplicationConfig")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
+		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	watcher, err := client.WatchApplicationConfig("gitlab")
+	c.Assert(watcher, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

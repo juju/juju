@@ -9,8 +9,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 )
 
 // Client allows access to the CAAS operator API endpoint.
@@ -26,6 +28,13 @@ func NewClient(caller base.APICaller) *Client {
 	}
 }
 
+func (c *Client) tag(application string) (names.ApplicationTag, error) {
+	if !names.IsValidApplication(application) {
+		return names.ApplicationTag{}, errors.NotValidf("application name %q", application)
+	}
+	return names.NewApplicationTag(application), nil
+}
+
 // SetStatus sets the status of the specified appplication.
 func (c *Client) SetStatus(
 	application string,
@@ -33,20 +42,20 @@ func (c *Client) SetStatus(
 	info string,
 	data map[string]interface{},
 ) error {
-	if !names.IsValidApplication(application) {
-		return errors.NotValidf("application name %q", application)
+	tag, err := c.tag(application)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
-			Tag:    names.NewApplicationTag(application).String(),
+			Tag:    tag.String(),
 			Status: status.String(),
 			Info:   info,
 			Data:   data,
 		}},
 	}
-	err := c.facade.FacadeCall("SetStatus", args, &result)
-	if err != nil {
+	if err := c.facade.FacadeCall("SetStatus", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	return result.OneError()
@@ -55,17 +64,15 @@ func (c *Client) SetStatus(
 // Charm returns information about the charm currently assigned
 // to the application.
 func (c *Client) Charm(application string) (_ *charm.URL, sha256 string, _ error) {
-	if !names.IsValidApplication(application) {
-		return nil, "", errors.NotValidf("application name %q", application)
+	tag, err := c.tag(application)
+	if err != nil {
+		return nil, "", errors.Trace(err)
 	}
 	var results params.ApplicationCharmResults
 	args := params.Entities{
-		Entities: []params.Entity{{
-			Tag: names.NewApplicationTag(application).String(),
-		}},
+		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	err := c.facade.FacadeCall("Charm", args, &results)
-	if err != nil {
+	if err := c.facade.FacadeCall("Charm", args, &results); err != nil {
 		return nil, "", errors.Trace(err)
 	}
 	if n := len(results.Results); n != 1 {
@@ -80,4 +87,37 @@ func (c *Client) Charm(application string) (_ *charm.URL, sha256 string, _ error
 		return nil, "", errors.Trace(err)
 	}
 	return curl, result.SHA256, nil
+}
+
+// WatchApplicationConfig returns a watcher that is notified whenever the
+// application config changes.
+func (c *Client) WatchApplicationConfig(application string) (watcher.NotifyWatcher, error) {
+	tag, err := c.tag(application)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return common.Watch(c.facade, "WatchApplicationConfig", tag)
+}
+
+// ApplicationConfig returns the application's config settings.
+func (c *Client) ApplicationConfig(application string) (charm.Settings, error) {
+	tag, err := c.tag(application)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var results params.ConfigSettingsResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: tag.String()}},
+	}
+	if err := c.facade.FacadeCall("ApplicationConfig", args, &results); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
+	return charm.Settings(result.Settings), nil
 }

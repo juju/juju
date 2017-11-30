@@ -14,6 +14,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/workertest"
 )
 
 var _ = gc.Suite(&CAASOperatorSuite{})
@@ -38,6 +39,10 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState()
+	s.AddCleanup(func(c *gc.C) {
+		workertest.CleanKill(c, s.st.app.settingsWatcher)
+	})
+
 	facade, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
@@ -118,4 +123,63 @@ func (s *CAASOperatorSuite) TestCharm(c *gc.C) {
 	s.st.CheckCallNames(c, "Application")
 	s.st.CheckCall(c, 0, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "Charm")
+}
+
+func (s *CAASOperatorSuite) TestApplicationConfig(c *gc.C) {
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+			{Tag: "application-other"},
+			{Tag: "machine-0"},
+		},
+	}
+
+	results, err := s.facade.ApplicationConfig(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ConfigSettingsResults{
+		Results: []params.ConfigSettingsResult{{
+			Settings: params.ConfigSettings{"k": 123},
+		}, {
+			Error: &params.Error{
+				Code:    "unauthorized access",
+				Message: "permission denied",
+			},
+		}, {
+			Error: &params.Error{Message: `"machine-0" is not a valid application tag`},
+		}},
+	})
+
+	s.st.CheckCallNames(c, "Application")
+	s.st.CheckCall(c, 0, "Application", "gitlab")
+	s.st.app.CheckCallNames(c, "ConfigSettings")
+}
+
+func (s *CAASOperatorSuite) TestWatchApplicationConfig(c *gc.C) {
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+			{Tag: "application-other"},
+			{Tag: "machine-0"},
+		},
+	}
+
+	results, err := s.facade.WatchApplicationConfig(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{{
+			NotifyWatcherId: "1",
+		}, {
+			Error: &params.Error{
+				Code:    "unauthorized access",
+				Message: "permission denied",
+			},
+		}, {
+			Error: &params.Error{Message: `"machine-0" is not a valid application tag`},
+		}},
+	})
+
+	s.st.CheckCallNames(c, "Application")
+	s.st.CheckCall(c, 0, "Application", "gitlab")
+	s.st.app.CheckCallNames(c, "WatchConfigSettings")
+	c.Assert(s.resources.Get("1"), gc.Equals, s.st.app.settingsWatcher)
 }

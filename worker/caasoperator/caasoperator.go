@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
+	"github.com/kr/pretty"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -46,6 +47,10 @@ type Config struct {
 	// this CAAS operator manages.
 	Application string
 
+	// ApplicationConfigGetter is an interface used for
+	// watching and getting the application's config settings.
+	ApplicationConfigGetter ApplicationConfigGetter
+
 	// Clock holds the clock to be used by the CAAS operator
 	// for time-related operations.
 	Clock clock.Clock
@@ -71,6 +76,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if !names.IsValidApplication(config.Application) {
 		return errors.NotValidf("application name %q", config.Application)
+	}
+	if config.ApplicationConfigGetter == nil {
+		return errors.NotValidf("missing ApplicationConfigGetter")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("missing Clock")
@@ -119,13 +127,27 @@ func (op *caasOperator) loop() (err error) {
 			op.config.Application,
 		)
 	}
+
+	configGetter := op.config.ApplicationConfigGetter
+	configWatcher, err := configGetter.WatchApplicationConfig(op.config.Application)
+	if err != nil {
+		return errors.Annotate(err, "starting an application config watcher")
+	}
+	op.catacomb.Add(configWatcher)
+
 	for {
-		// TODO(axw) run config-changed hook when
-		// the operator starts up, then wait for
-		// config changes.
 		select {
 		case <-op.catacomb.Dying():
 			return op.catacomb.ErrDying()
+		case <-configWatcher.Changes():
+			// TODO(axw) run config-changed hook when
+			// the operator starts up, then wait for
+			// config changes and run again.
+			settings, err := configGetter.ApplicationConfig(op.config.Application)
+			if err != nil {
+				return errors.Annotate(err, "getting application config")
+			}
+			logger.Debugf("application config changed: %s", pretty.Sprint(settings))
 		}
 	}
 }
