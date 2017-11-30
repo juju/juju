@@ -21,8 +21,8 @@ import (
 
 	"github.com/juju/juju/core/actions"
 	commonrunner "github.com/juju/juju/worker/common/runner"
-	"github.com/juju/juju/worker/common/runner/debug"
 	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/debug"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 

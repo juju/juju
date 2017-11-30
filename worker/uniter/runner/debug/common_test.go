@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/common/runner/debug"
+	"github.com/juju/juju/worker/uniter/runner/debug"
 )
 
 type DebugHooksCommonSuite struct{}
