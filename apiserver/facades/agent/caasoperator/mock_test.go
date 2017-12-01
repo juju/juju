@@ -6,6 +6,7 @@ package caasoperator_test
 import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/state"
@@ -15,7 +16,8 @@ import (
 
 type mockState struct {
 	testing.Stub
-	app mockApplication
+	app   mockApplication
+	model mockModel
 }
 
 func newMockState() *mockState {
@@ -40,6 +42,23 @@ func (st *mockState) Application(id string) (caasoperator.Application, error) {
 		return nil, err
 	}
 	return &st.app, nil
+}
+
+func (st *mockState) Model() (caasoperator.Model, error) {
+	st.MethodCall(st, "Model")
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	return &st.model, nil
+}
+
+type mockModel struct {
+	testing.Stub
+}
+
+func (m *mockModel) SetContainerSpec(tag names.Tag, spec string) error {
+	m.MethodCall(m, "SetContainerSpec", tag, spec)
+	return m.NextErr()
 }
 
 type mockApplication struct {

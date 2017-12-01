@@ -5,6 +5,7 @@ package caasoperator
 
 import (
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -14,6 +15,13 @@ import (
 // required by the CAAS operator facade.
 type CAASOperatorState interface {
 	Application(string) (Application, error)
+	Model() (Model, error)
+}
+
+// Model provides the subset of CAAS model state required
+// by the CAAS operator facade.
+type Model interface {
+	SetContainerSpec(names.Tag, string) error
 }
 
 // Application provides the subset of application state
@@ -42,6 +50,14 @@ func (s stateShim) Application(id string) (Application, error) {
 		return nil, err
 	}
 	return applicationShim{app}, nil
+}
+
+func (s stateShim) Model() (Model, error) {
+	model, err := s.State.Model()
+	if err != nil {
+		return nil, err
+	}
+	return model.CAASModel()
 }
 
 type applicationShim struct {

@@ -819,3 +819,15 @@ type UnitRefreshResult struct {
 type UnitRefreshResults struct {
 	Results []UnitRefreshResult
 }
+
+// EntityString holds an entity tag and a string value.
+type EntityString struct {
+	Tag   string `json:"tag"`
+	Value string `json:"value"`
+}
+
+// SetContainerSpecParams holds the arguments for setting the container
+// spec for a set of entities.
+type SetContainerSpecParams struct {
+	Entities []EntityString `json:"entities"`
+}
