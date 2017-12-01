@@ -32,7 +32,7 @@ var ErrNoStdin = errors.New("hook tool requires stdin, none supplied")
 
 // NewCommand returns an instance of the named Command, initialized to execute
 // against the supplied Context.
-func NewCommand(ctx interface{}, name string) (cmd.Command, error) {
+func NewCommand(ctx Context, name string) (cmd.Command, error) {
 	f := allEnabledCommands()[name]
 	if f == nil {
 		return nil, errors.Errorf("unknown command: %s", name)

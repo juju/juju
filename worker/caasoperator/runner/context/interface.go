@@ -18,6 +18,7 @@ type hookAPI interface {
 	NetworkInfo([]string, *int) (map[string]params.NetworkInfoResult, error)
 	ApplicationStatus(string) (params.ApplicationStatusResult, error)
 	SetApplicationStatus(string, status.Status, string, map[string]interface{}) error
+	SetContainerSpec(string, string) error
 }
 
 type contextFactoryAPI interface {

@@ -82,6 +82,9 @@ type ContextApplication interface {
 
 	// ConfigSettings returns the current configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
+
+	// SetContainerSpec updates the yaml spec used to create a container.
+	SetContainerSpec(specYaml, unitName string) error
 }
 
 // ContextStatus is the part of a hook context related to the application's status.
