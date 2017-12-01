@@ -475,8 +475,11 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 }
 
 // MakeUnit creates an application unit with specified params, filling in
-// sane defaults for missing values.
-// If params is not specified, defaults are used.
+// sane defaults for missing values. If params is not specified, defaults
+// are used.
+//
+// If the unit is being added to an IAAS model, then it will be assigned
+// to a machine.
 func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 	unit, _ := factory.MakeUnitReturningPassword(c, params)
 	return unit
@@ -485,12 +488,24 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 // MakeUnit creates an application unit with specified params, filling in sane
 // defaults for missing values. If params is not specified, defaults are used.
 // The unit and its password are returned.
+//
+// If the unit is being added to an IAAS model, then it will be assigned to a
+// machine.
 func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (*state.Unit, string) {
 	if params == nil {
 		params = &UnitParams{}
 	}
-	if params.Machine == nil {
-		params.Machine = factory.MakeMachine(c, nil)
+	model, err := factory.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	switch model.Type() {
+	case state.ModelTypeIAAS:
+		if params.Machine == nil {
+			params.Machine = factory.MakeMachine(c, nil)
+		}
+	default:
+		if params.Machine != nil {
+			c.Fatalf("machines not supported by model of type %q", model.Type())
+		}
 	}
 	if params.Application == nil {
 		params.Application = factory.MakeApplication(c, &ApplicationParams{
@@ -504,8 +519,11 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 	unit, err := params.Application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(params.Machine)
-	c.Assert(err, jc.ErrorIsNil)
+
+	if params.Machine != nil {
+		err = unit.AssignToMachine(params.Machine)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	agentTools := version.Binary{
 		Number: jujuversion.Current,

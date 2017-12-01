@@ -1047,13 +1047,15 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() == ModelTypeIAAS {
+	switch model.Type() {
+	case ModelTypeIAAS:
 		if err := st.processIAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
 		}
-	} else {
-		// TODO(caas) - remove once units are supported.
-		args.NumUnits = 0
+	case ModelTypeCAAS:
+		if err := st.processCAASModelApplicationArgs(&args); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	applicationID := st.docID(args.Name)
@@ -1329,6 +1331,24 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 			}
 		}
 	}
+	return nil
+}
+
+func (st *State) processCAASModelApplicationArgs(args *AddApplicationArgs) error {
+	// TODO(caas) - remove once units are supported.
+	args.NumUnits = 0
+
+	if args.Series == "" {
+		// args.Series is not set, so use the series in the URL.
+		args.Series = args.Charm.URL().Series
+		if args.Series == "" {
+			// Should not happen, but just in case.
+			return errors.New("series is empty")
+		}
+	}
+
+	// TODO(caas) restrict the series to CAAS series.
+
 	return nil
 }
 
