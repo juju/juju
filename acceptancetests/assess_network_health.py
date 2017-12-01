@@ -531,7 +531,6 @@ class AssessNetworkHealth:
 
         service_results = {}
         log.info('MACHINE:\n {}'.format(json.dumps(yaml.safe_load(client.get_juju_output('list-machines', '--format=yaml'))['machines'], indent=4, sort_keys=True))) # VWH
-            reboot_msg, json.dumps(interface_info, indent=4, sort_keys=True)))
         for unit, info in client.get_status().iter_units():
             ip = info['public-address']
             if nh_only and 'network-health' in unit:
