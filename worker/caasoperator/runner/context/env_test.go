@@ -87,7 +87,7 @@ func (s *EnvSuite) setRelation(ctx *context.HookContext) (expectVars []string) {
 }
 
 func (s *EnvSuite) TestEnvSetsPath(c *gc.C) {
-	paths := context.OSDependentEnvVars(MockFakePaths{})
+	paths := context.OSEnvVars(MockFakePaths{})
 	c.Assert(paths, gc.Not(gc.HasLen), 0)
 	vars, err := keyvalues.Parse(paths, true)
 	c.Assert(err, jc.ErrorIsNil)

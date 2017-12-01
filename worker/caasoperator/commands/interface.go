@@ -10,9 +10,3 @@ type StatusInfo struct {
 	Info   string
 	Data   map[string]interface{}
 }
-
-// ApplicationStatusInfo holds StatusInfo for an application and all its units.
-type ApplicationStatusInfo struct {
-	Application StatusInfo
-	Units       []StatusInfo
-}

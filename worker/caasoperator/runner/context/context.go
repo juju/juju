@@ -8,7 +8,6 @@ package context
 import (
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -51,12 +50,6 @@ type Paths interface {
 var logger = loggo.GetLogger("juju.worker.caasoperator.runner.context")
 var mutex = sync.Mutex{}
 
-// meterStatus describes the unit's meter status.
-type meterStatus struct {
-	code string
-	info string
-}
-
 // HookProcess is an interface representing a process running a hook.
 type HookProcess interface {
 	Pid() int
@@ -83,7 +76,7 @@ type HookContext struct {
 	applicationName string
 
 	// status is the status of the application.
-	status *commands.ApplicationStatusInfo
+	status *commands.StatusInfo
 
 	// relationId identifies the relation for which a relation hook is
 	// executing. If it is -1, the context is not running a relation hook;
@@ -133,10 +126,8 @@ func (ctx *HookContext) ApplicationName() string {
 	return ctx.applicationName
 }
 
-// ApplicationStatus returns the status for the application and all the units on
-// the service to which this context unit belongs, only if this unit is
-// the leader.
-func (ctx *HookContext) ApplicationStatus() (commands.ApplicationStatusInfo, error) {
+// ApplicationStatus returns the status for the application.
+func (ctx *HookContext) ApplicationStatus() (commands.StatusInfo, error) {
 	if ctx.status != nil {
 		return *ctx.status, nil
 	}
@@ -146,33 +137,18 @@ func (ctx *HookContext) ApplicationStatus() (commands.ApplicationStatusInfo, err
 		err = status.Error
 	}
 	if err != nil {
-		return commands.ApplicationStatusInfo{}, errors.Trace(err)
+		return commands.StatusInfo{}, errors.Trace(err)
 	}
-	us := make([]commands.StatusInfo, len(status.Units))
-	i := 0
-	for t, s := range status.Units {
-		us[i] = commands.StatusInfo{
-			Tag:    t,
-			Status: string(s.Status),
-			Info:   s.Info,
-			Data:   s.Data,
-		}
-		i++
-	}
-	ctx.status = &commands.ApplicationStatusInfo{
-		Application: commands.StatusInfo{
-			Tag:    names.NewApplicationTag(ctx.applicationName).String(),
-			Status: string(status.Application.Status),
-			Info:   status.Application.Info,
-			Data:   status.Application.Data,
-		},
-		Units: us,
+	ctx.status = &commands.StatusInfo{
+		Tag:    names.NewApplicationTag(ctx.applicationName).String(),
+		Status: string(status.Application.Status),
+		Info:   status.Application.Info,
+		Data:   status.Application.Data,
 	}
 	return *ctx.status, nil
 }
 
-// SetApplicationStatus will set the given status to the service to which this
-// unit's belong, only if this unit is the leader.
+// SetApplicationStatus will set the given application status.
 func (ctx *HookContext) SetApplicationStatus(appStatus commands.StatusInfo) error {
 	logger.Tracef("[APPLICATION-STATUS] %s: %s", appStatus.Status, appStatus.Info)
 
@@ -226,11 +202,6 @@ func (ctx *HookContext) RelationIds() ([]int, error) {
 	return ids, nil
 }
 
-// AddMetric adds metrics to the hook context.
-func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
-	return errors.New("metrics not allowed in this context")
-}
-
 // HookVars returns an os.Environ-style list of strings necessary to run a hook
 // such that it can know what environment it's operating in, and can call back
 // into context.
@@ -256,7 +227,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	return append(vars, OSDependentEnvVars(paths)...), nil
+	return append(vars, OSEnvVars(paths)...), nil
 }
 
 // Prepare implements the Context interface.

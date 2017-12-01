@@ -84,10 +84,10 @@ type ContextApplication interface {
 	ConfigSettings() (charm.Settings, error)
 }
 
-// ContextStatus is the part of a hook context related to the unit's status.
+// ContextStatus is the part of a hook context related to the application's status.
 type ContextStatus interface {
 	// ApplicationStatus returns the executing application status.
-	ApplicationStatus() (ApplicationStatusInfo, error)
+	ApplicationStatus() (StatusInfo, error)
 
 	// SetApplicationStatus updates the status for the application.
 	SetApplicationStatus(appStatus StatusInfo) error

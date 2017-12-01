@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// hook provides types that define the hooks known to the Uniter
+// Package hook provides types that define the hooks known to the Uniter
 package hook
 
 import (

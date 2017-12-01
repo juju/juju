@@ -89,18 +89,18 @@ func (s *InterfaceSuite) TestApplicationStatus(c *gc.C) {
 	defer context.PatchCachedStatus(ctx.(commands.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()
 	appStatus, err := ctx.ApplicationStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(appStatus.Application.Status, gc.Equals, "maintenance")
-	c.Check(appStatus.Application.Info, gc.Equals, "working")
-	c.Check(appStatus.Application.Data, gc.DeepEquals, map[string]interface{}{"hello": "world"})
+	c.Check(appStatus.Status, gc.Equals, "maintenance")
+	c.Check(appStatus.Info, gc.Equals, "working")
+	c.Check(appStatus.Data, gc.DeepEquals, map[string]interface{}{"hello": "world"})
 }
 
 func (s *InterfaceSuite) TestStatusCaching(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	appStatus, err := ctx.ApplicationStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(appStatus.Application.Status, gc.Equals, "maintenance")
-	c.Check(appStatus.Application.Info, gc.Equals, "initialising")
-	c.Check(appStatus.Application.Data, gc.DeepEquals, map[string]interface{}{})
+	c.Check(appStatus.Status, gc.Equals, "maintenance")
+	c.Check(appStatus.Info, gc.Equals, "initialising")
+	c.Check(appStatus.Data, gc.DeepEquals, map[string]interface{}{})
 
 	// Change remote state.
 	err = s.contextAPI.SetApplicationStatus("gitlab", status.Blocked, "broken", nil)
@@ -109,9 +109,9 @@ func (s *InterfaceSuite) TestStatusCaching(c *gc.C) {
 	// Local view is unchanged.
 	appStatus, err = ctx.ApplicationStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(appStatus.Application.Status, gc.Equals, "maintenance")
-	c.Check(appStatus.Application.Info, gc.Equals, "initialising")
-	c.Check(appStatus.Application.Data, gc.DeepEquals, map[string]interface{}{})
+	c.Check(appStatus.Status, gc.Equals, "maintenance")
+	c.Check(appStatus.Info, gc.Equals, "initialising")
+	c.Check(appStatus.Data, gc.DeepEquals, map[string]interface{}{})
 }
 
 func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {

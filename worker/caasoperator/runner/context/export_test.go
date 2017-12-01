@@ -59,12 +59,10 @@ func SetEnvironmentHookContextRelation(
 func PatchCachedStatus(ctx commands.Context, status, info string, data map[string]interface{}) func() {
 	hctx := ctx.(*HookContext)
 	oldStatus := hctx.status
-	appStatusInfo := &commands.ApplicationStatusInfo{
-		Application: commands.StatusInfo{
-			Status: status,
-			Info:   info,
-			Data:   data,
-		},
+	appStatusInfo := &commands.StatusInfo{
+		Status: status,
+		Info:   info,
+		Data:   data,
 	}
 	hctx.status = appStatusInfo
 	return func() {
