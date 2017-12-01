@@ -125,9 +125,10 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Application:             "gitlab",
 		ApplicationConfigGetter: &s.client,
 		DataDir:                 s.dataDir,
-		Clock:                   s.clock,
-		Downloader:              &s.charmDownloader,
 		CharmGetter:             &s.client,
+		Clock:                   s.clock,
+		ContainerSpecSetter:     &s.client,
+		Downloader:              &s.charmDownloader,
 		StatusSetter:            &s.client,
 	})
 }

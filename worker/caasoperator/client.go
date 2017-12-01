@@ -16,6 +16,7 @@ import (
 type Client interface {
 	ApplicationConfigGetter
 	CharmGetter
+	ContainerSpecSetter
 	StatusSetter
 }
 
@@ -24,6 +25,13 @@ type Client interface {
 // assigned to the application.
 type CharmGetter interface {
 	Charm(application string) (_ *charm.URL, sha256 string, _ error)
+}
+
+// ContainerSpecSetter provides an interface for
+// setting the container spec for the application
+// or unit thereof.
+type ContainerSpecSetter interface {
+	SetContainerSpec(entityName, spec string) error
 }
 
 // StatusSetter provides an interface for setting

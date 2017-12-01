@@ -89,11 +89,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := config.NewWorker(Config{
 				Application:             applicationTag.Id(),
 				ApplicationConfigGetter: client,
-				Clock:        clock,
-				CharmGetter:  client,
-				DataDir:      agentConfig.DataDir(),
-				Downloader:   downloader,
-				StatusSetter: client,
+				CharmGetter:             client,
+				Clock:                   clock,
+				ContainerSpecSetter:     client,
+				DataDir:                 agentConfig.DataDir(),
+				Downloader:              downloader,
+				StatusSetter:            client,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

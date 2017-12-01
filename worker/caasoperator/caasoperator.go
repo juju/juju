@@ -51,13 +51,18 @@ type Config struct {
 	// watching and getting the application's config settings.
 	ApplicationConfigGetter ApplicationConfigGetter
 
+	// CharmGetter is an interface used for getting the
+	// application's charm URL and SHA256 hash.
+	CharmGetter CharmGetter
+
 	// Clock holds the clock to be used by the CAAS operator
 	// for time-related operations.
 	Clock clock.Clock
 
-	// CharmGetter is an interface used for getting the
-	// application's charm URL and SHA256 hash.
-	CharmGetter CharmGetter
+	// ContainerSpecSetter provides an interface for
+	// setting the container spec for the application
+	// or unit thereof.
+	ContainerSpecSetter ContainerSpecSetter
 
 	// DataDir holds the path to the Juju "data directory",
 	// i.e. "/var/lib/juju" (by default). The CAAS operator
@@ -80,11 +85,14 @@ func (config Config) Validate() error {
 	if config.ApplicationConfigGetter == nil {
 		return errors.NotValidf("missing ApplicationConfigGetter")
 	}
+	if config.CharmGetter == nil {
+		return errors.NotValidf("missing CharmGetter")
+	}
 	if config.Clock == nil {
 		return errors.NotValidf("missing Clock")
 	}
-	if config.CharmGetter == nil {
-		return errors.NotValidf("missing CharmGetter")
+	if config.ContainerSpecSetter == nil {
+		return errors.NotValidf("missing ContainerSpecSetter")
 	}
 	if config.DataDir == "" {
 		return errors.NotValidf("missing DataDir")
