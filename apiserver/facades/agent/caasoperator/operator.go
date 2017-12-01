@@ -183,3 +183,42 @@ func (f *Facade) ApplicationConfig(args params.Entities) (params.ConfigSettingsR
 	}
 	return results, nil
 }
+
+// SetContainerSpec sets the container specs for a set of entities.
+func (f *Facade) SetContainerSpec(args params.SetContainerSpecParams) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	authTag := f.auth.GetAuthTag()
+	canAccess := func(tag names.Tag) bool {
+		if tag == authTag {
+			return true
+		}
+		if tag, ok := tag.(names.UnitTag); ok {
+			appName, err := names.UnitApplication(tag.Id())
+			if err == nil && appName == authTag.Id() {
+				return true
+			}
+		}
+		return false
+	}
+	model, err := f.state.Model()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for i, arg := range args.Entities {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		results.Results[i].Error = common.ServerError(
+			model.SetContainerSpec(tag, arg.Value),
+		)
+	}
+	return results, nil
+}

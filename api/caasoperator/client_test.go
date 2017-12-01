@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	names "gopkg.in/juju/names.v2"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/caasoperator"
@@ -165,4 +166,41 @@ func (s *operatorSuite) TestWatchApplicationConfig(c *gc.C) {
 	watcher, err := client.WatchApplicationConfig("gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *operatorSuite) TestSetContainerSpec(c *gc.C) {
+	s.testSetContainerSpec(c, names.NewApplicationTag("gitlab"))
+	s.testSetContainerSpec(c, names.NewUnitTag("gitlab/0"))
+}
+
+func (s *operatorSuite) testSetContainerSpec(c *gc.C, tag names.Tag) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SetContainerSpec")
+		c.Check(arg, jc.DeepEquals, params.SetContainerSpecParams{
+			Entities: []params.EntityString{{
+				Tag:   tag.String(),
+				Value: "spec",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{Error: &params.Error{Message: "bletch"}}},
+		}
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	err := client.SetContainerSpec(tag.Id(), "spec")
+	c.Assert(err, gc.ErrorMatches, "bletch")
+}
+
+func (s *operatorSuite) TestSetContainerSpecInvalidEntityame(c *gc.C) {
+	client := caasoperator.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
+		return errors.New("should not be called")
+	}))
+	err := client.SetContainerSpec("", "spec")
+	c.Assert(err, gc.ErrorMatches, `application or unit name "" not valid`)
 }

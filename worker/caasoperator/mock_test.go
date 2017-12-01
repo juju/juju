@@ -71,6 +71,11 @@ func (c *fakeClient) Charm(application string) (*charm.URL, string, error) {
 	return gitlabCharmURL, fakeCharmSHA256, nil
 }
 
+func (c *fakeClient) SetContainerSpec(entityName, spec string) error {
+	c.MethodCall(c, "SetContainerSpec", entityName, spec)
+	return c.NextErr()
+}
+
 func (c *fakeClient) ApplicationConfig(application string) (charm.Settings, error) {
 	c.MethodCall(c, "ApplicationConfig", application)
 	if err := c.NextErr(); err != nil {

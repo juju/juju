@@ -28,21 +28,21 @@ func NewClient(caller base.APICaller) *Client {
 	}
 }
 
-func (c *Client) tag(application string) (names.ApplicationTag, error) {
+func (c *Client) appTag(application string) (names.ApplicationTag, error) {
 	if !names.IsValidApplication(application) {
 		return names.ApplicationTag{}, errors.NotValidf("application name %q", application)
 	}
 	return names.NewApplicationTag(application), nil
 }
 
-// SetStatus sets the status of the specified appplication.
+// SetStatus sets the status of the specified application.
 func (c *Client) SetStatus(
 	application string,
 	status status.Status,
 	info string,
 	data map[string]interface{},
 ) error {
-	tag, err := c.tag(application)
+	tag, err := c.appTag(application)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -64,7 +64,7 @@ func (c *Client) SetStatus(
 // Charm returns information about the charm currently assigned
 // to the application.
 func (c *Client) Charm(application string) (_ *charm.URL, sha256 string, _ error) {
-	tag, err := c.tag(application)
+	tag, err := c.appTag(application)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -92,7 +92,7 @@ func (c *Client) Charm(application string) (_ *charm.URL, sha256 string, _ error
 // WatchApplicationConfig returns a watcher that is notified whenever the
 // application config changes.
 func (c *Client) WatchApplicationConfig(application string) (watcher.NotifyWatcher, error) {
-	tag, err := c.tag(application)
+	tag, err := c.appTag(application)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -101,7 +101,7 @@ func (c *Client) WatchApplicationConfig(application string) (watcher.NotifyWatch
 
 // ApplicationConfig returns the application's config settings.
 func (c *Client) ApplicationConfig(application string) (charm.Settings, error) {
-	tag, err := c.tag(application)
+	tag, err := c.appTag(application)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -120,4 +120,28 @@ func (c *Client) ApplicationConfig(application string) (charm.Settings, error) {
 		return nil, errors.Trace(result.Error)
 	}
 	return charm.Settings(result.Settings), nil
+}
+
+// SetContainerSpec sets the container spec of the specified application or unit.
+func (c *Client) SetContainerSpec(entityName string, spec string) error {
+	var tag names.Tag
+	switch {
+	case names.IsValidApplication(entityName):
+		tag = names.NewApplicationTag(entityName)
+	case names.IsValidUnit(entityName):
+		tag = names.NewUnitTag(entityName)
+	default:
+		return errors.NotValidf("application or unit name %q", entityName)
+	}
+	var result params.ErrorResults
+	args := params.SetContainerSpecParams{
+		Entities: []params.EntityString{{
+			Tag:   tag.String(),
+			Value: spec,
+		}},
+	}
+	if err := c.facade.FacadeCall("SetContainerSpec", args, &result); err != nil {
+		return errors.Trace(err)
+	}
+	return result.OneError()
 }

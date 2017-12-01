@@ -68,6 +68,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		ApplicationConfigGetter: &s.client,
 		CharmGetter:             &s.client,
 		Clock:                   s.clock,
+		ContainerSpecSetter:     &s.client,
 		DataDir:                 c.MkDir(),
 		Downloader:              &s.charmDownloader,
 		StatusSetter:            &s.client,
@@ -94,6 +95,10 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.Clock = nil
 	}, `missing Clock not valid`)
+
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.ContainerSpecSetter = nil
+	}, `missing ContainerSpecSetter not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.DataDir = ""

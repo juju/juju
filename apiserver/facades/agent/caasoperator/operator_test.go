@@ -4,6 +4,7 @@
 package caasoperator_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -182,4 +183,54 @@ func (s *CAASOperatorSuite) TestWatchApplicationConfig(c *gc.C) {
 	s.st.CheckCall(c, 0, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "WatchConfigSettings")
 	c.Assert(s.resources.Get("1"), gc.Equals, s.st.app.settingsWatcher)
+}
+
+func (s *CAASOperatorSuite) TestSetContainerSpec(c *gc.C) {
+	args := params.SetContainerSpecParams{
+		Entities: []params.EntityString{
+			{Tag: "application-gitlab", Value: "foo"},
+			{Tag: "unit-gitlab-0", Value: "bar"},
+			{Tag: "unit-gitlab-1", Value: "baz"},
+			{Tag: "application-other"},
+			{Tag: "unit-other-0"},
+			{Tag: "machine-0"},
+		},
+	}
+
+	s.st.model.SetErrors(nil, nil, errors.New("bloop"))
+
+	results, err := s.facade.SetContainerSpec(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: nil,
+		}, {
+			Error: nil,
+		}, {
+			Error: &params.Error{
+				Message: "bloop",
+			},
+		}, {
+			Error: &params.Error{
+				Code:    "unauthorized access",
+				Message: "permission denied",
+			},
+		}, {
+			Error: &params.Error{
+				Code:    "unauthorized access",
+				Message: "permission denied",
+			},
+		}, {
+			Error: &params.Error{
+				Code:    "unauthorized access",
+				Message: "permission denied",
+			},
+		}},
+	})
+
+	s.st.CheckCallNames(c, "Model")
+	s.st.model.CheckCallNames(c, "SetContainerSpec", "SetContainerSpec", "SetContainerSpec")
+	s.st.model.CheckCall(c, 0, "SetContainerSpec", names.NewApplicationTag("gitlab"), "foo")
+	s.st.model.CheckCall(c, 1, "SetContainerSpec", names.NewUnitTag("gitlab/0"), "bar")
+	s.st.model.CheckCall(c, 2, "SetContainerSpec", names.NewUnitTag("gitlab/1"), "baz")
 }
