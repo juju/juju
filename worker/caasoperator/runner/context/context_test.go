@@ -71,8 +71,6 @@ func (s *InterfaceSuite) TestRelationContextWithRemoteUnitName(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestNetworkInfo(c *gc.C) {
-	// Only the error case is tested, the rest
-	// of the cases are tested separately elsewhere.
 	ctx := s.GetContext(c, -1, "")
 	netInfo, err := ctx.NetworkInfo([]string{"unknown"}, -1)
 	c.Check(err, jc.ErrorIsNil)
@@ -128,4 +126,12 @@ func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
 	settings, err = ctx.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
+}
+
+func (s *InterfaceSuite) TestSetContainerSpec(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	err := ctx.SetContainerSpec("yaml", "unit")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(s.contextAPI.SpecYaml, gc.Equals, "yaml")
+	c.Assert(s.contextAPI.SpecUnitName, gc.Equals, "unit")
 }

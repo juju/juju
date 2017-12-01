@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator/commands"
+	"github.com/juju/juju/worker/caasoperator/runner/context"
 )
 
 type RpcCommand struct {
@@ -249,14 +250,15 @@ var newCommandTests = []struct {
 	err  string
 }{
 	// TODO(caas) - add commands as they get implemnted
-	//{"status-get", ""},
-	//{"status-set", ""},
+	{"config-get", ""},
+	{"status-set", ""},
+	{"container-spec-set", ""},
 	// The error message contains .exe on Windows
 	{"random", "unknown command: random(.exe)?"},
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
-	var ctx interface{}
+	ctx := &context.HookContext{}
 	for _, t := range newCommandTests {
 		com, err := commands.NewCommand(ctx, t.name)
 		if t.err == "" {

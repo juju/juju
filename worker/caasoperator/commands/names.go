@@ -9,25 +9,22 @@ import (
 	"github.com/juju/cmd"
 )
 
-// CmdSuffix is the filename suffix to use for executables.
-const cmdSuffix = ""
-
-type creator func(interface{}) (cmd.Command, error)
+type creator func(Context) (cmd.Command, error)
 
 var registeredCommands = map[string]creator{}
 
 // baseCommands maps Command names to creators.
 var baseCommands = map[string]creator{
-	"config-get" + cmdSuffix:              nil,
-	"juju-log" + cmdSuffix:                nil,
-	"status-get" + cmdSuffix:              nil,
-	"status-set" + cmdSuffix:              nil,
-	"application-version-set" + cmdSuffix: nil,
-	"relation-ids" + cmdSuffix:            nil,
-	"relation-list" + cmdSuffix:           nil,
-	"relation-set" + cmdSuffix:            nil,
-	"relation-get" + cmdSuffix:            nil,
-	"container-spec-set" + cmdSuffix:      nil,
+	"config-get":              NewConfigGetCommand,
+	"juju-log":                nil,
+	"status-get":              nil,
+	"status-set":              NewStatusSetCommand,
+	"application-version-set": nil,
+	"relation-ids":            nil,
+	"relation-list":           nil,
+	"relation-set":            nil,
+	"relation-get":            nil,
+	"container-spec-set":      NewContainerspecSetCommand,
 }
 
 func allEnabledCommands() map[string]creator {
