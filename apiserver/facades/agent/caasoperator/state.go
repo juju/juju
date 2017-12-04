@@ -21,6 +21,7 @@ type CAASOperatorState interface {
 // Model provides the subset of CAAS model state required
 // by the CAAS operator facade.
 type Model interface {
+	state.ModelAccessor
 	SetContainerSpec(names.Tag, string) error
 }
 

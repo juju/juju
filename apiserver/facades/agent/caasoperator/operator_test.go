@@ -81,8 +81,8 @@ func (s *CAASOperatorSuite) TestSetStatus(c *gc.C) {
 		},
 	})
 
-	s.st.CheckCallNames(c, "Application")
-	s.st.CheckCall(c, 0, "Application", "gitlab")
+	s.st.CheckCallNames(c, "Model", "Application")
+	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "SetStatus")
 	s.st.app.CheckCall(c, 0, "SetStatus", status.StatusInfo{
 		Status:  "bar",
@@ -121,8 +121,8 @@ func (s *CAASOperatorSuite) TestCharm(c *gc.C) {
 		}},
 	})
 
-	s.st.CheckCallNames(c, "Application")
-	s.st.CheckCall(c, 0, "Application", "gitlab")
+	s.st.CheckCallNames(c, "Model", "Application")
+	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "Charm")
 }
 
@@ -150,8 +150,8 @@ func (s *CAASOperatorSuite) TestApplicationConfig(c *gc.C) {
 		}},
 	})
 
-	s.st.CheckCallNames(c, "Application")
-	s.st.CheckCall(c, 0, "Application", "gitlab")
+	s.st.CheckCallNames(c, "Model", "Application")
+	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "ConfigSettings")
 }
 
@@ -179,8 +179,8 @@ func (s *CAASOperatorSuite) TestWatchApplicationConfig(c *gc.C) {
 		}},
 	})
 
-	s.st.CheckCallNames(c, "Application")
-	s.st.CheckCall(c, 0, "Application", "gitlab")
+	s.st.CheckCallNames(c, "Model", "Application")
+	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "WatchConfigSettings")
 	c.Assert(s.resources.Get("1"), gc.Equals, s.st.app.settingsWatcher)
 }

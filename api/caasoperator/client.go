@@ -18,13 +18,17 @@ import (
 // Client allows access to the CAAS operator API endpoint.
 type Client struct {
 	facade base.FacadeCaller
+
+	// TODO(caas) - add only the bits we need
+	modelWatcher *common.ModelWatcher
 }
 
 // NewClient returns a client used to access the CAAS Operator API.
 func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASOperator")
 	return &Client{
-		facade: facadeCaller,
+		facade:       facadeCaller,
+		modelWatcher: common.NewModelWatcher(facadeCaller),
 	}
 }
 
@@ -33,6 +37,15 @@ func (c *Client) appTag(application string) (names.ApplicationTag, error) {
 		return names.ApplicationTag{}, errors.NotValidf("application name %q", application)
 	}
 	return names.NewApplicationTag(application), nil
+}
+
+// ModelName returns the name of the model.
+func (c *Client) ModelName() (string, error) {
+	cfg, err := c.modelWatcher.ModelConfig()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return cfg.Name(), nil
 }
 
 // SetStatus sets the status of the specified application.

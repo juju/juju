@@ -18,6 +18,9 @@ type Facade struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 	state     CAASOperatorState
+
+	model Model
+	*common.ModelWatcher
 }
 
 // NewStateFacade provides the signature required for facade registration.
@@ -36,10 +39,16 @@ func NewFacade(
 	if !authorizer.AuthApplicationAgent() {
 		return nil, common.ErrPerm
 	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &Facade{
-		auth:      authorizer,
-		resources: resources,
-		state:     st,
+		auth:         authorizer,
+		resources:    resources,
+		state:        st,
+		model:        model,
+		ModelWatcher: common.NewModelWatcher(model, resources, authorizer),
 	}, nil
 }
 
@@ -202,10 +211,6 @@ func (f *Facade) SetContainerSpec(args params.SetContainerSpecParams) (params.Er
 		}
 		return false
 	}
-	model, err := f.state.Model()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
 	for i, arg := range args.Entities {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
@@ -217,7 +222,7 @@ func (f *Facade) SetContainerSpec(args params.SetContainerSpecParams) (params.Er
 			continue
 		}
 		results.Results[i].Error = common.ServerError(
-			model.SetContainerSpec(tag, arg.Value),
+			f.model.SetContainerSpec(tag, arg.Value),
 		)
 	}
 	return results, nil

@@ -9,9 +9,11 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type mockState struct {
@@ -59,6 +61,15 @@ type mockModel struct {
 func (m *mockModel) SetContainerSpec(tag names.Tag, spec string) error {
 	m.MethodCall(m, "SetContainerSpec", tag, spec)
 	return m.NextErr()
+}
+
+func (st *mockModel) WatchForModelConfigChanges() state.NotifyWatcher {
+	return nil
+}
+
+func (st *mockModel) ModelConfig() (*config.Config, error) {
+	attrs := coretesting.FakeConfig()
+	return config.New(config.NoDefaults, attrs)
 }
 
 type mockApplication struct {
