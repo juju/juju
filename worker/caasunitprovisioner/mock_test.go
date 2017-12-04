@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
+	"github.com/juju/juju/worker/caasunitprovisioner"
 )
 
 type fakeAPICaller struct {
@@ -19,6 +20,10 @@ type fakeAPICaller struct {
 
 type fakeBroker struct {
 	caas.Broker
+}
+
+type fakeClient struct {
+	caasunitprovisioner.Client
 }
 
 type mockContainerBroker struct {
