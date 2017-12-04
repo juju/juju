@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/worker/caasoperator/runner"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -79,6 +80,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			modelName, err := client.ModelName()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			// Configure and start the caasoperator worker.
 			agentConfig := agent.CurrentConfig()
 			tag := agentConfig.Tag()
@@ -87,6 +93,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Errorf("expected an application tag, got %v", tag)
 			}
 			w, err := config.NewWorker(Config{
+				ModelUUID:               agentConfig.Model().Id(),
+				ModelName:               modelName,
+				NewRunnerFactoryFunc:    runner.NewFactory,
 				Application:             applicationTag.Id(),
 				ApplicationConfigGetter: client,
 				CharmGetter:             client,

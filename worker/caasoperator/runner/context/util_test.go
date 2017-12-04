@@ -4,7 +4,6 @@
 package context_test
 
 import (
-	"path/filepath"
 	"runtime"
 	"time"
 
@@ -144,14 +143,10 @@ func (MockFakePaths) GetCharmDir() string {
 	return "path-to-charm"
 }
 
-func (MockFakePaths) GetJujucSocket() string {
-	return "path-to-jujuc.socket"
+func (MockFakePaths) GetHookCommandSocket() string {
+	return "path-to-hookcommand.socket"
 }
 
 func (MockFakePaths) GetMetricsSpoolDir() string {
 	return "path-to-metrics-spool-dir"
-}
-
-func (MockFakePaths) ComponentDir(name string) string {
-	return filepath.Join("path-to-base-dir", name)
 }

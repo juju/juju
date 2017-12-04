@@ -38,7 +38,7 @@ func (m *MockContextAPI) ProxySettings() (proxy.Settings, error) {
 	return m.settings, nil
 }
 
-func (m *MockContextAPI) ConfigSettings() (charm.Settings, error) {
+func (m *MockContextAPI) ApplicationConfig() (charm.Settings, error) {
 	return m.configSettings, nil
 }
 

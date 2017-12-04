@@ -14,7 +14,7 @@ import (
 )
 
 type hookAPI interface {
-	ConfigSettings() (charm.Settings, error)
+	ApplicationConfig() (charm.Settings, error)
 	NetworkInfo([]string, *int) (map[string]params.NetworkInfoResult, error)
 	ApplicationStatus(string) (params.ApplicationStatusResult, error)
 	SetApplicationStatus(string, status.Status, string, map[string]interface{}) error

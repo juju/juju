@@ -23,6 +23,9 @@ type Factory interface {
 	NewHookRunner(hookInfo hook.Info) (Runner, error)
 }
 
+// NewRunnerFactoryFunc is a function that returns a hook/cmd/action runner factory.
+type NewRunnerFactoryFunc func(context.Paths, context.ContextFactory) (Factory, error)
+
 // NewFactory returns a Factory capable of creating runners for executing
 // charm hooks, actions and commands.
 func NewFactory(

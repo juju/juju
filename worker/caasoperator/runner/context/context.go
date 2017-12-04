@@ -33,18 +33,14 @@ type Paths interface {
 	// the charm is installed.
 	GetCharmDir() string
 
-	// GetJujucSocket returns the path to the socket used by the hook tools
+	// GetHookCommandSocket returns the path to the socket used by the hook tools
 	// to communicate back to the executing operator process. It might be a
 	// filesystem path, or it might be abstract.
-	GetJujucSocket() string
+	GetHookCommandSocket() string
 
 	// GetMetricsSpoolDir returns the path to a metrics spool dir, used
 	// to store metrics recorded during a single hook run.
 	GetMetricsSpoolDir() string
-
-	// ComponentDir returns the filesystem path to the directory
-	// containing all data files for a component.
-	ComponentDir(name string) string
 }
 
 var logger = loggo.GetLogger("juju.worker.caasoperator.runner.context")
@@ -160,10 +156,10 @@ func (ctx *HookContext) SetApplicationStatus(appStatus commands.StatusInfo) erro
 	)
 }
 
-func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
+func (ctx *HookContext) ApplicationConfig() (charm.Settings, error) {
 	if ctx.configSettings == nil {
 		var err error
-		ctx.configSettings, err = ctx.hookAPI.ConfigSettings()
+		ctx.configSettings, err = ctx.hookAPI.ApplicationConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -211,7 +207,7 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
 		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
 		"JUJU_CONTEXT_ID="+context.id,
-		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket(),
+		"JUJU_AGENT_SOCKET="+paths.GetHookCommandSocket(),
 		"JUJU_APPLICATION_NAME="+context.applicationName,
 		"JUJU_MODEL_UUID="+context.uuid,
 		"JUJU_MODEL_NAME="+context.modelName,

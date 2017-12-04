@@ -12,9 +12,13 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasoperator"
+	"github.com/juju/juju/worker/caasoperator/hook"
+	"github.com/juju/juju/worker/caasoperator/runner"
+	"github.com/juju/juju/worker/caasoperator/runner/context"
 )
 
 var (
@@ -42,6 +46,10 @@ type fakeAgentConfig struct {
 
 func (c *fakeAgentConfig) Tag() names.Tag {
 	return c.tag
+}
+
+func (c *fakeAgentConfig) Model() names.ModelTag {
+	return coretesting.ModelTag
 }
 
 func (c *fakeAgentConfig) DataDir() string {
@@ -92,6 +100,10 @@ func (c *fakeClient) WatchApplicationConfig(application string) (watcher.NotifyW
 	return c.settingsWatcher, nil
 }
 
+func (c *fakeClient) ModelName() (string, error) {
+	return "gitlab-model", nil
+}
+
 type fakeDownloader struct {
 	testing.Stub
 	path string
@@ -103,4 +115,28 @@ func (d *fakeDownloader) Download(req downloader.Request) (string, error) {
 		return "", err
 	}
 	return d.path, nil
+}
+
+var mockNewRunnerFactory runner.NewRunnerFactoryFunc = func(context.Paths, context.ContextFactory) (runner.Factory, error) {
+	return &mockRunnerFactory{}, nil
+}
+
+type mockRunnerFactory struct {
+	runner.Factory
+}
+
+func (m *mockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, error) {
+	return &mockHookRunner{}, nil
+}
+
+type mockHookRunner struct {
+	runner.Runner
+}
+
+func (m *mockHookRunner) Context() runner.Context {
+	return &context.HookContext{}
+}
+
+func (m *mockHookRunner) RunHook(name string) error {
+	return nil
 }

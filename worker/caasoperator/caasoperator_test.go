@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/worker/caasoperator/runner"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -64,6 +65,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.client.settingsWatcher = watchertest.NewMockNotifyWatcher(s.settingsChanges)
 	s.charmDownloader.ResetCalls()
 	s.config = caasoperator.Config{
+		NewRunnerFactoryFunc:    runner.NewFactory,
 		Application:             "gitlab",
 		ApplicationConfigGetter: &s.client,
 		CharmGetter:             &s.client,
@@ -136,7 +138,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.settingsChanges <- struct{}{}
-	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetStatus", "WatchApplicationConfig", "ApplicationConfig")
+	s.client.CheckCallNames(c, "Charm", "SetStatus", "WatchApplicationConfig", "ApplicationConfig")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
 
 	s.charmDownloader.CheckCallNames(c, "Download")
@@ -180,7 +182,6 @@ func (s *WorkerSuite) TestWorkerSetsStatus(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	s.client.CheckCall(c, 1, "SetStatus", "gitlab", status.Maintenance, "downloading charm (cs:gitlab-1)", map[string]interface{}(nil))
-	s.client.CheckCall(c, 2, "SetStatus", "gitlab", status.Active, "", map[string]interface{}(nil))
 }
 
 func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {
@@ -191,4 +192,15 @@ func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {
 	s.client.settingsWatcher.KillErr(errors.New("splat"))
 	err = workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, "splat")
+}
+
+func (s *WorkerSuite) TestRunsConfigChangedHook(c *gc.C) {
+	ctx := &hookObserver{}
+	s.config.Observer = ctx
+	s.config.NewRunnerFactoryFunc = mockNewRunnerFactory
+	w, err := caasoperator.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	ctx.waitForHooks(c, []string{"config-changed"})
 }

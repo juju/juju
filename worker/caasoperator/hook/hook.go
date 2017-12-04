@@ -36,7 +36,7 @@ func (hi Info) Validate() error {
 			return fmt.Errorf("%q hook requires a remote unit", hi.Kind)
 		}
 		fallthrough
-	case hooks.ConfigChanged:
+	case hooks.ConfigChanged, hooks.UpdateStatus:
 		return nil
 	}
 	return fmt.Errorf("unknown hook kind %q", hi.Kind)

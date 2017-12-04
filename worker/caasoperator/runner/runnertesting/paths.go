@@ -47,14 +47,6 @@ func (p MockPaths) GetCharmDir() string {
 	return p.charm
 }
 
-func (p MockPaths) GetJujucSocket() string {
+func (p MockPaths) GetHookCommandSocket() string {
 	return p.socket
-}
-
-func (p MockPaths) ComponentDir(name string) string {
-	if dirname, ok := p.componentDirs[name]; ok {
-		return dirname
-	}
-	p.componentDirs[name] = filepath.Join(p.fops.MkDir(), name)
-	return p.componentDirs[name]
 }

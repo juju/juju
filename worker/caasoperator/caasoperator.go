@@ -6,12 +6,13 @@ package caasoperator
 import (
 	"fmt"
 	"os"
-	"path/filepath"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"github.com/kr/pretty"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -19,6 +20,10 @@ import (
 	"github.com/juju/juju/status"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/caasoperator/commands"
+	"github.com/juju/juju/worker/caasoperator/hook"
+	"github.com/juju/juju/worker/caasoperator/operation"
+	"github.com/juju/juju/worker/caasoperator/runner"
+	"github.com/juju/juju/worker/caasoperator/runner/context"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -39,10 +44,36 @@ type CaasOperatorExecutionObserver interface {
 type caasOperator struct {
 	catacomb catacomb.Catacomb
 	config   Config
+	paths    context.Paths
+
+	// Cache the last reported status information
+	// so we don't make unnecessary api calls.
+	setStatusMutex      sync.Mutex
+	lastReportedStatus  status.Status
+	lastReportedMessage string
+
+	// The execution observer is only used in tests at this stage. Should this
+	// need to be extended, perhaps a list of observers would be needed.
+	observer CaasOperatorExecutionObserver
+
+	operationFactory  operation.Factory
+	operationExecutor operation.Executor
 }
 
 // Config hold the configuration for a caasoperator worker.
 type Config struct {
+	// ModelUUID is the UUID of the model.
+	ModelUUID string
+
+	// ModelName is the name of the model.
+	ModelName string
+
+	// Observer is used to monitor the execution of hooks.
+	Observer CaasOperatorExecutionObserver
+
+	// NewRunnerFactoryFunc returns a hook/cmd/action runner factory.
+	NewRunnerFactoryFunc runner.NewRunnerFactoryFunc
+
 	// Application holds the name of the application that
 	// this CAAS operator manages.
 	Application string
@@ -115,6 +146,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 	op := &caasOperator{
 		config: config,
+		paths:  NewPaths(config.DataDir),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &op.catacomb,
@@ -134,6 +166,15 @@ func (op *caasOperator) loop() (err error) {
 			"failed to initialize caasoperator for %q",
 			op.config.Application,
 		)
+	}
+
+	// First things, run the config changed hook.
+	hookOp, err := op.operationFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := op.operationExecutor.Run(hookOp); err != nil {
+		return errors.Trace(err)
 	}
 
 	configGetter := op.config.ApplicationConfigGetter
@@ -161,7 +202,7 @@ func (op *caasOperator) loop() (err error) {
 }
 
 func (op *caasOperator) init() (err error) {
-	agentBinaryDir := op.agentBinaryDir()
+	agentBinaryDir := op.paths.GetToolsDir()
 	logger.Debugf("creating caas operator symlinks in %v", agentBinaryDir)
 	if err := agenttools.EnsureSymlinks(
 		agentBinaryDir,
@@ -173,14 +214,50 @@ func (op *caasOperator) init() (err error) {
 	if err := op.ensureCharm(); err != nil {
 		return errors.Trace(err)
 	}
-	if op.setStatus(status.Active, ""); err != nil {
+
+	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+		// TODO(caas)
+		ContextFactoryAPI: &dummyContextFactoryAPI{},
+		HookAPI: &hookAPIAdaptor{
+			StatusSetter:            op.config.StatusSetter,
+			ApplicationConfigGetter: op.config.ApplicationConfigGetter,
+			ContainerSpecSetter:     op.config.ContainerSpecSetter,
+		},
+		ModelUUID:        op.config.ModelUUID,
+		ModelName:        op.config.ModelName,
+		ApplicationTag:   names.NewApplicationTag(op.config.Application),
+		GetRelationInfos: nil, // TODO(caas)
+		Paths:            op.paths,
+		Clock:            op.config.Clock,
+	})
+	if err != nil {
+		return err
+	}
+	runnerFactory, err := op.config.NewRunnerFactoryFunc(
+		op.paths, contextFactory,
+	)
+	if err != nil {
 		return errors.Trace(err)
 	}
+
+	op.operationFactory = operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+		Abort:         op.catacomb.Dying(),
+		Callbacks:     &operationCallbacks{op},
+	})
+
+	operationExecutor, err := operation.NewExecutor()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	op.operationExecutor = operationExecutor
+	op.observer = op.config.Observer
+
 	return nil
 }
 
 func (op *caasOperator) ensureCharm() error {
-	charmDir := op.charmDir()
+	charmDir := op.paths.GetCharmDir()
 	if _, err := os.Stat(charmDir); !os.IsNotExist(err) {
 		return errors.Trace(err)
 	}
@@ -209,14 +286,6 @@ func (op *caasOperator) setStatus(status status.Status, message string, args ...
 		nil,
 	)
 	return errors.Annotate(err, "setting status")
-}
-
-func (op *caasOperator) charmDir() string {
-	return filepath.Join(op.config.DataDir, "charm")
-}
-
-func (op *caasOperator) agentBinaryDir() string {
-	return filepath.Join(op.config.DataDir, "tools")
 }
 
 // Kill is part of the worker.Worker interface.

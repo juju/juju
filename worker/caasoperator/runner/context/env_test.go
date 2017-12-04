@@ -36,11 +36,10 @@ func (s *EnvSuite) assertVars(c *gc.C, actual []string, expect ...[]string) {
 }
 
 func (s *EnvSuite) getPaths() (paths context.Paths, expectVars []string) {
-	// note: path-munging is os-dependent, not included in expectVars
 	return MockFakePaths{}, []string{
 		"CHARM_DIR=path-to-charm",
 		"JUJU_CHARM_DIR=path-to-charm",
-		"JUJU_AGENT_SOCKET=path-to-jujuc.socket",
+		"JUJU_AGENT_SOCKET=path-to-hookcommand.socket",
 	}
 }
 
