@@ -128,7 +128,7 @@ func (ctx *HookContext) ApplicationStatus() (commands.StatusInfo, error) {
 		return *ctx.status, nil
 	}
 	var err error
-	status, err := ctx.hookAPI.ApplicationStatus(ctx.applicationName)
+	status, err := ctx.hookAPI.ApplicationStatus()
 	if err == nil && status.Error != nil {
 		err = status.Error
 	}
@@ -149,7 +149,6 @@ func (ctx *HookContext) SetApplicationStatus(appStatus commands.StatusInfo) erro
 	logger.Tracef("[APPLICATION-STATUS] %s: %s", appStatus.Status, appStatus.Info)
 
 	return ctx.hookAPI.SetApplicationStatus(
-		ctx.applicationName,
 		status.Status(appStatus.Status),
 		appStatus.Info,
 		appStatus.Data,

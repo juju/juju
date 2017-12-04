@@ -167,7 +167,7 @@ func (runner *runner) startHookCommandServer() (*commands.Server, error) {
 	}
 	srv, err := commands.NewServer(getCmd, runner.paths.GetHookCommandSocket())
 	if err != nil {
-		return nil, errors.Annotate(err, "starting jujuc server")
+		return nil, errors.Annotate(err, "starting hook command server")
 	}
 	go srv.Run()
 	return srv, nil

@@ -34,43 +34,19 @@ func (mock *MockPrepareHook) Call(hookInfo hook.Info) (string, error) {
 	return mock.name, mock.err
 }
 
-type PrepareHookCallbacks struct {
+type ExecuteHookCallbacks struct {
 	operation.Callbacks
 	*MockPrepareHook
 	executingMessage string
 }
 
-func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) {
+func (cb *ExecuteHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) {
 	return cb.MockPrepareHook.Call(hookInfo)
 }
 
-func (cb *PrepareHookCallbacks) SetExecutingStatus(message string) error {
+func (cb *ExecuteHookCallbacks) SetExecutingStatus(message string) error {
 	cb.executingMessage = message
 	return nil
-}
-
-type MockNotify struct {
-	gotName    *string
-	gotContext *runner.Context
-}
-
-func (mock *MockNotify) Call(hookName string, ctx runner.Context) {
-	mock.gotName = &hookName
-	mock.gotContext = &ctx
-}
-
-type ExecuteHookCallbacks struct {
-	*PrepareHookCallbacks
-	MockNotifyHookCompleted *MockNotify
-	MockNotifyHookFailed    *MockNotify
-}
-
-func (cb *ExecuteHookCallbacks) NotifyHookCompleted(hookName string, ctx runner.Context) {
-	cb.MockNotifyHookCompleted.Call(hookName, ctx)
-}
-
-func (cb *ExecuteHookCallbacks) NotifyHookFailed(hookName string, ctx runner.Context) {
-	cb.MockNotifyHookFailed.Call(hookName, ctx)
 }
 
 type MockCommitHook struct {
@@ -213,8 +189,8 @@ func (r *MockRunner) RunHook(hookName string) error {
 	return r.MockRunHook.Call(hookName)
 }
 
-func NewPrepareHookCallbacks() *PrepareHookCallbacks {
-	return &PrepareHookCallbacks{
+func newExecuteHookCallbacks() *ExecuteHookCallbacks {
+	return &ExecuteHookCallbacks{
 		MockPrepareHook: &MockPrepareHook{nil, "some-hook-name", nil},
 	}
 }

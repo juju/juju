@@ -8,7 +8,6 @@ import (
 	utilexec "github.com/juju/utils/exec"
 
 	"github.com/juju/juju/worker/caasoperator/hook"
-	"github.com/juju/juju/worker/caasoperator/runner"
 )
 
 var logger = loggo.GetLogger("juju.worker.caasoperator.operation")
@@ -88,9 +87,4 @@ type Callbacks interface {
 
 	// SetExecutingStatus sets the agent state to "Executing" with a message.
 	SetExecutingStatus(string) error
-
-	// NotifyHook* exist so that we can defer worrying about how to untangle the
-	// callbacks inserted for caasoperator_test. They're only used by RunHook operations.
-	NotifyHookCompleted(string, runner.Context)
-	NotifyHookFailed(string, runner.Context)
 }

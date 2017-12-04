@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/worker/caasoperator/runner"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasoperator"
+	"github.com/juju/juju/worker/caasoperator/runner"
 	"github.com/juju/juju/worker/workertest"
 )
 
@@ -161,9 +161,10 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 
 	downloadRequest.Abort = nil
 	downloadRequest.Verify = nil
+	agentDir := filepath.Join(s.config.DataDir, "agents", "application-gitlab")
 	c.Assert(downloadRequest, jc.DeepEquals, downloader.Request{
 		URL:       &url.URL{Scheme: "cs", Opaque: "gitlab-1"},
-		TargetDir: filepath.Join(s.config.DataDir, "charm.dl"),
+		TargetDir: filepath.Join(agentDir, "charm.dl"),
 	})
 
 	// The download directory should have been removed.
@@ -171,7 +172,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// The charm archive should have been unpacked into <data-dir>/charm.
-	charmDir := filepath.Join(s.config.DataDir, "charm")
+	charmDir := filepath.Join(agentDir, "charm")
 	_, err = os.Stat(filepath.Join(charmDir, "metadata.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -196,11 +197,11 @@ func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {
 
 func (s *WorkerSuite) TestRunsConfigChangedHook(c *gc.C) {
 	ctx := &hookObserver{}
-	s.config.Observer = ctx
-	s.config.NewRunnerFactoryFunc = mockNewRunnerFactory
+	s.config.NewRunnerFactoryFunc = newRunnerFactoryFunc(ctx)
 	w, err := caasoperator.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
+	s.settingsChanges <- struct{}{}
 	ctx.waitForHooks(c, []string{"config-changed"})
 }

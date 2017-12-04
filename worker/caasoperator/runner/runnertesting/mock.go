@@ -4,7 +4,6 @@
 package runnertesting
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6"
 
@@ -17,14 +16,13 @@ import (
 func NewMockContextAPI(apiAddresses []string, settings proxy.Settings) *MockContextAPI {
 	return &MockContextAPI{
 		apiAddresses: apiAddresses, settings: settings,
-		appStatus: make(map[string]status.StatusInfo),
 	}
 }
 
 type MockContextAPI struct {
 	apiAddresses   []string
 	settings       proxy.Settings
-	appStatus      map[string]status.StatusInfo
+	appStatus      status.StatusInfo
 	configSettings charm.Settings
 	SpecYaml       string
 	SpecUnitName   string
@@ -52,23 +50,19 @@ func (m *MockContextAPI) NetworkInfo([]string, *int) (map[string]params.NetworkI
 	}, nil
 }
 
-func (m *MockContextAPI) ApplicationStatus(applicationName string) (params.ApplicationStatusResult, error) {
-	statusInfo, ok := m.appStatus[applicationName]
-	if !ok {
-		return params.ApplicationStatusResult{}, errors.NotFoundf("application %v", applicationName)
-	}
+func (m *MockContextAPI) ApplicationStatus() (params.ApplicationStatusResult, error) {
 	return params.ApplicationStatusResult{Application: params.StatusResult{
-		Status: string(statusInfo.Status),
-		Info:   statusInfo.Message,
-		Data:   statusInfo.Data,
+		Status: string(m.appStatus.Status),
+		Info:   m.appStatus.Message,
+		Data:   m.appStatus.Data,
 	}}, nil
 }
 
-func (m *MockContextAPI) SetApplicationStatus(applicationName string, s status.Status, info string, data map[string]interface{}) error {
+func (m *MockContextAPI) SetApplicationStatus(s status.Status, info string, data map[string]interface{}) error {
 	if data == nil {
 		data = map[string]interface{}{}
 	}
-	m.appStatus[applicationName] = status.StatusInfo{
+	m.appStatus = status.StatusInfo{
 		Status:  s,
 		Message: info,
 		Data:    data,

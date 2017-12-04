@@ -20,7 +20,6 @@ type Facade struct {
 	state     CAASOperatorState
 
 	model Model
-	*common.ModelWatcher
 }
 
 // NewStateFacade provides the signature required for facade registration.
@@ -44,12 +43,16 @@ func NewFacade(
 		return nil, errors.Trace(err)
 	}
 	return &Facade{
-		auth:         authorizer,
-		resources:    resources,
-		state:        st,
-		model:        model,
-		ModelWatcher: common.NewModelWatcher(model, resources, authorizer),
+		auth:      authorizer,
+		resources: resources,
+		state:     st,
+		model:     model,
 	}, nil
+}
+
+// ModelName returns the name of the model.
+func (f *Facade) ModelName() (params.StringResult, error) {
+	return params.StringResult{Result: f.model.Name()}, nil
 }
 
 // SetStatus sets the status of each given entity.

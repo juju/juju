@@ -9,6 +9,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/worker/caasoperator"
 )
@@ -28,20 +29,21 @@ func relPathFunc(base string) func(parts ...string) string {
 
 func (s *PathsSuite) TestPaths(c *gc.C) {
 	dataDir := c.MkDir()
-	paths := caasoperator.NewPaths(dataDir)
+	paths := caasoperator.NewPaths(dataDir, names.NewApplicationTag("foo"))
 
 	relData := relPathFunc(dataDir)
+	relAgent := relPathFunc(relData("agents", "application-foo"))
 	c.Assert(paths, jc.DeepEquals, caasoperator.Paths{
 		ToolsDir: relData("tools"),
 		Runtime: caasoperator.RuntimePaths{
-			JujuRunSocket:           relData("run.socket"),
-			HookCommandServerSocket: "@" + relData("agent.socket"),
+			JujuRunSocket:           relAgent("run.socket"),
+			HookCommandServerSocket: "@" + relAgent("agent.socket"),
 		},
 		State: caasoperator.StatePaths{
-			BaseDir:         relData(),
-			CharmDir:        relData("charm"),
-			RelationsDir:    relData("state", "relations"),
-			MetricsSpoolDir: relData("state", "spool", "metrics"),
+			BaseDir:         relAgent(),
+			CharmDir:        relAgent("charm"),
+			RelationsDir:    relAgent("state", "relations"),
+			MetricsSpoolDir: relAgent("state", "spool", "metrics"),
 		},
 	})
 }

@@ -122,7 +122,7 @@ func (s *ServerSuite) Call(c *gc.C, req commands.Request) (resp exec.ExecRespons
 	client, err := sockets.Dial(s.sockPath)
 	c.Assert(err, jc.ErrorIsNil)
 	defer client.Close()
-	err = client.Call("HookCommand.Main", req, &resp)
+	err = client.Call("Jujuc.Main", req, &resp)
 	return resp, err
 }
 

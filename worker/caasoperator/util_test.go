@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/juju/testing"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/testing"
 )
 
 type hookObserver struct {

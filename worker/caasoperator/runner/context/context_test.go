@@ -101,7 +101,7 @@ func (s *InterfaceSuite) TestStatusCaching(c *gc.C) {
 	c.Check(appStatus.Data, gc.DeepEquals, map[string]interface{}{})
 
 	// Change remote state.
-	err = s.contextAPI.SetApplicationStatus("gitlab", status.Blocked, "broken", nil)
+	err = s.contextAPI.SetApplicationStatus(status.Blocked, "broken", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local view is unchanged.

@@ -188,7 +188,7 @@ func (k *kubernetesClient) deployOperator(appName, agentPath string, configMapNa
 				Name:            "juju-operator",
 				ImagePullPolicy: v1.PullIfNotPresent,
 				// TODO(caas) use proper image
-				Image: "wallyworld/caas-jujud-operator",
+				Image: "wallyworld/caas-jujud-operator:latest",
 				Env: []v1.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
 				},

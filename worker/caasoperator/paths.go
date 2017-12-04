@@ -7,6 +7,8 @@ package caasoperator
 import (
 	"path/filepath"
 
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/agent/tools"
 )
 
@@ -82,12 +84,13 @@ type StatePaths struct {
 
 // NewPaths returns the set of filesystem paths that the supplied unit should
 // use, given the supplied root juju data directory path.
-func NewPaths(dataDir string) Paths {
+func NewPaths(dataDir string, applicationTag names.ApplicationTag) Paths {
 	join := filepath.Join
-	stateDir := join(dataDir, "state")
+	baseDir := join(dataDir, "agents", applicationTag.String())
+	stateDir := join(baseDir, "state")
 
 	socket := func(name string, abstract bool) string {
-		path := join(dataDir, name+".socket")
+		path := join(baseDir, name+".socket")
 		if abstract {
 			path = "@" + path
 		}
@@ -102,8 +105,8 @@ func NewPaths(dataDir string) Paths {
 			HookCommandServerSocket: socket("agent", true),
 		},
 		State: StatePaths{
-			BaseDir:         dataDir,
-			CharmDir:        join(dataDir, "charm"),
+			BaseDir:         baseDir,
+			CharmDir:        join(baseDir, "charm"),
 			RelationsDir:    join(stateDir, "relations"),
 			MetricsSpoolDir: join(stateDir, "spool", "metrics"),
 		},

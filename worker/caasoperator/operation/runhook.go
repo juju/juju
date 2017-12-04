@@ -88,14 +88,11 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	case err == nil:
 	default:
 		logger.Errorf("hook %q failed: %v", rh.name, err)
-		rh.callbacks.NotifyHookFailed(rh.name, rh.runner.Context())
 		return nil, ErrHookFailed
 	}
 
 	if ranHook {
 		logger.Infof("ran %q hook", rh.name)
-
-		rh.callbacks.NotifyHookCompleted(rh.name, rh.runner.Context())
 	} else {
 		logger.Infof("skipped %q hook (missing)", rh.name)
 	}

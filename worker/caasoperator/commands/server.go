@@ -26,7 +26,7 @@ import (
 
 var logger = loggo.GetLogger("worker.caasoperator.commands")
 
-// ErrNoStdin is returned by HookCommand.Main if the hook tool requests
+// ErrNoStdin is returned by Jujuc.Main if the hook tool requests
 // stdin, and none is supplied.
 var ErrNoStdin = errors.New("hook tool requires stdin, none supplied")
 
@@ -61,8 +61,11 @@ type Request struct {
 // CmdGetter looks up a Command implementation connected to a particular Context.
 type CmdGetter func(contextId, cmdName string) (cmd.Command, error)
 
-// HookCommand implements the hook command in the form required by net/rpc.
-type HookCommand struct {
+// Jujuc implements the hook command in the form required by net/rpc.
+// NOTE: this struct *must* be called Jujuc for the agent to pick up
+// the RPC call. We could rename and change the code but then it would
+// be different for this vs the uniter hook tools and so gets messy.
+type Jujuc struct {
 	mu     sync.Mutex
 	getCmd CmdGetter
 }
@@ -74,7 +77,7 @@ func badReqErrorf(format string, v ...interface{}) error {
 
 // Main runs the Command specified by req, and fills in resp. A single command
 // is run at a time.
-func (j *HookCommand) Main(req Request, resp *exec.ExecResponse) error {
+func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	if req.CommandName == "" {
 		return badReqErrorf("command not specified")
 	}
@@ -133,7 +136,7 @@ type Server struct {
 // actually do so until Run is called.
 func NewServer(getCmd CmdGetter, socketPath string) (*Server, error) {
 	server := rpc.NewServer()
-	if err := server.Register(&HookCommand{getCmd: getCmd}); err != nil {
+	if err := server.Register(&Jujuc{getCmd: getCmd}); err != nil {
 		return nil, err
 	}
 	listener, err := sockets.Listen(socketPath)

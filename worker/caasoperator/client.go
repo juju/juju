@@ -71,15 +71,15 @@ func (h *hookAPIAdaptor) ApplicationConfig() (charm.Settings, error) {
 	return h.ApplicationConfigGetter.ApplicationConfig(h.appName)
 }
 
+func (h *hookAPIAdaptor) SetApplicationStatus(status status.Status, info string, data map[string]interface{}) error {
+	return h.StatusSetter.SetStatus(h.appName, status, info, data)
+}
+
 // dummyHookAPI is an API placeholder
 type dummyHookAPI struct{}
 
-func (h *dummyHookAPI) ApplicationStatus(appName string) (params.ApplicationStatusResult, error) {
+func (h *dummyHookAPI) ApplicationStatus() (params.ApplicationStatusResult, error) {
 	return params.ApplicationStatusResult{Application: params.StatusResult{Status: "unknown"}}, nil
-}
-
-func (h *dummyHookAPI) SetApplicationStatus(string, status.Status, string, map[string]interface{}) error {
-	return nil
 }
 
 func (h *dummyHookAPI) NetworkInfo(bindings []string, relId *int) (map[string]params.NetworkInfoResult, error) {

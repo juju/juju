@@ -234,3 +234,9 @@ func (s *CAASOperatorSuite) TestSetContainerSpec(c *gc.C) {
 	s.st.model.CheckCall(c, 1, "SetContainerSpec", names.NewUnitTag("gitlab/0"), "bar")
 	s.st.model.CheckCall(c, 2, "SetContainerSpec", names.NewUnitTag("gitlab/1"), "baz")
 }
+
+func (s *CAASOperatorSuite) TestModelName(c *gc.C) {
+	result, err := s.facade.ModelName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Result, gc.Equals, "some-model")
+}

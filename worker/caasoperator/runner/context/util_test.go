@@ -49,7 +49,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.relIdCounter = 0
 	s.relationAPIs = make(map[int]*runnertesting.MockRelationUnitAPI)
 	s.contextAPI = runnertesting.NewMockContextAPI(apiAddrs, proxy.Settings{})
-	err := s.contextAPI.SetApplicationStatus("gitlab", status.Maintenance, "initialising", nil)
+	err := s.contextAPI.SetApplicationStatus(status.Maintenance, "initialising", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AddContextRelation(c, "db0")

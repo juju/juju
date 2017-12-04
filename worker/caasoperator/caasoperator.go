@@ -29,14 +29,6 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.caasoperator")
 
-// A CaasOperatorExecutionObserver gets the appropriate methods called when a hook
-// is executed and either succeeds or fails.  Missing hooks don't get reported
-// in this way.
-type CaasOperatorExecutionObserver interface {
-	HookCompleted(hookName string)
-	HookFailed(hookName string)
-}
-
 // caasOperator implements the capabilities of the caasoperator agent. It is not intended to
 // implement the actual *behaviour* of the caasoperator agent; that responsibility is
 // delegated to Mode values, which are expected to react to events and direct
@@ -52,10 +44,6 @@ type caasOperator struct {
 	lastReportedStatus  status.Status
 	lastReportedMessage string
 
-	// The execution observer is only used in tests at this stage. Should this
-	// need to be extended, perhaps a list of observers would be needed.
-	observer CaasOperatorExecutionObserver
-
 	operationFactory  operation.Factory
 	operationExecutor operation.Executor
 }
@@ -67,9 +55,6 @@ type Config struct {
 
 	// ModelName is the name of the model.
 	ModelName string
-
-	// Observer is used to monitor the execution of hooks.
-	Observer CaasOperatorExecutionObserver
 
 	// NewRunnerFactoryFunc returns a hook/cmd/action runner factory.
 	NewRunnerFactoryFunc runner.NewRunnerFactoryFunc
@@ -146,7 +131,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 	op := &caasOperator{
 		config: config,
-		paths:  NewPaths(config.DataDir),
+		paths:  NewPaths(config.DataDir, names.NewApplicationTag(config.Application)),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &op.catacomb,
@@ -168,15 +153,6 @@ func (op *caasOperator) loop() (err error) {
 		)
 	}
 
-	// First things, run the config changed hook.
-	hookOp, err := op.operationFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := op.operationExecutor.Run(hookOp); err != nil {
-		return errors.Trace(err)
-	}
-
 	configGetter := op.config.ApplicationConfigGetter
 	configWatcher, err := configGetter.WatchApplicationConfig(op.config.Application)
 	if err != nil {
@@ -189,14 +165,19 @@ func (op *caasOperator) loop() (err error) {
 		case <-op.catacomb.Dying():
 			return op.catacomb.ErrDying()
 		case <-configWatcher.Changes():
-			// TODO(axw) run config-changed hook when
-			// the operator starts up, then wait for
-			// config changes and run again.
 			settings, err := configGetter.ApplicationConfig(op.config.Application)
 			if err != nil {
 				return errors.Annotate(err, "getting application config")
 			}
 			logger.Debugf("application config changed: %s", pretty.Sprint(settings))
+
+			hookOp, err := op.operationFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if err := op.operationExecutor.Run(hookOp); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }
@@ -219,6 +200,7 @@ func (op *caasOperator) init() (err error) {
 		// TODO(caas)
 		ContextFactoryAPI: &dummyContextFactoryAPI{},
 		HookAPI: &hookAPIAdaptor{
+			appName:                 op.config.Application,
 			StatusSetter:            op.config.StatusSetter,
 			ApplicationConfigGetter: op.config.ApplicationConfigGetter,
 			ContainerSpecSetter:     op.config.ContainerSpecSetter,
@@ -251,7 +233,6 @@ func (op *caasOperator) init() (err error) {
 		return errors.Trace(err)
 	}
 	op.operationExecutor = operationExecutor
-	op.observer = op.config.Observer
 
 	return nil
 }

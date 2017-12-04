@@ -117,20 +117,24 @@ func (d *fakeDownloader) Download(req downloader.Request) (string, error) {
 	return d.path, nil
 }
 
-var mockNewRunnerFactory runner.NewRunnerFactoryFunc = func(context.Paths, context.ContextFactory) (runner.Factory, error) {
-	return &mockRunnerFactory{}, nil
+func newRunnerFactoryFunc(observer *hookObserver) runner.NewRunnerFactoryFunc {
+	return func(context.Paths, context.ContextFactory) (runner.Factory, error) {
+		return &mockRunnerFactory{observer: observer}, nil
+	}
 }
 
 type mockRunnerFactory struct {
 	runner.Factory
+	observer *hookObserver
 }
 
 func (m *mockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, error) {
-	return &mockHookRunner{}, nil
+	return &mockHookRunner{observer: m.observer}, nil
 }
 
 type mockHookRunner struct {
 	runner.Runner
+	observer *hookObserver
 }
 
 func (m *mockHookRunner) Context() runner.Context {
@@ -138,5 +142,9 @@ func (m *mockHookRunner) Context() runner.Context {
 }
 
 func (m *mockHookRunner) RunHook(name string) error {
+	if m.observer == nil {
+		return nil
+	}
+	m.observer.hooksCompleted = append(m.observer.hooksCompleted, name)
 	return nil
 }

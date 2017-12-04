@@ -5,7 +5,7 @@ package caasoperator
 
 import "github.com/juju/juju/status"
 
-// setAgentStatus sets the unit's status if it has changed since last time this method was called.
+// setAgentStatus sets the application's status if it has changed since last time this method was called.
 func setAgentStatus(op *caasOperator, agentStatus status.Status, info string, data map[string]interface{}) error {
 	op.setStatusMutex.Lock()
 	defer op.setStatusMutex.Unlock()

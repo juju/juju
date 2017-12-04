@@ -5,7 +5,6 @@ package caasoperator_test
 
 import (
 	"github.com/juju/errors"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -207,15 +206,11 @@ func (s *operatorSuite) TestModelName(c *gc.C) {
 		c.Check(objType, gc.Equals, "CAASOperator")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ModelConfig")
+		c.Check(request, gc.Equals, "ModelName")
 		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.ModelConfigResult{})
-		*(result.(*params.ModelConfigResult)) = params.ModelConfigResult{
-			Config: params.ModelConfig{
-				"name": "some-model",
-				"uuid": coretesting.ModelTag.Id(),
-				"type": "caas",
-			},
+		c.Assert(result, gc.FitsTypeOf, &params.StringResult{})
+		*(result.(*params.StringResult)) = params.StringResult{
+			Result: "some-model",
 		}
 		return nil
 	})

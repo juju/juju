@@ -26,7 +26,7 @@ type newHook func(operation.Factory, hook.Info) (operation.Operation, error)
 func (s *RunHookSuite) testPrepareHookError(
 	c *gc.C, newHook newHook, expectClearResolvedFlag, expectSkip bool,
 ) {
-	callbacks := &PrepareHookCallbacks{
+	callbacks := &ExecuteHookCallbacks{
 		MockPrepareHook: &MockPrepareHook{err: errors.New("pow")},
 	}
 	factory := operation.NewFactory(operation.FactoryParams{
@@ -50,7 +50,7 @@ func (s *RunHookSuite) testPrepareHookError(
 
 func (s *RunHookSuite) TestPrepareHookCtxCalled(c *gc.C) {
 	ctx := &MockContext{}
-	callbacks := &PrepareHookCallbacks{
+	callbacks := &ExecuteHookCallbacks{
 		MockPrepareHook: &MockPrepareHook{},
 	}
 	runnerFactory := &MockRunnerFactory{
@@ -78,9 +78,8 @@ func (s *RunHookSuite) TestPrepareHookCtxCalled(c *gc.C) {
 func (s *RunHookSuite) TestPrepareHookCtxError(c *gc.C) {
 	ctx := &MockContext{}
 	ctx.SetErrors(errors.New("ctx prepare error"))
-	callbacks := &PrepareHookCallbacks{
-		MockPrepareHook: &MockPrepareHook{},
-	}
+	callbacks := newExecuteHookCallbacks()
+	callbacks.MockPrepareHook = &MockPrepareHook{}
 	runnerFactory := &MockRunnerFactory{
 		MockNewHookRunner: &MockNewHookRunner{
 			runner: &MockRunner{
@@ -112,7 +111,7 @@ func (s *RunHookSuite) TestPrepareHookError_Skip(c *gc.C) {
 }
 
 func (s *RunHookSuite) testPrepareRunnerError(c *gc.C, newHook newHook) {
-	callbacks := NewPrepareHookCallbacks()
+	callbacks := newExecuteHookCallbacks()
 	runnerFactory := &MockRunnerFactory{
 		MockNewHookRunner: &MockNewHookRunner{err: errors.New("splat")},
 	}
@@ -139,7 +138,7 @@ func (s *RunHookSuite) testPrepareSuccess(
 	c *gc.C, newHook newHook, before, after operation.State,
 ) {
 	runnerFactory := NewRunHookRunnerFactory(errors.New("should not call"))
-	callbacks := NewPrepareHookCallbacks()
+	callbacks := newExecuteHookCallbacks()
 	factory := operation.NewFactory(operation.FactoryParams{
 		RunnerFactory: runnerFactory,
 		Callbacks:     callbacks,
@@ -178,11 +177,7 @@ func (s *RunHookSuite) TestPrepareSuccess_Preserve(c *gc.C) {
 
 func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, newHook newHook, kind hooks.Kind, runErr error) (operation.Operation, *ExecuteHookCallbacks, *MockRunnerFactory) {
 	runnerFactory := NewRunHookRunnerFactory(runErr)
-	callbacks := &ExecuteHookCallbacks{
-		PrepareHookCallbacks:    NewPrepareHookCallbacks(),
-		MockNotifyHookCompleted: &MockNotify{},
-		MockNotifyHookFailed:    &MockNotify{},
-	}
+	callbacks := newExecuteHookCallbacks()
 	factory := operation.NewFactory(operation.FactoryParams{
 		RunnerFactory: runnerFactory,
 		Callbacks:     callbacks,
@@ -196,7 +191,7 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
 	runErr := charmrunner.NewMissingHookError("blah-blah")
 	for _, kind := range unitHooks() {
 		c.Logf("hook %v", kind)
-		op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, kind, runErr)
+		op, _, runnerFactory := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, kind, runErr)
 		_, err := op.Prepare(operation.State{})
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -208,14 +203,12 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
 			Hook: &hook.Info{Kind: kind},
 		})
 		c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
-		c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
-		c.Assert(callbacks.MockNotifyHookFailed.gotName, gc.IsNil)
 	}
 }
 
 func (s *RunHookSuite) TestExecuteOtherError(c *gc.C) {
 	runErr := errors.New("graaargh")
-	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, hooks.ConfigChanged, runErr)
+	op, _, runnerFactory := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, hooks.ConfigChanged, runErr)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -223,9 +216,6 @@ func (s *RunHookSuite) TestExecuteOtherError(c *gc.C) {
 	c.Assert(err, gc.Equals, operation.ErrHookFailed)
 	c.Assert(newState, gc.IsNil)
 	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
-	c.Assert(*callbacks.MockNotifyHookFailed.gotName, gc.Equals, "some-hook-name")
-	c.Assert(*callbacks.MockNotifyHookFailed.gotContext, gc.Equals, runnerFactory.MockNewHookRunner.runner.context)
-	c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
 }
 
 func (s *RunHookSuite) testExecuteSuccess(c *gc.C, before, after operation.State) {
