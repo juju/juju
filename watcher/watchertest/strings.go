@@ -9,10 +9,53 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	tomb "gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 )
+
+type MockStringsWatcher struct {
+	tomb tomb.Tomb
+	ch   <-chan []string
+}
+
+func NewMockStringsWatcher(ch <-chan []string) *MockStringsWatcher {
+	w := &MockStringsWatcher{ch: ch}
+	go func() {
+		defer w.tomb.Done()
+		<-w.tomb.Dying()
+		w.tomb.Kill(tomb.ErrDying)
+	}()
+	return w
+}
+
+func (w *MockStringsWatcher) Changes() watcher.StringsChannel {
+	return watcher.StringsChannel(w.ch)
+}
+
+func (w *MockStringsWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+func (w *MockStringsWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// KillErr can be used to kill the worker with
+// an error, to simulate a failing watcher.
+func (w *MockStringsWatcher) KillErr(err error) {
+	w.tomb.Kill(err)
+}
+
+func (w *MockStringsWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *MockStringsWatcher) Wait() error {
+	return w.tomb.Wait()
+}
 
 func NewStringsWatcherC(c *gc.C, watcher watcher.StringsWatcher, preAssert func()) StringsWatcherC {
 	if preAssert == nil {
