@@ -78,8 +78,8 @@ type mockUnitGetter struct {
 	watcher *watchertest.MockStringsWatcher
 }
 
-func (m *mockUnitGetter) WatchApplicationUnits(application string) (watcher.StringsWatcher, error) {
-	m.MethodCall(m, "WatchApplicationUnits", application)
+func (m *mockUnitGetter) WatchUnits(application string) (watcher.StringsWatcher, error) {
+	m.MethodCall(m, "WatchUnits", application)
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}

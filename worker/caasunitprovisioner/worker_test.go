@@ -141,8 +141,8 @@ func (s *WorkerSuite) TestWatchContainerSpec(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 	s.applicationGetter.CheckCallNames(c, "WatchApplications")
-	s.unitGetter.CheckCallNames(c, "WatchApplicationUnits")
-	s.unitGetter.CheckCall(c, 0, "WatchApplicationUnits", "gitlab")
+	s.unitGetter.CheckCallNames(c, "WatchUnits")
+	s.unitGetter.CheckCall(c, 0, "WatchUnits", "gitlab")
 	s.containerSpecGetter.CheckCallNames(c, "WatchContainerSpec", "ContainerSpec")
 	s.containerSpecGetter.CheckCall(c, 0, "WatchContainerSpec", "gitlab/0")
 	s.containerSpecGetter.CheckCall(c, 1, "ContainerSpec", "gitlab/0")

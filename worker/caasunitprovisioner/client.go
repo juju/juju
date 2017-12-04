@@ -45,5 +45,5 @@ type LifeGetter interface {
 // of a specified application's units, and fetching
 // their details.
 type UnitGetter interface {
-	WatchApplicationUnits(string) (watcher.StringsWatcher, error)
+	WatchUnits(string) (watcher.StringsWatcher, error)
 }
