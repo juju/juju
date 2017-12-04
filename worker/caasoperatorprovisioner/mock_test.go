@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasprovisioner_test
+package caasoperatorprovisioner_test
 
 import (
 	"sync"
@@ -11,18 +11,18 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
-	apicaasprovisioner "github.com/juju/juju/api/caasprovisioner"
+	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/caasprovisioner"
+	"github.com/juju/juju/worker/caasoperatorprovisioner"
 )
 
 type mockProvisionerFacade struct {
 	mu   sync.Mutex
 	stub *testing.Stub
-	caasprovisioner.CAASProvisionerFacade
+	caasoperatorprovisioner.CAASProvisionerFacade
 	applicationsWatcher *mockStringsWatcher
 	passwords           []apicaasprovisioner.ApplicationPassword
 }

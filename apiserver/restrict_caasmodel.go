@@ -42,7 +42,7 @@ var commonModelFacadeNames = set.NewStrings(
 // models.
 var caasModelFacadeNames = set.NewStrings(
 	"CAASOperator",
-	"CAASProvisioner",
+	"CAASOperatorProvisioner",
 )
 
 func caasModelFacadesOnly(facadeName, _ string) error {

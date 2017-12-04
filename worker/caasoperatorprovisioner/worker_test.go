@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasprovisioner_test
+package caasoperatorprovisioner_test
 
 import (
 	"io/ioutil"
@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/caasprovisioner"
+	"github.com/juju/juju/worker/caasoperatorprovisioner"
 	"github.com/juju/juju/worker/workertest"
 )
 
@@ -58,7 +58,7 @@ func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.St
 }
 
 func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
-	w, err := caasprovisioner.NewProvisionerWorker(s.provisionerFacade, s.caasClient, s.modelTag, s.agentConfig)
+	w, err := caasoperatorprovisioner.NewProvisionerWorker(s.provisionerFacade, s.caasClient, s.modelTag, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"WatchApplications", nil},

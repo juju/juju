@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasprovisioner_test
+package caasoperatorprovisioner_test
 
 import (
 	"github.com/juju/errors"

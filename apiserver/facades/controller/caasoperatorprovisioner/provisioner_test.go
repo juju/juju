@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasprovisioner_test
+package caasoperatorprovisioner_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -9,7 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/controller/caasprovisioner"
+	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
@@ -23,7 +23,7 @@ type CAASProvisionerSuite struct {
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
-	api        *caasprovisioner.API
+	api        *caasoperatorprovisioner.API
 	st         *mockState
 }
 
@@ -39,7 +39,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState()
-	api, err := caasprovisioner.NewCAASProvisionerAPI(s.resources, s.authorizer, s.st)
+	api, err := caasoperatorprovisioner.NewCAASOperatorProvisionerAPI(s.resources, s.authorizer, s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -48,7 +48,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	_, err := caasprovisioner.NewCAASProvisionerAPI(s.resources, s.authorizer, s.st)
+	_, err := caasoperatorprovisioner.NewCAASOperatorProvisionerAPI(s.resources, s.authorizer, s.st)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

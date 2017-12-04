@@ -67,7 +67,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/actionpruner"
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
-	"github.com/juju/juju/apiserver/facades/controller/caasprovisioner"
+	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
@@ -150,7 +150,7 @@ func AllFacades() *facade.Registry {
 		// Move these to the correct place above once the feature flag disappears.
 		reg("Cloud", 2, cloud.NewFacadeV2)
 		reg("CAASOperator", 1, caasoperator.NewStateFacade)
-		reg("CAASProvisioner", 1, caasprovisioner.NewStateCAASProvisionerAPI)
+		reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
 	}
 
 	reg("Controller", 3, controller.NewControllerAPIv3)

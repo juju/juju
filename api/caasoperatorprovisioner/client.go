@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasprovisioner
+package caasoperatorprovisioner
 
 import (
 	"github.com/juju/errors"
@@ -13,14 +13,14 @@ import (
 	"github.com/juju/juju/watcher"
 )
 
-// Client allows access to the CAAS provisioner API endpoint.
+// Client allows access to the CAAS operator provisioner API endpoint.
 type Client struct {
 	facade base.FacadeCaller
 }
 
-// NewClient returns a client used to access the CAAS Provisioner API.
+// NewClient returns a client used to access the CAAS Operator Provisioner API.
 func NewClient(caller base.APICaller) *Client {
-	facadeCaller := base.NewFacadeCaller(caller, "CAASProvisioner")
+	facadeCaller := base.NewFacadeCaller(caller, "CAASOperatorProvisioner")
 	return &Client{
 		facade: facadeCaller,
 	}

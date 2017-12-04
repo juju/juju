@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasprovisioner_test
+package caasoperatorprovisioner_test
 
 import (
 	"github.com/juju/testing"
@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/api/caasprovisioner"
+	"github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -19,15 +19,15 @@ type provisionerSuite struct {
 
 var _ = gc.Suite(&provisionerSuite{})
 
-func newClient(f basetesting.APICallerFunc) *caasprovisioner.Client {
-	return caasprovisioner.NewClient(basetesting.BestVersionCaller{f, 5})
+func newClient(f basetesting.APICallerFunc) *caasoperatorprovisioner.Client {
+	return caasoperatorprovisioner.NewClient(basetesting.BestVersionCaller{f, 5})
 }
 
 func (s *provisionerSuite) TestWatchApplications(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		called = true
-		c.Check(objType, gc.Equals, "CAASProvisioner")
+		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
 		c.Check(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "WatchApplications")
 		c.Assert(a, gc.IsNil)
@@ -43,13 +43,13 @@ func (s *provisionerSuite) TestWatchApplications(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSetPasswords(c *gc.C) {
-	passwords := []caasprovisioner.ApplicationPassword{
+	passwords := []caasoperatorprovisioner.ApplicationPassword{
 		{Name: "app", Password: "secret"},
 	}
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		called = true
-		c.Check(objType, gc.Equals, "CAASProvisioner")
+		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
 		c.Check(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "SetPasswords")
 		c.Assert(a, jc.DeepEquals, params.EntityPasswords{
@@ -77,7 +77,7 @@ func (s *provisionerSuite) TestSetPasswordsCount(c *gc.C) {
 		}
 		return nil
 	})
-	passwords := []caasprovisioner.ApplicationPassword{
+	passwords := []caasoperatorprovisioner.ApplicationPassword{
 		{Name: "app", Password: "secret"},
 	}
 	_, err := client.SetPasswords(passwords)

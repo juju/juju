@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasprovisioner
+package caasoperatorprovisioner
 
 import (
 	"github.com/juju/juju/apiserver/common"
@@ -16,22 +16,22 @@ type API struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 
-	state CAASProvisionerState
+	state CAASOperatorProvisionerState
 }
 
-// NewStateCAASProvisionerAPI provides the signature required for facade registration.
-func NewStateCAASProvisionerAPI(ctx facade.Context) (*API, error) {
+// NewStateCAASOperatorProvisionerAPI provides the signature required for facade registration.
+func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*API, error) {
 
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	return NewCAASProvisionerAPI(resources, authorizer, ctx.State())
+	return NewCAASOperatorProvisionerAPI(resources, authorizer, ctx.State())
 }
 
-// NewCAASProvisionerAPI returns a new CAASProvisionerAPI facade.
-func NewCAASProvisionerAPI(
+// NewCAASOperatorProvisionerAPI returns a new CAAS operator provisioner API facade.
+func NewCAASOperatorProvisionerAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	st CAASProvisionerState,
+	st CAASOperatorProvisionerState,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, common.ErrPerm

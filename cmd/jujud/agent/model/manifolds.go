@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/worker/applicationscaler"
 	"github.com/juju/juju/worker/caasbroker"
 	"github.com/juju/juju/worker/caasmodelupgrader"
-	"github.com/juju/juju/worker/caasprovisioner"
+	"github.com/juju/juju/worker/caasoperatorprovisioner"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/cleaner"
@@ -394,12 +394,12 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:          apiCallerName,
 			NewContainerBrokerFunc: config.NewContainerBrokerFunc,
 		})),
-		caasProvisionerName: ifNotMigrating(caasprovisioner.Manifold(
-			caasprovisioner.ManifoldConfig{
+		caasOperatorProvisionerName: ifNotMigrating(caasoperatorprovisioner.Manifold(
+			caasoperatorprovisioner.ManifoldConfig{
 				AgentName:     agentName,
 				APICallerName: apiCallerName,
 				BrokerName:    caasBrokerTrackerName,
-				NewWorker:     caasprovisioner.NewProvisionerWorker,
+				NewWorker:     caasoperatorprovisioner.NewProvisionerWorker,
 			},
 		)),
 		modelUpgraderName: caasmodelupgrader.Manifold(caasmodelupgrader.ManifoldConfig{
@@ -521,6 +521,6 @@ const (
 	remoteRelationsName      = "remote-relations"
 	logForwarderName         = "log-forwarder"
 
-	caasProvisionerName   = "caas-provisioner"
-	caasBrokerTrackerName = "caas-broker-tracker"
+	caasOperatorProvisionerName = "caas-operator-provisioner"
+	caasBrokerTrackerName       = "caas-broker-tracker"
 )
