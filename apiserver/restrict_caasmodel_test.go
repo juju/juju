@@ -28,8 +28,8 @@ func (s *RestrictCAASModelSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *RestrictCAASModelSuite) TestAllowed(c *gc.C) {
-	// TODO(caas) - replace with "CAASProvisioner.WatchApplications" when that bit lands
-	s.assertMethod(c, "CAASProvisioner", 1, "WatchApplications")
+	// TODO(caas) - replace with "CAASOperatorProvisioner.WatchApplications" when that bit lands
+	s.assertMethod(c, "CAASOperatorProvisioner", 1, "WatchApplications")
 }
 
 func (s *RestrictCAASModelSuite) TestNotAllowed(c *gc.C) {

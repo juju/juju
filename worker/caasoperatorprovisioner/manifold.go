@@ -1,11 +1,11 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasprovisioner
+package caasoperatorprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/caasprovisioner"
+	"github.com/juju/juju/api/caasoperatorprovisioner"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/worker/dependency"
 )
 
-// ManifoldConfig defines a CAAS environment provisioner's dependencies.
+// ManifoldConfig defines a CAAS operator provisioner's dependencies.
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
@@ -66,7 +66,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.New("API connection is controller-only (should never happen)")
 	}
 
-	api := caasprovisioner.NewClient(apiCaller)
+	api := caasoperatorprovisioner.NewClient(apiCaller)
 	agentConfig := agent.CurrentConfig()
 	w, err := config.NewWorker(api, broker, modelTag, agentConfig)
 	if err != nil {
@@ -75,7 +75,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	return w, nil
 }
 
-// Manifold creates a manifold that runs a CAAS provisioner. See the
+// Manifold creates a manifold that runs a CAAS operator provisioner. See the
 // ManifoldConfig type for discussion about how this can/should evolve.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{

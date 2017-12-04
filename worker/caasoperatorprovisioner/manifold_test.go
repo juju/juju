@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasprovisioner_test
+package caasoperatorprovisioner_test
 
 import (
 	"github.com/juju/errors"
@@ -13,12 +13,12 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/worker/caasprovisioner"
+	"github.com/juju/juju/worker/caasoperatorprovisioner"
 )
 
 type ManifoldConfigSuite struct {
 	testing.IsolationSuite
-	config caasprovisioner.ManifoldConfig
+	config caasoperatorprovisioner.ManifoldConfig
 }
 
 var _ = gc.Suite(&ManifoldConfigSuite{})
@@ -28,12 +28,12 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 	s.config = s.validConfig()
 }
 
-func (s *ManifoldConfigSuite) validConfig() caasprovisioner.ManifoldConfig {
-	return caasprovisioner.ManifoldConfig{
+func (s *ManifoldConfigSuite) validConfig() caasoperatorprovisioner.ManifoldConfig {
+	return caasoperatorprovisioner.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 		BrokerName:    "broker",
-		NewWorker: func(caasprovisioner.CAASProvisionerFacade, caas.Broker, names.ModelTag, agent.Config) (worker.Worker, error) {
+		NewWorker: func(caasoperatorprovisioner.CAASProvisionerFacade, caas.Broker, names.ModelTag, agent.Config) (worker.Worker, error) {
 			return nil, nil
 		},
 	}

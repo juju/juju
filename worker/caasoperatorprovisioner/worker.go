@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasprovisioner
+package caasoperatorprovisioner
 
 import (
 	"github.com/juju/errors"
@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
-	apicaasprovisioner "github.com/juju/juju/api/caasprovisioner"
+	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
