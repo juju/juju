@@ -253,6 +253,7 @@ var newCommandTests = []struct {
 	{"config-get", ""},
 	{"status-set", ""},
 	{"container-spec-set", ""},
+	{"juju-log", ""},
 	// The error message contains .exe on Windows
 	{"random", "unknown command: random(.exe)?"},
 }

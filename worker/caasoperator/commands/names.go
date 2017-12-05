@@ -16,7 +16,7 @@ var registeredCommands = map[string]creator{}
 // baseCommands maps Command names to creators.
 var baseCommands = map[string]creator{
 	"config-get":              NewConfigGetCommand,
-	"juju-log":                nil,
+	"juju-log":                NewJujuLogCommand,
 	"status-get":              nil,
 	"status-set":              NewStatusSetCommand,
 	"application-version-set": nil,

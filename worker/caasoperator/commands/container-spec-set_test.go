@@ -22,10 +22,6 @@ type ContainerspecSetSuite struct {
 
 var _ = gc.Suite(&ContainerspecSetSuite{})
 
-func (s *ContainerspecSetSuite) SetUpTest(c *gc.C) {
-	s.ContextSuite.SetUpTest(c)
-}
-
 var containerSpecYaml = `
 containerspec:
   foo: bar
