@@ -84,18 +84,16 @@ func (m *mockAgentConfig) APIAddresses() ([]string, error) {
 }
 
 type mockBroker struct {
+	caas.Broker
+
 	appName   string
 	agentPath string
 	config    *caas.OperatorConfig
 }
 
-func (m *mockBroker) EnsureOperator(appName, agentPath string, newConfig caas.NewOperatorConfigFunc) error {
+func (m *mockBroker) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
 	m.appName = appName
 	m.agentPath = agentPath
-	config, err := newConfig()
-	if err != nil {
-		return err
-	}
 	m.config = config
 	return nil
 }

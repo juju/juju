@@ -67,12 +67,6 @@ func (p *provisioner) Wait() error {
 }
 
 func (p *provisioner) loop() error {
-	newConfigFunc := func(appName, password string) func() (*caas.OperatorConfig, error) {
-		return func() (*caas.OperatorConfig, error) {
-			return p.newOperatorConfig(appName, password)
-		}
-	}
-
 	// TODO(caas) -  this loop should also keep an eye on kubernetes and ensure
 	// that the operator stays up, redeploying it if the pod goes
 	// away. For some runtimes we *could* rely on the the runtime's
@@ -103,7 +97,11 @@ func (p *provisioner) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), newConfigFunc(app, password)); err != nil {
+				config, err := p.newOperatorConfig(app, password)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), config); err != nil {
 					return errors.Annotatef(err, "failed to start operator for %q", app)
 				}
 				appPasswords = append(appPasswords, apicaasprovisioner.ApplicationPassword{Name: app, Password: password})

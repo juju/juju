@@ -8,15 +8,14 @@ import "github.com/juju/juju/environs"
 // NewContainerBrokerFunc returns a Container Broker.
 type NewContainerBrokerFunc func(environs.CloudSpec) (Broker, error)
 
-// NewOperatorConfigFunc functions return the agent config to use for
-// a CAAS jujud operator.
-type NewOperatorConfigFunc func() (*OperatorConfig, error)
-
 // Broker instances interact with the CAAS substrate.
 type Broker interface {
-	// EnsureOperator creates an operator for running a charm for the specified application.
-	// If the operator exists, this does nothing.
-	EnsureOperator(appName, agentPath string, newConfig NewOperatorConfigFunc) error
+	// EnsureOperator creates or updates an operator pod for running
+	// a charm for the specified application.
+	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
+
+	// EnsureUnit creates or updates a pod with the given spec.
+	EnsureUnit(unitName, spec string) error
 }
 
 // OperatorConfig is the config to use when creating an operator.
