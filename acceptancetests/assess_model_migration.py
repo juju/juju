@@ -510,7 +510,7 @@ def migrate_model_to_controller(
         wait_for_model(migration_target_client, source_client.env.environment)
         migration_target_client.wait_for_started()
         wait_until_model_disappears(
-            source_client, source_client.env.environment)
+            source_client, source_client.env.environment, timeout=480)
     except JujuAssertionError as e:
         # Attempt to show model details as it might log migration failure
         # message.

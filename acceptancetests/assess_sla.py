@@ -41,13 +41,8 @@ def assert_sla_state(client, expected_state):
             'Found: {}\nExpected: {}'.format(sla_state, expected_state))
 
 
-def assess_sla(client, series='xenial'):
+def assess_sla(client):
     client.wait_for_started()
-    dummy_source = local_charm_path(charm='dummy-source',
-                                    juju_ver=client.version,
-                                    series=series)
-    client.deploy(charm=dummy_source)
-    client.wait_for_workloads()
     # As we are unable to test supported models, for now, we only can assert
     # on the model shows correctly as unsupported
     assert_sla_state(client, 'unsupported')
