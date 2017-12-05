@@ -138,6 +138,9 @@ func NewRecorder(log AuditLog, c ConversationArgs) (*Recorder, error) {
 
 // AddRequest records a method call to the API.
 func (r *Recorder) AddRequest(m RequestArgs) error {
+	if r == nil {
+		return nil
+	}
 	return errors.Trace(r.log.AddRequest(Request{
 		ConversationID: r.callID,
 		ConnectionID:   r.connectionID,
@@ -151,6 +154,9 @@ func (r *Recorder) AddRequest(m RequestArgs) error {
 
 // AddResponse records the result of a method call to the API.
 func (r *Recorder) AddResponse(m ResponseErrorsArgs) error {
+	if r == nil {
+		return nil
+	}
 	return errors.Trace(r.log.AddResponse(ResponseErrors{
 		ConversationID: r.callID,
 		ConnectionID:   r.connectionID,

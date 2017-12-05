@@ -4,6 +4,7 @@
 package rpc
 
 import (
+	"encoding/json"
 	"io"
 	"reflect"
 	"runtime/debug"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/rpc/rpcreflect"
 )
 
@@ -150,6 +152,7 @@ type Conn struct {
 	inputLoopError error
 
 	observerFactory ObserverFactory
+	recorder        *auditlog.Recorder
 }
 
 // NewConn creates a new connection that uses the given codec for
@@ -221,9 +224,9 @@ func (conn *Conn) Start() {
 func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
 	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
 	if rootValue.IsValid() {
-		conn.serve(rootValue, transformErrors)
+		conn.serve(rootValue, nil, transformErrors)
 	} else {
-		conn.serve(nil, transformErrors)
+		conn.serve(nil, nil, transformErrors)
 	}
 }
 
@@ -236,17 +239,18 @@ func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
 // possibly returning some result.
 //
 // The Kill method will be called when the connection is closed.
-func (conn *Conn) ServeRoot(root Root, transformErrors func(error) error) {
-	conn.serve(root, transformErrors)
+func (conn *Conn) ServeRoot(root Root, recorder *auditlog.Recorder, transformErrors func(error) error) {
+	conn.serve(root, recorder, transformErrors)
 }
 
-func (conn *Conn) serve(root Root, transformErrors func(error) error) {
+func (conn *Conn) serve(root Root, recorder *auditlog.Recorder, transformErrors func(error) error) {
 	if transformErrors == nil {
 		transformErrors = noopTransform
 	}
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	conn.root = root
+	conn.recorder = recorder
 	conn.transformErrors = transformErrors
 }
 
@@ -392,13 +396,15 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	observer := conn.observerFactory.RPCObserver()
 	req, err := conn.bindRequest(hdr)
 	if err != nil {
-		observer.ServerRequest(hdr, nil)
+		if err := logRequest(req, observer, nil); err != nil {
+			return errors.Trace(err)
+		}
 		if err := conn.readBody(nil, true); err != nil {
 			return err
 		}
 		// We don't transform the error here. bindRequest will have
 		// already transformed it and returned a zero req.
-		return conn.writeErrorResponse(hdr, err, observer)
+		return conn.writeErrorResponse(req, err, observer)
 	}
 	var argp interface{}
 	var arg reflect.Value
@@ -408,7 +414,9 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		argp = v.Interface()
 	}
 	if err := conn.readBody(argp, true); err != nil {
-		observer.ServerRequest(hdr, nil)
+		if err := logRequest(req, observer, nil); err != nil {
+			return errors.Trace(err)
+		}
 
 		// If we get EOF, we know the connection is a
 		// goner, so don't try to respond.
@@ -423,12 +431,14 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// the error is actually a framing or syntax
 		// problem, then the next ReadHeader should pick
 		// up the problem and abort.
-		return conn.writeErrorResponse(hdr, req.transformErrors(err), observer)
+		return conn.writeErrorResponse(req, req.transformErrors(err), observer)
 	}
+	var body interface{} = struct{}{}
 	if req.ParamsType() != nil {
-		observer.ServerRequest(hdr, arg.Interface())
-	} else {
-		observer.ServerRequest(hdr, struct{}{})
+		body = arg.Interface()
+	}
+	if err := logRequest(req, observer, body); err != nil {
+		return errors.Trace(err)
 	}
 	conn.mutex.Lock()
 	closing := conn.closing
@@ -439,17 +449,17 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	conn.mutex.Unlock()
 	if closing {
 		// We're closing down - no new requests may be initiated.
-		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), observer)
+		return conn.writeErrorResponse(req, req.transformErrors(ErrShutdown), observer)
 	}
 	return nil
 }
 
-func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, observer Observer) error {
+func (conn *Conn) writeErrorResponse(req boundRequest, err error, observer Observer) error {
 	conn.sending.Lock()
 	defer conn.sending.Unlock()
 	hdr := &Header{
-		RequestId: reqHdr.RequestId,
-		Version:   reqHdr.Version,
+		RequestId: req.hdr.RequestId,
+		Version:   req.hdr.Version,
 	}
 	if err, ok := err.(ErrorCoder); ok {
 		hdr.ErrorCode = err.ErrorCode()
@@ -457,7 +467,9 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, observer Observe
 		hdr.ErrorCode = ""
 	}
 	hdr.Error = err.Error()
-	observer.ServerReply(reqHdr.Request, hdr, struct{}{})
+	if err := logReply(req, observer, hdr, struct{}{}); err != nil {
+		return errors.Trace(err)
+	}
 
 	return conn.codec.WriteMessage(hdr, struct{}{})
 }
@@ -467,6 +479,7 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, observer Observe
 type boundRequest struct {
 	rpcreflect.MethodCaller
 	transformErrors func(error) error
+	recorder        *auditlog.Recorder
 	hdr             Header
 }
 
@@ -477,6 +490,7 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	conn.mutex.Lock()
 	root := conn.root
 	transformErrors := conn.transformErrors
+	recorder := conn.recorder
 	conn.mutex.Unlock()
 
 	if root == nil {
@@ -497,6 +511,7 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	return boundRequest{
 		MethodCaller:    caller,
 		transformErrors: transformErrors,
+		recorder:        recorder,
 		hdr:             *hdr,
 	}, nil
 }
@@ -508,14 +523,14 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, o
 		if panicResult := recover(); panicResult != nil {
 			logger.Criticalf(
 				"panic running request %+v with arg %+v: %v\n%v", req, arg, panicResult, string(debug.Stack()))
-			conn.writeErrorResponse(&req.hdr, errors.Errorf("%v", panicResult), observer)
+			conn.writeErrorResponse(req, errors.Errorf("%v", panicResult), observer)
 		}
 	}()
 	defer conn.srvPending.Done()
 
 	rv, err := req.Call(req.hdr.Request.Id, arg)
 	if err != nil {
-		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), observer)
+		err = conn.writeErrorResponse(req, req.transformErrors(err), observer)
 	} else {
 		hdr := &Header{
 			RequestId: req.hdr.RequestId,
@@ -527,7 +542,9 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, o
 		} else {
 			rvi = struct{}{}
 		}
-		observer.ServerReply(req.hdr.Request, hdr, rvi)
+		if err := logReply(req, observer, hdr, rvi); err != nil {
+			logger.Errorf("error logging response: %T %+v", err, err)
+		}
 		conn.sending.Lock()
 		err = conn.codec.WriteMessage(hdr, rvi)
 		conn.sending.Unlock()
@@ -565,3 +582,45 @@ type nopObserver struct{}
 func (nopObserver) ServerRequest(hdr *Header, body interface{}) {}
 
 func (nopObserver) ServerReply(req Request, hdr *Header, body interface{}) {}
+
+func logRequest(req boundRequest, observer Observer, body interface{}) error {
+	observer.ServerRequest(&req.hdr, body)
+	// TODO(babbageclunk): make this configurable.
+	jsonArgs, err := json.Marshal(body)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(req.recorder.AddRequest(auditlog.RequestArgs{
+		RequestID: req.hdr.RequestId,
+		Facade:    req.hdr.Request.Type,
+		Method:    req.hdr.Request.Action,
+		Version:   req.hdr.Request.Version,
+		Args:      string(jsonArgs),
+	}))
+}
+
+func logReply(req boundRequest, observer Observer, replyHdr *Header, body interface{}) error {
+	observer.ServerReply(req.hdr.Request, replyHdr, body)
+	var responseErrors []*auditlog.Error
+	if replyHdr.Error == "" {
+		var err error
+		responseErrors, err = extractErrors(body)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		responseErrors = []*auditlog.Error{{
+			Message: replyHdr.Error,
+			Code:    replyHdr.ErrorCode,
+		}}
+	}
+	return errors.Trace(req.recorder.AddResponse(auditlog.ResponseErrorsArgs{
+		RequestID: replyHdr.RequestId,
+		Errors:    responseErrors,
+	}))
+}
+
+func extractErrors(body interface{}) ([]*auditlog.Error, error) {
+	// TODO(babbageclunk): use reflection to find errors in the response body.
+	return nil, nil
+}

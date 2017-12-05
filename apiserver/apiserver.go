@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
@@ -95,6 +96,8 @@ type Server struct {
 	logSinkWriter          io.WriteCloser
 	logsinkRateLimitConfig logsink.RateLimitConfig
 	dbloggers              dbloggers
+	auditLogConfig         AuditLogConfig
+	auditLogger            auditlog.AuditLog
 	upgradeComplete        func() bool
 	restoreStatus          func() state.RestoreStatus
 
@@ -179,6 +182,9 @@ type ServerConfig struct {
 	// logsink endpoint behaviour. If this is nil, the values from
 	// DefaultLogSinkConfig() will be used.
 	LogSinkConfig *LogSinkConfig
+
+	// AuditLogConfig holds parameters to configure audit logging.
+	AuditLogConfig AuditLogConfig
 
 	// PrometheusRegisterer registers Prometheus collectors.
 	PrometheusRegisterer prometheus.Registerer
@@ -275,6 +281,27 @@ func (c RateLimitConfig) Validate() error {
 		return errors.NotValidf("conn-lookback-window %d < 0 or > 5s", c.ConnMaxPause)
 	}
 	return nil
+}
+
+// AuditLogConfig holds parameters to control audit logging.
+type AuditLogConfig struct {
+	// Whether to capture API method args (command line args will
+	// always be captured).
+	CaptureAPIArgs bool
+	// Max log file size (in Mb).
+	MaxSize int
+	// How many files back to keep.
+	MaxBackups int
+}
+
+// DefaultAuditLogConfig returns an AuditLogConfig with default
+// values.
+func DefaultAuditLogConfig() AuditLogConfig {
+	return AuditLogConfig{
+		CaptureAPIArgs: false,
+		MaxSize:        300,
+		MaxBackups:     10,
+	}
 }
 
 // LogSinkConfig holds parameters to control the API server's
@@ -383,6 +410,12 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 			Burst:  cfg.LogSinkConfig.RateLimitBurst,
 			Clock:  cfg.Clock,
 		},
+		auditLogConfig: cfg.AuditLogConfig,
+		auditLogger: auditlog.NewLogFile(
+			cfg.LogDir,
+			cfg.AuditLogConfig.MaxSize,
+			cfg.AuditLogConfig.MaxBackups,
+		),
 		dbloggers: dbloggers{
 			clock:                 cfg.Clock,
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
@@ -914,13 +947,25 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	websocket.Serve(w, req, func(conn *websocket.Conn) {
 		modelUUID := req.URL.Query().Get(":modeluuid")
 		logger.Tracef("got a request for model %q", modelUUID)
-		if err := srv.serveConn(conn, modelUUID, apiObserver, req.Host); err != nil {
+		if err := srv.serveConn(
+			conn,
+			modelUUID,
+			connectionID,
+			apiObserver,
+			req.Host,
+		); err != nil {
 			logger.Errorf("error serving RPCs: %v", err)
 		}
 	})
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer, host string) error {
+func (srv *Server) serveConn(
+	wsConn *websocket.Conn,
+	modelUUID string,
+	connectionID uint64,
+	apiObserver observer.Observer,
+	host string,
+) error {
 	codec := jsoncodec.NewWebsocket(wsConn.Conn)
 	conn := rpc.NewConn(codec, apiObserver)
 
@@ -942,11 +987,11 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 
 	if err == nil {
 		defer releaser()
-		h, err = newAPIHandler(srv, st, conn, modelUUID, host)
+		h, err = newAPIHandler(srv, st, conn, modelUUID, connectionID, host)
 	}
 
 	if err != nil {
-		conn.ServeRoot(&errRoot{errors.Trace(err)}, serverError)
+		conn.ServeRoot(&errRoot{errors.Trace(err)}, nil, serverError)
 	} else {
 		// Set up the admin apis used to accept logins and direct
 		// requests to the relevant business facade.
@@ -956,7 +1001,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 		for apiVersion, factory := range adminAPIFactories {
 			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
 		}
-		conn.ServeRoot(newAdminRoot(h, adminAPIs), serverError)
+		conn.ServeRoot(newAdminRoot(h, adminAPIs), nil, serverError)
 	}
 	conn.Start()
 	select {

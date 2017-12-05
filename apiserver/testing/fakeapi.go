@@ -82,7 +82,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string) {
 	root := allVersions{
 		rpcreflect.ValueOf(reflect.ValueOf(srv.newRoot(modelUUID))),
 	}
-	conn.ServeRoot(root, nil)
+	conn.ServeRoot(root, nil, nil)
 	conn.Start()
 	<-conn.Dead()
 	conn.Close()

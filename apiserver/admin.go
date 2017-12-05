@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/presence"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -135,7 +136,26 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		modelTag = a.root.model.Tag().String()
 	}
 
-	a.root.rpcConn.ServeRoot(apiRoot, serverError)
+	var recorder *auditlog.Recorder
+	if authResult.userLogin {
+		// We only audit connections from humans.
+		recorder, err = auditlog.NewRecorder(
+			a.srv.auditLogger,
+			auditlog.ConversationArgs{
+				Who:          req.AuthTag,
+				What:         req.CLIArgs,
+				When:         a.srv.clock.Now(),
+				ModelName:    a.root.model.Name(),
+				ModelUUID:    a.root.model.UUID(),
+				ConnectionID: a.root.connectionID,
+			},
+		)
+		if err != nil {
+			return fail, errors.Trace(err)
+		}
+	}
+
+	a.root.rpcConn.ServeRoot(apiRoot, recorder, serverError)
 	return params.LoginResult{
 		Servers:       params.FromNetworkHostsPorts(hostPorts),
 		ControllerTag: a.root.model.ControllerTag().String(),
