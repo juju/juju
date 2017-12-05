@@ -7,6 +7,8 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 )
@@ -16,6 +18,7 @@ import (
 type CAASOperatorState interface {
 	Application(string) (Application, error)
 	Model() (Model, error)
+	APIHostPorts() ([][]network.HostPort, error)
 }
 
 // Model provides the subset of CAAS model state required
@@ -23,6 +26,7 @@ type CAASOperatorState interface {
 type Model interface {
 	SetContainerSpec(names.Tag, string) error
 	Name() string
+	Config() (*config.Config, error)
 }
 
 // Application provides the subset of application state

@@ -240,3 +240,18 @@ func (s *CAASOperatorSuite) TestModelName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Result, gc.Equals, "some-model")
 }
+
+func (s *CAASOperatorSuite) TestAPIAddresses(c *gc.C) {
+	result, err := s.facade.APIAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Result, gc.DeepEquals, []string{"0.1.2.3:1234", "0.1.2.4:1234", "0.1.2.5:1234"})
+}
+
+func (s *CAASOperatorSuite) TestProxyConfig(c *gc.C) {
+	result, err := s.facade.ProxyConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ProxyConfig{
+		HTTP:    "http.proxy",
+		NoProxy: "127.0.0.1,::1,localhost",
+	})
+}

@@ -20,6 +20,8 @@ type Client interface {
 	CharmGetter
 	ContainerSpecSetter
 	StatusSetter
+	APIAddressGetter
+	ProxySettingsGetter
 	ModelName() (string, error)
 }
 
@@ -49,6 +51,18 @@ type StatusSetter interface {
 	) error
 }
 
+// APIAddressGetter provides an interface for getting
+// the API addresses of the controller(s).
+type APIAddressGetter interface {
+	APIAddresses() ([]string, error)
+}
+
+// ProxySettingsGetter provides an interface for getting
+// the proxy settings of the model.
+type ProxySettingsGetter interface {
+	ProxySettings() (proxy.Settings, error)
+}
+
 // ApplicationConfigGetter provides an interface for
 // watching and getting the application's config settings.
 type ApplicationConfigGetter interface {
@@ -57,6 +71,11 @@ type ApplicationConfigGetter interface {
 }
 
 // TODO(caas) - split this up
+type contextFactoryAPIAdaptor struct {
+	APIAddressGetter
+	ProxySettingsGetter
+}
+
 type hookAPIAdaptor struct {
 	StatusSetter
 	ApplicationConfigGetter
@@ -84,15 +103,4 @@ func (h *dummyHookAPI) ApplicationStatus() (params.ApplicationStatusResult, erro
 
 func (h *dummyHookAPI) NetworkInfo(bindings []string, relId *int) (map[string]params.NetworkInfoResult, error) {
 	return make(map[string]params.NetworkInfoResult), nil
-}
-
-// TODO(caas) implement this API
-type dummyContextFactoryAPI struct{}
-
-func (c *dummyContextFactoryAPI) APIAddresses() ([]string, error) {
-	return []string{}, nil
-}
-
-func (c *dummyContextFactoryAPI) ProxySettings() (proxy.Settings, error) {
-	return proxy.Settings{}, nil
 }
