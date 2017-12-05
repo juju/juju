@@ -68,6 +68,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
+	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
@@ -151,6 +152,7 @@ func AllFacades() *facade.Registry {
 		reg("Cloud", 2, cloud.NewFacadeV2)
 		reg("CAASOperator", 1, caasoperator.NewStateFacade)
 		reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
+		reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
 	}
 
 	reg("Controller", 3, controller.NewControllerAPIv3)
