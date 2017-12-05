@@ -269,7 +269,12 @@ func (ctx *HookContext) NetworkInfo(bindingNames []string, relationId int) (map[
 	return ctx.hookAPI.NetworkInfo(bindingNames, relId)
 }
 
-// SetContainerSpec updates the yaml spec used to create a container.
-func (ctx *HookContext) SetContainerSpec(specYaml, unitName string) error {
-	return ctx.hookAPI.SetContainerSpec(specYaml, unitName)
+// SetContainerSpec updates the container spec for the specified unit. If no
+// unit name is specified, then the container spec is set for the application.
+func (ctx *HookContext) SetContainerSpec(unitName, spec string) error {
+	entityName := unitName
+	if entityName == "" {
+		entityName = ctx.applicationName
+	}
+	return ctx.hookAPI.SetContainerSpec(entityName, spec)
 }

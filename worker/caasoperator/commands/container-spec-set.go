@@ -58,7 +58,7 @@ func (c *ContainerspecSetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return c.ctx.SetContainerSpec(specData, c.unitName)
+	return c.ctx.SetContainerSpec(c.unitName, specData)
 }
 
 func (c *ContainerspecSetCommand) handleSpecFile(ctx *cmd.Context) (string, error) {

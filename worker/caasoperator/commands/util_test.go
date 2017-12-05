@@ -72,8 +72,8 @@ func (m *mockHookContext) ApplicationConfig() (charm.Settings, error) {
 	return settingsCopy, nil
 }
 
-func (m *mockHookContext) SetContainerSpec(specYaml, unitName string) error {
-	m.containerSpec = specYaml
+func (m *mockHookContext) SetContainerSpec(unitName, spec string) error {
+	m.containerSpec = spec
 	m.containerSpecUnit = unitName
 	return nil
 }
