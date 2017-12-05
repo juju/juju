@@ -111,6 +111,7 @@ func (p *provisioner) loop() error {
 				}
 				w, err := newApplicationWorker(
 					appId,
+					p.config.ContainerBroker,
 					p.config.ContainerSpecGetter,
 					p.config.LifeGetter,
 					p.config.UnitGetter,

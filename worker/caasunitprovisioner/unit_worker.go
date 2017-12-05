@@ -5,7 +5,6 @@ package caasunitprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/kr/pretty"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/worker/catacomb"
@@ -14,15 +13,18 @@ import (
 type unitWorker struct {
 	catacomb            catacomb.Catacomb
 	unit                string
+	broker              ContainerBroker
 	containerSpecGetter ContainerSpecGetter
 }
 
 func newUnitWorker(
 	unit string,
+	broker ContainerBroker,
 	containerSpecGetter ContainerSpecGetter,
 ) (worker.Worker, error) {
 	w := &unitWorker{
 		unit:                unit,
+		broker:              broker,
 		containerSpecGetter: containerSpecGetter,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -72,12 +74,10 @@ func (w *unitWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			// TODO(caas) create/update the unit container.
-			logger.Debugf(
-				"container spec for %s: %s",
-				w.unit,
-				pretty.Sprint(spec),
-			)
+			if err := w.broker.EnsureUnit(w.unit, spec); err != nil {
+				return errors.Trace(err)
+			}
+			logger.Debugf("created/updated unit %s", w.unit)
 		}
 	}
 }
