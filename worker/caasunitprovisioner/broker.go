@@ -4,7 +4,5 @@
 package caasunitprovisioner
 
 type ContainerBroker interface {
-	// TODO(caas) update the caas.Broker type with a method
-	// for creating/updating a unit container, and expose
-	// it here.
+	EnsureUnit(unitName, spec string) error
 }

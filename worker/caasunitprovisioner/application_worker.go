@@ -14,6 +14,7 @@ import (
 type applicationWorker struct {
 	catacomb            catacomb.Catacomb
 	application         string
+	broker              ContainerBroker
 	containerSpecGetter ContainerSpecGetter
 	lifeGetter          LifeGetter
 	unitGetter          UnitGetter
@@ -21,12 +22,14 @@ type applicationWorker struct {
 
 func newApplicationWorker(
 	application string,
+	broker ContainerBroker,
 	containerSpecGetter ContainerSpecGetter,
 	lifeGetter LifeGetter,
 	unitGetter UnitGetter,
 ) (worker.Worker, error) {
 	w := &applicationWorker{
 		application:         application,
+		broker:              broker,
 		containerSpecGetter: containerSpecGetter,
 		lifeGetter:          lifeGetter,
 		unitGetter:          unitGetter,
@@ -86,7 +89,7 @@ func (aw *applicationWorker) loop() error {
 					// not yet watching it and it's dead.
 					continue
 				}
-				w, err := newUnitWorker(unitId, aw.containerSpecGetter)
+				w, err := newUnitWorker(unitId, aw.broker, aw.containerSpecGetter)
 				if err != nil {
 					return errors.Trace(err)
 				}

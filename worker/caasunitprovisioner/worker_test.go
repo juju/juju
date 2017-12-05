@@ -31,6 +31,7 @@ type WorkerSuite struct {
 	applicationChanges   chan []string
 	unitChanges          chan []string
 	containerSpecChanges chan struct{}
+	unitEnsured          chan struct{}
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -41,6 +42,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.applicationChanges = make(chan []string)
 	s.unitChanges = make(chan []string)
 	s.containerSpecChanges = make(chan struct{})
+	s.unitEnsured = make(chan struct{})
 
 	s.applicationGetter = mockApplicationGetter{
 		watcher: watchertest.NewMockStringsWatcher(s.applicationChanges),
@@ -48,6 +50,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.applicationGetter.watcher) })
 
 	s.containerSpecGetter = mockContainerSpecGetter{
+		spec:    "container-spec",
 		watcher: watchertest.NewMockNotifyWatcher(s.containerSpecChanges),
 	}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.containerSpecGetter.watcher) })
@@ -57,7 +60,9 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.unitGetter.watcher) })
 
-	s.containerBroker = mockContainerBroker{}
+	s.containerBroker = mockContainerBroker{
+		ensured: s.unitEnsured,
+	}
 	s.lifeGetter = mockLifeGetter{
 		life: life.Alive,
 	}
@@ -68,6 +73,14 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		ContainerSpecGetter: &s.containerSpecGetter,
 		LifeGetter:          &s.lifeGetter,
 		UnitGetter:          &s.unitGetter,
+	}
+}
+
+func (s *WorkerSuite) sendContainerSpecChange(c *gc.C) {
+	select {
+	case s.containerSpecChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending container spec change")
 	}
 }
 
@@ -129,26 +142,36 @@ func (s *WorkerSuite) TestWatchContainerSpec(c *gc.C) {
 		c.Fatal("timed out sending units change")
 	}
 
+	// We seed a "not found" error above to indicate that
+	// there is not yet a container spec; the broker should
+	// not be invoked.
+	s.sendContainerSpecChange(c)
 	select {
-	case s.containerSpecChanges <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending container spec change")
+	case <-s.unitEnsured:
+		c.Fatal("unit ensured unexpectedly")
+	case <-time.After(coretesting.ShortWait):
 	}
 
-	// TODO(caas) when we have a container broker capable
-	// of provisioning unit containers, check that no unit
-	// is created yet (since there's not yet a spec).
+	s.sendContainerSpecChange(c)
+	select {
+	case <-s.unitEnsured:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for unit to be ensured")
+	}
 
 	workertest.CleanKill(c, w)
 	s.applicationGetter.CheckCallNames(c, "WatchApplications")
 	s.unitGetter.CheckCallNames(c, "WatchUnits")
 	s.unitGetter.CheckCall(c, 0, "WatchUnits", "gitlab")
-	s.containerSpecGetter.CheckCallNames(c, "WatchContainerSpec", "ContainerSpec")
+	s.containerSpecGetter.CheckCallNames(c, "WatchContainerSpec", "ContainerSpec", "ContainerSpec")
 	s.containerSpecGetter.CheckCall(c, 0, "WatchContainerSpec", "gitlab/0")
-	s.containerSpecGetter.CheckCall(c, 1, "ContainerSpec", "gitlab/0")
+	s.containerSpecGetter.CheckCall(c, 1, "ContainerSpec", "gitlab/0") // not found
+	s.containerSpecGetter.CheckCall(c, 2, "ContainerSpec", "gitlab/0")
 	s.lifeGetter.CheckCallNames(c, "Life", "Life")
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
+	s.containerBroker.CheckCallNames(c, "EnsureUnit")
+	s.containerBroker.CheckCall(c, 0, "EnsureUnit", "gitlab/0", "container-spec")
 }
 
 func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {

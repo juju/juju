@@ -80,6 +80,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"api-config-watcher",
 		"caas-broker-tracker",
 		"caas-operator-provisioner",
+		"caas-unit-provisioner",
 		"charm-revision-updater",
 		"clock",
 		"is-responsible-flag",

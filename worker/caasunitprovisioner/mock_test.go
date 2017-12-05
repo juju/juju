@@ -28,6 +28,13 @@ type fakeClient struct {
 
 type mockContainerBroker struct {
 	testing.Stub
+	ensured chan<- struct{}
+}
+
+func (m *mockContainerBroker) EnsureUnit(unitName, spec string) error {
+	m.MethodCall(m, "EnsureUnit", unitName, spec)
+	m.ensured <- struct{}{}
+	return m.NextErr()
 }
 
 type mockApplicationGetter struct {

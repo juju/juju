@@ -13,6 +13,8 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	caasunitprovisionerapi "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -26,6 +28,7 @@ import (
 	"github.com/juju/juju/worker/caasbroker"
 	"github.com/juju/juju/worker/caasmodelupgrader"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
+	"github.com/juju/juju/worker/caasunitprovisioner"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/cleaner"
@@ -402,6 +405,16 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				NewWorker:     caasoperatorprovisioner.NewProvisionerWorker,
 			},
 		)),
+		caasUnitProvisionerName: ifNotMigrating(caasunitprovisioner.Manifold(
+			caasunitprovisioner.ManifoldConfig{
+				APICallerName: apiCallerName,
+				BrokerName:    caasBrokerTrackerName,
+				NewClient: func(caller base.APICaller) caasunitprovisioner.Client {
+					return caasunitprovisionerapi.NewClient(caller)
+				},
+				NewWorker: caasunitprovisioner.NewWorker,
+			},
+		)),
 		modelUpgraderName: caasmodelupgrader.Manifold(caasmodelupgrader.ManifoldConfig{
 			APICallerName: apiCallerName,
 			GateName:      modelUpgradeGateName,
@@ -522,5 +535,6 @@ const (
 	logForwarderName         = "log-forwarder"
 
 	caasOperatorProvisionerName = "caas-operator-provisioner"
+	caasUnitProvisionerName     = "caas-unit-provisioner"
 	caasBrokerTrackerName       = "caas-broker-tracker"
 )

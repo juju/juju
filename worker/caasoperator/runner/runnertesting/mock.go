@@ -24,8 +24,8 @@ type MockContextAPI struct {
 	settings       proxy.Settings
 	appStatus      status.StatusInfo
 	configSettings charm.Settings
-	SpecYaml       string
-	SpecUnitName   string
+	Spec           string
+	SpecEntityName string
 }
 
 func (m *MockContextAPI) APIAddresses() ([]string, error) {
@@ -70,9 +70,9 @@ func (m *MockContextAPI) SetApplicationStatus(s status.Status, info string, data
 	return nil
 }
 
-func (m *MockContextAPI) SetContainerSpec(specYaml, unitName string) error {
-	m.SpecYaml = specYaml
-	m.SpecUnitName = unitName
+func (m *MockContextAPI) SetContainerSpec(entityName, spec string) error {
+	m.Spec = spec
+	m.SpecEntityName = entityName
 	return nil
 }
 

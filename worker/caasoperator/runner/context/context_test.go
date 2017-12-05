@@ -130,8 +130,16 @@ func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
 
 func (s *InterfaceSuite) TestSetContainerSpec(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
-	err := ctx.SetContainerSpec("yaml", "unit")
+	err := ctx.SetContainerSpec("gitlab/0", "spec")
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(s.contextAPI.SpecYaml, gc.Equals, "yaml")
-	c.Assert(s.contextAPI.SpecUnitName, gc.Equals, "unit")
+	c.Assert(s.contextAPI.Spec, gc.Equals, "spec")
+	c.Assert(s.contextAPI.SpecEntityName, gc.Equals, "gitlab/0")
+}
+
+func (s *InterfaceSuite) TestSetContainerSpecApplication(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	err := ctx.SetContainerSpec("", "spec")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(s.contextAPI.Spec, gc.Equals, "spec")
+	c.Assert(s.contextAPI.SpecEntityName, gc.Equals, "gitlab")
 }

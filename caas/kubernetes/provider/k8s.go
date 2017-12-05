@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	k8serrors "k8s.io/client-go/pkg/api/errors"
 	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/util/yaml"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/agent"
@@ -68,83 +70,60 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 	}, nil
 }
 
-// EnsureOperator creates a new operator for appName, replacing any existing operator.
-func (k *kubernetesClient) EnsureOperator(appName, agentPath string, newConfig caas.NewOperatorConfigFunc) error {
-	if exists, err := k.operatorExists(appName); err != nil {
-		return errors.Trace(err)
-	} else if exists {
-		logger.Debugf("%s operator already deployed - deleting", appName)
-		if err := k.deleteOperator(appName); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	logger.Debugf("deploying %s operator", appName)
-
+// EnsureOperator creates or updates an operator pod with the given application
+// name, agent path, and operator config.
+func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
+	logger.Debugf("creating/updating %s operator", appName)
 	// TODO(caas) use secrets for storing agent password?
-	configMapName, err := k.ensureConfigMap(appName, newConfig)
-	if err != nil {
+	if err := k.ensureConfigMap(operatorConfigMap(appName, config)); err != nil {
+		return errors.Annotate(err, "creating or updating ConfigMap")
+	}
+	pod := operatorPod(appName, agentPath)
+	if err := k.deletePod(pod.Name); err != nil {
 		return errors.Trace(err)
 	}
-
-	return k.deployOperator(appName, agentPath, configMapName)
+	return k.createPod(pod)
 }
 
-func (k *kubernetesClient) ensureConfigMap(appName string, newConfig caas.NewOperatorConfigFunc) (string, error) {
-	mapName := configMapName(appName)
-
-	config, err := newConfig()
+// EnsureUnit creates or updates a unit pod with the given unit name and spec.
+func (k *kubernetesClient) EnsureUnit(unitName, spec string) error {
+	logger.Debugf("creating/updating %s", unitName)
+	unitSpec, err := parseUnitSpec(spec)
 	if err != nil {
-		return "", errors.Annotate(err, "creating config")
+		return errors.Annotatef(err, "parsing spec for %s", unitName)
 	}
-	if err := k.updateConfigMap(mapName, config); err != nil {
-		return "", errors.Annotate(err, "creating or updating ConfigMap")
+	podName := unitPodName(unitName)
+	if err := k.deletePod(podName); err != nil {
+		return errors.Trace(err)
 	}
-	return mapName, nil
+	pod := &v1.Pod{
+		ObjectMeta: v1.ObjectMeta{Name: podName},
+		Spec:       unitSpec.Pod,
+	}
+	return k.createPod(pod)
 }
 
-func (k *kubernetesClient) updateConfigMap(configMapName string, config *caas.OperatorConfig) error {
-	_, err := k.CoreV1().ConfigMaps(namespace).Update(&v1.ConfigMap{
-		ObjectMeta: v1.ObjectMeta{
-			Name: configMapName,
-		},
-		Data: map[string]string{
-			"agent.conf": string(config.AgentConf),
-		},
-	})
+func (k *kubernetesClient) ensureConfigMap(configMap *v1.ConfigMap) error {
+	configMaps := k.CoreV1().ConfigMaps(namespace)
+	_, err := configMaps.Update(configMap)
 	if k8serrors.IsNotFound(err) {
-		return k.createConfigMap(configMapName, config)
+		_, err = configMaps.Create(configMap)
 	}
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) createConfigMap(configMapName string, config *caas.OperatorConfig) error {
-	_, err := k.CoreV1().ConfigMaps(namespace).Create(&v1.ConfigMap{
-		ObjectMeta: v1.ObjectMeta{
-			Name: configMapName,
-		},
-		Data: map[string]string{
-			"agent.conf": string(config.AgentConf),
-		},
-	})
+func (k *kubernetesClient) createPod(spec *v1.Pod) error {
+	pods := k.CoreV1().Pods(namespace)
+	_, err := pods.Create(spec)
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) operatorExists(appName string) (bool, error) {
-	_, err := k.CoreV1().Pods(namespace).Get(podName(appName))
-	if k8serrors.IsNotFound(err) {
-		return false, nil
-	} else if err != nil {
-		return false, errors.Trace(err)
-	}
-	return true, nil
-}
-
-func (k *kubernetesClient) deleteOperator(appName string) error {
-	podName := podName(appName)
+func (k *kubernetesClient) deletePod(podName string) error {
 	orphanDependents := false
-	err := k.CoreV1().Pods(namespace).Delete(
-		podName,
-		&v1.DeleteOptions{OrphanDependents: &orphanDependents})
+	pods := k.CoreV1().Pods(namespace)
+	err := pods.Delete(podName, &v1.DeleteOptions{
+		OrphanDependents: &orphanDependents,
+	})
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -152,22 +131,25 @@ func (k *kubernetesClient) deleteOperator(appName string) error {
 		return errors.Trace(err)
 	}
 
-	// Wait for operator to be deleted.
-	existsErr := errors.New("exists")
+	// Wait for pod to be deleted.
+	//
+	// TODO(caas) if we even need to wait,
+	// consider using pods.Watch.
+	errExists := errors.New("exists")
 	retryArgs := retry.CallArgs{
 		Clock: clock.WallClock,
 		IsFatalError: func(err error) bool {
-			return errors.Cause(err) != existsErr
+			return errors.Cause(err) != errExists
 		},
 		Func: func() error {
-			exists, err := k.operatorExists(appName)
-			if err != nil {
-				return err
+			_, err := pods.Get(podName)
+			if err == nil {
+				return errExists
 			}
-			if !exists {
+			if k8serrors.IsNotFound(err) {
 				return nil
 			}
-			return existsErr
+			return errors.Trace(err)
 		},
 		Delay:       5 * time.Second,
 		MaxDuration: time.Minute,
@@ -175,14 +157,16 @@ func (k *kubernetesClient) deleteOperator(appName string) error {
 	return retry.Call(retryArgs)
 }
 
-func (k *kubernetesClient) deployOperator(appName, agentPath string, configMapName string) error {
+// operatorPod returns a *v1.Pod for the operator pod
+// of the specified application.
+func operatorPod(appName, agentPath string) *v1.Pod {
+	podName := operatorPodName(appName)
+	configMapName := operatorConfigMapName(appName)
 	configVolName := configMapName + "-volume"
 
 	appTag := names.NewApplicationTag(appName)
-	spec := &v1.Pod{
-		ObjectMeta: v1.ObjectMeta{
-			Name: podName(appName),
-		},
+	return &v1.Pod{
+		ObjectMeta: v1.ObjectMeta{Name: podName},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{{
 				Name:            "juju-operator",
@@ -214,14 +198,43 @@ func (k *kubernetesClient) deployOperator(appName, agentPath string, configMapNa
 			}},
 		},
 	}
-	_, err := k.CoreV1().Pods(namespace).Create(spec)
-	return errors.Trace(err)
 }
 
-func podName(appName string) string {
+// operatorConfigMap returns a *v1.ConfigMap for the operator pod
+// of the specified application, with the specified configuration.
+func operatorConfigMap(appName string, config *caas.OperatorConfig) *v1.ConfigMap {
+	configMapName := operatorConfigMapName(appName)
+	return &v1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name: configMapName,
+		},
+		Data: map[string]string{
+			"agent.conf": string(config.AgentConf),
+		},
+	}
+}
+
+type unitSpec struct {
+	Pod v1.PodSpec `json:"pod"`
+}
+
+func parseUnitSpec(in string) (*unitSpec, error) {
+	var spec unitSpec
+	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
+	if err := decoder.Decode(&spec); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &spec, nil
+}
+
+func operatorPodName(appName string) string {
 	return "juju-operator-" + appName
 }
 
-func configMapName(appName string) string {
-	return podName(appName) + "-config"
+func operatorConfigMapName(appName string) string {
+	return operatorPodName(appName) + "-config"
+}
+
+func unitPodName(unitName string) string {
+	return "juju-" + names.NewUnitTag(unitName).String()
 }
