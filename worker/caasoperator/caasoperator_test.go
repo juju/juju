@@ -74,6 +74,8 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		DataDir:                 c.MkDir(),
 		Downloader:              &s.charmDownloader,
 		StatusSetter:            &s.client,
+		APIAddressGetter:        &s.client,
+		ProxySettingsGetter:     &s.client,
 	}
 
 	agentBinaryDir := agenttools.ToolsDir(s.config.DataDir, "application-gitlab")
@@ -113,6 +115,12 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.StatusSetter = nil
 	}, `missing StatusSetter not valid`)
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.APIAddressGetter = nil
+	}, `missing APIAddressGetter not valid`)
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.ProxySettingsGetter = nil
+	}, `missing ProxySettingsGetter not valid`)
 }
 
 func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasoperator.Config), expect string) {
@@ -133,11 +141,15 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
+	ctx := &hookObserver{}
+	s.config.NewRunnerFactoryFunc = newRunnerFactoryFunc(ctx)
 	w, err := caasoperator.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.settingsChanges <- struct{}{}
+	ctx.waitForHooks(c, []string{"config-changed"})
+
 	s.client.CheckCallNames(c, "Charm", "SetStatus", "WatchApplicationConfig", "ApplicationConfig")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
 

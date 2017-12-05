@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	names "gopkg.in/juju/names.v2"
@@ -219,4 +220,52 @@ func (s *operatorSuite) TestModelName(c *gc.C) {
 	name, err := client.ModelName()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "some-model")
+}
+
+func (s *operatorSuite) TestAPIAddresses(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "APIAddresses")
+		c.Check(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.StringsResult{})
+		*(result.(*params.StringsResult)) = params.StringsResult{
+			Result: []string{"10.0.0.1:10000"},
+		}
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	addresses, err := client.APIAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, gc.DeepEquals, []string{"10.0.0.1:10000"})
+}
+
+func (s *operatorSuite) TestProxySettings(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ProxyConfig")
+		c.Check(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.ProxyConfig{})
+		*(result.(*params.ProxyConfig)) = params.ProxyConfig{
+			HTTP:    "http.proxy",
+			HTTPS:   "https.proxy",
+			FTP:     "ftp.proxy",
+			NoProxy: "no.proxy",
+		}
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	settings, err := client.ProxySettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, proxy.Settings{
+		Http:    "http.proxy",
+		Https:   "https.proxy",
+		Ftp:     "ftp.proxy",
+		NoProxy: "no.proxy",
+	})
 }

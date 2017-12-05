@@ -92,6 +92,14 @@ type Config struct {
 	// StatusSetter is an interface used for setting the
 	// application status.
 	StatusSetter StatusSetter
+
+	// APIAddressGetter is an interface for getting the
+	// controller API addresses.
+	APIAddressGetter APIAddressGetter
+
+	// ProxySettingsGetter is an interface for getting the
+	// model proxy settings.
+	ProxySettingsGetter ProxySettingsGetter
 }
 
 func (config Config) Validate() error {
@@ -118,6 +126,12 @@ func (config Config) Validate() error {
 	}
 	if config.StatusSetter == nil {
 		return errors.NotValidf("missing StatusSetter")
+	}
+	if config.APIAddressGetter == nil {
+		return errors.NotValidf("missing APIAddressGetter")
+	}
+	if config.ProxySettingsGetter == nil {
+		return errors.NotValidf("missing ProxySettingsGetter")
 	}
 	return nil
 }
@@ -197,8 +211,10 @@ func (op *caasOperator) init() (err error) {
 	}
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		// TODO(caas)
-		ContextFactoryAPI: &dummyContextFactoryAPI{},
+		ContextFactoryAPI: &contextFactoryAPIAdaptor{
+			APIAddressGetter:    op.config.APIAddressGetter,
+			ProxySettingsGetter: op.config.ProxySettingsGetter,
+		},
 		HookAPI: &hookAPIAdaptor{
 			appName:                 op.config.Application,
 			StatusSetter:            op.config.StatusSetter,

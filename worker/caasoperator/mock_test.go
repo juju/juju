@@ -5,6 +5,7 @@ package caasoperator_test
 
 import (
 	"github.com/juju/testing"
+	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -98,6 +99,22 @@ func (c *fakeClient) WatchApplicationConfig(application string) (watcher.NotifyW
 		return nil, err
 	}
 	return c.settingsWatcher, nil
+}
+
+func (c *fakeClient) APIAddresses() ([]string, error) {
+	c.MethodCall(c, "APIAddresses", nil)
+	if err := c.NextErr(); err != nil {
+		return nil, err
+	}
+	return []string{"10.0.0.1:10000"}, nil
+}
+
+func (c *fakeClient) ProxySettings() (proxy.Settings, error) {
+	c.MethodCall(c, "ProxySettings", nil)
+	if err := c.NextErr(); err != nil {
+		return proxy.Settings{}, err
+	}
+	return proxy.Settings{Http: "http.proxy"}, nil
 }
 
 func (c *fakeClient) ModelName() (string, error) {

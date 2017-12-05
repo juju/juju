@@ -104,6 +104,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				DataDir:                 agentConfig.DataDir(),
 				Downloader:              downloader,
 				StatusSetter:            client,
+				APIAddressGetter:        client,
+				ProxySettingsGetter:     client,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
