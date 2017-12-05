@@ -4,7 +4,6 @@
 package context_test
 
 import (
-	"path/filepath"
 	"runtime"
 	"time"
 
@@ -50,7 +49,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.relIdCounter = 0
 	s.relationAPIs = make(map[int]*runnertesting.MockRelationUnitAPI)
 	s.contextAPI = runnertesting.NewMockContextAPI(apiAddrs, proxy.Settings{})
-	err := s.contextAPI.SetApplicationStatus("gitlab", status.Maintenance, "initialising", nil)
+	err := s.contextAPI.SetApplicationStatus(status.Maintenance, "initialising", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AddContextRelation(c, "db0")
@@ -144,14 +143,10 @@ func (MockFakePaths) GetCharmDir() string {
 	return "path-to-charm"
 }
 
-func (MockFakePaths) GetJujucSocket() string {
-	return "path-to-jujuc.socket"
+func (MockFakePaths) GetHookCommandSocket() string {
+	return "path-to-hookcommand.socket"
 }
 
 func (MockFakePaths) GetMetricsSpoolDir() string {
 	return "path-to-metrics-spool-dir"
-}
-
-func (MockFakePaths) ComponentDir(name string) string {
-	return filepath.Join("path-to-base-dir", name)
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasoperator"
+	"github.com/juju/juju/worker/caasoperator/runner"
 	"github.com/juju/juju/worker/workertest"
 )
 
@@ -64,6 +65,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.client.settingsWatcher = watchertest.NewMockNotifyWatcher(s.settingsChanges)
 	s.charmDownloader.ResetCalls()
 	s.config = caasoperator.Config{
+		NewRunnerFactoryFunc:    runner.NewFactory,
 		Application:             "gitlab",
 		ApplicationConfigGetter: &s.client,
 		CharmGetter:             &s.client,
@@ -136,7 +138,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.settingsChanges <- struct{}{}
-	s.client.CheckCallNames(c, "Charm", "SetStatus", "SetStatus", "WatchApplicationConfig", "ApplicationConfig")
+	s.client.CheckCallNames(c, "Charm", "SetStatus", "WatchApplicationConfig", "ApplicationConfig")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
 
 	s.charmDownloader.CheckCallNames(c, "Download")
@@ -159,9 +161,10 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 
 	downloadRequest.Abort = nil
 	downloadRequest.Verify = nil
+	agentDir := filepath.Join(s.config.DataDir, "agents", "application-gitlab")
 	c.Assert(downloadRequest, jc.DeepEquals, downloader.Request{
 		URL:       &url.URL{Scheme: "cs", Opaque: "gitlab-1"},
-		TargetDir: filepath.Join(s.config.DataDir, "charm.dl"),
+		TargetDir: filepath.Join(agentDir, "charm.dl"),
 	})
 
 	// The download directory should have been removed.
@@ -169,7 +172,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// The charm archive should have been unpacked into <data-dir>/charm.
-	charmDir := filepath.Join(s.config.DataDir, "charm")
+	charmDir := filepath.Join(agentDir, "charm")
 	_, err = os.Stat(filepath.Join(charmDir, "metadata.yaml"))
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -180,7 +183,6 @@ func (s *WorkerSuite) TestWorkerSetsStatus(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	s.client.CheckCall(c, 1, "SetStatus", "gitlab", status.Maintenance, "downloading charm (cs:gitlab-1)", map[string]interface{}(nil))
-	s.client.CheckCall(c, 2, "SetStatus", "gitlab", status.Active, "", map[string]interface{}(nil))
 }
 
 func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {
@@ -191,4 +193,15 @@ func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {
 	s.client.settingsWatcher.KillErr(errors.New("splat"))
 	err = workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, "splat")
+}
+
+func (s *WorkerSuite) TestRunsConfigChangedHook(c *gc.C) {
+	ctx := &hookObserver{}
+	s.config.NewRunnerFactoryFunc = newRunnerFactoryFunc(ctx)
+	w, err := caasoperator.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.settingsChanges <- struct{}{}
+	ctx.waitForHooks(c, []string{"config-changed"})
 }

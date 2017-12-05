@@ -11,9 +11,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -121,7 +122,11 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args[0], gc.FitsTypeOf, caasoperator.Config{})
 	config := args[0].(caasoperator.Config)
 
+	// Don't care about new runner factory func here.
+	config.NewRunnerFactoryFunc = nil
 	c.Assert(config, jc.DeepEquals, caasoperator.Config{
+		ModelUUID:               coretesting.ModelTag.Id(),
+		ModelName:               "gitlab-model",
 		Application:             "gitlab",
 		ApplicationConfigGetter: &s.client,
 		DataDir:                 s.dataDir,

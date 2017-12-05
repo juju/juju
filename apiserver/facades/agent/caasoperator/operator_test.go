@@ -81,8 +81,8 @@ func (s *CAASOperatorSuite) TestSetStatus(c *gc.C) {
 		},
 	})
 
-	s.st.CheckCallNames(c, "Application")
-	s.st.CheckCall(c, 0, "Application", "gitlab")
+	s.st.CheckCallNames(c, "Model", "Application")
+	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "SetStatus")
 	s.st.app.CheckCall(c, 0, "SetStatus", status.StatusInfo{
 		Status:  "bar",
@@ -121,8 +121,8 @@ func (s *CAASOperatorSuite) TestCharm(c *gc.C) {
 		}},
 	})
 
-	s.st.CheckCallNames(c, "Application")
-	s.st.CheckCall(c, 0, "Application", "gitlab")
+	s.st.CheckCallNames(c, "Model", "Application")
+	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "Charm")
 }
 
@@ -150,8 +150,8 @@ func (s *CAASOperatorSuite) TestApplicationConfig(c *gc.C) {
 		}},
 	})
 
-	s.st.CheckCallNames(c, "Application")
-	s.st.CheckCall(c, 0, "Application", "gitlab")
+	s.st.CheckCallNames(c, "Model", "Application")
+	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "ConfigSettings")
 }
 
@@ -179,8 +179,8 @@ func (s *CAASOperatorSuite) TestWatchApplicationConfig(c *gc.C) {
 		}},
 	})
 
-	s.st.CheckCallNames(c, "Application")
-	s.st.CheckCall(c, 0, "Application", "gitlab")
+	s.st.CheckCallNames(c, "Model", "Application")
+	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "WatchConfigSettings")
 	c.Assert(s.resources.Get("1"), gc.Equals, s.st.app.settingsWatcher)
 }
@@ -233,4 +233,10 @@ func (s *CAASOperatorSuite) TestSetContainerSpec(c *gc.C) {
 	s.st.model.CheckCall(c, 0, "SetContainerSpec", names.NewApplicationTag("gitlab"), "foo")
 	s.st.model.CheckCall(c, 1, "SetContainerSpec", names.NewUnitTag("gitlab/0"), "bar")
 	s.st.model.CheckCall(c, 2, "SetContainerSpec", names.NewUnitTag("gitlab/1"), "baz")
+}
+
+func (s *CAASOperatorSuite) TestModelName(c *gc.C) {
+	result, err := s.facade.ModelName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Result, gc.Equals, "some-model")
 }

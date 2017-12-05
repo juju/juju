@@ -35,6 +35,19 @@ func (c *Client) appTag(application string) (names.ApplicationTag, error) {
 	return names.NewApplicationTag(application), nil
 }
 
+// ModelName returns the name of the model.
+func (c *Client) ModelName() (string, error) {
+	var result params.StringResult
+	err := c.facade.FacadeCall("ModelName", nil, &result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if err := result.Error; err != nil {
+		return "", err
+	}
+	return result.Result, nil
+}
+
 // SetStatus sets the status of the specified application.
 func (c *Client) SetStatus(
 	application string,

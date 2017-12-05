@@ -162,6 +162,11 @@ func (f *contextFactory) CommandContext(commandInfo CommandInfo) (*HookContext, 
 // to construct ContextRelations for a fresh context.
 func (f *contextFactory) getContextRelations() map[int]*ContextRelation {
 	contextRelations := map[int]*ContextRelation{}
+	// TODO(caas)
+	if f.getRelationInfos == nil {
+		return contextRelations
+	}
+
 	relationInfos := f.getRelationInfos()
 	relationCaches := map[int]*RelationCache{}
 	for id, info := range relationInfos {

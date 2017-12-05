@@ -61,6 +61,10 @@ func (m *mockModel) SetContainerSpec(tag names.Tag, spec string) error {
 	return m.NextErr()
 }
 
+func (st *mockModel) Name() string {
+	return "some-model"
+}
+
 type mockApplication struct {
 	testing.Stub
 	charm           mockCharm

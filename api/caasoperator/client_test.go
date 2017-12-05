@@ -22,10 +22,6 @@ type operatorSuite struct {
 
 var _ = gc.Suite(&operatorSuite{})
 
-func newClient(f basetesting.APICallerFunc) *caasoperator.Client {
-	return caasoperator.NewClient(basetesting.BestVersionCaller{f, 1})
-}
-
 func (s *operatorSuite) TestSetStatus(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASOperator")
@@ -203,4 +199,24 @@ func (s *operatorSuite) TestSetContainerSpecInvalidEntityame(c *gc.C) {
 	}))
 	err := client.SetContainerSpec("", "spec")
 	c.Assert(err, gc.ErrorMatches, `application or unit name "" not valid`)
+}
+
+func (s *operatorSuite) TestModelName(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ModelName")
+		c.Check(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.StringResult{})
+		*(result.(*params.StringResult)) = params.StringResult{
+			Result: "some-model",
+		}
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	name, err := client.ModelName()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, "some-model")
 }

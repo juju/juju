@@ -4,13 +4,11 @@
 package runner
 
 import (
-	"encoding/base64"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
-	"unicode/utf8"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -109,17 +107,6 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 	return command.WaitWithCancel(cancel)
 }
 
-func encodeBytes(input []byte) (value string, encoding string) {
-	if utf8.Valid(input) {
-		value = string(input)
-		encoding = "utf8"
-	} else {
-		value = base64.StdEncoding.EncodeToString(input)
-		encoding = "base64"
-	}
-	return value, encoding
-}
-
 // RunHook exists to satisfy the Runner interface.
 func (runner *runner) RunHook(hookName string) error {
 	return runner.runCharmHookWithLocation(hookName, "hooks")
@@ -178,9 +165,9 @@ func (runner *runner) startHookCommandServer() (*commands.Server, error) {
 		}
 		return commands.NewCommand(runner.context, cmdName)
 	}
-	srv, err := commands.NewServer(getCmd, runner.paths.GetJujucSocket())
+	srv, err := commands.NewServer(getCmd, runner.paths.GetHookCommandSocket())
 	if err != nil {
-		return nil, errors.Annotate(err, "starting jujuc server")
+		return nil, errors.Annotate(err, "starting hook command server")
 	}
 	go srv.Run()
 	return srv, nil

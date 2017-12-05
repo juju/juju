@@ -22,6 +22,7 @@ type CAASOperatorState interface {
 // by the CAAS operator facade.
 type Model interface {
 	SetContainerSpec(names.Tag, string) error
+	Name() string
 }
 
 // Application provides the subset of application state

@@ -81,7 +81,7 @@ type ContextApplication interface {
 	ApplicationName() string
 
 	// ConfigSettings returns the current configuration of the executing unit.
-	ConfigSettings() (charm.Settings, error)
+	ApplicationConfig() (charm.Settings, error)
 
 	// SetContainerSpec updates the yaml spec used to create a container.
 	SetContainerSpec(specYaml, unitName string) error

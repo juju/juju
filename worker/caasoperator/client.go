@@ -4,8 +4,10 @@
 package caasoperator
 
 import (
+	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -18,6 +20,7 @@ type Client interface {
 	CharmGetter
 	ContainerSpecSetter
 	StatusSetter
+	ModelName() (string, error)
 }
 
 // CharmGetter provides an interface for getting
@@ -51,4 +54,45 @@ type StatusSetter interface {
 type ApplicationConfigGetter interface {
 	ApplicationConfig(string) (charm.Settings, error)
 	WatchApplicationConfig(string) (watcher.NotifyWatcher, error)
+}
+
+// TODO(caas) - split this up
+type hookAPIAdaptor struct {
+	StatusSetter
+	ApplicationConfigGetter
+	ContainerSpecSetter
+
+	appName string
+
+	dummyHookAPI
+}
+
+func (h *hookAPIAdaptor) ApplicationConfig() (charm.Settings, error) {
+	return h.ApplicationConfigGetter.ApplicationConfig(h.appName)
+}
+
+func (h *hookAPIAdaptor) SetApplicationStatus(status status.Status, info string, data map[string]interface{}) error {
+	return h.StatusSetter.SetStatus(h.appName, status, info, data)
+}
+
+// dummyHookAPI is an API placeholder
+type dummyHookAPI struct{}
+
+func (h *dummyHookAPI) ApplicationStatus() (params.ApplicationStatusResult, error) {
+	return params.ApplicationStatusResult{Application: params.StatusResult{Status: "unknown"}}, nil
+}
+
+func (h *dummyHookAPI) NetworkInfo(bindings []string, relId *int) (map[string]params.NetworkInfoResult, error) {
+	return make(map[string]params.NetworkInfoResult), nil
+}
+
+// TODO(caas) implement this API
+type dummyContextFactoryAPI struct{}
+
+func (c *dummyContextFactoryAPI) APIAddresses() ([]string, error) {
+	return []string{}, nil
+}
+
+func (c *dummyContextFactoryAPI) ProxySettings() (proxy.Settings, error) {
+	return proxy.Settings{}, nil
 }
