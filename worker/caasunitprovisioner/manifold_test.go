@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker/caasunitprovisioner"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -24,6 +25,7 @@ type ManifoldSuite struct {
 
 	apiCaller fakeAPICaller
 	broker    fakeBroker
+	client    fakeClient
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -40,8 +42,14 @@ func (s *ManifoldSuite) validConfig() caasunitprovisioner.ManifoldConfig {
 	return caasunitprovisioner.ManifoldConfig{
 		APICallerName: "api-caller",
 		BrokerName:    "broker",
+		NewClient:     s.newClient,
 		NewWorker:     s.newWorker,
 	}
+}
+
+func (s *ManifoldSuite) newClient(apiCaller base.APICaller) caasunitprovisioner.Client {
+	s.MethodCall(s, "NewClient", apiCaller)
+	return &s.client
 }
 
 func (s *ManifoldSuite) newWorker(config caasunitprovisioner.Config) (worker.Worker, error) {
@@ -110,13 +118,19 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
-	s.CheckCallNames(c, "NewWorker")
-	args := s.Calls()[0].Args
+	s.CheckCallNames(c, "NewClient", "NewWorker")
+	s.CheckCall(c, 0, "NewClient", &s.apiCaller)
+
+	args := s.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
 	c.Assert(args[0], gc.FitsTypeOf, caasunitprovisioner.Config{})
 	config := args[0].(caasunitprovisioner.Config)
 
 	c.Assert(config, jc.DeepEquals, caasunitprovisioner.Config{
-		ContainerBroker: &s.broker,
+		ApplicationGetter:   &s.client,
+		ContainerBroker:     &s.broker,
+		ContainerSpecGetter: &s.client,
+		LifeGetter:          &s.client,
+		UnitGetter:          &s.client,
 	})
 }

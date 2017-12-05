@@ -17,6 +17,7 @@ type ManifoldConfig struct {
 	APICallerName string
 	BrokerName    string
 
+	NewClient func(base.APICaller) Client
 	NewWorker func(Config) (worker.Worker, error)
 }
 
@@ -27,6 +28,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.BrokerName == "" {
 		return errors.NotValidf("empty BrokerName")
+	}
+	if config.NewClient == nil {
+		return errors.NotValidf("nil NewClient")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -49,10 +53,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	//api := caasunitprovisioner.NewClient(apiCaller)
+	client := config.NewClient(apiCaller)
 	w, err := config.NewWorker(Config{
-		// TODO(axw) pass in interfaces implemented by the API client.
-		ContainerBroker: broker,
+		ApplicationGetter:   client,
+		ContainerBroker:     broker,
+		ContainerSpecGetter: client,
+		LifeGetter:          client,
+		UnitGetter:          client,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

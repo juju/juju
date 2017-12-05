@@ -51,7 +51,7 @@ func (w *applicationWorker) Wait() error {
 }
 
 func (aw *applicationWorker) loop() error {
-	uw, err := aw.unitGetter.WatchApplicationUnits(aw.application)
+	uw, err := aw.unitGetter.WatchUnits(aw.application)
 	if err != nil {
 		return errors.Trace(err)
 	}
