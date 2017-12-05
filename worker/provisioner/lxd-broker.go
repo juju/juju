@@ -104,6 +104,9 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, errors.Trace(err)
 	}
 
+	// TODO HML 2017-12-07
+	// Find the CloudInitUserData to fill in the last arg of
+	// instancecfg.PopulateInstanceConfig
 	if err := instancecfg.PopulateInstanceConfig(
 		args.InstanceConfig,
 		config.ProviderType,
@@ -114,6 +117,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		config.AptMirror,
 		config.EnableOSRefreshUpdate,
 		config.EnableOSUpgrade,
+		make(map[string]interface{}),
 	); err != nil {
 		lxdLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, err

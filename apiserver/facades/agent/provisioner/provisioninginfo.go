@@ -108,6 +108,7 @@ func (p *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Envi
 		EndpointBindings:  endpointBindings,
 		ImageMetadata:     imageMetadata,
 		ControllerConfig:  controllerCfg,
+		CloudInitUserData: env.Config().CloudInitUserData(),
 	}, nil
 }
 

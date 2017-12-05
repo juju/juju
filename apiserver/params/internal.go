@@ -685,6 +685,7 @@ type ProvisioningInfo struct {
 	ImageMetadata     []CloudImageMetadata      `json:"image-metadata,omitempty"`
 	EndpointBindings  map[string]string         `json:"endpoint-bindings,omitempty"`
 	ControllerConfig  map[string]interface{}    `json:"controller-config,omitempty"`
+	CloudInitUserData map[string]interface{}    `json:"cloudinit-userdata,omitempty"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
