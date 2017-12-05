@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,7 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -71,6 +74,55 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 		"mysql/0":     "0",
 		"wordpress/0": "1",
 	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
+	stub := &testing.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: stub}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-plans-1", "wordpress-with-plans")
+
+	deploy := NewDeployCommandForTest(
+		nil,
+		[]DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+	)
+	_, err := cmdtesting.RunCommand(c, deploy, "bundle/wordpress-with-plans")
+	c.Assert(err, jc.ErrorIsNil)
+
+	stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "DefaultPlan",
+		Args:     []interface{}{"cs:wordpress"},
+	}, {
+		FuncName: "Authorize",
+		Args: []interface{}{metricRegistrationPost{
+			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			CharmURL:        "cs:wordpress",
+			ApplicationName: "wordpress",
+			PlanURL:         "thisplan",
+			IncreaseBudget:  0,
+		}},
+	}, {
+		FuncName: "Authorize",
+		Args: []interface{}{metricRegistrationPost{
+			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			CharmURL:        "cs:mysql",
+			ApplicationName: "mysql",
+			PlanURL:         "test/plan",
+			IncreaseBudget:  0,
+		}},
+	}})
+
+	mysqlApp, err := s.State.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysqlApp.MetricCredentials(), jc.DeepEquals, append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA))
+
+	wordpressApp, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpressApp.MetricCredentials(), jc.DeepEquals, append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA))
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithTermsSuccess(c *gc.C) {
