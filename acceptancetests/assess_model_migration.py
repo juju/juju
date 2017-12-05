@@ -384,13 +384,13 @@ def deploy_simple_server_to_new_model(
         new_model, resource_contents, series)
     _, deploy_complete = new_model.deploy('cs:ubuntu', series=series)
     new_model.wait_for(deploy_complete)
-    new_model.deploy('cs:ntp', series=series)
-    new_model.juju('add-relation', ('ntp', application))
-    new_model.juju('add-relation', ('ntp', 'ubuntu'))
+    new_model.deploy('cs:nrpe', series=series)
+    new_model.juju('add-relation', ('nrpe', application))
+    new_model.juju('add-relation', ('nrpe', 'ubuntu'))
     # Need to wait for the subordinate charms too.
     new_model.wait_for(AllApplicationActive())
     new_model.wait_for(AllApplicationWorkloads())
-    new_model.wait_for(AgentsIdle(['ntp/0', 'ntp/1']))
+    new_model.wait_for(AgentsIdle(['nrpe/0', 'nrpe/1']))
     assert_deployed_charm_is_responding(new_model, resource_contents)
 
     return new_model, application
