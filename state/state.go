@@ -1335,9 +1335,6 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 }
 
 func (st *State) processCAASModelApplicationArgs(args *AddApplicationArgs) error {
-	// TODO(caas) - remove once units are supported.
-	args.NumUnits = 0
-
 	if args.Series == "" {
 		// args.Series is not set, so use the series in the URL.
 		args.Series = args.Charm.URL().Series
@@ -1348,6 +1345,8 @@ func (st *State) processCAASModelApplicationArgs(args *AddApplicationArgs) error
 	}
 
 	// TODO(caas) restrict the series to CAAS series.
+	// TODO(caas) check that AddApplicationArgs doesn't
+	// contain IAAS-specific things.
 
 	return nil
 }
