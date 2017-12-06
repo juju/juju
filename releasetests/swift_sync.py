@@ -102,5 +102,6 @@ def main():
     remote_files = get_files(args)
     upload_changes(args, remote_files)
 
+
 if __name__ == '__main__':
     main()

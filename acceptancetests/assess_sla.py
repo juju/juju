@@ -12,9 +12,6 @@ import sys
 from deploy_stack import (
     BootstrapManager,
 )
-from jujucharm import (
-    local_charm_path,
-)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -60,7 +57,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_sla(bs_manager.client, args.series)
+        assess_sla(bs_manager.client)
     return 0
 
 
