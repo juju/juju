@@ -273,6 +273,14 @@ func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
 	s.AssertService(c, "logging", curl, 0, 0)
 }
 
+func (s *DeploySuite) combinedSettings(ch charm.Charm, inSettings charm.Settings) charm.Settings {
+	result := ch.Config().DefaultSettings()
+	for name, value := range inSettings {
+		result[name] = value
+	}
+	return result
+}
+
 func (s *DeploySuite) TestConfig(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	path := setupConfigFile(c, c.MkDir())
@@ -282,10 +290,12 @@ func (s *DeploySuite) TestConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err := application.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	appCh, _, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(appCh, charm.Settings{
 		"skill-level": int64(9000),
 		"username":    "admin001",
-	})
+	}))
 }
 
 func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
@@ -646,7 +656,7 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 }
 
 func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/terms1-1", "terms1")
+	_, ch := testcharms.UploadCharm(c, s.client, "trusty/terms1-1", "terms1")
 	_, stdErr, err := runDeployWithOutput(c, "trusty/terms1")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
@@ -656,8 +666,8 @@ Deployment under prior agreement to terms: term1/1 term3/1
 `
 	c.Assert(stdErr, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUploaded(c, "cs:trusty/terms1-1")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"terms1": {charm: "cs:trusty/terms1-1"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"terms1": {charm: "cs:trusty/terms1-1", config: ch.Config().DefaultSettings()},
 	})
 	_, err = s.State.Unit("terms1/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -686,8 +696,8 @@ func (s *DeployCharmStoreSuite) TestDeployWithChannel(c *gc.C) {
 	err = runDeploy(c, "--channel", "edge", "~client-username/wordpress")
 	c.Assert(err, gc.IsNil)
 	s.assertCharmsUploaded(c, "cs:~client-username/precise/wordpress-0")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"wordpress": {charm: "cs:~client-username/precise/wordpress-0"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"wordpress": {charm: "cs:~client-username/precise/wordpress-0", config: ch.Config().DefaultSettings()},
 	})
 }
 
@@ -817,8 +827,8 @@ func (s *charmStoreSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
 	c.Assert(uploaded, jc.SameContents, ids)
 }
 
-// serviceInfo holds information about a deployed application.
-type serviceInfo struct {
+// applicationInfo holds information about a deployed application.
+type applicationInfo struct {
 	charm            string
 	config           charm.Settings
 	constraints      constraints.Value
@@ -830,7 +840,7 @@ type serviceInfo struct {
 // assertDeployedServiceBindings checks that services were deployed into the
 // expected spaces. It is separate to assertServicesDeployed because it is only
 // relevant to a couple of tests.
-func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string]serviceInfo) {
+func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string]applicationInfo) {
 	services, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -841,18 +851,24 @@ func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string
 	}
 }
 
+func (s *charmStoreSuite) combinedSettings(ch charm.Charm, inSettings charm.Settings) charm.Settings {
+	result := ch.Config().DefaultSettings()
+	for name, value := range inSettings {
+		result[name] = value
+	}
+	return result
+}
+
 // assertApplicationsDeployed checks that the given applications have been deployed.
-func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]serviceInfo) {
-	services, err := s.State.AllApplications()
+func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]applicationInfo) {
+	applications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	deployed := make(map[string]serviceInfo, len(services))
-	for _, application := range services {
-		charm, _ := application.CharmURL()
+	deployed := make(map[string]applicationInfo, len(applications))
+	for _, application := range applications {
+		curl, _ := application.CharmURL()
+		c.Assert(err, jc.ErrorIsNil)
 		config, err := application.ConfigSettings()
 		c.Assert(err, jc.ErrorIsNil)
-		if len(config) == 0 {
-			config = nil
-		}
 		constraints, err := application.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
 		storage, err := application.StorageConstraints()
@@ -860,8 +876,8 @@ func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]se
 		if len(storage) == 0 {
 			storage = nil
 		}
-		deployed[application.Name()] = serviceInfo{
-			charm:       charm.String(),
+		deployed[application.Name()] = applicationInfo{
+			charm:       curl.String(),
 			config:      config,
 			constraints: constraints,
 			exposed:     application.IsExposed(),
@@ -1147,13 +1163,13 @@ func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecified
 	_, err = s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-extra-bindings-1", "wordpress-extra-bindings")
+	_, ch := testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-extra-bindings-1", "wordpress-extra-bindings")
 	err = runDeploy(c, "cs:quantal/wordpress-extra-bindings-1", "--bind", "db=db db-client=db public admin-api=public")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"wordpress-extra-bindings": {charm: "cs:quantal/wordpress-extra-bindings-1"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"wordpress-extra-bindings": {charm: "cs:quantal/wordpress-extra-bindings-1", config: ch.Config().DefaultSettings()},
 	})
-	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
+	s.assertDeployedServiceBindings(c, map[string]applicationInfo{
 		"wordpress-extra-bindings": {
 			endpointBindings: map[string]string{
 				"":                "public",

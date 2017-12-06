@@ -68,7 +68,7 @@ func describe(settings charm.Settings, config *charm.Config) map[string]interfac
 			"source":      "unset",
 		}
 		set := false
-		if value := settings[name]; value != nil {
+		if value := settings[name]; value != nil && option.Default != value {
 			set = true
 			info["value"] = value
 			info["source"] = "user"
@@ -92,7 +92,7 @@ func describeV4(settings charm.Settings, config *charm.Config) map[string]interf
 			"description": option.Description,
 			"type":        option.Type,
 		}
-		if value := settings[name]; value != nil {
+		if value := settings[name]; value != nil && option.Default != value {
 			info["value"] = value
 		} else {
 			if option.Default != nil {

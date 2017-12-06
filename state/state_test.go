@@ -1499,7 +1499,11 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
 	outsettings, err := wordpress.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outsettings, gc.DeepEquals, insettings)
+	expected := ch.Config().DefaultSettings()
+	for name, value := range insettings {
+		expected[name] = value
+	}
+	c.Assert(outsettings, gc.DeepEquals, expected)
 
 	mysql, err := s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1531,7 +1535,11 @@ func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	outsettings, err := wordpress.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outsettings, gc.DeepEquals, insettings)
+	expected := ch.Config().DefaultSettings()
+	for name, value := range insettings {
+		expected[name] = value
+	}
+	c.Assert(outsettings, gc.DeepEquals, expected)
 
 	// Ensure that during creation, application settings with nil config values
 	// were stripped and not written into database.

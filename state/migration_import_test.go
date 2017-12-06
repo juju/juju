@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"strconv"
 	"time" // only uses time.Time values
 
 	"github.com/juju/description"
@@ -444,6 +445,14 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(allApplications, gc.HasLen, 1)
 
 	newModel, newSt := s.importModel(c)
+	// Manually copy across the charm from the old model
+	// as it's normally done later.
+	f := factory.NewFactory(newSt)
+	f.MakeCharm(c, &factory.CharmParams{
+		Name:     "starsay", // it has resources
+		URL:      charm.URL().String(),
+		Revision: strconv.Itoa(charm.Revision()),
+	})
 
 	importedApplications, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)

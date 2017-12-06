@@ -22,8 +22,8 @@ import (
 type getSuite struct {
 	jujutesting.JujuConnSuite
 
-	serviceAPI *application.API
-	authorizer apiservertesting.FakeAuthorizer
+	applicationAPI *application.API
+	authorizer     apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&getSuite{})
@@ -37,7 +37,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	backend, err := application.NewStateBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
-	s.serviceAPI, err = application.NewAPI(
+	s.applicationAPI, err = application.NewAPI(
 		backend,
 		s.authorizer,
 		blockChecker,
@@ -47,9 +47,9 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *getSuite) TestClientServiceGetSmoketestV4(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v4 := &application.APIv4{s.serviceAPI}
+	v4 := &application.APIv4{s.applicationAPI}
 	results, err := v4.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -67,9 +67,9 @@ func (s *getSuite) TestClientServiceGetSmoketestV4(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetSmoketest(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	results, err := s.serviceAPI.Get(params.ApplicationGet{"wordpress"})
+	results, err := s.applicationAPI.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
@@ -87,8 +87,8 @@ func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestServiceGetUnknownService(c *gc.C) {
-	_, err := s.serviceAPI.Get(params.ApplicationGet{"unknown"})
+func (s *getSuite) TestApplicationGetUnknownApplication(c *gc.C) {
+	_, err := s.applicationAPI.Get(params.ApplicationGet{"unknown"})
 	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)
 }
 
@@ -99,7 +99,7 @@ var getTests = []struct {
 	config      charm.Settings
 	expect      params.ApplicationGetResults
 }{{
-	about:       "deployed service",
+	about:       "deployed application",
 	charm:       "dummy",
 	constraints: "mem=2G cpu-power=400",
 	config: charm.Settings{
@@ -128,7 +128,7 @@ var getTests = []struct {
 			"username": map[string]interface{}{
 				"default":     "admin001",
 				"description": "The name of the initial account (given admin permissions).",
-				"source":      "user",
+				"source":      "default",
 				"type":        "string",
 				"value":       "admin001",
 			},
@@ -141,7 +141,7 @@ var getTests = []struct {
 		Series: "quantal",
 	},
 }, {
-	about: "deployed service  #2",
+	about: "deployed application  #2",
 	charm: "dummy",
 	config: charm.Settings{
 		// Set title to default.
@@ -190,7 +190,7 @@ var getTests = []struct {
 		Series: "quantal",
 	},
 }, {
-	about: "subordinate service",
+	about: "subordinate application",
 	charm: "logging",
 	expect: params.ApplicationGetResults{
 		Config: map[string]interface{}{},
@@ -198,7 +198,7 @@ var getTests = []struct {
 	},
 }}
 
-func (s *getSuite) TestServiceGet(c *gc.C) {
+func (s *getSuite) TestApplicationGet(c *gc.C) {
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
 		ch := s.AddTestingCharm(c, t.charm)
@@ -237,7 +237,7 @@ func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	c.Assert(int64(asFloat)+1, gc.Equals, nonFloatInt)
 
 	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "test-service", ch)
+	app := s.AddTestingApplication(c, "test-application", ch)
 
 	err := app.UpdateConfigSettings(map[string]interface{}{"skill-level": nonFloatInt})
 	c.Assert(err, jc.ErrorIsNil)

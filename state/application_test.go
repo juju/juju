@@ -87,6 +87,14 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
+func (s *ApplicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Settings) charm.Settings {
+	result := ch.Config().DefaultSettings()
+	for name, value := range inSettings {
+		result[name] = value
+	}
+	return result
+}
+
 func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	newCh := s.AddConfigCharm(c, "mysql", stringConfig, 2)
 	err := s.mysql.SetCharm(state.SetCharmConfig{
@@ -97,7 +105,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 
 	settings, err := s.mysql.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, charm.Settings{"key": "value"})
+	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{"key": "value"}))
 
 	newCh = s.AddConfigCharm(c, "mysql", newStringConfig, 3)
 	err = s.mysql.SetCharm(state.SetCharmConfig{
@@ -108,10 +116,10 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 
 	settings, err = s.mysql.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, charm.Settings{
+	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
 		"key":   "value",
 		"other": "one",
-	})
+	}))
 }
 
 func (s *ApplicationSuite) TestSetCharmCharmSettingsInvalid(c *gc.C) {
@@ -456,10 +464,11 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 		c.Assert(sch.URL(), gc.DeepEquals, expectCh.URL())
 		settings, err := app.ConfigSettings()
 		c.Assert(err, jc.ErrorIsNil)
-		if len(expectVals) == 0 {
+		expected := s.combinedSettings(sch, expectVals)
+		if len(expected) == 0 {
 			c.Assert(settings, gc.HasLen, 0)
 		} else {
-			c.Assert(settings, gc.DeepEquals, expectVals)
+			c.Assert(settings, gc.DeepEquals, expected)
 		}
 
 		err = app.Destroy()
@@ -911,11 +920,9 @@ func (s *ApplicationSuite) TestUpdateConfigSettings(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			settings, err := app.ConfigSettings()
 			c.Assert(err, jc.ErrorIsNil)
-			expect := t.expect
-			if expect == nil {
-				expect = charm.Settings{}
-			}
-			c.Assert(settings, gc.DeepEquals, expect)
+			appConfig := t.expect
+			expected := s.combinedSettings(sch, appConfig)
+			c.Assert(settings, gc.DeepEquals, expected)
 		}
 		err = app.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
