@@ -161,7 +161,7 @@ fi
 export GOPATH=\$HOME/$juju_version
 if [[ -d \$GOPATH ]]; then
     echo "Cleaning up files unpacked into the GOPATH by a previous test."
-    rm -r \$GOPATH
+    sudo rm -r \$GOPATH
 fi
 tar -xzf $tarfile_basename
 if [[ -d \$HOME/goroot ]]; then
@@ -212,14 +212,14 @@ if [[ $INSTANCE_TYPE == "host" ]]; then
     sudo killall -SIGABRT /usr/bin/mongod || true
     sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
     sudo killall -9 mongod || true
-    rm -rf /tmp/adduser-* || true
-    rm -rf /tmp/check* || true
-    rm -rf /tmp/go-* || true
-    rm -rf /tmp/gocheck* || true
-    rm -rf /tmp/gui* || true
-    rm -rf /tmp/juju-* || true
-    rm -rf /tmp/pprof* || true
-    rm -rf /tmp/test-* || true
+    sudo rm -rf /tmp/adduser-* || true
+    sudo rm -rf /tmp/check* || true
+    sudo rm -rf /tmp/go-* || true
+    sudo rm -rf /tmp/gocheck* || true
+    sudo rm -rf /tmp/gui* || true
+    sudo rm -rf /tmp/juju-* || true
+    sudo rm -rf /tmp/pprof* || true
+    sudo rm -rf /tmp/test-* || true
 fi
 
 make setup-lxd || true
@@ -248,15 +248,15 @@ elif [[ $INSTANCE_TYPE == "host" ]]; then
     sudo killall -SIGABRT /usr/bin/mongod || true
     sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
     sudo killall -9 mongod || true
-    rm -rf /home/ubuntu/$juju_version || true
-    rm -rf /tmp/adduser-* || true
-    rm -rf /tmp/check* || true
-    rm -rf /tmp/go-* || true
-    rm -rf /tmp/gocheck* || true
-    rm -rf /tmp/gui* || true
-    rm -rf /tmp/juju-* || true
-    rm -rf /tmp/pprof* || true
-    rm -rf /tmp/test-* || true
+    sudo rm -rf /home/ubuntu/$juju_version || true
+    sudo rm -rf /tmp/adduser-* || true
+    sudo rm -rf /tmp/check* || true
+    sudo rm -rf /tmp/go-* || true
+    sudo rm -rf /tmp/gocheck* || true
+    sudo rm -rf /tmp/gui* || true
+    sudo rm -rf /tmp/juju-* || true
+    sudo rm -rf /tmp/pprof* || true
+    sudo rm -rf /tmp/test-* || true
 EOT
 else
     set +e

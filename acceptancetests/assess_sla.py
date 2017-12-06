@@ -60,7 +60,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_sla(bs_manager.client, args.series)
+        assess_sla(bs_manager.client)
     return 0
 
 
