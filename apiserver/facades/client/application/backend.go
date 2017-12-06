@@ -37,6 +37,7 @@ type Backend interface {
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	Machine(string) (Machine, error)
 	ModelTag() names.ModelTag
+	ModelType() state.ModelType
 	Unit(string) (Unit, error)
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
 	ControllerTag() names.ControllerTag
@@ -129,9 +130,11 @@ type Unit interface {
 // details on the methods, see the methods on state.Model with
 // the same names.
 type Model interface {
-	Tag() names.Tag
+	ModelTag() names.ModelTag
 	Name() string
 	Owner() names.UserTag
+	Tag() names.Tag
+	Type() state.ModelType
 }
 
 // Resources defines a subset of the functionality provided by the
@@ -156,12 +159,19 @@ func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, mode
 	return api.Save(controllerInfo, modelUUID)
 }
 
-func (s stateShim) ModelTag() names.ModelTag {
-	m, err := s.State.Model()
-	if err != nil {
-		return names.ModelTag{}
+func (s stateShim) model() Model {
+	if s.IAASModel != nil {
+		return s.IAASModel
 	}
-	return m.ModelTag()
+	return s.CAASModel
+}
+
+func (s stateShim) ModelTag() names.ModelTag {
+	return s.model().ModelTag()
+}
+
+func (s stateShim) ModelType() state.ModelType {
+	return s.model().Type()
 }
 
 // NewStateBackend converts a state.State into a Backend.

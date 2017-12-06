@@ -90,6 +90,7 @@ type mockApplication struct {
 	subordinate bool
 	series      string
 	units       []mockUnit
+	addedUnit   mockUnit
 }
 
 func (m *mockApplication) Name() string {
@@ -139,8 +140,7 @@ func (a *mockApplication) AddUnit(args state.AddUnitParams) (application.Unit, e
 	if err := a.NextErr(); err != nil {
 		return nil, err
 	}
-	unitTag := names.NewUnitTag(a.name + "/99")
-	return &mockUnit{tag: unitTag}, nil
+	return &a.addedUnit, nil
 }
 
 func (a *mockApplication) IsPrincipal() bool {
@@ -258,7 +258,7 @@ type mockBackend struct {
 	charm                      *mockCharm
 	allmodels                  []application.Model
 	users                      set.Strings
-	applications               map[string]application.Application
+	applications               map[string]*mockApplication
 	remoteApplications         map[string]application.RemoteApplication
 	spaces                     map[string]application.Space
 	endpoints                  *[]state.Endpoint
@@ -297,7 +297,7 @@ func (m *mockBackend) Unit(name string) (application.Unit, error) {
 	var unitApp *mockApplication
 	for appName, app := range m.applications {
 		if strings.HasPrefix(name, appName+"/") {
-			unitApp = app.(*mockApplication)
+			unitApp = app
 			break
 		}
 	}

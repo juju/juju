@@ -18,6 +18,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -71,8 +72,8 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	s.backend = mockBackend{
 		modelType:   state.ModelTypeIAAS,
 		controllers: make(map[string]crossmodel.ControllerInfo),
-		applications: map[string]application.Application{
-			"postgresql": &mockApplication{
+		applications: map[string]*mockApplication{
+			"postgresql": {
 				name:        "postgresql",
 				series:      "quantal",
 				subordinate: false,
@@ -84,13 +85,15 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 						},
 					},
 				},
-				units: []mockUnit{{
-					tag: names.NewUnitTag("postgresql/0"),
-				}, {
-					tag: names.NewUnitTag("postgresql/1"),
-				}},
+				units: []mockUnit{
+					{tag: names.NewUnitTag("postgresql/0")},
+					{tag: names.NewUnitTag("postgresql/1")},
+				},
+				addedUnit: mockUnit{
+					tag: names.NewUnitTag("postgresql/99"),
+				},
 			},
-			"postgresql-subordinate": &mockApplication{
+			"postgresql-subordinate": {
 				name:        "postgresql-subordinate",
 				series:      "quantal",
 				subordinate: true,
@@ -102,11 +105,13 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 						},
 					},
 				},
-				units: []mockUnit{{
-					tag: names.NewUnitTag("postgresql-subordinate/0"),
-				}, {
-					tag: names.NewUnitTag("postgresql-subordinate/1"),
-				}},
+				units: []mockUnit{
+					{tag: names.NewUnitTag("postgresql-subordinate/0")},
+					{tag: names.NewUnitTag("postgresql-subordinate/1")},
+				},
+				addedUnit: mockUnit{
+					tag: names.NewUnitTag("postgresql-subordinate/99"),
+				},
 			},
 		},
 		remoteApplications: map[string]application.RemoteApplication{
@@ -188,7 +193,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
-	app := s.backend.applications["postgresql"].(*mockApplication)
+	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "SetCharm")
 	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
@@ -210,7 +215,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
-	app := s.backend.applications["postgresql"].(*mockApplication)
+	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "SetCharm")
 	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
@@ -230,7 +235,7 @@ postgresql:
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
-	app := s.backend.applications["postgresql"].(*mockApplication)
+	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "SetCharm")
 	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
@@ -470,18 +475,73 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 	c.Assert(results.Results[2].Error, gc.ErrorMatches, `"volume-baz-0" is not a valid volume tag`)
 }
 
-func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
+func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+		}, {
+			ApplicationName: "bar",
+			CharmURL:        "local:bar-0",
+			NumUnits:        1,
+			AttachStorage:   []string{"storage-bar-0"},
+		}, {
+			ApplicationName: "baz",
+			CharmURL:        "local:baz-0",
+			NumUnits:        1,
+			Placement:       []*instance.Placement{{}},
+		}},
+	}
+	results, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
+	c.Assert(results.Results[2].Error, gc.ErrorMatches, "Placement may not be specified for caas models")
+}
+
+func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	results, err := s.api.AddUnits(params.AddApplicationUnits{
+		ApplicationName: "postgresql",
+		NumUnits:        1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, jc.DeepEquals, params.AddApplicationUnitsResults{
+		Units: []string{"postgresql/99"},
+	})
+	app := s.backend.applications["postgresql"]
+	app.CheckCall(c, 0, "AddUnit", state.AddUnitParams{})
+	app.addedUnit.CheckCall(c, 0, "AssignWithPolicy", state.AssignCleanEmpty)
+}
+
+func (s *ApplicationSuite) TestAddUnitsCAASModel(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	results, err := s.api.AddUnits(params.AddApplicationUnits{
+		ApplicationName: "postgresql",
+		NumUnits:        1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, jc.DeepEquals, params.AddApplicationUnitsResults{
+		Units: []string{"postgresql/99"},
+	})
+	app := s.backend.applications["postgresql"]
+	app.CheckCall(c, 0, "AddUnit", state.AddUnitParams{})
+	app.addedUnit.CheckNoCalls(c) // no assignment
+}
+
+func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
+	_, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "postgresql",
 		NumUnits:        1,
 		AttachStorage:   []string{"storage-pgdata-0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.AddApplicationUnitsResults{
-		Units: []string{"postgresql/99"},
-	})
 
-	app := s.backend.applications["postgresql"].(*mockApplication)
+	app := s.backend.applications["postgresql"]
 	app.CheckCall(c, 0, "AddUnit", state.AddUnitParams{
 		AttachStorage: []names.StorageTag{names.NewStorageTag("pgdata/0")},
 	})
@@ -503,6 +563,26 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorageInvalidStorageTag(c *gc.C) {
 		AttachStorage:   []string{"volume-0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `"volume-0" is not a valid storage tag`)
+}
+
+func (s *ApplicationSuite) TestAddUnitsAttachStorageCAASModel(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	_, err := s.api.AddUnits(params.AddApplicationUnits{
+		ApplicationName: "postgresql",
+		NumUnits:        1,
+		AttachStorage:   []string{"storage-pgdata-0"},
+	})
+	c.Assert(err, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
+}
+
+func (s *ApplicationSuite) TestAddUnitsPlacementCAASModel(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	_, err := s.api.AddUnits(params.AddApplicationUnits{
+		ApplicationName: "postgresql",
+		NumUnits:        1,
+		Placement:       []*instance.Placement{{}},
+	})
+	c.Assert(err, gc.ErrorMatches, "Placement may not be specified for caas models")
 }
 
 func (s *ApplicationSuite) TestSetRelationSuspended(c *gc.C) {
@@ -869,7 +949,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeries(c *gc.C) {
 	s.backend.CheckCall(c, 0, "Application", "postgresql")
 	s.backend.CheckCall(c, 1, "Application", "postgresql")
 
-	app := s.backend.applications["postgresql"].(*mockApplication)
+	app := s.backend.applications["postgresql"]
 	app.CheckCall(c, 0, "IsPrincipal")
 	app.CheckCall(c, 1, "Series")
 	app.CheckCall(c, 2, "UpdateApplicationSeries", "trusty", false)
@@ -928,12 +1008,12 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
 
 	s.backend.CheckCall(c, 0, "Application", "postgresql-subordinate")
 
-	app := s.backend.applications["postgresql-subordinate"].(*mockApplication)
+	app := s.backend.applications["postgresql-subordinate"]
 	app.CheckCall(c, 0, "IsPrincipal")
 }
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesIncompatibleSeries(c *gc.C) {
-	app := s.backend.applications["postgresql"].(*mockApplication)
+	app := s.backend.applications["postgresql"]
 	app.SetErrors(nil, nil, &state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial"})
 	results, err := s.api.UpdateApplicationSeries(
 		params.UpdateSeriesArgs{
