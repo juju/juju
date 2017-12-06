@@ -206,6 +206,21 @@ func deployApplication(
 		return errors.Errorf("charm url must include revision")
 	}
 
+	if backend.ModelType() != state.ModelTypeIAAS {
+		if len(args.AttachStorage) > 0 {
+			return errors.Errorf(
+				"AttachStorage may not be specified for %s models",
+				backend.ModelType(),
+			)
+		}
+		if len(args.Placement) > 0 {
+			return errors.Errorf(
+				"Placement may not be specified for %s models",
+				backend.ModelType(),
+			)
+		}
+	}
+
 	// Do a quick but not complete validation check before going any further.
 	for _, p := range args.Placement {
 		if p.Scope != instance.MachineScope {
@@ -745,6 +760,26 @@ func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]Un
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
+
+	assignUnits := true
+	if backend.ModelType() != state.ModelTypeIAAS {
+		// In a CAAS model, there are no machines for
+		// units to be assigned to.
+		assignUnits = false
+		if len(args.AttachStorage) > 0 {
+			return nil, errors.Errorf(
+				"AttachStorage may not be specified for %s models",
+				backend.ModelType(),
+			)
+		}
+		if len(args.Placement) > 0 {
+			return nil, errors.Errorf(
+				"Placement may not be specified for %s models",
+				backend.ModelType(),
+			)
+		}
+	}
+
 	// Parse storage tags in AttachStorage.
 	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
 		return nil, errors.Errorf("AttachStorage is non-empty, but NumUnits is %d", args.NumUnits)
@@ -767,6 +802,7 @@ func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]Un
 		args.NumUnits,
 		args.Placement,
 		attachStorage,
+		assignUnits,
 	)
 }
 
@@ -843,23 +879,25 @@ func (api *API) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitR
 			return nil, errors.Errorf("unit %q is a subordinate", name)
 		}
 		var info params.DestroyUnitInfo
-		storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if arg.DestroyStorage {
-			for _, s := range storage {
-				info.DestroyedStorage = append(
-					info.DestroyedStorage,
-					params.Entity{s.StorageTag().String()},
-				)
-			}
-		} else {
-			info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
-				api.backend, storage,
-			)
+		if api.backend.ModelType() == state.ModelTypeIAAS {
+			storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
 			if err != nil {
 				return nil, errors.Trace(err)
+			}
+			if arg.DestroyStorage {
+				for _, s := range storage {
+					info.DestroyedStorage = append(
+						info.DestroyedStorage,
+						params.Entity{s.StorageTag().String()},
+					)
+				}
+			} else {
+				info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
+					api.backend, storage,
+				)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
 			}
 		}
 		op := unit.DestroyOperation()
@@ -951,6 +989,10 @@ func (api *API) DestroyApplication(args params.DestroyApplicationsParams) (param
 				info.DestroyedUnits,
 				params.Entity{unit.UnitTag().String()},
 			)
+			if api.backend.ModelType() != state.ModelTypeIAAS {
+				// Non-IAAS model; no need to deal with storage below.
+				continue
+			}
 			storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
 			if err != nil {
 				return nil, err

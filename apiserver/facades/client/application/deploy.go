@@ -162,6 +162,7 @@ func addUnits(
 	n int,
 	placement []*instance.Placement,
 	attachStorage []names.StorageTag,
+	assignUnits bool,
 ) ([]Unit, error) {
 	units := make([]Unit, n)
 	// Hard code for now till we implement a different approach.
@@ -174,18 +175,21 @@ func addUnits(
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, appName)
 		}
+		units[i] = unit
+		if !assignUnits {
+			continue
+		}
+
 		// Are there still placement directives to use?
 		if i > len(placement)-1 {
 			if err := unit.AssignWithPolicy(policy); err != nil {
 				return nil, errors.Trace(err)
 			}
-			units[i] = unit
 			continue
 		}
 		if err := unit.AssignWithPlacement(placement[i]); err != nil {
 			return nil, errors.Annotatef(err, "adding new machine to host unit %q", unit.UnitTag().Id())
 		}
-		units[i] = unit
 	}
 	return units, nil
 }
