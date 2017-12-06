@@ -12,9 +12,6 @@ import sys
 from deploy_stack import (
     BootstrapManager,
 )
-from jujucharm import (
-    local_charm_path,
-)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,

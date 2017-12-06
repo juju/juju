@@ -950,7 +950,7 @@ class ModelClient:
         exit_status, _ = self.juju(
             'destroy-model',
             ('{}:{}'.format(self.env.controller.name, self.env.environment),
-            '-y', '--destroy-storage',),
+             '-y', '--destroy-storage',),
             include_e=False, timeout=get_teardown_timeout(self))
         return exit_status
 

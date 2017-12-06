@@ -41,6 +41,7 @@ class StillProvisioning(Exception):
             'Still provisioning: {}'.format(', '.join(instance_ids)))
         self.instance_ids = instance_ids
 
+
 def translate_to_env(current_env):
     """Translate openstack settings to environment variables."""
     if current_env['type'] not in ('openstack', 'rackspace'):
