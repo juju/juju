@@ -187,13 +187,13 @@ var (
 	updatedConfig = settingsMap{
 		"booleandefault":   {false, "user"},
 		"booleannodefault": {true, "user"},
-		"booleanoverwrite": {true, "user"}, // this should be true since user-specified value is the same as default
+		"booleanoverwrite": {true, "default"},
 		"floatdefault":     {7.2, "user"},
 		"floatnodefault":   {10.2, "user"},
-		"floatoverwrite":   {11.1, "user"}, // this should be true since user-specified value is the same as default
+		"floatoverwrite":   {11.1, "default"},
 		"intdefault":       {22, "user"},
 		"intnodefault":     {11, "user"},
-		"intoverwrite":     {111, "user"}, // this should be true since user-specified value is the same as default
+		"intoverwrite":     {111, "default"},
 		"strdefault":       {"not", "user"},
 		"strnodefault":     {"maybe", "user"},
 		"stroverwrite":     {"me", "user"},

@@ -139,7 +139,7 @@ check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
 # CAAS related targets
-DOCKER_USERNAME?=juju
+DOCKER_USERNAME?=jujusolutions
 JUJUD_STAGING_DIR=/tmp/jujud-operator
 JUJUD_BIN_DIR=${GOPATH}/bin
 

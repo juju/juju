@@ -171,8 +171,7 @@ func operatorPod(appName, agentPath string) *v1.Pod {
 			Containers: []v1.Container{{
 				Name:            "juju-operator",
 				ImagePullPolicy: v1.PullIfNotPresent,
-				// TODO(caas) use proper image
-				Image: "wallyworld/caas-jujud-operator:latest",
+				Image:           "jujusolutions/caas-jujud-operator:latest",
 				Env: []v1.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
 				},

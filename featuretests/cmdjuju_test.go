@@ -51,11 +51,19 @@ func (s *cmdJujuSuite) TestGetConstraints(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
-func (s *cmdJujuSuite) TestServiceSet(c *gc.C) {
-	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "dummy-service", ch)
+func (s *cmdJujuSuite) combinedSettings(ch *state.Charm, inSettings charm.Settings) charm.Settings {
+	result := ch.Config().DefaultSettings()
+	for name, value := range inSettings {
+		result[name] = value
+	}
+	return result
+}
 
-	_, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-service",
+func (s *cmdJujuSuite) TestApplicationSet(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	app := s.AddTestingApplication(c, "dummy-application", ch)
+
+	_, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application",
 		"username=hello", "outlook=hello@world.tld")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -66,12 +74,12 @@ func (s *cmdJujuSuite) TestServiceSet(c *gc.C) {
 
 	settings, err := app.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expect)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, expect))
 }
 
-func (s *cmdJujuSuite) TestServiceUnset(c *gc.C) {
+func (s *cmdJujuSuite) TestApplicationUnset(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "dummy-service", ch)
+	app := s.AddTestingApplication(c, "dummy-application", ch)
 
 	settings := charm.Settings{
 		"username": "hello",
@@ -81,7 +89,7 @@ func (s *cmdJujuSuite) TestServiceUnset(c *gc.C) {
 	err := app.UpdateConfigSettings(settings)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-service", "--reset", "username")
+	_, err = cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application", "--reset", "username")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect := charm.Settings{
@@ -89,11 +97,11 @@ func (s *cmdJujuSuite) TestServiceUnset(c *gc.C) {
 	}
 	settings, err = app.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expect)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, expect))
 }
 
-func (s *cmdJujuSuite) TestServiceGet(c *gc.C) {
-	expected := `application: dummy-service
+func (s *cmdJujuSuite) TestApplicationGet(c *gc.C) {
+	expected := `application: dummy-application
 charm: dummy
 settings:
   outlook:
@@ -118,14 +126,14 @@ settings:
     value: admin001
 `
 	ch := s.AddTestingCharm(c, "dummy")
-	s.AddTestingApplication(c, "dummy-service", ch)
+	s.AddTestingApplication(c, "dummy-application", ch)
 
-	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-service")
+	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
 }
 
-func (s *cmdJujuSuite) TestServiceGetWeirdYAML(c *gc.C) {
+func (s *cmdJujuSuite) TestApplicationGetWeirdYAML(c *gc.C) {
 	// This test has been confirmed to pass with the patch/goyaml-pr-241.diff
 	// applied to the current gopkg.in/yaml.v2 revision, however since our standard
 	// local test tooling doesn't apply patches, this test would fail without it.
@@ -159,7 +167,7 @@ settings:
 	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
 }
 
-func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
+func (s *cmdJujuSuite) TestApplicationAddUnitExistingContainer(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "some-application-name", ch)
 

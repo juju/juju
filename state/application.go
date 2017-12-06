@@ -1688,14 +1688,30 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 	return relations, nil
 }
 
-// ConfigSettings returns the raw user configuration for the application's charm.
-// Unset values are omitted.
-func (a *Application) ConfigSettings() (charm.Settings, error) {
-	settings, err := readSettings(a.st.db(), settingsC, a.settingsKey())
+func charmSettingsWithDefaults(st *State, curl *charm.URL, key string) (charm.Settings, error) {
+	settings, err := readSettings(st.db(), settingsC, key)
 	if err != nil {
 		return nil, err
 	}
-	return settings.Map(), nil
+	result := settings.Map()
+
+	chrm, err := st.Charm(curl)
+	if err != nil {
+		return nil, err
+	}
+	result = chrm.Config().DefaultSettings()
+	for name, value := range settings.Map() {
+		result[name] = value
+	}
+	return result, nil
+}
+
+// ConfigSettings returns the raw user configuration for the application's charm.
+func (a *Application) ConfigSettings() (charm.Settings, error) {
+	if a.doc.CharmURL == nil {
+		return nil, fmt.Errorf("application charm not set")
+	}
+	return charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.settingsKey())
 }
 
 // UpdateConfigSettings changes a application's charm config settings. Values set

@@ -430,10 +430,14 @@ func (s *DeployLocalSuite) assertCharm(c *gc.C, app application.Application, exp
 	c.Assert(force, jc.IsFalse)
 }
 
-func (s *DeployLocalSuite) assertSettings(c *gc.C, app application.Application, expect charm.Settings) {
+func (s *DeployLocalSuite) assertSettings(c *gc.C, app application.Application, settings charm.Settings) {
 	settings, err := app.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expect)
+	expected := s.charm.Config().DefaultSettings()
+	for name, value := range settings {
+		expected[name] = value
+	}
+	c.Assert(settings, gc.DeepEquals, expected)
 }
 
 func (s *DeployLocalSuite) assertConstraints(c *gc.C, app application.Application, expect constraints.Value) {
