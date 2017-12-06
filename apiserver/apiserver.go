@@ -967,7 +967,7 @@ func (srv *Server) serveConn(
 	host string,
 ) error {
 	codec := jsoncodec.NewWebsocket(wsConn.Conn)
-	conn := rpc.NewConn(codec, apiObserver)
+	conn := rpc.NewConn(codec, observer.NewRecorderFactory(apiObserver, nil))
 
 	// Note that we don't overwrite modelUUID here because
 	// newAPIHandler treats an empty modelUUID as signifying

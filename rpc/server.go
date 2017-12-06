@@ -4,7 +4,6 @@
 package rpc
 
 import (
-	"encoding/json"
 	"io"
 	"reflect"
 	"runtime/debug"
@@ -14,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/rpc/rpcreflect"
 )
 
@@ -91,13 +89,16 @@ func (hdr *Header) IsRequest() bool {
 	return hdr.Request.Type != "" || hdr.Request.Action != ""
 }
 
-// ObserverFactory is a type which can construct a new Observer.
-type ObserverFactory interface {
+// RecorderFactory is a function that returns a recorder to record
+// details of a single request/response.
+type RecorderFactory func() Recorder
 
-	// RPCObserver will return a new Observer usually constructed
-	// from the state previously built up in the Observer. The
-	// returned instance will be utilized per RPC request.
-	RPCObserver() Observer
+// Recorder represents something the connection use to record requests
+// and replies. Recording a message can fail (for example for audit
+// logging), and when it does the request should be failed as well.
+type Recorder interface {
+	ServerRequest(hdr *Header, body interface{}) error
+	ServerReply(req Request, replyHdr *Header, body interface{}) error
 }
 
 // Note that we use "client request" and "server request" to name
@@ -151,22 +152,18 @@ type Conn struct {
 	// terminate prematurely.  It is set before dead is closed.
 	inputLoopError error
 
-	observerFactory ObserverFactory
-	recorder        *auditlog.Recorder
+	recorderFactory RecorderFactory
 }
 
 // NewConn creates a new connection that uses the given codec for
-// transport, but it does not start it. Conn.Start must be called before
-// any requests are sent or received. If observerFactory is non-nil, the
-// appropriate method will be called for every RPC request.
-func NewConn(codec Codec, observerFactory ObserverFactory) *Conn {
-	if observerFactory == nil {
-		observerFactory = nopObserverFactory{}
-	}
+// transport, but it does not start it. Conn.Start must be called
+// before any requests are sent or received. If recorderFactory is
+// non-nil, it will be called to get a new recorder for every request.
+func NewConn(codec Codec, factory RecorderFactory) *Conn {
 	return &Conn{
 		codec:           codec,
 		clientPending:   make(map[uint64]*Call),
-		observerFactory: observerFactory,
+		recorderFactory: ensureFactory(factory),
 	}
 }
 
@@ -221,12 +218,12 @@ func (conn *Conn) Start() {
 // set of methods being served by the connection. This will have
 // no effect on calls that are currently being services.
 // If root is nil, the connection will serve no methods.
-func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
+func (conn *Conn) Serve(root interface{}, factory RecorderFactory, transformErrors func(error) error) {
 	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
 	if rootValue.IsValid() {
-		conn.serve(rootValue, nil, transformErrors)
+		conn.serve(rootValue, factory, transformErrors)
 	} else {
-		conn.serve(nil, nil, transformErrors)
+		conn.serve(nil, factory, transformErrors)
 	}
 }
 
@@ -239,18 +236,18 @@ func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
 // possibly returning some result.
 //
 // The Kill method will be called when the connection is closed.
-func (conn *Conn) ServeRoot(root Root, recorder *auditlog.Recorder, transformErrors func(error) error) {
-	conn.serve(root, recorder, transformErrors)
+func (conn *Conn) ServeRoot(root Root, factory RecorderFactory, transformErrors func(error) error) {
+	conn.serve(root, factory, transformErrors)
 }
 
-func (conn *Conn) serve(root Root, recorder *auditlog.Recorder, transformErrors func(error) error) {
+func (conn *Conn) serve(root Root, factory RecorderFactory, transformErrors func(error) error) {
 	if transformErrors == nil {
 		transformErrors = noopTransform
 	}
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	conn.root = root
-	conn.recorder = recorder
+	conn.recorderFactory = ensureFactory(factory)
 	conn.transformErrors = transformErrors
 }
 
@@ -395,17 +392,14 @@ func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
 func (conn *Conn) getRecorder() Recorder {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
-	return &combinedRecorder{
-		observer: conn.observerFactory.RPCObserver(),
-		recorder: conn.recorder,
-	}
+	return conn.recorderFactory()
 }
 
 func (conn *Conn) handleRequest(hdr *Header) error {
 	recorder := conn.getRecorder()
 	req, err := conn.bindRequest(hdr)
 	if err != nil {
-		if err := recorder.AddRequest(hdr, nil); err != nil {
+		if err := recorder.ServerRequest(hdr, nil); err != nil {
 			return errors.Trace(err)
 		}
 		if err := conn.readBody(nil, true); err != nil {
@@ -423,7 +417,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		argp = v.Interface()
 	}
 	if err := conn.readBody(argp, true); err != nil {
-		if err := recorder.AddRequest(hdr, nil); err != nil {
+		if err := recorder.ServerRequest(hdr, nil); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -446,7 +440,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	if req.ParamsType() != nil {
 		body = arg.Interface()
 	}
-	if err := recorder.AddRequest(hdr, body); err != nil {
+	if err := recorder.ServerRequest(hdr, body); err != nil {
 		return errors.Trace(err)
 	}
 	conn.mutex.Lock()
@@ -476,7 +470,7 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, recorder Recorde
 		hdr.ErrorCode = ""
 	}
 	hdr.Error = err.Error()
-	if err := recorder.AddReply(reqHdr.Request, hdr, struct{}{}); err != nil {
+	if err := recorder.ServerReply(reqHdr.Request, hdr, struct{}{}); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -548,7 +542,7 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, r
 		} else {
 			rvi = struct{}{}
 		}
-		if err := recorder.AddReply(req.hdr.Request, hdr, rvi); err != nil {
+		if err := recorder.ServerReply(req.hdr.Request, hdr, rvi); err != nil {
 			logger.Errorf("error logging response: %T %+v", err, err)
 		}
 		conn.sending.Lock()
@@ -577,66 +571,18 @@ func (e *serverError) ErrorCode() string {
 	return codeNotImplemented
 }
 
-type nopObserverFactory struct{}
-
-func (nopObserverFactory) RPCObserver() Observer {
-	return nopObserver{}
-}
-
-type nopObserver struct{}
-
-func (nopObserver) ServerRequest(hdr *Header, body interface{}) {}
-
-func (nopObserver) ServerReply(req Request, hdr *Header, body interface{}) {}
-
-type Recorder interface {
-	AddRequest(hdr *Header, body interface{}) error
-	AddReply(req Request, replyHdr *Header, body interface{}) error
-}
-
-type combinedRecorder struct {
-	observer Observer
-	recorder *auditlog.Recorder
-}
-
-func (cr *combinedRecorder) AddRequest(hdr *Header, body interface{}) error {
-	cr.observer.ServerRequest(hdr, body)
-	// TODO(babbageclunk): make this configurable.
-	jsonArgs, err := json.Marshal(body)
-	if err != nil {
-		return errors.Trace(err)
+func ensureFactory(f RecorderFactory) RecorderFactory {
+	if f != nil {
+		return f
 	}
-	return errors.Trace(cr.recorder.AddRequest(auditlog.RequestArgs{
-		RequestID: hdr.RequestId,
-		Facade:    hdr.Request.Type,
-		Method:    hdr.Request.Action,
-		Version:   hdr.Request.Version,
-		Args:      string(jsonArgs),
-	}))
-}
-
-func (cr *combinedRecorder) AddReply(req Request, replyHdr *Header, body interface{}) error {
-	cr.observer.ServerReply(req, replyHdr, body)
-	var responseErrors []*auditlog.Error
-	if replyHdr.Error == "" {
-		var err error
-		responseErrors, err = extractErrors(body)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-		responseErrors = []*auditlog.Error{{
-			Message: replyHdr.Error,
-			Code:    replyHdr.ErrorCode,
-		}}
+	var nop nopRecorder
+	return func() Recorder {
+		return &nop
 	}
-	return errors.Trace(cr.recorder.AddResponse(auditlog.ResponseErrorsArgs{
-		RequestID: replyHdr.RequestId,
-		Errors:    responseErrors,
-	}))
 }
 
-func extractErrors(body interface{}) ([]*auditlog.Error, error) {
-	// TODO(babbageclunk): use reflection to find errors in the response body.
-	return nil, nil
-}
+type nopRecorder struct{}
+
+func (nopRecorder) ServerRequest(hdr *Header, body interface{}) error { return nil }
+
+func (nopRecorder) ServerReply(req Request, hdr *Header, body interface{}) error { return nil }

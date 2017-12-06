@@ -136,10 +136,10 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		modelTag = a.root.model.Tag().String()
 	}
 
-	var recorder *auditlog.Recorder
+	var auditRecorder *auditlog.Recorder
 	if authResult.userLogin {
 		// We only audit connections from humans.
-		recorder, err = auditlog.NewRecorder(
+		auditRecorder, err = auditlog.NewRecorder(
 			a.srv.auditLogger,
 			auditlog.ConversationArgs{
 				Who:          req.AuthTag,
@@ -155,7 +155,10 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		}
 	}
 
-	a.root.rpcConn.ServeRoot(apiRoot, recorder, serverError)
+	recorderFactory := observer.NewRecorderFactory(
+		a.apiObserver, auditRecorder)
+
+	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
 	return params.LoginResult{
 		Servers:       params.FromNetworkHostsPorts(hostPorts),
 		ControllerTag: a.root.model.ControllerTag().String(),

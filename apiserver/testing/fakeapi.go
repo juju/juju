@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -77,7 +78,7 @@ func (srv *Server) serveAPI(w http.ResponseWriter, req *http.Request) {
 
 func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string) {
 	codec := jsoncodec.NewWebsocket(wsConn)
-	conn := rpc.NewConn(codec, &fakeobserver.Instance{})
+	conn := rpc.NewConn(codec, observer.NewRecorderFactory(&fakeobserver.Instance{}, nil))
 
 	root := allVersions{
 		rpcreflect.ValueOf(reflect.ValueOf(srv.newRoot(modelUUID))),

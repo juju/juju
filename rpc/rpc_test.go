@@ -237,11 +237,11 @@ func (a *CallbackMethods) Factorial(x int64val) (int64val, error) {
 }
 
 func (a *ChangeAPIMethods) ChangeAPI() {
-	a.r.conn.Serve(&changedAPIRoot{}, nil)
+	a.r.conn.Serve(&changedAPIRoot{}, nil, nil)
 }
 
 func (a *ChangeAPIMethods) RemoveAPI() {
-	a.r.conn.Serve(nil, nil)
+	a.r.conn.Serve(nil, nil, nil)
 }
 
 type changedAPIRoot struct{}
@@ -987,7 +987,7 @@ func (*rpcSuite) TestBidirectional(c *gc.C) {
 	client, srvDone, _ := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
 	clientRoot := &Root{conn: client}
-	client.Serve(clientRoot, nil)
+	client.Serve(clientRoot, nil, nil)
 	var r int64val
 	err := client.Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{12}, &r)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1105,12 +1105,13 @@ func newRPCClientServer(
 		if bidir {
 			role = roleBoth
 		}
-		rpcConn := rpc.NewConn(NewJSONCodec(conn, role), serverNotifier)
+		recorderFactory := func() rpc.Recorder { return serverNotifier }
+		rpcConn := rpc.NewConn(NewJSONCodec(conn, role), recorderFactory)
 		if custroot, ok := root.(*CustomRoot); ok {
-			rpcConn.ServeRoot(custroot, nil, tfErr)
+			rpcConn.ServeRoot(custroot, recorderFactory, tfErr)
 			custroot.root.conn = rpcConn
 		} else {
-			rpcConn.Serve(root, tfErr)
+			rpcConn.Serve(root, recorderFactory, tfErr)
 		}
 		if root, ok := root.(*Root); ok {
 			root.conn = rpcConn
@@ -1125,9 +1126,9 @@ func newRPCClientServer(
 	if bidir {
 		role = roleBoth
 	}
-	client = rpc.NewConn(NewJSONCodec(conn, role), &notifier{})
+	client = rpc.NewConn(NewJSONCodec(conn, role), nil)
 	client.Start()
-	return client, srvDone, serverNotifier
+	return client, server, srvDone, serverNotifier
 }
 
 func closeClient(c *gc.C, client *rpc.Conn, srvDone <-chan error) {
@@ -1225,15 +1226,6 @@ type notifier struct {
 	serverReplies  []replyEvent
 }
 
-func (n *notifier) RPCObserver() rpc.Observer {
-	// For testing, we usually won't want an actual copy of the
-	// stub. To avoid confusing test failures (e.g. wondering why your
-	// calls aren't showing up on your stub because the underlying
-	// code has called DeepCopy) and immense complexity, just return
-	// the same value.
-	return n
-}
-
 func (n *notifier) reset() {
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -1241,16 +1233,17 @@ func (n *notifier) reset() {
 	n.serverReplies = nil
 }
 
-func (n *notifier) ServerRequest(hdr *rpc.Header, body interface{}) {
+func (n *notifier) ServerRequest(hdr *rpc.Header, body interface{}) error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.serverRequests = append(n.serverRequests, requestEvent{
 		hdr:  *hdr,
 		body: body,
 	})
+	return nil
 }
 
-func (n *notifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (n *notifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.serverReplies = append(n.serverReplies, replyEvent{
@@ -1258,4 +1251,5 @@ func (n *notifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{
 		hdr:  *hdr,
 		body: body,
 	})
+	return nil
 }
