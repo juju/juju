@@ -375,7 +375,7 @@ def make_changelog_message(version, bugs=None):
     else:
         message = 'New upstream stable point release.'
     if bugs:
-        fixes = ', '.join(['LP #%s' % b for b in bugs])
+        fixes = ', '.join(['LP #%s' % bug for bug,description in bugs])
         message = '%s (%s)' % (message, fixes)
     return message
 
