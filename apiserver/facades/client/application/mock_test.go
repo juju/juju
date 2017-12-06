@@ -254,7 +254,7 @@ type mockBackend struct {
 	application.Backend
 
 	modelUUID                  string
-	model                      application.Model
+	modelType                  state.ModelType
 	charm                      *mockCharm
 	allmodels                  []application.Model
 	users                      set.Strings
@@ -491,18 +491,16 @@ func (m *mockBackend) Space(name string) (application.Space, error) {
 	return space, nil
 }
 
-func (m *mockBackend) Model() (application.Model, error) {
-	return m.model, nil
-}
-
 func (m *mockBackend) ModelUUID() string {
 	return m.modelUUID
 }
 
 func (m *mockBackend) ModelTag() names.ModelTag {
-	m.MethodCall(m, "ModelTag")
-	m.PopNoErr()
 	return names.NewModelTag(m.modelUUID)
+}
+
+func (m *mockBackend) ModelType() state.ModelType {
+	return m.modelType
 }
 
 type mockBlockChecker struct {

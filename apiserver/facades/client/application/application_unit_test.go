@@ -69,6 +69,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.relation = mockRelation{tag: names.NewRelationTag("wordpress:db mysql:db")}
 	s.backend = mockBackend{
+		modelType:   state.ModelTypeIAAS,
 		controllers: make(map[string]crossmodel.ControllerInfo),
 		applications: map[string]application.Application{
 			"postgresql": &mockApplication{
@@ -186,7 +187,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ModelTag", "Application", "Charm")
+	s.backend.CheckCallNames(c, "Application", "Charm")
 	app := s.backend.applications["postgresql"].(*mockApplication)
 	app.CheckCallNames(c, "SetCharm")
 	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
@@ -207,7 +208,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 		ConfigSettings:  map[string]string{"stringOption": "value"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ModelTag", "Application", "Charm")
+	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"].(*mockApplication)
 	app.CheckCallNames(c, "SetCharm")
@@ -227,7 +228,7 @@ postgresql:
 `,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ModelTag", "Application", "Charm")
+	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
 	app := s.backend.applications["postgresql"].(*mockApplication)
 	app.CheckCallNames(c, "SetCharm")
@@ -241,8 +242,8 @@ func (s *ApplicationSuite) TestDestroyRelation(c *gc.C) {
 	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
-	s.backend.CheckCallNames(c, "ModelTag", "InferEndpoints", "EndpointsRelation")
-	s.backend.CheckCall(c, 1, "InferEndpoints", []string{"a", "b"})
+	s.backend.CheckCallNames(c, "InferEndpoints", "EndpointsRelation")
+	s.backend.CheckCall(c, 0, "InferEndpoints", []string{"a", "b"})
 	s.relation.CheckCallNames(c, "Destroy")
 }
 
@@ -253,7 +254,7 @@ func (s *ApplicationSuite) TestDestroyRelationNoRelationsFound(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyRelationRelationNotFound(c *gc.C) {
-	s.backend.SetErrors(nil, nil, errors.NotFoundf(`relation "a:b c:d"`))
+	s.backend.SetErrors(nil, errors.NotFoundf(`relation "a:b c:d"`))
 	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a:b", "c:d"}})
 	c.Assert(err, gc.ErrorMatches, `relation "a:b c:d" not found`)
 }
@@ -263,7 +264,7 @@ func (s *ApplicationSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
 	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
 	c.Assert(err, gc.ErrorMatches, "postgresql")
 	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
-	s.backend.CheckCallNames(c, "ModelTag")
+	s.backend.CheckNoCalls(c)
 	s.relation.CheckNoCalls(c)
 }
 
@@ -271,13 +272,13 @@ func (s *ApplicationSuite) TestDestroyRelationId(c *gc.C) {
 	err := s.api.DestroyRelation(params.DestroyRelation{RelationId: 123})
 	c.Assert(err, jc.ErrorIsNil)
 	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
-	s.backend.CheckCallNames(c, "ModelTag", "Relation")
-	s.backend.CheckCall(c, 1, "Relation", 123)
+	s.backend.CheckCallNames(c, "Relation")
+	s.backend.CheckCall(c, 0, "Relation", 123)
 	s.relation.CheckCallNames(c, "Destroy")
 }
 
 func (s *ApplicationSuite) TestDestroyRelationIdRelationNotFound(c *gc.C) {
-	s.backend.SetErrors(nil, errors.NotFoundf(`relation "123"`))
+	s.backend.SetErrors(errors.NotFoundf(`relation "123"`))
 	err := s.api.DestroyRelation(params.DestroyRelation{RelationId: 123})
 	c.Assert(err, gc.ErrorMatches, `relation "123" not found`)
 }
@@ -306,7 +307,6 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 	})
 
 	s.backend.CheckCallNames(c,
-		"ModelTag",
 		"Application",
 		"UnitStorageAttachments",
 		"StorageInstance",
@@ -316,7 +316,7 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 8, "ApplyOperation", &state.DestroyApplicationOperation{})
+	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyApplicationOperation{})
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
@@ -342,7 +342,6 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 	})
 
 	s.backend.CheckCallNames(c,
-		"ModelTag",
 		"Application",
 		"UnitStorageAttachments",
 		"StorageInstance",
@@ -350,7 +349,7 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyApplicationOperation{
+	s.backend.CheckCall(c, 5, "ApplyOperation", &state.DestroyApplicationOperation{
 		DestroyStorage: true,
 	})
 }
@@ -380,10 +379,7 @@ func (s *ApplicationSuite) TestDestroyConsumedApplication(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{})
 
-	s.backend.CheckCallNames(c,
-		"ModelTag",
-		"RemoteApplication",
-	)
+	s.backend.CheckCallNames(c, "RemoteApplication")
 	app := s.backend.remoteApplications["hosted-db2"]
 	app.(*mockRemoteApplication).CheckCallNames(c, "Destroy")
 }
@@ -429,7 +425,6 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	}})
 
 	s.backend.CheckCallNames(c,
-		"ModelTag",
 		"Unit",
 		"UnitStorageAttachments",
 		"StorageInstance",
@@ -442,8 +437,8 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyUnitOperation{})
-	s.backend.CheckCall(c, 10, "ApplyOperation", &state.DestroyUnitOperation{
+	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyUnitOperation{})
+	s.backend.CheckCall(c, 9, "ApplyOperation", &state.DestroyUnitOperation{
 		DestroyStorage: true,
 	})
 }
@@ -871,9 +866,8 @@ func (s *ApplicationSuite) TestApplicationUpdateSeries(c *gc.C) {
 			{Error: &params.Error{Message: "application \"name\" not found", Code: "not found"}},
 			{Error: &params.Error{Message: "\"unit-mysql-0\" is not a valid application tag", Code: ""}},
 		}})
-	s.backend.CheckCall(c, 0, "ModelTag")
+	s.backend.CheckCall(c, 0, "Application", "postgresql")
 	s.backend.CheckCall(c, 1, "Application", "postgresql")
-	s.backend.CheckCall(c, 2, "Application", "postgresql")
 
 	app := s.backend.applications["postgresql"].(*mockApplication)
 	app.CheckCall(c, 0, "IsPrincipal")
@@ -894,7 +888,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{}})
 
-	s.backend.CheckCallNames(c, "ModelTag")
+	s.backend.CheckNoCalls(c)
 }
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesNoSeries(c *gc.C) {
@@ -912,7 +906,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesNoSeries(c *gc.C) {
 		},
 	})
 
-	s.backend.CheckCallNames(c, "ModelTag")
+	s.backend.CheckNoCalls(c)
 }
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
@@ -932,8 +926,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
 		},
 	})
 
-	s.backend.CheckCall(c, 0, "ModelTag")
-	s.backend.CheckCall(c, 1, "Application", "postgresql-subordinate")
+	s.backend.CheckCall(c, 0, "Application", "postgresql-subordinate")
 
 	app := s.backend.applications["postgresql-subordinate"].(*mockApplication)
 	app.CheckCall(c, 0, "IsPrincipal")
