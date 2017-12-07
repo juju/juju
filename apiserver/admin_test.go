@@ -41,12 +41,6 @@ type baseLoginSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-type loginSuite struct {
-	baseLoginSuite
-}
-
-var _ = gc.Suite(&loginSuite{})
-
 func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
@@ -61,6 +55,43 @@ func (s *baseLoginSuite) newMachineAndServer(c *gc.C) (*api.Info, *apiserver.Ser
 	info.Nonce = "fake_nonce"
 	return info, srv
 }
+
+func (s *baseLoginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr string, hostPorts [][]network.HostPort) {
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+	return st.Addr(), st.APIHostPorts()
+}
+
+func (s *baseLoginSuite) addMachine(c *gc.C, job state.MachineJob) (*state.Machine, string) {
+	machine, err := s.State.AddMachine("quantal", job)
+	c.Assert(err, jc.ErrorIsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	return machine, password
+}
+
+func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info0 *api.Info) api.Connection {
+	info := *info0
+	info.Tag = nil
+	info.Password = ""
+	info.SkipLogin = true
+	info.Macaroons = nil
+	st, err := api.Open(&info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { st.Close() })
+	return st
+}
+
+type loginSuite struct {
+	baseLoginSuite
+}
+
+var _ = gc.Suite(&loginSuite{})
 
 func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
 	info := s.APIInfo(c)
@@ -208,13 +239,6 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	// the one we connected to comes first.
 	stateAPIHostPorts = append(connectedAddrHostPorts, stateAPIHostPorts...)
 	c.Assert(hostPorts, gc.DeepEquals, stateAPIHostPorts)
-}
-
-func (s *baseLoginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr string, hostPorts [][]network.HostPort) {
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	return st.Addr(), st.APIHostPorts()
 }
 
 func startNLogins(c *gc.C, n int, info *api.Info) (chan error, *sync.WaitGroup) {
@@ -539,30 +563,6 @@ func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
-}
-
-func (s *baseLoginSuite) addMachine(c *gc.C, job state.MachineJob) (*state.Machine, string) {
-	machine, err := s.State.AddMachine("quantal", job)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	return machine, password
-}
-
-func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info0 *api.Info) api.Connection {
-	info := *info0
-	info.Tag = nil
-	info.Password = ""
-	info.SkipLogin = true
-	info.Macaroons = nil
-	st, err := api.Open(&info, fastDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { st.Close() })
-	return st
 }
 
 func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
