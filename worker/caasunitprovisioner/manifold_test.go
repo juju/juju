@@ -131,7 +131,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ApplicationGetter:   &s.client,
 		ServiceBroker:       &s.broker,
 		ContainerBroker:     &s.broker,
-		ServiceExposer:      &s.broker,
 		ContainerSpecGetter: &s.client,
 		LifeGetter:          &s.client,
 		UnitGetter:          &s.client,

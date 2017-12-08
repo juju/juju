@@ -63,9 +63,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ServiceBroker:   broker,
 		ContainerBroker: broker,
 
-		// TODO(caas) - move to a firewaller worker
-		ServiceExposer: broker,
-
 		ContainerSpecGetter: client,
 		LifeGetter:          client,
 		UnitGetter:          client,

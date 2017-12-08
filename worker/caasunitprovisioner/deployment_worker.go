@@ -18,7 +18,6 @@ type deploymentWorker struct {
 	catacomb            catacomb.Catacomb
 	application         string
 	broker              ServiceBroker
-	exposer             ServiceExposer
 	containerSpecGetter ContainerSpecGetter
 
 	aliveUnitsChan <-chan []string
@@ -30,7 +29,6 @@ type deploymentWorker struct {
 func newDeploymentWorker(
 	application string,
 	broker ServiceBroker,
-	exposer ServiceExposer,
 	containerSpecGetter ContainerSpecGetter,
 	config caas.ResourceConfig,
 	aliveUnitsChan <-chan []string,
@@ -38,7 +36,6 @@ func newDeploymentWorker(
 	w := &deploymentWorker{
 		application:         application,
 		broker:              broker,
-		exposer:             exposer,
 		containerSpecGetter: containerSpecGetter,
 		config:              config,
 		aliveUnitsChan:      aliveUnitsChan,
@@ -129,10 +126,6 @@ func (w *deploymentWorker) loop() error {
 
 		err = w.broker.EnsureService(w.application, unitSpec, numUnits, w.config)
 		if err != nil {
-			return errors.Trace(err)
-		}
-		// TODO(caas) - move to firewaller worker but just make things work for now
-		if err := w.exposer.ExposeService(w.application, w.config); err != nil {
 			return errors.Trace(err)
 		}
 		logger.Debugf("created/updated deployment for %s for %d units", w.application, numUnits)

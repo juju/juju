@@ -23,9 +23,6 @@ type Config struct {
 	ApplicationGetter ApplicationGetter
 	ServiceBroker     ServiceBroker
 
-	// TODO(caas) - move to a firewaller worker
-	ServiceExposer ServiceExposer
-
 	ContainerBroker     ContainerBroker
 	ContainerSpecGetter ContainerSpecGetter
 	LifeGetter          LifeGetter
@@ -39,9 +36,6 @@ func (config Config) Validate() error {
 	}
 	if config.ServiceBroker == nil {
 		return errors.NotValidf("missing ServiceBroker")
-	}
-	if config.ServiceExposer == nil {
-		return errors.NotValidf("missing ServiceExposer")
 	}
 	if config.ContainerBroker == nil {
 		return errors.NotValidf("missing ContainerBroker")
@@ -129,7 +123,6 @@ func (p *provisioner) loop() error {
 					p.config.BrokerManagedUnits,
 					p.config.ServiceBroker,
 					p.config.ContainerBroker,
-					p.config.ServiceExposer,
 					p.config.ContainerSpecGetter,
 					p.config.LifeGetter,
 					p.config.UnitGetter,
