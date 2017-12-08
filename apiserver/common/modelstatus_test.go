@@ -33,7 +33,6 @@ type modelStatusSuite struct {
 	controller *controller.ControllerAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
-	pool       *state.StatePool
 }
 
 var _ = gc.Suite(&modelStatusSuite{})
@@ -56,15 +55,12 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
-	s.pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.pool.Close() })
-
 	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
 			Auth_:      s.authorizer,
-			StatePool_: s.pool,
+			StatePool_: s.StatePool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
@@ -108,7 +104,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 			State_:     s.State,
 			Resources_: s.resources,
 			Auth_:      anAuthoriser,
-			StatePool_: s.pool,
+			StatePool_: s.StatePool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 

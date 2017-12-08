@@ -18,7 +18,6 @@ import (
 
 type agentAuthenticatorSuite struct {
 	testing.JujuConnSuite
-	pool *state.StatePool
 }
 
 type userFinder struct {
@@ -33,14 +32,12 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 
 func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
 func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	fact := factory.NewFactory(s.State)
 	user := fact.MakeUser(c, &factory.UserParams{Password: "password"})
-	_, srv := newServer(c, s.pool)
+	_, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, user.Tag())
@@ -57,7 +54,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
-	_, srv := newServer(c, s.pool)
+	_, srv := newServer(c, s.StatePool)
 	defer srv.Stop()
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,7 +63,7 @@ func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
-	_, srv := newServer(c, s.pool)
+	_, srv := newServer(c, s.StatePool)
 	defer srv.Stop()
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewUnitTag("wordpress/0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -75,7 +72,7 @@ func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *gc.C) {
-	_, srv := newServer(c, s.pool)
+	_, srv := newServer(c, s.StatePool)
 	defer srv.Stop()
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewApplicationTag("not-support"))
 	c.Assert(err, gc.ErrorMatches, "unexpected login entity tag: invalid request")

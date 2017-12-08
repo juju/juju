@@ -400,7 +400,6 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.StatePool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.StatePool.Close() })
 
 	s.Model, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -646,6 +645,14 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			)
 		}
 	}
+
+	// Close the state pool before we close the underlying state.
+	if s.StatePool != nil {
+		err := s.StatePool.Close()
+		c.Check(err, jc.ErrorIsNil)
+		s.StatePool = nil
+	}
+
 	// Close state.
 	if s.State != nil {
 		err := s.State.Close()

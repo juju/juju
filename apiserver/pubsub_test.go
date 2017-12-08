@@ -28,7 +28,6 @@ import (
 
 type pubsubSuite struct {
 	statetesting.StateSuite
-	pool       *state.StatePool
 	machineTag names.Tag
 	password   string
 	nonce      string
@@ -49,9 +48,7 @@ func (s *pubsubSuite) SetUpTest(c *gc.C) {
 	s.machineTag = m.Tag()
 	s.password = password
 	s.hub = pubsub.NewStructuredHub(nil)
-	s.pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.pool.Close() })
-	_, s.server = newServerWithHub(c, s.pool, s.hub)
+	_, s.server = newServerWithHub(c, s.StatePool, s.hub)
 	s.AddCleanup(func(*gc.C) { s.server.Stop() })
 
 	// A net.TCPAddr cannot be directly stringified into a valid hostname.
