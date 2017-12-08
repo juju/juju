@@ -37,12 +37,14 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 
 	s.applicationsChanges = make(chan []string, 1)
 	s.appExposedChanges = make(chan struct{}, 1)
+	appExposedWatcher := statetesting.NewMockNotifyWatcher(s.appExposedChanges)
 	s.st = &mockState{
 		application: mockApplication{
-			life: state.Alive,
+			life:    state.Alive,
+			watcher: appExposedWatcher,
 		},
 		applicationsWatcher: statetesting.NewMockStringsWatcher(s.applicationsChanges),
-		appExposedWatcher:   statetesting.NewMockNotifyWatcher(s.appExposedChanges),
+		appExposedWatcher:   appExposedWatcher,
 	}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.appExposedWatcher) })
@@ -98,7 +100,7 @@ func (s *CAASProvisionerSuite) TestWatchApplication(c *gc.C) {
 
 	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "1")
 	resource := s.resources.Get("1")
-	c.Assert(resource, gc.NotNil)
+	c.Assert(resource, gc.Equals, s.st.appExposedWatcher)
 }
 
 func (s *CAASProvisionerSuite) GetExposed(c *gc.C) {

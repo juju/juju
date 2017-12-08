@@ -8,7 +8,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -45,6 +44,7 @@ type mockApplication struct {
 	testing.Stub
 	life    state.Life
 	exposed bool
+	watcher state.NotifyWatcher
 }
 
 func (*mockApplication) Tag() names.Tag {
@@ -62,5 +62,5 @@ func (a *mockApplication) IsExposed() bool {
 }
 
 func (a *mockApplication) Watch() state.NotifyWatcher {
-	return apiservertesting.NewFakeNotifyWatcher()
+	return a.watcher
 }
