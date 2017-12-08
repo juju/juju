@@ -522,7 +522,7 @@ func (st *State) db() Database {
 
 // txnLogWatcher returns the TxnLogWatcher for the State. It is part
 // of the modelBackend interface.
-func (st *State) txnLogWatcher() *watcher.Watcher {
+func (st *State) txnLogWatcher() watcher.BaseWatcher {
 	return st.workers.txnLogWatcher()
 }
 
@@ -1903,10 +1903,16 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	return errors.Errorf("unknown unit assignment policy: %q", policy)
 }
 
+type hasStartSync interface {
+	StartSync()
+}
+
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
-	st.workers.txnLogWatcher().StartSync()
+	if syncable, ok := st.workers.txnLogWatcher().(hasStartSync); ok {
+		syncable.StartSync()
+	}
 	st.workers.pingBatcherWorker().Sync()
 	st.workers.presenceWatcher().Sync()
 }

@@ -16,7 +16,7 @@ type modelBackend interface {
 	localID(string) string
 	strictLocalID(string) (string, error)
 	db() Database
-	txnLogWatcher() *watcher.Watcher
+	txnLogWatcher() watcher.BaseWatcher
 }
 
 // docID generates a globally unique id value

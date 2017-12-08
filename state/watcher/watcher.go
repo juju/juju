@@ -22,6 +22,21 @@ import (
 	jworker "github.com/juju/juju/worker"
 )
 
+// BaseWatcher represents watch methods on the worker
+// responsible for watching for database changes.
+type BaseWatcher interface {
+	worker.Worker
+
+	Dead() <-chan struct{}
+	Err() error
+
+	Watch(collection string, id interface{}, revno int64, ch chan<- Change)
+	WatchCollection(collection string, ch chan<- Change)
+	WatchCollectionWithFilter(collection string, ch chan<- Change, filter func(interface{}) bool)
+	Unwatch(collection string, id interface{}, ch chan<- Change)
+	UnwatchCollection(collection string, ch chan<- Change)
+}
+
 var logger = loggo.GetLogger("juju.state.watcher")
 
 // A Watcher can watch any number of collections and documents for changes.
