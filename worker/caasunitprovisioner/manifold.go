@@ -55,8 +55,17 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	client := config.NewClient(apiCaller)
 	w, err := config.NewWorker(Config{
-		ApplicationGetter:   client,
-		ContainerBroker:     broker,
+		ApplicationGetter: client,
+
+		// TODO(caas) - get this based on the CAAS substrate
+		BrokerManagedUnits: true,
+
+		ServiceBroker:   broker,
+		ContainerBroker: broker,
+
+		// TODO(caas) - move to a firewaller worker
+		ServiceExposer: broker,
+
 		ContainerSpecGetter: client,
 		LifeGetter:          client,
 		UnitGetter:          client,

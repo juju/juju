@@ -14,8 +14,17 @@ type Broker interface {
 	// a charm for the specified application.
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
 
+	// EnsureService creates or updates a service for pods with the given spec.
+	EnsureService(appName, unitSpec string, numUnits int, config ResourceConfig) error
+
+	// DeleteService deletes the specified service.
+	DeleteService(appName string) error
+
+	// ExposeService sets up external access to the specified service.
+	ExposeService(appName string, config ResourceConfig) error
+
 	// EnsureUnit creates or updates a pod with the given spec.
-	EnsureUnit(unitName, spec string) error
+	EnsureUnit(appName, unitName, spec string) error
 }
 
 // OperatorConfig is the config to use when creating an operator.

@@ -127,8 +127,11 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config := args[0].(caasunitprovisioner.Config)
 
 	c.Assert(config, jc.DeepEquals, caasunitprovisioner.Config{
+		BrokerManagedUnits:  true,
 		ApplicationGetter:   &s.client,
+		ServiceBroker:       &s.broker,
 		ContainerBroker:     &s.broker,
+		ServiceExposer:      &s.broker,
 		ContainerSpecGetter: &s.client,
 		LifeGetter:          &s.client,
 		UnitGetter:          &s.client,

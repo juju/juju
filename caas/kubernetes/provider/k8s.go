@@ -14,7 +14,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"k8s.io/client-go/kubernetes"
 	k8serrors "k8s.io/client-go/pkg/api/errors"
+	"k8s.io/client-go/pkg/api/unversioned"
 	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"k8s.io/client-go/pkg/util/intstr"
 	"k8s.io/client-go/pkg/util/yaml"
 	"k8s.io/client-go/rest"
 
@@ -25,8 +28,27 @@ import (
 
 var logger = loggo.GetLogger("juju.kubernetes.provider")
 
-// TODO(caas) should be using a juju specific namespace
-const namespace = "default"
+const (
+	// TODO(caas) should be using a juju specific namespace
+	namespace = "default"
+
+	labelApplication = "juju-application"
+)
+
+const (
+	defaultServiceType     = v1.ServiceTypeClusterIP
+	defaultIngressClass    = "nginx"
+	defaultApplicationPath = "/"
+
+	serviceTypeConfigKey               = "kubernetes-service-type"
+	serviceExternalIPsConfigKey        = "kubernetes-service-external-ips"
+	serviceTargetPortConfigKey         = "kubernetes-service-target-port"
+	serviceLoadBalancerIPKey           = "kubernetes-service-loadbalancer-ip"
+	serviceLoadBalancerSourceRangesKey = "kubernetes-service-loadbalancer-sourceranges"
+	serviceExternalNameKey             = "kubernetes-service-externalname"
+
+	ingressClassKey = "kubernetes-ingress-class"
+)
 
 // TODO(caas) - add unit tests
 
@@ -74,6 +96,7 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 // name, agent path, and operator config.
 func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
 	logger.Debugf("creating/updating %s operator", appName)
+
 	// TODO(caas) use secrets for storing agent password?
 	if err := k.ensureConfigMap(operatorConfigMap(appName, config)); err != nil {
 		return errors.Annotate(err, "creating or updating ConfigMap")
@@ -85,9 +108,238 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	return k.createPod(pod)
 }
 
+// DeleteService deletes the specified service.
+func (k *kubernetesClient) DeleteService(appName string) (err error) {
+	logger.Debugf("deleting application %s", appName)
+
+	if err := k.deleteService(appName); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(k.deleteDeployment(appName))
+}
+
+// EnsureService creates or updates a service for pods with the given spec.
+func (k *kubernetesClient) EnsureService(appName, unitspec string, numUnits int, config caas.ResourceConfig) (err error) {
+	logger.Debugf("creating/updating application %s", appName)
+
+	if numUnits <= 0 {
+		return errors.Errorf("number of units must be > 0")
+	}
+	if unitspec == "" {
+		return errors.Errorf("missing container spec")
+	}
+
+	var cleanups []func()
+	defer func() {
+		if err == nil {
+			return
+		}
+		for _, f := range cleanups {
+			f()
+		}
+	}()
+
+	unitSpec, err := parseUnitSpec(unitspec)
+	if err != nil {
+		return errors.Annotatef(err, "parsing unit spec for %s", appName)
+	}
+	numPods := int32(numUnits)
+	if err := k.configureDeployment(appName, unitSpec, &numPods); err != nil {
+		return errors.Annotate(err, "creating or updating deployment controller")
+	}
+	cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
+
+	var ports []v1.ContainerPort
+	for _, c := range unitSpec.Pod.Containers {
+		for _, p := range c.Ports {
+			if p.ContainerPort == 0 {
+				continue
+			}
+			ports = append(ports, p)
+		}
+	}
+	if err := k.configureService(appName, ports, config); err != nil {
+		return errors.Annotatef(err, "creating or updating service for %v", appName)
+	}
+	return nil
+}
+
+func (k *kubernetesClient) configureDeployment(appName string, unitSpec *unitSpec, replicas *int32) error {
+	logger.Debugf("creating/updating deployment for %s", appName)
+
+	namePrefix := resourceNamePrefix(appName)
+	deployment := &v1beta1.Deployment{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   deploymentName(appName),
+			Labels: map[string]string{labelApplication: appName}},
+		Spec: v1beta1.DeploymentSpec{
+			Replicas: replicas,
+			Selector: &unversioned.LabelSelector{
+				MatchLabels: map[string]string{labelApplication: appName},
+			},
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: namePrefix,
+					Labels:       map[string]string{labelApplication: appName},
+				},
+				Spec: unitSpec.Pod,
+			},
+		},
+	}
+	return k.ensureDeployment(deployment)
+}
+
+func (k *kubernetesClient) ensureDeployment(spec *v1beta1.Deployment) error {
+	deployments := k.ExtensionsV1beta1().Deployments(namespace)
+	_, err := deployments.Update(spec)
+	if k8serrors.IsNotFound(err) {
+		_, err = deployments.Create(spec)
+	}
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteDeployment(appName string) error {
+	orphanDependents := false
+	deployments := k.ExtensionsV1beta1().Deployments(namespace)
+	err := deployments.Delete(deploymentName(appName), &v1.DeleteOptions{OrphanDependents: &orphanDependents})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) configureService(appName string, containerPorts []v1.ContainerPort, config caas.ResourceConfig) error {
+	logger.Debugf("creating/updating service for %s", appName)
+
+	var ports []v1.ServicePort
+	for i, cp := range containerPorts {
+		// We normally expect a single container port for most use cases.
+		// We allow the user to specify what first service port should be,
+		// otherwise it just defaults to the container port.
+		// TODO(caas) - consider allowing all service ports to be specified
+		var targetPort intstr.IntOrString
+		if i == 0 {
+			targetPort = intstr.FromInt(config.GetInt(serviceTargetPortConfigKey, int(cp.ContainerPort)))
+		}
+		ports = append(ports, v1.ServicePort{
+			Protocol:   cp.Protocol,
+			Port:       cp.ContainerPort,
+			TargetPort: targetPort,
+		})
+	}
+	service := &v1.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   deploymentName(appName),
+			Labels: map[string]string{labelApplication: appName}},
+		Spec: v1.ServiceSpec{
+			Selector:                 map[string]string{labelApplication: appName},
+			Type:                     config.Get(serviceTypeConfigKey, defaultServiceType).(v1.ServiceType),
+			Ports:                    ports,
+			ExternalIPs:              config.GetStringSlice(serviceExternalIPsConfigKey, []string(nil)),
+			LoadBalancerIP:           config.GetString(serviceLoadBalancerIPKey, ""),
+			LoadBalancerSourceRanges: config.GetStringSlice(serviceLoadBalancerSourceRangesKey, []string(nil)),
+			ExternalName:             config.GetString(serviceExternalNameKey, ""),
+		},
+	}
+	return k.ensureService(service)
+}
+
+func (k *kubernetesClient) ensureService(spec *v1.Service) error {
+	services := k.CoreV1().Services(namespace)
+	// Set any immutable fields if the service already exists.
+	existing, err := services.Get(spec.Name)
+	if err == nil {
+		spec.Spec.ClusterIP = existing.Spec.ClusterIP
+		spec.ObjectMeta.ResourceVersion = existing.ObjectMeta.ResourceVersion
+	}
+	_, err = services.Update(spec)
+	if k8serrors.IsNotFound(err) {
+		_, err = services.Create(spec)
+	}
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteService(appName string) error {
+	orphanDependents := false
+	services := k.CoreV1().Services(namespace)
+	err := services.Delete(deploymentName(appName), &v1.DeleteOptions{OrphanDependents: &orphanDependents})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
+// ExposeService sets up external access to the specified application.
+func (k *kubernetesClient) ExposeService(appName string, config caas.ResourceConfig) error {
+	logger.Debugf("creating/updating ingress resource for %s", appName)
+
+	host := config.GetString(caas.JujuExternalHostNameKey, "")
+	if host == "" {
+		return errors.Errorf("external hostname required")
+	}
+	ingressClass := config.GetString(ingressClassKey, defaultIngressClass)
+	httpPath := config.GetString(caas.JujuApplicationPath, defaultApplicationPath)
+	if httpPath == "$appname" {
+		httpPath = appName
+	}
+	if !strings.HasPrefix(httpPath, "/") {
+		httpPath = "/" + httpPath
+	}
+
+	svc, err := k.CoreV1().Services(namespace).Get(deploymentName(appName))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(svc.Spec.Ports) == 0 {
+		return errors.Errorf("cannot create ingress rule for service %q without a port", svc.Name)
+	}
+	spec := &v1beta1.Ingress{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   deploymentName(appName),
+			Labels: map[string]string{labelApplication: appName},
+			Annotations: map[string]string{
+				"ingress.kubernetes.io/rewrite-target": "",
+				"kubernetes.io/ingress.class":          ingressClass,
+			},
+		},
+		Spec: v1beta1.IngressSpec{
+			Rules: []v1beta1.IngressRule{{
+				Host: host,
+				IngressRuleValue: v1beta1.IngressRuleValue{
+					HTTP: &v1beta1.HTTPIngressRuleValue{
+						Paths: []v1beta1.HTTPIngressPath{{
+							Path: httpPath,
+							Backend: v1beta1.IngressBackend{
+								ServiceName: svc.Name, ServicePort: svc.Spec.Ports[0].TargetPort},
+						}}},
+				}}},
+		},
+	}
+	return k.ensureIngress(spec)
+}
+
+func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) error {
+	ingress := k.ExtensionsV1beta1().Ingresses(namespace)
+	_, err := ingress.Update(spec)
+	if k8serrors.IsNotFound(err) {
+		_, err = ingress.Create(spec)
+	}
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteIngress(appName string) error {
+	orphanDependents := false
+	ingress := k.ExtensionsV1beta1().Ingresses(namespace)
+	err := ingress.Delete(deploymentName(appName), &v1.DeleteOptions{OrphanDependents: &orphanDependents})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
 // EnsureUnit creates or updates a unit pod with the given unit name and spec.
-func (k *kubernetesClient) EnsureUnit(unitName, spec string) error {
-	logger.Debugf("creating/updating %s", unitName)
+func (k *kubernetesClient) EnsureUnit(appName, unitName, spec string) error {
+	logger.Debugf("creating/updating unit %s", unitName)
 	unitSpec, err := parseUnitSpec(spec)
 	if err != nil {
 		return errors.Annotatef(err, "parsing spec for %s", unitName)
@@ -97,8 +349,10 @@ func (k *kubernetesClient) EnsureUnit(unitName, spec string) error {
 		return errors.Trace(err)
 	}
 	pod := &v1.Pod{
-		ObjectMeta: v1.ObjectMeta{Name: podName},
-		Spec:       unitSpec.Pod,
+		ObjectMeta: v1.ObjectMeta{
+			Name:   podName,
+			Labels: map[string]string{labelApplication: appName}},
+		Spec: unitSpec.Pod,
 	}
 	return k.createPod(pod)
 }
@@ -236,4 +490,12 @@ func operatorConfigMapName(appName string) string {
 
 func unitPodName(unitName string) string {
 	return "juju-" + names.NewUnitTag(unitName).String()
+}
+
+func deploymentName(appName string) string {
+	return "juju-" + appName
+}
+
+func resourceNamePrefix(appName string) string {
+	return "juju-" + names.NewApplicationTag(appName).String() + "-"
 }
