@@ -27,7 +27,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/params"
+	servertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/auditlog"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -920,6 +922,71 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when, gc.NotNil)
 	c.Assert(when.After(startTime), jc.IsTrue)
+}
+
+func (s *loginSuite) TestLoginAddsAuditConversation(c *gc.C) {
+	log := &servertesting.FakeAuditLog{}
+	cfg := defaultServerConfig(c)
+	cfg.AuditLogConfig.Enabled = true
+	cfg.AuditLog = log
+	info, srv := newServerWithConfig(c, s.pool, cfg)
+	defer assertStop(c, srv)
+
+	password := "shhh..."
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Password: password,
+	})
+	conn := s.openAPIWithoutLogin(c, info)
+
+	var result params.LoginResult
+	request := &params.LoginRequest{
+		AuthTag:     user.Tag().String(),
+		Credentials: password,
+		CLIArgs:     "hey you guys",
+	}
+	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.UserInfo, gc.NotNil)
+
+	log.CheckCallNames(c, "AddConversation")
+	convo := log.Calls()[0].Args[0].(auditlog.Conversation)
+	// Blank out unknown fields.
+	convo.ConversationID = "0123456789abcdef"
+	convo.ConnectionID = "something"
+	c.Assert(convo, gc.Equals, auditlog.Conversation{
+		Who:            user.Tag().String(),
+		What:           "hey you guys",
+		When:           cfg.Clock.Now().Format(time.RFC3339),
+		ModelName:      s.IAASModel.Name(),
+		ModelUUID:      s.IAASModel.UUID(),
+		ConnectionID:   "something",
+		ConversationID: "0123456789abcdef",
+	})
+}
+
+func (s *loginSuite) TestAuditLoggingFailurePreventsLogin(c *gc.C) {
+	log := &servertesting.FakeAuditLog{}
+	log.SetErrors(errors.Errorf("bad news bears"))
+	cfg := defaultServerConfig(c)
+	cfg.AuditLogConfig.Enabled = true
+	cfg.AuditLog = log
+	info, srv := newServerWithConfig(c, s.pool, cfg)
+	defer assertStop(c, srv)
+
+	password := "shhh..."
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Password: password,
+	})
+	conn := s.openAPIWithoutLogin(c, info)
+
+	var result params.LoginResult
+	request := &params.LoginRequest{
+		AuthTag:     user.Tag().String(),
+		Credentials: password,
+		CLIArgs:     "hey you guys",
+	}
+	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	c.Assert(err, gc.ErrorMatches, "bad news bears")
 }
 
 var _ = gc.Suite(&macaroonLoginSuite{})

@@ -52,12 +52,12 @@ func newAdminAPIV3(srv *Server, root *apiHandler, apiObserver observer.Observer)
 
 // Admin returns an object that provides API access to methods that can be
 // called even when not authenticated.
-func (r *admin) Admin(id string) (*admin, error) {
+func (a *admin) Admin(id string) (*admin, error) {
 	if id != "" {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return r, nil
+	return a, nil
 }
 
 // Login logs in with the provided credentials.  All subsequent requests on the
@@ -136,23 +136,9 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		modelTag = a.root.model.Tag().String()
 	}
 
-	var auditRecorder *auditlog.Recorder
-	if authResult.userLogin {
-		// We only audit connections from humans.
-		auditRecorder, err = auditlog.NewRecorder(
-			a.srv.auditLogger,
-			auditlog.ConversationArgs{
-				Who:          req.AuthTag,
-				What:         req.CLIArgs,
-				When:         a.srv.clock.Now(),
-				ModelName:    a.root.model.Name(),
-				ModelUUID:    a.root.model.UUID(),
-				ConnectionID: a.root.connectionID,
-			},
-		)
-		if err != nil {
-			return fail, errors.Trace(err)
-		}
+	auditRecorder, err := a.getAuditRecorder(req, authResult)
+	if err != nil {
+		return fail, errors.Trace(err)
 	}
 
 	recorderFactory := observer.NewRecorderFactory(
@@ -168,6 +154,28 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		ModelTag:      modelTag,
 		Facades:       filterFacades(a.srv.facades, facadeFilters...),
 	}, nil
+}
+
+func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult) (*auditlog.Recorder, error) {
+	if !authResult.userLogin || a.srv.auditLogger == nil {
+		return nil, nil
+	}
+	result, err := auditlog.NewRecorder(
+		a.srv.auditLogger,
+		auditlog.ConversationArgs{
+			Who:          req.AuthTag,
+			What:         req.CLIArgs,
+			When:         a.srv.clock.Now(),
+			ModelName:    a.root.model.Name(),
+			ModelUUID:    a.root.model.UUID(),
+			ConnectionID: a.root.connectionID,
+		},
+	)
+	if err != nil {
+		logger.Errorf("couldn't add login to audit log: %T %+v", err, err)
+		return nil, errors.Trace(err)
+	}
+	return result, nil
 }
 
 type authResult struct {

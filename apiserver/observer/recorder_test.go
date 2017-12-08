@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/rpc"
 )
@@ -22,7 +23,7 @@ var _ = gc.Suite(&recorderSuite{})
 
 func (s *recorderSuite) TestServerRequest(c *gc.C) {
 	fake := &fakeobserver.Instance{}
-	log := &fakeLog{}
+	log := &apitesting.FakeAuditLog{}
 	auditRecorder, err := auditlog.NewRecorder(log, auditlog.ConversationArgs{
 		ConnectionID: 4567,
 	})
@@ -41,9 +42,9 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 	fakeOb.CheckCallNames(c, "ServerRequest")
 	fakeOb.CheckCall(c, 0, "ServerRequest", hdr, "the args")
 
-	log.stub.CheckCallNames(c, "AddConversation", "AddRequest")
+	log.CheckCallNames(c, "AddConversation", "AddRequest")
 
-	request := log.stub.Calls()[1].Args[0].(auditlog.Request)
+	request := log.Calls()[1].Args[0].(auditlog.Request)
 	c.Assert(request.ConversationID, gc.HasLen, 16)
 	request.ConversationID = "abcdef0123456789"
 	c.Assert(request, gc.Equals, auditlog.Request{
@@ -59,7 +60,7 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 
 func (s *recorderSuite) TestServerReply(c *gc.C) {
 	fake := &fakeobserver.Instance{}
-	log := &fakeLog{}
+	log := &apitesting.FakeAuditLog{}
 	auditRecorder, err := auditlog.NewRecorder(log, auditlog.ConversationArgs{
 		ConnectionID: 4567,
 	})
@@ -77,9 +78,9 @@ func (s *recorderSuite) TestServerReply(c *gc.C) {
 	fakeOb.CheckCallNames(c, "ServerReply")
 	fakeOb.CheckCall(c, 0, "ServerReply", req, hdr, "the response")
 
-	log.stub.CheckCallNames(c, "AddConversation", "AddResponse")
+	log.CheckCallNames(c, "AddConversation", "AddResponse")
 
-	respErrors := log.stub.Calls()[1].Args[0].(auditlog.ResponseErrors)
+	respErrors := log.Calls()[1].Args[0].(auditlog.ResponseErrors)
 	c.Assert(respErrors.ConversationID, gc.HasLen, 16)
 	respErrors.ConversationID = "abcdef0123456789"
 	c.Assert(respErrors, gc.DeepEquals, auditlog.ResponseErrors{
@@ -110,28 +111,4 @@ func (s *recorderSuite) TestNoAuditReply(c *gc.C) {
 	hdr := &rpc.Header{RequestId: 123}
 	err := recorder.ServerReply(req, hdr, "the body")
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-type fakeLog struct {
-	stub testing.Stub
-}
-
-func (l *fakeLog) AddConversation(m auditlog.Conversation) error {
-	l.stub.AddCall("AddConversation", m)
-	return l.stub.NextErr()
-}
-
-func (l *fakeLog) AddRequest(m auditlog.Request) error {
-	l.stub.AddCall("AddRequest", m)
-	return l.stub.NextErr()
-}
-
-func (l *fakeLog) AddResponse(m auditlog.ResponseErrors) error {
-	l.stub.AddCall("AddResponse", m)
-	return l.stub.NextErr()
-}
-
-func (l *fakeLog) Close() error {
-	l.stub.AddCall("Close")
-	return l.stub.NextErr()
 }

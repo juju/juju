@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
@@ -1289,7 +1290,10 @@ func (a *MachineAgent) newAPIserverWorker(
 		return nil, errors.Annotate(err, "getting log sink config")
 	}
 
-	server, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
+	// TODO(babbageclunk): get this from agent config.
+	auditConfig := apiserver.DefaultAuditLogConfig()
+
+	serverConfig := apiserver.ServerConfig{
 		Clock:                         clock.WallClock,
 		Cert:                          cert,
 		Key:                           key,
@@ -1308,7 +1312,15 @@ func (a *MachineAgent) newAPIserverWorker(
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          a.prometheusRegistry,
-	})
+		AuditLogConfig:                auditConfig,
+	}
+
+	if auditConfig.Enabled {
+		serverConfig.AuditLog = auditlog.NewLogFile(
+			logDir, auditConfig.MaxSize, auditConfig.MaxBackups)
+	}
+
+	server, err := apiserver.NewServer(statePool, listener, serverConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
 	}

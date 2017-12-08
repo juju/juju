@@ -185,6 +185,7 @@ type ServerConfig struct {
 
 	// AuditLogConfig holds parameters to configure audit logging.
 	AuditLogConfig AuditLogConfig
+	AuditLog       auditlog.AuditLog
 
 	// PrometheusRegisterer registers Prometheus collectors.
 	PrometheusRegisterer prometheus.Registerer
@@ -214,6 +215,9 @@ func (c ServerConfig) Validate() error {
 		if err := c.LogSinkConfig.Validate(); err != nil {
 			return errors.Annotate(err, "validating logsink configuration")
 		}
+	}
+	if c.AuditLogConfig.Enabled && c.AuditLog == nil {
+		return errors.NotValidf("audit logging enabled but no logger provided")
 	}
 	return nil
 }
@@ -285,6 +289,7 @@ func (c RateLimitConfig) Validate() error {
 
 // AuditLogConfig holds parameters to control audit logging.
 type AuditLogConfig struct {
+	Enabled bool
 	// Whether to capture API method args (command line args will
 	// always be captured).
 	CaptureAPIArgs bool
@@ -298,6 +303,7 @@ type AuditLogConfig struct {
 // values.
 func DefaultAuditLogConfig() AuditLogConfig {
 	return AuditLogConfig{
+		Enabled:        true,
 		CaptureAPIArgs: false,
 		MaxSize:        300,
 		MaxBackups:     10,
@@ -411,11 +417,7 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 			Clock:  cfg.Clock,
 		},
 		auditLogConfig: cfg.AuditLogConfig,
-		auditLogger: auditlog.NewLogFile(
-			cfg.LogDir,
-			cfg.AuditLogConfig.MaxSize,
-			cfg.AuditLogConfig.MaxBackups,
-		),
+		auditLogger:    cfg.AuditLog,
 		dbloggers: dbloggers{
 			clock:                 cfg.Clock,
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
