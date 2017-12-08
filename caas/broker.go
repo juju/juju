@@ -23,6 +23,9 @@ type Broker interface {
 	// ExposeService sets up external access to the specified service.
 	ExposeService(appName string, config ResourceConfig) error
 
+	// UnexposeService removes external access to the specified service.
+	UnexposeService(appName string) error
+
 	// EnsureUnit creates or updates a pod with the given spec.
 	EnsureUnit(appName, unitName, spec string) error
 }
