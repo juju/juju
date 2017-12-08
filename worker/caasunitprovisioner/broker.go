@@ -3,6 +3,18 @@
 
 package caasunitprovisioner
 
+import "github.com/juju/juju/caas"
+
 type ContainerBroker interface {
-	EnsureUnit(unitName, spec string) error
+	EnsureUnit(appName, unitName, spec string) error
+}
+
+type ServiceBroker interface {
+	EnsureService(appName, unitSpec string, numUnits int, config caas.ResourceConfig) error
+	DeleteService(appName string) error
+}
+
+// TODO(caas) - move to a firewaller worker
+type ServiceExposer interface {
+	ExposeService(appName string, config caas.ResourceConfig) error
 }

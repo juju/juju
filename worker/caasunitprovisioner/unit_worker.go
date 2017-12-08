@@ -12,17 +12,20 @@ import (
 
 type unitWorker struct {
 	catacomb            catacomb.Catacomb
+	application         string
 	unit                string
 	broker              ContainerBroker
 	containerSpecGetter ContainerSpecGetter
 }
 
 func newUnitWorker(
+	application string,
 	unit string,
 	broker ContainerBroker,
 	containerSpecGetter ContainerSpecGetter,
 ) (worker.Worker, error) {
 	w := &unitWorker{
+		application:         application,
 		unit:                unit,
 		broker:              broker,
 		containerSpecGetter: containerSpecGetter,
@@ -74,7 +77,7 @@ func (w *unitWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err := w.broker.EnsureUnit(w.unit, spec); err != nil {
+			if err := w.broker.EnsureUnit(w.application, w.unit, spec); err != nil {
 				return errors.Trace(err)
 			}
 			logger.Debugf("created/updated unit %s", w.unit)

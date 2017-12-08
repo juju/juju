@@ -10,7 +10,9 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher/watchertest"
@@ -23,6 +25,8 @@ type WorkerSuite struct {
 
 	config              caasunitprovisioner.Config
 	applicationGetter   mockApplicationGetter
+	serviceBroker       mockServiceBroker
+	serviceExposer      mockServiceExposer
 	containerBroker     mockContainerBroker
 	containerSpecGetter mockContainerSpecGetter
 	lifeGetter          mockLifeGetter
@@ -31,6 +35,7 @@ type WorkerSuite struct {
 	applicationChanges   chan []string
 	unitChanges          chan []string
 	containerSpecChanges chan struct{}
+	serviceEnsured       chan struct{}
 	unitEnsured          chan struct{}
 }
 
@@ -42,6 +47,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.applicationChanges = make(chan []string)
 	s.unitChanges = make(chan []string)
 	s.containerSpecChanges = make(chan struct{})
+	s.serviceEnsured = make(chan struct{})
 	s.unitEnsured = make(chan struct{})
 
 	s.applicationGetter = mockApplicationGetter{
@@ -66,9 +72,14 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.lifeGetter = mockLifeGetter{
 		life: life.Alive,
 	}
+	s.serviceBroker = mockServiceBroker{
+		ensured: s.serviceEnsured,
+	}
 
 	s.config = caasunitprovisioner.Config{
 		ApplicationGetter:   &s.applicationGetter,
+		ServiceBroker:       &s.serviceBroker,
+		ServiceExposer:      &s.serviceExposer,
 		ContainerBroker:     &s.containerBroker,
 		ContainerSpecGetter: &s.containerSpecGetter,
 		LifeGetter:          &s.lifeGetter,
@@ -88,6 +99,14 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.ApplicationGetter = nil
 	}, `missing ApplicationGetter not valid`)
+
+	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
+		config.ServiceBroker = nil
+	}, `missing ServiceBroker not valid`)
+
+	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
+		config.ServiceExposer = nil
+	}, `missing ServiceExposer not valid`)
 
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.ContainerBroker = nil
@@ -123,10 +142,10 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestWatchContainerSpec(c *gc.C) {
+func (s *WorkerSuite) setupNewUnitScenario(c *gc.C, brokerManaged bool, opChan chan struct{}) worker.Worker {
+	s.config.BrokerManagedUnits = brokerManaged
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
 
 	s.containerSpecGetter.SetErrors(nil, errors.NotFoundf("spec"))
 
@@ -147,19 +166,24 @@ func (s *WorkerSuite) TestWatchContainerSpec(c *gc.C) {
 	// not be invoked.
 	s.sendContainerSpecChange(c)
 	select {
-	case <-s.unitEnsured:
-		c.Fatal("unit ensured unexpectedly")
+	case <-opChan:
+		c.Fatal("service/unit ensured unexpectedly")
 	case <-time.After(coretesting.ShortWait):
 	}
 
 	s.sendContainerSpecChange(c)
 	select {
-	case <-s.unitEnsured:
+	case <-opChan:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for unit to be ensured")
+		c.Fatal("timed out waiting for service/unit to be ensured")
 	}
+	return w
+}
 
-	workertest.CleanKill(c, w)
+func (s *WorkerSuite) TestNewJujuManagedUnit(c *gc.C) {
+	w := s.setupNewUnitScenario(c, false, s.unitEnsured)
+	defer workertest.CleanKill(c, w)
+
 	s.applicationGetter.CheckCallNames(c, "WatchApplications")
 	s.unitGetter.CheckCallNames(c, "WatchUnits")
 	s.unitGetter.CheckCall(c, 0, "WatchUnits", "gitlab")
@@ -171,7 +195,126 @@ func (s *WorkerSuite) TestWatchContainerSpec(c *gc.C) {
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
 	s.containerBroker.CheckCallNames(c, "EnsureUnit")
-	s.containerBroker.CheckCall(c, 0, "EnsureUnit", "gitlab/0", "container-spec")
+	s.containerBroker.CheckCall(c, 0, "EnsureUnit", "gitlab", "gitlab/0", "container-spec")
+}
+
+func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
+	w := s.setupNewUnitScenario(c, true, s.serviceEnsured)
+	defer workertest.CleanKill(c, w)
+
+	s.applicationGetter.CheckCallNames(c, "WatchApplications")
+	s.containerSpecGetter.CheckCallNames(c, "WatchContainerSpec", "ContainerSpec", "ContainerSpec")
+	s.containerSpecGetter.CheckCall(c, 0, "WatchContainerSpec", "gitlab/0")
+	s.containerSpecGetter.CheckCall(c, 1, "ContainerSpec", "gitlab/0") // not found
+	s.containerSpecGetter.CheckCall(c, 2, "ContainerSpec", "gitlab/0")
+	s.lifeGetter.CheckCallNames(c, "Life", "Life")
+	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
+	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
+	s.serviceBroker.CheckCallNames(c, "EnsureService")
+	s.serviceBroker.CheckCall(c, 0, "EnsureService",
+		"gitlab", "container-spec", 1, caas.ResourceConfig{"juju-external-hostname": "localhost"})
+
+	s.serviceBroker.ResetCalls()
+	// Add another unit.
+	select {
+	case s.unitChanges <- []string{"gitlab/1"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending units change")
+	}
+
+	select {
+	case <-s.serviceEnsured:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be ensured")
+	}
+
+	s.serviceBroker.CheckCallNames(c, "EnsureService")
+	s.serviceBroker.CheckCall(c, 0, "EnsureService",
+		"gitlab", "container-spec", 2, caas.ResourceConfig{"juju-external-hostname": "localhost"})
+
+	s.serviceBroker.ResetCalls()
+	// Delete a unit.
+	s.lifeGetter.life = life.Dead
+	select {
+	case s.unitChanges <- []string{"gitlab/0"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending units change")
+	}
+
+	select {
+	case <-s.serviceEnsured:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be ensured")
+	}
+
+	s.serviceBroker.CheckCallNames(c, "EnsureService")
+	s.serviceBroker.CheckCall(c, 0, "EnsureService",
+		"gitlab", "container-spec", 1, caas.ResourceConfig{"juju-external-hostname": "localhost"})
+}
+
+func (s *WorkerSuite) TestNewBrokerManagedUnitSpecChange(c *gc.C) {
+	w := s.setupNewUnitScenario(c, true, s.serviceEnsured)
+	defer workertest.CleanKill(c, w)
+
+	s.serviceBroker.ResetCalls()
+
+	// Same spec, nothing happens.
+	s.sendContainerSpecChange(c)
+	select {
+	case <-s.serviceEnsured:
+		c.Fatal("service/unit ensured unexpectedly")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	s.containerSpecGetter.spec = "another-spec"
+	s.sendContainerSpecChange(c)
+
+	select {
+	case <-s.serviceEnsured:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be ensured")
+	}
+
+	s.serviceBroker.CheckCallNames(c, "EnsureService")
+	s.serviceBroker.CheckCall(c, 0, "EnsureService",
+		"gitlab", "another-spec", 1, caas.ResourceConfig{"juju-external-hostname": "localhost"})
+}
+
+func (s *WorkerSuite) TestNewBrokerManagedUnitAllRemoved(c *gc.C) {
+	w := s.setupNewUnitScenario(c, true, s.serviceEnsured)
+	defer workertest.CleanKill(c, w)
+
+	s.serviceBroker.ResetCalls()
+	// Add another unit.
+	select {
+	case s.unitChanges <- []string{"gitlab/1"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending units change")
+	}
+
+	select {
+	case <-s.serviceEnsured:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be ensured")
+	}
+	s.serviceBroker.ResetCalls()
+
+	// Now the units die.
+	s.lifeGetter.life = life.Dead
+	select {
+	case s.unitChanges <- []string{"gitlab/0", "gitlab/1"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending units change")
+	}
+
+	select {
+	case <-s.serviceEnsured:
+		c.Fatal("service/unit ensured unexpectedly")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	s.serviceBroker.CheckCallNames(c, "DeleteService")
+	s.serviceBroker.CheckCall(c, 0, "DeleteService", "gitlab")
 }
 
 func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {

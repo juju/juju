@@ -26,13 +26,38 @@ type fakeClient struct {
 	caasunitprovisioner.Client
 }
 
+type mockServiceBroker struct {
+	testing.Stub
+	ensured chan<- struct{}
+}
+
+func (m *mockServiceBroker) EnsureService(appName, unitSpec string, numUnits int, config caas.ResourceConfig) error {
+	m.MethodCall(m, "EnsureService", appName, unitSpec, numUnits, config)
+	m.ensured <- struct{}{}
+	return m.NextErr()
+}
+
+func (m *mockServiceBroker) DeleteService(appName string) error {
+	m.MethodCall(m, "DeleteService", appName)
+	return m.NextErr()
+}
+
+type mockServiceExposer struct {
+	testing.Stub
+}
+
+func (m *mockServiceExposer) ExposeService(appName string, config caas.ResourceConfig) error {
+	m.MethodCall(m, "ExposeService", appName, config)
+	return m.NextErr()
+}
+
 type mockContainerBroker struct {
 	testing.Stub
 	ensured chan<- struct{}
 }
 
-func (m *mockContainerBroker) EnsureUnit(unitName, spec string) error {
-	m.MethodCall(m, "EnsureUnit", unitName, spec)
+func (m *mockContainerBroker) EnsureUnit(appName, unitName, spec string) error {
+	m.MethodCall(m, "EnsureUnit", appName, unitName, spec)
 	m.ensured <- struct{}{}
 	return m.NextErr()
 }

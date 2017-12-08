@@ -16,7 +16,16 @@ var logger = loggo.GetLogger("juju.workers.caasunitprovisioner")
 
 // Config holds configuration for the CAAS unit provisioner worker.
 type Config struct {
-	ApplicationGetter   ApplicationGetter
+	// BrokerManagedUnits is true if the CAAS substrate ensures the
+	// required number of units are running, rather than Juju having to do it.
+	BrokerManagedUnits bool
+
+	ApplicationGetter ApplicationGetter
+	ServiceBroker     ServiceBroker
+
+	// TODO(caas) - move to a firewaller worker
+	ServiceExposer ServiceExposer
+
 	ContainerBroker     ContainerBroker
 	ContainerSpecGetter ContainerSpecGetter
 	LifeGetter          LifeGetter
@@ -27,6 +36,12 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.ApplicationGetter == nil {
 		return errors.NotValidf("missing ApplicationGetter")
+	}
+	if config.ServiceBroker == nil {
+		return errors.NotValidf("missing ServiceBroker")
+	}
+	if config.ServiceExposer == nil {
+		return errors.NotValidf("missing ServiceExposer")
 	}
 	if config.ContainerBroker == nil {
 		return errors.NotValidf("missing ContainerBroker")
@@ -111,7 +126,10 @@ func (p *provisioner) loop() error {
 				}
 				w, err := newApplicationWorker(
 					appId,
+					p.config.BrokerManagedUnits,
+					p.config.ServiceBroker,
 					p.config.ContainerBroker,
+					p.config.ServiceExposer,
 					p.config.ContainerSpecGetter,
 					p.config.LifeGetter,
 					p.config.UnitGetter,
