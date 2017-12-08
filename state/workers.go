@@ -90,12 +90,12 @@ func newWorkers(st *State) (*workers, error) {
 	return ws, nil
 }
 
-func (ws *workers) txnLogWatcher() *watcher.Watcher {
+func (ws *workers) txnLogWatcher() watcher.BaseWatcher {
 	w, err := ws.Worker(txnLogWorker, nil)
 	if err != nil {
 		return watcher.NewDead(errors.Trace(err))
 	}
-	return w.(*watcher.Watcher)
+	return w.(watcher.BaseWatcher)
 }
 
 func (ws *workers) presenceWatcher() *presence.Watcher {

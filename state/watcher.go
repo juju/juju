@@ -100,7 +100,7 @@ func newCommonWatcher(backend modelBackend) commonWatcher {
 type commonWatcher struct {
 	backend modelBackend
 	db      Database
-	watcher *watcher.Watcher
+	watcher watcher.BaseWatcher
 	tomb    tomb.Tomb
 }
 
