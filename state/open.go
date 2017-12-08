@@ -145,7 +145,7 @@ func Open(args OpenParams) (*State, error) {
 
 	// State should only be Opened on behalf of a controller environ; all
 	// other *States should be created via ForModel.
-	if err := st.start(args.ControllerTag); err != nil {
+	if err := st.start(args.ControllerTag, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
