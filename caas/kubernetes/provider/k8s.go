@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,9 +37,10 @@ const (
 )
 
 const (
-	defaultServiceType     = v1.ServiceTypeClusterIP
-	defaultIngressClass    = "nginx"
-	defaultApplicationPath = "/"
+	defaultServiceType        = v1.ServiceTypeClusterIP
+	defaultIngressClass       = "nginx"
+	defaultIngressSSLRedirect = true
+	defaultApplicationPath    = "/"
 
 	serviceTypeConfigKey               = "kubernetes-service-type"
 	serviceExternalIPsConfigKey        = "kubernetes-service-external-ips"
@@ -47,7 +49,8 @@ const (
 	serviceLoadBalancerSourceRangesKey = "kubernetes-service-loadbalancer-sourceranges"
 	serviceExternalNameKey             = "kubernetes-service-externalname"
 
-	ingressClassKey = "kubernetes-ingress-class"
+	ingressClassKey       = "kubernetes-ingress-class"
+	ingressSSLRedirectKey = "kubernetes-ingress-ssl-redirect"
 )
 
 // TODO(caas) - add unit tests
@@ -278,6 +281,7 @@ func (k *kubernetesClient) ExposeService(appName string, config caas.ResourceCon
 		return errors.Errorf("external hostname required")
 	}
 	ingressClass := config.GetString(ingressClassKey, defaultIngressClass)
+	ingressSSLRedirect := config.GetBool(ingressSSLRedirectKey, defaultIngressSSLRedirect)
 	httpPath := config.GetString(caas.JujuApplicationPath, defaultApplicationPath)
 	if httpPath == "$appname" {
 		httpPath = appName
@@ -299,6 +303,7 @@ func (k *kubernetesClient) ExposeService(appName string, config caas.ResourceCon
 			Labels: map[string]string{labelApplication: appName},
 			Annotations: map[string]string{
 				"ingress.kubernetes.io/rewrite-target": "",
+				"ingress.kubernetes.io/ssl-redirect":   strconv.FormatBool(ingressSSLRedirect),
 				"kubernetes.io/ingress.class":          ingressClass,
 			},
 		},

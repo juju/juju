@@ -37,6 +37,14 @@ func (r ResourceConfig) GetInt(attrName string, defaultValue int) int {
 	return defaultValue
 }
 
+// GetBool gets the specified bool attribute.
+func (r ResourceConfig) GetBool(attrName string, defaultValue bool) bool {
+	if val, ok := r[attrName]; ok {
+		return val.(bool)
+	}
+	return defaultValue
+}
+
 // GetString gets the specified string attribute.
 func (r ResourceConfig) GetString(attrName string, defaultValue string) string {
 	if val, ok := r[attrName]; ok {
