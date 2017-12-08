@@ -459,8 +459,8 @@ func (s *BaseModelsSuite) assertAgentVersionPresent(c *gc.C, testInfo *params.Mo
 	}
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format=yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(context), checker, "agent-version")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
 func (s *BaseModelsSuite) checkAPICalls(c *gc.C, expectedCalls ...string) {
