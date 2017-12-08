@@ -175,3 +175,7 @@ func FmtModelStatus(data ModelData) string {
 func NewData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, error) {
 	return newData(api, ctrUUID)
 }
+
+var (
+	NoModelsMessage = noModelsMessage
+)
