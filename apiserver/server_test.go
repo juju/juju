@@ -49,21 +49,14 @@ var fastDialOpts = api.DialOpts{}
 
 type serverSuite struct {
 	jujutesting.JujuConnSuite
-	pool *state.StatePool
 }
 
 var _ = gc.Suite(&serverSuite{})
 
-func (s *serverSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.pool.Close() })
-}
-
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	_, srv := newServer(c, s.pool)
+	_, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -108,7 +101,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	// Start our own instance of the server listening on
 	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
-	_, srv := newServer(c, s.pool)
+	_, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	port := srv.Addr().Port
@@ -303,7 +296,7 @@ func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Co
 
 func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	_, srv := newServer(c, s.pool)
+	_, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	// We have to use 'localhost' because that is what the TLS cert says.
@@ -319,7 +312,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
 	// for the correct location, but other paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	_, srv := newServer(c, s.pool)
+	_, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	// We have to use 'localhost' because that is what the TLS cert says.
@@ -350,7 +343,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 }
 
 func (s *serverSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
-	_, srv := newServer(c, s.pool)
+	_, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 	// By default, when there is no identity location, no
 	// bakery service or macaroon is created.
@@ -363,7 +356,6 @@ func (s *serverSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
 type macaroonServerSuite struct {
 	jujutesting.JujuConnSuite
 	discharger *bakerytest.Discharger
-	pool       *state.StatePool
 }
 
 var _ = gc.Suite(&macaroonServerSuite{})
@@ -374,8 +366,6 @@ func (s *macaroonServerSuite) SetUpTest(c *gc.C) {
 		controller.IdentityURL: s.discharger.Location(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
-	s.pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
 func (s *macaroonServerSuite) TearDownTest(c *gc.C) {
@@ -384,7 +374,7 @@ func (s *macaroonServerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *macaroonServerSuite) TestServerBakery(c *gc.C) {
-	_, srv := newServer(c, s.pool)
+	_, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 	m, err := apiserver.ServerMacaroon(srv)
 	c.Assert(err, gc.IsNil)
@@ -414,7 +404,6 @@ func (s *macaroonServerSuite) TestServerBakery(c *gc.C) {
 type macaroonServerWrongPublicKeySuite struct {
 	jujutesting.JujuConnSuite
 	discharger *bakerytest.Discharger
-	pool       *state.StatePool
 }
 
 var _ = gc.Suite(&macaroonServerWrongPublicKeySuite{})
@@ -428,8 +417,6 @@ func (s *macaroonServerWrongPublicKeySuite) SetUpTest(c *gc.C) {
 		controller.IdentityPublicKey: wrongKey.Public.String(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
-	s.pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
 func (s *macaroonServerWrongPublicKeySuite) TearDownTest(c *gc.C) {
@@ -438,7 +425,7 @@ func (s *macaroonServerWrongPublicKeySuite) TearDownTest(c *gc.C) {
 }
 
 func (s *macaroonServerWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {
-	_, srv := newServer(c, s.pool)
+	_, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 	m, err := apiserver.ServerMacaroon(srv)
 	c.Assert(err, gc.IsNil)
@@ -485,7 +472,7 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (*state.User, names.Co
 func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.pool, s.State, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool, s.State, u)
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
@@ -497,7 +484,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionAddmodel(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	user := u.UserTag()
 
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.pool, s.State, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool, s.State, u)
 	defer handler.Kill()
 
 	ua, err := s.State.SetUserAccess(user, ctag, permission.AddModelAccess)
@@ -513,7 +500,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	user := u.UserTag()
 
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.pool, s.State, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool, s.State, u)
 	defer handler.Kill()
 
 	ua, err := s.State.SetUserAccess(user, ctag, permission.SuperuserAccess)
@@ -538,7 +525,7 @@ func (s *serverSuite) TestAPIHandlerTeardownOtherEnviron(c *gc.C) {
 func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
-	handler, _ := apiserver.TestingAPIHandler(c, s.pool, otherState)
+	handler, _ := apiserver.TestingAPIHandler(c, s.StatePool, otherState)
 	defer handler.Kill()
 	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
 }
@@ -618,7 +605,7 @@ func assertStateBecomesClosed(c *gc.C, st *state.State) {
 }
 
 func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
-	handler, resources := apiserver.TestingAPIHandler(c, s.pool, st)
+	handler, resources := apiserver.TestingAPIHandler(c, s.StatePool, st)
 	resource := new(fakeResource)
 	resources.Register(resource)
 
