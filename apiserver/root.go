@@ -58,9 +58,8 @@ type apiHandler struct {
 	// user manager and model manager api endpoints from here.
 	modelUUID string
 
-	// this connection ID is shared between the API observer
-	// (including API requests and responses in the agent log) and the
-	// audit logger.
+	// connectionID is shared between the API observer (including API
+	// requests and responses in the agent log) and the audit logger.
 	connectionID uint64
 
 	// serverHost is the host:port of the API server that the client

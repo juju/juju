@@ -93,12 +93,13 @@ func (hdr *Header) IsRequest() bool {
 // details of a single request/response.
 type RecorderFactory func() Recorder
 
-// Recorder represents something the connection use to record requests
-// and replies. Recording a message can fail (for example for audit
-// logging), and when it does the request should be failed as well.
+// Recorder represents something the connection uses to record
+// requests and replies. Recording a message can fail (for example for
+// audit logging), and when it does the request should be failed as
+// well.
 type Recorder interface {
-	ServerRequest(hdr *Header, body interface{}) error
-	ServerReply(req Request, replyHdr *Header, body interface{}) error
+	HandleRequest(hdr *Header, body interface{}) error
+	HandleReply(req Request, replyHdr *Header, body interface{}) error
 }
 
 // Note that we use "client request" and "server request" to name
@@ -399,7 +400,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	recorder := conn.getRecorder()
 	req, err := conn.bindRequest(hdr)
 	if err != nil {
-		if err := recorder.ServerRequest(hdr, nil); err != nil {
+		if err := recorder.HandleRequest(hdr, nil); err != nil {
 			return errors.Trace(err)
 		}
 		if err := conn.readBody(nil, true); err != nil {
@@ -417,7 +418,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		argp = v.Interface()
 	}
 	if err := conn.readBody(argp, true); err != nil {
-		if err := recorder.ServerRequest(hdr, nil); err != nil {
+		if err := recorder.HandleRequest(hdr, nil); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -440,7 +441,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	if req.ParamsType() != nil {
 		body = arg.Interface()
 	}
-	if err := recorder.ServerRequest(hdr, body); err != nil {
+	if err := recorder.HandleRequest(hdr, body); err != nil {
 		logger.Errorf("error recording request %+v with arg %+v: %T %+v", req, arg, err, err)
 		return conn.writeErrorResponse(hdr, req.transformErrors(err), recorder)
 	}
@@ -471,7 +472,7 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, recorder Recorde
 		hdr.ErrorCode = ""
 	}
 	hdr.Error = err.Error()
-	if err := recorder.ServerReply(reqHdr.Request, hdr, struct{}{}); err != nil {
+	if err := recorder.HandleReply(reqHdr.Request, hdr, struct{}{}); err != nil {
 		logger.Errorf("error recording reply %+v: %T %+v", hdr, err, err)
 	}
 
@@ -543,7 +544,7 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, r
 		} else {
 			rvi = struct{}{}
 		}
-		if err := recorder.ServerReply(req.hdr.Request, hdr, rvi); err != nil {
+		if err := recorder.HandleReply(req.hdr.Request, hdr, rvi); err != nil {
 			logger.Errorf("error recording reply %+v: %T %+v", hdr, err, err)
 		}
 		conn.sending.Lock()
@@ -584,6 +585,6 @@ func ensureFactory(f RecorderFactory) RecorderFactory {
 
 type nopRecorder struct{}
 
-func (nopRecorder) ServerRequest(hdr *Header, body interface{}) error { return nil }
+func (nopRecorder) HandleRequest(hdr *Header, body interface{}) error { return nil }
 
-func (nopRecorder) ServerReply(req Request, hdr *Header, body interface{}) error { return nil }
+func (nopRecorder) HandleReply(req Request, hdr *Header, body interface{}) error { return nil }

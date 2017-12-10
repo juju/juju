@@ -1268,7 +1268,7 @@ func (n *notifier) nextErr() error {
 	return err
 }
 
-func (n *notifier) ServerRequest(hdr *rpc.Header, body interface{}) error {
+func (n *notifier) HandleRequest(hdr *rpc.Header, body interface{}) error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.serverRequests = append(n.serverRequests, requestEvent{
@@ -1279,7 +1279,7 @@ func (n *notifier) ServerRequest(hdr *rpc.Header, body interface{}) error {
 	return n.nextErr()
 }
 
-func (n *notifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) error {
+func (n *notifier) HandleReply(req rpc.Request, hdr *rpc.Header, body interface{}) error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.serverReplies = append(n.serverReplies, replyEvent{

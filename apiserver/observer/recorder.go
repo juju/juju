@@ -32,8 +32,8 @@ type combinedRecorder struct {
 	recorder *auditlog.Recorder
 }
 
-// ServerRequest implements rpc.Recorder.
-func (cr *combinedRecorder) ServerRequest(hdr *rpc.Header, body interface{}) error {
+// HandleRequest implements rpc.Recorder.
+func (cr *combinedRecorder) HandleRequest(hdr *rpc.Header, body interface{}) error {
 	cr.observer.ServerRequest(hdr, body)
 	if cr.recorder == nil {
 		return nil
@@ -52,8 +52,8 @@ func (cr *combinedRecorder) ServerRequest(hdr *rpc.Header, body interface{}) err
 	}))
 }
 
-// ServerReply implements rpc.Recorder.
-func (cr *combinedRecorder) ServerReply(req rpc.Request, replyHdr *rpc.Header, body interface{}) error {
+// HandleReply implements rpc.Recorder.
+func (cr *combinedRecorder) HandleReply(req rpc.Request, replyHdr *rpc.Header, body interface{}) error {
 	cr.observer.ServerReply(req, replyHdr, body)
 	if cr.recorder == nil {
 		return nil

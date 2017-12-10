@@ -85,12 +85,15 @@ func (c RateLimitConfig) Validate() error {
 // AuditLogConfig holds parameters to control audit logging.
 type AuditLogConfig struct {
 	Enabled bool
-	// Whether to capture API method args (command line args will
-	// always be captured).
+
+	// CaptureAPIArgs says whether to capture API method args (command
+	// line args will always be captured).
 	CaptureAPIArgs bool
-	// Max log file size (in Mb).
-	MaxSize int
-	// How many files back to keep.
+
+	// MaxSizeMB defines the maximum log file size.
+	MaxSizeMB int
+
+	// MaxBackups determines how many files back to keep.
 	MaxBackups int
 }
 
@@ -100,7 +103,7 @@ func DefaultAuditLogConfig() AuditLogConfig {
 	return AuditLogConfig{
 		Enabled:        true,
 		CaptureAPIArgs: false,
-		MaxSize:        300,
+		MaxSizeMB:      300,
 		MaxBackups:     10,
 	}
 }

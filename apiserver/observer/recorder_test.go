@@ -34,7 +34,7 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 		RequestId: 123,
 		Request:   rpc.Request{"Type", 5, "", "Action"},
 	}
-	err = recorder.ServerRequest(hdr, "the args")
+	err = recorder.HandleRequest(hdr, "the args")
 	c.Assert(err, jc.ErrorIsNil)
 
 	fake.CheckCallNames(c, "RPCObserver")
@@ -70,7 +70,7 @@ func (s *recorderSuite) TestServerReply(c *gc.C) {
 
 	req := rpc.Request{"Type", 5, "", "Action"}
 	hdr := &rpc.Header{RequestId: 123}
-	err = recorder.ServerReply(req, hdr, "the response")
+	err = recorder.HandleReply(req, hdr, "the response")
 	c.Assert(err, jc.ErrorIsNil)
 
 	fake.CheckCallNames(c, "RPCObserver")
@@ -99,7 +99,7 @@ func (s *recorderSuite) TestNoAuditRequest(c *gc.C) {
 		RequestId: 123,
 		Request:   rpc.Request{"Type", 0, "", "Action"},
 	}
-	err := recorder.ServerRequest(hdr, "the body")
+	err := recorder.HandleRequest(hdr, "the body")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -109,6 +109,6 @@ func (s *recorderSuite) TestNoAuditReply(c *gc.C) {
 	recorder := factory()
 	req := rpc.Request{"Type", 0, "", "Action"}
 	hdr := &rpc.Header{RequestId: 123}
-	err := recorder.ServerReply(req, hdr, "the body")
+	err := recorder.HandleReply(req, hdr, "the body")
 	c.Assert(err, jc.ErrorIsNil)
 }

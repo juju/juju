@@ -1317,7 +1317,7 @@ func (a *MachineAgent) newAPIserverWorker(
 
 	if auditConfig.Enabled {
 		serverConfig.AuditLog = auditlog.NewLogFile(
-			logDir, auditConfig.MaxSize, auditConfig.MaxBackups)
+			logDir, auditConfig.MaxSizeMB, auditConfig.MaxBackups)
 	}
 
 	server, err := apiserver.NewServer(statePool, listener, serverConfig)
