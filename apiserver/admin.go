@@ -172,7 +172,7 @@ func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult
 		},
 	)
 	if err != nil {
-		logger.Errorf("couldn't add login to audit log: %T %+v", err, err)
+		logger.Errorf("couldn't add login to audit log: %+v", err)
 		return nil, errors.Trace(err)
 	}
 	return result, nil
