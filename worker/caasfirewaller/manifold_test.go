@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasunitprovisioner_test
+package caasfirewaller_test
 
 import (
 	"github.com/juju/errors"
@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/worker/caasunitprovisioner"
+	"github.com/juju/juju/worker/caasfirewaller"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/workertest"
@@ -35,11 +35,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.ResetCalls()
 
 	s.context = s.newContext(nil)
-	s.manifold = caasunitprovisioner.Manifold(s.validConfig())
+	s.manifold = caasfirewaller.Manifold(s.validConfig())
 }
 
-func (s *ManifoldSuite) validConfig() caasunitprovisioner.ManifoldConfig {
-	return caasunitprovisioner.ManifoldConfig{
+func (s *ManifoldSuite) validConfig() caasfirewaller.ManifoldConfig {
+	return caasfirewaller.ManifoldConfig{
 		APICallerName: "api-caller",
 		BrokerName:    "broker",
 		NewClient:     s.newClient,
@@ -47,12 +47,12 @@ func (s *ManifoldSuite) validConfig() caasunitprovisioner.ManifoldConfig {
 	}
 }
 
-func (s *ManifoldSuite) newClient(apiCaller base.APICaller) caasunitprovisioner.Client {
+func (s *ManifoldSuite) newClient(apiCaller base.APICaller) caasfirewaller.Client {
 	s.MethodCall(s, "NewClient", apiCaller)
 	return &s.client
 }
 
-func (s *ManifoldSuite) newWorker(config caasunitprovisioner.Config) (worker.Worker, error) {
+func (s *ManifoldSuite) newWorker(config caasfirewaller.Config) (worker.Worker, error) {
 	s.MethodCall(s, "NewWorker", config)
 	if err := s.NextErr(); err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func (s *ManifoldSuite) TestMissingNewWorker(c *gc.C) {
 	s.checkConfigInvalid(c, config, "nil NewWorker not valid")
 }
 
-func (s *ManifoldSuite) checkConfigInvalid(c *gc.C, config caasunitprovisioner.ManifoldConfig, expect string) {
+func (s *ManifoldSuite) checkConfigInvalid(c *gc.C, config caasfirewaller.ManifoldConfig, expect string) {
 	err := config.Validate()
 	c.Check(err, gc.ErrorMatches, expect)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -123,16 +123,12 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 
 	args := s.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
-	c.Assert(args[0], gc.FitsTypeOf, caasunitprovisioner.Config{})
-	config := args[0].(caasunitprovisioner.Config)
+	c.Assert(args[0], gc.FitsTypeOf, caasfirewaller.Config{})
+	config := args[0].(caasfirewaller.Config)
 
-	c.Assert(config, jc.DeepEquals, caasunitprovisioner.Config{
-		BrokerManagedUnits:  true,
-		ApplicationGetter:   &s.client,
-		ServiceBroker:       &s.broker,
-		ContainerBroker:     &s.broker,
-		ContainerSpecGetter: &s.client,
-		LifeGetter:          &s.client,
-		UnitGetter:          &s.client,
+	c.Assert(config, jc.DeepEquals, caasfirewaller.Config{
+		ApplicationGetter: &s.client,
+		ServiceExposer:    &s.broker,
+		LifeGetter:        &s.client,
 	})
 }

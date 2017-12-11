@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasunitprovisioner
+package caasfirewaller
 
 import (
 	"github.com/juju/errors"
@@ -12,21 +12,13 @@ import (
 	"github.com/juju/juju/worker/catacomb"
 )
 
-var logger = loggo.GetLogger("juju.workers.caasunitprovisioner")
+var logger = loggo.GetLogger("juju.workers.caasfirewaller")
 
-// Config holds configuration for the CAAS unit provisioner worker.
+// Config holds configuration for the CAAS unit firewaller worker.
 type Config struct {
-	// BrokerManagedUnits is true if the CAAS substrate ensures the
-	// required number of units are running, rather than Juju having to do it.
-	BrokerManagedUnits bool
-
 	ApplicationGetter ApplicationGetter
-	ServiceBroker     ServiceBroker
-
-	ContainerBroker     ContainerBroker
-	ContainerSpecGetter ContainerSpecGetter
-	LifeGetter          LifeGetter
-	UnitGetter          UnitGetter
+	LifeGetter        LifeGetter
+	ServiceExposer    ServiceExposer
 }
 
 // Validate validates the worker configuration.
@@ -34,30 +26,21 @@ func (config Config) Validate() error {
 	if config.ApplicationGetter == nil {
 		return errors.NotValidf("missing ApplicationGetter")
 	}
-	if config.ServiceBroker == nil {
-		return errors.NotValidf("missing ServiceBroker")
-	}
-	if config.ContainerBroker == nil {
-		return errors.NotValidf("missing ContainerBroker")
-	}
-	if config.ContainerSpecGetter == nil {
-		return errors.NotValidf("missing ContainerSpecGetter")
+	if config.ServiceExposer == nil {
+		return errors.NotValidf("missing ServiceExposer")
 	}
 	if config.LifeGetter == nil {
 		return errors.NotValidf("missing LifeGetter")
 	}
-	if config.UnitGetter == nil {
-		return errors.NotValidf("missing UnitGetter")
-	}
 	return nil
 }
 
-// NewWorker starts and returns a new CAAS unit provisioner worker.
+// NewWorker starts and returns a new CAAS unit firewaller worker.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	p := &provisioner{config: config}
+	p := &firewaller{config: config}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
 		Work: p.loop,
@@ -65,22 +48,22 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return p, err
 }
 
-type provisioner struct {
+type firewaller struct {
 	catacomb catacomb.Catacomb
 	config   Config
 }
 
 // Kill is part of the worker.Worker interface.
-func (p *provisioner) Kill() {
+func (p *firewaller) Kill() {
 	p.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (p *provisioner) Wait() error {
+func (p *firewaller) Wait() error {
 	return p.catacomb.Wait()
 }
 
-func (p *provisioner) loop() error {
+func (p *firewaller) loop() error {
 	w, err := p.config.ApplicationGetter.WatchApplications()
 	if err != nil {
 		return errors.Trace(err)
@@ -120,12 +103,9 @@ func (p *provisioner) loop() error {
 				}
 				w, err := newApplicationWorker(
 					appId,
-					p.config.BrokerManagedUnits,
-					p.config.ServiceBroker,
-					p.config.ContainerBroker,
-					p.config.ContainerSpecGetter,
+					p.config.ApplicationGetter,
+					p.config.ServiceExposer,
 					p.config.LifeGetter,
-					p.config.UnitGetter,
 				)
 				if err != nil {
 					return errors.Trace(err)

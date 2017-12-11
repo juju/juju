@@ -6,6 +6,7 @@ package model
 import (
 	"time"
 
+	"github.com/juju/juju/worker/caasfirewaller"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/names.v2"
@@ -14,6 +15,7 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	caasfirewallerapi "github.com/juju/juju/api/caasfirewaller"
 	caasunitprovisionerapi "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
@@ -397,6 +399,16 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:          apiCallerName,
 			NewContainerBrokerFunc: config.NewContainerBrokerFunc,
 		})),
+		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
+			caasfirewaller.ManifoldConfig{
+				APICallerName: apiCallerName,
+				BrokerName:    caasBrokerTrackerName,
+				NewClient: func(caller base.APICaller) caasfirewaller.Client {
+					return caasfirewallerapi.NewClient(caller)
+				},
+				NewWorker: caasfirewaller.NewWorker,
+			},
+		)),
 		caasOperatorProvisionerName: ifNotMigrating(caasoperatorprovisioner.Manifold(
 			caasoperatorprovisioner.ManifoldConfig{
 				AgentName:     agentName,
@@ -534,6 +546,7 @@ const (
 	remoteRelationsName      = "remote-relations"
 	logForwarderName         = "log-forwarder"
 
+	caasFirewallerName          = "caas-firewaller"
 	caasOperatorProvisionerName = "caas-operator-provisioner"
 	caasUnitProvisionerName     = "caas-unit-provisioner"
 	caasBrokerTrackerName       = "caas-broker-tracker"

@@ -318,6 +318,12 @@ func (k *kubernetesClient) ExposeService(appName string, config caas.ResourceCon
 	return k.ensureIngress(spec)
 }
 
+// UnexposeService removes external access to the specified service.
+func (k *kubernetesClient) UnexposeService(appName string) error {
+	logger.Debugf("deleting ingress resource for %s", appName)
+	return k.deleteIngress(appName)
+}
+
 func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) error {
 	ingress := k.ExtensionsV1beta1().Ingresses(namespace)
 	_, err := ingress.Update(spec)
