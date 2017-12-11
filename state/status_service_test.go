@@ -193,7 +193,7 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 	err = errorUnit.Agent().SetStatus(sInfo)
 	c.Assert(err, gc.IsNil)
 
-	// For each status, in order of severity, check the service status is
+	// For each status, in order of severity, check the application status is
 	// derived from that unit status; then remove that unit and proceed to
 	// the next severity.
 	checkAndRemove := func(unit *state.Unit, status status.Status) {

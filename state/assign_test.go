@@ -232,7 +232,7 @@ func (s *AssignSuite) TestDirectAssignIgnoresConstraints(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Unit will take combined service/environ constraints on creation.
+	// Unit will take combined application/environ constraints on creation.
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -374,7 +374,7 @@ func (s *AssignSuite) assertAssignUnitToNewMachineContainerConstraint(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineContainerConstraint(c *gc.C) {
-	// Set up service constraints.
+	// Set up application constraints.
 	scons := constraints.MustParse("container=lxd")
 	err := s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -411,11 +411,11 @@ func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *gc.C) {
 	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Unit will take combined service/environ constraints on creation.
+	// Unit will take combined application/environ constraints on creation.
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Change service/env constraints before assigning, to verify this.
+	// Change application/env constraints before assigning, to verify this.
 	scons = constraints.MustParse("mem=6G cpu-power=800")
 	err = s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -632,7 +632,7 @@ func (s *AssignSuite) assertAssignUnitNewPolicyWithContainerConstraint(c *gc.C) 
 func (s *AssignSuite) TestAssignUnitNewPolicyWithContainerConstraint(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	// Set up service constraints.
+	// Set up application constraints.
 	scons := constraints.MustParse("container=lxd")
 	err = s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -965,7 +965,7 @@ func (s *assignCleanSuite) TestAssignUnitWithRemovedService(c *gc.C) {
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Fail if service is removed.
+	// Fail if application is removed.
 	removeAllUnits(c, s.wordpress)
 	err = s.wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

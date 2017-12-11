@@ -36,7 +36,7 @@ func (s *FirewallRulesSuite) assertSavedRules(c *gc.C, service state.WellKnownSe
 	var raw bson.M
 	err := coll.FindId(string(service)).One(&raw)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(raw["known-service"], gc.Equals, string(service))
+	c.Assert(raw["known-application"], gc.Equals, string(service))
 	var cidrs []string
 	for _, m := range raw["whitelist-cidrs"].([]interface{}) {
 		cidrs = append(cidrs, m.(string))
@@ -51,7 +51,7 @@ func (s *FirewallRulesSuite) TestSaveInvalid(c *gc.C) {
 		WhitelistCIDRs:   []string{"192.168.1.0/16"},
 	})
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
-	c.Assert(err, gc.ErrorMatches, `well known service type "foo" not valid`)
+	c.Assert(err, gc.ErrorMatches, `well known application type "foo" not valid`)
 }
 
 func (s *FirewallRulesSuite) TestSave(c *gc.C) {

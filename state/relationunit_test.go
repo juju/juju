@@ -281,7 +281,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 	pru, err := rel.Unit(punit)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that no units of the subordinate service exist.
+	// Check that no units of the subordinate application exist.
 	assertSubCount := func(expect int) []*state.Unit {
 		runits, err := rapp.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
@@ -349,7 +349,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	preventPeerUnitsDestroyRemove(c, pr)
 	rel := pr.ru0.Relation()
 
-	// Enter two units, and check that Destroying the service sets the
+	// Enter two units, and check that Destroying the application sets the
 	// relation to Dying (rather than removing it directly).
 	assertNotInScope(c, pr.ru0)
 	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
@@ -375,7 +375,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	_, err = pr.ru0.ReadSettings("riak/2")
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/2" in relation "riak:ring": settings not found`)
 
-	// ru0 leaves the scope; check that service Destroy is still a no-op.
+	// ru0 leaves the scope; check that application Destroy is still a no-op.
 	assertJoined(c, pr.ru0)
 	err = pr.ru0.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1034,7 +1034,7 @@ func (s *RelationUnitSuite) TestValidYes(c *gc.C) {
 func (s *RelationUnitSuite) TestValidNo(c *gc.C) {
 	mysqlLogging := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	wpApp := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wpLogging := newProReqRelationForApps(c, &s.ConnSuite, wpApp, mysqlLogging.rsvc)
+	wpLogging := newProReqRelationForApps(c, &s.ConnSuite, wpApp, mysqlLogging.rapp)
 
 	// We have logging related to mysql and to wordpress. We can
 	// create an invalid RU by taking a logging unit from
@@ -1053,10 +1053,10 @@ func (s *RelationUnitSuite) TestValidSubordinateToSubordinate(c *gc.C) {
 	monApp := s.AddTestingApplication(c, "monitoring", s.AddTestingCharm(c, "monitoring"))
 	// Relate mysql and monitoring - relation to a non-subordinate
 	// needed to trigger creation of monitoring unit.
-	mysqlMonitoring := newProReqRelationForApps(c, &s.ConnSuite, mysqlLogging.psvc, monApp)
+	mysqlMonitoring := newProReqRelationForApps(c, &s.ConnSuite, mysqlLogging.papp, monApp)
 	// Monitor the logging app (newProReqRelationForApps assumes that
 	// the providing app is a principal, so we need to do it by hand).
-	loggingApp := mysqlLogging.rsvc
+	loggingApp := mysqlLogging.rapp
 
 	// Can't infer endpoints because they're ambiguous.
 	ep1, err := loggingApp.Endpoint("juju-info")
@@ -1066,7 +1066,7 @@ func (s *RelationUnitSuite) TestValidSubordinateToSubordinate(c *gc.C) {
 
 	rel, err := s.State.AddRelation(ep1, ep2)
 	c.Assert(err, jc.ErrorIsNil)
-	prr := &ProReqRelation{rel: rel, psvc: loggingApp, rsvc: monApp}
+	prr := &ProReqRelation{rel: rel, papp: loggingApp, rapp: monApp}
 
 	// The units already exist, create the relation units.
 	prr.pu0 = mysqlLogging.ru0
@@ -1116,7 +1116,7 @@ func newPeerRelation(c *gc.C, st *state.State) *PeerRelation {
 
 type ProReqRelation struct {
 	rel                    *state.Relation
-	psvc, rsvc             *state.Application
+	papp, rapp             *state.Application
 	pu0, pu1, ru0, ru1     *state.Unit
 	pru0, pru1, rru0, rru1 *state.RelationUnit
 }
@@ -1155,7 +1155,7 @@ func newProReqRelationForApps(c *gc.C, s *ConnSuite, proApp, reqApp *state.Appli
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	prr := &ProReqRelation{rel: rel, psvc: proApp, rsvc: reqApp}
+	prr := &ProReqRelation{rel: rel, papp: proApp, rapp: reqApp}
 	prr.pu0, prr.pru0 = addRU(c, proApp, rel, nil)
 	prr.pu1, prr.pru1 = addRU(c, proApp, rel, nil)
 	if eps[0].Scope == charm.ScopeGlobal {
@@ -1175,18 +1175,18 @@ func (prr *ProReqRelation) watches() []*state.RelationScopeWatcher {
 	}
 }
 
-func addRU(c *gc.C, svc *state.Application, rel *state.Relation, principal *state.Unit) (*state.Unit, *state.RelationUnit) {
-	// Given the service svc in the relation rel, add a unit of svc and create
-	// a RelationUnit with rel. If principal is supplied, svc is assumed to be
+func addRU(c *gc.C, app *state.Application, rel *state.Relation, principal *state.Unit) (*state.Unit, *state.RelationUnit) {
+	// Given the application app in the relation rel, add a unit of app and create
+	// a RelationUnit with rel. If principal is supplied, app is assumed to be
 	// subordinate and the unit will be created by temporarily entering the
 	// relation's scope as the principal.
 	var u *state.Unit
 	if principal == nil {
-		unit, err := svc.AddUnit(state.AddUnitParams{})
+		unit, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		u = unit
 	} else {
-		origUnits, err := svc.AllUnits()
+		origUnits, err := app.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
 		pru, err := rel.Unit(principal)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1194,7 +1194,7 @@ func addRU(c *gc.C, svc *state.Application, rel *state.Relation, principal *stat
 		c.Assert(err, jc.ErrorIsNil)
 		err = pru.LeaveScope() // to reset to initial expected state
 		c.Assert(err, jc.ErrorIsNil)
-		newUnits, err := svc.AllUnits()
+		newUnits, err := app.AllUnits()
 		c.Assert(err, jc.ErrorIsNil)
 		for _, unit := range newUnits {
 			found := false
@@ -1218,14 +1218,14 @@ func addRU(c *gc.C, svc *state.Application, rel *state.Relation, principal *stat
 
 type RemoteProReqRelation struct {
 	rel                    *state.Relation
-	psvc                   *state.RemoteApplication
-	rsvc                   *state.Application
+	papp                   *state.RemoteApplication
+	rapp                   *state.Application
 	pru0, pru1, rru0, rru1 *state.RelationUnit
 	ru0, ru1               *state.Unit
 }
 
 func newRemoteProReqRelation(c *gc.C, s *ConnSuite) *RemoteProReqRelation {
-	psvc, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	papp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{{
@@ -1242,7 +1242,7 @@ func newRemoteProReqRelation(c *gc.C, s *ConnSuite) *RemoteProReqRelation {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	prr := &RemoteProReqRelation{rel: rel, psvc: psvc, rsvc: rapp}
+	prr := &RemoteProReqRelation{rel: rel, papp: papp, rapp: rapp}
 	prr.pru0 = addRemoteRU(c, rel, "mysql/0")
 	prr.pru1 = addRemoteRU(c, rel, "mysql/1")
 	prr.ru0, prr.rru0 = addRU(c, rapp, rel, nil)

@@ -13,7 +13,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -29,9 +29,9 @@ const (
 
 type UnitSuite struct {
 	ConnSuite
-	charm   *state.Charm
-	service *state.Application
-	unit    *state.Unit
+	charm       *state.Charm
+	application *state.Application
+	unit        *state.Unit
 }
 
 var _ = gc.Suite(&UnitSuite{})
@@ -40,9 +40,9 @@ func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "wordpress")
 	var err error
-	s.service = s.AddTestingApplication(c, "wordpress", s.charm)
+	s.application = s.AddTestingApplication(c, "wordpress", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
-	s.unit, err = s.service.AddUnit(state.AddUnitParams{})
+	s.unit, err = s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
 }
@@ -53,7 +53,7 @@ func (s *UnitSuite) TestUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *UnitSuite) TestService(c *gc.C) {
+func (s *UnitSuite) TestApplication(c *gc.C) {
 	svc, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(svc.Name(), gc.Equals, s.unit.ApplicationName())
@@ -72,8 +72,8 @@ func (s *UnitSuite) TestConfigSettingsIncludeDefaults(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
 }
 
-func (s *UnitSuite) TestConfigSettingsReflectService(c *gc.C) {
-	err := s.service.UpdateCharmConfig(charm.Settings{"blog-title": "no title"})
+func (s *UnitSuite) TestConfigSettingsReflectApplication(c *gc.C) {
+	err := s.application.UpdateCharmConfig(charm.Settings{"blog-title": "no title"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +81,7 @@ func (s *UnitSuite) TestConfigSettingsReflectService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "no title"})
 
-	err = s.service.UpdateCharmConfig(charm.Settings{"blog-title": "ironic title"})
+	err = s.application.UpdateCharmConfig(charm.Settings{"blog-title": "ironic title"})
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err = s.unit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,7 +93,7 @@ func (s *UnitSuite) TestConfigSettingsReflectCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "wordpress", "options: {}", 123)
 	cfg := state.SetCharmConfig{Charm: newCharm}
-	err = s.service.SetCharm(cfg)
+	err = s.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Settings still reflect charm set on unit.
@@ -126,32 +126,32 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
-	err = s.service.UpdateCharmConfig(charm.Settings{
+	err = s.application.UpdateCharmConfig(charm.Settings{
 		"blog-title": "superhero paparazzi",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.service.UpdateCharmConfig(charm.Settings{
+	err = s.application.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Non-change is not reported.
-	err = s.service.UpdateCharmConfig(charm.Settings{
+	err = s.application.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Change service's charm; nothing detected.
+	// Change application's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", floatConfig, 123)
 	cfg := state.SetCharmConfig{Charm: newCharm}
-	err = s.service.SetCharm(cfg)
+	err = s.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Change service config for new charm; nothing detected.
-	err = s.service.UpdateCharmConfig(charm.Settings{
+	// Change application config for new charm; nothing detected.
+	err = s.application.UpdateCharmConfig(charm.Settings{
 		"key": 42.0,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -348,7 +348,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		tc := destroyMachineTestCase{desc: "standalone principal", destroyed: true}
 		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		tc.target, err = s.service.AddUnit(state.AddUnitParams{})
+		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
 		result = append(result, tc)
@@ -357,10 +357,10 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		tc := destroyMachineTestCase{desc: "co-located principals", destroyed: false}
 		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		tc.target, err = s.service.AddUnit(state.AddUnitParams{})
+		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
-		colocated, err := s.service.AddUnit(state.AddUnitParams{})
+		colocated, err := s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(colocated.AssignToMachine(tc.host), gc.IsNil)
 
@@ -375,7 +375,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 			Jobs:   []state.MachineJob{state.JobHostUnits},
 		}, tc.host.Id(), instance.LXD)
 		c.Assert(err, jc.ErrorIsNil)
-		tc.target, err = s.service.AddUnit(state.AddUnitParams{})
+		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
 
@@ -386,7 +386,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.host.SetHasVote(true), gc.IsNil)
-		tc.target, err = s.service.AddUnit(state.AddUnitParams{})
+		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
 
@@ -396,7 +396,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		tc := destroyMachineTestCase{desc: "unassigned unit", destroyed: true}
 		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		tc.target, err = s.service.AddUnit(state.AddUnitParams{})
+		tc.target, err = s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
 		result = append(result, tc)
@@ -445,7 +445,7 @@ func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
 func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.service.AddUnit(state.AddUnitParams{})
+	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	flip := jujutxn.TestHook{
@@ -468,7 +468,7 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.service.AddUnit(state.AddUnitParams{})
+	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 
@@ -483,7 +483,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.service.AddUnit(state.AddUnitParams{})
+	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	c.Assert(host.SetHasVote(true), gc.IsNil)
@@ -499,7 +499,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.service.AddUnit(state.AddUnitParams{})
+	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 	defer state.SetTestHooks(c, s.State, jujutxn.TestHook{
@@ -527,12 +527,12 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	target, err := s.service.AddUnit(state.AddUnitParams{})
+	target, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
 
 	// This unit will be colocated in the transaction hook to cause a retry.
-	colocated, err := s.service.AddUnit(state.AddUnitParams{})
+	colocated, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(host.SetHasVote(true), gc.IsNil)
@@ -652,19 +652,19 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 		jujutxn.TestHook{
 			Before: func() {
 				// Set a different charm to force a retry: first on
-				// the service, so the settings are created, then on
+				// the application, so the settings are created, then on
 				// the unit.
 				cfg := state.SetCharmConfig{Charm: sch}
-				err := s.service.SetCharm(cfg)
+				err := s.application.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 				err = s.unit.SetCharmURL(sch.URL())
 				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
-				// Set back the same charm on the service, so the
+				// Set back the same charm on the application, so the
 				// settings refcount is correct..
 				cfg := state.SetCharmConfig{Charm: s.charm}
-				err := s.service.SetCharm(cfg)
+				err := s.application.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -722,7 +722,7 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "mysql", "options: {}", 99)
 	cfg := state.SetCharmConfig{Charm: newCharm}
-	err = s.service.SetCharm(cfg)
+	err = s.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetRetryHooks(c, s.State, func() {
@@ -876,7 +876,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 		status.Rebooting, "blah",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
-		unit, err := s.service.AddUnit(state.AddUnitParams{})
+		unit, err := s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
@@ -1320,7 +1320,7 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	otherUnit, err := s.service.AddUnit(state.AddUnitParams{})
+	otherUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = otherUnit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1387,7 +1387,7 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		// Note: subordinate units can only be created as a side effect of a
 		// principal entering scope; and a given principal can only have a
-		// single subordinate unit of each service.
+		// single subordinate unit of each application.
 		name := "logging" + strconv.Itoa(i)
 		s.AddTestingApplication(c, name, subCharm)
 		eps, err := s.State.InferEndpoints(name, "wordpress")
@@ -1419,13 +1419,13 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *gc.C) {
 
 func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 	// Check that units can become dead when they've never had subordinates.
-	u, err := s.service.AddUnit(state.AddUnitParams{})
+	u, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a new unit and add a subordinate.
-	u, err = s.service.AddUnit(state.AddUnitParams{})
+	u, err = s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1555,7 +1555,7 @@ func (s *UnitSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	units, err := s.service.AllUnits()
+	units, err := s.application.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 0)
 	err = s.unit.Remove()
@@ -1564,7 +1564,7 @@ func (s *UnitSuite) TestRemove(c *gc.C) {
 
 func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	// Add a relation between wordpress and mysql...
-	wordpress := s.service
+	wordpress := s.application
 	wordpress0 := s.unit
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
@@ -1575,7 +1575,7 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	// The relation holds a reference to wordpress, but that can't keep
 	// wordpress from being removed -- because the relation will be removed
 	// if we destroy wordpress.
-	// However, if a unit of the *other* service joins the relation, that
+	// However, if a unit of the *other* application joins the relation, that
 	// will add an additional reference and prevent the relation -- and
 	// thus wordpress itself -- from being removed when its last unit is.
 	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
@@ -1593,14 +1593,14 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	err = wordpress0.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check this didn't kill the service or relation yet...
+	// Check this didn't kill the application or relation yet...
 	err = wordpress.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ...but when the unit on the other side departs the relation, the
-	// relation and the other service are cleaned up.
+	// relation and the other application are cleaned up.
 	err = mysql0ru.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.Refresh()
@@ -1611,7 +1611,7 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 
 func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	// Add a relation between wordpress and mysql...
-	wordpress := s.service
+	wordpress := s.application
 	wordpress0 := s.unit
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
@@ -1622,7 +1622,7 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	// The relation holds a reference to wordpress, but that can't keep
 	// wordpress from being removed -- because the relation will be removed
 	// if we destroy wordpress.
-	// However, if a unit of the *other* service joins the relation, that
+	// However, if a unit of the *other* application joins the relation, that
 	// will add an additional reference and prevent the relation -- and
 	// thus wordpress itself -- from being removed when its last unit is.
 	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
@@ -1640,7 +1640,7 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	err = wordpress0.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check this didn't kill the service or relation yet...
+	// Check this didn't kill the application or relation yet...
 	err = wordpress.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
@@ -1648,7 +1648,7 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 
 	// ...and that when the malfunctioning unit agent on the other side
 	// sets itself to dead *without* departing the relation, the unit's
-	// removal causes the relation and the other service to be cleaned up.
+	// removal causes the relation and the other application to be cleaned up.
 	err = mysql0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql0.Remove()
@@ -1674,7 +1674,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		// Note: subordinate units can only be created as a side effect of a
 		// principal entering scope; and a given principal can only have a
-		// single subordinate unit of each service.
+		// single subordinate unit of each application.
 		name := "logging" + strconv.Itoa(i)
 		subApp := s.AddTestingApplication(c, name, subCharm)
 		eps, err := s.State.InferEndpoints(name, "wordpress")

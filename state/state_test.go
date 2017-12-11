@@ -1600,8 +1600,8 @@ func (s *StateSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 
 func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	// Check that a service with a name conflict cannot be added if
-	// there is no conflict initially but a local service is added
+	// Check that a application with a name conflict cannot be added if
+	// there is no conflict initially but a local application is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		s.AddTestingApplication(c, "s1", charm)
@@ -1647,7 +1647,7 @@ func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
 		"cluster": "",
 	})
 
-	// Removing the service also removes its bindings.
+	// Removing the application also removes its bindings.
 	err = svc.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = svc.Refresh()
@@ -1662,7 +1662,7 @@ func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 	_, err = s.State.AddSpace("client", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Specify some bindings, but not all when adding the service.
+	// Specify some bindings, but not all when adding the application.
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 43)
 	svc, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "yoursql",
@@ -1810,7 +1810,7 @@ func (s *StateSuite) TestAllApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(applications, gc.HasLen, 2)
 
-	// Check the returned service, order is defined by sorted keys.
+	// Check the returned application, order is defined by sorted keys.
 	names := make([]string, len(applications))
 	for i, app := range applications {
 		names[i] = app.Name()
@@ -1843,7 +1843,7 @@ var inferEndpointsTests = []struct {
 		},
 		err: `invalid endpoint ".*"`,
 	}, {
-		summary: "unknown service",
+		summary: "unknown application",
 		inputs:  [][]string{{"wooble"}},
 		err:     `application "wooble" not found`,
 	}, {
@@ -2082,7 +2082,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Dying model...
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
-	// Add a service so Destroy doesn't advance to Dead.
+	// Add a application so Destroy doesn't advance to Dead.
 	app := factory.NewFactory(st1).MakeApplication(c, nil)
 	dying, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2192,12 +2192,12 @@ func (s *StateSuite) TestWatchApplicationsLifecycle(c *gc.C) {
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	// Add a service: reported.
+	// Add a application: reported.
 	service := s.AddTestingApplication(c, "application", s.AddTestingCharm(c, "dummy"))
 	wc.AssertChange("application")
 	wc.AssertNoChange()
 
-	// Change the service: not reported.
+	// Change the application: not reported.
 	keepDying, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -3317,7 +3317,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	wordpressName := wordpress.Name()
 
-	// Add service units for later use.
+	// Add application units for later use.
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wordpress1, err := wordpress.AddUnit(state.AddUnitParams{})
@@ -3327,13 +3327,13 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	// No events should occur.
 	wc.AssertNoChange()
 
-	// Add minimum units to a service; a single change should occur.
+	// Add minimum units to a application; a single change should occur.
 	err = wordpress.SetMinUnits(2)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(wordpressName)
 	wc.AssertNoChange()
 
-	// Decrease minimum units for a service; expect no changes.
+	// Decrease minimum units for a application; expect no changes.
 	err = wordpress.SetMinUnits(1)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -3346,12 +3346,12 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertChange(mysql.Name(), wordpressName)
 	wc.AssertNoChange()
 
-	// Remove minimum units for a service; expect no changes.
+	// Remove minimum units for a application; expect no changes.
 	err = mysql.SetMinUnits(0)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Destroy a unit of a service with required minimum units.
+	// Destroy a unit of a application with required minimum units.
 	// Also avoid the unit removal. A single change should occur.
 	preventUnitDestroyRemove(c, wordpress0)
 	err = wordpress0.Destroy()
@@ -3359,7 +3359,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertChange(wordpressName)
 	wc.AssertNoChange()
 
-	// Two actions: destroy a unit and increase minimum units for a service.
+	// Two actions: destroy a unit and increase minimum units for a application.
 	// A single change should occur, and the application name should appear only
 	// one time in the change.
 	err = wordpress.SetMinUnits(5)
@@ -3369,17 +3369,17 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertChange(wordpressName)
 	wc.AssertNoChange()
 
-	// Destroy a unit of a service not requiring minimum units; expect no changes.
+	// Destroy a unit of a application not requiring minimum units; expect no changes.
 	err = mysql0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Destroy a service with required minimum units; expect no changes.
+	// Destroy a application with required minimum units; expect no changes.
 	err = wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Destroy a service not requiring minimum units; expect no changes.
+	// Destroy a application not requiring minimum units; expect no changes.
 	err = mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()

@@ -727,7 +727,7 @@ func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 var configYaml = `
 options:
   working:
-    description: when set to false, prevents service from functioning correctly
+    description: when set to false, prevents application from functioning correctly
     default: true
     type: boolean
 `

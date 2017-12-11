@@ -524,7 +524,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dying)
 
-		// Change the service life to Dead manually, as there's no
+		// Change the application life to Dead manually, as there's no
 		// direct way of doing that otherwise.
 		ops := []txn.Op{{
 			C:      state.ApplicationsC,
@@ -676,7 +676,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 		jujutxn.TestHook{
 			Before: func() {
 				// Add two units, which will keep the refcount of oldCh
-				// and newCh settings greater than 0, while the service's
+				// and newCh settings greater than 0, while the application's
 				// charm URLs change between oldCh and newCh. Ensure
 				// refcounts change as expected.
 				unit1, err := s.mysql.AddUnit(state.AddUnitParams{})
@@ -1210,7 +1210,7 @@ func assertSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Char
 }
 
 func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
-	// This test ensures the service settings per charm URL are
+	// This test ensures the application settings per charm URL are
 	// properly reference counted.
 	oldCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 1)
 	newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
@@ -1308,7 +1308,7 @@ func (s *ApplicationSuite) TestSettingsRefCreateRace(c *gc.C) {
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// just before setting the unit charm url, switch the service
+	// just before setting the unit charm url, switch the application
 	// away from the original charm, causing the attempt to fail
 	// (because the settings have gone away; it's the unit's job to
 	// fail out and handle the new charm when it comes back up
@@ -1507,7 +1507,7 @@ func (s *ApplicationSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rels := s.assertApplicationRelations(c, s.mysql, "mysql:cluster", "mysql:loadbalancer")
 
-	// Check state consistency by attempting to destroy the service.
+	// Check state consistency by attempting to destroy the application.
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1761,8 +1761,8 @@ func (s *ApplicationSuite) TestServiceExposed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.IsExposed(), jc.IsTrue)
 
-	// Make the service Dying and check that ClearExposed and SetExposed fail.
-	// TODO(fwereade): maybe service destruction should always unexpose?
+	// Make the application Dying and check that ClearExposed and SetExposed fail.
+	// TODO(fwereade): maybe application destruction should always unexpose?
 	u, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
@@ -1876,7 +1876,7 @@ func (s *ApplicationSuite) TestReadUnit(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestReadUnitWhenDying(c *gc.C) {
-	// Test that we can still read units when the service is Dying...
+	// Test that we can still read units when the application is Dying...
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
@@ -1896,7 +1896,7 @@ func (s *ApplicationSuite) TestReadUnitWhenDying(c *gc.C) {
 		return err
 	})
 
-	// ...and even, in a very limited way, when the service itself is removed.
+	// ...and even, in a very limited way, when the application itself is removed.
 	removeAllUnits(c, s.mysql)
 	_, err = s.mysql.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1992,7 +1992,7 @@ func (s *ApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Destroy a service with no units in relation scope; check service and
+	// Destroy a application with no units in relation scope; check application and
 	// unit removed.
 	err = wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2031,7 +2031,7 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 	err = ru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Optionally update the service document to get correct relation counts.
+	// Optionally update the application document to get correct relation counts.
 	if refresh {
 		err = s.mysql.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -2049,7 +2049,7 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Drop the last reference to the first relation; check the relation and
-	// the service are are both removed.
+	// the application are are both removed.
 	err = ru.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
@@ -2217,7 +2217,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestReadUnitWithChangingState(c *gc.C) {
-	// Check that reading a unit after removing the service
+	// Check that reading a unit after removing the application
 	// fails nicely.
 	err := s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2252,7 +2252,7 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons5, gc.DeepEquals, cons4)
 
-	// Destroy the existing service; there's no way to directly assert
+	// Destroy the existing application; there's no way to directly assert
 	// that the constraints are deleted...
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2307,7 +2307,7 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&scons, jc.Satisfies, constraints.IsEmpty)
 
-	// Removed (== Dead, for a service).
+	// Removed (== Dead, for a application).
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Remove()
@@ -2497,7 +2497,7 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	wc.AssertChange(rel2.String())
 	wc.AssertNoChange()
 
-	// Watch relations on the requirer service too (exercises a
+	// Watch relations on the requirer application too (exercises a
 	// different path of the WatchRelations filter function)
 	wpx := s.AddTestingApplication(c, "wpx", wpch)
 	wpxWatcher := wpx.WatchRelations()
@@ -2561,7 +2561,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
-	// Remove service, start new watch, check single event.
+	// Remove application, start new watch, check single event.
 	err = service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	w = s.mysql.Watch()
@@ -2911,7 +2911,7 @@ func (s *ApplicationSuite) TestSetCharmStorageWithLocationSingletonToMultipleAdd
 }
 
 func (s *ApplicationSuite) assertApplicationRemovedWithItsBindings(c *gc.C, service *state.Application) {
-	// Removing the service removes the bindings with it.
+	// Removing the application removes the bindings with it.
 	err := service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = service.Refresh()

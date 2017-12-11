@@ -675,7 +675,7 @@ func (s *ModelSuite) TestDestroyModelNonEmpty(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add a service to prevent the model from transitioning directly to Dead.
+	// Add a application to prevent the model from transitioning directly to Dead.
 	s.Factory.MakeApplication(c, nil)
 
 	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
@@ -876,8 +876,8 @@ func (s *ModelSuite) TestProcessDyingHostedModelTransitionDyingToDead(c *gc.C) {
 }
 
 func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.State) {
-	// Add a service to prevent the model from transitioning directly to Dead.
-	// Add the service before getting the Model, otherwise we'll have to run
+	// Add a application to prevent the model from transitioning directly to Dead.
+	// Add the application before getting the Model, otherwise we'll have to run
 	// the transaction twice, and hit the hook point too early.
 	app := factory.NewFactory(st).MakeApplication(c, nil)
 	model, err := st.Model()
