@@ -94,11 +94,12 @@ func (inst *environInstance) changeIngressRules(insert bool, rules []network.Ing
 	}
 
 	for _, addr := range addresses {
-		if addr.Scope == network.ScopePublic {
-			err = client.ChangeIngressRules(addr.Value, insert, rules)
-			if err != nil {
-				return errors.Trace(err)
-			}
+		if addr.Type == network.IPv6Address || addr.Scope != network.ScopePublic {
+			// TODO(axw) support firewalling IPv6
+			continue
+		}
+		if err := client.ChangeIngressRules(addr.Value, insert, rules); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil
