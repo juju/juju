@@ -32,9 +32,9 @@ func (s *dispatchSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	rpcServer := func(ws *websocket.Conn) {
 		codec := jsoncodec.NewWebsocket(ws)
-		conn := rpc.NewConn(codec, &notifier{})
+		conn := rpc.NewConn(codec, nil)
 
-		conn.Serve(&DispatchRoot{}, nil)
+		conn.Serve(&DispatchRoot{}, nil, nil)
 		conn.Start()
 
 		<-conn.Dead()

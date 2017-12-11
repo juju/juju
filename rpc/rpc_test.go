@@ -237,11 +237,11 @@ func (a *CallbackMethods) Factorial(x int64val) (int64val, error) {
 }
 
 func (a *ChangeAPIMethods) ChangeAPI() {
-	a.r.conn.Serve(&changedAPIRoot{}, nil)
+	a.r.conn.Serve(&changedAPIRoot{}, nil, nil)
 }
 
 func (a *ChangeAPIMethods) RemoveAPI() {
-	a.r.conn.Serve(nil, nil)
+	a.r.conn.Serve(nil, nil, nil)
 }
 
 type changedAPIRoot struct{}
@@ -377,7 +377,7 @@ func SimpleRoot() *Root {
 
 func (*rpcSuite) TestRPC(c *gc.C) {
 	root := SimpleRoot()
-	client, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
+	client, _, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	for narg := 0; narg < 2; narg++ {
 		for nret := 0; nret < 2; nret++ {
@@ -540,7 +540,7 @@ func (root *Root) assertServerNotified(c *gc.C, p testCallParams, requestId uint
 
 func (*rpcSuite) TestInterfaceMethods(c *gc.C) {
 	root := SimpleRoot()
-	client, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
+	client, _, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	p := testCallParams{
 		client:         client,
@@ -568,7 +568,7 @@ func (*rpcSuite) TestInterfaceMethods(c *gc.C) {
 
 func (*rpcSuite) TestCustomRootV0(c *gc.C) {
 	root := &CustomRoot{SimpleRoot()}
-	client, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
+	client, _, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	// V0 of MultiVersion implements only VariableMethods1.Call0r1.
 	p := testCallParams{
@@ -594,7 +594,7 @@ func (*rpcSuite) TestCustomRootV0(c *gc.C) {
 
 func (*rpcSuite) TestCustomRootV1(c *gc.C) {
 	root := &CustomRoot{SimpleRoot()}
-	client, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
+	client, _, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	// V1 of MultiVersion implements only VariableMethods2.Call1r1.
 	p := testCallParams{
@@ -620,7 +620,7 @@ func (*rpcSuite) TestCustomRootV1(c *gc.C) {
 
 func (*rpcSuite) TestCustomRootV2(c *gc.C) {
 	root := &CustomRoot{SimpleRoot()}
-	client, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
+	client, _, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	p := testCallParams{
 		client:         client,
@@ -647,7 +647,7 @@ func (*rpcSuite) TestCustomRootV2(c *gc.C) {
 
 func (*rpcSuite) TestCustomRootUnknownVersion(c *gc.C) {
 	root := &CustomRoot{SimpleRoot()}
-	client, srvDone, _ := newRPCClientServer(c, root, nil, false)
+	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	var r stringVal
 	// Unknown version 5
@@ -671,7 +671,7 @@ func (*rpcSuite) TestConcurrentCalls(c *gc.C) {
 		},
 	}
 
-	client, srvDone, _ := newRPCClientServer(c, root, nil, false)
+	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	call := func(id string, done chan<- struct{}) {
 		var r stringVal
@@ -713,7 +713,7 @@ func (*rpcSuite) TestErrorCode(c *gc.C) {
 	root := &Root{
 		errorInst: &ErrorMethods{&codedError{"message", "code"}},
 	}
-	client, srvDone, _ := newRPCClientServer(c, root, nil, false)
+	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	err := client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `message \(code\)`)
@@ -734,7 +734,7 @@ func (*rpcSuite) TestTransformErrors(c *gc.C) {
 		}
 		return fmt.Errorf("transformed: %v", err)
 	}
-	client, srvDone, _ := newRPCClientServer(c, root, tfErr, false)
+	client, _, srvDone, _ := newRPCClientServer(c, root, tfErr, false)
 	defer closeClient(c, client, srvDone)
 	// First, we don't transform methods we can't find.
 	err := client.Call(rpc.Request{"foo", 0, "", "bar"}, nil, nil)
@@ -780,7 +780,7 @@ func (*rpcSuite) TestServerWaitsForOutstandingCalls(c *gc.C) {
 			},
 		},
 	}
-	client, srvDone, _ := newRPCClientServer(c, root, nil, false)
+	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	done := make(chan struct{})
 	go func() {
@@ -816,7 +816,7 @@ func (*rpcSuite) TestCompatibility(c *gc.C) {
 	a0 := &SimpleMethods{root: root, id: "a0"}
 	root.simple["a0"] = a0
 
-	client, srvDone, _ := newRPCClientServer(c, root, nil, false)
+	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	call := func(method string, arg, ret interface{}) (passedArg interface{}) {
 		root.calls = nil
@@ -860,7 +860,7 @@ func (*rpcSuite) TestBadCall(c *gc.C) {
 	}
 	a0 := &SimpleMethods{root: root, id: "a0"}
 	root.simple["a0"] = a0
-	client, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
+	client, _, srvDone, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 
 	testBadCall(c, client, serverNotifier,
@@ -937,7 +937,7 @@ func (*rpcSuite) TestContinueAfterReadBodyError(c *gc.C) {
 	}
 	a0 := &SimpleMethods{root: root, id: "a0"}
 	root.simple["a0"] = a0
-	client, srvDone, _ := newRPCClientServer(c, root, nil, false)
+	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 
 	var ret stringVal
@@ -963,7 +963,7 @@ func (*rpcSuite) TestContinueAfterReadBodyError(c *gc.C) {
 }
 
 func (*rpcSuite) TestErrorAfterClientClose(c *gc.C) {
-	client, srvDone, _ := newRPCClientServer(c, &Root{}, nil, false)
+	client, _, srvDone, _ := newRPCClientServer(c, &Root{}, nil, false)
 	err := client.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	err = client.Call(rpc.Request{"Foo", 0, "", "Bar"}, nil, nil)
@@ -973,7 +973,7 @@ func (*rpcSuite) TestErrorAfterClientClose(c *gc.C) {
 }
 
 func (*rpcSuite) TestClientCloseIdempotent(c *gc.C) {
-	client, _, _ := newRPCClientServer(c, &Root{}, nil, false)
+	client, _, _, _ := newRPCClientServer(c, &Root{}, nil, false)
 	err := client.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	err = client.Close()
@@ -984,10 +984,10 @@ func (*rpcSuite) TestClientCloseIdempotent(c *gc.C) {
 
 func (*rpcSuite) TestBidirectional(c *gc.C) {
 	srvRoot := &Root{}
-	client, srvDone, _ := newRPCClientServer(c, srvRoot, nil, true)
+	client, _, srvDone, _ := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
 	clientRoot := &Root{conn: client}
-	client.Serve(clientRoot, nil)
+	client.Serve(clientRoot, nil, nil)
 	var r int64val
 	err := client.Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{12}, &r)
 	c.Assert(err, jc.ErrorIsNil)
@@ -996,7 +996,7 @@ func (*rpcSuite) TestBidirectional(c *gc.C) {
 
 func (*rpcSuite) TestServerRequestWhenNotServing(c *gc.C) {
 	srvRoot := &Root{}
-	client, srvDone, _ := newRPCClientServer(c, srvRoot, nil, true)
+	client, _, srvDone, _ := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
 	var r int64val
 	err := client.Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{12}, &r)
@@ -1005,7 +1005,7 @@ func (*rpcSuite) TestServerRequestWhenNotServing(c *gc.C) {
 
 func (*rpcSuite) TestChangeAPI(c *gc.C) {
 	srvRoot := &Root{}
-	client, srvDone, _ := newRPCClientServer(c, srvRoot, nil, true)
+	client, _, srvDone, _ := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
 	var s stringVal
 	err := client.Call(rpc.Request{"NewlyAvailable", 0, "", "NewMethod"}, nil, &s)
@@ -1021,7 +1021,7 @@ func (*rpcSuite) TestChangeAPI(c *gc.C) {
 
 func (*rpcSuite) TestChangeAPIToNil(c *gc.C) {
 	srvRoot := &Root{}
-	client, srvDone, _ := newRPCClientServer(c, srvRoot, nil, true)
+	client, _, srvDone, _ := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
 
 	err := client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "RemoveAPI"}, nil, nil)
@@ -1042,7 +1042,7 @@ func (*rpcSuite) TestChangeAPIWhileServingRequest(c *gc.C) {
 	transform := func(err error) error {
 		return fmt.Errorf("transformed: %v", err)
 	}
-	client, srvDone, _ := newRPCClientServer(c, srvRoot, transform, true)
+	client, _, srvDone, _ := newRPCClientServer(c, srvRoot, transform, true)
 	defer closeClient(c, client, srvDone)
 
 	result := make(chan error)
@@ -1069,6 +1069,27 @@ func (*rpcSuite) TestCodeNotImplementedMatchesAPIserverParams(c *gc.C) {
 	c.Assert(rpc.CodeNotImplemented, gc.Equals, params.CodeNotImplemented)
 }
 
+func (s *rpcSuite) TestRecorderErrorPreventsRequest(c *gc.C) {
+	root := &Root{
+		simple: make(map[string]*SimpleMethods),
+	}
+	root.simple["a0"] = &SimpleMethods{
+		root: root,
+		id:   "a0",
+	}
+	client, server, srvDone, notifier := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
+	notifier.errors = []error{errors.Errorf("explodo"), errors.Errorf("pyronica")}
+
+	err := client.Call(rpc.Request{"SimpleMethods", 0, "a0", "Call0r0"}, nil, nil)
+	c.Assert(err, gc.ErrorMatches, "explodo")
+
+	err = server.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(root.calls, gc.HasLen, 0)
+}
+
 func chanReadError(c *gc.C, ch <-chan error, what string) error {
 	select {
 	case e := <-ch:
@@ -1088,12 +1109,13 @@ func newRPCClientServer(
 	root interface{},
 	tfErr func(error) error,
 	bidir bool,
-) (client *rpc.Conn, srvDone chan error, serverNotifier *notifier) {
+) (client, server *rpc.Conn, srvDone chan error, serverNotifier *notifier) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	srvDone = make(chan error, 1)
 	serverNotifier = new(notifier)
+	srvStarted := make(chan *rpc.Conn)
 	go func() {
 		conn, err := l.Accept()
 		if err != nil {
@@ -1105,29 +1127,32 @@ func newRPCClientServer(
 		if bidir {
 			role = roleBoth
 		}
-		rpcConn := rpc.NewConn(NewJSONCodec(conn, role), serverNotifier)
+		recorderFactory := func() rpc.Recorder { return serverNotifier }
+		rpcConn := rpc.NewConn(NewJSONCodec(conn, role), recorderFactory)
 		if custroot, ok := root.(*CustomRoot); ok {
-			rpcConn.ServeRoot(custroot, tfErr)
+			rpcConn.ServeRoot(custroot, recorderFactory, tfErr)
 			custroot.root.conn = rpcConn
 		} else {
-			rpcConn.Serve(root, tfErr)
+			rpcConn.Serve(root, recorderFactory, tfErr)
 		}
 		if root, ok := root.(*Root); ok {
 			root.conn = rpcConn
 		}
 		rpcConn.Start()
+		srvStarted <- rpcConn
 		<-rpcConn.Dead()
 		srvDone <- rpcConn.Close()
 	}()
 	conn, err := net.Dial("tcp", l.Addr().String())
 	c.Assert(err, jc.ErrorIsNil)
+	server = <-srvStarted
 	role := roleClient
 	if bidir {
 		role = roleBoth
 	}
-	client = rpc.NewConn(NewJSONCodec(conn, role), &notifier{})
+	client = rpc.NewConn(NewJSONCodec(conn, role), nil)
 	client.Start()
-	return client, srvDone, serverNotifier
+	return client, server, srvDone, serverNotifier
 }
 
 func closeClient(c *gc.C, client *rpc.Conn, srvDone <-chan error) {
@@ -1223,15 +1248,7 @@ type notifier struct {
 	mu             sync.Mutex
 	serverRequests []requestEvent
 	serverReplies  []replyEvent
-}
-
-func (n *notifier) RPCObserver() rpc.Observer {
-	// For testing, we usually won't want an actual copy of the
-	// stub. To avoid confusing test failures (e.g. wondering why your
-	// calls aren't showing up on your stub because the underlying
-	// code has called DeepCopy) and immense complexity, just return
-	// the same value.
-	return n
+	errors         []error
 }
 
 func (n *notifier) reset() {
@@ -1239,18 +1256,30 @@ func (n *notifier) reset() {
 	defer n.mu.Unlock()
 	n.serverRequests = nil
 	n.serverReplies = nil
+	n.errors = nil
 }
 
-func (n *notifier) ServerRequest(hdr *rpc.Header, body interface{}) {
+func (n *notifier) nextErr() error {
+	if len(n.errors) == 0 {
+		return nil
+	}
+	err := n.errors[0]
+	n.errors = n.errors[1:]
+	return err
+}
+
+func (n *notifier) HandleRequest(hdr *rpc.Header, body interface{}) error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.serverRequests = append(n.serverRequests, requestEvent{
 		hdr:  *hdr,
 		body: body,
 	})
+
+	return n.nextErr()
 }
 
-func (n *notifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (n *notifier) HandleReply(req rpc.Request, hdr *rpc.Header, body interface{}) error {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.serverReplies = append(n.serverReplies, replyEvent{
@@ -1258,4 +1287,5 @@ func (n *notifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{
 		hdr:  *hdr,
 		body: body,
 	})
+	return n.nextErr()
 }
