@@ -177,15 +177,15 @@ func (f *Facade) Charm(args params.Entities) (params.ApplicationCharmResults, er
 	return results, nil
 }
 
-// WatchApplicationConfig returns a NotifyWatcher that notifies when
+// WatchCharmConfig returns a NotifyWatcher that notifies when
 // the application's config settings have changed.
-func (f *Facade) WatchApplicationConfig(args params.Entities) (params.NotifyWatchResults, error) {
+func (f *Facade) WatchCharmConfig(args params.Entities) (params.NotifyWatchResults, error) {
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	authTag := f.auth.GetAuthTag()
 	for i, arg := range args.Entities {
-		watcherId, err := f.watchApplicationConfig(arg, authTag)
+		watcherId, err := f.watchCharmConfig(arg, authTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -195,7 +195,7 @@ func (f *Facade) WatchApplicationConfig(args params.Entities) (params.NotifyWatc
 	return results, nil
 }
 
-func (f *Facade) watchApplicationConfig(arg params.Entity, authTag names.Tag) (string, error) {
+func (f *Facade) watchCharmConfig(arg params.Entity, authTag names.Tag) (string, error) {
 	tag, err := names.ParseApplicationTag(arg.Tag)
 	if err != nil {
 		return "", err
@@ -207,7 +207,7 @@ func (f *Facade) watchApplicationConfig(arg params.Entity, authTag names.Tag) (s
 	if err != nil {
 		return "", err
 	}
-	w, err := application.WatchConfigSettings()
+	w, err := application.WatchCharmConfig()
 	if err != nil {
 		return "", err
 	}
@@ -218,8 +218,8 @@ func (f *Facade) watchApplicationConfig(arg params.Entity, authTag names.Tag) (s
 	return f.resources.Register(w), nil
 }
 
-// ApplicationConfig returns the application's config settings.
-func (f *Facade) ApplicationConfig(args params.Entities) (params.ConfigSettingsResults, error) {
+// CharmConfig returns the application's charm config settings.
+func (f *Facade) CharmConfig(args params.Entities) (params.ConfigSettingsResults, error) {
 	results := params.ConfigSettingsResults{
 		Results: make([]params.ConfigSettingsResult, len(args.Entities)),
 	}
@@ -239,7 +239,7 @@ func (f *Facade) ApplicationConfig(args params.Entities) (params.ConfigSettingsR
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		settings, err := application.ConfigSettings()
+		settings, err := application.CharmConfig()
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue

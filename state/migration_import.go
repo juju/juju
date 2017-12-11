@@ -762,7 +762,7 @@ func (i *importer) application(a description.Application) error {
 		statusDoc:          statusDoc,
 		constraints:        i.constraints(a.Constraints()),
 		storage:            i.storageConstraints(a.StorageConstraints()),
-		settings:           a.Settings(),
+		charmConfig:        a.Settings(),
 		leadershipSettings: a.LeadershipSettings(),
 	})
 	if err != nil {

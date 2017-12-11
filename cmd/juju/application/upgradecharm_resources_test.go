@@ -339,7 +339,7 @@ func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]servic
 	deployed := make(map[string]serviceInfo, len(services))
 	for _, application := range services {
 		charm, _ := application.CharmURL()
-		config, err := application.ConfigSettings()
+		config, err := application.CharmConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		if len(config) == 0 {
 			config = nil

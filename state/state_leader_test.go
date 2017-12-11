@@ -37,8 +37,8 @@ func (s *LeadershipSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LeadershipSuite) TestClaimValidatesApplicationname(c *gc.C) {
-	err := s.claimer.ClaimLeadership("not/a/service", "u/0", time.Minute)
-	c.Check(err, gc.ErrorMatches, `cannot claim lease "not/a/service": not an application name`)
+	err := s.claimer.ClaimLeadership("not/a/application", "u/0", time.Minute)
+	c.Check(err, gc.ErrorMatches, `cannot claim lease "not/a/application": not an application name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
@@ -55,9 +55,9 @@ func (s *LeadershipSuite) TestClaimValidateDuration(c *gc.C) {
 }
 
 func (s *LeadershipSuite) TestCheckValidatesApplicationname(c *gc.C) {
-	token := s.checker.LeadershipCheck("not/a/service", "u/0")
+	token := s.checker.LeadershipCheck("not/a/application", "u/0")
 	err := token.Check(nil)
-	c.Check(err, gc.ErrorMatches, `cannot check lease "not/a/service": not an application name`)
+	c.Check(err, gc.ErrorMatches, `cannot check lease "not/a/application": not an application name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 

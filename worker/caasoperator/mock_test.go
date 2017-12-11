@@ -85,16 +85,16 @@ func (c *fakeClient) SetContainerSpec(entityName, spec string) error {
 	return c.NextErr()
 }
 
-func (c *fakeClient) ApplicationConfig(application string) (charm.Settings, error) {
-	c.MethodCall(c, "ApplicationConfig", application)
+func (c *fakeClient) CharmConfig(application string) (charm.Settings, error) {
+	c.MethodCall(c, "CharmConfig", application)
 	if err := c.NextErr(); err != nil {
 		return nil, err
 	}
 	return gitlabSettings, nil
 }
 
-func (c *fakeClient) WatchApplicationConfig(application string) (watcher.NotifyWatcher, error) {
-	c.MethodCall(c, "WatchApplicationConfig", application)
+func (c *fakeClient) WatchCharmConfig(application string) (watcher.NotifyWatcher, error) {
+	c.MethodCall(c, "WatchCharmConfig", application)
 	if err := c.NextErr(); err != nil {
 		return nil, err
 	}

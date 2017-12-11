@@ -103,18 +103,18 @@ func (c *Client) Charm(application string) (_ *charm.URL, sha256 string, _ error
 	return curl, result.SHA256, nil
 }
 
-// WatchApplicationConfig returns a watcher that is notified whenever the
-// application config changes.
-func (c *Client) WatchApplicationConfig(application string) (watcher.NotifyWatcher, error) {
+// WatchCharmConfig returns a watcher that is notified whenever the
+// application's charm config changes.
+func (c *Client) WatchCharmConfig(application string) (watcher.NotifyWatcher, error) {
 	tag, err := c.appTag(application)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return common.Watch(c.facade, "WatchApplicationConfig", tag)
+	return common.Watch(c.facade, "WatchCharmConfig", tag)
 }
 
-// ApplicationConfig returns the application's config settings.
-func (c *Client) ApplicationConfig(application string) (charm.Settings, error) {
+// CharmConfig returns the application's charm config settings.
+func (c *Client) CharmConfig(application string) (charm.Settings, error) {
 	tag, err := c.appTag(application)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -123,7 +123,7 @@ func (c *Client) ApplicationConfig(application string) (charm.Settings, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	if err := c.facade.FacadeCall("ApplicationConfig", args, &results); err != nil {
+	if err := c.facade.FacadeCall("CharmConfig", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {

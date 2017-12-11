@@ -155,10 +155,10 @@ func (ctx *HookContext) SetApplicationStatus(appStatus commands.StatusInfo) erro
 	)
 }
 
-func (ctx *HookContext) ApplicationConfig() (charm.Settings, error) {
+func (ctx *HookContext) CharmConfig() (charm.Settings, error) {
 	if ctx.configSettings == nil {
 		var err error
-		ctx.configSettings, err = ctx.hookAPI.ApplicationConfig()
+		ctx.configSettings, err = ctx.hookAPI.CharmConfig()
 		if err != nil {
 			return nil, err
 		}

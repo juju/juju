@@ -125,18 +125,18 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	// Don't care about new runner factory func here.
 	config.NewRunnerFactoryFunc = nil
 	c.Assert(config, jc.DeepEquals, caasoperator.Config{
-		ModelUUID:               coretesting.ModelTag.Id(),
-		ModelName:               "gitlab-model",
-		Application:             "gitlab",
-		ApplicationConfigGetter: &s.client,
-		DataDir:                 s.dataDir,
-		CharmGetter:             &s.client,
-		Clock:                   s.clock,
-		ContainerSpecSetter:     &s.client,
-		Downloader:              &s.charmDownloader,
-		StatusSetter:            &s.client,
-		APIAddressGetter:        &s.client,
-		ProxySettingsGetter:     &s.client,
+		ModelUUID:           coretesting.ModelTag.Id(),
+		ModelName:           "gitlab-model",
+		Application:         "gitlab",
+		CharmConfigGetter:   &s.client,
+		DataDir:             s.dataDir,
+		CharmGetter:         &s.client,
+		Clock:               s.clock,
+		ContainerSpecSetter: &s.client,
+		Downloader:          &s.charmDownloader,
+		StatusSetter:        &s.client,
+		APIAddressGetter:    &s.client,
+		ProxySettingsGetter: &s.client,
 	})
 }
 

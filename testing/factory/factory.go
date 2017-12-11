@@ -94,7 +94,7 @@ type ApplicationParams struct {
 	Name             string
 	Charm            *state.Charm
 	Status           *status.StatusInfo
-	Settings         map[string]interface{}
+	CharmConfig      map[string]interface{}
 	Storage          map[string]state.StorageConstraints
 	Constraints      constraints.Value
 	EndpointBindings map[string]string
@@ -451,7 +451,7 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
 		Name:             params.Name,
 		Charm:            params.Charm,
-		Settings:         charm.Settings(params.Settings),
+		CharmConfig:      charm.Settings(params.CharmConfig),
 		Storage:          params.Storage,
 		Constraints:      params.Constraints,
 		Resources:        resourceMap,

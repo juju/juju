@@ -275,7 +275,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			ConfigSettings: charm.Settings{
+			CharmConfig: charm.Settings{
 				"title":       "banana cupcakes",
 				"skill-level": 9901,
 			},
@@ -292,7 +292,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			ConfigSettings: charm.Settings{
+			CharmConfig: charm.Settings{
 				"skill-level": 99.01,
 			},
 		})
@@ -431,7 +431,7 @@ func (s *DeployLocalSuite) assertCharm(c *gc.C, app application.Application, exp
 }
 
 func (s *DeployLocalSuite) assertSettings(c *gc.C, app application.Application, settings charm.Settings) {
-	settings, err := app.ConfigSettings()
+	settings, err := app.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := s.charm.Config().DefaultSettings()
 	for name, value := range settings {

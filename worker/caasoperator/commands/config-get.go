@@ -57,7 +57,7 @@ func (c *ConfigGetCommand) Init(args []string) error {
 }
 
 func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
-	settings, err := c.ctx.ApplicationConfig()
+	settings, err := c.ctx.CharmConfig()
 	if err != nil {
 		return err
 	}

@@ -93,19 +93,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Errorf("expected an application tag, got %v", tag)
 			}
 			w, err := config.NewWorker(Config{
-				ModelUUID:               agentConfig.Model().Id(),
-				ModelName:               modelName,
-				NewRunnerFactoryFunc:    runner.NewFactory,
-				Application:             applicationTag.Id(),
-				ApplicationConfigGetter: client,
-				CharmGetter:             client,
-				Clock:                   clock,
-				ContainerSpecSetter:     client,
-				DataDir:                 agentConfig.DataDir(),
-				Downloader:              downloader,
-				StatusSetter:            client,
-				APIAddressGetter:        client,
-				ProxySettingsGetter:     client,
+				ModelUUID:            agentConfig.Model().Id(),
+				ModelName:            modelName,
+				NewRunnerFactoryFunc: runner.NewFactory,
+				Application:          applicationTag.Id(),
+				CharmConfigGetter:    client,
+				CharmGetter:          client,
+				Clock:                clock,
+				ContainerSpecSetter:  client,
+				DataDir:              agentConfig.DataDir(),
+				Downloader:           downloader,
+				StatusSetter:         client,
+				APIAddressGetter:     client,
+				ProxySettingsGetter:  client,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

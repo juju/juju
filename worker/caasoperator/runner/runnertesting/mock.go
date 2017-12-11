@@ -36,11 +36,11 @@ func (m *MockContextAPI) ProxySettings() (proxy.Settings, error) {
 	return m.settings, nil
 }
 
-func (m *MockContextAPI) ApplicationConfig() (charm.Settings, error) {
+func (m *MockContextAPI) CharmConfig() (charm.Settings, error) {
 	return m.configSettings, nil
 }
 
-func (m *MockContextAPI) UpdateConfigSettings(settings charm.Settings) {
+func (m *MockContextAPI) UpdateCharmConfig(settings charm.Settings) {
 	m.configSettings = settings
 }
 

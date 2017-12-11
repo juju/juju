@@ -27,7 +27,7 @@ type DeployApplicationParams struct {
 	Series          string
 	Charm           *state.Charm
 	Channel         csparams.Channel
-	ConfigSettings  charm.Settings
+	CharmConfig     charm.Settings
 	Constraints     constraints.Value
 	NumUnits        int
 	// Placement is a list of placement directives which may be used
@@ -50,7 +50,7 @@ type UnitAdder interface {
 
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Application, error) {
-	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
+	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -77,7 +77,7 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 		Channel:          args.Channel,
 		Storage:          stateStorageConstraints(args.Storage),
 		AttachStorage:    args.AttachStorage,
-		Settings:         settings,
+		CharmConfig:      charmConfig,
 		NumUnits:         args.NumUnits,
 		Placement:        args.Placement,
 		Resources:        args.Resources,

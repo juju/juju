@@ -103,7 +103,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err := s.mysql.ConfigSettings()
+	settings, err := s.mysql.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{"key": "value"}))
 
@@ -114,7 +114,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err = s.mysql.ConfigSettings()
+	settings, err = s.mysql.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
 		"key":   "value",
@@ -441,7 +441,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 
 		origCh := charms[t.startconfig]
 		app := s.AddTestingApplication(c, "wordpress", origCh)
-		err := app.UpdateConfigSettings(t.startvalues)
+		err := app.UpdateCharmConfig(t.startvalues)
 		c.Assert(err, jc.ErrorIsNil)
 
 		newCh := charms[t.endconfig]
@@ -462,7 +462,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 		sch, _, err := app.Charm()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(sch.URL(), gc.DeepEquals, expectCh.URL())
-		settings, err := app.ConfigSettings()
+		settings, err := app.CharmConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		expected := s.combinedSettings(sch, expectVals)
 		if len(expected) == 0 {
@@ -524,7 +524,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dying)
 
-		// Change the service life to Dead manually, as there's no
+		// Change the application life to Dead manually, as there's no
 		// direct way of doing that otherwise.
 		ops := []txn.Op{{
 			C:      state.ApplicationsC,
@@ -653,7 +653,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 
 	defer state.SetBeforeHooks(c, s.State,
 		func() {
-			err := s.mysql.UpdateConfigSettings(charm.Settings{"key": "value"})
+			err := s.mysql.UpdateCharmConfig(charm.Settings{"key": "value"})
 			c.Assert(err, jc.ErrorIsNil)
 		},
 		nil, // Ensure there will be a retry.
@@ -676,7 +676,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 		jujutxn.TestHook{
 			Before: func() {
 				// Add two units, which will keep the refcount of oldCh
-				// and newCh settings greater than 0, while the service's
+				// and newCh settings greater than 0, while the application's
 				// charm URLs change between oldCh and newCh. Ensure
 				// refcounts change as expected.
 				unit1, err := s.mysql.AddUnit(state.AddUnitParams{})
@@ -694,7 +694,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				assertNoSettingsRef(c, s.State, "mysql", oldCh)
 				// Update newCh settings, switch to oldCh and update its
 				// settings as well.
-				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value1"})
+				err = s.mysql.UpdateCharmConfig(charm.Settings{"key": "value1"})
 				c.Assert(err, jc.ErrorIsNil)
 				cfg = state.SetCharmConfig{Charm: oldCh}
 
@@ -706,7 +706,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
-				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value2"})
+				err = s.mysql.UpdateCharmConfig(charm.Settings{"key": "value2"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
@@ -732,7 +732,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 2)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
-				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value3"})
+				err = s.mysql.UpdateCharmConfig(charm.Settings{"key": "value3"})
 				c.Assert(err, jc.ErrorIsNil)
 
 				cfg = state.SetCharmConfig{Charm: oldCh}
@@ -740,7 +740,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
-				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value4"})
+				err = s.mysql.UpdateCharmConfig(charm.Settings{"key": "value4"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
@@ -853,7 +853,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-var serviceUpdateConfigSettingsTests = []struct {
+var serviceUpdateCharmConfigTests = []struct {
 	about   string
 	initial charm.Settings
 	update  charm.Settings
@@ -904,21 +904,21 @@ var serviceUpdateConfigSettingsTests = []struct {
 	update:  charm.Settings{"skill-level": nil},
 }}
 
-func (s *ApplicationSuite) TestUpdateConfigSettings(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 	sch := s.AddTestingCharm(c, "dummy")
-	for i, t := range serviceUpdateConfigSettingsTests {
+	for i, t := range serviceUpdateCharmConfigTests {
 		c.Logf("test %d. %s", i, t.about)
 		app := s.AddTestingApplication(c, "dummy-application", sch)
 		if t.initial != nil {
-			err := app.UpdateConfigSettings(t.initial)
+			err := app.UpdateCharmConfig(t.initial)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		err := app.UpdateConfigSettings(t.update)
+		err := app.UpdateCharmConfig(t.update)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			settings, err := app.ConfigSettings()
+			settings, err := app.CharmConfig()
 			c.Assert(err, jc.ErrorIsNil)
 			appConfig := t.expect
 			expected := s.combinedSettings(sch, appConfig)
@@ -1210,7 +1210,7 @@ func assertSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Char
 }
 
 func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
-	// This test ensures the service settings per charm URL are
+	// This test ensures the application settings per charm URL are
 	// properly reference counted.
 	oldCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 1)
 	newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
@@ -1308,7 +1308,7 @@ func (s *ApplicationSuite) TestSettingsRefCreateRace(c *gc.C) {
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// just before setting the unit charm url, switch the service
+	// just before setting the unit charm url, switch the application
 	// away from the original charm, causing the attempt to fail
 	// (because the settings have gone away; it's the unit's job to
 	// fail out and handle the new charm when it comes back up
@@ -1507,7 +1507,7 @@ func (s *ApplicationSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rels := s.assertApplicationRelations(c, s.mysql, "mysql:cluster", "mysql:loadbalancer")
 
-	// Check state consistency by attempting to destroy the service.
+	// Check state consistency by attempting to destroy the application.
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1761,8 +1761,8 @@ func (s *ApplicationSuite) TestServiceExposed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.IsExposed(), jc.IsTrue)
 
-	// Make the service Dying and check that ClearExposed and SetExposed fail.
-	// TODO(fwereade): maybe service destruction should always unexpose?
+	// Make the application Dying and check that ClearExposed and SetExposed fail.
+	// TODO(fwereade): maybe application destruction should always unexpose?
 	u, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
@@ -1876,7 +1876,7 @@ func (s *ApplicationSuite) TestReadUnit(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestReadUnitWhenDying(c *gc.C) {
-	// Test that we can still read units when the service is Dying...
+	// Test that we can still read units when the application is Dying...
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
@@ -1896,7 +1896,7 @@ func (s *ApplicationSuite) TestReadUnitWhenDying(c *gc.C) {
 		return err
 	})
 
-	// ...and even, in a very limited way, when the service itself is removed.
+	// ...and even, in a very limited way, when the application itself is removed.
 	removeAllUnits(c, s.mysql)
 	_, err = s.mysql.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1992,7 +1992,7 @@ func (s *ApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Destroy a service with no units in relation scope; check service and
+	// Destroy a application with no units in relation scope; check application and
 	// unit removed.
 	err = wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2031,7 +2031,7 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 	err = ru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Optionally update the service document to get correct relation counts.
+	// Optionally update the application document to get correct relation counts.
 	if refresh {
 		err = s.mysql.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -2049,7 +2049,7 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Drop the last reference to the first relation; check the relation and
-	// the service are are both removed.
+	// the application are are both removed.
 	err = ru.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
@@ -2142,7 +2142,7 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 	// Ensure storage constraints and settings are now gone.
 	_, err = state.AppStorageConstraints(app)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	settings := state.GetApplicationSettings(s.State, app)
+	settings := state.GetApplicationCharmConfig(s.State, app)
 	err = settings.Read()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -2217,7 +2217,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestReadUnitWithChangingState(c *gc.C) {
-	// Check that reading a unit after removing the service
+	// Check that reading a unit after removing the application
 	// fails nicely.
 	err := s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2252,7 +2252,7 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons5, gc.DeepEquals, cons4)
 
-	// Destroy the existing service; there's no way to directly assert
+	// Destroy the existing application; there's no way to directly assert
 	// that the constraints are deleted...
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2307,7 +2307,7 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&scons, jc.Satisfies, constraints.IsEmpty)
 
-	// Removed (== Dead, for a service).
+	// Removed (== Dead, for a application).
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Remove()
@@ -2497,7 +2497,7 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	wc.AssertChange(rel2.String())
 	wc.AssertNoChange()
 
-	// Watch relations on the requirer service too (exercises a
+	// Watch relations on the requirer application too (exercises a
 	// different path of the WatchRelations filter function)
 	wpx := s.AddTestingApplication(c, "wpx", wpch)
 	wpxWatcher := wpx.WatchRelations()
@@ -2561,7 +2561,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
-	// Remove service, start new watch, check single event.
+	// Remove application, start new watch, check single event.
 	err = service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	w = s.mysql.Watch()
@@ -2911,7 +2911,7 @@ func (s *ApplicationSuite) TestSetCharmStorageWithLocationSingletonToMultipleAdd
 }
 
 func (s *ApplicationSuite) assertApplicationRemovedWithItsBindings(c *gc.C, service *state.Application) {
-	// Removing the service removes the bindings with it.
+	// Removing the application removes the bindings with it.
 	err := service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = service.Refresh()
@@ -3099,7 +3099,7 @@ func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithMoreThanOneUnit(c 
 	c.Assert(s.mysql.CharmModifiedVersion() == obtainedV, jc.IsTrue)
 }
 
-func (s *ApplicationSuite) TestWatchConfigSettings(c *gc.C) {
+func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 	oldCharm := s.AddTestingCharm(c, "wordpress")
 	app := s.AddTestingApplication(c, "wordpress", oldCharm)
 	// Add a unit so when we change the application's charm,
@@ -3109,7 +3109,7 @@ func (s *ApplicationSuite) TestWatchConfigSettings(c *gc.C) {
 	err = u.SetCharmURL(oldCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := app.WatchConfigSettings()
+	w, err := app.WatchCharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, w)
 
@@ -3118,18 +3118,18 @@ func (s *ApplicationSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
-	err = app.UpdateConfigSettings(charm.Settings{
+	err = app.UpdateCharmConfig(charm.Settings{
 		"blog-title": "superhero paparazzi",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.UpdateConfigSettings(charm.Settings{
+	err = app.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Non-change is not reported.
-	err = app.UpdateConfigSettings(charm.Settings{
+	err = app.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3142,7 +3142,7 @@ func (s *ApplicationSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change application config for new charm; nothing detected.
-	err = app.UpdateConfigSettings(charm.Settings{"key": "value"})
+	err = app.UpdateCharmConfig(charm.Settings{"key": "value"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }

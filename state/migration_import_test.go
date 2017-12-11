@@ -423,7 +423,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(charm.Meta().Resources, gc.HasLen, 3)
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: charm,
-		Settings: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
 		Constraints: cons,
@@ -466,9 +466,9 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 
-	exportedConfig, err := exported.ConfigSettings()
+	exportedConfig, err := exported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	importedConfig, err := imported.ConfigSettings()
+	importedConfig, err := imported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedConfig, jc.DeepEquals, exportedConfig)
 
@@ -1442,7 +1442,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Settings: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
 	})
@@ -1453,7 +1453,7 @@ func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
 	// strip config setting values to nil directly to simulate
 	// what could happen to some applications in 2.0 and 2.1.
 	// For more context, see https://bugs.launchpad.net/juju/+bug/1667199
-	settings := state.GetApplicationSettings(s.State, application)
+	settings := state.GetApplicationCharmConfig(s.State, application)
 	settings.Set("foo", nil)
 	_, err := settings.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1467,7 +1467,7 @@ func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
 
 	// Ensure that during import application settings with nil config values
 	// were stripped and not written into database.
-	importedSettings := state.GetApplicationSettings(newSt, importedApplication)
+	importedSettings := state.GetApplicationCharmConfig(newSt, importedApplication)
 	_, importedFound := importedSettings.Get("foo")
 	c.Assert(importedFound, jc.IsFalse)
 }

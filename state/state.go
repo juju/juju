@@ -1002,7 +1002,7 @@ type AddApplicationArgs struct {
 	Storage          map[string]StorageConstraints
 	AttachStorage    []names.StorageTag
 	EndpointBindings map[string]string
-	Settings         charm.Settings
+	CharmConfig      charm.Settings
 	NumUnits         int
 	Placement        []*instance.Placement
 	Constraints      constraints.Value
@@ -1101,7 +1101,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	// When creating the settings, we ignore nils.  In other circumstances, nil
 	// means to delete the value (reset to default), so creating with nil should
 	// mean to use the default, i.e. don't set the value.
-	removeNils(args.Settings)
+	removeNils(args.CharmConfig)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
@@ -1134,7 +1134,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			statusDoc:      statusDoc,
 			constraints:    args.Constraints,
 			storage:        args.Storage,
-			settings:       map[string]interface{}(args.Settings),
+			charmConfig:    map[string]interface{}(args.CharmConfig),
 		})
 		if err != nil {
 			return nil, errors.Trace(err)

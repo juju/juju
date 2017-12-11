@@ -65,17 +65,17 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.client.settingsWatcher = watchertest.NewMockNotifyWatcher(s.settingsChanges)
 	s.charmDownloader.ResetCalls()
 	s.config = caasoperator.Config{
-		NewRunnerFactoryFunc:    runner.NewFactory,
-		Application:             "gitlab",
-		ApplicationConfigGetter: &s.client,
-		CharmGetter:             &s.client,
-		Clock:                   s.clock,
-		ContainerSpecSetter:     &s.client,
-		DataDir:                 c.MkDir(),
-		Downloader:              &s.charmDownloader,
-		StatusSetter:            &s.client,
-		APIAddressGetter:        &s.client,
-		ProxySettingsGetter:     &s.client,
+		NewRunnerFactoryFunc: runner.NewFactory,
+		Application:          "gitlab",
+		CharmConfigGetter:    &s.client,
+		CharmGetter:          &s.client,
+		Clock:                s.clock,
+		ContainerSpecSetter:  &s.client,
+		DataDir:              c.MkDir(),
+		Downloader:           &s.charmDownloader,
+		StatusSetter:         &s.client,
+		APIAddressGetter:     &s.client,
+		ProxySettingsGetter:  &s.client,
 	}
 
 	agentBinaryDir := agenttools.ToolsDir(s.config.DataDir, "application-gitlab")
@@ -89,8 +89,8 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	}, `application name "" not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
-		config.ApplicationConfigGetter = nil
-	}, `missing ApplicationConfigGetter not valid`)
+		config.CharmConfigGetter = nil
+	}, `missing CharmConfigGetter not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.CharmGetter = nil
@@ -150,7 +150,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	s.settingsChanges <- struct{}{}
 	ctx.waitForHooks(c, []string{"config-changed"})
 
-	s.client.CheckCallNames(c, "Charm", "SetStatus", "WatchApplicationConfig", "ApplicationConfig")
+	s.client.CheckCallNames(c, "Charm", "SetStatus", "WatchCharmConfig", "CharmConfig")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
 
 	s.charmDownloader.CheckCallNames(c, "Download")

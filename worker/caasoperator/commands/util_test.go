@@ -64,7 +64,7 @@ func (m *mockHookContext) SetApplicationStatus(appStatus commands.StatusInfo) er
 	return nil
 }
 
-func (m *mockHookContext) ApplicationConfig() (charm.Settings, error) {
+func (m *mockHookContext) CharmConfig() (charm.Settings, error) {
 	settingsCopy := make(charm.Settings)
 	for k, v := range m.config {
 		settingsCopy[k] = v
