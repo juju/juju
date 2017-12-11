@@ -338,9 +338,19 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 	}
 	m, err := machined.machine()
 	if params.IsCodeNotFound(err) {
+		logger.Debugf("not watching %q", tag)
 		return nil
 	} else if err != nil {
 		return errors.Annotate(err, "cannot watch machine units")
+	}
+	manual, err := m.IsManual()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if manual {
+		// Don't track manual machines, we can't change their ports.
+		logger.Debugf("not watching manual %q", tag)
+		return nil
 	}
 	unitw, err := m.WatchUnits()
 	if err != nil {
@@ -384,7 +394,11 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 	}
 
 	// register the machined with the firewaller's catacomb.
-	return fw.catacomb.Add(machined)
+	err = fw.catacomb.Add(machined)
+	if err == nil {
+		logger.Debugf("started watching %q", tag)
+	}
+	return err
 }
 
 // startUnit creates a new data value for tracking details of the unit
@@ -613,7 +627,8 @@ func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, subnetTag 
 	if !ok {
 		// It is common to receive a port change notification before
 		// registering the machine, so if a machine is not found in
-		// firewaller's list, just skip the change.
+		// firewaller's list, just skip the change.  Look up will also
+		// fail if it's a manual machine.
 		logger.Debugf("failed to lookup %q, skipping port change", machineTag)
 		return nil
 	}
@@ -920,11 +935,10 @@ func (fw *Firewaller) machineLifeChanged(tag names.MachineTag) error {
 		return fw.forgetMachine(machined)
 	}
 	if !known && !dead {
-		err = fw.startMachine(tag)
+		err := fw.startMachine(tag)
 		if err != nil {
 			return err
 		}
-		logger.Debugf("started watching %q", tag)
 	}
 	return nil
 }

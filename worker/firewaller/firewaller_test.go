@@ -480,6 +480,37 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	})
 }
 
+func assertMachineInMachineds(c *gc.C, fw *firewaller.Firewaller, tag names.MachineTag, find bool) {
+	machineds := firewaller.GetMachineds(fw)
+	_, found := machineds[tag]
+	c.Assert(found, gc.Equals, find)
+}
+
+func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:     "quantal",
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: "2",
+		Nonce:      "manual:",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = firewaller.StartMachine(fw.(*firewaller.Firewaller), m.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	assertMachineInMachineds(c, fw.(*firewaller.Firewaller), m.MachineTag(), false)
+
+	m2, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = firewaller.StartMachine(fw.(*firewaller.Firewaller), m2.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	assertMachineInMachineds(c, fw.(*firewaller.Firewaller), m2.MachineTag(), true)
+}
+
 func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)

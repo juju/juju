@@ -46,7 +46,12 @@ type FirewallerAPIV4 struct {
 	*common.ControllerConfigAPI
 }
 
-// NewStateFirewallerAPIv3 creates a new server-side FirewallerAPIV3 facade.
+// FirewallerAPIV5 provides access to the Firewaller v5 API facade.
+type FirewallerAPIV5 struct {
+	*FirewallerAPIV4
+}
+
+// NewStateFirewallerAPIV3 creates a new server-side FirewallerAPIV3 facade.
 func NewStateFirewallerAPIV3(context facade.Context) (*FirewallerAPIV3, error) {
 	st := context.State()
 
@@ -62,7 +67,7 @@ func NewStateFirewallerAPIV3(context facade.Context) (*FirewallerAPIV3, error) {
 	return NewFirewallerAPI(stateShim{st: st, State: firewall.StateShim(st, m)}, context.Resources(), context.Auth(), cloudSpecAPI)
 }
 
-// NewStateFirewallerAPIv4 creates a new server-side FirewallerAPIV4 facade.
+// NewStateFirewallerAPIV4 creates a new server-side FirewallerAPIV4 facade.
 func NewStateFirewallerAPIV4(context facade.Context) (*FirewallerAPIV4, error) {
 	facadev3, err := NewStateFirewallerAPIV3(context)
 	if err != nil {
@@ -71,6 +76,17 @@ func NewStateFirewallerAPIV4(context facade.Context) (*FirewallerAPIV4, error) {
 	return &FirewallerAPIV4{
 		ControllerConfigAPI: common.NewStateControllerConfig(context.State()),
 		FirewallerAPIV3:     facadev3,
+	}, nil
+}
+
+// NewStateFirewallerAPIV5 creates a new server-side FirewallerAPIV5 facade.
+func NewStateFirewallerAPIV5(context facade.Context) (*FirewallerAPIV5, error) {
+	facadev4, err := NewStateFirewallerAPIV4(context)
+	if err != nil {
+		return nil, err
+	}
+	return &FirewallerAPIV5{
+		FirewallerAPIV4: facadev4,
 	}, nil
 }
 
@@ -488,6 +504,31 @@ func (f *FirewallerAPIV4) FirewallRules(args params.KnownServiceArgs) (params.Li
 			KnownService:   params.KnownServiceValue(knownService),
 			WhitelistCIDRS: rule.WhitelistCIDRs,
 		})
+	}
+	return result, nil
+}
+
+// AreManuallyProvisioned returns whether each given entity is
+// manually provisioned or not. Only machine tags are accepted.
+func (f *FirewallerAPIV5) AreManuallyProvisioned(args params.Entities) (params.BoolResults, error) {
+	result := params.BoolResults{
+		Results: make([]params.BoolResult, len(args.Entities)),
+	}
+	canAccess, err := f.accessMachine()
+	if err != nil {
+		return result, err
+	}
+	for i, arg := range args.Entities {
+		machineTag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		machine, err := f.getMachine(canAccess, machineTag)
+		if err == nil {
+			result.Results[i].Result, err = machine.IsManual()
+		}
+		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
