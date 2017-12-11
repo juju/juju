@@ -929,7 +929,7 @@ func (s *loginSuite) TestLoginAddsAuditConversation(c *gc.C) {
 	cfg := defaultServerConfig(c)
 	cfg.AuditLogConfig.Enabled = true
 	cfg.AuditLog = log
-	info, srv := newServerWithConfig(c, s.pool, cfg)
+	info, srv := newServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
 
 	password := "shhh..."
@@ -970,7 +970,7 @@ func (s *loginSuite) TestAuditLoggingFailurePreventsLogin(c *gc.C) {
 	cfg := defaultServerConfig(c)
 	cfg.AuditLogConfig.Enabled = true
 	cfg.AuditLog = log
-	info, srv := newServerWithConfig(c, s.pool, cfg)
+	info, srv := newServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
 
 	password := "shhh..."
@@ -1318,7 +1318,7 @@ func (s *migrationSuite) TestExportingModel(c *gc.C) {
 }
 
 type loginV3Suite struct {
-	loginSuite
+	baseLoginSuite
 }
 
 var _ = gc.Suite(&loginV3Suite{})
