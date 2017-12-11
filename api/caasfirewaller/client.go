@@ -101,7 +101,7 @@ func (c *Client) IsExposed(appName string) (bool, error) {
 	args := entities(appTag)
 
 	var results params.BoolResults
-	if err := c.facade.FacadeCall("GetExposed", args, &results); err != nil {
+	if err := c.facade.FacadeCall("IsExposed", args, &results); err != nil {
 		return false, err
 	}
 	if n := len(results.Results); n != 1 {

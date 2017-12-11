@@ -114,6 +114,13 @@ func (s *WorkerSuite) TestExposedChange(c *gc.C) {
 	}
 
 	s.sendApplicationExposedChange(c)
+	// The last known state on start up was unexposed
+	// so we first call Unexpose().
+	select {
+	case <-s.serviceUnexposed:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be unexposed")
+	}
 	select {
 	case <-s.serviceExposed:
 		c.Fatal("service exposed unexpectedly")
@@ -142,6 +149,13 @@ func (s *WorkerSuite) TestUnexposedChange(c *gc.C) {
 
 	s.applicationGetter.exposed = true
 	s.sendApplicationExposedChange(c)
+	// The last known state on start up was exposed
+	// so we first call Expose().
+	select {
+	case <-s.serviceExposed:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be exposed")
+	}
 	select {
 	case <-s.serviceUnexposed:
 		c.Fatal("service unexposed unexpectedly")

@@ -27,7 +27,7 @@ func (s *FirewallerSuite) TestIsExposed(c *gc.C) {
 		c.Check(objType, gc.Equals, "CAASFirewaller")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "GetExposed")
+		c.Check(request, gc.Equals, "IsExposed")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",

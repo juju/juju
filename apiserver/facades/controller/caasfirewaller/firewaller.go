@@ -71,13 +71,13 @@ func (f *Facade) WatchApplications() (params.StringsWatchResult, error) {
 	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
-// GetExposed returns whether the specified applications are exposed.
-func (f *Facade) GetExposed(args params.Entities) (params.BoolResults, error) {
+// IsExposed returns whether the specified applications are exposed.
+func (f *Facade) IsExposed(args params.Entities) (params.BoolResults, error) {
 	results := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		exposed, err := f.getExposed(f.state, arg.Tag)
+		exposed, err := f.isExposed(f.state, arg.Tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -87,7 +87,7 @@ func (f *Facade) GetExposed(args params.Entities) (params.BoolResults, error) {
 	return results, nil
 }
 
-func (f *Facade) getExposed(backend CAASFirewallerState, tagString string) (bool, error) {
+func (f *Facade) isExposed(backend CAASFirewallerState, tagString string) (bool, error) {
 	tag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
 		return false, errors.Trace(err)

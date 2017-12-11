@@ -103,8 +103,9 @@ func (s *CAASProvisionerSuite) TestWatchApplication(c *gc.C) {
 	c.Assert(resource, gc.Equals, s.st.appExposedWatcher)
 }
 
-func (s *CAASProvisionerSuite) GetExposed(c *gc.C) {
-	results, err := s.facade.GetExposed(params.Entities{
+func (s *CAASProvisionerSuite) TestIsExposed(c *gc.C) {
+	s.st.application.exposed = true
+	results, err := s.facade.IsExposed(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},

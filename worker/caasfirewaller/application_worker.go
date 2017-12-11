@@ -68,10 +68,8 @@ func (aw *applicationWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	exposed, err := aw.applicationGetter.IsExposed(aw.application)
-	if err != nil {
-		return err
-	}
+	var previouslyExposed bool
+	initial := true
 	for {
 		select {
 		case <-aw.catacomb.Dying():
@@ -80,17 +78,19 @@ func (aw *applicationWorker) loop() error {
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-			change, err := aw.applicationGetter.IsExposed(aw.application)
+			exposed, err := aw.applicationGetter.IsExposed(aw.application)
 			if err != nil {
 				if !params.IsCodeNotFound(err) {
 					return errors.Trace(err)
 				}
 				return nil
 			}
-			if change == exposed {
+			if !initial && exposed == previouslyExposed {
 				continue
 			}
-			exposed = change
+
+			initial = false
+			previouslyExposed = exposed
 			if exposed {
 				if err := aw.serviceExposer.ExposeService(aw.application, config); err != nil {
 					return errors.Trace(err)
