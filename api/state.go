@@ -6,10 +6,12 @@ package api
 import (
 	"net"
 	"net/url"
+	"os"
 	"runtime/debug"
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -42,6 +44,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		Credentials: password,
 		Nonce:       nonce,
 		Macaroons:   macaroons,
+		CLIArgs:     utils.CommandString(os.Args...),
 	}
 	// If we are in developer mode, add the stack location as user data to the
 	// login request. This will allow the apiserver to connect connection ids
