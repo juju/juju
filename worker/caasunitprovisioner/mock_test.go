@@ -42,15 +42,6 @@ func (m *mockServiceBroker) DeleteService(appName string) error {
 	return m.NextErr()
 }
 
-type mockServiceExposer struct {
-	testing.Stub
-}
-
-func (m *mockServiceExposer) ExposeService(appName string, config caas.ResourceConfig) error {
-	m.MethodCall(m, "ExposeService", appName, config)
-	return m.NextErr()
-}
-
 type mockContainerBroker struct {
 	testing.Stub
 	ensured chan<- struct{}

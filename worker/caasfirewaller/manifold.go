@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package caasunitprovisioner
+package caasfirewaller
 
 import (
 	"github.com/juju/errors"
@@ -12,13 +12,24 @@ import (
 	"github.com/juju/juju/worker/dependency"
 )
 
-// ManifoldConfig defines a CAAS unit provisioner's dependencies.
+// ManifoldConfig describes the resources used by the firewaller worker.
 type ManifoldConfig struct {
 	APICallerName string
 	BrokerName    string
 
 	NewClient func(base.APICaller) Client
 	NewWorker func(Config) (worker.Worker, error)
+}
+
+// Manifold returns a Manifold that encapsulates the firewaller worker.
+func Manifold(cfg ManifoldConfig) dependency.Manifold {
+	return dependency.Manifold{
+		Inputs: []string{
+			cfg.APICallerName,
+			cfg.BrokerName,
+		},
+		Start: cfg.start,
+	}
 }
 
 // Validate is called by start to check for bad configuration.
@@ -38,6 +49,7 @@ func (config ManifoldConfig) Validate() error {
 	return nil
 }
 
+// start is a StartFunc for a Worker manifold.
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -56,31 +68,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	client := config.NewClient(apiCaller)
 	w, err := config.NewWorker(Config{
 		ApplicationGetter: client,
-
-		// TODO(caas) - get this based on the CAAS substrate
-		BrokerManagedUnits: true,
-
-		ServiceBroker:   broker,
-		ContainerBroker: broker,
-
-		ContainerSpecGetter: client,
-		LifeGetter:          client,
-		UnitGetter:          client,
+		LifeGetter:        client,
+		ServiceExposer:    broker,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return w, nil
-}
-
-// Manifold creates a manifold that runs a CAAS unit provisioner. See the
-// ManifoldConfig type for discussion about how this can/should evolve.
-func Manifold(config ManifoldConfig) dependency.Manifold {
-	return dependency.Manifold{
-		Inputs: []string{
-			config.APICallerName,
-			config.BrokerName,
-		},
-		Start: config.start,
-	}
 }

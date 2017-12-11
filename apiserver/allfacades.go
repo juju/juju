@@ -67,6 +67,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/actionpruner"
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
+	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
@@ -150,6 +151,7 @@ func AllFacades() *facade.Registry {
 		// CAAS related facades.
 		// Move these to the correct place above once the feature flag disappears.
 		reg("Cloud", 2, cloud.NewFacadeV2)
+		reg("CAASFirewaller", 1, caasfirewaller.NewStateFacade)
 		reg("CAASOperator", 1, caasoperator.NewStateFacade)
 		reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
 		reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)

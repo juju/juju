@@ -26,7 +26,6 @@ type WorkerSuite struct {
 	config              caasunitprovisioner.Config
 	applicationGetter   mockApplicationGetter
 	serviceBroker       mockServiceBroker
-	serviceExposer      mockServiceExposer
 	containerBroker     mockContainerBroker
 	containerSpecGetter mockContainerSpecGetter
 	lifeGetter          mockLifeGetter
@@ -79,7 +78,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.config = caasunitprovisioner.Config{
 		ApplicationGetter:   &s.applicationGetter,
 		ServiceBroker:       &s.serviceBroker,
-		ServiceExposer:      &s.serviceExposer,
 		ContainerBroker:     &s.containerBroker,
 		ContainerSpecGetter: &s.containerSpecGetter,
 		LifeGetter:          &s.lifeGetter,
@@ -103,10 +101,6 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.ServiceBroker = nil
 	}, `missing ServiceBroker not valid`)
-
-	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
-		config.ServiceExposer = nil
-	}, `missing ServiceExposer not valid`)
 
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.ContainerBroker = nil

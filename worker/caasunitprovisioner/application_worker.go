@@ -20,9 +20,6 @@ type applicationWorker struct {
 	serviceBroker      ServiceBroker
 	containerBroker    ContainerBroker
 
-	// TODO(caas) - move to a firewaller worker
-	serviceExposer ServiceExposer
-
 	containerSpecGetter ContainerSpecGetter
 	lifeGetter          LifeGetter
 	unitGetter          UnitGetter
@@ -35,7 +32,6 @@ func newApplicationWorker(
 	brokerManagedUnits bool,
 	serviceBroker ServiceBroker,
 	containerBroker ContainerBroker,
-	serviceExposer ServiceExposer,
 	containerSpecGetter ContainerSpecGetter,
 	lifeGetter LifeGetter,
 	unitGetter UnitGetter,
@@ -45,7 +41,6 @@ func newApplicationWorker(
 		brokerManagedUnits:  brokerManagedUnits,
 		serviceBroker:       serviceBroker,
 		containerBroker:     containerBroker,
-		serviceExposer:      serviceExposer,
 		containerSpecGetter: containerSpecGetter,
 		lifeGetter:          lifeGetter,
 		unitGetter:          unitGetter,
@@ -86,7 +81,6 @@ func (aw *applicationWorker) loop() error {
 		deploymentWorker, err = newDeploymentWorker(
 			aw.application,
 			aw.serviceBroker,
-			aw.serviceExposer,
 			aw.containerSpecGetter,
 			config,
 			aw.aliveUnitsChan)
