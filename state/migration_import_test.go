@@ -466,9 +466,9 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 
-	exportedConfig, err := exported.ConfigSettings()
+	exportedConfig, err := exported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	importedConfig, err := imported.ConfigSettings()
+	importedConfig, err := imported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedConfig, jc.DeepEquals, exportedConfig)
 

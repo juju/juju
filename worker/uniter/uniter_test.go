@@ -1563,7 +1563,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	curl = curl.WithRevision(dir.Revision())
 	step(c, ctx, addCharm{dir, curl})
-	ctx.svc = s.AddTestingApplication(c, "u", ctx.sch)
+	ctx.application = s.AddTestingApplication(c, "u", ctx.sch)
 
 	// Create the principal application and add a relation.
 	wps := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))

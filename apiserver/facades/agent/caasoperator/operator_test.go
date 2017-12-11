@@ -126,7 +126,7 @@ func (s *CAASOperatorSuite) TestCharm(c *gc.C) {
 	s.st.app.CheckCallNames(c, "Charm")
 }
 
-func (s *CAASOperatorSuite) TestApplicationConfig(c *gc.C) {
+func (s *CAASOperatorSuite) TestCharmconfig(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -135,7 +135,7 @@ func (s *CAASOperatorSuite) TestApplicationConfig(c *gc.C) {
 		},
 	}
 
-	results, err := s.facade.ApplicationConfig(args)
+	results, err := s.facade.CharmConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ConfigSettingsResults{
 		Results: []params.ConfigSettingsResult{{
@@ -152,10 +152,10 @@ func (s *CAASOperatorSuite) TestApplicationConfig(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "ConfigSettings")
+	s.st.app.CheckCallNames(c, "CharmConfig")
 }
 
-func (s *CAASOperatorSuite) TestWatchApplicationConfig(c *gc.C) {
+func (s *CAASOperatorSuite) TestWatchCharmConfig(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -164,7 +164,7 @@ func (s *CAASOperatorSuite) TestWatchApplicationConfig(c *gc.C) {
 		},
 	}
 
-	results, err := s.facade.WatchApplicationConfig(args)
+	results, err := s.facade.WatchCharmConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{
@@ -181,7 +181,7 @@ func (s *CAASOperatorSuite) TestWatchApplicationConfig(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "WatchConfigSettings")
+	s.st.app.CheckCallNames(c, "WatchCharmConfig")
 	c.Assert(s.resources.Get("1"), gc.Equals, s.st.app.settingsWatcher)
 }
 

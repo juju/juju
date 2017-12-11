@@ -113,17 +113,17 @@ func (s *InterfaceSuite) TestStatusCaching(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
-	s.contextAPI.UpdateConfigSettings(charm.Settings{"blog-title": "My Title"})
+	s.contextAPI.UpdateCharmConfig(charm.Settings{"blog-title": "My Title"})
 	ctx := s.GetContext(c, -1, "")
-	settings, err := ctx.ApplicationConfig()
+	settings, err := ctx.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
 
 	// Change remote config.
-	s.contextAPI.UpdateConfigSettings(charm.Settings{"blog-title": "Something Else"})
+	s.contextAPI.UpdateCharmConfig(charm.Settings{"blog-title": "Something Else"})
 
 	// Local view is not changed.
-	settings, err = ctx.ApplicationConfig()
+	settings, err = ctx.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
 }

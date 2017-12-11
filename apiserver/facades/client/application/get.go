@@ -10,20 +10,20 @@ import (
 	"github.com/juju/juju/constraints"
 )
 
-// Get returns the configuration for a service.
+// Get returns the charm configuration for an application.
 func (api *API) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
-	return api.getApplicationSettings(args, describe)
+	return api.getCharmSettings(args, describe)
 }
 
-// Get returns the configuration for a service.
+// Get returns the charm configuration for an application.
 // This used the confusing "default" boolean to mean the value was set from
 // the charm defaults. Needs to be kept for backwards compatibility.
 func (api *APIv4) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
-	return api.getApplicationSettings(args, describeV4)
+	return api.getCharmSettings(args, describeV4)
 }
 
-// Get returns the configuration for a service.
-func (api *API) getApplicationSettings(
+// Get returns the charm configuration for an application.
+func (api *API) getCharmSettings(
 	args params.ApplicationGet,
 	describe func(settings charm.Settings, config *charm.Config) map[string]interface{},
 ) (params.ApplicationGetResults, error) {
@@ -34,7 +34,7 @@ func (api *API) getApplicationSettings(
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-	settings, err := app.ConfigSettings()
+	settings, err := app.CharmConfig()
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}

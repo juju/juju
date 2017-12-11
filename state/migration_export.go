@@ -661,15 +661,15 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	application := ctx.application
 	appName := application.Name()
 	globalKey := application.globalKey()
-	settingsKey := application.settingsKey()
+	configKey := application.charmConfigKey()
 	leadershipKey := leadershipSettingsKey(appName)
 	storageConstraintsKey := application.storageConstraintsKey()
 
-	applicationSettingsDoc, found := e.modelSettings[settingsKey]
+	applicationSettingsDoc, found := e.modelSettings[configKey]
 	if !found && !e.cfg.SkipSettings {
 		return errors.Errorf("missing settings for application %q", appName)
 	}
-	delete(e.modelSettings, settingsKey)
+	delete(e.modelSettings, configKey)
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found && !e.cfg.SkipSettings {
 		return errors.Errorf("missing leadership settings for application %q", appName)

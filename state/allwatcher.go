@@ -489,7 +489,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		}
 	}
 	if needConfig {
-		doc, err := readSettingsDoc(st.db(), settingsC, applicationSettingsKey(app.Name, app.CharmURL))
+		doc, err := readSettingsDoc(st.db(), settingsC, applicationCharmConfigKey(app.Name, app.CharmURL))
 		if err != nil {
 			return errors.Trace(err)
 		}

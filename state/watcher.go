@@ -1592,12 +1592,12 @@ func (im *IAASModel) WatchFilesystemAttachment(m names.MachineTag, f names.Files
 	return newEntityWatcher(im.mb, filesystemAttachmentsC, im.mb.docID(id))
 }
 
-// WatchConfigSettings returns a watcher for observing changes to the
-// application's configuration settings. The returned watcher will be
+// WatchCharmConfig returns a watcher for observing changes to the
+// application's charm configuration settings. The returned watcher will be
 // valid only while the application's charm URL is not changed.
-func (a *Application) WatchConfigSettings() (NotifyWatcher, error) {
-	settingsKey := a.settingsKey()
-	return newEntityWatcher(a.st, settingsC, a.st.docID(settingsKey)), nil
+func (a *Application) WatchCharmConfig() (NotifyWatcher, error) {
+	configKey := a.charmConfigKey()
+	return newEntityWatcher(a.st, settingsC, a.st.docID(configKey)), nil
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
@@ -1610,7 +1610,7 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settingsKey := applicationSettingsKey(u.doc.Application, u.doc.CharmURL)
+	settingsKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
 	return newEntityWatcher(u.st, settingsC, u.st.docID(settingsKey)), nil
 }
 

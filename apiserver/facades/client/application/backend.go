@@ -65,7 +65,7 @@ type Application interface {
 	CharmURL() (*charm.URL, bool)
 	Channel() csparams.Channel
 	ClearExposed() error
-	ConfigSettings() (charm.Settings, error)
+	CharmConfig() (charm.Settings, error)
 	Constraints() (constraints.Value, error)
 	Destroy() error
 	DestroyOperation() *state.DestroyApplicationOperation
@@ -78,7 +78,7 @@ type Application interface {
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error
-	UpdateConfigSettings(charm.Settings) error
+	UpdateCharmConfig(charm.Settings) error
 }
 
 // Charm defines a subset of the functionality provided by the

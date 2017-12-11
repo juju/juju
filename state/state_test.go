@@ -643,10 +643,10 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return false
 			},
 			triggerEvent: func(st *state.State) {
-				svc, err := st.Application("wordpress")
+				app, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = svc.UpdateConfigSettings(charm.Settings{"blog-title": "awesome"})
+				err = app.UpdateCharmConfig(charm.Settings{"blog-title": "awesome"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -1497,7 +1497,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	outsettings, err := wordpress.ConfigSettings()
+	outsettings, err := wordpress.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {
@@ -1533,7 +1533,7 @@ func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
 
 	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
 	c.Assert(err, jc.ErrorIsNil)
-	outsettings, err := wordpress.ConfigSettings()
+	outsettings, err := wordpress.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := ch.Config().DefaultSettings()
 	for name, value := range insettings {

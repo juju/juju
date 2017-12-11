@@ -63,9 +63,9 @@ type Config struct {
 	// this CAAS operator manages.
 	Application string
 
-	// ApplicationConfigGetter is an interface used for
-	// watching and getting the application's config settings.
-	ApplicationConfigGetter ApplicationConfigGetter
+	// CharmConfigGetter is an interface used for
+	// watching and getting the application's charm config settings.
+	CharmConfigGetter CharmConfigGetter
 
 	// CharmGetter is an interface used for getting the
 	// application's charm URL and SHA256 hash.
@@ -106,8 +106,8 @@ func (config Config) Validate() error {
 	if !names.IsValidApplication(config.Application) {
 		return errors.NotValidf("application name %q", config.Application)
 	}
-	if config.ApplicationConfigGetter == nil {
-		return errors.NotValidf("missing ApplicationConfigGetter")
+	if config.CharmConfigGetter == nil {
+		return errors.NotValidf("missing CharmConfigGetter")
 	}
 	if config.CharmGetter == nil {
 		return errors.NotValidf("missing CharmGetter")
@@ -167,10 +167,10 @@ func (op *caasOperator) loop() (err error) {
 		)
 	}
 
-	configGetter := op.config.ApplicationConfigGetter
-	configWatcher, err := configGetter.WatchApplicationConfig(op.config.Application)
+	configGetter := op.config.CharmConfigGetter
+	configWatcher, err := configGetter.WatchCharmConfig(op.config.Application)
 	if err != nil {
-		return errors.Annotate(err, "starting an application config watcher")
+		return errors.Annotate(err, "starting an application charm config watcher")
 	}
 	op.catacomb.Add(configWatcher)
 
@@ -179,11 +179,11 @@ func (op *caasOperator) loop() (err error) {
 		case <-op.catacomb.Dying():
 			return op.catacomb.ErrDying()
 		case <-configWatcher.Changes():
-			settings, err := configGetter.ApplicationConfig(op.config.Application)
+			settings, err := configGetter.CharmConfig(op.config.Application)
 			if err != nil {
 				return errors.Annotate(err, "getting application config")
 			}
-			logger.Debugf("application config changed: %s", pretty.Sprint(settings))
+			logger.Debugf("application charm config changed: %s", pretty.Sprint(settings))
 
 			hookOp, err := op.operationFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 			if err != nil {
@@ -216,10 +216,10 @@ func (op *caasOperator) init() (err error) {
 			ProxySettingsGetter: op.config.ProxySettingsGetter,
 		},
 		HookAPI: &hookAPIAdaptor{
-			appName:                 op.config.Application,
-			StatusSetter:            op.config.StatusSetter,
-			ApplicationConfigGetter: op.config.ApplicationConfigGetter,
-			ContainerSpecSetter:     op.config.ContainerSpecSetter,
+			appName:             op.config.Application,
+			StatusSetter:        op.config.StatusSetter,
+			CharmConfigGetter:   op.config.CharmConfigGetter,
+			ContainerSpecSetter: op.config.ContainerSpecSetter,
 		},
 		ModelUUID:        op.config.ModelUUID,
 		ModelName:        op.config.ModelName,

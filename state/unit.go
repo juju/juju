@@ -121,7 +121,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	return charmSettingsWithDefaults(u.st, u.doc.CharmURL, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
+	return charmSettingsWithDefaults(u.st, u.doc.CharmURL, applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL))
 }
 
 // ApplicationName returns the application name.

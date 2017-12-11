@@ -96,14 +96,14 @@ func (a *Application) globalKey() string {
 	return applicationGlobalKey(a.doc.Name)
 }
 
-func applicationSettingsKey(appName string, curl *charm.URL) string {
+func applicationCharmConfigKey(appName string, curl *charm.URL) string {
 	return fmt.Sprintf("a#%s#%s", appName, curl)
 }
 
-// settingsKey returns the charm-version-specific settings collection
+// charmConfigKey returns the charm-version-specific settings collection
 // key for the application.
-func (a *Application) settingsKey() string {
-	return applicationSettingsKey(a.doc.Name, a.doc.CharmURL)
+func (a *Application) charmConfigKey() string {
+	return applicationCharmConfigKey(a.doc.Name, a.doc.CharmURL)
 }
 
 func applicationStorageConstraintsKey(appName string, curl *charm.URL) string {
@@ -634,10 +634,10 @@ func (a *Application) changeCharmOps(
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
-	oldSettings, err := readSettings(a.st.db(), settingsC, a.settingsKey())
+	oldKey, err := readSettings(a.st.db(), settingsC, a.charmConfigKey())
 	if err == nil {
 		// Filter the old settings through to get the new settings.
-		newSettings = ch.Config().FilterSettings(oldSettings.Map())
+		newSettings = ch.Config().FilterSettings(oldKey.Map())
 		for k, v := range updatedSettings {
 			newSettings[k] = v
 		}
@@ -650,7 +650,7 @@ func (a *Application) changeCharmOps(
 
 	// Create or replace application settings.
 	var settingsOp txn.Op
-	newSettingsKey := applicationSettingsKey(a.doc.Name, ch.URL())
+	newSettingsKey := applicationCharmConfigKey(a.doc.Name, ch.URL())
 	if _, err := readSettings(a.st.db(), settingsC, newSettingsKey); errors.IsNotFound(err) {
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
@@ -757,7 +757,7 @@ func (a *Application) changeCharmOps(
 	var decOps []txn.Op
 	// Drop the references to the old settings, storage constraints,
 	// and charm docs (if the refs actually exist yet).
-	if oldSettings != nil {
+	if oldKey != nil {
 		decOps, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL, true) // current charm
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -766,9 +766,9 @@ func (a *Application) changeCharmOps(
 
 	// Build the transaction.
 	var ops []txn.Op
-	if oldSettings != nil {
+	if oldKey != nil {
 		// Old settings shouldn't change (when they exist).
-		ops = append(ops, oldSettings.assertUnchangedOp())
+		ops = append(ops, oldKey.assertUnchangedOp())
 	}
 	ops = append(ops, unitOps...)
 	ops = append(ops, incOps...)
@@ -1707,16 +1707,16 @@ func charmSettingsWithDefaults(st *State, curl *charm.URL, key string) (charm.Se
 }
 
 // ConfigSettings returns the raw user configuration for the application's charm.
-func (a *Application) ConfigSettings() (charm.Settings, error) {
+func (a *Application) CharmConfig() (charm.Settings, error) {
 	if a.doc.CharmURL == nil {
 		return nil, fmt.Errorf("application charm not set")
 	}
-	return charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.settingsKey())
+	return charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.charmConfigKey())
 }
 
-// UpdateConfigSettings changes a application's charm config settings. Values set
+// UpdateCharmConfig changes a application's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
-func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
+func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
 	charm, _, err := a.Charm()
 	if err != nil {
 		return err
@@ -1729,7 +1729,7 @@ func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
 	// about every use case. This needs to be resolved some time; but at
 	// least the settings docs are keyed by charm url as well as application
 	// name, so the actual impact of a race is non-threatening.
-	node, err := readSettings(a.st.db(), settingsC, a.settingsKey())
+	node, err := readSettings(a.st.db(), settingsC, a.charmConfigKey())
 	if err != nil {
 		return err
 	}
@@ -2087,7 +2087,7 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 	}
 
 	globalKey := app.globalKey()
-	settingsKey := app.settingsKey()
+	settingsKey := app.charmConfigKey()
 	storageConstraintsKey := app.storageConstraintsKey()
 	leadershipKey := leadershipSettingsKey(app.Name())
 

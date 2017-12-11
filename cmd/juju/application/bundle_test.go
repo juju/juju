@@ -757,7 +757,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleO
 	// Now check the blog-title of the wordpress.	le")
 	wordpress, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := wordpress.ConfigSettings()
+	settings, err := wordpress.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings["blog-title"], gc.Equals, "magic bundle config")
 }

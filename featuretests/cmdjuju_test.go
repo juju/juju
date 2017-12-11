@@ -72,7 +72,7 @@ func (s *cmdJujuSuite) TestApplicationSet(c *gc.C) {
 		"outlook":  "hello@world.tld",
 	}
 
-	settings, err := app.ConfigSettings()
+	settings, err := app.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, expect))
 }
@@ -86,7 +86,7 @@ func (s *cmdJujuSuite) TestApplicationUnset(c *gc.C) {
 		"outlook":  "hello@world.tld",
 	}
 
-	err := app.UpdateConfigSettings(settings)
+	err := app.UpdateCharmConfig(settings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application", "--reset", "username")
@@ -95,7 +95,7 @@ func (s *cmdJujuSuite) TestApplicationUnset(c *gc.C) {
 	expect := charm.Settings{
 		"outlook": "hello@world.tld",
 	}
-	settings, err = app.ConfigSettings()
+	settings, err = app.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, expect))
 }

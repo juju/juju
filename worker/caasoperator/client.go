@@ -16,7 +16,7 @@ import (
 // with the CAASOperator API. Subsets of this
 // should be passed to the CAASOperator worker.
 type Client interface {
-	ApplicationConfigGetter
+	CharmConfigGetter
 	CharmGetter
 	ContainerSpecSetter
 	StatusSetter
@@ -63,11 +63,11 @@ type ProxySettingsGetter interface {
 	ProxySettings() (proxy.Settings, error)
 }
 
-// ApplicationConfigGetter provides an interface for
-// watching and getting the application's config settings.
-type ApplicationConfigGetter interface {
-	ApplicationConfig(string) (charm.Settings, error)
-	WatchApplicationConfig(string) (watcher.NotifyWatcher, error)
+// CharmConfigGetter provides an interface for
+// watching and getting the application's charm config settings.
+type CharmConfigGetter interface {
+	CharmConfig(string) (charm.Settings, error)
+	WatchCharmConfig(string) (watcher.NotifyWatcher, error)
 }
 
 // TODO(caas) - split this up
@@ -78,7 +78,7 @@ type contextFactoryAPIAdaptor struct {
 
 type hookAPIAdaptor struct {
 	StatusSetter
-	ApplicationConfigGetter
+	CharmConfigGetter
 	ContainerSpecSetter
 
 	appName string
@@ -86,8 +86,8 @@ type hookAPIAdaptor struct {
 	dummyHookAPI
 }
 
-func (h *hookAPIAdaptor) ApplicationConfig() (charm.Settings, error) {
-	return h.ApplicationConfigGetter.ApplicationConfig(h.appName)
+func (h *hookAPIAdaptor) CharmConfig() (charm.Settings, error) {
+	return h.CharmConfigGetter.CharmConfig(h.appName)
 }
 
 func (h *hookAPIAdaptor) SetApplicationStatus(status status.Status, info string, data map[string]interface{}) error {

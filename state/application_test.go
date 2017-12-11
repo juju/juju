@@ -103,7 +103,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err := s.mysql.ConfigSettings()
+	settings, err := s.mysql.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{"key": "value"}))
 
@@ -114,7 +114,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settings, err = s.mysql.ConfigSettings()
+	settings, err = s.mysql.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, s.combinedSettings(newCh, charm.Settings{
 		"key":   "value",
@@ -441,7 +441,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 
 		origCh := charms[t.startconfig]
 		app := s.AddTestingApplication(c, "wordpress", origCh)
-		err := app.UpdateConfigSettings(t.startvalues)
+		err := app.UpdateCharmConfig(t.startvalues)
 		c.Assert(err, jc.ErrorIsNil)
 
 		newCh := charms[t.endconfig]
@@ -462,7 +462,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 		sch, _, err := app.Charm()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(sch.URL(), gc.DeepEquals, expectCh.URL())
-		settings, err := app.ConfigSettings()
+		settings, err := app.CharmConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		expected := s.combinedSettings(sch, expectVals)
 		if len(expected) == 0 {
@@ -653,7 +653,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 
 	defer state.SetBeforeHooks(c, s.State,
 		func() {
-			err := s.mysql.UpdateConfigSettings(charm.Settings{"key": "value"})
+			err := s.mysql.UpdateCharmConfig(charm.Settings{"key": "value"})
 			c.Assert(err, jc.ErrorIsNil)
 		},
 		nil, // Ensure there will be a retry.
@@ -694,7 +694,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				assertNoSettingsRef(c, s.State, "mysql", oldCh)
 				// Update newCh settings, switch to oldCh and update its
 				// settings as well.
-				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value1"})
+				err = s.mysql.UpdateCharmConfig(charm.Settings{"key": "value1"})
 				c.Assert(err, jc.ErrorIsNil)
 				cfg = state.SetCharmConfig{Charm: oldCh}
 
@@ -706,7 +706,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
-				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value2"})
+				err = s.mysql.UpdateCharmConfig(charm.Settings{"key": "value2"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
@@ -732,7 +732,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 2)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
-				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value3"})
+				err = s.mysql.UpdateCharmConfig(charm.Settings{"key": "value3"})
 				c.Assert(err, jc.ErrorIsNil)
 
 				cfg = state.SetCharmConfig{Charm: oldCh}
@@ -740,7 +740,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
-				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value4"})
+				err = s.mysql.UpdateCharmConfig(charm.Settings{"key": "value4"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
@@ -853,7 +853,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-var serviceUpdateConfigSettingsTests = []struct {
+var serviceUpdateCharmConfigTests = []struct {
 	about   string
 	initial charm.Settings
 	update  charm.Settings
@@ -904,21 +904,21 @@ var serviceUpdateConfigSettingsTests = []struct {
 	update:  charm.Settings{"skill-level": nil},
 }}
 
-func (s *ApplicationSuite) TestUpdateConfigSettings(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 	sch := s.AddTestingCharm(c, "dummy")
-	for i, t := range serviceUpdateConfigSettingsTests {
+	for i, t := range serviceUpdateCharmConfigTests {
 		c.Logf("test %d. %s", i, t.about)
 		app := s.AddTestingApplication(c, "dummy-application", sch)
 		if t.initial != nil {
-			err := app.UpdateConfigSettings(t.initial)
+			err := app.UpdateCharmConfig(t.initial)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		err := app.UpdateConfigSettings(t.update)
+		err := app.UpdateCharmConfig(t.update)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
-			settings, err := app.ConfigSettings()
+			settings, err := app.CharmConfig()
 			c.Assert(err, jc.ErrorIsNil)
 			appConfig := t.expect
 			expected := s.combinedSettings(sch, appConfig)
@@ -3099,7 +3099,7 @@ func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithMoreThanOneUnit(c 
 	c.Assert(s.mysql.CharmModifiedVersion() == obtainedV, jc.IsTrue)
 }
 
-func (s *ApplicationSuite) TestWatchConfigSettings(c *gc.C) {
+func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 	oldCharm := s.AddTestingCharm(c, "wordpress")
 	app := s.AddTestingApplication(c, "wordpress", oldCharm)
 	// Add a unit so when we change the application's charm,
@@ -3109,7 +3109,7 @@ func (s *ApplicationSuite) TestWatchConfigSettings(c *gc.C) {
 	err = u.SetCharmURL(oldCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := app.WatchConfigSettings()
+	w, err := app.WatchCharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, w)
 
@@ -3118,18 +3118,18 @@ func (s *ApplicationSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
-	err = app.UpdateConfigSettings(charm.Settings{
+	err = app.UpdateCharmConfig(charm.Settings{
 		"blog-title": "superhero paparazzi",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.UpdateConfigSettings(charm.Settings{
+	err = app.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Non-change is not reported.
-	err = app.UpdateConfigSettings(charm.Settings{
+	err = app.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3142,7 +3142,7 @@ func (s *ApplicationSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change application config for new charm; nothing detected.
-	err = app.UpdateConfigSettings(charm.Settings{"key": "value"})
+	err = app.UpdateCharmConfig(charm.Settings{"key": "value"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }

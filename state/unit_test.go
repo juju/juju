@@ -73,7 +73,7 @@ func (s *UnitSuite) TestConfigSettingsIncludeDefaults(c *gc.C) {
 }
 
 func (s *UnitSuite) TestConfigSettingsReflectService(c *gc.C) {
-	err := s.service.UpdateConfigSettings(charm.Settings{"blog-title": "no title"})
+	err := s.service.UpdateCharmConfig(charm.Settings{"blog-title": "no title"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +81,7 @@ func (s *UnitSuite) TestConfigSettingsReflectService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "no title"})
 
-	err = s.service.UpdateConfigSettings(charm.Settings{"blog-title": "ironic title"})
+	err = s.service.UpdateCharmConfig(charm.Settings{"blog-title": "ironic title"})
 	c.Assert(err, jc.ErrorIsNil)
 	settings, err = s.unit.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,18 +126,18 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
-	err = s.service.UpdateConfigSettings(charm.Settings{
+	err = s.service.UpdateCharmConfig(charm.Settings{
 		"blog-title": "superhero paparazzi",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.service.UpdateConfigSettings(charm.Settings{
+	err = s.service.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Non-change is not reported.
-	err = s.service.UpdateConfigSettings(charm.Settings{
+	err = s.service.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,7 +151,7 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change service config for new charm; nothing detected.
-	err = s.service.UpdateConfigSettings(charm.Settings{
+	err = s.service.UpdateCharmConfig(charm.Settings{
 		"key": 42.0,
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -115,16 +115,16 @@ func (app *mockApplication) Charm() (caasoperator.Charm, bool, error) {
 	return &app.charm, app.forceUpgrade, nil
 }
 
-func (app *mockApplication) ConfigSettings() (charm.Settings, error) {
-	app.MethodCall(app, "ConfigSettings")
+func (app *mockApplication) CharmConfig() (charm.Settings, error) {
+	app.MethodCall(app, "CharmConfig")
 	if err := app.NextErr(); err != nil {
 		return nil, err
 	}
 	return app.settings, nil
 }
 
-func (app *mockApplication) WatchConfigSettings() (state.NotifyWatcher, error) {
-	app.MethodCall(app, "WatchConfigSettings")
+func (app *mockApplication) WatchCharmConfig() (state.NotifyWatcher, error) {
+	app.MethodCall(app, "WatchCharmConfig")
 	if err := app.NextErr(); err != nil {
 		return nil, err
 	}

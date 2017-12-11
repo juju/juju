@@ -113,12 +113,12 @@ func (s *operatorSuite) TestCharmInvalidApplicationName(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 
-func (s *operatorSuite) TestApplicationConfig(c *gc.C) {
+func (s *operatorSuite) TestCharmConfig(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASOperator")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ApplicationConfig")
+		c.Check(request, gc.Equals, "CharmConfig")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
@@ -134,17 +134,17 @@ func (s *operatorSuite) TestApplicationConfig(c *gc.C) {
 	})
 
 	client := caasoperator.NewClient(apiCaller)
-	settings, err := client.ApplicationConfig("gitlab")
+	settings, err := client.CharmConfig("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, charm.Settings{"k": 123})
 }
 
-func (s *operatorSuite) TestWatchApplicationConfig(c *gc.C) {
+func (s *operatorSuite) TestWatchCharmConfig(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASOperator")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchApplicationConfig")
+		c.Check(request, gc.Equals, "WatchCharmConfig")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
@@ -160,7 +160,7 @@ func (s *operatorSuite) TestWatchApplicationConfig(c *gc.C) {
 	})
 
 	client := caasoperator.NewClient(apiCaller)
-	watcher, err := client.WatchApplicationConfig("gitlab")
+	watcher, err := client.WatchCharmConfig("gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

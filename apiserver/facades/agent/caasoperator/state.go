@@ -33,9 +33,9 @@ type Model interface {
 // required by the CAAS operator facade.
 type Application interface {
 	Charm() (Charm, bool, error)
-	ConfigSettings() (charm.Settings, error)
+	CharmConfig() (charm.Settings, error)
 	SetStatus(status.StatusInfo) error
-	WatchConfigSettings() (state.NotifyWatcher, error)
+	WatchCharmConfig() (state.NotifyWatcher, error)
 }
 
 // Charm provides the subset of charm state required by the

@@ -288,7 +288,7 @@ func (s *DeploySuite) TestConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := application.ConfigSettings()
+	settings, err := application.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	appCh, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -867,7 +867,7 @@ func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]ap
 	for _, application := range applications {
 		curl, _ := application.CharmURL()
 		c.Assert(err, jc.ErrorIsNil)
-		config, err := application.ConfigSettings()
+		config, err := application.CharmConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		constraints, err := application.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
