@@ -275,7 +275,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			ConfigSettings: charm.Settings{
+			CharmConfig: charm.Settings{
 				"title":       "banana cupcakes",
 				"skill-level": 9901,
 			},
@@ -292,7 +292,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			ConfigSettings: charm.Settings{
+			CharmConfig: charm.Settings{
 				"skill-level": 99.01,
 			},
 		})

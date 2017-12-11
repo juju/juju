@@ -47,7 +47,7 @@ func (s *ApplicationConfigSuite) SetUpTest(c *gc.C) {
 		Name:             s.appName,
 		Charm:            s.charm,
 		EndpointBindings: nil,
-		Settings: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"stroverwrite":     "test value",
 			"intoverwrite":     1620,
 			"floatoverwrite":   2.1,

@@ -1494,7 +1494,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 
 	insettings := charm.Settings{"tuning": "optimized"}
 
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
+	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
 	outsettings, err := wordpress.CharmConfig()
@@ -1531,7 +1531,7 @@ func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	insettings := charm.Settings{"tuning": nil}
 
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
+	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings})
 	c.Assert(err, jc.ErrorIsNil)
 	outsettings, err := wordpress.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1543,7 +1543,7 @@ func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
 
 	// Ensure that during creation, application settings with nil config values
 	// were stripped and not written into database.
-	dbSettings := state.GetApplicationSettings(s.State, wordpress)
+	dbSettings := state.GetApplicationCharmConfig(s.State, wordpress)
 	_, dbFound := dbSettings.Get("tuning")
 	c.Assert(dbFound, jc.IsFalse)
 }

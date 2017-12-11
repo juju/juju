@@ -701,9 +701,9 @@ func AssertNoCleanups(c *gc.C, st *State) {
 	}
 }
 
-// GetApplicationSettings allows access to settings collection for a
-// given application.
-func GetApplicationSettings(st *State, app *Application) *Settings {
+// GetApplicationCharmConfig allows access to settings collection for a
+// given application in order to get the charm config.
+func GetApplicationCharmConfig(st *State, app *Application) *Settings {
 	return newSettings(st.db(), settingsC, app.charmConfigKey())
 }
 

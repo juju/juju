@@ -110,18 +110,18 @@ func (s *applicationSuite) TestGetConfig(c *gc.C) {
 		Name: "dummy",
 	})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:     "foo",
-		Charm:    dummy,
-		Settings: fooConfig,
+		Name:        "foo",
+		Charm:       dummy,
+		CharmConfig: fooConfig,
 	})
 	barConfig := map[string]interface{}{
 		"title":   "bar",
 		"outlook": "fantastic",
 	}
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:     "bar",
-		Charm:    dummy,
-		Settings: barConfig,
+		Name:        "bar",
+		Charm:       dummy,
+		CharmConfig: barConfig,
 	})
 	results, err := s.applicationAPI.GetConfig(params.Entities{
 		Entities: []params.Entity{

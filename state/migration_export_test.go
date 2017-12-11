@@ -377,7 +377,7 @@ func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
 
 func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constraints.Value) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Settings: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
 		Constraints: cons,

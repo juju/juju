@@ -2142,7 +2142,7 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 	// Ensure storage constraints and settings are now gone.
 	_, err = state.AppStorageConstraints(app)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	settings := state.GetApplicationSettings(s.State, app)
+	settings := state.GetApplicationCharmConfig(s.State, app)
 	err = settings.Read()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

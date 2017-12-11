@@ -272,7 +272,7 @@ func deployApplication(
 		Charm:            stateCharm(ch),
 		Channel:          csparams.Channel(args.Channel),
 		NumUnits:         args.NumUnits,
-		ConfigSettings:   settings,
+		CharmConfig:      settings,
 		Constraints:      args.Constraints,
 		Placement:        args.Placement,
 		Storage:          args.Storage,

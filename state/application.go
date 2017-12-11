@@ -1706,7 +1706,7 @@ func charmSettingsWithDefaults(st *State, curl *charm.URL, key string) (charm.Se
 	return result, nil
 }
 
-// ConfigSettings returns the raw user configuration for the application's charm.
+// CharmConfig returns the raw user configuration for the application's charm.
 func (a *Application) CharmConfig() (charm.Settings, error) {
 	if a.doc.CharmURL == nil {
 		return nil, fmt.Errorf("application charm not set")
@@ -2070,7 +2070,7 @@ type addApplicationOpsArgs struct {
 	statusDoc      statusDoc
 	constraints    constraints.Value
 	storage        map[string]StorageConstraints
-	settings       map[string]interface{}
+	charmConfig    map[string]interface{}
 	// These are nil when adding a new application, and most likely
 	// non-nil when migrating.
 	leadershipSettings map[string]interface{}
@@ -2087,14 +2087,14 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 	}
 
 	globalKey := app.globalKey()
-	settingsKey := app.charmConfigKey()
+	charmConfigKey := app.charmConfigKey()
 	storageConstraintsKey := app.storageConstraintsKey()
 	leadershipKey := leadershipSettingsKey(app.Name())
 
 	ops := []txn.Op{
 		createConstraintsOp(globalKey, args.constraints),
 		createStorageConstraintsOp(storageConstraintsKey, args.storage),
-		createSettingsOp(settingsC, settingsKey, args.settings),
+		createSettingsOp(settingsC, charmConfigKey, args.charmConfig),
 		createSettingsOp(settingsC, leadershipKey, args.leadershipSettings),
 		createStatusOp(mb, globalKey, args.statusDoc),
 		addModelApplicationRefOp(mb, app.Name()),
