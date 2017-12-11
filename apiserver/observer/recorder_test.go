@@ -4,6 +4,8 @@
 package observer_test
 
 import (
+	"time"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -24,7 +26,8 @@ var _ = gc.Suite(&recorderSuite{})
 func (s *recorderSuite) TestServerRequest(c *gc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
-	auditRecorder, err := auditlog.NewRecorder(log, auditlog.ConversationArgs{
+	clock := testing.NewClock(time.Now())
+	auditRecorder, err := auditlog.NewRecorder(log, clock, auditlog.ConversationArgs{
 		ConnectionID: 4567,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,6 +54,7 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 		ConversationID: "abcdef0123456789",
 		ConnectionID:   "11D7",
 		RequestID:      123,
+		When:           clock.Now().Format(time.RFC3339),
 		Facade:         "Type",
 		Method:         "Action",
 		Version:        5,
@@ -61,7 +65,8 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 func (s *recorderSuite) TestServerReply(c *gc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
-	auditRecorder, err := auditlog.NewRecorder(log, auditlog.ConversationArgs{
+	clock := testing.NewClock(time.Now())
+	auditRecorder, err := auditlog.NewRecorder(log, clock, auditlog.ConversationArgs{
 		ConnectionID: 4567,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,6 +92,7 @@ func (s *recorderSuite) TestServerReply(c *gc.C) {
 		ConversationID: "abcdef0123456789",
 		ConnectionID:   "11D7",
 		RequestID:      123,
+		When:           clock.Now().Format(time.RFC3339),
 		Errors:         nil,
 	})
 }

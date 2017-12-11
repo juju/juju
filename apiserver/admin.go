@@ -162,10 +162,10 @@ func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult
 	}
 	result, err := auditlog.NewRecorder(
 		a.srv.auditLogger,
+		a.srv.clock,
 		auditlog.ConversationArgs{
 			Who:          req.AuthTag,
 			What:         req.CLIArgs,
-			When:         a.srv.clock.Now(),
 			ModelName:    a.root.model.Name(),
 			ModelUUID:    a.root.model.UUID(),
 			ConnectionID: a.root.connectionID,

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
@@ -38,7 +39,6 @@ type Conversation struct {
 type ConversationArgs struct {
 	Who          string
 	What         string
-	When         time.Time
 	ModelName    string
 	ModelUUID    string
 	ConnectionID uint64
@@ -50,6 +50,7 @@ type Request struct {
 	ConversationID string `json:"conversation-id"`
 	ConnectionID   string `json:"connection-id"`
 	RequestID      uint64 `json:"request-id"`
+	When           string `json:"when"`
 	Facade         string `json:"facade"`
 	Method         string `json:"method"`
 	Version        int    `json:"version"`
@@ -72,6 +73,7 @@ type ResponseErrors struct {
 	ConversationID string   `json:"conversation-id"`
 	ConnectionID   string   `json:"connection-id"`
 	RequestID      uint64   `json:"request-id"`
+	When           string   `json:"when"`
 	Errors         []*Error `json:"errors"`
 }
 
@@ -108,13 +110,14 @@ type AuditLog interface {
 // Recorder records method calls for a specific API connection.
 type Recorder struct {
 	log          AuditLog
+	clock        clock.Clock
 	connectionID string
 	callID       string
 }
 
 // NewRecorder creates a Recorder for the connection described (and
 // stores details of the initial call in the log).
-func NewRecorder(log AuditLog, c ConversationArgs) (*Recorder, error) {
+func NewRecorder(log AuditLog, clock clock.Clock, c ConversationArgs) (*Recorder, error) {
 	callID := newConversationID()
 	connectionID := idString(c.ConnectionID)
 	err := log.AddConversation(Conversation{
@@ -122,7 +125,7 @@ func NewRecorder(log AuditLog, c ConversationArgs) (*Recorder, error) {
 		ConnectionID:   connectionID,
 		Who:            c.Who,
 		What:           c.What,
-		When:           c.When.Format(time.RFC3339),
+		When:           clock.Now().Format(time.RFC3339),
 		ModelName:      c.ModelName,
 		ModelUUID:      c.ModelUUID,
 	})
@@ -131,6 +134,7 @@ func NewRecorder(log AuditLog, c ConversationArgs) (*Recorder, error) {
 	}
 	return &Recorder{
 		log:          log,
+		clock:        clock,
 		callID:       callID,
 		connectionID: connectionID,
 	}, nil
@@ -142,6 +146,7 @@ func (r *Recorder) AddRequest(m RequestArgs) error {
 		ConversationID: r.callID,
 		ConnectionID:   r.connectionID,
 		RequestID:      m.RequestID,
+		When:           r.clock.Now().Format(time.RFC3339),
 		Facade:         m.Facade,
 		Method:         m.Method,
 		Version:        m.Version,
@@ -155,6 +160,7 @@ func (r *Recorder) AddResponse(m ResponseErrorsArgs) error {
 		ConversationID: r.callID,
 		ConnectionID:   r.connectionID,
 		RequestID:      m.RequestID,
+		When:           r.clock.Now().Format(time.RFC3339),
 		Errors:         m.Errors,
 	}))
 }
