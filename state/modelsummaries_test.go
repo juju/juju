@@ -174,6 +174,8 @@ func (s *ModelSummariesSuite) TestModelsForUser3(c *gc.C) {
 	c.Check(names, gc.DeepEquals, []string{"shared", "user3model"})
 }
 
+// NOTE: (jam 2017-12-11) We probably only ever stripped Importing models because there details might not be complete.
+// We probably actually want to include importing models, and just handle when they don't have complete data.
 func (s *ModelSummariesSuite) TestModelsForIgnoresImportingModels(c *gc.C) {
 	s.Setup4Models(c)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
@@ -386,4 +388,63 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 func (s *ModelSummariesSuite) TestContainsMigrationInformation(c *gc.C) {
 	//modelNameToUUID := s.Setup4Models(c)
 	// TODO: Figure out how to create a multiple-attempt migration information, and assert that we expose the right info
+}
+
+func (s *ModelSummariesSuite) namedSummariesForUser(c *gc.C, user string) map[string]*state.ModelSummary {
+	summaries, err := s.State.ModelSummariesForUser(names.NewUserTag(user), false)
+	c.Assert(err, jc.ErrorIsNil)
+	summaryMap := make(map[string]*state.ModelSummary, len(summaries))
+	for i := range summaries {
+		summaryMap[summaries[i].Name] = &summaries[i]
+	}
+	return summaryMap
+}
+
+func (s *ModelSummariesSuite) TestModelsWithNoSettings(c *gc.C) {
+	modelNameToUUID := s.Setup4Models(c)
+	m2uuid := modelNameToUUID["user2model"]
+	// Mark the model as dying, and move to start tearing it down
+	model, releaser, err := s.StatePool.GetModel(m2uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	defer releaser()
+	err = model.SetStatus(status.StatusInfo{
+		Status:  status.Available,
+		Message: "running",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	summaryMap := s.namedSummariesForUser(c, "user2read")
+	// Even though user2model is dying/dead, it should still be in the output.
+	c.Check(summaryMap, gc.HasLen, 2)
+	userSummary := summaryMap["user2model"]
+	c.Assert(userSummary, gc.NotNil)
+	c.Check(userSummary.Status.Message, gc.Equals, "running")
+
+	err = model.Destroy(state.DestroyModelParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetStatus(status.StatusInfo{
+		Status:  status.Destroying,
+		Message: "stopping",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	summaryMap = s.namedSummariesForUser(c, "user2read")
+	// Even though user2model is dying/dead, it should still be in the output.
+	c.Check(summaryMap, gc.HasLen, 2)
+	userSummary = summaryMap["user2model"]
+	c.Assert(userSummary, gc.NotNil)
+	c.Check(userSummary.Status.Message, gc.Equals, "stopping")
+
+	// Now we start tearing down some of the collections for this model, and see that it still shows up.
+	settings := s.Session.DB("juju").C("settings")
+	// The settings document for this model
+	err = settings.Remove(bson.M{"_id": m2uuid + ":e"})
+	c.Assert(err, jc.ErrorIsNil)
+	summaryMap = s.namedSummariesForUser(c, "user2read")
+	c.Assert(err, jc.ErrorIsNil)
+	// Even though user2model is dying/dead, it should still be in the output.
+	c.Check(summaryMap, gc.HasLen, 2)
+	userSummary = summaryMap["user2model"]
+	c.Assert(userSummary, gc.NotNil)
+	c.Check(userSummary.Status.Message, gc.Equals, "stopping")
 }
