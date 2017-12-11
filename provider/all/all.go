@@ -14,6 +14,7 @@ import (
 	_ "github.com/juju/juju/provider/lxd"
 	_ "github.com/juju/juju/provider/maas"
 	_ "github.com/juju/juju/provider/manual"
+	_ "github.com/juju/juju/provider/oci"
 	_ "github.com/juju/juju/provider/openstack"
 	_ "github.com/juju/juju/provider/oracle"
 	_ "github.com/juju/juju/provider/rackspace"
