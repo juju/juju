@@ -18,10 +18,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -153,38 +150,21 @@ func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `need agent binaries for arch amd64, only found \[arm64\]`)
 }
 
-type fakeContainerManager struct {
-	gitjujutesting.Stub
-}
+func (s *lxdBrokerSuite) TestStartInstanceWithCloudInitUserData(c *gc.C) {
+	broker, brokerErr := s.newLXDBroker(c)
+	c.Assert(brokerErr, jc.ErrorIsNil)
 
-func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.InstanceConfig,
-	cons constraints.Value,
-	series string,
-	network *container.NetworkConfig,
-	storage *container.StorageConfig,
-	callback environs.StatusCallbackFunc,
-) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	m.MethodCall(m, "CreateContainer", instanceConfig, cons, series, network, storage, callback)
-	return nil, nil, m.NextErr()
-}
+	_, err := s.startInstance(c, broker, "1/lxd/0")
+	c.Assert(err, jc.ErrorIsNil)
 
-func (m *fakeContainerManager) DestroyContainer(id instance.Id) error {
-	m.MethodCall(m, "DestroyContainer", id)
-	return m.NextErr()
-}
-
-func (m *fakeContainerManager) ListContainers() ([]instance.Instance, error) {
-	m.MethodCall(m, "ListContainers")
-	return nil, m.NextErr()
-}
-
-func (m *fakeContainerManager) Namespace() instance.Namespace {
-	ns, _ := instance.NewNamespace(coretesting.ModelTag.Id())
-	return ns
-}
-
-func (m *fakeContainerManager) IsInitialized() bool {
-	m.MethodCall(m, "IsInitialized")
-	m.PopNoErr()
-	return true
+	s.manager.CheckCallNames(c, "CreateContainer")
+	call := s.manager.Calls()[0]
+	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
+	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
+	c.Assert(instanceConfig.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
+		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+		"package_upgrade": false,
+	})
 }

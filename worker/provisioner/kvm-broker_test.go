@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/kvm/mock"
@@ -45,6 +46,7 @@ type kvmBrokerSuite struct {
 	kvmSuite
 	agentConfig agent.Config
 	api         *fakeAPI
+	manager     *fakeContainerManager
 }
 
 var _ = gc.Suite(&kvmBrokerSuite{})
@@ -91,6 +93,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = NewFakeAPI()
+	s.manager = &fakeContainerManager{}
 }
 
 func (s *kvmBrokerSuite) startInstance(c *gc.C, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
@@ -102,6 +105,10 @@ func (s *kvmBrokerSuite) newKVMBroker(c *gc.C) (environs.InstanceBroker, error) 
 	manager, err := kvm.NewContainerManager(managerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	return provisioner.NewKVMBroker(s.api.PrepareHost, s.api, manager, s.agentConfig)
+}
+
+func (s *kvmBrokerSuite) newKVMBrokerFakeManager(c *gc.C) (environs.InstanceBroker, error) {
+	return provisioner.NewKVMBroker(s.api.PrepareHost, s.api, s.manager, s.agentConfig)
 }
 
 func (s *kvmBrokerSuite) maintainInstance(c *gc.C, broker environs.InstanceBroker, machineId string) {
@@ -246,6 +253,25 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) 
 	)
 	_, err := s.startInstance(c, broker, "1/kvm/2")
 	c.Assert(err, gc.ErrorMatches, "container address allocation not supported")
+}
+
+func (s *kvmBrokerSuite) TestStartInstanceWithCloudInitUserData(c *gc.C) {
+	broker, brokerErr := s.newKVMBrokerFakeManager(c)
+	c.Assert(brokerErr, jc.ErrorIsNil)
+
+	_, err := s.startInstance(c, broker, "1/lxd/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.manager.CheckCallNames(c, "CreateContainer")
+	call := s.manager.Calls()[0]
+	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
+	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
+	c.Assert(instanceConfig.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
+		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+		"package_upgrade": false,
+	})
 }
 
 type kvmProvisionerSuite struct {
