@@ -78,6 +78,10 @@ type DeployArgs struct {
 	// ConfigYAML is a string that overrides the default config.yml.
 	ConfigYAML string
 
+	// Config are values that override those in the default config.yaml
+	// or configure the application itself.
+	Config map[string]string
+
 	// Cons contains constraints on where units of this application
 	// may be placed.
 	Cons constraints.Value
@@ -131,6 +135,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 			Channel:          string(args.CharmID.Channel),
 			NumUnits:         args.NumUnits,
 			ConfigYAML:       args.ConfigYAML,
+			Config:           args.Config,
 			Constraints:      args.Cons,
 			Placement:        args.Placement,
 			Storage:          args.Storage,
