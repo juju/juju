@@ -310,6 +310,18 @@ var ctests = []struct {
 		cfg.AddRunCmd("ifconfig")
 	},
 }, {
+	"PrependRunCmd",
+	map[string]interface{}{"runcmd": []string{
+		"echo 'Hello World'",
+		"ifconfig",
+	}},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.AddRunCmd("ifconfig")
+		cfg.PrependRunCmd(
+			"echo 'Hello World'",
+		)
+	},
+}, {
 	"AddScripts",
 	map[string]interface{}{"runcmd": []string{
 		"echo 'Hello World'",

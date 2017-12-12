@@ -164,6 +164,10 @@ type RunCmdsConfig interface {
 	// NOTE: metacharacters will not be escaped.
 	AddScripts(...string)
 
+	// PrependRunCmd adds a command to the beginning of the list of commands
+	// to be run on first boot.
+	PrependRunCmd(...string)
+
 	// RemoveRunCmd removes the given command from the list of commands to be
 	// run on first boot. If it has not been previously added, no error occurs.
 	RemoveRunCmd(string)

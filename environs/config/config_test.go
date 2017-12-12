@@ -1315,7 +1315,8 @@ MIIBOgIBAAJAZabKgKInuOxj5vDWLwHHQtK3/45KB+32D15w94Nt83BmuGxo90lw
 -----END CERTIFICATE-----
 `[1:]
 
-var validCloudInitUserData = `packages:
+var validCloudInitUserData = `
+packages:
   - 'python-keystoneclient'
   - 'python-glanceclient'
 preruncmd:
@@ -1325,35 +1326,39 @@ postruncmd:
   - mkdir /tmp/postruncmd
   - mkdir /tmp/postruncmd2
 package_upgrade: false
-`
+`[1:]
 
-var invalidCloudInitUserDataPackageInt = `packages:
+var invalidCloudInitUserDataPackageInt = `
+packages:
     - 76
 postruncmd:
     - mkdir /tmp/runcmd
 package_upgrade: true
-`
+`[1:]
 
-var invalidCloudInitUserDataRuncmd = `packages:
+var invalidCloudInitUserDataRuncmd = `
+packages:
     - 'string1'
     - 'string2'
 runcmd:
     - mkdir /tmp/runcmd
 package_upgrade: true
-`
+`[1:]
 
-var invalidCloudInitUserDataUsers = `packages:
+var invalidCloudInitUserDataUsers = `
+packages:
     - 'string1'
     - 'string2'
 users:
     name: test-user
 package_upgrade: true
-`
+`[1:]
 
-var invalidCloudInitUserDataInvalidYAML = `packages:
+var invalidCloudInitUserDataInvalidYAML = `
+packages:
     - 'string1'
      'string2'
 runcmd:
     - mkdir /tmp/runcmd
 package_upgrade: true
-`
+`[1:]

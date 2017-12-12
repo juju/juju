@@ -392,6 +392,9 @@ func ConfigureMachine(
 	if err := udata.ConfigureJuju(); err != nil {
 		return err
 	}
+	if err := udata.ConfigureCustomOverrides(); err != nil {
+		return err
+	}
 	configScript, err := cloudcfg.RenderScript()
 	if err != nil {
 		return err

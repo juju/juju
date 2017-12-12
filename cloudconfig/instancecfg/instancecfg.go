@@ -94,6 +94,10 @@ type InstanceConfig struct {
 	// The directory containing the log file must already exist.
 	CloudInitOutputLog string
 
+	// CloudInitUserData defines key/value pairs from the model-config
+	// specified by the user.
+	CloudInitUserData map[string]interface{}
+
 	// MachineId identifies the new machine.
 	MachineId string
 
@@ -780,6 +784,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	aptMirror string,
 	enableOSRefreshUpdates bool,
 	enableOSUpgrade bool,
+	cloudInitUserData map[string]interface{},
 ) error {
 	icfg.AuthorizedKeys = authorizedKeys
 	if icfg.AgentEnvironment == nil {
@@ -794,6 +799,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	icfg.AptMirror = aptMirror
 	icfg.EnableOSRefreshUpdate = enableOSRefreshUpdates
 	icfg.EnableOSUpgrade = enableOSUpgrade
+	icfg.CloudInitUserData = cloudInitUserData
 	return nil
 }
 
@@ -819,6 +825,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		cfg.AptMirror(),
 		cfg.EnableOSRefreshUpdate(),
 		cfg.EnableOSUpgrade(),
+		cfg.CloudInitUserData(),
 	); err != nil {
 		return errors.Trace(err)
 	}

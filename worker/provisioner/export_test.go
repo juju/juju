@@ -6,6 +6,10 @@ package provisioner
 import (
 	"sort"
 
+	"github.com/juju/version"
+
+	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/watcher"
 )
@@ -51,4 +55,15 @@ func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachin
 		retvalues[i] = *task.availabilityZoneMachines[i]
 	}
 	return retvalues
+}
+
+func SetupToStartMachine(p ProvisionerTask, machine *apiprovisioner.Machine, version *version.Number) (
+	environs.StartInstanceParams,
+	error,
+) {
+	return p.(*provisionerTask).setupToStartMachine(machine, version)
+}
+
+func GetAPIProvisionerState(p Provisioner) *apiprovisioner.State {
+	return p.(*environProvisioner).st
 }

@@ -725,6 +725,74 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	}
 }
 
+func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *gc.C) {
+	environConfig := minimalModelConfig(c)
+	environConfig, err := environConfig.Apply(map[string]interface{}{
+		config.CloudInitUserDataKey: validCloudInitUserData,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	instanceCfg := s.createInstanceConfig(c, environConfig)
+	cloudcfg, err := cloudinit.New("xenial")
+	c.Assert(err, jc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Verify the settings against cloudinit-userdata
+	cfgPackages := cloudcfg.Packages()
+	expectedPackages := []string{
+		`ubuntu-fan`, // last juju specified package
+		`python-keystoneclient`,
+		`python-glanceclient`,
+	}
+	c.Assert(len(cfgPackages), jc.GreaterThan, 2)
+	c.Assert(cfgPackages[len(cfgPackages)-3:], gc.DeepEquals, expectedPackages)
+
+	cmds := cloudcfg.RunCmds()
+	beginning := []string{
+		`mkdir /tmp/preruncmd`,
+		`mkdir /tmp/preruncmd2`,
+		`set -xe`, // first line of juju specified cmds
+	}
+	ending := []string{
+		`rm $bin/tools.tar.gz && rm $bin/juju2.3.4-quantal-amd64.sha256`, // last line of juju specified cmds
+		`mkdir /tmp/postruncmd`,
+		`mkdir /tmp/postruncmd2`,
+	}
+	c.Assert(len(cmds), jc.GreaterThan, 6)
+	c.Assert(cmds[:3], gc.DeepEquals, beginning)
+	c.Assert(cmds[len(cmds)-3:], gc.DeepEquals, ending)
+
+	c.Assert(cloudcfg.SystemUpgrade(), gc.Equals, false)
+
+	// Render to check for the "unexpected" cloudinit text.
+	// cloudconfig doesn't have public access to all attrs.
+	data, err := cloudcfg.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+	ciContent := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, &ciContent)
+	c.Assert(err, jc.ErrorIsNil)
+	testCmd, ok := ciContent["test-key"].([]interface{})
+	c.Assert(ok, jc.IsTrue)
+	c.Check(testCmd, gc.DeepEquals, []interface{}{"test line one"})
+}
+
+var validCloudInitUserData = `
+packages:
+  - 'python-keystoneclient'
+  - 'python-glanceclient'
+preruncmd:
+  - mkdir /tmp/preruncmd
+  - mkdir /tmp/preruncmd2
+postruncmd:
+  - mkdir /tmp/postruncmd
+  - mkdir /tmp/postruncmd2
+package_upgrade: false
+test-key:
+  - test line one
+`[1:]
+
 func (*cloudinitSuite) bootstrapConfigScripts(c *gc.C) []string {
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 	envConfig := minimalModelConfig(c)
