@@ -53,13 +53,13 @@ func (*BridgeSuite) TestENIBridgerWithMissingFilenameArgument(c *gc.C) {
 			BridgeName: "br-ens123",
 		},
 	}
-	expected := `bridge activaction error: filename and input is nil`
+	expected := `bridge activation error: filename and input is nil`
 	assertENIBridgerError(c, devices, 0, clock.WallClock, "", true, 0, expected)
 }
 
 func (*BridgeSuite) TestENIBridgerWithEmptyDeviceNamesArgument(c *gc.C) {
 	devices := []network.DeviceToBridge{}
-	expected := `bridge activaction error: no devices specified`
+	expected := `bridge activation error: no devices specified`
 	assertENIBridgerError(c, devices, 0, clock.WallClock, "testdata/non-existent-filename", true, 0, expected)
 }
 
@@ -70,7 +70,7 @@ func (*BridgeSuite) TestENIBridgerWithNonExistentFile(c *gc.C) {
 			BridgeName: "br-ens123",
 		},
 	}
-	expected := `bridge activaction error: open testdata/non-existent-file: no such file or directory`
+	expected := `bridge activation error: open testdata/non-existent-file: no such file or directory`
 	assertENIBridgerError(c, devices, 0, clock.WallClock, "testdata/non-existent-file", true, 0, expected)
 }
 
@@ -81,7 +81,7 @@ func (*BridgeSuite) TestENIBridgerWithTimeout(c *gc.C) {
 			BridgeName: "br-ens123",
 		},
 	}
-	expected := "bridge activaction error: bridge activation error: command cancelled"
+	expected := "bridge activation error: bridge activation error: command cancelled"
 	// 25694 is a magic value that causes the bridging script to sleep
 	assertENIBridgerError(c, devices, 500*time.Millisecond, clock.WallClock, "testdata/interfaces", true, 25694, expected)
 }
