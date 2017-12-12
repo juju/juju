@@ -31,6 +31,8 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.AutocertDNSNameKey:  true,
 		controller.AllowModelAccessKey: true,
 		controller.MongoMemoryProfile:  true,
+		controller.JujuHASpace:         true,
+		controller.JujuManagementSpace: true,
 	}
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)

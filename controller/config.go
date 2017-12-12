@@ -12,6 +12,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
@@ -110,6 +111,9 @@ const (
 
 	// DefaultMaxTxnLogCollectionMB is the maximum size the txn log collection.
 	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
+
+	JujuHASpace         = "juju-ha-space"
+	JujuManagementSpace = "juju-mgmt-space"
 )
 
 // ControllerOnlyConfigAttributes are attributes which are only relevant
@@ -129,6 +133,8 @@ var ControllerOnlyConfigAttributes = []string{
 	MaxLogsSize,
 	MaxLogsAge,
 	MaxTxnLogSize,
+	JujuHASpace,
+	JujuManagementSpace,
 }
 
 // ControllerOnlyAttribute returns true if the specified attribute name
@@ -316,6 +322,16 @@ func (c Config) MaxTxnLogSizeMB() int {
 	return int(val)
 }
 
+// JujuHASpace is the network space where on which MongoDB lives.
+func (c Config) JujuHASpace() string {
+	return c.asString(JujuHASpace)
+}
+
+// JujuManagementSpace is the network space where controllers live.
+func (c Config) JujuManagementSpace() string {
+	return c.asString(JujuManagementSpace)
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -375,6 +391,20 @@ func Validate(c Config) error {
 		}
 	}
 
+	if v, ok := c[JujuHASpace].(string); ok {
+		if !names.IsValidSpace(v) {
+			return errors.NewNotValid(nil, "invalid juju HA space name")
+		}
+
+	}
+
+	if v, ok := c[JujuManagementSpace].(string); ok {
+		if !names.IsValidSpace(v) {
+			return errors.NewNotValid(nil, "invalid juju mgmt space name")
+		}
+
+	}
+
 	return nil
 }
 
@@ -398,6 +428,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxLogsAge:              schema.String(),
 	MaxLogsSize:             schema.String(),
 	MaxTxnLogSize:           schema.String(),
+	JujuHASpace:             schema.String(),
+	JujuManagementSpace:     schema.String(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -412,4 +444,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
 	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
+	JujuHASpace:             schema.Omit,
+	JujuManagementSpace:     schema.Omit,
 })
