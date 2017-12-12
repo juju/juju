@@ -37,6 +37,7 @@ func (s *AuditLogSuite) TestAuditLogFile(c *gc.C) {
 		ConversationID: "0123456789abcdef",
 		ConnectionID:   "AC1",
 		RequestID:      25,
+		When:           "2017-12-12T11:34:56Z",
 		Facade:         "Application",
 		Method:         "Deploy",
 		Version:        4,
@@ -47,6 +48,7 @@ func (s *AuditLogSuite) TestAuditLogFile(c *gc.C) {
 		ConversationID: "0123456789abcdef",
 		ConnectionID:   "AC1",
 		RequestID:      25,
+		When:           "2017-12-12T11:35:11Z",
 		Errors: []*auditlog.Error{
 			{Message: "oops", Code: "unauthorized access"},
 		},
@@ -75,14 +77,15 @@ func (s *AuditLogSuite) TestRecorder(c *gc.C) {
 	var log fakeLog
 	logTime, err := time.Parse(time.RFC3339, "2017-11-27T15:45:23Z")
 	c.Assert(err, jc.ErrorIsNil)
-	rec, err := auditlog.NewRecorder(&log, auditlog.ConversationArgs{
+	clock := testing.NewClock(logTime)
+	rec, err := auditlog.NewRecorder(&log, clock, auditlog.ConversationArgs{
 		Who:          "wildbirds and peacedrums",
 		What:         "Doubt/Hope",
-		When:         logTime,
 		ModelName:    "admin/default",
 		ConnectionID: 687,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	clock.Advance(time.Second)
 	err = rec.AddRequest(auditlog.RequestArgs{
 		RequestID: 246,
 		Facade:    "Death Vessel",
@@ -91,6 +94,7 @@ func (s *AuditLogSuite) TestRecorder(c *gc.C) {
 		Args:      `{"a": "something"}`,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	clock.Advance(time.Second)
 	err = rec.AddResponse(auditlog.ResponseErrorsArgs{
 		RequestID: 246,
 		Errors: []*auditlog.Error{{
@@ -115,6 +119,7 @@ func (s *AuditLogSuite) TestRecorder(c *gc.C) {
 		ConversationID: callID,
 		ConnectionID:   "2AF",
 		RequestID:      246,
+		When:           "2017-11-27T15:45:24Z",
 		Facade:         "Death Vessel",
 		Method:         "Horchata",
 		Version:        5,
@@ -124,6 +129,7 @@ func (s *AuditLogSuite) TestRecorder(c *gc.C) {
 		ConversationID: callID,
 		ConnectionID:   "2AF",
 		RequestID:      246,
+		When:           "2017-11-27T15:45:25Z",
 		Errors: []*auditlog.Error{{
 			Message: "something bad",
 			Code:    "bad request",
@@ -158,7 +164,7 @@ func (l *fakeLog) Close() error {
 var (
 	expectedLogContents = `
 {"conversation":{"who":"deerhoof","what":"gojira","when":"2017-11-27T13:21:24Z","model-name":"admin/default","model-uuid":"","conversation-id":"0123456789abcdef","connection-id":"AC1"}}
-{"request":{"conversation-id":"0123456789abcdef","connection-id":"AC1","request-id":25,"facade":"Application","method":"Deploy","version":4,"args":"{\"applications\": [{\"application\": \"prometheus\"}]}"}}
-{"errors":{"conversation-id":"0123456789abcdef","connection-id":"AC1","request-id":25,"errors":[{"message":"oops","code":"unauthorized access"}]}}
+{"request":{"conversation-id":"0123456789abcdef","connection-id":"AC1","request-id":25,"when":"2017-12-12T11:34:56Z","facade":"Application","method":"Deploy","version":4,"args":"{\"applications\": [{\"application\": \"prometheus\"}]}"}}
+{"errors":{"conversation-id":"0123456789abcdef","connection-id":"AC1","request-id":25,"when":"2017-12-12T11:35:11Z","errors":[{"message":"oops","code":"unauthorized access"}]}}
 `[1:]
 )
