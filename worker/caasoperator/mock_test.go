@@ -162,6 +162,6 @@ func (m *mockHookRunner) RunHook(name string) error {
 	if m.observer == nil {
 		return nil
 	}
-	m.observer.hooksCompleted = append(m.observer.hooksCompleted, name)
+	m.observer.recordHookCompleted(name)
 	return nil
 }

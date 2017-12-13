@@ -17,15 +17,9 @@ type hookObserver struct {
 	hooksCompleted []string
 }
 
-func (ctx *hookObserver) HookCompleted(hookName string) {
+func (ctx *hookObserver) recordHookCompleted(hookName string) {
 	ctx.mu.Lock()
 	ctx.hooksCompleted = append(ctx.hooksCompleted, hookName)
-	ctx.mu.Unlock()
-}
-
-func (ctx *hookObserver) HookFailed(hookName string) {
-	ctx.mu.Lock()
-	ctx.hooksCompleted = append(ctx.hooksCompleted, "fail-"+hookName)
 	ctx.mu.Unlock()
 }
 
