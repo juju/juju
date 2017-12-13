@@ -127,21 +127,21 @@ var validateTests = []struct {
 		controller.CACertKey:           testing.CACert,
 		controller.JujuManagementSpace: " ",
 	},
-	expectError: `juju mgmt space name   not valid`,
+	expectError: `juju mgmt space name " " not valid`,
 }, {
 	about: "invalid management space name - caps",
 	config: controller.Config{
 		controller.CACertKey:           testing.CACert,
 		controller.JujuManagementSpace: "CAPS",
 	},
-	expectError: `juju mgmt space name CAPS not valid`,
+	expectError: `juju mgmt space name "CAPS" not valid`,
 }, {
 	about: "invalid management space name - carriage return",
 	config: controller.Config{
 		controller.CACertKey:           testing.CACert,
 		controller.JujuManagementSpace: "\n",
 	},
-	expectError: "juju mgmt space name \n not valid",
+	expectError: `juju mgmt space name "\\n" not valid`,
 }, {
 	about: "invalid HA space name - number",
 	config: controller.Config{

@@ -116,8 +116,8 @@ const (
 	// should communicate.
 	JujuHASpace = "juju-ha-space"
 
-	// JujuManagementSpace is the network space within which controllers in a HA
-	// set-up should communicate.
+	// JujuManagementSpace is the network space that agents should use to
+	// communicate with controllers.
 	JujuManagementSpace = "juju-mgmt-space"
 )
 
@@ -334,8 +334,8 @@ func (c Config) JujuHASpace() string {
 	return c.asString(JujuHASpace)
 }
 
-// JujuManagementSpace is the network space within which controllers in a HA
-// set-up should communicate.
+// JujuManagementSpace is the network space that agents should use to
+// communicate with controllers.
 func (c Config) JujuManagementSpace() string {
 	return c.asString(JujuManagementSpace)
 }
@@ -400,11 +400,11 @@ func Validate(c Config) error {
 	}
 
 	if err := validateSpaceConfig(c, JujuHASpace, "juju HA"); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if err := validateSpaceConfig(c, JujuManagementSpace, "juju mgmt"); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	return nil
@@ -417,7 +417,7 @@ func validateSpaceConfig(c Config, key, topic string) error {
 	}
 	if v, ok := val.(string); ok {
 		if !names.IsValidSpace(v) {
-			return errors.NotValidf("%s space name %s", topic, val)
+			return errors.NotValidf("%s space name %q", topic, val)
 		}
 	} else {
 		return errors.NotValidf("type for %s space name %v", topic, val)
