@@ -707,6 +707,12 @@ func GetApplicationCharmConfig(st *State, app *Application) *Settings {
 	return newSettings(st.db(), settingsC, app.charmConfigKey())
 }
 
+// GetApplicationConfig allows access to settings collection for a
+// given application in order to get the application config.
+func GetApplicationConfig(st *State, app *Application) *Settings {
+	return newSettings(st.db(), settingsC, app.applicationConfigKey())
+}
+
 // GetControllerSettings allows access to settings collection for
 // the controller.
 func GetControllerSettings(st *State) *Settings {

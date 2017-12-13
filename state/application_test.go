@@ -15,10 +15,12 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -476,7 +478,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 	}
 }
 
-func (s *ApplicationSuite) TestSetCharmWithDyingService(c *gc.C) {
+func (s *ApplicationSuite) TestSetCharmWithDyingApplication(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
 	_, err := s.mysql.AddUnit(state.AddUnitParams{})
@@ -3145,4 +3147,106 @@ func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 	err = app.UpdateCharmConfig(charm.Settings{"key": "value"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+var updateApplicationConfigTests = []struct {
+	about   string
+	initial application.ConfigAttributes
+	update  application.ConfigAttributes
+	expect  application.ConfigAttributes
+	err     string
+}{{
+	about:  "set string",
+	update: application.ConfigAttributes{"outlook": "positive"},
+	expect: application.ConfigAttributes{"outlook": "positive"},
+}, {
+	about:   "unset string and set another",
+	initial: application.ConfigAttributes{"outlook": "positive"},
+	update:  application.ConfigAttributes{"outlook": nil, "title": "sir"},
+	expect:  application.ConfigAttributes{"title": "sir"},
+}, {
+	about:  "unset missing string",
+	update: application.ConfigAttributes{"outlook": nil},
+}, {
+	about:   `empty strings are valid`,
+	initial: application.ConfigAttributes{"outlook": "positive"},
+	update:  application.ConfigAttributes{"outlook": "", "title": ""},
+	expect:  application.ConfigAttributes{"outlook": "", "title": ""},
+}, {
+	about:   "preserve existing value",
+	initial: application.ConfigAttributes{"title": "sir"},
+	update:  application.ConfigAttributes{"username": "admin001"},
+	expect:  application.ConfigAttributes{"username": "admin001", "title": "sir"},
+}, {
+	about:   "unset a default value, set a different default",
+	initial: application.ConfigAttributes{"username": "admin001", "title": "sir"},
+	update:  application.ConfigAttributes{"username": nil, "title": "My Title"},
+	expect:  application.ConfigAttributes{"title": "My Title"},
+}, {
+	about:  "non-string type",
+	update: application.ConfigAttributes{"skill-level": 303},
+	expect: application.ConfigAttributes{"skill-level": 303},
+}, {
+	about:   "unset non-string type",
+	initial: application.ConfigAttributes{"skill-level": 303},
+	update:  application.ConfigAttributes{"skill-level": nil},
+}}
+
+func (s *ApplicationSuite) TestUpdateApplicationConfig(c *gc.C) {
+	sch := s.AddTestingCharm(c, "dummy")
+	for i, t := range updateApplicationConfigTests {
+		c.Logf("test %d. %s", i, t.about)
+		app := s.AddTestingApplication(c, "dummy-application", sch)
+		if t.initial != nil {
+			err := app.UpdateApplicationConfig(t.initial, sampleApplicationConfigSchema(), nil)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		err := app.UpdateApplicationConfig(t.update, sampleApplicationConfigSchema(), nil)
+		if t.err != "" {
+			c.Assert(err, gc.ErrorMatches, t.err)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			cfg, err := app.ApplicationConfig()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(cfg, gc.DeepEquals, t.expect)
+		}
+		err = app.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func sampleApplicationConfigSchema() environschema.Fields {
+	schema := environschema.Fields{
+		"title":       environschema.Attr{Type: environschema.Tstring},
+		"outlook":     environschema.Attr{Type: environschema.Tstring},
+		"username":    environschema.Attr{Type: environschema.Tstring},
+		"skill-level": environschema.Attr{Type: environschema.Tint},
+	}
+	return schema
+}
+
+func (s *ApplicationSuite) TestUpdateApplicationConfigWithDyingApplication(c *gc.C) {
+	_, err := s.mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, s.mysql, state.Dying)
+	err = s.mysql.UpdateApplicationConfig(application.ConfigAttributes{"title": "value"}, sampleApplicationConfigSchema(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ApplicationSuite) TestDestroyApplicationRemovesConfig(c *gc.C) {
+	err := s.mysql.UpdateApplicationConfig(application.ConfigAttributes{"title": "value"}, sampleApplicationConfigSchema(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	appConfig := state.GetApplicationConfig(s.State, s.mysql)
+	err = appConfig.Read()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appConfig.Map(), gc.Not(gc.HasLen), 0)
+
+	op := s.mysql.DestroyOperation()
+	op.RemoveOffers = true
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+	err = appConfig.Read()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

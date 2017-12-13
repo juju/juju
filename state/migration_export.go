@@ -661,15 +661,24 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	application := ctx.application
 	appName := application.Name()
 	globalKey := application.globalKey()
-	configKey := application.charmConfigKey()
+	charmConfigKey := application.charmConfigKey()
+	appConfigKey := application.applicationConfigKey()
 	leadershipKey := leadershipSettingsKey(appName)
 	storageConstraintsKey := application.storageConstraintsKey()
 
-	applicationSettingsDoc, found := e.modelSettings[configKey]
+	applicationCharmSettingsDoc, found := e.modelSettings[charmConfigKey]
 	if !found && !e.cfg.SkipSettings {
-		return errors.Errorf("missing settings for application %q", appName)
+		return errors.Errorf("missing charm settings for application %q", appName)
 	}
-	delete(e.modelSettings, configKey)
+	delete(e.modelSettings, charmConfigKey)
+	applicationConfigDoc, found := e.modelSettings[appConfigKey]
+	if !found && !e.cfg.SkipSettings {
+		return errors.Errorf("missing config for application %q", appName)
+	}
+	// TODO(caas) - add application config to export
+	var _ = applicationConfigDoc
+
+	delete(e.modelSettings, appConfigKey)
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found && !e.cfg.SkipSettings {
 		return errors.Errorf("missing leadership settings for application %q", appName)
@@ -687,7 +696,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Exposed:              application.doc.Exposed,
 		MinUnits:             application.doc.MinUnits,
 		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
-		Settings:             applicationSettingsDoc.Settings,
+		Settings:             applicationCharmSettingsDoc.Settings,
 		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   application.doc.MetricCredentials,
