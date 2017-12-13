@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -18,26 +17,24 @@ type deploymentWorker struct {
 	catacomb            catacomb.Catacomb
 	application         string
 	broker              ServiceBroker
+	applicationGetter   ApplicationGetter
 	containerSpecGetter ContainerSpecGetter
 
 	aliveUnitsChan <-chan []string
-
-	// TODO(caas) - watch for config changes
-	config caas.ResourceConfig
 }
 
 func newDeploymentWorker(
 	application string,
 	broker ServiceBroker,
 	containerSpecGetter ContainerSpecGetter,
-	config caas.ResourceConfig,
+	applicationGetter ApplicationGetter,
 	aliveUnitsChan <-chan []string,
 ) (worker.Worker, error) {
 	w := &deploymentWorker{
 		application:         application,
 		broker:              broker,
 		containerSpecGetter: containerSpecGetter,
-		config:              config,
+		applicationGetter:   applicationGetter,
 		aliveUnitsChan:      aliveUnitsChan,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -124,7 +121,11 @@ func (w *deploymentWorker) loop() error {
 		currentAliveCount = numUnits
 		currentSpec = unitSpec
 
-		err = w.broker.EnsureService(w.application, unitSpec, numUnits, w.config)
+		appConfig, err := w.applicationGetter.ApplicationConfig(w.application)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = w.broker.EnsureService(w.application, unitSpec, numUnits, appConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}

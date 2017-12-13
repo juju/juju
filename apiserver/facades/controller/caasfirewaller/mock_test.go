@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -59,6 +60,11 @@ func (a *mockApplication) Life() state.Life {
 func (a *mockApplication) IsExposed() bool {
 	a.MethodCall(a, "IsExposed")
 	return a.exposed
+}
+
+func (a *mockApplication) ApplicationConfig() (application.ConfigAttributes, error) {
+	a.MethodCall(a, "ApplicationConfig")
+	return application.ConfigAttributes{"foo": "bar"}, a.NextErr()
 }
 
 func (a *mockApplication) Watch() state.NotifyWatcher {

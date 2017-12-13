@@ -8,7 +8,6 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -22,6 +21,7 @@ type applicationWorker struct {
 
 	containerSpecGetter ContainerSpecGetter
 	lifeGetter          LifeGetter
+	applicationGetter   ApplicationGetter
 	unitGetter          UnitGetter
 
 	aliveUnitsChan chan []string
@@ -34,6 +34,7 @@ func newApplicationWorker(
 	containerBroker ContainerBroker,
 	containerSpecGetter ContainerSpecGetter,
 	lifeGetter LifeGetter,
+	applicationGetter ApplicationGetter,
 	unitGetter UnitGetter,
 ) (worker.Worker, error) {
 	w := &applicationWorker{
@@ -43,6 +44,7 @@ func newApplicationWorker(
 		containerBroker:     containerBroker,
 		containerSpecGetter: containerSpecGetter,
 		lifeGetter:          lifeGetter,
+		applicationGetter:   applicationGetter,
 		unitGetter:          unitGetter,
 		aliveUnitsChan:      make(chan []string),
 	}
@@ -66,10 +68,6 @@ func (w *applicationWorker) Wait() error {
 }
 
 func (aw *applicationWorker) loop() error {
-	// TODO(caas) - get this from the application backend
-	config := caas.ResourceConfig{}
-	config[caas.JujuExternalHostNameKey] = "localhost"
-
 	uw, err := aw.unitGetter.WatchUnits(aw.application)
 	if err != nil {
 		return errors.Trace(err)
@@ -82,7 +80,7 @@ func (aw *applicationWorker) loop() error {
 			aw.application,
 			aw.serviceBroker,
 			aw.containerSpecGetter,
-			config,
+			aw.applicationGetter,
 			aw.aliveUnitsChan)
 		if err != nil {
 			return errors.Trace(err)

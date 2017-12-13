@@ -3,7 +3,10 @@
 
 package caas
 
-import "github.com/juju/juju/environs"
+import (
+	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/environs"
+)
 
 // NewContainerBrokerFunc returns a Container Broker.
 type NewContainerBrokerFunc func(environs.CloudSpec) (Broker, error)
@@ -15,13 +18,13 @@ type Broker interface {
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
 
 	// EnsureService creates or updates a service for pods with the given spec.
-	EnsureService(appName, unitSpec string, numUnits int, config ResourceConfig) error
+	EnsureService(appName, unitSpec string, numUnits int, config application.ConfigAttributes) error
 
 	// DeleteService deletes the specified service.
 	DeleteService(appName string) error
 
 	// ExposeService sets up external access to the specified service.
-	ExposeService(appName string, config ResourceConfig) error
+	ExposeService(appName string, config application.ConfigAttributes) error
 
 	// UnexposeService removes external access to the specified service.
 	UnexposeService(appName string) error

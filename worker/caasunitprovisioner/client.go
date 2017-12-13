@@ -4,6 +4,7 @@
 package caasunitprovisioner
 
 import (
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/watcher"
 )
@@ -24,6 +25,7 @@ type Client interface {
 // model, and fetching their details.
 type ApplicationGetter interface {
 	WatchApplications() (watcher.StringsWatcher, error)
+	ApplicationConfig(string) (application.ConfigAttributes, error)
 }
 
 // ContainerSpecGetter provides an interface for

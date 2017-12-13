@@ -6,6 +6,7 @@ package caasunitprovisioner
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/state"
 )
 
@@ -29,6 +30,7 @@ type Model interface {
 // required by the CAAS operator facade.
 type Application interface {
 	WatchUnits() state.StringsWatcher
+	ApplicationConfig() (application.ConfigAttributes, error)
 }
 
 type stateShim struct {

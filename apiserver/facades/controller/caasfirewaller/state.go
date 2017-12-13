@@ -6,6 +6,7 @@ package caasfirewaller
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/state"
 )
 
@@ -21,6 +22,7 @@ type CAASFirewallerState interface {
 // required by the CAAS operator facade.
 type Application interface {
 	IsExposed() bool
+	ApplicationConfig() (application.ConfigAttributes, error)
 	Watch() state.NotifyWatcher
 }
 

@@ -18,9 +18,9 @@ import (
 	"github.com/juju/juju/worker/workertest"
 )
 
-var _ = gc.Suite(&CAASProvisionerSuite{})
+var _ = gc.Suite(&CAASFirewallerSuite{})
 
-type CAASProvisionerSuite struct {
+type CAASFirewallerSuite struct {
 	coretesting.BaseSuite
 
 	st                  *mockState
@@ -32,7 +32,7 @@ type CAASProvisionerSuite struct {
 	facade     *caasfirewaller.Facade
 }
 
-func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
+func (s *CAASFirewallerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.applicationsChanges = make(chan []string, 1)
@@ -60,7 +60,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.facade = facade
 }
 
-func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
+func (s *CAASFirewallerSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
@@ -68,7 +68,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *CAASProvisionerSuite) TestWatchApplications(c *gc.C) {
+func (s *CAASFirewallerSuite) TestWatchApplications(c *gc.C) {
 	applicationNames := []string{"db2", "hadoop"}
 	s.applicationsChanges <- applicationNames
 	result, err := s.facade.WatchApplications()
@@ -81,7 +81,7 @@ func (s *CAASProvisionerSuite) TestWatchApplications(c *gc.C) {
 	c.Assert(resource, gc.Equals, s.st.applicationsWatcher)
 }
 
-func (s *CAASProvisionerSuite) TestWatchApplication(c *gc.C) {
+func (s *CAASFirewallerSuite) TestWatchApplication(c *gc.C) {
 	s.appExposedChanges <- struct{}{}
 
 	results, err := s.facade.Watch(params.Entities{
@@ -103,7 +103,7 @@ func (s *CAASProvisionerSuite) TestWatchApplication(c *gc.C) {
 	c.Assert(resource, gc.Equals, s.st.appExposedWatcher)
 }
 
-func (s *CAASProvisionerSuite) TestIsExposed(c *gc.C) {
+func (s *CAASFirewallerSuite) TestIsExposed(c *gc.C) {
 	s.st.application.exposed = true
 	results, err := s.facade.IsExposed(params.Entities{
 		Entities: []params.Entity{
@@ -123,7 +123,7 @@ func (s *CAASProvisionerSuite) TestIsExposed(c *gc.C) {
 	})
 }
 
-func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
+func (s *CAASFirewallerSuite) TestLife(c *gc.C) {
 	results, err := s.facade.Life(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -141,4 +141,20 @@ func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
 			},
 		}},
 	})
+}
+
+func (s *CAASFirewallerSuite) TestApplicationConfig(c *gc.C) {
+	results, err := s.facade.ApplicationsConfig(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+			{Tag: "unit-gitlab-0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: `"unit-gitlab-0" is not a valid application tag`,
+	})
+	c.Assert(results.Results[0].Config, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }

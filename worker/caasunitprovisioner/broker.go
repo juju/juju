@@ -3,13 +3,13 @@
 
 package caasunitprovisioner
 
-import "github.com/juju/juju/caas"
+import "github.com/juju/juju/core/application"
 
 type ContainerBroker interface {
 	EnsureUnit(appName, unitName, spec string) error
 }
 
 type ServiceBroker interface {
-	EnsureService(appName, unitSpec string, numUnits int, config caas.ResourceConfig) error
+	EnsureService(appName, unitSpec string, numUnits int, config application.ConfigAttributes) error
 	DeleteService(appName string) error
 }
