@@ -170,11 +170,12 @@ func (a *mockApplication) ApplicationConfig() (coreapplication.ConfigAttributes,
 }
 
 func (a *mockApplication) UpdateApplicationConfig(
-	config coreapplication.ConfigAttributes,
+	changes coreapplication.ConfigAttributes,
+	reset []string,
 	extra environschema.Fields,
 	defaults schema.Defaults,
 ) error {
-	a.MethodCall(a, "UpdateApplicationConfig", config, extra, defaults)
+	a.MethodCall(a, "UpdateApplicationConfig", changes, reset, extra, defaults)
 	return a.NextErr()
 }
 

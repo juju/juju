@@ -708,7 +708,7 @@ func (s *applicationSuite) TestGetConfigV5(c *gc.C) {
 }
 
 func (s *applicationSuite) TestGetConfigV6(c *gc.C) {
-	s.assertGetConfig(c, "GetCharmConfig", 6)
+	s.assertGetConfig(c, "CharmConfig", 6)
 }
 
 func (s *applicationSuite) assertGetConfig(c *gc.C, method string, version int) {

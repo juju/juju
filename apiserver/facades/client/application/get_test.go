@@ -98,7 +98,7 @@ func (s *getSuite) TestClientApplicationGetSmoketest(c *gc.C) {
 	defaults := coreapplication.ConfigDefaults(k8s.ConfigDefaults())
 	appConfig, err := coreapplication.NewConfig(map[string]interface{}{"juju-external-hostname": "ext"}, extra, defaults)
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.UpdateApplicationConfig(appConfig.Attributes(), extra, nil)
+	err = app.UpdateApplicationConfig(appConfig.Attributes(), nil, extra, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	schemaFields, err := coreapplication.ConfigSchema(extra)

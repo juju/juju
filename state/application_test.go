@@ -3198,10 +3198,19 @@ func (s *ApplicationSuite) TestUpdateApplicationConfig(c *gc.C) {
 		c.Logf("test %d. %s", i, t.about)
 		app := s.AddTestingApplication(c, "dummy-application", sch)
 		if t.initial != nil {
-			err := app.UpdateApplicationConfig(t.initial, sampleApplicationConfigSchema(), nil)
+			err := app.UpdateApplicationConfig(t.initial, nil, sampleApplicationConfigSchema(), nil)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		err := app.UpdateApplicationConfig(t.update, sampleApplicationConfigSchema(), nil)
+		updates := make(map[string]interface{})
+		var resets []string
+		for k, v := range t.update {
+			if v == nil {
+				resets = append(resets, k)
+			} else {
+				updates[k] = v
+			}
+		}
+		err := app.UpdateApplicationConfig(updates, resets, sampleApplicationConfigSchema(), nil)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -3231,12 +3240,12 @@ func (s *ApplicationSuite) TestUpdateApplicationConfigWithDyingApplication(c *gc
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
-	err = s.mysql.UpdateApplicationConfig(application.ConfigAttributes{"title": "value"}, sampleApplicationConfigSchema(), nil)
+	err = s.mysql.UpdateApplicationConfig(application.ConfigAttributes{"title": "value"}, nil, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationRemovesConfig(c *gc.C) {
-	err := s.mysql.UpdateApplicationConfig(application.ConfigAttributes{"title": "value"}, sampleApplicationConfigSchema(), nil)
+	err := s.mysql.UpdateApplicationConfig(application.ConfigAttributes{"title": "value"}, nil, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	appConfig := state.GetApplicationConfig(s.State, s.mysql)
 	err = appConfig.Read()

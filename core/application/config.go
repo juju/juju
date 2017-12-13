@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 )
 
+// TODO(caas) - these are CAAS specific, figure out a better way
 const (
 	// JujuExternalHostNameKey specifies the hostname of a CAAS application.
 	JujuExternalHostNameKey = "juju-external-hostname"
@@ -152,33 +153,36 @@ func (c *Config) Attributes() ConfigAttributes {
 }
 
 // Get gets the specified attribute.
-func (c *Config) Get(attrName string) interface{} {
-	return c.attributes[attrName]
+func (c ConfigAttributes) Get(attrName string, defaultValue interface{}) interface{} {
+	if val, ok := c[attrName]; ok {
+		return val
+	}
+	return defaultValue
 }
 
 // GetInt gets the specified bool attribute.
-func (c *Config) GetBool(attrName string) bool {
-	if val, ok := c.attributes[attrName]; ok {
+func (c ConfigAttributes) GetBool(attrName string, defaultValue bool) bool {
+	if val, ok := c[attrName]; ok {
 		return val.(bool)
 	}
-	return false
+	return defaultValue
 }
 
 // GetInt gets the specified int attribute.
-func (c *Config) GetInt(attrName string) int {
-	if val, ok := c.attributes[attrName]; ok {
+func (c ConfigAttributes) GetInt(attrName string, defaultValue int) int {
+	if val, ok := c[attrName]; ok {
 		if value, ok := val.(float64); ok {
 			return int(value)
 		}
 		return val.(int)
 	}
-	return 0
+	return defaultValue
 }
 
 // GetString gets the specified string attribute.
-func (c *Config) GetString(attrName string) string {
-	if val, ok := c.attributes[attrName]; ok {
+func (c ConfigAttributes) GetString(attrName string, defaultValue string) string {
+	if val, ok := c[attrName]; ok {
 		return val.(string)
 	}
-	return ""
+	return defaultValue
 }

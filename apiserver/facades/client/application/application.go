@@ -1533,8 +1533,8 @@ func (api *APIv4) GetConstraints(args params.GetApplicationConstraints) (params.
 	return params.GetConstraintsResults{cons}, errors.Trace(err)
 }
 
-// GetCharmConfig is a shim to GetConfig on APIv5. It returns just the charm config.
-func (api *APIv6) GetCharmConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
+// CharmConfig is a shim to GetConfig on APIv5. It returns just the charm config.
+func (api *APIv6) CharmConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
 	return api.GetConfig(args)
 }
 
@@ -1570,7 +1570,7 @@ func (api *APIv6) setApplicationConfig(arg params.ApplicationConfigSet) error {
 	providerSchema, providerDefaults := providerConfigSchema()
 
 	if len(appConfigAttrs) > 0 {
-		if err := app.UpdateApplicationConfig(appConfigAttrs, providerSchema, providerDefaults); err != nil {
+		if err := app.UpdateApplicationConfig(appConfigAttrs, nil, providerSchema, providerDefaults); err != nil {
 			return errors.Annotate(err, "updating application config values")
 		}
 	}
@@ -1621,18 +1621,18 @@ func (api *APIv6) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	}
 	appConfigFields := appSchema.KnownConfigKeys()
 
-	appConfigAttrs := make(map[string]interface{})
+	var appConfigKeys []string
 	charmSettings := make(charm.Settings)
 	for _, name := range arg.Options {
 		if appConfigFields.Contains(name) {
-			appConfigAttrs[name] = nil
+			appConfigKeys = append(appConfigKeys, name)
 		} else {
 			charmSettings[name] = nil
 		}
 	}
 
-	if len(appConfigAttrs) > 0 {
-		if err := app.UpdateApplicationConfig(appConfigAttrs, providerSchema, providerDefaults); err != nil {
+	if len(appConfigKeys) > 0 {
+		if err := app.UpdateApplicationConfig(nil, appConfigKeys, providerSchema, providerDefaults); err != nil {
 			return errors.Annotate(err, "updating application config values")
 		}
 	}

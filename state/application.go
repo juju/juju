@@ -15,6 +15,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -1769,10 +1770,11 @@ func (a *Application) ApplicationConfig() (application.ConfigAttributes, error) 
 	return application.ConfigAttributes(config.Map()), nil
 }
 
-// UpdateApplicationConfig changes an application's config settings. Values set
-// to nil will be deleted; unknown and invalid values will return an error.
+// UpdateApplicationConfig changes an application's config settings.
+// Unknown and invalid values will return an error.
 func (a *Application) UpdateApplicationConfig(
 	changes application.ConfigAttributes,
+	reset []string,
 	extra environschema.Fields,
 	defaults schema.Defaults,
 ) error {
@@ -1782,12 +1784,15 @@ func (a *Application) UpdateApplicationConfig(
 	} else if err != nil {
 		return err
 	}
+	resetKeys := set.NewStrings(reset...)
 	for name, value := range changes {
-		if value == nil {
-			node.Delete(name)
-		} else {
-			node.Set(name, value)
+		if resetKeys.Contains(name) {
+			continue
 		}
+		node.Set(name, value)
+	}
+	for _, name := range reset {
+		node.Delete(name)
 	}
 	newConfig, err := application.NewConfig(node.Map(), extra, defaults)
 	if err != nil {

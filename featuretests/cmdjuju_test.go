@@ -200,7 +200,7 @@ settings:
 `
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy-application", ch)
-	err := app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, nil)
+	err := app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application")
@@ -298,7 +298,7 @@ settings:
 `
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy-application", ch)
-	err := app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, nil)
+	err := app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application")

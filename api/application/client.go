@@ -188,7 +188,7 @@ func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error)
 		return allSettings, nil
 	}
 
-	apiName := "GetCharmConfig"
+	apiName := "CharmConfig"
 	if c.BestAPIVersion() < 6 {
 		apiName = "GetConfig"
 	}

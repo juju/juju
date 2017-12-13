@@ -83,7 +83,7 @@ type Application interface {
 	UpdateApplicationSeries(string, bool) error
 	UpdateCharmConfig(charm.Settings) error
 	ApplicationConfig() (application.ConfigAttributes, error)
-	UpdateApplicationConfig(application.ConfigAttributes, environschema.Fields, schema.Defaults) error
+	UpdateApplicationConfig(application.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 }
 
 // Charm defines a subset of the functionality provided by the

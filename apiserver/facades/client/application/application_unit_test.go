@@ -1077,7 +1077,7 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 	app.CheckCallNames(c, "UpdateApplicationConfig", "UpdateCharmConfig")
 	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes{
 		"juju-external-hostname": "value",
-	}, k8s.ConfigSchema(), k8s.ConfigDefaults())
+	}, []string(nil), k8s.ConfigSchema(), k8s.ConfigDefaults())
 	app.CheckCall(c, 1, "UpdateCharmConfig", charm.Settings{"stringOption": "stringVal"})
 }
 
@@ -1124,9 +1124,8 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 	s.backend.CheckCallNames(c, "Application")
 	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "UpdateApplicationConfig", "UpdateCharmConfig")
-	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes{
-		"juju-external-hostname": nil,
-	}, k8s.ConfigSchema(), k8s.ConfigDefaults())
+	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes(nil),
+		[]string{"juju-external-hostname"}, k8s.ConfigSchema(), k8s.ConfigDefaults())
 	app.CheckCall(c, 1, "UpdateCharmConfig", charm.Settings{"stringVal": nil})
 }
 

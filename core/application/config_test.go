@@ -116,15 +116,15 @@ func (s *ApplicationSuite) TestExtraAttributes(c *gc.C) {
 func (s *ApplicationSuite) TestGet(c *gc.C) {
 	cfg, err := application.NewConfig(map[string]interface{}{"juju-external-hostname": "ext-host"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Get("juju-external-hostname"), gc.Equals, "ext-host")
-	c.Assert(cfg.Get("missing"), gc.IsNil)
+	c.Assert(cfg.Attributes().Get("juju-external-hostname", nil), gc.Equals, "ext-host")
+	c.Assert(cfg.Attributes().Get("missing", "default"), gc.Equals, "default")
 }
 
 func (s *ApplicationSuite) TestGetString(c *gc.C) {
 	cfg, err := application.NewConfig(map[string]interface{}{"juju-external-hostname": "ext-host"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.GetString("juju-external-hostname"), gc.Equals, "ext-host")
-	c.Assert(cfg.GetString("missing"), gc.Equals, "")
+	c.Assert(cfg.Attributes().GetString("juju-external-hostname", ""), gc.Equals, "ext-host")
+	c.Assert(cfg.Attributes().GetString("missing", "default"), gc.Equals, "default")
 }
 
 func (s *ApplicationSuite) TestGetInt(c *gc.C) {
@@ -136,8 +136,8 @@ func (s *ApplicationSuite) TestGetInt(c *gc.C) {
 	}
 	cfg, err := application.NewConfig(map[string]interface{}{"extra": 456}, extraFields, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.GetInt("extra"), gc.Equals, 456)
-	c.Assert(cfg.GetInt("missing"), gc.Equals, 0)
+	c.Assert(cfg.Attributes().GetInt("extra", -1), gc.Equals, 456)
+	c.Assert(cfg.Attributes().GetInt("missing", -1), gc.Equals, -1)
 }
 
 func (s *ApplicationSuite) TestGetBool(c *gc.C) {
@@ -149,6 +149,6 @@ func (s *ApplicationSuite) TestGetBool(c *gc.C) {
 	}
 	cfg, err := application.NewConfig(map[string]interface{}{"extra": true}, extraFields, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.GetBool("extra"), gc.Equals, true)
-	c.Assert(cfg.GetBool("missing"), gc.Equals, false)
+	c.Assert(cfg.Attributes().GetBool("extra", false), gc.Equals, true)
+	c.Assert(cfg.Attributes().GetBool("missing", true), gc.Equals, true)
 }
