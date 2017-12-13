@@ -11,17 +11,21 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/status"
 )
@@ -104,6 +108,16 @@ func applicationCharmConfigKey(appName string, curl *charm.URL) string {
 // key for the application.
 func (a *Application) charmConfigKey() string {
 	return applicationCharmConfigKey(a.doc.Name, a.doc.CharmURL)
+}
+
+func applicationConfigKey(appName string) string {
+	return fmt.Sprintf("a#%s#application", appName)
+}
+
+// applicationConfigKey returns the charm-version-specific settings collection
+// key for the application.
+func (a *Application) applicationConfigKey() string {
+	return applicationConfigKey(a.doc.Name)
 }
 
 func applicationStorageConstraintsKey(appName string, curl *charm.URL) string {
@@ -348,6 +362,7 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 		annotationRemoveOp(a.st, globalKey),
 		removeLeadershipSettingsOp(name),
 		removeStatusOp(a.st, globalKey),
+		removeSettingsOp(settingsC, a.applicationConfigKey()),
 		removeModelApplicationRefOp(a.st, name),
 		removeContainerSpecOp(a.Tag()),
 	)
@@ -1744,6 +1759,52 @@ func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
 	return err
 }
 
+// ApplicationConfig returns the configuration for the application itself.
+func (a *Application) ApplicationConfig() (application.ConfigAttributes, error) {
+	config, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
+	if errors.IsNotFound(err) || len(config.Keys()) == 0 {
+		return application.ConfigAttributes(nil), nil
+	} else if err != nil {
+		return nil, err
+	}
+	return application.ConfigAttributes(config.Map()), nil
+}
+
+// UpdateApplicationConfig changes an application's config settings.
+// Unknown and invalid values will return an error.
+func (a *Application) UpdateApplicationConfig(
+	changes application.ConfigAttributes,
+	reset []string,
+	extra environschema.Fields,
+	defaults schema.Defaults,
+) error {
+	node, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
+	if errors.IsNotFound(err) {
+		return errors.Errorf("cannot update application config since no config exists")
+	} else if err != nil {
+		return err
+	}
+	resetKeys := set.NewStrings(reset...)
+	for name, value := range changes {
+		if resetKeys.Contains(name) {
+			continue
+		}
+		node.Set(name, value)
+	}
+	for _, name := range reset {
+		node.Delete(name)
+	}
+	newConfig, err := application.NewConfig(node.Map(), extra, defaults)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := newConfig.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	_, err = node.Write()
+	return err
+}
+
 // LeaderSettings returns a application's leader settings. If nothing has been set
 // yet, it will return an empty map; this is not an error.
 func (a *Application) LeaderSettings() (map[string]string, error) {
@@ -2066,11 +2127,12 @@ var statusServerities = map[status.Status]int{
 }
 
 type addApplicationOpsArgs struct {
-	applicationDoc *applicationDoc
-	statusDoc      statusDoc
-	constraints    constraints.Value
-	storage        map[string]StorageConstraints
-	charmConfig    map[string]interface{}
+	applicationDoc    *applicationDoc
+	statusDoc         statusDoc
+	constraints       constraints.Value
+	storage           map[string]StorageConstraints
+	applicationConfig map[string]interface{}
+	charmConfig       map[string]interface{}
 	// These are nil when adding a new application, and most likely
 	// non-nil when migrating.
 	leadershipSettings map[string]interface{}
@@ -2088,6 +2150,7 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 
 	globalKey := app.globalKey()
 	charmConfigKey := app.charmConfigKey()
+	applicationConfigKey := app.applicationConfigKey()
 	storageConstraintsKey := app.storageConstraintsKey()
 	leadershipKey := leadershipSettingsKey(app.Name())
 
@@ -2095,6 +2158,7 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 		createConstraintsOp(globalKey, args.constraints),
 		createStorageConstraintsOp(storageConstraintsKey, args.storage),
 		createSettingsOp(settingsC, charmConfigKey, args.charmConfig),
+		createSettingsOp(settingsC, applicationConfigKey, args.applicationConfig),
 		createSettingsOp(settingsC, leadershipKey, args.leadershipSettings),
 		createStatusOp(mb, globalKey, args.statusDoc),
 		addModelApplicationRefOp(mb, app.Name()),

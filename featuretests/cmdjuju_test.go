@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/constraints"
+	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -27,6 +29,11 @@ type cmdJujuSuite struct {
 
 func uint64p(val uint64) *uint64 {
 	return &val
+}
+
+func (s *cmdJujuSuite) SetUpSuite(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CAAS)
+	s.JujuConnSuite.SetUpSuite(c)
 }
 
 func (s *cmdJujuSuite) TestSetConstraints(c *gc.C) {
@@ -103,6 +110,72 @@ func (s *cmdJujuSuite) TestApplicationUnset(c *gc.C) {
 func (s *cmdJujuSuite) TestApplicationGet(c *gc.C) {
 	expected := `application: dummy-application
 charm: dummy
+config:
+  ingress.kubernetes.io/ssl-passthrough:
+    default: false
+    description: whether to passthrough SSL traffic to the ingress controller
+    source: default
+    type: bool
+    value: false
+  juju-application-path:
+    default: /
+    description: the relative http path used to access an application
+    source: default
+    type: string
+    value: /
+  juju-external-hostname:
+    description: the external hostname of an exposed application
+    source: user
+    type: string
+    value: ext-host
+  kubernetes-ingress-class:
+    default: nginx
+    description: the class of the ingress controller to be used by the ingress resource
+    source: default
+    type: string
+    value: nginx
+  kubernetes-ingress-ssl-redirect:
+    default: true
+    description: whether to redirect SSL traffic to the ingress controller
+    source: default
+    type: bool
+    value: true
+  kubernetes-service-external-ips:
+    description: list of IP addresses for which nodes in the cluster will also accept
+      traffic
+    source: unset
+    type: string
+  kubernetes-service-externalname:
+    description: external reference that kubedns or equivalent will return as a CNAME
+      record
+    source: unset
+    type: string
+  kubernetes-service-loadbalancer-ip:
+    description: LoadBalancer will get created with the IP specified in this field
+    source: unset
+    type: string
+  kubernetes-service-loadbalancer-sourceranges:
+    description: traffic through the load-balancer will be restricted to the specified
+      client IPs
+    source: unset
+    type: string
+  kubernetes-service-target-port:
+    description: name or number of the port to access on the pods targeted by the
+      service
+    source: unset
+    type: string
+  kubernetes-service-type:
+    default: ClusterIP
+    description: determines how the Service is exposed
+    source: default
+    type: string
+    value: ClusterIP
+  kubernetes.io/ingress.allow-http:
+    default: false
+    description: whether to allow insecure HTTP traffic to the ingress controller
+    source: default
+    type: bool
+    value: false
 settings:
   outlook:
     description: No default outlook.
@@ -126,7 +199,9 @@ settings:
     value: admin001
 `
 	ch := s.AddTestingCharm(c, "dummy")
-	s.AddTestingApplication(c, "dummy-application", ch)
+	app := s.AddTestingApplication(c, "dummy-application", ch)
+	err := app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
@@ -189,4 +264,44 @@ func (s *cmdJujuSuite) TestApplicationAddUnitExistingContainer(c *gc.C) {
 	mid, err := units[0].AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mid, gc.Equals, container.Id())
+}
+
+type cmdJujuSuiteNoCAAS struct {
+	jujutesting.JujuConnSuite
+}
+
+func (s *cmdJujuSuiteNoCAAS) TestApplicationGet(c *gc.C) {
+	expected := `application: dummy-application
+charm: dummy
+config: {}
+settings:
+  outlook:
+    description: No default outlook.
+    source: unset
+    type: string
+  skill-level:
+    description: A number indicating skill.
+    source: unset
+    type: int
+  title:
+    default: My Title
+    description: A descriptive title used for the application.
+    source: default
+    type: string
+    value: My Title
+  username:
+    default: admin001
+    description: The name of the initial account (given admin permissions).
+    source: default
+    type: string
+    value: admin001
+`
+	ch := s.AddTestingCharm(c, "dummy")
+	app := s.AddTestingApplication(c, "dummy-application", ch)
+	err := app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
 }

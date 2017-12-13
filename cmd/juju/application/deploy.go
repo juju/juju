@@ -803,6 +803,9 @@ func (c *DeployCommand) deployCharm(
 		return errors.Trace(err)
 	}
 
+	if len(appConfig) == 0 {
+		appConfig = nil
+	}
 	args := application.DeployArgs{
 		CharmID:          id,
 		Cons:             c.Constraints,
@@ -810,6 +813,7 @@ func (c *DeployCommand) deployCharm(
 		Series:           series,
 		NumUnits:         numUnits,
 		ConfigYAML:       string(configYAML),
+		Config:           appConfig,
 		Placement:        c.Placement,
 		Storage:          c.Storage,
 		AttachStorage:    c.AttachStorage,

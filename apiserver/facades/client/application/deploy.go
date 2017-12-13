@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -23,13 +24,14 @@ import (
 // DeployApplicationParams contains the arguments required to deploy the referenced
 // charm.
 type DeployApplicationParams struct {
-	ApplicationName string
-	Series          string
-	Charm           *state.Charm
-	Channel         csparams.Channel
-	CharmConfig     charm.Settings
-	Constraints     constraints.Value
-	NumUnits        int
+	ApplicationName   string
+	Series            string
+	Charm             *state.Charm
+	Channel           csparams.Channel
+	ApplicationConfig *application.Config
+	CharmConfig       charm.Settings
+	Constraints       constraints.Value
+	NumUnits          int
 	// Placement is a list of placement directives which may be used
 	// instead of a machine spec.
 	Placement        []*instance.Placement
@@ -71,17 +73,18 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 	}
 
 	asa := state.AddApplicationArgs{
-		Name:             args.ApplicationName,
-		Series:           args.Series,
-		Charm:            args.Charm,
-		Channel:          args.Channel,
-		Storage:          stateStorageConstraints(args.Storage),
-		AttachStorage:    args.AttachStorage,
-		CharmConfig:      charmConfig,
-		NumUnits:         args.NumUnits,
-		Placement:        args.Placement,
-		Resources:        args.Resources,
-		EndpointBindings: effectiveBindings,
+		Name:              args.ApplicationName,
+		Series:            args.Series,
+		Charm:             args.Charm,
+		Channel:           args.Channel,
+		Storage:           stateStorageConstraints(args.Storage),
+		AttachStorage:     args.AttachStorage,
+		ApplicationConfig: args.ApplicationConfig,
+		CharmConfig:       charmConfig,
+		NumUnits:          args.NumUnits,
+		Placement:         args.Placement,
+		Resources:         args.Resources,
+		EndpointBindings:  effectiveBindings,
 	}
 
 	if !args.Charm.Meta().Subordinate {

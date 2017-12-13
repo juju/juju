@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	k8s "github.com/juju/juju/caas/kubernetes/provider"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -28,21 +30,22 @@ import (
 type ApplicationSuite struct {
 	testing.IsolationSuite
 	coretesting.JujuOSEnvSuite
-	backend   mockBackend
-	endpoints []state.Endpoint
-	relation  mockRelation
+	backend     mockBackend
+	endpoints   []state.Endpoint
+	relation    mockRelation
+	application mockApplication
 
 	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.API
+	api          *application.APIv6
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
 
 func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
-	api, err := application.NewAPI(
+	api, err := application.NewAPIV5(
 		&s.backend,
 		s.authorizer,
 		&s.blockChecker,
@@ -54,7 +57,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = api
+	s.api = &application.APIv6{api}
 }
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
@@ -157,7 +160,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.blockChecker = mockBlockChecker{}
-	api, err := application.NewAPI(
+	api, err := application.NewAPIV5(
 		&s.backend,
 		s.authorizer,
 		&s.blockChecker,
@@ -169,7 +172,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = api
+	s.api = &application.APIv6{api}
 }
 
 func (s *ApplicationSuite) TearDownTest(c *gc.C) {
@@ -663,7 +666,7 @@ func (s *ApplicationSuite) TestBlockSetRelationSuspended(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetRelationSuspendedPermissionDenied(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("fred")
-	api, err := application.NewAPI(
+	apiv5, err := application.NewAPIV5(
 		&s.backend,
 		s.authorizer,
 		&s.blockChecker,
@@ -675,6 +678,7 @@ func (s *ApplicationSuite) TestSetRelationSuspendedPermissionDenied(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	api := &application.APIv6{apiv5}
 	_, err = api.SetRelationsSuspended(params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
@@ -1056,4 +1060,103 @@ func (s *ApplicationSuite) TestRemoteRelationDisAllowedCIDR(c *gc.C) {
 	endpoints := []string{"wordpress", "hosted-mysql:nope"}
 	_, err := s.api.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"0.0.0.0/0"}})
 	c.Assert(err, gc.ErrorMatches, `CIDR "0.0.0.0/0" not allowed`)
+}
+
+func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
+	result, err := s.api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
+		Args: []params.ApplicationConfigSet{{
+			ApplicationName: "postgresql",
+			Config: map[string]string{
+				"juju-external-hostname": "value",
+				"stringOption":           "stringVal"},
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "Application")
+	app := s.backend.applications["postgresql"]
+	app.CheckCallNames(c, "UpdateApplicationConfig", "UpdateCharmConfig")
+	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes{
+		"juju-external-hostname": "value",
+	}, []string(nil), k8s.ConfigSchema(), k8s.ConfigDefaults())
+	app.CheckCall(c, 1, "UpdateCharmConfig", charm.Settings{"stringOption": "stringVal"})
+}
+
+func (s *ApplicationSuite) TestBlockSetApplicationConfig(c *gc.C) {
+	s.blockChecker.SetErrors(errors.New("blocked"))
+	_, err := s.api.SetApplicationsConfig(params.ApplicationConfigSetArgs{})
+	c.Assert(err, gc.ErrorMatches, "blocked")
+	s.blockChecker.CheckCallNames(c, "ChangeAllowed")
+	s.relation.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestSetApplicationConfigPermissionDenied(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("fred")
+	apiv5, err := application.NewAPIV5(
+		&s.backend,
+		s.authorizer,
+		&s.blockChecker,
+		func(application.Charm) *state.Charm {
+			return &state.Charm{}
+		},
+		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
+			return nil, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	api := &application.APIv6{apiv5}
+	_, err = api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
+		Args: []params.ApplicationConfigSet{{
+			ApplicationName: "postgresql",
+		}}})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	s.application.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
+	result, err := s.api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{
+		Args: []params.ApplicationUnset{{
+			ApplicationName: "postgresql",
+			Options:         []string{"juju-external-hostname", "stringVal"},
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "Application")
+	app := s.backend.applications["postgresql"]
+	app.CheckCallNames(c, "UpdateApplicationConfig", "UpdateCharmConfig")
+	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes(nil),
+		[]string{"juju-external-hostname"}, k8s.ConfigSchema(), k8s.ConfigDefaults())
+	app.CheckCall(c, 1, "UpdateCharmConfig", charm.Settings{"stringVal": nil})
+}
+
+func (s *ApplicationSuite) TestBlockUnsetApplicationConfig(c *gc.C) {
+	s.blockChecker.SetErrors(errors.New("blocked"))
+	_, err := s.api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{})
+	c.Assert(err, gc.ErrorMatches, "blocked")
+	s.blockChecker.CheckCallNames(c, "ChangeAllowed")
+	s.relation.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestUnsetApplicationConfigPermissionDenied(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("fred")
+	apiv5, err := application.NewAPIV5(
+		&s.backend,
+		s.authorizer,
+		&s.blockChecker,
+		func(application.Charm) *state.Charm {
+			return &state.Charm{}
+		},
+		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
+			return nil, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	api := &application.APIv6{apiv5}
+	_, err = api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{
+		Args: []params.ApplicationUnset{{
+			ApplicationName: "postgresql",
+			Options:         []string{"option"},
+		}}})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	s.application.CheckNoCalls(c)
 }

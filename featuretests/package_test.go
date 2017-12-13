@@ -41,6 +41,7 @@ func init() {
 	gc.Suite(&cmdControllerSuite{})
 	gc.Suite(&cmdCredentialSuite{})
 	gc.Suite(&cmdJujuSuite{})
+	gc.Suite(&cmdJujuSuiteNoCAAS{})
 	gc.Suite(&cmdLoginSuite{})
 	gc.Suite(&cmdModelSuite{})
 	gc.Suite(&cmdRegistrationSuite{})

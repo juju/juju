@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -1493,8 +1494,11 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "umadbro": charm is nil`)
 
 	insettings := charm.Settings{"tuning": "optimized"}
+	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings})
+	wordpress, err := s.State.AddApplication(
+		state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
 	outsettings, err := wordpress.CharmConfig()
@@ -1504,6 +1508,9 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 		expected[name] = value
 	}
 	c.Assert(outsettings, gc.DeepEquals, expected)
+	outconfig, err := wordpress.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outconfig, gc.DeepEquals, inconfig.Attributes())
 
 	mysql, err := s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1527,7 +1534,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
 }
 
-func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
+func (s *StateSuite) TestAddApplicationWithNilCharmConfigValues(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	insettings := charm.Settings{"tuning": nil}
 
@@ -1548,9 +1555,9 @@ func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
 	c.Assert(dbFound, jc.IsFalse)
 }
 
-func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
+func (s *StateSuite) TestAddApplicationModelDying(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	// Check that services cannot be added if the model is initially Dying.
+	// Check that applications cannot be added if the model is initially Dying.
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.Destroy(state.DestroyModelParams{})

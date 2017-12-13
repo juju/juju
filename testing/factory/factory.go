@@ -21,6 +21,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -91,13 +92,14 @@ type MachineParams struct {
 
 // ApplicationParams is used when specifying parameters for a new application.
 type ApplicationParams struct {
-	Name             string
-	Charm            *state.Charm
-	Status           *status.StatusInfo
-	CharmConfig      map[string]interface{}
-	Storage          map[string]state.StorageConstraints
-	Constraints      constraints.Value
-	EndpointBindings map[string]string
+	Name              string
+	Charm             *state.Charm
+	Status            *status.StatusInfo
+	ApplicationConfig map[string]interface{}
+	CharmConfig       map[string]interface{}
+	Storage           map[string]state.StorageConstraints
+	Constraints       constraints.Value
+	EndpointBindings  map[string]string
 }
 
 // UnitParams are used to create units.
@@ -448,14 +450,17 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 		resourceMap[name] = pendingID
 	}
 
+	appConfig, err := application.NewConfig(params.ApplicationConfig, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
-		Name:             params.Name,
-		Charm:            params.Charm,
-		CharmConfig:      charm.Settings(params.CharmConfig),
-		Storage:          params.Storage,
-		Constraints:      params.Constraints,
-		Resources:        resourceMap,
-		EndpointBindings: params.EndpointBindings,
+		Name:              params.Name,
+		Charm:             params.Charm,
+		CharmConfig:       charm.Settings(params.CharmConfig),
+		ApplicationConfig: appConfig,
+		Storage:           params.Storage,
+		Constraints:       params.Constraints,
+		Resources:         resourceMap,
+		EndpointBindings:  params.EndpointBindings,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
