@@ -48,7 +48,7 @@ const (
 	// IdentityPublicKey sets the public key of the identity manager.
 	IdentityPublicKey = "identity-public-key"
 
-	// NUMAControlPolicyKey stores the value for this setting
+	// SetNUMAControlPolicyKey stores the value for this setting
 	SetNUMAControlPolicyKey = "set-numa-control-policy"
 
 	// AutocertDNSNameKey sets the DNS name of the controller. If a
@@ -112,7 +112,12 @@ const (
 	// DefaultMaxTxnLogCollectionMB is the maximum size the txn log collection.
 	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
 
-	JujuHASpace         = "juju-ha-space"
+	// JujuHASpace is the network space within which the MongoDB replica-set
+	// should communicate.
+	JujuHASpace = "juju-ha-space"
+
+	// JujuManagementSpace is the network space that agents should use to
+	// communicate with controllers.
 	JujuManagementSpace = "juju-mgmt-space"
 )
 
@@ -148,6 +153,7 @@ func ControllerOnlyAttribute(attr string) bool {
 	return false
 }
 
+// Config is a string-keyed map of controller configuration attributes.
 type Config map[string]interface{}
 
 // Validate validates the controller configuration.
@@ -322,12 +328,14 @@ func (c Config) MaxTxnLogSizeMB() int {
 	return int(val)
 }
 
-// JujuHASpace is the network space where on which MongoDB lives.
+// JujuHASpace is the network space within which the MongoDB replica-set
+// should communicate.
 func (c Config) JujuHASpace() string {
 	return c.asString(JujuHASpace)
 }
 
-// JujuManagementSpace is the network space where controllers live.
+// JujuManagementSpace is the network space that agents should use to
+// communicate with controllers.
 func (c Config) JujuManagementSpace() string {
 	return c.asString(JujuManagementSpace)
 }
@@ -391,18 +399,28 @@ func Validate(c Config) error {
 		}
 	}
 
-	if v, ok := c[JujuHASpace].(string); ok {
-		if !names.IsValidSpace(v) {
-			return errors.NewNotValid(nil, "invalid juju HA space name")
-		}
-
+	if err := validateSpaceConfig(c, JujuHASpace, "juju HA"); err != nil {
+		return errors.Trace(err)
 	}
 
-	if v, ok := c[JujuManagementSpace].(string); ok {
-		if !names.IsValidSpace(v) {
-			return errors.NewNotValid(nil, "invalid juju mgmt space name")
-		}
+	if err := validateSpaceConfig(c, JujuManagementSpace, "juju mgmt"); err != nil {
+		return errors.Trace(err)
+	}
 
+	return nil
+}
+
+func validateSpaceConfig(c Config, key, topic string) error {
+	val := c[key]
+	if val == nil {
+		return nil
+	}
+	if v, ok := val.(string); ok {
+		if !names.IsValidSpace(v) {
+			return errors.NotValidf("%s space name %q", topic, val)
+		}
+	} else {
+		return errors.NotValidf("type for %s space name %v", topic, val)
 	}
 
 	return nil
