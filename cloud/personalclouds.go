@@ -46,7 +46,7 @@ func ParseCloudMetadataFile(file string) (map[string]Cloud, error) {
 	return clouds, err
 }
 
-// WritePersonalCloudMetadata marshals to YAMl and writes the cloud metadata
+// WritePersonalCloudMetadata marshals to YAML and writes the cloud metadata
 // to the personal cloud file.
 func WritePersonalCloudMetadata(cloudsMap map[string]Cloud) error {
 	data, err := marshalCloudMetadata(cloudsMap)

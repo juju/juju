@@ -92,6 +92,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 				c.Assert(app.Series, gc.Equals, "series")
 				c.Assert(app.NumUnits, gc.Equals, 1)
 				c.Assert(app.ConfigYAML, gc.Equals, "configYAML")
+				c.Assert(app.Config, gc.DeepEquals, map[string]string{"foo": "bar"})
 				c.Assert(app.Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
 				c.Assert(app.Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
 				c.Assert(app.EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
@@ -115,6 +116,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 		Series:           "series",
 		NumUnits:         1,
 		ConfigYAML:       "configYAML",
+		Config:           map[string]string{"foo": "bar"},
 		Cons:             constraints.MustParse("mem=4G"),
 		Placement:        []*instance.Placement{{"scope", "directive"}},
 		Storage:          map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
