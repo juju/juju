@@ -122,26 +122,40 @@ var validateTests = []struct {
 	},
 	expectError: `invalid identity public key: wrong length for base64 key, got 3 want 32`,
 }, {
-	about: "invalid management space name",
+	about: "invalid management space name - whitespace",
 	config: controller.Config{
 		controller.CACertKey:           testing.CACert,
-		controller.JujuManagementSpace: ` `,
+		controller.JujuManagementSpace: " ",
 	},
-	expectError: `invalid juju mgmt space name`,
+	expectError: `juju mgmt space name   not valid`,
 }, {
-	about: "invalid management space name",
+	about: "invalid management space name - caps",
 	config: controller.Config{
 		controller.CACertKey:           testing.CACert,
-		controller.JujuManagementSpace: "Space",
+		controller.JujuManagementSpace: "CAPS",
 	},
-	expectError: `invalid juju mgmt space name`,
+	expectError: `juju mgmt space name CAPS not valid`,
 }, {
-	about: "invalid management space name",
+	about: "invalid management space name - carriage return",
 	config: controller.Config{
 		controller.CACertKey:           testing.CACert,
 		controller.JujuManagementSpace: "\n",
 	},
-	expectError: `invalid juju mgmt space name`,
+	expectError: "juju mgmt space name \n not valid",
+}, {
+	about: "invalid HA space name - number",
+	config: controller.Config{
+		controller.CACertKey:   testing.CACert,
+		controller.JujuHASpace: 666,
+	},
+	expectError: `type for juju HA space name 666 not valid`,
+}, {
+	about: "invalid HA space name - bool",
+	config: controller.Config{
+		controller.CACertKey:   testing.CACert,
+		controller.JujuHASpace: true,
+	},
+	expectError: `type for juju HA space name true not valid`,
 }}
 
 func (s *ConfigSuite) TestValidate(c *gc.C) {

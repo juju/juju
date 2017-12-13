@@ -399,18 +399,28 @@ func Validate(c Config) error {
 		}
 	}
 
-	if v, ok := c[JujuHASpace].(string); ok {
-		if !names.IsValidSpace(v) {
-			return errors.NewNotValid(nil, "invalid juju HA space name")
-		}
-
+	if err := validateSpaceConfig(c, JujuHASpace, "juju HA"); err != nil {
+		return err
 	}
 
-	if v, ok := c[JujuManagementSpace].(string); ok {
-		if !names.IsValidSpace(v) {
-			return errors.NewNotValid(nil, "invalid juju mgmt space name")
-		}
+	if err := validateSpaceConfig(c, JujuManagementSpace, "juju mgmt"); err != nil {
+		return err
+	}
 
+	return nil
+}
+
+func validateSpaceConfig(c Config, key, topic string) error {
+	val := c[key]
+	if val == nil {
+		return nil
+	}
+	if v, ok := val.(string); ok {
+		if !names.IsValidSpace(v) {
+			return errors.NotValidf("%s space name %s", topic, val)
+		}
+	} else {
+		return errors.NotValidf("type for %s space name %v", topic, val)
 	}
 
 	return nil
