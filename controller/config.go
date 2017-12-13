@@ -48,7 +48,7 @@ const (
 	// IdentityPublicKey sets the public key of the identity manager.
 	IdentityPublicKey = "identity-public-key"
 
-	// NUMAControlPolicyKey stores the value for this setting
+	// SetNUMAControlPolicyKey stores the value for this setting
 	SetNUMAControlPolicyKey = "set-numa-control-policy"
 
 	// AutocertDNSNameKey sets the DNS name of the controller. If a
@@ -112,7 +112,12 @@ const (
 	// DefaultMaxTxnLogCollectionMB is the maximum size the txn log collection.
 	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
 
-	JujuHASpace         = "juju-ha-space"
+	// JujuHASpace is the network space within which the MongoDB replica-set
+	// should communicate.
+	JujuHASpace = "juju-ha-space"
+
+	// JujuManagementSpace is the network space within which controllers in a HA
+	// set-up should communicate.
 	JujuManagementSpace = "juju-mgmt-space"
 )
 
@@ -148,6 +153,7 @@ func ControllerOnlyAttribute(attr string) bool {
 	return false
 }
 
+// Config is a string-keyed map of controller configuration attributes.
 type Config map[string]interface{}
 
 // Validate validates the controller configuration.
@@ -322,12 +328,14 @@ func (c Config) MaxTxnLogSizeMB() int {
 	return int(val)
 }
 
-// JujuHASpace is the network space where on which MongoDB lives.
+// JujuHASpace is the network space within which the MongoDB replica-set
+// should communicate.
 func (c Config) JujuHASpace() string {
 	return c.asString(JujuHASpace)
 }
 
-// JujuManagementSpace is the network space where controllers live.
+// JujuManagementSpace is the network space within which controllers in a HA
+// set-up should communicate.
 func (c Config) JujuManagementSpace() string {
 	return c.asString(JujuManagementSpace)
 }

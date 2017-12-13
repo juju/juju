@@ -38,7 +38,7 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 
 func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {
 	// Add a cert.
-	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".ssh/id_rsa.pub", "rsa\n"})
+	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{Name: ".ssh/id_rsa.pub", Data: "rsa\n"})
 
 	for _, test := range []struct {
 		caCert    string
