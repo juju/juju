@@ -55,9 +55,9 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.applicationGetter.watcher) })
 
 	s.containerSpecGetter = mockContainerSpecGetter{
-		spec:    "container-spec",
 		watcher: watchertest.NewMockNotifyWatcher(s.containerSpecChanges),
 	}
+	s.containerSpecGetter.setSpec("container-spec")
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.containerSpecGetter.watcher) })
 
 	s.unitGetter = mockUnitGetter{
@@ -68,9 +68,8 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.containerBroker = mockContainerBroker{
 		ensured: s.unitEnsured,
 	}
-	s.lifeGetter = mockLifeGetter{
-		life: life.Alive,
-	}
+	s.lifeGetter = mockLifeGetter{}
+	s.lifeGetter.setLife(life.Alive)
 	s.serviceBroker = mockServiceBroker{
 		ensured: s.serviceEnsured,
 	}
@@ -166,6 +165,7 @@ func (s *WorkerSuite) setupNewUnitScenario(c *gc.C, brokerManaged bool, opChan c
 	}
 
 	s.sendContainerSpecChange(c)
+	s.containerSpecGetter.assertSpecRetrieved(c)
 	select {
 	case <-opChan:
 	case <-time.After(coretesting.LongWait):
@@ -228,7 +228,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 
 	s.serviceBroker.ResetCalls()
 	// Delete a unit.
-	s.lifeGetter.life = life.Dead
+	s.lifeGetter.setLife(life.Dead)
 	select {
 	case s.unitChanges <- []string{"gitlab/0"}:
 	case <-time.After(coretesting.LongWait):
@@ -254,14 +254,16 @@ func (s *WorkerSuite) TestNewBrokerManagedUnitSpecChange(c *gc.C) {
 
 	// Same spec, nothing happens.
 	s.sendContainerSpecChange(c)
+	s.containerSpecGetter.assertSpecRetrieved(c)
 	select {
 	case <-s.serviceEnsured:
 		c.Fatal("service/unit ensured unexpectedly")
 	case <-time.After(coretesting.ShortWait):
 	}
 
-	s.containerSpecGetter.spec = "another-spec"
+	s.containerSpecGetter.setSpec("another-spec")
 	s.sendContainerSpecChange(c)
+	s.containerSpecGetter.assertSpecRetrieved(c)
 
 	select {
 	case <-s.serviceEnsured:
@@ -294,7 +296,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnitAllRemoved(c *gc.C) {
 	s.serviceBroker.ResetCalls()
 
 	// Now the units die.
-	s.lifeGetter.life = life.Dead
+	s.lifeGetter.setLife(life.Dead)
 	select {
 	case s.unitChanges <- []string{"gitlab/0", "gitlab/1"}:
 	case <-time.After(coretesting.LongWait):
@@ -316,7 +318,7 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	s.lifeGetter.life = life.Dead
+	s.lifeGetter.setLife(life.Dead)
 	select {
 	case s.applicationChanges <- []string{"gitlab"}:
 	case <-time.After(coretesting.LongWait):
@@ -343,8 +345,11 @@ func (s *WorkerSuite) TestWatchUnitDead(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending applications change")
 	}
+	// application is initially alive
+	s.lifeGetter.assertLifeRetrieved(c)
 
-	s.lifeGetter.life = life.Dead
+	// unit is initially dead
+	s.lifeGetter.setLife(life.Dead)
 	select {
 	case s.unitChanges <- []string{"gitlab/0"}:
 	case <-time.After(coretesting.LongWait):

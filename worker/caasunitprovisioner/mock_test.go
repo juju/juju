@@ -4,11 +4,15 @@
 package caasunitprovisioner_test
 
 import (
+	"time"
+
 	"github.com/juju/testing"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasunitprovisioner"
@@ -68,8 +72,22 @@ func (m *mockApplicationGetter) WatchApplications() (watcher.StringsWatcher, err
 
 type mockContainerSpecGetter struct {
 	testing.Stub
-	spec    string
-	watcher *watchertest.MockNotifyWatcher
+	spec          string
+	watcher       *watchertest.MockNotifyWatcher
+	specRetrieved chan struct{}
+}
+
+func (m *mockContainerSpecGetter) setSpec(spec string) {
+	m.spec = spec
+	m.specRetrieved = make(chan struct{}, 1)
+}
+
+func (m *mockContainerSpecGetter) assertSpecRetrieved(c *gc.C) {
+	select {
+	case <-m.specRetrieved:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for container spec to be retrieved")
+	}
 }
 
 func (m *mockContainerSpecGetter) ContainerSpec(entityName string) (string, error) {
@@ -77,7 +95,12 @@ func (m *mockContainerSpecGetter) ContainerSpec(entityName string) (string, erro
 	if err := m.NextErr(); err != nil {
 		return "", err
 	}
-	return m.spec, nil
+	spec := m.spec
+	select {
+	case m.specRetrieved <- struct{}{}:
+	default:
+	}
+	return spec, nil
 }
 
 func (m *mockContainerSpecGetter) WatchContainerSpec(entityName string) (watcher.NotifyWatcher, error) {
@@ -90,7 +113,21 @@ func (m *mockContainerSpecGetter) WatchContainerSpec(entityName string) (watcher
 
 type mockLifeGetter struct {
 	testing.Stub
-	life life.Value
+	life          life.Value
+	lifeRetrieved chan struct{}
+}
+
+func (m *mockLifeGetter) setLife(life life.Value) {
+	m.life = life
+	m.lifeRetrieved = make(chan struct{}, 1)
+}
+
+func (m *mockLifeGetter) assertLifeRetrieved(c *gc.C) {
+	select {
+	case <-m.lifeRetrieved:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for life to be retrieved")
+	}
 }
 
 func (m *mockLifeGetter) Life(entityName string) (life.Value, error) {
@@ -98,7 +135,12 @@ func (m *mockLifeGetter) Life(entityName string) (life.Value, error) {
 	if err := m.NextErr(); err != nil {
 		return "", err
 	}
-	return m.life, nil
+	life := m.life
+	select {
+	case m.lifeRetrieved <- struct{}{}:
+	default:
+	}
+	return life, nil
 }
 
 type mockUnitGetter struct {
