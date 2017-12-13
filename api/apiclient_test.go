@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/state"
 	jtesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
@@ -567,9 +566,7 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, gc.IsNil)
 	machineTag := names.NewMachineTag("0")
-	statePool := state.NewStatePool(s.State)
-	defer statePool.Close()
-	srv, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
+	srv, err := apiserver.NewServer(s.StatePool, listener, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
 		Cert:            jtesting.ServerCert,
 		Key:             jtesting.ServerKey,

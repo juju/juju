@@ -25,6 +25,7 @@ type StateSuite struct {
 	testing.BaseSuite
 	NewPolicy                 state.NewPolicyFunc
 	State                     *state.State
+	StatePool                 *state.StatePool
 	Owner                     names.UserTag
 	Factory                   *factory.Factory
 	InitialConfig             *config.Config
@@ -59,6 +60,8 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		Clock:                     s.Clock,
 	})
 	s.AddCleanup(func(*gc.C) { s.State.Close() })
+	s.StatePool = state.NewStatePool(s.State)
+	s.AddCleanup(func(*gc.C) { s.StatePool.Close() })
 	s.Factory = factory.NewFactory(s.State)
 }
 

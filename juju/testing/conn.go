@@ -93,6 +93,7 @@ type JujuConnSuite struct {
 
 	ControllerConfig   controller.Config
 	State              *state.State
+	StatePool          *state.StatePool
 	Environ            environs.Environ
 	APIState           api.Connection
 	apiStates          []api.Connection // additional api.Connections to close on teardown
@@ -396,6 +397,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.StatePool = state.NewStatePool(s.State)
+
 	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
@@ -633,6 +636,12 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 				gc.Commentf("closing api state failed\n%s\n", errors.ErrorStack(err)),
 			)
 		}
+	}
+	// Close the state pool before we close the underlying state.
+	if s.StatePool != nil {
+		err := s.StatePool.Close()
+		c.Check(err, jc.ErrorIsNil)
+		s.StatePool = nil
 	}
 	// Close state.
 	if s.State != nil {
