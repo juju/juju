@@ -420,7 +420,6 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc) (*migrationtarg
 		Auth_:      s.authorizer,
 	}
 	api, err := migrationtarget.NewAPI(ctx, environFunc)
-	s.AddCleanup(func(*gc.C) { ctx.StatePool().Close() })
 	return api, err
 }
 

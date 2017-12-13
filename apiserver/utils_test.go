@@ -7,27 +7,23 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 )
 
 type utilsSuite struct {
 	testing.StateSuite
-	pool *state.StatePool
 }
 
 var _ = gc.Suite(&utilsSuite{})
 
 func (s *utilsSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
-	s.pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
 func (s *utilsSuite) TestValidateEmpty(c *gc.C) {
 	uuid, err := validateModelUUID(
 		validateArgs{
-			statePool: s.pool,
+			statePool: s.StatePool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uuid, gc.Equals, s.State.ModelUUID())
@@ -36,7 +32,7 @@ func (s *utilsSuite) TestValidateEmpty(c *gc.C) {
 func (s *utilsSuite) TestValidateEmptyStrict(c *gc.C) {
 	_, err := validateModelUUID(
 		validateArgs{
-			statePool: s.pool,
+			statePool: s.StatePool,
 			strict:    true,
 		})
 	c.Assert(err, gc.ErrorMatches, `unknown model: ""`)
@@ -45,7 +41,7 @@ func (s *utilsSuite) TestValidateEmptyStrict(c *gc.C) {
 func (s *utilsSuite) TestValidateController(c *gc.C) {
 	uuid, err := validateModelUUID(
 		validateArgs{
-			statePool: s.pool,
+			statePool: s.StatePool,
 			modelUUID: s.State.ModelUUID(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,7 +51,7 @@ func (s *utilsSuite) TestValidateController(c *gc.C) {
 func (s *utilsSuite) TestValidateControllerStrict(c *gc.C) {
 	uuid, err := validateModelUUID(
 		validateArgs{
-			statePool: s.pool,
+			statePool: s.StatePool,
 			modelUUID: s.State.ModelUUID(),
 			strict:    true,
 		})
@@ -66,7 +62,7 @@ func (s *utilsSuite) TestValidateControllerStrict(c *gc.C) {
 func (s *utilsSuite) TestValidateBadModelUUID(c *gc.C) {
 	_, err := validateModelUUID(
 		validateArgs{
-			statePool: s.pool,
+			statePool: s.StatePool,
 			modelUUID: "bad",
 		})
 	c.Assert(err, gc.ErrorMatches, `unknown model: "bad"`)
@@ -78,7 +74,7 @@ func (s *utilsSuite) TestValidateOtherModel(c *gc.C) {
 
 	uuid, err := validateModelUUID(
 		validateArgs{
-			statePool: s.pool,
+			statePool: s.StatePool,
 			modelUUID: envState.ModelUUID(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +87,7 @@ func (s *utilsSuite) TestValidateOtherModelControllerOnly(c *gc.C) {
 
 	_, err := validateModelUUID(
 		validateArgs{
-			statePool:           s.pool,
+			statePool:           s.StatePool,
 			modelUUID:           envState.ModelUUID(),
 			controllerModelOnly: true,
 		})
