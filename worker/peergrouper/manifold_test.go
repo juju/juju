@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/peergrouper"
@@ -22,15 +23,13 @@ import (
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	statetesting.StateSuite
 
 	manifold     dependency.Manifold
 	context      dependency.Context
 	clock        *testing.Clock
 	agent        *mockAgent
 	hub          *mockHub
-	st           *state.State
-	pool         *state.StatePool
 	stateTracker stubStateTracker
 
 	stub testing.Stub
@@ -39,7 +38,7 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 
 	s.clock = testing.NewClock(time.Time{})
 	s.agent = &mockAgent{conf: mockAgentConfig{
@@ -49,9 +48,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		},
 	}}
 	s.hub = &mockHub{}
-	s.st = new(state.State)
-	s.pool = state.NewStatePool(s.st)
-	s.stateTracker = stubStateTracker{pool: s.pool}
+	s.stateTracker = stubStateTracker{pool: s.StatePool}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -62,7 +59,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		Hub:       s.hub,
 		NewWorker: s.newWorker,
 		ControllerSupportsSpaces: func(st *state.State) (bool, error) {
-			if st != s.st {
+			if st != s.State {
 				return false, errors.New("invalid state")
 			}
 			return true, nil
@@ -119,10 +116,10 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config := args[0].(peergrouper.Config)
 
 	c.Assert(config, jc.DeepEquals, peergrouper.Config{
-		State:        peergrouper.StateShim{s.st},
-		MongoSession: peergrouper.MongoSessionShim{},
+		State:        peergrouper.StateShim{s.State},
+		MongoSession: peergrouper.MongoSessionShim{s.State.MongoSession()},
 		APIHostPortsSetter: &peergrouper.CachingAPIHostPortsSetter{
-			APIHostPortsSetter: s.st,
+			APIHostPortsSetter: s.State,
 		},
 		Clock:          s.clock,
 		Hub:            s.hub,

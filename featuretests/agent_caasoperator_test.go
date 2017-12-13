@@ -66,6 +66,9 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	// Close the state pool before the state object itself.
+	s.StatePool.Close()
+	s.StatePool = nil
 	err = s.State.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st

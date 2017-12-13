@@ -11,6 +11,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -19,12 +20,10 @@ import (
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	statetesting.StateSuite
 
 	manifold     dependency.Manifold
 	context      dependency.Context
-	st           *state.State
-	pool         *state.StatePool
 	stateTracker stubStateTracker
 
 	stub testing.Stub
@@ -33,11 +32,9 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 
-	s.st = new(state.State)
-	s.pool = state.NewStatePool(s.st)
-	s.stateTracker = stubStateTracker{pool: s.pool}
+	s.stateTracker = stubStateTracker{pool: s.StatePool}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -107,8 +104,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.NewModelWorker = nil
 
 	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
-		ModelWatcher: s.st,
-		ModelGetter:  modelworkermanager.StatePoolModelGetter{s.pool},
+		ModelWatcher: s.State,
+		ModelGetter:  modelworkermanager.StatePoolModelGetter{s.StatePool},
 		ErrorDelay:   jworker.RestartDelay,
 	})
 }

@@ -415,7 +415,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = newSt.start(st.controllerTag)
+	err = newSt.start(st.controllerTag, nil)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not start state for new model")
 	}

@@ -11,6 +11,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/restorewatcher"
@@ -18,12 +19,10 @@ import (
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	statetesting.StateSuite
 
 	manifold     dependency.Manifold
 	context      dependency.Context
-	st           *state.State
-	pool         *state.StatePool
 	stateTracker stubStateTracker
 
 	stub testing.Stub
@@ -32,11 +31,9 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 
-	s.st = new(state.State)
-	s.pool = state.NewStatePool(s.st)
-	s.stateTracker = stubStateTracker{pool: s.pool}
+	s.stateTracker = stubStateTracker{pool: s.StatePool}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -99,7 +96,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config := args[0].(restorewatcher.Config)
 
 	c.Assert(config, jc.DeepEquals, restorewatcher.Config{
-		RestoreInfoWatcher: restorewatcher.RestoreInfoWatcherShim{s.st},
+		RestoreInfoWatcher: restorewatcher.RestoreInfoWatcherShim{s.State},
 	})
 }
 
