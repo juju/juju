@@ -4,6 +4,8 @@
 package application
 
 import (
+	"github.com/juju/juju/core/application"
+	"github.com/juju/schema"
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/params"
@@ -11,19 +13,35 @@ import (
 )
 
 // Get returns the charm configuration for an application.
-func (api *API) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
-	return api.getCharmSettings(args, describe)
+func (api *APIv6) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
+	return api.getConfig(args, describe)
+}
+
+// Get returns the charm configuration for an application.
+// It zeros out any application config as that was not supported in v5.
+func (api *APIv5) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
+	results, err := api.getConfig(args, describe)
+	if err != nil {
+		return params.ApplicationGetResults{}, err
+	}
+	results.ApplicationConfig = nil
+	return results, nil
 }
 
 // Get returns the charm configuration for an application.
 // This used the confusing "default" boolean to mean the value was set from
 // the charm defaults. Needs to be kept for backwards compatibility.
 func (api *APIv4) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
-	return api.getCharmSettings(args, describeV4)
+	results, err := api.getConfig(args, describeV4)
+	if err != nil {
+		return params.ApplicationGetResults{}, err
+	}
+	results.ApplicationConfig = nil
+	return results, nil
 }
 
 // Get returns the charm configuration for an application.
-func (api *API) getCharmSettings(
+func (api *APIv5) getConfig(
 	args params.ApplicationGet,
 	describe func(settings charm.Settings, config *charm.Config) map[string]interface{},
 ) (params.ApplicationGetResults, error) {
@@ -43,6 +61,18 @@ func (api *API) getCharmSettings(
 		return params.ApplicationGetResults{}, err
 	}
 	configInfo := describe(settings, charm.Config())
+	appConfig, err := app.ApplicationConfig()
+	if err != nil {
+		return params.ApplicationGetResults{}, err
+	}
+
+	providerSchema, providerDefaults := providerConfigSchema()
+	appSchema, err := application.ConfigSchema(providerSchema)
+	if err != nil {
+		return params.ApplicationGetResults{}, err
+	}
+
+	appConfigInfo := describeAppConfig(appConfig, appSchema, application.ConfigDefaults(providerDefaults))
 	var constraints constraints.Value
 	if app.IsPrincipal() {
 		constraints, err = app.Constraints()
@@ -51,12 +81,44 @@ func (api *API) getCharmSettings(
 		}
 	}
 	return params.ApplicationGetResults{
-		Application: args.ApplicationName,
-		Charm:       charm.Meta().Name,
-		Config:      configInfo,
-		Constraints: constraints,
-		Series:      app.Series(),
+		Application:       args.ApplicationName,
+		Charm:             charm.Meta().Name,
+		CharmConfig:       configInfo,
+		ApplicationConfig: appConfigInfo,
+		Constraints:       constraints,
+		Series:            app.Series(),
 	}, nil
+}
+
+func describeAppConfig(
+	appConfig application.ConfigAttributes,
+	schema application.ConfigFields,
+	defaults schema.Defaults,
+) map[string]interface{} {
+	results := make(map[string]interface{})
+	for name, field := range schema.Fields() {
+		defaultValue := defaults[name]
+		info := map[string]interface{}{
+			"description": field.Description,
+			"type":        field.Type,
+			"source":      "unset",
+		}
+		set := false
+		if value := appConfig[name]; value != nil && defaultValue != value {
+			set = true
+			info["value"] = value
+			info["source"] = "user"
+		}
+		if defaultValue != nil {
+			info["default"] = defaultValue
+			if !set {
+				info["value"] = defaultValue
+				info["source"] = "default"
+			}
+		}
+		results[name] = info
+	}
+	return results
 }
 
 func describe(settings charm.Settings, config *charm.Config) map[string]interface{} {

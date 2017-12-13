@@ -9,13 +9,16 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -91,6 +94,7 @@ type mockApplication struct {
 	series      string
 	units       []mockUnit
 	addedUnit   mockUnit
+	config      coreapplication.ConfigAttributes
 }
 
 func (m *mockApplication) Name() string {
@@ -158,6 +162,25 @@ func (a *mockApplication) Series() string {
 	a.MethodCall(a, "Series")
 	a.PopNoErr()
 	return a.series
+}
+
+func (a *mockApplication) ApplicationConfig() (coreapplication.ConfigAttributes, error) {
+	a.MethodCall(a, "ApplicationConfig")
+	return a.config, a.NextErr()
+}
+
+func (a *mockApplication) UpdateApplicationConfig(
+	config coreapplication.ConfigAttributes,
+	extra environschema.Fields,
+	defaults schema.Defaults,
+) error {
+	a.MethodCall(a, "UpdateApplicationConfig", config, extra, defaults)
+	return a.NextErr()
+}
+
+func (a *mockApplication) UpdateCharmConfig(settings charm.Settings) error {
+	a.MethodCall(a, "UpdateCharmConfig", settings)
+	return a.NextErr()
 }
 
 type mockRemoteApplication struct {

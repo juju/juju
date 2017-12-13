@@ -5,12 +5,15 @@ package application
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -79,6 +82,8 @@ type Application interface {
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error
 	UpdateCharmConfig(charm.Settings) error
+	ApplicationConfig() (application.ConfigAttributes, error)
+	UpdateApplicationConfig(application.ConfigAttributes, environschema.Fields, schema.Defaults) error
 }
 
 // Charm defines a subset of the functionality provided by the
