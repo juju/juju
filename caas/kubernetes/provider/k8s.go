@@ -36,23 +36,6 @@ const (
 	labelApplication = "juju-application"
 )
 
-const (
-	defaultServiceType        = v1.ServiceTypeClusterIP
-	defaultIngressClass       = "nginx"
-	defaultIngressSSLRedirect = true
-	defaultApplicationPath    = "/"
-
-	serviceTypeConfigKey               = "kubernetes-service-type"
-	serviceExternalIPsConfigKey        = "kubernetes-service-external-ips"
-	serviceTargetPortConfigKey         = "kubernetes-service-target-port"
-	serviceLoadBalancerIPKey           = "kubernetes-service-loadbalancer-ip"
-	serviceLoadBalancerSourceRangesKey = "kubernetes-service-loadbalancer-sourceranges"
-	serviceExternalNameKey             = "kubernetes-service-externalname"
-
-	ingressClassKey       = "kubernetes-ingress-class"
-	ingressSSLRedirectKey = "kubernetes-ingress-ssl-redirect"
-)
-
 // TODO(caas) - add unit tests
 
 type kubernetesClient struct {
@@ -282,6 +265,8 @@ func (k *kubernetesClient) ExposeService(appName string, config caas.ResourceCon
 	}
 	ingressClass := config.GetString(ingressClassKey, defaultIngressClass)
 	ingressSSLRedirect := config.GetBool(ingressSSLRedirectKey, defaultIngressSSLRedirect)
+	ingressSSLPassthrough := config.GetBool(ingressSSLRedirectKey, defaultIngressSSLPassthrough)
+	ingressAllowHTTP := config.GetBool(ingressSSLRedirectKey, defaultIngressAllowHTTPKey)
 	httpPath := config.GetString(caas.JujuApplicationPath, defaultApplicationPath)
 	if httpPath == "$appname" {
 		httpPath = appName
@@ -302,9 +287,11 @@ func (k *kubernetesClient) ExposeService(appName string, config caas.ResourceCon
 			Name:   deploymentName(appName),
 			Labels: map[string]string{labelApplication: appName},
 			Annotations: map[string]string{
-				"ingress.kubernetes.io/rewrite-target": "",
-				"ingress.kubernetes.io/ssl-redirect":   strconv.FormatBool(ingressSSLRedirect),
-				"kubernetes.io/ingress.class":          ingressClass,
+				"ingress.kubernetes.io/rewrite-target":  "",
+				"ingress.kubernetes.io/ssl-redirect":    strconv.FormatBool(ingressSSLRedirect),
+				"kubernetes.io/ingress.class":           ingressClass,
+				"kubernetes.io/ingress.allow-http":      strconv.FormatBool(ingressAllowHTTP),
+				"ingress.kubernetes.io/ssl-passthrough": strconv.FormatBool(ingressSSLPassthrough),
 			},
 		},
 		Spec: v1beta1.IngressSpec{
