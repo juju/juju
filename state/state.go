@@ -503,6 +503,9 @@ func (st *State) getPingBatcher() *presence.PingBatcher {
 // getTxnLogCollection returns the raw mongodb txns collection, which is
 // needed to interact with the state/watcher package.
 func (st *State) getTxnLogCollection() *mgo.Collection {
+	if st.Ping() != nil {
+		st.session.Refresh()
+	}
 	return st.session.DB(jujuDB).C(txnLogC)
 }
 
