@@ -88,7 +88,12 @@ func (st *State) Addresses() ([]string, error) {
 	return appendPort(addrs, config.StatePort()), nil
 }
 
-const apiHostPortsKey = "apiHostPorts"
+const (
+	// Key for *all* addresses at which controllers are accessible.
+	apiHostPortsKey = "apiHostPorts"
+	// Key for addresses at which controllers are accessible by agents.
+	apiHostPortsForAgentsKey = "apiHostPortsForAgents"
+)
 
 type apiHostPortsDoc struct {
 	APIHostPorts [][]hostPort `bson:"apihostports"`
@@ -97,39 +102,92 @@ type apiHostPortsDoc struct {
 
 // SetAPIHostPorts sets the addresses of the API server instances.
 // Each server is represented by one element in the top level slice.
-func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
+func (st *State) SetAPIHostPorts(newHostPorts [][]network.HostPort) error {
 	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
-	doc := apiHostPortsDoc{
-		APIHostPorts: fromNetworkHostsPorts(netHostsPorts),
-	}
+
+	newHostPortsForAgents := newHostPorts
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var existingDoc apiHostPortsDoc
-		err := controllers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&existingDoc)
+		var ops []txn.Op
+
+		// Retrieve the current API addresses document.
+		var existingAllAddrDoc apiHostPortsDoc
+		err := controllers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&existingAllAddrDoc)
 		if err != nil {
 			return nil, err
 		}
-		op := txn.Op{
-			C:  controllersC,
-			Id: apiHostPortsKey,
-			Assert: bson.D{{
-				"txn-revno", existingDoc.TxnRevno,
-			}},
+		hostPorts := networkHostsPorts(existingAllAddrDoc.APIHostPorts)
+
+		// If the stored addresses are different from the input collection, queue an update operation.
+		if !hostsPortsEqual(newHostPorts, hostPorts) {
+			ops = append(ops, txn.Op{
+				C:  controllersC,
+				Id: apiHostPortsKey,
+				Assert: bson.D{{
+					"txn-revno", existingAllAddrDoc.TxnRevno,
+				}},
+				Update: bson.D{{
+					"$set", bson.D{{"apihostports", fromNetworkHostsPorts(newHostPorts)}},
+				}},
+			})
 		}
-		hostPorts := networkHostsPorts(existingDoc.APIHostPorts)
-		if !hostsPortsEqual(netHostsPorts, hostPorts) {
-			op.Update = bson.D{{
-				"$set", bson.D{{"apihostports", doc.APIHostPorts}},
-			}}
-		} else {
+
+		// Filter the collection of API addresses based on the configured management
+		// space for the controller.
+		// If there is no space configured, or if the collection is filtered down
+		// to zero elements, just use the unfiltered collection for safety.
+		config, err := st.ControllerConfig()
+		if err != nil {
+			return nil, err
+		}
+		if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != "" {
+			existingSpace, err := st.Space(mgmtSpace)
+			subNets, err := existingSpace.Subnets()
+			if err != nil {
+				return nil, err
+			}
+			if subNets != nil || len(subNets) > 0 {
+				// Filter the host/port collection based on the subnet CIDRs.
+				for _, sn := range subNets {
+					// Refine newAgentHostPorts collection
+				}
+			}
+		}
+
+		// Retrieve the current API addresses for agents document.
+		var existingAgentAddrDoc apiHostPortsDoc
+		err = controllers.Find(bson.D{{"_id", apiHostPortsForAgentsKey}}).One(&existingAgentAddrDoc)
+		if err != nil {
+			return nil, err
+		}
+
+		// If the stored addresses are different from the new management API address
+		// collection, queue an update operation.
+		agentHostPorts := networkHostsPorts(existingAgentAddrDoc.APIHostPorts)
+		if !hostsPortsEqual(newHostPortsForAgents, agentHostPorts) {
+			ops = append(ops, txn.Op{
+				C:  controllersC,
+				Id: apiHostPortsForAgentsKey,
+				Assert: bson.D{{
+					"txn-revno", existingAgentAddrDoc.TxnRevno,
+				}},
+				Update: bson.D{{
+					"$set", bson.D{{"apihostports", fromNetworkHostsPorts(newHostPortsForAgents)}},
+				}},
+			})
+		}
+
+		if ops == nil || len(ops) == 0 {
 			return nil, statetxn.ErrNoOperations
 		}
-		return []txn.Op{op}, nil
+		return ops, nil
 	}
 	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, "cannot set API addresses")
 	}
-	logger.Debugf("setting API hostPorts: %v", netHostsPorts)
+	logger.Debugf("setting API hostPorts: %v", newHostPorts)
+	logger.Debugf("setting API hostPorts for agents: %v", newHostPortsForAgents)
 	return nil
 }
 
