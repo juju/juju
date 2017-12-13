@@ -1290,8 +1290,7 @@ func (a *MachineAgent) newAPIserverWorker(
 		return nil, errors.Annotate(err, "getting log sink config")
 	}
 
-	// TODO(babbageclunk): get this from agent config.
-	auditConfig := apiserver.DefaultAuditLogConfig()
+	auditConfig := getAuditLogConfig(controllerConfig)
 
 	serverConfig := apiserver.ServerConfig{
 		Clock:                         clock.WallClock,
@@ -1786,4 +1785,13 @@ func getLogSinkConfig(cfg agent.Config) (apiserver.LogSinkConfig, error) {
 		}
 	}
 	return result, nil
+}
+
+func getAuditLogConfig(cfg controller.Config) apiserver.AuditLogConfig {
+	return apiserver.AuditLogConfig{
+		Enabled:        cfg.AuditingEnabled(),
+		CaptureAPIArgs: cfg.AuditLogCaptureArgs(),
+		MaxSizeMB:      cfg.AuditLogMaxSizeMB(),
+		MaxBackups:     cfg.AuditLogMaxBackups(),
+	}
 }

@@ -121,6 +121,28 @@ var validateTests = []struct {
 		controller.CACertKey:         testing.CACert,
 	},
 	expectError: `invalid identity public key: wrong length for base64 key, got 3 want 32`,
+}, {
+	about: "invalid audit log max size",
+	config: controller.Config{
+		controller.CACertKey:       testing.CACert,
+		controller.AuditLogMaxSize: "abcd",
+	},
+	expectError: `invalid audit log max size in configuration: expected a non-negative number, got "abcd"`,
+}, {
+	about: "zero audit log max size",
+	config: controller.Config{
+		controller.CACertKey:       testing.CACert,
+		controller.AuditingEnabled: true,
+		controller.AuditLogMaxSize: "0M",
+	},
+	expectError: `invalid audit log max size: can't be 0 if auditing is enabled`,
+}, {
+	about: "invalid audit log max backups",
+	config: controller.Config{
+		controller.CACertKey:          testing.CACert,
+		controller.AuditLogMaxBackups: -10,
+	},
+	expectError: `invalid audit log max backups: should be a number of files \(or 0 to keep all\), got -10`,
 }}
 
 func (s *ConfigSuite) TestValidate(c *gc.C) {
@@ -172,4 +194,31 @@ func (s *ConfigSuite) TestTxnLogConfigValue(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.MaxTxnLogSizeMB(), gc.Equals, 8192)
+}
+
+func (s *ConfigSuite) TestAuditLogDefaults(c *gc.C) {
+	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AuditingEnabled(), gc.Equals, false)
+	c.Assert(cfg.AuditLogCaptureArgs(), gc.Equals, false)
+	c.Assert(cfg.AuditLogMaxSizeMB(), gc.Equals, 300)
+	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
+}
+
+func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"auditing-enabled":       true,
+			"audit-log-capture-args": true,
+			"audit-log-max-size":     "100M",
+			"audit-log-max-backups":  10.0,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AuditingEnabled(), gc.Equals, true)
+	c.Assert(cfg.AuditLogCaptureArgs(), gc.Equals, true)
+	c.Assert(cfg.AuditLogMaxSizeMB(), gc.Equals, 100)
+	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
 }
