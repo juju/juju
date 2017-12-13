@@ -281,7 +281,7 @@ func (s *DeploySuite) combinedSettings(ch charm.Charm, inSettings charm.Settings
 	return result
 }
 
-func (s *DeploySuite) TestConfig(c *gc.C) {
+func (s *DeploySuite) TestSingleConfigFile(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	path := setupConfigFile(c, c.MkDir())
 	err := runDeploy(c, ch, "dummy-application", "--config", path, "--series", "precise")
@@ -304,6 +304,47 @@ func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
 	setupConfigFile(c, utils.Home())
 	err := runDeploy(c, ch, "dummy-application", "--config", "~/testconfig.yaml")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeploySuite) TestConfigValues(c *gc.C) {
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	err := runDeploy(c, ch, "dummy-application", "--config", "skill-level=9000", "--config", "outlook=good", "--series", "precise")
+	c.Assert(err, jc.ErrorIsNil)
+	application, err := s.State.Application("dummy-application")
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := application.CharmConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	appCh, _, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(appCh, charm.Settings{
+		"outlook":     "good",
+		"skill-level": int64(9000),
+		"username":    "admin001",
+	}))
+}
+
+func (s *DeploySuite) TestConfigValuesWithFile(c *gc.C) {
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	path := setupConfigFile(c, c.MkDir())
+	err := runDeploy(c, ch, "dummy-application", "--config", path, "--config", "outlook=good", "--config", "skill-level=8000", "--series", "precise")
+	c.Assert(err, jc.ErrorIsNil)
+	application, err := s.State.Application("dummy-application")
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := application.CharmConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	appCh, _, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(appCh, charm.Settings{
+		"outlook":     "good",
+		"skill-level": int64(8000),
+		"username":    "admin001",
+	}))
+}
+
+func (s *DeploySuite) TestSingleConfigMoreThanOneFile(c *gc.C) {
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	err := runDeploy(c, ch, "dummy-application", "--config", "one", "--config", "another", "--series", "precise")
+	c.Assert(err, gc.ErrorMatches, "only a single config YAML file can be specified, got 2")
 }
 
 func (s *DeploySuite) TestConfigError(c *gc.C) {
@@ -1527,7 +1568,7 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorage(c *gc.C) {
 		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"type": "foo",
 	})
-	fakeAPI.Call("BestFacadeVersion", "Application").Returns(5)
+
 	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
 	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
 	withCharmDeployable(
@@ -1653,6 +1694,9 @@ func (f *fakeDeployAPI) CharmInfo(url string) (*charms.CharmInfo, error) {
 
 func (f *fakeDeployAPI) Deploy(args application.DeployArgs) error {
 	results := f.MethodCall(f, "Deploy", args)
+	if len(results) != 1 {
+		return errors.Errorf("expected 1 result, got %d: %v", len(results), results)
+	}
 	return jujutesting.TypeAssertError(results[0])
 }
 
@@ -1741,6 +1785,7 @@ func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	fakeAPI.Call("Close").Returns(error(nil))
 	fakeAPI.Call("ModelGet").Returns(cfgAttrs, error(nil))
 	fakeAPI.Call("ModelUUID").Returns("deadbeef-0bad-400d-8000-4b1d0d06f00d", true)
+	fakeAPI.Call("BestFacadeVersion", "Application").Returns(5)
 
 	return fakeAPI
 }
