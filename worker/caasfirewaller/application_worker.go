@@ -8,7 +8,6 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -53,10 +52,6 @@ func (w *applicationWorker) Wait() error {
 }
 
 func (aw *applicationWorker) loop() error {
-	// TODO(caas) - get this from the application backend
-	config := caas.ResourceConfig{}
-	config[caas.JujuExternalHostNameKey] = "localhost"
-
 	appWatcher, err := aw.applicationGetter.WatchApplication(aw.application)
 	if err != nil {
 		if params.IsCodeNotFound(err) {
@@ -92,7 +87,11 @@ func (aw *applicationWorker) loop() error {
 			initial = false
 			previouslyExposed = exposed
 			if exposed {
-				if err := aw.serviceExposer.ExposeService(aw.application, config); err != nil {
+				appConfig, err := aw.applicationGetter.ApplicationConfig(aw.application)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if err := aw.serviceExposer.ExposeService(aw.application, appConfig); err != nil {
 					return errors.Trace(err)
 				}
 				continue

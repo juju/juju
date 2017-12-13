@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher/watchertest"
@@ -196,7 +196,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 	w := s.setupNewUnitScenario(c, true, s.serviceEnsured)
 	defer workertest.CleanKill(c, w)
 
-	s.applicationGetter.CheckCallNames(c, "WatchApplications")
+	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig")
 	s.containerSpecGetter.CheckCallNames(c, "WatchContainerSpec", "ContainerSpec", "ContainerSpec")
 	s.containerSpecGetter.CheckCall(c, 0, "WatchContainerSpec", "gitlab/0")
 	s.containerSpecGetter.CheckCall(c, 1, "ContainerSpec", "gitlab/0") // not found
@@ -206,7 +206,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", "container-spec", 1, caas.ResourceConfig{"juju-external-hostname": "localhost"})
+		"gitlab", "container-spec", 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 
 	s.serviceBroker.ResetCalls()
 	// Add another unit.
@@ -224,7 +224,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", "container-spec", 2, caas.ResourceConfig{"juju-external-hostname": "localhost"})
+		"gitlab", "container-spec", 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 
 	s.serviceBroker.ResetCalls()
 	// Delete a unit.
@@ -243,7 +243,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", "container-spec", 1, caas.ResourceConfig{"juju-external-hostname": "localhost"})
+		"gitlab", "container-spec", 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func (s *WorkerSuite) TestNewBrokerManagedUnitSpecChange(c *gc.C) {
@@ -273,7 +273,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnitSpecChange(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", "another-spec", 1, caas.ResourceConfig{"juju-external-hostname": "localhost"})
+		"gitlab", "another-spec", 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func (s *WorkerSuite) TestNewBrokerManagedUnitAllRemoved(c *gc.C) {

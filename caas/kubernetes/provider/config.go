@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	// TODO(caas) - use these defaults in the schema
 	defaultServiceType           = v1.ServiceTypeClusterIP
 	defaultIngressClass          = "nginx"
 	defaultIngressSSLRedirect    = true

@@ -98,3 +98,28 @@ func (f *Facade) isExposed(backend CAASFirewallerState, tagString string) (bool,
 	}
 	return app.IsExposed(), nil
 }
+
+// ApplicationsConfig returns the config for the specified applications.
+func (f *Facade) ApplicationsConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
+	results := params.ApplicationGetConfigResults{
+		Results: make([]params.ConfigResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		result, err := f.getApplicationConfig(arg.Tag)
+		results.Results[i].Config = result
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+func (f *Facade) getApplicationConfig(tagString string) (map[string]interface{}, error) {
+	tag, err := names.ParseApplicationTag(tagString)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	app, err := f.state.Application(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return app.ApplicationConfig()
+}

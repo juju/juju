@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
@@ -35,7 +36,7 @@ type mockServiceBroker struct {
 	ensured chan<- struct{}
 }
 
-func (m *mockServiceBroker) EnsureService(appName, unitSpec string, numUnits int, config caas.ResourceConfig) error {
+func (m *mockServiceBroker) EnsureService(appName, unitSpec string, numUnits int, config application.ConfigAttributes) error {
 	m.MethodCall(m, "EnsureService", appName, unitSpec, numUnits, config)
 	m.ensured <- struct{}{}
 	return m.NextErr()
@@ -68,6 +69,11 @@ func (m *mockApplicationGetter) WatchApplications() (watcher.StringsWatcher, err
 		return nil, err
 	}
 	return m.watcher, nil
+}
+
+func (a *mockApplicationGetter) ApplicationConfig(appName string) (application.ConfigAttributes, error) {
+	a.MethodCall(a, "ApplicationConfig", appName)
+	return application.ConfigAttributes{"juju-external-hostname": "exthost"}, a.NextErr()
 }
 
 type mockContainerSpecGetter struct {

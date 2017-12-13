@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher/watchertest"
@@ -134,6 +135,9 @@ func (s *WorkerSuite) TestExposedChange(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for service to be exposed")
 	}
+	s.serviceExposer.CheckCallNames(c, "UnexposeService", "ExposeService")
+	s.serviceExposer.CheckCall(c, 1, "ExposeService", "gitlab",
+		application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func (s *WorkerSuite) TestUnexposedChange(c *gc.C) {

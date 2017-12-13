@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -96,6 +97,11 @@ func (a *mockApplication) Life() state.Life {
 func (a *mockApplication) WatchUnits() state.StringsWatcher {
 	a.MethodCall(a, "WatchUnits")
 	return a.unitsWatcher
+}
+
+func (a *mockApplication) ApplicationConfig() (application.ConfigAttributes, error) {
+	a.MethodCall(a, "ApplicationConfig")
+	return application.ConfigAttributes{"foo": "bar"}, a.NextErr()
 }
 
 type mockUnit struct {
