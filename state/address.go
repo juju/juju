@@ -106,7 +106,7 @@ func (st *State) SetAPIHostPorts(newHostPorts [][]network.HostPort) error {
 	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
 
-	newHostPortsForAgents := newHostPorts
+	var newHostPortsForAgents [][]network.HostPort
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var ops []txn.Op
@@ -135,22 +135,19 @@ func (st *State) SetAPIHostPorts(newHostPorts [][]network.HostPort) error {
 
 		// Filter the collection of API addresses based on the configured management
 		// space for the controller.
-		// If there is no space configured, or if the collection is filtered down
-		// to zero elements, just use the unfiltered collection for safety.
+		// If there is no space configured, or if the one of the slices is filtered down
+		// to zero elements, just use the unfiltered slice for safety.
 		config, err := st.ControllerConfig()
 		if err != nil {
 			return nil, err
 		}
 		if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != "" {
-			existingSpace, err := st.Space(mgmtSpace)
-			subNets, err := existingSpace.Subnets()
-			if err != nil {
-				return nil, err
-			}
-			if subNets != nil || len(subNets) > 0 {
-				// Filter the host/port collection based on the subnet CIDRs.
-				for _, sn := range subNets {
-					// Refine newAgentHostPorts collection
+			newHostPortsForAgents = make([][]network.HostPort, len(newHostPorts))
+			for i := range newHostPorts {
+				if filtered, ok := network.SelectHostsPortBySpaces(newHostPorts[i], network.SpaceName(mgmtSpace)); ok {
+					newHostPortsForAgents[i] = filtered
+				} else {
+					newHostPortsForAgents[i] = newHostPorts[i]
 				}
 			}
 		}
