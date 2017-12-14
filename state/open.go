@@ -387,7 +387,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, errors.Trace(err)
 	}
 	controllerTag := names.NewControllerTag(args.ControllerConfig.ControllerUUID())
-	if err := st.start(controllerTag); err != nil {
+	if err := st.start(controllerTag, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	probablyUpdateStatusHistory(st.db(), modelGlobalKey, modelStatusDoc)
