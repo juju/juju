@@ -38,44 +38,56 @@ var (
 	yamlConfigValue     = "dummy-application:\n  skill-level: 9000\n  username: admin001\n\n"
 )
 
+var charmSettings = map[string]interface{}{
+	"title": map[string]interface{}{
+		"description": "Specifies title",
+		"type":        "string",
+		"value":       "Nearly There",
+	},
+	"skill-level": map[string]interface{}{
+		"description": "Specifies skill-level",
+		"value":       100,
+		"type":        "int",
+	},
+	"username": map[string]interface{}{
+		"description": "Specifies username",
+		"type":        "string",
+		"value":       "admin001",
+	},
+	"outlook": map[string]interface{}{
+		"description": "Specifies outlook",
+		"type":        "string",
+		"value":       "true",
+	},
+}
+
 var getTests = []struct {
-	application string
-	expected    map[string]interface{}
+	application  string
+	useAppConfig bool
+	expected     map[string]interface{}
 }{
 	{
 		"dummy-application",
+		true,
 		map[string]interface{}{
 			"application": "dummy-application",
 			"charm":       "dummy",
-			"config": map[string]interface{}{
+			"application-config": map[string]interface{}{
 				"juju-external-hostname": map[string]interface{}{
 					"description": "Specifies juju-external-hostname",
 					"type":        "string",
 					"value":       "ext-host",
 				},
 			},
-			"settings": map[string]interface{}{
-				"title": map[string]interface{}{
-					"description": "Specifies title",
-					"type":        "string",
-					"value":       "Nearly There",
-				},
-				"skill-level": map[string]interface{}{
-					"description": "Specifies skill-level",
-					"value":       100,
-					"type":        "int",
-				},
-				"username": map[string]interface{}{
-					"description": "Specifies username",
-					"type":        "string",
-					"value":       "admin001",
-				},
-				"outlook": map[string]interface{}{
-					"description": "Specifies outlook",
-					"type":        "string",
-					"value":       "true",
-				},
-			},
+			"settings": charmSettings,
+		},
+	}, {
+		"dummy-application",
+		false,
+		map[string]interface{}{
+			"application": "dummy-application",
+			"charm":       "dummy",
+			"settings":    charmSettings,
 		},
 	},
 }
@@ -127,6 +139,9 @@ func (s *configCommandSuite) TestGetCommandInitWithKey(c *gc.C) {
 
 func (s *configCommandSuite) TestGetConfig(c *gc.C) {
 	for _, t := range getTests {
+		if !t.useAppConfig {
+			s.fake.appValues = nil
+		}
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{t.application})
 		c.Check(code, gc.Equals, 0)
@@ -143,7 +158,7 @@ func (s *configCommandSuite) TestGetConfig(c *gc.C) {
 		actual := make(map[string]interface{})
 		err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(actual, gc.DeepEquals, expected)
+		c.Assert(actual, jc.DeepEquals, expected)
 	}
 }
 

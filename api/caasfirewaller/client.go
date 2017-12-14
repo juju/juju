@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/watcher"
 )
@@ -89,6 +90,22 @@ func (c *Client) Life(appName string) (life.Value, error) {
 		return "", maybeNotFound(err)
 	}
 	return life.Value(results.Results[0].Life), nil
+}
+
+// ApplicationConfig returns the config for the specified application.
+func (c *Client) ApplicationConfig(applicationName string) (application.ConfigAttributes, error) {
+	var results params.ApplicationGetConfigResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
+	}
+	err := c.facade.FacadeCall("ApplicationsConfig", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(args.Entities) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), len(results.Results))
+	}
+	return application.ConfigAttributes(results.Results[0].Config), nil
 }
 
 // IsExposed returns whether the specified CAAS application

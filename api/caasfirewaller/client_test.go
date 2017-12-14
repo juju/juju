@@ -13,6 +13,7 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/caasfirewaller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 )
 
@@ -168,4 +169,30 @@ func (s *FirewallerSuite) TestWatchApplication(c *gc.C) {
 	watcher, err := client.WatchApplication("gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *FirewallerSuite) TestApplicationConfig(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASFirewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ApplicationsConfig")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ApplicationGetConfigResults{})
+		*(result.(*params.ApplicationGetConfigResults)) = params.ApplicationGetConfigResults{
+			Results: []params.ConfigResult{{
+				Config: map[string]interface{}{"foo": "bar"},
+			}},
+		}
+		return nil
+	})
+
+	client := caasfirewaller.NewClient(apiCaller)
+	cfg, err := client.ApplicationConfig("gitlab")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg, jc.DeepEquals, application.ConfigAttributes{"foo": "bar"})
 }

@@ -3,12 +3,11 @@
 
 package caas
 
-import "strings"
-
-// TODO(caas) - use a broker specific schema and then add tests
-
-// ResourceConfig encapsulates config for CAAS resources like services.
-type ResourceConfig map[string]interface{}
+import (
+	"github.com/juju/errors"
+	"github.com/juju/schema"
+	"gopkg.in/juju/environschema.v1"
+)
 
 const (
 	// JujuExternalHostNameKey specifies the hostname of a CAAS application.
@@ -16,47 +15,52 @@ const (
 
 	// JujuApplicationPath specifies the relative http path used to access a CAAS application.
 	JujuApplicationPath = "juju-application-path"
+
+	// JujuDefaultApplicationPath is the default value for juju-application-path.
+	JujuDefaultApplicationPath = "/"
 )
 
-// Get gets the specified attribute.
-func (r ResourceConfig) Get(attrName string, defaultValue interface{}) interface{} {
-	if val, ok := r[attrName]; ok {
-		return val
-	}
-	return defaultValue
+var configFields = environschema.Fields{
+	JujuExternalHostNameKey: {
+		Description: "the external hostname of an exposed application",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	JujuApplicationPath: {
+		Description: "the relative http path used to access an application",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
 }
 
-// GetInt gets the specified int attribute.
-func (r ResourceConfig) GetInt(attrName string, defaultValue int) int {
-	if val, ok := r[attrName]; ok {
-		if value, ok := val.(float64); ok {
-			return int(value)
+// ConfigSchema returns the valid fields for a CAAS application config.
+func ConfigSchema(providerFields environschema.Fields) (environschema.Fields, error) {
+	fields, err := configSchema(providerFields)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return fields, nil
+}
+
+func configSchema(extra environschema.Fields) (environschema.Fields, error) {
+	fields := make(environschema.Fields)
+	for name, field := range configFields {
+		fields[name] = field
+	}
+	for name, field := range extra {
+		if _, ok := configFields[name]; ok {
+			return nil, errors.Errorf("config field %q clashes with common config", name)
 		}
-		return val.(int)
+		fields[name] = field
 	}
-	return defaultValue
+	return fields, nil
 }
 
-// GetBool gets the specified bool attribute.
-func (r ResourceConfig) GetBool(attrName string, defaultValue bool) bool {
-	if val, ok := r[attrName]; ok {
-		return val.(bool)
+// ConfigDefaults returns the default values for a CAAS application config.
+func ConfigDefaults(providerDefaults schema.Defaults) schema.Defaults {
+	defaults := schema.Defaults{JujuApplicationPath: JujuDefaultApplicationPath}
+	for key, value := range providerDefaults {
+		defaults[key] = value
 	}
-	return defaultValue
-}
-
-// GetString gets the specified string attribute.
-func (r ResourceConfig) GetString(attrName string, defaultValue string) string {
-	if val, ok := r[attrName]; ok {
-		return val.(string)
-	}
-	return defaultValue
-}
-
-// GetStringSlice gets the specified []string attribute.
-func (r ResourceConfig) GetStringSlice(attrName string, defaultValue []string) []string {
-	if val, ok := r[attrName]; ok {
-		return strings.Split(val.(string), ",")
-	}
-	return defaultValue
+	return defaults
 }

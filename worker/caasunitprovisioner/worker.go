@@ -125,6 +125,7 @@ func (p *provisioner) loop() error {
 					p.config.ContainerBroker,
 					p.config.ContainerSpecGetter,
 					p.config.LifeGetter,
+					p.config.ApplicationGetter,
 					p.config.UnitGetter,
 				)
 				if err != nil {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
@@ -32,7 +33,7 @@ type mockServiceExposer struct {
 	unexposed chan<- struct{}
 }
 
-func (m *mockServiceExposer) ExposeService(appName string, config caas.ResourceConfig) error {
+func (m *mockServiceExposer) ExposeService(appName string, config application.ConfigAttributes) error {
 	m.MethodCall(m, "ExposeService", appName, config)
 	m.exposed <- struct{}{}
 	return m.NextErr()
@@ -73,6 +74,11 @@ func (m *mockApplicationGetter) IsExposed(appName string) (bool, error) {
 		return false, err
 	}
 	return m.exposed, nil
+}
+
+func (a *mockApplicationGetter) ApplicationConfig(appName string) (application.ConfigAttributes, error) {
+	a.MethodCall(a, "ApplicationConfig", appName)
+	return application.ConfigAttributes{"juju-external-hostname": "exthost"}, a.NextErr()
 }
 
 type mockLifeGetter struct {

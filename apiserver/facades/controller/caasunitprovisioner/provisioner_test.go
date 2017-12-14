@@ -172,3 +172,19 @@ func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
 		}},
 	})
 }
+
+func (s *CAASProvisionerSuite) TestApplicationConfig(c *gc.C) {
+	results, err := s.facade.ApplicationsConfig(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+			{Tag: "unit-gitlab-0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: `"unit-gitlab-0" is not a valid application tag`,
+	})
+	c.Assert(results.Results[0].Config, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
+}

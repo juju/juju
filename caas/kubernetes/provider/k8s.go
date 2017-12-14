@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
 )
 
@@ -105,7 +106,7 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 }
 
 // EnsureService creates or updates a service for pods with the given spec.
-func (k *kubernetesClient) EnsureService(appName, unitspec string, numUnits int, config caas.ResourceConfig) (err error) {
+func (k *kubernetesClient) EnsureService(appName, unitspec string, numUnits int, config application.ConfigAttributes) (err error) {
 	logger.Debugf("creating/updating application %s", appName)
 
 	if numUnits <= 0 {
@@ -194,7 +195,7 @@ func (k *kubernetesClient) deleteDeployment(appName string) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) configureService(appName string, containerPorts []v1.ContainerPort, config caas.ResourceConfig) error {
+func (k *kubernetesClient) configureService(appName string, containerPorts []v1.ContainerPort, config application.ConfigAttributes) error {
 	logger.Debugf("creating/updating service for %s", appName)
 
 	var ports []v1.ServicePort
@@ -213,17 +214,19 @@ func (k *kubernetesClient) configureService(appName string, containerPorts []v1.
 			TargetPort: targetPort,
 		})
 	}
+
+	serviceType := v1.ServiceType(config.GetString(serviceTypeConfigKey, defaultServiceType))
 	service := &v1.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName(appName),
 			Labels: map[string]string{labelApplication: appName}},
 		Spec: v1.ServiceSpec{
 			Selector:                 map[string]string{labelApplication: appName},
-			Type:                     config.Get(serviceTypeConfigKey, defaultServiceType).(v1.ServiceType),
+			Type:                     serviceType,
 			Ports:                    ports,
-			ExternalIPs:              config.GetStringSlice(serviceExternalIPsConfigKey, []string(nil)),
+			ExternalIPs:              config.Get(serviceExternalIPsConfigKey, []string(nil)).([]string),
 			LoadBalancerIP:           config.GetString(serviceLoadBalancerIPKey, ""),
-			LoadBalancerSourceRanges: config.GetStringSlice(serviceLoadBalancerSourceRangesKey, []string(nil)),
+			LoadBalancerSourceRanges: config.Get(serviceLoadBalancerSourceRangesKey, []string(nil)).([]string),
 			ExternalName:             config.GetString(serviceExternalNameKey, ""),
 		},
 	}
@@ -256,7 +259,7 @@ func (k *kubernetesClient) deleteService(appName string) error {
 }
 
 // ExposeService sets up external access to the specified application.
-func (k *kubernetesClient) ExposeService(appName string, config caas.ResourceConfig) error {
+func (k *kubernetesClient) ExposeService(appName string, config application.ConfigAttributes) error {
 	logger.Debugf("creating/updating ingress resource for %s", appName)
 
 	host := config.GetString(caas.JujuExternalHostNameKey, "")
@@ -265,9 +268,9 @@ func (k *kubernetesClient) ExposeService(appName string, config caas.ResourceCon
 	}
 	ingressClass := config.GetString(ingressClassKey, defaultIngressClass)
 	ingressSSLRedirect := config.GetBool(ingressSSLRedirectKey, defaultIngressSSLRedirect)
-	ingressSSLPassthrough := config.GetBool(ingressSSLRedirectKey, defaultIngressSSLPassthrough)
-	ingressAllowHTTP := config.GetBool(ingressSSLRedirectKey, defaultIngressAllowHTTPKey)
-	httpPath := config.GetString(caas.JujuApplicationPath, defaultApplicationPath)
+	ingressSSLPassthrough := config.GetBool(ingressSSLPassthroughKey, defaultIngressSSLPassthrough)
+	ingressAllowHTTP := config.GetBool(ingressAllowHTTPKey, defaultIngressAllowHTTPKey)
+	httpPath := config.GetString(caas.JujuApplicationPath, caas.JujuDefaultApplicationPath)
 	if httpPath == "$appname" {
 		httpPath = appName
 	}
