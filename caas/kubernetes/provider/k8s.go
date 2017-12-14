@@ -214,13 +214,15 @@ func (k *kubernetesClient) configureService(appName string, containerPorts []v1.
 			TargetPort: targetPort,
 		})
 	}
+
+	serviceType := v1.ServiceType(config.GetString(serviceTypeConfigKey, defaultServiceType))
 	service := &v1.Service{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName(appName),
 			Labels: map[string]string{labelApplication: appName}},
 		Spec: v1.ServiceSpec{
 			Selector:                 map[string]string{labelApplication: appName},
-			Type:                     config.Get(serviceTypeConfigKey, defaultServiceType).(v1.ServiceType),
+			Type:                     serviceType,
 			Ports:                    ports,
 			ExternalIPs:              config.Get(serviceExternalIPsConfigKey, []string(nil)).([]string),
 			LoadBalancerIP:           config.GetString(serviceLoadBalancerIPKey, ""),
@@ -260,15 +262,15 @@ func (k *kubernetesClient) deleteService(appName string) error {
 func (k *kubernetesClient) ExposeService(appName string, config application.ConfigAttributes) error {
 	logger.Debugf("creating/updating ingress resource for %s", appName)
 
-	host := config.GetString(application.JujuExternalHostNameKey, "")
+	host := config.GetString(caas.JujuExternalHostNameKey, "")
 	if host == "" {
 		return errors.Errorf("external hostname required")
 	}
 	ingressClass := config.GetString(ingressClassKey, defaultIngressClass)
 	ingressSSLRedirect := config.GetBool(ingressSSLRedirectKey, defaultIngressSSLRedirect)
-	ingressSSLPassthrough := config.GetBool(ingressSSLRedirectKey, defaultIngressSSLPassthrough)
-	ingressAllowHTTP := config.GetBool(ingressSSLRedirectKey, defaultIngressAllowHTTPKey)
-	httpPath := config.GetString(application.JujuApplicationPath, defaultApplicationPath)
+	ingressSSLPassthrough := config.GetBool(ingressSSLPassthroughKey, defaultIngressSSLPassthrough)
+	ingressAllowHTTP := config.GetBool(ingressAllowHTTPKey, defaultIngressAllowHTTPKey)
+	httpPath := config.GetString(caas.JujuApplicationPath, caas.JujuDefaultApplicationPath)
 	if httpPath == "$appname" {
 		httpPath = appName
 	}

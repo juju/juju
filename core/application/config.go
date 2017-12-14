@@ -10,30 +10,6 @@ import (
 	"gopkg.in/juju/environschema.v1"
 )
 
-// TODO(caas) - these are CAAS specific, figure out a better way
-const (
-	// JujuExternalHostNameKey specifies the hostname of a CAAS application.
-	JujuExternalHostNameKey = "juju-external-hostname"
-
-	// JujuApplicationPath specifies the relative http path used to access a CAAS application.
-	JujuApplicationPath = "juju-application-path"
-
-	defaultApplicationPath = "/"
-)
-
-var configFields = environschema.Fields{
-	JujuExternalHostNameKey: {
-		Description: "the external hostname of an exposed application",
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	JujuApplicationPath: {
-		Description: "the relative http path used to access an application",
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-}
-
 // ConfigAttributes is the config for an application.
 type ConfigAttributes map[string]interface{}
 
@@ -46,13 +22,8 @@ type Config struct {
 
 // NewConfig returns a new config instance with the given attributes and
 // allowing for the extra provider attributes.
-func NewConfig(attrs map[string]interface{}, extra environschema.Fields, extraDefaults schema.Defaults) (*Config, error) {
-	cfg := &Config{}
-	var err error
-	if cfg.schema, err = configSchema(extra); err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg.defaults = ConfigDefaults(extraDefaults)
+func NewConfig(attrs map[string]interface{}, schema environschema.Fields, defaults schema.Defaults) (*Config, error) {
+	cfg := &Config{schema: schema, defaults: defaults}
 	if err := cfg.setAttributes(attrs); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -76,52 +47,13 @@ func (c *Config) setAttributes(attrs map[string]interface{}) error {
 	return nil
 }
 
-type ConfigFields environschema.Fields
-
 // KnownConfigKeys returns the valid application config keys.
-func (c ConfigFields) KnownConfigKeys() set.Strings {
+func KnownConfigKeys(schema environschema.Fields) set.Strings {
 	result := set.NewStrings()
-	for name := range c {
+	for name := range schema {
 		result.Add(name)
 	}
 	return result
-}
-
-// Fields casts c to environSchema.Fields.
-func (c ConfigFields) Fields() environschema.Fields {
-	return environschema.Fields(c)
-}
-
-// ConfigSchema returns the valid fields for an application config.
-func ConfigSchema(extra environschema.Fields) (ConfigFields, error) {
-	fields, err := configSchema(extra)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ConfigFields(fields), nil
-}
-
-// ConfigDefaults returns the default values for an application config.
-func ConfigDefaults(extra schema.Defaults) schema.Defaults {
-	defaults := schema.Defaults{JujuApplicationPath: defaultApplicationPath}
-	for key, value := range extra {
-		defaults[key] = value
-	}
-	return defaults
-}
-
-func configSchema(extra environschema.Fields) (environschema.Fields, error) {
-	fields := make(environschema.Fields)
-	for name, field := range configFields {
-		fields[name] = field
-	}
-	for name, field := range extra {
-		if _, ok := configFields[name]; ok {
-			return nil, errors.Errorf("config field %q clashes with common config", name)
-		}
-		fields[name] = field
-	}
-	return fields, nil
 }
 
 func (c *Config) schemaChecker() (schema.Checker, error) {

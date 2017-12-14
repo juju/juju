@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
@@ -1063,6 +1064,7 @@ func (s *ApplicationSuite) TestRemoteRelationDisAllowedCIDR(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
 	result, err := s.api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",
@@ -1075,9 +1077,13 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 	s.backend.CheckCallNames(c, "Application")
 	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "UpdateApplicationConfig", "UpdateCharmConfig")
+
+	schema, err := caas.ConfigSchema(k8s.ConfigSchema())
+	c.Assert(err, jc.ErrorIsNil)
+	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
 	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes{
 		"juju-external-hostname": "value",
-	}, []string(nil), k8s.ConfigSchema(), k8s.ConfigDefaults())
+	}, []string(nil), schema, defaults)
 	app.CheckCall(c, 1, "UpdateCharmConfig", charm.Settings{"stringOption": "stringVal"})
 }
 
@@ -1113,6 +1119,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigPermissionDenied(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
 	result, err := s.api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "postgresql",
@@ -1124,8 +1131,12 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 	s.backend.CheckCallNames(c, "Application")
 	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "UpdateApplicationConfig", "UpdateCharmConfig")
+
+	schema, err := caas.ConfigSchema(k8s.ConfigSchema())
+	c.Assert(err, jc.ErrorIsNil)
+	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
 	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes(nil),
-		[]string{"juju-external-hostname"}, k8s.ConfigSchema(), k8s.ConfigDefaults())
+		[]string{"juju-external-hostname"}, schema, defaults)
 	app.CheckCall(c, 1, "UpdateCharmConfig", charm.Settings{"stringVal": nil})
 }
 

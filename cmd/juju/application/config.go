@@ -368,7 +368,9 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 		"application": results.Application,
 		"charm":       results.Charm,
 		"settings":    results.CharmConfig,
-		"config":      results.ApplicationConfig,
+	}
+	if len(results.ApplicationConfig) > 0 {
+		resultsMap["application-config"] = results.ApplicationConfig
 	}
 	return c.out.Write(ctx, resultsMap)
 }

@@ -327,9 +327,8 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationConfig(c, app, coreapplication.ConfigAttributes{
-		"outlook":               "good",
-		"skill-level":           1,
-		"juju-application-path": "/",
+		"outlook":     "good",
+		"skill-level": 1,
 	})
 }
 

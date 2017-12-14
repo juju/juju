@@ -1775,7 +1775,7 @@ func (a *Application) ApplicationConfig() (application.ConfigAttributes, error) 
 func (a *Application) UpdateApplicationConfig(
 	changes application.ConfigAttributes,
 	reset []string,
-	extra environschema.Fields,
+	schema environschema.Fields,
 	defaults schema.Defaults,
 ) error {
 	node, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
@@ -1794,12 +1794,17 @@ func (a *Application) UpdateApplicationConfig(
 	for _, name := range reset {
 		node.Delete(name)
 	}
-	newConfig, err := application.NewConfig(node.Map(), extra, defaults)
+	newConfig, err := application.NewConfig(node.Map(), schema, defaults)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := newConfig.Validate(); err != nil {
 		return errors.Trace(err)
+	}
+	// Update node so it gets coerced values with correct types.
+	coerced := newConfig.Attributes()
+	for _, key := range node.Keys() {
+		node.Set(key, coerced[key])
 	}
 	_, err = node.Write()
 	return err

@@ -10,12 +10,11 @@ import (
 )
 
 const (
-	defaultServiceType           = v1.ServiceTypeClusterIP
+	defaultServiceType           = string(v1.ServiceTypeClusterIP)
 	defaultIngressClass          = "nginx"
-	defaultIngressSSLRedirect    = true
+	defaultIngressSSLRedirect    = false
 	defaultIngressSSLPassthrough = false
 	defaultIngressAllowHTTPKey   = false
-	defaultApplicationPath       = "/"
 
 	serviceTypeConfigKey               = "kubernetes-service-type"
 	serviceExternalIPsConfigKey        = "kubernetes-service-external-ips"
@@ -26,8 +25,8 @@ const (
 
 	ingressClassKey          = "kubernetes-ingress-class"
 	ingressSSLRedirectKey    = "kubernetes-ingress-ssl-redirect"
-	ingressSSLPassthroughKey = "ingress.kubernetes.io/ssl-passthrough"
-	ingressAllowHTTPKey      = "kubernetes.io/ingress.allow-http"
+	ingressSSLPassthroughKey = "kubernetes-ingress-ssl-passthrough"
+	ingressAllowHTTPKey      = "kubernetes-ingress-allow-http"
 )
 
 var configFields = environschema.Fields{
@@ -77,7 +76,7 @@ var configFields = environschema.Fields{
 		Group:       environschema.ProviderGroup,
 	},
 	ingressAllowHTTPKey: {
-		Description: "whether to allow insecure HTTP traffic to the ingress controller",
+		Description: "whether to allow HTTP traffic to the ingress controller",
 		Type:        environschema.Tbool,
 		Group:       environschema.ProviderGroup,
 	},
@@ -97,6 +96,8 @@ func ConfigSchema() environschema.Fields {
 	return configFields
 }
 
+// ConfigDefaults returns the default values for
+// a kubernetes configuration.
 func ConfigDefaults() schema.Defaults {
 	return schemaDefaults
 }
