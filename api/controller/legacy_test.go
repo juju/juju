@@ -216,10 +216,7 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	lis, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	statePool := state.NewStatePool(s.State)
-	defer statePool.Close()
-
-	srv, err := apiserver.NewServer(statePool, lis, apiserver.ServerConfig{
+	srv, err := apiserver.NewServer(s.StatePool, lis, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
 		Cert:            testing.ServerCert,
 		Key:             testing.ServerKey,

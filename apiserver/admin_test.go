@@ -38,7 +38,6 @@ import (
 
 type baseLoginSuite struct {
 	jujutesting.JujuConnSuite
-	pool *state.StatePool
 }
 
 type loginSuite struct {
@@ -50,14 +49,12 @@ var _ = gc.Suite(&loginSuite{})
 func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	s.pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
 func (s *baseLoginSuite) newMachineAndServer(c *gc.C) (*api.Info, *apiserver.Server) {
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
@@ -84,7 +81,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	// Start our own server so we can control when the first login
 	// happens. Otherwise in JujuConnSuite.SetUpTest api.Open is
 	// called with user-admin permissions automatically.
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 	info.ModelTag = s.State.ModelTag()
 
@@ -139,7 +136,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 	info.ModelTag = s.State.ModelTag()
 
@@ -165,7 +162,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 }
 
 func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -425,7 +422,7 @@ func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
 }
 
 func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	info.Tag = s.AdminUserTag(c)
@@ -455,7 +452,7 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 }
 
 func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 	info.ModelTag = s.State.ModelTag()
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
@@ -516,7 +513,7 @@ func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
 	cfg.Validator = func(params.LoginRequest) error {
 		return errors.New("something")
 	}
-	info, srv := newServerWithConfig(c, s.pool, cfg)
+	info, srv := newServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
 	info.ModelTag = s.State.ModelTag()
 
@@ -534,7 +531,7 @@ type validationChecker func(c *gc.C, err error, st api.Connection)
 func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginValidator, checker validationChecker) {
 	cfg := defaultServerConfig(c)
 	cfg.Validator = validator
-	info, srv := newServerWithConfig(c, s.pool, cfg)
+	info, srv := newServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
 	info.ModelTag = s.State.ModelTag()
 
@@ -566,7 +563,7 @@ func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info0 *api.Info) api.Conne
 }
 
 func (s *loginSuite) TestControllerModel(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	info.ModelTag = s.State.ModelTag()
@@ -580,7 +577,7 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	info.ModelTag = s.State.ModelTag()
@@ -592,7 +589,7 @@ func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
 }
 
 func (s *loginSuite) TestNonExistentModel(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	uuid, err := utils.NewUUID()
@@ -609,7 +606,7 @@ func (s *loginSuite) TestNonExistentModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestInvalidModel(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 	info.ModelTag = names.NewModelTag("rubbish")
 
@@ -624,7 +621,7 @@ func (s *loginSuite) TestInvalidModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModel(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	envOwner := s.Factory.MakeUser(c, nil)
@@ -645,7 +642,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	// Machine credentials are checked against environment specific
 	// machines, so this makes sure that the credential checking is
 	// using the correct state connection.
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	envOwner := s.Factory.MakeUser(c, nil)
@@ -670,7 +667,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	envOwner := s.Factory.MakeUser(c, nil)
@@ -697,7 +694,7 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherEnvironmentFromController(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -714,7 +711,7 @@ func (s *loginSuite) TestOtherEnvironmentFromController(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherEnvironmentFromControllerOtherNotProvisioned(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	managerMachine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -740,7 +737,7 @@ func (s *loginSuite) TestOtherEnvironmentFromControllerOtherNotProvisioned(c *gc
 }
 
 func (s *loginSuite) TestOtherEnvironmentWhenNotController(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, nil)
@@ -773,7 +770,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (*state.User, param
 }
 
 func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 	info.ModelTag = s.State.ModelTag()
 
@@ -784,7 +781,7 @@ func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginResultLocalUserEveryoneCreateOnlyNonLocal(c *gc.C) {
-	info, srv := newServer(c, s.pool)
+	info, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 	info.ModelTag = s.State.ModelTag()
 
@@ -864,13 +861,6 @@ var _ = gc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {
 	apitesting.MacaroonSuite
-	pool *state.StatePool
-}
-
-func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
-	s.MacaroonSuite.SetUpTest(c)
-	s.pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
 func (s *macaroonLoginSuite) TestLoginToController(c *gc.C) {
@@ -1010,7 +1000,7 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 	cfg := defaultServerConfig(c)
 	cfg.AllowModelAccess = allowModelAccess
 
-	info, srv := newServerWithConfig(c, s.pool, cfg)
+	info, srv := newServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
 	info.ModelTag = s.State.ModelTag()
 
