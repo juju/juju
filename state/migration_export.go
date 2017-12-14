@@ -675,9 +675,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	if !found && !e.cfg.SkipSettings {
 		return errors.Errorf("missing config for application %q", appName)
 	}
-	// TODO(caas) - add application config to export
-	var _ = applicationConfigDoc
-
 	delete(e.modelSettings, appConfigKey)
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found && !e.cfg.SkipSettings {
@@ -696,7 +693,8 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Exposed:              application.doc.Exposed,
 		MinUnits:             application.doc.MinUnits,
 		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
-		Settings:             applicationCharmSettingsDoc.Settings,
+		ApplicationConfig:    applicationConfigDoc.Settings,
+		CharmConfig:          applicationCharmSettingsDoc.Settings,
 		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   application.doc.MetricCredentials,
