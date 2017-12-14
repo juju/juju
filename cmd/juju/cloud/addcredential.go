@@ -34,11 +34,10 @@ credentials:
       secret-key: <key>
   azure:
     <credential name>:
-      auth-type: userpass
+      auth-type: service-principal-secret
       application-id: <uuid1>
       application-password: <password>
       subscription-id: <uuid2>
-      tenant-id: <uuid3>
 
 A "credential name" is arbitrary and is used solely to represent a set of
 credentials, of which there may be multiple per cloud.

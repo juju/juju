@@ -276,9 +276,7 @@ func (s *StateSuite) TestWatchAllModels(c *gc.C) {
 	// The allModelWatcher infrastructure is comprehensively tested
 	// elsewhere. This just ensures things are hooked up correctly in
 	// State.WatchAllModels()
-	pool := state.NewStatePool(s.State)
-	defer pool.Close()
-	w := s.State.WatchAllModels(pool)
+	w := s.State.WatchAllModels(s.StatePool)
 	defer w.Stop()
 	deltasC := makeMultiwatcherOutput(w)
 
