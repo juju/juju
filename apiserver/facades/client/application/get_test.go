@@ -15,10 +15,14 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/constraints"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type getSuite struct {
@@ -91,18 +95,47 @@ func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestClientApplicationGetSmoketest(c *gc.C) {
-	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+func (s *getSuite) TestClientApplicationGetIAASModelSmoketest(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	extra := k8s.ConfigSchema()
-	defaults := coreapplication.ConfigDefaults(k8s.ConfigDefaults())
-	appConfig, err := coreapplication.NewConfig(map[string]interface{}{"juju-external-hostname": "ext"}, extra, defaults)
+	results, err := s.applicationAPI.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.UpdateApplicationConfig(appConfig.Attributes(), nil, extra, nil)
+	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
+		Application: "wordpress",
+		Charm:       "wordpress",
+		CharmConfig: map[string]interface{}{
+			"blog-title": map[string]interface{}{
+				"default":     "My Title",
+				"description": "A descriptive title used for the blog.",
+				"source":      "default",
+				"type":        "string",
+				"value":       "My Title",
+			},
+		},
+		ApplicationConfig: map[string]interface{}{},
+		Series:            "quantal",
+	})
+}
+
+func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+
+	schemaFields, err := caas.ConfigSchema(k8s.ConfigSchema())
+	c.Assert(err, jc.ErrorIsNil)
+	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	appConfig, err := coreapplication.NewConfig(map[string]interface{}{"juju-external-hostname": "ext"}, schemaFields, defaults)
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.UpdateApplicationConfig(appConfig.Attributes(), nil, schemaFields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
-	schemaFields, err := coreapplication.ConfigSchema(extra)
-	c.Assert(err, jc.ErrorIsNil)
 	expectedAppConfig := make(map[string]interface{})
 	for name, field := range schemaFields {
 		info := map[string]interface{}{
@@ -134,7 +167,20 @@ func (s *getSuite) TestClientApplicationGetSmoketest(c *gc.C) {
 		expectedAppConfig[name] = info
 	}
 
-	results, err := s.applicationAPI.Get(params.ApplicationGet{"wordpress"})
+	backend, err := application.NewStateBackend(st)
+	c.Assert(err, jc.ErrorIsNil)
+	blockChecker := common.NewBlockChecker(st)
+	api, err := application.NewAPIV5(
+		backend,
+		s.authorizer,
+		blockChecker,
+		application.CharmToStateCharm,
+		application.DeployApplication,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	apiV6 := &application.APIv6{api}
+
+	results, err := apiV6.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",

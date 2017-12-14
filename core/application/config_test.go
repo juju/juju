@@ -20,50 +20,55 @@ type ApplicationSuite struct {
 
 var _ = gc.Suite(&ApplicationSuite{})
 
-var baseFields = environschema.Fields{
-	application.JujuExternalHostNameKey: {
-		Description: "the external hostname of an exposed application",
+var testFields = environschema.Fields{
+	"field1": {
+		Description: "field 1 description",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	application.JujuApplicationPath: {
-		Description: "the relative http path used to access an application",
+	"field2": {
+		Description: "field 2 description",
 		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	"field3": {
+		Description: "field 2 description",
+		Type:        environschema.Tint,
+		Group:       environschema.EnvironGroup,
+	},
+	"field4": {
+		Description: "field 2 description",
+		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
 }
 
-func (s *ApplicationSuite) TestConfigSchemaNoExtra(c *gc.C) {
-	fields, err := application.ConfigSchema(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fields, jc.DeepEquals, application.ConfigFields(baseFields))
+var testDefaults = schema.Defaults{
+	"field1": "field 1 default",
+	"field3": 42,
 }
 
-func (s *ApplicationSuite) TestConfigSchemaExtra(c *gc.C) {
-	extraFields := environschema.Fields{
-		"extra": {
-			Description: "some field",
-			Type:        environschema.Tstring,
-		},
-	}
-	fields, err := application.ConfigSchema(extraFields)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedFields := make(application.ConfigFields)
-	for name, f := range baseFields {
-		expectedFields[name] = f
-	}
-	for name, f := range extraFields {
-		expectedFields[name] = f
-	}
-	c.Assert(fields, jc.DeepEquals, expectedFields)
+func (s *ApplicationSuite) TestKnownConfigKeys(c *gc.C) {
+	c.Assert(application.KnownConfigKeys(
+		testFields), gc.DeepEquals, set.NewStrings("field1", "field2", "field3", "field4"))
 }
 
-func (s *ApplicationSuite) TestConfigSchemaKnownConfigKeys(c *gc.C) {
-	fields, err := application.ConfigSchema(nil)
+func (s *ApplicationSuite) assertNewConfig(c *gc.C) *application.Config {
+	cfg, err := application.NewConfig(
+		map[string]interface{}{"field2": "field 2 value", "field4": true},
+		testFields, testDefaults)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fields.KnownConfigKeys(),
-		gc.DeepEquals, set.NewStrings([]string{"juju-external-hostname", "juju-application-path"}...))
+	return cfg
+}
+
+func (s *ApplicationSuite) TestAttributes(c *gc.C) {
+	cfg := s.assertNewConfig(c)
+	c.Assert(cfg.Attributes(), jc.DeepEquals, application.ConfigAttributes{
+		"field1": "field 1 default",
+		"field2": "field 2 value",
+		"field3": 42,
+		"field4": true,
+	})
 }
 
 func (s *ApplicationSuite) TestNewConfigUnknownAttribute(c *gc.C) {
@@ -71,84 +76,31 @@ func (s *ApplicationSuite) TestNewConfigUnknownAttribute(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown key "some-attr" \(value "value"\)`)
 }
 
-func (s *ApplicationSuite) TestAttributes(c *gc.C) {
-	cfg, err := application.NewConfig(
-		map[string]interface{}{"juju-external-hostname": "value", "juju-application-path": "path"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Attributes(), jc.DeepEquals, application.ConfigAttributes{
-		"juju-external-hostname": "value",
-		"juju-application-path":  "path"})
-}
-
 func (s *ApplicationSuite) TestAttributesNil(c *gc.C) {
 	cfg := (*application.Config)(nil)
 	c.Assert(cfg.Attributes(), gc.IsNil)
 }
 
-func (s *ApplicationSuite) TestAttributeWithDefault(c *gc.C) {
-	cfg, err := application.NewConfig(nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Attributes(), jc.DeepEquals, application.ConfigAttributes{"juju-application-path": "/"})
-}
-
-func (s *ApplicationSuite) TestExtraAttributes(c *gc.C) {
-	extraFields := environschema.Fields{
-		"extra": {
-			Description: "some field",
-			Type:        environschema.Tstring,
-		},
-		"extra2": {
-			Description: "some field",
-			Type:        environschema.Tstring,
-		},
-	}
-	extraDefaults := schema.Defaults{
-		"extra": "fred",
-	}
-	cfg, err := application.NewConfig(nil, extraFields, extraDefaults)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Attributes(), jc.DeepEquals, application.ConfigAttributes{
-		"juju-application-path": "/",
-		"extra":                 "fred",
-	})
-}
-
 func (s *ApplicationSuite) TestGet(c *gc.C) {
-	cfg, err := application.NewConfig(map[string]interface{}{"juju-external-hostname": "ext-host"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Attributes().Get("juju-external-hostname", nil), gc.Equals, "ext-host")
+	cfg := s.assertNewConfig(c)
+	c.Assert(cfg.Attributes().Get("field1", nil), gc.Equals, "field 1 default")
 	c.Assert(cfg.Attributes().Get("missing", "default"), gc.Equals, "default")
 }
 
 func (s *ApplicationSuite) TestGetString(c *gc.C) {
-	cfg, err := application.NewConfig(map[string]interface{}{"juju-external-hostname": "ext-host"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Attributes().GetString("juju-external-hostname", ""), gc.Equals, "ext-host")
+	cfg := s.assertNewConfig(c)
+	c.Assert(cfg.Attributes().GetString("field1", ""), gc.Equals, "field 1 default")
 	c.Assert(cfg.Attributes().GetString("missing", "default"), gc.Equals, "default")
 }
 
 func (s *ApplicationSuite) TestGetInt(c *gc.C) {
-	extraFields := environschema.Fields{
-		"extra": {
-			Description: "some field",
-			Type:        environschema.Tint,
-		},
-	}
-	cfg, err := application.NewConfig(map[string]interface{}{"extra": 456}, extraFields, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Attributes().GetInt("extra", -1), gc.Equals, 456)
+	cfg := s.assertNewConfig(c)
+	c.Assert(cfg.Attributes().GetInt("field3", -1), gc.Equals, 42)
 	c.Assert(cfg.Attributes().GetInt("missing", -1), gc.Equals, -1)
 }
 
 func (s *ApplicationSuite) TestGetBool(c *gc.C) {
-	extraFields := environschema.Fields{
-		"extra": {
-			Description: "some field",
-			Type:        environschema.Tbool,
-		},
-	}
-	cfg, err := application.NewConfig(map[string]interface{}{"extra": true}, extraFields, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.Attributes().GetBool("extra", false), gc.Equals, true)
+	cfg := s.assertNewConfig(c)
+	c.Assert(cfg.Attributes().GetBool("field4", false), gc.Equals, true)
 	c.Assert(cfg.Attributes().GetBool("missing", true), gc.Equals, true)
 }

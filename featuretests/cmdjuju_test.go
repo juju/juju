@@ -5,10 +5,12 @@ package featuretests
 
 import (
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/juju/testing/factory"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/constraints"
@@ -107,16 +109,42 @@ func (s *cmdJujuSuite) TestApplicationUnset(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, expect))
 }
 
-func (s *cmdJujuSuite) TestApplicationGet(c *gc.C) {
+func (s *cmdJujuSuite) TestApplicationGetIAASModel(c *gc.C) {
 	expected := `application: dummy-application
 charm: dummy
-config:
-  ingress.kubernetes.io/ssl-passthrough:
-    default: false
-    description: whether to passthrough SSL traffic to the ingress controller
+settings:
+  outlook:
+    description: No default outlook.
+    source: unset
+    type: string
+  skill-level:
+    description: A number indicating skill.
+    source: unset
+    type: int
+  title:
+    default: My Title
+    description: A descriptive title used for the application.
     source: default
-    type: bool
-    value: false
+    type: string
+    value: My Title
+  username:
+    default: admin001
+    description: The name of the initial account (given admin permissions).
+    source: default
+    type: string
+    value: admin001
+`
+	ch := s.AddTestingCharm(c, "dummy")
+	s.AddTestingApplication(c, "dummy-application", ch)
+
+	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
+}
+
+func (s *cmdJujuSuite) TestApplicationGetCAASModel(c *gc.C) {
+	expected := `application: dummy-application
+application-config:
   juju-application-path:
     default: /
     description: the relative http path used to access an application
@@ -128,18 +156,30 @@ config:
     source: user
     type: string
     value: ext-host
+  kubernetes-ingress-allow-http:
+    default: false
+    description: whether to allow HTTP traffic to the ingress controller
+    source: default
+    type: bool
+    value: false
   kubernetes-ingress-class:
     default: nginx
     description: the class of the ingress controller to be used by the ingress resource
     source: default
     type: string
     value: nginx
+  kubernetes-ingress-ssl-passthrough:
+    default: false
+    description: whether to passthrough SSL traffic to the ingress controller
+    source: default
+    type: bool
+    value: false
   kubernetes-ingress-ssl-redirect:
-    default: true
+    default: false
     description: whether to redirect SSL traffic to the ingress controller
     source: default
     type: bool
-    value: true
+    value: false
   kubernetes-service-external-ips:
     description: list of IP addresses for which nodes in the cluster will also accept
       traffic
@@ -170,12 +210,7 @@ config:
     source: default
     type: string
     value: ClusterIP
-  kubernetes.io/ingress.allow-http:
-    default: false
-    description: whether to allow insecure HTTP traffic to the ingress controller
-    source: default
-    type: bool
-    value: false
+charm: dummy
 settings:
   outlook:
     description: No default outlook.
@@ -198,12 +233,20 @@ settings:
     type: string
     value: admin001
 `
-	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "dummy-application", ch)
-	err := app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, nil, nil)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "dummy-application", Charm: ch})
+	schema, err := caas.ConfigSchema(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, schema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application")
+	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "-m", "caas-model", "dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
 }
@@ -273,7 +316,6 @@ type cmdJujuSuiteNoCAAS struct {
 func (s *cmdJujuSuiteNoCAAS) TestApplicationGet(c *gc.C) {
 	expected := `application: dummy-application
 charm: dummy
-config: {}
 settings:
   outlook:
     description: No default outlook.
@@ -298,7 +340,9 @@ settings:
 `
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "dummy-application", ch)
-	err := app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, nil, nil)
+	schema, err := caas.ConfigSchema(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, schema, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application")

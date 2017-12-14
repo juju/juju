@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
@@ -208,23 +209,27 @@ func (api *APIv5) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, e
 	return result, nil
 }
 
-func providerConfigSchema() (environschema.Fields, schema.Defaults) {
+func applicationConfigSchema(modelType state.ModelType) (environschema.Fields, schema.Defaults, error) {
+	if modelType != state.ModelTypeCAAS {
+		return environschema.Fields{}, schema.Defaults{}, nil
+	}
 	// TODO(caas) - get the schema from the provider
-	return k8s.ConfigSchema(), k8s.ConfigDefaults()
+	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	schema, err := caas.ConfigSchema(k8s.ConfigSchema())
+	return schema, defaults, err
 }
 
-func splitApplicationAndCharmConfig(inConfig map[string]string) (
+func splitApplicationAndCharmConfig(modelType state.ModelType, inConfig map[string]string) (
 	appCfg map[string]interface{},
 	charmCfg map[string]string,
 	_ error,
 ) {
 
-	providerSchema, _ := providerConfigSchema()
-	appSchema, err := application.ConfigSchema(providerSchema)
+	providerSchema, _, err := applicationConfigSchema(modelType)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	appConfigKeys := appSchema.KnownConfigKeys()
+	appConfigKeys := application.KnownConfigKeys(providerSchema)
 
 	appConfigAttrs := make(map[string]interface{})
 	charmConfig := make(map[string]string)
@@ -291,15 +296,18 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(args.Config)
+	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(backend.ModelType(), args.Config)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	var applicationConfig *application.Config
 	if len(appConfigAttrs) > 0 {
-		// TODO(caas) - get the schema from the provider
-		applicationConfig, err = application.NewConfig(appConfigAttrs, k8s.ConfigSchema(), k8s.ConfigDefaults())
+		schema, defaults, err := applicationConfigSchema(backend.ModelType())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		applicationConfig, err = application.NewConfig(appConfigAttrs, schema, defaults)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1563,14 +1571,17 @@ func (api *APIv6) setApplicationConfig(arg params.ApplicationConfigSet) error {
 		return errors.Trace(err)
 	}
 
-	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(arg.Config)
+	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(api.backend.ModelType(), arg.Config)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	providerSchema, providerDefaults := providerConfigSchema()
+	schema, defaults, err := applicationConfigSchema(api.backend.ModelType())
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	if len(appConfigAttrs) > 0 {
-		if err := app.UpdateApplicationConfig(appConfigAttrs, nil, providerSchema, providerDefaults); err != nil {
+		if err := app.UpdateApplicationConfig(appConfigAttrs, nil, schema, defaults); err != nil {
 			return errors.Annotate(err, "updating application config values")
 		}
 	}
@@ -1614,12 +1625,11 @@ func (api *APIv6) unsetApplicationConfig(arg params.ApplicationUnset) error {
 		return errors.Trace(err)
 	}
 
-	providerSchema, providerDefaults := providerConfigSchema()
-	appSchema, err := application.ConfigSchema(providerSchema)
+	schema, defaults, err := applicationConfigSchema(api.backend.ModelType())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	appConfigFields := appSchema.KnownConfigKeys()
+	appConfigFields := application.KnownConfigKeys(schema)
 
 	var appConfigKeys []string
 	charmSettings := make(charm.Settings)
@@ -1632,7 +1642,7 @@ func (api *APIv6) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	}
 
 	if len(appConfigKeys) > 0 {
-		if err := app.UpdateApplicationConfig(nil, appConfigKeys, providerSchema, providerDefaults); err != nil {
+		if err := app.UpdateApplicationConfig(nil, appConfigKeys, schema, defaults); err != nil {
 			return errors.Annotate(err, "updating application config values")
 		}
 	}

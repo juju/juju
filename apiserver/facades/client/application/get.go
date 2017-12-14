@@ -7,8 +7,10 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/schema"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/constraints"
 )
 
@@ -66,13 +68,11 @@ func (api *APIv5) getConfig(
 		return params.ApplicationGetResults{}, err
 	}
 
-	providerSchema, providerDefaults := providerConfigSchema()
-	appSchema, err := application.ConfigSchema(providerSchema)
+	providerSchema, providerDefaults, err := applicationConfigSchema(api.backend.ModelType())
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-
-	appConfigInfo := describeAppConfig(appConfig, appSchema, application.ConfigDefaults(providerDefaults))
+	appConfigInfo := describeAppConfig(appConfig, providerSchema, caas.ConfigDefaults(providerDefaults))
 	var constraints constraints.Value
 	if app.IsPrincipal() {
 		constraints, err = app.Constraints()
@@ -92,11 +92,11 @@ func (api *APIv5) getConfig(
 
 func describeAppConfig(
 	appConfig application.ConfigAttributes,
-	schema application.ConfigFields,
+	schema environschema.Fields,
 	defaults schema.Defaults,
 ) map[string]interface{} {
 	results := make(map[string]interface{})
-	for name, field := range schema.Fields() {
+	for name, field := range schema {
 		defaultValue := defaults[name]
 		info := map[string]interface{}{
 			"description": field.Description,
