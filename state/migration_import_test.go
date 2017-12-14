@@ -16,6 +16,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
@@ -415,7 +416,7 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
-	// Add a application with both settings and leadership settings.
+	// Add a application with charm settings, app config, and leadership settings.
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "starsay", // it has resources
@@ -426,6 +427,11 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
+		ApplicationConfig: map[string]interface{}{
+			"app foo": "app bar",
+		},
+		ApplicationConfigFields: environschema.Fields{
+			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		Constraints: cons,
 	})
 	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
@@ -466,11 +472,17 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 
-	exportedConfig, err := exported.CharmConfig()
+	exportedCharmConfig, err := exported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	importedConfig, err := imported.CharmConfig()
+	importedCharmConfig, err := imported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedConfig, jc.DeepEquals, exportedConfig)
+	c.Assert(importedCharmConfig, jc.DeepEquals, exportedCharmConfig)
+
+	exportedAppConfig, err := exported.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	importedAppConfig, err := imported.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedAppConfig, jc.DeepEquals, exportedAppConfig)
 
 	exportedLeaderSettings, err := exported.LeaderSettings()
 	c.Assert(err, jc.ErrorIsNil)

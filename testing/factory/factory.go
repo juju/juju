@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
@@ -92,14 +93,15 @@ type MachineParams struct {
 
 // ApplicationParams is used when specifying parameters for a new application.
 type ApplicationParams struct {
-	Name              string
-	Charm             *state.Charm
-	Status            *status.StatusInfo
-	ApplicationConfig map[string]interface{}
-	CharmConfig       map[string]interface{}
-	Storage           map[string]state.StorageConstraints
-	Constraints       constraints.Value
-	EndpointBindings  map[string]string
+	Name                    string
+	Charm                   *state.Charm
+	Status                  *status.StatusInfo
+	ApplicationConfig       map[string]interface{}
+	ApplicationConfigFields environschema.Fields
+	CharmConfig             map[string]interface{}
+	Storage                 map[string]state.StorageConstraints
+	Constraints             constraints.Value
+	EndpointBindings        map[string]string
 }
 
 // UnitParams are used to create units.
@@ -450,7 +452,7 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 		resourceMap[name] = pendingID
 	}
 
-	appConfig, err := application.NewConfig(params.ApplicationConfig, nil, nil)
+	appConfig, err := application.NewConfig(params.ApplicationConfig, params.ApplicationConfigFields, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
 		Name:              params.Name,
