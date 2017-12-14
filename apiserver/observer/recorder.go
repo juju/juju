@@ -5,9 +5,11 @@ package observer
 
 import (
 	"encoding/json"
+	"reflect"
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/rpc"
 )
@@ -78,11 +80,7 @@ func (cr *combinedRecorder) HandleReply(req rpc.Request, replyHdr *rpc.Header, b
 	}
 	var responseErrors []*auditlog.Error
 	if replyHdr.Error == "" {
-		var err error
-		responseErrors, err = extractErrors(body)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		responseErrors = extractErrors(body)
 	} else {
 		responseErrors = []*auditlog.Error{{
 			Message: replyHdr.Error,
@@ -95,7 +93,93 @@ func (cr *combinedRecorder) HandleReply(req rpc.Request, replyHdr *rpc.Header, b
 	}))
 }
 
-func extractErrors(body interface{}) ([]*auditlog.Error, error) {
-	// TODO(babbageclunk): use reflection to find errors in the response body.
-	return nil, nil
+func extractErrors(body interface{}) []*auditlog.Error {
+	// To find errors in the API responses, we look for a struct where
+	// there is an attribute that is:
+	// * a slice of structs that have an attribute that is *Error or
+	// * a plain old *Error
+	// I thought we'd need to handle a []*Error as well, but it turns
+	// out we don't use that in the API.
+	value := reflect.ValueOf(body)
+	if value.Kind() != reflect.Struct {
+		return nil
+	}
+
+	// Prefer a slice of structs with Errors.
+	for i := 0; i < value.NumField(); i++ {
+		attr := value.Field(i)
+		if errors, ok := tryStructSliceErrors(attr); ok {
+			return convertErrors(errors)
+		}
+	}
+
+	for i := 0; i < value.NumField(); i++ {
+		attr := value.Field(i)
+		if err, ok := tryErrorPointer(attr); ok {
+			return convertErrors([]*params.Error{err})
+		}
+	}
+	return nil
+}
+
+func tryErrorPointer(value reflect.Value) (*params.Error, bool) {
+	if !value.CanInterface() {
+		return nil, false
+	}
+	err, ok := value.Interface().(*params.Error)
+	return err, ok
+}
+
+func tryStructSliceErrors(value reflect.Value) ([]*params.Error, bool) {
+	if value.Kind() != reflect.Slice {
+		return nil, false
+	}
+	itemType := value.Type().Elem()
+	if itemType.Kind() != reflect.Struct {
+		return nil, false
+	}
+	errorField, found := findErrorField(itemType)
+	if !found {
+		return nil, false
+	}
+
+	result := make([]*params.Error, value.Len())
+	for i := 0; i < value.Len(); i++ {
+		item := value.Index(i)
+		// We know item's a struct.
+		errorValue := item.Field(errorField)
+		// This will assign nil if we couldn't extract the field (it
+		// wasn't exported for example), but that's OK.
+		result[i], _ = tryErrorPointer(errorValue)
+	}
+	return result, true
+}
+
+var errorType = reflect.TypeOf(params.Error{})
+
+func findErrorField(itemType reflect.Type) (int, bool) {
+	for i := 0; i < itemType.NumField(); i++ {
+		field := itemType.Field(i)
+		if field.Type.Kind() != reflect.Ptr {
+			continue
+		}
+		if field.Type.Elem() == errorType {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func convertErrors(errors []*params.Error) []*auditlog.Error {
+	result := make([]*auditlog.Error, len(errors))
+	for i, err := range errors {
+		if err == nil {
+			continue
+		}
+		result[i] = &auditlog.Error{
+			Message: err.Message,
+			Code:    err.Code,
+		}
+	}
+	return result
 }
