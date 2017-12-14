@@ -111,7 +111,7 @@ func Open(args OpenParams) (*State, error) {
 
 	// State should only be Opened on behalf of a controller environ; all
 	// other *States should be created via ForModel.
-	if err := st.start(args.ControllerTag); err != nil {
+	if err := st.start(args.ControllerTag, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
@@ -387,7 +387,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, errors.Trace(err)
 	}
 	controllerTag := names.NewControllerTag(args.ControllerConfig.ControllerUUID())
-	if err := st.start(controllerTag); err != nil {
+	if err := st.start(controllerTag, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	probablyUpdateStatusHistory(st.db(), modelGlobalKey, modelStatusDoc)
