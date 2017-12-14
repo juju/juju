@@ -16,11 +16,16 @@ import (
 // recorders that that will update the observer and the auditlog
 // recorder when it records a request or reply. The auditlog recorder
 // can be nil.
-func NewRecorderFactory(observerFactory rpc.ObserverFactory, recorder *auditlog.Recorder) rpc.RecorderFactory {
+func NewRecorderFactory(
+	captureArgs bool,
+	observerFactory rpc.ObserverFactory,
+	recorder *auditlog.Recorder,
+) rpc.RecorderFactory {
 	return func() rpc.Recorder {
 		return &combinedRecorder{
-			observer: observerFactory.RPCObserver(),
-			recorder: recorder,
+			captureArgs: captureArgs,
+			observer:    observerFactory.RPCObserver(),
+			recorder:    recorder,
 		}
 	}
 }
@@ -28,8 +33,9 @@ func NewRecorderFactory(observerFactory rpc.ObserverFactory, recorder *auditlog.
 // combinedRecorder wraps an observer (which might be a multiplexer)
 // up with an auditlog recorder into an rpc.Recorder.
 type combinedRecorder struct {
-	observer rpc.Observer
-	recorder *auditlog.Recorder
+	captureArgs bool
+	observer    rpc.Observer
+	recorder    *auditlog.Recorder
 }
 
 // HandleRequest implements rpc.Recorder.
@@ -38,17 +44,20 @@ func (cr *combinedRecorder) HandleRequest(hdr *rpc.Header, body interface{}) err
 	if cr.recorder == nil {
 		return nil
 	}
-	// TODO(babbageclunk): make this configurable.
-	jsonArgs, err := json.Marshal(body)
-	if err != nil {
-		return errors.Trace(err)
+	var args string
+	if cr.captureArgs {
+		jsonArgs, err := json.Marshal(body)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		args = string(jsonArgs)
 	}
 	return errors.Trace(cr.recorder.AddRequest(auditlog.RequestArgs{
 		RequestID: hdr.RequestId,
 		Facade:    hdr.Request.Type,
 		Method:    hdr.Request.Action,
 		Version:   hdr.Request.Version,
-		Args:      string(jsonArgs),
+		Args:      args,
 	}))
 }
 

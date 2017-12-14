@@ -31,7 +31,7 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 		ConnectionID: 4567,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	factory := observer.NewRecorderFactory(fake, auditRecorder)
+	factory := observer.NewRecorderFactory(true, fake, auditRecorder)
 	recorder := factory()
 	hdr := &rpc.Header{
 		RequestId: 123,
@@ -62,6 +62,39 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 	})
 }
 
+func (s *recorderSuite) TestServerRequestNoArgs(c *gc.C) {
+	fake := &fakeobserver.Instance{}
+	log := &apitesting.FakeAuditLog{}
+	clock := testing.NewClock(time.Now())
+	auditRecorder, err := auditlog.NewRecorder(log, clock, auditlog.ConversationArgs{
+		ConnectionID: 4567,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	factory := observer.NewRecorderFactory(false, fake, auditRecorder)
+	recorder := factory()
+	hdr := &rpc.Header{
+		RequestId: 123,
+		Request:   rpc.Request{"Type", 5, "", "Action"},
+	}
+	err = recorder.HandleRequest(hdr, "the args")
+	c.Assert(err, jc.ErrorIsNil)
+
+	log.CheckCallNames(c, "AddConversation", "AddRequest")
+
+	request := log.Calls()[1].Args[0].(auditlog.Request)
+	c.Assert(request.ConversationID, gc.HasLen, 16)
+	request.ConversationID = "abcdef0123456789"
+	c.Assert(request, gc.Equals, auditlog.Request{
+		ConversationID: "abcdef0123456789",
+		ConnectionID:   "11D7",
+		RequestID:      123,
+		When:           clock.Now().Format(time.RFC3339),
+		Facade:         "Type",
+		Method:         "Action",
+		Version:        5,
+	})
+}
+
 func (s *recorderSuite) TestServerReply(c *gc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
@@ -70,7 +103,7 @@ func (s *recorderSuite) TestServerReply(c *gc.C) {
 		ConnectionID: 4567,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	factory := observer.NewRecorderFactory(fake, auditRecorder)
+	factory := observer.NewRecorderFactory(true, fake, auditRecorder)
 	recorder := factory()
 
 	req := rpc.Request{"Type", 5, "", "Action"}
@@ -99,7 +132,7 @@ func (s *recorderSuite) TestServerReply(c *gc.C) {
 
 func (s *recorderSuite) TestNoAuditRequest(c *gc.C) {
 	fake := &fakeobserver.Instance{}
-	factory := observer.NewRecorderFactory(fake, nil)
+	factory := observer.NewRecorderFactory(false, fake, nil)
 	recorder := factory()
 	hdr := &rpc.Header{
 		RequestId: 123,
@@ -111,7 +144,7 @@ func (s *recorderSuite) TestNoAuditRequest(c *gc.C) {
 
 func (s *recorderSuite) TestNoAuditReply(c *gc.C) {
 	fake := &fakeobserver.Instance{}
-	factory := observer.NewRecorderFactory(fake, nil)
+	factory := observer.NewRecorderFactory(false, fake, nil)
 	recorder := factory()
 	req := rpc.Request{"Type", 0, "", "Action"}
 	hdr := &rpc.Header{RequestId: 123}

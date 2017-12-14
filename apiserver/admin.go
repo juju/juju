@@ -142,7 +142,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	recorderFactory := observer.NewRecorderFactory(
-		a.apiObserver, auditRecorder)
+		a.srv.auditLogConfig.CaptureAPIArgs, a.apiObserver, auditRecorder)
 
 	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
 	return params.LoginResult{
