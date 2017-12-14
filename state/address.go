@@ -150,6 +150,8 @@ func (st *State) SetAPIHostPorts(newHostPorts [][]network.HostPort) error {
 					newHostPortsForAgents[i] = newHostPorts[i]
 				}
 			}
+		} else {
+			newHostPortsForAgents = newHostPorts
 		}
 
 		// Retrieve the current API addresses for agents document.
