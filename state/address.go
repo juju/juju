@@ -143,8 +143,9 @@ func (st *State) SetAPIHostPorts(newHostPorts [][]network.HostPort) error {
 		}
 		if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != "" {
 			newHostPortsForAgents = make([][]network.HostPort, len(newHostPorts))
+			sp := network.SpaceName(mgmtSpace)
 			for i := range newHostPorts {
-				if filtered, ok := network.SelectHostsPortBySpaces(newHostPorts[i], network.SpaceName(mgmtSpace)); ok {
+				if filtered, ok := network.SelectHostsPortBySpaces(newHostPorts[i], sp); ok {
 					newHostPortsForAgents[i] = filtered
 				} else {
 					newHostPortsForAgents[i] = newHostPorts[i]
