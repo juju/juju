@@ -12,20 +12,29 @@ import (
 	"github.com/juju/juju/rpc"
 )
 
+const (
+	// CaptureArgs means we'll serialize the API arguments and store
+	// them in the audit log.
+	CaptureArgs = true
+
+	// NoCaptureArgs means don't do that.
+	NoCaptureArgs = false
+)
+
 // NewRecorderFactory makes a new rpc.RecorderFactory to make
 // recorders that that will update the observer and the auditlog
 // recorder when it records a request or reply. The auditlog recorder
 // can be nil.
 func NewRecorderFactory(
-	captureArgs bool,
 	observerFactory rpc.ObserverFactory,
 	recorder *auditlog.Recorder,
+	captureArgs bool,
 ) rpc.RecorderFactory {
 	return func() rpc.Recorder {
 		return &combinedRecorder{
-			captureArgs: captureArgs,
 			observer:    observerFactory.RPCObserver(),
 			recorder:    recorder,
+			captureArgs: captureArgs,
 		}
 	}
 }
@@ -33,9 +42,9 @@ func NewRecorderFactory(
 // combinedRecorder wraps an observer (which might be a multiplexer)
 // up with an auditlog recorder into an rpc.Recorder.
 type combinedRecorder struct {
-	captureArgs bool
 	observer    rpc.Observer
 	recorder    *auditlog.Recorder
+	captureArgs bool
 }
 
 // HandleRequest implements rpc.Recorder.

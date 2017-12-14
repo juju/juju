@@ -31,7 +31,7 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 		ConnectionID: 4567,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	factory := observer.NewRecorderFactory(true, fake, auditRecorder)
+	factory := observer.NewRecorderFactory(fake, auditRecorder, observer.CaptureArgs)
 	recorder := factory()
 	hdr := &rpc.Header{
 		RequestId: 123,
@@ -70,7 +70,7 @@ func (s *recorderSuite) TestServerRequestNoArgs(c *gc.C) {
 		ConnectionID: 4567,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	factory := observer.NewRecorderFactory(false, fake, auditRecorder)
+	factory := observer.NewRecorderFactory(fake, auditRecorder, observer.NoCaptureArgs)
 	recorder := factory()
 	hdr := &rpc.Header{
 		RequestId: 123,
@@ -103,7 +103,7 @@ func (s *recorderSuite) TestServerReply(c *gc.C) {
 		ConnectionID: 4567,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	factory := observer.NewRecorderFactory(true, fake, auditRecorder)
+	factory := observer.NewRecorderFactory(fake, auditRecorder, observer.CaptureArgs)
 	recorder := factory()
 
 	req := rpc.Request{"Type", 5, "", "Action"}
@@ -132,7 +132,7 @@ func (s *recorderSuite) TestServerReply(c *gc.C) {
 
 func (s *recorderSuite) TestNoAuditRequest(c *gc.C) {
 	fake := &fakeobserver.Instance{}
-	factory := observer.NewRecorderFactory(false, fake, nil)
+	factory := observer.NewRecorderFactory(fake, nil, observer.NoCaptureArgs)
 	recorder := factory()
 	hdr := &rpc.Header{
 		RequestId: 123,
@@ -144,7 +144,7 @@ func (s *recorderSuite) TestNoAuditRequest(c *gc.C) {
 
 func (s *recorderSuite) TestNoAuditReply(c *gc.C) {
 	fake := &fakeobserver.Instance{}
-	factory := observer.NewRecorderFactory(false, fake, nil)
+	factory := observer.NewRecorderFactory(fake, nil, observer.NoCaptureArgs)
 	recorder := factory()
 	req := rpc.Request{"Type", 0, "", "Action"}
 	hdr := &rpc.Header{RequestId: 123}

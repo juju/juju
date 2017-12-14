@@ -79,7 +79,7 @@ func (srv *Server) serveAPI(w http.ResponseWriter, req *http.Request) {
 func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string) {
 	codec := jsoncodec.NewWebsocket(wsConn)
 	conn := rpc.NewConn(codec, observer.NewRecorderFactory(
-		false, &fakeobserver.Instance{}, nil))
+		&fakeobserver.Instance{}, nil, observer.NoCaptureArgs))
 
 	root := allVersions{
 		rpcreflect.ValueOf(reflect.ValueOf(srv.newRoot(modelUUID))),
