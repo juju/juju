@@ -100,98 +100,106 @@ type apiHostPortsDoc struct {
 	TxnRevno     int64        `bson:"txn-revno"`
 }
 
-// SetAPIHostPorts sets the addresses of the API server instances.
+// SetAPIHostPorts sets the addresses, if changed, of two collections:
+// - The list of *all* addresses at which the API is accessible.
+// - The list of addresses at which the API can be accessed by agents according
+//   to the controller management space configuration.
 // Each server is represented by one element in the top level slice.
 func (st *State) SetAPIHostPorts(newHostPorts [][]network.HostPort) error {
 	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
 
-	var newHostPortsForAgents [][]network.HostPort
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var ops []txn.Op
-
-		// Retrieve the current API addresses document.
-		var existingAllAddrDoc apiHostPortsDoc
-		err := controllers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&existingAllAddrDoc)
+		ops, err := st.getOpsForHostPortsChange(controllers, apiHostPortsKey, newHostPorts)
 		if err != nil {
-			return nil, err
-		}
-		hostPorts := networkHostsPorts(existingAllAddrDoc.APIHostPorts)
-
-		// If the stored addresses are different from the input collection, queue an update operation.
-		if !hostsPortsEqual(newHostPorts, hostPorts) {
-			ops = append(ops, txn.Op{
-				C:  controllersC,
-				Id: apiHostPortsKey,
-				Assert: bson.D{{
-					"txn-revno", existingAllAddrDoc.TxnRevno,
-				}},
-				Update: bson.D{{
-					"$set", bson.D{{"apihostports", fromNetworkHostsPorts(newHostPorts)}},
-				}},
-			})
+			return nil, errors.Trace(err)
 		}
 
-		// Filter the collection of API addresses based on the configured management
-		// space for the controller.
-		// If there is no space configured, or if the one of the slices is filtered down
-		// to zero elements, just use the unfiltered slice for safety.
-		config, err := st.ControllerConfig()
+		newHostPortsForAgents, err := st.filterHostPortsForManagementSpace(newHostPorts)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-		if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != "" {
-			newHostPortsForAgents = make([][]network.HostPort, len(newHostPorts))
-			sp := network.SpaceName(mgmtSpace)
-			for i := range newHostPorts {
-				if filtered, ok := network.SelectHostsPortBySpaces(newHostPorts[i], sp); ok {
-					newHostPortsForAgents[i] = filtered
-				} else {
-					newHostPortsForAgents[i] = newHostPorts[i]
-				}
-			}
-		} else {
-			newHostPortsForAgents = newHostPorts
-		}
-
-		// Retrieve the current API addresses for agents document.
-		var existingAgentAddrDoc apiHostPortsDoc
-		err = controllers.Find(bson.D{{"_id", apiHostPortsForAgentsKey}}).One(&existingAgentAddrDoc)
+		agentAddrOps, err := st.getOpsForHostPortsChange(
+			controllers, apiHostPortsForAgentsKey, newHostPortsForAgents)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-
-		// If the stored addresses are different from the new management API address
-		// collection, queue an update operation.
-		agentHostPorts := networkHostsPorts(existingAgentAddrDoc.APIHostPorts)
-		if !hostsPortsEqual(newHostPortsForAgents, agentHostPorts) {
-			ops = append(ops, txn.Op{
-				C:  controllersC,
-				Id: apiHostPortsForAgentsKey,
-				Assert: bson.D{{
-					"txn-revno", existingAgentAddrDoc.TxnRevno,
-				}},
-				Update: bson.D{{
-					"$set", bson.D{{"apihostports", fromNetworkHostsPorts(newHostPortsForAgents)}},
-				}},
-			})
-		}
+		ops = append(ops, agentAddrOps...)
 
 		if ops == nil || len(ops) == 0 {
 			return nil, statetxn.ErrNoOperations
 		}
 		return ops, nil
 	}
+
 	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, "cannot set API addresses")
 	}
-	logger.Debugf("setting API hostPorts: %v", newHostPorts)
-	logger.Debugf("setting API hostPorts for agents: %v", newHostPortsForAgents)
 	return nil
 }
 
-// APIHostPorts returns the API addresses as set by SetAPIHostPorts.
+// getOpsForHostPortsChange returns a slice of operations used to update an
+// API host/collection in the DB.
+// If the current document indicates the same host/port collection as the
+// input, no operations are returned.
+func (st *State) getOpsForHostPortsChange(
+	mc mongo.Collection, key string, newHostPorts [][]network.HostPort) ([]txn.Op, error) {
+	var ops []txn.Op
+
+	// Retrieve the current document.
+	var extantHostPortDoc apiHostPortsDoc
+	err := mc.Find(bson.D{{"_id", key}}).One(&extantHostPortDoc)
+	if err != nil {
+		return ops, err
+	}
+
+	// Queue an update operation if the host/port collections differ.
+	extantHostPorts := networkHostsPorts(extantHostPortDoc.APIHostPorts)
+	if !hostsPortsEqual(newHostPorts, extantHostPorts) {
+		ops = []txn.Op{{
+			C:  controllersC,
+			Id: key,
+			Assert: bson.D{{
+				"txn-revno", extantHostPortDoc.TxnRevno,
+			}},
+			Update: bson.D{{
+				"$set", bson.D{{"apihostports", fromNetworkHostsPorts(newHostPorts)}},
+			}},
+		}}
+		logger.Debugf("setting %s: %v", key, newHostPorts)
+	}
+	return ops, nil
+}
+
+// filterHostPortsForManagementSpace filters the collection of API addresses
+// based on the configured management space for the controller.
+// If there is no space configured, or if the one of the slices is filtered down
+// to zero elements, just use the unfiltered slice for safety - we do not
+// want to cut off communication to the controller based on erroneous config.
+func (st *State) filterHostPortsForManagementSpace(apiHostPorts [][]network.HostPort) ([][]network.HostPort, error) {
+	config, err := st.ControllerConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	var hostPortsForAgents [][]network.HostPort
+	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != "" {
+		hostPortsForAgents = make([][]network.HostPort, len(apiHostPorts))
+		sp := network.SpaceName(mgmtSpace)
+		for i := range apiHostPorts {
+			if filtered, ok := network.SelectHostsPortBySpaces(apiHostPorts[i], sp); ok {
+				hostPortsForAgents[i] = filtered
+			} else {
+				hostPortsForAgents[i] = apiHostPorts[i]
+			}
+		}
+	} else {
+		hostPortsForAgents = apiHostPorts
+	}
+	return hostPortsForAgents, nil
+}
+
+// APIHostPorts returns the collection of *all* API addresses as set by SetAPIHostPorts.
 func (st *State) APIHostPorts() ([][]network.HostPort, error) {
 	var doc apiHostPortsDoc
 	controllers, closer := st.db().GetCollection(controllersC)
