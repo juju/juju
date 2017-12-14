@@ -206,6 +206,8 @@ func (w *HubWatcher) loop() error {
 
 func (w *HubWatcher) flush() {
 	// syncEvents are stored first in first out.
+	// syncEvents may grow during the looping here if new
+	// watch events come in while we are notifying other watchers.
 	for i := 0; i < len(w.syncEvents); i++ {
 		e := &w.syncEvents[i]
 		for e.ch != nil {

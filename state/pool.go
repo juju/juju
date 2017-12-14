@@ -32,24 +32,27 @@ func NewStatePool(systemState *State) *StatePool {
 	// If systemState is nil, this is clearly a test, and a poorly
 	// isolated one. However now is not the time to fix all those broken
 	// tests.
-	if systemState != nil {
-		pool.watcherRunner = worker.NewRunner(worker.RunnerParams{
-			// TODO add a Logger parameter to RunnerParams:
-			// Logger: loggo.GetLogger(logger.Name() + ".txnwatcher"),
-			IsFatal:      func(err error) bool { return errors.Cause(err) == errPoolClosed },
-			RestartDelay: time.Second,
-			Clock:        systemState.clock(),
-		})
-		pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
-			return watcher.NewTxnWatcher(
-				watcher.TxnWatcherConfig{
-					ChangeLog: systemState.getTxnLogCollection(),
-					Hub:       pool.hub,
-					Clock:     systemState.clock(),
-					Logger:    loggo.GetLogger("juju.state.pool.txnwatcher"),
-				})
-		})
+	if systemState == nil {
+		logger.Warningf("creating test pool with no txn watcher")
+		return pool
 	}
+
+	pool.watcherRunner = worker.NewRunner(worker.RunnerParams{
+		// TODO add a Logger parameter to RunnerParams:
+		// Logger: loggo.GetLogger(logger.Name() + ".txnwatcher"),
+		IsFatal:      func(err error) bool { return errors.Cause(err) == errPoolClosed },
+		RestartDelay: time.Second,
+		Clock:        systemState.clock,
+	})
+	pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+		return watcher.NewTxnWatcher(
+			watcher.TxnWatcherConfig{
+				ChangeLog: systemState.getTxnLogCollection(),
+				Hub:       pool.hub,
+				Clock:     systemState.clock,
+				Logger:    loggo.GetLogger("juju.state.pool.txnwatcher"),
+			})
+	})
 	return pool
 }
 
