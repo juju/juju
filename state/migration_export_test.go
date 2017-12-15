@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
@@ -380,6 +381,11 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
+		ApplicationConfig: map[string]interface{}{
+			"app foo": "app bar",
+		},
+		ApplicationConfigFields: environschema.Fields{
+			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		Constraints: cons,
 	})
 	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
@@ -401,11 +407,15 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 	exported := applications[0]
 	c.Assert(exported.Name(), gc.Equals, application.Name())
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
+	c.Assert(exported.Type(), gc.Equals, string(s.Model.Type()))
 	c.Assert(exported.Series(), gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
-	c.Assert(exported.Settings(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(exported.CharmConfig(), jc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
+	})
+	c.Assert(exported.ApplicationConfig(), jc.DeepEquals, map[string]interface{}{
+		"app foo": "app bar",
 	})
 	c.Assert(exported.LeadershipSettings(), jc.DeepEquals, map[string]interface{}{
 		"leader": "true",

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
@@ -415,7 +416,7 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
-	// Add a application with both settings and leadership settings.
+	// Add a application with charm settings, app config, and leadership settings.
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "starsay", // it has resources
@@ -426,6 +427,11 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
+		ApplicationConfig: map[string]interface{}{
+			"app foo": "app bar",
+		},
+		ApplicationConfigFields: environschema.Fields{
+			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		Constraints: cons,
 	})
 	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
@@ -466,11 +472,17 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
 
-	exportedConfig, err := exported.CharmConfig()
+	exportedCharmConfig, err := exported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	importedConfig, err := imported.CharmConfig()
+	importedCharmConfig, err := imported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedConfig, jc.DeepEquals, exportedConfig)
+	c.Assert(importedCharmConfig, jc.DeepEquals, exportedCharmConfig)
+
+	exportedAppConfig, err := exported.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	importedAppConfig, err := imported.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedAppConfig, jc.DeepEquals, exportedAppConfig)
 
 	exportedLeaderSettings, err := exported.LeaderSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -681,6 +693,8 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
+	err = rel.SetStatus(status.StatusInfo{Status: status.Joined})
+	c.Assert(err, jc.ErrorIsNil)
 	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 
 	ru, err := rel.Unit(wordpress_0)
@@ -705,7 +719,7 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 
 	relStatus, err := rels[0].Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relStatus.Status, gc.Equals, status.Joining)
+	c.Assert(relStatus.Status, gc.Equals, status.Joined)
 
 	ru, err = rels[0].Unit(units[0])
 	c.Assert(err, jc.ErrorIsNil)
@@ -713,6 +727,57 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	settings, err := ru.Settings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings.Map(), gc.DeepEquals, relSettings)
+}
+
+func (s *MigrationImportSuite) assertRelationsMissingStatus(c *gc.C, hasUnits bool) {
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	if hasUnits {
+		wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+		ru, err := rel.Unit(wordpress_0)
+		c.Assert(err, jc.ErrorIsNil)
+		relSettings := map[string]interface{}{
+			"name": "wordpress/0",
+		}
+		err = ru.EnterScope(relSettings)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	_, newSt := s.importModel(c, func(desc map[string]interface{}) {
+		relations := desc["relations"].(map[interface{}]interface{})
+		for _, item := range relations["relations"].([]interface{}) {
+			relation := item.(map[interface{}]interface{})
+			delete(relation, "status")
+		}
+	})
+
+	newWordpress, err := newSt.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state.RelationCount(newWordpress), gc.Equals, 1)
+	rels, err := newWordpress.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rels, gc.HasLen, 1)
+
+	relStatus, err := rels[0].Status()
+	c.Assert(err, jc.ErrorIsNil)
+	if hasUnits {
+		c.Assert(relStatus.Status, gc.Equals, status.Joined)
+	} else {
+		c.Assert(relStatus.Status, gc.Equals, status.Joining)
+	}
+}
+
+func (s *MigrationImportSuite) TestRelationsMissingStatusWithUnits(c *gc.C) {
+	s.assertRelationsMissingStatus(c, true)
+}
+
+func (s *MigrationImportSuite) TestRelationsMissingStatusNoUnits(c *gc.C) {
+	s.assertRelationsMissingStatus(c, false)
 }
 
 func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
