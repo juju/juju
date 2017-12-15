@@ -684,6 +684,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 
 	args := description.ApplicationArgs{
 		Tag:                  application.ApplicationTag(),
+		Type:                 e.model.Type(),
 		Series:               application.doc.Series,
 		Subordinate:          application.doc.Subordinate,
 		CharmURL:             application.doc.CharmURL.String(),
