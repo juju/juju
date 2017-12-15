@@ -1330,11 +1330,14 @@ func buildModelRepresentation(
 				Machine: unit.Machine,
 			})
 		}
-		// TODO: application constraints
 		applications[name] = application
 		annotationTags = append(annotationTags, names.NewApplicationTag(name).String())
 		appNames = append(appNames, name)
-		if len(appStatus.SubordinateTo) == 0 {
+		if len(appStatus.Units) > 0 {
+			// While this isn't entirely accurate, because an application
+			// without any units is still a principal, it is less bad than
+			// just using 'SubordinateTo' as a subordinate charm that isn't
+			// related to anything has that empty too.
 			principalApps = append(principalApps, name)
 		}
 	}

@@ -247,6 +247,38 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 	s.assertUnitsCreated(c, map[string]string{})
 }
 
+func (s *BundleDeployCharmStoreSuite) TestDryRunExistingModel(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	testcharms.UploadCharm(c, s.client, "trusty/multi-series-subordinate-13", "multi-series-subordinate")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
+	// Start with a mysql that already has the right charm.
+	ch := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "mysql", Series: "xenial", Revision: "42"})
+	mysql := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "mysql", Charm: ch})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+	// Also add a subordinate that isn't attached to anything.
+	sub := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "multi-series-subordinate", Series: "trusty", Revision: "13"})
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "sub", Charm: sub})
+
+	stdOut, _, err := runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := "" +
+		"Changes to deploy bundle:\n" +
+		"- upload charm cs:xenial/wordpress-47 for series xenial\n" +
+		"- deploy application wordpress on xenial using cs:xenial/wordpress-47\n" +
+		"- add relation wordpress:db - mysql:server\n" +
+		"- add unit wordpress/0 to new machine 1"
+
+	c.Check(stdOut, gc.Equals, expected)
+	stdOut, _, err = runDeployWithOutput(c, "bundle/wordpress-simple", "--dry-run")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(stdOut, gc.Equals, expected)
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	url, _ := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
