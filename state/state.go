@@ -1110,7 +1110,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			for _, supportedSeries := range supportedSeries {
 				os, err := series.GetOSFromSeries(supportedSeries)
 				if err != nil {
-					return nil, errors.Trace(err)
+					// If we can't figure out a series written in the charm
+					// just skip it.
+					continue
 				}
 				supportedOperatingSystems[os] = true
 			}
