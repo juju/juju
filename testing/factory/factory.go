@@ -102,6 +102,7 @@ type ApplicationParams struct {
 	Storage                 map[string]state.StorageConstraints
 	Constraints             constraints.Value
 	EndpointBindings        map[string]string
+	Password                string
 }
 
 // UnitParams are used to create units.
@@ -429,6 +430,15 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 // sane defaults for missing values.
 // If params is not specified, defaults are used.
 func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *state.Application {
+	app, _ := factory.MakeApplicationReturningPassword(c, params)
+	return app
+}
+
+// MakeApplication creates an application with the specified parameters, substituting
+// sane defaults for missing values.
+// If params is not specified, defaults are used.
+// It returns the application and its password.
+func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *ApplicationParams) (*state.Application, string) {
 	if params == nil {
 		params = &ApplicationParams{}
 	}
@@ -437,6 +447,11 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 	}
 	if params.Name == "" {
 		params.Name = params.Charm.Meta().Name
+	}
+	if params.Password == "" {
+		var err error
+		params.Password, err = utils.RandomPassword()
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	rSt, err := factory.st.Resources()
@@ -465,6 +480,8 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 		EndpointBindings:  params.EndpointBindings,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	application.SetPassword(params.Password)
+	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
 		now := time.Now()
@@ -478,7 +495,7 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	return application
+	return application, params.Password
 }
 
 // MakeUnit creates an application unit with specified params, filling in

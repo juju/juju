@@ -422,7 +422,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 		Name: "starsay", // it has resources
 	})
 	c.Assert(charm.Meta().Resources, gc.HasLen, 3)
-	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	application, pwd := s.Factory.MakeApplicationReturningPassword(c, &factory.ApplicationParams{
 		Charm: charm,
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
@@ -471,6 +471,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(imported.Series(), gc.Equals, exported.Series())
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
+	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
 
 	exportedCharmConfig, err := exported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
