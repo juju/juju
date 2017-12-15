@@ -184,6 +184,11 @@ func (a *mockApplication) UpdateCharmConfig(settings charm.Settings) error {
 	return a.NextErr()
 }
 
+func (a *mockApplication) SetExposed() error {
+	a.MethodCall(a, "SetExposed")
+	return a.NextErr()
+}
+
 type mockRemoteApplication struct {
 	jtesting.Stub
 	name           string
