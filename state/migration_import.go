@@ -997,26 +997,27 @@ func (i *importer) importUnitPayloads(unit *Unit, payloads []description.Payload
 	return nil
 }
 
-func (i *importer) makeApplicationDoc(s description.Application) (*applicationDoc, error) {
-	charmURL, err := charm.ParseURL(s.CharmURL())
+func (i *importer) makeApplicationDoc(a description.Application) (*applicationDoc, error) {
+	charmURL, err := charm.ParseURL(a.CharmURL())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &applicationDoc{
-		Name:                 s.Name(),
-		Series:               s.Series(),
-		Subordinate:          s.Subordinate(),
+		Name:                 a.Name(),
+		Series:               a.Series(),
+		Subordinate:          a.Subordinate(),
 		CharmURL:             charmURL,
-		Channel:              s.Channel(),
-		CharmModifiedVersion: s.CharmModifiedVersion(),
-		ForceCharm:           s.ForceCharm(),
+		Channel:              a.Channel(),
+		CharmModifiedVersion: a.CharmModifiedVersion(),
+		ForceCharm:           a.ForceCharm(),
+		PasswordHash:         a.PasswordHash(),
 		Life:                 Alive,
-		UnitCount:            len(s.Units()),
-		RelationCount:        i.relationCount(s.Name()),
-		Exposed:              s.Exposed(),
-		MinUnits:             s.MinUnits(),
-		MetricCredentials:    s.MetricsCredentials(),
+		UnitCount:            len(a.Units()),
+		RelationCount:        i.relationCount(a.Name()),
+		Exposed:              a.Exposed(),
+		MinUnits:             a.MinUnits(),
+		MetricCredentials:    a.MetricsCredentials(),
 	}, nil
 }
 
