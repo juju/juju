@@ -201,12 +201,27 @@ func (st *State) filterHostPortsForManagementSpace(apiHostPorts [][]network.Host
 
 // APIHostPorts returns the collection of *all* API addresses as set by SetAPIHostPorts.
 func (st *State) APIHostPorts() ([][]network.HostPort, error) {
+	return st.apiHostPortsForKey(apiHostPortsKey)
+}
+
+// APIHostPortsForAgents returns the collection of API addresses that should be used
+// by agents.
+// If there is no management network space configured for the controller
+// or if the space is misconfigured, the return will be the same as APIHostPorts.
+// Otherwise the returned addresses will correspond with the management net space.
+func (st *State) APIHostPortsForAgents() ([][]network.HostPort, error) {
+	return st.apiHostPortsForKey(apiHostPortsForAgentsKey)
+}
+
+// apiHostPortsForKey returns API addresses extracted from the document
+// identified by the input key.
+func (st *State) apiHostPortsForKey(key string) ([][]network.HostPort, error) {
 	var doc apiHostPortsDoc
 	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
-	err := controllers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
+	err := controllers.Find(bson.D{{"_id", key}}).One(&doc)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return networkHostsPorts(doc.APIHostPorts), nil
 }
