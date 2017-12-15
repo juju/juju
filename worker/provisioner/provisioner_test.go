@@ -855,7 +855,6 @@ type MockMachine struct {
 	idErr         error
 	ensureDeadErr error
 	statusErr     error
-	//	pInfo         *params.ProvisioningInfo
 }
 
 func (m *MockMachine) Life() params.Life {
@@ -881,10 +880,6 @@ func (m *MockMachine) InstanceStatus() (status.Status, string, error) {
 func (m *MockMachine) Id() string {
 	return m.id
 }
-
-//func (m *MockMachine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
-//	return m.pInfo, nil
-//}
 
 type machineClassificationTest struct {
 	description    string

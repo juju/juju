@@ -335,7 +335,17 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 		} else {
 			return errors.Errorf("key %q not found in %q model.", key, attrs["name"])
 		}
+	} else {
+		// In tabular format, don't print "cloudinit-userdata" it can be very long,
+		// instead give instructions on how to print specifically.
+		if value, ok := attrs[config.CloudInitUserDataKey]; ok && c.out.Name() == "tabular" {
+			if value.Value.(string) != "" {
+				value.Value = "<value set, see juju model-config cloudinit-userdata>"
+				attrs["cloudinit-userdata"] = value
+			}
+		}
 	}
+
 	return c.out.Write(ctx, attrs)
 }
 
