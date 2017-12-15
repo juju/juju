@@ -788,14 +788,25 @@ func (api *APIv5) CharmRelations(p params.ApplicationCharmRelations) (params.App
 // were also explicitly marked by units as open.
 func (api *APIv5) Expose(args params.ApplicationExpose) error {
 	if err := api.checkCanWrite(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
 	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
-		return err
+		return errors.Trace(err)
+	}
+	if api.backend.ModelType() == state.ModelTypeCAAS {
+		appConfig, err := app.ApplicationConfig()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if appConfig.GetString(caas.JujuExternalHostNameKey, "") == "" {
+			return errors.Errorf(
+				"cannot expose a CAAS application without a %q value set, run\n"+
+					"juju config %s %s=<value>", caas.JujuExternalHostNameKey, args.ApplicationName, caas.JujuExternalHostNameKey)
+		}
 	}
 	return app.SetExposed()
 }

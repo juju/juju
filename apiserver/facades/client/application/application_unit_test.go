@@ -1171,3 +1171,24 @@ func (s *ApplicationSuite) TestUnsetApplicationConfigPermissionDenied(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	s.application.CheckNoCalls(c)
 }
+
+func (s *ApplicationSuite) TestCAASExposeWithoutHostname(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	err := s.api.Expose(params.ApplicationExpose{
+		ApplicationName: "postgresql",
+	})
+	c.Assert(err, gc.ErrorMatches,
+		`cannot expose a CAAS application without a "juju-external-hostname" value set, run\n`+
+			`juju config postgresql juju-external-hostname=<value>`)
+}
+
+func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	app := s.backend.applications["postgresql"]
+	app.config = coreapplication.ConfigAttributes{"juju-external-hostname": "exthost"}
+	err := s.api.Expose(params.ApplicationExpose{
+		ApplicationName: "postgresql",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	app.CheckCallNames(c, "ApplicationConfig", "SetExposed")
+}
