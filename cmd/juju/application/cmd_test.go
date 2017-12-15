@@ -4,6 +4,8 @@
 package application
 
 import (
+	"path/filepath"
+
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -86,7 +88,13 @@ func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
 		c.Assert(deployCmd.ApplicationName, gc.Equals, t.expectApplicationName)
 		c.Assert(deployCmd.CharmOrBundle, gc.Equals, t.expectCharmOrBundle)
 		c.Assert(deployCmd.NumUnits, gc.Equals, t.expectNumUnits)
-		c.Assert(deployCmd.Config.Path, gc.Equals, t.expectConfigFile)
+		if t.expectConfigFile != "" {
+			ctx := cmdtesting.Context(c)
+			absFiles, err := deployCmd.ConfigOptions.AbsoluteFileNames(ctx)
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(absFiles, gc.HasLen, 1)
+			c.Assert(absFiles[0], gc.Equals, filepath.Join(ctx.Dir, t.expectConfigFile))
+		}
 	}
 }
 
