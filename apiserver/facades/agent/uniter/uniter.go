@@ -2189,3 +2189,20 @@ func (u *UniterAPIV4) NetworkInfo(_, _ struct{}) {}
 
 // WatchUnitRelations isn't on the V4 API.
 func (u *UniterAPIV4) WatchUnitRelations(_, _ struct{}) {}
+
+func networkInfoResultsToV6(v7Results params.NetworkInfoResults) params.NetworkInfoResultsV6 {
+	results := make(map[string]params.NetworkInfoResultV6)
+	for k, v6Result := range v7Results.Results {
+		results[k] = params.NetworkInfoResultV6{Error: v6Result.Error, Info: v6Result.Info}
+	}
+	return params.NetworkInfoResultsV6{Results: results}
+}
+
+// Network Info implements UniterAPIV6 version of NetworkInfo by constructing an API V6 compatible result.
+func (u *UniterAPIV6) NetworkInfo(args params.NetworkInfoParams) (params.NetworkInfoResultsV6, error) {
+	v6Results, err := u.UniterAPI.NetworkInfo(args)
+	if err != nil {
+		return params.NetworkInfoResultsV6{}, errors.Trace(err)
+	}
+	return networkInfoResultsToV6(v6Results), nil
+}
