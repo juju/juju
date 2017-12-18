@@ -210,9 +210,6 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
-	pool := state.NewStatePool(st)
-	defer pool.Close()
-
 	// Now close the proxy so that any attempts to use the
 	// controller will fail.
 	proxy.Close()
@@ -220,7 +217,7 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	// Creating the server should succeed because it doesn't
 	// access the state (note that newServer does not log in,
 	// which *would* access the state).
-	_, srv := newServer(c, pool)
+	_, srv := newServer(c, s.StatePool)
 	srv.Stop()
 }
 
@@ -532,10 +529,8 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	coretesting.SkipFlaky(c, "lp:1702215")
-	pool := state.NewStatePool(s.State)
-	defer pool.Close()
 	cfg := defaultServerConfig(c)
-	_, server := newServerWithConfig(c, pool, cfg)
+	_, server := newServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, server)
 
 	w := s.State.WatchModels()
@@ -558,7 +553,7 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the model's in the pool but not referenced.
-	st, releaser, err := pool.Get(otherState.ModelUUID())
+	st, releaser, err := s.StatePool.Get(otherState.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	releaser()
 

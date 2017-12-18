@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
@@ -342,7 +343,7 @@ func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := newSt.start(st.controllerTag); err != nil {
+	if err := newSt.start(st.controllerTag, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newSt, nil
@@ -354,7 +355,7 @@ func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
 //   * creating cloud metadata storage
 //
 // start will close the *State if it fails.
-func (st *State) start(controllerTag names.ControllerTag) (err error) {
+func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub) (err error) {
 	defer func() {
 		if err == nil {
 			return
@@ -386,7 +387,7 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 	// now we've set up leaseClientId, we can use workersFactory
 
 	logger.Infof("starting standard state workers")
-	workers, err := newWorkers(st)
+	workers, err := newWorkers(st, hub)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -536,6 +537,9 @@ func (st *State) getPingBatcher() *presence.PingBatcher {
 // getTxnLogCollection returns the raw mongodb txns collection, which is
 // needed to interact with the state/watcher package.
 func (st *State) getTxnLogCollection() *mgo.Collection {
+	if st.Ping() != nil {
+		st.session.Refresh()
+	}
 	return st.session.DB(jujuDB).C(txnLogC)
 }
 
@@ -2315,7 +2319,7 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 		return errors.Trace(err)
 	}
 	st.stateClock = clock
-	err = st.start(st.controllerTag)
+	err = st.start(st.controllerTag, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
