@@ -160,8 +160,11 @@ func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult
 	if !authResult.userLogin || a.srv.auditLogger == nil {
 		return nil, nil
 	}
+	// Wrap the audit logger in a filter that prevents us from logging
+	// lots of readonly conversations (like juju status requests).
 	result, err := auditlog.NewRecorder(
-		a.srv.auditLogger,
+		observer.NewAuditLogFilter(
+			a.srv.auditLogger, observer.InterestingRequest),
 		a.srv.clock,
 		auditlog.ConversationArgs{
 			Who:          req.AuthTag,

@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -944,13 +945,14 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(when.After(startTime), jc.IsTrue)
 }
 
-func (s *loginSuite) TestLoginAddsAuditConversation(c *gc.C) {
+func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 	log := &servertesting.FakeAuditLog{}
 	cfg := defaultServerConfig(c)
 	cfg.AuditLogConfig.Enabled = true
 	cfg.AuditLog = log
 	info, srv := newServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
+	info.ModelTag = s.IAASModel.Tag().(names.ModelTag)
 
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
@@ -967,9 +969,23 @@ func (s *loginSuite) TestLoginAddsAuditConversation(c *gc.C) {
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
+	// Nothing's logged at this point because there haven't been any
+	// interesting requests.
+	log.CheckCallNames(c)
 
-	log.CheckCallNames(c, "AddConversation")
+	var addResult params.AddMachinesResult
+	addReq := &params.AddMachines{
+		MachineParams: []params.AddMachineParams{{
+			Jobs: []multiwatcher.MachineJob{"JobHostUnits"},
+		}},
+	}
+	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResult)
+	c.Assert(err, jc.ErrorIsNil)
+
+	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
+
 	convo := log.Calls()[0].Args[0].(auditlog.Conversation)
+	c.Assert(convo.ConversationID, gc.HasLen, 16)
 	// Blank out unknown fields.
 	convo.ConversationID = "0123456789abcdef"
 	convo.ConnectionID = "something"
@@ -982,9 +998,20 @@ func (s *loginSuite) TestLoginAddsAuditConversation(c *gc.C) {
 		ConnectionID:   "something",
 		ConversationID: "0123456789abcdef",
 	})
+
+	auditReq := log.Calls()[1].Args[0].(auditlog.Request)
+	auditReq.ConversationID = ""
+	auditReq.ConnectionID = ""
+	auditReq.RequestID = 0
+	c.Assert(auditReq, gc.Equals, auditlog.Request{
+		When:    cfg.Clock.Now().Format(time.RFC3339),
+		Facade:  "Client",
+		Method:  "AddMachines",
+		Version: 1,
+	})
 }
 
-func (s *loginSuite) TestAuditLoggingFailurePreventsLogin(c *gc.C) {
+func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 	log := &servertesting.FakeAuditLog{}
 	log.SetErrors(errors.Errorf("bad news bears"))
 	cfg := defaultServerConfig(c)
@@ -992,6 +1019,8 @@ func (s *loginSuite) TestAuditLoggingFailurePreventsLogin(c *gc.C) {
 	cfg.AuditLog = log
 	info, srv := newServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
+
+	info.ModelTag = s.IAASModel.Tag().(names.ModelTag)
 
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
@@ -1003,10 +1032,23 @@ func (s *loginSuite) TestAuditLoggingFailurePreventsLogin(c *gc.C) {
 	request := &params.LoginRequest{
 		AuthTag:     user.Tag().String(),
 		Credentials: password,
-		CLIArgs:     "hey you guys",
+
+		CLIArgs: "hey you guys",
 	}
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	// No error yet since logging the conversation is deferred until
+	// something happens.
+	c.Assert(err, jc.ErrorIsNil)
+
+	var addResult params.AddMachinesResult
+	addReq := &params.AddMachines{
+		MachineParams: []params.AddMachineParams{{
+			Jobs: []multiwatcher.MachineJob{"JobHostUnits"},
+		}},
+	}
+	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResult)
 	c.Assert(err, gc.ErrorMatches, "bad news bears")
+
 }
 
 var _ = gc.Suite(&macaroonLoginSuite{})
