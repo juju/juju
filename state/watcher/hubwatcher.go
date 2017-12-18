@@ -209,8 +209,10 @@ func (w *HubWatcher) flush() {
 	// syncEvents may grow during the looping here if new
 	// watch events come in while we are notifying other watchers.
 	for i := 0; i < len(w.syncEvents); i++ {
-		e := &w.syncEvents[i]
-		for e.ch != nil {
+		// We need to reget the address value each time through the loop
+		// as the slice may be reallocated.
+		for e := &w.syncEvents[i]; e.ch != nil; e = &w.syncEvents[i] {
+			w.logger.Tracef("syncEvents: e.ch=%v len(%d), cap(%d)", e.ch, len(w.syncEvents), cap(w.syncEvents))
 			select {
 			case <-w.tomb.Dying():
 				return
@@ -221,17 +223,20 @@ func (w *HubWatcher) flush() {
 				w.queueChange(change)
 				continue
 			case e.ch <- Change{e.key.c, e.key.id, e.revno}:
+				w.logger.Tracef("e.ch=%v has been notified", e.ch)
 			}
 			break
 		}
 	}
 	w.syncEvents = w.syncEvents[:0]
+	w.logger.Tracef("syncEvents: len(%d), cap(%d)", len(w.syncEvents), cap(w.syncEvents))
 
 	// requestEvents are stored oldest first, and
 	// may grow during the loop.
 	for i := 0; i < len(w.requestEvents); i++ {
-		e := &w.requestEvents[i]
-		for e.ch != nil {
+		// We need to reget the address value each time through the loop
+		// as the slice may be reallocated.
+		for e := &w.requestEvents[i]; e.ch != nil; e = &w.requestEvents[i] {
 			select {
 			case <-w.tomb.Dying():
 				return
@@ -309,6 +314,7 @@ func (w *HubWatcher) queueChange(change Change) {
 			continue
 		}
 		w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+		w.logger.Tracef("adding collection watch for %v syncEvents: len(%d), cap(%d)", info.ch, len(w.syncEvents), cap(w.syncEvents))
 	}
 
 	// Queue notifications for per-document watches.
@@ -317,6 +323,7 @@ func (w *HubWatcher) queueChange(change Change) {
 		if revno > info.revno || revno < 0 && info.revno >= 0 {
 			infos[i].revno = revno
 			w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
+			w.logger.Tracef("adding document watch for %v syncEvents: len(%d), cap(%d)", info.ch, len(w.syncEvents), cap(w.syncEvents))
 		}
 	}
 }

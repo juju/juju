@@ -291,3 +291,21 @@ func (s *HubWatcherSuite) TestWatchBeforeRemoveKnown(c *gc.C) {
 	assertChange(c, s.ch, added)
 	assertChange(c, s.ch, removed)
 }
+
+func (s *HubWatcherSuite) TestWatchStoppedWhileFlushing(c *gc.C) {
+	first := watcher.Change{"test", "a", 2}
+	second := watcher.Change{"test", "a", 3}
+
+	s.w.Watch("test", "a", -1, s.ch)
+
+	s.publish(c, first)
+	// The second event forces a reallocation of the slice in the
+	// watcher.
+	s.publish(c, second)
+	// Unwatching should nil out the channel for all pending sync events.
+	s.w.Unwatch("test", "a", s.ch)
+
+	// Since we haven't removed anything off the channel before the
+	// unwatch, all the pending events should be cleared.
+	assertNoChange(c, s.ch)
+}
