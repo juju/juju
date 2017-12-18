@@ -1282,6 +1282,21 @@ func (cfg *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults sche
 				}
 			}
 			result[name] = value
+			// The only allowed types for unknown attributes are string, int, float and bool
+			switch value.(type) {
+			case string:
+				continue
+			case int:
+				continue
+			case bool:
+				continue
+			case float32:
+				continue
+			case float64:
+				continue
+			default:
+				return nil, fmt.Errorf("%s: unknown type (%q)", name, value)
+			}
 		}
 	}
 	return result, nil
