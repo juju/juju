@@ -13,43 +13,6 @@ import (
 	"github.com/juju/juju/core/auditlog"
 )
 
-var readOnlyMethods = set.NewStrings(
-	"Client.FullStatus",
-
-	// All client facade methods that start with List.
-	"Action.ListAll",
-	"Action.ListPending",
-	"Action.ListRunning",
-	"Action.ListComplete",
-	"ApplicationOffers.ListApplicationOffers",
-	"Backups.List",
-	"Block.List",
-	"Charms.List",
-	"Controller.ListBlockedModels",
-	"FirewallRules.ListFirewallRules",
-	"ImageManager.ListImages",
-	"ImageMetadata.List",
-	"KeyManager.ListKeys",
-	"ModelManager.ListModels",
-	"ModelManager.ListModelSummaries",
-	"Payloads.List",
-	"PayloadsHookContext.List",
-	"Resources.ListResources",
-	"ResourcesHookContext.ListResources",
-	"Spaces.ListSpaces",
-	"Storage.ListStorageDetails",
-	"Storage.ListPools",
-	"Storage.ListVolumes",
-	"Storage.ListFilesystems",
-	"Subnets.ListSubnets",
-)
-
-// InterestingRequest returns whether this API request is interesting enough
-// to write the conversation to the audit log.
-func InterestingRequest(req auditlog.Request) bool {
-	return !readOnlyMethods.Contains(fmt.Sprintf("%s.%s", req.Facade, req.Method))
-}
-
 // bufferedLog defers writing records to its destination audit log
 // until it sees an interesting request - then all buffered messages
 // and subsequent ones get forwarded on.
@@ -141,3 +104,62 @@ func (l *bufferedLog) flush() error {
 	l.buffer = nil
 	return nil
 }
+
+// InterestingRequest returns whether this API request is interesting enough
+// to write the conversation to the audit log.
+func InterestingRequest(req auditlog.Request) bool {
+	return !readOnlyMethods.Contains(fmt.Sprintf("%s.%s", req.Facade, req.Method))
+}
+
+var readOnlyMethods = set.NewStrings(
+	// Collected by running read-only commands.
+	"Action.Actions",
+	"Action.ApplicationsCharmsActions",
+	"Action.FindActionsByNames",
+	"Action.FindActionTagsByPrefix",
+	"Application.Get",
+	"Application.GetConstraints",
+	"ApplicationOffers.ApplicationOffers",
+	"Backups.Info",
+	"Client.FullStatus",
+	"Client.GetModelConstraints",
+	"Client.StatusHistory",
+	"Controller.AllModels",
+	"Controller.ControllerConfig",
+	"Controller.GetControllerAccess",
+	"Controller.ModelConfig",
+	"Controller.ModelStatus",
+	"MetricsDebug.GetMetrics",
+	"ModelConfig.ModelGet",
+	"ModelManager.ModelInfo",
+	"ModelManager.ModelDefaults",
+	"Pinger.Ping",
+	"UserManager.UserInfo",
+
+	// All client facade methods that start with List.
+	"Action.ListAll",
+	"Action.ListPending",
+	"Action.ListRunning",
+	"Action.ListComplete",
+	"ApplicationOffers.ListApplicationOffers",
+	"Backups.List",
+	"Block.List",
+	"Charms.List",
+	"Controller.ListBlockedModels",
+	"FirewallRules.ListFirewallRules",
+	"ImageManager.ListImages",
+	"ImageMetadata.List",
+	"KeyManager.ListKeys",
+	"ModelManager.ListModels",
+	"ModelManager.ListModelSummaries",
+	"Payloads.List",
+	"PayloadsHookContext.List",
+	"Resources.ListResources",
+	"ResourcesHookContext.ListResources",
+	"Spaces.ListSpaces",
+	"Storage.ListStorageDetails",
+	"Storage.ListPools",
+	"Storage.ListVolumes",
+	"Storage.ListFilesystems",
+	"Subnets.ListSubnets",
+)
