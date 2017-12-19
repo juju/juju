@@ -45,18 +45,17 @@ func (*BridgeSuite) TestActivateNonExistentDevice(c *gc.C) {
 	c.Check(result, gc.IsNil)
 }
 
-func (*BridgeSuite) TestActivateEth0(c *gc.C) {
+func (s *BridgeSuite) TestActivateEth0(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		Clock:            clock.WallClock,
+		Clock:            testing.NewClock(time.Now()),
 		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
 		Filename:         filename,
 		ReconfigureDelay: 10,
 		Timeout:          5 * time.Minute,
 	}
-
 	result, err := debinterfaces.BridgeAndActivate(params)
 	c.Assert(err, gc.IsNil)
 	c.Check(result, gc.NotNil)
@@ -69,15 +68,15 @@ ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 10
 cp testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
 ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
-`, time.Now().Unix())
+`, params.Clock.Now().Unix())
 	c.Check(string(result.Stdout), gc.Equals, expected[1:])
 }
 
-func (*BridgeSuite) TestActivateEth0WithoutBackup(c *gc.C) {
+func (s *BridgeSuite) TestActivateEth0WithoutBackup(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		Clock:            clock.WallClock,
+		Clock:            testing.NewClock(time.Now()),
 		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
 		Filename:         filename,
@@ -97,15 +96,15 @@ ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 100
 cp testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
 ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
-`, time.Now().Unix())
+`, params.Clock.Now().Unix())
 	c.Check(string(result.Stdout), gc.Equals, expected[1:])
 }
 
-func (*BridgeSuite) TestActivateWithNegativeReconfigureDelay(c *gc.C) {
+func (s *BridgeSuite) TestActivateWithNegativeReconfigureDelay(c *gc.C) {
 	filename := "testdata/TestInputSourceStanza/interfaces"
 
 	params := debinterfaces.ActivationParams{
-		Clock:            clock.WallClock,
+		Clock:            testing.NewClock(time.Now()),
 		Devices:          map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
 		DryRun:           true,
 		Filename:         filename,
@@ -125,7 +124,7 @@ ifdown --interfaces=testdata/TestInputSourceStanza/interfaces eth0 eth1
 sleep 0
 cp testdata/TestInputSourceStanza/interfaces.new testdata/TestInputSourceStanza/interfaces
 ifup --interfaces=testdata/TestInputSourceStanza/interfaces -a
-`, time.Now().Unix())
+`, params.Clock.Now().Unix())
 	c.Check(string(result.Stdout), gc.Equals, expected[1:])
 }
 
