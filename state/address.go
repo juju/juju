@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	statetxn "github.com/juju/txn"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -201,7 +202,11 @@ func (st *State) filterHostPortsForManagementSpace(apiHostPorts [][]network.Host
 
 // APIHostPorts returns the collection of *all* API addresses as set by SetAPIHostPorts.
 func (st *State) APIHostPorts() ([][]network.HostPort, error) {
-	return st.apiHostPortsForKey(apiHostPortsKey)
+	hp, err := st.apiHostPortsForKey(apiHostPortsKey)
+	if err != nil {
+		err = errors.Trace(err)
+	}
+	return hp, err
 }
 
 // APIHostPortsForAgents returns the collection of API addresses that should be used
@@ -209,8 +214,17 @@ func (st *State) APIHostPorts() ([][]network.HostPort, error) {
 // If there is no management network space configured for the controller
 // or if the space is misconfigured, the return will be the same as APIHostPorts.
 // Otherwise the returned addresses will correspond with the management net space.
+// If there is no document at all, we simply fall back to APIHostPorts.
 func (st *State) APIHostPortsForAgents() ([][]network.HostPort, error) {
-	return st.apiHostPortsForKey(apiHostPortsForAgentsKey)
+	hp, err := st.apiHostPortsForKey(apiHostPortsForAgentsKey)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			logger.Debugf("No document for %s; using %s", apiHostPortsForAgentsKey, apiHostPortsKey)
+			return st.APIHostPorts()
+		}
+		return nil, errors.Trace(err)
+	}
+	return hp, nil
 }
 
 // apiHostPortsForKey returns API addresses extracted from the document
@@ -221,7 +235,7 @@ func (st *State) apiHostPortsForKey(key string) ([][]network.HostPort, error) {
 	defer closer()
 	err := controllers.Find(bson.D{{"_id", key}}).One(&doc)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 	return networkHostsPorts(doc.APIHostPorts), nil
 }
