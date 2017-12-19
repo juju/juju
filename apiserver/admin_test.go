@@ -1032,8 +1032,7 @@ func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 	request := &params.LoginRequest{
 		AuthTag:     user.Tag().String(),
 		Credentials: password,
-
-		CLIArgs: "hey you guys",
+		CLIArgs:     "hey you guys",
 	}
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	// No error yet since logging the conversation is deferred until

@@ -117,7 +117,6 @@ var readOnlyMethods = set.NewStrings(
 	"Action.ApplicationsCharmsActions",
 	"Action.FindActionsByNames",
 	"Action.FindActionTagsByPrefix",
-	"Application.Get",
 	"Application.GetConstraints",
 	"ApplicationOffers.ApplicationOffers",
 	"Backups.Info",
@@ -135,6 +134,10 @@ var readOnlyMethods = set.NewStrings(
 	"ModelManager.ModelDefaults",
 	"Pinger.Ping",
 	"UserManager.UserInfo",
+
+	// Don't filter out Application.Get - since it includes secrets
+	// it's worthwhile to track when it's run, and it's not likely to
+	// swamp the log.
 
 	// All client facade methods that start with List.
 	"Action.ListAll",
