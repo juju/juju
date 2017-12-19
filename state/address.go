@@ -144,13 +144,23 @@ func (st *State) SetAPIHostPorts(newHostPorts [][]network.HostPort) error {
 // If the current document indicates the same host/port collection as the
 // input, no operations are returned.
 func (st *State) getOpsForHostPortsChange(
-	mc mongo.Collection, key string, newHostPorts [][]network.HostPort) ([]txn.Op, error) {
+	mc mongo.Collection,
+	key string,
+	newHostPorts [][]network.HostPort,
+) ([]txn.Op, error) {
 	var ops []txn.Op
 
-	// Retrieve the current document.
+	// Retrieve the current document. Return an insert operation if not found.
 	var extantHostPortDoc apiHostPortsDoc
 	err := mc.Find(bson.D{{"_id", key}}).One(&extantHostPortDoc)
 	if err != nil {
+		if err == mgo.ErrNotFound {
+			return []txn.Op{{
+				C:      controllersC,
+				Id:     key,
+				Insert: bson.D{{"apihostports", fromNetworkHostsPorts(newHostPorts)}},
+			}}, nil
+		}
 		return ops, err
 	}
 

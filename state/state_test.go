@@ -4541,6 +4541,37 @@ func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	c.Assert(gotHostPorts, jc.DeepEquals, [][]network.HostPort{{hostPort2}, {hostPort3}})
 }
 
+func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
+	addrs, err := s.State.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	newHostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}}}
+
+	// Delete the addresses for agents document before setting.
+	col := s.State.MongoSession().DB("juju").C(state.ControllersC)
+	key := "apiHostPortsForAgents"
+	err = col.RemoveId(key)
+	c.Assert(err, jc.ErrorIsNil)
+	cnt, err := col.FindId(key).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cnt, gc.Equals, 0)
+
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+}
+
 func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	addrs, err := s.State.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4553,19 +4584,12 @@ func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
 			Scope: network.ScopeCloudLocal,
 		},
 		Port: 1,
-	}, {
-		Address: network.Address{
-			Value: "0.4.8.16",
-			Type:  network.IPv4Address,
-			Scope: network.ScopePublic,
-		},
-		Port: 2,
 	}}}
 
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Delete the addresses for agents document.
+	// Delete the addresses for agents document after setting.
 	col := s.State.MongoSession().DB("juju").C(state.ControllersC)
 	key := "apiHostPortsForAgents"
 	err = col.RemoveId(key)
