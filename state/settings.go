@@ -222,9 +222,11 @@ func (s *Settings) write(ops []txn.Op) error {
 // overwriting unrelated changes made to the node since it was last read.
 func (s *Settings) Write() ([]ItemChange, error) {
 	changes, ops := s.settingsUpdateOps()
-	err := s.write(ops)
-	if err != nil {
-		return nil, err
+	if len(ops) > 0 {
+		err := s.write(ops)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return changes, nil
 }
