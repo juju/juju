@@ -82,7 +82,7 @@ var errNotPrepared = errors.New("model is not prepared")
 // SampleCloudSpec returns an environs.CloudSpec that can be used to
 // open a dummy Environ.
 func SampleCloudSpec() environs.CloudSpec {
-	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "dummy", "passeord": "secret"})
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "dummy", "password": "secret"})
 	return environs.CloudSpec{
 		Type:             "dummy",
 		Name:             "dummy",
