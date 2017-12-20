@@ -624,7 +624,7 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 		return err
 	}
 	removePortsOps, err := machine.removePortsOps()
-	if err != nil {
+	if len(removePortsOps) == 0 || err != nil {
 		return err
 	}
 	return st.db().RunTransaction(removePortsOps)
