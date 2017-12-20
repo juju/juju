@@ -510,6 +510,7 @@ type DeploymentInfo struct {
 	ApplicationName string
 	ModelUUID       string
 	CharmInfo       *apicharms.CharmInfo
+	ApplicationPlan string
 }
 
 func (c *DeployCommand) Info() *cmd.Info {
@@ -643,7 +644,47 @@ func (c *DeployCommand) deployBundle(
 	channel params.Channel,
 	apiRoot DeployAPI,
 	bundleStorage map[string]map[string]storage.Constraints,
-) error {
+) (rErr error) {
+	bakeryClient, err := c.BakeryClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelUUID, ok := apiRoot.ModelUUID()
+	if !ok {
+		return errors.New("API connection is controller-only (should never happen)")
+	}
+
+	for application, applicationSpec := range data.Applications {
+		if applicationSpec.Plan != "" {
+			for _, step := range c.Steps {
+				s := step
+				charmURL, err := charm.ParseURL(applicationSpec.Charm)
+				if err != nil {
+					return errors.Trace(err)
+				}
+
+				deployInfo := DeploymentInfo{
+					CharmID:         charmstore.CharmID{URL: charmURL},
+					ApplicationName: application,
+					ApplicationPlan: applicationSpec.Plan,
+					ModelUUID:       modelUUID,
+				}
+
+				err = s.RunPre(apiRoot, bakeryClient, ctx, deployInfo)
+				if err != nil {
+					return errors.Trace(err)
+				}
+
+				defer func() {
+					err = errors.Trace(s.RunPost(apiRoot, bakeryClient, ctx, deployInfo, rErr))
+					if err != nil {
+						rErr = err
+					}
+				}()
+			}
+		}
+	}
+
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
 	if _, err := deployBundle(
 		filePath,

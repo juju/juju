@@ -45,34 +45,54 @@ func (r *RegisterMeteredCharm) RunPre(api MeteredDeployAPI, bakeryClient *httpba
 	if r.IncreaseBudget < 0 {
 		return errors.Errorf("invalid budget increase %d", r.IncreaseBudget)
 	}
-	metered, err := api.IsMetered(deployInfo.CharmID.URL.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !metered {
-		return nil
-	}
-	info := deployInfo.CharmInfo
-	if r.Plan == "" && info.Metrics != nil && !info.Metrics.PlanRequired() {
-		return nil
-	}
-
-	if r.Plan == "" && deployInfo.CharmID.URL.Schema == "cs" {
-		r.Plan, err = r.getDefaultPlan(bakeryClient, deployInfo.CharmID.URL.String())
-		if err != nil {
-			if isNoDefaultPlanError(err) {
-				options, err1 := r.getCharmPlans(bakeryClient, deployInfo.CharmID.URL.String())
-				if err1 != nil {
-					return err1
-				}
-				charmURL := deployInfo.CharmID.URL.String()
-				if len(options) > 0 {
-					return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmURL, strings.Join(options, ", "))
-				} else {
-					return errors.Errorf("no plans available for %v.", charmURL)
-				}
+	var err error
+	// if the deployInfo specifies an application plan it means
+	// that it is to be deployed as part of the bundle and should
+	// be deployed using the specified plan: the bundle author
+	// clearly marked it as a metered application so there's no need
+	// to check.
+	if deployInfo.ApplicationPlan != "" {
+		r.Plan = deployInfo.ApplicationPlan
+		if r.Plan == "default" {
+			r.Plan, err = r.getDefaultPlan(bakeryClient, deployInfo.CharmID.URL.String())
+			if err != nil {
+				return errors.Trace(err)
 			}
-			return err
+		}
+	} else {
+		// otherwise we check if the charm is metered
+		metered, err := api.IsMetered(deployInfo.CharmID.URL.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !metered {
+			return nil
+		}
+
+		info := deployInfo.CharmInfo
+		if r.Plan == "" && info.Metrics != nil && !info.Metrics.PlanRequired() {
+			return nil
+		}
+
+		// if the plan was not specified and this is a charmstore charm we
+		// check if the charm has a default plan
+		if r.Plan == "" && deployInfo.CharmID.URL.Schema == "cs" {
+			r.Plan, err = r.getDefaultPlan(bakeryClient, deployInfo.CharmID.URL.String())
+			if err != nil {
+				if isNoDefaultPlanError(err) {
+					options, err1 := r.getCharmPlans(bakeryClient, deployInfo.CharmID.URL.String())
+					if err1 != nil {
+						return err1
+					}
+					charmURL := deployInfo.CharmID.URL.String()
+					if len(options) > 0 {
+						return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmURL, strings.Join(options, ", "))
+					} else {
+						return errors.Errorf("no plans available for %v.", charmURL)
+					}
+				}
+				return err
+			}
 		}
 	}
 
