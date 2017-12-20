@@ -4560,9 +4560,7 @@ func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	key := "apiHostPortsForAgents"
 	err = col.RemoveId(key)
 	c.Assert(err, jc.ErrorIsNil)
-	cnt, err := col.FindId(key).Count()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cnt, gc.Equals, 0)
+	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
 
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4594,9 +4592,7 @@ func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	key := "apiHostPortsForAgents"
 	err = col.RemoveId(key)
 	c.Assert(err, jc.ErrorIsNil)
-	cnt, err := col.FindId(key).Count()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cnt, gc.Equals, 0)
+	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
 
 	gotHostPorts, err := s.State.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
