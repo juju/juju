@@ -49,7 +49,7 @@ const (
 	// installing mongo.
 	JujuMongoPackage = "juju-mongodb3.2"
 
-	// JujuMongoTooldPackage is the mongo package Juju uses when
+	// JujuMongoToolsPackage is the mongo package Juju uses when
 	// installing mongo tools to get mongodump etc.
 	JujuMongoToolsPackage = "juju-mongo-tools3.2"
 
@@ -299,7 +299,8 @@ func SelectPeerHostPort(hostPorts []network.HostPort) string {
 func SelectPeerHostPortBySpace(hostPorts []network.HostPort, space network.SpaceName) string {
 	logger.Debugf("selecting mongo peer hostPort in space %s from %+v", space, hostPorts)
 	// ScopeMachineLocal addresses are OK if we can't pick by space.
-	suitableHostPorts, foundHostPortsInSpaces := network.SelectMongoHostPortsBySpaces(hostPorts, []network.SpaceName{space})
+	suitableHostPorts, foundHostPortsInSpaces :=
+		network.SelectMongoHostPortsBySpaces(hostPorts, []network.SpaceName{space})
 
 	if !foundHostPortsInSpaces {
 		logger.Debugf("Failed to select hostPort by space - trying by scope from %+v", hostPorts)
@@ -328,7 +329,11 @@ func Path(version Version) (string, error) {
 	return mongoPath(version, os.Stat, exec.LookPath)
 }
 
-func mongoPath(version Version, stat func(string) (os.FileInfo, error), lookPath func(string) (string, error)) (string, error) {
+func mongoPath(
+	version Version,
+	stat func(string) (os.FileInfo, error),
+	lookPath func(string) (string, error),
+) (string, error) {
 	switch version {
 	case Mongo24:
 		if _, err := stat(JujuMongod24Path); err == nil {

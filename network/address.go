@@ -293,9 +293,9 @@ func SelectAddressBySpaces(addresses []Address, spaceNames ...SpaceName) (Addres
 	return Address{}, false
 }
 
-// SelectHostsPortBySpaces picks the first HostPort from the given slice that has
-// the given space name associated.
-func SelectHostsPortBySpaces(hps []HostPort, spaceNames ...SpaceName) ([]HostPort, bool) {
+// SelectHostPortsBySpaces filters the input slice of HostPorts down to
+// those in the inpu space name.
+func SelectHostPortsBySpaces(hps []HostPort, spaceNames ...SpaceName) ([]HostPort, bool) {
 	if len(spaceNames) == 0 {
 		logger.Errorf("host ports not filtered - no spaces given.")
 		return hps, false
@@ -331,7 +331,7 @@ func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, b
 	return internalAddress, ok
 }
 
-// SelectMongoHostPorts returns the most suitable HostPort (as string) to
+// SelectMongoHostPortsBySpaces returns the most suitable HostPort (as string) to
 // use as a Juju Controller (API/state server) endpoint given the list of
 // hostPorts. It first tries to find the first HostPort bound to the
 // spaces provided, then, if that fails, uses the older selection method based on scope.
@@ -339,7 +339,7 @@ func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, b
 // ScopeCloudLocal and ScopeMachineLocal addresses are considered during the
 // selection, otherwise just ScopeCloudLocal are.
 func SelectMongoHostPortsBySpaces(hostPorts []HostPort, spaces []SpaceName) ([]string, bool) {
-	filteredHostPorts, ok := SelectHostsPortBySpaces(hostPorts, spaces...)
+	filteredHostPorts, ok := SelectHostPortsBySpaces(hostPorts, spaces...)
 	if ok {
 		logger.Debugf(
 			"selected %q as controller host:port, using spaces %q",
