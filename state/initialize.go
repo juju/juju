@@ -214,6 +214,12 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 		},
 		txn.Op{
 			C:      controllersC,
+			Id:     apiHostPortsForAgentsKey,
+			Assert: txn.DocMissing,
+			Insert: &apiHostPortsDoc{},
+		},
+		txn.Op{
+			C:      controllersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
 			Insert: &StateServingInfo{},
