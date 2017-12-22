@@ -198,7 +198,7 @@ func (st *State) filterHostPortsForManagementSpace(apiHostPorts [][]network.Host
 		hostPortsForAgents = make([][]network.HostPort, len(apiHostPorts))
 		sp := network.SpaceName(mgmtSpace)
 		for i := range apiHostPorts {
-			if filtered, ok := network.SelectHostPortsBySpaces(apiHostPorts[i], sp); ok {
+			if filtered, ok := network.SelectHostPortsBySpaceNames(apiHostPorts[i], sp); ok {
 				hostPortsForAgents[i] = filtered
 			} else {
 				hostPortsForAgents[i] = apiHostPorts[i]
