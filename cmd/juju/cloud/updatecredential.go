@@ -100,34 +100,38 @@ func (c *updateCredentialCommand) getAPI() (credentialAPI, error) {
 
 // Run implements Command.Run
 func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
-	cred, err := c.ClientStore().CredentialForCloud(c.cloud)
+	cloud, err := common.CloudByName(c.cloud)
 	if errors.IsNotFound(err) {
-		ctx.Infof("No credentials exist for cloud %q", c.cloud)
+		ctx.Infof("Cloud %q not found", c.cloud)
 		return nil
 	} else if err != nil {
 		return err
 	}
-	credToUpdate, ok := cred.AuthCredentials[c.credential]
-	if !ok {
+	getCredentialsParams := modelcmd.GetCredentialsParams{
+		Cloud:          *cloud,
+		CredentialName: c.credential,
+	}
+	credToUpdate, _, _, err := modelcmd.GetCredentials(ctx, c.ClientStore(), getCredentialsParams)
+	if errors.IsNotFound(err) {
 		ctx.Infof("No credential called %q exists for cloud %q", c.credential, c.cloud)
 		return nil
+	} else if err != nil {
+		return err
 	}
-
 	accountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 	credentialTag, err := common.ResolveCloudCredentialTag(
 		names.NewUserTag(accountDetails.User), names.NewCloudTag(c.cloud), c.credential,
 	)
-
 	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	if err := client.UpdateCredential(credentialTag, credToUpdate); err != nil {
+	if err := client.UpdateCredential(credentialTag, *credToUpdate); err != nil {
 		return err
 	}
 	ctx.Infof("Updated credential %q for user %q on cloud %q.", c.credential, accountDetails.User, c.cloud)
