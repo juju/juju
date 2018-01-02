@@ -15,6 +15,8 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
+	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
+	"github.com/juju/juju/caas"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 	"github.com/juju/juju/worker/workertest"
@@ -77,26 +79,24 @@ func (s *CAASProvisionerSuite) TestOperatorCreated(c *gc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.provisionerFacade.applicationsWatcher.changes <- []string{"myApp"}
+	s.provisionerFacade.applicationsWatcher.changes <- []string{"myapp"}
 
-	waitForResult := func() bool {
-		if s.caasClient.appName != "myApp" {
-			return false
-		}
-		if s.caasClient.agentPath != "/var/lib/juju" {
-			return false
-		}
-		return true
-	}
-	gotResult := false
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if gotResult = waitForResult(); gotResult {
-			return
+		if len(s.caasClient.Calls()) > 0 {
+			break
 		}
 	}
-	c.Assert(gotResult, jc.IsTrue)
+	s.caasClient.CheckCallNames(c, "EnsureOperator")
+
+	args := s.caasClient.Calls()[0].Args
+	c.Assert(args, gc.HasLen, 3)
+	c.Assert(args[0], gc.Equals, "myapp")
+	c.Assert(args[1], gc.Equals, "/var/lib/juju")
+	c.Assert(args[2], gc.FitsTypeOf, &caas.OperatorConfig{})
+	config := args[2].(*caas.OperatorConfig)
+
 	agentFile := filepath.Join(c.MkDir(), "agent.config")
-	err := ioutil.WriteFile(agentFile, []byte(s.caasClient.config.AgentConf), 0644)
+	err := ioutil.WriteFile(agentFile, []byte(config.AgentConf), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := agent.ReadConfig(agentFile)
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,8 +105,15 @@ func (s *CAASProvisionerSuite) TestOperatorCreated(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, jc.DeepEquals, []string{"10.0.0.1:17070"})
 
-	passwords := s.provisionerFacade.passwords
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.provisionerFacade.stub.Calls()) > 0 {
+			break
+		}
+	}
+	s.provisionerFacade.stub.CheckCallNames(c, "SetPasswords")
+	passwords := s.provisionerFacade.stub.Calls()[0].Args[0].([]apicaasprovisioner.ApplicationPassword)
+
 	c.Assert(passwords, gc.HasLen, 1)
-	c.Assert(passwords[0].Name, gc.Equals, "myApp")
+	c.Assert(passwords[0].Name, gc.Equals, "myapp")
 	c.Assert(passwords[0].Password, gc.Not(gc.Equals), "")
 }
