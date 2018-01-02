@@ -24,7 +24,6 @@ type mockProvisionerFacade struct {
 	stub *testing.Stub
 	caasoperatorprovisioner.CAASProvisionerFacade
 	applicationsWatcher *mockStringsWatcher
-	passwords           []apicaasprovisioner.ApplicationPassword
 }
 
 func newMockProvisionerFacade(stub *testing.Stub) *mockProvisionerFacade {
@@ -51,7 +50,6 @@ func (m *mockProvisionerFacade) SetPasswords(passwords []apicaasprovisioner.Appl
 	if err := m.stub.NextErr(); err != nil {
 		return params.ErrorResults{}, err
 	}
-	m.passwords = passwords
 	return params.ErrorResults{}, nil
 }
 
@@ -84,18 +82,13 @@ func (m *mockAgentConfig) APIAddresses() ([]string, error) {
 }
 
 type mockBroker struct {
+	testing.Stub
 	caas.Broker
-
-	appName   string
-	agentPath string
-	config    *caas.OperatorConfig
 }
 
 func (m *mockBroker) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
-	m.appName = appName
-	m.agentPath = agentPath
-	m.config = config
-	return nil
+	m.MethodCall(m, "EnsureOperator", appName, agentPath, config)
+	return m.NextErr()
 }
 
 type mockWatcher struct {
