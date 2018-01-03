@@ -489,13 +489,16 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	if params == nil {
 		params = &UnitParams{}
 	}
-	if params.Machine == nil {
-		params.Machine = factory.MakeMachine(c, nil)
-	}
 	if params.Application == nil {
 		params.Application = factory.MakeApplication(c, &ApplicationParams{
 			Constraints: params.Constraints,
 		})
+	}
+	if params.Machine == nil {
+		mParams := MachineParams{
+			Series: params.Application.Series(),
+		}
+		params.Machine = factory.MakeMachine(c, &mParams)
 	}
 	if params.Password == "" {
 		var err error
