@@ -89,7 +89,6 @@ func isRealOplog(c *mgo.Collection) bool {
 // interface allows us to switch out the querying for testing.
 type Iterator interface {
 	Next(interface{}) bool
-	Err() error
 	Timeout() bool
 	Close() error
 }
@@ -220,8 +219,6 @@ func (t *OplogTailer) Err() error {
 }
 
 func (t *OplogTailer) loop() error {
-	var iter Iterator
-
 	// lastTimestamp tracks the most recent oplog timestamp reported.
 	lastTimestamp := t.initialTs
 
@@ -236,15 +233,16 @@ func (t *OplogTailer) loop() error {
 	// See: http://docs.mongodb.org/v2.4/reference/bson-types/#timestamps
 	var idsForLastTimestamp []int64
 
+	newIter := func() Iterator {
+		return t.session.NewIter(lastTimestamp, idsForLastTimestamp)
+	}
+	iter := newIter()
+	defer func() { iter.Close() }() // iter may be replaced, hence closure
+
 	for {
 		if t.dying() {
 			return tomb.ErrDying
 		}
-
-		if iter == nil {
-			iter = t.session.NewIter(lastTimestamp, idsForLastTimestamp)
-		}
-
 		var doc OplogDoc
 		if iter.Next(&doc) {
 			select {
@@ -252,23 +250,21 @@ func (t *OplogTailer) loop() error {
 				return tomb.ErrDying
 			case t.outCh <- &doc:
 			}
-
 			if doc.Timestamp > lastTimestamp {
 				lastTimestamp = doc.Timestamp
 				idsForLastTimestamp = nil
 			}
 			idsForLastTimestamp = append(idsForLastTimestamp, doc.OperationId)
 		} else {
-			if err := iter.Err(); err != nil && err != mgo.ErrCursor {
-				return err
-			}
 			if iter.Timeout() {
 				continue
 			}
+			if err := iter.Close(); err != nil && err != mgo.ErrCursor {
+				return err
+			}
 			// Either there's no error or the error is an expired
-			// cursor. Force recreating the iterator next loop by
-			// marking it as nil.
-			iter = nil
+			// cursor; Recreate the iterator.
+			iter = newIter()
 		}
 	}
 }
