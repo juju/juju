@@ -136,6 +136,7 @@ func (p *modelSummaryProcessor) fillInFromConfig() error {
 	query := rawSettings.Find(bson.M{"_id": bson.M{"$in": settingIds}})
 	var doc settingsDoc
 	iter := query.Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
 		idx, ok := p.indexByUUID[doc.ModelUUID]
 		if !ok {
@@ -173,6 +174,7 @@ func (p *modelSummaryProcessor) fillInFromStatus() error {
 	query := rawStatus.Find(bson.M{"_id": bson.M{"$in": statusIds}})
 	var doc statusDoc
 	iter := query.Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
 		idx, ok := p.indexByUUID[doc.ModelUUID]
 		if !ok {
@@ -198,6 +200,7 @@ func (p *modelSummaryProcessor) fillInPermissions(permissionIds []string) error 
 	defer closer()
 	query := perms.Find(bson.M{"_id": bson.M{"$in": permissionIds}})
 	iter := query.Iter()
+	defer iter.Close()
 
 	var doc permissionDoc
 	for iter.Next(&doc) {
@@ -235,6 +238,7 @@ func (p *modelSummaryProcessor) fillInMachineSummary() error {
 	})
 	query.Select(bson.M{"life": 1, "model-uuid": 1, "_id": 1, "machineid": 1})
 	iter := query.Iter()
+	defer iter.Close()
 	var doc machineDoc
 	machineIds := make([]string, 0)
 	for iter.Next(&doc) {
@@ -259,6 +263,7 @@ func (p *modelSummaryProcessor) fillInMachineSummary() error {
 	query = instances.Find(bson.M{"_id": bson.M{"$in": machineIds}})
 	query.Select(bson.M{"cpucores": 1, "model-uuid": 1})
 	iter = query.Iter()
+	defer iter.Close()
 	var instData instanceData
 	for iter.Next(&instData) {
 		idx, ok := p.indexByUUID[instData.ModelUUID]
@@ -312,6 +317,7 @@ func (p *modelSummaryProcessor) fillInMigration() error {
 	})
 	pipe.Batch(100)
 	iter := pipe.Iter()
+	defer iter.Close()
 	modelMigDocs := make(map[string]modelMigDoc)
 	docIds := make([]string, 0)
 	var doc modelMigDoc
@@ -331,6 +337,7 @@ func (p *modelSummaryProcessor) fillInMigration() error {
 	query := migStatus.Find(bson.M{"_id": bson.M{"$in": docIds}})
 	query.Batch(100)
 	iter = query.Iter()
+	defer iter.Close()
 	var statusDoc modelMigStatusDoc
 	for iter.Next(&statusDoc) {
 		doc, ok := modelMigDocs[statusDoc.Id]
@@ -387,6 +394,7 @@ func (p *modelSummaryProcessor) fillInLastAccess() error {
 	query.Select(bson.M{"_id": 1, "model-uuid": 1, "last-connection": 1})
 	query.Batch(100)
 	iter := query.Iter()
+	defer iter.Close()
 	var connInfo modelUserLastConnectionDoc
 	for iter.Next(&connInfo) {
 		idx, ok := p.indexByUUID[connInfo.ModelUUID]
