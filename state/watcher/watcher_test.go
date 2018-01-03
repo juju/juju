@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
+	retry "gopkg.in/retry.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/mongo"
@@ -56,7 +57,6 @@ type watcherSuite struct {
 	runner       *txn.Runner
 	w            *watcher.Watcher
 	ch           chan watcher.Change
-	oldPeriod    time.Duration
 	iteratorFunc func() mongo.Iterator
 }
 
@@ -68,7 +68,10 @@ type FastPeriodSuite struct {
 
 func (s *FastPeriodSuite) SetUpSuite(c *gc.C) {
 	s.watcherSuite.SetUpSuite(c)
-	watcher.Period = fastPeriod
+	s.PatchValue(&watcher.PollStrategy, retry.Regular{
+		Total: time.Hour,
+		Delay: fastPeriod,
+	})
 }
 
 var _ = gc.Suite(&FastPeriodSuite{})
@@ -76,13 +79,11 @@ var _ = gc.Suite(&FastPeriodSuite{})
 func (s *watcherSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
-	s.oldPeriod = watcher.Period
 }
 
 func (s *watcherSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
-	watcher.Period = s.oldPeriod
 }
 
 func (s *watcherSuite) SetUpTest(c *gc.C) {
@@ -619,7 +620,10 @@ type SlowPeriodSuite struct {
 
 func (s *SlowPeriodSuite) SetUpSuite(c *gc.C) {
 	s.watcherSuite.SetUpSuite(c)
-	watcher.Period = slowPeriod
+	s.PatchValue(&watcher.PollStrategy, retry.Regular{
+		Total: time.Hour,
+		Delay: slowPeriod,
+	})
 }
 
 var _ = gc.Suite(&SlowPeriodSuite{})
@@ -663,17 +667,17 @@ func (s *SlowPeriodSuite) TestWatchPeriod(c *gc.C) {
 	s.w.Watch("test", "a", revno1, s.ch)
 	revno2 := s.update(c, "test", "a")
 
-	leeway := watcher.Period / 4
+	leeway := slowPeriod / 4
 	select {
 	case got := <-s.ch:
 		gotPeriod := time.Since(t0)
 		c.Assert(got, gc.Equals, watcher.Change{"test", "a", revno2})
-		if gotPeriod < watcher.Period-leeway {
-			c.Fatalf("watcher not waiting long enough; got %v want %v", gotPeriod, watcher.Period)
+		if gotPeriod < slowPeriod-leeway {
+			c.Fatalf("watcher not waiting long enough; got %v want %v", gotPeriod, slowPeriod)
 		}
-	case <-time.After(watcher.Period + leeway):
+	case <-time.After(slowPeriod + leeway):
 		gotPeriod := time.Since(t0)
-		c.Fatalf("watcher waited too long; got %v want %v", gotPeriod, watcher.Period)
+		c.Fatalf("watcher waited too long; got %v want %v", gotPeriod, slowPeriod)
 	}
 
 	assertOrder(c, -1, revno1, revno2)
@@ -691,7 +695,7 @@ func (s *SlowPeriodSuite) TestStartSyncStartsImmediately(c *gc.C) {
 	select {
 	case got := <-s.ch:
 		c.Assert(got.Revno, gc.Equals, revno)
-	case <-time.After(watcher.Period / 2):
+	case <-time.After(slowPeriod / 2):
 		c.Fatalf("watch after StartSync is still using old info")
 	}
 
@@ -742,7 +746,6 @@ func (s *WatcherErrorSuite) SetUpSuite(c *gc.C) {
 		iter.Iter = s.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 		return iter
 	}
-	watcher.Period = fastPeriod
 }
 
 func (s *WatcherErrorSuite) TearDownTest(c *gc.C) {

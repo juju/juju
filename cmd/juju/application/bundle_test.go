@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -499,11 +498,6 @@ type BundleDeployCharmStoreSuite struct {
 }
 
 var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
-
-func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
-	s.charmStoreSuite.SetUpSuite(c)
-	s.PatchValue(&watcher.Period, 10*time.Millisecond)
-}
 
 func (s *BundleDeployCharmStoreSuite) Client() *csclient.Client {
 	return s.client

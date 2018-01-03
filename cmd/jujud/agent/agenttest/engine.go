@@ -75,7 +75,7 @@ func (m *WorkerMatcher) checkOnce() bool {
 }
 
 // WaitMatch returns only when the match func succeeds, or it times out.
-func WaitMatch(c *gc.C, match func() bool, maxWait time.Duration, sync func()) {
+func WaitMatch(c *gc.C, match func() bool, maxWait time.Duration) {
 	timeout := time.After(maxWait)
 	for {
 		if match() {
@@ -83,7 +83,6 @@ func WaitMatch(c *gc.C, match func() bool, maxWait time.Duration, sync func()) {
 		}
 		select {
 		case <-time.After(coretesting.ShortWait):
-			sync()
 		case <-timeout:
 			c.Fatalf("timed out waiting for workers")
 		}

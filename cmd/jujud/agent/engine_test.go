@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -59,12 +58,6 @@ var (
 		"model-upgraded-flag",
 		"log-forwarder",
 	}
-	// ReallyLongTimeout should be long enough for the model-tracker
-	// tests that depend on a hosted model; its backing state is not
-	// accessible for StartSyncs, so we generally have to wait for at
-	// least two 5s ticks to pass, and should expect rare circumstances
-	// to take even longer.
-	ReallyLongWait = coretesting.LongWait * 3
 
 	alwaysUnitWorkers = []string{
 		"agent",

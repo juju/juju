@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 )
 
@@ -932,11 +931,12 @@ mainloop:
 }
 
 // updateUnitStatusPeriod is the time duration used to wait for a mega-watcher
-// change to be available.
-var updateUnitStatusPeriod = watcher.Period + 5*time.Second
+// change to be available. It's pretty arbitrary because we don't
+// know what the actual maximum delay on the server is.
+var updateUnitStatusPeriod = 10 * time.Second
 
 // updateUnitStatus uses the mega-watcher to update units and machines info
-// (h.unitStatus) so that it reflects the current environment status.
+// (h.unitStatus) so that it reflects the current model status.
 // This function must be called assuming new delta changes are available or
 // will be available within the watcher time period. Otherwise, the function
 // unblocks and an error is returned.

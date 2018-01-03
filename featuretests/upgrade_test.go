@@ -31,7 +31,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
@@ -56,12 +55,6 @@ var ShortAttempt = &utils.AttemptStrategy{
 type upgradeSuite struct {
 	agenttest.AgentSuite
 	oldVersion version.Binary
-}
-
-func (s *upgradeSuite) SetUpSuite(c *gc.C) {
-	s.AgentSuite.SetUpSuite(c)
-	// Speed up the watcher frequency to make the test much faster.
-	s.PatchValue(&watcher.Period, 200*time.Millisecond)
 }
 
 func (s *upgradeSuite) SetUpTest(c *gc.C) {

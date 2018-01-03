@@ -14,20 +14,14 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
 // fakeManager allows us to test deployments without actually deploying units
-// to the local system. It's slightly uncomfortably complex because it needs
-// to use the *state.State opened within the agent's runOnce -- not the one
-// created in the test -- to StartSync and cause the task to actually start
-// a sync and observe changes to the set of desired units (and thereby run
-// deployment tests in a reasonable amount of time).
+// to the local system.
 type fakeContext struct {
 	mu          sync.Mutex
 	deployed    set.Strings
-	st          *state.State
 	agentConfig agent.Config
 	inited      *signal
 }
@@ -63,7 +57,6 @@ func (ctx *fakeContext) waitDeployed(c *gc.C, want ...string) {
 	case <-ctx.inited.triggered():
 		timeout := time.After(testing.LongWait)
 		for {
-			ctx.st.StartSync()
 			select {
 			case <-timeout:
 				got, err := ctx.DeployedUnits()

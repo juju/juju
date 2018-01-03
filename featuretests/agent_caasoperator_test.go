@@ -175,5 +175,5 @@ func (s *CAASOperatorSuite) TestWorkers(c *gc.C) {
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysCAASWorkers, notMigratingCAASWorkers...))
-	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
 }
