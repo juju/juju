@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/loggo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -178,7 +179,7 @@ func (p *collectionPruner) pruneBySize() error {
 
 func deleteInBatches(
 	coll *mgo.Collection,
-	iter *mgo.Iter,
+	iter mongo.Iterator,
 	logTemplate string,
 	logLevel loggo.Level,
 	shouldStop doneCheck,
