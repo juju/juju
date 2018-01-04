@@ -473,13 +473,15 @@ func (c *addModelCommand) findUnspecifiedCredential(ctx *cmd.Context, cloudClien
 		// there is a local version that has an associated
 		// region.
 		credential, _, cloudRegion, err := c.findLocalCredential(ctx, p, credentialTag.Name())
-		if err == nil || errors.IsNotFound(err) {
-			// If there is a credential in the controller use it even if we don't have a local version.
-			return credential, credentialTag, cloudRegion, nil
-		}
-		if err != nil {
+		if errors.IsNotFound(err) {
+			// No local credential; use the region
+			// specified by the user, if any.
+			cloudRegion = p.cloudRegion
+		} else if err != nil {
 			return fail(errors.Trace(err))
 		}
+		// If there is a credential in the controller use it even if we don't have a local version.
+		return credential, credentialTag, cloudRegion, nil
 	}
 	// There is not a default credential on the controller (either
 	// there are no credentials, or there is more than one). Look for
@@ -504,7 +506,7 @@ func (c *addModelCommand) findSpecifiedCredential(ctx *cmd.Context, cloudClient 
 	}
 	// Look for a local credential with the specified name
 	credential, credentialName, cloudRegion, err := c.findLocalCredential(ctx, p, c.CredentialName)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return fail(errors.Trace(err))
 	}
 	if credential != nil {
@@ -560,9 +562,6 @@ func (c *addModelCommand) findLocalCredential(ctx *cmd.Context, p *findCredentia
 	)
 	if err == nil {
 		return credential, credentialName, cloudRegion, nil
-	}
-	if errors.IsNotFound(err) {
-		return nil, "", "", nil
 	}
 	switch errors.Cause(err) {
 	case modelcmd.ErrMultipleCredentials:
