@@ -85,14 +85,6 @@ func isRealOplog(c *mgo.Collection) bool {
 	return c.Database.Name == "local" && c.Name == "oplog.rs"
 }
 
-// Iterator defines the parts of the mgo.Iter that we use - this
-// interface allows us to switch out the querying for testing.
-type Iterator interface {
-	Next(interface{}) bool
-	Timeout() bool
-	Close() error
-}
-
 // OplogSession represents a connection to the oplog store, used
 // to create an iterator to get oplog documents (and recreate it if it
 // gets killed or times out).

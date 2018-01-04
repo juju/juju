@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
@@ -316,7 +317,7 @@ func (p *modelSummaryProcessor) fillInMigration() error {
 		}},
 	})
 	pipe.Batch(100)
-	iter := pipe.Iter()
+	var iter mongo.Iterator = pipe.Iter()
 	defer iter.Close()
 	modelMigDocs := make(map[string]modelMigDoc)
 	docIds := make([]string, 0)
