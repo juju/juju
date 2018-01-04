@@ -58,7 +58,7 @@ func getAllModelDocs(mb modelBackend, collectionName string) ([]map[string]inter
 		doc = nil
 	}
 
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotatef(err, "reading collection %q", collectionName)
 	}
 	return result, nil

@@ -308,7 +308,7 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	for iter.Next(&doc) {
 		out = append(out, &UpgradeInfo{st: st, doc: doc})
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, err
 	}
 	return out, nil
