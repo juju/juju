@@ -140,8 +140,8 @@ func (a *API) FinishRestore() error {
 		if err := info.SetStatus(state.RestoreFailed); err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Errorf("Restore did not finish succesfuly")
+		return errors.Errorf("Restore did not finish successfully")
 	}
-	logger.Infof("Succesfully restored")
+	logger.Infof("Successfully restored")
 	return info.SetStatus(state.RestoreChecked)
 }
