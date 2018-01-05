@@ -98,7 +98,7 @@ func RenameAddModelPermission(st *State) error {
 			Update: bson.D{{"$set", bson.D{{"access", "add-model"}}}},
 		})
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
 	}
 	return st.runRawTransaction(ops)
@@ -225,7 +225,7 @@ func stripLocalFromFields(st *State, collName string, fields ...string) ([]txn.O
 			}}...)
 		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return ops, nil
@@ -258,7 +258,7 @@ func AddMigrationAttempt(st *State) error {
 			Update: bson.D{{"$set", bson.D{{"attempt", attempt}}}},
 		})
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "iterating migrations")
 	}
 
@@ -426,6 +426,7 @@ func updateLegacyLXDCredentialsOps(st *State, cred cloud.Credential) ([]txn.Op, 
 	coll, closer := st.getRawCollection(cloudCredentialsC)
 	defer closer()
 	iter := coll.Find(bson.M{"auth-type": "empty"}).Iter()
+	defer iter.Close()
 	var doc cloudCredentialDoc
 	for iter.Next(&doc) {
 		cloudCredentialTag, err := doc.cloudCredentialTag()
@@ -444,7 +445,7 @@ func updateLegacyLXDCredentialsOps(st *State, cred cloud.Credential) ([]txn.Op, 
 		upgradesLogger.Infof("updating credential %q: %v", cloudCredentialTag, op)
 		ops = append(ops, op)
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return ops, nil
@@ -469,6 +470,7 @@ func UpgradeNoProxyDefaults(st *State) error {
 	coll, closer := st.getRawCollection(settingsC)
 	defer closer()
 	iter := coll.Find(bson.D{}).Iter()
+	defer iter.Close()
 	var doc settingsDoc
 	for iter.Next(&doc) {
 		noProxyVal := doc.Settings[config.NoProxyKey]
@@ -478,13 +480,15 @@ func UpgradeNoProxyDefaults(st *State) error {
 		}
 		noProxy = upgradeNoProxy(noProxy)
 		doc.Settings[config.NoProxyKey] = noProxy
-		ops = append(ops,
-			txn.Op{
-				C:      settingsC,
-				Id:     doc.DocID,
-				Assert: txn.DocExists,
-				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
-			})
+		ops = append(ops, txn.Op{
+			C:      settingsC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
@@ -593,6 +597,7 @@ func RemoveNilValueApplicationSettings(st *State) error {
 	coll, closer := st.getRawCollection(settingsC)
 	defer closer()
 	iter := coll.Find(bson.M{"_id": bson.M{"$regex": "^.*:a#.*"}}).Iter()
+	defer iter.Close()
 	var ops []txn.Op
 	var doc settingsDoc
 	for iter.Next(&doc) {
@@ -612,6 +617,9 @@ func RemoveNilValueApplicationSettings(st *State) error {
 				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
 			})
 		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
@@ -676,6 +684,8 @@ func AddStatusHistoryPruneSettings(st *State) error {
 	}
 
 	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
+	defer iter.Close()
+
 	var ops []txn.Op
 	var doc settingsDoc
 	for iter.Next(&doc) {
@@ -691,6 +701,9 @@ func AddStatusHistoryPruneSettings(st *State) error {
 				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
 			})
 		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
@@ -714,6 +727,7 @@ func AddActionPruneSettings(st *State) error {
 	}
 
 	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
+	defer iter.Close()
 	var ops []txn.Op
 	var doc settingsDoc
 	for iter.Next(&doc) {
@@ -729,6 +743,9 @@ func AddActionPruneSettings(st *State) error {
 				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
 			})
 		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
@@ -753,6 +770,7 @@ func AddUpdateStatusHookSettings(st *State) error {
 	}
 
 	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
+	defer iter.Close()
 	var ops []txn.Op
 	var doc settingsDoc
 	for iter.Next(&doc) {
@@ -766,6 +784,9 @@ func AddUpdateStatusHookSettings(st *State) error {
 				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
 			})
 		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
@@ -886,8 +907,9 @@ func SplitLogCollections(st *State) error {
 	seen := set.NewStrings()
 
 	iter := oldLogs.Find(nil).Iter()
-	var doc bson.M
+	defer iter.Close()
 
+	var doc bson.M
 	for iter.Next(&doc) {
 		modelUUID := doc["e"].(string)
 		newCollName := logCollectionName(modelUUID)
@@ -911,6 +933,9 @@ func SplitLogCollections(st *State) error {
 			}
 		}
 		doc = nil
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 
 	// drop the old collection
@@ -985,6 +1010,7 @@ func CorrectRelationUnitCounts(st *State) error {
 	}
 	relationsToUpdate := set.NewStrings()
 	iter := scopesColl.Find(nil).Iter()
+	defer iter.Close()
 
 	for iter.Next(&scope) {
 		// Scope key looks like: r#<relation id>#[<principal unit for container scope>#]<role>#<unit>
@@ -1079,6 +1105,7 @@ func collectRelationInfo(coll *mgo.Collection) (map[string]*relationUnitCountInf
 	}
 
 	iter := coll.Find(nil).Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
 		endpoints := set.NewStrings()
 		for _, epDoc := range doc.Endpoints {
@@ -1143,6 +1170,7 @@ func AddModelEnvironVersion(st *State) error {
 
 	var ops []txn.Op
 	iter := coll.Find(nil).Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
 		if doc.EnvironVersion != nil {
 			continue

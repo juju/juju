@@ -109,7 +109,7 @@ func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	for iter.Next(&doc) {
 		clouds[names.NewCloudTag(doc.Name)] = doc.toCloud()
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "getting clouds")
 	}
 	return clouds, nil

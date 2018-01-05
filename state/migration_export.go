@@ -610,7 +610,7 @@ func (e *exporter) readAllStorageConstraints() error {
 	for iter.Next(&doc) {
 		storageConstraints[e.st.localID(doc.DocID)] = doc
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read storage constraints")
 	}
 	e.logger.Debugf("read %d storage constraint documents", len(storageConstraints))
@@ -1328,7 +1328,7 @@ func (e *exporter) readAllStatusHistory() error {
 		count++
 	}
 
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read status history collection")
 	}
 
@@ -1545,7 +1545,7 @@ func (e *exporter) volumes() error {
 			return errors.Trace(err)
 		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read volumes")
 	}
 	return nil
@@ -1630,7 +1630,7 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 		result[doc.Volume] = append(result[doc.Volume], doc)
 		count++
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "failed to read volumes attachments")
 	}
 	e.logger.Debugf("read %d volume attachment documents", count)
@@ -1655,7 +1655,7 @@ func (e *exporter) filesystems() error {
 			return errors.Trace(err)
 		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read filesystems")
 	}
 	return nil
@@ -1733,7 +1733,7 @@ func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmen
 		result[doc.Filesystem] = append(result[doc.Filesystem], doc)
 		count++
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "failed to read filesystem attachments")
 	}
 	e.logger.Debugf("read %d filesystem attachment documents", count)
@@ -1758,7 +1758,7 @@ func (e *exporter) storageInstances() error {
 			return errors.Trace(err)
 		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read storage instances")
 	}
 	return nil
@@ -1796,7 +1796,7 @@ func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) 
 		result[doc.StorageInstance] = append(result[doc.StorageInstance], unit)
 		count++
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "failed to read storage attachments")
 	}
 	e.logger.Debugf("read %d storage attachment documents", count)

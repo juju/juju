@@ -254,7 +254,7 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	for iter.Next(&doc) {
 		result = append(result, &User{st: st, doc: doc})
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Always return a predictable order, sort by Name.

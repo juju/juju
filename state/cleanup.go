@@ -10,11 +10,11 @@ import (
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/mongo"
 )
 
 type cleanupKind string
@@ -739,7 +739,7 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err 
 	return nil
 }
 
-func closeIter(iter *mgo.Iter, errOut *error, message string) {
+func closeIter(iter mongo.Iterator, errOut *error, message string) {
 	err := iter.Close()
 	if err == nil {
 		return

@@ -53,12 +53,14 @@ func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[str
 	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
 	defer cleanup()
 
-	var doc cloudCredentialDoc
 	credentials := make(map[string]cloud.Credential)
 	iter := coll.Find(bson.D{
 		{"owner", user.Id()},
 		{"cloud", cloudName},
 	}).Iter()
+	defer iter.Close()
+
+	var doc cloudCredentialDoc
 	for iter.Next(&doc) {
 		tag, err := doc.cloudCredentialTag()
 		if err != nil {
@@ -66,7 +68,7 @@ func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[str
 		}
 		credentials[tag.Id()] = doc.toCredential()
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotatef(
 			err, "cannot get cloud credentials for user %q, cloud %q",
 			user.Id(), cloudName,

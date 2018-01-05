@@ -58,7 +58,7 @@ func getAllModelDocs(st *State, collectionName string) ([]map[string]interface{}
 		doc = nil
 	}
 
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotatef(err, "reading collection %q", collectionName)
 	}
 	return result, nil

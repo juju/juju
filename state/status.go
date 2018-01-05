@@ -4,9 +4,11 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/clock"
 	"gopkg.in/mgo.v2"
@@ -363,13 +365,36 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) {
 	}
 }
 
+// eraseStatusHistory removes all status history documents for
+// the given global key. The documents are removed in batches
+// to avoid locking the status history collection for extended
+// periods of time, preventing status history being recorded
+// for other entities.
 func eraseStatusHistory(st *State, globalKey string) error {
+	// TODO(axw) restructure status history so we have one
+	// document per global key, and sub-documents per status
+	// recording. This method would then become a single
+	// Remove operation.
+
 	history, closer := st.db().GetCollection(statusesHistoryC)
 	defer closer()
-	historyW := history.Writeable()
 
-	if _, err := historyW.RemoveAll(bson.D{{globalKeyField, globalKey}}); err != nil {
-		return err
+	iter := history.Find(bson.D{{
+		globalKeyField, globalKey,
+	}}).Select(bson.M{"_id": 1}).Iter()
+	defer iter.Close()
+
+	logFormat := "deleted %d status history documents for " + fmt.Sprintf("%q", globalKey)
+	deleted, err := deleteInBatches(
+		history.Writeable().Underlying(), iter,
+		logFormat, loggo.DEBUG,
+		noEarlyFinish,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if deleted > 0 {
+		logger.Debugf(logFormat, deleted)
 	}
 	return nil
 }

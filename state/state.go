@@ -619,6 +619,7 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 			DocID string `bson:"_id"`
 		}
 		iter := collection.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
+		defer iter.Close()
 		for iter.Next(&doc) {
 			localID, err := st.strictLocalID(doc.DocID)
 			if err != nil {
