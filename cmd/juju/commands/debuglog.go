@@ -5,7 +5,6 @@ package commands
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"time"
@@ -229,12 +228,12 @@ var getDebugLogAPI = func(c *debugLogCommand) (DebugLogAPI, error) {
 	return c.NewAPIClient()
 }
 
-func isTerminal(out io.Writer) bool {
-	f, ok := out.(*os.File)
+func isTerminal(f interface{}) bool {
+	f_, ok := f.(*os.File)
 	if !ok {
 		return false
 	}
-	return isatty.IsTerminal(f.Fd())
+	return isatty.IsTerminal(f_.Fd())
 }
 
 // Run retrieves the debug log via the API.
