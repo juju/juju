@@ -6,9 +6,12 @@ package lxd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	"github.com/juju/schema"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
@@ -188,21 +191,46 @@ func (e *lxdStorageProvider) FilesystemSource(cfg *storage.Config) (storage.File
 }
 
 func ensureLXDStoragePool(env *environ, cfg *lxdStorageConfig) error {
-	createErr := env.raw.CreateStoragePool(cfg.lxdPool, cfg.driver, cfg.attrs)
-	if createErr == nil {
+	// [TODO](externalreality) remove the error classification by string
+	// search found here. We should classify the error in the lxd api
+	// wrapper when lxd provides a more specific return code for the error.
+	err := env.raw.CreateStoragePool(cfg.lxdPool, cfg.driver, cfg.attrs)
+	if err == nil {
 		return nil
+	} else if ok := strings.Contains(err.Error(), "pool already exists"); !ok {
+		return errors.Annotatef(err, "creating storage pool %q", cfg.lxdPool)
 	}
-	// There's no specific error to check for, so we just assume
-	// that the error is due to the pool already existing, and
-	// verify that. If it doesn't exist, return the original
-	// CreateStoragePool error.
 
-	pool, err := env.raw.StoragePool(cfg.lxdPool)
-	if errors.IsNotFound(err) {
-		return errors.Annotatef(createErr, "creating LXD storage pool %q", cfg.lxdPool)
-	} else if err != nil {
-		return errors.Annotatef(createErr, "getting storage pool %q", cfg.lxdPool)
+	// If the pool already exists we must check to see if its configuration
+	// matches the pool we are attempting to create. We run several attempts
+	// to find the storage pool to guard against race conditions that can be
+	// encountered when multiple pools are created concurrently.
+	logger.Infof("Attempted to create storage pool %q but it already exists", cfg.lxdPool)
+	var pool api.StoragePool
+	retryFn := func() error {
+		pool, err = env.raw.StoragePool(cfg.lxdPool)
+		return err
 	}
+	notifyFn := func(last error, attempt int) {
+		if errors.IsNotFound(err) {
+			logger.Warningf("storage pool %q not found, %d attempts left", cfg.lxdPool, attempt)
+		}
+	}
+	fatalErrorFn := func(err error) bool {
+		return !errors.IsNotFound(err)
+	}
+	err = retry.Call(retry.CallArgs{
+		Func:         retryFn,
+		NotifyFunc:   notifyFn,
+		IsFatalError: fatalErrorFn,
+		Attempts:     5,
+		Delay:        time.Millisecond * 250,
+		Clock:        clock.WallClock,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "getting storage pool %q", cfg.lxdPool)
+	}
+
 	// The storage pool already exists: check that the existing pool's
 	// driver and config match what we want.
 	if pool.Driver != cfg.driver {

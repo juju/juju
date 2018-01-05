@@ -63,13 +63,26 @@ func (s *storageSuite) TestStorageDefaultPools(c *gc.C) {
 
 func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *gc.C) {
 	s.Stub.SetErrors(
-		errors.New("no zfs for you"),
-		errors.NotFoundf("zfs storage pool"),
+		errors.New("pool already exists"),
 	)
 	pools := s.provider.DefaultPools()
 	c.Assert(pools, gc.HasLen, 1)
 	c.Assert(pools[0].Name(), gc.Equals, "lxd-btrfs")
 	s.Stub.CheckCallNames(c, "CreateStoragePool", "StoragePool", "CreateStoragePool")
+}
+
+func (s *storageSuite) TestStorageDefaultStoragePoolsRetryOnNotFound(c *gc.C) {
+	s.Stub.SetErrors(
+		errors.New("pool already exists"),
+		errors.NotFoundf("pool not found"),
+		errors.NotFoundf("pool not found"),
+	)
+	numRetries := 3
+
+	pools := s.provider.DefaultPools()
+	c.Assert(pools, gc.HasLen, 1)
+	c.Assert(pools[0].Name(), gc.Equals, "lxd-btrfs")
+	s.Stub.CheckNumCalls(c, "StoragePool", numRetries)
 }
 
 func (s *storageSuite) TestVolumeSource(c *gc.C) {
