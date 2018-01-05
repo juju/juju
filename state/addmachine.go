@@ -802,8 +802,12 @@ func (st *State) maintainControllersOps(mdocs []*machineDoc, currentInfo *Contro
 			},
 		}},
 		Update: bson.D{
-			{"$addToSet", bson.D{{"machineids", bson.D{{"$each", newIds}}}}},
-			{"$addToSet", bson.D{{"votingmachineids", bson.D{{"$each", newVotingIds}}}}},
+			{"$addToSet",
+				bson.D{
+					{"machineids", bson.D{{"$each", newIds}}},
+					{"votingmachineids", bson.D{{"$each", newVotingIds}}},
+				},
+			},
 		},
 	}}
 	return ops, nil
@@ -1078,8 +1082,10 @@ func convertControllerOps(m *Machine) []txn.Op {
 		C:  controllersC,
 		Id: modelGlobalKey,
 		Update: bson.D{
-			{"$addToSet", bson.D{{"votingmachineids", m.doc.Id}}},
-			{"$addToSet", bson.D{{"machineids", m.doc.Id}}},
+			{"$addToSet", bson.D{
+				{"votingmachineids", m.doc.Id},
+				{"machineids", m.doc.Id},
+			}},
 		},
 	}}
 }
