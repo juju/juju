@@ -196,7 +196,7 @@ func (s *MinUnitsSuite) TestMinUnitsSetDestroyEntities(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, nil)
 
-	// Add two units to the service for later use.
+	// Add two units to the application for later use.
 	unit1, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	unit2, err := s.application.AddUnit(state.AddUnitParams{})
@@ -220,7 +220,7 @@ func (s *MinUnitsSuite) TestMinUnitsSetDestroyEntities(c *gc.C) {
 }
 
 func (s *MinUnitsSuite) TestMinUnitsNotSetDestroyEntities(c *gc.C) {
-	// Add two units to the service for later use.
+	// Add two units to the application for later use.
 	unit1, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	unit2, err := s.application.AddUnit(state.AddUnitParams{})
@@ -329,7 +329,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsServiceNotAlive(c *gc.C) {
 	// An error is returned if the application is not alive.
 	c.Assert(s.application.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
 
-	// An error is returned if the service was removed.
+	// An error is returned if the application was removed.
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.application.EnsureMinUnits(), gc.ErrorMatches, expectedErr)

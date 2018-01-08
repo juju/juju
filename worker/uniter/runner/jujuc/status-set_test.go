@@ -6,10 +6,9 @@ package jujuc_test
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type statusSetSuite struct {
@@ -38,7 +37,7 @@ func (s *statusSetSuite) TestStatusSetInit(c *gc.C) {
 	for i, t := range statusSetInitTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
-		com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
+		com, err := jujuc.NewCommand(hctx, "status-set")
 		c.Assert(err, jc.ErrorIsNil)
 		cmdtesting.TestInit(c, com, t.args, t.err)
 	}
@@ -46,7 +45,7 @@ func (s *statusSetSuite) TestStatusSetInit(c *gc.C) {
 
 func (s *statusSetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
-	com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
+	com, err := jujuc.NewCommand(hctx, "status-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
@@ -77,7 +76,7 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
-		com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
+		com, err := jujuc.NewCommand(hctx, "status-set")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, args)
@@ -98,7 +97,7 @@ func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
-		com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
+		com, err := jujuc.NewCommand(hctx, "status-set")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, args)

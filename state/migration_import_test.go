@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"strconv"
 	"time" // only uses time.Time values
 
 	"github.com/juju/description"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
@@ -414,17 +416,22 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
-	// Add a application with both settings and leadership settings.
+	// Add a application with charm settings, app config, and leadership settings.
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "starsay", // it has resources
 	})
 	c.Assert(charm.Meta().Resources, gc.HasLen, 3)
-	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	application, pwd := s.Factory.MakeApplicationReturningPassword(c, &factory.ApplicationParams{
 		Charm: charm,
-		Settings: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
+		ApplicationConfig: map[string]interface{}{
+			"app foo": "app bar",
+		},
+		ApplicationConfigFields: environschema.Fields{
+			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		Constraints: cons,
 	})
 	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
@@ -444,6 +451,14 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(allApplications, gc.HasLen, 1)
 
 	newModel, newSt := s.importModel(c)
+	// Manually copy across the charm from the old model
+	// as it's normally done later.
+	f := factory.NewFactory(newSt)
+	f.MakeCharm(c, &factory.CharmParams{
+		Name:     "starsay", // it has resources
+		URL:      charm.URL().String(),
+		Revision: strconv.Itoa(charm.Revision()),
+	})
 
 	importedApplications, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -456,12 +471,19 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(imported.Series(), gc.Equals, exported.Series())
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
+	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
 
-	exportedConfig, err := exported.ConfigSettings()
+	exportedCharmConfig, err := exported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	importedConfig, err := imported.ConfigSettings()
+	importedCharmConfig, err := imported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedConfig, jc.DeepEquals, exportedConfig)
+	c.Assert(importedCharmConfig, jc.DeepEquals, exportedCharmConfig)
+
+	exportedAppConfig, err := exported.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	importedAppConfig, err := imported.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedAppConfig, jc.DeepEquals, exportedAppConfig)
 
 	exportedLeaderSettings, err := exported.LeaderSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -672,6 +694,8 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
+	err = rel.SetStatus(status.StatusInfo{Status: status.Joined})
+	c.Assert(err, jc.ErrorIsNil)
 	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 
 	ru, err := rel.Unit(wordpress_0)
@@ -696,7 +720,7 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 
 	relStatus, err := rels[0].Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relStatus.Status, gc.Equals, status.Joining)
+	c.Assert(relStatus.Status, gc.Equals, status.Joined)
 
 	ru, err = rels[0].Unit(units[0])
 	c.Assert(err, jc.ErrorIsNil)
@@ -704,6 +728,57 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	settings, err := ru.Settings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings.Map(), gc.DeepEquals, relSettings)
+}
+
+func (s *MigrationImportSuite) assertRelationsMissingStatus(c *gc.C, hasUnits bool) {
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	if hasUnits {
+		wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+		ru, err := rel.Unit(wordpress_0)
+		c.Assert(err, jc.ErrorIsNil)
+		relSettings := map[string]interface{}{
+			"name": "wordpress/0",
+		}
+		err = ru.EnterScope(relSettings)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	_, newSt := s.importModel(c, func(desc map[string]interface{}) {
+		relations := desc["relations"].(map[interface{}]interface{})
+		for _, item := range relations["relations"].([]interface{}) {
+			relation := item.(map[interface{}]interface{})
+			delete(relation, "status")
+		}
+	})
+
+	newWordpress, err := newSt.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state.RelationCount(newWordpress), gc.Equals, 1)
+	rels, err := newWordpress.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rels, gc.HasLen, 1)
+
+	relStatus, err := rels[0].Status()
+	c.Assert(err, jc.ErrorIsNil)
+	if hasUnits {
+		c.Assert(relStatus.Status, gc.Equals, status.Joined)
+	} else {
+		c.Assert(relStatus.Status, gc.Equals, status.Joining)
+	}
+}
+
+func (s *MigrationImportSuite) TestRelationsMissingStatusWithUnits(c *gc.C) {
+	s.assertRelationsMissingStatus(c, true)
+}
+
+func (s *MigrationImportSuite) TestRelationsMissingStatusNoUnits(c *gc.C) {
+	s.assertRelationsMissingStatus(c, false)
 }
 
 func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
@@ -1433,7 +1508,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Settings: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
 	})
@@ -1444,7 +1519,7 @@ func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
 	// strip config setting values to nil directly to simulate
 	// what could happen to some applications in 2.0 and 2.1.
 	// For more context, see https://bugs.launchpad.net/juju/+bug/1667199
-	settings := state.GetApplicationSettings(s.State, application)
+	settings := state.GetApplicationCharmConfig(s.State, application)
 	settings.Set("foo", nil)
 	_, err := settings.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1458,7 +1533,7 @@ func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
 
 	// Ensure that during import application settings with nil config values
 	// were stripped and not written into database.
-	importedSettings := state.GetApplicationSettings(newSt, importedApplication)
+	importedSettings := state.GetApplicationCharmConfig(newSt, importedApplication)
 	_, importedFound := importedSettings.Get("foo")
 	c.Assert(importedFound, jc.IsFalse)
 }

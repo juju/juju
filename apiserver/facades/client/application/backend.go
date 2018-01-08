@@ -5,12 +5,15 @@ package application
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -37,6 +40,7 @@ type Backend interface {
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	Machine(string) (Machine, error)
 	ModelTag() names.ModelTag
+	ModelType() state.ModelType
 	Unit(string) (Unit, error)
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
 	ControllerTag() names.ControllerTag
@@ -64,7 +68,7 @@ type Application interface {
 	CharmURL() (*charm.URL, bool)
 	Channel() csparams.Channel
 	ClearExposed() error
-	ConfigSettings() (charm.Settings, error)
+	CharmConfig() (charm.Settings, error)
 	Constraints() (constraints.Value, error)
 	Destroy() error
 	DestroyOperation() *state.DestroyApplicationOperation
@@ -77,7 +81,9 @@ type Application interface {
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error
-	UpdateConfigSettings(charm.Settings) error
+	UpdateCharmConfig(charm.Settings) error
+	ApplicationConfig() (application.ConfigAttributes, error)
+	UpdateApplicationConfig(application.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 }
 
 // Charm defines a subset of the functionality provided by the
@@ -129,9 +135,11 @@ type Unit interface {
 // details on the methods, see the methods on state.Model with
 // the same names.
 type Model interface {
-	Tag() names.Tag
+	ModelTag() names.ModelTag
 	Name() string
 	Owner() names.UserTag
+	Tag() names.Tag
+	Type() state.ModelType
 }
 
 // Resources defines a subset of the functionality provided by the
@@ -156,12 +164,19 @@ func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, mode
 	return api.Save(controllerInfo, modelUUID)
 }
 
-func (s stateShim) ModelTag() names.ModelTag {
-	m, err := s.State.Model()
-	if err != nil {
-		return names.ModelTag{}
+func (s stateShim) model() Model {
+	if s.IAASModel != nil {
+		return s.IAASModel
 	}
-	return m.ModelTag()
+	return s.CAASModel
+}
+
+func (s stateShim) ModelTag() names.ModelTag {
+	return s.model().ModelTag()
+}
+
+func (s stateShim) ModelType() state.ModelType {
+	return s.model().Type()
 }
 
 // NewStateBackend converts a state.State into a Backend.

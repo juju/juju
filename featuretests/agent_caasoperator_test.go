@@ -10,13 +10,18 @@ import (
 
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloud"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/caasoperator/commands"
@@ -34,6 +39,38 @@ type CAASOperatorSuite struct {
 
 var _ = gc.Suite(&CAASOperatorSuite{})
 
+func (s *CAASOperatorSuite) SetUpSuite(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CAAS)
+	s.AgentSuite.SetUpSuite(c)
+}
+
+func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
+	s.AgentSuite.SetUpTest(c)
+
+	// Set up a CAAS model to replace the IAAS one.
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "caascloud",
+		Type:      "kubernetes",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
+		"name": "caas-model",
+		"uuid": utils.MustNewUUID().String(),
+	})
+	_, st, err := s.State.NewModel(state.ModelArgs{
+		Type:      state.ModelTypeCAAS,
+		Owner:     names.NewUserTag("admin"),
+		CloudName: "caascloud",
+		Config:    cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	err = s.State.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State = st
+}
+
 // primeAgent creates an application, and sets up the application agent's directory.
 // It returns new application and the agent's configuration.
 func (s *CAASOperatorSuite) primeAgent(c *gc.C) (*state.Application, agent.Config, *tools.Tools) {
@@ -47,7 +84,7 @@ func (s *CAASOperatorSuite) primeAgent(c *gc.C) (*state.Application, agent.Confi
 func (s *CAASOperatorSuite) newAgent(c *gc.C, app *state.Application) *jujudagent.CaasOperatorAgent {
 	a, err := jujudagent.NewCaasOperatorAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
-	s.InitAgent(c, a, "--application-name", app.Name(), "--log-to-stderr=true")
+	s.InitAgent(c, a, "--application-name", app.Name())
 	err = a.ReadConfig(app.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	return a

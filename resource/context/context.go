@@ -49,7 +49,7 @@ func NewContextAPI(apiClient APIClient, dataDir string) *Context {
 	}
 }
 
-// Flush implements jujuc.Context.
+// Flush implements hooks.Context.
 func (c *Context) Flush() error {
 	return nil
 }

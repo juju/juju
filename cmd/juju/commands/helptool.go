@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-// dummyHookContext implements jujuc.Context,
-// as expected by jujuc.NewCommand.
+// dummyHookContext implements hooks.Context,
+// as expected by hooks.NewCommand.
 type dummyHookContext struct{ jujuc.Context }
 
 func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {

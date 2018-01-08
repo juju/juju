@@ -44,14 +44,14 @@ type ContextFactory interface {
 }
 
 // StorageContextAccessor is an interface providing access to StorageContexts
-// for a jujuc.Context.
+// for a hooks.Context.
 type StorageContextAccessor interface {
 
 	// StorageTags returns the tags of storage instances attached to
 	// the unit.
 	StorageTags() ([]names.StorageTag, error)
 
-	// Storage returns the jujuc.ContextStorageAttachment with the
+	// Storage returns the hooks.ContextStorageAttachment with the
 	// supplied tag if it was found, and whether it was found.
 	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, error)
 }

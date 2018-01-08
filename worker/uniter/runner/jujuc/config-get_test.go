@@ -82,11 +82,6 @@ var (
 	}
 )
 
-const (
-	formatYaml = iota
-	formatJson
-)
-
 var configGetAllTests = []struct {
 	args   []string
 	format int

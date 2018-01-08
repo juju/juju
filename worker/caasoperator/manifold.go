@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/worker/caasoperator/runner"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -21,8 +22,9 @@ type ManifoldConfig struct {
 	APICallerName string
 	ClockName     string
 
-	NewWorker func(Config) (worker.Worker, error)
-	NewClient func(base.APICaller) Client
+	NewWorker          func(Config) (worker.Worker, error)
+	NewClient          func(base.APICaller) Client
+	NewCharmDownloader func(base.APICaller) Downloader
 }
 
 func (config ManifoldConfig) Validate() error {
@@ -40,6 +42,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewClient == nil {
 		return errors.NotValidf("missing NewClient")
+	}
+	if config.NewCharmDownloader == nil {
+		return errors.NotValidf("missing NewCharmDownloader")
 	}
 	return nil
 }
@@ -68,9 +73,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 			client := config.NewClient(apiCaller)
+			downloader := config.NewCharmDownloader(apiCaller)
 
 			var clock clock.Clock
 			if err := context.Get(config.ClockName, &clock); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			modelName, err := client.ModelName()
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -82,10 +93,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Errorf("expected an application tag, got %v", tag)
 			}
 			w, err := config.NewWorker(Config{
-				Application:  applicationTag.Id(),
-				Clock:        clock,
-				DataDir:      agentConfig.DataDir(),
-				StatusSetter: client,
+				ModelUUID:            agentConfig.Model().Id(),
+				ModelName:            modelName,
+				NewRunnerFactoryFunc: runner.NewFactory,
+				Application:          applicationTag.Id(),
+				CharmConfigGetter:    client,
+				CharmGetter:          client,
+				Clock:                clock,
+				ContainerSpecSetter:  client,
+				DataDir:              agentConfig.DataDir(),
+				Downloader:           downloader,
+				StatusSetter:         client,
+				APIAddressGetter:     client,
+				ProxySettingsGetter:  client,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

@@ -38,7 +38,7 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 
 func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {
 	// Add a cert.
-	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".ssh/id_rsa.pub", "rsa\n"})
+	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{Name: ".ssh/id_rsa.pub", Data: "rsa\n"})
 
 	for _, test := range []struct {
 		caCert    string
@@ -121,6 +121,41 @@ var validateTests = []struct {
 		controller.CACertKey:         testing.CACert,
 	},
 	expectError: `invalid identity public key: wrong length for base64 key, got 3 want 32`,
+}, {
+	about: "invalid management space name - whitespace",
+	config: controller.Config{
+		controller.CACertKey:           testing.CACert,
+		controller.JujuManagementSpace: " ",
+	},
+	expectError: `juju mgmt space name " " not valid`,
+}, {
+	about: "invalid management space name - caps",
+	config: controller.Config{
+		controller.CACertKey:           testing.CACert,
+		controller.JujuManagementSpace: "CAPS",
+	},
+	expectError: `juju mgmt space name "CAPS" not valid`,
+}, {
+	about: "invalid management space name - carriage return",
+	config: controller.Config{
+		controller.CACertKey:           testing.CACert,
+		controller.JujuManagementSpace: "\n",
+	},
+	expectError: `juju mgmt space name "\\n" not valid`,
+}, {
+	about: "invalid HA space name - number",
+	config: controller.Config{
+		controller.CACertKey:   testing.CACert,
+		controller.JujuHASpace: 666,
+	},
+	expectError: `type for juju HA space name 666 not valid`,
+}, {
+	about: "invalid HA space name - bool",
+	config: controller.Config{
+		controller.CACertKey:   testing.CACert,
+		controller.JujuHASpace: true,
+	},
+	expectError: `type for juju HA space name true not valid`,
 }}
 
 func (s *ConfigSuite) TestValidate(c *gc.C) {
@@ -172,4 +207,32 @@ func (s *ConfigSuite) TestTxnLogConfigValue(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.MaxTxnLogSizeMB(), gc.Equals, 8192)
+}
+
+func (s *ConfigSuite) TestNetworkSpaceConfigValues(c *gc.C) {
+	haSpace := "space1"
+	managementSpace := "space2"
+
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.JujuHASpace:         haSpace,
+			controller.JujuManagementSpace: managementSpace,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.JujuHASpace(), gc.Equals, haSpace)
+	c.Assert(cfg.JujuManagementSpace(), gc.Equals, managementSpace)
+}
+
+func (s *ConfigSuite) TestNetworkSpaceConfigDefaults(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.JujuHASpace(), gc.Equals, "")
+	c.Assert(cfg.JujuManagementSpace(), gc.Equals, "")
 }

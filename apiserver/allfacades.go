@@ -67,7 +67,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/actionpruner"
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
-	"github.com/juju/juju/apiserver/facades/controller/caasprovisioner"
+	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
+	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
+	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
@@ -133,7 +135,7 @@ func AllFacades() *facade.Registry {
 	reg("Application", 2, application.NewFacadeV4)
 	reg("Application", 3, application.NewFacadeV4)
 	reg("Application", 4, application.NewFacadeV4)
-	reg("Application", 5, application.NewFacade) // adds AttachStorage & UpdateApplicationSeries & SetRelationStatus
+	reg("Application", 5, application.NewFacadeV5) // adds AttachStorage & UpdateApplicationSeries & SetRelationStatus
 
 	reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
 	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
@@ -148,9 +150,12 @@ func AllFacades() *facade.Registry {
 	if featureflag.Enabled(feature.CAAS) {
 		// CAAS related facades.
 		// Move these to the correct place above once the feature flag disappears.
+		reg("Application", 6, application.NewFacadeV6)
 		reg("Cloud", 2, cloud.NewFacadeV2)
+		reg("CAASFirewaller", 1, caasfirewaller.NewStateFacade)
 		reg("CAASOperator", 1, caasoperator.NewStateFacade)
-		reg("CAASProvisioner", 1, caasprovisioner.NewStateCAASProvisionerAPI)
+		reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
+		reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
 	}
 
 	reg("Controller", 3, controller.NewControllerAPIv3)

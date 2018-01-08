@@ -363,11 +363,31 @@ type ApplicationGet struct {
 
 // ApplicationGetResults holds results of the application Get call.
 type ApplicationGetResults struct {
-	Application string                 `json:"application"`
-	Charm       string                 `json:"charm"`
-	Config      map[string]interface{} `json:"config"`
-	Constraints constraints.Value      `json:"constraints"`
-	Series      string                 `json:"series"`
+	Application       string                 `json:"application"`
+	Charm             string                 `json:"charm"`
+	CharmConfig       map[string]interface{} `json:"config"`
+	ApplicationConfig map[string]interface{} `json:"application-config,omitempty"`
+	Constraints       constraints.Value      `json:"constraints"`
+	Series            string                 `json:"series"`
+}
+
+// ApplicationConfigSetArgs holds the parameters for
+// setting application config values for specified applications.
+type ApplicationConfigSetArgs struct {
+	Args []ApplicationConfigSet
+}
+
+// ApplicationConfigSet holds the parameters for an application
+// config set command.
+type ApplicationConfigSet struct {
+	ApplicationName string            `json:"application"`
+	Config          map[string]string `json:"config"`
+}
+
+// ApplicationConfigUnsetArgs holds the parameters for
+// resetting application config values for specified applications.
+type ApplicationConfigUnsetArgs struct {
+	Args []ApplicationUnset
 }
 
 // ApplicationCharmRelations holds parameters for making the application CharmRelations call.

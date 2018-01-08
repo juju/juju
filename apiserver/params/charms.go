@@ -3,6 +3,33 @@
 
 package params
 
+// ApplicationCharmResults contains a set of ApplicationCharmResults.
+type ApplicationCharmResults struct {
+	Results []ApplicationCharmResult `json:"results"`
+}
+
+// ApplicationCharmResult contains an ApplicationCharm or an error.
+type ApplicationCharmResult struct {
+	Result *ApplicationCharm `json:"result,omitempty"`
+	Error  *Error            `json:"error,omitempty"`
+}
+
+// ApplicationCharmInfo contains information about an
+// application's charm.
+type ApplicationCharm struct {
+	// URL holds the URL of the charm assigned to the
+	// application.
+	URL string `json:"url"`
+
+	// ForceUpgrade indicates whether or not application
+	// units should upgrade to the charm even if they
+	// are in an error state.
+	ForceUpgrade bool `json:"force-upgrade,omitempty"`
+
+	// SHA256 holds the SHA256 hash of the charm archive.
+	SHA256 string `json:"sha256"`
+}
+
 // CharmsList stores parameters for a charms.List call
 type CharmsList struct {
 	Names []string `json:"names"`

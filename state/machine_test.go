@@ -1106,7 +1106,7 @@ func (s *MachineSuite) TestRefreshWhenNotAlive(c *gc.C) {
 func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	// Check that Machine.Units and st.UnitsFor work correctly.
 
-	// Make three machines, three services and three units for each service;
+	// Make three machines, three services and three units for each application;
 	// variously assign units to machines and check that Machine.Units
 	// tells us the right thing.
 

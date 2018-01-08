@@ -47,7 +47,7 @@ type applicationSuite struct {
 	apiservertesting.CharmStoreSuite
 	commontesting.BlockHelper
 
-	applicationAPI *application.API
+	applicationAPI *application.APIv6
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
 }
@@ -84,13 +84,13 @@ func (s *applicationSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C) *application.API {
+func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv6 {
 	resources := common.NewResources()
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	backend, err := application.NewStateBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
-	api, err := application.NewAPI(
+	api, err := application.NewAPIV5(
 		backend,
 		s.authorizer,
 		blockChecker,
@@ -98,7 +98,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.API {
 		application.DeployApplication,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return api
+	return &application.APIv6{api}
 }
 
 func (s *applicationSuite) TestGetConfig(c *gc.C) {
@@ -110,18 +110,18 @@ func (s *applicationSuite) TestGetConfig(c *gc.C) {
 		Name: "dummy",
 	})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:     "foo",
-		Charm:    dummy,
-		Settings: fooConfig,
+		Name:        "foo",
+		Charm:       dummy,
+		CharmConfig: fooConfig,
 	})
 	barConfig := map[string]interface{}{
 		"title":   "bar",
 		"outlook": "fantastic",
 	}
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:     "bar",
-		Charm:    dummy,
-		Settings: barConfig,
+		Name:        "bar",
+		Charm:       dummy,
+		CharmConfig: barConfig,
 	})
 	results, err := s.applicationAPI.GetConfig(params.Entities{
 		Entities: []params.Entity{
@@ -1213,6 +1213,14 @@ func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
 	c.Assert(units, gc.HasLen, 0)
 }
 
+func (s *applicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Settings) charm.Settings {
+	result := ch.Config().DefaultSettings()
+	for name, value := range inSettings {
+		result[name] = value
+	}
+	return result
+}
+
 func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
@@ -1232,9 +1240,11 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 
 	application, err := s.State.Application("application-name")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := application.ConfigSettings()
+	settings, err := application.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{"username": "fred"})
+	ch, _, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{"username": "fred"}))
 }
 
 func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
@@ -1473,7 +1483,8 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	ch := s.AddTestingCharm(c, "dummy")
+	application := s.AddTestingApplication(c, "dummy", ch)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1485,13 +1496,14 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
 
 	// Ensure the settings have been correctly updated.
 	expected := charm.Settings{"title": "s-title", "username": "s-user"}
-	obtained, err := application.ConfigSettings()
+	obtained, err := application.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, expected)
+	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	ch := s.AddTestingCharm(c, "dummy")
+	application := s.AddTestingApplication(c, "dummy", ch)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1503,13 +1515,14 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 
 	// Ensure the settings have been correctly updated.
 	expected := charm.Settings{"title": "y-title", "username": "y-user"}
-	obtained, err := application.ConfigSettings()
+	obtained, err := application.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, expected)
+	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
 func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	ch := s.AddTestingCharm(c, "dummy")
+	application := s.AddTestingApplication(c, "dummy", ch)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1521,9 +1534,9 @@ func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C
 
 	// Ensure the settings have been correctly updated.
 	expected := charm.Settings{"title": "y-title", "username": "y-user"}
-	obtained, err := application.ConfigSettings()
+	obtained, err := application.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, expected)
+	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
@@ -1585,7 +1598,7 @@ func (s *applicationSuite) TestApplicationUpdateAllParams(c *gc.C) {
 	// Check the settings: also ensure the YAML settings take precedence
 	// over strings ones.
 	expectedSettings := charm.Settings{"blog-title": "yaml-title"}
-	obtainedSettings, err := application.ConfigSettings()
+	obtainedSettings, err := application.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedSettings, gc.DeepEquals, expectedSettings)
 
@@ -1620,31 +1633,32 @@ var (
 )
 
 func (s *applicationSuite) TestApplicationSet(c *gc.C) {
-	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	ch := s.AddTestingCharm(c, "dummy")
+	dummy := s.AddTestingApplication(c, "dummy", ch)
 
 	err := s.applicationAPI.Set(params.ApplicationSet{ApplicationName: "dummy", Options: map[string]string{
 		"title":    "foobar",
 		"username": validSetTestValue,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.ConfigSettings()
+	settings, err := dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title":    "foobar",
 		"username": validSetTestValue,
-	})
+	}))
 
 	err = s.applicationAPI.Set(params.ApplicationSet{ApplicationName: "dummy", Options: map[string]string{
 		"title":    "barfoo",
 		"username": "",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err = dummy.ConfigSettings()
+	settings, err = dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title":    "barfoo",
 		"username": "",
-	})
+	}))
 }
 
 func (s *applicationSuite) assertApplicationSetBlocked(c *gc.C, dummy *state.Application, msg string) {
@@ -1663,12 +1677,14 @@ func (s *applicationSuite) assertApplicationSet(c *gc.C, dummy *state.Applicatio
 			"title":    "foobar",
 			"username": validSetTestValue}})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.ConfigSettings()
+	settings, err := dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	ch, _, err := dummy.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title":    "foobar",
 		"username": validSetTestValue,
-	})
+	}))
 }
 
 func (s *applicationSuite) TestBlockDestroyApplicationSet(c *gc.C) {
@@ -1690,27 +1706,28 @@ func (s *applicationSuite) TestBlockChangesApplicationSet(c *gc.C) {
 }
 
 func (s *applicationSuite) TestServerUnset(c *gc.C) {
-	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	ch := s.AddTestingCharm(c, "dummy")
+	dummy := s.AddTestingApplication(c, "dummy", ch)
 
 	err := s.applicationAPI.Set(params.ApplicationSet{ApplicationName: "dummy", Options: map[string]string{
 		"title":    "foobar",
 		"username": "user name",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.ConfigSettings()
+	settings, err := dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title":    "foobar",
 		"username": "user name",
-	})
+	}))
 
 	err = s.applicationAPI.Unset(params.ApplicationUnset{ApplicationName: "dummy", Options: []string{"username"}})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err = dummy.ConfigSettings()
+	settings, err = dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title": "foobar",
-	})
+	}))
 }
 
 func (s *applicationSuite) setupServerUnsetBlocked(c *gc.C) *state.Application {
@@ -1723,12 +1740,14 @@ func (s *applicationSuite) setupServerUnsetBlocked(c *gc.C) *state.Application {
 			"username": "user name",
 		}})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.ConfigSettings()
+	settings, err := dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	ch, _, err := dummy.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title":    "foobar",
 		"username": "user name",
-	})
+	}))
 	return dummy
 }
 
@@ -1738,11 +1757,13 @@ func (s *applicationSuite) assertServerUnset(c *gc.C, dummy *state.Application) 
 		Options:         []string{"username"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.ConfigSettings()
+	settings, err := dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	ch, _, err := dummy.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title": "foobar",
-	})
+	}))
 }
 
 func (s *applicationSuite) assertServerUnsetBlocked(c *gc.C, dummy *state.Application, msg string) {

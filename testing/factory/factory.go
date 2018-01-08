@@ -18,9 +18,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -91,13 +93,16 @@ type MachineParams struct {
 
 // ApplicationParams is used when specifying parameters for a new application.
 type ApplicationParams struct {
-	Name             string
-	Charm            *state.Charm
-	Status           *status.StatusInfo
-	Settings         map[string]interface{}
-	Storage          map[string]state.StorageConstraints
-	Constraints      constraints.Value
-	EndpointBindings map[string]string
+	Name                    string
+	Charm                   *state.Charm
+	Status                  *status.StatusInfo
+	ApplicationConfig       map[string]interface{}
+	ApplicationConfigFields environschema.Fields
+	CharmConfig             map[string]interface{}
+	Storage                 map[string]state.StorageConstraints
+	Constraints             constraints.Value
+	EndpointBindings        map[string]string
+	Password                string
 }
 
 // UnitParams are used to create units.
@@ -425,6 +430,15 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 // sane defaults for missing values.
 // If params is not specified, defaults are used.
 func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *state.Application {
+	app, _ := factory.MakeApplicationReturningPassword(c, params)
+	return app
+}
+
+// MakeApplication creates an application with the specified parameters, substituting
+// sane defaults for missing values.
+// If params is not specified, defaults are used.
+// It returns the application and its password.
+func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *ApplicationParams) (*state.Application, string) {
 	if params == nil {
 		params = &ApplicationParams{}
 	}
@@ -433,6 +447,11 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 	}
 	if params.Name == "" {
 		params.Name = params.Charm.Meta().Name
+	}
+	if params.Password == "" {
+		var err error
+		params.Password, err = utils.RandomPassword()
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	rSt, err := factory.st.Resources()
@@ -448,15 +467,20 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 		resourceMap[name] = pendingID
 	}
 
+	appConfig, err := application.NewConfig(params.ApplicationConfig, params.ApplicationConfigFields, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
-		Name:             params.Name,
-		Charm:            params.Charm,
-		Settings:         charm.Settings(params.Settings),
-		Storage:          params.Storage,
-		Constraints:      params.Constraints,
-		Resources:        resourceMap,
-		EndpointBindings: params.EndpointBindings,
+		Name:              params.Name,
+		Charm:             params.Charm,
+		CharmConfig:       charm.Settings(params.CharmConfig),
+		ApplicationConfig: appConfig,
+		Storage:           params.Storage,
+		Constraints:       params.Constraints,
+		Resources:         resourceMap,
+		EndpointBindings:  params.EndpointBindings,
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
@@ -471,12 +495,15 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	return application
+	return application, params.Password
 }
 
 // MakeUnit creates an application unit with specified params, filling in
-// sane defaults for missing values.
-// If params is not specified, defaults are used.
+// sane defaults for missing values. If params is not specified, defaults
+// are used.
+//
+// If the unit is being added to an IAAS model, then it will be assigned
+// to a machine.
 func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 	unit, _ := factory.MakeUnitReturningPassword(c, params)
 	return unit
@@ -485,12 +512,24 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 // MakeUnit creates an application unit with specified params, filling in sane
 // defaults for missing values. If params is not specified, defaults are used.
 // The unit and its password are returned.
+//
+// If the unit is being added to an IAAS model, then it will be assigned to a
+// machine.
 func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (*state.Unit, string) {
 	if params == nil {
 		params = &UnitParams{}
 	}
-	if params.Machine == nil {
-		params.Machine = factory.MakeMachine(c, nil)
+	model, err := factory.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	switch model.Type() {
+	case state.ModelTypeIAAS:
+		if params.Machine == nil {
+			params.Machine = factory.MakeMachine(c, nil)
+		}
+	default:
+		if params.Machine != nil {
+			c.Fatalf("machines not supported by model of type %q", model.Type())
+		}
 	}
 	if params.Application == nil {
 		params.Application = factory.MakeApplication(c, &ApplicationParams{
@@ -504,8 +543,11 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 	unit, err := params.Application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(params.Machine)
-	c.Assert(err, jc.ErrorIsNil)
+
+	if params.Machine != nil {
+		err = unit.AssignToMachine(params.Machine)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	agentTools := version.Binary{
 		Number: jujuversion.Current,

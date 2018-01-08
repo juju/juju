@@ -75,7 +75,7 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 
-	// Check that a relation can't be added to a Dying service.
+	// Check that a relation can't be added to a Dying application.
 	_, err = wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.Destroy()
@@ -279,14 +279,14 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
 	assertOneRelation(c, riak, 0, riakEP)
 
-	// Check that it is destroyed when the service is destroyed.
+	// Check that it is destroyed when the application is destroyed.
 	err = riak.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoRelations(c, riak)
 	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	// Create a new service (and hence a new relation in the background); check
+	// Create a new application (and hence a new relation in the background); check
 	// that refreshing the old one does not accidentally get the new one.
 	newriak := s.AddTestingApplication(c, "riak", riakch)
 	assertOneRelation(c, newriak, 1, riakEP)

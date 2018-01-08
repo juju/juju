@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -643,10 +644,10 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return false
 			},
 			triggerEvent: func(st *state.State) {
-				svc, err := st.Application("wordpress")
+				app, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = svc.UpdateConfigSettings(charm.Settings{"blog-title": "awesome"})
+				err = app.UpdateCharmConfig(charm.Settings{"blog-title": "awesome"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -1493,13 +1494,23 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "umadbro": charm is nil`)
 
 	insettings := charm.Settings{"tuning": "optimized"}
+	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
+	wordpress, err := s.State.AddApplication(
+		state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	outsettings, err := wordpress.ConfigSettings()
+	outsettings, err := wordpress.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outsettings, gc.DeepEquals, insettings)
+	expected := ch.Config().DefaultSettings()
+	for name, value := range insettings {
+		expected[name] = value
+	}
+	c.Assert(outsettings, gc.DeepEquals, expected)
+	outconfig, err := wordpress.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outconfig, gc.DeepEquals, inconfig.Attributes())
 
 	mysql, err := s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1523,26 +1534,30 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
 }
 
-func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
+func (s *StateSuite) TestAddApplicationWithNilCharmConfigValues(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	insettings := charm.Settings{"tuning": nil}
 
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
+	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings})
 	c.Assert(err, jc.ErrorIsNil)
-	outsettings, err := wordpress.ConfigSettings()
+	outsettings, err := wordpress.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outsettings, gc.DeepEquals, insettings)
+	expected := ch.Config().DefaultSettings()
+	for name, value := range insettings {
+		expected[name] = value
+	}
+	c.Assert(outsettings, gc.DeepEquals, expected)
 
 	// Ensure that during creation, application settings with nil config values
 	// were stripped and not written into database.
-	dbSettings := state.GetApplicationSettings(s.State, wordpress)
+	dbSettings := state.GetApplicationCharmConfig(s.State, wordpress)
 	_, dbFound := dbSettings.Get("tuning")
 	c.Assert(dbFound, jc.IsFalse)
 }
 
-func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
+func (s *StateSuite) TestAddApplicationModelDying(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	// Check that services cannot be added if the model is initially Dying.
+	// Check that applications cannot be added if the model is initially Dying.
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.Destroy(state.DestroyModelParams{})
@@ -1592,8 +1607,8 @@ func (s *StateSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 
 func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	// Check that a service with a name conflict cannot be added if
-	// there is no conflict initially but a local service is added
+	// Check that a application with a name conflict cannot be added if
+	// there is no conflict initially but a local application is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		s.AddTestingApplication(c, "s1", charm)
@@ -1639,7 +1654,7 @@ func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
 		"cluster": "",
 	})
 
-	// Removing the service also removes its bindings.
+	// Removing the application also removes its bindings.
 	err = svc.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = svc.Refresh()
@@ -1654,7 +1669,7 @@ func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 	_, err = s.State.AddSpace("client", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Specify some bindings, but not all when adding the service.
+	// Specify some bindings, but not all when adding the application.
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 43)
 	svc, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "yoursql",
@@ -1802,7 +1817,7 @@ func (s *StateSuite) TestAllApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(applications, gc.HasLen, 2)
 
-	// Check the returned service, order is defined by sorted keys.
+	// Check the returned application, order is defined by sorted keys.
 	names := make([]string, len(applications))
 	for i, app := range applications {
 		names[i] = app.Name()
@@ -1835,7 +1850,7 @@ var inferEndpointsTests = []struct {
 		},
 		err: `invalid endpoint ".*"`,
 	}, {
-		summary: "unknown service",
+		summary: "unknown application",
 		inputs:  [][]string{{"wooble"}},
 		err:     `application "wooble" not found`,
 	}, {
@@ -2074,7 +2089,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Dying model...
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
-	// Add a service so Destroy doesn't advance to Dead.
+	// Add a application so Destroy doesn't advance to Dead.
 	app := factory.NewFactory(st1).MakeApplication(c, nil)
 	dying, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2184,12 +2199,12 @@ func (s *StateSuite) TestWatchApplicationsLifecycle(c *gc.C) {
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	// Add a service: reported.
+	// Add a application: reported.
 	service := s.AddTestingApplication(c, "application", s.AddTestingCharm(c, "dummy"))
 	wc.AssertChange("application")
 	wc.AssertNoChange()
 
-	// Change the service: not reported.
+	// Change the application: not reported.
 	keepDying, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -3309,7 +3324,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	wordpressName := wordpress.Name()
 
-	// Add service units for later use.
+	// Add application units for later use.
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wordpress1, err := wordpress.AddUnit(state.AddUnitParams{})
@@ -3319,13 +3334,13 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	// No events should occur.
 	wc.AssertNoChange()
 
-	// Add minimum units to a service; a single change should occur.
+	// Add minimum units to a application; a single change should occur.
 	err = wordpress.SetMinUnits(2)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(wordpressName)
 	wc.AssertNoChange()
 
-	// Decrease minimum units for a service; expect no changes.
+	// Decrease minimum units for a application; expect no changes.
 	err = wordpress.SetMinUnits(1)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -3338,12 +3353,12 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertChange(mysql.Name(), wordpressName)
 	wc.AssertNoChange()
 
-	// Remove minimum units for a service; expect no changes.
+	// Remove minimum units for a application; expect no changes.
 	err = mysql.SetMinUnits(0)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Destroy a unit of a service with required minimum units.
+	// Destroy a unit of a application with required minimum units.
 	// Also avoid the unit removal. A single change should occur.
 	preventUnitDestroyRemove(c, wordpress0)
 	err = wordpress0.Destroy()
@@ -3351,7 +3366,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertChange(wordpressName)
 	wc.AssertNoChange()
 
-	// Two actions: destroy a unit and increase minimum units for a service.
+	// Two actions: destroy a unit and increase minimum units for a application.
 	// A single change should occur, and the application name should appear only
 	// one time in the change.
 	err = wordpress.SetMinUnits(5)
@@ -3361,17 +3376,17 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertChange(wordpressName)
 	wc.AssertNoChange()
 
-	// Destroy a unit of a service not requiring minimum units; expect no changes.
+	// Destroy a unit of a application not requiring minimum units; expect no changes.
 	err = mysql0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Destroy a service with required minimum units; expect no changes.
+	// Destroy a application with required minimum units; expect no changes.
 	err = wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Destroy a service not requiring minimum units; expect no changes.
+	// Destroy a application not requiring minimum units; expect no changes.
 	err = mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -4311,7 +4326,7 @@ func (s *StateSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
+func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	addrs, err := s.State.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
@@ -4345,6 +4360,10 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
+	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+
 	newHostPorts = [][]network.HostPort{{{
 		Address: network.Address{
 			Value: "0.2.4.6",
@@ -4359,9 +4378,13 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	gotHostPorts, err = s.State.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+
+	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
 
-func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
+func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
 	hostPorts := [][]network.HostPort{{{
 		Address: network.Address{
 			Value: "0.4.8.16",
@@ -4382,25 +4405,34 @@ func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
 	// desired value; second arrival will fail its assertion,
 	// refresh finding nothing to do, and then issue a
 	// read-only assertion that suceeds.
-
+	ctrC := state.ControllersC
 	var prevRevno int64
+	var prevAgentsRevno int64
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.State.SetAPIHostPorts(hostPorts)
 		c.Assert(err, jc.ErrorIsNil)
-		revno, err := state.TxnRevno(s.State, "controllers", "apiHostPorts")
+		revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
 		c.Assert(err, jc.ErrorIsNil)
 		prevRevno = revno
+		revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
+		c.Assert(err, jc.ErrorIsNil)
+		prevAgentsRevno = revno
 	}).Check()
 
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
-	revno, err := state.TxnRevno(s.State, "controllers", "apiHostPorts")
+
+	revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno, gc.Equals, prevRevno)
+
+	revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revno, gc.Equals, prevAgentsRevno)
 }
 
-func (s *StateSuite) TestSetAPIHostPortsConcurrentDifferent(c *gc.C) {
+func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) {
 	hostPorts0 := []network.HostPort{{
 		Address: network.Address{
 			Value: "0.4.8.16",
@@ -4422,25 +4454,149 @@ func (s *StateSuite) TestSetAPIHostPortsConcurrentDifferent(c *gc.C) {
 	// values; second arrival will fail its assertion, refresh
 	// finding and reattempt.
 
+	ctrC := state.ControllersC
 	var prevRevno int64
+	var prevAgentsRevno int64
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.State.SetAPIHostPorts([][]network.HostPort{hostPorts0})
 		c.Assert(err, jc.ErrorIsNil)
-		revno, err := state.TxnRevno(s.State, "controllers", "apiHostPorts")
+		revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
 		c.Assert(err, jc.ErrorIsNil)
 		prevRevno = revno
+		revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
+		c.Assert(err, jc.ErrorIsNil)
+		prevAgentsRevno = revno
 	}).Check()
 
 	err := s.State.SetAPIHostPorts([][]network.HostPort{hostPorts1})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
-	revno, err := state.TxnRevno(s.State, "controllers", "apiHostPorts")
+
+	revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno, gc.Not(gc.Equals), prevRevno)
+
+	revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revno, gc.Not(gc.Equals), prevAgentsRevno)
 
 	hostPorts, err := s.State.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, [][]network.HostPort{hostPorts1})
+
+	hostPorts, err = s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hostPorts, gc.DeepEquals, [][]network.HostPort{hostPorts1})
+}
+
+func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
+	// Simulate a controller configured with a management network space.
+	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
+	c.Assert(err, jc.ErrorIsNil)
+	controllerSettings.Set("juju-mgmt-space", "mgmt01")
+	_, err = controllerSettings.Write()
+
+	addrs, err := s.State.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	hostPort1 := network.HostPort{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}
+	hostPort2 := network.HostPort{
+		Address: network.Address{
+			Value:     "0.4.8.16",
+			Type:      network.IPv4Address,
+			Scope:     network.ScopePublic,
+			SpaceName: "mgmt01",
+		},
+		Port: 2,
+	}
+	hostPort3 := network.HostPort{
+		Address: network.Address{
+			Value: "0.6.1.2",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 5,
+	}
+	newHostPorts := [][]network.HostPort{{hostPort1, hostPort2}, {hostPort3}}
+
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotHostPorts, err := s.State.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+
+	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	// First slice filtered down to the address in the management space.
+	// Second filtered to zero elements, so retains the supplied slice.
+	c.Assert(gotHostPorts, jc.DeepEquals, [][]network.HostPort{{hostPort2}, {hostPort3}})
+}
+
+func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
+	addrs, err := s.State.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	newHostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}}}
+
+	// Delete the addresses for agents document before setting.
+	col := s.State.MongoSession().DB("juju").C(state.ControllersC)
+	key := "apiHostPortsForAgents"
+	err = col.RemoveId(key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
+
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+}
+
+func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
+	addrs, err := s.State.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	newHostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}}}
+
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Delete the addresses for agents document after setting.
+	col := s.State.MongoSession().DB("juju").C(state.ControllersC)
+	key := "apiHostPortsForAgents"
+	err = col.RemoveId(key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
+
+	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
 
 func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {

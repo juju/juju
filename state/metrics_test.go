@@ -426,7 +426,7 @@ func (s *MetricSuite) TestMetricsToSendBatches(c *gc.C) {
 
 func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 	nonMeteredUnit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
-	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "metered-service", Charm: s.meteredCharm})
+	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "metered-application", Charm: s.meteredCharm})
 	meteredUnit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	dyingUnit, err := meteredApplication.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -454,7 +454,7 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 		"assert valid metric fails on dying unit",
 		[]state.Metric{{"pings", "1", now}},
 		dyingUnit,
-		"unit \"metered-service/1\" not found",
+		"unit \"metered-application/1\" not found",
 	}, {
 		"assert charm doesn't implement key returns error",
 		[]state.Metric{{"not-implemented", "1", now}},

@@ -31,6 +31,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/instance"
@@ -995,18 +996,19 @@ var (
 )
 
 type AddApplicationArgs struct {
-	Name             string
-	Series           string
-	Charm            *Charm
-	Channel          csparams.Channel
-	Storage          map[string]StorageConstraints
-	AttachStorage    []names.StorageTag
-	EndpointBindings map[string]string
-	Settings         charm.Settings
-	NumUnits         int
-	Placement        []*instance.Placement
-	Constraints      constraints.Value
-	Resources        map[string]string
+	Name              string
+	Series            string
+	Charm             *Charm
+	Channel           csparams.Channel
+	Storage           map[string]StorageConstraints
+	AttachStorage     []names.StorageTag
+	EndpointBindings  map[string]string
+	ApplicationConfig *application.Config
+	CharmConfig       charm.Settings
+	NumUnits          int
+	Placement         []*instance.Placement
+	Constraints       constraints.Value
+	Resources         map[string]string
 }
 
 // AddApplication creates a new application, running the supplied charm, with the
@@ -1047,13 +1049,15 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() == ModelTypeIAAS {
+	switch model.Type() {
+	case ModelTypeIAAS:
 		if err := st.processIAASModelApplicationArgs(&args); err != nil {
 			return nil, errors.Trace(err)
 		}
-	} else {
-		// TODO(caas) - remove once units are supported.
-		args.NumUnits = 0
+	case ModelTypeCAAS:
+		if err := st.processCAASModelApplicationArgs(&args); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	applicationID := st.docID(args.Name)
@@ -1096,10 +1100,16 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		NeverSet: true,
 	}
 
+	if err := args.ApplicationConfig.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	appConfigAttrs := args.ApplicationConfig.Attributes()
+
 	// When creating the settings, we ignore nils.  In other circumstances, nil
 	// means to delete the value (reset to default), so creating with nil should
 	// mean to use the default, i.e. don't set the value.
-	removeNils(args.Settings)
+	removeNils(args.CharmConfig)
+	removeNils(appConfigAttrs)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
@@ -1128,11 +1138,12 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			endpointBindingsOp,
 		}
 		addOps, err := addApplicationOps(st, app, addApplicationOpsArgs{
-			applicationDoc: appDoc,
-			statusDoc:      statusDoc,
-			constraints:    args.Constraints,
-			storage:        args.Storage,
-			settings:       map[string]interface{}(args.Settings),
+			applicationDoc:    appDoc,
+			statusDoc:         statusDoc,
+			constraints:       args.Constraints,
+			storage:           args.Storage,
+			applicationConfig: appConfigAttrs,
+			charmConfig:       map[string]interface{}(args.CharmConfig),
 		})
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1329,6 +1340,23 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 			}
 		}
 	}
+	return nil
+}
+
+func (st *State) processCAASModelApplicationArgs(args *AddApplicationArgs) error {
+	if args.Series == "" {
+		// args.Series is not set, so use the series in the URL.
+		args.Series = args.Charm.URL().Series
+		if args.Series == "" {
+			// Should not happen, but just in case.
+			return errors.New("series is empty")
+		}
+	}
+
+	// TODO(caas) restrict the series to CAAS series.
+	// TODO(caas) check that AddApplicationArgs doesn't
+	// contain IAAS-specific things.
+
 	return nil
 }
 

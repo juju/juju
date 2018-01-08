@@ -6,6 +6,7 @@ package apiserver
 import (
 	"crypto/tls"
 	"net/http"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
@@ -144,10 +145,20 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		stTracker.Done()
 		return nil, errors.Trace(err)
 	}
+	return &cleanupWorker{
+		Worker:  w,
+		cleanup: func() { stTracker.Done() },
+	}, nil
+}
 
-	go func() {
-		w.Wait()
-		stTracker.Done()
-	}()
-	return w, nil
+type cleanupWorker struct {
+	worker.Worker
+	cleanupOnce sync.Once
+	cleanup     func()
+}
+
+func (w *cleanupWorker) Wait() error {
+	err := w.Worker.Wait()
+	w.cleanupOnce.Do(w.cleanup)
+	return err
 }

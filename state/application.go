@@ -11,17 +11,21 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/status"
 )
@@ -96,14 +100,24 @@ func (a *Application) globalKey() string {
 	return applicationGlobalKey(a.doc.Name)
 }
 
-func applicationSettingsKey(appName string, curl *charm.URL) string {
+func applicationCharmConfigKey(appName string, curl *charm.URL) string {
 	return fmt.Sprintf("a#%s#%s", appName, curl)
 }
 
-// settingsKey returns the charm-version-specific settings collection
+// charmConfigKey returns the charm-version-specific settings collection
 // key for the application.
-func (a *Application) settingsKey() string {
-	return applicationSettingsKey(a.doc.Name, a.doc.CharmURL)
+func (a *Application) charmConfigKey() string {
+	return applicationCharmConfigKey(a.doc.Name, a.doc.CharmURL)
+}
+
+func applicationConfigKey(appName string) string {
+	return fmt.Sprintf("a#%s#application", appName)
+}
+
+// applicationConfigKey returns the charm-version-specific settings collection
+// key for the application.
+func (a *Application) applicationConfigKey() string {
+	return applicationConfigKey(a.doc.Name)
 }
 
 func applicationStorageConstraintsKey(appName string, curl *charm.URL) string {
@@ -348,7 +362,9 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 		annotationRemoveOp(a.st, globalKey),
 		removeLeadershipSettingsOp(name),
 		removeStatusOp(a.st, globalKey),
+		removeSettingsOp(settingsC, a.applicationConfigKey()),
 		removeModelApplicationRefOp(a.st, name),
+		removeContainerSpecOp(a.Tag()),
 	)
 	return ops, nil
 }
@@ -633,10 +649,10 @@ func (a *Application) changeCharmOps(
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
-	oldSettings, err := readSettings(a.st.db(), settingsC, a.settingsKey())
+	oldKey, err := readSettings(a.st.db(), settingsC, a.charmConfigKey())
 	if err == nil {
 		// Filter the old settings through to get the new settings.
-		newSettings = ch.Config().FilterSettings(oldSettings.Map())
+		newSettings = ch.Config().FilterSettings(oldKey.Map())
 		for k, v := range updatedSettings {
 			newSettings[k] = v
 		}
@@ -649,7 +665,7 @@ func (a *Application) changeCharmOps(
 
 	// Create or replace application settings.
 	var settingsOp txn.Op
-	newSettingsKey := applicationSettingsKey(a.doc.Name, ch.URL())
+	newSettingsKey := applicationCharmConfigKey(a.doc.Name, ch.URL())
 	if _, err := readSettings(a.st.db(), settingsC, newSettingsKey); errors.IsNotFound(err) {
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
@@ -756,7 +772,7 @@ func (a *Application) changeCharmOps(
 	var decOps []txn.Op
 	// Drop the references to the old settings, storage constraints,
 	// and charm docs (if the refs actually exist yet).
-	if oldSettings != nil {
+	if oldKey != nil {
 		decOps, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL, true) // current charm
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -765,9 +781,9 @@ func (a *Application) changeCharmOps(
 
 	// Build the transaction.
 	var ops []txn.Op
-	if oldSettings != nil {
+	if oldKey != nil {
 		// Old settings shouldn't change (when they exist).
-		ops = append(ops, oldSettings.assertUnchangedOp())
+		ops = append(ops, oldKey.assertUnchangedOp())
 	}
 	ops = append(ops, unitOps...)
 	ops = append(ops, incOps...)
@@ -1281,92 +1297,11 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		return "", nil, err
 	}
 
-	im, err := a.st.IAASModel()
-	if err != nil {
-		return "", nil, errors.Trace(err)
-	}
-
-	// Reduce the count of new storage created for each existing storage
-	// being attached.
-	var storageCons map[string]StorageConstraints
-	for _, tag := range args.attachStorage {
-		storageName, err := names.StorageName(tag.Id())
-		if err != nil {
-			return "", nil, errors.Trace(err)
-		}
-		if cons, ok := args.storageCons[storageName]; ok && cons.Count > 0 {
-			if storageCons == nil {
-				// We must not modify the conents of the original
-				// args.storageCons map, as it comes from the
-				// user. Make a copy and modify that.
-				storageCons = make(map[string]StorageConstraints)
-				for name, cons := range args.storageCons {
-					storageCons[name] = cons
-				}
-				args.storageCons = storageCons
-			}
-			cons.Count--
-			storageCons[storageName] = cons
-		}
-	}
-
-	// Add storage instances/attachments for the unit. If the
-	// application is subordinate, we'll add the machine storage
-	// if the principal is assigned to a machine. Otherwise, we
-	// will add the subordinate's storage along with the principal's
-	// when the principal is assigned to a machine.
-	var machineAssignable machineAssignable
-	if a.doc.Subordinate {
-		pu, err := a.st.Unit(args.principalName)
-		if err != nil {
-			return "", nil, errors.Trace(err)
-		}
-		machineAssignable = pu
-	}
-	storageOps, storageTags, numStorageAttachments, err := createStorageOps(
-		im,
-		unitTag,
-		charm.Meta(),
-		args.storageCons,
-		a.doc.Series,
-		machineAssignable,
+	storageOps, numStorageAttachments, err := a.addUnitStorageOps(
+		args, unitTag, charm,
 	)
 	if err != nil {
 		return "", nil, errors.Trace(err)
-	}
-	for _, storageTag := range args.attachStorage {
-		si, err := im.storageInstance(storageTag)
-		if err != nil {
-			return "", nil, errors.Annotatef(
-				err, "attaching %s",
-				names.ReadableString(storageTag),
-			)
-		}
-		ops, err := im.attachStorageOps(
-			si,
-			unitTag,
-			a.doc.Series,
-			charm,
-			machineAssignable,
-		)
-		if err != nil {
-			return "", nil, errors.Trace(err)
-		}
-		storageOps = append(storageOps, ops...)
-		numStorageAttachments++
-		storageTags[si.StorageName()] = append(storageTags[si.StorageName()], storageTag)
-	}
-	for name, tags := range storageTags {
-		count := len(tags)
-		charmStorage := charm.Meta().Storage[name]
-		if err := validateCharmStorageCountChange(charmStorage, 0, count); err != nil {
-			return "", nil, errors.Trace(err)
-		}
-		incRefOp, err := increfEntityStorageOp(a.st, unitTag, name, count)
-		if err != nil {
-			return "", nil, errors.Trace(err)
-		}
-		storageOps = append(storageOps, incRefOp)
 	}
 
 	docID := a.st.docID(name)
@@ -1430,6 +1365,110 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
 	probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), workloadVersionDoc)
 	return name, ops, nil
+}
+
+func (a *Application) addUnitStorageOps(
+	args applicationAddUnitOpsArgs,
+	unitTag names.UnitTag,
+	charm *Charm,
+) ([]txn.Op, int, error) {
+
+	model, err := a.st.Model()
+	if err != nil {
+		return nil, -1, errors.Trace(err)
+	}
+	if model.Type() != ModelTypeIAAS {
+		// Only IAAS models have storage.
+		return nil, 0, nil
+	}
+	im, err := model.IAASModel()
+	if err != nil {
+		return nil, -1, errors.Trace(err)
+	}
+
+	// Reduce the count of new storage created for each existing storage
+	// being attached.
+	var storageCons map[string]StorageConstraints
+	for _, tag := range args.attachStorage {
+		storageName, err := names.StorageName(tag.Id())
+		if err != nil {
+			return nil, -1, errors.Trace(err)
+		}
+		if cons, ok := args.storageCons[storageName]; ok && cons.Count > 0 {
+			if storageCons == nil {
+				// We must not modify the conents of the original
+				// args.storageCons map, as it comes from the
+				// user. Make a copy and modify that.
+				storageCons = make(map[string]StorageConstraints)
+				for name, cons := range args.storageCons {
+					storageCons[name] = cons
+				}
+				args.storageCons = storageCons
+			}
+			cons.Count--
+			storageCons[storageName] = cons
+		}
+	}
+
+	// Add storage instances/attachments for the unit. If the
+	// application is subordinate, we'll add the machine storage
+	// if the principal is assigned to a machine. Otherwise, we
+	// will add the subordinate's storage along with the principal's
+	// when the principal is assigned to a machine.
+	var machineAssignable machineAssignable
+	if a.doc.Subordinate {
+		pu, err := a.st.Unit(args.principalName)
+		if err != nil {
+			return nil, -1, errors.Trace(err)
+		}
+		machineAssignable = pu
+	}
+	storageOps, storageTags, numStorageAttachments, err := createStorageOps(
+		im,
+		unitTag,
+		charm.Meta(),
+		args.storageCons,
+		a.doc.Series,
+		machineAssignable,
+	)
+	if err != nil {
+		return nil, -1, errors.Trace(err)
+	}
+	for _, storageTag := range args.attachStorage {
+		si, err := im.storageInstance(storageTag)
+		if err != nil {
+			return nil, -1, errors.Annotatef(
+				err, "attaching %s",
+				names.ReadableString(storageTag),
+			)
+		}
+		ops, err := im.attachStorageOps(
+			si,
+			unitTag,
+			a.doc.Series,
+			charm,
+			machineAssignable,
+		)
+		if err != nil {
+			return nil, -1, errors.Trace(err)
+		}
+		storageOps = append(storageOps, ops...)
+		numStorageAttachments++
+		storageTags[si.StorageName()] = append(storageTags[si.StorageName()], storageTag)
+	}
+	for name, tags := range storageTags {
+		count := len(tags)
+		charmStorage := charm.Meta().Storage[name]
+		if err := validateCharmStorageCountChange(charmStorage, 0, count); err != nil {
+			return nil, -1, errors.Trace(err)
+		}
+		incRefOp, err := increfEntityStorageOp(a.st, unitTag, name, count)
+		if err != nil {
+			return nil, -1, errors.Trace(err)
+		}
+		storageOps = append(storageOps, incRefOp)
+	}
+	return storageOps, numStorageAttachments, nil
 }
 
 // applicationOffersRefCountKey returns a key for refcounting offers
@@ -1522,14 +1561,6 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
-	im, err := a.st.IAASModel()
-	if err != nil {
-		return nil, err
-	}
-	storageInstanceOps, err := removeStorageInstancesOps(im, u.Tag())
-	if err != nil {
-		return nil, err
-	}
 	resOps, err := removeUnitResourcesOps(a.st, u.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1550,13 +1581,29 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
 		removeConstraintsOp(u.globalAgentKey()),
+		removeContainerSpecOp(u.Tag()),
 		annotationRemoveOp(a.st, u.globalKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	}
 	ops = append(ops, portsOps...)
-	ops = append(ops, storageInstanceOps...)
 	ops = append(ops, resOps...)
 	ops = append(ops, hostOps...)
+
+	model, err := a.st.Model()
+	if err != nil {
+		return nil, err
+	}
+	if model.Type() == ModelTypeIAAS {
+		im, err := model.IAASModel()
+		if err != nil {
+			return nil, err
+		}
+		storageInstanceOps, err := removeStorageInstancesOps(im, u.Tag())
+		if err != nil {
+			return nil, err
+		}
+		ops = append(ops, storageInstanceOps...)
+	}
 
 	if u.doc.CharmURL != nil {
 		// If the unit has a different URL to the application, allow any final
@@ -1656,19 +1703,35 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 	return relations, nil
 }
 
-// ConfigSettings returns the raw user configuration for the application's charm.
-// Unset values are omitted.
-func (a *Application) ConfigSettings() (charm.Settings, error) {
-	settings, err := readSettings(a.st.db(), settingsC, a.settingsKey())
+func charmSettingsWithDefaults(st *State, curl *charm.URL, key string) (charm.Settings, error) {
+	settings, err := readSettings(st.db(), settingsC, key)
 	if err != nil {
 		return nil, err
 	}
-	return settings.Map(), nil
+	result := settings.Map()
+
+	chrm, err := st.Charm(curl)
+	if err != nil {
+		return nil, err
+	}
+	result = chrm.Config().DefaultSettings()
+	for name, value := range settings.Map() {
+		result[name] = value
+	}
+	return result, nil
 }
 
-// UpdateConfigSettings changes a application's charm config settings. Values set
+// CharmConfig returns the raw user configuration for the application's charm.
+func (a *Application) CharmConfig() (charm.Settings, error) {
+	if a.doc.CharmURL == nil {
+		return nil, fmt.Errorf("application charm not set")
+	}
+	return charmSettingsWithDefaults(a.st, a.doc.CharmURL, a.charmConfigKey())
+}
+
+// UpdateCharmConfig changes a application's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
-func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
+func (a *Application) UpdateCharmConfig(changes charm.Settings) error {
 	charm, _, err := a.Charm()
 	if err != nil {
 		return err
@@ -1681,7 +1744,7 @@ func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
 	// about every use case. This needs to be resolved some time; but at
 	// least the settings docs are keyed by charm url as well as application
 	// name, so the actual impact of a race is non-threatening.
-	node, err := readSettings(a.st.db(), settingsC, a.settingsKey())
+	node, err := readSettings(a.st.db(), settingsC, a.charmConfigKey())
 	if err != nil {
 		return err
 	}
@@ -1691,6 +1754,57 @@ func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
 		} else {
 			node.Set(name, value)
 		}
+	}
+	_, err = node.Write()
+	return err
+}
+
+// ApplicationConfig returns the configuration for the application itself.
+func (a *Application) ApplicationConfig() (application.ConfigAttributes, error) {
+	config, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
+	if errors.IsNotFound(err) || len(config.Keys()) == 0 {
+		return application.ConfigAttributes(nil), nil
+	} else if err != nil {
+		return nil, err
+	}
+	return application.ConfigAttributes(config.Map()), nil
+}
+
+// UpdateApplicationConfig changes an application's config settings.
+// Unknown and invalid values will return an error.
+func (a *Application) UpdateApplicationConfig(
+	changes application.ConfigAttributes,
+	reset []string,
+	schema environschema.Fields,
+	defaults schema.Defaults,
+) error {
+	node, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
+	if errors.IsNotFound(err) {
+		return errors.Errorf("cannot update application config since no config exists")
+	} else if err != nil {
+		return err
+	}
+	resetKeys := set.NewStrings(reset...)
+	for name, value := range changes {
+		if resetKeys.Contains(name) {
+			continue
+		}
+		node.Set(name, value)
+	}
+	for _, name := range reset {
+		node.Delete(name)
+	}
+	newConfig, err := application.NewConfig(node.Map(), schema, defaults)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := newConfig.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	// Update node so it gets coerced values with correct types.
+	coerced := newConfig.Attributes()
+	for _, key := range node.Keys() {
+		node.Set(key, coerced[key])
 	}
 	_, err = node.Write()
 	return err
@@ -2018,11 +2132,12 @@ var statusServerities = map[status.Status]int{
 }
 
 type addApplicationOpsArgs struct {
-	applicationDoc *applicationDoc
-	statusDoc      statusDoc
-	constraints    constraints.Value
-	storage        map[string]StorageConstraints
-	settings       map[string]interface{}
+	applicationDoc    *applicationDoc
+	statusDoc         statusDoc
+	constraints       constraints.Value
+	storage           map[string]StorageConstraints
+	applicationConfig map[string]interface{}
+	charmConfig       map[string]interface{}
 	// These are nil when adding a new application, and most likely
 	// non-nil when migrating.
 	leadershipSettings map[string]interface{}
@@ -2039,14 +2154,16 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 	}
 
 	globalKey := app.globalKey()
-	settingsKey := app.settingsKey()
+	charmConfigKey := app.charmConfigKey()
+	applicationConfigKey := app.applicationConfigKey()
 	storageConstraintsKey := app.storageConstraintsKey()
 	leadershipKey := leadershipSettingsKey(app.Name())
 
 	ops := []txn.Op{
 		createConstraintsOp(globalKey, args.constraints),
 		createStorageConstraintsOp(storageConstraintsKey, args.storage),
-		createSettingsOp(settingsC, settingsKey, args.settings),
+		createSettingsOp(settingsC, charmConfigKey, args.charmConfig),
+		createSettingsOp(settingsC, applicationConfigKey, args.applicationConfig),
 		createSettingsOp(settingsC, leadershipKey, args.leadershipSettings),
 		createStatusOp(mb, globalKey, args.statusDoc),
 		addModelApplicationRefOp(mb, app.Name()),

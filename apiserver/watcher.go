@@ -93,7 +93,7 @@ type srvNotifyWatcher struct {
 }
 
 func isAgent(auth facade.Authorizer) bool {
-	return auth.AuthMachineAgent() || auth.AuthUnitAgent()
+	return auth.AuthMachineAgent() || auth.AuthUnitAgent() || auth.AuthApplicationAgent()
 }
 
 func newNotifyWatcher(context facade.Context) (facade.Facade, error) {

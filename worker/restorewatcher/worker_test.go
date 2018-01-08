@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/restorewatcher"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -96,7 +96,7 @@ type mockRestoreInfoWatcher struct {
 
 func (w *mockRestoreInfoWatcher) WatchRestoreInfoChanges() state.NotifyWatcher {
 	w.MethodCall(w, "WatchRestoreInfoChanges")
-	return watchertest.NewMockNotifyWatcher(w.changes)
+	return statetesting.NewMockNotifyWatcher(w.changes)
 }
 
 func (w *mockRestoreInfoWatcher) RestoreStatus() (state.RestoreStatus, error) {

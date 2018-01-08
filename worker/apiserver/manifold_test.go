@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -51,9 +50,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.agent = &mockAgent{}
 	s.clock = testing.NewClock(time.Time{})
-	s.state = stubStateTracker{
-		done: make(chan struct{}),
-	}
+	s.state = stubStateTracker{}
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.certWatcher = stubCertWatcher{}
 	s.upgradeGate = stubGateWaiter{}
@@ -164,18 +161,10 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
-	select {
-	case <-s.state.done:
-		c.Fatal("unexpected state release")
-	case <-time.After(coretesting.ShortWait):
-	}
+	s.state.CheckCallNames(c, "Use")
 
 	workertest.CleanKill(c, w)
-	select {
-	case <-s.state.done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for state to be released")
-	}
+	s.state.CheckCallNames(c, "Use", "Done")
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
@@ -228,7 +217,6 @@ func (c *mockAgentConfig) Value(key string) string {
 type stubStateTracker struct {
 	testing.Stub
 	pool state.StatePool
-	done chan struct{}
 }
 
 func (s *stubStateTracker) Use() (*state.StatePool, error) {
@@ -238,18 +226,7 @@ func (s *stubStateTracker) Use() (*state.StatePool, error) {
 
 func (s *stubStateTracker) Done() error {
 	s.MethodCall(s, "Done")
-	err := s.NextErr()
-	// close must be the last read or write on stubStateTracker in Done
-	close(s.done)
-	return err
-}
-
-func (s *stubStateTracker) waitDone(c *gc.C) {
-	select {
-	case <-s.done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for state to be released")
-	}
+	return s.NextErr()
 }
 
 type stubPrometheusRegisterer struct {

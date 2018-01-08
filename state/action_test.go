@@ -283,9 +283,9 @@ func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas ma
 	}
 
 	for name, schema := range schemas {
-		svcName := name + "-defaults-service"
+		svcName := name + "-defaults-application"
 
-		// Add a testing service
+		// Add a testing application
 		ch := s.AddActionsCharm(c, freeCharms[name], schema, 1)
 		app := s.AddTestingApplication(c, svcName, ch)
 

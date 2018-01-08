@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -196,7 +197,7 @@ func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, newHook newHook, kind hooks
 }
 
 func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
-	runErr := context.NewMissingHookError("blah-blah")
+	runErr := charmrunner.NewMissingHookError("blah-blah")
 	for _, kind := range hooks.UnitHooks() {
 		c.Logf("hook %v", kind)
 		op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, kind, runErr)

@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	tomb "gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
@@ -310,4 +311,78 @@ func (c RelationUnitsWatcherC) AssertClosed() {
 	default:
 		c.Fatalf("watcher not closed")
 	}
+}
+
+// MockNotifyWatcher implements state.NotifyWatcher.
+type MockNotifyWatcher struct {
+	tomb tomb.Tomb
+	ch   <-chan struct{}
+}
+
+func NewMockNotifyWatcher(ch <-chan struct{}) *MockNotifyWatcher {
+	w := &MockNotifyWatcher{ch: ch}
+	go func() {
+		defer w.tomb.Done()
+		<-w.tomb.Dying()
+		w.tomb.Kill(tomb.ErrDying)
+	}()
+	return w
+}
+
+func (w *MockNotifyWatcher) Changes() <-chan struct{} {
+	return w.ch
+}
+
+func (w *MockNotifyWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+func (w *MockNotifyWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *MockNotifyWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *MockNotifyWatcher) Wait() error {
+	return w.tomb.Wait()
+}
+
+// MockStringsWatcher implements state.StringsWatcher.
+type MockStringsWatcher struct {
+	tomb tomb.Tomb
+	ch   <-chan []string
+}
+
+func NewMockStringsWatcher(ch <-chan []string) *MockStringsWatcher {
+	w := &MockStringsWatcher{ch: ch}
+	go func() {
+		defer w.tomb.Done()
+		<-w.tomb.Dying()
+		w.tomb.Kill(tomb.ErrDying)
+	}()
+	return w
+}
+
+func (w *MockStringsWatcher) Changes() <-chan []string {
+	return w.ch
+}
+
+func (w *MockStringsWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+func (w *MockStringsWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *MockStringsWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *MockStringsWatcher) Wait() error {
+	return w.tomb.Wait()
 }

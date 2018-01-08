@@ -9,7 +9,6 @@ const (
 	Juju           = "juju"
 	Jujud          = "jujud"
 	JujudVersions  = "jujud-versions.yaml"
-	Jujuc          = "jujuc"
 	JujuRun        = "juju-run"
 	JujuDumpLogs   = "juju-dumplogs"
 	JujuIntrospect = "juju-introspect"

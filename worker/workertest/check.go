@@ -95,7 +95,9 @@ func CleanKill(c *gc.C, w worker.Worker) {
 // use from any goroutine.
 func DirtyKill(c *gc.C, w worker.Worker) {
 	err := CheckKill(c, w)
-	c.Logf("ignoring error: %v", err)
+	if err != nil {
+		c.Logf("ignoring error: %v", err)
+	}
 }
 
 // CheckNilOrKill has no effect if w is nil; otherwise, it fails the test

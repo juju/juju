@@ -41,7 +41,10 @@ var commonModelFacadeNames = set.NewStrings(
 // caasModelFacadeNames lists facades that are only used with CAAS
 // models.
 var caasModelFacadeNames = set.NewStrings(
-	"CAASProvisioner",
+	"CAASFirewaller",
+	"CAASOperator",
+	"CAASOperatorProvisioner",
+	"CAASUnitProvisioner",
 )
 
 func caasModelFacadesOnly(facadeName, _ string) error {

@@ -101,7 +101,7 @@ func (f fakeBundleInfo) ArchiveSha256() (string, error) {
 func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	basedir := c.MkDir()
 	bunsDir := filepath.Join(basedir, "random", "bundles")
-	downloader := api.NewCharmDownloader(s.st.Client())
+	downloader := api.NewCharmDownloader(s.st)
 	d := charm.NewBundlesDir(bunsDir, downloader)
 
 	checkDownloadsEmpty := func() {

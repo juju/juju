@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,7 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -56,15 +59,15 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	err := runDeploy(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "cs:xenial/mysql-42"},
-		"wordpress": {charm: "cs:xenial/wordpress-47"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"mysql":     {charm: "cs:xenial/mysql-42", config: mysqlch.Config().DefaultSettings()},
+		"wordpress": {charm: "cs:xenial/wordpress-47", config: wpch.Config().DefaultSettings()},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -73,16 +76,65 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleSuccess(c *gc.C) {
 	})
 }
 
+func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
+	stub := &testing.Stub{}
+	handler := &testMetricsRegistrationHandler{Stub: stub}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-plans-1", "wordpress-with-plans")
+
+	deploy := NewDeployCommandForTest(
+		nil,
+		[]DeployStep{&RegisterMeteredCharm{RegisterURL: server.URL, QueryURL: server.URL}},
+	)
+	_, err := cmdtesting.RunCommand(c, deploy, "bundle/wordpress-with-plans")
+	c.Assert(err, jc.ErrorIsNil)
+
+	stub.CheckCalls(c, []testing.StubCall{{
+		FuncName: "DefaultPlan",
+		Args:     []interface{}{"cs:wordpress"},
+	}, {
+		FuncName: "Authorize",
+		Args: []interface{}{metricRegistrationPost{
+			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			CharmURL:        "cs:wordpress",
+			ApplicationName: "wordpress",
+			PlanURL:         "thisplan",
+			IncreaseBudget:  0,
+		}},
+	}, {
+		FuncName: "Authorize",
+		Args: []interface{}{metricRegistrationPost{
+			ModelUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			CharmURL:        "cs:mysql",
+			ApplicationName: "mysql",
+			PlanURL:         "test/plan",
+			IncreaseBudget:  0,
+		}},
+	}})
+
+	mysqlApp, err := s.State.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysqlApp.MetricCredentials(), jc.DeepEquals, append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA))
+
+	wordpressApp, err := s.State.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpressApp.MetricCredentials(), jc.DeepEquals, append([]byte(`"aGVsbG8gcmVnaXN0cmF0aW9u"`), 0xA))
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithTermsSuccess(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/terms1-17", "terms1")
-	testcharms.UploadCharm(c, s.client, "xenial/terms2-42", "terms2")
+	_, ch1 := testcharms.UploadCharm(c, s.client, "xenial/terms1-17", "terms1")
+	_, ch2 := testcharms.UploadCharm(c, s.client, "xenial/terms2-42", "terms2")
 	testcharms.UploadBundle(c, s.client, "bundle/terms-simple-1", "terms-simple")
 	err := runDeploy(c, "bundle/terms-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/terms1-17", "cs:xenial/terms2-42")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"terms1": {charm: "cs:xenial/terms1-17"},
-		"terms2": {charm: "cs:xenial/terms2-42"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"terms1": {charm: "cs:xenial/terms1-17", config: ch1.Config().DefaultSettings()},
+		"terms2": {charm: "cs:xenial/terms2-42", config: ch2.Config().DefaultSettings()},
 	})
 	s.assertUnitsCreated(c, map[string]string{
 		"terms1/0": "0",
@@ -92,8 +144,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWithTermsSuccess(c *gc.C) 
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql-storage")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql-storage")
+	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-mysql-storage-1", "wordpress-with-mysql-storage")
 	err := runDeploy(
 		c, "bundle/wordpress-with-mysql-storage",
@@ -101,15 +153,16 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"mysql": {
-			charm: "cs:xenial/mysql-42",
+			charm:  "cs:xenial/mysql-42",
+			config: mysqlch.Config().DefaultSettings(),
 			storage: map[string]state.StorageConstraints{
-				"data": state.StorageConstraints{Pool: "rootfs", Size: 50 * 1024, Count: 1},
-				"logs": state.StorageConstraints{Pool: "tmpfs", Size: 10 * 1024, Count: 1},
+				"data": {Pool: "rootfs", Size: 50 * 1024, Count: 1},
+				"logs": {Pool: "tmpfs", Size: 10 * 1024, Count: 1},
 			},
 		},
-		"wordpress": {charm: "cs:xenial/wordpress-47"},
+		"wordpress": {charm: "cs:xenial/wordpress-47", config: wpch.Config().DefaultSettings()},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -135,7 +188,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissi
 		"- upload charm cs:xenial/mysql-42 for series xenial\n"+
 		"- deploy application mysql on xenial using cs:xenial/mysql-42")
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{})
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{})
 	s.assertUnitsCreated(c, map[string]string{})
 }
 
@@ -145,18 +198,18 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 	_, err = s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings")
+	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-with-endpoint-bindings-1", "wordpress-with-endpoint-bindings")
 	err = runDeploy(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-extra-bindings-47")
 
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"mysql":                    {charm: "cs:xenial/mysql-42"},
-		"wordpress-extra-bindings": {charm: "cs:xenial/wordpress-extra-bindings-47"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"mysql":                    {charm: "cs:xenial/mysql-42", config: mysqlch.Config().DefaultSettings()},
+		"wordpress-extra-bindings": {charm: "cs:xenial/wordpress-extra-bindings-47", config: wpch.Config().DefaultSettings()},
 	})
-	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
+	s.assertDeployedServiceBindings(c, map[string]applicationInfo{
 		"mysql": {
 			endpointBindings: map[string]string{"server": "db", "server-admin": ""},
 		},
@@ -182,8 +235,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	stdOut, stdErr, err := runDeployWithOutput(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
@@ -209,9 +262,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleTwice(c *gc.C) {
 	)
 
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "cs:xenial/mysql-42"},
-		"wordpress": {charm: "cs:xenial/wordpress-47"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"mysql":     {charm: "cs:xenial/mysql-42", config: mysqlch.Config().DefaultSettings()},
+		"wordpress": {charm: "cs:xenial/wordpress-47", config: wpch.Config().DefaultSettings()},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -242,22 +295,24 @@ func (s *BundleDeployCharmStoreSuite) TestDryRunTwice(c *gc.C) {
 	c.Check(stdOut, gc.Equals, expected)
 
 	s.assertCharmsUploaded(c /* none */)
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{})
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{})
 	s.assertRelationsEstablished(c /* none */)
 	s.assertUnitsCreated(c, map[string]string{})
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleGatedCharm(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
+	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	url, _ := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
 	s.changeReadPerm(c, url, clientUserName)
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-simple-1", "wordpress-simple")
 	err := runDeploy(c, "bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/mysql-42", "cs:xenial/wordpress-47")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "cs:xenial/mysql-42"},
-		"wordpress": {charm: "cs:xenial/wordpress-47"},
+	ch, err := s.State.Charm(charm.MustParseURL("cs:xenial/wordpress-47"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"mysql":     {charm: "cs:xenial/mysql-42", config: mysqlch.Config().DefaultSettings()},
+		"wordpress": {charm: "cs:xenial/wordpress-47", config: ch.Config().DefaultSettings()},
 	})
 }
 
@@ -278,8 +333,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	err = runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:xenial/dummy-1")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"dummy": {charm: "local:xenial/dummy-1"},
+	ch, err := s.State.Charm(charm.MustParseURL("local:xenial/dummy-1"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"dummy": {charm: "local:xenial/dummy-1", config: ch.Config().DefaultSettings()},
 	})
 }
 
@@ -302,8 +359,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
 	err := runDeploy(c, dir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:quantal/dummy-resource-0")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"dummy-resource": {charm: "local:quantal/dummy-resource-0"},
+	ch, err := s.State.Charm(charm.MustParseURL("local:quantal/dummy-resource-0"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"dummy-resource": {charm: "local:quantal/dummy-resource-0", config: ch.Config().DefaultSettings()},
 	})
 }
 
@@ -323,8 +382,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNoSeriesInCharmURL(c *gc.C
 	err = runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:~who/multi-series-0")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"dummy": {charm: "cs:~who/multi-series-0"},
+	ch, err := s.State.Charm(charm.MustParseURL("~who/multi-series-0"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"dummy": {charm: "cs:~who/multi-series-0", config: ch.Config().DefaultSettings()},
 	})
 }
 
@@ -674,9 +735,13 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeployment(c *gc.C) {
     `, wordpressPath, mysqlPath))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:xenial/mysql-1", "local:xenial/wordpress-3")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "local:xenial/mysql-1"},
-		"wordpress": {charm: "local:xenial/wordpress-3"},
+	mysqlch, err := s.State.Charm(charm.MustParseURL("local:xenial/mysql-1"))
+	c.Assert(err, jc.ErrorIsNil)
+	wpch, err := s.State.Charm(charm.MustParseURL("local:xenial/wordpress-3"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"mysql":     {charm: "local:xenial/mysql-1", config: mysqlch.Config().DefaultSettings()},
+		"wordpress": {charm: "local:xenial/wordpress-3", config: wpch.Config().DefaultSettings()},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -744,14 +809,14 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentWithBundleO
 	// Now check the blog-title of the wordpress.	le")
 	wordpress, err := s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := wordpress.ConfigSettings()
+	settings, err := wordpress.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings["blog-title"], gc.Equals, "magic bundle config")
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c *gc.C) {
 	charmsPath := c.MkDir()
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
+	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	mysqlPath := testcharms.Repo.ClonedDirPath(charmsPath, "mysql")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
         series: xenial
@@ -768,9 +833,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
     `, mysqlPath))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:xenial/mysql-1", "cs:xenial/wordpress-42")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"mysql":     {charm: "local:xenial/mysql-1"},
-		"wordpress": {charm: "cs:xenial/wordpress-42"},
+	mysqlch, err := s.State.Charm(charm.MustParseURL("local:xenial/mysql-1"))
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"mysql":     {charm: "local:xenial/mysql-1", config: mysqlch.Config().DefaultSettings()},
+		"wordpress": {charm: "cs:xenial/wordpress-42", config: wpch.Config().DefaultSettings()},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db mysql:server")
 	s.assertUnitsCreated(c, map[string]string{
@@ -780,8 +847,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
-	testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
+	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
+	_, dch := testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
 	err := s.DeployBundleYAML(c, `
         applications:
             wordpress:
@@ -798,14 +865,14 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:xenial/wordpress-42")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
 			charm:  "cs:precise/dummy-0",
-			config: charm.Settings{"username": "who", "skill-level": int64(47)},
+			config: s.combinedSettings(dch, charm.Settings{"username": "who", "skill-level": int64(47)}),
 		},
 		"wordpress": {
 			charm:  "cs:xenial/wordpress-42",
-			config: charm.Settings{"blog-title": "these are the voyages"},
+			config: s.combinedSettings(wpch, charm.Settings{"blog-title": "these are the voyages"}),
 		},
 	})
 	s.assertUnitsCreated(c, map[string]string{
@@ -815,8 +882,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationOptions(c *gc.C
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstrants(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
-	testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
+	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
+	_, dch := testcharms.UploadCharm(c, s.client, "precise/dummy-0", "dummy")
 	err := s.DeployBundleYAML(c, `
         applications:
             wordpress:
@@ -829,14 +896,16 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstrants(c *g
     `)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:precise/dummy-0", "cs:xenial/wordpress-42")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"customized": {
 			charm:       "cs:precise/dummy-0",
 			constraints: constraints.MustParse("arch=i386"),
+			config:      dch.Config().DefaultSettings(),
 		},
 		"wordpress": {
 			charm:       "cs:xenial/wordpress-42",
 			constraints: constraints.MustParse("mem=4G cores=2"),
+			config:      wpch.Config().DefaultSettings(),
 		},
 	})
 	s.assertUnitsCreated(c, map[string]string{
@@ -845,9 +914,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationConstrants(c *g
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
+	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	testcharms.UploadCharm(c, s.client, "vivid/upgrade-1", "upgrade1")
-	testcharms.UploadCharm(c, s.client, "vivid/upgrade-2", "upgrade2")
+	_, ch := testcharms.UploadCharm(c, s.client, "vivid/upgrade-2", "upgrade2")
 
 	// First deploy the bundle.
 	err := s.DeployBundleYAML(c, `
@@ -890,14 +959,15 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
 	)
 
 	s.assertCharmsUploaded(c, "cs:vivid/upgrade-1", "cs:vivid/upgrade-2", "cs:xenial/wordpress-42")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"up": {
 			charm:       "cs:vivid/upgrade-2",
+			config:      ch.Config().DefaultSettings(),
 			constraints: constraints.MustParse("mem=8G"),
 		},
 		"wordpress": {
 			charm:       "cs:xenial/wordpress-42",
-			config:      charm.Settings{"blog-title": "new title"},
+			config:      s.combinedSettings(wpch, charm.Settings{"blog-title": "new title"}),
 			constraints: constraints.MustParse("spaces=new cores=8"),
 		},
 	})
@@ -908,7 +978,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationUpgrade(c *gc.C
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
+	_, ch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-42", "wordpress")
 	content := `
         applications:
             wordpress:
@@ -916,9 +986,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExpose(c *gc.C) {
                 num_units: 1
                 expose: true
     `
-	expectedApplications := map[string]serviceInfo{
+	expectedApplications := map[string]applicationInfo{
 		"wordpress": {
 			charm:   "cs:xenial/wordpress-42",
+			config:  ch.Config().DefaultSettings(),
 			exposed: true,
 		},
 	}
@@ -1050,8 +1121,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleNewRelations(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
-	testcharms.UploadCharm(c, s.client, "xenial/mysql-2", "mysql")
+	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
+	_, mysqlch := testcharms.UploadCharm(c, s.client, "xenial/mysql-2", "mysql")
 
 	content := `
         applications:
@@ -1076,11 +1147,11 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachinesUnitsPlacement(c *
     `
 	err := s.DeployBundleYAML(c, content)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"sql": {charm: "cs:xenial/mysql-2"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"sql": {charm: "cs:xenial/mysql-2", config: mysqlch.Config().DefaultSettings()},
 		"wp": {
 			charm:  "cs:xenial/wordpress-0",
-			config: charm.Settings{"blog-title": "these are the voyages"},
+			config: s.combinedSettings(wpch, charm.Settings{"blog-title": "these are the voyages"}),
 		},
 	})
 	s.assertRelationsEstablished(c)
@@ -1159,7 +1230,7 @@ func (s *BundleDeployCharmStoreSuite) TestLXCTreatedAsLXD(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+	_, ch := testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
 	err := s.DeployBundleYAML(c, `
         applications:
             django:
@@ -1176,8 +1247,8 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleMachineAttributes(c *gc.C)
                     foo: bar
     `)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"django": {charm: "cs:xenial/django-42"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"django": {charm: "cs:xenial/django-42", config: ch.Config().DefaultSettings()},
 	})
 	s.assertRelationsEstablished(c)
 	s.assertUnitsCreated(c, map[string]string{

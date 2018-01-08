@@ -457,6 +457,10 @@ func allCollections() collectionSchema {
 		// firewallRulesC holds firewall rules for defined service types.
 		firewallRulesC: {},
 
+		// containerSpecsC holds the CAAS container specifications,
+		// for applications and units.
+		containerSpecsC: {},
+
 		// ----------------------
 
 		// Raw-access collections
@@ -489,6 +493,7 @@ const (
 	cloudCredentialsC        = "cloudCredentials"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
+	containerSpecsC          = "containerSpecs"
 	controllersC             = "controllers"
 	controllerUsersC         = "controllerusers"
 	filesystemAttachmentsC   = "filesystemAttachments"

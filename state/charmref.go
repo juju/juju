@@ -39,7 +39,7 @@ func appCharmIncRefOps(mb modelBackend, appName string, curl *charm.URL, canCrea
 	if !canCreate {
 		getIncRefOp = nsRefcounts.StrictIncRefOp
 	}
-	settingsKey := applicationSettingsKey(appName, curl)
+	settingsKey := applicationCharmConfigKey(appName, curl)
 	settingsOp, err := getIncRefOp(refcounts, settingsKey, 1)
 	if err != nil {
 		return nil, errors.Annotate(err, "settings reference")
@@ -76,7 +76,7 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDo
 		return nil, errors.Annotate(err, "charm reference")
 	}
 
-	settingsKey := applicationSettingsKey(appName, curl)
+	settingsKey := applicationCharmConfigKey(appName, curl)
 	settingsOp, isFinal, err := nsRefcounts.DyingDecRefOp(refcounts, settingsKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "settings reference %s", settingsKey)
@@ -103,7 +103,7 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDo
 // finalAppCharmRemoveOps returns operations to delete the settings
 // and storage constraints documents and queue a charm cleanup.
 func finalAppCharmRemoveOps(appName string, curl *charm.URL) []txn.Op {
-	settingsKey := applicationSettingsKey(appName, curl)
+	settingsKey := applicationCharmConfigKey(appName, curl)
 	removeSettingsOp := txn.Op{
 		C:      settingsC,
 		Id:     settingsKey,
