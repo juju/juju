@@ -29,6 +29,7 @@ var sshTests = []struct {
 	about       string
 	args        []string
 	hostChecker jujussh.ReachableChecker
+	isTerminal  bool
 	forceAPIv1  bool
 	expected    argsSpec
 	expectedErr string
@@ -41,7 +42,6 @@ var sshTests = []struct {
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
-			enablePty:       true,
 			args:            "ubuntu@0.public",
 		},
 	},
@@ -53,7 +53,6 @@ var sshTests = []struct {
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
-			enablePty:       true,
 			argsMatch:       `ubuntu@0.(public|private|1\.2\.3)`, // can be any of the 3
 		},
 	},
@@ -64,18 +63,41 @@ var sshTests = []struct {
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
-			enablePty:       true,
 			args:            "ubuntu@0.public uname -a",
 		},
 	},
 	{
-		about:       "connect to machine 0 with no pseudo-tty",
-		args:        []string{"--pty=false", "0"},
+		about:       "connect to machine 0 with implied pseudo-tty",
+		args:        []string{"0"},
+		hostChecker: validAddresses("0.public"),
+		isTerminal:  true,
+		expected: argsSpec{
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+			enablePty:       true, // implied by client's terminal
+			args:            "ubuntu@0.public",
+		},
+	},
+	{
+		about:       "connect to machine 0 with pseudo-tty",
+		args:        []string{"--pty=true", "0"},
 		hostChecker: validAddresses("0.public"),
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
-			enablePty:       false,
+			enablePty:       true,
+			args:            "ubuntu@0.public",
+		},
+	},
+	{
+		about:       "connect to machine 0 without pseudo-tty",
+		args:        []string{"--pty=false", "0"},
+		hostChecker: validAddresses("0.public"),
+		isTerminal:  true,
+		expected: argsSpec{
+			hostKeyChecking: "yes",
+			knownHosts:      "0",
+			enablePty:       false, // explicitly disabled
 			args:            "ubuntu@0.public",
 		},
 	},
@@ -92,7 +114,6 @@ var sshTests = []struct {
 		expected: argsSpec{
 			hostKeyChecking: "no",
 			knownHosts:      "null",
-			enablePty:       true,
 			args:            "ubuntu@1.public",
 		},
 	},
@@ -105,7 +126,6 @@ var sshTests = []struct {
 			// StrictHostKeyChecking config.
 			hostKeyChecking: "",
 			knownHosts:      "",
-			enablePty:       true,
 			args:            "foo@some.host",
 		},
 	},
@@ -116,7 +136,6 @@ var sshTests = []struct {
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
-			enablePty:       true,
 			args:            "ubuntu@0.public",
 		},
 	},
@@ -127,7 +146,6 @@ var sshTests = []struct {
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
-			enablePty:       true,
 			args:            "mongo@0.public",
 		},
 	},
@@ -138,7 +156,6 @@ var sshTests = []struct {
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
-			enablePty:       true,
 			args:            "ubuntu@0.public ls /",
 		},
 	},
@@ -150,7 +167,6 @@ var sshTests = []struct {
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
-			enablePty:       true,
 			withProxy:       true,
 			args:            "ubuntu@0.private",
 		},
@@ -163,7 +179,6 @@ var sshTests = []struct {
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
-			enablePty:       true,
 			withProxy:       true,
 			argsMatch:       `ubuntu@0.private`,
 		},
@@ -176,10 +191,14 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	for i, t := range sshTests {
 		c.Logf("test %d: %s -> %s", i, t.about, t.args)
 
-		s.setHostChecker(t.hostChecker)
 		s.setForceAPIv1(t.forceAPIv1)
 
-		ctx, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker), t.args...)
+		isTerminal := func(stdin interface{}) bool {
+			return t.isTerminal
+		}
+		cmd := newSSHCommand(t.hostChecker, isTerminal)
+
+		ctx, err := cmdtesting.RunCommand(c, cmd, t.args...)
 		if t.expectedErr != "" {
 			c.Check(err, gc.ErrorMatches, t.expectedErr)
 		} else {
@@ -200,20 +219,19 @@ func (s *SSHSuite) TestSSHCommandModelConfigProxySSH(c *gc.C) {
 
 	s.setForceAPIv1(true)
 
-	ctx, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker), "0")
+	ctx, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), "0")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs := argsSpec{
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
-		enablePty:       true,
 		withProxy:       true,
 		args:            "ubuntu@0.private", // as set by setAddresses()
 	}
 	expectedArgs.check(c, cmdtesting.Stdout(ctx))
 
 	s.setForceAPIv1(false)
-	ctx, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker), "0")
+	ctx, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), "0")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	expectedArgs.argsMatch = `ubuntu@0.(public|private|1\.2\.3)` // can be any of the 3 with api v2.
@@ -287,7 +305,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	// Ensure that the ssh command waits for a public (private with proxy=true)
 	// address, or the attempt strategy's Done method returns false.
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
-	_, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker), args...)
+	_, err := cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), args...)
 	c.Assert(err, gc.ErrorMatches, `no .+ address\(es\)`)
 	c.Assert(called, gc.Equals, 2)
 
@@ -306,7 +324,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 		return true
 	}
 
-	_, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker), args...)
+	_, err = cmdtesting.RunCommand(c, newSSHCommand(s.hostChecker, nil), args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, 2)
 }
