@@ -105,12 +105,17 @@ func (l *bufferedLog) flush() error {
 	return nil
 }
 
-// InterestingRequest returns whether this API request is interesting enough
-// to write the conversation to the audit log.
-func InterestingRequest(req auditlog.Request) bool {
-	return !readOnlyMethods.Contains(fmt.Sprintf("%s.%s", req.Facade, req.Method))
+// MakeExclusionFilter returns a filter function for audit logging
+// that will return false if the request's method matches any of the
+// passed names.
+func MakeExclusionFilter(excludeMethods set.Strings) func(auditlog.Request) bool {
+	return func(req auditlog.Request) bool {
+		return !excludeMethods.Contains(fmt.Sprintf("%s.%s", req.Facade, req.Method))
+	}
 }
 
-var readOnlyMethods = set.NewStrings(
+// DefaultExcludeMethods is a set of the API methods we exclude from
+// the audit log by default.
+var DefaultExcludeMethods = set.NewStrings(
 	"Client.FullStatus",
 )

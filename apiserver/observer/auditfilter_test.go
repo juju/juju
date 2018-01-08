@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer"
@@ -72,4 +73,11 @@ func (s *auditFilterSuite) TestFiltersUninterestingConversations(c *gc.C) {
 	err = log.AddResponse(auditlog.ResponseErrors{})
 	c.Assert(err, jc.ErrorIsNil)
 	target.CheckCallNames(c, "AddRequest", "AddResponse")
+}
+
+func (s *auditFilterSuite) TestMakeFilter(c *gc.C) {
+	f1 := observer.MakeExclusionFilter(set.NewStrings("Battery.Kinzie", "Helplessness.Blues"))
+	c.Assert(f1(auditlog.Request{Facade: "Battery", Method: "Kinzie"}), jc.IsFalse)
+	c.Assert(f1(auditlog.Request{Facade: "Helplessness", Method: "Blues"}), jc.IsFalse)
+	c.Assert(f1(auditlog.Request{Facade: "The", Method: "Shrine"}), jc.IsTrue)
 }
