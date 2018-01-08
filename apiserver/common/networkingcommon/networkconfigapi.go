@@ -49,17 +49,15 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 		return nil, nil
 	}
 
-	instId, err := m.InstanceId()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	model, err := api.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	netEnviron, err := NetworkingEnvironFromModelConfig(
-		stateenvirons.EnvironConfigGetter{api.st, model},
+		stateenvirons.EnvironConfigGetter{
+			State: api.st,
+			Model: model,
+		},
 	)
 	if errors.IsNotSupported(err) {
 		logger.Infof("provider network config not supported: %v", err)
@@ -68,17 +66,22 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 		return nil, errors.Annotate(err, "cannot get provider network config")
 	}
 
+	instId, err := m.InstanceId()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	interfaceInfos, err := netEnviron.NetworkInterfaces(instId)
 	if errors.IsNotSupported(err) {
 		// It's possible to have a networking environ, but not support
-		// NetworkInterfaces().  In leiu of adding SupportsNetworkInterfaces():
+		// NetworkInterfaces(). In leiu of adding SupportsNetworkInterfaces():
 		logger.Infof("provider network interfaces not supported: %v", err)
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "cannot get network interfaces of %q", instId)
 	}
 	if len(interfaceInfos) == 0 {
-		logger.Infof("not updating provider network config: no interfaces returned")
+		logger.Infof("no provider network interfaces found")
 		return nil, nil
 	}
 
@@ -109,9 +112,9 @@ func (api *NetworkConfigAPI) fixUpFanSubnets(networkConfig []params.NetworkConfi
 		}
 	}
 	for i := range networkConfig {
-		localIp := net.ParseIP(networkConfig[i].Address)
+		localIP := net.ParseIP(networkConfig[i].Address)
 		for j, fanSubnet := range fanSubnets {
-			if fanCIDRs[j].Contains(localIp) {
+			if fanCIDRs[j].Contains(localIP) {
 				networkConfig[i].CIDR = fanSubnet.CIDR()
 				networkConfig[i].ProviderId = string(fanSubnet.ProviderId())
 				networkConfig[i].ProviderSubnetId = string(fanSubnet.ProviderNetworkId())
@@ -141,6 +144,7 @@ func (api *NetworkConfigAPI) setOneMachineNetworkConfig(m *state.Machine, networ
 }
 
 func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string) (*state.Machine, error) {
+	logger.Debugf("TAG: %q", machineTag)
 	canModify, err := api.getCanModify()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -168,6 +172,9 @@ func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string
 	return m, nil
 }
 
+// SetObservedNetworkConfig reads the network config for the machine identified
+// by the input args. This config is merged with the new network config supplied
+// in the same args and updated if it has changed.
 func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
 	m, err := api.getMachineForSettingNetworkConfig(args.Tag)
 	if err != nil {
@@ -205,6 +212,8 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetw
 	return api.setOneMachineNetworkConfig(m, mergedConfig)
 }
 
+// SetProviderNetworkConfig sets the provider supplied network configuration
+// contained in the input args against each machine supplied with said args.
 func (api *NetworkConfigAPI) SetProviderNetworkConfig(args params.Entities) (params.ErrorResults, error) {
 	logger.Tracef("SetProviderNetworkConfig %+v", args)
 	result := params.ErrorResults{
