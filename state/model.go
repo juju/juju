@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
@@ -425,7 +426,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		} else if envCount > 0 {
 			err = errors.AlreadyExistsf("model %q for %s", name, owner.Id())
 		} else {
-			err = errors.New("model already exists")
+			err = errors.Annotate(err, "failed to create new model")
 		}
 	}
 	if err != nil {
@@ -472,7 +473,7 @@ func validateCloudRegion(cloud jujucloud.Cloud, regionName string) (txn.Op, erro
 			return txn.Op{}, errors.Trace(err)
 		}
 		assertCloudRegionOp.Assert = bson.D{
-			{"regions." + region.Name, bson.D{{"$exists", true}}},
+			{"regions." + utils.EscapeKey(region.Name), bson.D{{"$exists", true}}},
 		}
 	} else {
 		if len(cloud.Regions) > 0 {
