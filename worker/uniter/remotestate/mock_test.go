@@ -98,11 +98,13 @@ func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 }
 
 type mockState struct {
-	unit                      mockUnit
-	relations                 map[names.RelationTag]*mockRelation
-	storageAttachment         map[params.StorageAttachmentId]params.StorageAttachment
-	relationUnitsWatchers     map[names.RelationTag]*mockRelationUnitsWatcher
-	storageAttachmentWatchers map[names.StorageTag]*mockNotifyWatcher
+	unit                        mockUnit
+	relations                   map[names.RelationTag]*mockRelation
+	storageAttachment           map[params.StorageAttachmentId]params.StorageAttachment
+	relationUnitsWatchers       map[names.RelationTag]*mockRelationUnitsWatcher
+	storageAttachmentWatchers   map[names.StorageTag]*mockNotifyWatcher
+	updateStatusInterval        time.Duration
+	updateStatusIntervalWatcher *mockNotifyWatcher
 }
 
 func (st *mockState) Relation(tag names.RelationTag) (remotestate.Relation, error) {
@@ -183,7 +185,11 @@ func (st *mockState) WatchStorageAttachment(
 }
 
 func (st *mockState) UpdateStatusHookInterval() (time.Duration, error) {
-	return 5 * time.Minute, nil
+	return st.updateStatusInterval, nil
+}
+
+func (st *mockState) WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error) {
+	return st.updateStatusIntervalWatcher, nil
 }
 
 type mockUnit struct {
