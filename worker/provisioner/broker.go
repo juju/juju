@@ -4,13 +4,17 @@
 package provisioner
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -155,4 +159,73 @@ func matchHostArchTools(allTools tools.List) (tools.List, error) {
 		return nil, errors.Trace(err)
 	}
 	return archTools, nil
+}
+
+// GetMachineCloudInitData is for testing purposes.
+var GetMachineCloudInitData = cloudconfig.GetMachineCloudInitData
+
+// combinedCloudInitData returns a combined map of the given cloudInitData
+// and instance cloud init properties provided.
+func combinedCloudInitData(
+	cloudInitData map[string]interface{},
+	containerInheritProperties, series string,
+	log loggo.Logger,
+) (map[string]interface{}, error) {
+	if containerInheritProperties == "" {
+		return cloudInitData, nil
+	}
+	instanceData, err := GetMachineCloudInitData(series)
+	if err != nil {
+		return nil, err
+	}
+	if cloudInitData == nil {
+		cloudInitData = make(map[string]interface{})
+	}
+	for _, key := range strings.Split(containerInheritProperties, ",") {
+		if val, ok := instanceData[key]; ok {
+			// TODO - what to do with apt-proxy??  special to containers
+			// TODO - translate xenial (17.x) cloudinit to trusty style 0.7.x
+			if key == "packages" {
+				if origVal, ok := cloudInitData[key]; ok {
+					newVal, err := combinePackages(origVal, val)
+					if err != nil {
+						return nil, err
+					}
+					cloudInitData[key] = newVal
+					continue
+				}
+			}
+			cloudInitData[key] = val
+		} else {
+			log.Debugf("%s not found in instance cloud-init data", key)
+		}
+	}
+	return cloudInitData, nil
+}
+
+func combinePackages(given, new interface{}) (interface{}, error) {
+	givenPackages, ok := given.([]interface{})
+	if !ok {
+	}
+	newPackages, ok := new.([]interface{})
+	if !ok {
+	}
+	givenPackagesSet := interfaceSliceToSet(givenPackages)
+	newPackagesSet := interfaceSliceToSet(newPackages)
+	combinedPackagesSet := givenPackagesSet.Union(newPackagesSet)
+	packages := make([]interface{}, combinedPackagesSet.Size())
+	for i, val := range combinedPackagesSet.Values() {
+		packages[i] = val
+	}
+	return packages, nil
+}
+
+func interfaceSliceToSet(vals []interface{}) set.Strings {
+	new := set.NewStrings()
+	for _, val := range vals {
+		if v, ok := val.(string); ok {
+			new.Add(v)
+		}
+	}
+	return new
 }
