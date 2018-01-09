@@ -318,7 +318,9 @@ type NetworkConfigSource interface {
 // MergeProviderAndObservedNetworkConfigs returns the effective network configs,
 // using observedConfigs as a base and selectively updating it using the
 // matching providerConfigs for each interface.
-func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []params.NetworkConfig) []params.NetworkConfig {
+func MergeProviderAndObservedNetworkConfigs(
+	providerConfigs, observedConfigs []params.NetworkConfig,
+) []params.NetworkConfig {
 
 	providerConfigByName := networkConfigsByName(providerConfigs)
 	logger.Tracef("known provider config by name: %+v", providerConfigByName)
