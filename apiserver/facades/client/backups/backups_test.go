@@ -98,5 +98,5 @@ func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *gc.C) {
 	otherModel, err := otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = backupsAPI.NewAPI(&stateShim{otherState, otherModel}, s.resources, s.authorizer)
-	c.Check(err, gc.ErrorMatches, "backups are not supported for hosted models")
+	c.Check(err, gc.ErrorMatches, "backups are only supported from the controller model\nUse juju switch to select the controller model")
 }
