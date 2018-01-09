@@ -287,9 +287,6 @@ func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get model config")
 	}
-	if modelConfig.Type() == "dummy" {
-		return nil, errors.NotSupportedf("dummy provider network config")
-	}
 	env, err := environs.GetEnviron(configGetter, environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to construct a model from config")
@@ -321,7 +318,9 @@ type NetworkConfigSource interface {
 // MergeProviderAndObservedNetworkConfigs returns the effective network configs,
 // using observedConfigs as a base and selectively updating it using the
 // matching providerConfigs for each interface.
-func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []params.NetworkConfig) []params.NetworkConfig {
+func MergeProviderAndObservedNetworkConfigs(
+	providerConfigs, observedConfigs []params.NetworkConfig,
+) []params.NetworkConfig {
 
 	providerConfigByName := networkConfigsByName(providerConfigs)
 	logger.Tracef("known provider config by name: %+v", providerConfigByName)
