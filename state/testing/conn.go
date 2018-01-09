@@ -99,6 +99,12 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) (*state.Controller, *state
 					IdentityEndpoint: "unused-identity-endpoint",
 					StorageEndpoint:  "unused-storage-endpoint",
 				},
+				{
+					Name:             "dotty.region",
+					Endpoint:         "dotty.endpoint",
+					IdentityEndpoint: "dotty.identity-endpoint",
+					StorageEndpoint:  "dotty.storage-endpoint",
+				},
 			},
 			RegionConfig: args.RegionConfig,
 		},
