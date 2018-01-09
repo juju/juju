@@ -31,6 +31,50 @@ import (
 	"github.com/juju/juju/worker/provisioner"
 )
 
+type brokerSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&brokerSuite{})
+
+func (s *brokerSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.PatchValue(&provisioner.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
+		return map[string]interface{}{
+			"packages":   []interface{}{"python-novaclient"},
+			"fake-entry": []interface{}{"testing-garbage"},
+			"write_files": []interface{}{
+				map[string]interface{}{
+					"path":        "/tmp/testfile",
+					"permissions": 438,
+					"content":     "Hello World!\nEOF",
+				}},
+		}, nil
+	})
+}
+
+func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
+	obtained, err := provisioner.CombinedCloudInitData(nil, "write_files,packages", "xenial", loggo.Logger{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertCloudInitUserData(obtained, map[string]interface{}{
+		"write_files": []interface{}{
+			map[string]interface{}{
+				"path":        "/tmp/testfile",
+				"permissions": 438,
+				"content":     "Hello World!\nEOF",
+			}},
+		"packages": []interface{}{"python-novaclient"},
+	}, c)
+}
+
+func (s *brokerSuite) TestCombinedCloudInitDataNoContainerInheritProperties(c *gc.C) {
+	containerConfig := fakeContainerConfig()
+	obtained, err := provisioner.CombinedCloudInitData(containerConfig.CloudInitUserData, "", "xenial", loggo.Logger{})
+	c.Assert(err, jc.ErrorIsNil)
+	assertCloudInitUserData(obtained, containerConfig.CloudInitUserData, c)
+}
+
 type fakeAddr struct{ value string }
 
 func (f *fakeAddr) Network() string { return "net" }
@@ -74,23 +118,25 @@ var fakeDeviceToBridge network.DeviceToBridge = network.DeviceToBridge{
 	BridgeName: "br-dummy0",
 }
 
-var fakeContainerConfig = params.ContainerConfig{
-	UpdateBehavior:          &params.UpdateBehavior{true, true},
-	ProviderType:            "fake",
-	AuthorizedKeys:          coretesting.FakeAuthKeys,
-	SSLHostnameVerification: true,
-	CloudInitUserData: map[string]interface{}{
-		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
-		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
-		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
-		"package_upgrade": false,
-	},
+func fakeContainerConfig() params.ContainerConfig {
+	return params.ContainerConfig{
+		UpdateBehavior:          &params.UpdateBehavior{true, true},
+		ProviderType:            "fake",
+		AuthorizedKeys:          coretesting.FakeAuthKeys,
+		SSLHostnameVerification: true,
+		CloudInitUserData: map[string]interface{}{
+			"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+			"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+			"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+			"package_upgrade": false,
+		},
+	}
 }
 
 func NewFakeAPI() *fakeAPI {
 	return &fakeAPI{
 		Stub:                &gitjujutesting.Stub{},
-		fakeContainerConfig: fakeContainerConfig,
+		fakeContainerConfig: fakeContainerConfig(),
 		fakeInterfaceInfo:   fakeInterfaceInfo,
 	}
 }
@@ -292,4 +338,21 @@ func callMaintainInstance(c *gc.C, s patcher, broker environs.InstanceBroker, ma
 		StatusCallback: makeNoOpStatusCallback(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func assertCloudInitUserData(obtained, expected map[string]interface{}, c *gc.C) {
+	c.Assert(obtained, gc.HasLen, len(expected))
+	for obtainedK, obtainedV := range obtained {
+		c.Logf("\n%s\n", obtainedK)
+		expectedV, ok := expected[obtainedK]
+		c.Assert(ok, jc.IsTrue)
+		switch {
+		case obtainedK == "package_upgrade":
+			c.Assert(obtainedV, gc.Equals, expectedV)
+		case obtainedK == "write_files":
+			c.Assert(obtainedV, jc.DeepEquals, expectedV)
+		default:
+			c.Assert(obtainedV, jc.SameContents, expectedV)
+		}
+	}
 }

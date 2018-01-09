@@ -39,6 +39,7 @@ var (
 	RetryStrategyDelay       = &retryStrategyDelay
 	RetryStrategyCount       = &retryStrategyCount
 	GetObservedNetworkConfig = &getObservedNetworkConfig
+	CombinedCloudInitData    = combinedCloudInitData
 )
 
 var ClassifyMachine = classifyMachine

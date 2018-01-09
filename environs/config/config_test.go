@@ -550,6 +550,19 @@ var configTests = []configTest{
 			"syslog-client-cert": testing.ServerCert,
 			"syslog-client-key":  testing.ServerKey,
 		}),
+	}, {
+		about:       "Valid container-inherit-properties",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"container-inherit-properties": "apt-primary, ca-certs",
+		}),
+	}, {
+		about:       "Invalid container-inherit-properties",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"container-inherit-properties": "apt-security, write_files,users,apt-sources",
+		}),
+		err: `container-inherit-properties: users, write_files not allowed`,
 	},
 }
 
@@ -729,6 +742,10 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 
 	if val, ok := test.attrs[config.NetBondReconfigureDelayKey].(int); ok {
 		c.Assert(cfg.NetBondReconfigureDelay(), gc.Equals, val)
+	}
+
+	if val, ok := test.attrs[config.ContainerInheritProperiesKey].(string); ok && val != "" {
+		c.Assert(cfg.ContainerInheritProperies(), gc.Equals, val)
 	}
 }
 
@@ -1204,6 +1221,13 @@ func (s *ConfigSuite) TestCloudInitUserDataFromEnvironment(c *gc.C) {
 		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 		"package_upgrade": false},
 	)
+}
+
+func (s *ConfigSuite) TestContainerInheritProperies(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"container-inherit-properties": "ca-certs,apt-primary",
+	})
+	c.Assert(cfg.ContainerInheritProperies(), gc.Equals, "ca-certs,apt-primary")
 }
 
 func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {

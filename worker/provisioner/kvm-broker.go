@@ -114,6 +114,14 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, errors.Trace(err)
 	}
 
+	cloudInitUserData, err := combinedCloudInitData(
+		config.CloudInitUserData,
+		config.ContainerInheritProperties,
+		series, kvmLogger)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := instancecfg.PopulateInstanceConfig(
 		args.InstanceConfig,
 		config.ProviderType,
@@ -124,7 +132,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		config.AptMirror,
 		config.EnableOSRefreshUpdate,
 		config.EnableOSUpgrade,
-		config.CloudInitUserData,
+		cloudInitUserData,
 	); err != nil {
 		kvmLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, err

@@ -23,20 +23,24 @@ const (
 	uniterStateDir
 	jujuDumpLogs
 	jujuIntrospect
+	instanceCloudInitDir
+	cloudInitCfgDir
 )
 
 var nixVals = map[osVarType]string{
-	tmpDir:          "/tmp",
-	logDir:          "/var/log",
-	dataDir:         "/var/lib/juju",
-	storageDir:      "/var/lib/juju/storage",
-	confDir:         "/etc/juju",
-	jujuRun:         "/usr/bin/juju-run",
-	jujuDumpLogs:    "/usr/bin/juju-dumplogs",
-	jujuIntrospect:  "/usr/bin/juju-introspect",
-	certDir:         "/etc/juju/certs.d",
-	metricsSpoolDir: "/var/lib/juju/metricspool",
-	uniterStateDir:  "/var/lib/juju/uniter/state",
+	tmpDir:               "/tmp",
+	logDir:               "/var/log",
+	dataDir:              "/var/lib/juju",
+	storageDir:           "/var/lib/juju/storage",
+	confDir:              "/etc/juju",
+	jujuRun:              "/usr/bin/juju-run",
+	jujuDumpLogs:         "/usr/bin/juju-dumplogs",
+	jujuIntrospect:       "/usr/bin/juju-introspect",
+	certDir:              "/etc/juju/certs.d",
+	metricsSpoolDir:      "/var/lib/juju/metricspool",
+	uniterStateDir:       "/var/lib/juju/uniter/state",
+	instanceCloudInitDir: "/var/lib/cloud/instance",
+	cloudInitCfgDir:      "/etc/cloud/cloud.cfg.d",
 }
 
 var winVals = map[osVarType]string{
@@ -129,6 +133,18 @@ func JujuDumpLogs(series string) (string, error) {
 // binary for a particular series.
 func JujuIntrospect(series string) (string, error) {
 	return osVal(series, jujuIntrospect)
+}
+
+// MachineCloudInitDir returns the absolute path to the instance
+// cloudinit directory for a particular series.
+func MachineCloudInitDir(series string) (string, error) {
+	return osVal(series, instanceCloudInitDir)
+}
+
+// CloudInitCfgDir returns the absolute path to the instance
+// cloud config directory for a particular series.
+func CloudInitCfgDir(series string) (string, error) {
+	return osVal(series, cloudInitCfgDir)
 }
 
 func MustSucceed(s string, e error) string {
