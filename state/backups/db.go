@@ -426,12 +426,12 @@ func (md *mongoRestorer32) ensureOplogPermissions(dialInfo *mgo.DialInfo) error 
 	}
 	var mgoErr bson.M
 	err = s.Run(roles, &mgoErr)
-	if err != nil {
+	if err != nil && !mgo.IsDup(err) {
 		return errors.Trace(err)
 	}
 	result, ok := mgoErr["ok"]
 	success, isFloat := result.(float64)
-	if (!ok || !isFloat || success != 1) && mgoErr != nil {
+	if (!ok || !isFloat || success != 1) && mgoErr != nil && !mgo.IsDup(err) {
 		return errors.Errorf("could not create special role to replay oplog, result was: %#v", mgoErr)
 	}
 
