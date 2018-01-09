@@ -142,7 +142,6 @@ func (api *NetworkConfigAPI) SetProviderNetworkConfig(args params.Entities) (par
 }
 
 func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string) (*state.Machine, error) {
-	logger.Debugf("TAG: %q", machineTag)
 	canModify, err := api.getCanModify()
 	if err != nil {
 		return nil, errors.Trace(err)
