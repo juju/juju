@@ -42,14 +42,14 @@ func NewStatePool(systemState *State) *StatePool {
 		// Logger: loggo.GetLogger(logger.Name() + ".txnwatcher"),
 		IsFatal:      func(err error) bool { return errors.Cause(err) == errPoolClosed },
 		RestartDelay: time.Second,
-		Clock:        systemState.clock,
+		Clock:        systemState.clock(),
 	})
 	pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
 		return watcher.NewTxnWatcher(
 			watcher.TxnWatcherConfig{
 				ChangeLog: systemState.getTxnLogCollection(),
 				Hub:       pool.hub,
-				Clock:     systemState.clock,
+				Clock:     systemState.clock(),
 				Logger:    loggo.GetLogger("juju.state.pool.txnwatcher"),
 			})
 	})
