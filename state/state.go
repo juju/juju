@@ -1100,8 +1100,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		Updated:    st.clock().Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
-		// sense.
-		NeverSet: true,
+		// sense. It is only relevant for IAAS models.
+		NeverSet: model.Type() == ModelTypeIAAS,
+	}
+	if model.Type() == ModelTypeCAAS {
+		statusDoc.StatusInfo = status.MessageWaitForContainer
 	}
 
 	if err := args.ApplicationConfig.Validate(); err != nil {

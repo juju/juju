@@ -1374,7 +1374,7 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 	}, {
 		about:    "invalid charm name",
 		url:      "cs:",
-		parseErr: `cannot parse URL "cs://": name "" not valid`,
+		parseErr: `cannot parse URL "cs:(\/\/)?": name "" not valid`,
 	}, {
 		about:      "local charm",
 		url:        "local:wordpress",

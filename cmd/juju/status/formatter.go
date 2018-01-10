@@ -54,6 +54,7 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 	out := formattedStatus{
 		Model: modelStatus{
 			Name:             sf.status.Model.Name,
+			Type:             sf.status.Model.Type,
 			Controller:       sf.controllerName,
 			Cloud:            cloudTag.Id(),
 			CloudRegion:      sf.status.Model.CloudRegion,
@@ -363,6 +364,9 @@ func (sf *statusFormatter) getStatusInfoContents(inst params.DetailedStatus) sta
 }
 
 func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusInfoContents {
+	if unit.WorkloadStatus.Status == "" {
+		return statusInfoContents{}
+	}
 	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
 		Err:     unit.WorkloadStatus.Err,

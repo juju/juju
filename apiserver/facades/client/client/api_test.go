@@ -101,6 +101,7 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 var scenarioStatus = &params.FullStatus{
 	Model: params.ModelStatusInfo{
 		Name:        "controller",
+		Type:        "iaas",
 		CloudTag:    "cloud-dummy",
 		CloudRegion: "dummy-region",
 		Version:     "1.2.3",

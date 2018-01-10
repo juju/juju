@@ -161,6 +161,7 @@ func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
 var (
 	model = M{
 		"name":       "controller",
+		"type":       "iaas",
 		"controller": "kontroll",
 		"cloud":      "dummy",
 		"region":     "dummy-region",
@@ -2570,6 +2571,7 @@ var statusTests = []testCase{
 			M{
 				"model": M{
 					"name":              "controller",
+					"type":              "iaas",
 					"controller":        "kontroll",
 					"cloud":             "dummy",
 					"region":            "dummy-region",
@@ -2866,6 +2868,7 @@ var statusTests = []testCase{
 			M{
 				"model": M{
 					"name":       "controller",
+					"type":       "iaas",
 					"controller": "kontroll",
 					"cloud":      "dummy",
 					"region":     "dummy-region",
@@ -2893,6 +2896,7 @@ var statusTests = []testCase{
 			M{
 				"model": M{
 					"name":       "controller",
+					"type":       "iaas",
 					"controller": "kontroll",
 					"cloud":      "dummy",
 					"region":     "dummy-region",
@@ -3738,6 +3742,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 	expected := M{
 		"model": M{
 			"name":       "hosted",
+			"type":       "iaas",
 			"controller": "kontroll",
 			"cloud":      "dummy",
 			"region":     "dummy-region",
@@ -4169,6 +4174,44 @@ Machine  State  DNS  Inst id  Series  AZ  Message
 `[1:])
 }
 
+func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
+	status := formattedStatus{
+		Model: modelStatus{
+			Type: "caas",
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Units: map[string]unitStatus{
+					"foo/0": {
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Active,
+						},
+					},
+					"foo/1": {
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Active,
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
+foo                     0/2                  0      
+
+Unit   Status  Address  Ports  Message
+foo/0  <todo>                  
+foo/1  <todo>                  
+`[1:])
+}
+
 func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
@@ -4383,6 +4426,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 	const expected = "" +
 		"model:\n" +
 		"  name: controller\n" +
+		"  type: iaas\n" +
 		"  controller: kontroll\n" +
 		"  cloud: dummy\n" +
 		"  region: dummy-region\n" +
@@ -4688,6 +4732,7 @@ var statusTimeTest = test(
 		M{
 			"model": M{
 				"name":       "controller",
+				"type":       "iaas",
 				"controller": "kontroll",
 				"cloud":      "dummy",
 				"region":     "dummy-region",

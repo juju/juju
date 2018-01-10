@@ -46,6 +46,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Model.Name, gc.Equals, "controller")
+	c.Check(status.Model.Type, gc.Equals, "iaas")
 	c.Check(status.Model.CloudTag, gc.Equals, "cloud-dummy")
 	c.Check(status.Model.SLA, gc.Equals, "essential")
 	c.Check(status.Applications, gc.HasLen, 0)
