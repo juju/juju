@@ -29,6 +29,11 @@ type NetworkConfigSource interface {
 	// InterfaceAddresses returns information about all addresses assigned to
 	// the network interface with the given name.
 	InterfaceAddresses(name string) ([]net.Addr, error)
+
+	// DefaultRoute returns the gateway IP address and device name of the
+	// default route on the machine. If there is no default route (known),
+	// then zero values are returned.
+	DefaultRoute() (net.IP, string, error)
 }
 
 type netPackageConfigSource struct{}
@@ -50,6 +55,11 @@ func (n *netPackageConfigSource) InterfaceAddresses(name string) ([]net.Addr, er
 		return nil, errors.Trace(err)
 	}
 	return iface.Addrs()
+}
+
+// DefaultRoute implements NetworkConfigSource.
+func (n *netPackageConfigSource) DefaultRoute() (net.IP, string, error) {
+	return network.GetDefaultRoute()
 }
 
 // DefaultNetworkConfigSource returns a NetworkConfigSource backed by the net
@@ -83,7 +93,12 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get network interfaces")
 	}
-	defaultRoute, defaultRouteDevice, err := network.GetDefaultRoute()
+	if len(interfaces) == 0 {
+		logger.Tracef("no network interfaces")
+		return nil, nil
+	}
+
+	defaultRoute, defaultRouteDevice, err := source.DefaultRoute()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get default route")
 	}

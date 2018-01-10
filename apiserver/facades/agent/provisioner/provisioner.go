@@ -291,7 +291,7 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.AptMirror = config.AptMirror()
-
+	result.CloudInitUserData = config.CloudInitUserData()
 	return result, nil
 }
 

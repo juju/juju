@@ -1355,6 +1355,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		"apt-https-proxy":       "https://proxy.example.com:9000",
 		"allow-lxd-loop-mounts": true,
 		"apt-mirror":            "http://example.mirror.com",
+		"cloudinit-userdata":    validCloudInitUserData,
 	}
 	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1378,6 +1379,11 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedAPTProxy)
 	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
+	c.Check(results.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
+		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+		"package_upgrade": false})
 }
 
 func (s *withoutControllerSuite) TestSetSupportedContainers(c *gc.C) {
