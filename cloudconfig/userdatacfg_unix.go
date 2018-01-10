@@ -354,11 +354,22 @@ func (w *unixConfigure) ConfigureJuju() error {
 	return w.addMachineAgentToBoot()
 }
 
+// Not all cloudinit-userdata attr are allowed to override, these attr have been
+// dealt with in ConfigureBasic() and ConfigureJuju().
+func isAllowedOverrideAttr(attr string) bool {
+	switch attr {
+	case "packages", "preruncmd", "postruncmd":
+		return false
+	}
+	return true
+}
+
+// ConfigureCustomOverrides implements UserdataConfig.ConfigureCustomOverrides
 func (w *unixConfigure) ConfigureCustomOverrides() error {
 	for k, v := range w.icfg.CloudInitUserData {
 		// preruncmd was handled in ConfigureBasic()
 		// packages and postruncmd have been handled in ConfigureJuju()
-		if k != "packages" && k != "preruncmd" && k != "postruncmd" {
+		if isAllowedOverrideAttr(k) {
 			w.conf.SetAttr(k, v)
 		}
 	}

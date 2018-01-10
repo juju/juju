@@ -860,8 +860,12 @@ var configValidateCloudInitUserDataTests = []configValidateCloudInitUserDataTest
 		err:   `cloudinit-userdata: users not allowed`,
 	}, {
 		about: "Invalid cloud init user data values: runcmd",
-		value: invalidCloudInitUserDataRuncmd,
+		value: invalidCloudInitUserDataRunCmd,
 		err:   `cloudinit-userdata: runcmd not allowed, use preruncmd or postruncmd instead`,
+	}, {
+		about: "Invalid cloud init user data values: bootcmd",
+		value: invalidCloudInitUserDataBootCmd,
+		err:   `cloudinit-userdata: bootcmd not allowed`,
 	}, {
 		about: "Invalid cloud init user data: yaml",
 		value: invalidCloudInitUserDataInvalidYAML,
@@ -1350,12 +1354,21 @@ postruncmd:
 package_upgrade: true
 `[1:]
 
-var invalidCloudInitUserDataRuncmd = `
+var invalidCloudInitUserDataRunCmd = `
 packages:
     - 'string1'
     - 'string2'
 runcmd:
     - mkdir /tmp/runcmd
+package_upgrade: true
+`[1:]
+
+var invalidCloudInitUserDataBootCmd = `
+packages:
+    - 'string1'
+    - 'string2'
+bootcmd:
+    - mkdir /tmp/bootcmd
 package_upgrade: true
 `[1:]
 
