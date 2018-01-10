@@ -34,6 +34,22 @@ func (s *StateTrackerSuite) SetUpTest(c *gc.C) {
 	s.stateTracker = workerstate.NewStateTracker(s.State)
 }
 
+func (s *StateTrackerSuite) TearDownTest(c *gc.C) {
+	// Even though we no longer have to worry about the StateSuite's
+	// StatePool, we do have to make sure the one in the stateTracker
+	// is closed.
+
+	for {
+		err := s.stateTracker.Done()
+		if err == workerstate.ErrStateClosed {
+			break
+		}
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	s.StateSuite.TearDownTest(c)
+}
+
 func (s *StateTrackerSuite) TestDoneWithNoUse(c *gc.C) {
 	err := s.stateTracker.Done()
 	c.Assert(err, jc.ErrorIsNil)
