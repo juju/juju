@@ -1134,7 +1134,7 @@ func (c *Config) FanConfig() (network.FanConfig, error) {
 func (c *Config) CloudInitUserData() map[string]interface{} {
 	raw := c.asString(CloudInitUserDataKey)
 	if raw == "" {
-		return map[string]interface{}{}
+		return nil
 	}
 	userDataMap := make(map[string]interface{})
 	yaml.Unmarshal([]byte(raw), &userDataMap)
