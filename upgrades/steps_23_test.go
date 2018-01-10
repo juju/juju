@@ -12,7 +12,10 @@ import (
 	"github.com/juju/juju/upgrades"
 )
 
-var v23 = version.MustParse("2.3.0")
+var (
+	v23  = version.MustParse("2.3.0")
+	v231 = version.MustParse("2.3.1")
+)
 
 type steps23Suite struct {
 	testing.BaseSuite
@@ -28,6 +31,12 @@ func (s *steps23Suite) TestAddModelType(c *gc.C) {
 
 func (s *steps23Suite) TestMigrateLeases(c *gc.C) {
 	step := findStateStep(c, v23, "migrate old leases")
+	// Logic for step itself is tested in state package.
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
+func (s *steps23Suite) TestAddRelationStatus(c *gc.C) {
+	step := findStateStep(c, v231, "add status to relations")
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
