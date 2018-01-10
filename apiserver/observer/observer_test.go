@@ -74,7 +74,7 @@ func (*multiplexerSuite) TestRPCObserver_CallsAllObservers(c *gc.C) {
 	o.RPCObserver()
 
 	for _, f := range observers {
-		f.CheckCall(c, 0, "RPCObserver")
+		f.CheckCallNames(c, "RPCObserver")
 	}
 }
 
