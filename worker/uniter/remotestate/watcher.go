@@ -5,6 +5,7 @@ package remotestate
 
 import (
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -257,6 +258,16 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 	requiredEvents++
 
+	var seenUpdateStatusIntervalChange bool
+	updateStatusIntervalw, err := w.st.WatchUpdateStatusHookInterval()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(updateStatusIntervalw); err != nil {
+		return errors.Trace(err)
+	}
+	requiredEvents++
+
 	var seenLeadershipChange bool
 	// There's no watcher for this per se; we wait on a channel
 	// returned by the leadership tracker.
@@ -300,10 +311,10 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		observedEvent(&seenLeadershipChange)
 	}
 
-	// TODO(wallyworld) - listen for changes to this value
-	updateStatusInterval, err := w.st.UpdateStatusHookInterval()
-	if err != nil {
-		return errors.Trace(err)
+	var updateStatusInterval time.Duration
+	var updateStatusTimer <-chan time.Time
+	resetUpdateStatusTimer := func() {
+		updateStatusTimer = w.updateStatusChannel(updateStatusInterval).After()
 	}
 
 	for {
@@ -391,6 +402,27 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenStorageChange)
 
+		case _, ok := <-updateStatusIntervalw.Changes():
+			logger.Debugf("got update status interval change: ok=%t", ok)
+			if !ok {
+				return errors.New("update status interval watcher closed")
+			}
+			observedEvent(&seenUpdateStatusIntervalChange)
+
+			var err error
+			updateStatusInterval, err = w.st.UpdateStatusHookInterval()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			wasActive := updateStatusTimer != nil
+			resetUpdateStatusTimer()
+			if wasActive {
+				// This is not the first time we've seen an update
+				// status interval change, so there's no need to
+				// fall out and fire an initial change event.
+				continue
+			}
+
 		case <-waitMinion:
 			logger.Debugf("got leadership change: minion")
 			if err := w.leadershipChanged(false); err != nil {
@@ -419,11 +451,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 
-		case <-w.updateStatusChannel(updateStatusInterval).After():
+		case <-updateStatusTimer:
 			logger.Debugf("update status timer triggered")
 			if err := w.updateStatusChanged(); err != nil {
 				return errors.Trace(err)
 			}
+			resetUpdateStatusTimer()
 
 		case id, ok := <-w.commandChannel:
 			if !ok {

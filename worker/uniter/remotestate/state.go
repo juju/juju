@@ -27,6 +27,7 @@ type State interface {
 	Unit(names.UnitTag) (Unit, error)
 	WatchRelationUnits(names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
+	WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error)
 	UpdateStatusHookInterval() (time.Duration, error)
 }
 
