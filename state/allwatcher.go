@@ -23,7 +23,7 @@ import (
 // a single model from the State.
 type allWatcherStateBacking struct {
 	st               *State
-	watcher          *watcher.Watcher
+	watcher          watcher.BaseWatcher
 	collectionByName map[string]allWatcherStateCollection
 }
 
@@ -31,7 +31,7 @@ type allWatcherStateBacking struct {
 // for all models from the State.
 type allModelWatcherStateBacking struct {
 	st               *State
-	watcher          *watcher.Watcher
+	watcher          watcher.BaseWatcher
 	stPool           *StatePool
 	collectionByName map[string]allWatcherStateCollection
 }

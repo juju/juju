@@ -40,7 +40,7 @@ type modelBackend interface {
 	modelUUID() string
 	modelName() (string, error)
 	isController() bool
-	txnLogWatcher() *watcher.Watcher
+	txnLogWatcher() watcher.BaseWatcher
 }
 
 func (st *State) docID(localID string) string {

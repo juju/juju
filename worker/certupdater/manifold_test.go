@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -21,12 +22,11 @@ import (
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	statetesting.StateSuite
 
 	manifold       dependency.Manifold
 	context        dependency.Context
 	agent          *mockAgent
-	st             state.State
 	stateTracker   stubStateTracker
 	addressWatcher fakeAddressWatcher
 
@@ -36,11 +36,11 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{}
 	s.stateTracker = stubStateTracker{
-		pool: state.NewStatePool(&s.st),
+		pool: s.StatePool,
 	}
 	s.stub.ResetCalls()
 
@@ -101,7 +101,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.stub.CheckCallNames(c, "NewMachineAddressWatcher", "NewWorker")
-	s.stub.CheckCall(c, 0, "NewMachineAddressWatcher", &s.st, "123")
+	s.stub.CheckCall(c, 0, "NewMachineAddressWatcher", s.State, "123")
 
 	args := s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
@@ -114,8 +114,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config, jc.DeepEquals, certupdater.Config{
 		AddressWatcher:         &s.addressWatcher,
 		StateServingInfoGetter: &s.agent.conf,
-		ControllerConfigGetter: &s.st,
-		APIHostPortsGetter:     &s.st,
+		ControllerConfigGetter: s.State,
+		APIHostPortsGetter:     s.State,
 	})
 }
 

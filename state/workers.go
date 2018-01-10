@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"gopkg.in/juju/worker.v1"
 
 	corelease "github.com/juju/juju/core/lease"
@@ -37,7 +39,7 @@ type workers struct {
 
 const pingFlushInterval = time.Second
 
-func newWorkers(st *State) (*workers, error) {
+func newWorkers(st *State, hub *pubsub.SimpleHub) (*workers, error) {
 	ws := &workers{
 		state: st,
 		Runner: worker.NewRunner(worker.RunnerParams{
@@ -48,9 +50,15 @@ func newWorkers(st *State) (*workers, error) {
 			Clock:        st.clock(),
 		}),
 	}
-	ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
-		return watcher.New(st.getTxnLogCollection()), nil
-	})
+	if hub == nil {
+		ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+			return watcher.New(st.getTxnLogCollection()), nil
+		})
+	} else {
+		ws.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+			return watcher.NewHubWatcher(hub, loggo.GetLogger("juju.state.watcher")), nil
+		})
+	}
 	ws.StartWorker(presenceWorker, func() (worker.Worker, error) {
 		return presence.NewWatcher(st.getPresenceCollection(), st.modelTag), nil
 	})
@@ -102,12 +110,12 @@ func (st *State) newLeaseManager(
 	return manager, nil
 }
 
-func (ws *workers) txnLogWatcher() *watcher.Watcher {
+func (ws *workers) txnLogWatcher() watcher.BaseWatcher {
 	w, err := ws.Worker(txnLogWorker, nil)
 	if err != nil {
 		return watcher.NewDead(errors.Trace(err))
 	}
-	return w.(*watcher.Watcher)
+	return w.(watcher.BaseWatcher)
 }
 
 func (ws *workers) presenceWatcher() *presence.Watcher {
