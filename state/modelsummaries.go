@@ -129,7 +129,6 @@ func (p *modelSummaryProcessor) fillInFromConfig() error {
 	rawSettings, closer := p.st.database.GetRawCollection(settingsC)
 	defer closer()
 
-	remaining := set.NewStrings(p.modelUUIDs...)
 	settingIds := make([]string, len(p.modelUUIDs))
 	for i, uuid := range p.modelUUIDs {
 		settingIds[i] = uuid + ":" + modelGlobalKey
@@ -143,7 +142,6 @@ func (p *modelSummaryProcessor) fillInFromConfig() error {
 			// How could it return a doc that we don't have?
 			continue
 		}
-		remaining.Remove(doc.ModelUUID)
 
 		cfg, err := config.New(config.NoDefaults, doc.Settings)
 		if err != nil {
@@ -159,10 +157,6 @@ func (p *modelSummaryProcessor) fillInFromConfig() error {
 	}
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
-	}
-	if !remaining.IsEmpty() {
-		// XXX: What error is appropriate? Do we need to care about models that its ok to be missing?
-		return errors.Errorf("could not find settings/config for models: %v", remaining.SortedValues())
 	}
 	return nil
 }
