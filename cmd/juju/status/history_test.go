@@ -31,7 +31,6 @@ func (s *StatusHistorySuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.api = nil
 	s.now = time.Date(2017, 11, 28, 12, 34, 56, 0, time.UTC)
-	s.PatchValue(&time.Local, time.UTC)
 }
 
 func (s *StatusHistorySuite) newCommand() cmd.Command {
@@ -95,16 +94,16 @@ func (s *StatusHistorySuite) TestResults(c *gc.C) {
 		},
 	}
 	expected := "" +
-		"Time                   Type       Status       Message\n" +
-		"28 Nov 2017 12:34:56Z  juju-unit  allocating   \n" +
-		"28 Nov 2017 12:35:56Z  workload   waiting      waiting for machine\n" +
-		"28 Nov 2017 12:36:56Z  workload   waiting      installing agent\n" +
-		"28 Nov 2017 12:37:56Z  workload   waiting      agent initializing\n" +
-		"28 Nov 2017 12:38:56Z  workload   maintenance  installing charm software\n" +
-		"28 Nov 2017 12:39:56Z  juju-unit  executing    running install hoook\n" +
-		"28 Nov 2017 12:40:56Z  juju-unit  executing    running config-changed hoook\n"
+		"Time                  Type       Status       Message\n" +
+		"2017-11-28 12:34:56Z  juju-unit  allocating   \n" +
+		"2017-11-28 12:35:56Z  workload   waiting      waiting for machine\n" +
+		"2017-11-28 12:36:56Z  workload   waiting      installing agent\n" +
+		"2017-11-28 12:37:56Z  workload   waiting      agent initializing\n" +
+		"2017-11-28 12:38:56Z  workload   maintenance  installing charm software\n" +
+		"2017-11-28 12:39:56Z  juju-unit  executing    running install hoook\n" +
+		"2017-11-28 12:40:56Z  juju-unit  executing    running config-changed hoook\n"
 
-	ctx, err := cmdtesting.RunCommand(c, s.newCommand(), "missing/0")
+	ctx, err := cmdtesting.RunCommand(c, s.newCommand(), "missing/0", "--utc")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
