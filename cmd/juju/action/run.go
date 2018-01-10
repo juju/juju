@@ -4,13 +4,13 @@
 package action
 
 import (
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	yaml "gopkg.in/yaml.v2"
 
@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/cmd/output"
 )
 
-var keyRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+var keyRule *regexp.Regexp = charm.GetActionNameRule()
 
 func NewRunCommand() cmd.Command {
 	return modelcmd.Wrap(&runCommand{})
@@ -43,8 +43,8 @@ const runDoc = `
 Queue an Action for execution on a given unit, with a given set of params.
 The Action ID is returned for use with 'juju show-action-output <ID>' or
 'juju show-action-status <ID>'.
- 
-Params are validated according to the charm for the unit's application.  The 
+
+Params are validated according to the charm for the unit's application.  The
 valid params can be seen using "juju actions <application> --schema".
 Params may be in a yaml file which is passed with the --params flag, or they
 may be specified by a key.key.key...=value format (see examples below.)
@@ -68,7 +68,7 @@ result:
     name: foo.sql
 
 
-$ juju run-action mysql/3 backup 
+$ juju run-action mysql/3 backup
 action: <ID>
 
 $ juju show-action-output <ID>
@@ -119,7 +119,7 @@ The value for the "time" param will be the string literal "1000".
 `
 
 // ActionNameRule describes the format an action name must match to be valid.
-var ActionNameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
+var ActionNameRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 
 // SetFlags offers an option for YAML output.
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
