@@ -36,6 +36,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 	}
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)
+		c.Logf(controllerAttr)
 		if !optional[controllerAttr] {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(v, gc.Not(gc.Equals), "")

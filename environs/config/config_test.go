@@ -860,8 +860,12 @@ var configValidateCloudInitUserDataTests = []configValidateCloudInitUserDataTest
 		err:   `cloudinit-userdata: users not allowed`,
 	}, {
 		about: "Invalid cloud init user data values: runcmd",
-		value: invalidCloudInitUserDataRuncmd,
+		value: invalidCloudInitUserDataRunCmd,
 		err:   `cloudinit-userdata: runcmd not allowed, use preruncmd or postruncmd instead`,
+	}, {
+		about: "Invalid cloud init user data values: bootcmd",
+		value: invalidCloudInitUserDataBootCmd,
+		err:   `cloudinit-userdata: bootcmd not allowed`,
 	}, {
 		about: "Invalid cloud init user data: yaml",
 		value: invalidCloudInitUserDataInvalidYAML,
@@ -1329,7 +1333,8 @@ MIIBOgIBAAJAZabKgKInuOxj5vDWLwHHQtK3/45KB+32D15w94Nt83BmuGxo90lw
 -----END CERTIFICATE-----
 `[1:]
 
-var validCloudInitUserData = `packages:
+var validCloudInitUserData = `
+packages:
   - 'python-keystoneclient'
   - 'python-glanceclient'
 preruncmd:
@@ -1339,35 +1344,48 @@ postruncmd:
   - mkdir /tmp/postruncmd
   - mkdir /tmp/postruncmd2
 package_upgrade: false
-`
+`[1:]
 
-var invalidCloudInitUserDataPackageInt = `packages:
+var invalidCloudInitUserDataPackageInt = `
+packages:
     - 76
 postruncmd:
     - mkdir /tmp/runcmd
 package_upgrade: true
-`
+`[1:]
 
-var invalidCloudInitUserDataRuncmd = `packages:
+var invalidCloudInitUserDataRunCmd = `
+packages:
     - 'string1'
     - 'string2'
 runcmd:
     - mkdir /tmp/runcmd
 package_upgrade: true
-`
+`[1:]
 
-var invalidCloudInitUserDataUsers = `packages:
+var invalidCloudInitUserDataBootCmd = `
+packages:
+    - 'string1'
+    - 'string2'
+bootcmd:
+    - mkdir /tmp/bootcmd
+package_upgrade: true
+`[1:]
+
+var invalidCloudInitUserDataUsers = `
+packages:
     - 'string1'
     - 'string2'
 users:
     name: test-user
 package_upgrade: true
-`
+`[1:]
 
-var invalidCloudInitUserDataInvalidYAML = `packages:
+var invalidCloudInitUserDataInvalidYAML = `
+packages:
     - 'string1'
      'string2'
 runcmd:
     - mkdir /tmp/runcmd
 package_upgrade: true
-`
+`[1:]

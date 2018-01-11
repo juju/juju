@@ -861,9 +861,6 @@ func (c *DeployCommand) deployCharm(
 		Resources:        ids,
 		EndpointBindings: c.Bindings,
 	}
-	if len(appConfig) > 0 {
-		args.Config = appConfig
-	}
 	return errors.Trace(apiRoot.Deploy(args))
 }
 

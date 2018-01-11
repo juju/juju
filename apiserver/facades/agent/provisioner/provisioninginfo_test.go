@@ -391,6 +391,42 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 	}})
 }
 
+func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *gc.C) {
+	attrs := map[string]interface{}{"cloudinit-userdata": validCloudInitUserData}
+	err := s.Model.UpdateModelConfig(attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	m, err := s.State.AddOneMachine(template)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: m.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results[0].Result.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
+		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+		"package_upgrade": false})
+}
+
+var validCloudInitUserData = `
+packages:
+  - 'python-keystoneclient'
+  - 'python-glanceclient'
+preruncmd:
+  - mkdir /tmp/preruncmd
+  - mkdir /tmp/preruncmd2
+postruncmd:
+  - mkdir /tmp/postruncmd
+  - mkdir /tmp/postruncmd2
+package_upgrade: false
+`[1:]
+
 func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer

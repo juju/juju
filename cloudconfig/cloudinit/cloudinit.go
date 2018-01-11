@@ -197,6 +197,11 @@ func (cfg *cloudConfig) AddScripts(script ...string) {
 	}
 }
 
+// PrependRunCmd is defined on the RunCmdsConfig interface.
+func (cfg *cloudConfig) PrependRunCmd(args ...string) {
+	cfg.attrs["runcmd"] = append([]string{strings.Join(args, " ")}, cfg.RunCmds()...)
+}
+
 // RemoveRunCmd is defined on the RunCmdsConfig interface.
 func (cfg *cloudConfig) RemoveRunCmd(cmd string) {
 	cfg.attrs["runcmd"] = removeStringFromSlice(cfg.RunCmds(), cmd)

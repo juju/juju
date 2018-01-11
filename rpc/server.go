@@ -534,7 +534,12 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 }
 
 // runRequest runs the given request and sends the reply.
-func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, recorder Recorder) {
+func (conn *Conn) runRequest(
+	req boundRequest,
+	arg reflect.Value,
+	version int,
+	recorder Recorder,
+) {
 	// If the request causes a panic, ensure we log that before closing the connection.
 	defer func() {
 		if panicResult := recover(); panicResult != nil {

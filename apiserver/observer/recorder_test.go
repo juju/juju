@@ -4,12 +4,15 @@
 package observer_test
 
 import (
+	"time"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/apiserver/params"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/rpc"
@@ -24,11 +27,12 @@ var _ = gc.Suite(&recorderSuite{})
 func (s *recorderSuite) TestServerRequest(c *gc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
-	auditRecorder, err := auditlog.NewRecorder(log, auditlog.ConversationArgs{
+	clock := testing.NewClock(time.Now())
+	auditRecorder, err := auditlog.NewRecorder(log, clock, auditlog.ConversationArgs{
 		ConnectionID: 4567,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	factory := observer.NewRecorderFactory(fake, auditRecorder)
+	factory := observer.NewRecorderFactory(fake, auditRecorder, observer.CaptureArgs)
 	recorder := factory()
 	hdr := &rpc.Header{
 		RequestId: 123,
@@ -51,6 +55,7 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 		ConversationID: "abcdef0123456789",
 		ConnectionID:   "11D7",
 		RequestID:      123,
+		When:           clock.Now().Format(time.RFC3339),
 		Facade:         "Type",
 		Method:         "Action",
 		Version:        5,
@@ -58,14 +63,48 @@ func (s *recorderSuite) TestServerRequest(c *gc.C) {
 	})
 }
 
-func (s *recorderSuite) TestServerReply(c *gc.C) {
+func (s *recorderSuite) TestServerRequestNoArgs(c *gc.C) {
 	fake := &fakeobserver.Instance{}
 	log := &apitesting.FakeAuditLog{}
-	auditRecorder, err := auditlog.NewRecorder(log, auditlog.ConversationArgs{
+	clock := testing.NewClock(time.Now())
+	auditRecorder, err := auditlog.NewRecorder(log, clock, auditlog.ConversationArgs{
 		ConnectionID: 4567,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	factory := observer.NewRecorderFactory(fake, auditRecorder)
+	factory := observer.NewRecorderFactory(fake, auditRecorder, observer.NoCaptureArgs)
+	recorder := factory()
+	hdr := &rpc.Header{
+		RequestId: 123,
+		Request:   rpc.Request{"Type", 5, "", "Action"},
+	}
+	err = recorder.HandleRequest(hdr, "the args")
+	c.Assert(err, jc.ErrorIsNil)
+
+	log.CheckCallNames(c, "AddConversation", "AddRequest")
+
+	request := log.Calls()[1].Args[0].(auditlog.Request)
+	c.Assert(request.ConversationID, gc.HasLen, 16)
+	request.ConversationID = "abcdef0123456789"
+	c.Assert(request, gc.Equals, auditlog.Request{
+		ConversationID: "abcdef0123456789",
+		ConnectionID:   "11D7",
+		RequestID:      123,
+		When:           clock.Now().Format(time.RFC3339),
+		Facade:         "Type",
+		Method:         "Action",
+		Version:        5,
+	})
+}
+
+func (s *recorderSuite) TestServerReply(c *gc.C) {
+	fake := &fakeobserver.Instance{}
+	log := &apitesting.FakeAuditLog{}
+	clock := testing.NewClock(time.Now())
+	auditRecorder, err := auditlog.NewRecorder(log, clock, auditlog.ConversationArgs{
+		ConnectionID: 4567,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	factory := observer.NewRecorderFactory(fake, auditRecorder, observer.CaptureArgs)
 	recorder := factory()
 
 	req := rpc.Request{"Type", 5, "", "Action"}
@@ -87,13 +126,110 @@ func (s *recorderSuite) TestServerReply(c *gc.C) {
 		ConversationID: "abcdef0123456789",
 		ConnectionID:   "11D7",
 		RequestID:      123,
+		When:           clock.Now().Format(time.RFC3339),
 		Errors:         nil,
+	})
+}
+
+func (s *recorderSuite) TestReplyResultNotAStruct(c *gc.C) {
+	s.checkServerReplyErrors(c, 12345, nil)
+}
+
+func (s *recorderSuite) TestReplyResultNoErrorAttrs(c *gc.C) {
+	s.checkServerReplyErrors(c,
+		params.ApplicationCharmRelationsResults{
+			CharmRelations: []string{"abc", "123"},
+		},
+		nil,
+	)
+}
+
+func (s *recorderSuite) TestReplyResultErrorSlice(c *gc.C) {
+	s.checkServerReplyErrors(c,
+		params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{
+					Message: "antiphon",
+					Code:    "midlake",
+				},
+			}, {
+				Error: nil,
+			}},
+		},
+		[]*auditlog.Error{{
+			Message: "antiphon",
+			Code:    "midlake",
+		}, nil},
+	)
+}
+
+func (s *recorderSuite) TestReplyResultError(c *gc.C) {
+	s.checkServerReplyErrors(c,
+		params.ErrorResult{
+			Error: &params.Error{
+				Message: "antiphon",
+				Code:    "midlake",
+			},
+		},
+		[]*auditlog.Error{{
+			Message: "antiphon",
+			Code:    "midlake",
+		}},
+	)
+}
+
+func (s *recorderSuite) TestReplyResultSlice(c *gc.C) {
+	s.checkServerReplyErrors(c,
+		params.AddMachinesResults{
+			Machines: []params.AddMachinesResult{{
+				Machine: "some-machine",
+			}, {
+				Error: &params.Error{
+					Message: "something bad",
+					Code:    "fall-down-go-boom",
+					Info:    &params.ErrorInfo{MacaroonPath: "somewhere"},
+				},
+			}},
+		},
+		[]*auditlog.Error{nil, {
+			Message: "something bad",
+			Code:    "fall-down-go-boom",
+		}},
+	)
+}
+
+func (s *recorderSuite) checkServerReplyErrors(c *gc.C, result interface{}, expected []*auditlog.Error) {
+	fake := &fakeobserver.Instance{}
+	log := &apitesting.FakeAuditLog{}
+	clock := testing.NewClock(time.Now())
+	auditRecorder, err := auditlog.NewRecorder(log, clock, auditlog.ConversationArgs{
+		ConnectionID: 4567,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	factory := observer.NewRecorderFactory(fake, auditRecorder, observer.CaptureArgs)
+	recorder := factory()
+
+	req := rpc.Request{"Type", 5, "", "Action"}
+	hdr := &rpc.Header{RequestId: 123}
+	err = recorder.HandleReply(req, hdr, result)
+	c.Assert(err, jc.ErrorIsNil)
+
+	log.CheckCallNames(c, "AddConversation", "AddResponse")
+
+	respErrors := log.Calls()[1].Args[0].(auditlog.ResponseErrors)
+	c.Assert(respErrors.ConversationID, gc.HasLen, 16)
+	respErrors.ConversationID = ""
+	c.Assert(respErrors, gc.DeepEquals, auditlog.ResponseErrors{
+		ConnectionID: "11D7",
+		RequestID:    123,
+		When:         clock.Now().Format(time.RFC3339),
+		Errors:       expected,
 	})
 }
 
 func (s *recorderSuite) TestNoAuditRequest(c *gc.C) {
 	fake := &fakeobserver.Instance{}
-	factory := observer.NewRecorderFactory(fake, nil)
+	factory := observer.NewRecorderFactory(fake, nil, observer.NoCaptureArgs)
 	recorder := factory()
 	hdr := &rpc.Header{
 		RequestId: 123,
@@ -105,7 +241,7 @@ func (s *recorderSuite) TestNoAuditRequest(c *gc.C) {
 
 func (s *recorderSuite) TestNoAuditReply(c *gc.C) {
 	fake := &fakeobserver.Instance{}
-	factory := observer.NewRecorderFactory(fake, nil)
+	factory := observer.NewRecorderFactory(fake, nil, observer.NoCaptureArgs)
 	recorder := factory()
 	req := rpc.Request{"Type", 0, "", "Action"}
 	hdr := &rpc.Header{RequestId: 123}

@@ -71,10 +71,12 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		DisableSSLHostnameVerification: false,
 		EnableOSRefreshUpdate:          true,
 		EnableOSUpgrade:                true,
+		CloudInitUserData:              cloudInitUserDataMap,
 	}
 
 	cfg, err := config.New(config.NoDefaults, dummySampleConfig().Merge(testing.Attrs{
-		"authorized-keys": "we-are-the-keys",
+		"authorized-keys":    "we-are-the-keys",
+		"cloudinit-userdata": validCloudInitUserData,
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -97,6 +99,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedMcfg.EnableOSRefreshUpdate = false
 	expectedMcfg.EnableOSUpgrade = false
+	expectedMcfg.CloudInitUserData = nil
 	c.Assert(icfg, jc.DeepEquals, expectedMcfg)
 }
 
@@ -177,6 +180,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 		AuthorizedKeys:          "wheredidileavemykeys",
 		MachineAgentServiceName: "jujud-machine-10",
 		EnableOSUpgrade:         true,
+		CloudInitUserData:       cloudInitUserDataMap,
 	}
 	err = cfg.SetTools(toolsList)
 	c.Assert(err, jc.ErrorIsNil)
@@ -222,12 +226,6 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	err = goyaml.Unmarshal(unzipped, &config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The scripts given to userData where added as the first
-	// commands to be run.
-	runCmd := config["runcmd"].([]interface{})
-	c.Check(runCmd[0], gc.Equals, script1)
-	c.Check(runCmd[1], gc.Equals, script2)
-
 	if bootstrap {
 		// The cloudinit config should have nothing but the basics:
 		// SSH authorized keys, the additional runcmds, and log output.
@@ -240,7 +238,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 			"output": map[interface{}]interface{}{
 				"all": "| tee -a /var/log/cloud-init-output.log",
 			},
+			"package_upgrade": false,
 			"runcmd": []interface{}{
+				"mkdir /tmp/preruncmd",
+				"mkdir /tmp/preruncmd2",
 				"script1", "script2",
 				"set -xe",
 				"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
@@ -275,8 +276,17 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 		// Just check that the cloudinit config looks good,
 		// and that there are more runcmds than the additional
 		// ones we passed into ComposeUserData.
-		c.Check(config["package_upgrade"], jc.IsTrue)
-		c.Check(len(runCmd) > 2, jc.IsTrue)
+		c.Check(config["package_upgrade"], jc.IsFalse)
+		runCmd := config["runcmd"].([]interface{})
+		c.Assert(runCmd[:4], gc.DeepEquals, []interface{}{
+			`mkdir /tmp/preruncmd`,
+			`mkdir /tmp/preruncmd2`,
+			script1, script2,
+		})
+		c.Assert(runCmd[len(runCmd)-2:], gc.DeepEquals, []interface{}{
+			`mkdir /tmp/postruncmd`,
+			`mkdir /tmp/postruncmd2`,
+		})
 	}
 }
 
@@ -339,4 +349,24 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 	expected, err := providerinit.ComposeUserData(&cfg, cicompose, openstack.OpenstackRenderer{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(got), gc.Equals, string(expected))
+}
+
+var validCloudInitUserData = `
+packages:
+  - 'python-keystoneclient'
+  - 'python-glanceclient'
+preruncmd:
+  - mkdir /tmp/preruncmd
+  - mkdir /tmp/preruncmd2
+postruncmd:
+  - mkdir /tmp/postruncmd
+  - mkdir /tmp/postruncmd2
+package_upgrade: false
+`[1:]
+
+var cloudInitUserDataMap = map[string]interface{}{
+	"package_upgrade": false,
+	"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+	"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+	"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 }

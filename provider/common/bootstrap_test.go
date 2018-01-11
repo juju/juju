@@ -73,14 +73,15 @@ func newStorage(suite cleaner, c *gc.C) storage.Storage {
 
 func minimalConfig(c *gc.C) *config.Config {
 	attrs := map[string]interface{}{
-		"name":            "whatever",
-		"type":            "anything, really",
-		"uuid":            coretesting.ModelTag.Id(),
-		"controller-uuid": coretesting.ControllerTag.Id(),
-		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  coretesting.CAKey,
-		"authorized-keys": coretesting.FakeAuthKeys,
-		"default-series":  series.MustHostSeries(),
+		"name":               "whatever",
+		"type":               "anything, really",
+		"uuid":               coretesting.ModelTag.Id(),
+		"controller-uuid":    coretesting.ControllerTag.Id(),
+		"ca-cert":            coretesting.CACert,
+		"ca-private-key":     coretesting.CAKey,
+		"authorized-keys":    coretesting.FakeAuthKeys,
+		"default-series":     series.MustHostSeries(),
+		"cloudinit-userdata": validCloudInitUserData,
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -432,6 +433,73 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		"testing.invalid "+innerInstanceConfig.Bootstrap.InitialSSHHostKeys.RSA.Public,
 	)
 }
+
+func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&series.MustHostSeries, func() string { return "xenial" })
+	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
+
+	var innerInstanceConfig *instancecfg.InstanceConfig
+	inst := &mockInstance{
+		id:        "i-success",
+		addresses: network.NewAddresses("testing.invalid"),
+	}
+	startInstance := func(args environs.StartInstanceParams) (
+		instance.Instance,
+		*instance.HardwareCharacteristics,
+		[]network.InterfaceInfo,
+		error,
+	) {
+		icfg := args.InstanceConfig
+		innerInstanceConfig = icfg
+		return inst, &checkHardware, nil, nil
+	}
+
+	var instancesMu sync.Mutex
+	env := &mockEnviron{
+		startInstance: startInstance,
+		config:        configGetter(c),
+		instances: func(ids []instance.Id) ([]instance.Instance, error) {
+			instancesMu.Lock()
+			defer instancesMu.Unlock()
+			return []instance.Instance{inst}, nil
+		},
+	}
+	ctx := envtesting.BootstrapContext(c)
+	bootstrapSeries := "utopic"
+	availableTools := fakeAvailableTools()
+	availableTools[0].Version.Series = bootstrapSeries
+	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BootstrapSeries:  bootstrapSeries,
+		AvailableTools:   availableTools,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result.Finalize, gc.NotNil)
+	err = result.Finalize(ctx, innerInstanceConfig, environs.BootstrapDialOpts{
+		Timeout: coretesting.ShortWait,
+	})
+	c.Assert(err, gc.ErrorMatches, "waited for 50ms without being able to connect.*")
+	c.Assert(innerInstanceConfig.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
+		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+		"package_upgrade": false})
+}
+
+var validCloudInitUserData = `
+packages:
+  - 'python-keystoneclient'
+  - 'python-glanceclient'
+preruncmd:
+  - mkdir /tmp/preruncmd
+  - mkdir /tmp/preruncmd2
+postruncmd:
+  - mkdir /tmp/postruncmd
+  - mkdir /tmp/postruncmd2
+package_upgrade: false
+`[1:]
 
 type neverRefreshes struct {
 }

@@ -627,6 +627,11 @@ func Validate(cfg, old *Config) error {
 		if _, ok := userDataMap["runcmd"]; ok {
 			return errors.New("cloudinit-userdata: runcmd not allowed, use preruncmd or postruncmd instead")
 		}
+
+		// error if bootcmd is specified
+		if _, ok := userDataMap["bootcmd"]; ok {
+			return errors.New("cloudinit-userdata: bootcmd not allowed")
+		}
 	}
 
 	// Check the immutable config values.  These can't change
@@ -1134,7 +1139,7 @@ func (c *Config) FanConfig() (network.FanConfig, error) {
 func (c *Config) CloudInitUserData() map[string]interface{} {
 	raw := c.asString(CloudInitUserDataKey)
 	if raw == "" {
-		return map[string]interface{}{}
+		return nil
 	}
 	userDataMap := make(map[string]interface{})
 	yaml.Unmarshal([]byte(raw), &userDataMap)

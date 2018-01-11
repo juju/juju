@@ -1266,6 +1266,36 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 	return errors.Annotate(err, "upgrading legacy lease documents")
 }
 
+// MoveOldAuditLog renames the no-longer-needed audit.log collection
+// to old-audit.log if it has any rows - if it's empty it deletes it.
+func MoveOldAuditLog(st *State) error {
+	names, err := st.MongoSession().DB("juju").CollectionNames()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !set.NewStrings(names...).Contains("audit.log") {
+		// No audit log collection to move.
+		return nil
+	}
+
+	coll, closer := st.db().GetRawCollection("audit.log")
+	defer closer()
+
+	rows, err := coll.Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if rows == 0 {
+		return errors.Trace(coll.DropCollection())
+	}
+	session := st.MongoSession()
+	renameCommand := bson.D{
+		{"renameCollection", "juju.audit.log"},
+		{"to", "juju.old-audit.log"},
+	}
+	return errors.Trace(session.Run(renameCommand, nil))
+}
+
 // AddRelationStatus sets the initial status for existing relations
 // without a status.
 func AddRelationStatus(st *State) error {
@@ -1312,34 +1342,4 @@ func addRelationStatus(st *State) error {
 		return ops, nil
 	})
 	return errors.Annotate(err, "adding relation status")
-}
-
-// MoveOldAuditLog renames the no-longer-needed audit.log collection
-// to old-audit.log if it has any rows - if it's empty it deletes it.
-func MoveOldAuditLog(st *State) error {
-	names, err := st.MongoSession().DB("juju").CollectionNames()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !set.NewStrings(names...).Contains("audit.log") {
-		// No audit log collection to move.
-		return nil
-	}
-
-	coll, closer := st.db().GetRawCollection("audit.log")
-	defer closer()
-
-	rows, err := coll.Count()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if rows == 0 {
-		return errors.Trace(coll.DropCollection())
-	}
-	session := st.MongoSession()
-	renameCommand := bson.D{
-		{"renameCollection", "juju.audit.log"},
-		{"to", "juju.old-audit.log"},
-	}
-	return errors.Trace(session.Run(renameCommand, nil))
 }

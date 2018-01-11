@@ -33,8 +33,8 @@ type StateBackend interface {
 	AddModelEnvironVersion() error
 	AddModelType() error
 	MigrateLeasesToGlobalTime() error
-	AddRelationStatus() error
 	MoveOldAuditLog() error
+	AddRelationStatus() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -129,12 +129,12 @@ func (s stateBackend) MigrateLeasesToGlobalTime() error {
 	return state.MigrateLeasesToGlobalTime(s.st)
 }
 
-func (s stateBackend) AddRelationStatus() error {
-	return state.AddRelationStatus(s.st)
-}
-
 func (s stateBackend) MoveOldAuditLog() error {
 	return state.MoveOldAuditLog(s.st)
+}
+
+func (s stateBackend) AddRelationStatus() error {
+	return state.AddRelationStatus(s.st)
 }
 
 type modelShim struct {

@@ -42,9 +42,13 @@ func (w *windowsConfigure) Configure() error {
 	if err := w.ConfigureBasic(); err != nil {
 		return err
 	}
-	return w.ConfigureJuju()
+	if err := w.ConfigureJuju(); err != nil {
+		return err
+	}
+	return w.ConfigureCustomOverrides()
 }
 
+// ConfigureBasic implements UserdataConfig.ConfigureBasic
 func (w *windowsConfigure) ConfigureBasic() error {
 
 	tmpDir, err := paths.TempDir(w.icfg.Series)
@@ -90,6 +94,7 @@ func (w *windowsConfigure) ConfigureBasic() error {
 	return nil
 }
 
+// ConfigureJuju implements UserdataConfig.ConfigureJuju
 func (w *windowsConfigure) ConfigureJuju() error {
 	if err := w.icfg.VerifyConfig(); err != nil {
 		return errors.Trace(err)
@@ -139,6 +144,13 @@ func (w *windowsConfigure) ConfigureJuju() error {
 		return errors.Trace(err)
 	}
 	return w.addMachineAgentToBoot()
+}
+
+// ConfigureCustomOverrides implements UserdataConfig.ConfigureCustomOverrides
+func (w *windowsConfigure) ConfigureCustomOverrides() error {
+	// TODO HML 2017-12-08
+	// Implement for Windows support of model-config cloudinit-userdata.
+	return nil
 }
 
 // createJujuRegistryKeyCmds is going to create a juju registry key and set

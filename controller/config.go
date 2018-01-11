@@ -33,6 +33,18 @@ const (
 	// auditing information.
 	AuditingEnabled = "auditing-enabled"
 
+	// AuditLogCaptureArgs determines whether the audit log will
+	// contain the arguments passed to API methods.
+	AuditLogCaptureArgs = "audit-log-capture-args"
+
+	// AuditLogMaxSize is the maximum size for the current audit log
+	// file, eg "250M".
+	AuditLogMaxSize = "audit-log-max-size"
+
+	// AuditLogMaxBackups is the number of old audit log files to keep
+	// (compressed).
+	AuditLogMaxBackups = "audit-log-max-backups"
+
 	// StatePort is the port used for mongo connections.
 	StatePort = "state-port"
 
@@ -73,7 +85,7 @@ const (
 	// detault
 	MongoMemoryProfile = "mongo-memory-profile"
 
-	// MaxLogsAge is the maximum age for log entries, ef "72h"
+	// MaxLogsAge is the maximum age for log entries, eg "72h"
 	MaxLogsAge = "max-logs-age"
 
 	// MaxLogsSize is the maximum size the log collection can grow to
@@ -88,6 +100,18 @@ const (
 	// DefaultAuditingEnabled contains the default value for the
 	// AuditingEnabled config value.
 	DefaultAuditingEnabled = false
+
+	// DefaultAuditLogCaptureArgs is the default for the
+	// AuditLogCaptureArgs setting (which is not to capture them).
+	DefaultAuditLogCaptureArgs = false
+
+	// DefaultAuditLogMaxSizeMB is the default size in MB at which we
+	// roll the audit log file.
+	DefaultAuditLogMaxSizeMB = 300
+
+	// DefaultAuditLogMaxBackups is the default number of files to
+	// keep.
+	DefaultAuditLogMaxBackups = 10
 
 	// DefaultNUMAControlPolicy should not be used by default.
 	// Only use numactl if user specifically requests it
@@ -140,6 +164,10 @@ var ControllerOnlyConfigAttributes = []string{
 	MaxTxnLogSize,
 	JujuHASpace,
 	JujuManagementSpace,
+	AuditingEnabled,
+	AuditLogCaptureArgs,
+	AuditLogMaxSize,
+	AuditLogMaxBackups,
 }
 
 // ControllerOnlyAttribute returns true if the specified attribute name
@@ -228,7 +256,33 @@ func (c Config) AuditingEnabled() bool {
 	if v, ok := c[AuditingEnabled]; ok {
 		return v.(bool)
 	}
-	return false
+	return DefaultAuditingEnabled
+}
+
+// AuditLogCaptureArgs returns whether audit logging should capture
+// the arguments to API methods. The default is false.
+func (c Config) AuditLogCaptureArgs() bool {
+	if v, ok := c[AuditLogCaptureArgs]; ok {
+		return v.(bool)
+	}
+	return DefaultAuditLogCaptureArgs
+}
+
+// AuditLogMaxSizeMB returns the maximum size for an audit log file in
+// MB.
+func (c Config) AuditLogMaxSizeMB() int {
+	// Value has already been validated.
+	value, _ := utils.ParseSize(c.asString(AuditLogMaxSize))
+	return int(value)
+}
+
+// AuditLogMaxBackups returns the maximum number of backup audit log
+// files to keep.
+func (c Config) AuditLogMaxBackups() int {
+	if value, ok := c[AuditLogMaxBackups]; ok {
+		return value.(int)
+	}
+	return DefaultAuditLogMaxBackups
 }
 
 // ControllerUUID returns the uuid for the model's controller.
@@ -407,6 +461,27 @@ func Validate(c Config) error {
 		return errors.Trace(err)
 	}
 
+	var auditLogMaxSize int
+	if v, ok := c[AuditLogMaxSize].(string); ok {
+		if size, err := utils.ParseSize(v); err != nil {
+			return errors.Annotate(err, "invalid audit log max size in configuration")
+		} else {
+			auditLogMaxSize = int(size)
+		}
+	}
+
+	if v, ok := c[AuditingEnabled].(bool); ok {
+		if v && auditLogMaxSize == 0 {
+			return errors.Errorf("invalid audit log max size: can't be 0 if auditing is enabled")
+		}
+	}
+
+	if v, ok := c[AuditLogMaxBackups].(int); ok {
+		if v < 0 {
+			return errors.Errorf("invalid audit log max backups: should be a number of files (or 0 to keep all), got %d", v)
+		}
+	}
+
 	return nil
 }
 
@@ -434,6 +509,9 @@ func GenerateControllerCertAndKey(caCert, caKey string, hostAddresses []string) 
 
 var configChecker = schema.FieldMap(schema.Fields{
 	AuditingEnabled:         schema.Bool(),
+	AuditLogCaptureArgs:     schema.Bool(),
+	AuditLogMaxSize:         schema.String(),
+	AuditLogMaxBackups:      schema.ForceInt(),
 	APIPort:                 schema.ForceInt(),
 	StatePort:               schema.ForceInt(),
 	IdentityURL:             schema.String(),
@@ -451,6 +529,9 @@ var configChecker = schema.FieldMap(schema.Fields{
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
+	AuditLogCaptureArgs:     DefaultAuditLogCaptureArgs,
+	AuditLogMaxSize:         fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),
+	AuditLogMaxBackups:      DefaultAuditLogMaxBackups,
 	StatePort:               DefaultStatePort,
 	IdentityURL:             schema.Omit,
 	IdentityPublicKey:       schema.Omit,

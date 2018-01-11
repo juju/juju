@@ -576,6 +576,8 @@ func (task *provisionerTask) constructInstanceConfig(
 		}
 	}
 
+	instanceConfig.CloudInitUserData = pInfo.CloudInitUserData
+
 	return instanceConfig, nil
 }
 

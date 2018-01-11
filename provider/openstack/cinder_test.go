@@ -333,6 +333,21 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumes(c *gc.C) {
 	})
 }
 
+func (s *cinderVolumeSourceSuite) TestDestroyVolumesNotFound(c *gc.C) {
+	mockAdapter := &mockAdapter{
+		getVolume: func(volId string) (*cinder.Volume, error) {
+			return nil, errors.NotFoundf("volume %q", volId)
+		},
+	}
+	volSource := openstack.NewCinderVolumeSource(mockAdapter)
+	errs, err := volSource.DestroyVolumes([]string{mockVolId})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{
+		{"GetVolume", []interface{}{mockVolId}},
+	})
+}
+
 func (s *cinderVolumeSourceSuite) TestDestroyVolumesAttached(c *gc.C) {
 	statuses := []string{"in-use", "detaching", "available"}
 
@@ -428,24 +443,13 @@ func (s *cinderVolumeSourceSuite) TestReleaseVolumesDetaching(c *gc.C) {
 func (s *cinderVolumeSourceSuite) TestDetachVolumes(c *gc.C) {
 	const mockServerId2 = mockServerId + "2"
 
-	var numListCalls, numDetachCalls int
+	var numDetachCalls int
 	mockAdapter := &mockAdapter{
-		listVolumeAttachments: func(serverId string) ([]nova.VolumeAttachment, error) {
-			numListCalls++
-			if serverId == mockServerId2 {
-				// no attachments
-				return nil, nil
-			}
-			c.Check(serverId, gc.Equals, mockServerId)
-			return []nova.VolumeAttachment{{
-				Id:       mockVolId,
-				VolumeId: mockVolId,
-				ServerId: mockServerId,
-				Device:   toStringPtr("/dev/sda"),
-			}}, nil
-		},
 		detachVolume: func(serverId, volId string) error {
 			numDetachCalls++
+			if volId == "42" {
+				return errors.NotFoundf("attachment")
+			}
 			c.Check(serverId, gc.Equals, mockServerId)
 			c.Check(volId, gc.Equals, mockVolId)
 			return nil
@@ -470,14 +474,10 @@ func (s *cinderVolumeSourceSuite) TestDetachVolumes(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, jc.DeepEquals, []error{nil, nil})
-	// DetachVolume should only be called for existing attachments.
-	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{{
-		"ListVolumeAttachments", []interface{}{mockServerId},
-	}, {
-		"DetachVolume", []interface{}{mockServerId, mockVolId},
-	}, {
-		"ListVolumeAttachments", []interface{}{mockServerId2},
-	}})
+	mockAdapter.CheckCalls(c, []gitjujutesting.StubCall{
+		{"DetachVolume", []interface{}{mockServerId, mockVolId}},
+		{"DetachVolume", []interface{}{mockServerId2, "42"}},
+	})
 }
 
 func (s *cinderVolumeSourceSuite) TestCreateVolumeCleanupDestroys(c *gc.C) {

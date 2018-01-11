@@ -585,6 +585,58 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	)
 }
 
+var validCloudInitUserData = `
+packages:
+  - 'python-keystoneclient'
+  - 'python-glanceclient'
+preruncmd:
+  - mkdir /tmp/preruncmd
+  - mkdir /tmp/preruncmd2
+postruncmd:
+  - mkdir /tmp/postruncmd
+  - mkdir /tmp/postruncmd2
+package_upgrade: false
+`[1:]
+
+func (s *ProvisionerSuite) TestSetUpToStartMachine(c *gc.C) {
+	attrs := map[string]interface{}{
+		config.CloudInitUserDataKey: validCloudInitUserData,
+	}
+	s.Model.UpdateModelConfig(attrs, nil)
+
+	task := s.newProvisionerTask(
+		c,
+		config.HarvestAll,
+		s.Environ,
+		s.provisioner,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{},
+	)
+	defer workertest.CleanKill(c, task)
+
+	machine, err := s.addMachine()
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.provisioner.Machines(machine.MachineTag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result[0].Err, gc.IsNil)
+	apiMachine := result[0].Machine
+
+	v, err := apiMachine.ModelAgentVersion()
+	c.Assert(err, jc.ErrorIsNil)
+
+	startInstanceParams, err := provisioner.SetupToStartMachine(task, apiMachine, v)
+	c.Assert(err, jc.ErrorIsNil)
+	cloudInitUserData := startInstanceParams.InstanceConfig.CloudInitUserData
+	c.Assert(cloudInitUserData, gc.DeepEquals, map[string]interface{}{
+		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+		"package_upgrade": false},
+	)
+}
+
 func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer workertest.CleanKill(c, p)

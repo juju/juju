@@ -142,7 +142,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	recorderFactory := observer.NewRecorderFactory(
-		a.apiObserver, auditRecorder)
+		a.apiObserver, auditRecorder, a.srv.auditLogConfig.CaptureAPIArgs)
 
 	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
 	return params.LoginResult{
@@ -162,10 +162,10 @@ func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult
 	}
 	result, err := auditlog.NewRecorder(
 		a.srv.auditLogger,
+		a.srv.clock,
 		auditlog.ConversationArgs{
 			Who:          req.AuthTag,
 			What:         req.CLIArgs,
-			When:         a.srv.clock.Now(),
 			ModelName:    a.root.model.Name(),
 			ModelUUID:    a.root.model.UUID(),
 			ConnectionID: a.root.connectionID,
