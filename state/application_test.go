@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -1850,6 +1851,46 @@ func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application "mysql" not found`)
+}
+
+func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+
+	unitZero, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitZero.Name(), gc.Equals, "wordpress/0")
+	c.Assert(unitZero.IsPrincipal(), jc.IsTrue)
+	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
+	c.Assert(state.GetUnitModelUUID(unitZero), gc.Equals, st.ModelUUID())
+
+	// CAAS units have no workload (unit) status, workload version, nor meter status.
+	us, err := unitZero.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(us, jc.DeepEquals, status.StatusInfo{})
+	vers, err := unitZero.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vers, gc.Equals, "")
+	ms, err := unitZero.GetMeterStatus()
+	c.Assert(err, gc.NotNil)
+	c.Assert(ms.Code, gc.Equals, state.MeterNotAvailable)
+
+	// But they do have an agent status.
+	as, err := unitZero.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(as.Since, gc.NotNil)
+	as.Since = nil
+	c.Assert(as, jc.DeepEquals, status.StatusInfo{
+		Status: status.Allocating,
+		Data:   map[string]interface{}{},
+	})
 }
 
 func (s *ApplicationSuite) TestReadUnit(c *gc.C) {

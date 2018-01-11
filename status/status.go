@@ -114,7 +114,7 @@ const (
 )
 
 const (
-	// Status values specific to services and units, reflecting the
+	// Status values specific to applications and units, reflecting the
 	// state of the software itself.
 
 	// Maintenance is set when:
@@ -223,6 +223,7 @@ const (
 
 const (
 	MessageWaitForMachine    = "waiting for machine"
+	MessageWaitForContainer  = "waiting for container"
 	MessageInstallingAgent   = "installing agent"
 	MessageInitializingAgent = "agent initializing"
 	MessageInstallingCharm   = "installing charm software"

@@ -1321,14 +1321,27 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Status:  status.Allocating,
 		Updated: now.UnixNano(),
 	}
-	unitStatusDoc := statusDoc{
-		Status:     status.Waiting,
-		StatusInfo: status.MessageWaitForMachine,
-		Updated:    now.UnixNano(),
+	var (
+		unitStatusDoc      *statusDoc
+		workloadVersionDoc *statusDoc
+		meterStatus        *meterStatusDoc
+	)
+
+	model, err := a.st.Model()
+	if err != nil {
+		return "", nil, errors.Trace(err)
 	}
-	workloadVersionDoc := statusDoc{
-		Status:  status.Unknown,
-		Updated: now.UnixNano(),
+	if model.Type() != ModelTypeCAAS {
+		unitStatusDoc = &statusDoc{
+			Status:     status.Waiting,
+			StatusInfo: status.MessageWaitForMachine,
+			Updated:    now.UnixNano(),
+		}
+		workloadVersionDoc = &statusDoc{
+			Status:  status.Unknown,
+			Updated: now.UnixNano(),
+		}
+		meterStatus = &meterStatusDoc{Code: MeterNotSet.String()}
 	}
 
 	ops, err := addUnitOps(a.st, addUnitOpsArgs{
@@ -1336,7 +1349,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  unitStatusDoc,
 		workloadVersionDoc: workloadVersionDoc,
-		meterStatusDoc:     &meterStatusDoc{Code: MeterNotSet.String()},
+		meterStatusDoc:     meterStatus,
 	})
 	if err != nil {
 		return "", nil, errors.Trace(err)
@@ -1361,9 +1374,13 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	// history entries. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	probablyUpdateStatusHistory(a.st.db(), globalKey, unitStatusDoc)
+	if unitStatusDoc != nil {
+		probablyUpdateStatusHistory(a.st.db(), globalKey, *unitStatusDoc)
+	}
+	if workloadVersionDoc != nil {
+		probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), *workloadVersionDoc)
+	}
 	probablyUpdateStatusHistory(a.st.db(), agentGlobalKey, agentStatusDoc)
-	probablyUpdateStatusHistory(a.st.db(), globalWorkloadVersionKey(name), workloadVersionDoc)
 	return name, ops, nil
 }
 

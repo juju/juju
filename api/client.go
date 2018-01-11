@@ -45,6 +45,11 @@ func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 	if err := c.facade.FacadeCall("FullStatus", p, &result); err != nil {
 		return nil, err
 	}
+	// Older servers don't fill out model type, but
+	// we know a missing type is an "iaas" model.
+	if result.Model.Type == "" {
+		result.Model.Type = "iaas"
+	}
 	return &result, nil
 }
 
