@@ -109,6 +109,7 @@ func (p *Pruner) removeUnusedBeings(memCache map[int64]string) error {
 	keyCount := 0
 	seqCount := 0
 	iter := p.iterKeys()
+	defer iter.Close()
 	for iter.Next(&keyInfo) {
 		keyCount += 1
 		// Find the max

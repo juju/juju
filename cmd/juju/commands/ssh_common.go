@@ -32,7 +32,6 @@ import (
 type SSHCommon struct {
 	modelcmd.ModelCommandBase
 	proxy           bool
-	pty             bool
 	noHostKeyChecks bool
 	Target          string
 	Args            []string
@@ -112,7 +111,6 @@ var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
 func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.proxy, "proxy", false, "Proxy through the API server")
-	f.BoolVar(&c.pty, "pty", true, "Enable pseudo-tty allocation")
 	f.BoolVar(&c.noHostKeyChecks, "no-host-key-checks", false, "Skip host key checking (INSECURE)")
 }
 

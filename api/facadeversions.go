@@ -42,7 +42,7 @@ var facadeVersions = map[string]int{
 	"ExternalControllerUpdater":    1,
 	"FanConfigurer":                1,
 	"FilesystemAttachmentsWatcher": 2,
-	"Firewaller":                   4,
+	"Firewaller":                   5,
 	"FirewallRules":                1,
 	"HighAvailability":             2,
 	"HostKeyReporter":              1,

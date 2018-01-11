@@ -647,14 +647,12 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			)
 		}
 	}
-
 	// Close the state pool before we close the underlying state.
 	if s.StatePool != nil {
 		err := s.StatePool.Close()
 		c.Check(err, jc.ErrorIsNil)
 		s.StatePool = nil
 	}
-
 	// Close state.
 	if s.State != nil {
 		err := s.State.Close()

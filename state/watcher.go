@@ -2512,6 +2512,7 @@ func (w *openedPortsWatcher) initial() (set.Strings, error) {
 	portDocs := set.NewStrings()
 	var doc portsDoc
 	iter := ports.Find(nil).Select(bson.D{{"_id", 1}, {"txn-revno", 1}}).Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
 		id, err := w.backend.strictLocalID(doc.DocID)
 		if err != nil {

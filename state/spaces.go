@@ -74,7 +74,7 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 			results = append(results, subnet)
 		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, err
 	}
 	return results, nil

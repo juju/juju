@@ -333,6 +333,7 @@ func locationToRegion(loc string) (string, bool) {
 		"EU (Frankfurt)":            "eu-central-1",
 		"EU (Ireland)":              "eu-west-1",
 		"EU (London)":               "eu-west-2",
+		"EU (Paris)":                "eu-west-3",
 		"South America (Sao Paulo)": "sa-east-1",
 		"AWS GovCloud (US)":         "us-gov-west-1",
 

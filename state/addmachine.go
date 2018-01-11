@@ -698,15 +698,15 @@ func addMachineStorageAttachmentsOps(
 	volumes []volumeAttachmentTemplate,
 	filesystems []filesystemAttachmentTemplate,
 ) ([]txn.Op, error) {
-	var updates bson.D
+	var addToSet bson.D
 	assert := isAliveDoc
 	if len(volumes) > 0 {
 		volumeIds := make([]string, len(volumes))
 		for i, v := range volumes {
 			volumeIds[i] = v.tag.Id()
 		}
-		updates = append(updates, bson.DocElem{"$addToSet", bson.D{{
-			"volumes", bson.D{{"$each", volumeIds}}}},
+		addToSet = append(addToSet, bson.DocElem{
+			"volumes", bson.D{{"$each", volumeIds}},
 		})
 	}
 	if len(filesystems) > 0 {
@@ -723,8 +723,8 @@ func addMachineStorageAttachmentsOps(
 				withLocation = append(withLocation, f)
 			}
 		}
-		updates = append(updates, bson.DocElem{"$addToSet", bson.D{{
-			"filesystems", bson.D{{"$each", filesystemIds}}}},
+		addToSet = append(addToSet, bson.DocElem{
+			"filesystems", bson.D{{"$each", filesystemIds}},
 		})
 		if len(withLocation) > 0 {
 			if err := validateFilesystemMountPoints(machine, withLocation); err != nil {
@@ -740,11 +740,15 @@ func addMachineStorageAttachmentsOps(
 			})
 		}
 	}
+	var update interface{}
+	if len(addToSet) > 0 {
+		update = bson.D{{"$addToSet", addToSet}}
+	}
 	return []txn.Op{{
 		C:      machinesC,
 		Id:     machine.doc.Id,
 		Assert: assert,
-		Update: updates,
+		Update: update,
 	}}, nil
 }
 
@@ -802,8 +806,12 @@ func (st *State) maintainControllersOps(mdocs []*machineDoc, currentInfo *Contro
 			},
 		}},
 		Update: bson.D{
-			{"$addToSet", bson.D{{"machineids", bson.D{{"$each", newIds}}}}},
-			{"$addToSet", bson.D{{"votingmachineids", bson.D{{"$each", newVotingIds}}}}},
+			{"$addToSet",
+				bson.D{
+					{"machineids", bson.D{{"$each", newIds}}},
+					{"votingmachineids", bson.D{{"$each", newVotingIds}}},
+				},
+			},
 		},
 	}}
 	return ops, nil
@@ -1078,8 +1086,10 @@ func convertControllerOps(m *Machine) []txn.Op {
 		C:  controllersC,
 		Id: modelGlobalKey,
 		Update: bson.D{
-			{"$addToSet", bson.D{{"votingmachineids", m.doc.Id}}},
-			{"$addToSet", bson.D{{"machineids", m.doc.Id}}},
+			{"$addToSet", bson.D{
+				{"votingmachineids", m.doc.Id},
+				{"machineids", m.doc.Id},
+			}},
 		},
 	}}
 }

@@ -27,10 +27,6 @@ type WatcherSuite struct {
 	clock      *testing.Clock
 }
 
-// Duration is arbitrary, we'll trigger the ticker
-// by advancing the clock past the duration.
-var statusTickDuration = 10 * time.Second
-
 var _ = gc.Suite(&WatcherSuite{})
 
 func (s *WatcherSuite) SetUpTest(c *gc.C) {
@@ -54,10 +50,12 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			actionWatcher:         newMockStringsWatcher(),
 			relationsWatcher:      newMockStringsWatcher(),
 		},
-		relations:                 make(map[names.RelationTag]*mockRelation),
-		storageAttachment:         make(map[params.StorageAttachmentId]params.StorageAttachment),
-		relationUnitsWatchers:     make(map[names.RelationTag]*mockRelationUnitsWatcher),
-		storageAttachmentWatchers: make(map[names.StorageTag]*mockNotifyWatcher),
+		relations:                   make(map[names.RelationTag]*mockRelation),
+		storageAttachment:           make(map[params.StorageAttachmentId]params.StorageAttachment),
+		relationUnitsWatchers:       make(map[names.RelationTag]*mockRelationUnitsWatcher),
+		storageAttachmentWatchers:   make(map[names.StorageTag]*mockNotifyWatcher),
+		updateStatusInterval:        5 * time.Minute,
+		updateStatusIntervalWatcher: newMockNotifyWatcher(),
 	}
 
 	s.leadership = &mockLeadershipTracker{
@@ -68,7 +66,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 
 	s.clock = testing.NewClock(time.Now())
 	statusTicker := func(wait time.Duration) remotestate.Waiter {
-		return dummyWaiter{s.clock.After(statusTickDuration)}
+		return dummyWaiter{s.clock.After(wait)}
 	}
 
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
@@ -118,6 +116,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.st.unit.application.applicationWatcher.changes <- struct{}{}
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	s.st.unit.relationsWatcher.changes <- []string{}
+	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 }
@@ -131,6 +130,7 @@ func signalAll(st *mockState, l *mockLeadershipTracker) {
 	st.unit.application.applicationWatcher.changes <- struct{}{}
 	st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	st.unit.relationsWatcher.changes <- []string{}
+	st.updateStatusIntervalWatcher.changes <- struct{}{}
 	l.claimTicket.ch <- struct{}{}
 }
 
@@ -202,7 +202,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.st.unit.relationsWatcher.changes <- []string{}
 	assertOneChange()
 
-	s.clock.Advance(statusTickDuration + 1)
+	s.clock.Advance(5 * time.Minute)
 	assertOneChange()
 }
 
@@ -575,18 +575,40 @@ func (s *WatcherSuite) TestUpdateStatusTicker(c *gc.C) {
 
 	// Advance the clock past the trigger time.
 	s.waitAlarmsStable(c)
-	s.clock.Advance(11 * time.Second)
+	s.clock.Advance(5 * time.Minute)
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+1)
 
 	// Advance again but not past the trigger time.
 	s.waitAlarmsStable(c)
-	s.clock.Advance(6 * time.Second)
+	s.clock.Advance(4 * time.Minute)
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "unexpected remote state change")
 	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+1)
 
 	// And we hit the trigger time.
-	s.clock.Advance(5 * time.Second)
+	s.clock.Advance(1 * time.Minute)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+2)
+}
+
+func (s *WatcherSuite) TestUpdateStatusIntervalChanges(c *gc.C) {
+	signalAll(s.st, s.leadership)
+	initial := s.watcher.Snapshot()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	// Advance the clock past the trigger time.
+	s.waitAlarmsStable(c)
+	s.clock.Advance(5 * time.Minute)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+1)
+
+	// Change the update status interval to 10 seconds.
+	s.st.updateStatusInterval = 10 * time.Second
+	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
+
+	// Advance 10 seconds; the timer should be triggered.
+	s.waitAlarmsStable(c)
+	s.clock.Advance(10 * time.Second)
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().UpdateStatusVersion, gc.Equals, initial.UpdateStatusVersion+2)
 }

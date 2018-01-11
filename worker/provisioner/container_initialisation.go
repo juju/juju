@@ -32,6 +32,7 @@ import (
 
 var (
 	systemNetworkInterfacesFile = "/etc/network/interfaces"
+	systemSbinIfup              = "/sbin/ifup"
 	systemNetplanDirectory      = "/etc/netplan"
 	activateBridgesTimeout      = 5 * time.Minute
 )
@@ -218,7 +219,7 @@ func observeNetwork() ([]params.NetworkConfig, error) {
 }
 
 func defaultBridger() (network.Bridger, error) {
-	if _, err := os.Stat(systemNetworkInterfacesFile); err == nil {
+	if _, err := os.Stat(systemSbinIfup); err == nil {
 		return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, systemNetworkInterfacesFile)
 	} else {
 		return network.DefaultNetplanBridger(activateBridgesTimeout, systemNetplanDirectory)

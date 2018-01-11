@@ -260,10 +260,13 @@ func (s *AddModelSuite) TestCredentialsOneCached(c *gc.C) {
 	credentialTag := names.NewCloudCredentialTag("aws/foo/secrets")
 	s.PatchValue(&s.fakeCloudAPI.credentials, []names.CloudCredentialTag{credentialTag})
 
-	_, err := s.run(c, "test")
+	_, err := s.run(c, "test", "aws/us-west-1")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// The cached credential should be used, along with
+	// the user-specified cloud region.
 	c.Assert(s.fakeAddModelAPI.cloudCredential, gc.Equals, credentialTag)
+	c.Assert(s.fakeAddModelAPI.cloudRegion, gc.Equals, "us-west-1")
 }
 
 func (s *AddModelSuite) TestCredentialsDetected(c *gc.C) {
