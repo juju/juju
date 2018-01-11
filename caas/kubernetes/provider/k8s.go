@@ -35,6 +35,7 @@ const (
 	namespace = "default"
 
 	labelApplication = "juju-application"
+	labelUnit        = "juju-unit"
 )
 
 // TODO(caas) - add unit tests
@@ -351,8 +352,10 @@ func (k *kubernetesClient) EnsureUnit(appName, unitName, spec string) error {
 	}
 	pod := &v1.Pod{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   podName,
-			Labels: map[string]string{labelApplication: appName}},
+			Name: podName,
+			Labels: map[string]string{
+				labelApplication: appName,
+				labelUnit:        unitName}},
 		Spec: unitSpec.Pod,
 	}
 	return k.createPod(pod)

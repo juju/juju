@@ -135,6 +135,8 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		}
 	}
 
+	const caasModelType = "caas"
+
 	pUnit := func(name string, u unitStatus, level int) {
 		message := u.WorkloadStatusInfo.Message
 		agentDoing := agentDoing(u.JujuStatusInfo)
@@ -145,6 +147,17 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 			name += "*"
 		}
 		w.Print(indent("", level*2, name))
+		if fs.Model.Type == caasModelType {
+			// TODO(caas)
+			//w.PrintStatus(u.JujuStatusInfo.Current)
+			p(
+				"<todo>",
+				u.Address,
+				strings.Join(u.OpenedPorts, ","),
+				message,
+			)
+			return
+		}
 		w.PrintStatus(u.WorkloadStatusInfo.Current)
 		w.PrintStatus(u.JujuStatusInfo.Current)
 		p(
@@ -155,7 +168,11 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		)
 	}
 
-	outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
+	if fs.Model.Type == caasModelType {
+		outputHeaders("Unit", "Status", "Address", "Ports", "Message")
+	} else {
+		outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
+	}
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
@@ -184,8 +201,10 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		}
 	}
 
-	p()
-	printMachines(tw, fs.Machines)
+	if fs.Model.Type != caasModelType || len(fs.Machines) > 0 {
+		p()
+		printMachines(tw, fs.Machines)
+	}
 
 	if err := printOffers(tw, fs.Offers); err != nil {
 		w.Println(err.Error())

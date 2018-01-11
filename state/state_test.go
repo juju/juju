@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -1528,6 +1529,48 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 	ch, _, err = mysql.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
+}
+
+func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+
+	insettings := charm.Settings{"tuning": "optimized"}
+	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress, err := st.AddApplication(
+		state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
+	outsettings, err := wordpress.CharmConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := ch.Config().DefaultSettings()
+	for name, value := range insettings {
+		expected[name] = value
+	}
+	c.Assert(outsettings, gc.DeepEquals, expected)
+	outconfig, err := wordpress.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outconfig, gc.DeepEquals, inconfig.Attributes())
+
+	sInfo, err := wordpress.Status()
+	c.Assert(sInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(sInfo.Message, gc.Equals, "waiting for container")
+
+	// Check that retrieving the newly created application works correctly.
+	wordpress, err = st.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
+	ch, _, err = wordpress.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
 }

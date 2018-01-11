@@ -887,6 +887,10 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 	if info.Status != status.Error {
 		info, err = getStatus(u.st.db(), u.globalKey(), "unit")
 		if err != nil {
+			// CAAS units don't have any unit status.
+			if errors.IsNotFound(err) {
+				return status.StatusInfo{}, nil
+			}
 			return status.StatusInfo{}, err
 		}
 	}
@@ -2524,8 +2528,8 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 type addUnitOpsArgs struct {
 	unitDoc            *unitDoc
 	agentStatusDoc     statusDoc
-	workloadStatusDoc  statusDoc
-	workloadVersionDoc statusDoc
+	workloadStatusDoc  *statusDoc
+	workloadVersionDoc *statusDoc
 	meterStatusDoc     *meterStatusDoc
 }
 
@@ -2539,12 +2543,19 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 
 	// TODO: consider the constraints op
 	// TODO: consider storageOps
-	prereqOps := []txn.Op{
-		createStatusOp(st, unitGlobalKey(name), args.workloadStatusDoc),
-		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
-		createStatusOp(st, globalWorkloadVersionKey(name), args.workloadVersionDoc),
-		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
+	var prereqOps []txn.Op
+	if args.workloadStatusDoc != nil {
+		prereqOps = append(prereqOps, createStatusOp(st, unitGlobalKey(name), *args.workloadStatusDoc))
 	}
+	if args.meterStatusDoc != nil {
+		prereqOps = append(prereqOps, createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc))
+	}
+	if args.workloadStatusDoc != nil {
+		prereqOps = append(prereqOps, createStatusOp(st, globalWorkloadVersionKey(name), *args.workloadVersionDoc))
+	}
+	prereqOps = append(prereqOps,
+		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
+	)
 
 	// Freshly-created units will not have a charm URL set; migrated
 	// ones will, and they need to maintain their refcounts. If we

@@ -33,6 +33,7 @@ type errorStatus struct {
 
 type modelStatus struct {
 	Name             string             `json:"name" yaml:"name"`
+	Type             string             `json:"type" yaml:"type"`
 	Controller       string             `json:"controller" yaml:"controller"`
 	Cloud            string             `json:"cloud" yaml:"cloud"`
 	CloudRegion      string             `json:"region,omitempty" yaml:"region,omitempty"`
@@ -184,8 +185,8 @@ type meterStatus struct {
 
 type unitStatus struct {
 	// New Juju Health Status fields.
-	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status"`
-	JujuStatusInfo     statusInfoContents `json:"juju-status,omitempty" yaml:"juju-status"`
+	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
+	JujuStatusInfo     statusInfoContents `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
 	MeterStatus        *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 
 	Leader        bool                  `json:"leader,omitempty" yaml:"leader,omitempty"`
@@ -193,6 +194,7 @@ type unitStatus struct {
 	Machine       string                `json:"machine,omitempty" yaml:"machine,omitempty"`
 	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
 	PublicAddress string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
+	Address       string                `json:"address,omitempty" yaml:"address,omitempty"`
 	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
 }
 

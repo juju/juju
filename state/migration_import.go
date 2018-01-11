@@ -899,6 +899,7 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	}
 	agentStatusDoc := i.makeStatusDoc(agentStatus)
 
+	// TODO(caas) - don't import workload status or version for CAAS models
 	workloadStatus := u.WorkloadStatus()
 	if workloadStatus == nil {
 		return errors.NotValidf("missing workload status")
@@ -918,8 +919,8 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	ops, err := addUnitOps(i.st, addUnitOpsArgs{
 		unitDoc:            udoc,
 		agentStatusDoc:     agentStatusDoc,
-		workloadStatusDoc:  workloadStatusDoc,
-		workloadVersionDoc: workloadVersionDoc,
+		workloadStatusDoc:  &workloadStatusDoc,
+		workloadVersionDoc: &workloadVersionDoc,
 		meterStatusDoc: &meterStatusDoc{
 			Code: u.MeterStatusCode(),
 			Info: u.MeterStatusInfo(),

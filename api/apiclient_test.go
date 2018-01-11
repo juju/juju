@@ -415,7 +415,7 @@ func (s *apiclientSuite) TestFallbackToSNIHostnameOnCertErrorAndNonNumericHostna
 			CACert:      jtesting.CACert,
 			SNIHostName: "foo.com",
 		},
-		expectOpenError: `unable to connect to API: x509: a root or intermediate certificate is not authorized to sign in this domain`,
+		expectOpenError: `unable to connect to API: x509: a root or intermediate certificate is not authorized to sign.*`,
 		expectDials: []dialAttempt{{
 			// The first dial attempt should use the private CA cert.
 			check: func(info dialInfo) {
@@ -448,7 +448,7 @@ func (s *apiclientSuite) TestFailImmediatelyOnCertErrorAndNumericHostname(c *gc.
 			Addrs:  []string{"0.1.2.3:1234"},
 			CACert: jtesting.CACert,
 		},
-		expectOpenError: `unable to connect to API: x509: a root or intermediate certificate is not authorized to sign in this domain`,
+		expectOpenError: `unable to connect to API: x509: a root or intermediate certificate is not authorized to sign.*`,
 		expectDials: []dialAttempt{{
 			// The first dial attempt should use the private CA cert.
 			check: func(info dialInfo) {
