@@ -11,6 +11,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	utilscert "github.com/juju/utils/cert"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cert"
@@ -203,6 +204,7 @@ func (s *ConfigSuite) TestAuditLogDefaults(c *gc.C) {
 	c.Assert(cfg.AuditLogCaptureArgs(), gc.Equals, false)
 	c.Assert(cfg.AuditLogMaxSizeMB(), gc.Equals, 300)
 	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
+	c.Assert(cfg.AuditLogExcludeMethods(), gc.DeepEquals, set.NewStrings("Client.FullStatus"))
 }
 
 func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
@@ -210,10 +212,11 @@ func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{
-			"auditing-enabled":       true,
-			"audit-log-capture-args": true,
-			"audit-log-max-size":     "100M",
-			"audit-log-max-backups":  10.0,
+			"auditing-enabled":          true,
+			"audit-log-capture-args":    true,
+			"audit-log-max-size":        "100M",
+			"audit-log-max-backups":     10.0,
+			"audit-log-exclude-methods": []string{"Fleet.Foxes", "King.Gizzard"},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -221,4 +224,19 @@ func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
 	c.Assert(cfg.AuditLogCaptureArgs(), gc.Equals, true)
 	c.Assert(cfg.AuditLogMaxSizeMB(), gc.Equals, 100)
 	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
+	c.Assert(cfg.AuditLogExcludeMethods(), gc.DeepEquals, set.NewStrings(
+		"Fleet.Foxes",
+		"King.Gizzard",
+	))
+}
+
+func (s *ConfigSuite) TestAuditLogExcludeMethodsType(c *gc.C) {
+	_, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"audit-log-exclude-methods": []int{2, 3, 4},
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, `audit-log-exclude-methods\[0\]: expected string, got int\(2\)`)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
+	"github.com/juju/utils/set"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
@@ -43,6 +44,13 @@ const (
 	// AuditLogMaxBackups is the number of old audit log files to keep
 	// (compressed).
 	AuditLogMaxBackups = "audit-log-max-backups"
+
+	// AuditLogExcludeMethods is a list of Facade.Method names that
+	// aren't interesting for audit logging purposes. A conversation
+	// with only calls to these will be excluded from the
+	// log. (They'll still appear in conversations that have other
+	// interesting calls though.)
+	AuditLogExcludeMethods = "audit-log-exclude-methods"
 
 	// StatePort is the port used for mongo connections.
 	StatePort = "state-port"
@@ -136,28 +144,35 @@ const (
 	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
 )
 
-// ControllerOnlyConfigAttributes are attributes which are only relevant
-// for a controller, never a model.
-var ControllerOnlyConfigAttributes = []string{
-	AllowModelAccessKey,
-	APIPort,
-	AutocertDNSNameKey,
-	AutocertURLKey,
-	CACertKey,
-	ControllerUUIDKey,
-	IdentityPublicKey,
-	IdentityURL,
-	SetNUMAControlPolicyKey,
-	StatePort,
-	MongoMemoryProfile,
-	MaxLogsSize,
-	MaxLogsAge,
-	MaxTxnLogSize,
-	AuditingEnabled,
-	AuditLogCaptureArgs,
-	AuditLogMaxSize,
-	AuditLogMaxBackups,
-}
+var (
+	// ControllerOnlyConfigAttributes are attributes which are only relevant
+	// for a controller, never a model.
+	ControllerOnlyConfigAttributes = []string{
+		AllowModelAccessKey,
+		APIPort,
+		AutocertDNSNameKey,
+		AutocertURLKey,
+		CACertKey,
+		ControllerUUIDKey,
+		IdentityPublicKey,
+		IdentityURL,
+		SetNUMAControlPolicyKey,
+		StatePort,
+		MongoMemoryProfile,
+		MaxLogsSize,
+		MaxLogsAge,
+		MaxTxnLogSize,
+		AuditingEnabled,
+		AuditLogCaptureArgs,
+		AuditLogMaxSize,
+		AuditLogMaxBackups,
+		AuditLogExcludeMethods,
+	}
+
+	// DefaultAuditLogExcludeMethods is the default list of methods to
+	// exclude from the audit log - just the one for `juju status`.
+	DefaultAuditLogExcludeMethods = []string{"Client.FullStatus"}
+)
 
 // ControllerOnlyAttribute returns true if the specified attribute name
 // is only relevant for a controller.
@@ -271,6 +286,21 @@ func (c Config) AuditLogMaxBackups() int {
 		return value.(int)
 	}
 	return DefaultAuditLogMaxBackups
+}
+
+// AuditLogExcludeMethods returns the set of method names that are
+// considered uninteresting for audit logging. Conversations
+// containing only these will be excluded from the audit log.
+func (c Config) AuditLogExcludeMethods() set.Strings {
+	if value, ok := c[AuditLogExcludeMethods]; ok {
+		value := value.([]interface{})
+		items := set.NewStrings()
+		for _, item := range value {
+			items.Add(item.(string))
+		}
+		return items
+	}
+	return set.NewStrings(DefaultAuditLogExcludeMethods...)
 }
 
 // ControllerUUID returns the uuid for the model's controller.
@@ -461,6 +491,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogCaptureArgs:     schema.Bool(),
 	AuditLogMaxSize:         schema.String(),
 	AuditLogMaxBackups:      schema.ForceInt(),
+	AuditLogExcludeMethods:  schema.List(schema.String()),
 	APIPort:                 schema.ForceInt(),
 	StatePort:               schema.ForceInt(),
 	IdentityURL:             schema.String(),
@@ -479,6 +510,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogCaptureArgs:     DefaultAuditLogCaptureArgs,
 	AuditLogMaxSize:         fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),
 	AuditLogMaxBackups:      DefaultAuditLogMaxBackups,
+	AuditLogExcludeMethods:  DefaultAuditLogExcludeMethods,
 	StatePort:               DefaultStatePort,
 	IdentityURL:             schema.Omit,
 	IdentityPublicKey:       schema.Omit,
