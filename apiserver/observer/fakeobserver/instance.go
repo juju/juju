@@ -36,8 +36,11 @@ func (f *Instance) Login(entity names.Tag, model names.ModelTag, fromController 
 
 // RPCObserver implements Observer.
 func (f *Instance) RPCObserver() rpc.Observer {
-	f.AddCall(funcName())
-	return &RPCInstance{}
+	// Stash the instance away in the call so that we can check calls
+	// on it later.
+	result := &RPCInstance{}
+	f.AddCall(funcName(), result)
+	return result
 }
 
 // RPCInstance is a fake RPCObserver used for testing.

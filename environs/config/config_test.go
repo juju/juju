@@ -840,6 +840,65 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	}
 }
 
+type configValidateCloudInitUserDataTest struct {
+	about string
+	value string
+	err   string
+}
+
+var configValidateCloudInitUserDataTests = []configValidateCloudInitUserDataTest{
+	{
+		about: "Valid cloud init user data values",
+		value: validCloudInitUserData,
+	}, {
+		about: "Invalid cloud init user data values: package int",
+		value: invalidCloudInitUserDataPackageInt,
+		err:   `cloudinit-userdata: packages must be a list of strings: expected string, got int\(76\)`,
+	}, {
+		about: "Invalid cloud init user data values: users",
+		value: invalidCloudInitUserDataUsers,
+		err:   `cloudinit-userdata: users not allowed`,
+	}, {
+		about: "Invalid cloud init user data values: runcmd",
+		value: invalidCloudInitUserDataRuncmd,
+		err:   `cloudinit-userdata: runcmd not allowed, use preruncmd or postruncmd instead`,
+	}, {
+		about: "Invalid cloud init user data: yaml",
+		value: invalidCloudInitUserDataInvalidYAML,
+		err:   `cloudinit-userdata: must be valid YAML: yaml: line 2: did not find expected '-' indicator`,
+	},
+}
+
+func (s *ConfigSuite) TestValidateCloudInitUserData(c *gc.C) {
+	files := []gitjujutesting.TestFile{
+		{".ssh/id_dsa.pub", "dsa"},
+		{".ssh/id_rsa.pub", "rsa\n"},
+		{".ssh/identity.pub", "identity"},
+		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
+		{".ssh/authorized_keys2", "auth2\nauth3\n"},
+	}
+	s.FakeHomeSuite.Home.AddFiles(c, files...)
+	for i, test := range configValidateCloudInitUserDataTests {
+		c.Logf("test %d. %s", i, test.about)
+		test.checkNew(c)
+	}
+}
+
+func (test configValidateCloudInitUserDataTest) checkNew(c *gc.C) {
+	final := testing.Attrs{
+		"type": "my-type", "name": "my-name",
+		"uuid": testing.ModelTag.Id(),
+		config.CloudInitUserDataKey: test.value,
+	}
+
+	_, err := config.New(config.UseDefaults, final)
+	if test.err != "" {
+		c.Assert(err, gc.ErrorMatches, test.err)
+		return
+	}
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ConfigSuite) addJujuFiles(c *gc.C) {
 	s.FakeHomeSuite.Home.AddFiles(c, []gitjujutesting.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
@@ -1145,6 +1204,18 @@ func (s *ConfigSuite) TestEgressSubnets(c *gc.C) {
 	c.Assert(cfg.EgressSubnets(), gc.DeepEquals, []string{"10.0.0.1/32", "192.168.1.1/16"})
 }
 
+func (s *ConfigSuite) TestCloudInitUserDataFromEnvironment(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		config.CloudInitUserDataKey: validCloudInitUserData,
+	})
+	c.Assert(cfg.CloudInitUserData(), gc.DeepEquals, map[string]interface{}{
+		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+		"package_upgrade": false},
+	)
+}
+
 func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {
 	schema, err := config.Schema(nil)
 	c.Assert(err, gc.IsNil)
@@ -1257,3 +1328,46 @@ var invalidCACert = `
 MIIBOgIBAAJAZabKgKInuOxj5vDWLwHHQtK3/45KB+32D15w94Nt83BmuGxo90lw
 -----END CERTIFICATE-----
 `[1:]
+
+var validCloudInitUserData = `packages:
+  - 'python-keystoneclient'
+  - 'python-glanceclient'
+preruncmd:
+  - mkdir /tmp/preruncmd
+  - mkdir /tmp/preruncmd2
+postruncmd:
+  - mkdir /tmp/postruncmd
+  - mkdir /tmp/postruncmd2
+package_upgrade: false
+`
+
+var invalidCloudInitUserDataPackageInt = `packages:
+    - 76
+postruncmd:
+    - mkdir /tmp/runcmd
+package_upgrade: true
+`
+
+var invalidCloudInitUserDataRuncmd = `packages:
+    - 'string1'
+    - 'string2'
+runcmd:
+    - mkdir /tmp/runcmd
+package_upgrade: true
+`
+
+var invalidCloudInitUserDataUsers = `packages:
+    - 'string1'
+    - 'string2'
+users:
+    name: test-user
+package_upgrade: true
+`
+
+var invalidCloudInitUserDataInvalidYAML = `packages:
+    - 'string1'
+     'string2'
+runcmd:
+    - mkdir /tmp/runcmd
+package_upgrade: true
+`

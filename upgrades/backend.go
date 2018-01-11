@@ -33,6 +33,7 @@ type StateBackend interface {
 	AddModelEnvironVersion() error
 	AddModelType() error
 	MigrateLeasesToGlobalTime() error
+	AddRelationStatus() error
 	MoveOldAuditLog() error
 }
 
@@ -126,6 +127,10 @@ func (s stateBackend) AddModelType() error {
 
 func (s stateBackend) MigrateLeasesToGlobalTime() error {
 	return state.MigrateLeasesToGlobalTime(s.st)
+}
+
+func (s stateBackend) AddRelationStatus() error {
+	return state.AddRelationStatus(s.st)
 }
 
 func (s stateBackend) MoveOldAuditLog() error {

@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/websocket"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
@@ -49,21 +50,6 @@ import (
 var logger = loggo.GetLogger("juju.apiserver")
 
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
-
-// These vars define how we rate limit incoming connections.
-const (
-	defaultLoginRateLimit         = 10 // concurrent login operations
-	defaultLoginMinPause          = 100 * time.Millisecond
-	defaultLoginMaxPause          = 1 * time.Second
-	defaultLoginRetryPause        = 5 * time.Second
-	defaultConnMinPause           = 0 * time.Millisecond
-	defaultConnMaxPause           = 5 * time.Second
-	defaultConnLookbackWindow     = 1 * time.Second
-	defaultConnLowerThreshold     = 1000   // connections per second
-	defaultConnUpperThreshold     = 100000 // connections per second
-	defaultLogSinkRateLimitBurst  = 1000
-	defaultLogSinkRateLimitRefill = time.Millisecond
-)
 
 // Server holds the server side of the API.
 type Server struct {
@@ -94,6 +80,8 @@ type Server struct {
 	logSinkWriter          io.WriteCloser
 	logsinkRateLimitConfig logsink.RateLimitConfig
 	dbloggers              dbloggers
+	auditLogConfig         AuditLogConfig
+	auditLogger            auditlog.AuditLog
 	upgradeComplete        func() bool
 	restoreStatus          func() state.RestoreStatus
 
@@ -176,6 +164,10 @@ type ServerConfig struct {
 	// DefaultLogSinkConfig() will be used.
 	LogSinkConfig *LogSinkConfig
 
+	// AuditLogConfig holds parameters to configure audit logging.
+	AuditLogConfig AuditLogConfig
+	AuditLog       auditlog.AuditLog
+
 	// PrometheusRegisterer registers Prometheus collectors.
 	PrometheusRegisterer prometheus.Registerer
 }
@@ -208,6 +200,9 @@ func (c ServerConfig) Validate() error {
 			return errors.Annotate(err, "validating logsink configuration")
 		}
 	}
+	if c.AuditLogConfig.Enabled && c.AuditLog == nil {
+		return errors.NotValidf("audit logging enabled but no logger provided")
+	}
 	return nil
 }
 
@@ -216,110 +211,6 @@ func (c ServerConfig) pingClock() clock.Clock {
 		return c.Clock
 	}
 	return c.PingClock
-}
-
-// RateLimitConfig holds parameters to control
-// aspects of rate limiting connections and logins.
-type RateLimitConfig struct {
-	LoginRateLimit     int
-	LoginMinPause      time.Duration
-	LoginMaxPause      time.Duration
-	LoginRetryPause    time.Duration
-	ConnMinPause       time.Duration
-	ConnMaxPause       time.Duration
-	ConnLookbackWindow time.Duration
-	ConnLowerThreshold int
-	ConnUpperThreshold int
-}
-
-// DefaultRateLimitConfig returns a RateLimtConfig struct with
-// all attributes set to their default values.
-func DefaultRateLimitConfig() RateLimitConfig {
-	return RateLimitConfig{
-		LoginRateLimit:     defaultLoginRateLimit,
-		LoginMinPause:      defaultLoginMinPause,
-		LoginMaxPause:      defaultLoginMaxPause,
-		LoginRetryPause:    defaultLoginRetryPause,
-		ConnMinPause:       defaultConnMinPause,
-		ConnMaxPause:       defaultConnMaxPause,
-		ConnLookbackWindow: defaultConnLookbackWindow,
-		ConnLowerThreshold: defaultConnLowerThreshold,
-		ConnUpperThreshold: defaultConnUpperThreshold,
-	}
-}
-
-// Validate validates the rate limit configuration.
-// We apply arbitrary but sensible upper limits to prevent
-// typos from introducing obviously bad config.
-func (c RateLimitConfig) Validate() error {
-	if c.LoginRateLimit <= 0 || c.LoginRateLimit > 100 {
-		return errors.NotValidf("login-rate-limit %d <= 0 or > 100", c.LoginRateLimit)
-	}
-	if c.LoginMinPause < 0 || c.LoginMinPause > 100*time.Millisecond {
-		return errors.NotValidf("login-min-pause %d < 0 or > 100ms", c.LoginMinPause)
-	}
-	if c.LoginMaxPause < 0 || c.LoginMaxPause > 5*time.Second {
-		return errors.NotValidf("login-max-pause %d < 0 or > 5s", c.LoginMaxPause)
-	}
-	if c.LoginRetryPause < 0 || c.LoginRetryPause > 10*time.Second {
-		return errors.NotValidf("login-retry-pause %d < 0 or > 10s", c.LoginRetryPause)
-	}
-	if c.ConnMinPause < 0 || c.ConnMinPause > 100*time.Millisecond {
-		return errors.NotValidf("conn-min-pause %d < 0 or > 100ms", c.ConnMinPause)
-	}
-	if c.ConnMaxPause < 0 || c.ConnMaxPause > 10*time.Second {
-		return errors.NotValidf("conn-max-pause %d < 0 or > 10s", c.ConnMaxPause)
-	}
-	if c.ConnLookbackWindow < 0 || c.ConnLookbackWindow > 5*time.Second {
-		return errors.NotValidf("conn-lookback-window %d < 0 or > 5s", c.ConnMaxPause)
-	}
-	return nil
-}
-
-// LogSinkConfig holds parameters to control the API server's
-// logsink endpoint behaviour.
-type LogSinkConfig struct {
-	// DBLoggerBufferSize is the capacity of the database logger's buffer.
-	DBLoggerBufferSize int
-
-	// DBLoggerFlushInterval is the amount of time to allow a log record
-	// to sit in the buffer before being flushed to the database.
-	DBLoggerFlushInterval time.Duration
-
-	// RateLimitBurst defines the number of log messages that will be let
-	// through before we start rate limiting.
-	RateLimitBurst int64
-
-	// RateLimitRefill defines the rate at which log messages will be let
-	// through once the initial burst amount has been depleted.
-	RateLimitRefill time.Duration
-}
-
-// Validate validates the logsink endpoint configuration.
-func (cfg LogSinkConfig) Validate() error {
-	if cfg.DBLoggerBufferSize <= 0 || cfg.DBLoggerBufferSize > 1000 {
-		return errors.NotValidf("DBLoggerBufferSize %d <= 0 or > 1000", cfg.DBLoggerBufferSize)
-	}
-	if cfg.DBLoggerFlushInterval <= 0 || cfg.DBLoggerFlushInterval > 10*time.Second {
-		return errors.NotValidf("DBLoggerFlushInterval %s <= 0 or > 10 seconds", cfg.DBLoggerFlushInterval)
-	}
-	if cfg.RateLimitBurst <= 0 {
-		return errors.NotValidf("RateLimitBurst %d <= 0", cfg.RateLimitBurst)
-	}
-	if cfg.RateLimitRefill <= 0 {
-		return errors.NotValidf("RateLimitRefill %s <= 0", cfg.RateLimitRefill)
-	}
-	return nil
-}
-
-// DefaultLogSinkConfig returns a LogSinkConfig with default values.
-func DefaultLogSinkConfig() LogSinkConfig {
-	return LogSinkConfig{
-		DBLoggerBufferSize:    defaultDBLoggerBufferSize,
-		DBLoggerFlushInterval: defaultDBLoggerFlushInterval,
-		RateLimitBurst:        defaultLogSinkRateLimitBurst,
-		RateLimitRefill:       defaultLogSinkRateLimitRefill,
-	}
 }
 
 // NewServer serves the given state by accepting requests on the given
@@ -382,6 +273,8 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 			Burst:  cfg.LogSinkConfig.RateLimitBurst,
 			Clock:  cfg.Clock,
 		},
+		auditLogConfig: cfg.AuditLogConfig,
+		auditLogger:    cfg.AuditLog,
 		dbloggers: dbloggers{
 			clock:                 cfg.Clock,
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
@@ -887,6 +780,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 			req.Context(),
 			conn,
 			modelUUID,
+			connectionID,
 			apiObserver,
 			req.Host,
 		); err != nil {
@@ -899,11 +793,13 @@ func (srv *Server) serveConn(
 	ctx context.Context,
 	wsConn *websocket.Conn,
 	modelUUID string,
+	connectionID uint64,
 	apiObserver observer.Observer,
 	host string,
 ) error {
 	codec := jsoncodec.NewWebsocket(wsConn.Conn)
-	conn := rpc.NewConn(codec, apiObserver)
+	recorderFactory := observer.NewRecorderFactory(apiObserver, nil)
+	conn := rpc.NewConn(codec, recorderFactory)
 
 	// Note that we don't overwrite modelUUID here because
 	// newAPIHandler treats an empty modelUUID as signifying
@@ -923,11 +819,11 @@ func (srv *Server) serveConn(
 
 	if err == nil {
 		defer releaser()
-		h, err = newAPIHandler(srv, st, conn, modelUUID, host)
+		h, err = newAPIHandler(srv, st, conn, modelUUID, connectionID, host)
 	}
 
 	if err != nil {
-		conn.ServeRoot(&errRoot{errors.Trace(err)}, serverError)
+		conn.ServeRoot(&errRoot{errors.Trace(err)}, recorderFactory, serverError)
 	} else {
 		// Set up the admin apis used to accept logins and direct
 		// requests to the relevant business facade.
@@ -937,7 +833,7 @@ func (srv *Server) serveConn(
 		for apiVersion, factory := range adminAPIFactories {
 			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
 		}
-		conn.ServeRoot(newAdminRoot(h, adminAPIs), serverError)
+		conn.ServeRoot(newAdminRoot(h, adminAPIs), recorderFactory, serverError)
 	}
 	conn.Start(ctx)
 	select {

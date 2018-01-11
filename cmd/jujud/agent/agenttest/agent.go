@@ -137,6 +137,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	apiInfo := s.APIInfo(c)
 	paths := agent.DefaultPaths
 	paths.DataDir = s.DataDir()
+	paths.LogDir = s.LogDir
 	paths.MetricsSpoolDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -203,7 +204,10 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
-			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: s.DataDir()}),
+			Paths: agent.NewPathsWithDefaults(agent.Paths{
+				DataDir: s.DataDir(),
+				LogDir:  s.LogDir,
+			}),
 			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
