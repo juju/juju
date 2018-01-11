@@ -1272,6 +1272,10 @@ func newRPCClientServer(
 	conn, err := net.Dial("tcp", l.Addr().String())
 	c.Assert(err, jc.ErrorIsNil)
 	server = <-srvStarted
+	if server == nil {
+		conn.Close()
+		c.Fatal(<-srvDone)
+	}
 	role := roleClient
 	if bidir {
 		role = roleBoth
