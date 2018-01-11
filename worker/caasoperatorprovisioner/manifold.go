@@ -5,12 +5,12 @@ package caasoperatorprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/api/caasoperatorprovisioner"
-	"gopkg.in/juju/names.v2"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/worker/dependency"
 )
@@ -21,7 +21,7 @@ type ManifoldConfig struct {
 	APICallerName string
 	BrokerName    string
 
-	NewWorker func(CAASProvisionerFacade, caas.Broker, names.ModelTag, agent.Config) (worker.Worker, error)
+	NewWorker func(Config) (worker.Worker, error)
 }
 
 // Validate is called by start to check for bad configuration.
@@ -68,7 +68,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	api := caasoperatorprovisioner.NewClient(apiCaller)
 	agentConfig := agent.CurrentConfig()
-	w, err := config.NewWorker(api, broker, modelTag, agentConfig)
+	w, err := config.NewWorker(Config{
+		Facade:      api,
+		Broker:      broker,
+		ModelTag:    modelTag,
+		AgentConfig: agentConfig,
+		Clock:       clock.WallClock,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

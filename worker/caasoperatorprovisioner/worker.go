@@ -4,15 +4,18 @@
 package caasoperatorprovisioner
 
 import (
+	"time"
+
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
@@ -27,22 +30,37 @@ type CAASProvisionerFacade interface {
 	SetPasswords([]apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error)
 }
 
+// Config defines the operation of a Worker.
+type Config struct {
+	Facade      CAASProvisionerFacade
+	Broker      caas.Broker
+	ModelTag    names.ModelTag
+	AgentConfig agent.Config
+	Clock       clock.Clock
+}
+
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
-func NewProvisionerWorker(
-	facade CAASProvisionerFacade,
-	broker caas.Broker,
-	modelTag names.ModelTag,
-	agentConfig agent.Config,
-) (worker.Worker, error) {
+func NewProvisionerWorker(config Config) (worker.Worker, error) {
 	p := &provisioner{
-		provisionerFacade: facade,
-		broker:            broker,
-		modelTag:          modelTag,
-		agentConfig:       agentConfig,
+		provisionerFacade: config.Facade,
+		broker:            config.Broker,
+		modelTag:          config.ModelTag,
+		agentConfig:       config.AgentConfig,
+		runner: worker.NewRunner(worker.RunnerParams{
+			Clock: config.Clock,
+
+			// One of the application/unit workers failing should not
+			// prevent the others from running.
+			IsFatal: func(error) bool { return false },
+
+			// For any failures, try again in 5 seconds.
+			RestartDelay: 5 * time.Second,
+		}),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
 		Work: p.loop,
+		Init: []worker.Worker{p.runner},
 	})
 	return p, err
 }
@@ -51,6 +69,8 @@ type provisioner struct {
 	catacomb          catacomb.Catacomb
 	provisionerFacade CAASProvisionerFacade
 	broker            caas.Broker
+
+	runner *worker.Runner
 
 	modelTag    names.ModelTag
 	agentConfig agent.Config
@@ -88,21 +108,14 @@ func (p *provisioner) loop() error {
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
-			// TODO(caas) - cleanup when an application is deleted
-
 			var appPasswords []apicaasprovisioner.ApplicationPassword
 			for _, app := range apps {
-				logger.Debugf("Received change notification for app: %s", app)
-				password, err := utils.RandomPassword()
+				password, err := p.handleApplicationChange(app)
 				if err != nil {
 					return errors.Trace(err)
 				}
-				config, err := p.newOperatorConfig(app, password)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), config); err != nil {
-					return errors.Annotatef(err, "failed to start operator for %q", app)
+				if password == "" {
+					continue
 				}
 				appPasswords = append(appPasswords, apicaasprovisioner.ApplicationPassword{Name: app, Password: password})
 			}
@@ -115,6 +128,52 @@ func (p *provisioner) loop() error {
 			}
 		}
 	}
+}
+
+func (p *provisioner) handleApplicationChange(app string) (string, error) {
+	// TODO(caas) - cleanup when an application is deleted
+	// For now, assume all changes are for new apps being created.
+	logger.Debugf("Received change notification for app: %s", app)
+
+	password, err := utils.RandomPassword()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	config, err := p.newOperatorConfig(app, password)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), config); err != nil {
+		return "", errors.Annotatef(err, "failed to start operator for %q", app)
+	}
+
+	if _, err := p.runner.Worker(app, p.catacomb.Dying()); err == nil {
+		// TODO(wallyworld): handle application dying or dead.
+		// As of now, if the worker is already running, that's all we need.
+		return "", nil
+	}
+
+	startFunc := func() (worker.Worker, error) {
+		appWorker := &applicationWorker{
+			applicationName: app,
+			broker:          p.broker,
+			facade:          p.provisionerFacade,
+		}
+		if err := catacomb.Invoke(catacomb.Plan{
+			Site: &appWorker.catacomb,
+			Work: appWorker.loop,
+		}); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return appWorker, nil
+	}
+
+	logger.Debugf("starting unit watcher for application %q", app)
+	if err := p.runner.StartWorker(app, startFunc); err != nil {
+		return "", errors.Annotate(err, "error starting application worker")
+	}
+
+	return password, nil
 }
 
 func (p *provisioner) newOperatorConfig(appName string, password string) (*caas.OperatorConfig, error) {
