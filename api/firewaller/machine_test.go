@@ -134,3 +134,21 @@ func (s *machineSuite) TestOpenedPorts(c *gc.C) {
 		network.PortRange{FromPort: 1234, ToPort: 1234, Protocol: "tcp"}: unitTag,
 	})
 }
+
+func (s *machineSuite) TestIsManual(c *gc.C) {
+	answer, err := s.machines[0].IsManual()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(answer, jc.IsFalse)
+
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:     "quantal",
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: "2",
+		Nonce:      "manual:",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	answer, err = m.IsManual()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(answer, jc.IsTrue)
+
+}

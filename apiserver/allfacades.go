@@ -169,6 +169,7 @@ func AllFacades() *facade.Registry {
 	reg("FanConfigurer", 1, fanconfigurer.NewFanConfigurerAPI)
 	reg("Firewaller", 3, firewaller.NewStateFirewallerAPIV3)
 	reg("Firewaller", 4, firewaller.NewStateFirewallerAPIV4)
+	reg("Firewaller", 5, firewaller.NewStateFirewallerAPIV5)
 	reg("FirewallRules", 1, firewallrules.NewFacade)
 	reg("HighAvailability", 2, highavailability.NewHighAvailabilityAPI)
 	reg("HostKeyReporter", 1, hostkeyreporter.NewFacade)
