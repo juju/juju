@@ -1255,7 +1255,9 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 			for _, supportedSeries := range supportedSeries {
 				os, err := series.GetOSFromSeries(supportedSeries)
 				if err != nil {
-					return errors.Trace(err)
+					// If we can't figure out a series written in the charm
+					// just skip it.
+					continue
 				}
 				supportedOperatingSystems[os] = true
 			}
