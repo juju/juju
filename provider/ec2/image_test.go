@@ -46,7 +46,7 @@ var findInstanceSpecTests = []struct {
 		series: "xenial",
 		arches: []string{"amd64"},
 		cons:   "cores=4",
-		itype:  "t2.xlarge",
+		itype:  "c5.xlarge",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
@@ -70,7 +70,7 @@ var findInstanceSpecTests = []struct {
 		series: "xenial",
 		arches: []string{"amd64"},
 		cons:   "cpu-power=800",
-		itype:  "c4.large",
+		itype:  "c5.large",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
@@ -88,21 +88,21 @@ var findInstanceSpecTests = []struct {
 		series:  "xenial",
 		arches:  []string{"amd64"},
 		cons:    "mem=4G root-disk=16384M",
-		itype:   "m4.large",
+		itype:   "c5.large",
 		storage: []string{"ssd", "ebs"},
 		image:   "ami-00000133",
 	}, {
 		series:  "xenial",
 		arches:  []string{"amd64"},
 		cons:    "mem=4G root-disk=16384M",
-		itype:   "m4.large",
+		itype:   "c5.large",
 		storage: []string{"ebs", "ssd"},
 		image:   "ami-00000139",
 	}, {
 		series:  "xenial",
 		arches:  []string{"amd64"},
 		cons:    "mem=4G root-disk=16384M",
-		itype:   "m4.large",
+		itype:   "c5.large",
 		storage: []string{"ebs"},
 		image:   "ami-00000139",
 	}, {

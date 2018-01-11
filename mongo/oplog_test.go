@@ -325,13 +325,6 @@ func (i *fakeIterator) Next(result interface{}) bool {
 	return true
 }
 
-func (i *fakeIterator) Err() error {
-	if i.pos < len(i.docs) {
-		return nil
-	}
-	return i.err
-}
-
 func (i *fakeIterator) Timeout() bool {
 	if i.pos < len(i.docs) {
 		return false
@@ -340,7 +333,10 @@ func (i *fakeIterator) Timeout() bool {
 }
 
 func (i *fakeIterator) Close() error {
-	return nil
+	if i.pos < len(i.docs) {
+		return nil
+	}
+	return i.err
 }
 
 func newFakeIterator(err error, docs ...*mongo.OplogDoc) *fakeIterator {

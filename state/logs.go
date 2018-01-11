@@ -444,6 +444,7 @@ func (t *logTailer) processReversed(query *mgo.Query) error {
 	query.Sort("-t", "-_id")
 	query.Limit(t.params.InitialLines)
 	iter := query.Iter()
+	defer iter.Close()
 	queue := make([]logDoc, t.params.InitialLines)
 	cur := t.params.InitialLines
 	var doc logDoc
@@ -507,6 +508,7 @@ func (t *logTailer) processCollection() error {
 	// a good value, or end the method.
 	deserialisationFailures := 0
 	iter := query.Sort("t", "_id").Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
 		rec, err := logDocToRecord(t.modelUUID, &doc)
 		if err != nil {

@@ -26,6 +26,8 @@ clouds:
         endpoint: https://ec2.eu-west-1.amazonaws.com
       eu-west-2:
         endpoint: https://ec2.eu-west-2.amazonaws.com
+      eu-west-3:
+        endpoint: https://ec2.eu-west-3.amazonaws.com
       eu-central-1:
         endpoint: https://ec2.eu-central-1.amazonaws.com
       ap-south-1:
