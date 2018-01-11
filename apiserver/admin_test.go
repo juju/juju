@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	jt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -950,6 +951,7 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 	cfg := defaultServerConfig(c)
 	cfg.AuditLogConfig.Enabled = true
 	cfg.AuditLog = log
+	cfg.Clock = jt.NewClock(cfg.Clock.Now())
 	info, srv := newServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
 	info.ModelTag = s.IAASModel.Tag().(names.ModelTag)
