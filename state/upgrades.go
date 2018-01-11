@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/globalclock"
 	"github.com/juju/juju/state/lease"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/provider"
 )
 
@@ -1263,6 +1264,54 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 		return ops, nil
 	})
 	return errors.Annotate(err, "upgrading legacy lease documents")
+}
+
+// AddRelationStatus sets the initial status for existing relations
+// without a status.
+func AddRelationStatus(st *State) error {
+	return runForAllModelStates(st, addRelationStatus)
+}
+
+func addRelationStatus(st *State) error {
+	// Newly created relations will have a status doc,
+	// so it suffices to just get the collection once
+	// up front.
+	relations, err := st.AllRelations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	now := st.clock().Now()
+	err = st.db().Run(func(int) ([]txn.Op, error) {
+		var ops []txn.Op
+		for _, rel := range relations {
+			_, err := rel.Status()
+			if err == nil {
+				continue
+			}
+			if !errors.IsNotFound(err) {
+				return nil, err
+			}
+			// Relations are marked as either
+			// joining or joined, depending
+			// on whether there are any units
+			// in scope.
+			relStatus := status.Joining
+			if rel.doc.UnitCount > 0 {
+				relStatus = status.Joined
+			}
+			relationStatusDoc := statusDoc{
+				Status:    relStatus,
+				ModelUUID: st.ModelUUID(),
+				Updated:   now.UnixNano(),
+			}
+			ops = append(ops, createStatusOp(
+				st, relationGlobalScope(rel.Id()),
+				relationStatusDoc,
+			))
+		}
+		return ops, nil
+	})
+	return errors.Annotate(err, "adding relation status")
 }
 
 // MoveOldAuditLog renames the no-longer-needed audit.log collection

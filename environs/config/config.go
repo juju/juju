@@ -20,6 +20,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/tags"
@@ -175,6 +176,10 @@ const (
 
 	// FanConfig defines the configuration for FAN network running in the model.
 	FanConfig = "fan-config"
+
+	// CloudInitUserDataKey is the key to specify cloud-init yaml the user wants to add
+	// into the cloud-config data produced by Juju when provisioning machines.
+	CloudInitUserDataKey = "cloudinit-userdata"
 
 	//
 	// Deprecated Settings Attributes
@@ -382,6 +387,7 @@ var defaultConfigValues = map[string]interface{}{
 	UpdateStatusHookInterval:   DefaultUpdateStatusHookInterval,
 	EgressSubnets:              "",
 	FanConfig:                  "",
+	CloudInitUserDataKey:       "",
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -595,6 +601,34 @@ func Validate(cfg, old *Config) error {
 			return fmt.Errorf("Invalid value for container-networking-method - %v", v)
 		}
 	}
+
+	if raw, ok := cfg.defined[CloudInitUserDataKey].(string); ok && raw != "" {
+		userDataMap := make(map[string]interface{})
+		if err := yaml.Unmarshal([]byte(raw), &userDataMap); err != nil {
+			return errors.Annotate(err, "cloudinit-userdata: must be valid YAML")
+		}
+
+		// if there packages, ensure they are strings
+		if packages, ok := userDataMap["packages"].([]interface{}); ok {
+			for _, v := range packages {
+				checker := schema.String()
+				if _, err := checker.Coerce(v, nil); err != nil {
+					return errors.Annotate(err, "cloudinit-userdata: packages must be a list of strings")
+				}
+			}
+		}
+
+		// error if users is specified
+		if _, ok := userDataMap["users"]; ok {
+			return errors.New("cloudinit-userdata: users not allowed")
+		}
+
+		// error if runcmd is specified
+		if _, ok := userDataMap["runcmd"]; ok {
+			return errors.New("cloudinit-userdata: runcmd not allowed, use preruncmd or postruncmd instead")
+		}
+	}
+
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
@@ -1095,6 +1129,18 @@ func (c *Config) FanConfig() (network.FanConfig, error) {
 	return network.ParseFanConfig(c.asString(FanConfig))
 }
 
+// CloudInitUserData returns a copy of the raw user data attributes
+// that were specified by the user.
+func (c *Config) CloudInitUserData() map[string]interface{} {
+	raw := c.asString(CloudInitUserDataKey)
+	if raw == "" {
+		return map[string]interface{}{}
+	}
+	userDataMap := make(map[string]interface{})
+	yaml.Unmarshal([]byte(raw), &userDataMap)
+	return userDataMap
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1209,6 +1255,7 @@ var alwaysOptional = schema.Defaults{
 	UpdateStatusHookInterval:     schema.Omit,
 	EgressSubnets:                schema.Omit,
 	FanConfig:                    schema.Omit,
+	CloudInitUserDataKey:         schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1646,6 +1693,11 @@ data of the store. (default false)`,
 	},
 	FanConfig: {
 		Description: "Configuration for fan networking for this model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	CloudInitUserDataKey: {
+		Description: "Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

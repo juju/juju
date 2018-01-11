@@ -31,7 +31,6 @@ import (
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
@@ -197,7 +196,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		return nil, errors.Trace(err)
 	}
 
-	client := rpc.NewConn(jsoncodec.New(dialResult.conn), observer.None())
+	client := rpc.NewConn(jsoncodec.New(dialResult.conn), nil)
 	client.Start(ctx)
 
 	bakeryClient := opts.BakeryClient

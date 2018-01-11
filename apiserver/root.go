@@ -53,6 +53,10 @@ type apiHandler struct {
 	// user manager and model manager api endpoints from here.
 	modelUUID string
 
+	// connectionID is shared between the API observer (including API
+	// requests and responses in the agent log) and the audit logger.
+	connectionID uint64
+
 	// serverHost is the host:port of the API server that the client
 	// connected to.
 	serverHost string
@@ -61,18 +65,19 @@ type apiHandler struct {
 var _ = (*apiHandler)(nil)
 
 // newAPIHandler returns a new apiHandler.
-func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, serverHost string) (*apiHandler, error) {
+func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, connectionID uint64, serverHost string) (*apiHandler, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	r := &apiHandler{
-		state:      st,
-		model:      m,
-		resources:  common.NewResources(),
-		rpcConn:    rpcConn,
-		modelUUID:  modelUUID,
-		serverHost: serverHost,
+		state:        st,
+		model:        m,
+		resources:    common.NewResources(),
+		rpcConn:      rpcConn,
+		modelUUID:    modelUUID,
+		connectionID: connectionID,
+		serverHost:   serverHost,
 	}
 
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {

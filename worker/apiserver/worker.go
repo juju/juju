@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
 )
 
@@ -114,6 +115,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
 
+	// TODO(babbageclunk): get this from agent config.
+	auditConfig := apiserver.DefaultAuditLogConfig()
+
 	serverConfig := apiserver.ServerConfig{
 		Clock:                         config.Clock,
 		Tag:                           config.AgentConfig.Tag(),
@@ -131,6 +135,11 @@ func NewWorker(config Config) (worker.Worker, error) {
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          config.PrometheusRegisterer,
+		AuditLogConfig:                auditConfig,
+	}
+	if auditConfig.Enabled {
+		serverConfig.AuditLog = auditlog.NewLogFile(
+			logDir, auditConfig.MaxSizeMB, auditConfig.MaxBackups)
 	}
 
 	listener, err := net.Listen("tcp", listenAddr)

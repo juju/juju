@@ -213,7 +213,6 @@ func (s *logsinkSuite) TestNewServerValidatesLogSinkConfig(c *gc.C) {
 	type dummyListener struct {
 		net.Listener
 	}
-
 	cfg := defaultServerConfig(c)
 	cfg.LogSinkConfig = &apiserver.LogSinkConfig{}
 

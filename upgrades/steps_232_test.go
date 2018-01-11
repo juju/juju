@@ -12,16 +12,16 @@ import (
 	"github.com/juju/juju/upgrades"
 )
 
-var v24 = version.MustParse("2.4.0")
+var v232 = version.MustParse("2.3.2")
 
-type steps24Suite struct {
+type steps232Suite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&steps24Suite{})
+var _ = gc.Suite(&steps232Suite{})
 
-func (s *steps24Suite) TestMoveOldAuditLog(c *gc.C) {
-	step := findStateStep(c, v24, "move or drop the old audit log collection")
+func (s *steps232Suite) TestMoveOldAuditLog(c *gc.C) {
+	step := findStateStep(c, v232, "move or drop the old audit log collection")
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }

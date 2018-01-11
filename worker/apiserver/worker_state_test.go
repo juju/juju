@@ -89,8 +89,12 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 	c.Assert(config.NewObserver, gc.NotNil)
 	config.NewObserver = nil
 
+	c.Assert(config.AuditLog, gc.NotNil)
+	config.AuditLog = nil
+
 	rateLimitConfig := coreapiserver.DefaultRateLimitConfig()
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
+	auditLogConfig := coreapiserver.DefaultAuditLogConfig()
 
 	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
 		Clock:                s.clock,
@@ -104,5 +108,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		RateLimitConfig:      rateLimitConfig,
 		LogSinkConfig:        &logSinkConfig,
 		PrometheusRegisterer: &s.prometheusRegisterer,
+		AuditLogConfig:       auditLogConfig,
 	})
 }

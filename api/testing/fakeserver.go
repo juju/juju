@@ -18,7 +18,7 @@ func FakeAPIServer(root interface{}) net.Conn {
 	c0, c1 := net.Pipe()
 	serverCodec := jsoncodec.NewNet(c1)
 	serverRPC := rpc.NewConn(serverCodec, nil)
-	serverRPC.Serve(root, nil)
+	serverRPC.Serve(root, nil, nil)
 	serverRPC.Start(context.TODO())
 	go func() {
 		<-serverRPC.Dead()
