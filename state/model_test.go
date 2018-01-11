@@ -201,6 +201,21 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ModelSuite) TestNewModelRegionNameEscaped(c *gc.C) {
+	cfg, _ := s.createTestModelConfig(c)
+	model, st, err := s.State.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
+		CloudName:   "dummy",
+		CloudRegion: "dotty.region",
+		Config:      cfg,
+		Owner:       names.NewUserTag("test@remote"),
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+	c.Assert(model.CloudRegion(), gc.Equals, "dotty.region")
+}
+
 func (s *ModelSuite) TestNewModelImportingMode(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")

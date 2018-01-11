@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/globalclock"
 	"github.com/juju/juju/state/lease"
 	"github.com/juju/juju/status"
@@ -410,7 +411,7 @@ func updateLegacyLXDCloudsOps(st *State, endpoint string) ([]txn.Op, error) {
 		for _, region := range c.Regions {
 			if region.Endpoint == "" {
 				set = append(set, bson.DocElem{
-					"regions." + region.Name + ".endpoint",
+					"regions." + utils.EscapeKey(region.Name) + ".endpoint",
 					endpoint,
 				})
 			}

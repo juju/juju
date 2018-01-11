@@ -11,6 +11,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/mongo/utils"
 )
 
 // cloudDoc records information about the cloud that the controller operates in.
@@ -42,7 +43,7 @@ func createCloudOp(cloud cloud.Cloud) txn.Op {
 	}
 	regions := make(map[string]cloudRegionSubdoc)
 	for _, region := range cloud.Regions {
-		regions[region.Name] = cloudRegionSubdoc{
+		regions[utils.EscapeKey(region.Name)] = cloudRegionSubdoc{
 			region.Endpoint,
 			region.IdentityEndpoint,
 			region.StorageEndpoint,
@@ -78,7 +79,7 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 	for i, name := range regionNames.SortedValues() {
 		region := d.Regions[name]
 		regions[i] = cloud.Region{
-			name,
+			utils.UnescapeKey(name),
 			region.Endpoint,
 			region.IdentityEndpoint,
 			region.StorageEndpoint,
