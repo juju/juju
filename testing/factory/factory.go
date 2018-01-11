@@ -524,7 +524,13 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	switch model.Type() {
 	case state.ModelTypeIAAS:
 		if params.Machine == nil {
-			params.Machine = factory.MakeMachine(c, nil)
+			var mParams *MachineParams
+			if params.Application != nil {
+				mParams = &MachineParams{
+					Series: params.Application.Series(),
+				}
+			}
+			params.Machine = factory.MakeMachine(c, mParams)
 		}
 	default:
 		if params.Machine != nil {
