@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
-
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -16,6 +16,7 @@ import (
 type maas2Instance struct {
 	machine           gomaasapi.Machine
 	constraintMatches gomaasapi.ConstraintMatches
+	environ           *maasEnviron
 }
 
 var _ maasInstance = (*maas2Instance)(nil)
@@ -54,10 +55,25 @@ func (mi *maas2Instance) Id() instance.Id {
 }
 
 func (mi *maas2Instance) Addresses() ([]network.Address, error) {
-	machineAddresses := mi.machine.IPAddresses()
-	addresses := make([]network.Address, len(machineAddresses))
-	for i, address := range machineAddresses {
-		addresses[i] = network.NewAddress(address)
+	subnetsMap, err := mi.environ.subnetToSpaceIds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Get all the interface details and extract the addresses.
+	interfaces, err := maas2NetworkInterfaces(mi, subnetsMap)
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var addresses []network.Address
+	for _, iface := range interfaces {
+		if iface.Address.Value != "" {
+			logger.Debugf("found address %q on interface %q", iface.Address, iface.InterfaceName)
+			addresses = append(addresses, iface.Address)
+		} else {
+			logger.Infof("no address found on interface %q", iface.InterfaceName)
+		}
 	}
 	return addresses, nil
 }

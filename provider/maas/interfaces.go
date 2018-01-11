@@ -84,12 +84,22 @@ type maasSubnet struct {
 	ResourceURI string   `json:"resource_uri"`
 }
 
-func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
-	var interfaces []maasInterface
-	if err := json.Unmarshal(jsonBytes, &interfaces); err != nil {
-		return nil, errors.Annotate(err, "parsing interfaces")
+// NetworkInterfaces implements Environ.NetworkInterfaces.
+func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	inst, err := environ.getInstance(instId)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return interfaces, nil
+	subnetsMap, err := environ.subnetToSpaceIds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if environ.usingMAAS2() {
+		return maas2NetworkInterfaces(inst.(*maas2Instance), subnetsMap)
+	} else {
+		mi := inst.(*maas1Instance)
+		return maasObjectNetworkInterfaces(mi.maasObject, subnetsMap)
+	}
 }
 
 // maasObjectNetworkInterfaces implements environs.NetworkInterfaces() using the
@@ -175,13 +185,13 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 				nicInfo.ProviderAddressId = network.Id(fmt.Sprintf("%v", link.ID))
 			}
 
-			if link.Subnet == nil {
+			sub := link.Subnet
+			if sub == nil {
 				logger.Debugf("interface %q link %d missing subnet", iface.Name, link.ID)
 				infos = append(infos, nicInfo)
 				continue
 			}
 
-			sub := link.Subnet
 			nicInfo.CIDR = sub.CIDR
 			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID))
 			nicInfo.ProviderVLANId = network.Id(fmt.Sprintf("%v", sub.VLAN.ID))
@@ -191,12 +201,13 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			nicInfo.Address = network.NewAddressOnSpace(sub.Space, link.IPAddress)
 			spaceId, ok := subnetsMap[string(sub.CIDR)]
 			if !ok {
-				// The space we found is not recognised, no
-				// provider id available.
+				// The space we found is not recognised.
+				// No provider space info is available.
 				logger.Warningf("interface %q link %d has unrecognised space %q", iface.Name, link.ID, sub.Space)
 			} else {
 				nicInfo.Address.SpaceProviderId = spaceId
 				nicInfo.ProviderSpaceId = spaceId
+				logger.Debugf("interface %q link %d space %q", iface.Name, link.ID, sub.Space)
 			}
 
 			gwAddr := network.NewAddressOnSpace(sub.Space, sub.GatewayIP)
@@ -280,13 +291,13 @@ func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]netwo
 				nicInfo.ProviderAddressId = network.Id(fmt.Sprintf("%v", link.ID()))
 			}
 
-			if link.Subnet() == nil {
+			sub := link.Subnet()
+			if sub == nil {
 				logger.Debugf("interface %q link %d missing subnet", iface.Name(), link.ID())
 				infos = append(infos, nicInfo)
 				continue
 			}
 
-			sub := link.Subnet()
 			nicInfo.CIDR = sub.CIDR()
 			nicInfo.ProviderSubnetId = network.Id(fmt.Sprintf("%v", sub.ID()))
 			nicInfo.ProviderVLANId = network.Id(fmt.Sprintf("%v", sub.VLAN().ID()))
@@ -296,12 +307,13 @@ func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]netwo
 			nicInfo.Address = network.NewAddressOnSpace(sub.Space(), link.IPAddress())
 			spaceId, ok := subnetsMap[string(sub.CIDR())]
 			if !ok {
-				// The space we found is not recognised, no
-				// provider id available.
+				// The space we found is not recognised.
+				// No provider space info is available.
 				logger.Warningf("interface %q link %d has unrecognised space %q", iface.Name(), link.ID(), sub.Space())
 			} else {
 				nicInfo.Address.SpaceProviderId = spaceId
 				nicInfo.ProviderSpaceId = spaceId
+				logger.Debugf("interface %q link %d space %q", iface.Name(), link.ID(), sub.Space())
 			}
 
 			gwAddr := network.NewAddressOnSpace(sub.Space(), sub.Gateway())
@@ -316,29 +328,19 @@ func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]netwo
 			nicInfo.MTU = sub.VLAN().MTU()
 
 			// Each link we represent as a separate InterfaceInfo, but with the
-			// same name and device index, just different addres, subnet, etc.
+			// same name and device index, just different address, subnet, etc.
 			infos = append(infos, nicInfo)
 		}
 	}
 	return infos, nil
 }
 
-// NetworkInterfaces implements Environ.NetworkInterfaces.
-func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
-	inst, err := environ.getInstance(instId)
-	if err != nil {
-		return nil, errors.Trace(err)
+func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
+	var interfaces []maasInterface
+	if err := json.Unmarshal(jsonBytes, &interfaces); err != nil {
+		return nil, errors.Annotate(err, "parsing interfaces")
 	}
-	subnetsMap, err := environ.subnetToSpaceIds()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if environ.usingMAAS2() {
-		return maas2NetworkInterfaces(inst.(*maas2Instance), subnetsMap)
-	} else {
-		mi := inst.(*maas1Instance)
-		return maasObjectNetworkInterfaces(mi.maasObject, subnetsMap)
-	}
+	return interfaces, nil
 }
 
 func maasLinkToInterfaceConfigType(mode string) network.InterfaceConfigType {
