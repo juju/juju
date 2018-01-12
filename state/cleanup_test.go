@@ -504,6 +504,7 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 
 	// Check the cleanup still runs happily.
 	s.assertCleanupCount(c, 1)
+	s.assertCleanupRuns(c)
 }
 
 func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
