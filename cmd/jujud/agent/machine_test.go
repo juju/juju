@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/imagemetadata"
 	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/core/migration"
@@ -1363,6 +1364,20 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 
 	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
+}
+
+func (s *MachineSuite) TestGetAuditLogConfig(c *gc.C) {
+	cfg := coretesting.FakeControllerConfig()
+	cfg["auditing-enabled"] = true
+	cfg["audit-log-exclude-methods"] = []interface{}{"Exclude.This"}
+	result := getAuditLogConfig(cfg)
+	c.Assert(result, gc.DeepEquals, apiserver.AuditLogConfig{
+		Enabled:        true,
+		CaptureAPIArgs: true,
+		MaxSizeMB:      200,
+		MaxBackups:     5,
+		ExcludeMethods: set.NewStrings("Exclude.This"),
+	})
 }
 
 type nullWorker struct {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 )
 
 // These vars define how we rate limit incoming connections.
@@ -95,17 +96,11 @@ type AuditLogConfig struct {
 
 	// MaxBackups determines how many files back to keep.
 	MaxBackups int
-}
 
-// DefaultAuditLogConfig returns an AuditLogConfig with default
-// values.
-func DefaultAuditLogConfig() AuditLogConfig {
-	return AuditLogConfig{
-		Enabled:        true,
-		CaptureAPIArgs: false,
-		MaxSizeMB:      300,
-		MaxBackups:     10,
-	}
+	// ExcludeMethods is a set of facade.method names that we
+	// shouldn't consider to be interesting: if a conversation only
+	// consists of these method calls we won't log it.
+	ExcludeMethods set.Strings
 }
 
 // LogSinkConfig holds parameters to control the API server's

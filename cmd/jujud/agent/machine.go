@@ -1793,5 +1793,6 @@ func getAuditLogConfig(cfg controller.Config) apiserver.AuditLogConfig {
 		CaptureAPIArgs: cfg.AuditLogCaptureArgs(),
 		MaxSizeMB:      cfg.AuditLogMaxSizeMB(),
 		MaxBackups:     cfg.AuditLogMaxBackups(),
+		ExcludeMethods: cfg.AuditLogExcludeMethods(),
 	}
 }
