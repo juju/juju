@@ -105,13 +105,13 @@ func (st *State) Cleanup() (err error) {
 	defer closer()
 
 	modelUUID := st.ModelUUID()
-	modelId := modelUUID[:6] + "..."
+	modelId := modelUUID[:6]
 
 	iter := cleanups.Find(nil).Iter()
 	defer closeIter(iter, &err, "reading cleanup document")
 	for iter.Next(&doc) {
 		var err error
-		logger.Debugf("model %q cleanup: %v(%q)", modelId, doc.Kind, doc.Prefix)
+		logger.Debugf("model %v cleanup: %v(%q)", modelId, doc.Kind, doc.Prefix)
 		args := make([]bson.Raw, len(doc.Args))
 		for i, arg := range doc.Args {
 			args[i] = arg.Value.(bson.Raw)
@@ -152,8 +152,8 @@ func (st *State) Cleanup() (err error) {
 		}
 		if err != nil {
 			logger.Errorf(
-				"cleanup failed for %v(%q) in model %q: %v",
-				doc.Kind, doc.Prefix, modelUUID, err,
+				"cleanup failed in model %v for %v(%q): %v",
+				modelUUID, doc.Kind, doc.Prefix, err,
 			)
 			continue
 		}
