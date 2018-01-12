@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,8 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider")
@@ -337,6 +340,67 @@ func (k *kubernetesClient) deleteIngress(appName string) error {
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+func applicationSelector(appName string) string {
+	return fmt.Sprintf("%v==%v", labelApplication, appName)
+}
+
+// WatchUnits returns a watcher which notifies when there
+// are changes to units of the specified application.
+func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
+	pods := k.CoreV1().Pods(namespace)
+	w, err := pods.Watch(v1.ListOptions{
+		LabelSelector: applicationSelector(appName),
+		Watch:         true,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newKubernetesWatcher(w, appName)
+}
+
+// Units returns all units of the specified application.
+func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
+	pods := k.CoreV1().Pods(namespace)
+	podsList, err := pods.List(v1.ListOptions{
+		LabelSelector: applicationSelector(appName),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]caas.Unit, len(podsList.Items))
+	now := time.Now()
+	for i, p := range podsList.Items {
+		var ports []string
+		for _, c := range p.Spec.Containers {
+			for _, p := range c.Ports {
+				ports = append(ports, fmt.Sprintf("%v/%v", p.ContainerPort, p.Protocol))
+			}
+		}
+		result[i] = caas.Unit{
+			Id:      string(p.UID),
+			Address: p.Status.PodIP,
+			Ports:   ports,
+			Status: status.StatusInfo{
+				Status:  k.jujuStatus(p.Status.Phase),
+				Message: p.Status.Message,
+				Since:   &now,
+			},
+		}
+	}
+	return result, nil
+}
+
+func (k *kubernetesClient) jujuStatus(podPhase v1.PodPhase) status.Status {
+	switch podPhase {
+	case v1.PodRunning:
+		return status.Active
+	case v1.PodFailed:
+		return status.Error
+	default:
+		return status.Allocating
+	}
 }
 
 // EnsureUnit creates or updates a unit pod with the given unit name and spec.

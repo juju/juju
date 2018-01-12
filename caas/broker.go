@@ -6,6 +6,8 @@ package caas
 import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 )
 
 // NewContainerBrokerFunc returns a Container Broker.
@@ -31,6 +33,21 @@ type Broker interface {
 
 	// EnsureUnit creates or updates a pod with the given spec.
 	EnsureUnit(appName, unitName, spec string) error
+
+	// WatchUnits returns a watcher which notifies when there
+	// are changes to units of the specified application.
+	WatchUnits(appName string) (watcher.NotifyWatcher, error)
+
+	// Units returns all units of the specified application.
+	Units(appName string) ([]Unit, error)
+}
+
+// Unit represents information about the status of a "pod".
+type Unit struct {
+	Id      string
+	Address string
+	Ports   []string
+	Status  status.StatusInfo
 }
 
 // OperatorConfig is the config to use when creating an operator.

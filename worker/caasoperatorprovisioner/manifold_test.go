@@ -5,14 +5,11 @@ package caasoperatorprovisioner_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 )
 
@@ -33,7 +30,7 @@ func (s *ManifoldConfigSuite) validConfig() caasoperatorprovisioner.ManifoldConf
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 		BrokerName:    "broker",
-		NewWorker: func(caasoperatorprovisioner.CAASProvisionerFacade, caas.Broker, names.ModelTag, agent.Config) (worker.Worker, error) {
+		NewWorker: func(config caasoperatorprovisioner.Config) (worker.Worker, error) {
 			return nil, nil
 		},
 	}
