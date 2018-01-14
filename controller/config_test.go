@@ -144,6 +144,13 @@ var validateTests = []struct {
 		controller.AuditLogMaxBackups: -10,
 	},
 	expectError: `invalid audit log max backups: should be a number of files \(or 0 to keep all\), got -10`,
+}, {
+	about: "invalid audit log exclude",
+	config: controller.Config{
+		controller.CACertKey:              testing.CACert,
+		controller.AuditLogExcludeMethods: []interface{}{"Dap.Kings", "Sharon Jones"},
+	},
+	expectError: `invalid audit log exclude methods: should be a list of "Facade.Method" names, got "Sharon Jones" at position 2`,
 }}
 
 func (s *ConfigSuite) TestValidate(c *gc.C) {

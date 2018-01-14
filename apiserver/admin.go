@@ -162,7 +162,7 @@ func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult
 	}
 	// Wrap the audit logger in a filter that prevents us from logging
 	// lots of readonly conversations (like "juju status" requests).
-	filter := observer.MakeExclusionFilter(a.srv.auditLogConfig.ExcludeMethods)
+	filter := observer.MakeInterestingRequestFilter(a.srv.auditLogConfig.ExcludeMethods)
 	result, err := auditlog.NewRecorder(
 		observer.NewAuditLogFilter(
 			a.srv.auditLogger, filter),

@@ -105,10 +105,12 @@ func (l *bufferedLog) flush() error {
 	return nil
 }
 
-// MakeExclusionFilter returns a filter function for audit logging
-// that will return false if the request's method matches any of the
-// passed names.
-func MakeExclusionFilter(excludeMethods set.Strings) func(auditlog.Request) bool {
+// MakeInterestingRequestFilter takes a set of method names (as
+// facade.method, e.g. "Client.FullStatus") that aren't very
+// interesting from an auditing perspective, and returns a filter
+// function for audit logging that will mark the request as
+// interesting if it's a call to a method that isn't listed.
+func MakeInterestingRequestFilter(excludeMethods set.Strings) func(auditlog.Request) bool {
 	return func(req auditlog.Request) bool {
 		return !excludeMethods.Contains(fmt.Sprintf("%s.%s", req.Facade, req.Method))
 	}

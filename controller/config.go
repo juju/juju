@@ -6,6 +6,7 @@ package controller
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"time"
 
 	"github.com/juju/errors"
@@ -172,6 +173,8 @@ var (
 	// DefaultAuditLogExcludeMethods is the default list of methods to
 	// exclude from the audit log - just the one for `juju status`.
 	DefaultAuditLogExcludeMethods = []string{"Client.FullStatus"}
+
+	methodNameRE = regexp.MustCompile(`[[:alpha:]][[:alnum:]]*\.[[:alpha:]][[:alnum:]]*`)
 )
 
 // ControllerOnlyAttribute returns true if the specified attribute name
@@ -474,6 +477,18 @@ func Validate(c Config) error {
 	if v, ok := c[AuditLogMaxBackups].(int); ok {
 		if v < 0 {
 			return errors.Errorf("invalid audit log max backups: should be a number of files (or 0 to keep all), got %d", v)
+		}
+	}
+
+	if v, ok := c[AuditLogExcludeMethods].([]interface{}); ok {
+		for i, name := range v {
+			if !methodNameRE.MatchString(name.(string)) {
+				return errors.Errorf(
+					`invalid audit log exclude methods: should be a list of "Facade.Method" names, got %q at position %d`,
+					name,
+					i+1,
+				)
+			}
 		}
 	}
 
