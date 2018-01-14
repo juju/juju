@@ -6,6 +6,7 @@ package state_test
 import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
@@ -24,18 +25,19 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
 	c.Assert(err, jc.ErrorIsNil)
 
-	optional := map[string]bool{
-		controller.IdentityURL:         true,
-		controller.IdentityPublicKey:   true,
-		controller.AutocertURLKey:      true,
-		controller.AutocertDNSNameKey:  true,
-		controller.AllowModelAccessKey: true,
-		controller.MongoMemoryProfile:  true,
-	}
+	optional := set.NewStrings(
+		controller.IdentityURL,
+		controller.IdentityPublicKey,
+		controller.AutocertURLKey,
+		controller.AutocertDNSNameKey,
+		controller.AllowModelAccessKey,
+		controller.MongoMemoryProfile,
+		controller.AuditLogExcludeMethods,
+	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)
 		c.Logf(controllerAttr)
-		if !optional[controllerAttr] {
+		if !optional.Contains(controllerAttr) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(v, gc.Not(gc.Equals), "")
 		}
