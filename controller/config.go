@@ -171,8 +171,62 @@ var (
 	}
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
-	// exclude from the audit log - just the one for `juju status`.
-	DefaultAuditLogExcludeMethods = []string{"Client.FullStatus"}
+	// exclude from the audit log.
+	DefaultAuditLogExcludeMethods = []string{
+		// Collected by running read-only commands.
+		"Action.Actions",
+		"Action.ApplicationsCharmsActions",
+		"Action.FindActionsByNames",
+		"Action.FindActionTagsByPrefix",
+		"Application.GetConstraints",
+		"ApplicationOffers.ApplicationOffers",
+		"Backups.Info",
+		"Client.FullStatus",
+		"Client.GetModelConstraints",
+		"Client.StatusHistory",
+		"Controller.AllModels",
+		"Controller.ControllerConfig",
+		"Controller.GetControllerAccess",
+		"Controller.ModelConfig",
+		"Controller.ModelStatus",
+		"MetricsDebug.GetMetrics",
+		"ModelConfig.ModelGet",
+		"ModelManager.ModelInfo",
+		"ModelManager.ModelDefaults",
+		"Pinger.Ping",
+		"UserManager.UserInfo",
+
+		// Don't filter out Application.Get - since it includes secrets
+		// it's worthwhile to track when it's run, and it's not likely to
+		// swamp the log.
+
+		// All client facade methods that start with List.
+		"Action.ListAll",
+		"Action.ListPending",
+		"Action.ListRunning",
+		"Action.ListComplete",
+		"ApplicationOffers.ListApplicationOffers",
+		"Backups.List",
+		"Block.List",
+		"Charms.List",
+		"Controller.ListBlockedModels",
+		"FirewallRules.ListFirewallRules",
+		"ImageManager.ListImages",
+		"ImageMetadata.List",
+		"KeyManager.ListKeys",
+		"ModelManager.ListModels",
+		"ModelManager.ListModelSummaries",
+		"Payloads.List",
+		"PayloadsHookContext.List",
+		"Resources.ListResources",
+		"ResourcesHookContext.ListResources",
+		"Spaces.ListSpaces",
+		"Storage.ListStorageDetails",
+		"Storage.ListPools",
+		"Storage.ListVolumes",
+		"Storage.ListFilesystems",
+		"Subnets.ListSubnets",
+	}
 
 	methodNameRE = regexp.MustCompile(`[[:alpha:]][[:alnum:]]*\.[[:alpha:]][[:alnum:]]*`)
 )

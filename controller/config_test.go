@@ -211,7 +211,8 @@ func (s *ConfigSuite) TestAuditLogDefaults(c *gc.C) {
 	c.Assert(cfg.AuditLogCaptureArgs(), gc.Equals, false)
 	c.Assert(cfg.AuditLogMaxSizeMB(), gc.Equals, 300)
 	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
-	c.Assert(cfg.AuditLogExcludeMethods(), gc.DeepEquals, set.NewStrings("Client.FullStatus"))
+	c.Assert(cfg.AuditLogExcludeMethods(), gc.DeepEquals,
+		set.NewStrings(controller.DefaultAuditLogExcludeMethods...))
 }
 
 func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {

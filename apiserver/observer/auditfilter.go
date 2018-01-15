@@ -115,9 +115,3 @@ func MakeInterestingRequestFilter(excludeMethods set.Strings) func(auditlog.Requ
 		return !excludeMethods.Contains(fmt.Sprintf("%s.%s", req.Facade, req.Method))
 	}
 }
-
-// DefaultExcludeMethods is a set of the API methods we exclude from
-// the audit log by default.
-var DefaultExcludeMethods = set.NewStrings(
-	"Client.FullStatus",
-)
