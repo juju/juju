@@ -22,7 +22,8 @@ AZURE_CLIENT_ID = "AZURE_CLIENT_ID"
 AZURE_SECRET = "AZURE_SECRET"
 AZURE_TENANT = "AZURE_TENANT"
 
-DEFAULT_RESOURCE_PREFIX = 'Default-'
+DEFAULT_RESOURCE_PREFIX = 'default-'
+JUJU_MACHINE_PREFIX = 'machine-'
 OLD_MACHINE_AGE = 6
 
 
@@ -99,15 +100,11 @@ class ARMClient:
 
 class ResourceGroupDetails:
 
-    def __init__(self, client, group, storage_accounts=None, vms=None,
-                 addresses=None, networks=None):
+    def __init__(self, client, group, deployments=None):
         self.client = client
         self.is_loaded = False
         self.group = group
-        self.storage_accounts = storage_accounts
-        self.vms = vms
-        self.addresses = addresses
-        self.networks = networks
+        self.deployments = deployments
 
     def __eq__(self, other):
         # Testing is the common case for checking equality.
@@ -116,47 +113,24 @@ class ResourceGroupDetails:
             self.client == other.client and
             self.is_loaded is other.is_loaded and
             self.group is other.group and
-            self.storage_accounts == other.storage_accounts and
-            self.vms == other.vms and
-            self.addresses == other.addresses and
-            self.networks == other.networks)
+            self.deployments == other.deployments)
 
     @property
     def name(self):
         return self.group.name
 
     def load_details(self):
-        self.storage_accounts = list(
-            self.client.storage.storage_accounts.list_by_resource_group(
-                self.name))
-        self.vms = list(
-            self.client.compute.virtual_machines.list(self.name))
-        self.addresses = list(
-            self.client.network.public_ip_addresses.list(self.name))
-        self.networks = list(
-            self.client.network.virtual_networks.list(self.name))
+        self.deployments = list(self.client.resource.deployments.list(self.name))
         self.is_loaded = True
 
     def print_out(self, recursive=False):
         print(self.name)
         if recursive:
-            for vm in self.vms:
-                print('    VM {} {}'.format(vm.name, vm.vm_id))
-            for address in self.addresses:
-                print('    {} {}'.format(address.name, address.ip_address))
-            for network in self.networks:
-                print('    Network {}'.format(network.name))
-            for storage_account in self.storage_accounts:
-                print('    Storage {} {}'.format(
-                    storage_account.name, storage_account.creation_time))
+            for deployment in self.deployments:
+                print('    Deployment {}'.format(deployment.name))
 
     def is_old(self, now, old_age):
         """Return True if the resource group is old.
-
-        There are ambiguous cases where a resource groups is not completely
-        deleted. We know from logs that networks are are often that last
-        resource to be deleted and may be delete quick enough for the test.
-        A resource group with just a network is considered to be old.
 
         :param now: The datetime object that is the basis for old age.
         :param old_age: The age of the resource group to must be.
@@ -166,27 +140,20 @@ class ResourceGroupDetails:
             # group that exists is old.
             return True
         ago = timedelta(hours=old_age)
-        # Contrary to Juju claims, the Azure RM provider always creates storage
-        # and that one resource has a creation_time.
-        if self.storage_accounts:
-            # Azure allows many storage accounts per resource group, but Juju
-            # only creates one.
-            creation_time = self.storage_accounts[0].creation_time
-            age = now - creation_time
-            if age > ago:
-                hours_old = (age.total_seconds() // 3600)
-                log.debug('{} is {} hours old:'.format(self.name, hours_old))
-                log.debug('  {}'.format(creation_time))
-                return True
-        elif (self.networks and not
-                all([self.vms, self.addresses, self.storage_accounts])):
-            # There is a network, but no vms, storage or public addresses.
-            # Networks can take a long time to delete and are often
-            # left behind when Juju cannot complete a delete in time.
-            log.debug('{} only has a network, likely a failed delete'.format(
-                      self.name))
-            # https://bugs.launchpad.net/juju-ci-tools/+bug/1613767
-            # return True
+        if not self.deployments:
+            # Juju resource groups have at least one deployment, so we can use
+            # the timestamp of the oldest deployment in the group as the group's
+            # age. If there are no deployments, we don't consider it to be a
+            # valid group.
+            log.debug('{} has no deployments'.format(self.name))
+            return False
+        creation_time = min([d.properties.timestamp for d in self.deployments])
+        age = now - creation_time
+        if age > ago:
+            hours_old = (age.total_seconds() // 3600)
+            log.debug('{} is {} hours old:'.format(self.name, hours_old))
+            log.debug('  {}'.format(creation_time))
+            return True
         return False
 
     def delete(self):
@@ -196,12 +163,12 @@ class ResourceGroupDetails:
         """
         return self.client.resource.resource_groups.delete(self.name)
 
-    def delete_vm(self, vm):
+    def delete_vm(self, name):
         """Delete the VirtualMachine.
 
         Returns a AzureOperationPoller.
         """
-        return self.client.compute.virtual_machines.delete(self.name, vm.name)
+        return self.client.compute.virtual_machines.delete(self.name, name)
 
 
 def list_resources(client, glob='*', recursive=False, print_out=False):
@@ -215,10 +182,24 @@ def list_resources(client, glob='*', recursive=False, print_out=False):
     :param print_out: Print the found resources to STDOUT?
     :return: A list of ResourceGroupDetails
     """
-    groups = []
+    resource_groups = list(iter_resources(client, glob, recursive))
+    if print_out:
+        for group in resource_groups:
+            group.print_out(recursive=recursive)
+    return resource_groups
+
+
+def iter_resources(client, glob='*', recursive=False):
+    """Return an iterator of ResourceGroupDetails.
+
+    :param client: The ARMClient.
+    :param glob: The glob to find matching resource groups to delete.
+    :param recursive: Get the resources in the resource group?
+    :return: An iterator of ResourceGroupDetails
+    """
     resource_groups = client.resource.resource_groups.list()
     for group in resource_groups:
-        if group.name.startswith(DEFAULT_RESOURCE_PREFIX):
+        if group.name.lower().startswith(DEFAULT_RESOURCE_PREFIX):
             # This is not a resource group. Use the UI to delete Default
             # resources.
             log.debug('Skipping {}'.format(group.name))
@@ -228,11 +209,9 @@ def list_resources(client, glob='*', recursive=False, print_out=False):
             continue
         rgd = ResourceGroupDetails(client, group)
         if recursive:
+            print(' - loading {}'.format(group.name))
             rgd.load_details()
-        if print_out:
-            rgd.print_out(recursive=recursive)
-        groups.append(rgd)
-    return groups
+        yield rgd
 
 
 def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
@@ -274,24 +253,21 @@ def delete_resources(client, glob='*', old_age=OLD_MACHINE_AGE, now=None):
     return deleted_count
 
 
-def find_vm_instance(resources, name_id, resource_group):
-    """Return a tuple of matching ResourceGroupDetails and VirtualMachine.
+def find_vm_deployment(resource_group, name):
+    """Return a matching DeploymentExtended, or None.
 
-    Juju 1.x shows the machine's id as the instance_id.
     Juju 2.x shows the machine's name in the resource group as the instance_id.
 
-    :param resources: A iterator of ResourceGroupDetails.
-    :param name_id: The name or id of a VM instance to find.
-    :param resource_group: The optional name of the resource group the
-        VM belongs to.
-    :return: A tuple of matching ResourceGroupDetails and VirtualMachine
+    :param resource_group: A ResourceGroupDetails.
+    :param name: The name of a VM instance to find.
+    :return: A DeploymentExtended
     """
-    for rgd in resources:
-        for vm in rgd.vms:
-            if (rgd.name == resource_group and vm.name == name_id or
-                    vm.vm_id == name_id):
-                return rgd, vm
-    return None, None
+    if not name.startswith(JUJU_MACHINE_PREFIX):
+        return None
+    for d in resource_group.deployments:
+        if d.name == name:
+            return d
+    return None
 
 
 def delete_instance(client, name_id, resource_group=None):
@@ -308,17 +284,21 @@ def delete_instance(client, name_id, resource_group=None):
         glob = resource_group
     else:
         glob = '*'
-    resources = list_resources(client, glob=glob, recursive=True)
-    rgd, vm = find_vm_instance(resources, name_id, resource_group)
-    if vm:
-        log.debug('Found {} {}'.format(rgd.name, vm.name))
-        if not client.read_only:
-            poller = rgd.delete_vm(vm)
-            log.debug('Waiting for {} to be deleted'.format(vm.name))
-            if not poller.done():
-                poller.result()
+    resource_groups = iter_resources(client, glob=glob, recursive=True)
+    group_names = []
+    for resource_group in resource_groups:
+        group_names.append(resource_group.name)
+        deployment = find_vm_deployment(resource_group, name_id)
+        if deployment:
+            log.debug('Found {} {}'.format(resource_group.name, deployment.name))
+            if not client.read_only:
+                poller = rgd.delete_vm(deployment.name)
+                log.debug('Waiting for {} to be deleted'.format(deployment.name))
+                if not poller.done():
+                    poller.result()
+            return
     else:
-        group_names = ', '.join([g.name for g in resources])
+        group_names = ', '.join(group_names)
         raise ValueError(
             'The vm name {} was not found in {}'.format(name_id, group_names))
 
