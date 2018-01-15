@@ -76,7 +76,7 @@ func (s *auditFilterSuite) TestFiltersUninterestingConversations(c *gc.C) {
 }
 
 func (s *auditFilterSuite) TestMakeFilter(c *gc.C) {
-	f1 := observer.MakeExclusionFilter(set.NewStrings("Battery.Kinzie", "Helplessness.Blues"))
+	f1 := observer.MakeInterestingRequestFilter(set.NewStrings("Battery.Kinzie", "Helplessness.Blues"))
 	c.Assert(f1(auditlog.Request{Facade: "Battery", Method: "Kinzie"}), jc.IsFalse)
 	c.Assert(f1(auditlog.Request{Facade: "Helplessness", Method: "Blues"}), jc.IsFalse)
 	c.Assert(f1(auditlog.Request{Facade: "The", Method: "Shrine"}), jc.IsTrue)

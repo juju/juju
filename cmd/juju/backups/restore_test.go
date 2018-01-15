@@ -280,18 +280,19 @@ func (s *restoreSuite) TestRestoreReboostrapControllerConfigDefaults(c *gc.C) {
 	boostrapped := false
 	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
 		c.Assert(args.ControllerConfig, jc.DeepEquals, controller.Config{
-			"controller-uuid":         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
-			"ca-cert":                 testing.CACert,
-			"state-port":              37017,
-			"api-port":                17070,
-			"set-numa-control-policy": false,
-			"max-logs-age":            "72h",
-			"max-logs-size":           "4096M",
-			"max-txn-log-size":        "10M",
-			"auditing-enabled":        false,
-			"audit-log-capture-args":  false,
-			"audit-log-max-size":      "300M",
-			"audit-log-max-backups":   10,
+			"controller-uuid":           "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+			"ca-cert":                   testing.CACert,
+			"state-port":                37017,
+			"api-port":                  17070,
+			"set-numa-control-policy":   false,
+			"max-logs-age":              "72h",
+			"max-logs-size":             "4096M",
+			"max-txn-log-size":          "10M",
+			"auditing-enabled":          false,
+			"audit-log-capture-args":    false,
+			"audit-log-max-size":        "300M",
+			"audit-log-max-backups":     10,
+			"audit-log-exclude-methods": []interface{}{"Client.FullStatus"},
 		})
 		boostrapped = true
 		return nil
