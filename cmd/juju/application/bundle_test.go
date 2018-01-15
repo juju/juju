@@ -93,7 +93,9 @@ func (s *BundleDeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, deploy, "bundle/wordpress-with-plans")
 	c.Assert(err, jc.ErrorIsNil)
 
-	stub.CheckCalls(c, []testing.StubCall{{
+	// The order of calls here does not matter and is, in fact, not guaranteed.
+	// All we care about here is that the calls exist.
+	stub.CheckCallsUnordered(c, []testing.StubCall{{
 		FuncName: "DefaultPlan",
 		Args:     []interface{}{"cs:wordpress"},
 	}, {
