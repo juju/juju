@@ -33,6 +33,7 @@ type imageStorage struct {
 	modelUUID          string
 	metadataCollection *mgo.Collection
 	blobDb             *mgo.Database
+	dbPrefix           string
 }
 
 var _ Storage = (*imageStorage)(nil)
@@ -42,27 +43,29 @@ var _ Storage = (*imageStorage)(nil)
 // database in the "imagemetadata" collection.
 func NewStorage(
 	session *mgo.Session,
+	dbPrefix string,
 	modelUUID string,
 ) Storage {
-	blobDb := session.DB(ImagesDB)
+	blobDb := session.DB(dbPrefix + ImagesDB)
 	metadataCollection := blobDb.C(imagemetadataC)
 	return &imageStorage{
-		modelUUID,
-		metadataCollection,
-		blobDb,
+		modelUUID:          modelUUID,
+		dbPrefix:           dbPrefix,
+		metadataCollection: metadataCollection,
+		blobDb:             blobDb,
 	}
 }
 
 // Override for testing.
-var getManagedStorage = func(session *mgo.Session) blobstore.ManagedStorage {
-	rs := blobstore.NewGridFS(ImagesDB, ImagesDB, session)
-	db := session.DB(ImagesDB)
+var getManagedStorage = func(session *mgo.Session, dbPrefix string) blobstore.ManagedStorage {
+	rs := blobstore.NewGridFS(dbPrefix+ImagesDB, ImagesDB, session)
+	db := session.DB(dbPrefix + ImagesDB)
 	metadataDb := db.With(session)
 	return blobstore.NewManagedStorage(metadataDb, rs)
 }
 
 func (s *imageStorage) getManagedStorage(session *mgo.Session) blobstore.ManagedStorage {
-	return getManagedStorage(session)
+	return getManagedStorage(session, s.dbPrefix)
 }
 
 func (s *imageStorage) txnRunner(session *mgo.Session) jujutxn.Runner {

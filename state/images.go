@@ -14,5 +14,5 @@ var (
 // ImageStorage returns a new imagestorage.Storage
 // that stores image metadata.
 func (st *State) ImageStorage() imagestorage.Storage {
-	return imageStorageNewStorage(st.session, st.ModelUUID())
+	return imageStorageNewStorage(st.session, st.dbPrefix, st.ModelUUID())
 }

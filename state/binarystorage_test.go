@@ -118,8 +118,7 @@ func (s *binaryStorageSuite) TestGUIArchiveStorageParams(c *gc.C) {
 }
 
 func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage storageOpener) {
-	session := s.State.MongoSession()
-	collectionNames, err := session.DB("juju").CollectionNames()
+	collectionNames, err := s.DB("juju").CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
 	nameSet := set.NewStrings(collectionNames...)
 	c.Assert(nameSet.Contains(collName), jc.IsFalse)
@@ -134,7 +133,7 @@ func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage s
 	err = storage.Add(strings.NewReader(""), binarystorage.Metadata{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	collectionNames, err = session.DB("juju").CollectionNames()
+	collectionNames, err = s.DB("juju").CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
 	nameSet = set.NewStrings(collectionNames...)
 	c.Assert(nameSet.Contains(collName), jc.IsTrue)

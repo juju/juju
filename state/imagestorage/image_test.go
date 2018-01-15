@@ -48,7 +48,7 @@ func (s *ImageSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.session, err = s.mongo.Dial()
 	c.Assert(err, gc.IsNil)
-	s.storage = imagestorage.NewStorage(s.session, "my-uuid")
+	s.storage = imagestorage.NewStorage(s.session, "", "my-uuid")
 	s.metadataCollection = imagestorage.MetadataCollection(s.storage)
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: s.metadataCollection.Database})
 	s.patchTransactionRunner()
@@ -185,7 +185,7 @@ func (s *ImageSuite) TestAddImageRemovesExistingRemoveFails(c *gc.C) {
 	err := managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, gc.IsNil)
 
-	storage := imagestorage.NewStorage(s.session, "my-uuid")
+	storage := imagestorage.NewStorage(s.session, "", "my-uuid")
 	s.PatchValue(imagestorage.GetManagedStorage, imagestorage.RemoveFailsManagedStorage)
 	addedMetadata := &imagestorage.Metadata{
 		ModelUUID: "my-uuid",
@@ -216,7 +216,7 @@ func (errorTransactionRunner) Run(transactions txn.TransactionSource) error {
 }
 
 func (s *ImageSuite) TestAddImageRemovesBlobOnFailure(c *gc.C) {
-	storage := imagestorage.NewStorage(s.session, "my-uuid")
+	storage := imagestorage.NewStorage(s.session, "", "my-uuid")
 	s.txnRunner = errorTransactionRunner{s.txnRunner}
 	addedMetadata := &imagestorage.Metadata{
 		ModelUUID: "my-uuid",
@@ -237,7 +237,7 @@ func (s *ImageSuite) TestAddImageRemovesBlobOnFailure(c *gc.C) {
 }
 
 func (s *ImageSuite) TestAddImageRemovesBlobOnFailureRemoveFails(c *gc.C) {
-	storage := imagestorage.NewStorage(s.session, "my-uuid")
+	storage := imagestorage.NewStorage(s.session, "", "my-uuid")
 	s.PatchValue(imagestorage.GetManagedStorage, imagestorage.RemoveFailsManagedStorage)
 	s.txnRunner = errorTransactionRunner{s.txnRunner}
 	addedMetadata := &imagestorage.Metadata{

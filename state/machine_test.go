@@ -621,6 +621,8 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
+	// TODO (rogpeppe) fix this test so that it can work with a MongoDB shared between
+	// package tests - perhaps by factoring it out of the state package.
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
@@ -639,7 +641,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	// Turn on fully-authenticated mode.
 	err = st.SetAdminMongoPassword("admin-secret")
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.MongoSession().DB("admin").Login("admin", "admin-secret")
+	err = s.DB("admin").Login("admin", "admin-secret")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set the password for the entity
@@ -652,7 +654,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	info := testing.NewMongoInfo()
 	info.Tag = ent.Tag()
 	info.Password = "bar"
-	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
+	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info, s.State.DBPrefix())
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "machine-0": unauthorized mongo access: .*`)
 
@@ -679,18 +681,18 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we cannot log in with the old password.
 	info.Password = "foo"
-	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
+	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info, s.State.DBPrefix())
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "machine-0": unauthorized mongo access: .*`)
 
 	// Check that we can log in with the correct password.
 	info.Password = "bar"
-	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
+	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info, s.State.DBPrefix())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the administrator can still log in.
 	info.Tag, info.Password = nil, "admin-secret"
-	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
+	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info, s.State.DBPrefix())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1268,7 +1270,7 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 	//  Unit.Watch
 	//  State.WatchForModelConfigChanges
 	//  Unit.WatchConfigSettings
-	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.State.DBPrefix(), s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.Watch()
@@ -1387,7 +1389,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 func (s *MachineSuite) TestWatchPrincipalUnitsDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.unitsWatcher, which
 	// is also used by Unit.WatchSubordinateUnits.
-	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.State.DBPrefix(), s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchPrincipalUnits()
@@ -1502,7 +1504,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.State.DBPrefix(), s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchUnits()

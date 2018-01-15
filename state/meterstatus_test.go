@@ -46,7 +46,7 @@ func (s *MeterStateSuite) TestMeterStatus(c *gc.C) {
 }
 
 func (s *MeterStateSuite) TestMeterStatusIncludesModelUUID(c *gc.C) {
-	jujuDB := s.MgoSuite.Session.DB("juju")
+	jujuDB := s.DB("juju")
 	meterStatus := jujuDB.C("meterStatus")
 	var docs []bson.M
 	err := meterStatus.Find(nil).All(&docs)

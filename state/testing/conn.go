@@ -22,6 +22,7 @@ import (
 
 type InitializeArgs struct {
 	Owner                     names.UserTag
+	DBPrefix                  string
 	InitialConfig             *config.Config
 	ControllerConfig          map[string]interface{}
 	ControllerInheritedConfig map[string]interface{}
@@ -110,6 +111,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) (*state.Controller, *state
 			RegionConfig: args.RegionConfig,
 		},
 		MongoSession:  session,
+		DBPrefix:      args.DBPrefix,
 		NewPolicy:     args.NewPolicy,
 		AdminPassword: "admin-secret",
 	})

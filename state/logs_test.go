@@ -35,8 +35,7 @@ func (s *LogsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LogsSuite) logCollFor(st *state.State) *mgo.Collection {
-	session := st.MongoSession()
-	return session.DB("logs").C("logs." + st.ModelUUID())
+	return s.DB("logs").C("logs." + st.ModelUUID())
 }
 
 func (s *LogsSuite) TestLastSentLogTrackerSetGet(c *gc.C) {
@@ -308,9 +307,8 @@ var _ = gc.Suite(&LogTailerSuite{})
 func (s *LogTailerSuite) SetUpTest(c *gc.C) {
 	s.ConnWithWallClockSuite.SetUpTest(c)
 
-	session := s.State.MongoSession()
 	// Create a fake oplog collection.
-	s.oplogColl = session.DB("logs").C("oplog.fake")
+	s.oplogColl = s.DB("logs").C("oplog.fake")
 	err := s.oplogColl.Create(&mgo.CollectionInfo{
 		Capped:   true,
 		MaxBytes: 1024 * 1024,
@@ -329,7 +327,7 @@ func (s *LogTailerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LogTailerSuite) getCollection(modelUUID string) *mgo.Collection {
-	return s.State.MongoSession().DB("logs").C("logs." + modelUUID)
+	return s.DB("logs").C("logs." + modelUUID)
 }
 
 func (s *LogTailerSuite) TestLogDeletionDuringTailing(c *gc.C) {

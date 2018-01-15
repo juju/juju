@@ -8,12 +8,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	mgo "gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/utils/clock"
 )
 
 var _ = gc.Suite(&StateWithWallClockSuite{})
@@ -51,7 +53,14 @@ func (s *StateWithWallClockSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
-	s.Controller, s.State = Initialize(c, s.Owner, s.InitialConfig, s.ControllerInheritedConfig, s.RegionConfig, s.NewPolicy)
+	s.Controller, s.State = InitializeWithArgs(c, InitializeArgs{
+		Owner:                     s.Owner,
+		InitialConfig:             s.InitialConfig,
+		ControllerInheritedConfig: s.ControllerInheritedConfig,
+		RegionConfig:              s.RegionConfig,
+		NewPolicy:                 s.NewPolicy,
+		Clock:                     clock.WallClock,
+	})
 	s.AddCleanup(func(*gc.C) {
 		s.State.Close()
 		s.Controller.Close()
@@ -71,4 +80,8 @@ func (s *StateWithWallClockSuite) SetUpTest(c *gc.C) {
 func (s *StateWithWallClockSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
+}
+
+func (s *StateWithWallClockSuite) DB(name string) *mgo.Database {
+	return s.State.MongoSession().DB(s.State.DBPrefix() + name)
 }

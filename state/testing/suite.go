@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	mgo "gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
@@ -85,4 +86,8 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 func (s *StateSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
+}
+
+func (s *StateSuite) DB(name string) *mgo.Database {
+	return s.State.MongoSession().DB(s.State.DBPrefix() + name)
 }

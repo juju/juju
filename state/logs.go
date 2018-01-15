@@ -39,6 +39,10 @@ var ErrNeverForwarded = errors.Errorf("cannot find ID of the last forwarded reco
 
 // MongoSessioner supports creating new mongo sessions.
 type MongoSessioner interface {
+	// DBPrefix returns the database prefix to be
+	// used by all Session.DB calls.
+	DBPrefix() string
+
 	// MongoSession creates a new Mongo session.
 	MongoSession() *mgo.Session
 }
@@ -74,8 +78,8 @@ func logCollectionName(modelUUID string) string {
 
 // InitDbLogs sets up the indexes for the logs collection. It should
 // be called as state is opened. It is idempotent.
-func InitDbLogs(session *mgo.Session, modelUUID string) error {
-	logsColl := session.DB(logsDB).C(logCollectionName(modelUUID))
+func InitDbLogs(session *mgo.Session, dbPrefix, modelUUID string) error {
+	logsColl := session.DB(dbPrefix + logsDB).C(logCollectionName(modelUUID))
 	for _, key := range logIndexes {
 		err := logsColl.EnsureIndex(mgo.Index{Key: key})
 		if err != nil {
@@ -129,34 +133,33 @@ type lastSentDoc struct {
 // LastSentLogTracker records and retrieves timestamps of the most recent
 // log records forwarded to a log sink for a model.
 type LastSentLogTracker struct {
-	session *mgo.Session
-	id      string
-	model   string
-	sink    string
+	db    *mgo.Database
+	id    string
+	model string
+	sink  string
 }
 
 // NewLastSentLogTracker returns a new tracker that records and retrieves
 // the timestamps of the most recent log records forwarded to the
 // identified log sink for the current model.
 func NewLastSentLogTracker(st ModelSessioner, modelUUID, sink string) *LastSentLogTracker {
-	session := st.MongoSession().Copy()
 	return &LastSentLogTracker{
-		id:      fmt.Sprintf("%s#%s", modelUUID, sink),
-		model:   modelUUID,
-		sink:    sink,
-		session: session,
+		id:    fmt.Sprintf("%s#%s", modelUUID, sink),
+		model: modelUUID,
+		sink:  sink,
+		db:    st.MongoSession().Copy().DB(st.DBPrefix() + logsDB),
 	}
 }
 
 // Close implements io.Closer
 func (logger *LastSentLogTracker) Close() error {
-	logger.session.Close()
+	logger.db.Session.Close()
 	return nil
 }
 
 // Set records the timestamp.
 func (logger *LastSentLogTracker) Set(recID, recTimestamp int64) error {
-	collection := logger.session.DB(logsDB).C(forwardedC)
+	collection := logger.db.C(forwardedC)
 	_, err := collection.UpsertId(
 		logger.id,
 		lastSentDoc{
@@ -172,7 +175,7 @@ func (logger *LastSentLogTracker) Set(recID, recTimestamp int64) error {
 
 // Get retrieves the id and timestamp.
 func (logger *LastSentLogTracker) Get() (int64, int64, error) {
-	collection := logger.session.DB(logsDB).C(forwardedC)
+	collection := logger.db.C(forwardedC)
 	var doc lastSentDoc
 	err := collection.FindId(logger.id).One(&doc)
 	if err != nil {
@@ -361,7 +364,7 @@ func NewLogTailer(st LogTailerState, params LogTailerParams) (LogTailer, error) 
 	t := &logTailer{
 		modelUUID:       st.ModelUUID(),
 		session:         session,
-		logsColl:        session.DB(logsDB).C(logCollectionName(st.ModelUUID())).With(session),
+		logsColl:        session.DB(st.DBPrefix() + logsDB).C(logCollectionName(st.ModelUUID())).With(session),
 		params:          params,
 		logCh:           make(chan *LogRecord),
 		recentIds:       newRecentIdTracker(maxRecentLogIds),
@@ -843,7 +846,7 @@ func initLogsSessionDB(st MongoSessioner) (*mgo.Session, *mgo.Database) {
 	session.SetSafe(&mgo.Safe{
 		W: 1,
 	})
-	return session, session.DB(logsDB)
+	return session, session.DB(st.DBPrefix() + logsDB)
 }
 
 // initLogsSession creates a new session suitable for logging updates,
@@ -928,8 +931,8 @@ func getRowCountForCollection(coll *mgo.Collection) (int, error) {
 	return count, nil
 }
 
-func removeModelLogs(session *mgo.Session, modelUUID string) error {
-	logsDB := session.DB(logsDB)
+func removeModelLogs(session *mgo.Session, dbPrefix, modelUUID string) error {
+	logsDB := session.DB(dbPrefix + logsDB)
 	logsColl := logsDB.C(logCollectionName(modelUUID))
 	if err := logsColl.DropCollection(); err != nil {
 		return errors.Trace(err)

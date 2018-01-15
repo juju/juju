@@ -332,7 +332,7 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 
 	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, multiwatcher.JobManageModel)
 
-	c.Check(workerErr, gc.IsNil)
+	c.Check(workerErr, jc.ErrorIsNil)
 	c.Check(*attemptsP, gc.Equals, 1)
 	c.Check(config.Version, gc.Equals, jujuversion.Current) // Upgrade finished
 	c.Assert(statusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(0, succeeds, ""))
@@ -421,6 +421,7 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.IAASModel.ModelTag(),
 		MongoSession:       s.State.MongoSession(),
+		DBPrefix:           s.State.DBPrefix(),
 		NewPolicy:          newPolicy,
 	})
 	if err != nil {

@@ -83,6 +83,7 @@ type State struct {
 	controllerModelTag     names.ModelTag
 	controllerTag          names.ControllerTag
 	session                *mgo.Session
+	dbPrefix               string
 	database               Database
 	policy                 Policy
 	newPolicy              NewPolicyFunc
@@ -125,6 +126,10 @@ type StateServingInfo struct {
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret   string
 	SystemIdentity string
+}
+
+func (st *State) DBPrefix() string {
+	return st.dbPrefix
 }
 
 // IsController returns true if this state instance has the bootstrap
@@ -250,7 +255,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	}
 	// Logs and presence are in separate databases so don't get caught by that
 	// loop.
-	removeModelLogs(st.MongoSession(), modelUUID)
+	removeModelLogs(st.MongoSession(), st.dbPrefix, modelUUID)
 	err := presence.RemovePresenceForModel(st.getPresenceCollection(), st.modelTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -364,7 +369,7 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 			} `bson:"authenticatedUsers"`
 		} `bson:"authInfo"`
 	}
-	if err := st.session.DB(jujuDB).Run(bson.D{{"connectionStatus", 1}}, &connectionStatus); err != nil {
+	if err := st.namedDB(jujuDB).Run(bson.D{{"connectionStatus", 1}}, &connectionStatus); err != nil {
 		return errors.Annotate(err, "obtaining connection status")
 	}
 
@@ -502,7 +507,7 @@ func (st *State) EnsureModelRemoved() error {
 // getPresenceCollection returns the raw mongodb presence collection,
 // which is needed to interact with the state/presence package.
 func (st *State) getPresenceCollection() *mgo.Collection {
-	return st.session.DB(presenceDB).C(presenceC)
+	return st.namedDB(presenceDB).C(presenceC)
 }
 
 // getPingBatcher returns the implementation of how we serialize Ping requests
@@ -517,7 +522,11 @@ func (st *State) getTxnLogCollection() *mgo.Collection {
 	if st.Ping() != nil {
 		st.session.Refresh()
 	}
-	return st.session.DB(jujuDB).C(txnLogC)
+	return st.namedDB(jujuDB).C(txnLogC)
+}
+
+func (st *State) namedDB(name string) *mgo.Database {
+	return st.session.DB(st.dbPrefix + name)
 }
 
 // newDB returns a database connection using a new session, along with
@@ -528,7 +537,7 @@ func (st *State) newDB() (Database, func()) {
 	return st.database.Copy()
 }
 
-// db returns the Database instance used by the State. It is part of
+// jujuDB returns the main Database instance used by the State. It is part of
 // the modelBackend interface.
 func (st *State) db() Database {
 	return st.database
@@ -2051,6 +2060,9 @@ func (st *State) StartSync() {
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
 func (st *State) SetAdminMongoPassword(password string) error {
+	if st.dbPrefix != "" {
+		return errors.Errorf("cannot set admin password on potentially shared state")
+	}
 	err := mongo.SetAdminMongoPassword(st.session, mongo.AdminUser, password)
 	return errors.Trace(err)
 }
@@ -2111,14 +2123,14 @@ const (
 func (st *State) ControllerInfo() (*ControllerInfo, error) {
 	session := st.session.Copy()
 	defer session.Close()
-	return readRawControllerInfo(st.session)
+	return readRawControllerInfo(st.session, st.dbPrefix)
 }
 
 // readRawControllerInfo reads ControllerInfo direct from the supplied session,
 // falling back to the bootstrap model document to extract the UUID when
 // required.
-func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
-	db := session.DB(jujuDB)
+func readRawControllerInfo(session *mgo.Session, dbPrefix string) (*ControllerInfo, error) {
+	db := session.DB(dbPrefix + jujuDB)
 	controllers := db.C(controllersC)
 
 	var doc controllersDoc

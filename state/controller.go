@@ -38,6 +38,7 @@ type Controller struct {
 	controllerModelTag     names.ModelTag
 	controllerTag          names.ControllerTag
 	session                *mgo.Session
+	dbPrefix               string
 	policy                 Policy
 	newPolicy              NewPolicyFunc
 	runTransactionObserver RunTransactionObserverFunc
@@ -57,6 +58,7 @@ func (ctlr *Controller) NewState(modelTag names.ModelTag) (*State, error) {
 		modelTag,
 		ctlr.controllerModelTag,
 		session,
+		ctlr.dbPrefix,
 		ctlr.newPolicy,
 		ctlr.clock,
 		ctlr.runTransactionObserver,

@@ -76,7 +76,7 @@ func (s *guiVersionSuite) addArchive(c *gc.C, vers string) version.Number {
 // checkCount ensures that there is only one document in the GUI settings
 // mongo collection.
 func (s *guiVersionSuite) checkCount(c *gc.C) {
-	settings := s.State.MongoSession().DB("juju").C(state.GUISettingsC)
+	settings := s.DB("juju").C(state.GUISettingsC)
 	count, err := settings.Find(nil).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(count, gc.Equals, 1)

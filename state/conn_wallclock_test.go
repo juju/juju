@@ -53,7 +53,7 @@ func (cs *ConnWithWallClockSuite) SetUpTest(c *gc.C) {
 
 	cs.modelTag = cs.IAASModel.ModelTag()
 
-	jujuDB := cs.MgoSuite.Session.DB("juju")
+	jujuDB := cs.DB("juju")
 	cs.annotations = jujuDB.C("annotations")
 	cs.charms = jujuDB.C("charms")
 	cs.machines = jujuDB.C("machines")

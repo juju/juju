@@ -22,8 +22,7 @@ type ImageSuite struct {
 }
 
 func (s *ImageSuite) TestStorage(c *gc.C) {
-	session := s.State.MongoSession()
-	collectionNames, err := session.DB("osimages").CollectionNames()
+	collectionNames, err := s.DB("osimages").CollectionNames()
 	c.Assert(err, gc.IsNil)
 	nameSet := set.NewStrings(collectionNames...)
 	c.Assert(nameSet.Contains("imagemetadata"), jc.IsFalse)
@@ -32,10 +31,10 @@ func (s *ImageSuite) TestStorage(c *gc.C) {
 	err = storage.AddImage(strings.NewReader(""), &imagestorage.Metadata{})
 	c.Assert(err, gc.IsNil)
 
-	collectionNames, err = session.DB("osimages").CollectionNames()
+	collectionNames, err = s.DB("osimages").CollectionNames()
 	c.Assert(err, gc.IsNil)
 	nameSet = set.NewStrings(collectionNames...)
-	c.Assert(nameSet.Contains("imagemetadata"), jc.IsTrue)
+	c.Assert(nameSet.Contains("imagemetadata"), jc.IsTrue, gc.Commentf("%#v", collectionNames))
 }
 
 func (s *ImageSuite) TestStorageParams(c *gc.C) {
@@ -45,10 +44,12 @@ func (s *ImageSuite) TestStorageParams(c *gc.C) {
 	var called bool
 	s.PatchValue(state.ImageStorageNewStorage, func(
 		session *mgo.Session,
+		dbPrefix string,
 		modelUUID string,
 	) imagestorage.Storage {
 		called = true
 		c.Assert(modelUUID, gc.Equals, env.UUID())
+		c.Assert(dbPrefix, gc.Equals, s.State.DBPrefix())
 		c.Assert(session, gc.NotNil)
 		return nil
 	})

@@ -912,8 +912,7 @@ func addStorageInstanceConstraints(st *State) error {
 // SplitLogCollections moves log entries from the old single log collection
 // to the log collection per model.
 func SplitLogCollections(st *State) error {
-	session := st.MongoSession()
-	db := session.DB(logsDB)
+	db := st.namedDB(logsDB)
 	oldLogs := db.C("logs")
 
 	// If we haven't seen any particular model, we need to initialise
@@ -930,7 +929,7 @@ func SplitLogCollections(st *State) error {
 		newLogs := db.C(newCollName)
 
 		if !seen.Contains(newCollName) {
-			if err := InitDbLogs(session, modelUUID); err != nil {
+			if err := InitDbLogs(db.Session, st.dbPrefix, modelUUID); err != nil {
 				return errors.Annotatef(err, "failed to init new logs collection %q", newCollName)
 			}
 			seen.Add(newCollName)
@@ -1299,7 +1298,7 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 // MoveOldAuditLog renames the no-longer-needed audit.log collection
 // to old-audit.log if it has any rows - if it's empty it deletes it.
 func MoveOldAuditLog(st *State) error {
-	names, err := st.MongoSession().DB("juju").CollectionNames()
+	names, err := st.namedDB("juju").CollectionNames()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1320,8 +1319,8 @@ func MoveOldAuditLog(st *State) error {
 	}
 	session := st.MongoSession()
 	renameCommand := bson.D{
-		{"renameCollection", "juju.audit.log"},
-		{"to", "juju.old-audit.log"},
+		{"renameCollection", st.dbPrefix + "juju.audit.log"},
+		{"to", st.dbPrefix + "juju.old-audit.log"},
 	}
 	return errors.Trace(session.Run(renameCommand, nil))
 }

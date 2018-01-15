@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	mgo "gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
@@ -98,6 +99,10 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 func (s *internalStateSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
+}
+
+func (s *internalStateSuite) DB(name string) *mgo.Database {
+	return s.state.MongoSession().DB(s.state.DBPrefix() + name)
 }
 
 func (s *internalStateSuite) newState(c *gc.C) *State {

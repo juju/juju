@@ -209,6 +209,7 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.IAASModel.ModelTag(),
 		MongoSession:       session,
+		DBPrefix:           s.State.DBPrefix(),
 	})
 	c.Assert(err, gc.IsNil)
 	defer st.Close()

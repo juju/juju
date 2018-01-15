@@ -463,7 +463,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchWatchScopeDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.State.DBPrefix(), s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		pr := newPeerRelation(c, st)
 		w := pr.ru0.WatchScope()
 		<-w.Changes()

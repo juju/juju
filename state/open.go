@@ -35,6 +35,10 @@ type OpenParams struct {
 	// for closing this session; Open will copy it.
 	MongoSession *mgo.Session
 
+	// DBPrefix holds the prefix to give all databases in the
+	// mongo server.
+	DBPrefix string
+
 	// NewPolicy, if non-nil, returns a policy which will be used to
 	// validate and modify behaviour of certain operations in state.
 	NewPolicy NewPolicyFunc
@@ -77,7 +81,7 @@ func OpenController(args OpenParams) (*Controller, error) {
 
 	session := args.MongoSession.Copy()
 	if args.InitDatabaseFunc != nil {
-		if err := args.InitDatabaseFunc(session, args.ControllerModelTag.Id(), nil); err != nil {
+		if err := args.InitDatabaseFunc(session, args.DBPrefix, args.ControllerModelTag.Id(), nil); err != nil {
 			return nil, errors.Trace(err)
 		}
 		logger.Debugf("mongodb initialised")
@@ -88,6 +92,7 @@ func OpenController(args OpenParams) (*Controller, error) {
 		controllerTag:          args.ControllerTag,
 		controllerModelTag:     args.ControllerModelTag,
 		session:                session,
+		dbPrefix:               args.DBPrefix,
 		newPolicy:              args.NewPolicy,
 		runTransactionObserver: args.RunTransactionObserver,
 	}, nil
@@ -106,6 +111,7 @@ func Open(args OpenParams) (*State, error) {
 	st, err := open(
 		args.ControllerModelTag,
 		session,
+		args.DBPrefix,
 		args.InitDatabaseFunc,
 		nil,
 		args.NewPolicy,
@@ -134,18 +140,19 @@ func Open(args OpenParams) (*State, error) {
 func open(
 	controllerModelTag names.ModelTag,
 	session *mgo.Session,
+	dbPrefix string,
 	initDatabase InitDatabaseFunc,
 	controllerConfig *controller.Config,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
 ) (*State, error) {
-	st, err := newState(controllerModelTag, controllerModelTag, session, newPolicy, clock, runTransactionObserver)
+	st, err := newState(controllerModelTag, controllerModelTag, session, dbPrefix, newPolicy, clock, runTransactionObserver)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if initDatabase != nil {
-		if err := initDatabase(session, controllerModelTag.Id(), controllerConfig); err != nil {
+		if err := initDatabase(session, dbPrefix, controllerModelTag.Id(), controllerConfig); err != nil {
 			session.Close()
 			return nil, errors.Trace(err)
 		}
@@ -165,6 +172,7 @@ func open(
 func newState(
 	modelTag, controllerModelTag names.ModelTag,
 	session *mgo.Session,
+	dbPrefix string,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
 	runTransactionObserver RunTransactionObserverFunc,
@@ -177,7 +185,7 @@ func newState(
 	}()
 
 	db := &database{
-		raw:                    session.DB(jujuDB),
+		raw:                    session.DB(dbPrefix + jujuDB),
 		schema:                 allCollections(),
 		modelUUID:              modelTag.Id(),
 		runTransactionObserver: runTransactionObserver,
@@ -190,6 +198,7 @@ func newState(
 		controllerModelTag:     controllerModelTag,
 		session:                session,
 		database:               db,
+		dbPrefix:               dbPrefix,
 		newPolicy:              newPolicy,
 		runTransactionObserver: runTransactionObserver,
 	}

@@ -21,9 +21,9 @@ func MetadataCollection(s Storage) *mgo.Collection {
 
 // RemoveFailsManagedStorage returns a patched managedStorage,
 // which fails when Remove is called.
-var RemoveFailsManagedStorage = func(session *mgo.Session) blobstore.ManagedStorage {
-	rs := blobstore.NewGridFS(ImagesDB, ImagesDB, session)
-	db := session.DB(ImagesDB)
+var RemoveFailsManagedStorage = func(session *mgo.Session, dbPrefix string) blobstore.ManagedStorage {
+	rs := blobstore.NewGridFS(dbPrefix+ImagesDB, ImagesDB, session)
+	db := session.DB(dbPrefix + ImagesDB)
 	metadataDb := db.With(session)
 	return removeFailsManagedStorage{blobstore.NewManagedStorage(metadataDb, rs)}
 }

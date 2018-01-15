@@ -155,7 +155,8 @@ func (p *StatePool) openState(modelUUID string) (*State, error) {
 	session := p.systemState.session.Copy()
 	newSt, err := newState(
 		modelTag, p.systemState.controllerModelTag,
-		session, p.systemState.newPolicy, p.systemState.stateClock,
+		session, p.systemState.dbPrefix,
+		p.systemState.newPolicy, p.systemState.stateClock,
 		p.systemState.runTransactionObserver,
 	)
 	if err != nil {

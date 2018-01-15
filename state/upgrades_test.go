@@ -1304,7 +1304,7 @@ func (x bsonMById) Less(i, j int) bool {
 }
 
 func (s *upgradesSuite) TestSplitLogCollection(c *gc.C) {
-	db := s.state.MongoSession().DB(logsDB)
+	db := s.DB(logsDB)
 	oldLogs := db.C("logs")
 
 	uuids := []string{"fake-1", "fake-2", "fake-3"}
@@ -1376,7 +1376,7 @@ func (s *upgradesSuite) TestSplitLogCollection(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestSplitLogsIgnoresDupeRecordsAlreadyThere(c *gc.C) {
-	db := s.state.MongoSession().DB(logsDB)
+	db := s.DB(logsDB)
 	oldLogs := db.C("logs")
 
 	uuids := []string{"fake-1", "fake-2", "fake-3"}
@@ -1435,7 +1435,7 @@ func (s *upgradesSuite) TestSplitLogsIgnoresDupeRecordsAlreadyThere(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestSplitLogsHandlesNoLogsCollection(c *gc.C) {
-	db := s.state.MongoSession().DB(logsDB)
+	db := s.DB(logsDB)
 	names, err := db.CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(set.NewStrings(names...).Contains("logs"), jc.IsFalse)
@@ -1922,7 +1922,7 @@ func (s *upgradesSuite) TestMoveOldAuditLogNoRecords(c *gc.C) {
 	err = MoveOldAuditLog(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	db := s.state.MongoSession().DB("juju")
+	db := s.DB(logsDB)
 	names, err := db.CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)
@@ -1948,7 +1948,7 @@ func (s *upgradesSuite) TestMoveOldAuditLogRename(c *gc.C) {
 		expectUpgradedData{oldLog, data},
 	)
 
-	db := s.state.MongoSession().DB("juju")
+	db := s.DB("juju")
 	names, err := db.CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)

@@ -119,7 +119,7 @@ func (l *machineLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
 
 func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached, dbinitial state.Life, c *gc.C) {
 	collName, id := lfix.id()
-	coll := s.MgoSuite.Session.DB("juju").C(collName)
+	coll := s.DB("juju").C(collName)
 
 	err := coll.UpdateId(id, bson.D{{"$set", bson.D{
 		{"life", cached},

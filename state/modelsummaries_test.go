@@ -436,7 +436,7 @@ func (s *ModelSummariesSuite) TestModelsWithNoSettings(c *gc.C) {
 	c.Check(userSummary.Status.Message, gc.Equals, "stopping")
 
 	// Now we start tearing down some of the collections for this model, and see that it still shows up.
-	settings := s.Session.DB("juju").C("settings")
+	settings := s.DB("juju").C("settings")
 	// The settings document for this model
 	err = settings.Remove(bson.M{"_id": m2uuid + ":e"})
 	c.Assert(err, jc.ErrorIsNil)

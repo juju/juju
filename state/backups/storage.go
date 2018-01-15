@@ -536,6 +536,8 @@ type DB interface {
 	// MongoSession returns the underlying mongodb session.
 	MongoSession() *mgo.Session
 
+	DBPrefix() string
+
 	// ModelTag is the concrete model tag for this database.
 	ModelTag() names.ModelTag
 
@@ -553,7 +555,7 @@ type DB interface {
 // archives (and metadata).
 func NewStorage(st DB) filestorage.FileStorage {
 	modelUUID := st.ModelTag().Id()
-	db := st.MongoSession().DB(storageDBName)
+	db := st.MongoSession().DB(st.DBPrefix() + storageDBName)
 	dbWrap := newStorageDBWrapper(db, storageMetaName, modelUUID)
 	defer dbWrap.Close()
 

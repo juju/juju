@@ -449,6 +449,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
 		MongoSession:       s.Session,
+		DBPrefix:           s.State.DBPrefix(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
@@ -503,6 +504,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
 		MongoSession:       s.Session,
+		DBPrefix:           s.State.DBPrefix(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()

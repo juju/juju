@@ -60,6 +60,8 @@ type InitializeParams struct {
 	// for closing this session; Initialize will copy it.
 	MongoSession *mgo.Session
 
+	DBPrefix string
+
 	// AdminPassword holds the password for the initial user.
 	AdminPassword string
 }
@@ -111,7 +113,7 @@ func (p InitializeParams) Validate() error {
 
 // InitDatabaseFunc defines a function used to
 // create the collections and indices in a Juju database.
-type InitDatabaseFunc func(*mgo.Session, string, *controller.Config) error
+type InitDatabaseFunc func(s *mgo.Session, dbPrefix, modelUUID string, cfg *controller.Config) error
 
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for the initial controller model.
@@ -134,6 +136,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
 		MongoSession:       args.MongoSession,
+		DBPrefix:           args.DBPrefix,
 		NewPolicy:          args.NewPolicy,
 		InitDatabaseFunc:   InitDatabase,
 	})
@@ -253,12 +256,12 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 }
 
 // InitDatabase creates all the collections and indices in a Juju database.
-func InitDatabase(session *mgo.Session, modelUUID string, settings *controller.Config) error {
+func InitDatabase(session *mgo.Session, dbPrefix, modelUUID string, settings *controller.Config) error {
 	schema := allCollections()
-	if err := schema.Create(session.DB(jujuDB), settings); err != nil {
+	if err := schema.Create(session.DB(dbPrefix+jujuDB), settings); err != nil {
 		return errors.Trace(err)
 	}
-	if err := InitDbLogs(session, modelUUID); err != nil {
+	if err := InitDbLogs(session, dbPrefix, modelUUID); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

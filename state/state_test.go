@@ -2270,7 +2270,7 @@ func (s *StateSuite) TestWatchApplicationsDiesOnStateClose(c *gc.C) {
 	//     Application.WatchUnits
 	//     Application.WatchRelations
 	//     Machine.WatchContainers
-	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.State.DBPrefix(), s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchApplications()
 		<-w.Changes()
 		return w
@@ -2955,7 +2955,7 @@ func writeLogs(c *gc.C, st *state.State, n int) {
 }
 
 func assertLogCount(c *gc.C, st *state.State, expected int) {
-	logColl := st.MongoSession().DB("logs").C("logs." + st.ModelUUID())
+	logColl := st.MongoSession().DB(st.DBPrefix() + "logs").C("logs." + st.ModelUUID())
 	actual, err := logColl.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.Equals, expected)
@@ -3043,13 +3043,14 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(relation1, jc.DeepEquals, relation3)
 }
 
-func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, info *mongo.MongoInfo) error {
+func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, info *mongo.MongoInfo, dbPrefix string) error {
 	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
 	if err != nil {
 		return err
 	}
 	defer session.Close()
 	st, err := state.Open(state.OpenParams{
+		DBPrefix:           dbPrefix,
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
@@ -3064,17 +3065,17 @@ func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, in
 func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	info := statetesting.NewMongoInfo()
 	info.Tag, info.Password = names.NewUserTag("arble"), "bar"
-	err := tryOpenState(s.modelTag, s.State.ControllerTag(), info)
+	err := tryOpenState(s.modelTag, s.State.ControllerTag(), info, s.State.DBPrefix())
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "user-arble": unauthorized mongo access: .*`)
 
 	info.Tag, info.Password = names.NewUserTag("arble"), ""
-	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
+	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info, s.State.DBPrefix())
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "user-arble": unauthorized mongo access: .*`)
 
 	info.Tag, info.Password = nil, ""
-	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
+	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info, s.State.DBPrefix())
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -3315,7 +3316,7 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchCleanupsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.State.DBPrefix(), s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchCleanups()
 		<-w.Changes()
 		return w
@@ -3438,7 +3439,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.State.DBPrefix(), s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchMinUnits()
 		<-w.Changes()
 		return w
@@ -3465,7 +3466,7 @@ func (s *StateSuite) TestWatchSubnets(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchSubnetsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.State.DBPrefix(), s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchSubnets(nil)
 		<-w.Changes()
 		return w
@@ -3570,7 +3571,7 @@ func (s *StateSuite) TestWatchRemoteRelationsDestroyLocalApplication(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchRemoteRelationsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.State.DBPrefix(), s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchRemoteRelations()
 		<-w.Changes()
 		return w
@@ -3888,11 +3889,13 @@ type waiter interface {
 func testWatcherDiesWhenStateCloses(
 	c *gc.C,
 	session *mgo.Session,
+	dbPrefix string,
 	modelTag names.ModelTag,
 	controllerTag names.ControllerTag,
 	startWatcher func(c *gc.C, st *state.State) waiter,
 ) {
 	st, err := state.Open(state.OpenParams{
+		DBPrefix:           dbPrefix,
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
@@ -4597,7 +4600,7 @@ func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	}}}
 
 	// Delete the addresses for agents document before setting.
-	col := s.State.MongoSession().DB("juju").C(state.ControllersC)
+	col := s.DB("juju").C(state.ControllersC)
 	key := "apiHostPortsForAgents"
 	err = col.RemoveId(key)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4629,7 +4632,7 @@ func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Delete the addresses for agents document after setting.
-	col := s.State.MongoSession().DB("juju").C(state.ControllersC)
+	col := s.DB("juju").C(state.ControllersC)
 	key := "apiHostPortsForAgents"
 	err = col.RemoveId(key)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4840,7 +4843,7 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 		if call.ops[0].C != "constraints" {
 			continue
 		}
-		c.Check(call.dbName, gc.Equals, "juju")
+		c.Check(call.dbName, gc.Equals, st.DBPrefix()+"juju")
 		c.Check(call.modelUUID, gc.Equals, s.modelTag.Id())
 		c.Check(call.err, gc.IsNil)
 		c.Check(call.ops, gc.HasLen, 1)
@@ -4866,6 +4869,8 @@ func setAdminPassword(c *gc.C, inst *gitjujutesting.MgoInstance, owner names.Use
 }
 
 func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
+	// TODO (rogpeppe) fix this test so that it can work with a MongoDB shared between
+	// package tests - perhaps by factoring it out of the state package.
 	inst := &gitjujutesting.MgoInstance{EnableAuth: true}
 	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4931,7 +4936,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = tryOpenState(m.ModelTag(), st.ControllerTag(), noAuthInfo)
+	err = tryOpenState(m.ModelTag(), st.ControllerTag(), noAuthInfo, "")
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 	// note: collections are set up in arbitrary order, proximate cause of
 	// failure may differ.
@@ -4945,7 +4950,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	// creating users. There were some checks for unsetting the
 	// password and then creating the state in an older version of
 	// this test, but they couldn't be made to work with 3.2.
-	err = tryOpenState(m.ModelTag(), st.ControllerTag(), &passwordOnlyInfo)
+	err = tryOpenState(m.ModelTag(), st.ControllerTag(), &passwordOnlyInfo, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -5097,5 +5102,6 @@ func (s *StateSuite) testOpenParams() state.OpenParams {
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
 		MongoSession:       s.Session,
+		DBPrefix:           s.State.DBPrefix(),
 	}
 }
