@@ -57,6 +57,7 @@ func newMockState() *mockState {
 		remoteApplications:    make(map[string]*mockRemoteApplication),
 		applications:          make(map[string]*mockApplication),
 		remoteEntities:        make(map[names.Tag]string),
+		offers:                make(map[string]*crossmodel.ApplicationOffer),
 		offerConnections:      make(map[int]*mockOfferConnection),
 		offerConnectionsByKey: make(map[string]*mockOfferConnection),
 		firewallRules:         make(map[state.WellKnownServiceType]*state.FirewallRule),
@@ -70,6 +71,15 @@ func (st *mockState) ApplicationOfferForUUID(offerUUID string) (*crossmodel.Appl
 		return nil, errors.NotFoundf("offer %v", offerUUID)
 	}
 	return offer, nil
+}
+
+func (st *mockState) ApplicationOffer(offerName string) (*crossmodel.ApplicationOffer, error) {
+	for _, offer := range st.offers {
+		if offer.OfferName == offerName {
+			return offer, nil
+		}
+	}
+	return nil, errors.NotFoundf("offer %v", offerName)
 }
 
 func (st *mockState) ModelUUID() string {
@@ -266,6 +276,20 @@ func (w *mockRelationStatusWatcher) Changes() <-chan []string {
 	return w.changes
 }
 
+type mockOfferStatusWatcher struct {
+	*mockWatcher
+	offerUUID string
+	changes   chan struct{}
+}
+
+func (w *mockOfferStatusWatcher) Changes() <-chan struct{} {
+	return w.changes
+}
+
+func (w *mockOfferStatusWatcher) OfferUUID() string {
+	return w.offerUUID
+}
+
 type mockModel struct {
 }
 
@@ -280,9 +304,13 @@ func (m *mockModel) Owner() names.UserTag {
 type mockRelation struct {
 	commoncrossmodel.Relation
 	testing.Stub
-	id    int
-	key   string
-	units map[string]commoncrossmodel.RelationUnit
+	id              int
+	key             string
+	suspended       bool
+	suspendedReason string
+	status          status.Status
+	message         string
+	units           map[string]commoncrossmodel.RelationUnit
 }
 
 func newMockRelation(id int) *mockRelation {
@@ -311,8 +339,28 @@ func (r *mockRelation) Life() state.Life {
 	return state.Alive
 }
 
-func (r *mockRelation) Status() (status.StatusInfo, error) {
-	return status.StatusInfo{Status: status.Suspended}, nil
+func (r *mockRelation) SetStatus(statusInfo status.StatusInfo) error {
+	r.MethodCall(r, "SetStatus")
+	r.status = statusInfo.Status
+	r.message = statusInfo.Message
+	return nil
+}
+
+func (r *mockRelation) SetSuspended(suspended bool, reason string) error {
+	r.MethodCall(r, "SetSuspended")
+	r.suspended = suspended
+	r.suspendedReason = reason
+	return nil
+}
+
+func (r *mockRelation) Suspended() bool {
+	r.MethodCall(r, "Suspended")
+	return r.suspended
+}
+
+func (r *mockRelation) SuspendedReason() string {
+	r.MethodCall(r, "SuspendedReason")
+	return r.suspendedReason
 }
 
 func (r *mockRelation) RemoteUnit(unitId string) (commoncrossmodel.RelationUnit, error) {
@@ -376,6 +424,11 @@ func (a *mockApplication) Endpoints() ([]state.Endpoint, error) {
 func (a *mockApplication) Life() state.Life {
 	a.MethodCall(a, "Life")
 	return a.life
+}
+
+func (a *mockApplication) Status() (status.StatusInfo, error) {
+	a.MethodCall(a, "Status")
+	return status.StatusInfo{}, nil
 }
 
 type mockOfferConnection struct {

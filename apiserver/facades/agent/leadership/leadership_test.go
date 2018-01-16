@@ -10,6 +10,7 @@ network parameters.
 */
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -37,7 +38,7 @@ const (
 
 type stubClaimer struct {
 	ClaimLeadershipFn              func(sid, uid string, duration time.Duration) error
-	BlockUntilLeadershipReleasedFn func(serviceId string) error
+	BlockUntilLeadershipReleasedFn func(serviceId string, cancel <-chan struct{}) error
 }
 
 func (m *stubClaimer) ClaimLeadership(sid, uid string, duration time.Duration) error {
@@ -47,9 +48,9 @@ func (m *stubClaimer) ClaimLeadership(sid, uid string, duration time.Duration) e
 	return nil
 }
 
-func (m *stubClaimer) BlockUntilLeadershipReleased(serviceId string) error {
+func (m *stubClaimer) BlockUntilLeadershipReleased(serviceId string, cancel <-chan struct{}) error {
 	if m.BlockUntilLeadershipReleasedFn != nil {
-		return m.BlockUntilLeadershipReleasedFn(serviceId)
+		return m.BlockUntilLeadershipReleasedFn(serviceId, cancel)
 	}
 	return nil
 }
@@ -214,17 +215,41 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
 
 func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	claimer := &stubClaimer{
-		BlockUntilLeadershipReleasedFn: func(sid string) error {
+		BlockUntilLeadershipReleasedFn: func(sid string, cancel <-chan struct{}) error {
 			c.Check(sid, gc.Equals, StubServiceNm)
 			return nil
 		},
 	}
 
 	ldrSvc := newLeadershipService(c, claimer, nil)
-	result, err := ldrSvc.BlockUntilLeadershipReleased(names.NewApplicationTag(StubServiceNm))
+	result, err := ldrSvc.BlockUntilLeadershipReleased(
+		context.Background(),
+		names.NewApplicationTag(StubServiceNm),
+	)
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result.Error, gc.IsNil)
+}
+
+func (s *leadershipSuite) TestBlockUntilLeadershipReleasedContext(c *gc.C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	claimer := &stubClaimer{
+		BlockUntilLeadershipReleasedFn: func(sid string, cancel <-chan struct{}) error {
+			c.Check(sid, gc.Equals, StubServiceNm)
+			c.Check(cancel, gc.Equals, ctx.Done())
+			return coreleadership.ErrBlockCancelled
+		},
+	}
+
+	ldrSvc := newLeadershipService(c, claimer, nil)
+	result, err := ldrSvc.BlockUntilLeadershipReleased(
+		ctx,
+		names.NewApplicationTag(StubServiceNm),
+	)
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result.Error, gc.ErrorMatches, "waiting for leadership cancelled by client")
 }
 
 func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *gc.C) {

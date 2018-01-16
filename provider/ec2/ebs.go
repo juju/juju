@@ -5,6 +5,7 @@ package ec2
 
 import (
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -49,6 +50,8 @@ const (
 	volumeTypeIO1             = "io1"
 
 	rootDiskDeviceName = "/dev/sda1"
+
+	nvmeDeviceLinkPrefix = "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_"
 
 	// defaultControllerDiskSizeMiB is the default size for the
 	// root disk of controller machines, if no root-disk constraint
@@ -652,25 +655,30 @@ func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 
 // AttachVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
-	// We need the virtualisation types for each instance we are
-	// attaching to so we can determine the device name.
+	// We need the instance type for each instance we are
+	// attaching to so we can determine how to identify the
+	// volume attachment
 	instIds := set.NewStrings()
 	for _, p := range attachParams {
 		instIds.Add(string(p.InstanceId))
 	}
 	instances := make(instanceCache)
-	if instIds.Size() > 1 {
-		if err := instances.update(v.env.ec2, instIds.Values()...); err != nil {
-			logger.Debugf("querying running instances: %v", err)
-			// We ignore the error, because we don't want an invalid
-			// InstanceId reference from one VolumeParams to prevent
-			// the creation of another volume.
-		}
+	if err := instances.update(v.env.ec2, instIds.Values()...); err != nil {
+		logger.Debugf("querying running instances: %v", err)
+		// We ignore the error, because we don't want an invalid
+		// InstanceId reference from one VolumeParams to prevent
+		// the creation of another volume.
 	}
 
 	results := make([]storage.AttachVolumesResult, len(attachParams))
 	for i, params := range attachParams {
 		instId := string(params.InstanceId)
+		inst, err := instances.get(instId)
+		if err != nil {
+			results[i].Error = err
+			continue
+		}
+
 		// By default we should allocate device names without the
 		// trailing number. Block devices with a trailing number are
 		// not liked by some applications, e.g. Ceph, which want full
@@ -686,12 +694,33 @@ func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 			results[i].Error = err
 			continue
 		}
+
+		var attachmentInfo storage.VolumeAttachmentInfo
+		if strings.HasPrefix(inst.InstanceType, "c5.") || strings.HasPrefix(inst.InstanceType, "m5.") {
+			// The newer hypervisor attaches EBS volumes
+			// as NVMe devices, and the block device names
+			// are unpredictable from here.
+			//
+			// Instead of using device name, we fill in
+			// the device link, based on the statically
+			// defined model name ("Amazon Elastic Block Store",
+			// and serial (vol123456abcdef...); the serial
+			// is the same as the volume ID without the "-".
+			//
+			// NOTE(axw) inst.Hypervisor still says "xen" for
+			// m5 and c5 instance types, which would seem to
+			// be a lie. This is why we check the prefix,
+			// rather than the hypervisor name.
+			sn := strings.Replace(params.VolumeId, "-", "", 1)
+			attachmentInfo.DeviceLink = nvmeDeviceLinkPrefix + sn
+		} else {
+			attachmentInfo.DeviceName = deviceName
+		}
+
 		results[i].VolumeAttachment = &storage.VolumeAttachment{
 			params.Volume,
 			params.Machine,
-			storage.VolumeAttachmentInfo{
-				DeviceName: deviceName,
-			},
+			attachmentInfo,
 		}
 	}
 	return results, nil

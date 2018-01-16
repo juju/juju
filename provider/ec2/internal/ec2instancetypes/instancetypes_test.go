@@ -30,7 +30,6 @@ func (s *InstanceTypesSuite) TestRegionInstanceTypes(c *gc.C) {
 		"g2.2xlarge",
 		"m2.xlarge", "m2.2xlarge", "m2.4xlarge", "cr1.8xlarge",
 		"r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge",
-		"hi1.4xlarge",
 		"i2.xlarge", "i2.2xlarge", "i2.8xlarge", "hs1.8xlarge",
 		"t1.micro",
 		"t2.micro", "t2.small", "t2.medium",
@@ -70,9 +69,15 @@ func (s *InstanceTypesSuite) TestRegionInstanceTypesAvailability(c *gc.C) {
 		usEast1InstanceTypes.Difference(usWest1InstanceTypes).SortedValues(),
 		jc.DeepEquals,
 		[]string{
-			"cc2.8xlarge", "cg1.4xlarge", "cr1.8xlarge", "hi1.4xlarge",
-			"hs1.8xlarge", "p2.16xlarge", "p2.8xlarge", "p2.xlarge",
-			"x1.16xlarge", "x1.32xlarge",
+			"c5.18xlarge", "c5.2xlarge", "c5.4xlarge", "c5.9xlarge",
+			"c5.large", "c5.xlarge", "cc2.8xlarge", "cg1.4xlarge",
+			"cr1.8xlarge", "f1.16xlarge", "f1.2xlarge",
+			"h1.16xlarge", "h1.2xlarge", "h1.4xlarge", "h1.8xlarge",
+			"hs1.8xlarge", "m5.12xlarge", "m5.24xlarge", "m5.2xlarge",
+			"m5.4xlarge", "m5.large", "m5.xlarge",
+			"p2.16xlarge", "p2.8xlarge", "p2.xlarge", "p3.16xlarge",
+			"p3.2xlarge", "p3.8xlarge", "x1.16xlarge", "x1.32xlarge",
+			"x1e.32xlarge", "x1e.xlarge",
 		},
 	)
 }

@@ -43,8 +43,11 @@ type ModelManagerV4 interface {
 	CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error)
 	DumpModels(args params.DumpModelRequest) params.StringResults
 	DumpModelsDB(args params.Entities) params.MapResults
+	ListModelSummaries(request params.ModelSummariesRequest) (params.ModelSummaryResults, error)
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.DestroyModelsParams) (params.ErrorResults, error)
+	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
+	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
 // ModelManagerV3 defines the methods on the version 2 facade for the
@@ -55,6 +58,8 @@ type ModelManagerV3 interface {
 	DumpModelsDB(args params.Entities) params.MapResults
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.Entities) (params.ErrorResults, error)
+	ModelInfo(args params.Entities) (params.ModelInfoResults, error)
+	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
 // ModelManagerV2 defines the methods on the version 2 facade for the
@@ -65,6 +70,7 @@ type ModelManagerV2 interface {
 	DumpModelsDB(args params.Entities) params.MapResults
 	ListModels(user params.Entity) (params.UserModelList, error)
 	DestroyModels(args params.Entities) (params.ErrorResults, error)
+	ModelStatus(req params.Entities) (params.ModelStatusResults, error)
 }
 
 // ModelManagerAPI implements the model manager interface and is
@@ -78,6 +84,7 @@ type ModelManagerAPI struct {
 	toolsFinder *common.ToolsFinder
 	apiUser     names.UserTag
 	isAdmin     bool
+	model       common.Model
 }
 
 // ModelManagerAPIV2 provides a way to wrap the different calls between
@@ -104,13 +111,26 @@ func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 	pool := ctx.StatePool()
 	ctlrSt := pool.SystemState()
 	auth := ctx.Auth()
-	configGetter := stateenvirons.EnvironConfigGetter{st}
+
+	var err error
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	configGetter := stateenvirons.EnvironConfigGetter{st, model}
+
+	ctrlModel, err := ctlrSt.Model()
+	if err != nil {
+		return nil, err
+	}
 
 	return NewModelManagerAPI(
-		common.NewModelManagerBackend(st, pool),
-		common.NewModelManagerBackend(ctlrSt, pool),
+		common.NewModelManagerBackend(model, pool),
+		common.NewModelManagerBackend(ctrlModel, pool),
 		configGetter,
 		auth,
+		model,
 	)
 }
 
@@ -139,6 +159,7 @@ func NewModelManagerAPI(
 	ctlrSt common.ModelManagerBackend,
 	configGetter environs.EnvironConfigGetter,
 	authorizer facade.Authorizer,
+	m common.Model,
 ) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -162,6 +183,7 @@ func NewModelManagerAPI(
 		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
 		apiUser:        apiUser,
 		isAdmin:        isAdmin,
+		model:          m,
 	}, nil
 }
 
@@ -485,6 +507,13 @@ func (m *ModelManagerAPI) newIAASModel(
 	}
 	defer st.Close()
 
+	if err = model.AutoConfigureContainerNetworking(env); err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing container networking autoconfiguration on a non-networking environment")
+		} else {
+			return nil, errors.Annotate(err, "Failed to perform container networking autoconfiguration")
+		}
+	}
 	if err = st.ReloadSpaces(env); err != nil {
 		if errors.IsNotSupported(err) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
@@ -647,9 +676,91 @@ func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 	return results
 }
 
+// ListModelSummaries returns models that the specified user
+// has access to in the current server.  Controller admins (superuser)
+// can list models for any user.  Other users
+// can only ask about their own models.
+func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (params.ModelSummaryResults, error) {
+	result := params.ModelSummaryResults{}
+
+	userTag, err := names.ParseUserTag(req.UserTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	err = m.authCheck(userTag)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	modelInfos, err := m.state.ModelSummariesForUser(userTag, req.All)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	for _, mi := range modelInfos {
+		summary := &params.ModelSummary{
+			Name:           mi.Name,
+			UUID:           mi.UUID,
+			OwnerTag:       names.NewUserTag(mi.Owner).String(),
+			ControllerUUID: mi.ControllerUUID,
+			Life:           params.Life(mi.Life.String()),
+
+			CloudTag:           mi.CloudTag,
+			CloudRegion:        mi.CloudRegion,
+			CloudCredentialTag: mi.CloudCredentialTag,
+
+			SLA: &params.ModelSLAInfo{
+				Level: mi.SLALevel,
+				Owner: mi.Owner,
+			},
+
+			DefaultSeries: mi.DefaultSeries,
+			ProviderType:  mi.ProviderType,
+			AgentVersion:  mi.AgentVersion,
+
+			Status:             common.EntityStatusFromState(mi.Status),
+			Counts:             []params.ModelEntityCount{},
+			UserLastConnection: mi.UserLastConnection,
+		}
+
+		if mi.MachineCount > 0 {
+			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, mi.MachineCount})
+		}
+
+		if mi.CoreCount > 0 {
+			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, mi.CoreCount})
+		}
+
+		access, err := common.StateToParamsUserAccessPermission(mi.Access)
+		if err == nil {
+			summary.UserAccess = access
+		}
+		if mi.Migration != nil {
+			migration := mi.Migration
+			startTime := migration.StartTime()
+			endTime := new(time.Time)
+			*endTime = migration.EndTime()
+			var zero time.Time
+			if *endTime == zero {
+				endTime = nil
+			}
+
+			summary.Migration = &params.ModelMigrationStatus{
+				Status: migration.StatusMessage(),
+				Start:  &startTime,
+				End:    endTime,
+			}
+		}
+
+		result.Results = append(result.Results, params.ModelSummaryResult{Result: summary})
+	}
+	return result, nil
+}
+
 // ListModels returns the models that the specified user
-// has access to in the current server.  Only that controller owner
-// can list models for any user (at this stage).  Other users
+// has access to in the current server.  Controller admins (superuser)
+// can list models for any user.  Other users
 // can only ask about their own models.
 func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, error) {
 	result := params.UserModelList{}
@@ -664,45 +775,26 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := m.state.ModelUUIDsForUser(userTag)
+	modelInfos, err := m.state.ModelBasicInfoForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, modelUUID := range modelUUIDs {
-		st, release, err := m.state.GetBackend(modelUUID)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		defer release()
-
-		model, err := st.Model()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-
-		var lastConn *time.Time
-		userLastConn, err := model.LastModelConnection(userTag)
-		if err != nil {
-			if !state.IsNeverConnectedError(err) {
-				return result, errors.Trace(err)
-			}
+	for _, mi := range modelInfos {
+		var ownerTag names.UserTag
+		if names.IsValidUser(mi.Owner) {
+			ownerTag = names.NewUserTag(mi.Owner)
 		} else {
-			lastConn = &userLastConn
+			// no reason to fail the request here, as it wasn't the users fault
+			logger.Warningf("for model %v, got an invalid owner: %q", mi.UUID, mi.Owner)
 		}
-
-		model, err = st.Model()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
-				Name:     model.Name(),
-				UUID:     model.UUID(),
-				OwnerTag: model.Owner().String(),
+				Name:     mi.Name,
+				UUID:     mi.UUID,
+				OwnerTag: ownerTag.String(),
 			},
-			LastConnection: lastConn,
+			LastConnection: &mi.LastConnection,
 		})
 	}
 
@@ -736,20 +828,19 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 	}
 
 	destroyModel := func(modelUUID string, destroyStorage *bool) error {
-		model, releaseModel, err := m.state.GetModel(modelUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer releaseModel()
-		if err := m.authCheck(model.Owner()); err != nil {
-			return errors.Trace(err)
-		}
-
 		st, releaseSt, err := m.state.GetBackend(modelUUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		defer releaseSt()
+
+		model, err := st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := m.authCheck(model.Owner()); err != nil {
+			return errors.Trace(err)
+		}
 
 		return errors.Trace(common.DestroyModel(st, destroyStorage))
 	}
@@ -1084,7 +1175,7 @@ func (m *ModelManagerAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
 		return result, common.ErrPerm
 	}
 
-	values, err := m.state.ModelConfigDefaultValues()
+	values, err := m.model.ModelConfigDefaultValues()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -1184,4 +1275,34 @@ func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environs.RegionSp
 		return nil, errors.Trace(err)
 	}
 	return rspec, nil
+}
+
+// ModelStatus is a legacy method call to ensure that we preserve
+// backward compatibility.
+// TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
+func (s *ModelManagerAPIV2) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	return s.ModelManagerAPI.oldModelStatus(req)
+}
+
+// ModelStatus is a legacy method call to ensure that we preserve
+// backward compatibility.
+// TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
+func (s *ModelManagerAPIV3) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	return s.ModelManagerAPI.oldModelStatus(req)
+}
+
+// ModelStatus is a legacy method call to ensure that we preserve
+// backward compatibility.
+// TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
+func (s *ModelManagerAPI) oldModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	results, err := s.ModelStatusAPI.ModelStatus(req)
+	if err != nil {
+		return params.ModelStatusResults{}, err
+	}
+	for _, r := range results.Results {
+		if r.Error != nil {
+			return params.ModelStatusResults{Results: make([]params.ModelStatus, len(req.Entities))}, errors.Trace(r.Error)
+		}
+	}
+	return results, nil
 }

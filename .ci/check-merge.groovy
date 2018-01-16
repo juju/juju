@@ -64,7 +64,7 @@ node('juju-core-slave-b') {
 
                 sh(script: "${scripts_dir}/clean_lxd.py")
 
-                withEnv(["PATH+GO=/usr/lib/go-1.8/bin/"]) {
+                withEnv(["PATH+GO=/snap/go/current/bin/"]) {
                     retcode = sh(
                         script: "${release_scripts}/make-pr-tarball.bash ${env.CHANGE_ID}",
                         returnStatus: true)
@@ -109,7 +109,7 @@ node('juju-core-slave-b') {
                         withEnv(["JUJU_HOME=${cloud_city}"]){
                             sh("""
                             . $JUJU_HOME/juju-qa.jujuci && . $JUJU_HOME/ec2rc >2 /dev/null && \\
-                            ${scripts_dir}/run-unit-tests c4.4xlarge $xenial_ami --local "$tarfile" --use-tmpfs --use-ppa ppa:juju/golang --force-archive
+                            ${scripts_dir}/run-unit-tests c4.4xlarge $xenial_ami --local "$tarfile" --use-tmpfs --force-archive
                             """)
                         }
                     } catch(e) {

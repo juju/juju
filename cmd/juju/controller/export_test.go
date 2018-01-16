@@ -97,6 +97,7 @@ func NewEnableDestroyControllerCommandForTest(api removeBlocksAPI, store jujucli
 func NewDestroyCommandForTest(
 	api destroyControllerAPI,
 	clientapi destroyClientAPI,
+	storageAPI storageAPI,
 	store jujuclient.ClientStore,
 	apierr error,
 ) cmd.Command {
@@ -106,6 +107,7 @@ func NewDestroyCommandForTest(
 			clientapi: clientapi,
 			apierr:    apierr,
 		},
+		storageAPI: storageAPI,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(
@@ -173,3 +175,7 @@ func FmtModelStatus(data ModelData) string {
 func NewData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, error) {
 	return newData(api, ctrUUID)
 }
+
+var (
+	NoModelsMessage = noModelsMessage
+)

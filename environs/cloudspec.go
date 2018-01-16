@@ -36,6 +36,12 @@ type CloudSpec struct {
 	// with the cloud, or nil if the cloud does not require any
 	// credentials.
 	Credential *jujucloud.Credential
+
+	// CACertificates contains an optional list of Certificate
+	// Authority certificates to be used to validate certificates
+	// of cloud infrastructure components
+	// The contents are Base64 encoded x.509 certs.
+	CACertificates []string
 }
 
 // Validate validates that the CloudSpec is well-formed. It does
@@ -60,6 +66,7 @@ func MakeCloudSpec(cloud jujucloud.Cloud, cloudRegionName string, credential *ju
 		Endpoint:         cloud.Endpoint,
 		IdentityEndpoint: cloud.IdentityEndpoint,
 		StorageEndpoint:  cloud.StorageEndpoint,
+		CACertificates:   cloud.CACertificates,
 		Credential:       credential,
 	}
 	if cloudRegionName != "" {

@@ -97,7 +97,27 @@ func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 		AvailabilityZones: []string{"a-zone", "b-zone"},
 		VLANTag:           0,
 		SpaceProviderId:   "",
+	}, {
+		ProviderId:        "legacy",
+		ProviderNetworkId: "legacy",
+		CIDR:              "10.240.0.0/16",
+		AvailabilityZones: []string{"a-zone", "b-zone"},
+		VLANTag:           0,
+		SpaceProviderId:   "",
 	}})
+}
+
+func (s *environNetSuite) TestSuperSubnets(c *gc.C) {
+	s.cannedData()
+
+	subnets, err := s.NetEnv.SuperSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(subnets, gc.DeepEquals, []string{
+		"10.0.10.0/24",
+		"10.0.20.0/24",
+		"10.240.0.0/16",
+	})
 }
 
 func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {

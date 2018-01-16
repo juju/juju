@@ -81,3 +81,11 @@ func (e *ModelWatcher) UpdateStatusHookInterval() (time.Duration, error) {
 	}
 	return modelConfig.UpdateStatusHookInterval(), nil
 }
+
+// WatchUpdateStatusHookInterval returns a NotifyWatcher that fires when the
+// update status hook interval changes.
+func (e *ModelWatcher) WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error) {
+	// TODO(wallyworld) - lp:1602237 - this needs to have it's own backend implementation.
+	// For now, we'll piggyback off the ModelConfig API.
+	return e.WatchForModelConfigChanges()
+}

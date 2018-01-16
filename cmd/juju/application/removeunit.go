@@ -6,6 +6,7 @@ package application
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
@@ -21,7 +22,8 @@ func NewRemoveUnitCommand() modelcmd.ModelCommand {
 // removeUnitCommand is responsible for destroying application units.
 type removeUnitCommand struct {
 	modelcmd.ModelCommandBase
-	UnitNames []string
+	DestroyStorage bool
+	UnitNames      []string
 }
 
 const removeUnitDoc = `
@@ -54,6 +56,11 @@ func (c *removeUnitCommand) Info() *cmd.Info {
 		Purpose: "Remove application units from the model.",
 		Doc:     removeUnitDoc,
 	}
+}
+
+func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to the unit")
 }
 
 func (c *removeUnitCommand) Init(args []string) error {
@@ -90,6 +97,9 @@ func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
 	if apiVersion < 4 {
 		return c.removeUnitsDeprecated(ctx, client)
 	}
+	if c.DestroyStorage && apiVersion < 5 {
+		return errors.New("--destroy-storage is not supported by this controller")
+	}
 	return c.removeUnits(ctx, client)
 }
 
@@ -101,7 +111,10 @@ func (c *removeUnitCommand) removeUnitsDeprecated(ctx *cmd.Context, client remov
 }
 
 func (c *removeUnitCommand) removeUnits(ctx *cmd.Context, client removeApplicationAPI) error {
-	results, err := client.DestroyUnits(c.UnitNames...)
+	results, err := client.DestroyUnits(application.DestroyUnitsParams{
+		Units:          c.UnitNames,
+		DestroyStorage: c.DestroyStorage,
+	})
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockRemove)
 	}

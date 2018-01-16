@@ -70,7 +70,6 @@ func (s *FirewallRulesSuite) TestSetFirewallRules(c *gc.C) {
 		Args: []params.FirewallRule{{
 			KnownService:   "juju-controller",
 			WhitelistCIDRS: []string{"1.2.3.4/8"},
-			BlacklistCIDRS: []string{"4.3.2.1/8"},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,7 +77,6 @@ func (s *FirewallRulesSuite) TestSetFirewallRules(c *gc.C) {
 	c.Assert(s.backend.rules["juju-controller"], jc.DeepEquals, state.FirewallRule{
 		WellKnownService: state.JujuControllerRule,
 		WhitelistCIDRs:   []string{"1.2.3.4/8"},
-		BlacklistCIDRs:   []string{"4.3.2.1/8"},
 	})
 }
 
@@ -88,7 +86,6 @@ func (s *FirewallRulesSuite) TestSetFirewallRulesPermission(c *gc.C) {
 		Args: []params.FirewallRule{{
 			KnownService:   "juju-controller",
 			WhitelistCIDRS: []string{"1.2.3.4/8"},
-			BlacklistCIDRS: []string{"4.3.2.1/8"},
 		}},
 	})
 	c.Assert(err, gc.ErrorMatches, ".*permission denied.*")
@@ -101,7 +98,6 @@ func (s *FirewallRulesSuite) TestSetFirewallRulesBlocked(c *gc.C) {
 		Args: []params.FirewallRule{{
 			KnownService:   "juju-controller",
 			WhitelistCIDRS: []string{"1.2.3.4/8"},
-			BlacklistCIDRS: []string{"4.3.2.1/8"},
 		}},
 	})
 	c.Assert(err, gc.ErrorMatches, "blocked")
@@ -116,7 +112,6 @@ func (s *FirewallRulesSuite) TestListFirewallRules(c *gc.C) {
 		Rules: []params.FirewallRule{{
 			KnownService:   params.JujuApplicationOfferRule,
 			WhitelistCIDRS: []string{"1.2.3.4/8"},
-			BlacklistCIDRS: []string{"4.3.2.1/8"},
 		}}})
 }
 

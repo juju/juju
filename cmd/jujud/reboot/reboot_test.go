@@ -77,11 +77,11 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 		Paths:             agent.Paths{DataDir: c.MkDir()},
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: jujuversion.Current,
-		StateAddresses:    []string{s.mgoInst.Addr()},
+		APIAddresses:      []string{"localhost:17070"},
 		CACert:            coretesting.CACert,
 		Password:          "fake",
 		Controller:        s.State.ControllerTag(),
-		Model:             s.State.ModelTag(),
+		Model:             s.IAASModel.ModelTag(),
 		MongoVersion:      mongo.Mongo24,
 	}
 	s.st, _ = s.OpenAPIAsNewMachine(c)

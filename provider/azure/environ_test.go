@@ -18,6 +18,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
 	"github.com/Azure/azure-sdk-for-go/arm/storage"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -721,10 +722,6 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	s.retryClock.CheckCalls(c, expectedCalls)
 }
 
-func (s *environSuite) TestStartInstanceDistributionGroup(c *gc.C) {
-	c.Skip("TODO: test StartInstance's DistributionGroup behaviour")
-}
-
 func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	env := s.openEnviron(c)
 	unitsDeployed := "mysql/0 wordpress/0"
@@ -1203,6 +1200,29 @@ func (s *environSuite) TestStopInstancesNotFound(c *gc.C) {
 	))
 	s.sender = azuretesting.Senders{sender0, sender1}
 	err := env.StopInstances("a", "b")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environSuite) TestStopInstancesResourceGroupNotFound(c *gc.C) {
+	// skip storage, so we get to deleting security rules
+	s.PatchValue(&s.storageAccountKeys.Keys, nil)
+	env := s.openEnviron(c)
+
+	nsgSender := s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", makeSecurityGroup())
+	nsgSender.SetError(autorest.NewErrorWithError(errors.New("autorest/azure: Service returned an error."), "network.SecurityGroupsClient", "Get", &http.Response{StatusCode: http.StatusNotFound}, "Failure responding to request"))
+
+	s.sender = azuretesting.Senders{
+		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
+		s.storageAccountSender(),
+		s.storageAccountKeysSender(),
+		s.networkInterfacesSender(),                       // GET: no NICs
+		s.publicIPAddressesSender(),                       // GET: no public IPs
+		s.makeSender(".*/virtualMachines/machine-0", nil), // DELETE
+		s.makeSender(".*/disks/machine-0", nil),           // DELETE
+		nsgSender, // GET with failure
+		s.makeSender(".*/deployments/machine-0", nil), // DELETE
+	}
+	err := env.StopInstances("machine-0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

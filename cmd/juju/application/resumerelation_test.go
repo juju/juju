@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/core/relation"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -23,7 +22,7 @@ type ResumeRelationSuite struct {
 func (s *ResumeRelationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mockAPI = &mockResumeAPI{Stub: &testing.Stub{}, version: 6}
-	s.mockAPI.resumeRelationFunc = func(relationId int, status relation.Status) error {
+	s.mockAPI.setRelationSuspendedFunc = func(relationIds []int, suspended bool, message string) error {
 		return s.mockAPI.NextErr()
 	}
 }
@@ -35,18 +34,14 @@ func (s *ResumeRelationSuite) runResumeRelation(c *gc.C, args ...string) error {
 	return err
 }
 
-func (s *ResumeRelationSuite) TestResumeRelationWrongNumberOfArguments(c *gc.C) {
+func (s *ResumeRelationSuite) TestResumeRelationInvalidArguments(c *gc.C) {
 	// No arguments
 	err := s.runResumeRelation(c)
-	c.Assert(err, gc.ErrorMatches, "no relation id specified")
+	c.Assert(err, gc.ErrorMatches, "no relation ids specified")
 
-	// 1 argument not an integer
+	// argument not an integer
 	err = s.runResumeRelation(c, "application1")
 	c.Assert(err, gc.ErrorMatches, `relation ID "application1" not valid`)
-
-	// More than 2 arguments
-	err = s.runResumeRelation(c, "123", "extra")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *ResumeRelationSuite) TestResumeRelationIdOldServer(c *gc.C) {
@@ -59,16 +54,16 @@ func (s *ResumeRelationSuite) TestResumeRelationIdOldServer(c *gc.C) {
 func (s *ResumeRelationSuite) TestResumeRelationSuccess(c *gc.C) {
 	err := s.runResumeRelation(c, "123")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCall(c, 0, "SetRelationStatus", 123, relation.Joined)
+	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", []int{123}, false, "")
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 func (s *ResumeRelationSuite) TestResumeRelationFail(c *gc.C) {
 	msg := "fail resume-relation at API"
 	s.mockAPI.SetErrors(errors.New(msg))
-	err := s.runResumeRelation(c, "123")
+	err := s.runResumeRelation(c, "123", "456")
 	c.Assert(err, gc.ErrorMatches, msg)
-	s.mockAPI.CheckCall(c, 0, "SetRelationStatus", 123, relation.Joined)
+	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", []int{123, 456}, false, "")
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -76,14 +71,14 @@ func (s *ResumeRelationSuite) TestResumeRelationBlocked(c *gc.C) {
 	s.mockAPI.SetErrors(common.OperationBlockedError("TestResumeRelationBlocked"))
 	err := s.runResumeRelation(c, "123")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestResumeRelationBlocked.*")
-	s.mockAPI.CheckCall(c, 0, "SetRelationStatus", 123, relation.Joined)
+	s.mockAPI.CheckCall(c, 0, "SetRelationSuspended", []int{123}, false, "")
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 type mockResumeAPI struct {
 	*testing.Stub
-	version            int
-	resumeRelationFunc func(relationId int, status relation.Status) error
+	version                  int
+	setRelationSuspendedFunc func(relationIds []int, suspended bool, message string) error
 }
 
 func (s mockResumeAPI) Close() error {
@@ -91,9 +86,9 @@ func (s mockResumeAPI) Close() error {
 	return s.NextErr()
 }
 
-func (s mockResumeAPI) SetRelationStatus(relationId int, status relation.Status) error {
-	s.MethodCall(s, "SetRelationStatus", relationId, status)
-	return s.resumeRelationFunc(relationId, status)
+func (s mockResumeAPI) SetRelationSuspended(relationIds []int, suspended bool, message string) error {
+	s.MethodCall(s, "SetRelationSuspended", relationIds, suspended, message)
+	return s.setRelationSuspendedFunc(relationIds, suspended, message)
 }
 
 func (s mockResumeAPI) BestAPIVersion() int {

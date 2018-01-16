@@ -364,7 +364,7 @@ func (a *StorageAPI) AddUnitStorage(
 			continue
 		}
 
-		err = a.st.AddStorageForUnit(u, one.StorageName, oneCons)
+		_, err = a.st.AddStorageForUnit(u, one.StorageName, oneCons)
 		if err != nil {
 			result[i] = storageErr(err, one.StorageName, one.UnitTag)
 		}

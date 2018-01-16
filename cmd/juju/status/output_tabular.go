@@ -13,8 +13,8 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/hooks"
 
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/output"
@@ -76,7 +76,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
 			app := fs.RemoteApplications[appName]
 			var store, urlPath string
-			url, err := crossmodel.ParseApplicationURL(app.ApplicationURL)
+			url, err := crossmodel.ParseOfferURL(app.OfferURL)
 			if err == nil {
 				store = url.Source
 				url.Source = ""
@@ -86,11 +86,13 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 				}
 			} else {
 				// This is not expected.
-				logger.Errorf("invalid application URL %q: %v", app.ApplicationURL, err)
+				logger.Errorf("invalid offer URL %q: %v", app.OfferURL, err)
 				store = "unknown"
-				urlPath = app.ApplicationURL
+				urlPath = app.OfferURL
 			}
-			p(appName, app.StatusInfo.Current, store, urlPath)
+			w.Print(appName)
+			w.PrintStatus(app.StatusInfo.Current)
+			p(store, urlPath)
 		}
 		tw.Flush()
 	}
@@ -133,6 +135,8 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		}
 	}
 
+	const caasModelType = "caas"
+
 	pUnit := func(name string, u unitStatus, level int) {
 		message := u.WorkloadStatusInfo.Message
 		agentDoing := agentDoing(u.JujuStatusInfo)
@@ -143,6 +147,17 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 			name += "*"
 		}
 		w.Print(indent("", level*2, name))
+		if fs.Model.Type == caasModelType {
+			// TODO(caas)
+			//w.PrintStatus(u.JujuStatusInfo.Current)
+			p(
+				"<todo>",
+				u.Address,
+				strings.Join(u.OpenedPorts, ","),
+				message,
+			)
+			return
+		}
 		w.PrintStatus(u.WorkloadStatusInfo.Current)
 		w.PrintStatus(u.JujuStatusInfo.Current)
 		p(
@@ -153,7 +168,11 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		)
 	}
 
-	outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
+	if fs.Model.Type == caasModelType {
+		outputHeaders("Unit", "Status", "Address", "Ports", "Message")
+	} else {
+		outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
+	}
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
@@ -182,8 +201,10 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		}
 	}
 
-	p()
-	printMachines(tw, fs.Machines)
+	if fs.Model.Type != caasModelType || len(fs.Machines) > 0 {
+		p()
+		printMachines(tw, fs.Machines)
+	}
 
 	if err := printOffers(tw, fs.Offers); err != nil {
 		w.Println(err.Error())
@@ -245,7 +266,8 @@ func printOffers(tw *ansiterm.TabWriter, offers map[string]offerStatus) error {
 					return errors.Trace(err)
 				}
 				w.Println(offerName, offer.ApplicationName, curl.Name, fmt.Sprint(curl.Revision),
-					fmt.Sprint(offer.ConnectedCount), endpointName, endpoint.Interface, endpoint.Role)
+					fmt.Sprintf("%v/%v", offer.ActiveConnectedCount, offer.TotalConnectedCount),
+					endpointName, endpoint.Interface, endpoint.Role)
 				continue
 			}
 			// Subsequent lines only need to display endpoint information.

@@ -4,7 +4,7 @@
 package crossmodel
 
 import (
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
@@ -75,6 +75,10 @@ type Backend interface {
 	// ApplicationOfferForUUID returns the application offer for the UUID.
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 
+	// WatchStatus returns a watcher that notifies of changes to the status
+	// of the offer.
+	WatchOfferStatus(offerUUID string) (state.NotifyWatcher, error)
+
 	// FirewallRule returns the firewall rule for the specified service.
 	FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error)
 }
@@ -113,9 +117,18 @@ type Relation interface {
 	// specified application in the relation.
 	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
 
-	// WatchLifeStatus returns a watcher that notifies of changes to the life
-	// or status of the relation.
-	WatchLifeStatus() state.StringsWatcher
+	// WatchLifeSuspendedStatus returns a watcher that notifies of changes to the life
+	// or suspended status of the relation.
+	WatchLifeSuspendedStatus() state.StringsWatcher
+
+	// Suspended returns the suspended status of the relation.
+	Suspended() bool
+
+	// SuspendedReason returns the reason why the relation is suspended.
+	SuspendedReason() string
+
+	// SetSuspended sets the suspended status of the relation.
+	SetSuspended(bool, string) error
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,
@@ -168,6 +181,9 @@ type Application interface {
 	// name it is bound to (or empty if unspecified). When no bindings are stored
 	// for the application, defaults are returned.
 	EndpointBindings() (map[string]string, error)
+
+	// Status returns the status of the application.
+	Status() (status.StatusInfo, error)
 }
 
 type Charm interface {
@@ -192,7 +208,7 @@ type RemoteApplication interface {
 	// Tag returns the remote applications's tag.
 	Tag() names.Tag
 
-	// URL returns the remote application URL, at which it is offered.
+	// URL returns the offer URL, at which the application is offered.
 	URL() (string, bool)
 
 	// OfferUUID returns the UUID of the offer.
@@ -213,4 +229,7 @@ type RemoteApplication interface {
 
 	// Life returns the lifecycle state of the application.
 	Life() state.Life
+
+	// SetStatus sets the status of the remote application.
+	SetStatus(info status.StatusInfo) error
 }

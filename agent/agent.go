@@ -326,7 +326,15 @@ func LogFilename(c Config) string {
 
 type ConfigMutator func(ConfigSetter) error
 
+type ConfigRenderer interface {
+	// Render generates the agent configuration
+	// as a byte array.
+	Render() ([]byte, error)
+}
+
 type ConfigWriter interface {
+	ConfigRenderer
+
 	// Write writes the agent configuration.
 	Write() error
 }
@@ -345,12 +353,12 @@ type ConfigSetterWriter interface {
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
 
-type connectionDetails struct {
+type apiDetails struct {
 	addresses []string
 	password  string
 }
 
-func (d *connectionDetails) clone() *connectionDetails {
+func (d *apiDetails) clone() *apiDetails {
 	if d == nil {
 		return nil
 	}
@@ -369,8 +377,8 @@ type configInternal struct {
 	jobs               []multiwatcher.MachineJob
 	upgradedToVersion  version.Number
 	caCert             string
-	stateDetails       *connectionDetails
-	apiDetails         *connectionDetails
+	apiDetails         *apiDetails
+	statePassword      string
 	oldPassword        string
 	servingInfo        *params.StateServingInfo
 	loggingConfig      string
@@ -390,7 +398,6 @@ type AgentConfigParams struct {
 	Nonce              string
 	Controller         names.ControllerTag
 	Model              names.ModelTag
-	StateAddresses     []string
 	APIAddresses       []string
 	CACert             string
 	Values             map[string]string
@@ -408,10 +415,12 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		return nil, errors.Trace(requiredError("entity tag"))
 	}
 	switch configParams.Tag.(type) {
-	case names.MachineTag, names.UnitTag:
-		// these are the only two type of tags that can represent an agent
+	case names.MachineTag, names.UnitTag, names.ApplicationTag:
+		// These are the only three type of tags that can represent an agent
+		// IAAS - machine and unit
+		// CAAS - application
 	default:
-		return nil, errors.Errorf("entity tag must be MachineTag or UnitTag, got %T", configParams.Tag)
+		return nil, errors.Errorf("entity tag must be MachineTag, UnitTag or ApplicationTag, got %T", configParams.Tag)
 	}
 	if configParams.UpgradedToVersion == version.Zero {
 		return nil, errors.Trace(requiredError("upgradedToVersion"))
@@ -452,14 +461,8 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		mongoVersion:       configParams.MongoVersion.String(),
 		mongoMemoryProfile: configParams.MongoMemoryProfile.String(),
 	}
-
-	if len(configParams.StateAddresses) > 0 {
-		config.stateDetails = &connectionDetails{
-			addresses: configParams.StateAddresses,
-		}
-	}
 	if len(configParams.APIAddresses) > 0 {
-		config.apiDetails = &connectionDetails{
+		config.apiDetails = &apiDetails{
 			addresses: configParams.APIAddresses,
 		}
 	}
@@ -544,7 +547,6 @@ func (c0 *configInternal) Clone() Config {
 	c1 := *c0
 	// Deep copy only fields which may be affected
 	// by ConfigSetter methods.
-	c1.stateDetails = c0.stateDetails.clone()
 	c1.apiDetails = c0.apiDetails.clone()
 	c1.jobs = append([]multiwatcher.MachineJob{}, c0.jobs...)
 	c1.values = make(map[string]string, len(c0.values))
@@ -602,8 +604,8 @@ func (c *configInternal) SetOldPassword(oldPassword string) {
 }
 
 func (c *configInternal) SetPassword(newPassword string) {
-	if c.stateDetails != nil {
-		c.stateDetails.password = newPassword
+	if c.servingInfo != nil {
+		c.statePassword = newPassword
 	}
 	if c.apiDetails != nil {
 		c.apiDetails.password = newPassword
@@ -611,7 +613,7 @@ func (c *configInternal) SetPassword(newPassword string) {
 }
 
 func (c *configInternal) Write() error {
-	data, err := c.fileContents()
+	data, err := c.Render()
 	if err != nil {
 		return err
 	}
@@ -676,6 +678,9 @@ func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
 
 func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
 	c.servingInfo = &info
+	if c.statePassword == "" && c.apiDetails != nil {
+		c.statePassword = c.apiDetails.password
+	}
 }
 
 func (c *configInternal) APIAddresses() ([]string, error) {
@@ -706,13 +711,8 @@ func (c *configInternal) Dir() string {
 }
 
 func (c *configInternal) check() error {
-	if c.stateDetails == nil && c.apiDetails == nil {
-		return errors.Trace(requiredError("state or API addresses"))
-	}
-	if c.stateDetails != nil {
-		if err := checkAddrs(c.stateDetails.addresses, "controller address"); err != nil {
-			return err
-		}
+	if c.apiDetails == nil {
+		return errors.Trace(requiredError("API addresses"))
 	}
 	if c.apiDetails != nil {
 		if err := checkAddrs(c.apiDetails.addresses, "API server address"); err != nil {
@@ -764,7 +764,7 @@ func checkAddrs(addrs []string, what string) error {
 	return nil
 }
 
-func (c *configInternal) fileContents() ([]byte, error) {
+func (c *configInternal) Render() ([]byte, error) {
 	data, err := currentFormat.marshal(c)
 	if err != nil {
 		return nil, err
@@ -777,7 +777,7 @@ func (c *configInternal) fileContents() ([]byte, error) {
 
 // WriteCommands is defined on Config interface.
 func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error) {
-	data, err := c.fileContents()
+	data, err := c.Render()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -834,7 +834,7 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 			Addrs:  []string{addr},
 			CACert: c.caCert,
 		},
-		Password: c.stateDetails.password,
+		Password: c.statePassword,
 		Tag:      c.tag,
 	}, true
 }

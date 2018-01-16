@@ -9,13 +9,16 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -90,6 +93,8 @@ type mockApplication struct {
 	subordinate bool
 	series      string
 	units       []mockUnit
+	addedUnit   mockUnit
+	config      coreapplication.ConfigAttributes
 }
 
 func (m *mockApplication) Name() string {
@@ -129,9 +134,9 @@ func (a *mockApplication) SetCharm(cfg state.SetCharmConfig) error {
 	return a.NextErr()
 }
 
-func (a *mockApplication) Destroy() error {
-	a.MethodCall(a, "Destroy")
-	return a.NextErr()
+func (a *mockApplication) DestroyOperation() *state.DestroyApplicationOperation {
+	a.MethodCall(a, "DestroyOperation")
+	return &state.DestroyApplicationOperation{}
 }
 
 func (a *mockApplication) AddUnit(args state.AddUnitParams) (application.Unit, error) {
@@ -139,8 +144,7 @@ func (a *mockApplication) AddUnit(args state.AddUnitParams) (application.Unit, e
 	if err := a.NextErr(); err != nil {
 		return nil, err
 	}
-	unitTag := names.NewUnitTag(a.name + "/99")
-	return &mockUnit{tag: unitTag}, nil
+	return &a.addedUnit, nil
 }
 
 func (a *mockApplication) IsPrincipal() bool {
@@ -160,7 +164,33 @@ func (a *mockApplication) Series() string {
 	return a.series
 }
 
+func (a *mockApplication) ApplicationConfig() (coreapplication.ConfigAttributes, error) {
+	a.MethodCall(a, "ApplicationConfig")
+	return a.config, a.NextErr()
+}
+
+func (a *mockApplication) UpdateApplicationConfig(
+	changes coreapplication.ConfigAttributes,
+	reset []string,
+	extra environschema.Fields,
+	defaults schema.Defaults,
+) error {
+	a.MethodCall(a, "UpdateApplicationConfig", changes, reset, extra, defaults)
+	return a.NextErr()
+}
+
+func (a *mockApplication) UpdateCharmConfig(settings charm.Settings) error {
+	a.MethodCall(a, "UpdateCharmConfig", settings)
+	return a.NextErr()
+}
+
+func (a *mockApplication) SetExposed() error {
+	a.MethodCall(a, "SetExposed")
+	return a.NextErr()
+}
+
 type mockRemoteApplication struct {
+	jtesting.Stub
 	name           string
 	sourceModelTag names.ModelTag
 	endpoints      []state.Endpoint
@@ -206,6 +236,7 @@ func (m *mockRemoteApplication) AddEndpoints(eps []charm.Relation) error {
 }
 
 func (m *mockRemoteApplication) Destroy() error {
+	m.MethodCall(m, "Destroy")
 	return nil
 }
 
@@ -252,11 +283,11 @@ type mockBackend struct {
 	application.Backend
 
 	modelUUID                  string
-	model                      application.Model
+	modelType                  state.ModelType
 	charm                      *mockCharm
 	allmodels                  []application.Model
 	users                      set.Strings
-	applications               map[string]application.Application
+	applications               map[string]*mockApplication
 	remoteApplications         map[string]application.RemoteApplication
 	spaces                     map[string]application.Space
 	endpoints                  *[]state.Endpoint
@@ -295,7 +326,7 @@ func (m *mockBackend) Unit(name string) (application.Unit, error) {
 	var unitApp *mockApplication
 	for appName, app := range m.applications {
 		if strings.HasPrefix(name, appName+"/") {
-			unitApp = app.(*mockApplication)
+			unitApp = app
 			break
 		}
 	}
@@ -458,6 +489,11 @@ func (m *mockBackend) Application(name string) (application.Application, error) 
 	return app, nil
 }
 
+func (m *mockBackend) ApplyOperation(op state.ModelOperation) error {
+	m.MethodCall(m, "ApplyOperation", op)
+	return m.NextErr()
+}
+
 type mockExternalController struct {
 	uuid string
 	info crossmodel.ControllerInfo
@@ -484,18 +520,16 @@ func (m *mockBackend) Space(name string) (application.Space, error) {
 	return space, nil
 }
 
-func (m *mockBackend) Model() (application.Model, error) {
-	return m.model, nil
-}
-
 func (m *mockBackend) ModelUUID() string {
 	return m.modelUUID
 }
 
 func (m *mockBackend) ModelTag() names.ModelTag {
-	m.MethodCall(m, "ModelTag")
-	m.PopNoErr()
 	return names.NewModelTag(m.modelUUID)
+}
+
+func (m *mockBackend) ModelType() state.ModelType {
+	return m.modelType
 }
 
 type mockBlockChecker struct {
@@ -516,9 +550,11 @@ type mockRelation struct {
 	application.Relation
 	jtesting.Stub
 
-	tag     names.Tag
-	status  status.Status
-	message string
+	tag             names.Tag
+	status          status.Status
+	message         string
+	suspended       bool
+	suspendedReason string
 }
 
 func (r *mockRelation) Tag() names.Tag {
@@ -526,9 +562,27 @@ func (r *mockRelation) Tag() names.Tag {
 }
 
 func (r *mockRelation) SetStatus(status status.StatusInfo) error {
+	r.MethodCall(r, "SetStatus")
 	r.status = status.Status
 	r.message = status.Message
-	return nil
+	return r.NextErr()
+}
+
+func (r *mockRelation) SetSuspended(suspended bool, reason string) error {
+	r.MethodCall(r, "SetSuspended")
+	r.suspended = suspended
+	r.suspendedReason = reason
+	return r.NextErr()
+}
+
+func (r *mockRelation) Suspended() bool {
+	r.MethodCall(r, "Suspended")
+	return r.suspended
+}
+
+func (r *mockRelation) SuspendedReason() string {
+	r.MethodCall(r, "SuspendedReason")
+	return r.suspendedReason
 }
 
 func (r *mockRelation) Destroy() error {
@@ -552,9 +606,9 @@ func (u *mockUnit) IsPrincipal() bool {
 	return true
 }
 
-func (u *mockUnit) Destroy() error {
-	u.MethodCall(u, "Destroy")
-	return u.NextErr()
+func (u *mockUnit) DestroyOperation() *state.DestroyUnitOperation {
+	u.MethodCall(u, "DestroyOperation")
+	return &state.DestroyUnitOperation{}
 }
 
 func (u *mockUnit) AssignWithPolicy(policy state.AssignmentPolicy) error {

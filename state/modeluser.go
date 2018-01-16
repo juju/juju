@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/permission"
 )
 
@@ -170,6 +171,149 @@ func (st *State) removeModelUser(user names.UserTag) error {
 	return nil
 }
 
+// isUserSuperuser if this user has the Superuser access on the controller.
+func (st *State) isUserSuperuser(user names.UserTag) (bool, error) {
+	access, err := st.UserAccess(user, st.controllerTag)
+	if err != nil {
+		// TODO(jam): 2017-11-27 We weren't suppressing NotFound here so that we would know when someone asked for
+		// the list of models of a user that doesn't exist.
+		// However, now we will not even check if its a known user if they aren't asking for all=true.
+		return false, errors.Trace(err)
+	}
+	isControllerSuperuser := (access.Access == permission.SuperuserAccess)
+	return isControllerSuperuser, nil
+}
+
+func (st *State) ModelSummariesForUser(user names.UserTag, all bool) ([]ModelSummary, error) {
+	// We only treat the user as a superuser if they pass --all
+	isControllerSuperuser := false
+	if all {
+		var err error
+		isControllerSuperuser, err = st.isUserSuperuser(user)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	modelQuery, closer, err := st.modelQueryForUser(user, isControllerSuperuser)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closer()
+	var modelDocs []modelDoc
+	if err := modelQuery.All(&modelDocs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	p := newProcessorFromModelDocs(st, modelDocs, user, isControllerSuperuser)
+	modelDocs = nil
+	if err := p.fillInFromConfig(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := p.fillInFromStatus(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := p.fillInJustUser(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := p.fillInLastAccess(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := p.fillInMachineSummary(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := p.fillInMigration(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return p.summaries, nil
+}
+
+// modelsForUser gives you the information about all models that a user has access to.
+// This includes the name and UUID, as well as the last time the user connected to that model.
+func (st *State) modelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.Query, SessionCloser, error) {
+	var modelQuery mongo.Query
+	models, closer := st.db().GetCollection(modelsC)
+	if isSuperuser {
+		// Fast path, we just return all the models that aren't Importing
+		modelQuery = models.Find(bson.M{"migration-mode": bson.M{"$ne": MigrationModeImporting}})
+	} else {
+		// Start by looking up model uuids that the user has access to, and then load only the records that are
+		// included in that set
+		var modelUUID struct {
+			UUID string `bson:"object-uuid"`
+		}
+		modelUsers, userCloser := st.db().GetRawCollection(modelUsersC)
+		defer userCloser()
+		query := modelUsers.Find(bson.D{{"user", user.Id()}})
+		query.Select(bson.M{"object-uuid": 1, "_id": 0})
+		query.Batch(100)
+		iter := query.Iter()
+		var modelUUIDs []string
+		for iter.Next(&modelUUID) {
+			modelUUIDs = append(modelUUIDs, modelUUID.UUID)
+		}
+		if err := iter.Close(); err != nil {
+			closer()
+			return nil, nil, errors.Trace(err)
+		}
+		modelQuery = models.Find(bson.M{
+			"_id":            bson.M{"$in": modelUUIDs},
+			"migration-mode": bson.M{"$ne": MigrationModeImporting},
+		})
+	}
+	modelQuery.Sort("name", "owner")
+	return modelQuery, closer, nil
+}
+
+type ModelAccessInfo struct {
+	Name           string `bson:"name"`
+	UUID           string `bson:"_id"`
+	Owner          string `bson:"owner"`
+	LastConnection time.Time
+}
+
+// ModelBasicInfoForUser gives you the information about all models that a user has access to.
+// This includes the name and UUID, as well as the last time the user connected to that model.
+func (st *State) ModelBasicInfoForUser(user names.UserTag) ([]ModelAccessInfo, error) {
+	isSuperuser, err := st.isUserSuperuser(user)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelQuery, closer1, err := st.modelQueryForUser(user, isSuperuser)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer closer1()
+	modelQuery.Select(bson.M{"_id": 1, "name": 1, "owner": 1})
+	var accessInfo []ModelAccessInfo
+	if err := modelQuery.All(&accessInfo); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Now we need to find the last-connection time for each model for this user
+	username := user.Id()
+	connDocIds := make([]string, len(accessInfo))
+	for i, acc := range accessInfo {
+		connDocIds[i] = acc.UUID + ":" + username
+	}
+	lastConnections, closer2 := st.db().GetRawCollection(modelUserLastConnectionC)
+	defer closer2()
+	query := lastConnections.Find(bson.M{"_id": bson.M{"$in": connDocIds}})
+	query.Select(bson.M{"last-connection": 1, "_id": 0, "model-uuid": 1})
+	query.Batch(100)
+	iter := query.Iter()
+	lastConns := make(map[string]time.Time, len(connDocIds))
+	var connInfo modelUserLastConnectionDoc
+	for iter.Next(&connInfo) {
+		lastConns[connInfo.ModelUUID] = connInfo.LastConnection
+	}
+	if err := iter.Close(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	for i := range accessInfo {
+		uuid := accessInfo[i].UUID
+		accessInfo[i].LastConnection = lastConns[uuid]
+	}
+	return accessInfo, nil
+}
+
 // ModelUUIDsForUser returns a list of models that the user is able to
 // access.
 // Results are sorted by (name, owner).
@@ -229,7 +373,11 @@ func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 
 // IsControllerAdmin returns true if the user specified has Super User Access.
 func (st *State) IsControllerAdmin(user names.UserTag) (bool, error) {
-	ua, err := st.UserAccess(user, st.ControllerTag())
+	model, err := st.Model()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	ua, err := st.UserAccess(user, model.ControllerTag())
 	if errors.IsNotFound(err) {
 		return false, nil
 	}
@@ -237,4 +385,22 @@ func (st *State) IsControllerAdmin(user names.UserTag) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	return ua.Access == permission.SuperuserAccess, nil
+}
+
+func (st *State) isControllerOrModelAdmin(user names.UserTag) (bool, error) {
+	isAdmin, err := st.IsControllerAdmin(user)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if isAdmin {
+		return true, nil
+	}
+	ua, err := st.UserAccess(user, names.NewModelTag(st.modelUUID()))
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return ua.Access == permission.AdminAccess, nil
 }

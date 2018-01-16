@@ -14,8 +14,9 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
@@ -101,7 +102,7 @@ func (s *MigrationBaseSuite) makeApplicationWithLeader(c *gc.C, applicationname 
 }
 
 func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
-	pool := "loop-pool"
+	pool := "modelscoped"
 	kind := "block"
 	// Create a default pool for block devices.
 	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
@@ -201,7 +202,7 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	// Make sure we have some last connection times for the admin user,
 	// and create a few other users.
 	lastConnection := state.NowToTheSecond(s.State)
-	owner, err := s.State.UserAccess(s.Owner, s.State.ModelTag())
+	owner, err := s.State.UserAccess(s.Owner, s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.UpdateModelUserLastConnection(s.State, owner, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
@@ -377,9 +378,14 @@ func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
 
 func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constraints.Value) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Settings: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
+		ApplicationConfig: map[string]interface{}{
+			"app foo": "app bar",
+		},
+		ApplicationConfigFields: environschema.Fields{
+			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		Constraints: cons,
 	})
 	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
@@ -401,11 +407,15 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 	exported := applications[0]
 	c.Assert(exported.Name(), gc.Equals, application.Name())
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
+	c.Assert(exported.Type(), gc.Equals, string(s.Model.Type()))
 	c.Assert(exported.Series(), gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
-	c.Assert(exported.Settings(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(exported.CharmConfig(), jc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
+	})
+	c.Assert(exported.ApplicationConfig(), jc.DeepEquals, map[string]interface{}{
+		"app foo": "app bar",
 	})
 	c.Assert(exported.LeadershipSettings(), jc.DeepEquals, map[string]interface{}{
 		"leader": "true",
@@ -560,8 +570,8 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	msEp, wpEp := eps[0], eps[1]
 	c.Assert(err, jc.ErrorIsNil)
+	msEp, wpEp := eps[0], eps[1]
 	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
 
@@ -616,7 +626,7 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 
 	// Make sure there is a status.
 	status := exRel.Status()
-	c.Check(status.Value(), gc.Equals, "joined")
+	c.Check(status.Value(), gc.Equals, "joining")
 }
 
 func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
@@ -753,6 +763,8 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 		VLANTag:           64,
 		AvailabilityZone:  "bar",
 		SpaceName:         "bam",
+		FanLocalUnderlay:  "100.2.0.0/16",
+		FanOverlay:        "253.0.0.0/8",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("bam", "", nil, true)
@@ -770,6 +782,8 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
 	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
+	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
 }
 
 func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
@@ -1151,7 +1165,7 @@ func (s *MigrationExportSuite) TestStorage(c *gc.C) {
 	c.Assert(constraints, gc.HasLen, 2)
 	cons, found := constraints["data"]
 	c.Assert(found, jc.IsTrue)
-	c.Check(cons.Pool(), gc.Equals, "loop-pool")
+	c.Check(cons.Pool(), gc.Equals, "modelscoped")
 	c.Check(cons.Size(), gc.Equals, uint64(0x400))
 	c.Check(cons.Count(), gc.Equals, uint64(1))
 	cons, found = constraints["allecto"]
@@ -1341,7 +1355,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	dbApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
-		SourceModel: s.State.ModelTag(),
+		SourceModel: s.IAASModel.ModelTag(),
 		Token:       "charisma",
 		OfferUUID:   "offer-uuid",
 		Endpoints: []charm.Relation{{
@@ -1407,6 +1421,11 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 		Macaroon: &macaroon.Macaroon{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1417,7 +1436,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Check(app.Name(), gc.Equals, "gravy-rainbow")
 	c.Check(app.OfferUUID(), gc.Equals, "offer-uuid")
 	c.Check(app.URL(), gc.Equals, "me/model.rainbow")
-	c.Check(app.SourceModelTag(), gc.Equals, s.State.ModelTag())
+	c.Check(app.SourceModelTag(), gc.Equals, s.IAASModel.ModelTag())
 	c.Check(app.IsConsumerProxy(), jc.IsFalse)
 	c.Check(app.Bindings(), gc.DeepEquals, map[string]string{
 		"db":       "private",
@@ -1444,6 +1463,10 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	c.Assert(actualSpaces, gc.HasLen, 2)
 	checkSpaceMatches(c, actualSpaces[0], originalSpaces[0])
 	checkSpaceMatches(c, actualSpaces[1], originalSpaces[1])
+
+	c.Assert(model.Relations(), gc.HasLen, 1)
+	rel := model.Relations()[0]
+	c.Assert(rel.Key(), gc.Equals, "wordpress:db gravy-rainbow:db")
 }
 
 func checkSpaceMatches(c *gc.C, actual description.RemoteSpace, original state.RemoteSpace) {
@@ -1474,4 +1497,58 @@ func (s *MigrationExportSuite) TestModelStatus(c *gc.C) {
 
 	c.Check(model.Status().Value(), gc.Equals, "available")
 	c.Check(model.StatusHistory(), gc.HasLen, 1)
+}
+
+func (s *MigrationExportSuite) TestTooManyStatusHistories(c *gc.C) {
+	// Check that we cap the history entries at 20.
+	machine := s.Factory.MakeMachine(c, nil)
+	s.primeStatusHistory(c, machine, status.Started, 21)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Machines(), gc.HasLen, 1)
+	history := model.Machines()[0].StatusHistory()
+	c.Assert(history, gc.HasLen, 20)
+	s.checkStatusHistory(c, history, status.Started)
+}
+
+func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
+	// Importing from a model from before relations had status will
+	// mean that there's no status to export - don't fail to export if
+	// there isn't a status for a relation.
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	// InferEndpoints will always return provider, requirer
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	ru, err := rel.Unit(wordpress_0)
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressSettings := map[string]interface{}{
+		"name": "wordpress/0",
+	}
+	err = ru.EnterScope(wordpressSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ru, err = rel.Unit(mysql_0)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlSettings := map[string]interface{}{
+		"name": "mysql/0",
+	}
+	err = ru.EnterScope(mysqlSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.RemoveRelationStatus(c, rel)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	rels := model.Relations()
+	c.Assert(rels, gc.HasLen, 1)
+	c.Assert(rels[0].Status(), gc.IsNil)
 }

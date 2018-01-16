@@ -56,9 +56,8 @@ that is in use by another Juju model.
 
 To import a filesystem, you must specify three things:
 
- - the storage pool, which identifies the storage provider
-   which manages the storage; and with which the storage
-   will be associated
+ - the storage provider which manages the storage, and with
+   which the storage will be associated
  - the storage provider ID for the filesystem, or
    volume that backs the filesystem
  - the storage name to assign to the filesystem,
@@ -75,7 +74,7 @@ Examples:
     juju import-filesystem ebs vol-123456 pgdata
 `
 	importFilesystemCommandAgs = `
-<storage-provider|pool> <filesystem|volume-id> <storage-name>
+<storage-provider> <provider-id> <storage-name>
 `
 )
 
@@ -92,7 +91,7 @@ type importFilesystemCommand struct {
 // Init implements Command.Init.
 func (c *importFilesystemCommand) Init(args []string) error {
 	if len(args) < 3 {
-		return errors.New("import-filesystem requires a storage pool, provider ID, and storage name")
+		return errors.New("import-filesystem requires a storage provider, provider ID, and storage name")
 	}
 	c.storagePool = args[0]
 	c.storageProviderId = args[1]

@@ -121,3 +121,16 @@ func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(db2Relation.status, jc.DeepEquals, status.StatusInfo{Status: status.Suspended, Message: "a message"})
 }
+
+func (s *RemoteFirewallerSuite) TestFirewallRules(c *gc.C) {
+	s.st.firewallRules[state.JujuApplicationOfferRule] = &state.FirewallRule{
+		WellKnownService: state.JujuApplicationOfferRule,
+		WhitelistCIDRs:   []string{"192.168.0.0/16"},
+	}
+	result, err := s.api.FirewallRules(params.KnownServiceArgs{
+		KnownServices: []params.KnownServiceValue{params.JujuApplicationOfferRule, params.SSHRule}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Rules, gc.HasLen, 1)
+	c.Assert(result.Rules[0].KnownService, gc.Equals, params.KnownServiceValue("juju-application-offer"))
+	c.Assert(result.Rules[0].WhitelistCIDRS, jc.SameContents, []string{"192.168.0.0/16"})
+}

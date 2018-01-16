@@ -156,6 +156,9 @@ type NetworkConfig struct {
 	// Routes is a list of routes that should be applied when this interface is
 	// active.
 	Routes []NetworkRoute `json:"routes,omitempty"`
+
+	// IsDefaultGateway marks an interface that is a default gateway for a machine.
+	IsDefaultGateway bool `json:"is-default-gateway,omitempty"`
 }
 
 // DeviceBridgeInfo lists the host device and the expected bridge to be
@@ -686,10 +689,13 @@ type NetworkInfo struct {
 	Addresses []InterfaceAddress `json:"addresses"`
 }
 
-// NetworkInfoResult holds either and error or a list of NetworkInfos for given binding.
+// NetworkInfoResult Adds egress and ingress subnets and changes the serialized
+// `Info` key name in the yaml/json API protocol.
 type NetworkInfoResult struct {
-	Error *Error        `json:"error,omitempty" yaml:"error,omitempty"`
-	Info  []NetworkInfo `json:"network-info" yaml:"info"`
+	Error            *Error        `json:"error,omitempty" yaml:"error,omitempty"`
+	Info             []NetworkInfo `json:"bind-addresses,omitempty" yaml:"bind-addresses,omitempty"`
+	EgressSubnets    []string      `json:"egress-subnets,omitempty" yaml:"egress-subnets,omitempty"`
+	IngressAddresses []string      `json:"ingress-addresses,omitempty" yaml:"ingress-addresses,omitempty"`
 }
 
 // NetworkInfoResults holds a mapping from binding name to NetworkInfoResult.
@@ -697,9 +703,31 @@ type NetworkInfoResults struct {
 	Results map[string]NetworkInfoResult `json:"results"`
 }
 
+// NetworkInfoResultV6 holds either and error or a list of NetworkInfos for given binding.
+type NetworkInfoResultV6 struct {
+	Error *Error        `json:"error,omitempty" yaml:"error,omitempty"`
+	Info  []NetworkInfo `json:"network-info" yaml:"info"`
+}
+
+// NetworkInfoResults holds a mapping from binding name to NetworkInfoResultV6.
+type NetworkInfoResultsV6 struct {
+	Results map[string]NetworkInfoResultV6 `json:"results"`
+}
+
 // NetworkInfoParams holds a name of the unit and list of bindings for which we want to get NetworkInfos.
 type NetworkInfoParams struct {
 	Unit       string   `json:"unit"`
 	RelationId *int     `json:"relation-id,omitempty"`
 	Bindings   []string `json:"bindings"`
+}
+
+// FanConfigEntry holds configuration for a single fan.
+type FanConfigEntry struct {
+	Underlay string `json:"underlay"`
+	Overlay  string `json:"overlay"`
+}
+
+// FanConfigResult holds configuration for all fans in a model
+type FanConfigResult struct {
+	Fans []FanConfigEntry `json:"fans"`
 }

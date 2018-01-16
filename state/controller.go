@@ -12,7 +12,6 @@ import (
 	mgo "gopkg.in/mgo.v2"
 
 	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/mongo"
 )
 
 const (
@@ -38,7 +37,6 @@ type Controller struct {
 	clock                  clock.Clock
 	controllerModelTag     names.ModelTag
 	controllerTag          names.ControllerTag
-	mongoInfo              *mongo.MongoInfo
 	session                *mgo.Session
 	policy                 Policy
 	newPolicy              NewPolicyFunc
@@ -59,7 +57,6 @@ func (ctlr *Controller) NewState(modelTag names.ModelTag) (*State, error) {
 		modelTag,
 		ctlr.controllerModelTag,
 		session,
-		ctlr.mongoInfo,
 		ctlr.newPolicy,
 		ctlr.clock,
 		ctlr.runTransactionObserver,
@@ -67,7 +64,7 @@ func (ctlr *Controller) NewState(modelTag names.ModelTag) (*State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := st.start(ctlr.controllerTag); err != nil {
+	if err := st.start(ctlr.controllerTag, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil

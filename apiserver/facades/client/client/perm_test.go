@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -361,7 +361,9 @@ func opClientDestroyServiceUnits(c *gc.C, st api.Connection, mst *state.State) (
 }
 
 func opClientDestroyUnit(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := application.NewClient(st).DestroyUnits("wordpress/99")
+	_, err := application.NewClient(st).DestroyUnits(application.DestroyUnitsParams{
+		Units: []string{"wordpress/99"},
+	})
 	return func() {}, err
 }
 
@@ -374,7 +376,9 @@ func opClientServiceDestroy(c *gc.C, st api.Connection, mst *state.State) (func(
 }
 
 func opClientDestroyApplication(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	_, err := application.NewClient(st).DestroyApplications("non-existent")
+	_, err := application.NewClient(st).DestroyApplications(application.DestroyApplicationsParams{
+		Applications: []string{"non-existent"},
+	})
 	return func() {}, err
 }
 
@@ -427,7 +431,7 @@ func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) 
 		return func() {}, err
 	}
 	ver := version.Number{Major: 1, Minor: 2, Patch: 3}
-	err = st.Client().SetModelAgentVersion(ver)
+	err = st.Client().SetModelAgentVersion(ver, false)
 	if err != nil {
 		return func() {}, err
 	}
@@ -436,7 +440,7 @@ func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) 
 		oldAgentVersion, found := attrs["agent-version"]
 		if found {
 			versionString := oldAgentVersion.(string)
-			st.Client().SetModelAgentVersion(version.MustParse(versionString))
+			st.Client().SetModelAgentVersion(version.MustParse(versionString), false)
 		}
 	}, nil
 }

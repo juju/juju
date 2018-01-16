@@ -4,6 +4,7 @@
 package rpcreflect
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 )
@@ -117,12 +118,15 @@ func (v Value) Kill() {
 	}
 }
 
-func (caller methodCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
+func (caller methodCaller) Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	obj, err := caller.rootMethod.Call(caller.rootValue, objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	return caller.objMethod.Call(obj, arg)
+	return caller.objMethod.Call(ctx, obj, arg)
 }
 
 func (caller methodCaller) ParamsType() reflect.Type {
@@ -142,5 +146,5 @@ type MethodCaller interface {
 
 	// Call is actually placing a call to instantiate an given instance and
 	// call the method on that instance.
-	Call(objId string, arg reflect.Value) (reflect.Value, error)
+	Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error)
 }

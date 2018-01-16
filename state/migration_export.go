@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
+const maxStatusHistoryEntries = 20
+
 // ExportConfig allows certain aspects of the model to be skipped
 // during the export. The intent of this is to be able to get a partial
 // export to support other API calls, like status.
@@ -140,6 +142,9 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err := export.applications(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.remoteApplications(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.relations(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -170,10 +175,6 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	}
 
 	if err := export.cloudimagemetadata(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if err := export.remoteApplications(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -614,7 +615,7 @@ func (e *exporter) readAllStorageConstraints() error {
 	for iter.Next(&doc) {
 		storageConstraints[e.st.localID(doc.DocID)] = doc
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read storage constraints")
 	}
 	e.logger.Debugf("read %d storage constraint documents", len(storageConstraints))
@@ -660,15 +661,21 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	application := ctx.application
 	appName := application.Name()
 	globalKey := application.globalKey()
-	settingsKey := application.settingsKey()
+	charmConfigKey := application.charmConfigKey()
+	appConfigKey := application.applicationConfigKey()
 	leadershipKey := leadershipSettingsKey(appName)
 	storageConstraintsKey := application.storageConstraintsKey()
 
-	applicationSettingsDoc, found := e.modelSettings[settingsKey]
+	applicationCharmSettingsDoc, found := e.modelSettings[charmConfigKey]
 	if !found && !e.cfg.SkipSettings {
-		return errors.Errorf("missing settings for application %q", appName)
+		return errors.Errorf("missing charm settings for application %q", appName)
 	}
-	delete(e.modelSettings, settingsKey)
+	delete(e.modelSettings, charmConfigKey)
+	applicationConfigDoc, found := e.modelSettings[appConfigKey]
+	if !found && !e.cfg.SkipSettings {
+		return errors.Errorf("missing config for application %q", appName)
+	}
+	delete(e.modelSettings, appConfigKey)
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found && !e.cfg.SkipSettings {
 		return errors.Errorf("missing leadership settings for application %q", appName)
@@ -677,6 +684,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 
 	args := description.ApplicationArgs{
 		Tag:                  application.ApplicationTag(),
+		Type:                 e.model.Type(),
 		Series:               application.doc.Series,
 		Subordinate:          application.doc.Subordinate,
 		CharmURL:             application.doc.CharmURL.String(),
@@ -684,9 +692,11 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		CharmModifiedVersion: application.doc.CharmModifiedVersion,
 		ForceCharm:           application.doc.ForceCharm,
 		Exposed:              application.doc.Exposed,
+		PasswordHash:         application.doc.PasswordHash,
 		MinUnits:             application.doc.MinUnits,
 		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
-		Settings:             applicationSettingsDoc.Settings,
+		ApplicationConfig:    applicationConfigDoc.Settings,
+		CharmConfig:          applicationCharmSettingsDoc.Settings,
 		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   application.doc.MetricCredentials,
@@ -897,6 +907,10 @@ func (e *exporter) relations() error {
 		return errors.Trace(err)
 	}
 
+	remoteApps := make(set.Strings)
+	for _, a := range e.model.RemoteApplications() {
+		remoteApps.Add(a.Name())
+	}
 	for _, relation := range rels {
 		exRelation := e.model.AddRelation(description.RelationArgs{
 			Id:  relation.Id(),
@@ -904,10 +918,19 @@ func (e *exporter) relations() error {
 		})
 		globalKey := relation.globalScope()
 		statusArgs, err := e.statusArgs(globalKey)
-		if err != nil {
+		if err == nil {
+			exRelation.SetStatus(statusArgs)
+		} else if !errors.IsNotFound(err) {
 			return errors.Annotatef(err, "status for relation %v", relation.Id())
 		}
-		exRelation.SetStatus(statusArgs)
+
+		isRemote := false
+		for _, ep := range relation.Endpoints() {
+			if remoteApps.Contains(ep.ApplicationName) {
+				isRemote = true
+				break
+			}
+		}
 		for _, ep := range relation.Endpoints() {
 			exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
 				ApplicationName: ep.ApplicationName,
@@ -919,7 +942,11 @@ func (e *exporter) relations() error {
 				Scope:           string(ep.Scope),
 			})
 			// We expect a relationScope and settings for each of the
-			// units of the specified application.
+			// units of the specified application, unless it is a
+			// remote application.
+			if isRemote {
+				continue
+			}
 			units := e.units[ep.ApplicationName]
 			for _, unit := range units {
 				ru, err := relation.Unit(unit)
@@ -1009,6 +1036,8 @@ func (e *exporter) subnets() error {
 			ProviderNetworkId: string(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
 			SpaceName:         subnet.SpaceName(),
+			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
+			FanOverlay:        subnet.FanOverlay(),
 		}
 		// TODO(babbageclunk): at the moment state.Subnet only stores
 		// one AZ.
@@ -1344,7 +1373,7 @@ func (e *exporter) readAllStatusHistory() error {
 		count++
 	}
 
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read status history collection")
 	}
 
@@ -1390,8 +1419,11 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 
 func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs {
 	history := e.statusHistory[globalKey]
-	result := make([]description.StatusArgs, len(history))
 	e.logger.Tracef("found %d status history docs for %s", len(history), globalKey)
+	if len(history) > maxStatusHistoryEntries {
+		history = history[:maxStatusHistoryEntries]
+	}
+	result := make([]description.StatusArgs, len(history))
 	for i, doc := range history {
 		result[i] = description.StatusArgs{
 			Value:   string(doc.Status),
@@ -1532,10 +1564,13 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 	}
 	descApp := e.model.AddRemoteApplication(args)
 	status, err := e.statusArgs(app.globalKey())
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
-	descApp.SetStatus(status)
+	// Not all remote applications have status.
+	if err == nil {
+		descApp.SetStatus(status)
+	}
 	endpoints, err := app.Endpoints()
 	if err != nil {
 		return errors.Trace(err)
@@ -1605,7 +1640,7 @@ func (e *exporter) volumes() error {
 			return errors.Trace(err)
 		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read volumes")
 	}
 	return nil
@@ -1690,7 +1725,7 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 		result[doc.Volume] = append(result[doc.Volume], doc)
 		count++
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "failed to read volumes attachments")
 	}
 	e.logger.Debugf("read %d volume attachment documents", count)
@@ -1714,7 +1749,7 @@ func (e *exporter) filesystems() error {
 			return errors.Trace(err)
 		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read filesystems")
 	}
 	return nil
@@ -1792,7 +1827,7 @@ func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmen
 		result[doc.Filesystem] = append(result[doc.Filesystem], doc)
 		count++
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "failed to read filesystem attachments")
 	}
 	e.logger.Debugf("read %d filesystem attachment documents", count)
@@ -1816,7 +1851,7 @@ func (e *exporter) storageInstances() error {
 			return errors.Trace(err)
 		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read storage instances")
 	}
 	return nil
@@ -1854,7 +1889,7 @@ func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) 
 		result[doc.StorageInstance] = append(result[doc.StorageInstance], unit)
 		count++
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "failed to read storage attachments")
 	}
 	e.logger.Debugf("read %d storage attachment documents", count)

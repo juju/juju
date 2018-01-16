@@ -189,6 +189,26 @@ func (s *WaitUntilExpiredSuite) TestKillManager(c *gc.C) {
 	})
 }
 
+func (s *WaitUntilExpiredSuite) TestCancelWait(c *gc.C) {
+	fix := &Fixture{
+		leases: map[string]corelease.Info{
+			"redis": corelease.Info{
+				Holder: "redis/0",
+				Expiry: offset(time.Second),
+			},
+		},
+	}
+	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+		blockTest := newBlockTest(manager, "redis")
+		blockTest.assertBlocked(c)
+		blockTest.cancelWait()
+
+		err := blockTest.assertUnblocked(c)
+		c.Check(err, gc.Equals, corelease.ErrWaitCancelled)
+		c.Check(err, gc.ErrorMatches, "waiting for lease cancelled by client")
+	})
+}
+
 // blockTest wraps a goroutine running WaitUntilExpired, and fails if it's used
 // more than a second after creation (which should be *plenty* of time).
 type blockTest struct {
@@ -196,6 +216,7 @@ type blockTest struct {
 	leaseName string
 	done      chan error
 	abort     <-chan time.Time
+	cancel    chan struct{}
 }
 
 // newBlockTest starts a test goroutine blocking until the manager confirms
@@ -206,14 +227,19 @@ func newBlockTest(manager *lease.Manager, leaseName string) *blockTest {
 		leaseName: leaseName,
 		done:      make(chan error),
 		abort:     time.After(time.Second),
+		cancel:    make(chan struct{}),
 	}
 	go func() {
 		select {
 		case <-bt.abort:
-		case bt.done <- bt.manager.WaitUntilExpired(bt.leaseName):
+		case bt.done <- bt.manager.WaitUntilExpired(bt.leaseName, bt.cancel):
 		}
 	}()
 	return bt
+}
+
+func (bt *blockTest) cancelWait() {
+	close(bt.cancel)
 }
 
 func (bt *blockTest) assertBlocked(c *gc.C) {

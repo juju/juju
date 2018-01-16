@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -216,13 +216,9 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	lis, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	statePool := state.NewStatePool(s.State)
-	defer statePool.Close()
-
-	srv, err := apiserver.NewServer(statePool, lis, apiserver.ServerConfig{
+	srv, err := apiserver.NewServer(s.StatePool, lis, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
-		Cert:            testing.ServerCert,
-		Key:             testing.ServerKey,
+		GetCertificate:  func() *tls.Certificate { return testing.ServerTLSCert },
 		Tag:             names.NewMachineTag("0"),
 		Hub:             pubsub.NewStructuredHub(nil),
 		DataDir:         c.MkDir(),
@@ -230,6 +226,8 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL:     "https://0.1.2.3/no-autocert-here",
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
+		UpgradeComplete: func() bool { return true },
+		RestoreStatus:   func() state.RestoreStatus { return state.RestoreNotActive },
 	})
 	c.Assert(err, gc.IsNil)
 
@@ -288,24 +286,6 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
-}
-
-func (s *legacySuite) TestModelStatus(c *gc.C) {
-	sysManager := s.OpenAPI(c)
-	defer sysManager.Close()
-	s.Factory.MakeMachine(c, nil)
-	modelTag := s.State.ModelTag()
-	results, err := sysManager.ModelStatus(modelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
-		UUID:               modelTag.Id(),
-		TotalMachineCount:  1,
-		HostedMachineCount: 1,
-		ServiceCount:       0,
-		Owner:              "admin",
-		Life:               string(params.Alive),
-		Machines:           []base.Machine{{Id: "0", InstanceId: "id-2", Status: "pending"}},
-	}})
 }
 
 func (s *legacySuite) TestGetControllerAccess(c *gc.C) {

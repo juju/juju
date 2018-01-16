@@ -321,6 +321,8 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
 		defer os.RemoveAll(builtTools.Dir)
+		// Combine the built agent information with the list of
+		// available tools.
 		for i, tool := range availableTools {
 			if tool.URL != "" {
 				continue
@@ -329,6 +331,18 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			tool.URL = fmt.Sprintf("file://%s", filename)
 			tool.Size = builtTools.Size
 			tool.SHA256 = builtTools.Sha256Hash
+
+			// Use the version from the built tools but with the
+			// corrected series and arch - this ensures the build
+			// number is right if we found a valid official build.
+			version := builtTools.Version
+			version.Series = tool.Version.Series
+			version.Arch = tool.Version.Arch
+			// But if not an official build, use the forced version.
+			if !builtTools.Official {
+				version.Number = forceVersion
+			}
+			tool.Version = version
 			availableTools[i] = tool
 		}
 	}
@@ -390,7 +404,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 
-	logger.Infof("Installing Juju agent on bootstrap instance")
+	ctx.Infof("Installing Juju agent on bootstrap instance")
 	publicKey, err := userPublicSigningKey()
 	if err != nil {
 		return err
@@ -599,7 +613,7 @@ func bootstrapImageMetadata(
 // getBootstrapToolsVersion returns the newest tools from the given tools list.
 func getBootstrapToolsVersion(possibleTools coretools.List) (coretools.List, error) {
 	if len(possibleTools) == 0 {
-		return nil, errors.New("no bootstrap tools available")
+		return nil, errors.New("no bootstrap agent binaries available")
 	}
 	var newVersion version.Number
 	newVersion, toolsList := possibleTools.Newest()
@@ -611,7 +625,7 @@ func getBootstrapToolsVersion(possibleTools coretools.List) (coretools.List, err
 		compatibleVersion, compatibleTools := findCompatibleTools(possibleTools, jujuversion.Current)
 		if len(compatibleTools) == 0 {
 			logger.Infof(
-				"failed to find %s tools, will attempt to use %s",
+				"failed to find %s agent binaries, will attempt to use %s",
 				jujuversion.Current, newVersion,
 			)
 		} else {
@@ -661,7 +675,7 @@ func isCompatibleVersion(v1, v2 version.Number) bool {
 }
 
 // setPrivateMetadataSources verifies the specified metadataDir exists,
-// uses it to set the default agent binary metadata source for agent binaries,
+// uses it to set the default agent metadata source for agent binaries,
 // and adds an image metadata source after verifying the contents. If the
 // directory ends in tools, only the default tools metadata source will be
 // set. Same for images.
@@ -680,19 +694,19 @@ func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetada
 	}
 	if _, err := os.Stat(agentBinaryMetadataDir); err != nil {
 		if !os.IsNotExist(err) {
-			return nil, errors.Annotate(err, "cannot access agent binary metadata")
+			return nil, errors.Annotate(err, "cannot access agent metadata")
 		}
-		logger.Debugf("no agent directory found, using default agent binary metadata source: %s", tools.DefaultBaseURL)
+		logger.Debugf("no agent directory found, using default agent metadata source: %s", tools.DefaultBaseURL)
 	} else {
 		if ending == storage.BaseToolsPath {
 			// As the specified metadataDir ended in 'tools'
 			// assume that is the only metadata to find and return.
 			tools.DefaultBaseURL = filepath.Dir(metadataDir)
-			logger.Debugf("setting default agent binary metadata source: %s", tools.DefaultBaseURL)
+			logger.Debugf("setting default agent metadata source: %s", tools.DefaultBaseURL)
 			return nil, nil
 		} else {
 			tools.DefaultBaseURL = metadataDir
-			logger.Debugf("setting default agent binary metadata source: %s", tools.DefaultBaseURL)
+			logger.Debugf("setting default agent metadata source: %s", tools.DefaultBaseURL)
 		}
 	}
 

@@ -35,7 +35,7 @@ func (s *ControllerAPIv3) DestroyController(args params.DestroyControllerArgs) e
 // attempt to do so. Otherwise, if the controller has any non-empty,
 // non-Dead hosted models, then an error with the code
 // params.CodeHasHostedModels will be transmitted.
-func (s *ControllerAPIv4) DestroyController(args params.DestroyControllerArgs) error {
+func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
 	return destroyController(s.state, s.statePool, s.authorizer, args)
 }
 
@@ -56,11 +56,16 @@ func destroyController(
 		return errors.Trace(err)
 	}
 
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// If we are destroying models, we need to tolerate living
 	// models but set the controller to dying to prevent new
 	// models sneaking in. If we are not destroying hosted models,
 	// this will fail if any hosted models are found.
-	backend := common.NewModelManagerBackend(st, pool)
+	backend := common.NewModelManagerBackend(model, pool)
 	return errors.Trace(common.DestroyController(
 		backend, args.DestroyModels, args.DestroyStorage,
 	))

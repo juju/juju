@@ -120,6 +120,7 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         murder_mongo()
     return returncode
 
+
 # suppress nosetests
 go_test_package.__test__ = False
 

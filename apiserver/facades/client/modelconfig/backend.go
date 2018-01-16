@@ -25,9 +25,27 @@ type Backend interface {
 
 type stateShim struct {
 	*state.State
+	model *state.Model
+}
+
+func (st stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
+	return st.model.UpdateModelConfig(u, r, a...)
+}
+
+func (st stateShim) ModelConfigValues() (config.ConfigValues, error) {
+	return st.model.ModelConfigValues()
+}
+
+func (st stateShim) ModelTag() names.ModelTag {
+	m, err := st.State.Model()
+	if err != nil {
+		return names.NewModelTag(st.State.ModelUUID())
+	}
+
+	return m.ModelTag()
 }
 
 // NewStateBackend creates a backend for the facade to use.
-func NewStateBackend(st *state.State) Backend {
-	return stateShim{st}
+func NewStateBackend(m *state.Model) Backend {
+	return stateShim{m.State(), m}
 }

@@ -4,7 +4,7 @@
 package remotestate
 
 import (
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -74,9 +74,9 @@ type Snapshot struct {
 }
 
 type RelationSnapshot struct {
-	Life    params.Life
-	Status  params.RelationStatusValue
-	Members map[string]int64
+	Life      params.Life
+	Suspended bool
+	Members   map[string]int64
 }
 
 // StorageSnapshot has information relating to a storage

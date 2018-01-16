@@ -15,6 +15,10 @@ var ErrClaimDenied = errors.New("lease claim denied")
 // ErrNotHeld indicates that some holder does not hold some lease.
 var ErrNotHeld = errors.New("lease not held")
 
+// ErrWaitCancelled is returned by Claimer.WaitUntilExpired if the
+// cancel channel is closed.
+var ErrWaitCancelled = errors.New("waiting for lease cancelled by client")
+
 // Claimer exposes lease acquisition and expiry notification capabilities.
 type Claimer interface {
 
@@ -26,8 +30,10 @@ type Claimer interface {
 	Claim(leaseName, holderName string, duration time.Duration) error
 
 	// WaitUntilExpired returns nil when the named lease is no longer held. If it
-	// returns any other error, no reasonable inferences may be made.
-	WaitUntilExpired(leaseName string) error
+	// returns any error, no reasonable inferences may be made. If the supplied
+	// cancel channel is non-nil, it can be used to cancel the request; in this
+	// case, the method will return ErrWaitCancelled.
+	WaitUntilExpired(leaseName string, cancel <-chan struct{}) error
 }
 
 // Checker exposes facts about lease ownership.

@@ -19,8 +19,13 @@ type API struct {
 
 // NewAPI returns an API Instance.
 func NewAPI(st *state.State, r facade.Resources, auth facade.Authorizer) (*API, error) {
+	m, err := st.Model()
+	if err != nil {
+		return nil, err
+	}
+
 	return &API{
-		ModelWatcher: common.NewModelWatcher(st, r, auth),
+		ModelWatcher: common.NewModelWatcher(m, r, auth),
 		st:           st,
 		authorizer:   auth,
 	}, nil

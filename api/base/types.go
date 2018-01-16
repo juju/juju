@@ -34,6 +34,7 @@ type ModelStatus struct {
 	Machines           []Machine
 	Volumes            []Volume
 	Filesystems        []Filesystem
+	Error              error
 }
 
 // Machine holds information about a machine in a juju model.
@@ -94,4 +95,46 @@ type Filesystem struct {
 	ProviderId string
 	Status     string
 	Detachable bool
+}
+
+// UserModelSummary holds summary about a model for a user.
+type UserModelSummary struct {
+	Name               string
+	UUID               string
+	ControllerUUID     string
+	ProviderType       string
+	DefaultSeries      string
+	Cloud              string
+	CloudRegion        string
+	CloudCredential    string
+	Owner              string
+	Life               string
+	Status             Status
+	ModelUserAccess    string
+	UserLastConnection *time.Time
+	Counts             []EntityCount
+	AgentVersion       *version.Number
+	Error              error
+	Migration          *MigrationSummary
+	SLA                *SLASummary
+}
+
+// EntityCount holds a count for a particular entity, for example machines or core count.
+type EntityCount struct {
+	Entity string
+	Count  int64
+}
+
+// MigrationSummary holds information about a current migration attempt
+// if there is one on progress.
+type MigrationSummary struct {
+	Status    string
+	StartTime *time.Time
+	EndTime   *time.Time
+}
+
+// SLASummary holds information about SLA.
+type SLASummary struct {
+	Level string
+	Owner string
 }

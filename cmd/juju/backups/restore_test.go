@@ -237,6 +237,10 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 			"max-logs-age":            "72h",
 			"max-logs-size":           "4G",
 			"max-txn-log-size":        "10M",
+			"auditing-enabled":        false,
+			"audit-log-capture-args":  true,
+			"audit-log-max-size":      "200M",
+			"audit-log-max-backups":   5,
 		})
 		boostrapped = true
 		return nil
@@ -285,6 +289,9 @@ func (s *restoreSuite) TestRestoreReboostrapControllerConfigDefaults(c *gc.C) {
 			"max-logs-size":           "4096M",
 			"max-txn-log-size":        "10M",
 			"auditing-enabled":        false,
+			"audit-log-capture-args":  false,
+			"audit-log-max-size":      "300M",
+			"audit-log-max-backups":   10,
 		})
 		boostrapped = true
 		return nil

@@ -23,7 +23,12 @@ type UndertakerAPI struct {
 
 // NewUndertakerAPI creates a new instance of the undertaker API.
 func NewUndertakerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {
-	return newUndertakerAPI(&stateShim{st}, resources, authorizer)
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return newUndertakerAPI(&stateShim{st, m}, resources, authorizer)
 }
 
 func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Authorizer) (*UndertakerAPI, error) {

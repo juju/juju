@@ -17,14 +17,14 @@ func UnescapeKeys(input map[string]interface{}) map[string]interface{} {
 	return mapKeys(unescapeReplacer.Replace, input)
 }
 
-// EscapeString escapes a string to be safe to store in Mongo.
-func EscapeString(s string) string {
+// EscapeKey escapes a string to be safe to store in Mongo as a document key.
+func EscapeKey(s string) string {
 	return escapeReplacer.Replace(s)
 }
 
-// UnescapeString restores escaped characters from a string to their
+// UnescapeKey restores escaped characters from a key to their
 // original values.
-func UnescapeString(s string) string {
+func UnescapeKey(s string) string {
 	return unescapeReplacer.Replace(s)
 }
 

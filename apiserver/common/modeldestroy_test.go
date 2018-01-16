@@ -163,6 +163,32 @@ func (s *destroyModelSuite) TestDestroyControllerDestroyHostedModels(c *gc.C) {
 	})
 }
 
+func (s *destroyModelSuite) TestDestroyControllerModelErrs(c *gc.C) {
+	// This is similar to what we'd see if a model was destroyed
+	// but there are still some connections to it lingering.
+	s.modelManager.SetErrors(
+		nil, // for GetBackend, 1st model
+		nil, // for GetBlockForType, 1st model
+		nil, // for GetBlockForType, 1st model
+		nil, // for GetBlockForType, 1st model
+		errors.NotFoundf("pretend I am not here"), // for GetBackend, 2nd model
+	)
+	err := common.DestroyController(s.modelManager, true, nil)
+	// Processing continued despite one model erring out.
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.modelManager.SetErrors(
+		nil, // for GetBackend, 1st model
+		nil, // for GetBlockForType, 1st model
+		nil, // for GetBlockForType, 1st model
+		nil, // for GetBlockForType, 1st model
+		errors.New("I have a problem"), // for GetBackend, 2nd model
+	)
+	err = common.DestroyController(s.modelManager, true, nil)
+	// Processing erred out since a model seriously failed.
+	c.Assert(err, gc.ErrorMatches, "I have a problem")
+}
+
 type testMetricSender struct {
 	jtesting.Stub
 }

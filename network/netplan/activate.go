@@ -77,7 +77,7 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 	environ := os.Environ()
 	// TODO(wpk) 2017-06-21 Is there a way to verify that apply is finished?
 	// https://bugs.launchpad.net/netplan/+bug/1701436
-	command := fmt.Sprintf("%snetplan generate && netplan apply && sleep 3", params.RunPrefix)
+	command := fmt.Sprintf("%snetplan generate && netplan apply && sleep 10", params.RunPrefix)
 
 	result, err := scriptrunner.RunCommand(command, environ, params.Clock, params.Timeout)
 

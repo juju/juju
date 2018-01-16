@@ -10,12 +10,15 @@ import (
 )
 
 // stateShim forwards and adapts state.State methods to Backend
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	st *state.State
+	m  *state.Model
 }
 
 func (s *stateShim) ModelConfig() (*config.Config, error) {
-	return s.st.ModelConfig()
+	return s.m.ModelConfig()
 }
 
 func (s *stateShim) APIHostPorts() ([][]network.HostPort, error) {
@@ -27,5 +30,5 @@ func (s *stateShim) WatchAPIHostPorts() state.NotifyWatcher {
 }
 
 func (s *stateShim) WatchForModelConfigChanges() state.NotifyWatcher {
-	return s.st.WatchForModelConfigChanges()
+	return s.m.WatchForModelConfigChanges()
 }

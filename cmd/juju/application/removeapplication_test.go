@@ -4,13 +4,14 @@
 package application
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/charmrepo.v2"
 
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
@@ -44,7 +45,7 @@ func runRemoveApplication(c *gc.C, args ...string) (*cmd.Context, error) {
 func (s *RemoveApplicationSuite) setupTestApplication(c *gc.C) {
 	// Destroy an application that exists.
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	_, err := runDeploy(c, ch, "multi-series")
+	err := runDeploy(c, ch, "multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -59,9 +60,17 @@ func (s *RemoveApplicationSuite) TestLocalApplication(c *gc.C) {
 	c.Assert(multiSeries.Life(), gc.Equals, state.Dying)
 }
 
-func (s *RemoveApplicationSuite) TestInformStorageRemoved(c *gc.C) {
+func (s *RemoveApplicationSuite) TestDetachStorage(c *gc.C) {
+	s.testStorageRemoval(c, false)
+}
+
+func (s *RemoveApplicationSuite) TestDestroyStorage(c *gc.C) {
+	s.testStorageRemoval(c, true)
+}
+
+func (s *RemoveApplicationSuite) testStorageRemoval(c *gc.C, destroy bool) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "storage-filesystem-multi-series")
-	_, err := runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,rootfs")
+	err := runDeploy(c, ch, "storage-filesystem-multi-series", "-n2", "--storage", "data=2,modelscoped")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Materialise the storage by assigning units to machines.
@@ -72,36 +81,22 @@ func (s *RemoveApplicationSuite) TestInformStorageRemoved(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	ctx, err := runRemoveApplication(c, "storage-filesystem-multi-series")
+	args := []string{"storage-filesystem-multi-series"}
+	action := "detach"
+	if destroy {
+		args = append(args, "--destroy-storage")
+		action = "remove"
+	}
+	ctx, err := runRemoveApplication(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, `
+	c.Assert(stderr, gc.Equals, fmt.Sprintf(`
 removing application storage-filesystem-multi-series
-- will remove storage data/0
-- will remove storage data/1
-- will remove storage data/2
-- will remove storage data/3
-`[1:])
-}
-
-func (s *RemoveApplicationSuite) TestRemoteApplication(c *gc.C) {
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "remote-app",
-		SourceModel: names.NewModelTag("test"),
-		Token:       "token",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.RemoteApplication("remote-app")
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx, err := runRemoveApplication(c, "remote-app")
-	c.Assert(err, jc.ErrorIsNil)
-	stderr := cmdtesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, "removing application remote-app\n")
-
-	// Removed immediately since there are no units.
-	_, err = s.State.RemoteApplication("remote-app")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+- will %[1]s storage data/0
+- will %[1]s storage data/1
+- will %[1]s storage data/2
+- will %[1]s storage data/3
+`[1:], action))
 }
 
 func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {

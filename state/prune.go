@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/loggo"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -84,24 +86,28 @@ func (p *collectionPruner) pruneByAge() error {
 
 	t := p.st.clock().Now().Add(-p.maxAge)
 	var age interface{}
+	var notSet interface{}
 
 	if p.timeUnit == NanoSeconds {
 		age = t.UnixNano()
+		notSet = 0
 	} else {
 		age = t
+		notSet = time.Time{}
 	}
 
 	iter := p.coll.Find(bson.D{
 		{"model-uuid", p.st.modelUUID()},
-		{p.ageField, bson.M{"$lt": age}},
+		{p.ageField, bson.M{"$gt": notSet, "$lt": age}},
 	}).Select(bson.M{"_id": 1}).Iter()
+	defer iter.Close()
 
 	modelName, err := p.st.modelName()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	logTemplate := fmt.Sprintf("%s age pruning (%s): %%d rows deleted", p.coll.Name, modelName)
-	deleted, err := p.deleteInBatches(iter, logTemplate, noEarlyFinish)
+	deleted, err := deleteInBatches(p.coll, iter, logTemplate, loggo.INFO, noEarlyFinish)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -150,9 +156,10 @@ func (p *collectionPruner) pruneBySize() error {
 	toDelete := int(float64(collMB-p.maxSize) / sizePerStatus)
 
 	iter := p.coll.Find(nil).Sort(p.ageField).Limit(toDelete).Select(bson.M{"_id": 1}).Iter()
+	defer iter.Close()
 
 	template := fmt.Sprintf("%s size pruning: deleted %%d of %d (estimated)", p.coll.Name, toDelete)
-	deleted, err := p.deleteInBatches(iter, template, func() (bool, error) {
+	deleted, err := deleteInBatches(p.coll, iter, template, loggo.INFO, func() (bool, error) {
 		// Check that we still need to delete more
 		collMB, err := getCollectionMB(p.coll)
 		if err != nil {
@@ -173,9 +180,15 @@ func (p *collectionPruner) pruneBySize() error {
 	return nil
 }
 
-func (p *collectionPruner) deleteInBatches(iter *mgo.Iter, logTemplate string, shouldStop doneCheck) (int, error) {
+func deleteInBatches(
+	coll *mgo.Collection,
+	iter mongo.Iterator,
+	logTemplate string,
+	logLevel loggo.Level,
+	shouldStop doneCheck,
+) (int, error) {
 	var doc bson.M
-	chunk := p.coll.Bulk()
+	chunk := coll.Bulk()
 	chunkSize := 0
 
 	lastUpdate := time.Now()
@@ -187,11 +200,11 @@ func (p *collectionPruner) deleteInBatches(iter *mgo.Iter, logTemplate string, s
 			_, err := chunk.Run()
 			// NotFound indicates that records were already deleted.
 			if err != nil && err != mgo.ErrNotFound {
-				return 0, errors.Annotate(err, "removing status history batch")
+				return 0, errors.Annotate(err, "removing batch")
 			}
 
 			deleted += chunkSize
-			chunk = p.coll.Bulk()
+			chunk = coll.Bulk()
 			chunkSize = 0
 
 			// Check that we still need to delete more
@@ -205,16 +218,19 @@ func (p *collectionPruner) deleteInBatches(iter *mgo.Iter, logTemplate string, s
 
 			now := time.Now()
 			if now.Sub(lastUpdate) >= historyPruneProgressSeconds*time.Second {
-				logger.Infof(logTemplate, deleted)
+				logger.Logf(logLevel, logTemplate, deleted)
 				lastUpdate = now
 			}
 		}
+	}
+	if err := iter.Close(); err != nil {
+		return 0, errors.Annotate(err, "closing iterator")
 	}
 
 	if chunkSize > 0 {
 		_, err := chunk.Run()
 		if err != nil && err != mgo.ErrNotFound {
-			return 0, errors.Annotate(err, "removing status history remainder")
+			return 0, errors.Annotate(err, "removing remainder")
 		}
 	}
 

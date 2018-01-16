@@ -46,3 +46,14 @@ func (dr *directRecorder) Ping(modelUUID string, slot int64, fieldKey string, fi
 		})
 	return err
 }
+
+// ForceInc forces the PingBatcher to use $inc instead of $bit operations
+// This exists to test the code path that runs when using Mongo 2.4 and older.
+func (pb *PingBatcher) ForceUpdatesUsingInc() {
+	logger.Debugf("forcing $inc operations from (was %t)", pb.useInc)
+	pb.useInc = true
+}
+
+func (w *Watcher) BeingLoads() uint64 {
+	return w.beingLoads
+}

@@ -33,10 +33,12 @@ var _ = gc.Suite(&NetworkSuite{})
 func (s *NetworkSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.stubConfigSource = &stubNetworkConfigSource{
-		Stub:                &testing.Stub{},
-		fakeSysClassNetPath: c.MkDir(),
-		interfaces:          exampleObservedInterfaces,
-		interfaceAddrs:      exampleObservedInterfaceAddrs,
+		Stub:                  &testing.Stub{},
+		fakeSysClassNetPath:   c.MkDir(),
+		interfaces:            exampleObservedInterfaces,
+		interfaceAddrs:        exampleObservedInterfaceAddrs,
+		defaultRouteGatewayIP: net.ParseIP("1.2.3.4"),
+		defaultRouteDevice:    "eth1",
 	}
 }
 
@@ -899,16 +901,17 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigInterfacesError(c *gc.C) {
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigInterfaceAddressesError(c *gc.C) {
 	s.stubConfigSource.SetErrors(
-		nil, // Interfaces() succeeds.
-		errors.New("no addresses"), // InterfaceAddressses fails.
+		nil, // Interfaces
+		nil, // DefaultRoute
+		errors.New("no addresses"), // InterfaceAddressses
 	)
 
 	observedConfig, err := common.GetObservedNetworkConfig(s.stubConfigSource)
 	c.Check(err, gc.ErrorMatches, `cannot get interface "lo" addresses: no addresses`)
 	c.Check(observedConfig, gc.IsNil)
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "lo")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "lo")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c *gc.C) {
@@ -927,8 +930,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c *gc.C)
 		ConfigType:    "manual",
 	}})
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "br-eth1")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "br-eth1")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigLoopbackInfrerred(c *gc.C) {
@@ -955,8 +958,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigLoopbackInfrerred(c *gc.C) {
 		ConfigType:    "loopback",
 	}})
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "lo")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "lo")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigVLANInfrerred(c *gc.C) {
@@ -989,8 +992,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigVLANInfrerred(c *gc.C) {
 		ConfigType:    "static",
 	}})
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0.100")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0.100")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigEthernetInfrerred(c *gc.C) {
@@ -1008,8 +1011,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigEthernetInfrerred(c *gc.C) {
 		ConfigType:    "manual", // the IPv6 address treated as empty.
 	}})
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *gc.C) {
@@ -1080,19 +1083,23 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *g
 		InterfaceType:       "ethernet",
 		ParentInterfaceName: "br-eth1",
 		ConfigType:          "manual",
+		GatewayAddress:      "1.2.3.4",
+		IsDefaultGateway:    true,
 	}})
 
 	s.stubConfigSource.CheckCallNames(c,
-		"Interfaces", "SysClassNetPath",
+		"Interfaces",
+		"DefaultRoute",
+		"SysClassNetPath",
 		"InterfaceAddresses", // eth0
 		"InterfaceAddresses", // br-eth0
 		"InterfaceAddresses", // br-eth1
 		"InterfaceAddresses", // eth1
 	)
-	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
-	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "br-eth0")
-	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "br-eth1")
-	s.stubConfigSource.CheckCall(c, 5, "InterfaceAddresses", "eth1")
+	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "br-eth0")
+	s.stubConfigSource.CheckCall(c, 5, "InterfaceAddresses", "br-eth1")
+	s.stubConfigSource.CheckCall(c, 6, "InterfaceAddresses", "eth1")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.C) {
@@ -1116,8 +1123,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.
 		ConfigType:    "static",
 	}})
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigEmptyAddressValue(c *gc.C) {
@@ -1138,8 +1145,8 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigEmptyAddressValue(c *gc.C) {
 		ConfigType:    "manual",
 	}})
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
 }
 
 func (s *NetworkSuite) TestGetObservedNetworkConfigInvalidAddressValue(c *gc.C) {
@@ -1153,16 +1160,18 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigInvalidAddressValue(c *gc.C) 
 	c.Check(err, gc.ErrorMatches, `cannot parse IP address "invalid" on interface "eth0"`)
 	c.Check(observedConfig, gc.IsNil)
 
-	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
-	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "DefaultRoute", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "eth0")
 }
 
 type stubNetworkConfigSource struct {
 	*testing.Stub
 
-	fakeSysClassNetPath string
-	interfaces          []net.Interface
-	interfaceAddrs      map[string][]net.Addr
+	fakeSysClassNetPath   string
+	interfaces            []net.Interface
+	interfaceAddrs        map[string][]net.Addr
+	defaultRouteGatewayIP net.IP
+	defaultRouteDevice    string
 }
 
 // makeSysClassNetInterfacePath creates a subdir for the given interfaceName,
@@ -1230,4 +1239,13 @@ func (s *stubNetworkConfigSource) InterfaceAddresses(name string) ([]net.Addr, e
 		return nil, err
 	}
 	return s.interfaceAddrs[name], nil
+}
+
+// DefaultRoute implements NetworkConfigSource.
+func (s *stubNetworkConfigSource) DefaultRoute() (net.IP, string, error) {
+	s.AddCall("DefaultRoute")
+	if err := s.NextErr(); err != nil {
+		return nil, "", err
+	}
+	return s.defaultRouteGatewayIP, s.defaultRouteDevice, nil
 }

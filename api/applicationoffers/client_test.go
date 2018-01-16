@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/applicationoffers"
@@ -105,10 +105,12 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
 
 	filter := jujucrossmodel.ApplicationOfferFilter{
-		OfferName: offerName,
-		Endpoints: relations,
+		OfferName:        offerName,
+		Endpoints:        relations,
+		ApplicationName:  "mysql",
+		AllowedConsumers: []string{"allowed"},
+		ConnectedUsers:   []string{"connected"},
 	}
-
 	called := false
 	since := time.Now()
 	apiCaller := basetesting.APICallerFunc(
@@ -132,19 +134,24 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 					Name:      "endPointA",
 					Interface: "http",
 				}},
+				AllowedConsumerTags: []string{"user-allowed"},
+				ConnectedUserTags:   []string{"user-connected"},
 			})
 
-			if results, ok := result.(*params.ListApplicationOffersResults); ok {
-				offer := params.ApplicationOffer{
+			if results, ok := result.(*params.QueryApplicationOffersResults); ok {
+				offer := params.ApplicationOfferDetails{
 					OfferURL:  url,
 					OfferName: offerName,
 					OfferUUID: offerName + "-uuid",
 					Endpoints: endpoints,
+					Users: []params.OfferUserDetails{
+						{UserName: "fred", DisplayName: "Fred", Access: "consume"},
+					},
 				}
-				results.Results = []params.ApplicationOfferDetails{{
-					ApplicationOffer: offer,
-					ApplicationName:  "db2-app",
-					CharmURL:         "cs:db2-5",
+				results.Results = []params.ApplicationOfferAdminDetails{{
+					ApplicationOfferDetails: offer,
+					ApplicationName:         "db2-app",
+					CharmURL:                "cs:db2-5",
 					Connections: []params.OfferConnection{
 						{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3,
 							Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
@@ -160,20 +167,22 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 	results, err := client.ListOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(results, jc.DeepEquals, []jujucrossmodel.ApplicationOfferDetailsResult{{
-		Result: &jujucrossmodel.ApplicationOfferDetails{
-			OfferURL:        url,
-			OfferName:       offerName,
-			Endpoints:       []charm.Relation{{Name: "endPointA"}},
-			ApplicationName: "db2-app",
-			CharmURL:        "cs:db2-5",
-			Connections: []jujucrossmodel.OfferConnection{
-				{SourceModelUUID: testing.ModelTag.Id(), Username: "fred", RelationId: 3,
-					Endpoint: "db", Status: "joined", Message: "message", Since: &since,
-					IngressSubnets: []string{"10.0.0.0/8"},
-				},
+	c.Assert(results, jc.DeepEquals, []*jujucrossmodel.ApplicationOfferDetails{{
+		OfferURL:        url,
+		OfferName:       offerName,
+		Endpoints:       []charm.Relation{{Name: "endPointA"}},
+		ApplicationName: "db2-app",
+		CharmURL:        "cs:db2-5",
+		Connections: []jujucrossmodel.OfferConnection{
+			{SourceModelUUID: testing.ModelTag.Id(), Username: "fred", RelationId: 3,
+				Endpoint: "db", Status: "joined", Message: "message", Since: &since,
+				IngressSubnets: []string{"10.0.0.0/8"},
 			},
-		}}})
+		},
+		Users: []jujucrossmodel.OfferUserDetails{
+			{UserName: "fred", DisplayName: "Fred", Access: "consume"},
+		},
+	}})
 }
 
 func (s *crossmodelMockSuite) TestListError(c *gc.C) {
@@ -235,7 +244,7 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 	}
 	offerName := "hosted-db2"
 	access := "consume"
-
+	since := time.Now()
 	called := false
 
 	apiCaller := basetesting.APICallerFunc(
@@ -250,34 +259,59 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
-			args, ok := a.(params.ApplicationURLs)
+			args, ok := a.(params.OfferURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ApplicationURLs, gc.DeepEquals, []string{url})
+			c.Assert(args.OfferURLs, gc.DeepEquals, []string{url})
 
-			if points, ok := result.(*params.ApplicationOffersResults); ok {
-				points.Results = []params.ApplicationOfferResult{
-					{Result: &params.ApplicationOffer{
-						ApplicationDescription: desc,
-						Endpoints:              endpoints,
-						OfferURL:               url,
-						OfferName:              offerName,
-						Access:                 access,
+			if offers, ok := result.(*params.ApplicationOffersResults); ok {
+				offers.Results = []params.ApplicationOfferResult{
+					{Result: &params.ApplicationOfferAdminDetails{
+						ApplicationOfferDetails: params.ApplicationOfferDetails{
+							ApplicationDescription: desc,
+							Endpoints:              endpoints,
+							OfferURL:               url,
+							OfferName:              offerName,
+							Users: []params.OfferUserDetails{
+								{UserName: "fred", DisplayName: "Fred", Access: access},
+							},
+						},
+						ApplicationName: "db2-app",
+						CharmURL:        "cs:db2-5",
+						Connections: []params.OfferConnection{
+							{SourceModelTag: testing.ModelTag.String(), Username: "fred", RelationId: 3,
+								Endpoint: "db", Status: params.EntityStatus{Status: "joined", Info: "message", Since: &since},
+								IngressSubnets: []string{"10.0.0.0/8"},
+							},
+						},
 					}},
 				}
 			}
 			return nil
 		})
 	client := applicationoffers.NewClient(apiCaller)
-	found, err := client.ApplicationOffer(url)
+	results, err := client.ApplicationOffer(url)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(called, jc.IsTrue)
-	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{
-		ApplicationDescription: desc,
-		Endpoints:              endpoints,
-		OfferURL:               url,
-		OfferName:              offerName,
-		Access:                 access})
+	c.Assert(results, jc.DeepEquals, &jujucrossmodel.ApplicationOfferDetails{
+		OfferURL:  url,
+		OfferName: offerName,
+		Endpoints: []charm.Relation{
+			{Name: "db2", Role: "provider", Interface: "db2", Optional: false, Limit: 0, Scope: ""},
+			{Name: "log", Role: "requirer", Interface: "http", Optional: false, Limit: 0, Scope: ""}},
+		ApplicationName:        "db2-app",
+		ApplicationDescription: "IBM DB2 Express Server Edition is an entry level database system",
+		CharmURL:               "cs:db2-5",
+		Users: []jujucrossmodel.OfferUserDetails{
+			{UserName: "fred", DisplayName: "Fred", Access: "consume"},
+		},
+		Connections: []jujucrossmodel.OfferConnection{
+			{SourceModelUUID: testing.ModelTag.Id(), Username: "fred", RelationId: 3,
+				Endpoint: "db", Status: "joined", Message: "message", Since: &since,
+				IngressSubnets: []string{"10.0.0.0/8"},
+			},
+		},
+	})
 }
 
 func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
@@ -298,9 +332,9 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
-			args, ok := a.(params.ApplicationURLs)
+			args, ok := a.(params.OfferURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ApplicationURLs, gc.DeepEquals, []string{url})
+			c.Assert(args.OfferURLs, gc.DeepEquals, []string{url})
 
 			if points, ok := result.(*params.ApplicationOffersResults); ok {
 				points.Results = []params.ApplicationOfferResult{
@@ -312,7 +346,7 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 	found, err := client.ApplicationOffer(url)
 
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{})
+	c.Assert(found, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -325,8 +359,6 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 		{Name: "log", Interface: "http", Role: charm.RoleRequirer},
 	}
 	offerName := "hosted-db2"
-	access := "consume"
-
 	called := false
 
 	apiCaller := basetesting.APICallerFunc(
@@ -341,25 +373,27 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ApplicationOffers")
 
-			args, ok := a.(params.ApplicationURLs)
+			args, ok := a.(params.OfferURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ApplicationURLs, gc.DeepEquals, []string{url})
+			c.Assert(args.OfferURLs, gc.DeepEquals, []string{url})
 
-			if points, ok := result.(*params.ApplicationOffersResults); ok {
-				points.Results = []params.ApplicationOfferResult{
-					{Result: &params.ApplicationOffer{
-						ApplicationDescription: desc,
-						Endpoints:              endpoints,
-						OfferURL:               url,
-						OfferName:              offerName,
-						Access:                 access,
+			if offers, ok := result.(*params.ApplicationOffersResults); ok {
+				offers.Results = []params.ApplicationOfferResult{
+					{Result: &params.ApplicationOfferAdminDetails{
+						ApplicationOfferDetails: params.ApplicationOfferDetails{
+							ApplicationDescription: desc,
+							Endpoints:              endpoints,
+							OfferURL:               url,
+							OfferName:              offerName,
+						},
 					}},
-					{Result: &params.ApplicationOffer{
-						ApplicationDescription: desc,
-						Endpoints:              endpoints,
-						OfferURL:               url,
-						OfferName:              offerName,
-						Access:                 access,
+					{Result: &params.ApplicationOfferAdminDetails{
+						ApplicationOfferDetails: params.ApplicationOfferDetails{
+							ApplicationDescription: desc,
+							Endpoints:              endpoints,
+							OfferURL:               url,
+							OfferName:              offerName,
+						},
 					}}}
 			}
 			return nil
@@ -367,7 +401,7 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 	client := applicationoffers.NewClient(apiCaller)
 	found, err := client.ApplicationOffer(url)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`expected to find one result for url %q but found 2`, url))
-	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{})
+	c.Assert(found, gc.IsNil)
 
 	c.Assert(called, jc.IsTrue)
 }
@@ -391,7 +425,7 @@ func (s *crossmodelMockSuite) TestShowNonLocal(c *gc.C) {
 	found, err := client.ApplicationOffer(url)
 
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{})
+	c.Assert(found, gc.IsNil)
 	c.Assert(called, jc.IsFalse)
 }
 
@@ -412,14 +446,13 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
 	client := applicationoffers.NewClient(apiCaller)
 	found, err := client.ApplicationOffer("fred/model.db2")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{})
+	c.Assert(found, gc.IsNil)
 }
 
 func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	offerName := "hosted-db2"
 	ownerName := "owner"
 	modelName := "model"
-	access := "consume"
 	url := fmt.Sprintf("fred/model.%s", offerName)
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
 	relations := []jujucrossmodel.EndpointFilterTerm{{Name: "endPointA", Interface: "http"}}
@@ -457,14 +490,18 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 				}},
 			})
 
-			if results, ok := result.(*params.FindApplicationOffersResults); ok {
-				offer := params.ApplicationOffer{
+			if results, ok := result.(*params.QueryApplicationOffersResults); ok {
+				offer := params.ApplicationOfferDetails{
 					OfferURL:  url,
 					OfferName: offerName,
 					Endpoints: endpoints,
-					Access:    access,
+					Users: []params.OfferUserDetails{
+						{UserName: "fred", DisplayName: "Fred", Access: "consume"},
+					},
 				}
-				results.Results = []params.ApplicationOffer{offer}
+				results.Results = []params.ApplicationOfferAdminDetails{{
+					ApplicationOfferDetails: offer,
+				}}
 			}
 			return nil
 		})
@@ -473,11 +510,13 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	results, err := client.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(results, jc.DeepEquals, []params.ApplicationOffer{{
+	c.Assert(results, jc.DeepEquals, []*jujucrossmodel.ApplicationOfferDetails{{
 		OfferURL:  url,
 		OfferName: offerName,
-		Endpoints: endpoints,
-		Access:    access,
+		Endpoints: []charm.Relation{{Name: "endPointA"}},
+		Users: []jujucrossmodel.OfferUserDetails{
+			{UserName: "fred", DisplayName: "Fred", Access: "consume"},
+		},
 	}})
 }
 
@@ -547,7 +586,7 @@ func (s *crossmodelMockSuite) TestFindFacadeCallError(c *gc.C) {
 }
 
 func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
-	offer := params.ApplicationOffer{
+	offer := params.ApplicationOfferDetails{
 		SourceModelTag:         "source model",
 		OfferName:              "an offer",
 		OfferURL:               "offer url",
@@ -568,9 +607,9 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 		) error {
 			called = true
 			c.Assert(request, gc.Equals, "GetConsumeDetails")
-			args, ok := a.(params.ApplicationURLs)
+			args, ok := a.(params.OfferURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ApplicationURLs, jc.DeepEquals, []string{"me/prod.app"})
+			c.Assert(args.OfferURLs, jc.DeepEquals, []string{"me/prod.app"})
 			if results, ok := result.(*params.ConsumeOfferDetailsResults); ok {
 				result := params.ConsumeOfferDetailsResult{
 					ConsumeOfferDetails: params.ConsumeOfferDetails{
@@ -606,4 +645,30 @@ func (s *crossmodelMockSuite) TestGetConsumeDetailsBadURL(c *gc.C) {
 	client := applicationoffers.NewClient(apiCaller)
 	_, err := client.GetConsumeDetails("badurl")
 	c.Assert(err, gc.ErrorMatches, "application offer URL is missing application")
+}
+
+func (s *crossmodelMockSuite) TestDestroyOffers(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			called = true
+			c.Assert(request, gc.Equals, "DestroyOffers")
+			args, ok := a.(params.DestroyApplicationOffers)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.OfferURLs, jc.DeepEquals, []string{"me/prod.app"})
+			if results, ok := result.(*params.ErrorResults); ok {
+				results.Results = []params.ErrorResult{{
+					Error: &params.Error{Message: "fail"},
+				}}
+			}
+			return nil
+		})
+	client := applicationoffers.NewClient(apiCaller)
+	err := client.DestroyOffers("me/prod.app")
+	c.Assert(err, gc.ErrorMatches, "fail")
+	c.Assert(called, jc.IsTrue)
 }

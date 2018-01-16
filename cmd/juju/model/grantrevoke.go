@@ -112,7 +112,7 @@ type accessCommand struct {
 
 	User       string
 	ModelNames []string
-	OfferURLs  []*crossmodel.ApplicationURL
+	OfferURLs  []*crossmodel.OfferURL
 	Access     string
 }
 
@@ -130,7 +130,7 @@ func (c *accessCommand) Init(args []string) error {
 	c.Access = args[1]
 	// The remaining args are either model names or offer names.
 	for _, arg := range args[2:] {
-		url, err := crossmodel.ParseApplicationURL(arg)
+		url, err := crossmodel.ParseOfferURL(arg)
 		if err == nil {
 			c.OfferURLs = append(c.OfferURLs, url)
 			continue
@@ -398,7 +398,7 @@ type accountDetailsGetter interface {
 
 // setUnsetUsers sets any empty user entries in the given offer URLs
 // to the currently logged in user.
-func setUnsetUsers(c accountDetailsGetter, offerURLs []*crossmodel.ApplicationURL) error {
+func setUnsetUsers(c accountDetailsGetter, offerURLs []*crossmodel.OfferURL) error {
 	var currentAccountDetails *jujuclient.AccountDetails
 	for _, url := range offerURLs {
 		if url.User != "" {
@@ -417,7 +417,7 @@ func setUnsetUsers(c accountDetailsGetter, offerURLs []*crossmodel.ApplicationUR
 }
 
 // offersForModel group the offer URLs per model.
-func offersForModel(offerURLs []*crossmodel.ApplicationURL) map[string][]string {
+func offersForModel(offerURLs []*crossmodel.OfferURL) map[string][]string {
 	offersForModel := make(map[string][]string)
 	for _, url := range offerURLs {
 		fullName := jujuclient.JoinOwnerModelName(names.NewUserTag(url.User), url.ModelName)

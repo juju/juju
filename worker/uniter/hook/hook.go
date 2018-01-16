@@ -1,13 +1,13 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// hook provides types that define the hooks known to the Uniter
+// Package hook provides types that define the hooks known to the Uniter
 package hook
 
 import (
 	"fmt"
 
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 )
 

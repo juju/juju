@@ -34,10 +34,19 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 
 	spec, err := buildInstanceSpec(env, args)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	if err := env.finishInstanceConfig(args, spec); err != nil {
+		return nil, common.ZoneIndependentError(err)
+	}
+
+	// Validate availability zone.
+	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
+	if err != nil {
+		return nil, common.ZoneIndependentError(err)
+	}
+	if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -124,20 +133,21 @@ func (env *environ) findInstanceSpec(
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
-func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
+func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (_ *google.Instance, err error) {
+
 	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	os, err := series.GetOSFromSeries(args.InstanceConfig.Series)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	metadata, err := getMetadata(args, os)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 	tags := []string{
 		env.globalFirewallName(),
@@ -145,33 +155,36 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	}
 
 	disks, err := getDisks(
-		spec, args.Constraints, args.InstanceConfig.Series, env.Config().UUID(), env.Config().ImageStream() == "daily",
+		spec, args.Constraints,
+		args.InstanceConfig.Series,
+		env.Config().UUID(),
+		env.Config().ImageStream() == "daily",
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	// TODO(ericsnow) Use the env ID for the network name (instead of default)?
 	// TODO(ericsnow) Make the network name configurable?
 	// TODO(ericsnow) Support multiple networks?
 	// TODO(ericsnow) Use a different net interface name? Configurable?
-	instSpec := google.InstanceSpec{
+	inst, err := env.gce.AddInstance(google.InstanceSpec{
 		ID:                hostname,
 		Type:              spec.InstanceType.Name,
 		Disks:             disks,
 		NetworkInterfaces: []string{"ExternalNAT"},
 		Metadata:          metadata,
 		Tags:              tags,
+		AvailabilityZone:  args.AvailabilityZone,
 		// Network is omitted (left empty).
-	}
-
-	zones, err := env.startInstanceAvailabilityZones(args)
+	})
 	if err != nil {
+		// We currently treat all AddInstance failures
+		// as being zone-specific, so we'll retry in
+		// another zone.
 		return nil, errors.Trace(err)
 	}
-
-	inst, err := env.gce.AddInstance(instSpec, zones...)
-	return inst, errors.Trace(err)
+	return inst, nil
 }
 
 // getMetadata builds the raw "user-defined" metadata for the new

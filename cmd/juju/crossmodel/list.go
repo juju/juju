@@ -5,12 +5,13 @@ package crossmodel
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/api/applicationoffers"
 	"github.com/juju/juju/cmd/juju/common"
@@ -20,33 +21,36 @@ import (
 )
 
 const listCommandDoc = `
-List information about applications' endpoints that have been shared.
+List information about applications' endpoints that have been shared and who is connected.
 
-options:
--o, --output (= "")
-   specify an output file
---format (= tabular)
-   specify output format (json|tabular|yaml)
-[[--<filter-scope> ]<filter-term>],...
-   <filter-term> is free text and will be matched against any of:
-       - endpoint URL prefix
-       - interface name
-       - application name
-   <filter-scope> is optional and is used to limit the scope of the search using the search term, one of:
-       - interface
-       - application
+The default tabular output shows each user connected (relating to) the offer, and the 
+relation id of the relation.
+
+The summary output shows one row per offer, with a count of active/total relations.
+
+The YAML output shows additional information about the source of connections, including
+the source model UUID.
+
+The output can be filtered by:
+ - interface: the interface name of the endpoint
+ - application: the name of the offered application
+ - connected user: the name of a user who has a relation to the offer
+ - allowed consumer: the name of a user allowed to consume the offer
+ - active only: only show offers which are in use (are related to)
 
 Examples:
     $ juju offers
     $ juju offers -m model
     $ juju offers --interface db2
     $ juju offers --application mysql
+    $ juju offers --connected-user fred
+    $ juju offers --allowed-consumer mary
+    $ juju offers hosted-mysql
+    $ juju offers hosted-mysql --active-only
 
-    $ juju offers --interface db2
-    mycontroller
-    Application  Charm  Connected  Store         URL                     Endpoint  Interface  Role
-    db2          db2    123        mycontroller  admin/controller.mysql  db        db2        provider
-
+See also:
+   find-offers   
+   show-offer
 `
 
 // listCommand returns storage instances.
@@ -58,9 +62,13 @@ type listCommand struct {
 	newAPIFunc    func() (ListAPI, error)
 	refreshModels func(jujuclient.ClientStore, string) error
 
-	interfaceName   string
-	applicationName string
-	filters         []crossmodel.ApplicationOfferFilter
+	activeOnly        bool
+	interfaceName     string
+	applicationName   string
+	connectedUserName string
+	consumerName      string
+	offerName         string
+	filters           []crossmodel.ApplicationOfferFilter
 }
 
 // NewListEndpointsCommand constructs new list endpoint command.
@@ -85,13 +93,19 @@ func (c *listCommand) NewApplicationOffersAPI() (*applicationoffers.Client, erro
 
 // Init implements Command.Init.
 func (c *listCommand) Init(args []string) (err error) {
-	return cmd.CheckEmpty(args)
+	offerName, err := cmd.ZeroOrOneArgs(args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.offerName = offerName
+	return nil
 }
 
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "offers",
+		Args:    "[<offer-name>]",
 		Aliases: []string{"list-offers"},
 		Purpose: "Lists shared endpoints.",
 		Doc:     listCommandDoc,
@@ -103,6 +117,9 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.applicationName, "application", "", "return results matching the application")
 	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
+	f.StringVar(&c.consumerName, "allowed-consumer", "", "return results where the user is allowed to consume the offer")
+	f.StringVar(&c.connectedUserName, "connected-user", "", "return results where the user has a connection to the offer")
+	f.BoolVar(&c.activeOnly, "active-only", false, "only return results where the offer is in use")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -146,10 +163,19 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		ModelName:       unqualifiedModelName,
 		ApplicationName: c.applicationName,
 	}}
+	if c.offerName != "" {
+		c.filters[0].OfferName = fmt.Sprintf("^%v$", regexp.QuoteMeta(c.offerName))
+	}
 	if c.interfaceName != "" {
 		c.filters[0].Endpoints = []crossmodel.EndpointFilterTerm{{
 			Interface: c.interfaceName,
 		}}
+	}
+	if c.connectedUserName != "" {
+		c.filters[0].ConnectedUsers = []string{c.connectedUserName}
+	}
+	if c.consumerName != "" {
+		c.filters[0].AllowedConsumers = []string{c.consumerName}
 	}
 
 	offeredApplications, err := api.ListOffers(c.filters...)
@@ -157,23 +183,8 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	// Filter out valid output, if any...
-	valid := []crossmodel.ApplicationOfferDetails{}
-	for _, application := range offeredApplications {
-		if application.Error != nil {
-			fmt.Fprintf(ctx.Stderr, "%v\n", application.Error)
-			continue
-		}
-		if application.Result != nil {
-			valid = append(valid, *application.Result)
-		}
-	}
-	if len(valid) == 0 {
-		return nil
-	}
-
 	// For now, all offers come from the one controller.
-	data, err := formatApplicationOfferDetails(controllerName, valid)
+	data, err := formatApplicationOfferDetails(controllerName, offeredApplications, c.activeOnly)
 	if err != nil {
 		return errors.Annotate(err, "failed to format found applications")
 	}
@@ -184,7 +195,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 // ListAPI defines the API methods that list endpoints command use.
 type ListAPI interface {
 	Close() error
-	ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOfferDetailsResult, error)
+	ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error)
 }
 
 // ListOfferItem defines the serialization behaviour of an offer item in endpoints list.
@@ -209,6 +220,9 @@ type ListOfferItem struct {
 
 	// Connections holds details of connections to the offer.
 	Connections []offerConnectionDetails `yaml:"connections,omitempty" json:"connections,omitempty"`
+
+	// Users are the users who can consume the offer.
+	Users map[string]OfferUser `yaml:"users,omitempty" json:"users,omitempty"`
 }
 
 type offeredApplications map[string]ListOfferItem
@@ -228,10 +242,13 @@ type offerConnectionDetails struct {
 	IngressSubnets  []string              `json:"ingress-subnets,omitempty" yaml:"ingress-subnets,omitempty"`
 }
 
-func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOfferDetails) (offeredApplications, error) {
+func formatApplicationOfferDetails(store string, all []*crossmodel.ApplicationOfferDetails, activeOnly bool) (offeredApplications, error) {
 	result := make(offeredApplications)
 	for _, one := range all {
-		url, err := crossmodel.ParseApplicationURL(one.OfferURL)
+		if activeOnly && len(one.Connections) == 0 {
+			continue
+		}
+		url, err := crossmodel.ParseOfferURL(one.OfferURL)
 		if err != nil {
 			return nil, errors.Annotatef(err, "%v", one.OfferURL)
 		}
@@ -245,7 +262,7 @@ func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOff
 	return result, nil
 }
 
-func convertOfferToListItem(url *crossmodel.ApplicationURL, offer crossmodel.ApplicationOfferDetails) ListOfferItem {
+func convertOfferToListItem(url *crossmodel.OfferURL, offer *crossmodel.ApplicationOfferDetails) ListOfferItem {
 	item := ListOfferItem{
 		OfferName:       offer.OfferName,
 		ApplicationName: offer.ApplicationName,
@@ -253,6 +270,7 @@ func convertOfferToListItem(url *crossmodel.ApplicationURL, offer crossmodel.App
 		CharmURL:        offer.CharmURL,
 		OfferURL:        offer.OfferURL,
 		Endpoints:       convertCharmEndpoints(offer.Endpoints...),
+		Users:           convertUsers(offer.Users...),
 	}
 	for _, conn := range offer.Connections {
 		item.Connections = append(item.Connections, offerConnectionDetails{
@@ -261,7 +279,7 @@ func convertOfferToListItem(url *crossmodel.ApplicationURL, offer crossmodel.App
 			RelationId:      conn.RelationId,
 			Endpoint:        conn.Endpoint,
 			Status: offerConnectionStatus{
-				Current: conn.Status,
+				Current: conn.Status.String(),
 				Message: conn.Message,
 				Since:   friendlyDuration(conn.Since),
 			},

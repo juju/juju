@@ -436,7 +436,6 @@ func (im *IAASModel) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) {
 		})
 	}
 	for _, v := range machineVolumes {
-		volumeId := v.Tag().Id()
 		if v.doc.StorageId != "" {
 			// The volume is assigned to a storage instance;
 			// make sure we also remove the storage instance.
@@ -453,15 +452,7 @@ func (im *IAASModel) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) {
 				},
 			)
 		}
-		ops = append(ops,
-			txn.Op{
-				C:      volumesC,
-				Id:     volumeId,
-				Assert: txn.DocExists,
-				Remove: true,
-			},
-			removeModelVolumeRefOp(im.mb, volumeId),
-		)
+		ops = append(ops, im.removeVolumeOps(v.VolumeTag())...)
 	}
 	return ops, nil
 }
@@ -774,18 +765,22 @@ func (im *IAASModel) RemoveVolume(tag names.VolumeTag) (err error) {
 		if volume.Life() != Dead {
 			return nil, errors.New("volume is not dead")
 		}
-		return []txn.Op{
-			{
-				C:      volumesC,
-				Id:     tag.Id(),
-				Assert: txn.DocExists,
-				Remove: true,
-			},
-			removeModelVolumeRefOp(im.mb, tag.Id()),
-			removeStatusOp(im.mb, volumeGlobalKey(tag.Id())),
-		}, nil
+		return im.removeVolumeOps(tag), nil
 	}
 	return im.mb.db().Run(buildTxn)
+}
+
+func (im *IAASModel) removeVolumeOps(tag names.VolumeTag) []txn.Op {
+	return []txn.Op{
+		{
+			C:      volumesC,
+			Id:     tag.Id(),
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+		removeModelVolumeRefOp(im.mb, tag.Id()),
+		removeStatusOp(im.mb, volumeGlobalKey(tag.Id())),
+	}
 }
 
 // newVolumeName returns a unique volume name.
@@ -866,7 +861,7 @@ func (im *IAASModel) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op {
 
 func (im *IAASModel) volumeParamsWithDefaults(params VolumeParams, machineId string) (VolumeParams, error) {
 	if params.Pool == "" {
-		modelConfig, err := im.st.ModelConfig()
+		modelConfig, err := im.ModelConfig()
 		if err != nil {
 			return VolumeParams{}, errors.Trace(err)
 		}

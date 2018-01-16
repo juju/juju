@@ -17,7 +17,7 @@ import (
 	txntesting "github.com/juju/txn/testing"
 	jutils "github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
@@ -127,11 +127,19 @@ func (doc *MachineDoc) String() string {
 	return m.String()
 }
 
-func ServiceSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
+func ApplicationSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
 	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
-	key := applicationSettingsKey(appName, curl)
+	key := applicationCharmConfigKey(appName, curl)
+	return nsRefcounts.read(refcounts, key)
+}
+
+func ApplicationOffersRefCount(st *State, appName string) (int, error) {
+	refcounts, closer := st.db().GetCollection(refcountsC)
+	defer closer()
+
+	key := applicationOffersRefCountKey(appName)
 	return nsRefcounts.read(refcounts, key)
 }
 
@@ -300,7 +308,7 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	for iter.Next(&doc) {
 		out = append(out, &UpgradeInfo{st: st, doc: doc})
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -501,6 +509,13 @@ func RemoveEndpointBindingsForService(c *gc.C, app *Application) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func RemoveOfferConnectionsForRelation(c *gc.C, rel *Relation) {
+	removeOps := removeOfferConnectionsForRelationOps(rel.Id())
+	txnError := rel.st.db().RunTransaction(removeOps)
+	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func RelationCount(app *Application) int {
 	return app.doc.RelationCount
 }
@@ -538,6 +553,13 @@ func ResetMigrationMode(c *gc.C, st *State) {
 			"$set": bson.M{"migration-mode": MigrationModeNone},
 		},
 	}}
+	err := st.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func RemoveRelationStatus(c *gc.C, rel *Relation) {
+	st := rel.st
+	ops := []txn.Op{removeStatusOp(st, rel.globalScope())}
 	err := st.db().RunTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -679,10 +701,16 @@ func AssertNoCleanups(c *gc.C, st *State) {
 	}
 }
 
-// GetApplicationSettings allows access to settings collection for a
-// given application.
-func GetApplicationSettings(st *State, app *Application) *Settings {
-	return newSettings(st.db(), settingsC, app.settingsKey())
+// GetApplicationCharmConfig allows access to settings collection for a
+// given application in order to get the charm config.
+func GetApplicationCharmConfig(st *State, app *Application) *Settings {
+	return newSettings(st.db(), settingsC, app.charmConfigKey())
+}
+
+// GetApplicationConfig allows access to settings collection for a
+// given application in order to get the application config.
+func GetApplicationConfig(st *State, app *Application) *Settings {
+	return newSettings(st.db(), settingsC, app.applicationConfigKey())
 }
 
 // GetControllerSettings allows access to settings collection for
@@ -717,4 +745,12 @@ func AddVolumeOps(st *State, params VolumeParams, machineId string) ([]txn.Op, n
 
 func ModelBackendFromIAASModel(im *IAASModel) modelBackend {
 	return im.mb
+}
+
+func (st *State) IsUserSuperuser(user names.UserTag) (bool, error) {
+	return st.isUserSuperuser(user)
+}
+
+func (st *State) ModelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.Query, SessionCloser, error) {
+	return st.modelQueryForUser(user, isSuperuser)
 }

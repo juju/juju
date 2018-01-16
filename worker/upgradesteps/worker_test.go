@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
@@ -256,7 +255,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesntStartUpgrade(c *gc.C) {
 	// This test checks when a controller is upgrading and one of
 	// the other controllers doesn't signal it is ready in time.
 
-	err := s.State.SetModelAgentVersion(jujuversion.Current)
+	err := s.State.SetModelAgentVersion(jujuversion.Current, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The master controller in this scenario is functionally tested
@@ -414,16 +413,14 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 }
 
 func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
-	mongoInfo := s.State.MongoConnectionInfo()
 	newPolicy := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.State.ModelTag(),
-		MongoInfo:          mongoInfo,
-		MongoDialOpts:      mongotest.DialOpts(),
+		ControllerModelTag: s.IAASModel.ModelTag(),
+		MongoSession:       s.State.MongoSession(),
 		NewPolicy:          newPolicy,
 	})
 	if err != nil {
@@ -557,7 +554,7 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, ex
 }
 
 func (s *UpgradeSuite) assertEnvironAgentVersion(c *gc.C, expected version.Number) {
-	envConfig, err := s.State.ModelConfig()
+	envConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

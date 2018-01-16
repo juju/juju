@@ -14,10 +14,8 @@ import (
 	"github.com/juju/loggo"
 	api "github.com/juju/romulus/api/budget"
 	wireformat "github.com/juju/romulus/wireformat/budget"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -142,10 +140,6 @@ func (c *showWalletCommand) modelNameMap() (map[string]string, error) {
 		}
 	}
 	return uuidToName, nil
-}
-
-type APIClient interface {
-	ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error)
 }
 
 var newWalletAPIClient = newWalletAPIClientImpl

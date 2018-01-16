@@ -6,7 +6,7 @@ package remotestate
 import (
 	"time"
 
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
@@ -27,6 +27,7 @@ type State interface {
 	Unit(names.UnitTag) (Unit, error)
 	WatchRelationUnits(names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
+	WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error)
 	UpdateStatusHookInterval() (time.Duration, error)
 }
 
@@ -69,7 +70,8 @@ type Application interface {
 type Relation interface {
 	Id() int
 	Life() params.Life
-	Status() params.RelationStatusValue
+	Suspended() bool
+	UpdateSuspended(bool)
 }
 
 func NewAPIState(st *uniter.State) State {

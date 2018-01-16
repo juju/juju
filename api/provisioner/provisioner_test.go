@@ -78,7 +78,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.provisioner = provisioner.NewState(s.st)
 	c.Assert(s.provisioner, gc.NotNil)
 
-	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, s.IAASModel.Model)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 
@@ -434,6 +434,70 @@ func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 	_, err = apiMachine.DistributionGroup()
 	c.Assert(err, gc.ErrorMatches, "machine 1 not found")
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
+	results, err := s.provisioner.DistributionGroupByMachineId(s.machine.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results), gc.Equals, 1)
+	c.Assert(results, gc.DeepEquals, []provisioner.DistributionGroupResult{
+		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
+	})
+
+	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err = s.provisioner.DistributionGroupByMachineId(
+		s.machine.MachineTag(),
+		machine1.MachineTag(),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results), gc.Equals, 2)
+	c.Assert(results, gc.DeepEquals, []provisioner.DistributionGroupResult{
+		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
+		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
+	})
+
+	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	unit2, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit2.AssignToMachine(machine2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err = s.provisioner.DistributionGroupByMachineId(
+		s.machine.MachineTag(),
+		machine1.MachineTag(),
+		machine2.MachineTag(),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results), gc.Equals, 3)
+	c.Assert(results, gc.DeepEquals, []provisioner.DistributionGroupResult{
+		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
+		provisioner.DistributionGroupResult{MachineIds: []string{"2"}, Err: nil},
+		provisioner.DistributionGroupResult{MachineIds: []string{"1"}, Err: nil},
+	})
+}
+
+func (s *provisionerSuite) TestDistributionGroupByMachineIdNotFound(c *gc.C) {
+	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	machineTag := stateMachine.MachineTag()
+	apiMachine := s.assertGetOneMachine(c, machineTag)
+	err = apiMachine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = apiMachine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.provisioner.DistributionGroupByMachineId(machineTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results), gc.Equals, 1)
+	c.Assert(results[0].Err, gc.ErrorMatches, "machine 1 not found")
+	c.Assert(results[0].Err, jc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {

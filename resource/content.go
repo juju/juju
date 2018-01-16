@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 )
 
 // Content holds a reader for the content of a resource along

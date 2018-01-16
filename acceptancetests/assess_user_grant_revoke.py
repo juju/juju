@@ -387,5 +387,6 @@ def main(argv=None):
         assess_user_grant_revoke(bs_manager.client)
     return 0
 
+
 if __name__ == '__main__':
     sys.exit(main())

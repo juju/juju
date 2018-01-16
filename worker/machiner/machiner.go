@@ -169,7 +169,7 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 				return errors.Annotate(err, "cannot update observed network config")
 			}
 		}
-		logger.Debugf("observed network config updated for %q to %v", mr.config.Tag, observedConfig)
+		logger.Debugf("observed network config updated for %q to %+v", mr.config.Tag, observedConfig)
 
 		return nil
 	}

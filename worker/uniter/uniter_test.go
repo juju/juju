@@ -20,7 +20,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
@@ -1563,7 +1563,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	curl = curl.WithRevision(dir.Revision())
 	step(c, ctx, addCharm{dir, curl})
-	ctx.svc = s.AddTestingApplication(c, "u", ctx.sch)
+	ctx.application = s.AddTestingApplication(c, "u", ctx.sch)
 
 	// Create the principal application and add a relation.
 	wps := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))

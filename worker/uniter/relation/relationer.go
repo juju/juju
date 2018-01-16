@@ -6,7 +6,8 @@ package relation
 import (
 	"fmt"
 
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6/hooks"
 
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -79,7 +80,7 @@ func (r *Relationer) SetDying() error {
 // relation scope, and removes the local relation state directory.
 func (r *Relationer) die() error {
 	if err := r.ru.LeaveScope(); err != nil {
-		return err
+		return errors.Annotatef(err, "leaving scope of relation %q", r.ru.Relation())
 	}
 	return r.dir.Remove()
 }

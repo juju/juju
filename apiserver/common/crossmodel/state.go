@@ -23,6 +23,9 @@ type statePoolShim struct {
 
 func (p *statePoolShim) Get(modelUUID string) (Backend, func(), error) {
 	st, releaser, err := p.StatePool.Get(modelUUID)
+	if err != nil {
+		return nil, func() {}, err
+	}
 	closer := func() {
 		releaser()
 	}
@@ -47,6 +50,8 @@ func GetBackend(st *state.State) stateShim {
 	return stateShim{State: st, Model: model}
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
 	*state.Model

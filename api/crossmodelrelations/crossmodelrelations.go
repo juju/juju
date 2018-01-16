@@ -41,10 +41,6 @@ func NewClientWithCache(caller base.APICallCloser, cache *MacaroonCache) *Client
 	}
 }
 
-func (c *Client) Close() error {
-	return c.ClientFacade.Close()
-}
-
 // handleError is used to process an error obtained when making a facade call.
 // If the error indicates that a macaroon discharge is required, this is done
 // and the resulting discharge macaroons passed back so the api call can be retried.
@@ -174,6 +170,8 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 
 	var results params.RegisterRemoteRelationResults
 	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.RegisterRemoteRelationResults{}
 		err := c.facade.FacadeCall("RegisterRemoteRelations", args, &results)
 		if err != nil {
 			return errors.Trace(err)
@@ -214,7 +212,6 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 		return result, nil
 	}
 
-	results = params.RegisterRemoteRelationResults{}
 	if err := apiCall(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -237,6 +234,8 @@ func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteEntityArg) (w
 
 	var results params.RelationUnitsWatchResults
 	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.RelationUnitsWatchResults{}
 		if err := c.facade.FacadeCall("WatchRelationUnits", args, &results); err != nil {
 			return errors.Trace(err)
 		}
@@ -294,6 +293,8 @@ func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit)
 
 	var results params.SettingsResults
 	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.SettingsResults{}
 		err := c.facade.FacadeCall("RelationUnitSettings", args, &results)
 		if err != nil {
 			return errors.Trace(err)
@@ -334,7 +335,6 @@ func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit)
 		return result, nil
 	}
 
-	results = params.SettingsResults{}
 	if err := apiCall(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -359,6 +359,8 @@ func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.Remote
 
 	var results params.StringsWatchResults
 	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.StringsWatchResults{}
 		if err := c.facade.FacadeCall("WatchEgressAddressesForRelations", args, &results); err != nil {
 			return errors.Trace(err)
 		}
@@ -397,9 +399,9 @@ func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.Remote
 	return w, nil
 }
 
-// WatchRelationStatus starts a RelationStatusWatcher for watching the life and
-// status of the specified relation in the remote model.
-func (c *Client) WatchRelationStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
+// WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the life and
+// suspended status of the specified relation in the remote model.
+func (c *Client) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{arg}}
 	// Use any previously cached discharge macaroons.
 	if ms, ok := c.getCachedMacaroon("watch relation status", arg.Token); ok {
@@ -408,7 +410,9 @@ func (c *Client) WatchRelationStatus(arg params.RemoteEntityArg) (watcher.Relati
 
 	var results params.RelationStatusWatchResults
 	apiCall := func() error {
-		if err := c.facade.FacadeCall("WatchRelationsStatus", args, &results); err != nil {
+		// Reset the results struct before each api call.
+		results = params.RelationStatusWatchResults{}
+		if err := c.facade.FacadeCall("WatchRelationsSuspendedStatus", args, &results); err != nil {
 			return errors.Trace(err)
 		}
 		if len(results.Results) != 1 {
@@ -443,5 +447,56 @@ func (c *Client) WatchRelationStatus(arg params.RemoteEntityArg) (watcher.Relati
 	}
 
 	w := apiwatcher.NewRelationStatusWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchOfferStatus starts an OfferStatusWatcher for watching the status
+// of the specified offer in the remote model.
+func (c *Client) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatcher, error) {
+	args := params.OfferArgs{Args: []params.OfferArg{arg}}
+	// Use any previously cached discharge macaroons.
+	if ms, ok := c.getCachedMacaroon("watch offer status", arg.OfferUUID); ok {
+		args.Args[0].Macaroons = ms
+	}
+
+	var results params.OfferStatusWatchResults
+	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.OfferStatusWatchResults{}
+		if err := c.facade.FacadeCall("WatchOfferStatus", args, &results); err != nil {
+			return errors.Trace(err)
+		}
+		if len(results.Results) != 1 {
+			return errors.Errorf("expected 1 result, got %d", len(results.Results))
+		}
+		return nil
+	}
+
+	// Make the api call the first time.
+	if err := apiCall(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// On error, possibly discharge the macaroon and retry.
+	result := results.Results[0]
+	if result.Error != nil {
+		mac, err := c.handleError(result.Error)
+		if err != nil {
+			result.Error.Message = err.Error()
+			return nil, result.Error
+		}
+		args.Args[0].Macaroons = mac
+		c.cache.Upsert(args.Args[0].OfferUUID, mac)
+
+		if err := apiCall(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = results.Results[0]
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	w := apiwatcher.NewOfferStatusWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }

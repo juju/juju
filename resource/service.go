@@ -5,7 +5,7 @@ package resource
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 )
 

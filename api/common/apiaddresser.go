@@ -41,6 +41,10 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 
 // ModelUUID returns the model UUID to connect to the model
 // that the current connection is for.
+//
+// TODO(axw) this has bugger all to do with addresses, and
+// so should not be on this type. Get it from somewhere else,
+// e.g. by passing it into the model-specific workers.
 func (a *APIAddresser) ModelUUID() (string, error) {
 	var result params.StringResult
 	err := a.facade.FacadeCall("ModelUUID", nil, &result)
@@ -48,16 +52,6 @@ func (a *APIAddresser) ModelUUID() (string, error) {
 		return "", err
 	}
 	return result.Result, nil
-}
-
-// CACert returns the certificate used to validate the API and state connections.
-func (a *APIAddresser) CACert() (string, error) {
-	var result params.BytesResult
-	err := a.facade.FacadeCall("CACert", nil, &result)
-	if err != nil {
-		return "", err
-	}
-	return string(result.Result), nil
 }
 
 // APIHostPorts returns the host/port addresses of the API servers.

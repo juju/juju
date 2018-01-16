@@ -145,6 +145,19 @@ type RelationStatusArg struct {
 	Message    string              `json:"message"`
 }
 
+// RelationSuspendedArgs holds the parameters for setting
+// the suspended status of one or more relations.
+type RelationSuspendedArgs struct {
+	Args []RelationSuspendedArg `json:"args"`
+}
+
+// RelationSuspendedArg holds the new suspended status value for a relation.
+type RelationSuspendedArg struct {
+	RelationId int    `json:"relation-id"`
+	Message    string `json:"message"`
+	Suspended  bool   `json:"suspended"`
+}
+
 // AddCharm holds the arguments for making an AddCharm API call.
 type AddCharm struct {
 	URL     string `json:"url"`
@@ -350,11 +363,31 @@ type ApplicationGet struct {
 
 // ApplicationGetResults holds results of the application Get call.
 type ApplicationGetResults struct {
-	Application string                 `json:"application"`
-	Charm       string                 `json:"charm"`
-	Config      map[string]interface{} `json:"config"`
-	Constraints constraints.Value      `json:"constraints"`
-	Series      string                 `json:"series"`
+	Application       string                 `json:"application"`
+	Charm             string                 `json:"charm"`
+	CharmConfig       map[string]interface{} `json:"config"`
+	ApplicationConfig map[string]interface{} `json:"application-config,omitempty"`
+	Constraints       constraints.Value      `json:"constraints"`
+	Series            string                 `json:"series"`
+}
+
+// ApplicationConfigSetArgs holds the parameters for
+// setting application config values for specified applications.
+type ApplicationConfigSetArgs struct {
+	Args []ApplicationConfigSet
+}
+
+// ApplicationConfigSet holds the parameters for an application
+// config set command.
+type ApplicationConfigSet struct {
+	ApplicationName string            `json:"application"`
+	Config          map[string]string `json:"config"`
+}
+
+// ApplicationConfigUnsetArgs holds the parameters for
+// resetting application config values for specified applications.
+type ApplicationConfigUnsetArgs struct {
+	Args []ApplicationUnset
 }
 
 // ApplicationCharmRelations holds parameters for making the application CharmRelations call.
@@ -381,6 +414,17 @@ type ApplicationMetricCredential struct {
 // ApplicationMetricCredentials holds multiple ApplicationMetricCredential parameters.
 type ApplicationMetricCredentials struct {
 	Creds []ApplicationMetricCredential `json:"creds"`
+}
+
+// ApplicationGetConfigResults holds the return values for application GetConfig.
+type ApplicationGetConfigResults struct {
+	Results []ConfigResult
+}
+
+// ConfigResults holds configuration values for an entity.
+type ConfigResult struct {
+	Config map[string]interface{} `json:"config"`
+	Error  *Error                 `json:"error,omitempty"`
 }
 
 // PublicAddress holds parameters for the PublicAddress call.
@@ -430,14 +474,60 @@ type AddApplicationUnits struct {
 	AttachStorage   []string              `json:"attach-storage,omitempty"`
 }
 
-// DestroyApplicationUnits holds parameters for the DestroyUnits call.
+// DestroyApplicationUnits holds parameters for the deprecated
+// Application.DestroyUnits call.
 type DestroyApplicationUnits struct {
 	UnitNames []string `json:"unit-names"`
 }
 
-// ApplicationDestroy holds the parameters for making the application Destroy call.
+// DestroyUnitsParams holds bulk parameters for the Application.DestroyUnit call.
+type DestroyUnitsParams struct {
+	Units []DestroyUnitParams `json:"units"`
+}
+
+// DestroyUnitParams holds parameters for the Application.DestroyUnit call.
+type DestroyUnitParams struct {
+	// UnitTag holds the tag of the unit to destroy.
+	UnitTag string `json:"unit-tag"`
+
+	// DestroyStorage controls whether or not storage
+	// attached to the unit should be destroyed.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
+}
+
+// ApplicationDestroy holds the parameters for making the deprecated
+// Application.Destroy call.
 type ApplicationDestroy struct {
 	ApplicationName string `json:"application"`
+}
+
+// DestroyApplicationsParams holds bulk parameters for the
+// Application.DestroyApplication call.
+type DestroyApplicationsParams struct {
+	Applications []DestroyApplicationParams `json:"applications"`
+}
+
+// DestroyApplicationParams holds parameters for the
+// Application.DestroyApplication call.
+type DestroyApplicationParams struct {
+	// ApplicationTag holds the tag of the application to destroy.
+	ApplicationTag string `json:"application-tag"`
+
+	// DestroyStorage controls whether or not storage attached to
+	// units of the application should be destroyed.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
+}
+
+// DestroyConsumedApplicationsParams holds bulk parameters for the
+// Application.DestroyConsumedApplication call.
+type DestroyConsumedApplicationsParams struct {
+	Applications []DestroyConsumedApplicationParams `json:"applications"`
+}
+
+// DestroyConsumedApplicationParams holds the parameters for the
+// RemoteApplication.Destroy call.
+type DestroyConsumedApplicationParams struct {
+	ApplicationTag string `json:"application-tag"`
 }
 
 // Creds holds credentials for identifying an entity.
@@ -459,6 +549,7 @@ type LoginRequest struct {
 	Credentials string           `json:"credentials"`
 	Nonce       string           `json:"nonce"`
 	Macaroons   []macaroon.Slice `json:"macaroons"`
+	CLIArgs     string           `json:"cli-args,omitempty"`
 	UserData    string           `json:"user-data"`
 }
 
@@ -493,6 +584,18 @@ type GetApplicationConstraints struct {
 // GetConstraintsResults holds results of the GetConstraints call.
 type GetConstraintsResults struct {
 	Constraints constraints.Value `json:"constraints"`
+}
+
+// ApplicationGetConstraintsResults holds the multiple return values for GetConstraints call.
+type ApplicationGetConstraintsResults struct {
+	Results []ApplicationConstraint `json:"results"`
+}
+
+// ApplicationConstraint holds the constraints value for a single application, or
+// an error for trying to get it.
+type ApplicationConstraint struct {
+	Constraints constraints.Value `json:"constraints"`
+	Error       *Error            `json:"error,omitempty"`
 }
 
 // SetConstraints stores parameters for making the SetConstraints call.
@@ -586,12 +689,13 @@ type UpdateBehavior struct {
 // ContainerConfig contains information from the model config that is
 // needed for container cloud-init.
 type ContainerConfig struct {
-	ProviderType            string         `json:"provider-type"`
-	AuthorizedKeys          string         `json:"authorized-keys"`
-	SSLHostnameVerification bool           `json:"ssl-hostname-verification"`
-	Proxy                   proxy.Settings `json:"proxy"`
-	AptProxy                proxy.Settings `json:"apt-proxy"`
-	AptMirror               string         `json:"apt-mirror"`
+	ProviderType            string                 `json:"provider-type"`
+	AuthorizedKeys          string                 `json:"authorized-keys"`
+	SSLHostnameVerification bool                   `json:"ssl-hostname-verification"`
+	Proxy                   proxy.Settings         `json:"proxy"`
+	AptProxy                proxy.Settings         `json:"apt-proxy"`
+	AptMirror               string                 `json:"apt-mirror"`
+	CloudInitUserData       map[string]interface{} `json:"cloudinit-userdata,omitempty"`
 	*UpdateBehavior
 }
 
@@ -620,8 +724,7 @@ type ProvisioningScriptResult struct {
 // DeployerConnectionValues containers the result of deployer.ConnectionInfo
 // API call.
 type DeployerConnectionValues struct {
-	StateAddresses []string `json:"state-addresses"`
-	APIAddresses   []string `json:"api-addresses"`
+	APIAddresses []string `json:"api-addresses"`
 }
 
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.

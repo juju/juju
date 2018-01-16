@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -178,7 +178,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not load model status values")
 	}
 	if context.applications, context.units, context.latestCharms, err =
-		fetchAllApplicationsAndUnits(c.api.stateAccessor, context.model, len(args.Patterns) <= 0); err != nil {
+		fetchAllApplicationsAndUnits(c.api.stateAccessor, context.model); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch applications and units")
 	}
 	if context.consumerRemoteApplications, err =
@@ -212,6 +212,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	logger.Debugf("Applications: %v", context.applications)
 	logger.Debugf("Remote applications: %v", context.consumerRemoteApplications)
 	logger.Debugf("Offers: %v", context.offers)
+	logger.Debugf("Relations: %v", context.relations)
 
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
@@ -274,6 +275,13 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 				return noStatus, errors.Annotate(err, "could not filter applications")
 			} else if !matches {
 				delete(context.applications, appName)
+				// delete relations for this app
+				if relations, ok := context.relations[appName]; ok {
+					for _, r := range relations {
+						delete(context.relationsById, r.Id())
+					}
+					delete(context.relations, appName)
+				}
 			}
 		}
 
@@ -325,6 +333,7 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		return info, errors.Annotate(err, "cannot get model")
 	}
 	info.Name = m.Name()
+	info.Type = string(m.Type())
 	info.CloudTag = names.NewCloudTag(m.Cloud()).String()
 	info.CloudRegion = m.CloudRegion()
 
@@ -436,6 +445,16 @@ func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Mach
 func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string]map[string]set.Strings, map[string][]*state.LinkLayerDevice, error) {
 	ipAddresses := make(map[string][]*state.Address)
 	spaces := make(map[string]map[string]set.Strings)
+	subnets, err := st.AllSubnets()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	subnetsByCIDR := make(map[string]*state.Subnet)
+	for _, subnet := range subnets {
+		subnetsByCIDR[subnet.CIDR()] = subnet
+	}
+	// For every machine, track what devices have addresses so we can filter linklayerdevices later
+	devicesWithAddresses := make(map[string]set.Strings)
 	ipAddrs, err := st.AllIPAddresses()
 	if err != nil {
 		return nil, nil, nil, err
@@ -446,26 +465,27 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		}
 		machineID := ipAddr.MachineID()
 		ipAddresses[machineID] = append(ipAddresses[machineID], ipAddr)
-		subnet, err := st.Subnet(ipAddr.SubnetCIDR())
-		if errors.IsNotFound(err) {
-			// No worries; no subnets means no spaces.
-			continue
-		} else if err != nil {
-			return nil, nil, nil, err
+		if subnet, ok := subnetsByCIDR[ipAddr.SubnetCIDR()]; ok {
+			if spaceName := subnet.SpaceName(); spaceName != "" {
+				devices, ok := spaces[machineID]
+				if !ok {
+					devices = make(map[string]set.Strings)
+					spaces[machineID] = devices
+				}
+				deviceName := ipAddr.DeviceName()
+				spacesSet, ok := devices[deviceName]
+				if !ok {
+					spacesSet = make(set.Strings)
+					devices[deviceName] = spacesSet
+				}
+				spacesSet.Add(spaceName)
+			}
 		}
-		if spaceName := subnet.SpaceName(); spaceName != "" {
-			devices, ok := spaces[machineID]
-			if !ok {
-				devices = make(map[string]set.Strings)
-				spaces[machineID] = devices
-			}
-			deviceName := ipAddr.DeviceName()
-			spacesSet, ok := devices[deviceName]
-			if !ok {
-				spacesSet = make(set.Strings)
-				devices[deviceName] = spacesSet
-			}
-			spacesSet.Add(spaceName)
+		deviceSet, ok := devicesWithAddresses[machineID]
+		if ok {
+			deviceSet.Add(ipAddr.DeviceName())
+		} else {
+			devicesWithAddresses[machineID] = set.NewStrings(ipAddr.DeviceName())
 		}
 	}
 
@@ -478,16 +498,18 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		if llDev.IsLoopbackDevice() {
 			continue
 		}
-		addrs, err := llDev.Addresses()
-		if err != nil {
-			return nil, nil, nil, err
+		machineID := llDev.MachineID()
+		machineDevs, ok := devicesWithAddresses[machineID]
+		if !ok {
+			// This machine ID doesn't seem to have any devices with IP Addresses
+			continue
 		}
-		// We don't want to see bond slaves or bridge ports, only the
-		// IP-addressed devices.
-		if len(addrs) > 0 {
-			machineID := llDev.MachineID()
-			linkLayerDevices[machineID] = append(linkLayerDevices[machineID], llDev)
+		if !machineDevs.Contains(llDev.Name()) {
+			// this device did not have any IP Addresses
+			continue
 		}
+		// This device had an IP Address, so include it in the list of devices for this machine
+		linkLayerDevices[machineID] = append(linkLayerDevices[machineID], llDev)
 	}
 
 	return ipAddresses, spaces, linkLayerDevices, nil
@@ -498,7 +520,6 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 func fetchAllApplicationsAndUnits(
 	st Backend,
 	model *state.Model,
-	matchAny bool,
 ) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
 
 	appMap := make(map[string]*state.Application)
@@ -525,10 +546,10 @@ func fetchAllApplicationsAndUnits(
 		}
 	}
 	for _, app := range applications {
+		appMap[app.Name()] = app
 		appUnits := allUnitsByApp[app.Name()]
-		if matchAny || len(appUnits) > 0 {
+		if len(appUnits) > 0 {
 			unitMap[app.Name()] = appUnits
-			appMap[app.Name()] = app
 			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
 			charmURL, _ := app.CharmURL()
@@ -594,7 +615,8 @@ func fetchOffers(st Backend, applications map[string]*state.Application) (map[st
 			offerInfo.err = err
 			continue
 		} else if err == nil {
-			offerInfo.connectedCount = rc.ConnectionCount()
+			offerInfo.totalConnectedCount = rc.TotalConnectionCount()
+			offerInfo.activeConnectedCount = rc.ActiveConnectionCount()
 		}
 		offersMap[offer.OfferName] = offerInfo
 	}
@@ -936,7 +958,7 @@ func (context *statusContext) processRemoteApplications() map[string]params.Remo
 }
 
 func (context *statusContext) processRemoteApplication(application *state.RemoteApplication) (status params.RemoteApplicationStatus) {
-	status.ApplicationURL, _ = application.URL()
+	status.OfferURL, _ = application.URL()
 	status.OfferName = application.Name()
 	eps, err := application.Endpoints()
 	if err != nil {
@@ -965,21 +987,23 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 
 type offerStatus struct {
 	crossmodel.ApplicationOffer
-	err            error
-	charmURL       string
-	connectedCount int
+	err                  error
+	charmURL             string
+	activeConnectedCount int
+	totalConnectedCount  int
 }
 
 func (context *statusContext) processOffers() map[string]params.ApplicationOfferStatus {
 	offers := make(map[string]params.ApplicationOfferStatus)
 	for name, offer := range context.offers {
 		offerStatus := params.ApplicationOfferStatus{
-			Err:             offer.err,
-			ApplicationName: offer.ApplicationName,
-			OfferName:       offer.OfferName,
-			CharmURL:        offer.charmURL,
-			Endpoints:       make(map[string]params.RemoteEndpoint),
-			ConnectedCount:  offer.connectedCount,
+			Err:                  offer.err,
+			ApplicationName:      offer.ApplicationName,
+			OfferName:            offer.OfferName,
+			CharmURL:             offer.charmURL,
+			Endpoints:            make(map[string]params.RemoteEndpoint),
+			ActiveConnectedCount: offer.activeConnectedCount,
+			TotalConnectedCount:  offer.totalConnectedCount,
 		}
 		for name, ep := range offer.Endpoints {
 			offerStatus.Endpoints[name] = params.RemoteEndpoint{

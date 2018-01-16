@@ -12,6 +12,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
@@ -32,6 +33,18 @@ const (
 	// auditing information.
 	AuditingEnabled = "auditing-enabled"
 
+	// AuditLogCaptureArgs determines whether the audit log will
+	// contain the arguments passed to API methods.
+	AuditLogCaptureArgs = "audit-log-capture-args"
+
+	// AuditLogMaxSize is the maximum size for the current audit log
+	// file, eg "250M".
+	AuditLogMaxSize = "audit-log-max-size"
+
+	// AuditLogMaxBackups is the number of old audit log files to keep
+	// (compressed).
+	AuditLogMaxBackups = "audit-log-max-backups"
+
 	// StatePort is the port used for mongo connections.
 	StatePort = "state-port"
 
@@ -47,7 +60,7 @@ const (
 	// IdentityPublicKey sets the public key of the identity manager.
 	IdentityPublicKey = "identity-public-key"
 
-	// NUMAControlPolicyKey stores the value for this setting
+	// SetNUMAControlPolicyKey stores the value for this setting
 	SetNUMAControlPolicyKey = "set-numa-control-policy"
 
 	// AutocertDNSNameKey sets the DNS name of the controller. If a
@@ -72,7 +85,7 @@ const (
 	// detault
 	MongoMemoryProfile = "mongo-memory-profile"
 
-	// MaxLogsAge is the maximum age for log entries, ef "72h"
+	// MaxLogsAge is the maximum age for log entries, eg "72h"
 	MaxLogsAge = "max-logs-age"
 
 	// MaxLogsSize is the maximum size the log collection can grow to
@@ -87,6 +100,18 @@ const (
 	// DefaultAuditingEnabled contains the default value for the
 	// AuditingEnabled config value.
 	DefaultAuditingEnabled = false
+
+	// DefaultAuditLogCaptureArgs is the default for the
+	// AuditLogCaptureArgs setting (which is not to capture them).
+	DefaultAuditLogCaptureArgs = false
+
+	// DefaultAuditLogMaxSizeMB is the default size in MB at which we
+	// roll the audit log file.
+	DefaultAuditLogMaxSizeMB = 300
+
+	// DefaultAuditLogMaxBackups is the default number of files to
+	// keep.
+	DefaultAuditLogMaxBackups = 10
 
 	// DefaultNUMAControlPolicy should not be used by default.
 	// Only use numactl if user specifically requests it
@@ -110,6 +135,14 @@ const (
 
 	// DefaultMaxTxnLogCollectionMB is the maximum size the txn log collection.
 	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
+
+	// JujuHASpace is the network space within which the MongoDB replica-set
+	// should communicate.
+	JujuHASpace = "juju-ha-space"
+
+	// JujuManagementSpace is the network space that agents should use to
+	// communicate with controllers.
+	JujuManagementSpace = "juju-mgmt-space"
 )
 
 // ControllerOnlyConfigAttributes are attributes which are only relevant
@@ -129,6 +162,12 @@ var ControllerOnlyConfigAttributes = []string{
 	MaxLogsSize,
 	MaxLogsAge,
 	MaxTxnLogSize,
+	JujuHASpace,
+	JujuManagementSpace,
+	AuditingEnabled,
+	AuditLogCaptureArgs,
+	AuditLogMaxSize,
+	AuditLogMaxBackups,
 }
 
 // ControllerOnlyAttribute returns true if the specified attribute name
@@ -142,6 +181,7 @@ func ControllerOnlyAttribute(attr string) bool {
 	return false
 }
 
+// Config is a string-keyed map of controller configuration attributes.
 type Config map[string]interface{}
 
 // Validate validates the controller configuration.
@@ -216,7 +256,33 @@ func (c Config) AuditingEnabled() bool {
 	if v, ok := c[AuditingEnabled]; ok {
 		return v.(bool)
 	}
-	return false
+	return DefaultAuditingEnabled
+}
+
+// AuditLogCaptureArgs returns whether audit logging should capture
+// the arguments to API methods. The default is false.
+func (c Config) AuditLogCaptureArgs() bool {
+	if v, ok := c[AuditLogCaptureArgs]; ok {
+		return v.(bool)
+	}
+	return DefaultAuditLogCaptureArgs
+}
+
+// AuditLogMaxSizeMB returns the maximum size for an audit log file in
+// MB.
+func (c Config) AuditLogMaxSizeMB() int {
+	// Value has already been validated.
+	value, _ := utils.ParseSize(c.asString(AuditLogMaxSize))
+	return int(value)
+}
+
+// AuditLogMaxBackups returns the maximum number of backup audit log
+// files to keep.
+func (c Config) AuditLogMaxBackups() int {
+	if value, ok := c[AuditLogMaxBackups]; ok {
+		return value.(int)
+	}
+	return DefaultAuditLogMaxBackups
 }
 
 // ControllerUUID returns the uuid for the model's controller.
@@ -226,6 +292,9 @@ func (c Config) ControllerUUID() string {
 
 // CACert returns the certificate of the CA that signed the controller
 // certificate, in PEM format, and whether the setting is available.
+//
+// TODO(axw) once the controller config is completely constructed,
+// there will always be a CA certificate. Get rid of the bool result.
 func (c Config) CACert() (string, bool) {
 	if s, ok := c[CACertKey]; ok {
 		return s.(string), true
@@ -313,6 +382,18 @@ func (c Config) MaxTxnLogSizeMB() int {
 	return int(val)
 }
 
+// JujuHASpace is the network space within which the MongoDB replica-set
+// should communicate.
+func (c Config) JujuHASpace() string {
+	return c.asString(JujuHASpace)
+}
+
+// JujuManagementSpace is the network space that agents should use to
+// communicate with controllers.
+func (c Config) JujuManagementSpace() string {
+	return c.asString(JujuManagementSpace)
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -372,6 +453,51 @@ func Validate(c Config) error {
 		}
 	}
 
+	if err := validateSpaceConfig(c, JujuHASpace, "juju HA"); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := validateSpaceConfig(c, JujuManagementSpace, "juju mgmt"); err != nil {
+		return errors.Trace(err)
+	}
+
+	var auditLogMaxSize int
+	if v, ok := c[AuditLogMaxSize].(string); ok {
+		if size, err := utils.ParseSize(v); err != nil {
+			return errors.Annotate(err, "invalid audit log max size in configuration")
+		} else {
+			auditLogMaxSize = int(size)
+		}
+	}
+
+	if v, ok := c[AuditingEnabled].(bool); ok {
+		if v && auditLogMaxSize == 0 {
+			return errors.Errorf("invalid audit log max size: can't be 0 if auditing is enabled")
+		}
+	}
+
+	if v, ok := c[AuditLogMaxBackups].(int); ok {
+		if v < 0 {
+			return errors.Errorf("invalid audit log max backups: should be a number of files (or 0 to keep all), got %d", v)
+		}
+	}
+
+	return nil
+}
+
+func validateSpaceConfig(c Config, key, topic string) error {
+	val := c[key]
+	if val == nil {
+		return nil
+	}
+	if v, ok := val.(string); ok {
+		if !names.IsValidSpace(v) {
+			return errors.NotValidf("%s space name %q", topic, val)
+		}
+	} else {
+		return errors.NotValidf("type for %s space name %v", topic, val)
+	}
+
 	return nil
 }
 
@@ -383,6 +509,9 @@ func GenerateControllerCertAndKey(caCert, caKey string, hostAddresses []string) 
 
 var configChecker = schema.FieldMap(schema.Fields{
 	AuditingEnabled:         schema.Bool(),
+	AuditLogCaptureArgs:     schema.Bool(),
+	AuditLogMaxSize:         schema.String(),
+	AuditLogMaxBackups:      schema.ForceInt(),
 	APIPort:                 schema.ForceInt(),
 	StatePort:               schema.ForceInt(),
 	IdentityURL:             schema.String(),
@@ -395,9 +524,14 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxLogsAge:              schema.String(),
 	MaxLogsSize:             schema.String(),
 	MaxTxnLogSize:           schema.String(),
+	JujuHASpace:             schema.String(),
+	JujuManagementSpace:     schema.String(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
+	AuditLogCaptureArgs:     DefaultAuditLogCaptureArgs,
+	AuditLogMaxSize:         fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),
+	AuditLogMaxBackups:      DefaultAuditLogMaxBackups,
 	StatePort:               DefaultStatePort,
 	IdentityURL:             schema.Omit,
 	IdentityPublicKey:       schema.Omit,
@@ -409,4 +543,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
 	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
+	JujuHASpace:             schema.Omit,
+	JujuManagementSpace:     schema.Omit,
 })

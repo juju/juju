@@ -699,23 +699,34 @@ func createFilesystemDetails(
 }
 
 // AddToUnit validates and creates additional storage instances for units.
-// This method handles bulk add operations and
-// a failure on one individual storage instance does not block remaining
-// instances from being processed.
 // A "CHANGE" block can block this operation.
 func (a *APIv3) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, error) {
+	v4results, err := a.addToUnit(args)
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	v3results := make([]params.ErrorResult, len(v4results.Results))
+	for i, result := range v4results.Results {
+		v3results[i].Error = result.Error
+	}
+	return params.ErrorResults{v3results}, nil
+}
+
+// AddToUnit validates and creates additional storage instances for units.
+// A "CHANGE" block can block this operation.
+func (a *APIv4) AddToUnit(args params.StoragesAddParams) (params.AddStorageResults, error) {
+	return a.addToUnit(args)
+}
+
+func (a *APIv3) addToUnit(args params.StoragesAddParams) (params.AddStorageResults, error) {
 	if err := a.checkCanWrite(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return params.AddStorageResults{}, errors.Trace(err)
 	}
 
 	// Check if changes are allowed and the operation may proceed.
 	blockChecker := common.NewBlockChecker(a.storage)
 	if err := blockChecker.ChangeAllowed(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-
-	if len(args.Storages) == 0 {
-		return params.ErrorResults{}, nil
+		return params.AddStorageResults{}, errors.Trace(err)
 	}
 
 	paramsToState := func(p params.StorageConstraints) state.StorageConstraints {
@@ -729,20 +740,29 @@ func (a *APIv3) AddToUnit(args params.StoragesAddParams) (params.ErrorResults, e
 		return s
 	}
 
-	result := make([]params.ErrorResult, len(args.Storages))
+	result := make([]params.AddStorageResult, len(args.Storages))
 	for i, one := range args.Storages {
 		u, err := names.ParseUnitTag(one.UnitTag)
 		if err != nil {
-			result[i] = params.ErrorResult{Error: common.ServerError(err)}
+			result[i].Error = common.ServerError(err)
 			continue
 		}
 
-		err = a.storage.AddStorageForUnit(u, one.StorageName, paramsToState(one.Constraints))
+		tags, err := a.storage.AddStorageForUnit(
+			u, one.StorageName, paramsToState(one.Constraints),
+		)
 		if err != nil {
-			result[i] = params.ErrorResult{Error: common.ServerError(err)}
+			result[i].Error = common.ServerError(err)
+		}
+		tagStrings := make([]string, len(tags))
+		for i, tag := range tags {
+			tagStrings[i] = tag.String()
+		}
+		result[i].Result = &params.AddStorageDetails{
+			StorageTags: tagStrings,
 		}
 	}
-	return params.ErrorResults{Results: result}, nil
+	return params.AddStorageResults{Results: result}, nil
 }
 
 // Destroy sets the specified storage entities to Dying, unless they are

@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"

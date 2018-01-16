@@ -14,11 +14,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/charmrepo.v2/csclient"
+	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
@@ -47,7 +47,7 @@ type applicationSuite struct {
 	apiservertesting.CharmStoreSuite
 	commontesting.BlockHelper
 
-	applicationAPI *application.API
+	applicationAPI *application.APIv6
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
 }
@@ -84,13 +84,13 @@ func (s *applicationSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C) *application.API {
+func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv6 {
 	resources := common.NewResources()
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	backend, err := application.NewStateBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
-	api, err := application.NewAPI(
+	api, err := application.NewAPIV5(
 		backend,
 		s.authorizer,
 		blockChecker,
@@ -98,7 +98,107 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.API {
 		application.DeployApplication,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return api
+	return &application.APIv6{api}
+}
+
+func (s *applicationSuite) TestGetConfig(c *gc.C) {
+	fooConfig := map[string]interface{}{
+		"title":       "foo",
+		"skill-level": 42,
+	}
+	dummy := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "dummy",
+	})
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:        "foo",
+		Charm:       dummy,
+		CharmConfig: fooConfig,
+	})
+	barConfig := map[string]interface{}{
+		"title":   "bar",
+		"outlook": "fantastic",
+	}
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:        "bar",
+		Charm:       dummy,
+		CharmConfig: barConfig,
+	})
+	results, err := s.applicationAPI.GetConfig(params.Entities{
+		Entities: []params.Entity{
+			{"wat"}, {"machine-0"}, {"user-foo"},
+			{"application-foo"}, {"application-bar"}, {"application-wat"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ApplicationGetConfigResults{
+		Results: []params.ConfigResult{
+			{
+				Error: &params.Error{Message: `"wat" is not a valid tag`},
+			}, {
+				Error: &params.Error{Message: `unexpected tag type, expected application, got machine`},
+			}, {
+				Error: &params.Error{Message: `unexpected tag type, expected application, got user`},
+			}, {
+				Config: map[string]interface{}{
+					"outlook": map[string]interface{}{
+						"description": "No default outlook.",
+						"source":      "unset",
+						"type":        "string",
+					},
+					"skill-level": map[string]interface{}{
+						"description": "A number indicating skill.",
+						"source":      "user",
+						"type":        "int",
+						"value":       42,
+					},
+					"title": map[string]interface{}{
+						"default":     "My Title",
+						"description": "A descriptive title used for the application.",
+						"source":      "user",
+						"type":        "string",
+						"value":       "foo",
+					},
+					"username": map[string]interface{}{
+						"default":     "admin001",
+						"description": "The name of the initial account (given admin permissions).",
+						"source":      "default",
+						"type":        "string",
+						"value":       "admin001",
+					},
+				},
+			}, {
+				Config: map[string]interface{}{
+					"outlook": map[string]interface{}{
+						"description": "No default outlook.",
+						"source":      "user",
+						"type":        "string",
+						"value":       "fantastic",
+					},
+					"skill-level": map[string]interface{}{
+						"description": "A number indicating skill.",
+						"source":      "unset",
+						"type":        "int",
+					},
+					"title": map[string]interface{}{
+						"default":     "My Title",
+						"description": "A descriptive title used for the application.",
+						"source":      "user",
+						"type":        "string",
+						"value":       "bar",
+					},
+					"username": map[string]interface{}{
+						"default":     "admin001",
+						"description": "The name of the initial account (given admin permissions).",
+						"source":      "default",
+						"type":        "string",
+						"value":       "admin001",
+					},
+				},
+			}, {
+				Error: &params.Error{Message: `application "wat" not found`, Code: "not found"},
+			},
+		}})
+
 }
 
 func (s *applicationSuite) TestSetMetricCredentials(c *gc.C) {
@@ -996,7 +1096,7 @@ func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddC
 		return repo
 	})
 	attrs := map[string]interface{}{"test-mode": true}
-	err := s.State.UpdateModelConfig(attrs, nil)
+	err := s.IAASModel.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the store's test mode is enabled when calling application Deploy.
@@ -1113,6 +1213,14 @@ func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
 	c.Assert(units, gc.HasLen, 0)
 }
 
+func (s *applicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Settings) charm.Settings {
+	result := ch.Config().DefaultSettings()
+	for name, value := range inSettings {
+		result[name] = value
+	}
+	return result
+}
+
 func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 	curl, _ := s.UploadCharm(c, "precise/dummy-0", "dummy")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
@@ -1132,9 +1240,11 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 
 	application, err := s.State.Application("application-name")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := application.ConfigSettings()
+	settings, err := application.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{"username": "fred"})
+	ch, _, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{"username": "fred"}))
 }
 
 func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
@@ -1373,7 +1483,8 @@ func (s *applicationSuite) TestApplicationUpdateSetMinUnitsError(c *gc.C) {
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	ch := s.AddTestingCharm(c, "dummy")
+	application := s.AddTestingApplication(c, "dummy", ch)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1385,13 +1496,14 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsStrings(c *gc.C) {
 
 	// Ensure the settings have been correctly updated.
 	expected := charm.Settings{"title": "s-title", "username": "s-user"}
-	obtained, err := application.ConfigSettings()
+	obtained, err := application.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, expected)
+	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	ch := s.AddTestingCharm(c, "dummy")
+	application := s.AddTestingApplication(c, "dummy", ch)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1403,13 +1515,14 @@ func (s *applicationSuite) TestApplicationUpdateSetSettingsYAML(c *gc.C) {
 
 	// Ensure the settings have been correctly updated.
 	expected := charm.Settings{"title": "y-title", "username": "y-user"}
-	obtained, err := application.ConfigSettings()
+	obtained, err := application.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, expected)
+	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
 func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	ch := s.AddTestingCharm(c, "dummy")
+	application := s.AddTestingApplication(c, "dummy", ch)
 
 	// Update settings for the application.
 	args := params.ApplicationUpdate{
@@ -1421,9 +1534,9 @@ func (s *applicationSuite) TestClientApplicationUpdateSetSettingsGetYAML(c *gc.C
 
 	// Ensure the settings have been correctly updated.
 	expected := charm.Settings{"title": "y-title", "username": "y-user"}
-	obtained, err := application.ConfigSettings()
+	obtained, err := application.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, expected)
+	c.Assert(obtained, gc.DeepEquals, s.combinedSettings(ch, expected))
 }
 
 func (s *applicationSuite) TestApplicationUpdateSetConstraints(c *gc.C) {
@@ -1485,7 +1598,7 @@ func (s *applicationSuite) TestApplicationUpdateAllParams(c *gc.C) {
 	// Check the settings: also ensure the YAML settings take precedence
 	// over strings ones.
 	expectedSettings := charm.Settings{"blog-title": "yaml-title"}
-	obtainedSettings, err := application.ConfigSettings()
+	obtainedSettings, err := application.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedSettings, gc.DeepEquals, expectedSettings)
 
@@ -1520,31 +1633,32 @@ var (
 )
 
 func (s *applicationSuite) TestApplicationSet(c *gc.C) {
-	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	ch := s.AddTestingCharm(c, "dummy")
+	dummy := s.AddTestingApplication(c, "dummy", ch)
 
 	err := s.applicationAPI.Set(params.ApplicationSet{ApplicationName: "dummy", Options: map[string]string{
 		"title":    "foobar",
 		"username": validSetTestValue,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.ConfigSettings()
+	settings, err := dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title":    "foobar",
 		"username": validSetTestValue,
-	})
+	}))
 
 	err = s.applicationAPI.Set(params.ApplicationSet{ApplicationName: "dummy", Options: map[string]string{
 		"title":    "barfoo",
 		"username": "",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err = dummy.ConfigSettings()
+	settings, err = dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title":    "barfoo",
 		"username": "",
-	})
+	}))
 }
 
 func (s *applicationSuite) assertApplicationSetBlocked(c *gc.C, dummy *state.Application, msg string) {
@@ -1563,12 +1677,14 @@ func (s *applicationSuite) assertApplicationSet(c *gc.C, dummy *state.Applicatio
 			"title":    "foobar",
 			"username": validSetTestValue}})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.ConfigSettings()
+	settings, err := dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	ch, _, err := dummy.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title":    "foobar",
 		"username": validSetTestValue,
-	})
+	}))
 }
 
 func (s *applicationSuite) TestBlockDestroyApplicationSet(c *gc.C) {
@@ -1590,27 +1706,28 @@ func (s *applicationSuite) TestBlockChangesApplicationSet(c *gc.C) {
 }
 
 func (s *applicationSuite) TestServerUnset(c *gc.C) {
-	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	ch := s.AddTestingCharm(c, "dummy")
+	dummy := s.AddTestingApplication(c, "dummy", ch)
 
 	err := s.applicationAPI.Set(params.ApplicationSet{ApplicationName: "dummy", Options: map[string]string{
 		"title":    "foobar",
 		"username": "user name",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.ConfigSettings()
+	settings, err := dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title":    "foobar",
 		"username": "user name",
-	})
+	}))
 
 	err = s.applicationAPI.Unset(params.ApplicationUnset{ApplicationName: "dummy", Options: []string{"username"}})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err = dummy.ConfigSettings()
+	settings, err = dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title": "foobar",
-	})
+	}))
 }
 
 func (s *applicationSuite) setupServerUnsetBlocked(c *gc.C) *state.Application {
@@ -1623,12 +1740,14 @@ func (s *applicationSuite) setupServerUnsetBlocked(c *gc.C) *state.Application {
 			"username": "user name",
 		}})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.ConfigSettings()
+	settings, err := dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	ch, _, err := dummy.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title":    "foobar",
 		"username": "user name",
-	})
+	}))
 	return dummy
 }
 
@@ -1638,11 +1757,13 @@ func (s *applicationSuite) assertServerUnset(c *gc.C, dummy *state.Application) 
 		Options:         []string{"username"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := dummy.ConfigSettings()
+	settings, err := dummy.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	ch, _, err := dummy.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, charm.Settings{
 		"title": "foobar",
-	})
+	}))
 }
 
 func (s *applicationSuite) assertServerUnsetBlocked(c *gc.C, dummy *state.Application, msg string) {
@@ -2095,22 +2216,13 @@ var applicationDestroyTests = []struct {
 		application: "dummy-application",
 		err:         `application "dummy-application" not found`,
 	},
-	{
-		about:       "destroy a remote application",
-		application: "remote-application",
-	},
-	{
-		about:       "destroy an already destroyed remote application",
-		application: "remote-application",
-		err:         `application "remote-application" not found`,
-	},
 }
 
 func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-application",
-		SourceModel: s.State.ModelTag(),
+		SourceModel: s.IAASModel.ModelTag(),
 		Token:       "t0",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2475,18 +2587,40 @@ func (s *applicationSuite) TestBlockChangesSetApplicationConstraints(c *gc.C) {
 }
 
 func (s *applicationSuite) TestClientGetApplicationConstraints(c *gc.C) {
-	application := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	fooConstraints := constraints.MustParse("mem=4G")
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:        "foo",
+		Constraints: fooConstraints,
+	})
+	barConstraints := constraints.MustParse("mem=128G", "cores=64")
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:        "bar",
+		Constraints: barConstraints,
+	})
 
-	// Set constraints for the application.
-	cons, err := constraints.Parse("mem=4096", "cores=2")
+	results, err := s.applicationAPI.GetConstraints(params.Entities{
+		Entities: []params.Entity{
+			{"wat"}, {"machine-0"}, {"user-foo"},
+			{"application-foo"}, {"application-bar"}, {"application-wat"},
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = application.SetConstraints(cons)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check we can get the constraints.
-	result, err := s.applicationAPI.GetConstraints(params.GetApplicationConstraints{"dummy"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Constraints, gc.DeepEquals, cons)
+	c.Assert(results, jc.DeepEquals, params.ApplicationGetConstraintsResults{
+		Results: []params.ApplicationConstraint{
+			{
+				Error: &params.Error{Message: `"wat" is not a valid tag`},
+			}, {
+				Error: &params.Error{Message: `unexpected tag type, expected application, got machine`},
+			}, {
+				Error: &params.Error{Message: `unexpected tag type, expected application, got user`},
+			}, {
+				Constraints: fooConstraints,
+			}, {
+				Constraints: barConstraints,
+			}, {
+				Error: &params.Error{Message: `application "wat" not found`, Code: "not found"},
+			},
+		}})
 }
 
 func (s *applicationSuite) checkEndpoints(c *gc.C, mysqlAppName string, endpoints map[string]params.CharmRelation) {
@@ -2617,7 +2751,7 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 func (s *applicationSuite) setupRemoteApplication(c *gc.C) {
 	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{
-			{ApplicationOffer: params.ApplicationOffer{
+			{ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag:         testing.ModelTag.String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
@@ -2685,7 +2819,7 @@ func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 	results, err := s.applicationAPI.Consume(params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{
-			{ApplicationOffer: params.ApplicationOffer{
+			{ApplicationOfferDetails: params.ApplicationOfferDetails{
 				SourceModelTag: testing.ModelTag.String(),
 				OfferName:      "hosted-db2",
 				OfferUUID:      "hosted-db2-uuid",

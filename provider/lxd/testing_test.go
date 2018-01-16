@@ -312,10 +312,9 @@ func (s *BaseSuiteUnpatched) IsRunningLocally(c *gc.C) bool {
 type BaseSuite struct {
 	BaseSuiteUnpatched
 
-	Stub       *gitjujutesting.Stub
-	Client     *StubClient
-	Firewaller *stubFirewaller
-	Common     *stubCommon
+	Stub   *gitjujutesting.Stub
+	Client *StubClient
+	Common *stubCommon
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
@@ -339,7 +338,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
-	s.Firewaller = &stubFirewaller{stub: s.Stub}
 	s.Common = &stubCommon{stub: s.Stub}
 
 	// Patch out all expensive external deps.
@@ -350,7 +348,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		lxdProfiles:  s.Client,
 		lxdImages:    s.Client,
 		lxdStorage:   s.Client,
-		Firewaller:   s.Firewaller,
 		remote: lxdclient.Remote{
 			Cert: &lxdclient.Cert{
 				Name:    "juju",
@@ -660,39 +657,4 @@ func (conn *StubClient) VolumeList(pool string) ([]api.StorageVolume, error) {
 func (conn *StubClient) VolumeUpdate(pool, volume string, update api.StorageVolume) error {
 	conn.AddCall("VolumeUpdate", pool, volume, update)
 	return conn.NextErr()
-}
-
-// TODO(ericsnow) Move stubFirewaller to environs/testing or provider/common/testing.
-
-type stubFirewaller struct {
-	stub *gitjujutesting.Stub
-
-	PortRanges []network.IngressRule
-}
-
-func (fw *stubFirewaller) IngressRules(fwname string) ([]network.IngressRule, error) {
-	fw.stub.AddCall("Ports", fwname)
-	if err := fw.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return fw.PortRanges, nil
-}
-
-func (fw *stubFirewaller) OpenPorts(fwname string, rules ...network.IngressRule) error {
-	fw.stub.AddCall("OpenPorts", fwname, rules)
-	if err := fw.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (fw *stubFirewaller) ClosePorts(fwname string, rules ...network.IngressRule) error {
-	fw.stub.AddCall("ClosePorts", fwname, rules)
-	if err := fw.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
 }

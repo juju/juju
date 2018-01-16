@@ -93,6 +93,17 @@ func (e *environ) getMatchingSubnets(subnetIds IncludeSet, zones []string) ([]ne
 			))
 		}
 	}
+	// We have to include networks in 'LEGACY' mode that do not have subnetworks.
+	for _, netwk := range networks {
+		if netwk.IPv4Range != "" && subnetIds.Include(netwk.Name) {
+			results = append(results, makeSubnetInfo(
+				network.Id(netwk.Name),
+				network.Id(netwk.Name),
+				netwk.IPv4Range,
+				zones,
+			))
+		}
+	}
 	return results, nil
 }
 
@@ -291,6 +302,19 @@ func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, er
 		// fallback
 		return addresses, nil
 	}
+}
+
+// SuperSubnets implements environs.SuperSubnets
+func (e *environ) SuperSubnets() ([]string, error) {
+	subnets, err := e.Subnets("", nil)
+	if err != nil {
+		return nil, err
+	}
+	cidrs := make([]string, len(subnets))
+	for i, subnet := range subnets {
+		cidrs[i] = subnet.CIDR
+	}
+	return cidrs, nil
 }
 
 func copyStrings(items []string) []string {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/mutex"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v6"
 )
 
 type executorStep struct {

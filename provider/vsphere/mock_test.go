@@ -4,13 +4,14 @@
 package vsphere_test
 
 import (
+	"context"
 	"net/url"
 	"sync"
 
 	"github.com/juju/testing"
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
-	"golang.org/x/net/context"
 
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
@@ -35,6 +36,8 @@ type mockClient struct {
 	computeResources      []*mo.ComputeResource
 	createdVirtualMachine *mo.VirtualMachine
 	virtualMachines       []*mo.VirtualMachine
+	datastores            []*mo.Datastore
+	vmFolder              *object.Folder
 }
 
 func (c *mockClient) Close(ctx context.Context) error {
@@ -58,6 +61,20 @@ func (c *mockClient) CreateVirtualMachine(ctx context.Context, args vsphereclien
 	return c.createdVirtualMachine, c.NextErr()
 }
 
+func (c *mockClient) Datastores(ctx context.Context) ([]*mo.Datastore, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.MethodCall(c, "Datastores", ctx)
+	return c.datastores, c.NextErr()
+}
+
+func (c *mockClient) DeleteDatastoreFile(ctx context.Context, path string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.MethodCall(c, "DeleteDatastoreFile", ctx, path)
+	return c.NextErr()
+}
+
 func (c *mockClient) DestroyVMFolder(ctx context.Context, path string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -65,11 +82,11 @@ func (c *mockClient) DestroyVMFolder(ctx context.Context, path string) error {
 	return c.NextErr()
 }
 
-func (c *mockClient) EnsureVMFolder(ctx context.Context, path string) error {
+func (c *mockClient) EnsureVMFolder(ctx context.Context, path string) (*object.Folder, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.MethodCall(c, "EnsureVMFolder", ctx, path)
-	return c.NextErr()
+	return c.vmFolder, c.NextErr()
 }
 
 func (c *mockClient) MoveVMFolderInto(ctx context.Context, parent string, child string) error {

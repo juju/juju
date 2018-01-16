@@ -6,6 +6,7 @@ package instancepoller
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
@@ -37,13 +38,18 @@ func NewFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*InstancePollerAPI, error) {
-	return NewInstancePollerAPI(st, resources, authorizer, clock.WallClock)
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewInstancePollerAPI(st, m, resources, authorizer, clock.WallClock)
 }
 
 // NewInstancePollerAPI creates a new server-side InstancePoller API
 // facade.
 func NewInstancePollerAPI(
 	st *state.State,
+	m *state.Model,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	clock clock.Clock,
@@ -54,7 +60,7 @@ func NewInstancePollerAPI(
 		return nil, common.ErrPerm
 	}
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)
-	sti := getState(st)
+	sti := getState(st, m)
 
 	// Life() is supported for machines.
 	lifeGetter := common.NewLifeGetter(

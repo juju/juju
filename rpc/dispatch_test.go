@@ -4,6 +4,7 @@
 package rpc_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -32,10 +33,10 @@ func (s *dispatchSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	rpcServer := func(ws *websocket.Conn) {
 		codec := jsoncodec.NewWebsocket(ws)
-		conn := rpc.NewConn(codec, &notifier{})
+		conn := rpc.NewConn(codec, nil)
 
-		conn.Serve(&DispatchRoot{}, nil)
-		conn.Start()
+		conn.Serve(&DispatchRoot{}, nil, nil)
+		conn.Start(context.Background())
 
 		<-conn.Dead()
 	}

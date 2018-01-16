@@ -56,7 +56,7 @@ type Context struct {
 	updates  map[string]payload.Payload
 }
 
-// NewContext returns a new jujuc.ContextComponent for payloads.
+// NewContext returns a new hooks.ContextComponent for payloads.
 func NewContext(api APIClient, dataDir string) *Context {
 	return &Context{
 		api:      api,
@@ -66,7 +66,7 @@ func NewContext(api APIClient, dataDir string) *Context {
 	}
 }
 
-// NewContextAPI returns a new jujuc.ContextComponent for payloads.
+// NewContextAPI returns a new hooks.ContextComponent for payloads.
 func NewContextAPI(api APIClient, dataDir string) (*Context, error) {
 	results, err := api.List()
 	if err != nil {
@@ -82,9 +82,9 @@ func NewContextAPI(api APIClient, dataDir string) (*Context, error) {
 	return ctx, nil
 }
 
-// HookContext is the portion of jujuc.Context used in this package.
+// HookContext is the portion of hooks.Context used in this package.
 type HookContext interface {
-	// Component implements jujuc.Context.
+	// Component implements hooks.Context.
 	Component(string) (Component, error)
 }
 
@@ -223,7 +223,7 @@ func (c *Context) SetStatus(class, id, status string) error {
 
 // TODO(ericsnow) The context machinery is not actually using this yet.
 
-// Flush implements jujuc.ContextComponent. In this case that means all
+// Flush implements hooks.ContextComponent. In this case that means all
 // added and updated payload.Payload in the hook context are pushed to
 // Juju state via the API.
 func (c *Context) Flush() error {

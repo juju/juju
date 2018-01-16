@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/instance"
@@ -116,7 +116,7 @@ func (s *CleanupSuite) TestCleanupRemoteApplicationWithRelations(c *gc.C) {
 	}
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		SourceModel: s.State.ModelTag(),
+		SourceModel: s.IAASModel.ModelTag(),
 		Token:       "t0",
 		Endpoints:   mysqlEps,
 	})
@@ -504,6 +504,7 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 
 	// Check the cleanup still runs happily.
 	s.assertCleanupCount(c, 1)
+	s.assertCleanupRuns(c)
 }
 
 func (s *CleanupSuite) TestCleanupActions(c *gc.C) {

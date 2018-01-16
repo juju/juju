@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -20,6 +20,10 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/state/globalclock"
+	"github.com/juju/juju/state/lease"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/provider"
 )
 
@@ -37,13 +41,15 @@ func runForAllModelStates(st *State, runner func(st *State) error) error {
 		return errors.Annotate(err, "failed to read models")
 	}
 
+	pool := NewStatePool(st)
+	defer pool.Close()
 	for _, modelDoc := range modelDocs {
 		modelUUID := modelDoc["_id"].(string)
-		envSt, err := st.ForModel(names.NewModelTag(modelUUID))
+		envSt, release, err := pool.Get(modelUUID)
 		if err != nil {
 			return errors.Annotatef(err, "failed to open model %q", modelUUID)
 		}
-		defer envSt.Close()
+		defer release()
 		if err := runner(envSt); err != nil {
 			return errors.Annotatef(err, "model UUID %q", modelUUID)
 		}
@@ -98,7 +104,7 @@ func RenameAddModelPermission(st *State) error {
 			Update: bson.D{{"$set", bson.D{{"access", "add-model"}}}},
 		})
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
 	}
 	return st.runRawTransaction(ops)
@@ -225,7 +231,7 @@ func stripLocalFromFields(st *State, collName string, fields ...string) ([]txn.O
 			}}...)
 		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return ops, nil
@@ -258,7 +264,7 @@ func AddMigrationAttempt(st *State) error {
 			Update: bson.D{{"$set", bson.D{{"attempt", attempt}}}},
 		})
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "iterating migrations")
 	}
 
@@ -405,7 +411,7 @@ func updateLegacyLXDCloudsOps(st *State, endpoint string) ([]txn.Op, error) {
 		for _, region := range c.Regions {
 			if region.Endpoint == "" {
 				set = append(set, bson.DocElem{
-					"regions." + region.Name + ".endpoint",
+					"regions." + utils.EscapeKey(region.Name) + ".endpoint",
 					endpoint,
 				})
 			}
@@ -426,6 +432,7 @@ func updateLegacyLXDCredentialsOps(st *State, cred cloud.Credential) ([]txn.Op, 
 	coll, closer := st.db().GetRawCollection(cloudCredentialsC)
 	defer closer()
 	iter := coll.Find(bson.M{"auth-type": "empty"}).Iter()
+	defer iter.Close()
 	var doc cloudCredentialDoc
 	for iter.Next(&doc) {
 		cloudCredentialTag, err := doc.cloudCredentialTag()
@@ -444,7 +451,7 @@ func updateLegacyLXDCredentialsOps(st *State, cred cloud.Credential) ([]txn.Op, 
 		upgradesLogger.Infof("updating credential %q: %v", cloudCredentialTag, op)
 		ops = append(ops, op)
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return ops, nil
@@ -469,6 +476,7 @@ func UpgradeNoProxyDefaults(st *State) error {
 	coll, closer := st.db().GetRawCollection(settingsC)
 	defer closer()
 	iter := coll.Find(bson.D{}).Iter()
+	defer iter.Close()
 	var doc settingsDoc
 	for iter.Next(&doc) {
 		noProxyVal := doc.Settings[config.NoProxyKey]
@@ -478,13 +486,15 @@ func UpgradeNoProxyDefaults(st *State) error {
 		}
 		noProxy = upgradeNoProxy(noProxy)
 		doc.Settings[config.NoProxyKey] = noProxy
-		ops = append(ops,
-			txn.Op{
-				C:      settingsC,
-				Id:     doc.DocID,
-				Assert: txn.DocExists,
-				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
-			})
+		ops = append(ops, txn.Op{
+			C:      settingsC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
@@ -597,6 +607,7 @@ func RemoveNilValueApplicationSettings(st *State) error {
 	coll, closer := st.db().GetRawCollection(settingsC)
 	defer closer()
 	iter := coll.Find(bson.M{"_id": bson.M{"$regex": "^.*:a#.*"}}).Iter()
+	defer iter.Close()
 	var ops []txn.Op
 	var doc settingsDoc
 	for iter.Next(&doc) {
@@ -616,6 +627,9 @@ func RemoveNilValueApplicationSettings(st *State) error {
 				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
 			})
 		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
@@ -680,6 +694,8 @@ func AddStatusHistoryPruneSettings(st *State) error {
 	}
 
 	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
+	defer iter.Close()
+
 	var ops []txn.Op
 	var doc settingsDoc
 	for iter.Next(&doc) {
@@ -695,6 +711,9 @@ func AddStatusHistoryPruneSettings(st *State) error {
 				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
 			})
 		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
@@ -718,6 +737,7 @@ func AddActionPruneSettings(st *State) error {
 	}
 
 	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
+	defer iter.Close()
 	var ops []txn.Op
 	var doc settingsDoc
 	for iter.Next(&doc) {
@@ -733,6 +753,9 @@ func AddActionPruneSettings(st *State) error {
 				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
 			})
 		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
@@ -757,6 +780,7 @@ func AddUpdateStatusHookSettings(st *State) error {
 	}
 
 	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
+	defer iter.Close()
 	var ops []txn.Op
 	var doc settingsDoc
 	for iter.Next(&doc) {
@@ -770,6 +794,9 @@ func AddUpdateStatusHookSettings(st *State) error {
 				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
 			})
 		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 	if len(ops) > 0 {
 		return errors.Trace(st.runRawTransaction(ops))
@@ -894,8 +921,9 @@ func SplitLogCollections(st *State) error {
 	seen := set.NewStrings()
 
 	iter := oldLogs.Find(nil).Iter()
-	var doc bson.M
+	defer iter.Close()
 
+	var doc bson.M
 	for iter.Next(&doc) {
 		modelUUID := doc["e"].(string)
 		newCollName := logCollectionName(modelUUID)
@@ -919,6 +947,9 @@ func SplitLogCollections(st *State) error {
 			}
 		}
 		doc = nil
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
 	}
 
 	// drop the old collection
@@ -993,6 +1024,7 @@ func CorrectRelationUnitCounts(st *State) error {
 	}
 	relationsToUpdate := set.NewStrings()
 	iter := scopesColl.Find(nil).Iter()
+	defer iter.Close()
 
 	for iter.Next(&scope) {
 		// Scope key looks like: r#<relation id>#[<principal unit for container scope>#]<role>#<unit>
@@ -1087,6 +1119,7 @@ func collectRelationInfo(coll *mgo.Collection) (map[string]*relationUnitCountInf
 	}
 
 	iter := coll.Find(nil).Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
 		endpoints := set.NewStrings()
 		for _, epDoc := range doc.Endpoints {
@@ -1152,6 +1185,7 @@ func AddModelEnvironVersion(st *State) error {
 
 	var ops []txn.Op
 	iter := coll.Find(nil).Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
 		if doc.EnvironVersion != nil {
 			continue
@@ -1182,6 +1216,7 @@ func AddModelType(st *State) error {
 
 	var ops []txn.Op
 	iter := coll.Find(nil).Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
 		if doc.Type != "" {
 			continue
@@ -1197,4 +1232,144 @@ func AddModelType(st *State) error {
 		return errors.Trace(err)
 	}
 	return st.db().RunTransaction(ops)
+}
+
+// MigrateLeasesToGlobalTime removes old (<2.3-beta2) lease/clock-skew
+// documents, replacing the lease documents with new ones for the
+// existing lease holders.
+func MigrateLeasesToGlobalTime(st *State) error {
+	return runForAllModelStates(st, migrateModelLeasesToGlobalTime)
+}
+
+func migrateModelLeasesToGlobalTime(st *State) error {
+	coll, closer := st.db().GetCollection(leasesC)
+	defer closer()
+
+	// Find all old lease/clock-skew documents, remove them
+	// and create replacement lease docs in the new format.
+	//
+	// Replacement leases are created with a duration of a
+	// minute, relative to the global time epoch.
+	err := st.db().Run(func(int) ([]txn.Op, error) {
+		var doc struct {
+			DocID     string `bson:"_id"`
+			Type      string `bson:"type"`
+			Namespace string `bson:"namespace"`
+			Name      string `bson:"name"`
+			Holder    string `bson:"holder"`
+			Expiry    int64  `bson:"expiry"`
+			Writer    string `bson:"writer"`
+		}
+
+		var ops []txn.Op
+		iter := coll.Find(bson.D{{"type", bson.D{{"$exists", true}}}}).Iter()
+		defer iter.Close()
+		for iter.Next(&doc) {
+			ops = append(ops, txn.Op{
+				C:      coll.Name(),
+				Id:     st.localID(doc.DocID),
+				Assert: txn.DocExists,
+				Remove: true,
+			})
+			if doc.Type != "lease" {
+				continue
+			}
+			claimOps, err := lease.ClaimLeaseOps(
+				doc.Namespace,
+				doc.Name,
+				doc.Holder,
+				doc.Writer,
+				coll.Name(),
+				globalclock.GlobalEpoch(),
+				initialLeaderClaimTime,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, claimOps...)
+		}
+		if err := iter.Close(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ops, nil
+	})
+	return errors.Annotate(err, "upgrading legacy lease documents")
+}
+
+// MoveOldAuditLog renames the no-longer-needed audit.log collection
+// to old-audit.log if it has any rows - if it's empty it deletes it.
+func MoveOldAuditLog(st *State) error {
+	names, err := st.MongoSession().DB("juju").CollectionNames()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !set.NewStrings(names...).Contains("audit.log") {
+		// No audit log collection to move.
+		return nil
+	}
+
+	coll, closer := st.db().GetRawCollection("audit.log")
+	defer closer()
+
+	rows, err := coll.Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if rows == 0 {
+		return errors.Trace(coll.DropCollection())
+	}
+	session := st.MongoSession()
+	renameCommand := bson.D{
+		{"renameCollection", "juju.audit.log"},
+		{"to", "juju.old-audit.log"},
+	}
+	return errors.Trace(session.Run(renameCommand, nil))
+}
+
+// AddRelationStatus sets the initial status for existing relations
+// without a status.
+func AddRelationStatus(st *State) error {
+	return runForAllModelStates(st, addRelationStatus)
+}
+
+func addRelationStatus(st *State) error {
+	// Newly created relations will have a status doc,
+	// so it suffices to just get the collection once
+	// up front.
+	relations, err := st.AllRelations()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	now := st.clock().Now()
+	err = st.db().Run(func(int) ([]txn.Op, error) {
+		var ops []txn.Op
+		for _, rel := range relations {
+			_, err := rel.Status()
+			if err == nil {
+				continue
+			}
+			if !errors.IsNotFound(err) {
+				return nil, err
+			}
+			// Relations are marked as either
+			// joining or joined, depending
+			// on whether there are any units
+			// in scope.
+			relStatus := status.Joining
+			if rel.doc.UnitCount > 0 {
+				relStatus = status.Joined
+			}
+			relationStatusDoc := statusDoc{
+				Status:    relStatus,
+				ModelUUID: st.ModelUUID(),
+				Updated:   now.UnixNano(),
+			}
+			ops = append(ops, createStatusOp(
+				st, relationGlobalScope(rel.Id()),
+				relationStatusDoc,
+			))
+		}
+		return ops, nil
+	})
+	return errors.Annotate(err, "adding relation status")
 }

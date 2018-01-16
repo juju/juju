@@ -10,7 +10,7 @@ package application
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
@@ -79,6 +78,10 @@ type DeployArgs struct {
 	// ConfigYAML is a string that overrides the default config.yml.
 	ConfigYAML string
 
+	// Config are values that override those in the default config.yaml
+	// or configure the application itself.
+	Config map[string]string
+
 	// Cons contains constraints on where units of this application
 	// may be placed.
 	Cons constraints.Value
@@ -132,6 +135,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 			Channel:          string(args.CharmID.Channel),
 			NumUnits:         args.NumUnits,
 			ConfigYAML:       args.ConfigYAML,
+			Config:           args.Config,
 			Constraints:      args.Cons,
 			Placement:        args.Placement,
 			Storage:          args.Storage,
@@ -162,6 +166,78 @@ func (c *Client) GetCharmURL(serviceName string) (*charm.URL, error) {
 		return nil, errors.Trace(result.Error)
 	}
 	return charm.ParseURL(result.Result)
+}
+
+// GetConfig returns the charm configuration settings for each of the
+// applications. If any of the applications are not found, an error is
+// returned.
+func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error) {
+	var allSettings []map[string]interface{}
+	if c.BestAPIVersion() < 5 {
+		for _, appName := range appNames {
+			results, err := c.Get(appName)
+			if err != nil {
+				return nil, errors.Annotatef(err, "unable to get settings for %q", appName)
+			}
+			settings, err := describeV5(results.CharmConfig)
+			if err != nil {
+				return nil, errors.Annotatef(err, "unable to process settings for %q", appName)
+			}
+			allSettings = append(allSettings, settings)
+		}
+		return allSettings, nil
+	}
+
+	apiName := "CharmConfig"
+	if c.BestAPIVersion() < 6 {
+		apiName = "GetConfig"
+	}
+	// Make a single call to get all the settings.
+	var results params.ApplicationGetConfigResults
+	var args params.Entities
+	for _, appName := range appNames {
+		args.Entities = append(args.Entities,
+			params.Entity{names.NewApplicationTag(appName).String()})
+	}
+	err := c.facade.FacadeCall(apiName, args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for i, result := range results.Results {
+		if result.Error != nil {
+			return nil, errors.Annotatef(err, "unable to get settings for %q", appNames[i])
+		}
+		allSettings = append(allSettings, result.Config)
+	}
+	return allSettings, nil
+}
+
+// describeV5 will take the results of describeV4 from the apiserver
+// and remove the "default" boolean, and add in "source".
+// Mutates and returns the config map.
+func describeV5(config map[string]interface{}) (map[string]interface{}, error) {
+	for _, value := range config {
+		vMap, ok := value.(map[string]interface{})
+		if !ok {
+			return nil, errors.Errorf("expected settings map got %v (%T) ", value, value)
+		}
+		if _, found := vMap["default"]; found {
+			v, hasValue := vMap["value"]
+			if hasValue {
+				vMap["default"] = v
+				vMap["source"] = "default"
+			} else {
+				delete(vMap, "default")
+				vMap["source"] = "unset"
+			}
+		} else {
+			// If default isn't set, then the source is user.
+			// And we have no idea what the charm default is or whether
+			// there is one.
+			vMap["source"] = "user"
+		}
+	}
+	return config, nil
 }
 
 // SetCharmConfig holds the configuration for setting a new revision of a charm
@@ -320,15 +396,25 @@ func (c *Client) DestroyUnitsDeprecated(unitNames ...string) error {
 	return c.facade.FacadeCall("DestroyUnits", params, nil)
 }
 
+// DestroyUnitsParams contains parameters for the DestroyUnits API method.
+type DestroyUnitsParams struct {
+	// Units holds the IDs of units to destroy.
+	Units []string
+
+	// DestroyStorage controls whether or not storage attached
+	// to the units will be destroyed.
+	DestroyStorage bool
+}
+
 // DestroyUnits decreases the number of units dedicated to one or more
 // applications.
-func (c *Client) DestroyUnits(unitNames ...string) ([]params.DestroyUnitResult, error) {
-	args := params.Entities{
-		Entities: make([]params.Entity, 0, len(unitNames)),
+func (c *Client) DestroyUnits(in DestroyUnitsParams) ([]params.DestroyUnitResult, error) {
+	argsV5 := params.DestroyUnitsParams{
+		Units: make([]params.DestroyUnitParams, 0, len(in.Units)),
 	}
-	allResults := make([]params.DestroyUnitResult, len(unitNames))
-	index := make([]int, 0, len(unitNames))
-	for i, name := range unitNames {
+	allResults := make([]params.DestroyUnitResult, len(in.Units))
+	index := make([]int, 0, len(in.Units))
+	for i, name := range in.Units {
 		if !names.IsValidUnit(name) {
 			allResults[i].Error = &params.Error{
 				Message: errors.NotValidf("unit ID %q", name).Error(),
@@ -336,21 +422,38 @@ func (c *Client) DestroyUnits(unitNames ...string) ([]params.DestroyUnitResult, 
 			continue
 		}
 		index = append(index, i)
-		args.Entities = append(args.Entities, params.Entity{
-			Tag: names.NewUnitTag(name).String(),
+		argsV5.Units = append(argsV5.Units, params.DestroyUnitParams{
+			UnitTag:        names.NewUnitTag(name).String(),
+			DestroyStorage: in.DestroyStorage,
 		})
 	}
-	if len(args.Entities) > 0 {
-		var result params.DestroyUnitResults
-		if err := c.facade.FacadeCall("DestroyUnit", args, &result); err != nil {
-			return nil, errors.Trace(err)
+	if len(argsV5.Units) == 0 {
+		return allResults, nil
+	}
+
+	args := interface{}(argsV5)
+	if c.BestAPIVersion() < 5 {
+		if in.DestroyStorage {
+			return nil, errors.New("this controller does not support --destroy-storage")
 		}
-		if n := len(result.Results); n != len(args.Entities) {
-			return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), n)
+		argsV4 := params.Entities{
+			Entities: make([]params.Entity, len(argsV5.Units)),
 		}
-		for i, result := range result.Results {
-			allResults[index[i]] = result
+		for i, arg := range argsV5.Units {
+			argsV4.Entities[i].Tag = arg.UnitTag
 		}
+		args = argsV4
+	}
+
+	var result params.DestroyUnitResults
+	if err := c.facade.FacadeCall("DestroyUnit", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n := len(result.Results); n != len(argsV5.Units) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(argsV5.Units), n)
+	}
+	for i, result := range result.Results {
+		allResults[index[i]] = result
 	}
 	return allResults, nil
 }
@@ -370,14 +473,25 @@ func (c *Client) DestroyDeprecated(application string) error {
 	return c.facade.FacadeCall("Destroy", params, nil)
 }
 
+// DestroyApplicationsParams contains parameters for the DestroyApplications
+// API method.
+type DestroyApplicationsParams struct {
+	// Applications holds the names of applications to destroy.
+	Applications []string
+
+	// DestroyStorage controls whether or not storage attached
+	// to units of the applications will be destroyed.
+	DestroyStorage bool
+}
+
 // DestroyApplications destroys the given applications.
-func (c *Client) DestroyApplications(appNames ...string) ([]params.DestroyApplicationResult, error) {
-	args := params.Entities{
-		Entities: make([]params.Entity, 0, len(appNames)),
+func (c *Client) DestroyApplications(in DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
+	argsV5 := params.DestroyApplicationsParams{
+		Applications: make([]params.DestroyApplicationParams, 0, len(in.Applications)),
 	}
-	allResults := make([]params.DestroyApplicationResult, len(appNames))
-	index := make([]int, 0, len(appNames))
-	for i, name := range appNames {
+	allResults := make([]params.DestroyApplicationResult, len(in.Applications))
+	index := make([]int, 0, len(in.Applications))
+	for i, name := range in.Applications {
 		if !names.IsValidApplication(name) {
 			allResults[i].Error = &params.Error{
 				Message: errors.NotValidf("application name %q", name).Error(),
@@ -385,30 +499,108 @@ func (c *Client) DestroyApplications(appNames ...string) ([]params.DestroyApplic
 			continue
 		}
 		index = append(index, i)
-		args.Entities = append(args.Entities, params.Entity{
-			Tag: names.NewApplicationTag(name).String(),
+		argsV5.Applications = append(argsV5.Applications, params.DestroyApplicationParams{
+			ApplicationTag: names.NewApplicationTag(name).String(),
+			DestroyStorage: in.DestroyStorage,
 		})
 	}
-	if len(args.Entities) > 0 {
-		var result params.DestroyApplicationResults
-		if err := c.facade.FacadeCall("DestroyApplication", args, &result); err != nil {
-			return nil, errors.Trace(err)
+	if len(argsV5.Applications) == 0 {
+		return allResults, nil
+	}
+
+	args := interface{}(argsV5)
+	if c.BestAPIVersion() < 5 {
+		if in.DestroyStorage {
+			return nil, errors.New("this controller does not support --destroy-storage")
 		}
-		if n := len(result.Results); n != len(args.Entities) {
-			return nil, errors.Errorf("expected %d result(s), got %d", len(args.Entities), n)
+		argsV4 := params.Entities{
+			Entities: make([]params.Entity, len(argsV5.Applications)),
 		}
-		for i, result := range result.Results {
-			allResults[index[i]] = result
+		for i, arg := range argsV5.Applications {
+			argsV4.Entities[i].Tag = arg.ApplicationTag
 		}
+		args = argsV4
+	}
+
+	var result params.DestroyApplicationResults
+	if err := c.facade.FacadeCall("DestroyApplication", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n := len(result.Results); n != len(argsV5.Applications) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(argsV5.Applications), n)
+	}
+	for i, result := range result.Results {
+		allResults[index[i]] = result
 	}
 	return allResults, nil
 }
 
-// GetConstraints returns the constraints for the given application.
-func (c *Client) GetConstraints(service string) (constraints.Value, error) {
-	results := new(params.GetConstraintsResults)
-	err := c.facade.FacadeCall("GetConstraints", params.GetApplicationConstraints{service}, results)
-	return results.Constraints, err
+// DestroyConsumedApplication destroys the given consumed (remote) applications.
+func (c *Client) DestroyConsumedApplication(saasNames ...string) ([]params.ErrorResult, error) {
+	args := params.DestroyConsumedApplicationsParams{
+		Applications: make([]params.DestroyConsumedApplicationParams, 0, len(saasNames)),
+	}
+	allResults := make([]params.ErrorResult, len(saasNames))
+	index := make([]int, 0, len(saasNames))
+	for i, name := range saasNames {
+		if !names.IsValidApplication(name) {
+			allResults[i].Error = &params.Error{
+				Message: errors.NotValidf("SAAS application name %q", name).Error(),
+			}
+			continue
+		}
+		index = append(index, i)
+		args.Applications = append(args.Applications, params.DestroyConsumedApplicationParams{
+			ApplicationTag: names.NewApplicationTag(name).String(),
+		})
+	}
+
+	var result params.ErrorResults
+	if err := c.facade.FacadeCall("DestroyConsumedApplications", args, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n := len(result.Results); n != len(args.Applications) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(args.Applications), n)
+	}
+	for i, result := range result.Results {
+		allResults[index[i]] = result
+	}
+	return allResults, nil
+}
+
+// GetConstraints returns the constraints for the given applications.
+func (c *Client) GetConstraints(applications ...string) ([]constraints.Value, error) {
+	var allConstraints []constraints.Value
+	if c.BestAPIVersion() < 5 {
+		for _, application := range applications {
+			var result params.GetConstraintsResults
+			err := c.facade.FacadeCall("GetConstraints", params.GetApplicationConstraints{application}, &result)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			allConstraints = append(allConstraints, result.Constraints)
+		}
+		return allConstraints, nil
+	}
+
+	// Make a single call to get all the constraints.
+	var results params.ApplicationGetConstraintsResults
+	var args params.Entities
+	for _, application := range applications {
+		args.Entities = append(args.Entities,
+			params.Entity{names.NewApplicationTag(application).String()})
+	}
+	err := c.facade.FacadeCall("GetConstraints", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for i, result := range results.Results {
+		if result.Error != nil {
+			return nil, errors.Annotatef(result.Error, "unable to get constraints for %q", applications[i])
+		}
+		allConstraints = append(allConstraints, result.Constraints)
+	}
+	return allConstraints, nil
 }
 
 // SetConstraints specifies the constraints for the given application.
@@ -488,16 +680,24 @@ func (c *Client) DestroyRelationId(relationId int) error {
 	return c.facade.FacadeCall("DestroyRelation", params, nil)
 }
 
-// SetRelationStatus updates the status of the relation with the specified id.
-func (c *Client) SetRelationStatus(relationId int, status relation.Status) error {
-	args := params.RelationStatusArgs{
-		Args: []params.RelationStatusArg{{RelationId: relationId, Status: params.RelationStatusValue(status)}},
+// SetRelationSuspended updates the suspended status of the relation with the specified id.
+func (c *Client) SetRelationSuspended(relationIds []int, suspended bool, message string) error {
+	var args params.RelationSuspendedArgs
+	for _, relId := range relationIds {
+		args.Args = append(args.Args, params.RelationSuspendedArg{
+			RelationId: relId,
+			Suspended:  suspended,
+			Message:    message,
+		})
 	}
 	var results params.ErrorResults
-	if err := c.facade.FacadeCall("SetRelationStatus", args, &results); err != nil {
+	if err := c.facade.FacadeCall("SetRelationsSuspended", args, &results); err != nil {
 		return errors.Trace(err)
 	}
-	return results.OneError()
+	if len(results.Results) != len(args.Args) {
+		return errors.Errorf("expected %d results, got %d", len(args.Args), len(results.Results))
+	}
+	return results.Combine()
 }
 
 // Consume adds a remote application to the model.
@@ -505,14 +705,15 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 	var consumeRes params.ErrorResults
 	args := params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
-			ApplicationOffer: arg.ApplicationOffer,
-			ApplicationAlias: arg.ApplicationAlias,
-			Macaroon:         arg.Macaroon,
+			ApplicationOfferDetails: arg.Offer,
+			ApplicationAlias:        arg.ApplicationAlias,
+			Macaroon:                arg.Macaroon,
 		}},
 	}
 	if arg.ControllerInfo != nil {
 		args.Args[0].ControllerInfo = &params.ExternalControllerInfo{
 			ControllerTag: arg.ControllerInfo.ControllerTag.String(),
+			Alias:         arg.ControllerInfo.Alias,
 			Addrs:         arg.ControllerInfo.Addrs,
 			CACert:        arg.ControllerInfo.CACert,
 		}
@@ -527,9 +728,47 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 	if err := consumeRes.Results[0].Error; err != nil {
 		return "", errors.Trace(err)
 	}
-	localName := arg.ApplicationOffer.OfferName
+	localName := arg.Offer.OfferName
 	if arg.ApplicationAlias != "" {
 		localName = arg.ApplicationAlias
 	}
 	return localName, nil
+}
+
+// SetApplicationConfig sets configuration options on an application.
+func (c *Client) SetApplicationConfig(application string, config map[string]string) error {
+	if c.BestAPIVersion() < 6 {
+		return errors.NotSupportedf("SetApplicationsConfig not supported by this version of Juju")
+	}
+	args := params.ApplicationConfigSetArgs{
+		Args: []params.ApplicationConfigSet{{
+			ApplicationName: application,
+			Config:          config,
+		}},
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("SetApplicationsConfig", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+// UnsetApplicationConfig resets configuration options on an application.
+func (c *Client) UnsetApplicationConfig(application string, options []string) error {
+	if c.BestAPIVersion() < 6 {
+		return errors.NotSupportedf("UnsetApplicationConfig not supported by this version of Juju")
+	}
+	args := params.ApplicationConfigUnsetArgs{
+		Args: []params.ApplicationUnset{{
+			ApplicationName: application,
+			Options:         options,
+		}},
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("UnsetApplicationsConfig", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
 }

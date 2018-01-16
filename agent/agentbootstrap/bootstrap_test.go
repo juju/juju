@@ -11,7 +11,6 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -98,7 +97,7 @@ LXC_BRIDGE="ignored"`[1:])
 		Paths:             agent.Paths{DataDir: dataDir},
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: jujuversion.Current,
-		StateAddresses:    []string{s.mgoInst.Addr()},
+		APIAddresses:      []string{"localhost:17070"},
 		CACert:            testing.CACert,
 		Password:          testing.DefaultMongoPassword,
 		Controller:        testing.ControllerTag,
@@ -227,12 +226,20 @@ LXC_BRIDGE="ignored"`[1:])
 		"max-logs-age":            "72h",
 		"max-logs-size":           "4G",
 		"max-txn-log-size":        "10M",
+		"auditing-enabled":        false,
+		"audit-log-capture-args":  true,
+		"audit-log-max-size":      "200M",
+		"audit-log-max-backups":   5,
 	})
 
 	// Check that controller model configuration has been added, and
 	// model constraints set.
-	newModelCfg, err := st.ModelConfig()
+	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+
+	newModelCfg, err := model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Add in the cloud attributes.
 	expectedCfg, err := config.New(config.UseDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -248,9 +255,11 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the hosted model has been added, model constraints
 	// set, and its config contains the same authorized-keys as the
 	// controller model.
-	hostedModelSt, err := st.ForModel(names.NewModelTag(hostedModelUUID))
+	statePool := state.NewStatePool(st)
+	defer statePool.Close()
+	hostedModelSt, release, err := statePool.Get(hostedModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer hostedModelSt.Close()
+	defer release()
 	gotModelConstraints, err = hostedModelSt.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
@@ -259,7 +268,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
 	c.Assert(hostedModel.CloudRegion(), gc.Equals, "dummy-region")
 	c.Assert(hostedModel.EnvironVersion(), gc.Equals, 123)
-	hostedCfg, err := hostedModelSt.ModelConfig()
+	hostedCfg, err := hostedModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
 	c.Assert(hasUnexpected, jc.IsFalse)
@@ -300,7 +309,7 @@ LXC_BRIDGE="ignored"`[1:])
 	})
 
 	// Check that the machine agent's config has been written
-	// and that we can use it to connect to the state.
+	// and that we can use it to connect to mongo.
 	machine0 := names.NewMachineTag("0")
 	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, machine0))
 	c.Assert(err, jc.ErrorIsNil)
@@ -308,15 +317,10 @@ LXC_BRIDGE="ignored"`[1:])
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      newCfg.Controller(),
-		ControllerModelTag: newCfg.Model(),
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
-	})
+
+	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
 	c.Assert(err, jc.ErrorIsNil)
-	defer st1.Close()
+	session.Close()
 
 	// Make sure that the hosted model Environ's Create method is called.
 	envProvider.CheckCallNames(c,
@@ -345,7 +349,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		Paths:             agent.Paths{DataDir: c.MkDir()},
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: jujuversion.Current,
-		StateAddresses:    []string{s.mgoInst.Addr()},
+		APIAddresses:      []string{"localhost:17070"},
 		CACert:            testing.CACert,
 		Password:          "fake",
 		Controller:        testing.ControllerTag,
@@ -372,7 +376,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		Paths:             agent.Paths{DataDir: dataDir},
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: jujuversion.Current,
-		StateAddresses:    []string{s.mgoInst.Addr()},
+		APIAddresses:      []string{"localhost:17070"},
 		CACert:            testing.CACert,
 		Password:          testing.DefaultMongoPassword,
 		Controller:        testing.ControllerTag,
@@ -432,7 +436,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	if err == nil {
 		st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "failed to initialize mongo admin user: cannot set admin password: not authorized .*")
+	c.Assert(err, gc.ErrorMatches, "failed to initialize mongo: cannot set admin password: not authorized .*")
 }
 
 func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
@@ -461,25 +465,16 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 }
 
 func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, password string) {
-	info := &mongo.MongoInfo{
+	session, err := mongo.DialWithInfo(mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{s.mgoInst.Addr()},
 			CACert: testing.CACert,
 		},
 		Tag:      nil, // admin user
 		Password: password,
-	}
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      controllerTag,
-		ControllerModelTag: modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
-	})
+	}, mongotest.DialOpts())
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	_, err = st.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
+	session.Close()
 }
 
 type fakeProvider struct {

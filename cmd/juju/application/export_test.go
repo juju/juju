@@ -5,7 +5,7 @@ package application
 
 import (
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charmrepo.v2/csclient"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
@@ -83,16 +83,24 @@ func NewUpdateSeriesCommandForTest(
 }
 
 // NewSuspendRelationCommandForTest returns a SuspendRelationCommand with the api provided as specified.
-func NewSuspendRelationCommandForTest(api SetRelationStatusAPI) modelcmd.ModelCommand {
-	cmd := &suspendRelationCommand{newAPIFunc: func() (SetRelationStatusAPI, error) {
+func NewSuspendRelationCommandForTest(api SetRelationSuspendedAPI) modelcmd.ModelCommand {
+	cmd := &suspendRelationCommand{newAPIFunc: func() (SetRelationSuspendedAPI, error) {
 		return api, nil
 	}}
 	return modelcmd.Wrap(cmd)
 }
 
 // NewResumeRelationCommandForTest returns a ResumeRelationCommand with the api provided as specified.
-func NewResumeRelationCommandForTest(api SetRelationStatusAPI) modelcmd.ModelCommand {
-	cmd := &resumeRelationCommand{newAPIFunc: func() (SetRelationStatusAPI, error) {
+func NewResumeRelationCommandForTest(api SetRelationSuspendedAPI) modelcmd.ModelCommand {
+	cmd := &resumeRelationCommand{newAPIFunc: func() (SetRelationSuspendedAPI, error) {
+		return api, nil
+	}}
+	return modelcmd.Wrap(cmd)
+}
+
+// NewRemoveSaasCommandForTest returns a RemoveSaasCommand with the api provided as specified.
+func NewRemoveSaasCommandForTest(api RemoveSaasAPI) modelcmd.ModelCommand {
+	cmd := &removeSaasCommand{newAPIFunc: func() (RemoveSaasAPI, error) {
 		return api, nil
 	}}
 	return modelcmd.Wrap(cmd)

@@ -12,49 +12,42 @@ import (
 
 // addInstance sends a request to GCE to add a new instance to the
 // connection's project, with the provided instance data and machine
-// type. Each of the provided zones is attempted and the first available
-// zone is where the instance is provisioned. If no zones are available
-// then an error is returned. The instance that was passed in is updated
-// with the new instance's data upon success. The call blocks until the
-// instance is created or the request fails.
+// type. The instance that was passed in is updated with the new
+// instance's data upon success. The call blocks until the instance
+// is created or the request fails.
 // TODO(ericsnow) Return a new inst.
-func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType string, zones []string) error {
-	for _, zoneName := range zones {
-		var waitErr error
-		inst := *requestedInst
-		inst.MachineType = formatMachineType(zoneName, machineType)
-		err := gce.raw.AddInstance(gce.projectID, zoneName, &inst)
-		if isWaitError(err) {
-			waitErr = err
-		} else if err != nil {
-			// We are guaranteed the insert failed at the point.
-			return errors.Annotate(err, "sending new instance request")
-		}
-
-		// Check if the instance was created.
-		realized, err := gce.raw.GetInstance(gce.projectID, zoneName, inst.Name)
-		if err != nil {
-			if waitErr == nil {
-				return errors.Trace(err)
-			}
-			// Try the next zone.
-			logger.Errorf("failed to get new instance in zone %q: %v", zoneName, waitErr)
-			continue
-		}
-
-		// Success!
-		*requestedInst = *realized
-		return nil
+func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType string, zone string) error {
+	var waitErr error
+	inst := *requestedInst
+	inst.MachineType = formatMachineType(zone, machineType)
+	err := gce.raw.AddInstance(gce.projectID, zone, &inst)
+	if isWaitError(err) {
+		waitErr = err
+	} else if err != nil {
+		// We are guaranteed the insert failed at the point.
+		return errors.Annotate(err, "sending new instance request")
 	}
-	return errors.Errorf("not able to provision in any zone")
+
+	// Check if the instance was created.
+	realized, err := gce.raw.GetInstance(gce.projectID, zone, inst.Name)
+	if err != nil {
+		if waitErr != nil {
+			return errors.Trace(waitErr)
+		}
+		return errors.Trace(err)
+	}
+
+	// Success!
+	*requestedInst = *realized
+	return nil
 }
 
 // AddInstance creates a new instance based on the spec's data and
 // returns it. The instance will be created using the provided
-// connection and in one of the provided zones.
-func (gce *Connection) AddInstance(spec InstanceSpec, zones ...string) (*Instance, error) {
+// connection and in the provided zone.
+func (gce *Connection) AddInstance(spec InstanceSpec) (*Instance, error) {
 	raw := spec.raw()
-	if err := gce.addInstance(raw, spec.Type, zones); err != nil {
+	if err := gce.addInstance(raw, spec.Type, spec.AvailabilityZone); err != nil {
 		return nil, errors.Trace(err)
 	}
 

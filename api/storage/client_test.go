@@ -517,10 +517,13 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 
 	storageN := 3
 	expectedError := common.ServerError(errors.NotValidf("storage directive"))
-	one := func(u, s string, attrs params.StorageConstraints) params.ErrorResult {
-		result := params.ErrorResult{}
+	expectedDetails := &params.AddStorageDetails{[]string{"a/0", "b/1"}}
+	one := func(u, s string, attrs params.StorageConstraints) params.AddStorageResult {
+		result := params.AddStorageResult{}
 		if s == errOut {
 			result.Error = expectedError
+		} else {
+			result.Result = expectedDetails
 		}
 		return result
 	}
@@ -540,8 +543,8 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 			c.Assert(args.Storages, gc.HasLen, storageN)
 			c.Assert(args.Storages, gc.DeepEquals, unitStorages)
 
-			if results, k := result.(*params.ErrorResults); k {
-				out := []params.ErrorResult{}
+			if results, k := result.(*params.AddStorageResults); k {
+				out := []params.AddStorageResult{}
 				for _, s := range args.Storages {
 					out = append(out, one(s.UnitTag, s.StorageName, s.Constraints))
 				}
@@ -554,10 +557,10 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 	r, err := storageClient.AddToUnit(unitStorages)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r, gc.HasLen, storageN)
-	expected := []params.ErrorResult{
-		{nil},
-		{expectedError},
-		{nil},
+	expected := []params.AddStorageResult{
+		{Result: expectedDetails},
+		{Error: expectedError},
+		{Result: expectedDetails},
 	}
 	c.Assert(r, jc.SameContents, expected)
 }

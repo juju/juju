@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -475,7 +475,6 @@ func (im *IAASModel) removeMachineFilesystemsOps(m *Machine) ([]txn.Op, error) {
 		})
 	}
 	for _, f := range machineFilesystems {
-		filesystemId := f.Tag().Id()
 		if f.doc.StorageId != "" {
 			// The volume is assigned to a storage instance;
 			// make sure we also remove the storage instance.
@@ -492,15 +491,11 @@ func (im *IAASModel) removeMachineFilesystemsOps(m *Machine) ([]txn.Op, error) {
 				},
 			)
 		}
-		ops = append(ops,
-			txn.Op{
-				C:      filesystemsC,
-				Id:     filesystemId,
-				Assert: txn.DocExists,
-				Remove: true,
-			},
-			removeModelFilesystemRefOp(im.mb, filesystemId),
-		)
+		fsOps, err := removeFilesystemOps(im, f, f.doc.Releasing, nil)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, fsOps...)
 	}
 	return ops, nil
 }
@@ -1074,7 +1069,7 @@ func (im *IAASModel) newFilesystemOps(doc filesystemDoc, status statusDoc) []txn
 
 func (im *IAASModel) filesystemParamsWithDefaults(params FilesystemParams, machineId string) (FilesystemParams, error) {
 	if params.Pool == "" {
-		modelConfig, err := im.st.ModelConfig()
+		modelConfig, err := im.ModelConfig()
 		if err != nil {
 			return FilesystemParams{}, errors.Trace(err)
 		}

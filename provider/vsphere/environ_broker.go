@@ -5,8 +5,8 @@ package vsphere
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
+	"io"
+	"net/http"
 	"path"
 	"sync"
 	"time"
@@ -52,6 +52,12 @@ func modelFolderName(modelUUID, modelName string) string {
 	return fmt.Sprintf("Model %q (%s)", modelName, modelUUID)
 }
 
+// vmdkDirectoryName returns the name of the datastore directory in which
+// the base VMDKs are stored for the controller.
+func vmdkDirectoryName(controllerUUID string) string {
+	return fmt.Sprintf("juju-vmdks/%s", controllerUUID)
+}
+
 // MaintainInstance is specified in the InstanceBroker interface.
 func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 	return nil
@@ -70,10 +76,10 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (result *en
 func (env *sessionEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	img, err := findImageMetadata(env, args)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 	if err := env.finishMachineConfig(args, img); err != nil {
-		return nil, errors.Trace(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	vm, hw, err := env.newRawInstance(args, img)
@@ -113,15 +119,17 @@ func (env *sessionEnviron) finishMachineConfig(args environs.StartInstanceParams
 func (env *sessionEnviron) newRawInstance(
 	args environs.StartInstanceParams,
 	img *OvaFileMetadata,
-) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
+) (_ *mo.VirtualMachine, _ *instance.HardwareCharacteristics, err error) {
+
 	vmName, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, common.ZoneIndependentError(err)
 	}
 
-	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
+	series := args.Tools.OneSeries()
+	cloudcfg, err := cloudinit.New(series)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, common.ZoneIndependentError(err)
 	}
 	cloudcfg.AddPackage("open-vm-tools")
 	cloudcfg.AddPackage("iptables-persistent")
@@ -143,7 +151,9 @@ func (env *sessionEnviron) newRawInstance(
 
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, VsphereRenderer{})
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "cannot make user data")
+		return nil, nil, common.ZoneIndependentError(
+			errors.Annotate(err, "cannot make user data"),
+		)
 	}
 	logger.Debugf("Vmware user data; %d bytes", len(userData))
 
@@ -152,13 +162,6 @@ func (env *sessionEnviron) newRawInstance(
 	minRootDisk := common.MinRootDiskSizeGiB(args.InstanceConfig.Series) * 1024
 	if cons.RootDisk == nil || *cons.RootDisk < minRootDisk {
 		cons.RootDisk = &minRootDisk
-	}
-
-	// Identify which zones may be used, taking into
-	// account placement directives.
-	zones, err := env.parseAvailabilityZones(args)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
 	}
 
 	// Download and extract the OVA file. If we're bootstrapping we use
@@ -170,11 +173,14 @@ func (env *sessionEnviron) newRawInstance(
 	updateProgress := func(message string) {
 		args.StatusCallback(status.Provisioning, message, nil)
 	}
-	ovaDir, ovf, ovaCleanup, err := env.prepareOVA(img, args.InstanceConfig, updateProgress)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
+
+	readOVA := func() (string, io.ReadCloser, error) {
+		resp, err := http.Get(img.URL)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		return img.URL, resp.Body, nil
 	}
-	defer ovaCleanup()
 
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name: vmName,
@@ -182,8 +188,10 @@ func (env *sessionEnviron) newRawInstance(
 			controllerFolderName(args.ControllerUUID),
 			env.modelFolderName(),
 		),
-		OVADir:                 ovaDir,
-		OVF:                    string(ovf),
+		Series:                 series,
+		ReadOVA:                readOVA,
+		OVASHA256:              img.Sha256,
+		VMDKDirectory:          vmdkDirectoryName(args.ControllerUUID),
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
@@ -196,30 +204,18 @@ func (env *sessionEnviron) newRawInstance(
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.
-	var vm *mo.VirtualMachine
-	var lastError error
-	for _, zone := range zones {
-		logger.Debugf("attempting to create VM in availability zone %s", zone)
-		availZone, err := env.availZone(zone)
-		if err != nil {
-			logger.Warningf("failed to get availability zone %s: %s", zone, err)
-			lastError = err
-			continue
-		}
-		createVMArgs.ComputeResource = &availZone.(*vmwareAvailZone).r
+	logger.Debugf("attempting to create VM in availability zone %s", args.AvailabilityZone)
+	availZone, err := env.availZone(args.AvailabilityZone)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	createVMArgs.ComputeResource = &availZone.(*vmwareAvailZone).r
 
-		vm, err = env.client.CreateVirtualMachine(env.ctx, createVMArgs)
-		if err != nil {
-			logger.Warningf("failed to create instance in availability zone %s: %s", zone, err)
-			lastError = err
-			continue
-		}
-		lastError = nil
-		break
+	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
-	if lastError != nil {
-		return nil, nil, errors.Annotate(lastError, "failed to create instance in any availability zone")
-	}
+
 	hw := &instance.HardwareCharacteristics{
 		Arch:     &img.Arch,
 		Mem:      cons.Mem,
@@ -228,61 +224,6 @@ func (env *sessionEnviron) newRawInstance(
 		RootDisk: cons.RootDisk,
 	}
 	return vm, hw, err
-}
-
-// prepareOVA downloads and extracts the OVA, and reads the contents of the
-// .ovf file contained within it.
-func (env *environ) prepareOVA(
-	img *OvaFileMetadata,
-	instanceConfig *instancecfg.InstanceConfig,
-	updateProgress func(string),
-) (ovaDir, ovf string, cleanup func(), err error) {
-	fail := func(err error) (string, string, func(), error) {
-		return "", "", cleanup, errors.Trace(err)
-	}
-	defer func() {
-		if err != nil && cleanup != nil {
-			cleanup()
-		}
-	}()
-
-	var ovaBaseDir string
-	if instanceConfig.Bootstrap != nil {
-		ovaTempDir, err := ioutil.TempDir("", "juju-ova")
-		if err != nil {
-			return fail(errors.Trace(err))
-		}
-		cleanup = func() {
-			if err := os.RemoveAll(ovaTempDir); err != nil {
-				logger.Warningf("failed to remove temp directory: %s", err)
-			}
-		}
-		ovaBaseDir = ovaTempDir
-	} else {
-		// Lock the OVA cache directory for the remainder of the
-		// provisioning process. It's not enough to lock just
-		// around or in downloadOVA, because we refer to the
-		// contents after it returns.
-		unlock, err := env.provider.ovaCacheLocker.Lock()
-		if err != nil {
-			return fail(errors.Annotate(err, "locking OVA cache dir"))
-		}
-		cleanup = unlock
-		ovaBaseDir = env.provider.ovaCacheDir
-	}
-
-	ovaDir, ovfPath, err := downloadOVA(
-		ovaBaseDir, instanceConfig.Series, img, updateProgress,
-	)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-	ovfBytes, err := ioutil.ReadFile(ovfPath)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-
-	return ovaDir, string(ovfBytes), cleanup, nil
 }
 
 // AllInstances implements environs.InstanceBroker.

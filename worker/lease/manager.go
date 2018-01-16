@@ -5,6 +5,7 @@ package lease
 
 import (
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -50,11 +51,16 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	logContext := config.EntityUUID
+	if len(logContext) > 6 {
+		logContext = logContext[:6]
+	}
 	manager := &Manager{
-		config: config,
-		claims: make(chan claim),
-		checks: make(chan check),
-		blocks: make(chan block),
+		config:     config,
+		claims:     make(chan claim),
+		checks:     make(chan check),
+		blocks:     make(chan block),
+		logContext: logContext,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &manager.catacomb,
@@ -72,6 +78,11 @@ type Manager struct {
 
 	// config collects all external configuration and dependencies.
 	config ManagerConfig
+
+	// logContext is just a string that associates messages in the log
+	// It is seeded with the first six characters of the config.EntityUUID
+	// if supplied
+	logContext string
 
 	// claims is used to deliver lease claim requests to the loop.
 	claims chan claim
@@ -104,6 +115,7 @@ func (manager *Manager) loop() error {
 		leases := manager.config.Client.Leases()
 		for leaseName := range blocks {
 			if _, found := leases[leaseName]; !found {
+				logger.Tracef("[%s] unblocking: %s", manager.logContext, leaseName)
 				blocks.unblock(leaseName)
 			}
 		}
@@ -122,6 +134,7 @@ func (manager *Manager) choose(blocks blocks) error {
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
 	case block := <-manager.blocks:
+		logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseName)
 		blocks.add(block)
 		return nil
 	}
@@ -143,7 +156,7 @@ func (manager *Manager) Claim(leaseName, holderName string, duration time.Durati
 		holderName: holderName,
 		duration:   duration,
 		response:   make(chan bool),
-		abort:      manager.catacomb.Dying(),
+		stop:       manager.catacomb.Dying(),
 	}.invoke(manager.claims)
 }
 
@@ -159,13 +172,23 @@ func (manager *Manager) handleClaim(claim claim) error {
 		case <-manager.catacomb.Dying():
 			return manager.catacomb.ErrDying()
 		default:
+			// TODO(jam) 2017-10-31: We are asking for all leases just to look
+			// up one of them. Shouldn't the client.Leases() interface allow us
+			// to just query for a single entry?
 			info, found := client.Leases()[claim.leaseName]
 			switch {
 			case !found:
+				logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s", manager.logContext, claim.holderName, claim.leaseName, claim.duration)
 				err = client.ClaimLease(claim.leaseName, request)
 			case info.Holder == claim.holderName:
+				logger.Tracef("[%s] %s extending lease %s for %s", manager.logContext, claim.holderName, claim.leaseName, claim.duration)
 				err = client.ExtendLease(claim.leaseName, request)
 			default:
+				// Note: (jam) 2017-10-31) We don't check here if the lease has
+				// expired for the current holder. Should we?
+				remaining := info.Expiry.Sub(manager.config.Clock.Now())
+				logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
+					manager.logContext, claim.holderName, claim.leaseName, info.Holder, remaining)
 				claim.respond(false)
 				return nil
 			}
@@ -185,7 +208,7 @@ func (manager *Manager) Token(leaseName, holderName string) lease.Token {
 		holderName: holderName,
 		secretary:  manager.config.Secretary,
 		checks:     manager.checks,
-		abort:      manager.catacomb.Dying(),
+		stop:       manager.catacomb.Dying(),
 	}
 }
 
@@ -194,8 +217,10 @@ func (manager *Manager) Token(leaseName, holderName string) lease.Token {
 // request, and is communicated back to the check's originator.
 func (manager *Manager) handleCheck(check check) error {
 	client := manager.config.Client
+	logger.Tracef("[%s] handling Check for lease %s on behalf of %s", manager.logContext, check.leaseName, check.holderName)
 	info, found := client.Leases()[check.leaseName]
 	if !found || info.Holder != check.holderName {
+		logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing", manager.logContext, check.leaseName, check.holderName)
 		if err := client.Refresh(); err != nil {
 			return errors.Trace(err)
 		}
@@ -204,6 +229,7 @@ func (manager *Manager) handleCheck(check check) error {
 
 	var response error
 	if !found || info.Holder != check.holderName {
+		logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held", manager.logContext, check.leaseName, check.holderName)
 		response = lease.ErrNotHeld
 	} else if check.trapdoorKey != nil {
 		response = info.Trapdoor(check.trapdoorKey)
@@ -213,14 +239,15 @@ func (manager *Manager) handleCheck(check check) error {
 }
 
 // WaitUntilExpired is part of the lease.Claimer interface.
-func (manager *Manager) WaitUntilExpired(leaseName string) error {
+func (manager *Manager) WaitUntilExpired(leaseName string, cancel <-chan struct{}) error {
 	if err := manager.config.Secretary.CheckLease(leaseName); err != nil {
 		return errors.Annotatef(err, "cannot wait for lease %q expiry", leaseName)
 	}
 	return block{
 		leaseName: leaseName,
 		unblock:   make(chan struct{}),
-		abort:     manager.catacomb.Dying(),
+		stop:      manager.catacomb.Dying(),
+		cancel:    cancel,
 	}.invoke(manager.blocks)
 }
 
@@ -231,13 +258,13 @@ func (manager *Manager) WaitUntilExpired(leaseName string) error {
 func (manager *Manager) nextTick() <-chan time.Time {
 	now := manager.config.Clock.Now()
 	nextTick := now.Add(manager.config.MaxSleep)
-	for _, info := range manager.config.Client.Leases() {
+	leases := manager.config.Client.Leases()
+	for _, info := range leases {
 		if info.Expiry.After(nextTick) {
 			continue
 		}
 		nextTick = info.Expiry
 	}
-	logger.Debugf("waking to check leases at %s", nextTick)
 	return clock.Alarm(manager.config.Clock, nextTick)
 }
 
@@ -250,7 +277,7 @@ func (manager *Manager) nextTick() <-chan time.Time {
 //
 // It will return only unrecoverable errors.
 func (manager *Manager) tick() error {
-	logger.Tracef("refreshing leases...")
+	logger.Tracef("[%s] waking up to refresh and expire leases", manager.logContext)
 	client := manager.config.Client
 	if err := client.Refresh(); err != nil {
 		return errors.Trace(err)
@@ -264,8 +291,9 @@ func (manager *Manager) tick() error {
 	}
 	sort.Strings(names)
 
-	logger.Tracef("expiring leases...")
+	logger.Tracef("[%s] checking expiry on %d leases", manager.logContext, len(leases))
 	now := manager.config.Clock.Now()
+	expired := make([]string, 0)
 	for _, name := range names {
 		if leases[name].Expiry.After(now) {
 			continue
@@ -275,6 +303,12 @@ func (manager *Manager) tick() error {
 		default:
 			return errors.Trace(err)
 		}
+		expired = append(expired, name)
+	}
+	if len(expired) == 0 {
+		logger.Debugf("[%s] no leases to expire", manager.logContext)
+	} else {
+		logger.Debugf("[%s] expired %d leases: %s", manager.logContext, len(expired), strings.Join(expired, ", "))
 	}
 	return nil
 }

@@ -23,7 +23,7 @@ type RelationListCommand struct {
 func NewRelationListCommand(ctx Context) (cmd.Command, error) {
 	c := &RelationListCommand{ctx: ctx}
 
-	rV, err := newRelationIdValue(c.ctx, &c.RelationId)
+	rV, err := NewRelationIdValue(c.ctx, &c.RelationId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

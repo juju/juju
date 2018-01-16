@@ -34,7 +34,7 @@ const (
 	// be provisioned so that the macaroon is still valid when the macaroon
 	// is next used. If a machine takes longer, that's ok, a new discharge
 	// will be obtained.
-	localOfferPermissionExpiryTime = 5 * time.Minute
+	localOfferPermissionExpiryTime = 3 * time.Minute
 )
 
 // AuthContext is used to validate macaroons used to access
@@ -200,7 +200,7 @@ func (a *AuthContext) offerPermissionYaml(sourceModelUUID, username, offerURL, r
 }
 
 // CreateConsumeOfferMacaroon creates a macaroon that authorises access to the specified offer.
-func (a *AuthContext) CreateConsumeOfferMacaroon(offer *params.ApplicationOffer, username string) (*macaroon.Macaroon, error) {
+func (a *AuthContext) CreateConsumeOfferMacaroon(offer *params.ApplicationOfferDetails, username string) (*macaroon.Macaroon, error) {
 	sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
 	if err != nil {
 		return nil, errors.Trace(err)

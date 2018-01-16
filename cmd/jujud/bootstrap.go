@@ -150,8 +150,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if ok && desiredVersion != jujuversion.Current {
 		// If we have been asked for a newer version, ensure the newer
 		// tools can actually be found, or else bootstrap won't complete.
-		stream := envtools.PreferredStream(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
-		logger.Infof("newer agent binaries requested, looking for %v in stream %v", desiredVersion, stream)
+		streams := envtools.PreferredStreams(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
+		logger.Infof("newer agent binaries requested, looking for %v in streams: %v", desiredVersion, strings.Join(streams, ","))
 		hostSeries, err := series.HostSeries()
 		if err != nil {
 			return errors.Trace(err)
@@ -161,7 +161,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			Arch:   arch.HostArch(),
 			Series: hostSeries,
 		}
-		_, toolsErr := envtools.FindTools(env, -1, -1, stream, filter)
+		_, toolsErr := envtools.FindTools(env, -1, -1, streams, filter)
 		if toolsErr == nil {
 			logger.Infof("agent binaries are available, upgrade will occur after bootstrap")
 		}
@@ -171,7 +171,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			logger.Warningf("newer agent binaries for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
 			newConfigAttrs["agent-version"] = jujuversion.Current.String()
 		} else if toolsErr != nil {
-			logger.Errorf("cannot find newer tools: %v", toolsErr)
+			logger.Errorf("cannot find newer agent binaries: %v", toolsErr)
 			return toolsErr
 		}
 	}
@@ -285,6 +285,19 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer st.Close()
+
+	// Set up default container networking mode
+	model, err := st.Model()
+	if err != nil {
+		return err
+	}
+	if err = model.AutoConfigureContainerNetworking(env); err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing container networking autoconfiguration on a non-networking environment")
+		} else {
+			return err
+		}
+	}
 
 	// Fetch spaces from substrate
 	if err = st.ReloadSpaces(env); err != nil {

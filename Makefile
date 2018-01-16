@@ -1,7 +1,6 @@
 #
 # Makefile for juju-core.
 #
-
 ifndef GOPATH
 $(warning You need to set up a GOPATH.  See the README file.)
 endif
@@ -16,18 +15,16 @@ else
 	TEST_TIMEOUT := 1500s
 endif
 
-ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf|aarch64|ppc64le|s390x).*/golang/'), golang)
-	GO_C = golang-1.8
-	INSTALL_FLAGS =
+# Enable verbose testing for reporting.
+ifeq ($(VERBOSE_CHECK), 1)
+	CHECK_ARGS = -v
 else
-	GO_C = gccgo-4.9  gccgo-go
-	INSTALL_FLAGS = -gccgoflags=-static-libgo
+	CHECK_ARGS =
 endif
 
 define DEPENDENCIES
   ca-certificates
   bzip2
-  bzr
   distro-info-data
   git
   zip
@@ -50,17 +47,32 @@ godeps:
 	@echo "skipping godeps"
 endif
 
-build: godeps
-	go build $(PROJECT)/...
+build: godeps go-build
+
+add-patches:
+	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/../../../
+
+#this is useful to run after release-build, or as needed
+remove-patches:
+	cat $(PWD)/patches/*.diff | patch -f -R -u -p1 -r- -d $(PWD)/../../../
+
+release-build: godeps add-patches go-build
+
+release-install: godeps add-patches go-install remove-patches
 
 check: godeps
-	go test -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
+	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
 
-install: godeps
-	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
+install: godeps go-install
 
 clean:
 	go clean $(PROJECT)/...
+
+go-install:
+	go install -v $(PROJECT)/...
+
+go-build:
+	go build $(PROJECT)/...
 
 else # --------------------------------
 
@@ -96,7 +108,9 @@ rebuild-dependencies.tsv: godeps
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
-	@echo Adding juju PPAs for golang and juju
+	@echo Installing go-1.9 snap
+	@sudo snap install go --channel=1.9/stable --classic
+	@echo Adding juju PPA for mongodb
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
 	@echo Installing dependencies
@@ -107,7 +121,7 @@ install-dependencies:
 # Install bash_completion
 install-etc:
 	@echo Installing bash completion
-	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-2.0 /usr/share/bash-completion/completions
+	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju /usr/share/bash-completion/completions
 	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-version /usr/share/bash-completion/completions
 
 setup-lxd:
@@ -124,16 +138,35 @@ GOCHECK_COUNT="$(shell go list -f '{{join .Deps "\n"}}' github.com/juju/juju/...
 check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
-install-go:
-	@echo Adding juju PPAs for golang and juju
-	@sudo apt-add-repository -y ppa:juju/golang
-	@sudo apt-get update
-	@echo Installing $(GO_C)
-	@sudo apt-get -y install $(GO_C)
+# CAAS related targets
+DOCKER_USERNAME?=jujusolutions
+JUJUD_STAGING_DIR=/tmp/jujud-operator
+JUJUD_BIN_DIR=${GOPATH}/bin
 
-.PHONY: build check install
+operator-image: install caas/jujud-operator-dockerfile caas/jujud-operator-requirements.txt
+	rm -rf ${JUJUD_STAGING_DIR}
+	mkdir ${JUJUD_STAGING_DIR}
+	cp ${JUJUD_BIN_DIR}/jujud ${JUJUD_STAGING_DIR}
+	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
+	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
+	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${DOCKER_USERNAME}/caas-jujud-operator ${JUJUD_STAGING_DIR}
+
+push-operator-image: operator-image
+	docker push ${DOCKER_USERNAME}/caas-jujud-operator
+
+check-k8s-model:
+	@:$(if $(value JUJU_K8S_MODEL),, $(error Undefined JUJU_K8S_MODEL))
+	@juju show-model ${JUJU_K8S_MODEL} > /dev/null
+
+local-operator-update: check-k8s-model operator-image
+	$(eval kubeworkers != juju status -m ${JUJU_K8S_MODEL} kubernetes-worker --format json | jq -c '.machines | keys' | tr  -c '[:digit:]' ' ' 2>&1)
+	docker save ${DOCKER_USERNAME}/caas-jujud-operator | gzip > /tmp/caas-jujud-operator-image.tar.gz
+	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} /tmp/caas-jujud-operator-image.tar.gz $(wm):/tmp/caas-jujud-operator-image.tar.gz ; )
+	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/caas-jujud-operator-image.tar.gz | docker load" ; )
+
+.PHONY: build check install release-install release-build go-build go-install
 .PHONY: clean format simplify
 .PHONY: install-dependencies
 .PHONY: rebuild-dependencies.tsv
 .PHONY: check-deps
-.PHONY: install-go
+.PHONY: add-patches remove-patches

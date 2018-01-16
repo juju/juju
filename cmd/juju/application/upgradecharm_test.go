@@ -19,15 +19,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	charmstore "gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/charmrepo.v2/csclient"
+	csclientparams "gopkg.in/juju/charmrepo.v2/csclient/params"
+	"gopkg.in/juju/charmstore.v5-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	macaroon "gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
@@ -88,7 +87,7 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 
 	s.resolveCharm = func(
 		resolveWithChannel func(*charm.URL) (*charm.URL, csclientparams.Channel, []string, error),
-		conf *config.Config,
+		conf SeriesConfig,
 		url *charm.URL,
 	) (*charm.URL, csclientparams.Channel, []string, error) {
 		s.AddCall("ResolveCharm", resolveWithChannel, conf, url)
@@ -287,7 +286,7 @@ func (s *UpgradeCharmErrorsStateSuite) TestInvalidService(c *gc.C) {
 
 func (s *UpgradeCharmErrorsStateSuite) deployService(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
-	_, err := runDeploy(c, ch, "riak", "--series", "quantal")
+	err := runDeploy(c, ch, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -355,7 +354,7 @@ var _ = gc.Suite(&UpgradeCharmSuccessStateSuite{})
 func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.path = testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
-	_, err := runDeploy(c, s.path, "--series", "quantal")
+	err := runDeploy(c, s.path, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	s.riak, err = s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -407,7 +406,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestRespectsLocalRevisionWhenPossible(c 
 
 func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(c.MkDir(), "multi-series")
-	_, err := runDeploy(c, path, "multi-series", "--series", "precise")
+	err := runDeploy(c, path, "multi-series", "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := s.State.Application("multi-series")
 	c.Assert(err, jc.ErrorIsNil)
@@ -585,7 +584,7 @@ var upgradeCharmAuthorizationTests = []struct {
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/wordpress-0", "wordpress")
-	_, err := runDeploy(c, "cs:~other/trusty/wordpress-0")
+	err := runDeploy(c, "cs:~other/trusty/wordpress-0")
 	c.Assert(err, jc.ErrorIsNil)
 	for i, test := range upgradeCharmAuthorizationTests {
 		c.Logf("test %d: %s", i, test.about)
@@ -605,7 +604,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmAuthorization(c *gc.C
 func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/riak-0", "riak")
 	testcharms.UploadCharm(c, s.client, "cs:~other/trusty/anotherriak-7", "riak")
-	_, err := runDeploy(c, "cs:~other/trusty/riak-0")
+	err := runDeploy(c, "cs:~other/trusty/riak-0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	riak, err := s.State.Application("riak")
@@ -634,7 +633,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestSwitch(c *gc.C) {
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) {
 	id, ch := testcharms.UploadCharm(c, s.client, "cs:~client-username/trusty/wordpress-0", "wordpress")
-	_, err := runDeploy(c, "cs:~client-username/trusty/wordpress-0")
+	err := runDeploy(c, "cs:~client-username/trusty/wordpress-0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Upload a new revision of the charm, but publish it
@@ -651,14 +650,14 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) 
 	c.Assert(err, gc.IsNil)
 
 	s.assertCharmsUploaded(c, "cs:~client-username/trusty/wordpress-0", "cs:~client-username/trusty/wordpress-1")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"wordpress": {charm: "cs:~client-username/trusty/wordpress-1"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"wordpress": {charm: "cs:~client-username/trusty/wordpress-1", config: ch.Config().DefaultSettings()},
 	})
 }
 
 func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeWithTermsNotSigned(c *gc.C) {
 	id, ch := testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
-	_, err := runDeploy(c, "quantal/terms1")
+	err := runDeploy(c, "quantal/terms1")
 	c.Assert(err, jc.ErrorIsNil)
 	id.Revision = id.Revision + 1
 	err = s.client.UploadCharmWithRevision(id, ch, -1)

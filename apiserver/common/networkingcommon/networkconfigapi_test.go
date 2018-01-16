@@ -11,27 +11,35 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/juju/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
 
-type networkconfigSuite struct {
-	testing.JujuConnSuite
+type networkConfigSuite struct {
+	jujutesting.JujuConnSuite
 
 	machine       *state.Machine
 	resources     *common.Resources
 	networkconfig *networkingcommon.NetworkConfigAPI
 }
 
-func (s *networkconfigSuite) SetUpTest(c *gc.C) {
+var _ = gc.Suite(&networkConfigSuite{})
+
+func (s *networkConfigSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.networkconfig = networkingcommon.NewNetworkConfigAPI(
+		s.State,
+		common.AuthAlways(),
+	)
 }
 
-func (s *networkconfigSuite) TestSetObservedNetworkConfig(c *gc.C) {
-	c.Skip("dimitern: Test disabled until dummy provider is fixed properly")
+func (s *networkConfigSuite) TestSetObservedNetworkConfig(c *gc.C) {
 	devices, err := s.machine.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices, gc.HasLen, 0)
@@ -76,9 +84,9 @@ func (s *networkconfigSuite) TestSetObservedNetworkConfig(c *gc.C) {
 	}
 }
 
-func (s *networkconfigSuite) TestSetObservedNetworkConfigPermissions(c *gc.C) {
+func (s *networkConfigSuite) TestSetObservedNetworkConfigPermissions(c *gc.C) {
 	args := params.SetMachineNetworkConfig{
-		Tag:    "machine-0",
+		Tag:    "machine-1",
 		Config: nil,
 	}
 
@@ -86,8 +94,7 @@ func (s *networkconfigSuite) TestSetObservedNetworkConfigPermissions(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *networkconfigSuite) TestSetProviderNetworkConfig(c *gc.C) {
-	c.Skip("dimitern: Test disabled until dummy provider is fixed properly")
+func (s *networkConfigSuite) TestSetProviderNetworkConfig(c *gc.C) {
 	devices, err := s.machine.AllLinkLayerDevices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices, gc.HasLen, 0)
@@ -119,10 +126,10 @@ func (s *networkconfigSuite) TestSetProviderNetworkConfig(c *gc.C) {
 	}
 }
 
-func (s *networkconfigSuite) TestSetProviderNetworkConfigPermissions(c *gc.C) {
+func (s *networkConfigSuite) TestSetProviderNetworkConfigPermissions(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-1"},
 		{Tag: "machine-0"},
+		{Tag: "machine-1"},
 		{Tag: "machine-42"},
 	}}
 

@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -44,6 +45,7 @@ func NewDestroyCommand() cmd.Command {
 // destroyCommand destroys the specified controller.
 type destroyCommand struct {
 	destroyCommandBase
+	storageAPI     storageAPI
 	destroyModels  bool
 	destroyStorage bool
 	releaseStorage bool
@@ -101,6 +103,11 @@ type destroyControllerAPI interface {
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
+}
+
+type storageAPI interface {
+	Close() error
+	ListStorageDetails() ([]params.StorageDetails, error)
 }
 
 // destroyClientAPI defines the methods on the client API endpoint that the
@@ -166,17 +173,37 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			return errors.New("this juju controller only supports destroying storage")
 		}
 		if !c.destroyStorage {
-			ctx.Infof(`this juju controller only supports destroying storage
+			models, err := api.AllModels()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			var anyStorage bool
+			for _, model := range models {
+				hasStorage, err := c.modelHasStorage(model.Name)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if hasStorage {
+					anyStorage = true
+					break
+				}
+			}
+			if anyStorage {
+				return errors.Errorf(`cannot destroy controller %q
 
-Please run the the command again with --destroy-storage,
+Destroying this controller will destroy the storage,
+but you have not indicated that you want to do that.
+
+Please run the the command again with --destroy-storage
 to confirm that you want to destroy the storage along
 with the controller.
 
 If instead you want to keep the storage, you must first
 upgrade the controller to version 2.3 or greater.
 
-`)
-			return cmd.ErrSilent
+`, controllerName)
+			}
+			c.destroyStorage = true
 		}
 	}
 
@@ -254,6 +281,20 @@ upgrade the controller to version 2.3 or greater.
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
 		return environs.Destroy(controllerName, controllerEnviron, store)
 	}
+}
+
+func (c *destroyCommand) modelHasStorage(modelName string) (bool, error) {
+	client, err := c.getStorageAPI(modelName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	defer client.Close()
+
+	storage, err := client.ListStorageDetails()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return len(storage) > 0, nil
 }
 
 // checkNoAliveHostedModels ensures that the given set of hosted models
@@ -435,6 +476,17 @@ func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	return controller.NewClient(root), nil
+}
+
+func (c *destroyCommand) getStorageAPI(modelName string) (storageAPI, error) {
+	if c.storageAPI != nil {
+		return c.storageAPI, nil
+	}
+	root, err := c.NewModelAPIRoot(modelName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return storage.NewClient(root), nil
 }
 
 // SetFlags implements Command.SetFlags.

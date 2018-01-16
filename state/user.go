@@ -31,6 +31,11 @@ func userGlobalKey(userID string) string {
 	return fmt.Sprintf("%s#%s", userGlobalKeyPrefix, userID)
 }
 
+func userIDFromGlobalKey(key string) string {
+	prefix := userGlobalKeyPrefix + "#"
+	return strings.TrimPrefix(key, prefix)
+}
+
 func (st *State) checkUserExists(name string) (bool, error) {
 	users, closer := st.db().GetCollection(usersC)
 	defer closer()
@@ -251,7 +256,7 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	for iter.Next(&doc) {
 		result = append(result, &User{st: st, doc: doc})
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Always return a predictable order, sort by Name.

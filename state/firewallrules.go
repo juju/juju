@@ -29,9 +29,6 @@ type FirewallRule struct {
 	// WellKnownService is the known service for the firewall rules entity.
 	WellKnownService WellKnownServiceType
 
-	// BlacklistCIDR is the blacklist CIDRs for the rule.
-	BlacklistCIDRs []string
-
 	// WhitelistCIDRS is the whitelist CIDRs for the rule.
 	WhitelistCIDRs []string
 }
@@ -39,7 +36,6 @@ type FirewallRule struct {
 type firewallRulesDoc struct {
 	Id               string   `bson:"_id"`
 	WellKnownService string   `bson:"known-service"`
-	BlacklistCIDRS   []string `bson:"blacklist-cidrs"`
 	WhitelistCIDRS   []string `bson:"whitelist-cidrs"`
 }
 
@@ -47,13 +43,12 @@ func (r *firewallRulesDoc) toRule() *FirewallRule {
 	return &FirewallRule{
 		WellKnownService: WellKnownServiceType(r.WellKnownService),
 		WhitelistCIDRs:   r.WhitelistCIDRS,
-		BlacklistCIDRs:   r.BlacklistCIDRS,
 	}
 }
 
 // FirewallRuler instances provide access to firewall rules in state.
 type FirewallRuler interface {
-	Save(service WellKnownServiceType, whiteListCidrs, blackListCidrs []string) (FirewallRule, error)
+	Save(service WellKnownServiceType, whiteListCidrs []string) (FirewallRule, error)
 	Rule(service WellKnownServiceType) (FirewallRule, error)
 	AllRules() ([]FirewallRule, error)
 }
@@ -94,7 +89,7 @@ func (fw *firewallRulesState) Save(rule FirewallRule) error {
 	if err := rule.WellKnownService.validate(); err != nil {
 		return errors.Trace(err)
 	}
-	for _, cidr := range append(rule.WhitelistCIDRs, rule.BlacklistCIDRs...) {
+	for _, cidr := range rule.WhitelistCIDRs {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
 			return errors.NotValidf("CIDR %q", cidr)
 		}
@@ -104,7 +99,6 @@ func (fw *firewallRulesState) Save(rule FirewallRule) error {
 		Id:               serviceStr,
 		WellKnownService: serviceStr,
 		WhitelistCIDRS:   rule.WhitelistCIDRs,
-		BlacklistCIDRS:   rule.BlacklistCIDRs,
 	}
 	buildTxn := func(int) ([]txn.Op, error) {
 		model, err := fw.st.Model()
@@ -127,12 +121,10 @@ func (fw *firewallRulesState) Save(rule FirewallRule) error {
 				Assert: txn.DocExists,
 				Update: bson.D{
 					{"$set", bson.D{{"whitelist-cidrs", rule.WhitelistCIDRs}}},
-					{"$set", bson.D{{"blacklist-cidrs", rule.BlacklistCIDRs}}},
 				},
 			}, model.assertActiveOp()}
 		} else {
 			doc.WhitelistCIDRS = rule.WhitelistCIDRs
-			doc.BlacklistCIDRS = rule.BlacklistCIDRs
 			ops = []txn.Op{{
 				C:      firewallRulesC,
 				Id:     doc.Id,

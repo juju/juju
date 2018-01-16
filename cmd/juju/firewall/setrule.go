@@ -24,14 +24,14 @@ Sets a firewall rule.`[1:]
 var setRuleHelpDetails = `
 Firewall rules control ingress to a well known services
 within a Juju model. A rule consists of the service name
-and a usually whitelist of allowed ingress subnets. Some
-services also support blacklisting subnets.
+and a whitelist of allowed ingress subnets.
 The currently supported services are:
 %v
 
 Examples:
     juju set-firewall-rule ssh --whitelist 192.168.1.0/16
-    juju set-firewall-rule juju-controller --whitelist 192.168.1.0/16 --blacklist 10.0.0.0/8,192.168.2.0/8
+    juju set-firewall-rule juju-controller --whitelist 192.168.1.0/16
+    juju set-firewall-rule juju-application-offer --whitelist 192.168.1.0/16
 
 See also: 
     list-firewall-rules`
@@ -54,10 +54,8 @@ type setFirewallRuleCommand struct {
 	modelcmd.ModelCommandBase
 	service        string
 	whitelistValue string
-	blacklistValue string
 
 	whiteList  []string
-	blackList  []string
 	newAPIFunc func() (SetFirewallRuleAPI, error)
 }
 
@@ -70,7 +68,7 @@ func (c *setFirewallRuleCommand) Info() *cmd.Info {
 	}
 	return &cmd.Info{
 		Name:    "set-firewall-rule",
-		Args:    "<service-name>, [--whitelist <cidr>,...], [--blacklist <cidr>,...]",
+		Args:    "<service-name>, --whitelist <cidr>[,<cidr>...]",
 		Purpose: setRuleHelpSummary,
 		Doc:     fmt.Sprintf(setRuleHelpDetails, strings.Join(supportedRules, "\n")),
 	}
@@ -79,18 +77,17 @@ func (c *setFirewallRuleCommand) Info() *cmd.Info {
 // SetFlags implements cmd.Command.
 func (c *setFirewallRuleCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.whitelistValue, "whitelist", "", "list of subnets to whitelist")
-	f.StringVar(&c.blacklistValue, "blacklist", "", "list of subnets to blacklist")
 }
 
 // Init implements cmd.Command.
 func (c *setFirewallRuleCommand) Init(args []string) (err error) {
 	if len(args) == 1 {
 		c.service = args[0]
+		if c.whitelistValue == "" {
+			return errors.New("no whitelist subnets specified")
+		}
 		if err := c.parseCIDRs(&c.whiteList, c.whitelistValue); err != nil {
 			return errors.Annotate(err, "invalid white-list subnet")
-		}
-		if err := c.parseCIDRs(&c.blackList, c.blacklistValue); err != nil {
-			return errors.Annotate(err, "invalid black-list subnet")
 		}
 		return nil
 	}
@@ -118,7 +115,7 @@ func (c *setFirewallRuleCommand) parseCIDRs(cidrs *[]string, value string) error
 // SetFirewallRuleAPI defines the API methods that the set firewall rules command uses.
 type SetFirewallRuleAPI interface {
 	Close() error
-	SetFirewallRule(service string, whiteListCidrs, blackListCidrs []string) error
+	SetFirewallRule(service string, whiteListCidrs []string) error
 }
 
 func (c *setFirewallRuleCommand) Run(_ *cmd.Context) error {
@@ -127,6 +124,6 @@ func (c *setFirewallRuleCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	err = client.SetFirewallRule(c.service, c.whiteList, c.blackList)
+	err = client.SetFirewallRule(c.service, c.whiteList)
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

@@ -7,9 +7,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"

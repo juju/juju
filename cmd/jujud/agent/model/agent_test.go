@@ -65,6 +65,10 @@ func (mock *mockAgent) CurrentConfig() agent.Config {
 
 type mockConfig struct{ agent.Config }
 
+func (mock *mockConfig) Tag() names.Tag {
+	return names.NewMachineTag("123")
+}
+
 func (mock *mockConfig) Model() names.ModelTag {
 	return names.NewModelTag("mock-model-uuid")
 }

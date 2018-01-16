@@ -27,7 +27,7 @@ type gceConnection interface {
 	// and returns it.
 	Instance(id, zone string) (google.Instance, error)
 	Instances(prefix string, statuses ...string) ([]google.Instance, error)
-	AddInstance(spec google.InstanceSpec, zones ...string) (*google.Instance, error)
+	AddInstance(spec google.InstanceSpec) (*google.Instance, error)
 	RemoveInstances(prefix string, ids ...string) error
 	UpdateMetadata(key, value string, ids ...string) error
 
@@ -82,6 +82,9 @@ type environ struct {
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
 }
+
+var _ environs.Environ = (*environ)(nil)
+var _ environs.NetworkingEnviron = (*environ)(nil)
 
 // Function entry points defined as variables so they can be overridden
 // for testing purposes.

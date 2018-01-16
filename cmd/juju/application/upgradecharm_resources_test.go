@@ -15,10 +15,10 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/charmrepo.v2/csclient"
 	"gopkg.in/juju/charmstore.v5-unstable"
 
 	"github.com/juju/juju/cmd/juju/application"
@@ -339,7 +339,7 @@ func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]servic
 	deployed := make(map[string]serviceInfo, len(services))
 	for _, application := range services {
 		charm, _ := application.CharmURL()
-		config, err := application.ConfigSettings()
+		config, err := application.CharmConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		if len(config) == 0 {
 			config = nil

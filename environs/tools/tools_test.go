@@ -88,11 +88,15 @@ func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return toolstesting.UploadToDirectory(c, "proposed", s.customToolsDir, verses...)
+	return toolstesting.UploadToDirectory(c, s.customToolsDir, toolstesting.StreamVersions{"proposed": verses})["proposed"]
 }
 
 func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return toolstesting.UploadToDirectory(c, "proposed", s.publicToolsDir, verses...)
+	return toolstesting.UploadToDirectory(c, s.publicToolsDir, toolstesting.StreamVersions{"proposed": verses})["proposed"]
+}
+
+func (s *SimpleStreamsToolsSuite) uploadStreams(c *gc.C, versions toolstesting.StreamVersions) map[string]map[version.Binary]string {
+	return toolstesting.UploadToDirectory(c, s.publicToolsDir, versions)
 }
 
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
@@ -172,8 +176,8 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		stream := envtools.PreferredStream(&jujuversion.Current, s.env.Config().Development(), s.env.Config().AgentStream())
-		actual, err := envtools.FindTools(s.env, test.major, test.minor, stream, coretools.Filter{})
+		streams := envtools.PreferredStreams(&jujuversion.Current, s.env.Config().Development(), s.env.Config().AgentStream())
+		actual, err := envtools.FindTools(s.env, test.major, test.minor, streams, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -203,7 +207,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	logger.SetLogLevel(loggo.TRACE)
 
 	_, err := envtools.FindTools(
-		s.env, 1, -1, "released", coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
+		s.env, 1, -1, []string{"released"}, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are
@@ -225,7 +229,8 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 }
 
 var findExactToolsTests = []struct {
-	info   string
+	info string
+	// These are the contents of the proposed streams in each source.
 	custom []version.Binary
 	public []version.Binary
 	seek   version.Binary
@@ -282,49 +287,143 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
 	}
 }
 
+func copyAndAppend(vs []version.Binary, more ...[]version.Binary) []version.Binary {
+	// TODO(babbageclunk): I think the append(someversions,
+	// moreversions...) technique used in environs/testing/tools.go
+	// might be wrong because it can mutate someversions if there's
+	// enough capacity. Use this there.
+	// https://medium.com/@Jarema./golang-slice-append-gotcha-e9020ff37374
+	result := make([]version.Binary, len(vs))
+	copy(result, vs)
+	for _, items := range more {
+		result = append(result, items...)
+	}
+	return result
+}
+
+var findToolsFallbackTests = []struct {
+	info     string
+	major    int
+	minor    int
+	streams  []string
+	devel    []version.Binary
+	proposed []version.Binary
+	released []version.Binary
+	expect   []version.Binary
+	err      error
+}{{
+	info:    "nothing available",
+	major:   1,
+	streams: []string{"released"},
+	err:     envtools.ErrNoTools,
+}, {
+	info:    "only available in non-selected stream",
+	major:   1,
+	minor:   2,
+	streams: []string{"released"},
+	devel:   envtesting.VAll,
+	err:     coretools.ErrNoMatches,
+}, {
+	info:     "finds things in devel and released, ignores proposed",
+	major:    1,
+	minor:    -1,
+	streams:  []string{"devel", "released"},
+	devel:    envtesting.V120all,
+	proposed: envtesting.V110all,
+	released: envtesting.V100all,
+	expect:   copyAndAppend(envtesting.V120all, envtesting.V100all),
+}, {
+	info:     "finds matching things everywhere",
+	major:    1,
+	minor:    2,
+	streams:  []string{"devel", "proposed", "released"},
+	devel:    []version.Binary{envtesting.V110q64, envtesting.V120q64},
+	proposed: []version.Binary{envtesting.V110p64, envtesting.V120p64},
+	released: []version.Binary{envtesting.V100p64, envtesting.V120t64},
+	expect:   []version.Binary{envtesting.V120p64, envtesting.V120q64, envtesting.V120t64},
+}}
+
+func (s *SimpleStreamsToolsSuite) TestFindToolsWithStreamFallback(c *gc.C) {
+	for i, test := range findToolsFallbackTests {
+		c.Logf("\ntest %d: %s", i, test.info)
+		s.reset(c, nil)
+		streams := s.uploadStreams(c, toolstesting.StreamVersions{
+			"devel":    test.devel,
+			"proposed": test.proposed,
+			"released": test.released,
+		})
+		actual, err := envtools.FindTools(s.env, test.major, test.minor, test.streams, coretools.Filter{})
+		if test.err != nil {
+			if len(actual) > 0 {
+				c.Logf(actual.String())
+			}
+			c.Check(err, jc.Satisfies, errors.IsNotFound)
+			continue
+		}
+		expect := map[version.Binary][]string{}
+		for _, expected := range test.expect {
+			for _, stream := range []string{"devel", "proposed", "released"} {
+				if url, ok := streams[stream][expected]; ok {
+					expect[expected] = []string{url}
+					break
+				}
+			}
+		}
+		c.Check(actual.URLs(), gc.DeepEquals, expect)
+	}
+}
+
 var preferredStreamTests = []struct {
 	explicitVers   string
 	currentVers    string
 	forceDevel     bool
 	streamInConfig string
-	expected       string
+	expected       []string
 }{{
 	currentVers:    "1.22.0",
 	streamInConfig: "released",
-	expected:       "released",
+	expected:       []string{"released"},
+}, {
+	currentVers:    "1.22.0",
+	streamInConfig: "proposed",
+	expected:       []string{"proposed", "released"},
 }, {
 	currentVers:    "1.22.0",
 	streamInConfig: "devel",
-	expected:       "devel",
+	expected:       []string{"devel", "proposed", "released"},
+}, {
+	currentVers:    "1.22.0",
+	streamInConfig: "testing",
+	expected:       []string{"testing", "devel", "proposed", "released"},
 }, {
 	currentVers: "1.22.0",
-	expected:    "released",
+	expected:    []string{"released"},
 }, {
 	currentVers: "1.22-beta1",
-	expected:    "devel",
+	expected:    []string{"devel", "proposed", "released"},
 }, {
 	currentVers:    "1.22-beta1",
 	streamInConfig: "released",
-	expected:       "devel",
+	expected:       []string{"devel", "proposed", "released"},
 }, {
 	currentVers:    "1.22-beta1",
 	streamInConfig: "devel",
-	expected:       "devel",
+	expected:       []string{"devel", "proposed", "released"},
 }, {
 	currentVers: "1.22.0",
 	forceDevel:  true,
-	expected:    "devel",
+	expected:    []string{"devel", "proposed", "released"},
 }, {
 	currentVers:  "1.22.0",
 	explicitVers: "1.22-beta1",
-	expected:     "devel",
+	expected:     []string{"devel", "proposed", "released"},
 }, {
 	currentVers:  "1.22-bta1",
 	explicitVers: "1.22.0",
-	expected:     "released",
+	expected:     []string{"released"},
 }}
 
-func (s *SimpleStreamsToolsSuite) TestPreferredStream(c *gc.C) {
+func (s *SimpleStreamsToolsSuite) TestPreferredStreams(c *gc.C) {
 	for i, test := range preferredStreamTests {
 		c.Logf("\ntest %d", i)
 		s.PatchValue(&jujuversion.Current, version.MustParse(test.currentVers))
@@ -333,8 +432,8 @@ func (s *SimpleStreamsToolsSuite) TestPreferredStream(c *gc.C) {
 			v := version.MustParse(test.explicitVers)
 			vers = &v
 		}
-		obtained := envtools.PreferredStream(vers, test.forceDevel, test.streamInConfig)
-		c.Check(obtained, gc.Equals, test.expected)
+		obtained := envtools.PreferredStreams(vers, test.forceDevel, test.streamInConfig)
+		c.Check(obtained, gc.DeepEquals, test.expected)
 	}
 }
 
@@ -382,7 +481,7 @@ func (s *ToolsListSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *gc.C)
 	list := fakeToolsList("hoary")
 	err := envtools.CheckToolsSeries(list, "warty")
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "tools mismatch: expected series warty, got hoary")
+	c.Check(err, gc.ErrorMatches, "agent binary mismatch: expected series warty, got hoary")
 }
 
 func (s *ToolsListSuite) TestCheckToolsSeriesRejectsToolsForMixedSeries(c *gc.C) {

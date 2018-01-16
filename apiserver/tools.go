@@ -110,7 +110,7 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 	}
 	storage, err := st.ToolsStorage()
 	if err != nil {
-		return nil, errors.Annotate(err, "error getting tools storage")
+		return nil, errors.Annotate(err, "error getting storage for agent binaries")
 	}
 	defer storage.Close()
 	_, reader, err := storage.Open(version.String())
@@ -118,10 +118,10 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 		// Tools could not be found in tools storage,
 		// so look for them in simplestreams, fetch
 		// them and cache in tools storage.
-		logger.Infof("%v tools not found locally, fetching", version)
+		logger.Infof("%v agent binaries not found locally, fetching", version)
 		reader, err = h.fetchAndCacheTools(version, storage, st)
 		if err != nil {
-			err = errors.Annotate(err, "error fetching tools")
+			err = errors.Annotate(err, "error fetching agent binaries")
 		}
 	}
 	if err != nil {
@@ -130,7 +130,7 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 	defer reader.Close()
 	data, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to read tools tarball")
+		return nil, errors.Annotate(err, "failed to read agent binaries tarball")
 	}
 	return data, nil
 }
@@ -150,7 +150,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor binarys
 	}
 
 	// No need to verify the server's identity because we verify the SHA-256 hash.
-	logger.Infof("fetching %v tools from %v", v, tools.URL)
+	logger.Infof("fetching %v agent binaries from %v", v, tools.URL)
 	resp, err := utils.GetNonValidatingHTTPClient().Get(tools.URL)
 	if err != nil {
 		return nil, err
@@ -181,7 +181,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor binarys
 		SHA256:  tools.SHA256,
 	}
 	if err := stor.Add(bytes.NewReader(data), metadata); err != nil {
-		return nil, errors.Annotate(err, "error caching tools")
+		return nil, errors.Annotate(err, "error caching agent binaries")
 	}
 	return ioutil.NopCloser(bytes.NewReader(data)), nil
 }
@@ -194,7 +194,7 @@ func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, 
 	if _, err := w.Write(tarball); err != nil {
 		return errors.Trace(sendError(
 			w,
-			errors.NewBadRequest(errors.Annotatef(err, "failed to write tools"), ""),
+			errors.NewBadRequest(errors.Annotatef(err, "failed to write agent binaries"), ""),
 		))
 	}
 	return nil
@@ -210,7 +210,7 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 	}
 	toolsVersion, err := version.ParseBinary(binaryVersionParam)
 	if err != nil {
-		return nil, errors.NewBadRequest(err, fmt.Sprintf("invalid tools version %q", binaryVersionParam))
+		return nil, errors.NewBadRequest(err, fmt.Sprintf("invalid agent binaries version %q", binaryVersionParam))
 	}
 
 	// Make sure the content type is x-tar-gz.
@@ -230,7 +230,7 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 	if seriesParam := query.Get("series"); seriesParam != "" {
 		cloneSeries = strings.Split(seriesParam, ",")
 	}
-	logger.Debugf("request to upload tools: %s", toolsVersion)
+	logger.Debugf("request to upload agent binaries: %s", toolsVersion)
 	logger.Debugf("additional series: %s", cloneSeries)
 
 	toolsVersions := []version.Binary{toolsVersion}
@@ -275,7 +275,7 @@ func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.B
 		return nil, err
 	}
 	if len(data) == 0 {
-		return nil, errors.BadRequestf("no tools uploaded")
+		return nil, errors.BadRequestf("no agent binaries uploaded")
 	}
 
 	// TODO(wallyworld): check integrity of tools tarball.
@@ -287,7 +287,7 @@ func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.B
 			Size:    int64(len(data)),
 			SHA256:  sha256,
 		}
-		logger.Debugf("uploading tools %+v to storage", metadata)
+		logger.Debugf("uploading agent binaries %+v to storage", metadata)
 		if err := storage.Add(bytes.NewReader(data), metadata); err != nil {
 			return nil, err
 		}

@@ -19,6 +19,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type firewallerSuite struct {
@@ -38,11 +39,11 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		cloudspec.MakeCloudSpecGetterForModel(s.State),
-		common.AuthFuncForTag(s.State.ModelTag()),
+		common.AuthFuncForTag(s.IAASModel.ModelTag()),
 	)
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewFirewallerAPI(
-		firewaller.StateShim(s.State),
+		firewaller.StateShim(s.State, s.IAASModel.Model),
 		s.resources,
 		s.authorizer,
 		cloudSpecAPI,
@@ -54,7 +55,10 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {
 	constructor := func(st *state.State, res facade.Resources, auth facade.Authorizer) error {
-		_, err := firewaller.NewFirewallerAPI(firewaller.StateShim(st), res, auth, nil)
+		m, err := st.Model()
+		c.Assert(err, jc.ErrorIsNil)
+
+		_, err = firewaller.NewFirewallerAPI(firewaller.StateShim(st, m), res, auth, nil)
 		return err
 	}
 	s.testFirewallerFailsWithNonEnvironManagerUser(c, constructor)
@@ -221,6 +225,48 @@ func (s *firewallerSuite) TestGetMachineActiveSubnets(c *gc.C) {
 			{Error: apiservertesting.ServerError(`"user-foo" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"foo-bar" is not a valid tag`)},
 			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
+		},
+	})
+}
+
+func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:     "quantal",
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: "2",
+		Nonce:      "manual:",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := addFakeEntities(params.Entities{Entities: []params.Entity{
+		{Tag: s.machines[0].Tag().String()},
+		{Tag: s.machines[1].Tag().String()},
+		{Tag: m.Tag().String()},
+		{Tag: s.application.Tag().String()},
+		{Tag: s.units[0].Tag().String()},
+	}})
+
+	apiv5 := &firewaller.FirewallerAPIV5{
+		&firewaller.FirewallerAPIV4{
+			FirewallerAPIV3:     s.firewaller,
+			ControllerConfigAPI: common.NewControllerConfig(newMockState(coretesting.ModelTag.Id())),
+		}}
+
+	result, err := apiv5.AreManuallyProvisioned(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.BoolResults{
+		Results: []params.BoolResult{
+			{Result: false, Error: nil},
+			{Result: false, Error: nil},
+			{Result: true, Error: nil},
+			{Result: false, Error: apiservertesting.ServerError(`"application-wordpress" is not a valid machine tag`)},
+			{Result: false, Error: apiservertesting.ServerError(`"unit-wordpress-0" is not a valid machine tag`)},
+			{Result: false, Error: apiservertesting.NotFoundError("machine 42")},
+			{Result: false, Error: apiservertesting.ServerError(`"unit-foo-0" is not a valid machine tag`)},
+			{Result: false, Error: apiservertesting.ServerError(`"application-bar" is not a valid machine tag`)},
+			{Result: false, Error: apiservertesting.ServerError(`"user-foo" is not a valid machine tag`)},
+			{Result: false, Error: apiservertesting.ServerError(`"foo-bar" is not a valid tag`)},
+			{Result: false, Error: apiservertesting.ServerError(`"" is not a valid tag`)},
 		},
 	})
 }

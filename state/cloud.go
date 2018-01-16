@@ -11,6 +11,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/mongo/utils"
 )
 
 // cloudDoc records information about the cloud that the controller operates in.
@@ -23,6 +24,7 @@ type cloudDoc struct {
 	IdentityEndpoint string                       `bson:"identity-endpoint,omitempty"`
 	StorageEndpoint  string                       `bson:"storage-endpoint,omitempty"`
 	Regions          map[string]cloudRegionSubdoc `bson:"regions,omitempty"`
+	CACertificates   []string                     `bson:"ca-certificates,omitempty"`
 }
 
 // cloudRegionSubdoc records information about cloud regions.
@@ -41,7 +43,7 @@ func createCloudOp(cloud cloud.Cloud) txn.Op {
 	}
 	regions := make(map[string]cloudRegionSubdoc)
 	for _, region := range cloud.Regions {
-		regions[region.Name] = cloudRegionSubdoc{
+		regions[utils.EscapeKey(region.Name)] = cloudRegionSubdoc{
 			region.Endpoint,
 			region.IdentityEndpoint,
 			region.StorageEndpoint,
@@ -59,6 +61,7 @@ func createCloudOp(cloud cloud.Cloud) txn.Op {
 			IdentityEndpoint: cloud.IdentityEndpoint,
 			StorageEndpoint:  cloud.StorageEndpoint,
 			Regions:          regions,
+			CACertificates:   cloud.CACertificates,
 		},
 	}
 }
@@ -76,7 +79,7 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 	for i, name := range regionNames.SortedValues() {
 		region := d.Regions[name]
 		regions[i] = cloud.Region{
-			name,
+			utils.UnescapeKey(name),
 			region.Endpoint,
 			region.IdentityEndpoint,
 			region.StorageEndpoint,
@@ -90,6 +93,7 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 		IdentityEndpoint: d.IdentityEndpoint,
 		StorageEndpoint:  d.StorageEndpoint,
 		Regions:          regions,
+		CACertificates:   d.CACertificates,
 	}
 }
 
@@ -104,7 +108,7 @@ func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	for iter.Next(&doc) {
 		clouds[names.NewCloudTag(doc.Name)] = doc.toCloud()
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "getting clouds")
 	}
 	return clouds, nil

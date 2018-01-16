@@ -8,8 +8,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -195,7 +197,7 @@ func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, newHook newHook, kind hooks
 }
 
 func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
-	runErr := context.NewMissingHookError("blah-blah")
+	runErr := charmrunner.NewMissingHookError("blah-blah")
 	for _, kind := range hooks.UnitHooks() {
 		c.Logf("hook %v", kind)
 		op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, (operation.Factory).NewRunHook, kind, runErr)
@@ -564,6 +566,61 @@ func (s *RunHookSuite) TestCommitSuccess_Start_Preserve(c *gc.C) {
 			},
 		)
 	}
+}
+
+func (s *RunHookSuite) assertCommitSuccess_RelationBroken_SetStatus(c *gc.C, suspended, leader bool) {
+	ctx := &MockContext{
+		isLeader: leader,
+		relation: &MockRelation{
+			suspended: suspended,
+		},
+	}
+	runnerFactory := &MockRunnerFactory{
+		MockNewHookRunner: &MockNewHookRunner{
+			runner: &MockRunner{
+				MockRunHook: &MockRunHook{},
+				context:     ctx,
+			},
+		},
+	}
+	callbacks := &ExecuteHookCallbacks{
+		PrepareHookCallbacks:    NewPrepareHookCallbacks(),
+		MockNotifyHookCompleted: &MockNotify{},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+		Callbacks:     callbacks,
+	})
+	op, err := factory.NewRunHook(hook.Info{Kind: hooks.RelationBroken})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Execute(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newState, gc.DeepEquals, &operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Done,
+		Hook: &hook.Info{Kind: hooks.RelationBroken},
+	})
+	if suspended && leader {
+		c.Assert(ctx.relation.status, gc.Equals, relation.Suspended)
+	} else {
+		c.Assert(ctx.relation.status, gc.Equals, relation.Status(""))
+	}
+}
+
+func (s *RunHookSuite) TestCommitSuccess_RelationBroken_SetStatus(c *gc.C) {
+	s.assertCommitSuccess_RelationBroken_SetStatus(c, true, true)
+}
+
+func (s *RunHookSuite) TestCommitSuccess_RelationBroken_SetStatusNotLeader(c *gc.C) {
+	s.assertCommitSuccess_RelationBroken_SetStatus(c, true, false)
+}
+
+func (s *RunHookSuite) TestCommitSuccess_RelationBroken_SetStatusNotSuspended(c *gc.C) {
+	s.assertCommitSuccess_RelationBroken_SetStatus(c, false, true)
 }
 
 func (s *RunHookSuite) testQueueHook_BlankSlate(c *gc.C, cause hooks.Kind) {

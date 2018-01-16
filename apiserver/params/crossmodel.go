@@ -4,9 +4,34 @@
 package params
 
 import (
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon.v1"
 )
+
+// ExternalControllerInfoResults contains the results of querying
+// the information for a set of external controllers.
+type ExternalControllerInfoResults struct {
+	Results []ExternalControllerInfoResult `json:"results"`
+}
+
+// ExternalControllerInfoResult contains the result of querying
+// the information of external controllers.
+type ExternalControllerInfoResult struct {
+	Result *ExternalControllerInfo `json:"result"`
+	Error  *Error                  `json:"error"`
+}
+
+// SetControllersInfoParams contains the parameters for setting the
+// info for a set of external controllers.
+type SetExternalControllersInfoParams struct {
+	Controllers []SetExternalControllerInfoParams `json:"controllers"`
+}
+
+// SetExternalControllerInfoParams contains the parameters for setting
+// the info for an external controller.
+type SetExternalControllerInfoParams struct {
+	Info ExternalControllerInfo `json:"info"`
+}
 
 // EndpointFilterAttributes is used to filter offers matching the
 // specified endpoint criteria.
@@ -35,26 +60,34 @@ type OfferFilter struct {
 	ApplicationDescription string                     `json:"application-description"`
 	ApplicationUser        string                     `json:"application-user"`
 	Endpoints              []EndpointFilterAttributes `json:"endpoints"`
-	AllowedUserTags        []string                   `json:"allowed-users"`
+	ConnectedUserTags      []string                   `json:"connected-users"`
+	AllowedConsumerTags    []string                   `json:"allowed-users"`
 }
 
-// ApplicationOffer represents an application offering from an external model.
-type ApplicationOffer struct {
-	SourceModelTag         string            `json:"source-model-tag"`
-	OfferUUID              string            `json:"offer-uuid"`
-	OfferURL               string            `json:"offer-url"`
-	OfferName              string            `json:"offer-name"`
-	ApplicationDescription string            `json:"application-description"`
-	Endpoints              []RemoteEndpoint  `json:"endpoints"`
-	Spaces                 []RemoteSpace     `json:"spaces"`
-	Bindings               map[string]string `json:"bindings"`
-	Access                 string            `json:"access"`
-}
-
-// ApplicationOfferDetails represents an application offering,
-// including details about how it has been deployed.
+// ApplicationOfferDetails represents an application offering from an external model.
 type ApplicationOfferDetails struct {
-	ApplicationOffer
+	SourceModelTag         string             `json:"source-model-tag"`
+	OfferUUID              string             `json:"offer-uuid"`
+	OfferURL               string             `json:"offer-url"`
+	OfferName              string             `json:"offer-name"`
+	ApplicationDescription string             `json:"application-description"`
+	Endpoints              []RemoteEndpoint   `json:"endpoints,omitempty"`
+	Spaces                 []RemoteSpace      `json:"spaces,omitempty"`
+	Bindings               map[string]string  `json:"bindings,omitempty"`
+	Users                  []OfferUserDetails `json:"users,omitempty"`
+}
+
+// OfferUserDetails represents an offer consumer and their permission on the offer.
+type OfferUserDetails struct {
+	UserName    string `json:"user"`
+	DisplayName string `json:"display-name"`
+	Access      string `json:"access"`
+}
+
+// ApplicationOfferAdminDetails represents an application offering,
+// including details about how it has been deployed.
+type ApplicationOfferAdminDetails struct {
+	ApplicationOfferDetails
 	ApplicationName string            `json:"application-name"`
 	CharmURL        string            `json:"charm-url"`
 	Connections     []OfferConnection `json:"connections,omitempty"`
@@ -70,10 +103,10 @@ type OfferConnection struct {
 	IngressSubnets []string     `json:"ingress-subnets"`
 }
 
-// ListApplicationOffersResults is a result of listing application offers.
-type ListApplicationOffersResults struct {
+// QueryApplicationOffersResults is a result of searching application offers.
+type QueryApplicationOffersResults struct {
 	// Results contains application offers matching each filter.
-	Results []ApplicationOfferDetails `json:"results"`
+	Results []ApplicationOfferAdminDetails `json:"results"`
 }
 
 // AddApplicationOffers is used when adding offers to a application directory.
@@ -88,6 +121,12 @@ type AddApplicationOffer struct {
 	ApplicationName        string            `json:"application-name"`
 	ApplicationDescription string            `json:"application-description"`
 	Endpoints              map[string]string `json:"endpoints"`
+}
+
+// DestroyApplicationOffers holds parameters for the DestroyOffers call.
+type DestroyApplicationOffers struct {
+	OfferURLs []string `json:"offer-urls"`
+	Force     bool     `json:"force,omitempty"`
 }
 
 // RemoteEndpoint represents a remote application endpoint.
@@ -107,16 +146,11 @@ type RemoteSpace struct {
 	Subnets            []Subnet               `json:"subnets"`
 }
 
-// FindApplicationOffersResults is a result of finding remote application offers.
-type FindApplicationOffersResults struct {
-	// Results contains application offers matching each filter.
-	Results []ApplicationOffer `json:"results"`
-}
-
-// ApplicationOfferResult is a result of listing a remote application offer.
+// ApplicationOfferResult is a result of querying a remote
+// application offer based on its URL.
 type ApplicationOfferResult struct {
 	// Result contains application offer information.
-	Result *ApplicationOffer `json:"result,omitempty"`
+	Result *ApplicationOfferAdminDetails `json:"result,omitempty"`
 
 	// Error contains related error.
 	Error *Error `json:"error,omitempty"`
@@ -128,16 +162,16 @@ type ApplicationOffersResults struct {
 	Results []ApplicationOfferResult `json:"results,omitempty"`
 }
 
-// ApplicationURLs is a collection of remote application URLs
-type ApplicationURLs struct {
-	// ApplicationURLs contains collection of urls for applications that are to be shown.
-	ApplicationURLs []string `json:"application-urls,omitempty"`
+// OfferURLs is a collection of remote offer URLs
+type OfferURLs struct {
+	// OfferURLs contains collection of urls for applications that are to be shown.
+	OfferURLs []string `json:"offer-urls,omitempty"`
 }
 
 // ConsumeApplicationArg holds the arguments for consuming a remote application.
 type ConsumeApplicationArg struct {
 	// The offer to be consumed.
-	ApplicationOffer
+	ApplicationOfferDetails
 
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
@@ -170,6 +204,7 @@ type TokenResults struct {
 // the perspective of the local model.
 type RemoteRelation struct {
 	Life                  Life           `json:"life"`
+	Suspended             bool           `json:"suspended"`
 	Id                    int            `json:"id"`
 	Key                   string         `json:"key"`
 	ApplicationName       string         `json:"application-name"`
@@ -201,17 +236,17 @@ type RemoteApplication struct {
 	OfferUUID string `json:"offer-uuid"`
 
 	// Life is the current lifecycle state of the application.
-	Life Life `json:"life"`
+	Life Life `json:"life,omitempty"`
 
 	// Status is the current status of the application.
-	Status string `json:"status"`
+	Status string `json:"status,omitempty"`
 
 	// ModelUUID is the UUId of the model hosting the application.
 	ModelUUID string `json:"model-uuid"`
 
-	// IsConsumerProxy returns the application is created
+	// IsConsumerProxy returns if the application is created
 	// from a registration operation by a consuming model.
-	Registered bool `json:"registered"`
+	IsConsumerProxy bool `json:"is-consumer-proxy"`
 
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
@@ -323,11 +358,10 @@ type RemoteRelationChangeEvent struct {
 	// Life is the current lifecycle state of the relation.
 	Life Life `json:"life"`
 
-	// Status is the current status of the relation.
-	Status RelationStatusValue `json:"status"`
+	// Suspended is the current suspended status of the relation.
+	Suspended *bool `json:"suspended,omitempty"`
 
-	// StatusMessage is the status message for the relation.
-	StatusMessage string `json:"status-message"`
+	SuspendedReason string `json:"suspended-reason,omitempty"`
 
 	// ChangedUnits maps unit tokens to relation unit changes.
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
@@ -340,33 +374,57 @@ type RemoteRelationChangeEvent struct {
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 }
 
-// RelationStatusChange describes the life and status of a relation.
-type RelationStatusChange struct {
+// RelationLifeSuspendedStatusChange describes the life
+// and suspended status of a relation.
+type RelationLifeSuspendedStatusChange struct {
 	// Key is the relation key of the changed relation.
 	Key string `json:"key"`
 
 	// Life is the life of the relation.
 	Life Life `json:"life"`
 
-	// Status is the status of the relation.
-	Status RelationStatusValue `json:"status"`
+	// Suspended is the suspended status of the relation.
+	Suspended bool `json:"suspended"`
 
-	// StatusMessage is the status message.
-	StatusMessage string `json:"status-message"`
+	// SuspendedReason is an optional message to explain why suspended is true.
+	SuspendedReason string `json:"suspended-reason"`
 }
 
-// RelationStatusWatchResult holds a RelationStatusWatcher id, baseline state
+// RelationLifeSuspendedStatusWatchResult holds a RelationStatusWatcher id, baseline state
 // (in the Changes field), and an error (if any).
-type RelationStatusWatchResult struct {
-	RelationStatusWatcherId string                 `json:"watcher-id"`
-	Changes                 []RelationStatusChange `json:"changes"`
-	Error                   *Error                 `json:"error,omitempty"`
+type RelationLifeSuspendedStatusWatchResult struct {
+	RelationStatusWatcherId string                              `json:"watcher-id"`
+	Changes                 []RelationLifeSuspendedStatusChange `json:"changes"`
+	Error                   *Error                              `json:"error,omitempty"`
 }
 
 // RelationStatusWatchResults holds the results for any API call which ends up
 // returning a list of RelationStatusWatchers.
 type RelationStatusWatchResults struct {
-	Results []RelationStatusWatchResult `json:"results"`
+	Results []RelationLifeSuspendedStatusWatchResult `json:"results"`
+}
+
+// OfferStatusChange describes the status of an offer.
+type OfferStatusChange struct {
+	// OfferName is the name of the offer.
+	OfferName string `json:"offer-name"`
+
+	// Status is the status of the offer.
+	Status EntityStatus `json:"status"`
+}
+
+// OfferStatusWatchResult holds a OfferStatusWatcher id, baseline state
+// (in the Changes field), and an error (if any).
+type OfferStatusWatchResult struct {
+	OfferStatusWatcherId string              `json:"watcher-id"`
+	Changes              []OfferStatusChange `json:"changes"`
+	Error                *Error              `json:"error,omitempty"`
+}
+
+// OfferStatusWatchResults holds the results for any API call which ends up
+// returning a list of OfferStatusWatchers.
+type OfferStatusWatchResults struct {
+	Results []OfferStatusWatchResult `json:"results"`
 }
 
 // IngressNetworksChanges holds a set of IngressNetworksChangeEvent structures.
@@ -453,12 +511,23 @@ type RemoteEntityArg struct {
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 }
 
+// OfferArgs holds arguments to an API call dealing with offers.
+type OfferArgs struct {
+	Args []OfferArg `json:"args"`
+}
+
+// OfferArg holds an offer uuid and corresponding macaroons.
+type OfferArg struct {
+	OfferUUID string         `json:"offer-uuid"`
+	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+}
+
 // RemoteApplicationInfo has attributes for a remote application.
 type RemoteApplicationInfo struct {
-	ModelTag       string `json:"model-tag"`
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	ApplicationURL string `json:"application-url"`
+	ModelTag    string `json:"model-tag"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	OfferURL    string `json:"offer-url"`
 	// SourceModelLabel is only populated if the application
 	// originates from another model on the same controller
 	// rather than via an offer URL.
@@ -483,9 +552,9 @@ type RemoteApplicationInfoResults struct {
 // ConsumeOfferDetails contains the details necessary to
 // consume an application offer.
 type ConsumeOfferDetails struct {
-	Offer          *ApplicationOffer       `json:"offer,omitempty"`
-	Macaroon       *macaroon.Macaroon      `json:"macaroon,omitempty"`
-	ControllerInfo *ExternalControllerInfo `json:"external-controller,omitempty"`
+	Offer          *ApplicationOfferDetails `json:"offer,omitempty"`
+	Macaroon       *macaroon.Macaroon       `json:"macaroon,omitempty"`
+	ControllerInfo *ExternalControllerInfo  `json:"external-controller,omitempty"`
 }
 
 // ConsumeOfferDetailsResult contains the details necessary to
@@ -554,6 +623,7 @@ const (
 // needed to make a connection to an external controller.
 type ExternalControllerInfo struct {
 	ControllerTag string   `json:"controller-tag"`
+	Alias         string   `json:"controller-alias"`
 	Addrs         []string `json:"addrs"`
 	CACert        string   `json:"ca-cert"`
 }

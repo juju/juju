@@ -33,6 +33,7 @@ type errorStatus struct {
 
 type modelStatus struct {
 	Name             string             `json:"name" yaml:"name"`
+	Type             string             `json:"type" yaml:"type"`
 	Controller       string             `json:"controller" yaml:"controller"`
 	Cloud            string             `json:"cloud" yaml:"cloud"`
 	CloudRegion      string             `json:"region,omitempty" yaml:"region,omitempty"`
@@ -127,12 +128,12 @@ type remoteEndpoint struct {
 }
 
 type remoteApplicationStatus struct {
-	Err            error                     `json:"-" yaml:",omitempty"`
-	ApplicationURL string                    `json:"url" yaml:"url"`
-	Endpoints      map[string]remoteEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
-	Life           string                    `json:"life,omitempty" yaml:"life,omitempty"`
-	StatusInfo     statusInfoContents        `json:"application-status,omitempty" yaml:"application-status"`
-	Relations      map[string][]string       `json:"relations,omitempty" yaml:"relations,omitempty"`
+	Err        error                     `json:"-" yaml:",omitempty"`
+	OfferURL   string                    `json:"url" yaml:"url"`
+	Endpoints  map[string]remoteEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
+	Life       string                    `json:"life,omitempty" yaml:"life,omitempty"`
+	StatusInfo statusInfoContents        `json:"application-status,omitempty" yaml:"application-status"`
+	Relations  map[string][]string       `json:"relations,omitempty" yaml:"relations,omitempty"`
 }
 
 type remoteApplicationStatusNoMarshal remoteApplicationStatus
@@ -154,12 +155,13 @@ func (s remoteApplicationStatus) MarshalYAML() (interface{}, error) {
 type offerStatusNoMarshal offerStatus
 
 type offerStatus struct {
-	Err             error                     `json:"-" yaml:",omitempty"`
-	OfferName       string                    `json:"-" yaml:",omitempty"`
-	ApplicationName string                    `json:"application" yaml:"application"`
-	CharmURL        string                    `json:"charm,omitempty" yaml:"charm,omitempty"`
-	ConnectedCount  int                       `json:"connected-count,omitempty" yaml:"connected-count,omitempty"`
-	Endpoints       map[string]remoteEndpoint `json:"endpoints" yaml:"endpoints"`
+	Err                  error                     `json:"-" yaml:",omitempty"`
+	OfferName            string                    `json:"-" yaml:",omitempty"`
+	ApplicationName      string                    `json:"application" yaml:"application"`
+	CharmURL             string                    `json:"charm,omitempty" yaml:"charm,omitempty"`
+	TotalConnectedCount  int                       `json:"total-connected-count,omitempty" yaml:"total-connected-count,omitempty"`
+	ActiveConnectedCount int                       `json:"active-connected-count,omitempty" yaml:"active-connected-count,omitempty"`
+	Endpoints            map[string]remoteEndpoint `json:"endpoints" yaml:"endpoints"`
 }
 
 func (s offerStatus) MarshalJSON() ([]byte, error) {
@@ -183,8 +185,8 @@ type meterStatus struct {
 
 type unitStatus struct {
 	// New Juju Health Status fields.
-	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status"`
-	JujuStatusInfo     statusInfoContents `json:"juju-status,omitempty" yaml:"juju-status"`
+	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
+	JujuStatusInfo     statusInfoContents `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
 	MeterStatus        *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 
 	Leader        bool                  `json:"leader,omitempty" yaml:"leader,omitempty"`
@@ -192,6 +194,7 @@ type unitStatus struct {
 	Machine       string                `json:"machine,omitempty" yaml:"machine,omitempty"`
 	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
 	PublicAddress string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
+	Address       string                `json:"address,omitempty" yaml:"address,omitempty"`
 	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
 }
 

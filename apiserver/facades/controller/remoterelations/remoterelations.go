@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 )
 
 // RemoteRelationsAPI provides access to the RemoteRelations API facade.
@@ -190,9 +191,10 @@ func (api *RemoteRelationsAPI) remoteRelation(entity params.Entity) (*params.Rem
 		return nil, errors.Trace(err)
 	}
 	result := &params.RemoteRelation{
-		Id:   rel.Id(),
-		Life: params.Life(rel.Life().String()),
-		Key:  tag.Id(),
+		Id:        rel.Id(),
+		Life:      params.Life(rel.Life().String()),
+		Suspended: rel.Suspended(),
+		Key:       tag.Id(),
 	}
 	for _, ep := range rel.Endpoints() {
 		// Try looking up the info for the remote application.
@@ -254,22 +256,17 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		status, err := remoteApp.Status()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		mac, err := remoteApp.Macaroon()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return &params.RemoteApplication{
-			Name:       remoteApp.Name(),
-			OfferUUID:  remoteApp.OfferUUID(),
-			Life:       params.Life(remoteApp.Life().String()),
-			Status:     status.Status.String(),
-			ModelUUID:  remoteApp.SourceModel().Id(),
-			Registered: remoteApp.IsConsumerProxy(),
-			Macaroon:   mac,
+			Name:            remoteApp.Name(),
+			OfferUUID:       remoteApp.OfferUUID(),
+			Life:            params.Life(remoteApp.Life().String()),
+			ModelUUID:       remoteApp.SourceModel().Id(),
+			IsConsumerProxy: remoteApp.IsConsumerProxy(),
+			Macaroon:        mac,
 		}, nil
 	}
 	for i, entity := range entities.Entities {
@@ -397,4 +394,28 @@ func (api *RemoteRelationsAPI) ConsumeRemoteRelationChanges(
 		}
 	}
 	return results, nil
+}
+
+// SetRemoteApplicationsStatus sets the status for the specified remote applications.
+func (f *RemoteRelationsAPI) SetRemoteApplicationsStatus(args params.SetStatus) (params.ErrorResults, error) {
+	var result params.ErrorResults
+	result.Results = make([]params.ErrorResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		remoteAppTag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		app, err := f.st.RemoteApplication(remoteAppTag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = app.SetStatus(status.StatusInfo{
+			Status:  status.Status(entity.Status),
+			Message: entity.Info,
+		})
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
 }

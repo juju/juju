@@ -47,7 +47,7 @@ func (b *etcNetworkInterfacesBridger) Bridge(devices []DeviceToBridge, reconfigu
 
 	result, err := debinterfaces.BridgeAndActivate(params)
 	if err != nil {
-		return errors.Errorf("bridge activaction error: %s", err)
+		return errors.Errorf("bridge activation error: %s", err)
 	}
 	if result != nil {
 		logger.Infof("bridgescript result=%v", result.Code)
@@ -103,7 +103,7 @@ func (b *netplanBridger) Bridge(devices []DeviceToBridge, reconfigureDelay int) 
 
 	result, err := netplan.BridgeAndActivate(params)
 	if err != nil {
-		return errors.Errorf("bridge activaction error: %s", err)
+		return errors.Errorf("bridge activation error: %s", err)
 	}
 	if result != nil {
 		logger.Infof("bridger result=%v", result.Code)

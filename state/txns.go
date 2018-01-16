@@ -4,6 +4,8 @@
 package state
 
 import (
+	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -53,10 +55,32 @@ type multiModelRunner struct {
 	modelUUID string
 }
 
+func shortStack() string {
+	var rv []string
+	for _, line := range strings.Split(string(debug.Stack()), "\n") {
+		if len(line) > 0 && line[0] == '\t' {
+			rv = append(rv, strings.Split(line[1:], " ")[0])
+		}
+	}
+	// We definitely have at least 3 objects in rv - debug.Stack(), this function and the one that called it.
+	return strings.Join(rv[3:], " ")
+}
+
+var seenShortStacks = make(map[string]bool)
+
 // RunTransaction is part of the jujutxn.Runner interface. Operations
 // that affect multi-model collections will be modified to
 // ensure correct interaction with these collections.
 func (r *multiModelRunner) RunTransaction(ops []txn.Op) error {
+	if len(ops) == 0 {
+		stack := shortStack()
+		// It is a warning that should be reported to us, but we definitely
+		// don't want to clutter up logs so we'll only write it once.
+		if !seenShortStacks[stack] {
+			seenShortStacks[stack] = true
+			logger.Warningf("Running no-op transaction - called by %s", stack)
+		}
+	}
 	newOps, err := r.updateOps(ops)
 	if err != nil {
 		return errors.Trace(err)

@@ -94,6 +94,10 @@ type InstanceConfig struct {
 	// The directory containing the log file must already exist.
 	CloudInitOutputLog string
 
+	// CloudInitUserData defines key/value pairs from the model-config
+	// specified by the user.
+	CloudInitUserData map[string]interface{}
+
 	// MachineId identifies the new machine.
 	MachineId string
 
@@ -403,9 +407,6 @@ func (cfg *InstanceConfig) AgentConfig(
 	tag names.Tag,
 	toolsVersion version.Number,
 ) (agent.ConfigSetter, error) {
-	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
-	// if the instance is a controller then to use localhost.  This may be
-	// sufficient, but needs thought in the new world order.
 	var password, cacert string
 	if cfg.Controller == nil {
 		password = cfg.APIInfo.Password
@@ -425,7 +426,6 @@ func (cfg *InstanceConfig) AgentConfig(
 		UpgradedToVersion: toolsVersion,
 		Password:          password,
 		Nonce:             cfg.MachineNonce,
-		StateAddresses:    cfg.stateHostAddrs(),
 		APIAddresses:      cfg.APIHostAddrs(),
 		CACert:            cacert,
 		Values:            cfg.AgentEnvironment,
@@ -520,12 +520,12 @@ func (cfg *InstanceConfig) ToolsList() coretools.List {
 // all usage-sites are updated to pass through non-empty URLs.
 func (cfg *InstanceConfig) SetTools(toolsList coretools.List) error {
 	if len(toolsList) == 0 {
-		return errors.New("need at least 1 tools")
+		return errors.New("need at least 1 agent binary")
 	}
 	var tools *coretools.Tools
 	for _, listed := range toolsList {
 		if listed == nil {
-			return errors.New("nil entry in tools list")
+			return errors.New("nil entry in agent binaries list")
 		}
 		info := *listed
 		info.URL = ""
@@ -534,7 +534,7 @@ func (cfg *InstanceConfig) SetTools(toolsList coretools.List) error {
 			continue
 		}
 		if !reflect.DeepEqual(info, *tools) {
-			return errors.Errorf("tools info mismatch (%v, %v)", *tools, info)
+			return errors.Errorf("agent binary info mismatch (%v, %v)", *tools, info)
 		}
 	}
 	cfg.tools = copyToolsList(toolsList)
@@ -579,7 +579,7 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	}
 	if cfg.tools == nil {
 		// SetTools() has never been called successfully.
-		return errors.New("missing tools")
+		return errors.New("missing agent binaries")
 	}
 	// We don't need to check cfg.toolsURLs since SetTools() does.
 	if cfg.APIInfo == nil {
@@ -784,6 +784,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	aptMirror string,
 	enableOSRefreshUpdates bool,
 	enableOSUpgrade bool,
+	cloudInitUserData map[string]interface{},
 ) error {
 	icfg.AuthorizedKeys = authorizedKeys
 	if icfg.AgentEnvironment == nil {
@@ -798,6 +799,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	icfg.AptMirror = aptMirror
 	icfg.EnableOSRefreshUpdate = enableOSRefreshUpdates
 	icfg.EnableOSUpgrade = enableOSUpgrade
+	icfg.CloudInitUserData = cloudInitUserData
 	return nil
 }
 
@@ -823,6 +825,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		cfg.AptMirror(),
 		cfg.EnableOSRefreshUpdate(),
 		cfg.EnableOSUpgrade(),
+		cfg.CloudInitUserData(),
 	); err != nil {
 		return errors.Trace(err)
 	}

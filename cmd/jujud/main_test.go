@@ -82,6 +82,9 @@ func (s *MainSuite) TestParseErrors(c *gc.C) {
 	checkMessage(c, msga, "machine",
 		"--machine-id", "42",
 		"toastie")
+	checkMessage(c, msga, "caasoperator",
+		"--application-name", "app",
+		"toastie")
 }
 
 var expectedProviders = []string{
@@ -169,12 +172,12 @@ func run(c *gc.C, sockPath string, contextId string, exit int, stdin []byte, cmd
 	return string(output)
 }
 
-type JujuCMainSuite struct {
+type HookToolMainSuite struct {
 	sockPath string
 	server   *jujuc.Server
 }
 
-var _ = gc.Suite(&JujuCMainSuite{})
+var _ = gc.Suite(&HookToolMainSuite{})
 
 func osDependentSockPath(c *gc.C) string {
 	sockPath := filepath.Join(c.MkDir(), "test.sock")
@@ -184,7 +187,7 @@ func osDependentSockPath(c *gc.C) string {
 	return sockPath
 }
 
-func (s *JujuCMainSuite) SetUpSuite(c *gc.C) {
+func (s *HookToolMainSuite) SetUpSuite(c *gc.C) {
 	loggo.DefaultContext().AddWriter("default", cmd.NewWarningWriter(os.Stderr))
 	factory := func(contextId, cmdName string) (cmd.Command, error) {
 		if contextId != "bill" {
@@ -206,7 +209,7 @@ func (s *JujuCMainSuite) SetUpSuite(c *gc.C) {
 	}()
 }
 
-func (s *JujuCMainSuite) TearDownSuite(c *gc.C) {
+func (s *HookToolMainSuite) TearDownSuite(c *gc.C) {
 	s.server.Close()
 }
 
@@ -215,7 +218,6 @@ var argsTests = []struct {
 	code   int
 	output string
 }{
-	{[]string{"jujuc", "whatever"}, 2, "jujuc should not be called directly\n"},
 	{[]string{"remote"}, 0, "success!\n"},
 	{[]string{"/path/to/remote"}, 0, "success!\n"},
 	{[]string{"remote", "--help"}, 0, expectUsage},
@@ -225,7 +227,7 @@ var argsTests = []struct {
 	{[]string{"remote", "unwanted"}, 2, `unrecognized args: ["unwanted"]` + "\n"},
 }
 
-func (s *JujuCMainSuite) TestArgs(c *gc.C) {
+func (s *HookToolMainSuite) TestArgs(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
@@ -237,7 +239,7 @@ func (s *JujuCMainSuite) TestArgs(c *gc.C) {
 	}
 }
 
-func (s *JujuCMainSuite) TestNoClientId(c *gc.C) {
+func (s *HookToolMainSuite) TestNoClientId(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
@@ -245,7 +247,7 @@ func (s *JujuCMainSuite) TestNoClientId(c *gc.C) {
 	c.Assert(output, jc.Contains, "JUJU_CONTEXT_ID not set\n")
 }
 
-func (s *JujuCMainSuite) TestBadClientId(c *gc.C) {
+func (s *HookToolMainSuite) TestBadClientId(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
@@ -253,7 +255,7 @@ func (s *JujuCMainSuite) TestBadClientId(c *gc.C) {
 	c.Assert(output, jc.Contains, "bad request: bad context: ben\n")
 }
 
-func (s *JujuCMainSuite) TestNoSockPath(c *gc.C) {
+func (s *HookToolMainSuite) TestNoSockPath(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
@@ -261,7 +263,7 @@ func (s *JujuCMainSuite) TestNoSockPath(c *gc.C) {
 	c.Assert(output, jc.Contains, "JUJU_AGENT_SOCKET not set\n")
 }
 
-func (s *JujuCMainSuite) TestBadSockPath(c *gc.C) {
+func (s *HookToolMainSuite) TestBadSockPath(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
@@ -271,7 +273,7 @@ func (s *JujuCMainSuite) TestBadSockPath(c *gc.C) {
 	c.Assert(output, gc.Matches, err)
 }
 
-func (s *JujuCMainSuite) TestStdin(c *gc.C) {
+func (s *HookToolMainSuite) TestStdin(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}

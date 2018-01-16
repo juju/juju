@@ -10,11 +10,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -23,13 +24,14 @@ import (
 // DeployApplicationParams contains the arguments required to deploy the referenced
 // charm.
 type DeployApplicationParams struct {
-	ApplicationName string
-	Series          string
-	Charm           *state.Charm
-	Channel         csparams.Channel
-	ConfigSettings  charm.Settings
-	Constraints     constraints.Value
-	NumUnits        int
+	ApplicationName   string
+	Series            string
+	Charm             *state.Charm
+	Channel           csparams.Channel
+	ApplicationConfig *application.Config
+	CharmConfig       charm.Settings
+	Constraints       constraints.Value
+	NumUnits          int
 	// Placement is a list of placement directives which may be used
 	// instead of a machine spec.
 	Placement        []*instance.Placement
@@ -50,7 +52,7 @@ type UnitAdder interface {
 
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Application, error) {
-	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
+	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -71,17 +73,18 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 	}
 
 	asa := state.AddApplicationArgs{
-		Name:             args.ApplicationName,
-		Series:           args.Series,
-		Charm:            args.Charm,
-		Channel:          args.Channel,
-		Storage:          stateStorageConstraints(args.Storage),
-		AttachStorage:    args.AttachStorage,
-		Settings:         settings,
-		NumUnits:         args.NumUnits,
-		Placement:        args.Placement,
-		Resources:        args.Resources,
-		EndpointBindings: effectiveBindings,
+		Name:              args.ApplicationName,
+		Series:            args.Series,
+		Charm:             args.Charm,
+		Channel:           args.Channel,
+		Storage:           stateStorageConstraints(args.Storage),
+		AttachStorage:     args.AttachStorage,
+		ApplicationConfig: args.ApplicationConfig,
+		CharmConfig:       charmConfig,
+		NumUnits:          args.NumUnits,
+		Placement:         args.Placement,
+		Resources:         args.Resources,
+		EndpointBindings:  effectiveBindings,
 	}
 
 	if !args.Charm.Meta().Subordinate {
@@ -162,6 +165,7 @@ func addUnits(
 	n int,
 	placement []*instance.Placement,
 	attachStorage []names.StorageTag,
+	assignUnits bool,
 ) ([]Unit, error) {
 	units := make([]Unit, n)
 	// Hard code for now till we implement a different approach.
@@ -174,18 +178,21 @@ func addUnits(
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, appName)
 		}
+		units[i] = unit
+		if !assignUnits {
+			continue
+		}
+
 		// Are there still placement directives to use?
 		if i > len(placement)-1 {
 			if err := unit.AssignWithPolicy(policy); err != nil {
 				return nil, errors.Trace(err)
 			}
-			units[i] = unit
 			continue
 		}
 		if err := unit.AssignWithPlacement(placement[i]); err != nil {
 			return nil, errors.Annotatef(err, "adding new machine to host unit %q", unit.UnitTag().Id())
 		}
-		units[i] = unit
 	}
 	return units, nil
 }

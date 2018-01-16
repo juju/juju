@@ -7,11 +7,13 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/status"
 )
 
 type cleanupKind string
@@ -101,11 +103,15 @@ func (st *State) Cleanup() (err error) {
 	var doc cleanupDoc
 	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
+
+	modelUUID := st.ModelUUID()
+	modelId := modelUUID[:6]
+
 	iter := cleanups.Find(nil).Iter()
 	defer closeIter(iter, &err, "reading cleanup document")
 	for iter.Next(&doc) {
 		var err error
-		logger.Debugf("running %q cleanup: %q", doc.Kind, doc.Prefix)
+		logger.Debugf("model %v cleanup: %v(%q)", modelId, doc.Kind, doc.Prefix)
 		args := make([]bson.Raw, len(doc.Args))
 		for i, arg := range doc.Args {
 			args[i] = arg.Value.(bson.Raw)
@@ -116,9 +122,9 @@ func (st *State) Cleanup() (err error) {
 		case cleanupCharm:
 			err = st.cleanupCharm(doc.Prefix)
 		case cleanupUnitsForDyingApplication:
-			err = st.cleanupUnitsForDyingApplication(doc.Prefix)
+			err = st.cleanupUnitsForDyingApplication(doc.Prefix, args)
 		case cleanupDyingUnit:
-			err = st.cleanupDyingUnit(doc.Prefix)
+			err = st.cleanupDyingUnit(doc.Prefix, args)
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix)
 		case cleanupApplicationsForDyingModel:
@@ -145,7 +151,10 @@ func (st *State) Cleanup() (err error) {
 			err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
 		if err != nil {
-			logger.Errorf("cleanup failed for %v(%q): %v", doc.Kind, doc.Prefix, err)
+			logger.Errorf(
+				"cleanup failed in model %v for %v(%q): %v",
+				modelUUID, doc.Kind, doc.Prefix, err,
+			)
 			continue
 		}
 		ops := []txn.Op{{
@@ -215,6 +224,10 @@ func (st *State) cleanupModelsForDyingController(cleanupArgs []bson.Raw) (err er
 	for _, modelUUID := range modelUUIDs {
 		st, release, err := pool.Get(modelUUID)
 		if err != nil {
+			// This model could have been removed.
+			if errors.IsNotFound(err) {
+				continue
+			}
 			return errors.Trace(err)
 		}
 		defer release()
@@ -332,7 +345,9 @@ func (st *State) removeApplicationsForDyingModel() (err error) {
 	iter := applications.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading application document")
 	for iter.Next(&application.doc) {
-		if err := application.Destroy(); err != nil {
+		op := application.DestroyOperation()
+		op.RemoveOffers = true
+		if err := st.ApplyOperation(op); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -360,7 +375,19 @@ func (st *State) removeRemoteApplicationsForDyingModel() (err error) {
 // cleanupUnitsForDyingApplication sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
 // application is destroyed.
-func (st *State) cleanupUnitsForDyingApplication(applicationname string) (err error) {
+func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
+	var destroyStorage bool
+	switch n := len(cleanupArgs); n {
+	case 0:
+		// Old cleanups have no args, so follow the old behaviour.
+	case 1:
+		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup args")
+		}
+	default:
+		return errors.Errorf("expected 0-1 arguments, got %d", n)
+	}
+
 	// This won't miss units, because a Dying application cannot have units
 	// added to it. But we do have to remove the units themselves via
 	// individual transactions, because they could be in any state at all.
@@ -372,8 +399,10 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string) (err er
 	iter := units.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading unit document")
 	for iter.Next(&unit.doc) {
-		if err := unit.Destroy(); err != nil {
-			return err
+		op := unit.DestroyOperation()
+		op.DestroyStorage = destroyStorage
+		if err := st.ApplyOperation(op); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -414,13 +443,26 @@ func (st *State) cleanupCharm(charmURL string) error {
 
 // cleanupDyingUnit marks resources owned by the unit as dying, to ensure
 // they are cleaned up as well.
-func (st *State) cleanupDyingUnit(name string) error {
+func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
+	var destroyStorage bool
+	switch n := len(cleanupArgs); n {
+	case 0:
+		// Old cleanups have no args, so follow the old behaviour.
+	case 1:
+		if err := cleanupArgs[0].Unmarshal(&destroyStorage); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup args")
+		}
+	default:
+		return errors.Errorf("expected 0-1 arguments, got %d", n)
+	}
+
 	unit, err := st.Unit(name)
 	if errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
 		return err
 	}
+
 	// Mark the unit as departing from its joined relations, allowing
 	// related units to start converging to a state in which that unit
 	// is gone as quickly as possible.
@@ -439,9 +481,16 @@ func (st *State) cleanupDyingUnit(name string) error {
 			return err
 		}
 	}
-	// Mark storage attachments as dying, so that they are detached
-	// and removed from state, allowing the unit to terminate.
-	return st.cleanupUnitStorageAttachments(unit.UnitTag(), false)
+
+	if destroyStorage {
+		// Detach and mark storage instances as dying, allowing the
+		// unit to terminate.
+		return st.cleanupUnitStorageInstances(unit.UnitTag())
+	} else {
+		// Mark storage attachments as dying, so that they are detached
+		// and removed from state, allowing the unit to terminate.
+		return st.cleanupUnitStorageAttachments(unit.UnitTag(), false)
+	}
 }
 
 func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool) error {
@@ -465,6 +514,27 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 			continue
 		}
 		err = im.RemoveStorageAttachment(storageTag, unitTag)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (st *State) cleanupUnitStorageInstances(unitTag names.UnitTag) error {
+	im, err := st.IAASModel()
+	if err != nil {
+		return err
+	}
+	storageAttachments, err := im.UnitStorageAttachments(unitTag)
+	if err != nil {
+		return err
+	}
+	for _, storageAttachment := range storageAttachments {
+		storageTag := storageAttachment.StorageInstance()
+		err := im.DestroyStorageInstance(storageTag, true)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -561,7 +631,7 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 		return err
 	}
 	removePortsOps, err := machine.removePortsOps()
-	if err != nil {
+	if len(removePortsOps) == 0 || err != nil {
 		return err
 	}
 	return st.db().RunTransaction(removePortsOps)
@@ -602,6 +672,94 @@ func cleanupDyingMachineResources(m *Machine) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Destroy non-detachable machine filesystems first.
+	filesystems, err := im.filesystems(bson.D{{"machineid", m.Id()}})
+	if err != nil {
+		return errors.Annotate(err, "getting machine filesystems")
+	}
+	for _, f := range filesystems {
+		if err := im.DestroyFilesystem(f.FilesystemTag()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Check if the machine is manual, to decide whether or not to
+	// short circuit the removal of non-detachable filesystems.
+	manual, err := m.IsManual()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Detach all filesystems from the machine.
+	filesystemAttachments, err := im.MachineFilesystemAttachments(m.MachineTag())
+	if err != nil {
+		return errors.Annotate(err, "getting machine filesystem attachments")
+	}
+	for _, fsa := range filesystemAttachments {
+		detachable, err := isDetachableFilesystemTag(im.mb.db(), fsa.Filesystem())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if detachable {
+			if err := im.DetachFilesystem(fsa.Machine(), fsa.Filesystem()); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		if !manual {
+			// For non-manual machines we immediately remove the attachments
+			// for non-detachable or volume-backed filesystems, which should
+			// have been set to Dying by the destruction of the machine
+			// filesystems, or filesystem detachment, above.
+			var remove bool
+			var updateStatus func() error
+			if !detachable {
+				remove = true
+				updateStatus = func() error { return nil }
+			} else {
+				f, err := im.Filesystem(fsa.Filesystem())
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if _, err := f.Volume(); err == nil {
+					// Filesystem is volume-backed.
+					remove = true
+				}
+				updateStatus = func() error {
+					return f.SetStatus(status.StatusInfo{
+						Status: status.Detached,
+					})
+				}
+			}
+			if remove {
+				if err := im.RemoveFilesystemAttachment(
+					fsa.Machine(), fsa.Filesystem(),
+				); err != nil {
+					return errors.Trace(err)
+				}
+				if err := updateStatus(); err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+	}
+
+	// For non-manual machines we immediately remove the non-detachable
+	// filesystems, which should have been detached above. Short circuiting
+	// the removal of machine filesystems means we can avoid stuck
+	// filesystems preventing any model-scoped backing volumes from being
+	// detached and destroyed. For non-manual machines this is safe, because
+	// the machine is about to be terminated. For manual machines, stuck
+	// filesystems will have to be fixed manually.
+	if !manual {
+		for _, f := range filesystems {
+			if err := im.RemoveFilesystem(f.FilesystemTag()); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+
+	// Detach all remaining volumes from the machine.
 	volumeAttachments, err := im.MachineVolumeAttachments(m.MachineTag())
 	if err != nil {
 		return errors.Annotate(err, "getting machine volume attachments")
@@ -620,21 +778,6 @@ func cleanupDyingMachineResources(m *Machine) error {
 				// destruction is initiated below.
 				continue
 			}
-			return errors.Trace(err)
-		}
-	}
-	filesystemAttachments, err := im.MachineFilesystemAttachments(m.MachineTag())
-	if err != nil {
-		return errors.Annotate(err, "getting machine filesystem attachments")
-	}
-	for _, fsa := range filesystemAttachments {
-		if detachable, err := isDetachableFilesystemTag(im.mb.db(), fsa.Filesystem()); err != nil {
-			return errors.Trace(err)
-		} else if !detachable {
-			// Non-detachable filesystems will be removed along with the machine.
-			continue
-		}
-		if err := im.DetachFilesystem(fsa.Machine(), fsa.Filesystem()); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -770,7 +913,7 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err 
 	return nil
 }
 
-func closeIter(iter *mgo.Iter, errOut *error, message string) {
+func closeIter(iter mongo.Iterator, errOut *error, message string) {
 	err := iter.Close()
 	if err == nil {
 		return

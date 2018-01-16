@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
@@ -602,8 +602,8 @@ func (p AddRemoteApplicationParams) Validate() error {
 	if p.URL != "" {
 		// URL may be empty, to represent remote applications corresponding
 		// to consumers of an offered application.
-		if _, err := crossmodel.ParseApplicationURL(p.URL); err != nil {
-			return errors.Annotate(err, "validating offered application URL")
+		if _, err := crossmodel.ParseOfferURL(p.URL); err != nil {
+			return errors.Annotate(err, "validating offer URL")
 		}
 	}
 	if p.SourceModel == (names.ModelTag{}) {
@@ -692,16 +692,6 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	}
 	appDoc.Spaces = spaces
 	app := newRemoteApplication(st, appDoc)
-	statusInfo := ""
-	if args.IsConsumerProxy {
-		statusInfo = "waiting for remote connection"
-	}
-	statusDoc := statusDoc{
-		ModelUUID:  st.ModelUUID(),
-		Status:     status.Unknown,
-		StatusInfo: statusInfo,
-		Updated:    time.Now().UnixNano(),
-	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
@@ -725,7 +715,6 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		}
 		ops := []txn.Op{
 			model.assertActiveOp(),
-			createStatusOp(st, app.globalKey(), statusDoc),
 			{
 				C:      remoteApplicationsC,
 				Id:     appDoc.Name,
@@ -736,6 +725,14 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 				Id:     appDoc.Name,
 				Assert: txn.DocMissing,
 			},
+		}
+		if !args.IsConsumerProxy {
+			statusDoc := statusDoc{
+				ModelUUID: st.ModelUUID(),
+				Status:    status.Unknown,
+				Updated:   time.Now().UnixNano(),
+			}
+			ops = append(ops, createStatusOp(st, app.globalKey(), statusDoc))
 		}
 		// If we know the token, import it.
 		if args.Token != "" {

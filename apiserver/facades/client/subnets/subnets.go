@@ -43,7 +43,11 @@ type subnetsAPI struct {
 // NewAPI creates a new Subnets API server-side facade with a
 // state.State backing.
 func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (SubnetsAPI, error) {
-	return newAPIWithBacking(networkingcommon.NewStateShim(st), res, auth)
+	stateshim, err := networkingcommon.NewStateShim(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newAPIWithBacking(stateshim, res, auth)
 }
 
 func (api *subnetsAPI) checkCanRead() error {

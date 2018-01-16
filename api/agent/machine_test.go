@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -173,8 +172,9 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info.Tag = tag
 	info.Password = "foo-12345678901234567890"
-	err = tryOpenState(s.State.ModelTag(), s.State.ControllerTag(), info)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	c.Assert(session, gc.IsNil)
 }
 
 func (s *machineSuite) TestClearReboot(c *gc.C) {
@@ -195,18 +195,4 @@ func (s *machineSuite) TestClearReboot(c *gc.C) {
 	rFlag, err = s.machine.GetRebootFlag()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsFalse)
-}
-
-func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      controllerTag,
-		ControllerModelTag: modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
-	})
-	if err == nil {
-		st.Close()
-	}
-	return err
 }

@@ -36,7 +36,7 @@ var logger = loggo.GetLogger("juju.cloudconfig")
 
 const (
 	// curlCommand is the base curl command used to download tools.
-	curlCommand = "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
+	curlCommand = "curl -sSfw 'agent binaries from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 
 	// toolsDownloadWaitTime is the number of seconds to wait between
 	// each iterations of download attempts.
@@ -48,8 +48,8 @@ const (
 n=1
 while true; do
 {{range .URLs}}
-    printf "Attempt $n to download tools from %s...\n" {{shquote .}}
-    {{$curl}} {{shquote .}} && echo "Tools downloaded successfully." && break
+    printf "Attempt $n to download agent binaries from %s...\n" {{shquote .}}
+    {{$curl}} {{shquote .}} && echo "Agent binaries downloaded successfully." && break
 {{end}}
     echo "Download failed, retrying in {{.ToolsDownloadWaitTime}}s"
     sleep {{.ToolsDownloadWaitTime}}
@@ -84,7 +84,10 @@ func (w *unixConfigure) Configure() error {
 	if err := w.ConfigureBasic(); err != nil {
 		return err
 	}
-	return w.ConfigureJuju()
+	if err := w.ConfigureJuju(); err != nil {
+		return err
+	}
+	return w.ConfigureCustomOverrides()
 }
 
 // ConfigureBasic updates the provided cloudinit.Config with
@@ -100,7 +103,15 @@ func (w *unixConfigure) Configure() error {
 // but adds to the running time of initialisation due to lack of activity
 // between image bringup and start of agent installation.
 func (w *unixConfigure) ConfigureBasic() error {
-	w.conf.AddScripts(
+	// Keep preruncmd at the beginning of any runcmd's that juju adds
+	if preruncmds, ok := w.icfg.CloudInitUserData["preruncmd"].([]interface{}); ok {
+		for i := len(preruncmds) - 1; i >= 0; i -= 1 {
+			if cmd, ok := preruncmds[i].(string); ok {
+				w.conf.PrependRunCmd(cmd)
+			}
+		}
+	}
+	w.conf.AddRunCmd(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
 	switch w.os {
@@ -196,6 +207,16 @@ func (w *unixConfigure) setDataDirPermissions() string {
 func (w *unixConfigure) ConfigureJuju() error {
 	if err := w.icfg.VerifyConfig(); err != nil {
 		return err
+	}
+
+	// To keep postruncmd at the end of any runcmd's that juju adds,
+	// this block must stay at the top.
+	if postruncmds, ok := w.icfg.CloudInitUserData["postruncmd"].([]interface{}); ok {
+		cmds := make([]string, len(postruncmds))
+		for i, v := range postruncmds {
+			cmds[i] = v.(string)
+		}
+		defer w.conf.AddScripts(cmds...)
 	}
 
 	// Initialise progress reporting. We need to do separately for runcmd
@@ -321,7 +342,38 @@ func (w *unixConfigure) ConfigureJuju() error {
 		}
 	}
 
+	// Append cloudinit-userdata packages to the end of the juju created ones.
+	if packagesToAdd, ok := w.icfg.CloudInitUserData["packages"].([]interface{}); ok {
+		for _, v := range packagesToAdd {
+			if pack, ok := v.(string); ok {
+				w.conf.AddPackage(pack)
+			}
+		}
+	}
+
 	return w.addMachineAgentToBoot()
+}
+
+// Not all cloudinit-userdata attr are allowed to override, these attr have been
+// dealt with in ConfigureBasic() and ConfigureJuju().
+func isAllowedOverrideAttr(attr string) bool {
+	switch attr {
+	case "packages", "preruncmd", "postruncmd":
+		return false
+	}
+	return true
+}
+
+// ConfigureCustomOverrides implements UserdataConfig.ConfigureCustomOverrides
+func (w *unixConfigure) ConfigureCustomOverrides() error {
+	for k, v := range w.icfg.CloudInitUserData {
+		// preruncmd was handled in ConfigureBasic()
+		// packages and postruncmd have been handled in ConfigureJuju()
+		if isAllowedOverrideAttr(k) {
+			w.conf.SetAttr(k, v)
+		}
+	}
+	return nil
 }
 
 func (w *unixConfigure) configureBootstrap() error {
@@ -498,7 +550,7 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 		"URLs":                  urls,
 	})
 	if err != nil {
-		panic(errors.Annotate(err, "tools download template error"))
+		panic(errors.Annotate(err, "agent binaries download template error"))
 	}
 	return buf.String()
 }

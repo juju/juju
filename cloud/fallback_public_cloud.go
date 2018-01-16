@@ -26,6 +26,8 @@ clouds:
         endpoint: https://ec2.eu-west-1.amazonaws.com
       eu-west-2:
         endpoint: https://ec2.eu-west-2.amazonaws.com
+      eu-west-3:
+        endpoint: https://ec2.eu-west-3.amazonaws.com
       eu-central-1:
         endpoint: https://ec2.eu-central-1.amazonaws.com
       ap-south-1:
@@ -61,11 +63,17 @@ clouds:
     regions:
       us-east1:
         endpoint: https://www.googleapis.com
+      us-east4:
+        endpoint: https://www.googleapis.com
       us-central1:
         endpoint: https://www.googleapis.com
       us-west1:
         endpoint: https://www.googleapis.com
       europe-west1:
+        endpoint: https://www.googleapis.com
+      europe-west2:
+        endpoint: https://www.googleapis.com
+      europe-west3:
         endpoint: https://www.googleapis.com
       asia-east1:
         endpoint: https://www.googleapis.com
@@ -73,7 +81,11 @@ clouds:
         endpoint: https://www.googleapis.com
       asia-southeast1:
         endpoint: https://www.googleapis.com
+      asia-south1:
+        endpoint: https://www.googleapis.com
       australia-southeast1:
+        endpoint: https://www.googleapis.com
+      southamerica-east1:
         endpoint: https://www.googleapis.com
   azure:
     type: azure

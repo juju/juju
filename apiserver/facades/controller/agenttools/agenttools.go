@@ -47,7 +47,7 @@ func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Au
 func NewAgentToolsAPI(
 	modelGetter ModelGetter,
 	newEnviron func() (environs.Environ, error),
-	findTools func(environs.Environ, int, int, string, coretools.Filter) (coretools.List, error),
+	findTools func(environs.Environ, int, int, []string, coretools.Filter) (coretools.List, error),
 	envVersionUpdate func(*state.Model, version.Number) error,
 	authorizer facade.Authorizer,
 ) (*AgentToolsAPI, error) {
@@ -66,7 +66,7 @@ type ModelGetter interface {
 }
 
 type newEnvironFunc func() (environs.Environ, error)
-type toolsFinder func(environs.Environ, int, int, string, coretools.Filter) (coretools.List, error)
+type toolsFinder func(environs.Environ, int, int, []string, coretools.Filter) (coretools.List, error)
 type envVersionUpdater func(*state.Model, version.Number) error
 
 func checkToolsAvailability(newEnviron newEnvironFunc, modelCfg *config.Config, finder toolsFinder) (version.Number, error) {
@@ -84,13 +84,13 @@ func checkToolsAvailability(newEnviron newEnvironFunc, modelCfg *config.Config, 
 	// only return patches for the passed major.minor (from major.minor.patch).
 	// We'll try the released stream first, then fall back to the current configured stream
 	// if no released tools are found.
-	vers, err := finder(env, currentVersion.Major, currentVersion.Minor, tools.ReleasedStream, coretools.Filter{})
-	preferredStream := tools.PreferredStream(&currentVersion, modelCfg.Development(), modelCfg.AgentStream())
+	vers, err := finder(env, currentVersion.Major, currentVersion.Minor, []string{tools.ReleasedStream}, coretools.Filter{})
+	preferredStream := tools.PreferredStreams(&currentVersion, modelCfg.Development(), modelCfg.AgentStream())[0]
 	if preferredStream != tools.ReleasedStream && errors.Cause(err) == coretools.ErrNoMatches {
-		vers, err = finder(env, currentVersion.Major, currentVersion.Minor, preferredStream, coretools.Filter{})
+		vers, err = finder(env, currentVersion.Major, currentVersion.Minor, []string{preferredStream}, coretools.Filter{})
 	}
 	if err != nil {
-		return version.Zero, errors.Annotatef(err, "cannot find available tools")
+		return version.Zero, errors.Annotatef(err, "cannot find available agent binaries")
 	}
 	// Newest also returns a list of the items in this list matching with the
 	// newest version.
@@ -125,7 +125,7 @@ func updateToolsAvailability(modelGetter ModelGetter, newEnviron newEnvironFunc,
 		return errors.Annotate(err, "cannot get latest version")
 	}
 	if ver == version.Zero {
-		logger.Debugf("tools lookup returned version Zero, this should only happen during bootstrap.")
+		logger.Debugf("The lookup of agent binaries returned version Zero. This should only happen during bootstrap.")
 		return nil
 	}
 	return update(model, ver)

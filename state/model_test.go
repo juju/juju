@@ -16,12 +16,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -203,69 +201,19 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ModelSuite) TestNewModelCAAS(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
-
-	cfg, uuid := s.createTestModelConfig(c)
-	modelTag := names.NewModelTag(uuid)
-	owner := names.NewUserTag("test@remote")
+func (s *ModelSuite) TestNewModelRegionNameEscaped(c *gc.C) {
+	cfg, _ := s.createTestModelConfig(c)
 	model, st, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     owner,
+		Type:        state.ModelTypeIAAS,
+		CloudName:   "dummy",
+		CloudRegion: "dotty.region",
+		Config:      cfg,
+		Owner:       names.NewUserTag("test@remote"),
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
-
-	c.Assert(model.Type(), gc.Equals, state.ModelTypeCAAS)
-	c.Assert(model.UUID(), gc.Equals, modelTag.Id())
-	c.Assert(model.Tag(), gc.Equals, modelTag)
-	c.Assert(model.ControllerTag(), gc.Equals, s.State.ControllerTag())
-	c.Assert(model.Owner(), gc.Equals, owner)
-	c.Assert(model.Name(), gc.Equals, "testing")
-	c.Assert(model.Life(), gc.Equals, state.Alive)
-	c.Assert(model.CloudRegion(), gc.Equals, "")
-}
-
-func (s *ModelSuite) TestCAASModelsCantHaveCloudRegion(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
-	cfg, _ := s.createTestModelConfig(c)
-	_, _, err := s.State.NewModel(state.ModelArgs{
-		Type:        state.ModelTypeCAAS,
-		CloudName:   "dummy",
-		CloudRegion: "fork",
-		Config:      cfg,
-		Owner:       names.NewUserTag("test@remote"),
-	})
-	c.Assert(err, gc.ErrorMatches, "CAAS model with CloudRegion not supported")
-}
-
-func (s *ModelSuite) TestNewModelCAASNeedsFeature(c *gc.C) {
-	cfg, _ := s.createTestModelConfig(c)
-	owner := names.NewUserTag("test@remote")
-	_, _, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     owner,
-	})
-	c.Assert(err, gc.ErrorMatches, "model type not supported")
-}
-
-func (s *ModelSuite) TestNewModelCAASWithStorageRegistry(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
-
-	cfg, _ := s.createTestModelConfig(c)
-	owner := names.NewUserTag("test@remote")
-	_, _, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, gc.ErrorMatches, "CAAS model with StorageProviderRegistry not valid")
+	c.Assert(model.CloudRegion(), gc.Equals, "dotty.region")
 }
 
 func (s *ModelSuite) TestNewModelImportingMode(c *gc.C) {
@@ -317,42 +265,6 @@ func (s *ModelSuite) TestModelExistsNoModel(c *gc.C) {
 	modelExists, err := s.State.ModelExists("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelExists, jc.IsFalse)
-}
-
-func (s *ModelSuite) TestModelActive(c *gc.C) {
-	modelActive, err := s.State.ModelActive(s.State.ModelUUID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelActive, jc.IsTrue)
-}
-
-func (s *ModelSuite) TestModelActiveNoModel(c *gc.C) {
-	modelActive, err := s.State.ModelActive("foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelActive, jc.IsFalse)
-}
-
-func (s *ModelSuite) TestModelActiveImporting(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.SetMigrationMode(state.MigrationModeImporting), jc.ErrorIsNil)
-
-	modelActive, err := s.State.ModelActive(model.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelActive, jc.IsFalse)
-}
-
-func (s *ModelSuite) TestModelActiveExporting(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.SetMigrationMode(state.MigrationModeExporting), jc.ErrorIsNil)
-
-	modelActive, err := s.State.ModelActive(model.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(modelActive, jc.IsTrue)
 }
 
 func (s *ModelSuite) TestSLA(c *gc.C) {
@@ -778,7 +690,7 @@ func (s *ModelSuite) TestDestroyModelNonEmpty(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add a service to prevent the model from transitioning directly to Dead.
+	// Add a application to prevent the model from transitioning directly to Dead.
 	s.Factory.MakeApplication(c, nil)
 
 	c.Assert(m.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
@@ -938,6 +850,36 @@ func (s *ModelSuite) TestDestroyModelEmpty(c *gc.C) {
 	c.Assert(m.Life(), gc.Equals, state.Dead)
 }
 
+func (s *ModelSuite) TestDestroyModelWithApplicationOffers(c *gc.C) {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	app := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+
+	ao := state.NewApplicationOffers(s.State)
+	offer, err := ao.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       "hosted-mysql",
+		ApplicationName: "mysql",
+		Endpoints:       map[string]string{"server": "server"},
+		Owner:           s.Owner.Id(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m.Destroy(state.DestroyModelParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.Refresh(), jc.ErrorIsNil)
+	c.Assert(m.Life(), gc.Equals, state.Dying)
+
+	// Run the cleanups, check that the application and offer are
+	// both removed.
+	assertCleanupCount(c, s.State, 2)
+
+	_, err = ao.ApplicationOffer(offer.OfferName)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = app.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *ModelSuite) TestProcessDyingServerModelTransitionDyingToDead(c *gc.C) {
 	s.assertDyingModelTransitionDyingToDead(c, s.State)
 }
@@ -949,8 +891,8 @@ func (s *ModelSuite) TestProcessDyingHostedModelTransitionDyingToDead(c *gc.C) {
 }
 
 func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.State) {
-	// Add a service to prevent the model from transitioning directly to Dead.
-	// Add the service before getting the Model, otherwise we'll have to run
+	// Add a application to prevent the model from transitioning directly to Dead.
+	// Add the application before getting the Model, otherwise we'll have to run
 	// the transaction twice, and hit the hook point too early.
 	app := factory.NewFactory(st).MakeApplication(c, nil)
 	model, err := st.Model()
@@ -1212,7 +1154,9 @@ func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 func addModelUsers(c *gc.C, st *state.State) (expected []permission.UserAccess) {
 	// get the model owner
 	testAdmin := names.NewUserTag("test-admin")
-	owner, err := st.UserAccess(testAdmin, st.ModelTag())
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	owner, err := st.UserAccess(testAdmin, m.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	f := factory.NewFactory(st)
@@ -1228,12 +1172,20 @@ func addModelUsers(c *gc.C, st *state.State) (expected []permission.UserAccess) 
 
 func assertObtainedUsersMatchExpectedUsers(c *gc.C, obtainedUsers, expectedUsers []permission.UserAccess) {
 	c.Assert(len(obtainedUsers), gc.Equals, len(expectedUsers))
-	for i, obtained := range obtainedUsers {
-		c.Assert(obtained.Object.Id(), gc.Equals, expectedUsers[i].Object.Id())
-		c.Assert(obtained.UserTag, gc.Equals, expectedUsers[i].UserTag)
-		c.Assert(obtained.DisplayName, gc.Equals, expectedUsers[i].DisplayName)
-		c.Assert(obtained.CreatedBy, gc.Equals, expectedUsers[i].CreatedBy)
+	expectedByUser := make(map[string]permission.UserAccess, len(expectedUsers))
+	for _, access := range expectedUsers {
+		expectedByUser[access.UserName] = access
 	}
+	for _, obtained := range obtainedUsers {
+		expect := expectedByUser[obtained.UserName]
+		// We shouldn't get the same entry again
+		delete(expectedByUser, obtained.UserName)
+		c.Check(obtained.Object.Id(), gc.Equals, expect.Object.Id())
+		c.Check(obtained.UserTag, gc.Equals, expect.UserTag)
+		c.Check(obtained.DisplayName, gc.Equals, expect.DisplayName)
+		c.Check(obtained.CreatedBy, gc.Equals, expect.CreatedBy)
+	}
+	c.Check(expectedByUser, jc.DeepEquals, map[string]permission.UserAccess{})
 }
 
 func (s *ModelSuite) TestAllModelUUIDs(c *gc.C) {
@@ -1508,8 +1460,8 @@ func (s *ModelCloudValidationSuite) initializeState(
 			Regions:   regions,
 		},
 		CloudCredentials: credentials,
-		MongoInfo:        statetesting.NewMongoInfo(),
-		MongoDialOpts:    mongotest.DialOpts(),
+		MongoSession:     s.Session,
+		AdminPassword:    "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctlr.Close(), jc.ErrorIsNil)

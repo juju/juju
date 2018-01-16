@@ -7,13 +7,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	corecharm "gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -75,6 +76,7 @@ func (s *relationsResolver) NextOp(
 type relations struct {
 	st            *uniter.State
 	unit          *uniter.Unit
+	leaderCtx     context.LeadershipContext
 	subordinate   bool
 	principalName string
 	charmDir      string
@@ -83,9 +85,24 @@ type relations struct {
 	abort         <-chan struct{}
 }
 
+// LeadershipContextFunc is a function that returns a leadership context.
+type LeadershipContextFunc func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker) context.LeadershipContext
+
+// RelationsConfig contains configuration values
+// for the relations instance.
+type RelationsConfig struct {
+	State                *uniter.State
+	UnitTag              names.UnitTag
+	Tracker              leadership.Tracker
+	CharmDir             string
+	RelationsDir         string
+	NewLeadershipContext LeadershipContextFunc
+	Abort                <-chan struct{}
+}
+
 // NewRelations returns a new Relations instance.
-func NewRelations(st *uniter.State, tag names.UnitTag, charmDir, relationsDir string, abort <-chan struct{}) (Relations, error) {
-	unit, err := st.Unit(tag)
+func NewRelations(config RelationsConfig) (Relations, error) {
+	unit, err := config.State.Unit(config.UnitTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -93,15 +110,20 @@ func NewRelations(st *uniter.State, tag names.UnitTag, charmDir, relationsDir st
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	leadershipContext := config.NewLeadershipContext(
+		config.State.LeadershipSettings,
+		config.Tracker,
+	)
 	r := &relations{
-		st:            st,
+		st:            config.State,
 		unit:          unit,
+		leaderCtx:     leadershipContext,
 		subordinate:   subordinate,
 		principalName: principalName,
-		charmDir:      charmDir,
-		relationsDir:  relationsDir,
+		charmDir:      config.CharmDir,
+		relationsDir:  config.RelationsDir,
 		relationers:   make(map[int]*Relationer),
-		abort:         abort,
+		abort:         config.Abort,
 	}
 	if err := r.init(); err != nil {
 		return nil, errors.Trace(err)
@@ -120,7 +142,7 @@ func (r *relations) init() error {
 	// Keep the relations ordered for reliable testing.
 	var orderedIds []int
 	activeRelations := make(map[int]*uniter.Relation)
-	relationStatusValues := make(map[int]relation.Status)
+	relationSuspended := make(map[int]bool)
 	for _, rs := range relationStatus {
 		if !rs.InScope {
 			continue
@@ -129,7 +151,7 @@ func (r *relations) init() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		relationStatusValues[relation.Id()] = rs.Status
+		relationSuspended[relation.Id()] = rs.Suspended
 		activeRelations[relation.Id()] = relation
 		orderedIds = append(orderedIds, relation.Id())
 	}
@@ -143,11 +165,10 @@ func (r *relations) init() error {
 				return errors.Trace(err)
 			}
 		} else {
-			switch relationStatusValues[id] {
-			// Relations which are not broken, eg just suspended or in error, may
-			// become active again so we keep the local state.
-			case relation.Joined, relation.Suspended, relation.Error:
-			default:
+			// Relations which are suspended may become
+			// active again so we keep the local state,
+			// otherwise we remove it.
+			if !relationSuspended[id] {
 				if err := dir.Remove(); err != nil {
 					return errors.Trace(err)
 				}
@@ -217,7 +238,7 @@ func (r *relations) NextHook(
 		}
 		var remoteBroken bool
 		if remoteState.Life == params.Dying ||
-			relationSnapshot.Life == params.Dying || relationSnapshot.Status == params.Suspended {
+			relationSnapshot.Life == params.Dying || relationSnapshot.Suspended {
 			relationSnapshot = remotestate.RelationSnapshot{}
 			remoteBroken = true
 			// TODO(axw) if relation is implicit, leave scope & remove.
@@ -287,7 +308,7 @@ func nextRelationHook(
 	// If the relation's meant to be broken, break it.
 	if remoteBroken {
 		if !dir.Exists() {
-			// The relation may have been revoked and then removed, so we
+			// The relation may have been suspended and then removed, so we
 			// don't want to run the hook twice.
 			return hook.Info{}, resolver.ErrNoOperation
 		}
@@ -364,16 +385,18 @@ func (r *relations) PrepareHook(hookInfo hook.Info) (string, error) {
 }
 
 // CommitHook is part of the Relations interface.
-func (r *relations) CommitHook(hookInfo hook.Info) error {
+func (r *relations) CommitHook(hookInfo hook.Info) (err error) {
+	defer func() {
+		if err == nil && hookInfo.Kind == hooks.RelationBroken {
+			delete(r.relationers, hookInfo.RelationId)
+		}
+	}()
 	if !hookInfo.Kind.IsRelation() {
 		return errors.Errorf("not a relation hook: %#v", hookInfo)
 	}
 	relationer, found := r.relationers[hookInfo.RelationId]
 	if !found {
 		return errors.Errorf("unknown relation: %d", hookInfo.RelationId)
-	}
-	if hookInfo.Kind == hooks.RelationBroken {
-		delete(r.relationers, hookInfo.RelationId)
 	}
 	return relationer.CommitHook(hookInfo)
 }
@@ -389,12 +412,13 @@ func (r *relations) GetInfo() map[int]*context.RelationInfo {
 
 func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 	for id, relationSnapshot := range remote {
-		if _, found := r.relationers[id]; found {
+		if rel, found := r.relationers[id]; found {
 			// We've seen this relation before. The only changes
 			// we care about are to the lifecycle state or status,
 			// and to the member settings versions. We handle
 			// differences in settings in nextRelationHook.
-			if relationSnapshot.Life == params.Dying || relationSnapshot.Status == params.Suspended {
+			rel.ru.Relation().UpdateSuspended(relationSnapshot.Suspended)
+			if relationSnapshot.Life == params.Dying || relationSnapshot.Suspended {
 				if err := r.setDying(id); err != nil {
 					return errors.Trace(err)
 				}
@@ -403,7 +427,7 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 		}
 		// Relations that are not alive are simply skipped, because they
 		// were not previously known anyway.
-		if relationSnapshot.Life != params.Alive || relationSnapshot.Status != params.Joined {
+		if relationSnapshot.Life != params.Alive || relationSnapshot.Suspended {
 			continue
 		}
 		rel, err := r.st.RelationById(id)
@@ -504,6 +528,18 @@ func (r *relations) add(rel *uniter.Relation, dir *StateDir) (err error) {
 				return errors.Trace(err)
 			}
 			logger.Infof("joined relation %q", rel)
+			// Leaders get to set the relation status.
+			var isLeader bool
+			isLeader, err = r.leaderCtx.IsLeader()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if isLeader {
+				err = rel.SetStatus(relation.Joined)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
 			r.relationers[rel.Id()] = relationer
 			return nil
 		}

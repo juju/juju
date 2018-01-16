@@ -53,6 +53,25 @@ func (st *State) userPermission(objectGlobalKey, subjectGlobalKey string) (*user
 	return result, nil
 }
 
+// usersPermissions returns all permissions for a given object.
+func (st *State) usersPermissions(objectGlobalKey string) ([]*userPermission, error) {
+	permissions, closer := st.db().GetCollection(permissionsC)
+	defer closer()
+
+	var matchingPermissions []permissionDoc
+	findExpr := fmt.Sprintf("^%s#.*$", objectGlobalKey)
+	if err := permissions.Find(
+		bson.D{{"_id", bson.D{{"$regex", findExpr}}}},
+	).All(&matchingPermissions); err != nil {
+		return nil, err
+	}
+	var result []*userPermission
+	for _, pDoc := range matchingPermissions {
+		result = append(result, &userPermission{doc: pDoc})
+	}
+	return result, nil
+}
+
 // controllerUserPermission returns a Permission for the given Subject and User.
 func (st *State) controllerUserPermission(objectGlobalKey, subjectGlobalKey string) (*userPermission, error) {
 	result := &userPermission{}

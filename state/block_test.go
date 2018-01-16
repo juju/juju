@@ -51,7 +51,9 @@ func (s *blockSuite) assertModelHasBlock(c *gc.C, st *state.State, t state.Block
 	c.Assert(block.Type(), gc.Equals, t)
 	tag, err := block.Tag()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tag, gc.Equals, st.ModelTag())
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag, gc.Equals, m.ModelTag())
 	c.Assert(block.Message(), gc.Equals, msg)
 }
 

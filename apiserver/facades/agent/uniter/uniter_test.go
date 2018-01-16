@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -278,7 +279,7 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(rel.Life(), gc.Equals, state.Alive)
 	relStatus, err := rel.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(relStatus.Status, gc.Equals, status.Joined)
+	c.Assert(relStatus.Status, gc.Equals, status.Joining)
 
 	// Make the wordpressUnit dead.
 	err = s.wordpressUnit.EnsureDead()
@@ -514,6 +515,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	err := s.machine0.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
+	err = s.IAASModel.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.NetworkInfoParams{
 		Unit:     s.wordpressUnit.Tag().String(),
@@ -531,6 +534,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 				},
 			},
 		},
+		EgressSubnets:    []string{"10.0.0.0/8"},
+		IngressAddresses: []string{privateAddress.Value},
 	}
 
 	result, err := s.uniter.NetworkInfo(args)
@@ -1677,16 +1682,14 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 	}}
 	result, err := s.uniter.Relation(args)
 	c.Assert(err, jc.ErrorIsNil)
-	relStatus, err := rel.Status()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
-				Id:     rel.Id(),
-				Key:    rel.String(),
-				Life:   params.Life(rel.Life().String()),
-				Status: params.RelationStatusValue(relStatus.Status),
+				Id:        rel.Id(),
+				Key:       rel.String(),
+				Life:      params.Life(rel.Life().String()),
+				Suspended: rel.Suspended(),
 				Endpoint: multiwatcher.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
 					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
@@ -1718,16 +1721,14 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 	}
 	result, err := s.uniter.RelationById(args)
 	c.Assert(err, jc.ErrorIsNil)
-	relStatus, err := rel.Status()
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{
-				Id:     rel.Id(),
-				Key:    rel.String(),
-				Life:   params.Life(rel.Life().String()),
-				Status: params.RelationStatusValue(relStatus.Status),
+				Id:        rel.Id(),
+				Key:       rel.String(),
+				Life:      params.Life(rel.Life().String()),
+				Suspended: rel.Suspended(),
 				Endpoint: multiwatcher.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
 					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
@@ -1742,7 +1743,7 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 }
 
 func (s *uniterSuite) TestProviderType(c *gc.C) {
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.ProviderType()
@@ -1933,7 +1934,7 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 	c.Assert(readSettings, gc.DeepEquals, settings)
 }
 
-func (s *uniterSuite) TestRelationsStatus(c *gc.C) {
+func (s *uniterSuite) TestRelationsSuspended(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1942,7 +1943,7 @@ func (s *uniterSuite) TestRelationsStatus(c *gc.C) {
 
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	rel2 := s.addRelation(c, "wordpress", "logging")
-	err = rel2.SetStatus(status.StatusInfo{Status: status.Suspended})
+	err = rel2.SetSuspended(true, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
@@ -1960,11 +1961,11 @@ func (s *uniterSuite) TestRelationsStatus(c *gc.C) {
 			{RelationResults: []params.RelationUnitStatus{{
 				RelationTag: rel.Tag().String(),
 				InScope:     true,
-				Status:      params.Joined,
+				Suspended:   false,
 			}, {
 				RelationTag: rel2.Tag().String(),
 				InScope:     false,
-				Status:      params.Suspended,
+				Suspended:   true,
 			}},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1983,6 +1984,77 @@ func (s *uniterSuite) TestRelationsStatus(c *gc.C) {
 	err = relUnit.PrepareLeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	check()
+}
+
+func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{
+			{rel.Id(), params.Suspended, "message"},
+		},
+	}
+	_, err = s.uniter.SetRelationStatus(args)
+	c.Assert(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
+}
+
+func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	err := rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: "going, going"})
+	c.Assert(err, jc.ErrorIsNil)
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+	rel2 := s.addRelation(c, "wordpress", "logging")
+	err = rel2.SetSuspended(true, "")
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: ""})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.AddTestingApplication(c, "wp2", s.wpCharm)
+	rel3 := s.addRelation(c, "wp2", "logging")
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{
+			{rel.Id(), params.Suspended, "message"},
+			{rel2.Id(), params.Suspended, "gone"},
+			{rel3.Id(), params.Broken, ""},
+			{RelationId: 4},
+		},
+	}
+	expect := params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	}
+	check := func(rel *state.Relation, expectedStatus status.Status, expectedMessage string) {
+		err = rel.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		relStatus, err := rel.Status()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(relStatus.Status, gc.Equals, expectedStatus)
+		c.Assert(relStatus.Message, gc.Equals, expectedMessage)
+	}
+
+	err = s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.uniter.SetRelationStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, expect)
+	check(rel, status.Suspended, "message")
+	check(rel2, status.Suspended, "gone")
 }
 
 func (s *uniterSuite) TestReadSettings(c *gc.C) {
@@ -2722,7 +2794,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
 	// Check model attributes are overridden by setting up a value.
-	err := s.State.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
+	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	egress := state.NewRelationEgressNetworks(s.State)
 	_, err = egress.Save(relTag.Id(), false, []string{"10.0.0.0/16", "10.1.2.0/8"})
@@ -2752,7 +2824,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 func (s *uniterSuite) TestModelEgressSubnets(c *gc.C) {
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
-	err := s.State.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
+	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	thisUniter := s.makeMysqlUniter(c)
@@ -3312,7 +3384,8 @@ func (s *uniterNetworkConfigSuite) TestNetworkConfigForImplicitlyBoundEndpoint(c
 }
 
 type uniterNetworkInfoSuite struct {
-	base uniterSuite // not embedded so it doesn't run all tests.
+	base       uniterSuite // not embedded so it doesn't run all tests.
+	mysqlCharm *state.Charm
 }
 
 var _ = gc.Suite(&uniterNetworkInfoSuite{})
@@ -3338,6 +3411,9 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	}, {
 		CIDR:      "100.64.0.0/16",
 		SpaceName: "wp-default",
+	}, {
+		CIDR:      "192.168.1.0/24",
+		SpaceName: "database",
 	}, {
 		SpaceName: "layertwo",
 	}}
@@ -3376,12 +3452,15 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 
 	s.base.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
 
-	mysqlCharm := factory.MakeCharm(c, &jujufactory.CharmParams{
+	s.mysqlCharm = factory.MakeCharm(c, &jujufactory.CharmParams{
 		Name: "mysql",
 	})
 	s.base.mysql = factory.MakeApplication(c, &jujufactory.ApplicationParams{
 		Name:  "mysql",
-		Charm: mysqlCharm,
+		Charm: s.mysqlCharm,
+		EndpointBindings: map[string]string{
+			"server": "database",
+		},
 	})
 	s.base.wordpressUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
 		Application: s.base.wordpress,
@@ -3447,6 +3526,10 @@ func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix i
 			Name:       "eth3",
 			Type:       state.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:53", addrSuffix),
+		}, {
+			Name:       "eth4",
+			Type:       state.EthernetDevice,
+			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:54", addrSuffix),
 		}},
 		[]state.LinkLayerDeviceAddress{{
 			DeviceName:   "eth0",
@@ -3472,6 +3555,10 @@ func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix i
 			DeviceName:   "eth2",
 			ConfigMethod: state.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("100.64.0.%d/16", addrSuffix),
+		}, {
+			DeviceName:   "eth4",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("192.168.1.%d/24", addrSuffix),
 		}}
 }
 
@@ -3587,6 +3674,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
+		EgressSubnets:    []string{},
+		IngressAddresses: []string{"10.0.0.10", "10.0.0.11"},
 	}
 	// For the "admin-api" extra-binding we expect to see only interfaces from
 	// the "public" space.
@@ -3608,6 +3697,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
+		EgressSubnets:    []string{},
+		IngressAddresses: []string{"8.8.8.10", "8.8.4.10", "8.8.4.11"},
 	}
 
 	// For the "db-client" extra-binding we expect to see interfaces from default
@@ -3622,6 +3713,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
+		EgressSubnets:    []string{},
+		IngressAddresses: []string{"100.64.0.10"},
 	}
 
 	result, err := s.base.uniter.NetworkInfo(args)
@@ -3679,19 +3772,18 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 		Bindings: []string{"server"},
 	}
 
-	privateAddress, err := s.base.machine1.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
-
 	expectedInfo := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				MACAddress:    "00:11:22:33:20:50",
-				InterfaceName: "eth0.100",
+				MACAddress:    "00:11:22:33:20:54",
+				InterfaceName: "eth4",
 				Addresses: []params.InterfaceAddress{
-					{Address: privateAddress.Value, CIDR: "10.0.0.0/24"},
+					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
 				},
 			},
 		},
+		EgressSubnets:    []string{},
+		IngressAddresses: []string{"192.168.1.20"},
 	}
 
 	result, err := s.base.uniter.NetworkInfo(args)
@@ -3703,10 +3795,10 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 	})
 }
 
-func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
+func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBinding(c *gc.C) {
 	// If a network info call is made in the context of a relation, and the
-	// endpoint of that relation is not bound, or bound to the default space, we
-	// provide the ingress address relevant to the relation.
+	// endpoint of that relation is bound to the non default space, we
+	// provide the ingress addresses as those belonging to the space.
 	s.setupUniterAPIForUnit(c, s.base.mysqlUnit)
 	_, err := s.base.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		SourceModel: coretesting.ModelTag,
@@ -3721,6 +3813,13 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.base.assertInScope(c, mysqlRelUnit, true)
 
+	// Relation specific egress subnets override model config.
+	err = s.base.JujuConnSuite.IAASModel.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	relEgress := state.NewRelationEgressNetworks(s.base.State)
+	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+
 	relId := rel.Id()
 	args := params.NetworkInfoParams{
 		Unit:       s.base.mysqlUnit.Tag().String(),
@@ -3728,19 +3827,18 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
 		RelationId: &relId,
 	}
 
-	// Since it is a remote relation, the expected address is set to the
-	// machine's public address.
-	expectedAddress, err := s.base.machine1.PublicAddress()
-	c.Assert(err, jc.ErrorIsNil)
-
 	expectedInfo := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
+				MACAddress:    "00:11:22:33:20:54",
+				InterfaceName: "eth4",
 				Addresses: []params.InterfaceAddress{
-					{Address: expectedAddress.Value},
+					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
 				},
 			},
 		},
+		EgressSubnets:    []string{"192.168.1.0/24"},
+		IngressAddresses: []string{"192.168.1.20"},
 	}
 
 	result, err := s.base.uniter.NetworkInfo(args)
@@ -3750,4 +3848,109 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddress(c *gc.C) {
 			"server": expectedInfo,
 		},
 	})
+}
+
+func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBinding(c *gc.C) {
+	// If a network info call is made in the context of a relation, and the
+	// endpoint of that relation is not bound, or bound to the default space, we
+	// provide the ingress address relevant to the relation: public for CMR.
+	_, err := s.base.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		SourceModel: coretesting.ModelTag,
+		Name:        "wordpress-remote",
+		Endpoints:   []charm.Relation{{Name: "db", Interface: "mysql", Role: "requirer"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Recreate mysql app without endpoint binding.
+	factory := jujufactory.NewFactory(s.base.State)
+	s.base.mysql = factory.MakeApplication(c, &jujufactory.ApplicationParams{
+		Name:  "mysql-default",
+		Charm: s.mysqlCharm,
+	})
+	s.base.mysqlUnit = factory.MakeUnit(c, &jujufactory.UnitParams{
+		Application: s.base.mysql,
+		Machine:     s.base.machine1,
+	})
+	s.setupUniterAPIForUnit(c, s.base.mysqlUnit)
+
+	rel := s.base.addRelation(c, "mysql-default", "wordpress-remote")
+	mysqlRelUnit, err := rel.Unit(s.base.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mysqlRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.base.assertInScope(c, mysqlRelUnit, true)
+
+	// Relation specific egress subnets override model config.
+	err = s.base.JujuConnSuite.IAASModel.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	relEgress := state.NewRelationEgressNetworks(s.base.State)
+	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	relId := rel.Id()
+	args := params.NetworkInfoParams{
+		Unit:       s.base.mysqlUnit.Tag().String(),
+		Bindings:   []string{"server"},
+		RelationId: &relId,
+	}
+
+	// Since it is a remote relation, the expected ingress address is set to the
+	// machine's public address.
+	expectedIngressAddress, err := s.base.machine1.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:20:50",
+				InterfaceName: "eth0.100",
+				Addresses: []params.InterfaceAddress{
+					{Address: "10.0.0.20", CIDR: "10.0.0.0/24"},
+				},
+			},
+		},
+		EgressSubnets:    []string{"192.168.1.0/24"},
+		IngressAddresses: []string{expectedIngressAddress.Value},
+	}
+
+	result, err := s.base.uniter.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
+		Results: map[string]params.NetworkInfoResult{
+			"server": expectedInfo,
+		},
+	})
+}
+
+func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
+	s.addRelationAndAssertInScope(c)
+
+	args := params.NetworkInfoParams{
+		Unit:     s.base.wordpressUnit.Tag().String(),
+		Bindings: []string{"db"},
+	}
+
+	expectedResult := params.NetworkInfoResultsV6{
+		Results: map[string]params.NetworkInfoResultV6{
+			"db": params.NetworkInfoResultV6{
+				Info: []params.NetworkInfo{
+					params.NetworkInfo{
+						MACAddress:    "00:11:22:33:10:50",
+						InterfaceName: "eth0.100",
+						Addresses:     []params.InterfaceAddress{params.InterfaceAddress{Address: "10.0.0.10", CIDR: "10.0.0.0/24"}}},
+					params.NetworkInfo{
+						MACAddress:    "00:11:22:33:10:51",
+						InterfaceName: "eth1.100",
+						Addresses:     []params.InterfaceAddress{params.InterfaceAddress{Address: "10.0.0.11", CIDR: "10.0.0.0/24"}}},
+				},
+			}},
+	}
+
+	apiV6, err := uniter.NewUniterAPIV6(s.base.State, s.base.resources, s.base.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := apiV6.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(result, jc.DeepEquals, expectedResult)
 }

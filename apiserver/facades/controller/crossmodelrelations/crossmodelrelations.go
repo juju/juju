@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
@@ -26,6 +26,7 @@ var logger = loggo.GetLogger("juju.apiserver.crossmodelrelations")
 
 type egressAddressWatcherFunc func(facade.Resources, firewall.State, params.Entities) (params.StringsWatchResults, error)
 type relationStatusWatcherFunc func(CrossModelRelationsState, names.RelationTag) (state.StringsWatcher, error)
+type offerStatusWatcherFunc func(CrossModelRelationsState, string) (OfferWatcher, error)
 
 // CrossModelRelationsAPI provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPI struct {
@@ -40,22 +41,29 @@ type CrossModelRelationsAPI struct {
 
 	egressAddressWatcher  egressAddressWatcherFunc
 	relationStatusWatcher relationStatusWatcherFunc
+	offerStatusWatcher    offerStatusWatcherFunc
 }
 
 // NewStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
 func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
+	st := ctx.State()
+	model, err := st.Model()
+	if err != nil {
+		return nil, err
+	}
 
 	return NewCrossModelRelationsAPI(
 		stateShim{
-			st:      ctx.State(),
-			Backend: commoncrossmodel.GetBackend(ctx.State()),
+			st:      st,
+			Backend: commoncrossmodel.GetBackend(st),
 		},
-		firewall.StateShim(ctx.State()),
+		firewall.StateShim(st, model),
 		ctx.Resources(), ctx.Auth(), authCtxt.(*commoncrossmodel.AuthContext),
 		firewall.WatchEgressAddressesForRelations,
-		watchRelationLifeStatus,
+		watchRelationLifeSuspendedStatus,
+		watchOfferStatus,
 	)
 }
 
@@ -68,6 +76,7 @@ func NewCrossModelRelationsAPI(
 	authCtxt *commoncrossmodel.AuthContext,
 	egressAddressWatcher egressAddressWatcherFunc,
 	relationStatusWatcher relationStatusWatcherFunc,
+	offerStatusWatcher offerStatusWatcherFunc,
 ) (*CrossModelRelationsAPI, error) {
 	return &CrossModelRelationsAPI{
 		st:                    st,
@@ -77,6 +86,7 @@ func NewCrossModelRelationsAPI(
 		authCtxt:              authCtxt,
 		egressAddressWatcher:  egressAddressWatcher,
 		relationStatusWatcher: relationStatusWatcher,
+		offerStatusWatcher:    offerStatusWatcher,
 		relationToOffer:       make(map[string]string),
 	}, nil
 }
@@ -345,21 +355,21 @@ func (api *CrossModelRelationsAPI) RelationUnitSettings(relationUnits params.Rem
 	return results, nil
 }
 
-func watchRelationLifeStatus(st CrossModelRelationsState, tag names.RelationTag) (state.StringsWatcher, error) {
+func watchRelationLifeSuspendedStatus(st CrossModelRelationsState, tag names.RelationTag) (state.StringsWatcher, error) {
 	relation, err := st.KeyRelation(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return relation.WatchLifeStatus(), nil
+	return relation.WatchLifeSuspendedStatus(), nil
 }
 
-// WatchRelationsStatus starts a RelationStatusWatcher for
-// watching the life and status of a relation.
-func (api *CrossModelRelationsAPI) WatchRelationsStatus(
+// WatchRelationsSuspendedStatus starts a RelationStatusWatcher for
+// watching the life and suspended status of a relation.
+func (api *CrossModelRelationsAPI) WatchRelationsSuspendedStatus(
 	remoteRelationArgs params.RemoteEntityArgs,
 ) (params.RelationStatusWatchResults, error) {
 	results := params.RelationStatusWatchResults{
-		Results: make([]params.RelationStatusWatchResult, len(remoteRelationArgs.Args)),
+		Results: make([]params.RelationLifeSuspendedStatusWatchResult, len(remoteRelationArgs.Args)),
 	}
 
 	for i, arg := range remoteRelationArgs.Args {
@@ -382,18 +392,82 @@ func (api *CrossModelRelationsAPI) WatchRelationsStatus(
 			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
 			continue
 		}
-		results.Results[i].RelationStatusWatcherId = api.resources.Register(w)
-		changesParams := make([]params.RelationStatusChange, len(changes))
+		changesParams := make([]params.RelationLifeSuspendedStatusChange, len(changes))
 		for j, key := range changes {
-			change, err := commoncrossmodel.GetRelationStatusChange(api.st, key)
+			change, err := commoncrossmodel.GetRelationLifeSuspendedStatusChange(api.st, key)
 			if err != nil {
 				results.Results[i].Error = common.ServerError(err)
 				changesParams = nil
+				w.Stop()
 				break
 			}
 			changesParams[j] = *change
 		}
 		results.Results[i].Changes = changesParams
+		results.Results[i].RelationStatusWatcherId = api.resources.Register(w)
+	}
+	return results, nil
+}
+
+// OfferWatcher instances track changes to a specified offer.
+type OfferWatcher interface {
+	state.NotifyWatcher
+	OfferUUID() string
+}
+
+type offerWatcher struct {
+	state.NotifyWatcher
+	offerUUID string
+}
+
+func (w *offerWatcher) OfferUUID() string {
+	return w.offerUUID
+}
+
+func watchOfferStatus(st CrossModelRelationsState, offerUUID string) (OfferWatcher, error) {
+	w, err := st.WatchOfferStatus(offerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &offerWatcher{w, offerUUID}, nil
+}
+
+// WatchOfferStatus starts an OfferStatusWatcher for
+// watching the status of an offer.
+func (api *CrossModelRelationsAPI) WatchOfferStatus(
+	offerArgs params.OfferArgs,
+) (params.OfferStatusWatchResults, error) {
+	results := params.OfferStatusWatchResults{
+		Results: make([]params.OfferStatusWatchResult, len(offerArgs.Args)),
+	}
+
+	for i, arg := range offerArgs.Args {
+		// Ensure the supplied macaroon allows access.
+		auth := api.authCtxt.Authenticator(api.st.ModelUUID(), arg.OfferUUID)
+		_, err := auth.CheckOfferMacaroons(arg.OfferUUID, arg.Macaroons)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		w, err := api.offerStatusWatcher(api.st, arg.OfferUUID)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		_, ok := <-w.Changes()
+		if !ok {
+			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			continue
+		}
+		change, err := commoncrossmodel.GetOfferStatusChange(api.st, arg.OfferUUID)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			w.Stop()
+			break
+		}
+		results.Results[i].Changes = []params.OfferStatusChange{*change}
+		results.Results[i].OfferStatusWatcherId = api.resources.Register(w)
 	}
 	return results, nil
 }

@@ -11,22 +11,21 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/utils/set"
 )
 
@@ -43,7 +42,7 @@ type UniterAPI struct {
 	*common.RebootRequester
 	*leadershipapiserver.LeadershipSettingsAccessor
 	meterstatus.MeterStatus
-
+	m                 *state.Model
 	st                *state.State
 	auth              facade.Authorizer
 	resources         facade.Resources
@@ -140,12 +139,18 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		return nil, errors.Annotate(err, "could not create meter status API handler")
 	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
+
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
 		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
 		APIAddresser:               common.NewAPIAddresser(st, resources),
-		ModelWatcher:               common.NewModelWatcher(st, resources, authorizer),
+		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, resources, authorizer),
 		MeterStatus:                msAPI,
@@ -154,6 +159,7 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		StatusAPI: NewStatusAPI(st, accessUnitOrApplication),
 
 		st:                st,
+		m:                 m,
 		auth:              authorizer,
 		resources:         resources,
 		accessUnit:        accessUnit,
@@ -1064,12 +1070,8 @@ func (u *UniterAPI) RelationsStatus(args params.Entities) (params.RelationUnitSt
 	oneRelationUnitStatus := func(rel *state.Relation, unit *state.Unit) (params.RelationUnitStatus, error) {
 		rus := params.RelationUnitStatus{
 			RelationTag: rel.Tag().String(),
+			Suspended:   rel.Suspended(),
 		}
-		relStatus, err := rel.Status()
-		if err != nil {
-			return params.RelationUnitStatus{}, errors.Trace(err)
-		}
-		rus.Status = params.RelationStatusValue(relStatus.Status)
 		ru, err := rel.Unit(unit)
 		if err != nil {
 			return params.RelationUnitStatus{}, errors.Trace(err)
@@ -1169,7 +1171,7 @@ func (u *UniterAPI) CurrentModel() (params.ModelResult, error) {
 // addresses, this might be completely unnecessary though.
 func (u *UniterAPI) ProviderType() (params.StringResult, error) {
 	result := params.StringResult{}
-	cfg, err := u.st.ModelConfig()
+	cfg, err := u.m.ModelConfig()
 	if err == nil {
 		result.Result = cfg.Type()
 	}
@@ -1209,8 +1211,9 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 		}
 
 		settings := map[string]interface{}{}
-		ingressAddress, err := relUnit.IngressAddress()
-		if err == nil {
+		_, ingressAddresses, egressSubnets, err := state.NetworksForRelation(relUnit.Endpoint().Name, unit, rel, modelSubnets)
+		if err == nil && len(ingressAddresses) > 0 {
+			ingressAddress := ingressAddresses[0]
 			// private-address is historically a cloud local address for the machine.
 			// Existing charms are built to ask for this attribute from relation
 			// settings to find out what address to use to connect to the app
@@ -1219,38 +1222,19 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 			// charms than we break - breakage will not occur for correctly written
 			// charms, since the semantics of this value dictates the use case described.
 			// Any other use goes against the intended purpose of this value.
-			settings["private-address"] = ingressAddress.Value
+			settings["private-address"] = ingressAddress
 			// ingress-address is the preferred settings attribute name as it more accurately
 			// reflects the purpose of the attribute value. We'll deprecate private-address.
-			settings["ingress-address"] = ingressAddress.Value
+			settings["ingress-address"] = ingressAddress
 		} else {
-			logger.Warningf("cannot set ingress-address for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
-		}
-		var egressSubnets []string
-		egressNetworks := state.NewRelationEgressNetworks(u.st)
-		rn, err := egressNetworks.Networks(rel.Tag().Id())
-		if err == nil {
-			// egress-subnets are a slice of cidrs from which traffic
-			// on this side of the relation may originate.
-			egressSubnets = rn.CIDRS()
-		} else if errors.IsNotFound(err) {
-			// No relation specific subnets, so maybe there's a model setting.
-			if len(modelSubnets) > 0 {
-				egressSubnets = modelSubnets
-			} else if ingressAddress.Value != "" {
-				// We default to the ingress address.
-				cidrs := firewall.FormatAsCIDR([]string{ingressAddress.Value})
-				egressSubnets = cidrs
-			}
-		} else {
-			logger.Warningf("cannot set egress-subnets for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
+			logger.Warningf("cannot set ingress/egress addresses for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
 		}
 		if len(egressSubnets) > 0 {
 			settings["egress-subnets"] = strings.Join(egressSubnets, ",")
 		}
 		return relUnit.EnterScope(settings)
 	}
-	cfg, err := u.st.ModelConfig()
+	cfg, err := u.m.ModelConfig()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -1420,6 +1404,58 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 	return result, nil
 }
 
+// SetRelationStatus updates the status of the specified relations.
+func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.ErrorResults, error) {
+	var statusResults params.ErrorResults
+
+	// TODO(wallyworld) - the token should be passed to SetStatus() but the
+	// interface method doesn't allow for that yet.
+	checker := u.st.LeadershipChecker()
+	token := checker.LeadershipCheck(u.unit.ApplicationName(), u.unit.Name())
+	if err := token.Check(nil); err != nil {
+		return statusResults, err
+	}
+
+	changeOne := func(arg params.RelationStatusArg) error {
+		rel, err := u.st.Relation(arg.RelationId)
+		if errors.IsNotFound(err) {
+			return common.ErrPerm
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = rel.Unit(u.unit)
+		if errors.IsNotFound(err) {
+			return common.ErrPerm
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		// If we are transitioning from "suspending" to "suspended",
+		// we retain any existing message so that if the user has
+		// previously specified a reason for suspending, it is retained.
+		message := arg.Message
+		if message == "" && arg.Status == params.Suspended {
+			current, err := rel.Status()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if current.Status == status.Suspending {
+				message = current.Message
+			}
+		}
+		return rel.SetStatus(status.StatusInfo{
+			Status:  status.Status(arg.Status),
+			Message: message,
+		})
+	}
+	results := make([]params.ErrorResult, len(args.Args))
+	for i, arg := range args.Args {
+		err := changeOne(arg)
+		results[i].Error = common.ServerError(err)
+	}
+	statusResults.Results = results
+	return statusResults, nil
+}
+
 // WatchUnitAddresses returns a NotifyWatcher for observing changes
 // to each unit's addresses.
 func (u *UniterAPI) WatchUnitAddresses(args params.Entities) (params.NotifyWatchResults, error) {
@@ -1528,15 +1564,11 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit)
 	for _, otherEp := range otherEndpoints {
 		otherAppName = otherEp.ApplicationName
 	}
-	relStatus, err := rel.Status()
-	if err != nil {
-		return nothing, err
-	}
 	return params.RelationResult{
-		Id:     rel.Id(),
-		Key:    rel.String(),
-		Life:   params.Life(rel.Life().String()),
-		Status: params.RelationStatusValue(relStatus.Status),
+		Id:        rel.Id(),
+		Key:       rel.String(),
+		Life:      params.Life(rel.Life().String()),
+		Suspended: rel.Suspended(),
 		Endpoint: multiwatcher.Endpoint{
 			ApplicationName: ep.ApplicationName,
 			Relation:        multiwatcher.NewCharmRelation(ep.Relation),
@@ -1809,7 +1841,17 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 
 	spaces := set.NewStrings()
 	bindingsToSpace := make(map[string]string)
+	bindingsToEgressSubnets := make(map[string][]string)
+	bindingsToIngressAddresses := make(map[string][]string)
 
+	model, err := u.st.Model()
+	if err != nil {
+		return params.NetworkInfoResults{}, err
+	}
+	modelCfg, err := model.ModelConfig()
+	if err != nil {
+		return params.NetworkInfoResults{}, err
+	}
 	for _, binding := range args.Bindings {
 		if boundSpace, err := unit.GetSpaceForBinding(binding); err != nil {
 			result.Results[binding] = params.NetworkInfoResult{Error: common.ServerError(err)}
@@ -1817,9 +1859,9 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 			spaces.Add(boundSpace)
 			bindingsToSpace[binding] = boundSpace
 		}
+		bindingsToEgressSubnets[binding] = modelCfg.EgressSubnets()
 	}
 
-	var defaultSpaceInfo *network.NetworkInfo
 	if args.RelationId != nil {
 		// We're in a relation context.
 		rel, err := u.st.Relation(*args.RelationId)
@@ -1830,37 +1872,36 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
-		boundSpace, err := unit.GetSpaceForBinding(endpoint.Name)
-		if err != nil && !errors.IsNotValid(err) {
+		boundSpace, ingress, egress, err := state.NetworksForRelation(endpoint.Name, unit, rel, modelCfg.EgressSubnets())
+		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
-		// If the endpoint for this relation is not bound to a space, or
-		// is bound to the default space, we need to set the address info
-		// for the default space to the correct cross model ingress address.
-		if boundSpace == environs.DefaultSpaceName || err != nil {
-			ru, err := u.getRelationUnit(canAccess, rel.Tag().String(), unitTag)
-			if err != nil {
-				return params.NetworkInfoResults{}, err
-			}
-			address, err := ru.IngressAddress()
-			logger.Debugf("address for relation %v is %v", rel.Tag().Id(), address)
-			spaces.Remove(environs.DefaultSpaceName)
-			defaultSpaceInfo = &network.NetworkInfo{
-				Addresses: []network.InterfaceAddress{{
-					Address: address.Value,
-				}},
-			}
+		spaces.Add(boundSpace)
+		if len(egress) > 0 {
+			bindingsToEgressSubnets[endpoint.Name] = egress
 		}
+		bindingsToIngressAddresses[endpoint.Name] = ingress
 	}
 
 	networkInfos := machine.GetNetworkInfoForSpaces(spaces)
-	if defaultSpaceInfo != nil {
-		networkInfos[environs.DefaultSpaceName] = state.MachineNetworkInfoResult{
-			NetworkInfos: []network.NetworkInfo{*defaultSpaceInfo},
-		}
-	}
 	for binding, space := range bindingsToSpace {
-		result.Results[binding] = networkingcommon.MachineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
+		// The binding address information based on link layer devices.
+		info := networkingcommon.MachineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
+
+		// Set egress and ingress address information.
+		info.EgressSubnets = bindingsToEgressSubnets[binding]
+		info.IngressAddresses = bindingsToIngressAddresses[binding]
+
+		// If there is no ingress address explicitly defined for a given binding,
+		// set the ingress addresses to the binding addresses.
+		if len(info.IngressAddresses) == 0 {
+			for _, nwInfo := range info.Info {
+				for _, addr := range nwInfo.Addresses {
+					info.IngressAddresses = append(info.IngressAddresses, addr.Address)
+				}
+			}
+		}
+		result.Results[binding] = info
 	}
 
 	return result, nil
@@ -2148,3 +2189,20 @@ func (u *UniterAPIV4) NetworkInfo(_, _ struct{}) {}
 
 // WatchUnitRelations isn't on the V4 API.
 func (u *UniterAPIV4) WatchUnitRelations(_, _ struct{}) {}
+
+func networkInfoResultsToV6(v7Results params.NetworkInfoResults) params.NetworkInfoResultsV6 {
+	results := make(map[string]params.NetworkInfoResultV6)
+	for k, v6Result := range v7Results.Results {
+		results[k] = params.NetworkInfoResultV6{Error: v6Result.Error, Info: v6Result.Info}
+	}
+	return params.NetworkInfoResultsV6{Results: results}
+}
+
+// Network Info implements UniterAPIV6 version of NetworkInfo by constructing an API V6 compatible result.
+func (u *UniterAPIV6) NetworkInfo(args params.NetworkInfoParams) (params.NetworkInfoResultsV6, error) {
+	v6Results, err := u.UniterAPI.NetworkInfo(args)
+	if err != nil {
+		return params.NetworkInfoResultsV6{}, errors.Trace(err)
+	}
+	return networkInfoResultsToV6(v6Results), nil
+}

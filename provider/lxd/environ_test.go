@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/lxd"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools/lxdclient"
@@ -123,9 +122,7 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 	err := s.Env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	fwname := common.EnvFullName(s.Env.Config().UUID())
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
-		{"Ports", []interface{}{fwname}},
 		{"Destroy", nil},
 		{"StorageSupported", nil},
 		{"StoragePools", nil},
@@ -177,9 +174,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	err := s.Env.DestroyController(s.Config.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fwname := common.EnvFullName(s.Env.Config().UUID())
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
-		{"Ports", []interface{}{fwname}},
 		{"Destroy", nil},
 		{"StorageSupported", nil},
 		{"StoragePools", nil},

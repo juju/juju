@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -121,19 +121,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settings, err := readSettings(u.st.db(), settingsC, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
-	if err != nil {
-		return nil, err
-	}
-	chrm, err := u.st.Charm(u.doc.CharmURL)
-	if err != nil {
-		return nil, err
-	}
-	result := chrm.Config().DefaultSettings()
-	for name, value := range settings.Map() {
-		result[name] = value
-	}
-	return result, nil
+	return charmSettingsWithDefaults(u.st, u.doc.CharmURL, applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL))
 }
 
 // ApplicationName returns the application name.
@@ -233,7 +221,7 @@ func (u *Unit) WorkloadVersionHistory() *HistoryGetter {
 // yet been set.
 func (u *Unit) AgentTools() (*tools.Tools, error) {
 	if u.doc.Tools == nil {
-		return nil, errors.NotFoundf("agent tools for unit %q", u)
+		return nil, errors.NotFoundf("agent binaries for unit %q", u)
 	}
 	tools := *u.doc.Tools
 	return &tools, nil
@@ -308,35 +296,55 @@ func (u *Unit) Destroy() (err error) {
 			u.doc.Life = Dying
 		}
 	}()
-	unit := &Unit{st: u.st, doc: u.doc}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := unit.Refresh(); errors.IsNotFound(err) {
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, err
-			}
-		}
-		switch ops, err := unit.destroyOps(); err {
-		case errRefresh:
-		case errAlreadyDying:
+	return u.st.ApplyOperation(u.DestroyOperation())
+}
+
+// DestroyOperation returns a model operation that will destroy the unit.
+func (u *Unit) DestroyOperation() *DestroyUnitOperation {
+	return &DestroyUnitOperation{unit: &Unit{st: u.st, doc: u.doc}}
+}
+
+// DestroyUnitOperation is a model operation for destroying a unit.
+type DestroyUnitOperation struct {
+	// unit holds the unit to destroy.
+	unit *Unit
+
+	// DestroyStorage controls whether or not storage attached
+	// to the unit is destroyed. If this is false, then detachable
+	// storage will be detached and left in the model.
+	DestroyStorage bool
+}
+
+// Build is part of the ModelOperation interface.
+func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
+	if attempt > 0 {
+		if err := op.unit.Refresh(); errors.IsNotFound(err) {
 			return nil, jujutxn.ErrNoOperations
-		case nil:
-			return ops, nil
-		default:
+		} else if err != nil {
 			return nil, err
 		}
+	}
+	switch ops, err := op.unit.destroyOps(op.DestroyStorage); err {
+	case errRefresh:
+	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
+	case nil:
+		return ops, nil
+	default:
+		return nil, err
 	}
-	if err = unit.st.db().Run(buildTxn); err == nil {
-		if historyErr := unit.eraseHistory(); historyErr != nil {
-			logger.Errorf("cannot delete history for unit %q: %v", unit.globalKey(), historyErr)
-		}
-		if err = unit.Refresh(); errors.IsNotFound(err) {
-			return nil
-		}
+	return nil, jujutxn.ErrNoOperations
+}
+
+// Done is part of the ModelOperation interface.
+func (op *DestroyUnitOperation) Done(err error) error {
+	if err != nil {
+		return errors.Annotatef(err, "cannot destroy unit %q", op.unit)
 	}
-	return err
+	if err := op.unit.eraseHistory(); err != nil {
+		logger.Errorf("cannot delete history for unit %q: %v", op.unit.globalKey(), err)
+	}
+	return nil
 }
 
 func (u *Unit) eraseHistory() error {
@@ -355,7 +363,7 @@ func (u *Unit) eraseHistory() error {
 // destroyOps returns the operations required to destroy the unit. If it
 // returns errRefresh, the unit should be refreshed and the destruction
 // operations recalculated.
-func (u *Unit) destroyOps() ([]txn.Op, error) {
+func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 	if u.doc.Life != Alive {
 		return nil, errAlreadyDying
 	}
@@ -382,7 +390,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
 	minUnitsOp := minUnitsTriggerOp(u.st, u.ApplicationName())
-	cleanupOp := newCleanupOp(cleanupDyingUnit, u.doc.Name)
+	cleanupOp := newCleanupOp(cleanupDyingUnit, u.doc.Name, destroyStorage)
 	setDyingOp := txn.Op{
 		C:      unitsC,
 		Id:     u.doc.DocID,
@@ -517,8 +525,10 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 
 	// If removal conditions satisfied by machine & container docs, we can
 	// destroy it, in addition to removing the unit principal.
+	var cleanupOps []txn.Op
 	if machineCheck && containerCheck {
 		machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
+		cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id)}
 	}
 
 	ops = append(ops, txn.Op{
@@ -527,6 +537,8 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 		Assert: machineAssert,
 		Update: machineUpdate,
 	})
+	ops = append(ops, cleanupOps...)
+
 	return ops, nil
 }
 
@@ -875,6 +887,10 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 	if info.Status != status.Error {
 		info, err = getStatus(u.st.db(), u.globalKey(), "unit")
 		if err != nil {
+			// CAAS units don't have any unit status.
+			if errors.IsNotFound(err) {
+				return status.StatusInfo{}, nil
+			}
 			return status.StatusInfo{}, err
 		}
 	}
@@ -1230,9 +1246,13 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := u.st.getPresenceCollection()
 	recorder := u.st.getPingBatcher()
-	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey(),
+	model, err := u.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	p := presence.NewPinger(presenceCollection, model.ModelTag(), u.globalAgentKey(),
 		func() presence.PingRecorder { return u.st.getPingBatcher() })
-	err := p.Start()
+	err = p.Start()
 	if err != nil {
 		return nil, err
 	}
@@ -2508,8 +2528,8 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 type addUnitOpsArgs struct {
 	unitDoc            *unitDoc
 	agentStatusDoc     statusDoc
-	workloadStatusDoc  statusDoc
-	workloadVersionDoc statusDoc
+	workloadStatusDoc  *statusDoc
+	workloadVersionDoc *statusDoc
 	meterStatusDoc     *meterStatusDoc
 }
 
@@ -2523,12 +2543,19 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 
 	// TODO: consider the constraints op
 	// TODO: consider storageOps
-	prereqOps := []txn.Op{
-		createStatusOp(st, unitGlobalKey(name), args.workloadStatusDoc),
-		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
-		createStatusOp(st, globalWorkloadVersionKey(name), args.workloadVersionDoc),
-		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
+	var prereqOps []txn.Op
+	if args.workloadStatusDoc != nil {
+		prereqOps = append(prereqOps, createStatusOp(st, unitGlobalKey(name), *args.workloadStatusDoc))
 	}
+	if args.meterStatusDoc != nil {
+		prereqOps = append(prereqOps, createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc))
+	}
+	if args.workloadStatusDoc != nil {
+		prereqOps = append(prereqOps, createStatusOp(st, globalWorkloadVersionKey(name), *args.workloadVersionDoc))
+	}
+	prereqOps = append(prereqOps,
+		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
+	)
 
 	// Freshly-created units will not have a charm URL set; migrated
 	// ones will, and they need to maintain their refcounts. If we

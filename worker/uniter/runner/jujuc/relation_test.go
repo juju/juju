@@ -9,7 +9,7 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
+	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
 )
 
 type relationSuite struct {
@@ -17,7 +17,7 @@ type relationSuite struct {
 }
 
 func (s *relationSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
-	hctx, info := s.NewHookContext()
+	hctx, info := s.ContextSuite.NewHookContext()
 	rInfo := &relationInfo{ContextInfo: info, stub: s.Stub}
 	settings := jujuctesting.Settings{
 		"private-address": "u-0.testing.invalid",

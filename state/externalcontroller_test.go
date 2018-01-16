@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -42,6 +43,7 @@ func (s *externalControllerSuite) TestSaveInvalidAddress(c *gc.C) {
 func (s *externalControllerSuite) TestSaveNoModels(c *gc.C) {
 	controllerInfo := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
+		Alias:         "controller-alias",
 		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
 		CACert:        testing.CACert,
 	}
@@ -62,6 +64,7 @@ func (s *externalControllerSuite) assertSavedControllerInfo(c *gc.C, modelUUIDs 
 	c.Assert(raw["_id"], gc.Equals, testing.ControllerTag.Id())
 	c.Assert(raw["addresses"], jc.SameContents, []interface{}{"192.168.1.0:1234", "10.0.0.1:1234"})
 	c.Assert(raw["cacert"], gc.Equals, testing.CACert)
+	c.Assert(raw["alias"], gc.Equals, "controller-alias")
 	var models []string
 	for _, m := range raw["models"].([]interface{}) {
 		models = append(models, m.(string))
@@ -72,6 +75,7 @@ func (s *externalControllerSuite) assertSavedControllerInfo(c *gc.C, modelUUIDs 
 func (s *externalControllerSuite) TestSave(c *gc.C) {
 	controllerInfo := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
+		Alias:         "controller-alias",
 		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
 		CACert:        testing.CACert,
 	}
@@ -87,6 +91,7 @@ func (s *externalControllerSuite) TestSave(c *gc.C) {
 func (s *externalControllerSuite) TestSaveIdempotent(c *gc.C) {
 	controllerInfo := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
+		Alias:         "controller-alias",
 		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
 		CACert:        testing.CACert,
 	}
@@ -103,6 +108,7 @@ func (s *externalControllerSuite) TestSaveIdempotent(c *gc.C) {
 func (s *externalControllerSuite) TestUpdateModels(c *gc.C) {
 	controllerInfo := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
+		Alias:         "controller-alias",
 		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
 		CACert:        testing.CACert,
 	}
@@ -118,6 +124,7 @@ func (s *externalControllerSuite) TestUpdateModels(c *gc.C) {
 func (s *externalControllerSuite) TestControllerForModel(c *gc.C) {
 	controllerInfo := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
+		Alias:         "controller-alias",
 		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
 		CACert:        testing.CACert,
 	}
@@ -130,4 +137,103 @@ func (s *externalControllerSuite) TestControllerForModel(c *gc.C) {
 	c.Assert(ec, jc.DeepEquals, found)
 	_, err = s.externalControllers.ControllerForModel("1234")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *externalControllerSuite) TestController(c *gc.C) {
+	controllerInfo := crossmodel.ControllerInfo{
+		ControllerTag: testing.ControllerTag,
+		Alias:         "controller-alias",
+		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
+		CACert:        testing.CACert,
+	}
+	_, err := s.externalControllers.Save(controllerInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ec, err := s.externalControllers.Controller(testing.ControllerTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ec, gc.NotNil)
+	c.Assert(ec.Id(), gc.Equals, testing.ControllerTag.Id())
+	c.Assert(ec.ControllerInfo(), jc.DeepEquals, controllerInfo)
+}
+
+func (s *externalControllerSuite) TestControllerNotFound(c *gc.C) {
+	ec, err := s.externalControllers.Controller("foo")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `external controller with UUID foo not found`)
+	c.Assert(ec, gc.IsNil)
+}
+
+func (s *externalControllerSuite) TestWatchController(c *gc.C) {
+	controllerInfo := crossmodel.ControllerInfo{
+		ControllerTag: testing.ControllerTag,
+		Alias:         "alias1",
+		Addrs:         []string{"192.168.1.0:1234"},
+		CACert:        testing.CACert,
+	}
+	_, err := s.externalControllers.Save(controllerInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.externalControllers.WatchController(testing.ControllerTag.Id())
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	// Update the alias, check for one change.
+	controllerInfo.Alias = "alias2"
+	_, err = s.externalControllers.Save(controllerInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Update the alias and addresses, check for one change.
+	controllerInfo.Alias = "alias3"
+	controllerInfo.Addrs = []string{"192.168.1.1:1234"}
+	_, err = s.externalControllers.Save(controllerInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+}
+
+func (s *externalControllerSuite) TestWatch(c *gc.C) {
+	controllerInfo := crossmodel.ControllerInfo{
+		ControllerTag: testing.ControllerTag,
+		Alias:         "alias1",
+		Addrs:         []string{"192.168.1.0:1234"},
+		CACert:        testing.CACert,
+	}
+	_, err := s.externalControllers.Save(controllerInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.externalControllers.Watch()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChangeInSingleEvent(testing.ControllerTag.Id())
+	wc.AssertNoChange()
+
+	// Update the controller, expect no change. We only get
+	// updated on addition and removal.
+	controllerInfo.Alias = "alias2"
+	_, err = s.externalControllers.Save(controllerInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Remove the controller, we should get a change.
+	err = s.externalControllers.Remove(testing.ControllerTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent(testing.ControllerTag.Id())
+	wc.AssertNoChange()
+
+	// Removing a non-existent controller shouldn't trigger
+	// a change.
+	err = s.externalControllers.Remove("fnord")
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Add the controller again, and we should see a change.
+	_, err = s.externalControllers.Save(controllerInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChangeInSingleEvent(testing.ControllerTag.Id())
+	wc.AssertNoChange()
 }

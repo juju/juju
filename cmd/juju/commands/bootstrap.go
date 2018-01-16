@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -93,10 +93,16 @@ address.
 
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
-The value of '--agent-version' will become the default tools version to
-use in all models for this controller. The full binary version is accepted
-(e.g.: 2.0.1-xenial-amd64) but only the numeric version (e.g.: 2.0.1) is
-used. Otherwise, by default, the version used is that of the client.
+
+By default, the Juju version of the agent binary that is downloaded and 
+installed on all models for the new controller will be the same as that 
+of the Juju client used to perform the bootstrap.
+However, a user can specify a different agent version via '--agent-version' 
+option to bootstrap command. Juju will use this version for models' agents 
+as long as the client's version is from the same Juju release series.
+In other words, a 2.2.1 client can bootstrap any 2.2.x agents but cannot
+bootstrap any 2.0.x or 2.1.x agents.
+The agent version can be specified a simple numeric version, e.g. 2.2.4.
 
 Examples:
     juju bootstrap
@@ -106,7 +112,7 @@ Examples:
     juju bootstrap aws/us-east-1
     juju bootstrap google joe-us-east1
     juju bootstrap --config=~/config-rs.yaml rackspace joe-syd
-    juju bootstrap --config agent-version=1.25.3 aws joe-us-east-1
+    juju bootstrap --agent-version=2.2.4 aws joe-us-east-1
     juju bootstrap --config bootstrap-timeout=1200 azure joe-eastus
 
 See also:
@@ -179,14 +185,14 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	}
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
-	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as tools and/or metadata source")
+	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the model if bootstrap fails")
-	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "Upgrade to the latest patch release tools on first bootstrap")
-	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of tools to use for Juju agents")
+	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "After bootstrap, upgrade to the latest patch release")
+	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of agent binaries to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
 	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
-	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--config config.yaml [--config key=value ...])")
+	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--model-default config.yaml [--model-default key=value ...])")
 	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
@@ -236,7 +242,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 	if c.AgentVersion != nil && (c.AgentVersion.Major != jujuversion.Current.Major || c.AgentVersion.Minor != jujuversion.Current.Minor) {
-		return errors.New("requested agent version major.minor mismatch")
+		return errors.Errorf("this client can only bootstrap %v.%v agents", jujuversion.Current.Major, jujuversion.Current.Minor)
 	}
 
 	switch len(args) {
@@ -402,6 +408,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if c.controllerName == "" {
 		c.controllerName = defaultControllerName(cloud.Name, region.Name)
 	}
+	// set a Region so it's config can be found below.
+	if c.Region == "" {
+		c.Region = region.Name
+	}
 
 	config, err := c.bootstrapConfigs(ctx, cloud, provider)
 	if err != nil {
@@ -496,8 +506,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
 				ctx.Infof(`
-bootstrap failed but --keep-broken was specified so resources are not being destroyed.
-When you have finished diagnosing the problem, remember to clean up the failed controller.
+bootstrap failed but --keep-broken was specified. 
+This means that cloud resources are left behind, but not registered to 
+your local client, as the controller was not successfully created. 
+However, you should be able to ssh into the machine using the user "ubuntu" and 
+their IP address for diagnosis and investigation.
+When you are ready to clean up the failed controller, use your cloud console or 
+equivalent CLI tools to terminate the instances and remove remaining resources. 
+
 See `[1:] + "`juju kill-controller`" + `.`)
 			} else {
 				logger.Errorf("%v", resultErr)

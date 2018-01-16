@@ -13,10 +13,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -256,7 +257,7 @@ func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {
 	rnr, err := s.factory.NewActionRunner("irrelevant")
 	c.Assert(rnr, gc.IsNil)
 	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
-	c.Assert(err, gc.Not(jc.Satisfies), runner.IsBadActionError)
+	c.Assert(err, gc.Not(jc.Satisfies), charmrunner.IsBadActionError)
 }
 
 func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
@@ -266,7 +267,7 @@ func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 	rnr, err := s.factory.NewActionRunner(action.Id())
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
-	c.Check(err, jc.Satisfies, runner.IsBadActionError)
+	c.Check(err, jc.Satisfies, charmrunner.IsBadActionError)
 }
 
 func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
@@ -278,7 +279,7 @@ func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
 	rnr, err := s.factory.NewActionRunner(action.Id())
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
-	c.Check(err, jc.Satisfies, runner.IsBadActionError)
+	c.Check(err, jc.Satisfies, charmrunner.IsBadActionError)
 }
 
 func (s *FactorySuite) TestNewActionRunnerMissingAction(c *gc.C) {
@@ -290,7 +291,7 @@ func (s *FactorySuite) TestNewActionRunnerMissingAction(c *gc.C) {
 	rnr, err := s.factory.NewActionRunner(action.Id())
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
-	c.Check(err, gc.Equals, runner.ErrActionNotAvailable)
+	c.Check(err, gc.Equals, charmrunner.ErrActionNotAvailable)
 }
 
 func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
@@ -302,5 +303,5 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	rnr, err := s.factory.NewActionRunner(action.Id())
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
-	c.Check(err, gc.Equals, runner.ErrActionNotAvailable)
+	c.Check(err, gc.Equals, charmrunner.ErrActionNotAvailable)
 }

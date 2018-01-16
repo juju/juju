@@ -10,11 +10,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/constraints"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -55,6 +57,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharm(c, app, s.charm.URL())
 	s.assertSettings(c, app, charm.Settings{})
+	s.assertApplicationConfig(c, app, coreapplication.ConfigAttributes(nil))
 	s.assertConstraints(c, app, constraints.Value{})
 	s.assertMachines(c, app, constraints.Value{})
 }
@@ -275,7 +278,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			ConfigSettings: charm.Settings{
+			CharmConfig: charm.Settings{
 				"title":       "banana cupcakes",
 				"skill-level": 9901,
 			},
@@ -292,13 +295,41 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			ConfigSettings: charm.Settings{
+			CharmConfig: charm.Settings{
 				"skill-level": 99.01,
 			},
 		})
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got 99.01`)
 	_, err = s.State.Application("bob")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func sampleApplicationConfigSchema() environschema.Fields {
+	schema := environschema.Fields{
+		"title":       environschema.Attr{Type: environschema.Tstring},
+		"outlook":     environschema.Attr{Type: environschema.Tstring},
+		"username":    environschema.Attr{Type: environschema.Tstring},
+		"skill-level": environschema.Attr{Type: environschema.Tint},
+	}
+	return schema
+}
+
+func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
+	cfg, err := coreapplication.NewConfig(map[string]interface{}{
+		"outlook":     "good",
+		"skill-level": 1,
+	}, sampleApplicationConfigSchema(), nil)
+	app, err := application.DeployApplication(stateDeployer{s.State},
+		application.DeployApplicationParams{
+			ApplicationName:   "bob",
+			Charm:             s.charm,
+			ApplicationConfig: cfg,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplicationConfig(c, app, coreapplication.ConfigAttributes{
+		"outlook":     "good",
+		"skill-level": 1,
+	})
 }
 
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
@@ -430,10 +461,20 @@ func (s *DeployLocalSuite) assertCharm(c *gc.C, app application.Application, exp
 	c.Assert(force, jc.IsFalse)
 }
 
-func (s *DeployLocalSuite) assertSettings(c *gc.C, app application.Application, expect charm.Settings) {
-	settings, err := app.ConfigSettings()
+func (s *DeployLocalSuite) assertSettings(c *gc.C, app application.Application, settings charm.Settings) {
+	settings, err := app.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expect)
+	expected := s.charm.Config().DefaultSettings()
+	for name, value := range settings {
+		expected[name] = value
+	}
+	c.Assert(settings, gc.DeepEquals, expected)
+}
+
+func (s *DeployLocalSuite) assertApplicationConfig(c *gc.C, app application.Application, wantCfg coreapplication.ConfigAttributes) {
+	cfg, err := app.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg, gc.DeepEquals, wantCfg)
 }
 
 func (s *DeployLocalSuite) assertConstraints(c *gc.C, app application.Application, expect constraints.Value) {

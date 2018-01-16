@@ -101,7 +101,12 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 		return nil, errors.Annotate(err, "getting model")
 	}
 	if region := model.CloudRegion(); region != "" {
-		cfg, err := st.ModelConfig()
+		m, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		cfg, err := m.ModelConfig()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

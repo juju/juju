@@ -4,8 +4,10 @@
 package modelmanager_test
 
 import (
+	"regexp"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,8 +16,10 @@ import (
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -325,37 +329,44 @@ func (s *modelmanagerSuite) TestUnsetModelDefaults(c *gc.C) {
 }
 
 func (s *modelmanagerSuite) TestModelStatus(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "ModelManager")
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ModelStatus")
-		c.Check(arg, jc.DeepEquals, params.Entities{
-			[]params.Entity{{
-				Tag: coretesting.ModelTag.String(),
-			}},
-		})
-		c.Check(result, gc.FitsTypeOf, &params.ModelStatusResults{})
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ModelStatus")
+			c.Check(arg, jc.DeepEquals, params.Entities{
+				[]params.Entity{
+					{Tag: coretesting.ModelTag.String()},
+					{Tag: coretesting.ModelTag.String()},
+				},
+			})
+			c.Check(result, gc.FitsTypeOf, &params.ModelStatusResults{})
 
-		out := result.(*params.ModelStatusResults)
-		out.Results = []params.ModelStatus{{
-			ModelTag:           coretesting.ModelTag.String(),
-			OwnerTag:           "user-glenda",
-			ApplicationCount:   3,
-			HostedMachineCount: 2,
-			Life:               "alive",
-			Machines: []params.ModelMachineInfo{{
-				Id:         "0",
-				InstanceId: "inst-ance",
-				Status:     "pending",
-			}},
-		}}
-		return nil
-	})
+			out := result.(*params.ModelStatusResults)
+			out.Results = []params.ModelStatus{
+				params.ModelStatus{
+					ModelTag:           coretesting.ModelTag.String(),
+					OwnerTag:           "user-glenda",
+					ApplicationCount:   3,
+					HostedMachineCount: 2,
+					Life:               "alive",
+					Machines: []params.ModelMachineInfo{{
+						Id:         "0",
+						InstanceId: "inst-ance",
+						Status:     "pending",
+					}},
+				},
+				params.ModelStatus{Error: common.ServerError(errors.New("model error"))},
+			}
+			return nil
+		},
+	}
 
 	client := modelmanager.NewClient(apiCaller)
-	results, err := client.ModelStatus(coretesting.ModelTag)
+	results, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
+	c.Assert(results[0], jc.DeepEquals, base.ModelStatus{
 		UUID:               coretesting.ModelTag.Id(),
 		TotalMachineCount:  1,
 		HostedMachineCount: 2,
@@ -363,7 +374,157 @@ func (s *modelmanagerSuite) TestModelStatus(c *gc.C) {
 		Owner:              "glenda",
 		Life:               string(params.Alive),
 		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
-	}})
+	})
+	c.Assert(results[1].Error, gc.ErrorMatches, "model error")
+}
+
+func (s *modelmanagerSuite) TestModelStatusEmpty(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "ModelManager")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ModelStatus")
+		c.Check(result, gc.FitsTypeOf, &params.ModelStatusResults{})
+
+		return nil
+	})
+
+	client := modelmanager.NewClient(apiCaller)
+	results, err := client.ModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []base.ModelStatus{})
+}
+
+func (s *modelmanagerSuite) TestModelStatusError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			return errors.New("model error")
+		})
+	client := modelmanager.NewClient(apiCaller)
+	out, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
+	c.Assert(err, gc.ErrorMatches, "model error")
+	c.Assert(out, gc.IsNil)
+}
+
+func createModelSummary() *params.ModelSummary {
+	return &params.ModelSummary{
+		Name:               "name",
+		UUID:               "uuid",
+		ControllerUUID:     "controllerUUID",
+		ProviderType:       "aws",
+		DefaultSeries:      "xenial",
+		CloudTag:           "cloud-aws",
+		CloudRegion:        "us-east-1",
+		CloudCredentialTag: "cloudcred-foo_bob_one",
+		OwnerTag:           "user-admin",
+		Life:               params.Alive,
+		Status:             params.EntityStatus{Status: status.Status("active")},
+		UserAccess:         params.ModelAdminAccess,
+		Counts:             []params.ModelEntityCount{},
+	}
+}
+
+func (s *modelmanagerSuite) TestListModelSummaries(c *gc.C) {
+	userTag := names.NewUserTag("commander")
+	testModelInfo := createModelSummary()
+
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ListModelSummaries")
+			c.Check(arg, gc.Equals, params.ModelSummariesRequest{
+				UserTag: userTag.String(),
+				All:     true,
+			})
+			c.Check(result, gc.FitsTypeOf, &params.ModelSummaryResults{})
+
+			out := result.(*params.ModelSummaryResults)
+			out.Results = []params.ModelSummaryResult{
+				params.ModelSummaryResult{Result: testModelInfo},
+				params.ModelSummaryResult{Error: common.ServerError(errors.New("model error"))},
+			}
+			return nil
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	results, err := client.ListModelSummaries(userTag.Id(), true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results[0], jc.DeepEquals, base.UserModelSummary{Name: testModelInfo.Name,
+		UUID:            testModelInfo.UUID,
+		ControllerUUID:  testModelInfo.ControllerUUID,
+		ProviderType:    testModelInfo.ProviderType,
+		DefaultSeries:   testModelInfo.DefaultSeries,
+		Cloud:           "aws",
+		CloudRegion:     "us-east-1",
+		CloudCredential: "foo/bob/one",
+		Owner:           "admin",
+		Life:            "alive",
+		Status: base.Status{
+			Status: status.Active,
+			Data:   map[string]interface{}{},
+		},
+		ModelUserAccess: "admin",
+		Counts:          []base.EntityCount{},
+	})
+	c.Assert(errors.Cause(results[1].Error), gc.ErrorMatches, "model error")
+}
+
+func (s *modelmanagerSuite) TestListModelSummariesParsingErrors(c *gc.C) {
+	badOwnerInfo := createModelSummary()
+	badOwnerInfo.OwnerTag = "owner-user"
+
+	badCloudInfo := createModelSummary()
+	badCloudInfo.CloudTag = "not-cloud"
+
+	badCredentialsInfo := createModelSummary()
+	badCredentialsInfo.CloudCredentialTag = "not-credential"
+
+	apiCaller := basetesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			out := result.(*params.ModelSummaryResults)
+			out.Results = []params.ModelSummaryResult{
+				params.ModelSummaryResult{Result: badOwnerInfo},
+				params.ModelSummaryResult{Result: badCloudInfo},
+				params.ModelSummaryResult{Result: badCredentialsInfo},
+			}
+			return nil
+		},
+	}
+
+	client := modelmanager.NewClient(apiCaller)
+	results, err := client.ListModelSummaries("commander", true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 3)
+	c.Assert(results[0].Error, gc.ErrorMatches, `while parsing model owner tag: "owner-user" is not a valid tag`)
+	c.Assert(results[1].Error, gc.ErrorMatches, `while parsing model cloud tag: "not-cloud" is not a valid tag`)
+	c.Assert(results[2].Error, gc.ErrorMatches, `while parsing model cloud credential tag: "not-credential" is not a valid tag`)
+}
+
+func (s *modelmanagerSuite) TestListModelSummariesInvalidUserIn(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			return nil
+		})
+	client := modelmanager.NewClient(apiCaller)
+	out, err := client.ListModelSummaries("++)captain", false)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`invalid user name "++)captain"`))
+	c.Assert(out, gc.IsNil)
+}
+
+func (s *modelmanagerSuite) TestListModelSummariesServerError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			return errors.New("captain, error")
+		})
+	client := modelmanager.NewClient(apiCaller)
+	out, err := client.ListModelSummaries("captain", false)
+	c.Assert(err, gc.ErrorMatches, "captain, error")
+	c.Assert(out, gc.IsNil)
 }
 
 type dumpModelSuite struct {

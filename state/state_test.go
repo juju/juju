@@ -22,15 +22,18 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	mgotxn "gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -194,7 +197,7 @@ func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
-	expect := fmt.Sprintf("cannot read model %s: model not found", uuid)
+	expect := fmt.Sprintf("cannot read model %s: model %q not found", uuid, uuid)
 	c.Check(err, gc.ErrorMatches, expect)
 }
 
@@ -203,7 +206,10 @@ func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
-	c.Assert(st.ModelTag(), gc.Equals, s.modelTag)
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(m.ModelTag(), gc.Equals, s.modelTag)
 }
 
 func (s *StateSuite) TestModelUUID(c *gc.C) {
@@ -273,9 +279,7 @@ func (s *StateSuite) TestWatchAllModels(c *gc.C) {
 	// The allModelWatcher infrastructure is comprehensively tested
 	// elsewhere. This just ensures things are hooked up correctly in
 	// State.WatchAllModels()
-	pool := state.NewStatePool(s.State)
-	defer pool.Close()
-	w := s.State.WatchAllModels(pool)
+	w := s.State.WatchAllModels(s.StatePool)
 	defer w.Stop()
 	deltasC := makeMultiwatcherOutput(w)
 
@@ -309,6 +313,7 @@ func (s *StateSuite) TestWatchAllModels(c *gc.C) {
 type MultiModelStateSuite struct {
 	ConnSuite
 	OtherState *state.State
+	OtherModel *state.Model
 }
 
 func (s *MultiModelStateSuite) SetUpTest(c *gc.C) {
@@ -320,6 +325,9 @@ func (s *MultiModelStateSuite) SetUpTest(c *gc.C) {
 		return validator, nil
 	}
 	s.OtherState = s.Factory.MakeModel(c, nil)
+	m, err := s.OtherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	s.OtherModel = m
 }
 
 func (s *MultiModelStateSuite) TearDownTest(c *gc.C) {
@@ -425,7 +433,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			triggerEvent: func(st *state.State) {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "db2", SourceModel: s.State.ModelTag()})
+					Name: "db2", SourceModel: s.IAASModel.ModelTag()})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -455,7 +463,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			setUpState: func(st *state.State) bool {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "mysql", SourceModel: s.OtherState.ModelTag(),
+					Name: "mysql", SourceModel: s.OtherModel.ModelTag(),
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
@@ -474,7 +482,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			about: "relation ingress networks",
 			getWatcher: func(st *state.State) interface{} {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "mysql", SourceModel: s.OtherState.ModelTag(),
+					Name: "mysql", SourceModel: s.OtherModel.ModelTag(),
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
@@ -496,7 +504,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			about: "relation egress networks",
 			getWatcher: func(st *state.State) interface{} {
 				_, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
-					Name: "mysql", SourceModel: s.OtherState.ModelTag(),
+					Name: "mysql", SourceModel: s.OtherModel.ModelTag(),
 					Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 				})
 				c.Assert(err, jc.ErrorIsNil)
@@ -635,10 +643,10 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				return false
 			},
 			triggerEvent: func(st *state.State) {
-				svc, err := st.Application("wordpress")
+				app, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = svc.UpdateConfigSettings(charm.Settings{"blog-title": "awesome"})
+				err = app.UpdateCharmConfig(charm.Settings{"blog-title": "awesome"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -1485,13 +1493,23 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "umadbro": charm is nil`)
 
 	insettings := charm.Settings{"tuning": "optimized"}
+	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
+	wordpress, err := s.State.AddApplication(
+		state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	outsettings, err := wordpress.ConfigSettings()
+	outsettings, err := wordpress.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outsettings, gc.DeepEquals, insettings)
+	expected := ch.Config().DefaultSettings()
+	for name, value := range insettings {
+		expected[name] = value
+	}
+	c.Assert(outsettings, gc.DeepEquals, expected)
+	outconfig, err := wordpress.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outconfig, gc.DeepEquals, inconfig.Attributes())
 
 	mysql, err := s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1515,26 +1533,72 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
 }
 
-func (s *StateSuite) TestAddApplicationWithNilConfigValues(c *gc.C) {
+func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+
+	insettings := charm.Settings{"tuning": "optimized"}
+	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress, err := st.AddApplication(
+		state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings, ApplicationConfig: inconfig})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
+	outsettings, err := wordpress.CharmConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := ch.Config().DefaultSettings()
+	for name, value := range insettings {
+		expected[name] = value
+	}
+	c.Assert(outsettings, gc.DeepEquals, expected)
+	outconfig, err := wordpress.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(outconfig, gc.DeepEquals, inconfig.Attributes())
+
+	sInfo, err := wordpress.Status()
+	c.Assert(sInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(sInfo.Message, gc.Equals, "waiting for container")
+
+	// Check that retrieving the newly created application works correctly.
+	wordpress, err = st.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
+	ch, _, err = wordpress.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, ch.URL())
+}
+
+func (s *StateSuite) TestAddApplicationWithNilCharmConfigValues(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	insettings := charm.Settings{"tuning": nil}
 
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, Settings: insettings})
+	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: ch, CharmConfig: insettings})
 	c.Assert(err, jc.ErrorIsNil)
-	outsettings, err := wordpress.ConfigSettings()
+	outsettings, err := wordpress.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outsettings, gc.DeepEquals, insettings)
+	expected := ch.Config().DefaultSettings()
+	for name, value := range insettings {
+		expected[name] = value
+	}
+	c.Assert(outsettings, gc.DeepEquals, expected)
 
 	// Ensure that during creation, application settings with nil config values
 	// were stripped and not written into database.
-	dbSettings := state.GetApplicationSettings(s.State, wordpress)
+	dbSettings := state.GetApplicationCharmConfig(s.State, wordpress)
 	_, dbFound := dbSettings.Get("tuning")
 	c.Assert(dbFound, jc.IsFalse)
 }
 
-func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
+func (s *StateSuite) TestAddApplicationModelDying(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	// Check that services cannot be added if the model is initially Dying.
+	// Check that applications cannot be added if the model is initially Dying.
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.Destroy(state.DestroyModelParams{})
@@ -1555,7 +1619,7 @@ func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
 func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
@@ -1568,7 +1632,7 @@ func (s *StateSuite) TestAddApplicationRemotedAddedAfterInitial(c *gc.C) {
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-			Name: "s1", SourceModel: s.State.ModelTag()})
+			Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
@@ -1584,8 +1648,8 @@ func (s *StateSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 
 func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	// Check that a service with a name conflict cannot be added if
-	// there is no conflict initially but a local service is added
+	// Check that a application with a name conflict cannot be added if
+	// there is no conflict initially but a local application is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		s.AddTestingApplication(c, "s1", charm)
@@ -1631,7 +1695,7 @@ func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
 		"cluster": "",
 	})
 
-	// Removing the service also removes its bindings.
+	// Removing the application also removes its bindings.
 	err = svc.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = svc.Refresh()
@@ -1646,7 +1710,7 @@ func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 	_, err = s.State.AddSpace("client", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Specify some bindings, but not all when adding the service.
+	// Specify some bindings, but not all when adding the application.
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 43)
 	svc, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "yoursql",
@@ -1794,7 +1858,7 @@ func (s *StateSuite) TestAllApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(applications, gc.HasLen, 2)
 
-	// Check the returned service, order is defined by sorted keys.
+	// Check the returned application, order is defined by sorted keys.
 	names := make([]string, len(applications))
 	for i, app := range applications {
 		names[i] = app.Name()
@@ -1827,7 +1891,7 @@ var inferEndpointsTests = []struct {
 		},
 		err: `invalid endpoint ".*"`,
 	}, {
-		summary: "unknown service",
+		summary: "unknown application",
 		inputs:  [][]string{{"wooble"}},
 		err:     `application "wooble" not found`,
 	}, {
@@ -2066,7 +2130,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Dying model...
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
-	// Add a service so Destroy doesn't advance to Dead.
+	// Add a application so Destroy doesn't advance to Dead.
 	app := factory.NewFactory(st1).MakeApplication(c, nil)
 	dying, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2127,9 +2191,11 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st1.ProcessDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(model.UUID())
+	wc.AssertNoChange()
+
 	err = st1.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
 }
 
@@ -2174,12 +2240,12 @@ func (s *StateSuite) TestWatchApplicationsLifecycle(c *gc.C) {
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	// Add a service: reported.
+	// Add a application: reported.
 	service := s.AddTestingApplication(c, "application", s.AddTestingCharm(c, "dummy"))
 	wc.AssertChange("application")
 	wc.AssertNoChange()
 
-	// Change the service: not reported.
+	// Change the application: not reported.
 	keepDying, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -2204,7 +2270,7 @@ func (s *StateSuite) TestWatchApplicationsDiesOnStateClose(c *gc.C) {
 	//     Application.WatchUnits
 	//     Application.WatchRelations
 	//     Machine.WatchContainers
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchApplications()
 		<-w.Changes()
 		return w
@@ -2639,7 +2705,7 @@ func (s *StateSuite) checkUserModelNameExists(c *gc.C, args checkUserModelNameAr
 func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
 	// check to see if the model itself is gone
 	_, err := st.Model()
-	c.Assert(err, gc.ErrorMatches, `model not found`)
+	c.Assert(err, gc.ErrorMatches, `model "`+st.ModelUUID()+`" not found`)
 
 	// ensure all docs for all multiEnvCollections are removed
 	for _, collName := range state.MultiEnvCollections() {
@@ -2901,7 +2967,7 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	cur := jujuversion.Current
 	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, jc.ErrorIsNil)
-	w := s.State.WatchForModelConfigChanges()
+	w := s.model.WatchForModelConfigChanges()
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
@@ -2927,7 +2993,7 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
-	w := s.State.WatchForModelConfigChanges()
+	w := s.model.WatchForModelConfigChanges()
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
@@ -2978,12 +3044,16 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, info *mongo.MongoInfo) error {
+	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
+	if err != nil {
+		return err
+	}
+	defer session.Close()
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       session,
 	})
 	if err == nil {
 		err = st.Close()
@@ -3006,39 +3076,6 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	info.Tag, info.Password = nil, ""
 	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
 	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
-	info := statetesting.NewMongoInfo()
-	info.Addrs = []string{"0.1.2.3:1234"}
-	params := s.testOpenParams()
-	params.MongoInfo.Addrs = []string{"0.1.2.3:1234"}
-	params.MongoDialOpts.Timeout = time.Millisecond
-	st, err := state.Open(params)
-	if err == nil {
-		st.Close()
-	}
-	c.Assert(err, gc.ErrorMatches, "cannot connect to mongodb: no reachable servers")
-}
-
-func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
-	// Default mgo retry delay
-	retryDelay := 500 * time.Millisecond
-	info := statetesting.NewMongoInfo()
-	info.Addrs = []string{"0.1.2.3:1234"}
-
-	t0 := time.Now()
-	params := s.testOpenParams()
-	params.MongoInfo.Addrs = []string{"0.1.2.3:1234"}
-	params.MongoDialOpts.Timeout = time.Millisecond
-	st, err := state.Open(params)
-	if err == nil {
-		st.Close()
-	}
-	c.Assert(err, gc.ErrorMatches, "cannot connect to mongodb: no reachable servers")
-	if t1 := time.Since(t0); t1 < retryDelay {
-		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, retryDelay)
-	}
 }
 
 func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
@@ -3278,7 +3315,7 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchCleanupsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchCleanups()
 		<-w.Changes()
 		return w
@@ -3328,7 +3365,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	wordpressName := wordpress.Name()
 
-	// Add service units for later use.
+	// Add application units for later use.
 	wordpress0, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wordpress1, err := wordpress.AddUnit(state.AddUnitParams{})
@@ -3338,13 +3375,13 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	// No events should occur.
 	wc.AssertNoChange()
 
-	// Add minimum units to a service; a single change should occur.
+	// Add minimum units to a application; a single change should occur.
 	err = wordpress.SetMinUnits(2)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(wordpressName)
 	wc.AssertNoChange()
 
-	// Decrease minimum units for a service; expect no changes.
+	// Decrease minimum units for a application; expect no changes.
 	err = wordpress.SetMinUnits(1)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -3357,12 +3394,12 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertChange(mysql.Name(), wordpressName)
 	wc.AssertNoChange()
 
-	// Remove minimum units for a service; expect no changes.
+	// Remove minimum units for a application; expect no changes.
 	err = mysql.SetMinUnits(0)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Destroy a unit of a service with required minimum units.
+	// Destroy a unit of a application with required minimum units.
 	// Also avoid the unit removal. A single change should occur.
 	preventUnitDestroyRemove(c, wordpress0)
 	err = wordpress0.Destroy()
@@ -3370,7 +3407,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertChange(wordpressName)
 	wc.AssertNoChange()
 
-	// Two actions: destroy a unit and increase minimum units for a service.
+	// Two actions: destroy a unit and increase minimum units for a application.
 	// A single change should occur, and the application name should appear only
 	// one time in the change.
 	err = wordpress.SetMinUnits(5)
@@ -3380,17 +3417,17 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertChange(wordpressName)
 	wc.AssertNoChange()
 
-	// Destroy a unit of a service not requiring minimum units; expect no changes.
+	// Destroy a unit of a application not requiring minimum units; expect no changes.
 	err = mysql0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Destroy a service with required minimum units; expect no changes.
+	// Destroy a application with required minimum units; expect no changes.
 	err = wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Destroy a service not requiring minimum units; expect no changes.
+	// Destroy a application not requiring minimum units; expect no changes.
 	err = mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -3401,7 +3438,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchMinUnits()
 		<-w.Changes()
 		return w
@@ -3428,7 +3465,7 @@ func (s *StateSuite) TestWatchSubnets(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchSubnetsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchSubnets(nil)
 		<-w.Changes()
 		return w
@@ -3441,7 +3478,7 @@ func (s *StateSuite) setupWatchRemoteRelations(c *gc.C, wc statetesting.StringsW
 	wc.AssertNoChange()
 
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "mysql", SourceModel: s.State.ModelTag(),
+		Name: "mysql", SourceModel: s.IAASModel.ModelTag(),
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3533,7 +3570,7 @@ func (s *StateSuite) TestWatchRemoteRelationsDestroyLocalApplication(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchRemoteRelationsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchRemoteRelations()
 		<-w.Changes()
 		return w
@@ -3570,9 +3607,9 @@ func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {
 	c.Assert(state.IsUpgradeInProgressError(errors.Trace(state.UpgradeInProgressError)), jc.IsTrue)
 }
 
-func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
+func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	// Get the agent-version set in the model.
-	envConfig, err := s.State.ModelConfig()
+	envConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -3597,7 +3634,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify machine0 and machine1 are reported as error.
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"))
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
 	expectErr := fmt.Sprintf("some agents have not upgraded to the current model version %s: machine-0, machine-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -3624,7 +3661,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 
 	// Verify unit0 and unit1 are reported as error, along with the
 	// machines from before.
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"))
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
 	expectErr = fmt.Sprintf("some agents have not upgraded to the current model version %s: machine-0, machine-1, unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -3638,7 +3675,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	}
 
 	// Verify only the units are reported as error.
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"))
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
 	expectErr = fmt.Sprintf("some agents have not upgraded to the current model version %s: unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -3646,7 +3683,9 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 
 func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config.Config, string) {
 	// Get the agent-version set in the model.
-	envConfig, err := st.ModelConfig()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	envConfig, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -3671,18 +3710,20 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
 	attrs := envConfig.AllAttrs()
 	attrs[name] = value
-	c.Assert(s.State.UpdateModelConfig(attrs, nil), gc.IsNil)
+	c.Assert(s.IAASModel.UpdateModelConfig(attrs, nil), gc.IsNil)
 }
 
 func assertAgentVersion(c *gc.C, st *state.State, vers string) {
-	envConfig, err := st.ModelConfig()
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	envConfig, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(agentVersion.String(), gc.Equals, vers)
 }
 
-func (s *StateSuite) TestSetEnvironAgentVersionRetriesOnConfigChange(c *gc.C) {
+func (s *StateSuite) TestSetModelAgentVersionRetriesOnConfigChange(c *gc.C) {
 	envConfig, _ := s.prepareAgentVersionTests(c, s.State)
 
 	// Set up a transaction hook to change something
@@ -3693,12 +3734,12 @@ func (s *StateSuite) TestSetEnvironAgentVersionRetriesOnConfigChange(c *gc.C) {
 	}).Check()
 
 	// Change the agent-version and ensure it has changed.
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"))
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, s.State, "4.5.6")
 }
 
-func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) {
+func (s *StateSuite) TestSetModelAgentVersionSucceedsWithSameVersion(c *gc.C) {
 	envConfig, _ := s.prepareAgentVersionTests(c, s.State)
 
 	// Set up a transaction hook to change the version
@@ -3709,12 +3750,12 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 	}).Check()
 
 	// Change the agent-version and verify.
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"))
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, s.State, "4.5.6")
 }
 
-func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
+func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
 	current := version.MustParseBinary("1.24.7-trusty-amd64")
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
@@ -3726,18 +3767,18 @@ func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	higher := version.MustParseBinary("1.25.0-trusty-amd64")
 	lower := version.MustParseBinary("1.24.6-trusty-amd64")
 
-	// Set other environ version to < server environ version
-	err := otherSt.SetModelAgentVersion(lower.Number)
+	// Set other model version to < controller model version
+	err := otherSt.SetModelAgentVersion(lower.Number, false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, otherSt, lower.Number.String())
 
-	// Set other environ version == server environ version
-	err = otherSt.SetModelAgentVersion(jujuversion.Current)
+	// Set other model version == controller version
+	err = otherSt.SetModelAgentVersion(jujuversion.Current, false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, otherSt, jujuversion.Current.String())
 
-	// Set other environ version to > server environ version
-	err = otherSt.SetModelAgentVersion(higher.Number)
+	// Set other model version to > server version
+	err = otherSt.SetModelAgentVersion(higher.Number, false)
 	expected := fmt.Sprintf("a hosted model cannot have a higher version than the server model: %s > %s",
 		higher.Number,
 		jujuversion.Current,
@@ -3745,7 +3786,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, expected)
 }
 
-func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
+func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
 	envConfig, currentVersion := s.prepareAgentVersionTests(c, s.State)
 
 	// Set a hook to change the config 3 times
@@ -3756,15 +3797,33 @@ func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 		func() { s.changeEnviron(c, envConfig, "default-series", "3") },
 	}
 	defer state.SetBeforeHooks(c, s.State, changeFuncs...).Check()
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"))
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
 	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
 	// Make sure the version remained the same.
 	assertAgentVersion(c, s.State, currentVersion)
 }
 
-func (s *StateSuite) TestSetModelAgentFailsIfUpgrading(c *gc.C) {
+func (s *StateSuite) TestSetModelAgentVersionMixedVersions(c *gc.C) {
+	_, currentVersion := s.prepareAgentVersionTests(c, s.State)
+	machine, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	// Force this to something old that should not match current versions
+	err = machine.SetAgentVersion(version.MustParseBinary("1.0.1-quantal-amd64"))
+	c.Assert(err, jc.ErrorIsNil)
+	// This should be refused because an agent doesn't match "currentVersion"
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
+	c.Check(err, gc.ErrorMatches, "some agents have not upgraded to the current model version .*: machine-0")
+	// Version hasn't changed
+	assertAgentVersion(c, s.State, currentVersion)
+	// But we can force it
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), true)
+	c.Assert(err, jc.ErrorIsNil)
+	assertAgentVersion(c, s.State, "4.5.6")
+}
+
+func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	// Get the agent-version set in the model.
-	modelConfig, err := s.State.ModelConfig()
+	modelConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -3783,17 +3842,17 @@ func (s *StateSuite) TestSetModelAgentFailsIfUpgrading(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetModelAgentVersion(nextVersion)
+	err = s.State.SetModelAgentVersion(nextVersion, false)
 	c.Assert(err, jc.Satisfies, state.IsUpgradeInProgressError)
 }
 
-func (s *StateSuite) TestSetEnvironAgentFailsReportsCorrectError(c *gc.C) {
+func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {
 	// Ensure that the correct error is reported if an upgrade is
 	// progress but that isn't the reason for the
 	// SetModelAgentVersion call failing.
 
 	// Get the agent-version set in the model.
-	envConfig, err := s.State.ModelConfig()
+	envConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -3812,7 +3871,7 @@ func (s *StateSuite) TestSetEnvironAgentFailsReportsCorrectError(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.SetModelAgentVersion(nextVersion)
+	err = s.State.SetModelAgentVersion(nextVersion, false)
 	c.Assert(err, gc.ErrorMatches, "some agents have not upgraded to the current model version.+")
 }
 
@@ -3826,13 +3885,18 @@ type waiter interface {
 // event, otherwise the watcher's initialisation logic may
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
-func testWatcherDiesWhenStateCloses(c *gc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, startWatcher func(c *gc.C, st *state.State) waiter) {
+func testWatcherDiesWhenStateCloses(
+	c *gc.C,
+	session *mgo.Session,
+	modelTag names.ModelTag,
+	controllerTag names.ControllerTag,
+	startWatcher func(c *gc.C, st *state.State) waiter,
+) {
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
-		MongoInfo:          statetesting.NewMongoInfo(),
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := startWatcher(c, st)
@@ -4303,7 +4367,7 @@ func (s *StateSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
+func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	addrs, err := s.State.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
@@ -4337,6 +4401,10 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
+	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+
 	newHostPorts = [][]network.HostPort{{{
 		Address: network.Address{
 			Value: "0.2.4.6",
@@ -4351,9 +4419,13 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	gotHostPorts, err = s.State.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+
+	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
 
-func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
+func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
 	hostPorts := [][]network.HostPort{{{
 		Address: network.Address{
 			Value: "0.4.8.16",
@@ -4374,25 +4446,34 @@ func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
 	// desired value; second arrival will fail its assertion,
 	// refresh finding nothing to do, and then issue a
 	// read-only assertion that suceeds.
-
+	ctrC := state.ControllersC
 	var prevRevno int64
+	var prevAgentsRevno int64
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.State.SetAPIHostPorts(hostPorts)
 		c.Assert(err, jc.ErrorIsNil)
-		revno, err := state.TxnRevno(s.State, "controllers", "apiHostPorts")
+		revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
 		c.Assert(err, jc.ErrorIsNil)
 		prevRevno = revno
+		revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
+		c.Assert(err, jc.ErrorIsNil)
+		prevAgentsRevno = revno
 	}).Check()
 
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
-	revno, err := state.TxnRevno(s.State, "controllers", "apiHostPorts")
+
+	revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno, gc.Equals, prevRevno)
+
+	revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revno, gc.Equals, prevAgentsRevno)
 }
 
-func (s *StateSuite) TestSetAPIHostPortsConcurrentDifferent(c *gc.C) {
+func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) {
 	hostPorts0 := []network.HostPort{{
 		Address: network.Address{
 			Value: "0.4.8.16",
@@ -4414,25 +4495,149 @@ func (s *StateSuite) TestSetAPIHostPortsConcurrentDifferent(c *gc.C) {
 	// values; second arrival will fail its assertion, refresh
 	// finding and reattempt.
 
+	ctrC := state.ControllersC
 	var prevRevno int64
+	var prevAgentsRevno int64
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.State.SetAPIHostPorts([][]network.HostPort{hostPorts0})
 		c.Assert(err, jc.ErrorIsNil)
-		revno, err := state.TxnRevno(s.State, "controllers", "apiHostPorts")
+		revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
 		c.Assert(err, jc.ErrorIsNil)
 		prevRevno = revno
+		revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
+		c.Assert(err, jc.ErrorIsNil)
+		prevAgentsRevno = revno
 	}).Check()
 
 	err := s.State.SetAPIHostPorts([][]network.HostPort{hostPorts1})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
-	revno, err := state.TxnRevno(s.State, "controllers", "apiHostPorts")
+
+	revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno, gc.Not(gc.Equals), prevRevno)
+
+	revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(revno, gc.Not(gc.Equals), prevAgentsRevno)
 
 	hostPorts, err := s.State.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, [][]network.HostPort{hostPorts1})
+
+	hostPorts, err = s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hostPorts, gc.DeepEquals, [][]network.HostPort{hostPorts1})
+}
+
+func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
+	// Simulate a controller configured with a management network space.
+	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
+	c.Assert(err, jc.ErrorIsNil)
+	controllerSettings.Set("juju-mgmt-space", "mgmt01")
+	_, err = controllerSettings.Write()
+
+	addrs, err := s.State.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	hostPort1 := network.HostPort{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}
+	hostPort2 := network.HostPort{
+		Address: network.Address{
+			Value:     "0.4.8.16",
+			Type:      network.IPv4Address,
+			Scope:     network.ScopePublic,
+			SpaceName: "mgmt01",
+		},
+		Port: 2,
+	}
+	hostPort3 := network.HostPort{
+		Address: network.Address{
+			Value: "0.6.1.2",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 5,
+	}
+	newHostPorts := [][]network.HostPort{{hostPort1, hostPort2}, {hostPort3}}
+
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotHostPorts, err := s.State.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+
+	gotHostPorts, err = s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	// First slice filtered down to the address in the management space.
+	// Second filtered to zero elements, so retains the supplied slice.
+	c.Assert(gotHostPorts, jc.DeepEquals, [][]network.HostPort{{hostPort2}, {hostPort3}})
+}
+
+func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
+	addrs, err := s.State.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	newHostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}}}
+
+	// Delete the addresses for agents document before setting.
+	col := s.State.MongoSession().DB("juju").C(state.ControllersC)
+	key := "apiHostPortsForAgents"
+	err = col.RemoveId(key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
+
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+}
+
+func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
+	addrs, err := s.State.APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	newHostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}}}
+
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Delete the addresses for agents document after setting.
+	col := s.State.MongoSession().DB("juju").C(state.ControllersC)
+	key := "apiHostPortsForAgents"
+	err = col.RemoveId(key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
+
+	gotHostPorts, err := s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
 
 func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
@@ -4681,11 +4886,15 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 			DisableTLS: true,
 		},
 	}
-	authInfo := &mongo.MongoInfo{
+
+	session, err := mongo.DialWithInfo(mongo.MongoInfo{
 		Info:     noAuthInfo.Info,
 		Tag:      owner,
 		Password: password,
-	}
+	}, mongotest.DialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
+
 	cfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
 	ctlr, st, err := state.Initialize(state.InitializeParams{
@@ -4703,8 +4912,8 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
-		MongoInfo:     authInfo,
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:  session,
+		AdminPassword: password,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -4720,7 +4929,9 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	err = st.MongoSession().DB("admin").Login("admin", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = tryOpenState(st.ModelTag(), st.ControllerTag(), noAuthInfo)
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = tryOpenState(m.ModelTag(), st.ControllerTag(), noAuthInfo)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 	// note: collections are set up in arbitrary order, proximate cause of
 	// failure may differ.
@@ -4734,13 +4945,13 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	// creating users. There were some checks for unsetting the
 	// password and then creating the state in an older version of
 	// this test, but they couldn't be made to work with 3.2.
-	err = tryOpenState(st.ModelTag(), st.ControllerTag(), &passwordOnlyInfo)
+	err = tryOpenState(m.ModelTag(), st.ControllerTag(), &passwordOnlyInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StateSuite) setUpWatchRelationNetworkScenario(c *gc.C) *state.Relation {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "mysql", SourceModel: s.State.ModelTag(),
+		Name: "mysql", SourceModel: s.IAASModel.ModelTag(),
 		Endpoints: []charm.Relation{{Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -4885,7 +5096,6 @@ func (s *StateSuite) testOpenParams() state.OpenParams {
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
-		MongoInfo:          statetesting.NewMongoInfo(),
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	}
 }

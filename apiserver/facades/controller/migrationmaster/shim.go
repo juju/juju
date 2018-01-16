@@ -16,7 +16,8 @@ import (
 // NewFacade exists to provide the required signature for API
 // registration, converting st to backend.
 func NewFacade(ctx facade.Context) (*API, error) {
-	precheckBackend, err := migration.PrecheckShim(ctx.State())
+	controllerState := ctx.StatePool().SystemState()
+	precheckBackend, err := migration.PrecheckShim(ctx.State(), controllerState)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating precheck backend")
 	}
@@ -55,7 +56,12 @@ func (s *backendShim) ModelOwner() (names.UserTag, error) {
 
 // AgentVersion implements Backend.
 func (s *backendShim) AgentVersion() (version.Number, error) {
-	cfg, err := s.ModelConfig()
+	m, err := s.Model()
+	if err != nil {
+		return version.Zero, errors.Trace(err)
+	}
+
+	cfg, err := m.ModelConfig()
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}

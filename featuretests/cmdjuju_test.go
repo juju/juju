@@ -5,13 +5,17 @@ package featuretests
 
 import (
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/juju/testing/factory"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/constraints"
+	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -27,6 +31,11 @@ type cmdJujuSuite struct {
 
 func uint64p(val uint64) *uint64 {
 	return &val
+}
+
+func (s *cmdJujuSuite) SetUpSuite(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CAAS)
+	s.JujuConnSuite.SetUpSuite(c)
 }
 
 func (s *cmdJujuSuite) TestSetConstraints(c *gc.C) {
@@ -51,11 +60,19 @@ func (s *cmdJujuSuite) TestGetConstraints(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }
 
-func (s *cmdJujuSuite) TestServiceSet(c *gc.C) {
-	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "dummy-service", ch)
+func (s *cmdJujuSuite) combinedSettings(ch *state.Charm, inSettings charm.Settings) charm.Settings {
+	result := ch.Config().DefaultSettings()
+	for name, value := range inSettings {
+		result[name] = value
+	}
+	return result
+}
 
-	_, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-service",
+func (s *cmdJujuSuite) TestApplicationSet(c *gc.C) {
+	ch := s.AddTestingCharm(c, "dummy")
+	app := s.AddTestingApplication(c, "dummy-application", ch)
+
+	_, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application",
 		"username=hello", "outlook=hello@world.tld")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -64,66 +81,177 @@ func (s *cmdJujuSuite) TestServiceSet(c *gc.C) {
 		"outlook":  "hello@world.tld",
 	}
 
-	settings, err := app.ConfigSettings()
+	settings, err := app.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expect)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, expect))
 }
 
-func (s *cmdJujuSuite) TestServiceUnset(c *gc.C) {
+func (s *cmdJujuSuite) TestApplicationUnset(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "dummy-service", ch)
+	app := s.AddTestingApplication(c, "dummy-application", ch)
 
 	settings := charm.Settings{
 		"username": "hello",
 		"outlook":  "hello@world.tld",
 	}
 
-	err := app.UpdateConfigSettings(settings)
+	err := app.UpdateCharmConfig(settings)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-service", "--reset", "username")
+	_, err = cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application", "--reset", "username")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect := charm.Settings{
 		"outlook": "hello@world.tld",
 	}
-	settings, err = app.ConfigSettings()
+	settings, err = app.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, expect)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(ch, expect))
 }
 
-func (s *cmdJujuSuite) TestServiceGet(c *gc.C) {
-	expected := `application: dummy-service
+func (s *cmdJujuSuite) TestApplicationGetIAASModel(c *gc.C) {
+	expected := `application: dummy-application
 charm: dummy
 settings:
   outlook:
     description: No default outlook.
-    is_default: true
+    source: unset
     type: string
   skill-level:
     description: A number indicating skill.
-    is_default: true
+    source: unset
     type: int
   title:
+    default: My Title
     description: A descriptive title used for the application.
-    is_default: true
+    source: default
     type: string
     value: My Title
   username:
+    default: admin001
     description: The name of the initial account (given admin permissions).
-    is_default: true
+    source: default
     type: string
     value: admin001
 `
 	ch := s.AddTestingCharm(c, "dummy")
-	s.AddTestingApplication(c, "dummy-service", ch)
+	s.AddTestingApplication(c, "dummy-application", ch)
 
-	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-service")
+	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
 }
 
-func (s *cmdJujuSuite) TestServiceGetWeirdYAML(c *gc.C) {
+func (s *cmdJujuSuite) TestApplicationGetCAASModel(c *gc.C) {
+	expected := `application: dummy-application
+application-config:
+  juju-application-path:
+    default: /
+    description: the relative http path used to access an application
+    source: default
+    type: string
+    value: /
+  juju-external-hostname:
+    description: the external hostname of an exposed application
+    source: user
+    type: string
+    value: ext-host
+  kubernetes-ingress-allow-http:
+    default: false
+    description: whether to allow HTTP traffic to the ingress controller
+    source: default
+    type: bool
+    value: false
+  kubernetes-ingress-class:
+    default: nginx
+    description: the class of the ingress controller to be used by the ingress resource
+    source: default
+    type: string
+    value: nginx
+  kubernetes-ingress-ssl-passthrough:
+    default: false
+    description: whether to passthrough SSL traffic to the ingress controller
+    source: default
+    type: bool
+    value: false
+  kubernetes-ingress-ssl-redirect:
+    default: false
+    description: whether to redirect SSL traffic to the ingress controller
+    source: default
+    type: bool
+    value: false
+  kubernetes-service-external-ips:
+    description: list of IP addresses for which nodes in the cluster will also accept
+      traffic
+    source: unset
+    type: string
+  kubernetes-service-externalname:
+    description: external reference that kubedns or equivalent will return as a CNAME
+      record
+    source: unset
+    type: string
+  kubernetes-service-loadbalancer-ip:
+    description: LoadBalancer will get created with the IP specified in this field
+    source: unset
+    type: string
+  kubernetes-service-loadbalancer-sourceranges:
+    description: traffic through the load-balancer will be restricted to the specified
+      client IPs
+    source: unset
+    type: string
+  kubernetes-service-target-port:
+    description: name or number of the port to access on the pods targeted by the
+      service
+    source: unset
+    type: string
+  kubernetes-service-type:
+    default: ClusterIP
+    description: determines how the Service is exposed
+    source: default
+    type: string
+    value: ClusterIP
+charm: dummy
+settings:
+  outlook:
+    description: No default outlook.
+    source: unset
+    type: string
+  skill-level:
+    description: A number indicating skill.
+    source: unset
+    type: int
+  title:
+    default: My Title
+    description: A descriptive title used for the application.
+    source: default
+    type: string
+    value: My Title
+  username:
+    default: admin001
+    description: The name of the initial account (given admin permissions).
+    source: default
+    type: string
+    value: admin001
+`
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "dummy-application", Charm: ch})
+	schema, err := caas.ConfigSchema(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, schema, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "-m", "caas-model", "dummy-application")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
+}
+
+func (s *cmdJujuSuite) TestApplicationGetWeirdYAML(c *gc.C) {
 	// This test has been confirmed to pass with the patch/goyaml-pr-241.diff
 	// applied to the current gopkg.in/yaml.v2 revision, however since our standard
 	// local test tooling doesn't apply patches, this test would fail without it.
@@ -157,7 +285,7 @@ settings:
 	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
 }
 
-func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
+func (s *cmdJujuSuite) TestApplicationAddUnitExistingContainer(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	app := s.AddTestingApplication(c, "some-application-name", ch)
 
@@ -179,4 +307,45 @@ func (s *cmdJujuSuite) TestServiceAddUnitExistingContainer(c *gc.C) {
 	mid, err := units[0].AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mid, gc.Equals, container.Id())
+}
+
+type cmdJujuSuiteNoCAAS struct {
+	jujutesting.JujuConnSuite
+}
+
+func (s *cmdJujuSuiteNoCAAS) TestApplicationGet(c *gc.C) {
+	expected := `application: dummy-application
+charm: dummy
+settings:
+  outlook:
+    description: No default outlook.
+    source: unset
+    type: string
+  skill-level:
+    description: A number indicating skill.
+    source: unset
+    type: int
+  title:
+    default: My Title
+    description: A descriptive title used for the application.
+    source: default
+    type: string
+    value: My Title
+  username:
+    default: admin001
+    description: The name of the initial account (given admin permissions).
+    source: default
+    type: string
+    value: admin001
+`
+	ch := s.AddTestingCharm(c, "dummy")
+	app := s.AddTestingApplication(c, "dummy-application", ch)
+	schema, err := caas.ConfigSchema(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.UpdateApplicationConfig(coreapplication.ConfigAttributes{"juju-external-hostname": "ext-host"}, nil, schema, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := cmdtesting.RunCommand(c, application.NewConfigCommand(), "dummy-application")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
 }

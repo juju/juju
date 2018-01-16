@@ -25,9 +25,12 @@ type FirewallRule struct {
 
 	// WhitelistCIDRS is the ist of subnets allowed access.
 	WhitelistCIDRS []string `json:"whitelist-cidrs,omitempty"`
+}
 
-	// BlacklistCIDRS is the ist of subnets denied access.
-	BlacklistCIDRS []string `json:"blacklist-cidrs,omitempty"`
+// KnownServiceArgs holds the parameters for retrieving firewall rules.
+type KnownServiceArgs struct {
+	// KnownServices are the well known services for a firewall rule.
+	KnownServices []KnownServiceValue `json:"known-services"`
 }
 
 // KnownServiceValue describes a well known service for which a

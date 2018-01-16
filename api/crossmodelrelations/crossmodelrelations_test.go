@@ -4,6 +4,8 @@
 package crossmodelrelations_test
 
 import (
+	"encoding/json"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
@@ -51,6 +53,13 @@ func (s *CrossModelRelationsSuite) newDischargeMacaroon(c *gc.C) *macaroon.Macar
 	err = mac.AddThirdPartyCaveat(nil, "third party caveat", "third party location")
 	c.Assert(err, jc.ErrorIsNil)
 	return mac
+}
+
+func (s *CrossModelRelationsSuite) fillResponse(c *gc.C, resp interface{}, value interface{}) {
+	b, err := json.Marshal(value)
+	c.Assert(err, jc.ErrorIsNil)
+	err = json.Unmarshal(b, resp)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *CrossModelRelationsSuite) TestPublishRelationChange(c *gc.C) {
@@ -104,7 +113,7 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChangeDischargeRequired(c 
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		resultErr := &params.Error{Message: "FAIL"}
+		var resultErr *params.Error
 		if callCount == 0 {
 			mac = s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
@@ -116,9 +125,10 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChangeDischargeRequired(c 
 		}
 		argParam := arg.(params.RemoteRelationsChanges)
 		dischargeMac = argParam.Changes[0].Macaroons
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
+		resp := params.ErrorResults{
 			Results: []params.ErrorResult{{Error: resultErr}},
 		}
+		s.fillResponse(c, result, resp)
 		callCount++
 		return nil
 	})
@@ -130,7 +140,7 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChangeDischargeRequired(c 
 		DepartedUnits: []int{1},
 	})
 	c.Check(callCount, gc.Equals, 2)
-	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(dischargeMac, gc.HasLen, 2)
 	c.Assert(dischargeMac[0], jc.DeepEquals, mac)
 	c.Assert(dischargeMac[1].Id(), gc.Equals, "discharge mac")
@@ -211,7 +221,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		resultErr := &params.Error{Message: "FAIL"}
+		var resultErr *params.Error
 		if callCount == 0 {
 			mac = s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
@@ -223,9 +233,10 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c
 		}
 		argParam := arg.(params.RegisterRemoteRelationArgs)
 		dischargeMac = argParam.Relations[0].Macaroons
-		*(result.(*params.RegisterRemoteRelationResults)) = params.RegisterRemoteRelationResults{
+		resp := params.RegisterRemoteRelationResults{
 			Results: []params.RegisterRemoteRelationResult{{Error: resultErr}},
 		}
+		s.fillResponse(c, result, resp)
 		callCount++
 		return nil
 	})
@@ -238,7 +249,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 2)
 	c.Assert(result, gc.HasLen, 1)
-	c.Check(result[0].Error, gc.ErrorMatches, "FAIL")
+	c.Check(result[0].Error, gc.IsNil)
 	c.Check(dischargeMac, gc.HasLen, 2)
 	c.Assert(dischargeMac[0], jc.DeepEquals, mac)
 	c.Assert(dischargeMac[1].Id(), gc.Equals, "discharge mac")
@@ -296,7 +307,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationUnitsDischargeRequired(c *gc
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		resultErr := &params.Error{Message: "FAIL"}
+		var resultErr *params.Error
 		switch callCount {
 		case 2, 3: //Watcher Next, Stop
 			return nil
@@ -312,9 +323,10 @@ func (s *CrossModelRelationsSuite) TestWatchRelationUnitsDischargeRequired(c *gc
 			argParam := arg.(params.RemoteEntityArgs)
 			dischargeMac = argParam.Args[0].Macaroons
 		}
-		*(result.(*params.RelationUnitsWatchResults)) = params.RelationUnitsWatchResults{
+		resp := params.RelationUnitsWatchResults{
 			Results: []params.RelationUnitsWatchResult{{Error: resultErr}},
 		}
+		s.fillResponse(c, result, resp)
 		callCount++
 		return nil
 	})
@@ -323,7 +335,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationUnitsDischargeRequired(c *gc
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
 	_, err := client.WatchRelationUnits(params.RemoteEntityArg{Token: "token"})
 	c.Check(callCount, gc.Equals, 2)
-	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(dischargeMac, gc.HasLen, 2)
 	c.Assert(dischargeMac[0], jc.DeepEquals, mac)
 	c.Assert(dischargeMac[1].Id(), gc.Equals, "discharge mac")
@@ -382,7 +394,7 @@ func (s *CrossModelRelationsSuite) TestRelationUnitSettingsDischargeRequired(c *
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		resultErr := &params.Error{Message: "FAIL"}
+		var resultErr *params.Error
 		if callCount == 0 {
 			mac = s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
@@ -394,9 +406,10 @@ func (s *CrossModelRelationsSuite) TestRelationUnitSettingsDischargeRequired(c *
 		}
 		argParam := arg.(params.RemoteRelationUnits)
 		dischargeMac = argParam.RelationUnits[0].Macaroons
-		*(result.(*params.SettingsResults)) = params.SettingsResults{
+		resp := params.SettingsResults{
 			Results: []params.SettingsResult{{Error: resultErr}},
 		}
+		s.fillResponse(c, result, resp)
 		callCount++
 		return nil
 	})
@@ -408,7 +421,7 @@ func (s *CrossModelRelationsSuite) TestRelationUnitSettingsDischargeRequired(c *
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 2)
 	c.Assert(result, gc.HasLen, 1)
-	c.Check(result[0].Error, gc.ErrorMatches, "FAIL")
+	c.Check(result[0].Error, gc.IsNil)
 	c.Check(dischargeMac, gc.HasLen, 2)
 	c.Assert(dischargeMac[0], jc.DeepEquals, mac)
 	c.Assert(dischargeMac[1].Id(), gc.Equals, "discharge mac")
@@ -430,10 +443,10 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(arg, jc.DeepEquals, params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
 			Token: remoteRelationToken, Macaroons: macaroon.Slice{mac}}}})
-		c.Check(request, gc.Equals, "WatchRelationsStatus")
+		c.Check(request, gc.Equals, "WatchRelationsSuspendedStatus")
 		c.Assert(result, gc.FitsTypeOf, &params.RelationStatusWatchResults{})
 		*(result.(*params.RelationStatusWatchResults)) = params.RelationStatusWatchResults{
-			Results: []params.RelationStatusWatchResult{{
+			Results: []params.RelationLifeSuspendedStatusWatchResult{{
 				Error: &params.Error{Message: "FAIL"},
 			}},
 		}
@@ -441,7 +454,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 		return nil
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
-	_, err = client.WatchRelationStatus(params.RemoteEntityArg{
+	_, err = client.WatchRelationSuspendedStatus(params.RemoteEntityArg{
 		Token:     remoteRelationToken,
 		Macaroons: macaroon.Slice{mac},
 	})
@@ -451,7 +464,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 	different, err := macaroon.New(nil, "different", "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
-	_, err = client.WatchRelationStatus(params.RemoteEntityArg{
+	_, err = client.WatchRelationSuspendedStatus(params.RemoteEntityArg{
 		Token:     remoteRelationToken,
 		Macaroons: macaroon.Slice{different},
 	})
@@ -466,7 +479,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *g
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		resultErr := &params.Error{Message: "FAIL"}
+		var resultErr *params.Error
 		switch callCount {
 		case 2, 3: //Watcher Next, Stop
 			return nil
@@ -482,18 +495,19 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *g
 			argParam := arg.(params.RemoteEntityArgs)
 			dischargeMac = argParam.Args[0].Macaroons
 		}
-		*(result.(*params.RelationStatusWatchResults)) = params.RelationStatusWatchResults{
-			Results: []params.RelationStatusWatchResult{{Error: resultErr}},
+		resp := params.RelationStatusWatchResults{
+			Results: []params.RelationLifeSuspendedStatusWatchResult{{Error: resultErr}},
 		}
+		s.fillResponse(c, result, resp)
 		callCount++
 		return nil
 	})
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
-	_, err := client.WatchRelationStatus(params.RemoteEntityArg{Token: "token"})
+	_, err := client.WatchRelationSuspendedStatus(params.RemoteEntityArg{Token: "token"})
 	c.Check(callCount, gc.Equals, 2)
-	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(dischargeMac, gc.HasLen, 2)
 	c.Assert(dischargeMac[0], jc.DeepEquals, mac)
 	c.Assert(dischargeMac[1].Id(), gc.Equals, "discharge mac")
@@ -551,7 +565,7 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChangeDischargeRequi
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		resultErr := &params.Error{Message: "FAIL"}
+		var resultErr *params.Error
 		if callCount == 0 {
 			mac = s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
@@ -563,9 +577,10 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChangeDischargeRequi
 		}
 		argParam := arg.(params.IngressNetworksChanges)
 		dischargeMac = argParam.Changes[0].Macaroons
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
+		resp := params.ErrorResults{
 			Results: []params.ErrorResult{{Error: resultErr}},
 		}
+		s.fillResponse(c, result, resp)
 		callCount++
 		return nil
 	})
@@ -576,7 +591,7 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChangeDischargeRequi
 		RelationToken: "token",
 		Networks:      []string{"1.2.3.4/32"}})
 	c.Check(callCount, gc.Equals, 2)
-	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(dischargeMac, gc.HasLen, 2)
 	c.Assert(dischargeMac[0], jc.DeepEquals, mac)
 	c.Assert(dischargeMac[1].Id(), gc.Equals, "discharge mac")
@@ -632,7 +647,7 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeR
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		resultErr := &params.Error{Message: "FAIL"}
+		var resultErr *params.Error
 		switch callCount {
 		case 2, 3: //Watcher Next, Stop
 			return nil
@@ -648,9 +663,10 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeR
 			argParam := arg.(params.RemoteEntityArgs)
 			dischargeMac = argParam.Args[0].Macaroons
 		}
-		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+		resp := params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{Error: resultErr}},
 		}
+		s.fillResponse(c, result, resp)
 		callCount++
 		return nil
 	})
@@ -659,12 +675,98 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeR
 	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
 	_, err := client.WatchEgressAddressesForRelation(params.RemoteEntityArg{Token: "token"})
 	c.Check(callCount, gc.Equals, 2)
-	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(dischargeMac, gc.HasLen, 2)
 	c.Assert(dischargeMac[0], jc.DeepEquals, mac)
 	c.Assert(dischargeMac[1].Id(), gc.Equals, "discharge mac")
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(ms[0], jc.DeepEquals, mac)
+	c.Assert(ms[1].Id(), gc.Equals, "discharge mac")
+}
+
+func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
+	offerUUID := "offer-uuid"
+	mac, err := macaroon.New(nil, "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CrossModelRelations")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(arg, jc.DeepEquals, params.OfferArgs{Args: []params.OfferArg{{
+			OfferUUID: offerUUID, Macaroons: macaroon.Slice{mac}}}})
+		c.Check(request, gc.Equals, "WatchOfferStatus")
+		c.Assert(result, gc.FitsTypeOf, &params.OfferStatusWatchResults{})
+		*(result.(*params.OfferStatusWatchResults)) = params.OfferStatusWatchResults{
+			Results: []params.OfferStatusWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
+	_, err = client.WatchOfferStatus(params.OfferArg{
+		OfferUUID: offerUUID,
+		Macaroons: macaroon.Slice{mac},
+	})
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	// Call again with a different macaroon but the first one will be
+	// cached and override the passed in macaroon.
+	different, err := macaroon.New(nil, "different", "")
+	c.Assert(err, jc.ErrorIsNil)
+	s.cache.Upsert("offer-uuid", macaroon.Slice{mac})
+	_, err = client.WatchOfferStatus(params.OfferArg{
+		OfferUUID: offerUUID,
+		Macaroons: macaroon.Slice{different},
+	})
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 2)
+}
+
+func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *gc.C) {
+	var (
+		callCount    int
+		mac          *macaroon.Macaroon
+		dischargeMac macaroon.Slice
+	)
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		var resultErr *params.Error
+		switch callCount {
+		case 2, 3: //Watcher Next, Stop
+			return nil
+		case 0:
+			mac = s.newDischargeMacaroon(c)
+			resultErr = &params.Error{
+				Code: params.CodeDischargeRequired,
+				Info: &params.ErrorInfo{
+					Macaroon: mac,
+				},
+			}
+		case 1:
+			argParam := arg.(params.OfferArgs)
+			dischargeMac = argParam.Args[0].Macaroons
+		}
+		resp := params.OfferStatusWatchResults{
+			Results: []params.OfferStatusWatchResult{{Error: resultErr}},
+		}
+		s.fillResponse(c, result, resp)
+		callCount++
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err := client.WatchOfferStatus(params.OfferArg{OfferUUID: "offer-uuid"})
+	c.Check(callCount, gc.Equals, 2)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(dischargeMac, gc.HasLen, 2)
+	c.Assert(dischargeMac[0], jc.DeepEquals, mac)
+	c.Assert(dischargeMac[1].Id(), gc.Equals, "discharge mac")
+	// Macaroon has been cached.
+	ms, ok := s.cache.Get("offer-uuid")
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(ms[0], jc.DeepEquals, mac)
 	c.Assert(ms[1].Id(), gc.Equals, "discharge mac")

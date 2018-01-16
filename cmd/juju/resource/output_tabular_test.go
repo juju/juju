@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/resource"
@@ -76,11 +76,11 @@ func (s *CharmTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
 Resource      Revision
-spam          1
+avatar        1
 eggs          2
 somethingbig  1
 song          1
-avatar        1
+spam          1
 `[1:])
 }
 
@@ -98,7 +98,7 @@ type SvcTabularSuite struct {
 
 func (s *SvcTabularSuite) formatTabular(c *gc.C, value interface{}) string {
 	out := &bytes.Buffer{}
-	err := resourcecmd.FormatSvcTabular(out, value)
+	err := resourcecmd.FormatAppTabular(out, value)
 	c.Assert(err, jc.ErrorIsNil)
 	return out.String()
 }
@@ -117,13 +117,12 @@ func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 		Timestamp: time.Now(),
 	}
 
-	formatted := resourcecmd.FormattedServiceInfo{
-		Resources: []resourcecmd.FormattedSvcResource{resourcecmd.FormatSvcResource(res)},
+	formatted := resourcecmd.FormattedApplicationInfo{
+		Resources: []resourcecmd.FormattedAppResource{resourcecmd.FormatAppResource(res)},
 	}
 
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
-[Service]
 Resource  Supplied by  Revision
 openjdk   charmstore   7
 `[1:])
@@ -143,13 +142,12 @@ func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
 		Timestamp: time.Now(),
 	}
 
-	formatted := []resourcecmd.FormattedUnitResource{
-		resourcecmd.FormattedUnitResource(resourcecmd.FormatSvcResource(res)),
+	formatted := []resourcecmd.FormattedAppResource{
+		resourcecmd.FormatAppResource(res),
 	}
 
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
-[Unit]
 Resource  Revision
 openjdk   7
 `[1:])
@@ -243,7 +241,7 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 		},
 	}
 
-	formatted, err := resourcecmd.FormatServiceResources(resource.ServiceResources{
+	formatted, err := resourcecmd.FormatApplicationResources(resource.ServiceResources{
 		Resources:           res,
 		CharmStoreResources: charmResources,
 	})
@@ -252,11 +250,10 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 	data := s.formatTabular(c, formatted)
 	// Notes: sorted by name, then by revision, newest first.
 	c.Check(data, gc.Equals, `
-[Service]
 Resource  Supplied by  Revision
 openjdk   charmstore   7
-website   upload       -
 openjdk2  charmstore   8
+website   upload       -
 website2  Bill User    2012-12-12T12:12
 
 [Updates Available]
@@ -267,7 +264,7 @@ openjdk   10
 
 func (s *SvcTabularSuite) TestFormatSvcTabularBadValue(c *gc.C) {
 	bogus := "should have been something else"
-	err := resourcecmd.FormatSvcTabular(nil, bogus)
+	err := resourcecmd.FormatAppTabular(nil, bogus)
 	c.Check(err, gc.ErrorMatches, `unexpected type for data: string`)
 }
 
@@ -275,7 +272,7 @@ func (s *SvcTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
 	res := charmRes(c, "spam", ".tgz", "...", "")
 	updates := []resourcecmd.FormattedCharmResource{resourcecmd.FormatCharmResource(res)}
 
-	data := resourcecmd.FormattedServiceDetails{
+	data := resourcecmd.FormattedApplicationDetails{
 		Resources: []resourcecmd.FormattedDetailResource{
 			{
 				UnitID:      "svc/10",
@@ -298,10 +295,9 @@ func (s *SvcTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
 
 	output := s.formatTabular(c, data)
 	c.Assert(output, gc.Equals, `
-[Units]
-Unit  Resource  Revision  Expected
-5     config    combRev2  combRev3
-10    data      combRev1  combRev1 (fetching: 17%)
+Unit    Resource  Revision  Expected
+svc/5   config    combRev2  combRev3
+svc/10  data      combRev1  combRev1 (fetching: 17%)
 
 [Updates Available]
 Resource  Revision
@@ -330,22 +326,21 @@ func (s *SvcTabularSuite) TestFormatUnitDetailsOkay(c *gc.C) {
 
 	output := s.formatTabular(c, data)
 	c.Assert(output, gc.Equals, `
-[Unit]
 Resource  Revision  Expected
 config    combRev2  combRev3 (fetching: 91%)
 data      combRev1  combRev1
 `[1:])
 }
 
-func fakeFmtSvcRes(name, suffix string) resourcecmd.FormattedSvcResource {
-	return resourcecmd.FormattedSvcResource{
+func fakeFmtSvcRes(name, suffix string) resourcecmd.FormattedAppResource {
+	return resourcecmd.FormattedAppResource{
 		ID:               "ID" + suffix,
 		ApplicationID:    "svc",
 		Name:             name,
 		Type:             "Type" + suffix,
 		Path:             "Path + suffix",
 		Description:      "Desc" + suffix,
-		Revision:         1,
+		Revision:         "1",
 		Fingerprint:      "Fingerprint" + suffix,
 		Size:             100,
 		Origin:           "Origin" + suffix,

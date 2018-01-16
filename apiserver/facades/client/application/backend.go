@@ -4,12 +4,16 @@
 package application
 
 import (
-	"gopkg.in/juju/charm.v6-unstable"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"github.com/juju/errors"
+	"github.com/juju/schema"
+	"gopkg.in/juju/charm.v6"
+	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -25,6 +29,7 @@ type Backend interface {
 
 	AllModelUUIDs() ([]string, error)
 	Application(string) (Application, error)
+	ApplyOperation(state.ModelOperation) error
 	AddApplication(state.AddApplicationArgs) (Application, error)
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
@@ -35,6 +40,7 @@ type Backend interface {
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	Machine(string) (Machine, error)
 	ModelTag() names.ModelTag
+	ModelType() state.ModelType
 	Unit(string) (Unit, error)
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
 	ControllerTag() names.ControllerTag
@@ -62,9 +68,10 @@ type Application interface {
 	CharmURL() (*charm.URL, bool)
 	Channel() csparams.Channel
 	ClearExposed() error
-	ConfigSettings() (charm.Settings, error)
+	CharmConfig() (charm.Settings, error)
 	Constraints() (constraints.Value, error)
 	Destroy() error
+	DestroyOperation() *state.DestroyApplicationOperation
 	Endpoints() ([]state.Endpoint, error)
 	IsPrincipal() bool
 	Series() string
@@ -74,7 +81,9 @@ type Application interface {
 	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationSeries(string, bool) error
-	UpdateConfigSettings(charm.Settings) error
+	UpdateCharmConfig(charm.Settings) error
+	ApplicationConfig() (application.ConfigAttributes, error)
+	UpdateApplicationConfig(application.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 }
 
 // Charm defines a subset of the functionality provided by the
@@ -101,6 +110,9 @@ type Relation interface {
 	Tag() names.Tag
 	Destroy() error
 	Endpoint(string) (state.Endpoint, error)
+	SetSuspended(bool, string) error
+	Suspended() bool
+	SuspendedReason() string
 }
 
 // Unit defines a subset of the functionality provided by the
@@ -110,6 +122,7 @@ type Relation interface {
 type Unit interface {
 	UnitTag() names.UnitTag
 	Destroy() error
+	DestroyOperation() *state.DestroyUnitOperation
 	IsPrincipal() bool
 	Life() state.Life
 
@@ -122,9 +135,11 @@ type Unit interface {
 // details on the methods, see the methods on state.Model with
 // the same names.
 type Model interface {
-	Tag() names.Tag
+	ModelTag() names.ModelTag
 	Name() string
 	Owner() names.UserTag
+	Tag() names.Tag
+	Type() state.ModelType
 }
 
 // Resources defines a subset of the functionality provided by the
@@ -134,9 +149,12 @@ type Resources interface {
 	RemovePendingAppResources(string, map[string]string) error
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
 	*state.IAASModel
+	*state.CAASModel
 }
 
 type ExternalController state.ExternalController
@@ -146,16 +164,39 @@ func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, mode
 	return api.Save(controllerInfo, modelUUID)
 }
 
+func (s stateShim) model() Model {
+	if s.IAASModel != nil {
+		return s.IAASModel
+	}
+	return s.CAASModel
+}
+
+func (s stateShim) ModelTag() names.ModelTag {
+	return s.model().ModelTag()
+}
+
+func (s stateShim) ModelType() state.ModelType {
+	return s.model().Type()
+}
+
 // NewStateBackend converts a state.State into a Backend.
 func NewStateBackend(st *state.State) (Backend, error) {
-	im, err := st.IAASModel()
+	m, err := st.Model()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return &stateShim{
-		State:     st,
-		IAASModel: im,
-	}, nil
+
+	result := &stateShim{State: st}
+	if m.Type() == state.ModelTypeIAAS {
+		result.IAASModel, err = m.IAASModel()
+	} else {
+		result.CAASModel, err = m.CAASModel()
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "could not convert state into either IAAS or CAASModel")
+	}
+
+	return result, nil
 }
 
 // NewStateApplication converts a state.Application into an Application.

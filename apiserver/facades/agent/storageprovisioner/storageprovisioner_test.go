@@ -870,7 +870,7 @@ func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{s.State.ModelTag().String()},
+		{s.IAASModel.ModelTag().String()},
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"machine-1"},
 		{"machine-42"}},
@@ -910,7 +910,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{s.State.ModelTag().String()},
+		{s.IAASModel.ModelTag().String()},
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"machine-1"},
 		{"machine-42"}},
@@ -971,7 +971,7 @@ func (s *provisionerSuite) TestWatchFilesystems(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{s.State.ModelTag().String()},
+		{s.IAASModel.ModelTag().String()},
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"machine-1"},
 		{"machine-42"}},
@@ -1016,7 +1016,7 @@ func (s *provisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{s.State.ModelTag().String()},
+		{s.IAASModel.ModelTag().String()},
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"machine-1"},
 		{"machine-42"}},

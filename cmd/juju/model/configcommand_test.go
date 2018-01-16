@@ -220,6 +220,47 @@ func (s *ConfigCommandSuite) TestPassesValues(c *gc.C) {
 	c.Assert(s.fake.values, jc.DeepEquals, expected)
 }
 
+func (s *ConfigCommandSuite) TestPassesCloudInitUserDataLong(c *gc.C) {
+	modelCfg, err := s.fake.ModelGet()
+	modelCfg["cloudinit-userdata"] = "test data"
+	err = s.fake.ModelSet(modelCfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := s.run(c, "cloudinit-userdata")
+	c.Assert(err, jc.ErrorIsNil)
+	output := cmdtesting.Stdout(context)
+	c.Assert(output, gc.Equals, "test data\n")
+
+	context2, err := s.run(c)
+	c.Assert(err, jc.ErrorIsNil)
+	output2 := cmdtesting.Stdout(context2)
+	expected2 := "" +
+		"Attribute           From   Value\n" +
+		"cloudinit-userdata  model  <value set, see juju model-config cloudinit-userdata>\n" +
+		"running             model  true\n" +
+		"special             model  special value\n" +
+		"\n"
+	c.Assert(output2, gc.Equals, expected2)
+}
+
+func (s *ConfigCommandSuite) TestPassesCloudInitUserDataShort(c *gc.C) {
+	modelCfg, err := s.fake.ModelGet()
+	modelCfg["cloudinit-userdata"] = ""
+	err = s.fake.ModelSet(modelCfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := s.run(c)
+	c.Assert(err, jc.ErrorIsNil)
+	output := cmdtesting.Stdout(context)
+	expected := "" +
+		"Attribute           From   Value\n" +
+		"cloudinit-userdata  model  \"\"\n" +
+		"running             model  true\n" +
+		"special             model  special value\n" +
+		"\n"
+	c.Assert(output, gc.Equals, expected)
+}
+
 func (s *ConfigCommandSuite) TestSettingUnknownValue(c *gc.C) {
 	_, err := s.run(c, "special=extra", "unknown=foo")
 	c.Assert(err, jc.ErrorIsNil)

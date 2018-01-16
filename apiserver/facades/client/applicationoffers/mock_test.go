@@ -9,8 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
-	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
@@ -306,6 +305,15 @@ func (m *mockApplicationOffers) ListOffers(filters ...jujucrossmodel.Application
 	return result, nil
 }
 
+func (m *mockApplicationOffers) Remove(name string) error {
+	_, ok := m.st.applicationOffers[name]
+	if !ok {
+		return errors.NotFoundf("application offer %q", name)
+	}
+	delete(m.st.applicationOffers, name)
+	return nil
+}
+
 type offerAccess struct {
 	user      names.UserTag
 	offerUUID string
@@ -317,7 +325,7 @@ type mockState struct {
 	modelUUID         string
 	model             applicationoffers.Model
 	allmodels         []applicationoffers.Model
-	users             set.Strings
+	users             map[string]applicationoffers.User
 	applications      map[string]crossmodel.Application
 	applicationOffers map[string]jujucrossmodel.ApplicationOffer
 	spaces            map[string]applicationoffers.Space
@@ -398,6 +406,22 @@ func (m *mockState) OfferConnections(offerUUID string) ([]applicationoffers.Offe
 	return m.connections, nil
 }
 
+func (m *mockState) User(tag names.UserTag) (applicationoffers.User, error) {
+	user, ok := m.users[tag.Id()]
+	if !ok {
+		return nil, errors.NotFoundf("user %v", tag.Id())
+	}
+	return user, nil
+}
+
+type mockUser struct {
+	name string
+}
+
+func (m *mockUser) DisplayName() string {
+	return m.name
+}
+
 type mockRelationNetworks struct {
 	state.RelationNetworks
 }
@@ -419,7 +443,7 @@ func (m *mockState) GetOfferAccess(offerUUID string, user names.UserTag) (permis
 }
 
 func (m *mockState) CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
-	if !m.users.Contains(user.Name()) {
+	if _, ok := m.users[user.Name()]; !ok {
 		return errors.NotFoundf("user %q", user.Name())
 	}
 	if _, ok := m.accessPerms[offerAccess{user: user, offerUUID: offer.Id() + "-uuid"}]; ok {
@@ -430,7 +454,7 @@ func (m *mockState) CreateOfferAccess(offer names.ApplicationOfferTag, user name
 }
 
 func (m *mockState) UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
-	if !m.users.Contains(user.Name()) {
+	if _, ok := m.users[user.Name()]; !ok {
 		return errors.NotFoundf("user %q", user.Name())
 	}
 	if _, ok := m.accessPerms[offerAccess{user: user, offerUUID: offer.Id() + "-uuid"}]; !ok {
@@ -441,24 +465,22 @@ func (m *mockState) UpdateOfferAccess(offer names.ApplicationOfferTag, user name
 }
 
 func (m *mockState) RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error {
-	if !m.users.Contains(user.Name()) {
+	if _, ok := m.users[user.Name()]; !ok {
 		return errors.NewNotFound(nil, fmt.Sprintf("offer user %q does not exist", user.Name()))
 	}
 	delete(m.accessPerms, offerAccess{user: user, offerUUID: offer.Id() + "-uuid"})
 	return nil
 }
 
-func (m *mockState) APIHostPorts() ([][]network.HostPort, error) {
-	return [][]network.HostPort{
-		{
-			{Address: network.Address{Value: "192.168.1.1", Scope: network.ScopeCloudLocal}, Port: 17070},
-			{Address: network.Address{Value: "10.1.1.1", Scope: network.ScopeMachineLocal}, Port: 17070},
-		},
-	}, nil
-}
-
-func (m *mockState) CACert() string {
-	return testing.CACert
+func (m *mockState) GetOfferUsers(offerUUID string) (map[string]permission.Access, error) {
+	result := make(map[string]permission.Access)
+	for offerAccess, access := range m.accessPerms {
+		if offerAccess.offerUUID != offerUUID {
+			continue
+		}
+		result[offerAccess.user.Id()] = access
+	}
+	return result, nil
 }
 
 type mockStatePool struct {
@@ -508,4 +530,8 @@ func (s *mockBakeryService) NewMacaroon(id string, key []byte, caveats []checker
 func (s *mockBakeryService) ExpireStorageAt(when time.Time) (authentication.ExpirableStorageBakeryService, error) {
 	s.MethodCall(s, "ExpireStorageAt", when)
 	return s, nil
+}
+
+func getFakeControllerInfo() ([]string, string, error) {
+	return []string{"192.168.1.1:17070"}, testing.CACert, nil
 }

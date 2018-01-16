@@ -32,6 +32,7 @@ import (
 
 var (
 	systemNetworkInterfacesFile = "/etc/network/interfaces"
+	systemSbinIfup              = "/sbin/ifup"
 	systemNetplanDirectory      = "/etc/netplan"
 	activateBridgesTimeout      = 5 * time.Minute
 )
@@ -154,7 +155,7 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(abort <-chan struct{}, c
 	if err := cs.runInitialiser(abort, containerType, initialiser); err != nil {
 		return errors.Annotate(err, "setting up container dependencies on host machine")
 	}
-	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder)
+	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder, getDistributionGroupFinder(cs.provisioner))
 }
 
 // acquireLock tries to grab the machine lock (initLockName), and either
@@ -218,7 +219,7 @@ func observeNetwork() ([]params.NetworkConfig, error) {
 }
 
 func defaultBridger() (network.Bridger, error) {
-	if _, err := os.Stat(systemNetworkInterfacesFile); err == nil {
+	if _, err := os.Stat(systemSbinIfup); err == nil {
 		return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, systemNetworkInterfacesFile)
 	} else {
 		return network.DefaultNetplanBridger(activateBridgesTimeout, systemNetplanDirectory)
@@ -349,6 +350,7 @@ func startProvisionerWorker(
 	config agent.Config,
 	broker environs.InstanceBroker,
 	toolsFinder ToolsFinder,
+	distributionGroupFinder DistributionGroupFinder,
 ) error {
 
 	workerName := fmt.Sprintf("%s-provisioner", containerType)
@@ -356,7 +358,7 @@ func startProvisionerWorker(
 	// already been added to the machine. It will see that the
 	// container does not have an instance yet and create one.
 	return runner.StartWorker(workerName, func() (worker.Worker, error) {
-		w, err := NewContainerProvisioner(containerType, provisioner, config, broker, toolsFinder)
+		w, err := NewContainerProvisioner(containerType, provisioner, config, broker, toolsFinder, distributionGroupFinder)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

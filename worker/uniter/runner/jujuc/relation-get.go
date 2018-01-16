@@ -29,7 +29,7 @@ type RelationGetCommand struct {
 func NewRelationGetCommand(ctx Context) (cmd.Command, error) {
 	var err error
 	cmd := &RelationGetCommand{ctx: ctx}
-	cmd.relationIdProxy, err = newRelationIdValue(ctx, &cmd.RelationId)
+	cmd.relationIdProxy, err = NewRelationIdValue(ctx, &cmd.RelationId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

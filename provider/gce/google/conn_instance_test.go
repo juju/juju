@@ -16,8 +16,7 @@ func (s *connSuite) TestConnectionSimpleAddInstance(c *gc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 
 	inst := &s.RawInstance
-	zones := []string{"a-zone"}
-	err := google.ConnAddInstance(s.Conn, inst, "mtype", zones)
+	err := google.ConnAddInstance(s.Conn, inst, "mtype", "a-zone")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(inst, jc.DeepEquals, &s.RawInstanceFull)
@@ -29,8 +28,7 @@ func (s *connSuite) TestConnectionSimpleAddInstanceAPI(c *gc.C) {
 	expected.MachineType = "zones/a-zone/machineTypes/mtype"
 
 	inst := &s.RawInstance
-	zones := []string{"a-zone"}
-	err := google.ConnAddInstance(s.Conn, inst, "mtype", zones)
+	err := google.ConnAddInstance(s.Conn, inst, "mtype", "a-zone")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
@@ -47,7 +45,7 @@ func (s *connSuite) TestConnectionSimpleAddInstanceAPI(c *gc.C) {
 func (s *instanceSuite) TestConnectionAddInstance(c *gc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 
-	inst, err := s.Conn.AddInstance(s.InstanceSpec, "a-zone")
+	inst, err := s.Conn.AddInstance(s.InstanceSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(inst.ID, gc.Equals, "spam")
@@ -62,7 +60,7 @@ func (s *instanceSuite) TestConnectionAddInstance(c *gc.C) {
 func (s *instanceSuite) TestConnectionAddInstanceAPI(c *gc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 
-	_, err := s.Conn.AddInstance(s.InstanceSpec, "a-zone")
+	_, err := s.Conn.AddInstance(s.InstanceSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
@@ -112,8 +110,7 @@ func (s *connSuite) TestConnectionAddInstanceFailed(c *gc.C) {
 	failure := errors.New("unknown")
 	s.FakeConn.Err = failure
 
-	zones := []string{"a-zone"}
-	err := google.ConnAddInstance(s.Conn, &s.RawInstance, "mtype", zones)
+	err := google.ConnAddInstance(s.Conn, &s.RawInstance, "mtype", "a-zone")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
@@ -124,8 +121,7 @@ func (s *connSuite) TestConnectionAddInstanceWaitFailed(c *gc.C) {
 	failure := s.NewWaitError(nil, errors.New("unknown"))
 	s.FakeConn.Err = failure
 
-	zones := []string{"a-zone"}
-	err := google.ConnAddInstance(s.Conn, &s.RawInstance, "mtype", zones)
+	err := google.ConnAddInstance(s.Conn, &s.RawInstance, "mtype", "a-zone")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
@@ -137,8 +133,7 @@ func (s *connSuite) TestConnectionAddInstanceGetFailed(c *gc.C) {
 	s.FakeConn.Err = failure
 	s.FakeConn.FailOnCall = 1
 
-	zones := []string{"a-zone"}
-	err := google.ConnAddInstance(s.Conn, &s.RawInstance, "mtype", zones)
+	err := google.ConnAddInstance(s.Conn, &s.RawInstance, "mtype", "a-zone")
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)

@@ -66,7 +66,7 @@ type addRelationCommand struct {
 	endpoints         []string
 	viaCIDRs          []string
 	viaValue          string
-	remoteEndpoint    *crossmodel.ApplicationURL
+	remoteEndpoint    *crossmodel.OfferURL
 	addRelationAPI    applicationAddRelationAPI
 	consumeDetailsAPI applicationConsumeDetailsAPI
 }
@@ -122,19 +122,11 @@ func (c *addRelationCommand) getAddRelationAPI() (applicationAddRelationAPI, err
 	return application.NewClient(root), nil
 }
 
-func (c *addRelationCommand) getOffersAPI(url *crossmodel.ApplicationURL) (applicationConsumeDetailsAPI, error) {
+func (c *addRelationCommand) getOffersAPI(url *crossmodel.OfferURL) (applicationConsumeDetailsAPI, error) {
 	if c.consumeDetailsAPI != nil {
 		return c.consumeDetailsAPI, nil
 	}
 
-	if url.Source == "" {
-		var err error
-		controllerName, err := c.ControllerName()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		url.Source = controllerName
-	}
 	root, err := c.CommandBase.NewAPIRoot(c.ClientStore(), url.Source, "")
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -153,6 +145,14 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 		if client.BestAPIVersion() < 5 {
 			// old client does not have cross-model capability.
 			return errors.NotSupportedf("cannot add relation to %s: remote endpoints", c.remoteEndpoint.String())
+		}
+		if c.remoteEndpoint.Source == "" {
+			var err error
+			controllerName, err := c.ControllerName()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			c.remoteEndpoint.Source = controllerName
 		}
 		if err := c.maybeConsumeOffer(client); err != nil {
 			return errors.Trace(err)
@@ -187,7 +187,7 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 	}
 	// Parse the offer details URL and add the source controller so
 	// things like status can show the original source of the offer.
-	offerURL, err := crossmodel.ParseApplicationURL(consumeDetails.Offer.OfferURL)
+	offerURL, err := crossmodel.ParseOfferURL(consumeDetails.Offer.OfferURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -197,7 +197,7 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 	// Consume is idempotent so even if the offer has been consumed previously,
 	// it's safe to do so again.
 	arg := crossmodel.ConsumeApplicationArgs{
-		ApplicationOffer: *consumeDetails.Offer,
+		Offer:            *consumeDetails.Offer,
 		ApplicationAlias: c.remoteEndpoint.ApplicationName,
 		Macaroon:         consumeDetails.Macaroon,
 	}
@@ -208,6 +208,7 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 		}
 		arg.ControllerInfo = &crossmodel.ControllerInfo{
 			ControllerTag: controllerTag,
+			Alias:         offerURL.Source,
 			Addrs:         consumeDetails.ControllerInfo.Addrs,
 			CACert:        consumeDetails.ControllerInfo.CACert,
 		}
@@ -224,7 +225,7 @@ func (c *addRelationCommand) validateEndpoints(all []string) error {
 		// We can only determine if this is a remote endpoint with 100%.
 		// If we cannot parse it, it may still be a valid local endpoint...
 		// so ignoring parsing error,
-		if url, err := crossmodel.ParseApplicationURL(endpoint); err == nil {
+		if url, err := crossmodel.ParseOfferURL(endpoint); err == nil {
 			if c.remoteEndpoint != nil {
 				return errors.NotSupportedf("providing more than one remote endpoints")
 			}

@@ -50,6 +50,10 @@ func FakeControllerConfig() controller.Config {
 		"max-logs-age":            "72h",
 		"max-logs-size":           "4G",
 		"max-txn-log-size":        "10M",
+		"auditing-enabled":        false,
+		"audit-log-capture-args":  true,
+		"audit-log-max-size":      "200M",
+		"audit-log-max-backups":   5,
 	}
 }
 

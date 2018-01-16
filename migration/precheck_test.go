@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
@@ -199,7 +199,7 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDontMatch(c *gc.C) {
 		},
 	}
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err.Error(), gc.Equals, "unit bar/1 tools don't match model (1.2.4 != 1.2.3)")
+	c.Assert(err.Error(), gc.Equals, "unit bar/1 agent binaries don't match model (1.2.4 != 1.2.3)")
 }
 
 func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
@@ -281,7 +281,7 @@ func (s *SourcePrecheckSuite) TestControllerMachineVersionsDontMatch(c *gc.C) {
 	backend := newFakeBackend()
 	backend.controllerBackend = newBackendWithMismatchingTools()
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err, gc.ErrorMatches, "controller: machine . tools don't match model.+")
+	c.Assert(err, gc.ErrorMatches, "controller: machine . agent binaries don't match model.+")
 }
 
 func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *gc.C) {
@@ -313,6 +313,76 @@ func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *gc.C) {
 	}
 	err := migration.SourcePrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "controller: machine 0 not running (allocating)")
+}
+
+func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *gc.C) {
+	backend := newHappyBackend()
+	backend.relations = []migration.PrecheckRelation{&fakeRelation{
+		endpoints: []state.Endpoint{
+			{ApplicationName: "foo"},
+			{ApplicationName: "bar"},
+		},
+		relUnits: map[string]*fakeRelationUnit{
+			"foo/0": {valid: true, inScope: true},
+			"bar/0": {valid: true, inScope: true},
+			"bar/1": {valid: true, inScope: true},
+		},
+	}}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *gc.C) {
+	backend := newHappyBackend()
+	backend.relations = []migration.PrecheckRelation{&fakeRelation{
+		key: "foo:db bar:db",
+		endpoints: []state.Endpoint{
+			{ApplicationName: "foo"},
+			{ApplicationName: "bar"},
+		},
+		relUnits: map[string]*fakeRelationUnit{
+			"foo/0": {valid: true, inScope: true},
+			"bar/0": {valid: true, inScope: true},
+			"bar/1": {valid: true, inScope: false},
+		},
+	}}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, gc.ErrorMatches, "unit bar/1 hasn't joined relation foo:db bar:db yet")
+}
+
+func (s *SourcePrecheckSuite) TestSubordinatesInvalidUnitsNotYetInScope(c *gc.C) {
+	backend := newHappyBackend()
+	backend.relations = []migration.PrecheckRelation{&fakeRelation{
+		key: "foo:db bar:db",
+		endpoints: []state.Endpoint{
+			{ApplicationName: "foo"},
+			{ApplicationName: "bar"},
+		},
+		relUnits: map[string]*fakeRelationUnit{
+			"foo/0": {valid: true, inScope: true},
+			"bar/0": {valid: true, inScope: true},
+			"bar/1": {valid: false, inScope: false},
+		},
+	}}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *gc.C) {
+	backend := newHappyBackend()
+	backend.relations = []migration.PrecheckRelation{&fakeRelation{
+		key:        "foo:db bar:db",
+		crossModel: true,
+		endpoints: []state.Endpoint{
+			{ApplicationName: "foo"},
+			{ApplicationName: "remote-mysql"},
+		},
+		relUnits: map[string]*fakeRelationUnit{
+			"foo/0": {valid: true, inScope: false},
+		},
+	}}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type TargetPrecheckSuite struct {
@@ -556,7 +626,7 @@ func (*precheckBaseSuite) checkAgentVersionError(c *gc.C, runPrecheck precheckRu
 
 func (*precheckBaseSuite) checkMachineVersionsDontMatch(c *gc.C, runPrecheck precheckRunner) {
 	err := runPrecheck(newBackendWithMismatchingTools())
-	c.Assert(err.Error(), gc.Equals, "machine 1 tools don't match model (1.3.1 != 1.2.3)")
+	c.Assert(err.Error(), gc.Equals, "machine 1 agent binaries don't match model (1.3.1 != 1.2.3)")
 }
 
 func newHappyBackend() *fakeBackend {
@@ -661,6 +731,9 @@ type fakeBackend struct {
 	apps       []migration.PrecheckApplication
 	allAppsErr error
 
+	relations  []migration.PrecheckRelation
+	allRelsErr error
+
 	credentials    cloud.Credential
 	credentialsErr error
 
@@ -668,10 +741,6 @@ type fakeBackend struct {
 	pendingResourcesErr error
 
 	controllerBackend *fakeBackend
-}
-
-func (b *fakeBackend) Close() error {
-	return nil
 }
 
 func (b *fakeBackend) Model() (migration.PrecheckModel, error) {
@@ -708,14 +777,17 @@ func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {
 
 func (b *fakeBackend) AllApplications() ([]migration.PrecheckApplication, error) {
 	return b.apps, b.allAppsErr
+}
 
+func (b *fakeBackend) AllRelations() ([]migration.PrecheckRelation, error) {
+	return b.relations, b.allRelsErr
 }
 
 func (b *fakeBackend) ListPendingResources(app string) ([]resource.Resource, error) {
 	return b.pendingResources, b.pendingResourcesErr
 }
 
-func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackendCloser, error) {
+func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
 	if b.controllerBackend == nil {
 		return b, nil
 	}
@@ -922,4 +994,42 @@ func (u *fakeUnit) Status() (status.StatusInfo, error) {
 
 func (u *fakeUnit) AgentPresence() (bool, error) {
 	return !u.lost, nil
+}
+
+type fakeRelation struct {
+	key           string
+	crossModel    bool
+	crossModelErr error
+	endpoints     []state.Endpoint
+	relUnits      map[string]*fakeRelationUnit
+	unitErr       error
+}
+
+func (r *fakeRelation) String() string {
+	return r.key
+}
+
+func (r *fakeRelation) IsCrossModel() (bool, error) {
+	return r.crossModel, r.crossModelErr
+}
+
+func (r *fakeRelation) Endpoints() []state.Endpoint {
+	return r.endpoints
+}
+
+func (r *fakeRelation) Unit(u migration.PrecheckUnit) (migration.PrecheckRelationUnit, error) {
+	return r.relUnits[u.Name()], r.unitErr
+}
+
+type fakeRelationUnit struct {
+	valid, inScope     bool
+	validErr, scopeErr error
+}
+
+func (ru *fakeRelationUnit) Valid() (bool, error) {
+	return ru.valid, ru.validErr
+}
+
+func (ru *fakeRelationUnit) InScope() (bool, error) {
+	return ru.inScope, ru.scopeErr
 }

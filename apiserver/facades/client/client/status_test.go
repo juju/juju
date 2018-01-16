@@ -46,6 +46,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Model.Name, gc.Equals, "controller")
+	c.Check(status.Model.Type, gc.Equals, "iaas")
 	c.Check(status.Model.CloudTag, gc.Equals, "cloud-dummy")
 	c.Check(status.Model.SLA, gc.Equals, "essential")
 	c.Check(status.Applications, gc.HasLen, 0)
@@ -329,9 +330,12 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	state2 := s.Factory.MakeModel(c, nil)
 	defer state2.Close()
 
+	model2, err := state2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Get API connection to hosted model.
 	apiInfo := s.APIInfo(c)
-	apiInfo.ModelTag = state2.ModelTag()
+	apiInfo.ModelTag = model2.ModelTag()
 	conn, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	client := conn.Client()
@@ -372,6 +376,78 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	}
 	setAndCheckMigStatus("proceeding swimmingly")
 	setAndCheckMigStatus("oh noes")
+}
+
+func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
+	// make application 1 with endpoint 1
+	a1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "abc",
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	e1, err := a1.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// make application 2 with endpoint 2
+	a2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "def",
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "mysql",
+		}),
+	})
+	e2, err := a2.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// create relation between a1 and a2
+	r12 := s.Factory.MakeRelation(c, &factory.RelationParams{
+		Endpoints: []state.Endpoint{e1, e2},
+	})
+	c.Assert(r12, gc.NotNil)
+
+	// create another application 3 with an endpoint 3
+	a3 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
+	})
+	e3, err := a3.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// create endpoint 4 on application 1
+	e4, err := a1.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+	r13 := s.Factory.MakeRelation(c, &factory.RelationParams{
+		Endpoints: []state.Endpoint{e3, e4},
+	})
+	c.Assert(r13, gc.NotNil)
+
+	// Test status filtering with application 1: should get both relations
+	client := s.APIState.Client()
+	status, err := client.Status([]string{a1.Name()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	assertApplicationRelations(c, a1.Name(), 2, status.Relations)
+
+	// test status filtering with application 3: should get 1 relation
+	status, err = client.Status([]string{a3.Name()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	assertApplicationRelations(c, a3.Name(), 1, status.Relations)
+}
+
+func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, relations []params.RelationStatus) {
+	c.Assert(relations, gc.HasLen, expectedNumber)
+	for _, relation := range relations {
+		belongs := false
+		for _, endpoint := range relation.Endpoints {
+			if endpoint.ApplicationName == appName {
+				belongs = true
+				continue
+			}
+		}
+		if !belongs {
+			c.Fatalf("application %v is not part of the relation %v as expected", appName, relation.Id)
+		}
+	}
 }
 
 type statusUpgradeUnitSuite struct {

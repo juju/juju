@@ -100,17 +100,18 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--agent-version", "5.2.0"},
 	expectErr:      `unknown version "5.2.0"`,
 }, {
-	about:          "major version downgrade to incompatible version",
+	about:          "version downgrade",
+	tools:          []string{"4.2-beta2-quantal-amd64"},
 	currentVersion: "4.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
-	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "cannot change version from 4.2.0 to 3.2.0",
+	args:           []string{"--agent-version", "4.2-beta2"},
+	expectErr:      "cannot change version from 4.2.0 to lower version 4.2-beta2",
 }, {
 	about:          "--build-agent with inappropriate version 1",
 	currentVersion: "4.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
 	args:           []string{"--build-agent", "--agent-version", "3.1.0"},
-	expectErr:      "cannot change version from 4.2.0 to 3.1.0",
+	expectErr:      "cannot change version from 4.2.0 to lower version 3.1.0",
 }, {
 	about:          "--build-agent with inappropriate version 2",
 	currentVersion: "3.2.7-quantal-amd64",
@@ -129,17 +130,17 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.5",
 }, {
-	about:          "latest current release matching CLI, major version, no matching major tools",
+	about:          "latest current release matching CLI, major version, no matching major agent binaries",
 	tools:          []string{"2.8.2-quantal-amd64"},
 	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
 	expectVersion:  "2.8.2",
 }, {
-	about:          "latest current release matching CLI, major version, no matching tools",
+	about:          "latest current release matching CLI, major version, no matching agent binaries",
 	tools:          []string{"3.3.0-quantal-amd64"},
 	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
-	expectErr:      "no compatible tools available",
+	expectErr:      "no compatible agent binaries available",
 }, {
 	about:          "no next supported available",
 	tools:          []string{"2.2.0-quantal-amd64", "2.2.5-quantal-i386", "2.3.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
@@ -147,10 +148,11 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	expectErr:      "no more recent supported versions available",
 }, {
-	about:          "latest supported stable, when client is dev",
+	about:          "latest supported stable, when client is dev, explicit upload",
 	tools:          []string{"2.1-dev1-quantal-amd64", "2.1.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
 	currentVersion: "2.1-dev0-quantal-amd64",
 	agentVersion:   "2.0.0",
+	args:           []string{"--build-agent"},
 	expectVersion:  "2.1-dev0.1",
 }, {
 	about:          "latest current, when agent is dev",
@@ -180,7 +182,7 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--agent-version", "3.0.0"},
 	expectVersion:  "3.0.0",
 }, {
-	about:          "specified version, no tools",
+	about:          "specified version, no agent binaries",
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
@@ -240,7 +242,7 @@ var upgradeJujuTests = []struct {
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "3.3-dev0",
 	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "cannot change version from 3.3-dev0 to 3.2.0",
+	expectErr:      "cannot change version from 3.3-dev0 to lower version 3.2.0",
 }, {
 	about:          "nothing available",
 	currentVersion: "2.0.0-quantal-amd64",
@@ -298,11 +300,17 @@ var upgradeJujuTests = []struct {
 	expectVersion:  "2.7.3.2",
 	expectUploaded: []string{"2.7.3.2-quantal-amd64", "2.7.3.2-%LTS%-amd64", "2.7.3.2-raring-amd64"},
 }, {
-	about:          "latest supported stable release",
+	about:          "latest supported stable release increments by one minor version number",
 	tools:          []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
 	currentVersion: "1.22.1-quantal-amd64",
 	agentVersion:   "1.20.14",
-	expectVersion:  "1.22.1.1",
+	expectVersion:  "1.21.3",
+}, {
+	about:          "latest supported stable release from custom version",
+	tools:          []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
+	currentVersion: "1.22.1-quantal-amd64",
+	agentVersion:   "1.20.14.1",
+	expectVersion:  "1.21.3",
 }}
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
@@ -332,7 +340,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			"agent-version":      test.agentVersion,
 			"agent-metadata-url": "file://" + toolsDir + "/tools",
 		}
-		err := s.State.UpdateModelConfig(updateAttrs, nil)
+		err := s.IAASModel.UpdateModelConfig(updateAttrs, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		versions := make([]version.Binary, len(test.tools))
 		for i, v := range test.tools {
@@ -353,7 +361,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		}
 
 		// Check expected changes to environ/state.
-		cfg, err := s.State.ModelConfig()
+		cfg, err := s.IAASModel.ModelConfig()
 		c.Check(err, jc.ErrorIsNil)
 		agentVersion, ok := cfg.AgentVersion()
 		c.Check(ok, jc.IsTrue)
@@ -424,7 +432,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 		"default-series": "raring",
 		"agent-version":  "1.2.3",
 	}
-	err := s.State.UpdateModelConfig(updateAttrs, nil)
+	err := s.IAASModel.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&sync.BuildAgentTarball, toolstesting.GetMockBuildTools(c))
 
@@ -474,7 +482,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadDevAgent(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
-	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.99.99.1"))
+	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.99.99.2"))
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNewerClient(c *gc.C) {
@@ -498,6 +506,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNewerClient(c *gc.C)
 	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
 	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
 	c.Assert(fakeAPI.modelAgentVersion, gc.Equals, fakeAPI.tools[0].Version.Number)
+	c.Assert(fakeAPI.ignoreAgentVersions, jc.IsFalse)
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNonController(c *gc.C) {
@@ -518,6 +527,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithImplicitUploadNonController(c *gc.
 	cmd := newUpgradeJujuCommand(nil)
 	_, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, gc.ErrorMatches, "no more recent supported versions available")
+	c.Assert(fakeAPI.ignoreAgentVersions, jc.IsFalse)
 }
 
 func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
@@ -548,6 +558,30 @@ func (s *UpgradeJujuSuite) TestFailUploadOnNonController(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "--build-agent can only be used with the controller model")
 }
 
+func (s *UpgradeJujuSuite) TestUpgradeJujuWithIgnoreAgentVersions(c *gc.C) {
+	s.Reset(c)
+	fakeAPI := &fakeUpgradeJujuAPINoState{
+		name:           "dummy-model",
+		uuid:           "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		controllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		agentVersion:   "1.99.99",
+	}
+	s.PatchValue(&getUpgradeJujuAPI, func(*upgradeJujuCommand) (upgradeJujuAPI, error) {
+		return fakeAPI, nil
+	})
+	s.PatchValue(&getModelConfigAPI, func(*upgradeJujuCommand) (modelConfigAPI, error) {
+		return fakeAPI, nil
+	})
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.100.0"))
+	cmd := newUpgradeJujuCommand(nil)
+	_, err := cmdtesting.RunCommand(c, cmd, "--ignore-agent-versions")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeAPI.tools, gc.Not(gc.HasLen), 0)
+	c.Assert(fakeAPI.tools[0].Version.Number, gc.Equals, version.MustParse("1.100.0.1"))
+	c.Assert(fakeAPI.modelAgentVersion, gc.Equals, fakeAPI.tools[0].Version.Number)
+	c.Assert(fakeAPI.ignoreAgentVersions, jc.IsTrue)
+}
+
 type DryRunTest struct {
 	about             string
 	cmdArgs           []string
@@ -560,13 +594,13 @@ type DryRunTest struct {
 func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 	tests := []DryRunTest{
 		{
-			about:          "dry run outputs and doesn't change anything when uploading tools",
+			about:          "dry run outputs and doesn't change anything when uploading agent binaries",
 			cmdArgs:        []string{"--build-agent", "--dry-run"},
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.1.3-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `upgrade to this version by running
-    juju upgrade-juju --agent-version="2.1.3"
+    juju upgrade-juju --build-agent
 `,
 		},
 		{
@@ -576,7 +610,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `upgrade to this version by running
-    juju upgrade-juju --agent-version="2.1.3"
+    juju upgrade-juju
 `,
 		},
 		{
@@ -586,7 +620,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `upgrade to this version by running
-    juju upgrade-juju --agent-version="2.1.3"
+    juju upgrade-juju
 `,
 		},
 	}
@@ -607,7 +641,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check agent version doesn't change
-		cfg, err := s.State.ModelConfig()
+		cfg, err := s.IAASModel.ModelConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		agentVer, ok := cfg.AgentVersion()
 		c.Assert(ok, jc.IsTrue)
@@ -629,7 +663,7 @@ func (s *UpgradeJujuSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 		"agent-metadata-url": "file://" + toolsDir + "/tools",
 	}
 
-	err := s.State.UpdateModelConfig(updateAttrs, nil)
+	err := s.IAASModel.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	versions := make([]version.Binary, len(tools))
 	for i, v := range tools {
@@ -755,7 +789,7 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		}
 
 		// Check agent version doesn't change
-		cfg, err := s.State.ModelConfig()
+		cfg, err := s.IAASModel.ModelConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		agentVer, ok := cfg.AgentVersion()
 		c.Assert(ok, jc.IsTrue)
@@ -857,6 +891,7 @@ func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
 			expectedVersion = fakeAPI.nextVersion.Number
 		}
 		c.Assert(fakeAPI.setVersionCalledWith, gc.Equals, expectedVersion)
+		c.Assert(fakeAPI.setIgnoreCalledWith, gc.Equals, false)
 	}
 
 	const expectUpgrade = true
@@ -889,9 +924,13 @@ func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
 		Series: series.MustHostSeries(),
 	}
 	nextVersion.Minor++
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	return &fakeUpgradeJujuAPI{
 		c:           c,
 		st:          st,
+		m:           m,
 		nextVersion: nextVersion,
 	}
 }
@@ -899,10 +938,12 @@ func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
 type fakeUpgradeJujuAPI struct {
 	c                         *gc.C
 	st                        *state.State
+	m                         *state.Model
 	nextVersion               version.Binary
 	setVersionErr             error
 	abortCurrentUpgradeCalled bool
 	setVersionCalledWith      version.Number
+	setIgnoreCalledWith       bool
 	tools                     []string
 	findToolsCalled           bool
 }
@@ -911,6 +952,7 @@ func (a *fakeUpgradeJujuAPI) reset() {
 	a.setVersionErr = nil
 	a.abortCurrentUpgradeCalled = false
 	a.setVersionCalledWith = version.Number{}
+	a.setIgnoreCalledWith = false
 	a.tools = []string{}
 	a.findToolsCalled = false
 }
@@ -940,7 +982,8 @@ func (a *fakeUpgradeJujuAPI) addTools(tools ...string) {
 }
 
 func (a *fakeUpgradeJujuAPI) ModelGet() (map[string]interface{}, error) {
-	config, err := a.st.ModelConfig()
+
+	config, err := a.m.ModelConfig()
 	if err != nil {
 		return make(map[string]interface{}), err
 	}
@@ -968,8 +1011,9 @@ func (a *fakeUpgradeJujuAPI) AbortCurrentUpgrade() error {
 	return nil
 }
 
-func (a *fakeUpgradeJujuAPI) SetModelAgentVersion(v version.Number) error {
+func (a *fakeUpgradeJujuAPI) SetModelAgentVersion(v version.Number, ignoreAgentVersions bool) error {
 	a.setVersionCalledWith = v
+	a.setIgnoreCalledWith = ignoreAgentVersions
 	return a.setVersionErr
 }
 
@@ -980,12 +1024,13 @@ func (a *fakeUpgradeJujuAPI) Close() error {
 // Mock an API with no state
 type fakeUpgradeJujuAPINoState struct {
 	upgradeJujuAPI
-	name              string
-	uuid              string
-	controllerUUID    string
-	agentVersion      string
-	tools             coretools.List
-	modelAgentVersion version.Number
+	name                string
+	uuid                string
+	controllerUUID      string
+	agentVersion        string
+	tools               coretools.List
+	modelAgentVersion   version.Number
+	ignoreAgentVersions bool
 }
 
 func (a *fakeUpgradeJujuAPINoState) Close() error {
@@ -1012,8 +1057,9 @@ func (a *fakeUpgradeJujuAPINoState) UploadTools(r io.ReadSeeker, vers version.Bi
 	return a.tools, nil
 }
 
-func (a *fakeUpgradeJujuAPINoState) SetModelAgentVersion(version version.Number) error {
+func (a *fakeUpgradeJujuAPINoState) SetModelAgentVersion(version version.Number, ignoreAgentVersions bool) error {
 	a.modelAgentVersion = version
+	a.ignoreAgentVersions = ignoreAgentVersions
 	return nil
 }
 

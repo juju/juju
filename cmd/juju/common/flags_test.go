@@ -40,6 +40,11 @@ func (*FlagsSuite) TestConfigFlagSet(c *gc.C) {
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2"})
 	c.Assert(f.Set("k2=3"), jc.ErrorIsNil)
 	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": 3})
+	c.Assert(f.Set("k3="), jc.ErrorIsNil)
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": 3, "k3": ""})
+	f.SetPreserveStringValue(true)
+	c.Assert(f.Set("k4=4.0"), jc.ErrorIsNil)
+	assertConfigFlag(c, f, []string{"a.yaml", "b.yaml"}, map[string]interface{}{"k1": "=v2", "k2": 3, "k3": "", "k4": "4.0"})
 }
 
 func (*FlagsSuite) TestConfigFlagSetErrors(c *gc.C) {
@@ -80,6 +85,20 @@ func (*FlagsSuite) TestConfigFlagReadAttrs(c *gc.C) {
 	assertConfigFlagReadAttrs(c, f, map[string]interface{}{"over": "ridden"})
 }
 
+func (*FlagsSuite) TestConfigFlagReadConfigPairs(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	configFile1 := filepath.Join(ctx.Dir, "config-1.yaml")
+	err := ioutil.WriteFile(configFile1, []byte(`over: "'n'out"`+"\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var f ConfigFlag
+	f.files = append(f.files, configFile1)
+	f.attrs = map[string]interface{}{"key": "value"}
+	attrs, err := f.ReadConfigPairs(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attrs, jc.DeepEquals, map[string]interface{}{"key": "value"})
+}
+
 func (*FlagsSuite) TestConfigFlagReadAttrsErrors(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
@@ -90,6 +109,22 @@ func (*FlagsSuite) TestConfigFlagReadAttrsErrors(c *gc.C) {
 	attrs, err := f.ReadAttrs(ctx)
 	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
 	c.Assert(attrs, gc.IsNil)
+}
+
+func (*FlagsSuite) TestAbsoluteFilenames(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile1 := filepath.Join(tmpdir, "config-1.yaml")
+	configFile2 := filepath.Join(tmpdir, "config-2.yaml")
+
+	var f ConfigFlag
+	f.files = append(f.files, configFile1)
+	f.files = append(f.files, configFile2)
+	ctx := cmdtesting.Context(c)
+	files, err := f.AbsoluteFileNames(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(files, jc.DeepEquals, []string{
+		configFile1, configFile2,
+	})
 }
 
 func assertConfigFlag(c *gc.C, f ConfigFlag, files []string, attrs map[string]interface{}) {

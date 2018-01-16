@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -229,7 +230,7 @@ func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Type(), gc.Not(gc.Equals), "null")
 	c.Assert(s.machine.Id(), gc.Equals, "1")
@@ -237,7 +238,7 @@ func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(manual, jc.IsFalse)
 	attrs := map[string]interface{}{"type": "null"}
-	err = s.State.UpdateModelConfig(attrs, nil)
+	err = s.IAASModel.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	manual, err = s.machine0.IsManual()
 	c.Assert(err, jc.ErrorIsNil)
@@ -620,13 +621,11 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
-	info := testing.NewMongoInfo()
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
@@ -650,6 +649,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we cannot log in with the wrong password.
+	info := testing.NewMongoInfo()
 	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
@@ -658,12 +658,14 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
+	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
 	st1, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
@@ -1104,7 +1106,7 @@ func (s *MachineSuite) TestRefreshWhenNotAlive(c *gc.C) {
 func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	// Check that Machine.Units and st.UnitsFor work correctly.
 
-	// Make three machines, three services and three units for each service;
+	// Make three machines, three services and three units for each application;
 	// variously assign units to machines and check that Machine.Units
 	// tells us the right thing.
 
@@ -1266,7 +1268,7 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 	//  Unit.Watch
 	//  State.WatchForModelConfigChanges
 	//  Unit.WatchConfigSettings
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.Watch()
@@ -1385,7 +1387,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 func (s *MachineSuite) TestWatchPrincipalUnitsDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.unitsWatcher, which
 	// is also used by Unit.WatchSubordinateUnits.
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchPrincipalUnits()
@@ -1500,7 +1502,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchUnits()
@@ -1554,7 +1556,7 @@ func (s *MachineSuite) TestSetConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons2 := constraints.MustParse("mem=2G")
 	err = machine.SetConstraints(cons2)
-	c.Assert(err, gc.ErrorMatches, "cannot set constraints: machine is already provisioned")
+	c.Assert(err, gc.ErrorMatches, `updating machine "2": cannot set constraints: machine is already provisioned`)
 
 	// Check the failed set had no effect.
 	mcons, err = machine.Constraints()
@@ -1567,7 +1569,7 @@ func (s *MachineSuite) TestSetAmbiguousConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("mem=4G instance-type=foo")
 	err = machine.SetConstraints(cons)
-	c.Assert(err, gc.ErrorMatches, `cannot set constraints: ambiguous constraints: "instance-type" overlaps with "mem"`)
+	c.Assert(err, gc.ErrorMatches, `updating machine "2": cannot set constraints: ambiguous constraints: "instance-type" overlaps with "mem"`)
 }
 
 func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
@@ -1593,7 +1595,7 @@ func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 
 func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 	cons := constraints.MustParse("mem=1G")
-	cannotSet := `cannot set constraints: not found or not alive`
+	cannotSet := `updating machine "1": cannot set constraints: not found or not alive`
 	testWhenDying(c, s.machine, cannotSet, cannotSet, func() error {
 		err := s.machine.SetConstraints(cons)
 		mcons, err1 := s.machine.Constraints()

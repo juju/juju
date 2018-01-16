@@ -10,29 +10,34 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v2/csclient"
+	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/environs/config"
 )
 
-// TODO(ericsnow) Return charmstore.CharmID from resolve()?
+// SeriesConfig defines the single config method that we need to resolve
+// changes.
+type SeriesConfig interface {
+	// DefaultSeries returns the configured default Ubuntu series for the environment,
+	// and whether the default series was explicitly configured on the environment.
+	DefaultSeries() (string, bool)
+}
 
 // ResolveCharmFunc is the type of a function that resolves a charm URL.
 type ResolveCharmFunc func(
 	resolveWithChannel func(*charm.URL) (*charm.URL, csparams.Channel, []string, error),
-	conf *config.Config,
+	conf SeriesConfig,
 	url *charm.URL,
 ) (*charm.URL, csparams.Channel, []string, error)
 
 func resolveCharm(
 	resolveWithChannel func(*charm.URL) (*charm.URL, csparams.Channel, []string, error),
-	conf *config.Config,
+	conf SeriesConfig,
 	url *charm.URL,
 ) (*charm.URL, csparams.Channel, []string, error) {
 	if url.Schema != "cs" {

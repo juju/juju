@@ -234,10 +234,10 @@ func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
 	// Assert user exists and can authenticate.
 	c.Assert(user.PasswordValid("so sekrit"), jc.IsTrue)
 
-	s.State.SetUserAccess(user.UserTag(), s.State.ModelTag(), permission.AdminAccess)
+	s.State.SetUserAccess(user.UserTag(), s.IAASModel.ModelTag(), permission.AdminAccess)
 	s.State.SetUserAccess(user.UserTag(), s.State.ControllerTag(), permission.SuperuserAccess)
 
-	uam, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	uam, err := s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(uam.Access, gc.Equals, permission.AdminAccess)
 
@@ -254,7 +254,7 @@ func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
 	err = s.State.RemoveUser(user.UserTag())
 	c.Check(err, jc.ErrorIsNil)
 
-	uam, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	uam, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("user %q is permanently deleted", user.UserTag().Name()))
 
 	uac, err = s.State.UserAccess(user.UserTag(), s.State.ControllerTag())

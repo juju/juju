@@ -276,6 +276,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Cross model relations commands.
 	r.Register(crossmodel.NewOfferCommand())
+	r.Register(crossmodel.NewRemoveOfferCommand())
 	r.Register(crossmodel.NewShowOfferedEndpointCommand())
 	r.Register(crossmodel.NewListEndpointsCommand())
 	r.Register(crossmodel.NewFindEndpointsCommand())
@@ -291,6 +292,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewRemoveRelationCommand())
 	r.Register(application.NewRemoveApplicationCommand())
 	r.Register(application.NewRemoveUnitCommand())
+	r.Register(application.NewRemoveSaasCommand())
 
 	// Reporting commands.
 	r.Register(status.NewStatusCommand())
@@ -300,7 +302,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Error resolution and debugging commands.
 	r.Register(newDefaultRunCommand())
 	r.Register(newSCPCommand(nil))
-	r.Register(newSSHCommand(nil))
+	r.Register(newSSHCommand(nil, nil))
 	r.Register(newResolvedCommand())
 	r.Register(newDebugLogCommand())
 	r.Register(newDebugHooksCommand(nil))
@@ -458,7 +460,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// CAAS commands
 	if featureflag.Enabled(feature.CAAS) {
-		r.Register(modelcmd.Wrap(caas.NewAddCAASCommand(&cloudToCommandAdapter{})))
+		r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))
 	}
 
 	// Juju GUI commands.
@@ -478,8 +480,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 			return os.Open(s)
 		},
 	}))
-	r.Register(resource.NewShowServiceCommand(resource.ShowServiceDeps{
-		NewClient: func(c *resource.ShowServiceCommand) (resource.ShowServiceClient, error) {
+	r.Register(resource.NewListCommand(resource.ListDeps{
+		NewClient: func(c *resource.ListCommand) (resource.ListClient, error) {
 			apiRoot, err := c.NewAPIRoot()
 			if err != nil {
 				return nil, errors.Trace(err)

@@ -4,8 +4,9 @@
 package backups_test
 
 import (
-	"errors"
+	"fmt"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -60,8 +61,9 @@ func (m *mongoDb) UpsertUser(u *mgo.User) error {
 }
 
 type mongoSession struct {
-	closed bool
-	cmd    []bson.D
+	closed          bool
+	createRoleCount int
+	cmd             []bson.D
 }
 
 func (m *mongoSession) Run(cmd interface{}, result interface{}) error {
@@ -70,6 +72,17 @@ func (m *mongoSession) Run(cmd interface{}, result interface{}) error {
 		return errors.New("unexpected cmd")
 	}
 	m.cmd = append(m.cmd, bsoncmd)
+	bsoncmdMap := bsoncmd.Map()
+	if _, ok := bsoncmdMap["createRole"]; ok {
+		m.createRoleCount += 1
+		if m.createRoleCount > 1 {
+			return &mgo.QueryError{
+				Code:      11000,
+				Message:   fmt.Sprintf("Role %q already exists", "oploger@admin"),
+				Assertion: false,
+			}
+		}
+	}
 	return nil
 }
 
@@ -81,7 +94,7 @@ func (m *mongoSession) DB(_ string) *mgo.Database {
 	return nil
 }
 
-func (s *mongoRestoreSuite) TestRestoreDatabase32(c *gc.C) {
+func (s *mongoRestoreSuite) assertRestore(c *gc.C) {
 	s.PatchValue(backups.GetMongorestorePath, func() (string, error) { return "/a/fake/mongorestore", nil })
 	var ranCommand string
 	var ranWithArgs []string
@@ -134,6 +147,16 @@ func (s *mongoRestoreSuite) TestRestoreDatabase32(c *gc.C) {
 			bson.DocElem{Name: "grantRolesToUser", Value: "admin"},
 			bson.DocElem{Name: "roles", Value: []string{"oploger"}}}}
 	c.Assert(mgoSession.cmd, gc.DeepEquals, mgoSessionCmd)
+}
+
+func (s *mongoRestoreSuite) TestRestoreDatabase32(c *gc.C) {
+	s.assertRestore(c)
+}
+
+func (s *mongoRestoreSuite) TestRestoreIdempotent(c *gc.C) {
+	s.assertRestore(c)
+	// Run a 2nd time, lp:1740969
+	s.assertRestore(c)
 }
 
 func (s *mongoRestoreSuite) TestRestoreFailsOnOlderMongo(c *gc.C) {

@@ -38,7 +38,7 @@ func (s *backupsCommonSuite) SetUpTest(c *gc.C) {
 
 	s.fake = &backupstesting.FakeBackups{}
 	s.PatchValue(apiserver.NewBackups,
-		func(st *state.State) (backups.Backups, io.Closer) {
+		func(st *state.State, m *state.Model) (backups.Backups, io.Closer) {
 			return s.fake, ioutil.NopCloser(nil)
 		},
 	)

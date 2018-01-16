@@ -4,7 +4,6 @@
 package state
 
 import (
-	"fmt"
 	"runtime/debug"
 
 	"github.com/juju/errors"
@@ -187,13 +186,12 @@ func (schema collectionSchema) Create(
 				}
 			}
 			if err := createCollection(rawCollection, spec); err != nil {
-				message := fmt.Sprintf("cannot create collection %q", name)
-				return maybeUnauthorized(err, message)
+				return mongo.MaybeUnauthorizedf(err, "cannot create collection %q", name)
 			}
 		}
 		for _, index := range info.indexes {
 			if err := rawCollection.EnsureIndex(index); err != nil {
-				return maybeUnauthorized(err, "cannot create index")
+				return mongo.MaybeUnauthorizedf(err, "cannot create index")
 			}
 		}
 	}

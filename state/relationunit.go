@@ -7,29 +7,37 @@ import (
 	stderrors "errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
 // allows clients to conveniently access unit-specific functionality.
 type RelationUnit struct {
-	st            *State
-	relation      *Relation
-	unitName      string
-	isPrincipal   bool
-	checkUnitLife bool
-	endpoint      Endpoint
-	scope         string
+	st          *State
+	relation    *Relation
+	unitName    string
+	isPrincipal bool
+	endpoint    Endpoint
+	scope       string
+
+	// isLocalUnit is true for relation units representing
+	// the local side of a cross model relation, or for
+	// any 2 units in a non cross model relation.
+	isLocalUnit bool
 }
 
 // Relation returns the relation associated with the unit.
@@ -90,19 +98,19 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	//   being saved for a followup).
 	relationDocID := ru.relation.doc.DocID
 	var ops []txn.Op
-	if ru.checkUnitLife {
+	if ru.isLocalUnit {
 		ops = append(ops, txn.Op{
 			C:      unitsC,
 			Id:     ru.unitName,
 			Assert: isAliveDoc,
 		})
-		ops = append(ops, txn.Op{
-			C:      relationsC,
-			Id:     relationDocID,
-			Assert: isAliveDoc,
-			Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
-		})
 	}
+	ops = append(ops, txn.Op{
+		C:      relationsC,
+		Id:     relationDocID,
+		Assert: isAliveDoc,
+		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
+	})
 
 	// * Create the unit settings in this relation, if they do not already
 	//   exist; or completely overwrite them if they do. This must happen
@@ -166,7 +174,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	} else if !alive {
 		return ErrCannotEnterScope
 	}
-	if ru.checkUnitLife {
+	if ru.isLocalUnit {
 		units, closer := db.GetCollection(unitsC)
 		defer closer()
 		if alive, err := isAliveWithSession(units, ru.unitName); err != nil {
@@ -469,57 +477,100 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	return node.Map(), nil
 }
 
-// IngressAddress returns the address that should be set as
-// `private-address` in the settings for the this unit in the context
-// of this relation. Generally this will be the cloud-local address of
-// the unit, but if this is a cross-model relation then it will be the
-// public address. If this is cross-model and there's no public
-// address for the unit, return an error.
-func (ru *RelationUnit) IngressAddress() (network.Address, error) {
-	unit, err := ru.st.Unit(ru.unitName)
-	if err != nil {
-		return network.Address{}, errors.Trace(err)
+// PublicAddressRetryArgs returns the retry strategy for getting a unit's public address.
+// Override for testing to use a different clock.
+var PublicAddressRetryArgs = func() retry.CallArgs {
+	return retry.CallArgs{
+		Clock:       clock.WallClock,
+		Delay:       3 * time.Second,
+		MaxDuration: 30 * time.Second,
 	}
-	if crossmodel, err := ru.relation.IsCrossModel(); err != nil {
-		return network.Address{}, errors.Trace(err)
-	} else if !crossmodel {
-		space, err := unit.GetSpaceForBinding("")
-		if err != nil {
-			return network.Address{}, errors.Trace(err)
-		}
-		m, err := unit.machine()
-		if err != nil {
-			return network.Address{}, errors.Trace(err)
-		}
-		networkInfos := m.GetNetworkInfoForSpaces(set.NewStrings(space))
-		info, ok := networkInfos[space]
-		if !ok || len(info.NetworkInfos) == 0 || len(info.NetworkInfos[0].Addresses) == 0 {
-			privateAddress, err := unit.PrivateAddress()
-			if err == nil {
-				logger.Warningf("Can't find an address for default binding space %q, falling back to units' private address %q", space, privateAddress.String())
-			}
-			return privateAddress, err
-		}
-		boundAddress := network.NewAddress(info.NetworkInfos[0].Addresses[0].Address)
-		logger.Debugf("Found an address for a default binding for an app - %v", boundAddress.String())
-		return boundAddress, nil
+}
+
+// NetworksForRelation returns the ingress and egress addresses for a relation and unit.
+// The ingress addresses depend on if the relation is cross model and whether the
+// relation endpoint is bound to a space.
+func NetworksForRelation(
+	binding string, unit *Unit, rel *Relation, defaultEgress []string,
+) (boundSpace string, ingress []string, egress []string, _ error) {
+	st := unit.st
+
+	relEgress := NewRelationEgressNetworks(st)
+	egressSubnets, err := relEgress.Networks(rel.Tag().Id())
+	if err != nil && !errors.IsNotFound(err) {
+		return "", nil, nil, errors.Trace(err)
+	} else if err == nil {
+		egress = egressSubnets.CIDRS()
+	} else {
+		egress = defaultEgress
 	}
 
-	address, err := unit.PublicAddress()
-	if err != nil {
-		// TODO(wallyworld) - it's ok to return a private address sometimes
-		// TODO return an error when it's not possible to use the private address
-		logger.Warningf("no public address available for unit %q in cross model relation %q , using private address", unit.Name(), ru.relation)
-		return unit.PrivateAddress()
+	boundSpace, err = unit.GetSpaceForBinding(binding)
+	if err != nil && !errors.IsNotValid(err) {
+		return "", nil, nil, errors.Trace(err)
 	}
-	if address.Scope != network.ScopePublic {
-		logger.Debugf(
-			"no public address for unit %q in cross-model relation %q",
-			unit.Name(),
-			ru.relation,
-		)
+	// If the endpoint for this relation is not bound to a space, or
+	// is bound to the default space, we need to look up the ingress
+	// address info which is aware of cross model relations.
+	if boundSpace == environs.DefaultSpaceName || err != nil {
+		crossmodel, err := rel.IsCrossModel()
+		if err != nil {
+			return "", nil, nil, errors.Trace(err)
+		}
+		if crossmodel {
+			var address network.Address
+			retryArg := PublicAddressRetryArgs()
+			retryArg.Func = func() error {
+				var err error
+				address, err = unit.PublicAddress()
+				return err
+			}
+			retryArg.IsFatalError = func(err error) bool {
+				return !network.IsNoAddressError(err)
+			}
+			err := retry.Call(retryArg)
+			if err != nil {
+				// TODO(wallyworld) - it's ok to return a private address sometimes
+				// TODO return an error when it's not possible to use the private address
+				logger.Warningf(
+					"no public address for unit %q in cross model relation %q, using private address",
+					unit.Name(), rel)
+				address, err = unit.PrivateAddress()
+				if err != nil {
+					return "", nil, nil, errors.Trace(err)
+				}
+			}
+			ingress = []string{address.Value}
+		}
 	}
-	return address, nil
+	if len(ingress) == 0 {
+		// We don't yet have an ingress address, so pick one from the space to
+		// which the endpoint is bound.
+		machineID, err := unit.AssignedMachineId()
+		if err != nil {
+			return "", nil, nil, errors.Trace(err)
+		}
+
+		machine, err := st.Machine(machineID)
+		if err != nil {
+			return "", nil, nil, errors.Trace(err)
+		}
+
+		networkInfos := machine.GetNetworkInfoForSpaces(set.NewStrings(boundSpace))
+		// The binding address information based on link layer devices.
+		for _, nwInfo := range networkInfos[boundSpace].NetworkInfos {
+			for _, addr := range nwInfo.Addresses {
+				ingress = append(ingress, addr.Address)
+			}
+
+		}
+	}
+
+	// If no egress subnets defined, We default to the ingress address.
+	if len(egress) == 0 && len(ingress) > 0 {
+		egress = network.FormatAsCIDR([]string{ingress[0]})
+	}
+	return boundSpace, ingress, egress, nil
 }
 
 // unitKey returns a string, based on the relation and the supplied unit name,

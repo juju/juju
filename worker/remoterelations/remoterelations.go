@@ -5,15 +5,18 @@ package remoterelations
 
 import (
 	"io"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -46,9 +49,13 @@ type RemoteModelRelationsFacade interface {
 	// RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
 	RelationUnitSettings([]params.RemoteRelationUnit) ([]params.SettingsResult, error)
 
-	// WatchRemoteApplicationRelations starts a RelationStatusWatcher for watching the
+	// WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the
 	// relations of each specified application in the remote model.
-	WatchRelationStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error)
+	WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error)
+
+	// WatchOfferStatus starts an OfferStatusWatcher for watching the status
+	// of the specified offer in the remote model.
+	WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatcher, error)
 }
 
 // RemoteRelationsFacade exposes remote relation functionality to a worker.
@@ -99,6 +106,9 @@ type RemoteRelationsFacade interface {
 
 	// ControllerAPIInfoForModel returns the controller api info for a model.
 	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
+
+	// SetRemoteApplicationStatus sets the status for the specified remote application.
+	SetRemoteApplicationStatus(applicationName string, status status.Status, message string) error
 }
 
 type newRemoteRelationsFacadeFunc func(*api.Info) (RemoteModelRelationsFacadeCloser, error)
@@ -108,6 +118,7 @@ type Config struct {
 	ModelUUID                string
 	RelationsFacade          RemoteRelationsFacade
 	NewRemoteModelFacadeFunc newRemoteRelationsFacadeFunc
+	Clock                    clock.Clock
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -121,6 +132,9 @@ func (config Config) Validate() error {
 	if config.NewRemoteModelFacadeFunc == nil {
 		return errors.NotValidf("nil Remote Model Facade func")
 	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
 	return nil
 }
 
@@ -131,13 +145,23 @@ func New(config Config) (*Worker, error) {
 	}
 
 	w := &Worker{
-		config:             config,
-		logger:             logger,
-		applicationWorkers: make(map[string]worker.Worker),
+		config: config,
+		logger: logger,
+		runner: worker.NewRunner(worker.RunnerParams{
+			Clock: config.Clock,
+
+			// One of the remote application workers failing should not
+			// prevent the others from running.
+			IsFatal: func(error) bool { return false },
+
+			// For any failures, try again in 1 minute.
+			RestartDelay: time.Minute,
+		}),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
+		Init: []worker.Worker{w.runner},
 	})
 	return w, errors.Trace(err)
 }
@@ -149,9 +173,7 @@ type Worker struct {
 	config   Config
 	logger   loggo.Logger
 
-	// applicationWorkers holds a worker for each
-	// remote application being watched.
-	applicationWorkers map[string]worker.Worker
+	runner *worker.Runner
 }
 
 // Kill is defined on worker.Worker.
@@ -206,51 +228,58 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 		if result.Error != nil {
 			// The the remote application has been removed, stop its worker.
 			if params.IsCodeNotFound(result.Error) {
-				if err := w.killApplicationWorker(name); err != nil {
+				if err := w.runner.StopWorker(name); err != nil {
 					return err
 				}
 				continue
 			}
 			return errors.Annotatef(err, "querying remote application %q", name)
 		}
-		if _, ok := w.applicationWorkers[name]; ok {
+		if _, err := w.runner.Worker(name, w.catacomb.Dying()); err == nil {
 			// TODO(wallyworld): handle application dying or dead.
 			// As of now, if the worker is already running, that's all we need.
 			continue
 		}
 		relationsWatcher, err := w.config.RelationsFacade.WatchRemoteApplicationRelations(name)
 		if errors.IsNotFound(err) {
-			if err := w.killApplicationWorker(name); err != nil {
+			if err := w.runner.StopWorker(name); err != nil {
 				return err
 			}
 			continue
 		} else if err != nil {
 			return errors.Annotatef(err, "watching relations for remote application %q", name)
 		}
-		logger.Debugf("started watcher for remote application %q", name)
-		appWorker, err := newRemoteApplicationWorker(
-			relationsWatcher,
-			w.config.ModelUUID,
-			*result.Result,
-			w.config.NewRemoteModelFacadeFunc,
-			w.config.RelationsFacade,
-		)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := w.catacomb.Add(appWorker); err != nil {
-			return errors.Trace(err)
-		}
-		w.applicationWorkers[name] = appWorker
-	}
-	return nil
-}
 
-func (w *Worker) killApplicationWorker(name string) error {
-	appWorker, ok := w.applicationWorkers[name]
-	if ok {
-		delete(w.applicationWorkers, name)
-		return worker.Stop(appWorker)
+		remoteApp := *result.Result
+		startFunc := func() (worker.Worker, error) {
+			appWorker := &remoteApplicationWorker{
+				relationsWatcher:                  relationsWatcher,
+				offerUUID:                         remoteApp.OfferUUID,
+				applicationName:                   remoteApp.Name,
+				localModelUUID:                    w.config.ModelUUID,
+				remoteModelUUID:                   remoteApp.ModelUUID,
+				isConsumerProxy:                   remoteApp.IsConsumerProxy,
+				offerMacaroon:                     remoteApp.Macaroon,
+				localRelationChanges:              make(chan params.RemoteRelationChangeEvent),
+				remoteRelationChanges:             make(chan params.RemoteRelationChangeEvent),
+				localModelFacade:                  w.config.RelationsFacade,
+				newRemoteModelRelationsFacadeFunc: w.config.NewRemoteModelFacadeFunc,
+			}
+			if err := catacomb.Invoke(catacomb.Plan{
+				Site: &appWorker.catacomb,
+				Work: appWorker.loop,
+				Init: []worker.Worker{relationsWatcher},
+			}); err != nil {
+				return nil, errors.Trace(err)
+			}
+			return appWorker, nil
+		}
+
+		logger.Debugf("starting watcher for remote application %q", name)
+		// Start the application worker to watch for things like new relations.
+		if err := w.runner.StartWorker(name, startFunc); err != nil {
+			return errors.Annotate(err, "error starting remote application worker")
+		}
 	}
 	return nil
 }

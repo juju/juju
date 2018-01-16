@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -16,7 +17,7 @@ type RelationInfo struct {
 	MemberNames  []string
 }
 
-// ContextRelation is the implementation of jujuc.ContextRelation.
+// ContextRelation is the implementation of hooks.ContextRelation.
 type ContextRelation struct {
 	ru           *uniter.RelationUnit
 	relationId   int
@@ -77,4 +78,14 @@ func (ctx *ContextRelation) WriteSettings() (err error) {
 		err = ctx.settings.Write()
 	}
 	return
+}
+
+// Suspended returns true if the relation is suspended.
+func (ctx *ContextRelation) Suspended() bool {
+	return ctx.ru.Relation().Suspended()
+}
+
+// SetStatus sets the relation's status.
+func (ctx *ContextRelation) SetStatus(status relation.Status) error {
+	return ctx.ru.Relation().SetStatus(status)
 }

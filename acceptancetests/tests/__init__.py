@@ -20,7 +20,9 @@ except ImportError:
     from unittest.mock import patch
 import yaml
 
-from jujupy.client import CommandTime
+from jujupy.wait_condition import (
+    CommandTime,
+    )
 import utility
 
 

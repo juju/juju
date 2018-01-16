@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
@@ -727,7 +727,7 @@ func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 var configYaml = `
 options:
   working:
-    description: when set to false, prevents service from functioning correctly
+    description: when set to false, prevents application from functioning correctly
     default: true
     type: boolean
 `

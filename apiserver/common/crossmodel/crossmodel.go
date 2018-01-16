@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -35,20 +36,32 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		return errors.Trace(err)
 	}
 
-	// Update the relation status if necessary.
-	relStatus := status.Status(change.Status)
-	if relStatus != "" {
-		currentStatus, err := rel.Status()
-		if err != nil {
+	// Update the relation suspended status.
+	currentStatus := rel.Suspended()
+	if !dyingOrDead && change.Suspended != nil && currentStatus != *change.Suspended {
+		var (
+			newStatus status.Status
+			message   string
+		)
+		if *change.Suspended {
+			newStatus = status.Suspending
+			message = change.SuspendedReason
+			if message == "" {
+				message = "suspending after update from remote model"
+			}
+		}
+		if err := rel.SetSuspended(*change.Suspended, message); err != nil {
 			return errors.Trace(err)
 		}
-		if currentStatus.Status != relStatus || currentStatus.Message != change.StatusMessage {
-			if err := rel.SetStatus(status.StatusInfo{
-				Status:  relStatus,
-				Message: change.StatusMessage,
-			}); err != nil {
-				return errors.Trace(err)
-			}
+		if !*change.Suspended {
+			newStatus = status.Joining
+			message = ""
+		}
+		if err := rel.SetStatus(status.StatusInfo{
+			Status:  newStatus,
+			Message: message,
+		}); err != nil && !errors.IsNotValid(err) {
+			return errors.Trace(err)
 		}
 	}
 
@@ -224,11 +237,8 @@ func validateIngressNetworks(backend Backend, networks []string) error {
 	if errors.IsNotFound(err) {
 		return nil
 	}
-	var whitelistCIDRs, blacklistCIDRs, requestedCIDRs []*net.IPNet
+	var whitelistCIDRs, requestedCIDRs []*net.IPNet
 	if err := parseCIDRs(&whitelistCIDRs, rule.WhitelistCIDRs); err != nil {
-		return errors.Trace(err)
-	}
-	if err := parseCIDRs(&blacklistCIDRs, rule.BlacklistCIDRs); err != nil {
 		return errors.Trace(err)
 	}
 	if err := parseCIDRs(&requestedCIDRs, networks); err != nil {
@@ -240,16 +250,6 @@ func validateIngressNetworks(backend Backend, networks []string) error {
 				return &params.Error{
 					Code:    params.CodeForbidden,
 					Message: fmt.Sprintf("subnet %v not in firewall whitelist", n),
-				}
-			}
-		}
-	}
-	if len(blacklistCIDRs) > 0 {
-		for _, n := range requestedCIDRs {
-			if network.SubnetInAnyRange(whitelistCIDRs, n) {
-				return &params.Error{
-					Code:    params.CodeForbidden,
-					Message: fmt.Sprintf("subnet %v in firewall blacklist", n),
 				}
 			}
 		}
@@ -272,27 +272,55 @@ type relationGetter interface {
 	KeyRelation(string) (Relation, error)
 }
 
-// GetRelationStatusChange returns a status change struct for a specified relation key.
-func GetRelationStatusChange(st relationGetter, key string) (*params.RelationStatusChange, error) {
+// GetRelationLifeSuspendedStatusChange returns a life/suspended status change
+// struct for a specified relation key.
+func GetRelationLifeSuspendedStatusChange(st relationGetter, key string) (*params.RelationLifeSuspendedStatusChange, error) {
 	rel, err := st.KeyRelation(key)
 	if errors.IsNotFound(err) {
-		return &params.RelationStatusChange{
-			Key:    key,
-			Life:   params.Dead,
-			Status: params.Broken,
+		return &params.RelationLifeSuspendedStatusChange{
+			Key:  key,
+			Life: params.Dead,
 		}, nil
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	relStatus, err := rel.Status()
+	return &params.RelationLifeSuspendedStatusChange{
+		Key:             key,
+		Life:            params.Life(rel.Life().String()),
+		Suspended:       rel.Suspended(),
+		SuspendedReason: rel.SuspendedReason(),
+	}, nil
+}
+
+type offerGetter interface {
+	ApplicationOfferForUUID(string) (*crossmodel.ApplicationOffer, error)
+	Application(string) (Application, error)
+}
+
+// GetOfferStatusChange returns a status change
+// struct for a specified offer name.
+func GetOfferStatusChange(st offerGetter, offerUUID string) (*params.OfferStatusChange, error) {
+	offer, err := st.ApplicationOfferForUUID(offerUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &params.RelationStatusChange{
-		Key:           key,
-		Life:          params.Life(rel.Life().String()),
-		Status:        params.RelationStatusValue(relStatus.Status),
-		StatusMessage: relStatus.Message,
+	// TODO(wallyworld) - for now, offer status is just the application status
+	app, err := st.Application(offer.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	status, err := app.Status()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &params.OfferStatusChange{
+		OfferName: offer.OfferName,
+		Status: params.EntityStatus{
+			Status: status.Status,
+			Info:   status.Message,
+			Data:   status.Data,
+			Since:  status.Since,
+		},
 	}, nil
 }

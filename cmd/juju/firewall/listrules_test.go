@@ -31,7 +31,6 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 			{
 				KnownService:   "ssh",
 				WhitelistCIDRS: []string{"192.168.1.0/16", "10.0.0.0/8"},
-				BlacklistCIDRS: []string{"10.1.0.0/16"},
 			}, {
 				KnownService:   "juju-controller",
 				WhitelistCIDRS: []string{"10.2.0.0/16"},
@@ -51,9 +50,9 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 		c,
 		[]string{"--format", "tabular"},
 		`
-Service          Whitelist subnets          Blacklist subnets
-juju-controller  10.2.0.0/16                
-ssh              192.168.1.0/16,10.0.0.0/8  10.1.0.0/16
+Service          Whitelist subnets
+juju-controller  10.2.0.0/16
+ssh              192.168.1.0/16,10.0.0.0/8
 
 `[1:],
 		"",
@@ -69,8 +68,6 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
   whitelist-subnets:
   - 192.168.1.0/16
   - 10.0.0.0/8
-  blacklist-subnets:
-  - 10.1.0.0/16
 - known-service: juju-controller
   whitelist-subnets:
   - 10.2.0.0/16

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/tomb.v1"
@@ -222,6 +222,7 @@ type mockRelation struct {
 	id                    int
 	key                   string
 	life                  state.Life
+	suspended             bool
 	units                 map[string]common.RelationUnit
 	remoteUnits           map[string]common.RelationUnit
 	endpoints             []state.Endpoint
@@ -253,9 +254,9 @@ func (r *mockRelation) Life() state.Life {
 	return r.life
 }
 
-func (r *mockRelation) Status() (status.StatusInfo, error) {
-	r.MethodCall(r, "Status")
-	return status.StatusInfo{Status: status.Joined}, nil
+func (r *mockRelation) Suspended() bool {
+	r.MethodCall(r, "Suspended")
+	return r.suspended
 }
 
 func (r *mockRelation) Unit(unitId string) (common.RelationUnit, error) {
@@ -307,6 +308,7 @@ type mockRemoteApplication struct {
 	url           string
 	life          state.Life
 	status        status.Status
+	message       string
 	eps           []charm.Relation
 	consumerproxy bool
 }
@@ -360,6 +362,13 @@ func (r *mockRemoteApplication) SourceModel() names.ModelTag {
 func (r *mockRemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
 	r.MethodCall(r, "Macaroon")
 	return macaroon.New(nil, "test", "")
+}
+
+func (r *mockRemoteApplication) SetStatus(info status.StatusInfo) error {
+	r.MethodCall(r, "SetStatus")
+	r.status = info.Status
+	r.message = info.Message
+	return nil
 }
 
 type mockApplication struct {

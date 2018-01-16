@@ -30,10 +30,9 @@ import (
 type modelStatusSuite struct {
 	statetesting.StateSuite
 
-	controller *controller.ControllerAPIv4
+	controller *controller.ControllerAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
-	pool       *state.StatePool
 }
 
 var _ = gc.Suite(&modelStatusSuite{})
@@ -56,15 +55,12 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
-	s.pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.pool.Close() })
-
 	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
 			Auth_:      s.authorizer,
-			StatePool_: s.pool,
+			StatePool_: s.StatePool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
@@ -85,13 +81,14 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 			Auth_:      anAuthoriser,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	controllerModelTag := s.State.ModelTag().String()
+	controllerModelTag := s.IAASModel.ModelTag().String()
 
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}},
 	}
-	_, err = endpoint.ModelStatus(req)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	result, err := endpoint.ModelStatus(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
 }
 
 func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
@@ -107,12 +104,14 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 			State_:     s.State,
 			Resources_: s.resources,
 			Auth_:      anAuthoriser,
-			StatePool_: s.pool,
+			StatePool_: s.StatePool,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	req := params.Entities{
-		Entities: []params.Entity{{Tag: st.ModelTag().String()}},
+		Entities: []params.Entity{{Tag: model.ModelTag().String()}},
 	}
 	_, err = endpoint.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,8 +166,11 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Charm: otherFactory.MakeCharm(c, nil),
 	})
 
-	controllerModelTag := s.State.ModelTag().String()
-	hostedModelTag := otherSt.ModelTag().String()
+	otherModel, err := otherSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerModelTag := s.IAASModel.ModelTag().String()
+	hostedModelTag := otherModel.ModelTag().String()
 
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
@@ -182,35 +184,61 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Arch: &arch,
 		Mem:  &mem,
 	}
-	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{{
-		ModelTag:           controllerModelTag,
-		HostedMachineCount: 1,
-		ApplicationCount:   1,
-		OwnerTag:           s.Owner.String(),
-		Life:               params.Alive,
-		Machines: []params.ModelMachineInfo{
-			{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", Status: "pending", WantsVote: true},
-			{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
+	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
+		params.ModelStatus{
+			ModelTag:           controllerModelTag,
+			HostedMachineCount: 1,
+			ApplicationCount:   1,
+			OwnerTag:           s.Owner.String(),
+			Life:               params.Alive,
+			Machines: []params.ModelMachineInfo{
+				{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", Status: "pending", WantsVote: true},
+				{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
+			},
+			Volumes: []params.ModelVolumeInfo{{
+				Id: "0", Status: "pending", Detachable: true,
+			}},
+			Filesystems: []params.ModelFilesystemInfo{{
+				Id: "0", Status: "pending", Detachable: true,
+			}, {
+				Id: "1/1", Status: "pending", Detachable: false,
+			}},
 		},
-		Volumes: []params.ModelVolumeInfo{{
-			Id: "0", Status: "pending", Detachable: true,
-		}},
-		Filesystems: []params.ModelFilesystemInfo{{
-			Id: "0", Status: "pending", Detachable: true,
-		}, {
-			Id: "1/1", Status: "pending", Detachable: false,
-		}},
-	}, {
-		ModelTag:           hostedModelTag,
-		HostedMachineCount: 2,
-		ApplicationCount:   1,
-		OwnerTag:           otherModelOwner.UserTag.String(),
-		Life:               params.Alive,
-		Machines: []params.ModelMachineInfo{
-			{Id: "0", Hardware: stdHw, InstanceId: "id-8", Status: "pending"},
-			{Id: "1", Hardware: stdHw, InstanceId: "id-9", Status: "pending"},
+		params.ModelStatus{
+			ModelTag:           hostedModelTag,
+			HostedMachineCount: 2,
+			ApplicationCount:   1,
+			OwnerTag:           otherModelOwner.UserTag.String(),
+			Life:               params.Alive,
+			Machines: []params.ModelMachineInfo{
+				{Id: "0", Hardware: stdHw, InstanceId: "id-8", Status: "pending"},
+				{Id: "1", Hardware: stdHw, InstanceId: "id-9", Status: "pending"},
+			},
 		},
-	}})
+	})
+}
+
+func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
+	req := params.Entities{
+		Entities: []params.Entity{
+			{Tag: "fail.me"},
+			{Tag: s.IAASModel.ModelTag().String()},
+		},
+	}
+	expected := params.ModelStatusResults{
+		Results: []params.ModelStatus{
+			params.ModelStatus{
+				Error: common.ServerError(errors.New(`"fail.me" is not a valid tag`))},
+			params.ModelStatus{
+				ModelTag: s.IAASModel.ModelTag().String(),
+				Life:     params.Life(s.IAASModel.Life().String()),
+				OwnerTag: s.IAASModel.Owner().String(),
+			},
+		},
+	}
+	result, err := s.controller.ModelStatus(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, expected)
 }
 
 type statePolicy struct{}

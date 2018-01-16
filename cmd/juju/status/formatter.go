@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/utils/series"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -54,6 +54,7 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 	out := formattedStatus{
 		Model: modelStatus{
 			Name:             sf.status.Model.Name,
+			Type:             sf.status.Model.Type,
 			Controller:       sf.controllerName,
 			Cloud:            cloudTag.Id(),
 			CloudRegion:      sf.status.Model.CloudRegion,
@@ -211,11 +212,11 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 
 func (sf *statusFormatter) formatRemoteApplication(name string, application params.RemoteApplicationStatus) remoteApplicationStatus {
 	out := remoteApplicationStatus{
-		Err:            application.Err,
-		ApplicationURL: application.ApplicationURL,
-		Life:           application.Life,
-		Relations:      application.Relations,
-		StatusInfo:     sf.getRemoteApplicationStatusInfo(application),
+		Err:        application.Err,
+		OfferURL:   application.OfferURL,
+		Life:       application.Life,
+		Relations:  application.Relations,
+		StatusInfo: sf.getRemoteApplicationStatusInfo(application),
 	}
 	out.Endpoints = make(map[string]remoteEndpoint)
 	for _, ep := range application.Endpoints {
@@ -290,10 +291,11 @@ func (sf *statusFormatter) getRemoteApplicationStatusInfo(application params.Rem
 
 func (sf *statusFormatter) formatOffer(name string, offer params.ApplicationOfferStatus) offerStatus {
 	out := offerStatus{
-		Err:             offer.Err,
-		ApplicationName: offer.ApplicationName,
-		CharmURL:        offer.CharmURL,
-		ConnectedCount:  offer.ConnectedCount,
+		Err:                  offer.Err,
+		ApplicationName:      offer.ApplicationName,
+		CharmURL:             offer.CharmURL,
+		ActiveConnectedCount: offer.ActiveConnectedCount,
+		TotalConnectedCount:  offer.TotalConnectedCount,
 	}
 	out.Endpoints = make(map[string]remoteEndpoint)
 	for alias, ep := range offer.Endpoints {
@@ -362,6 +364,9 @@ func (sf *statusFormatter) getStatusInfoContents(inst params.DetailedStatus) sta
 }
 
 func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusInfoContents {
+	if unit.WorkloadStatus.Status == "" {
+		return statusInfoContents{}
+	}
 	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
 		Err:     unit.WorkloadStatus.Err,

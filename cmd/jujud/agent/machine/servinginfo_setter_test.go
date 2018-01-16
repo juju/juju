@@ -229,6 +229,10 @@ func (mc *mockConfig) Tag() names.Tag {
 	return mc.tag
 }
 
+func (mc *mockConfig) Controller() names.ControllerTag {
+	return testing.ControllerTag
+}
+
 func (mc *mockConfig) StateServingInfo() (params.StateServingInfo, bool) {
 	return mc.ssi, mc.ssiSet
 }

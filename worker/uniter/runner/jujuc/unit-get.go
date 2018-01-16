@@ -50,7 +50,7 @@ func (c *UnitGetCommand) Run(ctx *cmd.Context) error {
 	var value string
 	var err error
 	if c.Key == "private-address" {
-		networkInfos, err := c.ctx.NetworkInfo([]string{""})
+		networkInfos, err := c.ctx.NetworkInfo([]string{""}, -1)
 		if err == nil {
 			if networkInfos[""].Error != nil {
 				err = errors.Trace(networkInfos[""].Error)

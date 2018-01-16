@@ -181,8 +181,13 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	if !st.IsController() {
 		return nil, errors.New("state is not for a controller")
 	}
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	caCert, _ := controllerConfig.CACert()
 	payload := params.SecretKeyLoginResponsePayload{
-		CACert:         st.CACert(),
+		CACert:         caCert,
 		ControllerUUID: st.ControllerUUID(),
 	}
 	return &payload, nil

@@ -6,7 +6,7 @@ package state_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/state"
 )
@@ -89,7 +89,7 @@ peers:
 
 func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 	// The test cases below are not exhaustive, but just check basic
-	// functionality. Most of the logic is tested by calling service.SetCharm()
+	// functionality. Most of the logic is tested by calling application.SetCharm()
 	// in various ways.
 
 	for i, test := range []struct {

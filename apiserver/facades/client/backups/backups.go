@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
@@ -29,7 +28,6 @@ type Backend interface {
 	IsController() bool
 	Machine(id string) (*state.Machine, error)
 	MachineSeries(id string) (string, error)
-	MongoConnectionInfo() *mongo.MongoInfo
 	MongoSession() *mgo.Session
 	MongoVersion() (string, error)
 	ModelTag() names.ModelTag
@@ -62,7 +60,7 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 
 	// For now, backup operations are only permitted on the controller environment.
 	if !backend.IsController() {
-		return nil, errors.New("backups are not supported for hosted models")
+		return nil, errors.New("backups are only supported from the controller model\nUse juju switch to select the controller model")
 	}
 
 	// Get the backup paths.

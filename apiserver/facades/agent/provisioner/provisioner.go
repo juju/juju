@@ -51,6 +51,7 @@ type ProvisionerAPI struct {
 	*networkingcommon.NetworkConfigAPI
 
 	st                      *state.State
+	m                       *state.Model
 	resources               facade.Resources
 	authorizer              facade.Authorizer
 	storageProviderRegistry storage.ProviderRegistry
@@ -104,7 +105,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	if err != nil {
 		return nil, err
 	}
-	configGetter := stateenvirons.EnvironConfigGetter{st}
+	configGetter := stateenvirons.EnvironConfigGetter{st, model}
 	env, err := environs.GetEnviron(configGetter, environs.New)
 	if err != nil {
 		return nil, err
@@ -120,7 +121,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		LifeGetter:              common.NewLifeGetter(st, getAuthFunc),
 		StateAddresser:          common.NewStateAddresser(st),
 		APIAddresser:            common.NewAPIAddresser(st, resources),
-		ModelWatcher:            common.NewModelWatcher(st, resources, authorizer),
+		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
 		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI:     common.NewStateControllerConfig(st),
 		InstanceIdGetter:        common.NewInstanceIdGetter(st, getAuthFunc),
@@ -128,6 +129,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
 		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, getCanModify),
 		st:                      st,
+		m:                       model,
 		resources:               resources,
 		authorizer:              authorizer,
 		configGetter:            configGetter,
@@ -136,6 +138,19 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		getAuthFunc:             getAuthFunc,
 		getCanModify:            getCanModify,
 	}, nil
+}
+
+type ProvisionerAPIV5 struct {
+	*ProvisionerAPI
+}
+
+// NewProvisionerAPIV5 creates a new server-side Provisioner API facade.
+func NewProvisionerAPIV5(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV5, error) {
+	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV5{provisionerAPI}, nil
 }
 
 func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
@@ -261,7 +276,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 // needed for container cloud-init.
 func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
-	config, err := p.st.ModelConfig()
+	config, err := p.m.ModelConfig()
 	if err != nil {
 		return result, err
 	}
@@ -276,7 +291,7 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.AptMirror = config.AptMirror()
-
+	result.CloudInitUserData = config.CloudInitUserData()
 	return result, nil
 }
 
@@ -490,6 +505,68 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 		instanceIds[i] = instance.Id(instanceId)
 	}
 	return instanceIds, nil
+}
+
+// DistributionGroupByMachineId returns, for each given machine entity,
+// a slice of machine.Ids that belong to the same distribution
+// group as that machine. This information may be used to
+// distribute instances for high availability.
+func (p *ProvisionerAPIV5) DistributionGroupByMachineId(args params.Entities) (params.StringsResults, error) {
+	result := params.StringsResults{
+		Results: make([]params.StringsResult, len(args.Entities)),
+	}
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return params.StringsResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := p.getMachine(canAccess, tag)
+		if err == nil {
+			// If the machine is an environment manager, return
+			// environment manager instances. Otherwise, return
+			// instances with services in common with the machine
+			// being provisioned.
+			if machine.IsManager() {
+				result.Results[i].Result, err = environManagerMachineIds(p.st, machine)
+			} else {
+				result.Results[i].Result, err = commonApplicationMachineId(p.st, machine)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// environManagerMachineIds returns a slice of all other environ manager machine.Ids.
+func environManagerMachineIds(st *state.State, m *state.Machine) ([]string, error) {
+	info, err := st.ControllerInfo()
+	if err != nil {
+		return nil, err
+	}
+	result := set.NewStrings(info.MachineIds...)
+	result.Remove(m.Id())
+	return result.SortedValues(), nil
+}
+
+// commonApplicationMachineId returns a slice of machine.Ids with
+// applications in common with the specified machine.
+func commonApplicationMachineId(st *state.State, m *state.Machine) ([]string, error) {
+	applications := m.Principals()
+	var union set.Strings
+	for _, app := range applications {
+		machines, err := state.ApplicationMachines(st, app)
+		if err != nil {
+			return nil, err
+		}
+		union = union.Union(set.NewStrings(machines...))
+	}
+	union.Remove(m.Id())
+	return union.SortedValues(), nil
 }
 
 // Constraints returns the constraints for each given machine entity.
@@ -737,8 +814,8 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 
 	supportContainerAddresses := environs.SupportsContainerAddresses(env)
 	bridgePolicy := containerizer.BridgePolicy{
-		NetBondReconfigureDelay: env.Config().NetBondReconfigureDelay(),
-		UseLocalBridges:         !supportContainerAddresses,
+		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
+		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
 	}
 
 	// TODO(jam): 2017-01-31 PopulateContainerLinkLayerDevices should really
@@ -794,6 +871,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 				info.CIDR = parentDeviceSubnet.CIDR()
 				info.ProviderSubnetId = parentDeviceSubnet.ProviderId()
 				info.VLANTag = parentDeviceSubnet.VLANTag()
+				info.IsDefaultGateway = firstAddress.IsDefaultGateway()
 			} else {
 				info.ConfigType = network.ConfigDHCP
 				info.CIDR = firstAddress.SubnetCIDR()
@@ -888,8 +966,8 @@ type hostChangesContext struct {
 
 func (ctx *hostChangesContext) ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error {
 	bridgePolicy := containerizer.BridgePolicy{
-		NetBondReconfigureDelay: env.Config().NetBondReconfigureDelay(),
-		UseLocalBridges:         !environs.SupportsContainerAddresses(env),
+		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
+		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
 	}
 	bridges, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(host, container)
 	if err != nil {
@@ -1046,4 +1124,14 @@ func (p *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess c
 
 func (p *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {
 	return p.SetObservedNetworkConfig(args)
+}
+
+// CACert returns the certificate used to validate the state connection.
+func (a *ProvisionerAPI) CACert() (params.BytesResult, error) {
+	cfg, err := a.st.ControllerConfig()
+	if err != nil {
+		return params.BytesResult{}, errors.Trace(err)
+	}
+	caCert, _ := cfg.CACert()
+	return params.BytesResult{Result: []byte(caCert)}, nil
 }

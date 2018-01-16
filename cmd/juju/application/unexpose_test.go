@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -44,7 +44,7 @@ func (s *UnexposeSuite) assertExposed(c *gc.C, application string, expected bool
 
 func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	_, err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
@@ -67,7 +67,7 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 
 func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	_, err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")

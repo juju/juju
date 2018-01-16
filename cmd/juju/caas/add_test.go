@@ -9,21 +9,24 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	caascfg "github.com/juju/juju/caas/clientconfig"
+	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
+	"github.com/juju/juju/jujuclient"
 )
 
 type addCAASSuite struct {
 	jujutesting.IsolationSuite
-	fakeCloudAPI      *fakeCloudAPI
-	store             *fakeCloudMetadataStore
-	fakeK8SConfigFunc caascfg.ClientConfigFunc
+	fakeCloudAPI        *fakeCloudAPI
+	store               *fakeCloudMetadataStore
+	fileCredentialStore *fakeCredentialStore
+	fakeK8SConfigFunc   clientconfig.ClientConfigFunc
 }
 
 var _ = gc.Suite(&addCAASSuite{})
@@ -72,8 +75,50 @@ type fakeCloudAPI struct {
 	credentials []names.CloudCredentialTag
 }
 
-func fakeK8SClientConfig() (*caascfg.ClientConfig, error) {
-	return &caascfg.ClientConfig{}, nil
+func (api *fakeCloudAPI) AddCloud(cloud.Cloud) error {
+	return nil
+}
+
+func (api *fakeCloudAPI) AddCredential(tag string, credential cloud.Credential) error {
+	return nil
+}
+
+func fakeK8SClientConfig() (*clientconfig.ClientConfig, error) {
+	return &clientconfig.ClientConfig{
+		Contexts: map[string]clientconfig.Context{"somekey": clientconfig.Context{
+			CloudName:      "mrcloud",
+			CredentialName: "credname",
+		},
+		},
+		CurrentContext: "somekey",
+		Clouds: map[string]clientconfig.CloudConfig{"mrcloud": clientconfig.CloudConfig{
+			Endpoint: "fakeendpoint",
+			Attributes: map[string]interface{}{
+				"CAData": "fakecadata",
+			},
+		},
+		},
+	}, nil
+}
+
+func fakeEmptyK8SClientConfig() (*clientconfig.ClientConfig, error) {
+	return &clientconfig.ClientConfig{}, nil
+}
+
+type fakeCredentialStore struct {
+	jujutesting.Stub
+}
+
+func (fcs fakeCredentialStore) CredentialForCloud(string) (*cloud.CloudCredential, error) {
+	return nil, nil
+}
+
+func (fcs fakeCredentialStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
+	return map[string]cloud.CloudCredential{}, nil
+}
+
+func (fcs fakeCredentialStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
+	return nil
 }
 
 func (s *addCAASSuite) SetUpTest(c *gc.C) {
@@ -90,63 +135,129 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	}
 	var logger loggo.Logger
 	s.store = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
-	s.store.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloud.Cloud{
-		"mrcloud": cloud.Cloud{
-			Name: "mrcloud",
-			Type: "kubernetes"},
-	}, false, nil)
+
+	mrCloud := cloud.Cloud{Name: "mrcloud", Type: "kubernetes"}
+
+	initialCloudMap := map[string]cloud.Cloud{"mrcloud": mrCloud}
+
+	s.store.Call("PersonalCloudMetadata").Returns(initialCloudMap, nil)
+
+	newCloud := cloud.Cloud{
+		Name: "newcloud",
+		Type: "kubernetes",
+	}
+	newCloudMap := map[string]cloud.Cloud{"newcloud": newCloud}
+
+	s.store.Call("PublicCloudMetadata", []string(nil)).Returns(initialCloudMap, false, nil)
+	newCloudMap["mrcloud"] = mrCloud
+	s.store.Call("WritePersonalCloudMetadata", initialCloudMap).Returns(nil)
 }
 
-func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool) *caas.AddCAASCommand {
-	return caas.NewAddCAASCommandForTest(s.store, &fakeAPIConnection{},
+func NewMockClientStore() *jujuclient.MemStore {
+	store := jujuclient.NewMemStore()
+	store.CurrentControllerName = "foo"
+	store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "foouser",
+	}
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
+	store.Models["foo"] = &jujuclient.ControllerModels{
+		CurrentModel: "admin/bar",
+		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {}},
+	}
+	return store
+}
+
+func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientConfig bool) cmd.Command {
+	addcmd := caas.NewAddCAASCommandForTest(s.store,
+		&fakeCredentialStore{},
+		NewMockClientStore(),
+		&fakeAPIConnection{},
 		func(caller base.APICallCloser) caas.CloudAPI {
 			return s.fakeCloudAPI
 		},
-		func(caasType string) (caascfg.ClientConfigFunc, error) {
-			if cloudTypeExists {
-				return fakeK8SClientConfig, nil
-			} else {
+		func(caasType string) (clientconfig.ClientConfigFunc, error) {
+			if !cloudTypeExists {
 				return nil, errors.Errorf("unsupported cloud type '%s'", caasType)
+			}
+			if emptyClientConfig {
+				return fakeEmptyK8SClientConfig, nil
+			} else {
+				return fakeK8SClientConfig, nil
 			}
 		},
 	)
+	return addcmd
 }
 
-func (s *addCAASSuite) runCommand(c *gc.C, cmd *caas.AddCAASCommand, args ...string) (*cmd.Context, error) {
+func (s *addCAASSuite) runCommand(c *gc.C, cmd cmd.Command, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
 func (s *addCAASSuite) TestAddExtraArg(c *gc.C) {
-	cmd := s.makeCommand(c, true)
+	cmd := s.makeCommand(c, true, true)
 	_, err := s.runCommand(c, cmd, "kubernetes", "caasname", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *addCAASSuite) TestAddKnownTypeNoData(c *gc.C) {
-	cmd := s.makeCommand(c, true)
+	cmd := s.makeCommand(c, true, true)
 	_, err := s.runCommand(c, cmd, "kubernetes", "caasname")
 	c.Assert(err, gc.ErrorMatches, `No CAAS cluster definitions found in config`)
 }
 func (s *addCAASSuite) TestAddUnknownType(c *gc.C) {
-	cmd := s.makeCommand(c, false)
+	cmd := s.makeCommand(c, false, true)
 	_, err := s.runCommand(c, cmd, "ducttape", "caasname")
 	c.Assert(err, gc.ErrorMatches, `unsupported cloud type 'ducttape'`)
 }
 
 func (s *addCAASSuite) TestAddNameClash(c *gc.C) {
-	cmd := s.makeCommand(c, true)
+	cmd := s.makeCommand(c, true, false)
 	_, err := s.runCommand(c, cmd, "kubernetes", "mrcloud")
 	c.Assert(err, gc.ErrorMatches, `"mrcloud" is the name of a public cloud`)
 }
 
 func (s *addCAASSuite) TestMissingName(c *gc.C) {
-	cmd := s.makeCommand(c, true)
+	cmd := s.makeCommand(c, true, true)
 	_, err := s.runCommand(c, cmd, "kubernetes")
 	c.Assert(err, gc.ErrorMatches, `missing CAAS name.`)
 }
 
 func (s *addCAASSuite) TestMissingArgs(c *gc.C) {
-	cmd := s.makeCommand(c, true)
+	cmd := s.makeCommand(c, true, true)
 	_, err := s.runCommand(c, cmd)
 	c.Assert(err, gc.ErrorMatches, `missing CAAS type and CAAS name.`)
+}
+
+func (s *addCAASSuite) TestCorrect(c *gc.C) {
+	cmd := s.makeCommand(c, true, false)
+	_, err := s.runCommand(c, cmd, "kubernetes", "myk8s")
+	c.Assert(err, jc.ErrorIsNil)
+	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
+		map[string]cloud.Cloud{
+			"mrcloud": cloud.Cloud{Name: "mrcloud",
+				Type:             "kubernetes",
+				Description:      "",
+				AuthTypes:        cloud.AuthTypes(nil),
+				Endpoint:         "",
+				IdentityEndpoint: "",
+				StorageEndpoint:  "",
+				Regions:          []cloud.Region(nil),
+				Config:           map[string]interface{}(nil),
+				RegionConfig:     cloud.RegionConfig(nil)},
+
+			"myk8s": cloud.Cloud{
+				Name:             "myk8s",
+				Type:             "kubernetes",
+				Description:      "",
+				AuthTypes:        cloud.AuthTypes{""},
+				Endpoint:         "fakeendpoint",
+				IdentityEndpoint: "",
+				StorageEndpoint:  "",
+				Regions:          []cloud.Region(nil),
+				Config:           map[string]interface{}(nil),
+				RegionConfig:     cloud.RegionConfig(nil),
+				CACertificates:   []string{"fakecadata"},
+			}})
 }

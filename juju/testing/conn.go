@@ -22,8 +22,8 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
@@ -50,6 +50,7 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/stateenvirons"
 	statestorage "github.com/juju/juju/state/storage"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -153,8 +154,8 @@ func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
-	info := s.State.MongoConnectionInfo()
-	info.Password = "dummy-secret"
+	info := statetesting.NewMongoInfo()
+	info.Password = AdminSecret
 	return info
 }
 
@@ -163,7 +164,9 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
-	apiInfo.ModelTag = s.State.ModelTag()
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.ModelTag = model.ModelTag()
 	return apiInfo
 }
 
@@ -394,11 +397,10 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.BackingState = getStater.GetStateInAPIServer()
 	s.BackingStatePool = getStater.GetStatePoolInAPIServer()
 
-	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.BackingState.MongoConnectionInfo())
+	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.MongoInfo(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.StatePool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.StatePool.Close() })
 
 	s.Model, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -476,14 +478,16 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 		return nil, errors.New("missing controller UUID")
 	}
 	config := environ.Config()
-	password := AdminSecret
-	if password == "" {
-		return nil, errors.Errorf("cannot connect without admin-secret")
-	}
 	modelTag := names.NewModelTag(config.UUID())
 
-	mongoInfo.Password = password
+	mongoInfo.Password = AdminSecret
 	opts := mongotest.DialOpts()
+	session, err := mongo.DialWithInfo(*mongoInfo, opts)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer session.Close()
+
 	newPolicyFunc := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
@@ -492,8 +496,7 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
-		MongoInfo:          mongoInfo,
-		MongoDialOpts:      opts,
+		MongoSession:       session,
 		NewPolicy:          newPolicyFunc,
 	}
 	st, err := state.Open(args)
@@ -644,6 +647,12 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			)
 		}
 	}
+	// Close the state pool before we close the underlying state.
+	if s.StatePool != nil {
+		err := s.StatePool.Close()
+		c.Check(err, jc.ErrorIsNil)
+		s.StatePool = nil
+	}
 	// Close state.
 	if s.State != nil {
 		err := s.State.Close()
@@ -712,11 +721,13 @@ func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, 
 	return app
 }
 
-func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {
+func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetterWriter {
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	paths := agent.DefaultPaths
 	paths.DataDir = s.DataDir()
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths:             paths,
@@ -724,11 +735,10 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			UpgradedToVersion: jujuversion.Current,
 			Password:          password,
 			Nonce:             "nonce",
-			StateAddresses:    s.MongoInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
 			Controller:        s.State.ControllerTag(),
-			Model:             s.State.ModelTag(),
+			Model:             model.ModelTag(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return config
@@ -737,6 +747,6 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 // AssertConfigParameterUpdated updates environment parameter and
 // asserts that no errors were encountered
 func (s *JujuConnSuite) AssertConfigParameterUpdated(c *gc.C, key string, value interface{}) {
-	err := s.BackingState.UpdateModelConfig(map[string]interface{}{key: value}, nil)
+	err := s.Model.UpdateModelConfig(map[string]interface{}{key: value}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

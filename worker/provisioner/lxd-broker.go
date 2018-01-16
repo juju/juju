@@ -114,6 +114,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		config.AptMirror,
 		config.EnableOSRefreshUpdate,
 		config.EnableOSUpgrade,
+		config.CloudInitUserData,
 	); err != nil {
 		lxdLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, err

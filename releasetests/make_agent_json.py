@@ -225,5 +225,6 @@ def main():
         writer = GUIStanzaWriter.from_tarfile(**kwargs)
     writer.write_stanzas()
 
+
 if __name__ == '__main__':
     sys.exit(main())

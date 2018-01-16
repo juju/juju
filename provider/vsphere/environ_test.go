@@ -7,6 +7,8 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
+	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
@@ -68,6 +70,20 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 }
 
 func (s *environSuite) TestDestroyController(c *gc.C) {
+	s.client.datastores = []*mo.Datastore{{
+		ManagedEntity: mo.ManagedEntity{Name: "foo"},
+	}, {
+		ManagedEntity: mo.ManagedEntity{Name: "bar"},
+		Summary: types.DatastoreSummary{
+			Accessible: true,
+		},
+	}, {
+		ManagedEntity: mo.ManagedEntity{Name: "baz"},
+		Summary: types.DatastoreSummary{
+			Accessible: true,
+		},
+	}}
+
 	var destroyCalled bool
 	s.PatchValue(&vsphere.DestroyEnv, func(env environs.Environ) error {
 		destroyCalled = true
@@ -79,7 +95,11 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	c.Assert(destroyCalled, jc.IsTrue)
 
 	s.dialStub.CheckCallNames(c, "Dial")
-	s.client.CheckCallNames(c, "DestroyVMFolder", "RemoveVirtualMachines", "DestroyVMFolder", "Close")
+	s.client.CheckCallNames(c,
+		"DestroyVMFolder", "RemoveVirtualMachines", "DestroyVMFolder",
+		"Datastores", "DeleteDatastoreFile", "DeleteDatastoreFile",
+		"Close",
+	)
 
 	destroyModelVMFolderCall := s.client.Calls()[0]
 	c.Assert(destroyModelVMFolderCall.Args, gc.HasLen, 2)
@@ -99,6 +119,16 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	c.Assert(destroyControllerVMFolderCall.Args, gc.HasLen, 2)
 	c.Assert(destroyControllerVMFolderCall.Args[0], gc.Implements, new(context.Context))
 	c.Assert(destroyControllerVMFolderCall.Args[1], gc.Equals, `Juju Controller (foo)`)
+
+	deleteDatastoreFileCall1 := s.client.Calls()[4]
+	c.Assert(deleteDatastoreFileCall1.Args, gc.HasLen, 2)
+	c.Assert(deleteDatastoreFileCall1.Args[0], gc.Implements, new(context.Context))
+	c.Assert(deleteDatastoreFileCall1.Args[1], gc.Equals, "[bar] juju-vmdks/foo")
+
+	deleteDatastoreFileCall2 := s.client.Calls()[5]
+	c.Assert(deleteDatastoreFileCall2.Args, gc.HasLen, 2)
+	c.Assert(deleteDatastoreFileCall2.Args[0], gc.Implements, new(context.Context))
+	c.Assert(deleteDatastoreFileCall2.Args[1], gc.Equals, "[baz] juju-vmdks/foo")
 }
 
 func (s *environSuite) TestAdoptResources(c *gc.C) {

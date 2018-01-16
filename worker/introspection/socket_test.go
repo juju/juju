@@ -113,19 +113,19 @@ func (s *introspectionSuite) TestGoroutineProfile(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestMissingDepEngineReporter(c *gc.C) {
-	buf := s.call(c, "/depengine/")
+	buf := s.call(c, "/depengine")
 	matches(c, buf, "404 Not Found")
 	matches(c, buf, "missing dependency engine reporter")
 }
 
 func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
-	buf := s.call(c, "/statepool/")
+	buf := s.call(c, "/statepool")
 	matches(c, buf, "404 Not Found")
 	matches(c, buf, "State Pool Report: missing reporter")
 }
 
 func (s *introspectionSuite) TestMissingPubSubReporter(c *gc.C) {
-	buf := s.call(c, "/pubsub/")
+	buf := s.call(c, "/pubsub")
 	matches(c, buf, "404 Not Found")
 	matches(c, buf, "PubSub Report: missing reporter")
 }
@@ -146,7 +146,7 @@ func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
 		},
 	}
 	s.startWorker(c)
-	buf := s.call(c, "/depengine/")
+	buf := s.call(c, "/depengine")
 
 	matches(c, buf, "200 OK")
 	matches(c, buf, "working: true")

@@ -29,12 +29,15 @@ type State interface {
 }
 
 // TODO(wallyworld) - for tests, remove when remaining firewaller tests become unit tests.
-func StateShim(st *state.State) stateShim {
-	return stateShim{st}
+func StateShim(st *state.State, m *state.Model) stateShim {
+	return stateShim{st, m}
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
+	*state.Model
 }
 
 func (st stateShim) KeyRelation(key string) (Relation, error) {
@@ -49,21 +52,12 @@ type Relation interface {
 	status.StatusSetter
 	Endpoints() []state.Endpoint
 	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
-	UnitInScope(Unit) (bool, error)
 	WatchRelationIngressNetworks() state.StringsWatcher
 	WatchRelationEgressNetworks() state.StringsWatcher
 }
 
 type relationShim struct {
 	*state.Relation
-}
-
-func (r relationShim) UnitInScope(u Unit) (bool, error) {
-	ru, err := r.Relation.Unit(u.(*state.Unit))
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return ru.InScope()
 }
 
 func (st stateShim) Application(name string) (Application, error) {
@@ -76,22 +70,10 @@ func (st stateShim) Application(name string) (Application, error) {
 
 type Application interface {
 	Name() string
-	AllUnits() ([]Unit, error)
 }
 
 type applicationShim struct {
 	*state.Application
-}
-
-func (a applicationShim) AllUnits() (results []Unit, err error) {
-	units, err := a.Application.AllUnits()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, unit := range units {
-		results = append(results, unit)
-	}
-	return results, nil
 }
 
 type Unit interface {

@@ -30,11 +30,7 @@ func (s *RemoteEntitiesSuite) TestExportLocalEntity(c *gc.C) {
 	entity := names.NewApplicationTag("mysql")
 	token := s.assertExportLocalEntity(c, entity)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
-	re := anotherState.RemoteEntities()
+	re := s.State.RemoteEntities()
 	expected, err := re.GetToken(entity)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.Equals, expected)
@@ -53,11 +49,7 @@ func (s *RemoteEntitiesSuite) TestGetRemoteEntity(c *gc.C) {
 	entity := names.NewApplicationTag("mysql")
 	token := s.assertExportLocalEntity(c, entity)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
-	re := anotherState.RemoteEntities()
+	re := s.State.RemoteEntities()
 	expected, err := re.GetRemoteEntity(token)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity, gc.Equals, expected)
@@ -73,11 +65,7 @@ func (s *RemoteEntitiesSuite) TestMacaroon(c *gc.C) {
 	err = re.SaveMacaroon(entity, mac)
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
-	re = anotherState.RemoteEntities()
+	re = s.State.RemoteEntities()
 	expected, err := re.GetMacaroon(entity)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mac, jc.DeepEquals, expected)
@@ -87,12 +75,8 @@ func (s *RemoteEntitiesSuite) TestRemoveRemoteEntity(c *gc.C) {
 	entity := names.NewApplicationTag("mysql")
 	token := s.assertExportLocalEntity(c, entity)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
-	re := anotherState.RemoteEntities()
-	err = re.RemoveRemoteEntity(entity)
+	re := s.State.RemoteEntities()
+	err := re.RemoveRemoteEntity(entity)
 	c.Assert(err, jc.ErrorIsNil)
 	re = s.State.RemoteEntities()
 	_, err = re.GetRemoteEntity(token)
@@ -106,11 +90,7 @@ func (s *RemoteEntitiesSuite) TestImportRemoteEntity(c *gc.C) {
 	err := re.ImportRemoteEntity(entity, token)
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
-	re = anotherState.RemoteEntities()
+	re = s.State.RemoteEntities()
 	expected, err := re.GetRemoteEntity(token)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity, gc.Equals, expected)
@@ -127,11 +107,7 @@ func (s *RemoteEntitiesSuite) TestImportRemoteEntityOverwrites(c *gc.C) {
 	err = re.ImportRemoteEntity(entity, anotherToken)
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherState, err := s.State.ForModel(s.State.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
-	re = anotherState.RemoteEntities()
+	re = s.State.RemoteEntities()
 	_, err = re.GetRemoteEntity(token)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	expected, err := re.GetRemoteEntity(anotherToken)

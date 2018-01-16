@@ -13,8 +13,10 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/agent" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
+	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
 	"github.com/juju/juju/apiserver/facades/agent/hostkeyreporter"
 	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
 	"github.com/juju/juju/apiserver/facades/agent/leadership"
@@ -65,9 +67,14 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/actionpruner"
 	"github.com/juju/juju/apiserver/facades/controller/agenttools"
 	"github.com/juju/juju/apiserver/facades/controller/applicationscaler"
+	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
+	"github.com/juju/juju/apiserver/facades/controller/caasoperatorprovisioner"
+	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
+	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
+	"github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
@@ -128,7 +135,7 @@ func AllFacades() *facade.Registry {
 	reg("Application", 2, application.NewFacadeV4)
 	reg("Application", 3, application.NewFacadeV4)
 	reg("Application", 4, application.NewFacadeV4)
-	reg("Application", 5, application.NewFacade) // adds AttachStorage & UpdateApplicationSeries & SetRelationStatus
+	reg("Application", 5, application.NewFacadeV5) // adds AttachStorage & UpdateApplicationSeries & SetRelationStatus
 
 	reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
 	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
@@ -141,17 +148,28 @@ func AllFacades() *facade.Registry {
 	reg("Client", 1, client.NewFacade)
 	reg("Cloud", 1, cloud.NewFacade)
 	if featureflag.Enabled(feature.CAAS) {
+		// CAAS related facades.
+		// Move these to the correct place above once the feature flag disappears.
+		reg("Application", 6, application.NewFacadeV6)
 		reg("Cloud", 2, cloud.NewFacadeV2)
+		reg("CAASFirewaller", 1, caasfirewaller.NewStateFacade)
+		reg("CAASOperator", 1, caasoperator.NewStateFacade)
+		reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
+		reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
 	}
 
 	reg("Controller", 3, controller.NewControllerAPIv3)
 	reg("Controller", 4, controller.NewControllerAPIv4)
 	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
+	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
+	reg("ExternalControllerUpdater", 1, externalcontrollerupdater.NewStateAPI)
 
 	reg("Deployer", 1, deployer.NewDeployerAPI)
 	reg("DiskManager", 2, diskmanager.NewDiskManagerAPI)
+	reg("FanConfigurer", 1, fanconfigurer.NewFanConfigurerAPI)
 	reg("Firewaller", 3, firewaller.NewStateFirewallerAPIV3)
 	reg("Firewaller", 4, firewaller.NewStateFirewallerAPIV4)
+	reg("Firewaller", 5, firewaller.NewStateFirewallerAPIV5)
 	reg("FirewallRules", 1, firewallrules.NewFacade)
 	reg("HighAvailability", 2, highavailability.NewHighAvailabilityAPI)
 	reg("HostKeyReporter", 1, hostkeyreporter.NewFacade)
@@ -204,6 +222,7 @@ func AllFacades() *facade.Registry {
 	reg("Pinger", 1, NewPinger)
 	reg("Provisioner", 3, provisioner.NewProvisionerAPI)
 	reg("Provisioner", 4, provisioner.NewProvisionerAPI)
+	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5) // v5 adds DistributionGroupByMachineId()
 	reg("ProxyUpdater", 1, proxyupdater.NewAPI)
 	reg("Reboot", 2, reboot.NewRebootAPI)
 	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
@@ -217,7 +236,7 @@ func AllFacades() *facade.Registry {
 
 	reg("Resumer", 2, resumer.NewResumerAPI)
 	reg("RetryStrategy", 1, retrystrategy.NewRetryStrategyAPI)
-	reg("Singular", 1, singular.NewExternalFacade)
+	reg("Singular", 2, singular.NewExternalFacade)
 
 	reg("SSHClient", 1, sshclient.NewFacade)
 	reg("SSHClient", 2, sshclient.NewFacade) // v2 adds AllAddresses() method.
@@ -253,6 +272,7 @@ func AllFacades() *facade.Registry {
 	regRaw("AllModelWatcher", 2, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	regRaw("NotifyWatcher", 1, newNotifyWatcher, reflect.TypeOf((*srvNotifyWatcher)(nil)))
 	regRaw("StringsWatcher", 1, newStringsWatcher, reflect.TypeOf((*srvStringsWatcher)(nil)))
+	regRaw("OfferStatusWatcher", 1, newOfferStatusWatcher, reflect.TypeOf((*srvOfferStatusWatcher)(nil)))
 	regRaw("RelationStatusWatcher", 1, newRelationStatusWatcher, reflect.TypeOf((*srvRelationStatusWatcher)(nil)))
 	regRaw("RelationUnitsWatcher", 1, newRelationUnitsWatcher, reflect.TypeOf((*srvRelationUnitsWatcher)(nil)))
 	regRaw("VolumeAttachmentsWatcher", 2, newVolumeAttachmentsWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))

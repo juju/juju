@@ -63,9 +63,9 @@ type ModelUserInfo struct {
 	LastConnection string `yaml:"last-connection" json:"last-connection"`
 }
 
-// friendlyDuration renders a time pointer that we get from the API as
+// FriendlyDuration renders a time pointer that we get from the API as
 // a friendly string.
-func friendlyDuration(when *time.Time, now time.Time) string {
+func FriendlyDuration(when *time.Time, now time.Time) string {
 	if when == nil {
 		return ""
 	}
@@ -102,7 +102,7 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		modelInfo.Status = &ModelStatus{
 			Current: info.Status.Status,
 			Message: info.Status.Info,
-			Since:   friendlyDuration(info.Status.Since, now),
+			Since:   FriendlyDuration(info.Status.Since, now),
 		}
 	}
 	if info.Migration != nil {
@@ -112,8 +112,8 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 			modelInfo.Status = status
 		}
 		status.Migration = info.Migration.Status
-		status.MigrationStart = friendlyDuration(info.Migration.Start, now)
-		status.MigrationEnd = friendlyDuration(info.Migration.End, now)
+		status.MigrationStart = FriendlyDuration(info.Migration.Start, now)
+		status.MigrationEnd = FriendlyDuration(info.Migration.End, now)
 	}
 
 	if info.ProviderType != "" {
@@ -127,8 +127,8 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		modelInfo.Machines = ModelMachineInfoFromParams(info.Machines)
 	}
 	if info.SLA != nil {
-		modelInfo.SLA = modelSLAFromParams(info.SLA)
-		modelInfo.SLAOwner = modelSLAOwnerFromParams(info.SLA)
+		modelInfo.SLA = ModelSLAFromParams(info.SLA)
+		modelInfo.SLAOwner = ModelSLAOwnerFromParams(info.SLA)
 	}
 	return modelInfo, nil
 }
@@ -166,14 +166,14 @@ func ModelUserInfoFromParams(users []params.ModelUserInfo, now time.Time) map[st
 	return output
 }
 
-func modelSLAFromParams(sla *params.ModelSLAInfo) string {
+func ModelSLAFromParams(sla *params.ModelSLAInfo) string {
 	if sla == nil {
 		return ""
 	}
 	return sla.Level
 }
 
-func modelSLAOwnerFromParams(sla *params.ModelSLAInfo) string {
+func ModelSLAOwnerFromParams(sla *params.ModelSLAInfo) string {
 	if sla == nil {
 		return ""
 	}

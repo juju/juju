@@ -157,13 +157,19 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{Delay: newStateConnDelay, Min: newStateConnMinAttempts}
 	getEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
+
+	session, err := mongo.DialWithInfo(*info, mongoDefaultDialOpts())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer session.Close()
+
 	for a := attempt.Start(); a.Next(); {
 		st, err = state.Open(state.OpenParams{
 			Clock:              clock.WallClock,
 			ControllerTag:      controllerTag,
 			ControllerModelTag: modelTag,
-			MongoInfo:          info,
-			MongoDialOpts:      mongoDefaultDialOpts(),
+			MongoSession:       session,
 			NewPolicy:          environsGetNewPolicyFunc(getEnviron),
 		})
 		if err == nil {

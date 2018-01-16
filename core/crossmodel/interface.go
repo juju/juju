@@ -4,7 +4,7 @@
 package crossmodel
 
 import (
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -60,8 +60,8 @@ type AddApplicationOfferArgs struct {
 
 // ConsumeApplicationArgs contains parameters used to consume an offer.
 type ConsumeApplicationArgs struct {
-	// The offer to be consumed.
-	ApplicationOffer params.ApplicationOffer
+	// Offer is the offer to be consumed.
+	Offer params.ApplicationOfferDetails
 
 	// Macaroon is used for authentication.
 	Macaroon *macaroon.Macaroon
@@ -101,8 +101,11 @@ type ApplicationOfferFilter struct {
 	// Endpoint contains an endpoint filter criteria.
 	Endpoints []EndpointFilterTerm
 
-	// AllowedUsers are the users allowed to consume the application.
-	AllowedUsers []string
+	// AllowedConsumers are the users allowed to consume the offer.
+	AllowedConsumers []string
+
+	// ConnectedUsers are the users currently related to the offer.
+	ConnectedUsers []string
 }
 
 // EndpointFilterTerm represents a remote endpoint filter.

@@ -54,12 +54,19 @@ func (e EnvironProvider) Ping(endpoint string) error {
 }
 
 // PrepareConfig is defined on the environs.EnvironProvider interface.
-func (e EnvironProvider) PrepareConfig(config environs.PrepareConfigParams) (*config.Config, error) {
-	if err := e.validateCloudSpec(config.Cloud); err != nil {
+func (e EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if err := e.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotatef(err, "validating cloud spec")
 	}
-
-	return config.Config, nil
+	// Set the default block-storage source.
+	attrs := make(map[string]interface{})
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs[config.StorageDefaultBlockSourceKey] = oracleStorageProviderType
+	}
+	if len(attrs) == 0 {
+		return args.Config, nil
+	}
+	return args.Config.Apply(attrs)
 }
 
 // validateCloudSpec validates the given configuration against the oracle cloud spec

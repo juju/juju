@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
@@ -22,9 +24,14 @@ func (s *dumpSuite) TestDumpAll(c *gc.C) {
 	// collections, so make sure they've started before running
 	// the dump.
 	state.EnsureWorkersStarted(s.State)
-	value, err := s.State.DumpAll()
+
+	// Make a leadership claim. No leases until we do.
+	claimer := s.State.LeadershipClaimer()
+	err := claimer.ClaimLeadership("app", "app/0", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
+	value, err := s.State.DumpAll()
+	c.Assert(err, jc.ErrorIsNil)
 	models, ok := value["models"].(map[string]interface{})
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(models["name"], gc.Equals, "testenv")

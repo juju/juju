@@ -7,7 +7,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
@@ -17,6 +17,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -289,6 +290,7 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 	djangoRelationUnit := newMockRelationUnit()
 	djangoRelationUnit.settings["key"] = "value"
 	db2Relation := newMockRelation(123)
+	db2Relation.suspended = true
 	db2Relation.units["django/0"] = djangoRelationUnit
 	db2Relation.endpoints = []state.Endpoint{
 		{
@@ -320,9 +322,10 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.RemoteRelationResult{{
 		Result: &params.RemoteRelation{
-			Id:   123,
-			Life: "alive",
-			Key:  "db2:db django:db",
+			Id:        123,
+			Life:      "alive",
+			Suspended: true,
+			Key:       "db2:db django:db",
 			RemoteApplicationName: "db2",
 			RemoteEndpointName:    "data",
 			ApplicationName:       "django",
@@ -405,4 +408,21 @@ func (s *remoteRelationsSuite) TestControllerAPIInfoForModels(c *gc.C) {
 	c.Assert(result.Results[0].Addresses, jc.SameContents, []string{"1.2.3.4/32"})
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(result.Results[0].CACert, gc.Equals, coretesting.CACert)
+}
+
+func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatus(c *gc.C) {
+	remoteApp := newMockRemoteApplication("db2", "url")
+	s.st.remoteApplications["db2"] = remoteApp
+	entity := names.NewApplicationTag("db2")
+	result, err := s.api.SetRemoteApplicationsStatus(
+		params.SetStatus{Entities: []params.EntityStatusArgs{{
+			Tag:    entity.String(),
+			Status: "blocked",
+			Info:   "a message",
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(remoteApp.status, gc.Equals, status.Blocked)
+	c.Assert(remoteApp.message, gc.Equals, "a message")
 }

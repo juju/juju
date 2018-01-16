@@ -1,6 +1,6 @@
 from argparse import Namespace
 from contextlib import contextmanager
-from os.path import(
+from os.path import (
     join,
     isfile,
 )

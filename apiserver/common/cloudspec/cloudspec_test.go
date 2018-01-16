@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -51,13 +51,14 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 		map[string]string{"k": "v"},
 	)
 	s.result = environs.CloudSpec{
-		"type",
-		"name",
-		"region",
-		"endpoint",
-		"identity-endpoint",
-		"storage-endpoint",
-		&credential,
+		Type:             "type",
+		Name:             "name",
+		Region:           "region",
+		Endpoint:         "endpoint",
+		IdentityEndpoint: "identity-endpoint",
+		StorageEndpoint:  "storage-endpoint",
+		Credential:       &credential,
+		CACertificates:   []string{coretesting.CACert},
 	}
 }
 
@@ -72,16 +73,17 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.CloudSpecResult{{
 		Result: &params.CloudSpec{
-			"type",
-			"name",
-			"region",
-			"endpoint",
-			"identity-endpoint",
-			"storage-endpoint",
-			&params.CloudCredential{
+			Type:             "type",
+			Name:             "name",
+			Region:           "region",
+			Endpoint:         "endpoint",
+			IdentityEndpoint: "identity-endpoint",
+			StorageEndpoint:  "storage-endpoint",
+			Credential: &params.CloudCredential{
 				AuthType:   "auth-type",
 				Attributes: map[string]string{"k": "v"},
 			},
+			CACertificates: []string{coretesting.CACert},
 		},
 	}, {
 		Error: &params.Error{
@@ -109,13 +111,14 @@ func (s *CloudSpecSuite) TestCloudSpecNilCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.CloudSpecResult{{
 		Result: &params.CloudSpec{
-			"type",
-			"name",
-			"region",
-			"endpoint",
-			"identity-endpoint",
-			"storage-endpoint",
-			nil,
+			Type:             "type",
+			Name:             "name",
+			Region:           "region",
+			Endpoint:         "endpoint",
+			IdentityEndpoint: "identity-endpoint",
+			StorageEndpoint:  "storage-endpoint",
+			Credential:       nil,
+			CACertificates:   []string{coretesting.CACert},
 		},
 	}})
 }

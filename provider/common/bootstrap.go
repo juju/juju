@@ -148,7 +148,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	if args.CloudRegion != "" {
 		cloudRegion += "/" + args.CloudRegion
 	}
-	fmt.Fprintf(ctx.GetStderr(), "Launching controller instance(s) on %s...\n", cloudRegion)
+	ctx.Infof("Launching controller instance(s) on %s...", cloudRegion)
 	// Print instance status reports status changes during provisioning.
 	// Note the carriage returns, meaning subsequent prints are to the same
 	// line of stderr, not a new line.
@@ -171,7 +171,8 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		fmt.Fprintf(ctx.GetStderr(), "   %s\r", info)
 		return nil
 	}
-	result, err := env.StartInstance(environs.StartInstanceParams{
+
+	var startInstanceArgs = environs.StartInstanceParams{
 		ControllerUUID:  args.ControllerConfig.ControllerUUID(),
 		Constraints:     args.BootstrapConstraints,
 		Tools:           availableTools,
@@ -180,9 +181,39 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		ImageMetadata:   imageMetadata,
 		StatusCallback:  instanceStatus,
 		CleanupCallback: statusCleanup,
-	})
-	if err != nil {
+	}
+	zones, err := startInstanceZones(env, startInstanceArgs)
+	if errors.IsNotImplemented(err) {
+		// No zone support, so just call StartInstance with
+		// a blank StartInstanceParams.AvailabilityZone.
+		zones = []string{""}
+	} else if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
+	}
+
+	var result *environs.StartInstanceResult
+	for i, zone := range zones {
+		startInstanceArgs.AvailabilityZone = zone
+		result, err = env.StartInstance(startInstanceArgs)
+		if err == nil {
+			break
+		}
+		if zone == "" || environs.IsAvailabilityZoneIndependent(err) {
+			return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
+		}
+		if i < len(zones)-1 {
+			// Try the next zone.
+			logger.Debugf("failed to start instance in availability zone %q: %s", zone, err)
+			continue
+		}
+		// This is the last zone in the list, error.
+		if len(zones) > 1 {
+			return nil, "", nil, errors.Errorf(
+				"cannot start bootstrap instance in any availability zone (%s)",
+				strings.Join(zones, ", "),
+			)
+		}
+		return nil, "", nil, errors.Annotatef(err, "cannot start bootstrap instance in availability zone %q", zone)
 	}
 
 	msg := fmt.Sprintf(" - %s (%s)", result.Instance.Id(), formatHardware(result.Hardware))
@@ -191,7 +222,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		padding := make([]string, 40-len(msg))
 		msg += strings.Join(padding, " ")
 	}
-	fmt.Fprintln(ctx.GetStderr(), msg)
+	ctx.Infof(msg)
 
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
@@ -212,6 +243,37 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		return FinishBootstrap(ctx, client, env, result.Instance, icfg, opts)
 	}
 	return result, selectedSeries, finalize, nil
+}
+
+func startInstanceZones(env environs.Environ, args environs.StartInstanceParams) ([]string, error) {
+	zonedEnviron, ok := env.(ZonedEnviron)
+	if !ok {
+		return nil, errors.NotImplementedf("ZonedEnviron")
+	}
+
+	// Attempt creating the instance in each of the availability
+	// zones, unless the args imply a specific zone.
+	zones, err := zonedEnviron.DeriveAvailabilityZones(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(zones) > 0 {
+		return zones, nil
+	}
+	allZones, err := zonedEnviron.AvailabilityZones()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, zone := range allZones {
+		if !zone.Available() {
+			continue
+		}
+		zones = append(zones, zone.Name())
+	}
+	if len(zones) == 0 {
+		return nil, errors.New("no usable availability zones")
+	}
+	return zones, nil
 }
 
 func formatHardware(hw *instance.HardwareCharacteristics) string {
@@ -268,6 +330,7 @@ var FinishBootstrap = func(
 	if err != nil {
 		return err
 	}
+	ctx.Infof("Connected to %v", addr)
 
 	sshOptions, cleanup, err := hostSSHOptions(addr)
 	if err != nil {
@@ -329,11 +392,15 @@ func ConfigureMachine(
 	if err := udata.ConfigureJuju(); err != nil {
 		return err
 	}
+	if err := udata.ConfigureCustomOverrides(); err != nil {
+		return err
+	}
 	configScript, err := cloudcfg.RenderScript()
 	if err != nil {
 		return err
 	}
 	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLog) + configScript
+	ctx.Infof("Running machine configuration script...")
 	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
 		Client:         client,

@@ -19,6 +19,7 @@
 package dummy
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -81,7 +82,7 @@ var errNotPrepared = errors.New("model is not prepared")
 // SampleCloudSpec returns an environs.CloudSpec that can be used to
 // open a dummy Environ.
 func SampleCloudSpec() environs.CloudSpec {
-	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "dummy", "passeord": "secret"})
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "dummy", "password": "secret"})
 	return environs.CloudSpec{
 		Type:             "dummy",
 		Name:             "dummy",
@@ -121,15 +122,15 @@ func PatchTransientErrorInjectionChannel(c chan error) func() {
 	return gitjujutesting.PatchValue(&transientErrorInjection, c)
 }
 
-// stateInfo returns a *state.Info which allows clients to connect to the
+// mongoInfo returns a mongo.MongoInfo which allows clients to connect to the
 // shared dummy state, if it exists.
-func stateInfo() *mongo.MongoInfo {
+func mongoInfo() mongo.MongoInfo {
 	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	mongoPort := strconv.Itoa(gitjujutesting.MgoServer.Port())
 	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
-	return &mongo.MongoInfo{
+	return mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:      addrs,
 			CACert:     testing.CACert,
@@ -264,6 +265,9 @@ type environ struct {
 	ecfgUnlocked *environConfig
 	spacesMutex  sync.RWMutex
 }
+
+var _ environs.Environ = (*environ)(nil)
+var _ environs.Networking = (*environ)(nil)
 
 // discardOperations discards all Operations written to it.
 var discardOperations = make(chan Operation)
@@ -771,7 +775,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				cloudCredentials[cloudCredentialTag] = *icfg.Bootstrap.ControllerCloudCredential
 			}
 
-			info := stateInfo()
+			session, err := mongo.DialWithInfo(mongoInfo(), mongotest.DialOpts())
+			if err != nil {
+				return err
+			}
+			defer session.Close()
+
 			// Since the admin user isn't setup until after here,
 			// the password in the info structure is empty, so the admin
 			// user is constructed with an empty password here.
@@ -791,9 +800,9 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				},
 				Cloud:            icfg.Bootstrap.ControllerCloud,
 				CloudCredentials: cloudCredentials,
-				MongoInfo:        info,
-				MongoDialOpts:    mongotest.DialOpts(),
+				MongoSession:     session,
 				NewPolicy:        estate.newStatePolicy,
+				AdminPassword:    icfg.Controller.MongoInfo.Password,
 			})
 			if err != nil {
 				return err
@@ -830,14 +839,13 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			statePool := state.NewStatePool(st)
 			machineTag := names.NewMachineTag("0")
 			estate.apiServer, err = apiserver.NewServer(statePool, estate.apiListener, apiserver.ServerConfig{
-				Clock:       clock.WallClock,
-				Cert:        testing.ServerCert,
-				Key:         testing.ServerKey,
-				Tag:         machineTag,
-				DataDir:     DataDir,
-				LogDir:      LogDir,
-				Hub:         centralhub.New(machineTag),
-				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
+				Clock:          clock.WallClock,
+				GetCertificate: func() *tls.Certificate { return testing.ServerTLSCert },
+				Tag:            machineTag,
+				DataDir:        DataDir,
+				LogDir:         LogDir,
+				Hub:            centralhub.New(machineTag),
+				NewObserver:    func() observer.Observer { return &fakeobserver.Instance{} },
 				// Should never be used but prevent external access just in case.
 				AutocertURL: "https://0.1.2.3/no-autocert-here",
 				RegisterIntrospectionHandlers: func(f func(path string, h http.Handler)) {
@@ -846,6 +854,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 					}))
 				},
 				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
+				UpgradeComplete: func() bool {
+					return true
+				},
+				RestoreStatus: func() state.RestoreStatus {
+					return state.RestoreNotActive
+				},
 			})
 			if err != nil {
 				statePool.Close()
@@ -1028,15 +1042,29 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	// To match current system capability, only provide hardware characteristics for
 	// environ machines, not containers.
 	if state.ParentId(machineId) == "" {
+		// Assume that the provided Availability Zone won't fail,
+		// though one is required.
+		var zone string
+		if args.Placement != "" {
+			split := strings.Split(args.Placement, "=")
+			if len(split) == 2 && split[0] == "zone" {
+				zone = split[1]
+			}
+		}
+		if zone == "" && args.AvailabilityZone != "" {
+			zone = args.AvailabilityZone
+		}
+
 		// We will just assume the instance hardware characteristics exactly matches
 		// the supplied constraints (if specified).
 		hc = &instance.HardwareCharacteristics{
-			Arch:     args.Constraints.Arch,
-			Mem:      args.Constraints.Mem,
-			RootDisk: args.Constraints.RootDisk,
-			CpuCores: args.Constraints.CpuCores,
-			CpuPower: args.Constraints.CpuPower,
-			Tags:     args.Constraints.Tags,
+			Arch:             args.Constraints.Arch,
+			Mem:              args.Constraints.Mem,
+			RootDisk:         args.Constraints.RootDisk,
+			CpuCores:         args.Constraints.CpuCores,
+			CpuPower:         args.Constraints.CpuPower,
+			Tags:             args.Constraints.Tags,
+			AvailabilityZone: &zone,
 		}
 		// Fill in some expected instance hardware characteristics if constraints not specified.
 		if hc.Arch == nil {
@@ -1304,16 +1332,43 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	return []common.AvailabilityZone{
 		azShim{"zone1", true},
 		azShim{"zone2", false},
+		azShim{"zone3", true},
+		azShim{"zone4", true},
 	}, nil
 }
 
 // InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
 func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	// TODO(dimitern): Fix this properly.
 	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
 		return nil, errors.NotSupportedf("instance availability zones")
 	}
-	return []string{"zone1"}, nil
+	availabilityZones, err := env.AvailabilityZones()
+	if err != nil {
+		return nil, err
+	}
+	azMaxIndex := len(availabilityZones) - 1
+	azIndex := 0
+	returnValue := make([]string, len(ids))
+	for i, _ := range ids {
+		if availabilityZones[azIndex].Available() {
+			returnValue[i] = availabilityZones[azIndex].Name()
+		} else {
+			// Based on knowledge of how the AZs are setup above
+			// in AvailabilityZones()
+			azIndex += 1
+			returnValue[i] = availabilityZones[azIndex].Name()
+		}
+		azIndex += 1
+		if azIndex == azMaxIndex {
+			azIndex = 0
+		}
+	}
+	return returnValue, nil
+}
+
+// DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
+func (env *environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+	return nil, nil
 }
 
 // Subnets implements environs.Environ.Subnets.
@@ -1716,4 +1771,9 @@ func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, er
 		}
 	}
 	return rv, nil
+}
+
+// SuperSubnets implements environs.SuperSubnets
+func (*environ) SuperSubnets() ([]string, error) {
+	return nil, errors.NotSupportedf("super subnets")
 }

@@ -65,11 +65,6 @@ func (s *environSuite) TestBase(c *gc.C) {
 	c.Check(cloudSpec.Region, gc.Not(gc.Equals), "")
 	c.Check(cloudSpec.Endpoint, gc.Not(gc.Equals), "")
 
-	c.Check(env.OpenPorts(nil), gc.IsNil)
-	c.Check(env.ClosePorts(nil), gc.IsNil)
-	ports, err := env.IngressRules()
-	c.Assert(err, gc.IsNil)
-	c.Check(ports, gc.IsNil)
 }
 
 func (s *environSuite) TestUnsupportedConstraints(c *gc.C) {

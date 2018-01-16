@@ -120,7 +120,7 @@ func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	})
 	_, err := pm.Create("default-block", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "default-block",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)

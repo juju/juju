@@ -29,7 +29,6 @@ type environFromModelFunc func(string) (environs.Environ, error)
 // implementation of the api end point.
 type OffersAPI struct {
 	BaseAPI
-	*common.APIAddresser
 	dataDir     string
 	authContext *commoncrossmodel.AuthContext
 }
@@ -38,6 +37,7 @@ type OffersAPI struct {
 func createOffersAPI(
 	getApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers,
 	getEnviron environFromModelFunc,
+	getControllerInfo func() ([]string, string, error),
 	backend Backend,
 	statePool StatePool,
 	authorizer facade.Authorizer,
@@ -50,16 +50,17 @@ func createOffersAPI(
 
 	dataDir := resources.Get("dataDir").(common.StringResource)
 	api := &OffersAPI{
-		dataDir:      dataDir.String(),
-		authContext:  authContext,
-		APIAddresser: common.NewAPIAddresser(backend.GetAddressAndCertGetter(), resources),
+		dataDir:     dataDir.String(),
+		authContext: authContext,
 		BaseAPI: BaseAPI{
 			Authorizer:           authorizer,
 			GetApplicationOffers: getApplicationOffers,
 			ControllerModel:      backend,
 			StatePool:            statePool,
 			getEnviron:           getEnviron,
-		}}
+			getControllerInfo:    getControllerInfo,
+		},
+	}
 	return api, nil
 }
 
@@ -71,7 +72,11 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 			return nil, errors.Trace(err)
 		}
 		defer releaser()
-		g := stateenvirons.EnvironConfigGetter{st}
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		g := stateenvirons.EnvironConfigGetter{st, model}
 		env, err := environs.GetEnviron(g, environs.New)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -79,11 +84,17 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		return env, nil
 	}
 
+	st := ctx.State()
+	getControllerInfo := func() ([]string, string, error) {
+		return common.StateControllerInfo(st)
+	}
+
 	authContext := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
 	return createOffersAPI(
 		GetApplicationOffers,
 		environFromModel,
-		GetStateAccess(ctx.State()),
+		getControllerInfo,
+		GetStateAccess(st),
 		GetStatePool(ctx.StatePool()),
 		ctx.Auth(),
 		ctx.Resources(),
@@ -154,8 +165,8 @@ func (api *OffersAPI) makeAddOfferArgsFromParams(backend Backend, addOfferParams
 
 // ListApplicationOffers gets deployed details about application offers that match given filter.
 // The results contain details about the deployed applications such as connection count.
-func (api *OffersAPI) ListApplicationOffers(filters params.OfferFilters) (params.ListApplicationOffersResults, error) {
-	var result params.ListApplicationOffersResults
+func (api *OffersAPI) ListApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResults, error) {
+	var result params.QueryApplicationOffersResults
 	offers, err := api.getApplicationOffersDetails(filters, permission.AdminAccess)
 	if err != nil {
 		return result, common.ServerError(err)
@@ -210,7 +221,7 @@ func (api *OffersAPI) modifyOneOfferAccess(modelUUID string, isControllerAdmin b
 		return errors.Annotate(err, "could not modify offer access")
 	}
 
-	url, err := jujucrossmodel.ParseApplicationURL(arg.OfferURL)
+	url, err := jujucrossmodel.ParseOfferURL(arg.OfferURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -319,9 +330,9 @@ func (api *OffersAPI) revokeOfferAccess(backend Backend, offerTag names.Applicat
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
-func (api *OffersAPI) ApplicationOffers(urls params.ApplicationURLs) (params.ApplicationOffersResults, error) {
+func (api *OffersAPI) ApplicationOffers(urls params.OfferURLs) (params.ApplicationOffersResults, error) {
 	var results params.ApplicationOffersResults
-	results.Results = make([]params.ApplicationOfferResult, len(urls.ApplicationURLs))
+	results.Results = make([]params.ApplicationOfferResult, len(urls.OfferURLs))
 
 	var (
 		filters []params.OfferFilter
@@ -330,8 +341,8 @@ func (api *OffersAPI) ApplicationOffers(urls params.ApplicationURLs) (params.App
 		// It is used to process the result offers.
 		fullURLs []string
 	)
-	for i, urlStr := range urls.ApplicationURLs {
-		url, err := jujucrossmodel.ParseApplicationURL(urlStr)
+	for i, urlStr := range urls.OfferURLs {
+		url, err := jujucrossmodel.ParseOfferURL(urlStr)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -359,7 +370,7 @@ func (api *OffersAPI) ApplicationOffers(urls params.ApplicationURLs) (params.App
 	if err != nil {
 		return results, common.ServerError(err)
 	}
-	offersByURL := make(map[string]params.ApplicationOfferDetails)
+	offersByURL := make(map[string]params.ApplicationOfferAdminDetails)
 	for _, offer := range offers {
 		offersByURL[offer.OfferURL] = offer
 	}
@@ -371,14 +382,14 @@ func (api *OffersAPI) ApplicationOffers(urls params.ApplicationURLs) (params.App
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		results.Results[i].Result = &offer.ApplicationOffer
+		results.Results[i].Result = &offer
 	}
 	return results, nil
 }
 
 // FindApplicationOffers gets details about remote applications that match given filter.
-func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params.FindApplicationOffersResults, error) {
-	var result params.FindApplicationOffersResults
+func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResults, error) {
+	var result params.QueryApplicationOffersResults
 	var filtersToUse params.OfferFilters
 
 	// If there is only one filter term, and no model is specified, add in
@@ -407,58 +418,56 @@ func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params
 	if err != nil {
 		return result, common.ServerError(err)
 	}
-	for _, offer := range offers {
-		result.Results = append(result.Results, offer.ApplicationOffer)
-	}
+	result.Results = offers
 	return result, nil
 }
 
 // GetConsumeDetails returns the details necessary to pass to another model to
 // consume the specified offers represented by the urls.
-func (api *OffersAPI) GetConsumeDetails(args params.ApplicationURLs) (params.ConsumeOfferDetailsResults, error) {
+func (api *OffersAPI) GetConsumeDetails(args params.OfferURLs) (params.ConsumeOfferDetailsResults, error) {
 	var consumeResults params.ConsumeOfferDetailsResults
-	results := make([]params.ConsumeOfferDetailsResult, len(args.ApplicationURLs))
+	results := make([]params.ConsumeOfferDetailsResult, len(args.OfferURLs))
 
 	offers, err := api.ApplicationOffers(args)
 	if err != nil {
 		return consumeResults, common.ServerError(err)
 	}
 
-	addr, err := api.APIAddresser.APIAddresses()
+	addrs, caCert, err := api.getControllerInfo()
 	if err != nil {
 		return consumeResults, common.ServerError(err)
 	}
-	if addr.Error != nil {
-		return consumeResults, common.ServerError(err)
-	}
+
 	controllerInfo := &params.ExternalControllerInfo{
 		ControllerTag: api.ControllerModel.ControllerTag().String(),
-		Addrs:         addr.Result,
-		CACert:        string(api.APIAddresser.CACert().Result),
+		Addrs:         addrs,
+		CACert:        caCert,
 	}
 
 	for i, result := range offers.Results {
-		offer := result.Result
-		results[i].Offer = offer
 		results[i].Error = result.Error
-		if result.Error == nil {
-			results[i].ControllerInfo = controllerInfo
-			offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(offer, api.Authorizer.GetAuthTag().Id())
-			if err != nil {
-				results[i].Error = common.ServerError(err)
-				continue
-			}
-			results[i].Macaroon = offerMacaroon
+		if result.Error != nil {
+			continue
 		}
+		offer := result.Result
+		offerDetails := &offer.ApplicationOfferDetails
+		results[i].Offer = offerDetails
+		results[i].ControllerInfo = controllerInfo
+		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(offerDetails, api.Authorizer.GetAuthTag().Id())
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		results[i].Macaroon = offerMacaroon
 	}
 	consumeResults.Results = results
 	return consumeResults, nil
 }
 
 // RemoteApplicationInfo returns information about the requested remote application.
-func (api *OffersAPI) RemoteApplicationInfo(args params.ApplicationURLs) (params.RemoteApplicationInfoResults, error) {
-	results := make([]params.RemoteApplicationInfoResult, len(args.ApplicationURLs))
-	for i, url := range args.ApplicationURLs {
+func (api *OffersAPI) RemoteApplicationInfo(args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
+	results := make([]params.RemoteApplicationInfoResult, len(args.OfferURLs))
+	for i, url := range args.OfferURLs {
 		info, err := api.oneRemoteApplicationInfo(url)
 		results[i].Result = info
 		results[i].Error = common.ServerError(err)
@@ -466,7 +475,7 @@ func (api *OffersAPI) RemoteApplicationInfo(args params.ApplicationURLs) (params
 	return params.RemoteApplicationInfoResults{results}, nil
 }
 
-func (api *OffersAPI) filterFromURL(url *jujucrossmodel.ApplicationURL) params.OfferFilter {
+func (api *OffersAPI) filterFromURL(url *jujucrossmodel.OfferURL) params.OfferFilter {
 	f := params.OfferFilter{
 		OwnerName: url.User,
 		ModelName: url.ModelName,
@@ -476,7 +485,7 @@ func (api *OffersAPI) filterFromURL(url *jujucrossmodel.ApplicationURL) params.O
 }
 
 func (api *OffersAPI) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApplicationInfo, error) {
-	url, err := jujucrossmodel.ParseApplicationURL(urlStr)
+	url, err := jujucrossmodel.ParseOfferURL(urlStr)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -503,9 +512,45 @@ func (api *OffersAPI) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApp
 		ModelTag:         offer.SourceModelTag,
 		Name:             url.ApplicationName,
 		Description:      offer.ApplicationDescription,
-		ApplicationURL:   url.String(),
+		OfferURL:         url.String(),
 		SourceModelLabel: url.ModelName,
 		Endpoints:        offer.Endpoints,
 		IconURLPath:      fmt.Sprintf("rest/1.0/remote-application/%s/icon", url.ApplicationName),
 	}, nil
+}
+
+// DestroyOffers removes the offers specified by the given URLs.
+func (api *OffersAPI) DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error) {
+	result := make([]params.ErrorResult, len(args.OfferURLs))
+
+	models, err := api.getModelsFromOffers(args.OfferURLs...)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	for i, one := range args.OfferURLs {
+		url, err := jujucrossmodel.ParseOfferURL(one)
+		if err != nil {
+			result[i].Error = common.ServerError(err)
+			continue
+		}
+		if models[i].err != nil {
+			result[i].Error = common.ServerError(models[i].err)
+			continue
+		}
+		backend, releaser, err := api.StatePool.Get(models[i].model.UUID())
+		if err != nil {
+			result[i].Error = common.ServerError(err)
+			continue
+		}
+		defer releaser()
+
+		if err := api.checkAdmin(backend); err != nil {
+			result[i].Error = common.ServerError(err)
+			continue
+		}
+		err = api.GetApplicationOffers(backend).Remove(url.ApplicationName)
+		result[i].Error = common.ServerError(err)
+	}
+	return params.ErrorResults{Results: result}, nil
 }

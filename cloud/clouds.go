@@ -131,6 +131,12 @@ type Cloud struct {
 	// Like Config above, this will be combined with Juju-generated and user
 	// supplied values; with user supplied values taking precedence.
 	RegionConfig RegionConfig
+
+	// CACertificates contains an optional list of Certificate
+	// Authority certificates to be used to validate certificates
+	// of cloud infrastructure components
+	// The contents are Base64 encoded x.509 certs.
+	CACertificates []string
 }
 
 // Region is a cloud region.
@@ -171,6 +177,7 @@ type cloud struct {
 	Regions          regions                `yaml:"regions,omitempty"`
 	Config           map[string]interface{} `yaml:"config,omitempty"`
 	RegionConfig     RegionConfig           `yaml:"region-config,omitempty"`
+	CACertificates   []string               `yaml:"ca-certificates,omitempty"`
 }
 
 // regions is a collection of regions, either as a map and/or
@@ -411,6 +418,7 @@ func cloudToInternal(in Cloud, withName bool) *cloud {
 		Regions:          regions,
 		Config:           in.Config,
 		RegionConfig:     in.RegionConfig,
+		CACertificates:   in.CACertificates,
 	}
 }
 
@@ -445,6 +453,7 @@ func cloudFromInternal(in *cloud) Cloud {
 		Config:           in.Config,
 		RegionConfig:     in.RegionConfig,
 		Description:      in.Description,
+		CACertificates:   in.CACertificates,
 	}
 	meta.denormaliseMetadata()
 	return meta

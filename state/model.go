@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
@@ -228,22 +229,6 @@ func (st *State) ModelExists(uuid string) (bool, error) {
 	return count > 0, nil
 }
 
-// ModelActive returns true if a model with the supplied UUID exists
-// and is not being imported as part of a migration.
-func (st *State) ModelActive(uuid string) (bool, error) {
-	models, closer := st.db().GetCollection(modelsC)
-	defer closer()
-
-	var doc modelDoc
-	err := models.FindId(uuid).One(&doc)
-	if err == mgo.ErrNotFound {
-		return false, nil
-	} else if err != nil {
-		return false, errors.Annotate(err, "querying model")
-	}
-	return doc.MigrationMode != MigrationModeImporting, nil
-}
-
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
 	// Type specifies the general type of the model (IAAS or CAAS).
@@ -385,7 +370,6 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		names.NewModelTag(uuid),
 		controllerInfo.ModelTag,
 		session,
-		st.mongoInfo,
 		st.newPolicy,
 		st.clock(),
 		st.runTransactionObserver,
@@ -425,14 +409,14 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		} else if envCount > 0 {
 			err = errors.AlreadyExistsf("model %q for %s", name, owner.Id())
 		} else {
-			err = errors.New("model already exists")
+			err = errors.Annotate(err, "failed to create new model")
 		}
 	}
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = newSt.start(st.controllerTag)
+	err = newSt.start(st.controllerTag, nil)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not start state for new model")
 	}
@@ -472,7 +456,7 @@ func validateCloudRegion(cloud jujucloud.Cloud, regionName string) (txn.Op, erro
 			return txn.Op{}, errors.Trace(err)
 		}
 		assertCloudRegionOp.Assert = bson.D{
-			{"regions." + region.Name, bson.D{{"$exists", true}}},
+			{"regions." + utils.EscapeKey(region.Name), bson.D{{"$exists", true}}},
 		}
 	} else {
 		if len(cloud.Regions) > 0 {
@@ -838,7 +822,7 @@ func (m *Model) refresh(uuid string) error {
 	defer closer()
 	err := models.FindId(uuid).One(&m.doc)
 	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("model")
+		return errors.NotFoundf("model %q", uuid)
 	}
 	return err
 }
@@ -1143,6 +1127,10 @@ func (m *Model) destroyOps(
 
 			st, release, err := pool.Get(modelUUID)
 			if err != nil {
+				// This model could have been removed.
+				if errors.IsNotFound(err) {
+					continue
+				}
 				return nil, errors.Trace(err)
 			}
 			defer release()
@@ -1257,21 +1245,23 @@ func (m *Model) destroyOps(
 		// that case we'll get errors if we try to enqueue hosted-model
 		// cleanups, because the cleanups collection is non-global.
 		ops = append(ops,
-			newCleanupOp(cleanupMachinesForDyingModel, modelUUID),
 			newCleanupOp(cleanupApplicationsForDyingModel, modelUUID),
 		)
-		if args.DestroyStorage != nil {
-			// The user has specified that the storage should be destroyed
-			// or released, which we can do in a cleanup. If the user did
-			// not specify either, then we have already added prereq ops
-			// to assert that there is no storage in the model.
-			ops = append(ops, newCleanupOp(
-				cleanupStorageForDyingModel, modelUUID,
-				// pass through DestroyModelArgs.DestroyStorage to the
-				// cleanup, so the storage can be destroyed/released
-				// according to the parameters.
-				*args.DestroyStorage,
-			))
+		if m.Type() == ModelTypeIAAS {
+			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID))
+			if args.DestroyStorage != nil {
+				// The user has specified that the storage should be destroyed
+				// or released, which we can do in a cleanup. If the user did
+				// not specify either, then we have already added prereq ops
+				// to assert that there is no storage in the model.
+				ops = append(ops, newCleanupOp(
+					cleanupStorageForDyingModel, modelUUID,
+					// pass through DestroyModelArgs.DestroyStorage to the
+					// cleanup, so the storage can be destroyed/released
+					// according to the parameters.
+					*args.DestroyStorage,
+				))
+			}
 		}
 	}
 	return append(prereqOps, ops...), nil
@@ -1290,6 +1280,12 @@ func (m *Model) getEntityRefs() (*modelEntityRefsDoc, error) {
 		return nil, errors.Annotatef(err, "getting entity references for model %s", m.UUID())
 	}
 	return &doc, nil
+}
+
+// (TODO) externalreality: Temporary method to access state from model while
+// factoring Model concerns out from state.
+func (model *Model) State() *State {
+	return model.st
 }
 
 // checkModelEntityRefsEmpty checks that the model is empty of any entities

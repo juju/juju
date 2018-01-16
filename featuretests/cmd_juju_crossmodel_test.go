@@ -13,8 +13,8 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/application"
@@ -58,6 +58,12 @@ riak:
     endpoint:
       interface: http
       role: provider
+  users:
+    admin:
+      display-name: admin
+      access: admin
+    everyone@external:
+      access: read
 varnish:
   application: varnishservice
   store: kontroll
@@ -67,7 +73,32 @@ varnish:
     webcache:
       interface: varnish
       role: provider
+  users:
+    admin:
+      display-name: admin
+      access: admin
+    everyone@external:
+      access: read
 `[1:])
+}
+
+func (s *crossmodelSuite) TestRemove(c *gc.C) {
+	ch := s.AddTestingCharm(c, "riak")
+	s.AddTestingApplication(c, "riakservice", ch)
+	ch = s.AddTestingCharm(c, "varnish")
+	s.AddTestingApplication(c, "varnishservice", ch)
+
+	_, err := cmdtesting.RunCommand(c, crossmodel.NewOfferCommand(),
+		"riakservice:endpoint", "riak")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = cmdtesting.RunCommand(c, crossmodel.NewRemoveOfferCommand(),
+		"admin/controller.riak")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = cmdtesting.RunCommand(c, crossmodel.NewShowOfferedEndpointCommand(),
+		"admin/controller.riak")
+	c.Assert(err, gc.ErrorMatches, `application offer "admin/controller\.riak" not found`)
 }
 
 func (s *crossmodelSuite) TestShow(c *gc.C) {
@@ -89,12 +120,18 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
 kontroll:admin/controller.varnish:
+  description: Another popular database
   access: admin
   endpoints:
     webcache:
       interface: varnish
       role: provider
-  description: Another popular database
+  users:
+    admin:
+      display-name: admin
+      access: admin
+    everyone@external:
+      access: read
 `[1:])
 }
 
@@ -104,14 +141,23 @@ func (s *crossmodelSuite) TestShowOtherModel(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewShowOfferedEndpointCommand(),
 		"otheruser/othermodel.hosted-mysql", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+	otherUser, err := s.State.User(names.NewUserTag("otheruser"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, fmt.Sprintf(`
 kontroll:otheruser/othermodel.hosted-mysql:
   access: admin
   endpoints:
     database:
       interface: mysql
       role: provider
-`[1:])
+  users:
+    admin:
+      display-name: admin
+      access: admin
+    otheruser:
+      display-name: %s
+      access: admin
+`, otherUser.DisplayName())[1:])
 }
 
 func (s *crossmodelSuite) setupOffers(c *gc.C) {
@@ -139,12 +185,24 @@ kontroll:admin/controller.riak:
     endpoint:
       interface: http
       role: provider
+  users:
+    admin:
+      display-name: admin
+      access: admin
+    everyone@external:
+      access: read
 kontroll:admin/controller.varnish:
   access: admin
   endpoints:
     webcache:
       interface: varnish
       role: provider
+  users:
+    admin:
+      display-name: admin
+      access: admin
+    everyone@external:
+      access: read
 `[1:])
 }
 
@@ -154,14 +212,23 @@ func (s *crossmodelSuite) TestFindOtherModel(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(),
 		"otheruser/othermodel", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+	otherUser, err := s.State.User(names.NewUserTag("otheruser"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, fmt.Sprintf(`
 kontroll:otheruser/othermodel.hosted-mysql:
   access: admin
   endpoints:
     database:
       interface: mysql
       role: provider
-`[1:])
+  users:
+    admin:
+      display-name: admin
+      access: admin
+    otheruser:
+      display-name: %s
+      access: admin
+`, otherUser.DisplayName())[1:])
 }
 
 func (s *crossmodelSuite) TestFindAllModels(c *gc.C) {
@@ -170,26 +237,47 @@ func (s *crossmodelSuite) TestFindAllModels(c *gc.C) {
 
 	ctx, err := cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommand(), "kontroll:", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
+	otherUser, err := s.State.User(names.NewUserTag("otheruser"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, fmt.Sprintf(`
 kontroll:admin/controller.riak:
   access: admin
   endpoints:
     endpoint:
       interface: http
       role: provider
+  users:
+    admin:
+      display-name: admin
+      access: admin
+    everyone@external:
+      access: read
 kontroll:admin/controller.varnish:
   access: admin
   endpoints:
     webcache:
       interface: varnish
       role: provider
+  users:
+    admin:
+      display-name: admin
+      access: admin
+    everyone@external:
+      access: read
 kontroll:otheruser/othermodel.hosted-mysql:
   access: admin
   endpoints:
     database:
       interface: mysql
       role: provider
-`[1:])
+  users:
+    admin:
+      display-name: admin
+      access: admin
+    otheruser:
+      display-name: %s
+      access: admin
+`, otherUser.DisplayName())[1:])
 }
 
 func (s *crossmodelSuite) TestAddRelationFromURL(c *gc.C) {
@@ -403,6 +491,9 @@ kontroll:otheruser/othermodel.hosted-mysql:
     database:
       interface: mysql
       role: provider
+  users:
+    test:
+      access: read
 `[1:])
 }
 
@@ -471,5 +562,23 @@ func (s *crossmodelSuite) TestConsumeWithPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, `
 Added otheruser/othermodel.hosted-mysql as othermysql
+`[1:])
+}
+
+func (s *crossmodelSuite) TestRemoveSaas(c *gc.C) {
+	s.addOtherModelApplication(c)
+	_, err := cmdtesting.RunCommand(c, application.NewConsumeCommand(),
+		"otheruser/othermodel.hosted-mysql")
+
+	_, err = cmdtesting.RunCommand(c, application.NewRemoveSaasCommand(),
+		"-m", "admin/controller", "hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// A second time it's no longer there.
+	ctx, err := cmdtesting.RunCommand(c, application.NewRemoveSaasCommand(),
+		"-m", "admin/controller", "hosted-mysql")
+	c.Check(err, gc.ErrorMatches, "cmd: error out silently")
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, `
+removing SAAS application hosted-mysql failed: remote application "hosted-mysql" not found
 `[1:])
 }

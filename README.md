@@ -16,17 +16,14 @@ Getting started
 `juju` is written in Go (http://golang.org), a modern, compiled, statically typed,
 concurrent language. This document describes how to build `juju` from source.
 
-If you are looking for binary releases of `juju`, they are available from the Juju
-stable PPA, `https://launchpad.net/~juju/+archive/stable`, and can be installed with:
+If you are looking for binary releases of `juju`, they are available in the snap store
 
-    sudo apt-add-repository ppa:juju/stable
-    sudo apt-get update
-    sudo apt-get install juju
+    snap install juju --classic
     
 Installing Go
 --------------
 
-`Juju's` source code currently depends on Go 1.8. One of the easiest ways
+`Juju's` source code currently depends on Go 1.9. One of the easiest ways
 to install golang is from a snap. You may need to first install
 the [snap client](https://snapcraft.io/docs/core/install). Installing the golang
 snap package is then as easy as
@@ -37,7 +34,7 @@ You can read about the "classic" confinement policy [here](https://insights.ubun
 
 If you want to use `apt`, then you can add the [juju-golang PPA](https://launchpad.net/~juju/+archive/ubuntu/golang) and then run the following
 
-    sudo apt install golang-1.8
+    sudo apt install golang-1.9
 
 Alternatively, you can always follow the official [binary installation instructions](https://golang.org/doc/install#install)
 
@@ -94,6 +91,21 @@ If you want to know more about contributing to `juju`, please read the
 
 Installing prerequisites
 ------------------------
+
+### *Making use of Makefile*
+
+The `juju` repository contains a `Makefile`, which is the preferred way to install dependencies and other features.
+It is advisable, when installing `juju` from source, to look at the [Makefile](./Makefile), located in `$GOPATH/src/github.com/juju/juju/Makefile`.
+
+### *Dependencies*
+
+Juju needs some dependencies in order to be installed and the preferred way to 
+collect the necessary packages is to use the provided `Makefile`.
+The target `godeps` will download the go packages listed in `dependencies.tsv`. The following bash code will install the dependencies.
+
+    cd $GOPATH/src/github.com/juju/juju
+    export JUJU_MAKE_GODEPS=true
+    make godeps
 
 ### *Runtime Dependencies*
 

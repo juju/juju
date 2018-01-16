@@ -124,6 +124,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		config.AptMirror,
 		config.EnableOSRefreshUpdate,
 		config.EnableOSUpgrade,
+		config.CloudInitUserData,
 	); err != nil {
 		kvmLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, err

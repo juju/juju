@@ -41,7 +41,7 @@ func formatOfferedEndpointsTabular(writer io.Writer, all map[string]ShowOfferedA
 	w.Println("Store", "URL", "Access", "Description", "Endpoint", "Interface", "Role")
 
 	for urlStr, one := range all {
-		url, err := crossmodel.ParseApplicationURL(urlStr)
+		url, err := crossmodel.ParseOfferURL(urlStr)
 		if err != nil {
 			return err
 		}

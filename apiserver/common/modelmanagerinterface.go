@@ -30,6 +30,8 @@ type ModelManagerBackend interface {
 
 	ModelUUID() string
 	ModelUUIDsForUser(names.UserTag) ([]string, error)
+	ModelBasicInfoForUser(user names.UserTag) ([]state.ModelAccessInfo, error)
+	ModelSummariesForUser(user names.UserTag, all bool) ([]state.ModelSummary, error)
 	IsControllerAdmin(user names.UserTag) (bool, error)
 	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)
@@ -77,6 +79,7 @@ type ModelManagerBackend interface {
 // All the interface methods are defined directly on state.Model
 // and are reproduced here for use in tests.
 type Model interface {
+	Type() state.ModelType
 	Config() (*config.Config, error)
 	Life() state.Life
 	ModelTag() names.ModelTag
@@ -95,28 +98,45 @@ type Model interface {
 	ControllerUUID() string
 	LastModelConnection(user names.UserTag) (time.Time, error)
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
+	AutoConfigureContainerNetworking(environ environs.Environ) error
+	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)
 
 type modelManagerStateShim struct {
 	*state.State
-	pool *state.StatePool
+	model *state.Model
+	pool  *state.StatePool
 }
 
 // NewModelManagerBackend returns a modelManagerStateShim wrapping the passed
 // state, which implements ModelManagerBackend.
-func NewModelManagerBackend(st *state.State, pool *state.StatePool) ModelManagerBackend {
-	return modelManagerStateShim{st, pool}
+func NewModelManagerBackend(m *state.Model, pool *state.StatePool) ModelManagerBackend {
+	return modelManagerStateShim{m.State(), m, pool}
 }
 
 // NewModel implements ModelManagerBackend.
 func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelManagerBackend, error) {
-	m, otherState, err := st.State.NewModel(args)
+	otherModel, otherState, err := st.State.NewModel(args)
 	if err != nil {
 		return nil, nil, err
 	}
-	return modelShim{m}, modelManagerStateShim{otherState, st.pool}, nil
+	return modelShim{otherModel}, modelManagerStateShim{otherState, otherModel, st.pool}, nil
+}
+
+func (st modelManagerStateShim) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
+	return st.model.ModelConfigDefaultValues()
+}
+
+// UpdateModelConfigDefaultValues implements the ModelManagerBackend method.
+func (st modelManagerStateShim) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.RegionSpec) error {
+	return st.model.UpdateModelConfigDefaultValues(update, remove, regionSpec)
+}
+
+// ControllerTag exposes Model ControllerTag for ModelManagerBackend inteface
+func (st modelManagerStateShim) ControllerTag() names.ControllerTag {
+	return st.model.ControllerTag()
 }
 
 // GetBackend implements ModelManagerBackend.
@@ -125,7 +145,11 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return modelManagerStateShim{otherState, st.pool}, release, nil
+	otherModel, err := otherState.Model()
+	if err != nil {
+		return nil, nil, err
+	}
+	return modelManagerStateShim{otherState, otherModel, st.pool}, release, nil
 }
 
 // GetModel implements ModelManagerBackend.
@@ -139,11 +163,7 @@ func (st modelManagerStateShim) GetModel(modelUUID string) (Model, func() bool, 
 
 // Model implements ModelManagerBackend.
 func (st modelManagerStateShim) Model() (Model, error) {
-	m, err := st.State.Model()
-	if err != nil {
-		return nil, err
-	}
-	return modelShim{m}, nil
+	return modelShim{st.model}, nil
 }
 
 var _ Model = (*modelShim)(nil)
@@ -214,4 +234,23 @@ func (st modelManagerStateShim) AllVolumes() ([]state.Volume, error) {
 		return nil, err
 	}
 	return model.AllVolumes()
+}
+
+// ModelConfig returns the underlying model's config. Exposed here to satisfy the
+// ModelBackend interface.
+func (st modelManagerStateShim) ModelConfig() (*config.Config, error) {
+	model, err := st.State.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return model.ModelConfig()
+}
+
+// [TODO: Eric Claude Jones] This method ignores an error for the purpose of
+// expediting refactoring for CAAS features (we are avoiding changing method
+// signatures so that refactoring doesn't spiral out of control). This method
+// should be deleted immediately upon the removal of the ModelTag method from
+// state.State.
+func (st modelManagerStateShim) ModelTag() names.ModelTag {
+	return names.NewModelTag(st.ModelUUID())
 }

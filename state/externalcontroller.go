@@ -36,6 +36,9 @@ type externalControllerDoc struct {
 	// It is the controller UUID.
 	Id string `bson:"_id"`
 
+	// Alias holds an alias (human friendly) name for the controller.
+	Alias string `bson:"alias"`
+
 	// Addrs holds the host:port values for the external
 	// controller's API server.
 	Addrs []string `bson:"addresses"`
@@ -57,6 +60,7 @@ func (rc *externalController) Id() string {
 func (rc *externalController) ControllerInfo() crossmodel.ControllerInfo {
 	return crossmodel.ControllerInfo{
 		ControllerTag: names.NewControllerTag(rc.doc.Id),
+		Alias:         rc.doc.Alias,
 		Addrs:         rc.doc.Addrs,
 		CACert:        rc.doc.CACert,
 	}
@@ -65,7 +69,11 @@ func (rc *externalController) ControllerInfo() crossmodel.ControllerInfo {
 // ExternalControllers instances provide access to external controllers in state.
 type ExternalControllers interface {
 	Save(_ crossmodel.ControllerInfo, modelUUIDs ...string) (ExternalController, error)
+	Controller(controllerUUID string) (ExternalController, error)
 	ControllerForModel(modelUUID string) (ExternalController, error)
+	Remove(controllerUUID string) error
+	Watch() StringsWatcher
+	WatchController(controllerUUID string) NotifyWatcher
 }
 
 type externalControllers struct {
@@ -77,13 +85,14 @@ func NewExternalControllers(st *State) *externalControllers {
 	return &externalControllers{st: st}
 }
 
-// Add creates a new external controller record.
+// Add creates or updates an external controller record.
 func (ec *externalControllers) Save(controller crossmodel.ControllerInfo, modelUUIDs ...string) (ExternalController, error) {
 	if err := controller.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	doc := externalControllerDoc{
 		Id:     controller.ControllerTag.Id(),
+		Alias:  controller.Alias,
 		Addrs:  controller.Addrs,
 		CACert: controller.CACert,
 	}
@@ -110,6 +119,7 @@ func (ec *externalControllers) Save(controller crossmodel.ControllerInfo, modelU
 				Update: bson.D{
 					{"$set",
 						bson.D{{"addresses", doc.Addrs},
+							{"alias", doc.Alias},
 							{"cacert", doc.CACert},
 							{"models", models.Values()}},
 					},
@@ -133,6 +143,26 @@ func (ec *externalControllers) Save(controller crossmodel.ControllerInfo, modelU
 	return &externalController{
 		doc: doc,
 	}, nil
+}
+
+// Remove removes an external controller record with the given controller UUID.
+func (ec *externalControllers) Remove(controllerUUID string) error {
+	ops := []txn.Op{{
+		C:      externalControllersC,
+		Id:     controllerUUID,
+		Remove: true,
+	}}
+	err := ec.st.db().RunTransaction(ops)
+	return errors.Annotate(err, "failed to remove external controller")
+}
+
+// Controller retrieves an ExternalController with a given controller UUID.
+func (ec *externalControllers) Controller(controllerUUID string) (ExternalController, error) {
+	doc, err := ec.controller(controllerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &externalController{*doc}, nil
 }
 
 func (ec *externalControllers) controller(controllerUUID string) (*externalControllerDoc, error) {
@@ -169,4 +199,17 @@ func (ec *externalControllers) ControllerForModel(modelUUID string) (ExternalCon
 		}, nil
 	}
 	return nil, errors.Errorf("expected 1 controller with model %v, got %d", modelUUID, len(doc))
+}
+
+// Watch returns a strings watcher that watches for addition and removal of
+// external controller documents. The strings returned will be the controller
+// UUIDs.
+func (ec *externalControllers) Watch() StringsWatcher {
+	return newExternalControllersWatcher(ec.st)
+}
+
+// WatchController returns a notify watcher that watches for changes to the
+// external controller with the specified controller UUID.
+func (ec *externalControllers) WatchController(controllerUUID string) NotifyWatcher {
+	return newEntityWatcher(ec.st, externalControllersC, controllerUUID)
 }

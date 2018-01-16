@@ -86,10 +86,21 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	if err := context.Get(cfg.EnvironName, &environ); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Check if the env supports global firewalling.  If the
+	// configured mode is instance, we can ignore fwEnv being a
+	// nil value, as it won't be used.
+	fwEnv, fwEnvOK := environ.(environs.Firewaller)
+
 	mode := environ.Config().FirewallMode()
 	if mode == config.FwNone {
 		logger.Infof("stopping firewaller (not required)")
 		return nil, dependency.ErrUninstall
+	} else if mode == config.FwGlobal {
+		if !fwEnvOK {
+			logger.Infof("Firewall global mode set on provider with no support. stopping firewaller")
+			return nil, dependency.ErrUninstall
+		}
 	}
 
 	firewallerAPI, err := cfg.NewFirewallerFacade(apiConn)
@@ -105,7 +116,7 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		ModelUUID:          agent.CurrentConfig().Model().Id(),
 		RemoteRelationsApi: remoteRelationsAPI,
 		FirewallerAPI:      firewallerAPI,
-		EnvironFirewaller:  environ,
+		EnvironFirewaller:  fwEnv,
 		EnvironInstances:   environ,
 		Mode:               mode,
 		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),

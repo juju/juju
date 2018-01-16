@@ -26,6 +26,7 @@ type Logger interface {
 // implementation of the api end point.
 type LoggerAPI struct {
 	state      *state.State
+	model      *state.Model
 	resources  facade.Resources
 	authorizer facade.Authorizer
 }
@@ -41,7 +42,13 @@ func NewLoggerAPI(
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
-	return &LoggerAPI{state: st, resources: resources, authorizer: authorizer}, nil
+	m, err := st.Model()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &LoggerAPI{state: st, model: m, resources: resources, authorizer: authorizer}, nil
 }
 
 // WatchLoggingConfig starts a watcher to track changes to the logging config
@@ -58,7 +65,7 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 		}
 		err = common.ErrPerm
 		if api.authorizer.AuthOwner(tag) {
-			watch := api.state.WatchForModelConfigChanges()
+			watch := api.model.WatchForModelConfigChanges()
 			// Consume the initial event. Technically, API calls to Watch
 			// 'transmit' the initial event in the Watch response. But
 			// NotifyWatchers have no state to transmit.
@@ -80,7 +87,7 @@ func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 		return params.StringResults{}
 	}
 	results := make([]params.StringResult, len(arg.Entities))
-	config, configErr := api.state.ModelConfig()
+	config, configErr := api.model.ModelConfig()
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {

@@ -87,6 +87,8 @@ type Backend interface {
 	SetVolumeAttachmentInfo(names.MachineTag, names.VolumeTag, state.VolumeAttachmentInfo) error
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
 	*state.IAASModel

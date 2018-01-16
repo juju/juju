@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
@@ -24,6 +24,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -41,6 +42,7 @@ type crossmodelRelationsSuite struct {
 	api           *crossmodelrelations.CrossModelRelationsAPI
 
 	watchedRelations params.Entities
+	watchedOffers    []string
 }
 
 func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
@@ -70,16 +72,23 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		w.changes <- []string{"db2:db django:db"}
 		return w, nil
 	}
+	offerStatusWatcher := func(st crossmodelrelations.CrossModelRelationsState, offerUUID string) (crossmodelrelations.OfferWatcher, error) {
+		c.Assert(s.st, gc.Equals, st)
+		s.watchedOffers = []string{offerUUID}
+		w := &mockOfferStatusWatcher{offerUUID: offerUUID, changes: make(chan struct{}, 1)}
+		w.changes <- struct{}{}
+		return w, nil
+	}
 	var err error
 	s.authContext, err = commoncrossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
-		s.st, fw, s.resources, s.authorizer, s.authContext, egressAddressWatcher, relationStatusWatcher)
+		s.st, fw, s.resources, s.authorizer, s.authContext, egressAddressWatcher, relationStatusWatcher, offerStatusWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
 
-func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
+func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life params.Life, suspendedReason string) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	rel := newMockRelation(1)
@@ -102,10 +111,13 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 			checkers.DeclaredCaveat("username", "mary"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
+	suspended := true
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
-				Life:             params.Alive,
+				Life:             life,
+				Suspended:        &suspended,
+				SuspendedReason:  suspendedReason,
 				ApplicationToken: "token-db2",
 				RelationToken:    "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{
@@ -120,11 +132,26 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = results.Combine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.st.CheckCalls(c, []testing.StubCall{
+	expected := []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
-	})
+	}
+	if life == params.Alive {
+		c.Assert(rel.status, gc.Equals, status.Suspending)
+		if suspendedReason == "" {
+			c.Assert(rel.message, gc.Equals, "suspending after update from remote model")
+		} else {
+			c.Assert(rel.message, gc.Equals, suspendedReason)
+		}
+	} else {
+		c.Assert(rel.status, gc.Equals, status.Status(""))
+		c.Assert(rel.message, gc.Equals, "")
+		expected = append(expected, testing.StubCall{
+			"RemoteApplication", []interface{}{"db2"},
+		})
+	}
+	s.st.CheckCalls(c, expected)
 	ru1.CheckCalls(c, []testing.StubCall{
 		{"InScope", []interface{}{}},
 		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
@@ -132,6 +159,18 @@ func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
 	ru2.CheckCalls(c, []testing.StubCall{
 		{"LeaveScope", []interface{}{}},
 	})
+}
+
+func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
+	s.assertPublishRelationsChanges(c, params.Alive, "")
+}
+
+func (s *crossmodelRelationsSuite) TestPublishRelationsChangesWithSuspendedReason(c *gc.C) {
+	s.assertPublishRelationsChanges(c, params.Alive, "reason")
+}
+
+func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingWhileSuspended(c *gc.C) {
+	s.assertPublishRelationsChanges(c, params.Dying, "")
 }
 
 func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
@@ -414,7 +453,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 			},
 		},
 	}
-	results, err := s.api.WatchRelationsStatus(args)
+	results, err := s.api.WatchRelationsSuspendedStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
@@ -428,5 +467,49 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-postgresql:db django:db"}},
+	})
+}
+
+func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
+	s.st.offers["mysql-uuid"] = &crossmodel.ApplicationOffer{
+		OfferName: "hosted-mysql", OfferUUID: "mysql-uuid", ApplicationName: "mysql"}
+	app := &mockApplication{}
+	s.st.applications["mysql"] = app
+	s.st.remoteEntities[names.NewApplicationOfferTag("hosted-mysql")] = "token-hosted-mysql"
+	mac, err := s.bakery.NewMacaroon("", nil,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
+			checkers.DeclaredCaveat("username", "mary"),
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.OfferArgs{
+		Args: []params.OfferArg{
+			{
+				OfferUUID: "db2-uuid",
+				Macaroons: macaroon.Slice{mac},
+			},
+			{
+				OfferUUID: "mysql-uuid",
+				Macaroons: macaroon.Slice{mac},
+			},
+			{
+				OfferUUID: "postgresql-uuid",
+				Macaroons: macaroon.Slice{mac},
+			},
+		},
+	}
+	results, err := s.api.WatchOfferStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
+	c.Assert(results.Results[1].Error, gc.IsNil)
+	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
+	c.Assert(s.watchedOffers, jc.DeepEquals, []string{"mysql-uuid"})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"Application", []interface{}{"mysql"}},
+	})
+	app.CheckCalls(c, []testing.StubCall{
+		{"Status", nil},
 	})
 }

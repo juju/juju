@@ -590,6 +590,10 @@ type LinkLayerDeviceAddress struct {
 
 	// GatewayAddress is the address of the gateway to use, which can be empty.
 	GatewayAddress string
+
+	// IsDefaultGateway is set to true if this address on this device is the
+	// default gw on a machine.
+	IsDefaultGateway bool
 }
 
 // SetDevicesAddresses sets the addresses of all devices in devicesAddresses,
@@ -606,7 +610,6 @@ type LinkLayerDeviceAddress struct {
 // - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique.
 func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set link-layer device addresses of machine %q", m.doc.Id)
-
 	if len(devicesAddresses) == 0 {
 		logger.Debugf("no device addresses to set")
 		return nil
@@ -761,6 +764,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 		DNSServers:       args.DNSServers,
 		DNSSearchDomains: args.DNSSearchDomains,
 		GatewayAddress:   args.GatewayAddress,
+		IsDefaultGateway: args.IsDefaultGateway,
 	}
 	return newDoc, nil
 }
@@ -1218,7 +1222,7 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 	}
 
 	// For a spaceless environment we won't find a subnet that's linked to privateAddress,
-	// we have to work around that and at least return minimal information for --primary-address.
+	// we have to work around that and at least return minimal information.
 	if r, filledPrivateAddress := results[environs.DefaultSpaceName]; !filledPrivateAddress && spaces.Contains(environs.DefaultSpaceName) {
 		r.NetworkInfos = []network.NetworkInfo{{
 			Addresses: []network.InterfaceAddress{{

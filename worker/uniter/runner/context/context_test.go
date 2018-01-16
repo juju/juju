@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -93,7 +93,7 @@ func (s *InterfaceSuite) TestUnitNetworkInfo(c *gc.C) {
 	// of the cases are tested separately for network-get, api/uniter, and
 	// apiserver/uniter, respectively.
 	ctx := s.GetContext(c, -1, "")
-	netInfo, err := ctx.NetworkInfo([]string{"unknown"})
+	netInfo, err := ctx.NetworkInfo([]string{"unknown"}, -1)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(netInfo, gc.DeepEquals, map[string]params.NetworkInfoResult{
 		"unknown": {
@@ -216,7 +216,7 @@ func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
 
 	// Change remote config.
-	err = s.service.UpdateConfigSettings(charm.Settings{
+	err = s.service.UpdateCharmConfig(charm.Settings{
 		"blog-title": "Something Else",
 	})
 	c.Assert(err, jc.ErrorIsNil)

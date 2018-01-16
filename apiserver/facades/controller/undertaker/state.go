@@ -42,12 +42,19 @@ type State interface {
 	ModelUUID() string
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
+	model *state.Model
 }
 
 func (s *stateShim) Model() (Model, error) {
 	return s.State.Model()
+}
+
+func (s *stateShim) ModelConfig() (*config.Config, error) {
+	return s.model.Config()
 }
 
 // Model defines the needed methods of state.Model for

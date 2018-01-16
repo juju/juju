@@ -49,11 +49,14 @@ func allCollections() collectionSchema {
 		// Infrastructure collections
 		// ==========================
 
+		globalClockC: {
+			global:    true,
+			rawAccess: true,
+		},
 		txnsC: {
 			// This collection is used exclusively by mgo/txn to record transactions.
-			global:         true,
-			rawAccess:      true,
-			explicitCreate: &mgo.CollectionInfo{},
+			global:    true,
+			rawAccess: true,
 			indexes: []mgo.Index{{
 				// The "s" field is used in queries
 				// by mgo/txn.Runner.ResumeAll.
@@ -117,7 +120,7 @@ func allCollections() collectionSchema {
 		migrationsC: {
 			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
+				Key: []string{"model-uuid", "-attempt"},
 			}},
 		},
 
@@ -215,7 +218,11 @@ func allCollections() collectionSchema {
 
 		// This collection holds users related to a model and will be used as one
 		// of the intersection axis of permissionsC
-		modelUsersC: {},
+		modelUsersC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "user"},
+			}},
+		},
 
 		// This collection contains governors that prevent certain kinds of
 		// changes from being accepted.
@@ -343,9 +350,13 @@ func allCollections() collectionSchema {
 		subnetsC:              {},
 		linkLayerDevicesC:     {},
 		linkLayerDevicesRefsC: {},
-		ipAddressesC:          {},
-		endpointBindingsC:     {},
-		openedPortsC:          {},
+		ipAddressesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "machine-id", "device-name"},
+			}},
+		},
+		endpointBindingsC: {},
+		openedPortsC:      {},
 
 		// -----
 
@@ -417,10 +428,15 @@ func allCollections() collectionSchema {
 
 		// Cross model relations collections.
 		applicationOffersC: {
-			indexes: []mgo.Index{{Key: []string{"model-uuid", "url"}}},
+			indexes: []mgo.Index{
+				{Key: []string{"model-uuid", "_id"}},
+				{Key: []string{"model-uuid", "application-name"}},
+			},
 		},
 		offerConnectionsC: {
-			indexes: []mgo.Index{{Key: []string{"model-uuid", "offer-name"}}},
+			indexes: []mgo.Index{
+				{Key: []string{"model-uuid", "offer-uuid"}},
+			},
 		},
 		remoteApplicationsC: {},
 		// remoteEntitiesC holds information about entities involved in
@@ -428,8 +444,6 @@ func allCollections() collectionSchema {
 		remoteEntitiesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "token"},
-			}, {
-				Key: []string{"model-uuid"},
 			}},
 		},
 		// externalControllersC holds connection information for other
@@ -443,6 +457,10 @@ func allCollections() collectionSchema {
 		// firewallRulesC holds firewall rules for defined service types.
 		firewallRulesC: {},
 
+		// containerSpecsC holds the CAAS container specifications,
+		// for applications and units.
+		containerSpecsC: {},
+
 		// ----------------------
 
 		// Raw-access collections
@@ -450,10 +468,6 @@ func allCollections() collectionSchema {
 
 		// metrics; status-history; logs; ..?
 
-		auditingC: {
-			global:    true,
-			rawAccess: true,
-		},
 	}
 	return result
 }
@@ -469,7 +483,6 @@ const (
 	annotationsC             = "annotations"
 	autocertCacheC           = "autocertCache"
 	assignUnitC              = "assignUnits"
-	auditingC                = "audit.log"
 	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"
@@ -480,10 +493,12 @@ const (
 	cloudCredentialsC        = "cloudCredentials"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
+	containerSpecsC          = "containerSpecs"
 	controllersC             = "controllers"
 	controllerUsersC         = "controllerusers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
+	globalClockC             = "globalclock"
 	globalSettingsC          = "globalSettings"
 	guimetadataC             = "guimetadata"
 	guisettingsC             = "guisettings"

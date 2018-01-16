@@ -8,18 +8,52 @@ import (
 	"fmt"
 	"runtime/debug"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
+
+	"github.com/juju/juju/state/watcher"
 )
+
+var errPoolClosed = errors.New("pool closed")
 
 // NewStatePool returns a new StatePool instance. It takes a State
 // connected to the system (controller model).
 func NewStatePool(systemState *State) *StatePool {
-	return &StatePool{
+	pool := &StatePool{
 		systemState: systemState,
 		pool:        make(map[string]*PoolItem),
+		hub:         pubsub.NewSimpleHub(nil),
 	}
+	// If systemState is nil, this is clearly a test, and a poorly
+	// isolated one. However now is not the time to fix all those broken
+	// tests.
+	if systemState == nil {
+		logger.Warningf("creating test pool with no txn watcher")
+		return pool
+	}
+
+	pool.watcherRunner = worker.NewRunner(worker.RunnerParams{
+		// TODO add a Logger parameter to RunnerParams:
+		// Logger: loggo.GetLogger(logger.Name() + ".txnwatcher"),
+		IsFatal:      func(err error) bool { return errors.Cause(err) == errPoolClosed },
+		RestartDelay: time.Second,
+		Clock:        systemState.clock(),
+	})
+	pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
+		return watcher.NewTxnWatcher(
+			watcher.TxnWatcherConfig{
+				ChangeLog: systemState.getTxnLogCollection(),
+				Hub:       pool.hub,
+				Clock:     systemState.clock(),
+				Logger:    loggo.GetLogger("juju.state.pool.txnwatcher"),
+			})
+	})
+	return pool
 }
 
 // PoolItem holds a State and tracks how many requests are using it
@@ -45,6 +79,14 @@ type StatePool struct {
 	// sourceKey is used to provide a unique number as a key for the
 	// referencesSources structure in the pool.
 	sourceKey uint64
+
+	// hub is used to pass the transaction changes from the TxnWatcher
+	// to the various HubWatchers that are used in each state object created
+	// by the state pool.
+	hub *pubsub.SimpleHub
+
+	// watcherRunner makes sure the TxnWatcher stays running.
+	watcherRunner *worker.Runner
 }
 
 // StatePoolReleaser is the type of a function returned by StatePool.Get,
@@ -95,9 +137,9 @@ func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
 		return item.state, releaser, nil
 	}
 
-	st, err := p.systemState.ForModel(names.NewModelTag(modelUUID))
+	st, err := p.openState(modelUUID)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "failed to create state for model %v", modelUUID)
+		return nil, nil, errors.Trace(err)
 	}
 	p.pool[modelUUID] = &PoolItem{
 		state: st,
@@ -106,6 +148,23 @@ func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
 		},
 	}
 	return st, releaser, nil
+}
+
+func (p *StatePool) openState(modelUUID string) (*State, error) {
+	modelTag := names.NewModelTag(modelUUID)
+	session := p.systemState.session.Copy()
+	newSt, err := newState(
+		modelTag, p.systemState.controllerModelTag,
+		session, p.systemState.newPolicy, p.systemState.stateClock,
+		p.systemState.runTransactionObserver,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := newSt.start(p.systemState.controllerTag, p.hub); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newSt, nil
 }
 
 // GetModel is a convenience method for getting a Model for a State.
@@ -185,16 +244,6 @@ func (p *StatePool) SystemState() *State {
 	return p.systemState
 }
 
-// KillWorkers tells the internal worker for all cached State
-// instances in the pool to die.
-func (p *StatePool) KillWorkers() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	for _, item := range p.pool {
-		item.state.KillWorkers()
-	}
-}
-
 // Close closes all State instances in the pool.
 func (p *StatePool) Close() error {
 	p.mu.Lock()
@@ -216,6 +265,9 @@ func (p *StatePool) Close() error {
 		}
 	}
 	p.pool = make(map[string]*PoolItem)
+	if p.watcherRunner != nil {
+		worker.Stop(p.watcherRunner)
+	}
 	return errors.Annotate(lastErr, "at least one error closing a state")
 }
 

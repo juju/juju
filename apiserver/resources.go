@@ -12,7 +12,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -190,7 +190,12 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 	var ur api.UploadRequest
 
 	if req.Header.Get(api.HeaderContentLength) == "" {
-		req.Header.Set(api.HeaderContentLength, fmt.Sprint(req.ContentLength))
+		size := req.ContentLength
+		// size will be negative if there is no content.
+		if size < 0 {
+			size = 0
+		}
+		req.Header.Set(api.HeaderContentLength, fmt.Sprint(size))
 	}
 
 	ctype := req.Header.Get(api.HeaderContentType)

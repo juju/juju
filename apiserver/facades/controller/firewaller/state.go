@@ -23,11 +23,13 @@ type State interface {
 	WatchOpenedPorts() state.StringsWatcher
 
 	FindEntity(tag names.Tag) (state.Entity, error)
+
+	FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error)
 }
 
 // TODO(wallyworld) - for tests, remove when remaining firewaller tests become unit tests.
-func StateShim(st *state.State) stateShim {
-	return stateShim{st: st, State: firewall.StateShim(st)}
+func StateShim(st *state.State, m *state.Model) stateShim {
+	return stateShim{st: st, State: firewall.StateShim(st, m)}
 }
 
 type stateShim struct {
@@ -50,4 +52,9 @@ func (st stateShim) FindEntity(tag names.Tag) (state.Entity, error) {
 
 func (st stateShim) WatchOpenedPorts() state.StringsWatcher {
 	return st.st.WatchOpenedPorts()
+}
+
+func (s stateShim) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
+	api := state.NewFirewallRules(s.st)
+	return api.Rule(service)
 }

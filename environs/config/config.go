@@ -17,14 +17,16 @@ import (
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/logfwd/syslog"
+	"github.com/juju/juju/network"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -105,8 +107,15 @@ const (
 	// the network for containers.
 	NetBondReconfigureDelayKey = "net-bond-reconfigure-delay"
 
+	// ContainerNetworkingMethod is the key for setting up
+	// networking method for containers.
+	ContainerNetworkingMethod = "container-networking-method"
+
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
+
+	// The default filesystem storage source.
+	StorageDefaultFilesystemSourceKey = "storage-default-filesystem-source"
 
 	// ResourceTagsKey is an optional list or space-separated string
 	// of k=v pairs, defining the tags for ResourceTags.
@@ -164,6 +173,13 @@ const (
 	// EgressSubnets are the source addresses from which traffic from this model
 	// originates if the model is deployed such that NAT or similar is in use.
 	EgressSubnets = "egress-subnets"
+
+	// FanConfig defines the configuration for FAN network running in the model.
+	FanConfig = "fan-config"
+
+	// CloudInitUserDataKey is the key to specify cloud-init yaml the user wants to add
+	// into the cloud-config data produced by Juju when provisioning machines.
+	CloudInitUserDataKey = "cloudinit-userdata"
 
 	//
 	// Deprecated Settings Attributes
@@ -301,6 +317,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	if err := c.ensureUnitLogging(); err != nil {
 		return nil, err
 	}
+
 	// no old config to compare against
 	if err := Validate(c, nil); err != nil {
 		return nil, err
@@ -355,6 +372,7 @@ var defaultConfigValues = map[string]interface{}{
 	//
 	// $ juju model-config net-bond-reconfigure-delay=30
 	NetBondReconfigureDelayKey: 17,
+	ContainerNetworkingMethod:  "",
 
 	"default-series":           series.LatestLts(),
 	ProvisionerHarvestModeKey:  HarvestDestroyed.String(),
@@ -368,6 +386,8 @@ var defaultConfigValues = map[string]interface{}{
 	TransmitVendorMetricsKey:   true,
 	UpdateStatusHookInterval:   DefaultUpdateStatusHookInterval,
 	EgressSubnets:              "",
+	FanConfig:                  "",
+	CloudInitUserDataKey:       "",
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -561,6 +581,59 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	if v, ok := cfg.defined[FanConfig].(string); ok && v != "" {
+		_, err := network.ParseFanConfig(v)
+		if err != nil {
+			return err
+		}
+	}
+
+	if v, ok := cfg.defined[ContainerNetworkingMethod].(string); ok {
+		switch v {
+		case "fan":
+			if cfg, err := cfg.FanConfig(); err != nil || cfg == nil {
+				return errors.New("container-networking-method cannot be set to 'fan' without fan-config set")
+			}
+		case "provider": // TODO(wpk) FIXME we should check that the provider supports this setting!
+		case "local":
+		case "": // We'll try to autoconfigure it
+		default:
+			return fmt.Errorf("Invalid value for container-networking-method - %v", v)
+		}
+	}
+
+	if raw, ok := cfg.defined[CloudInitUserDataKey].(string); ok && raw != "" {
+		userDataMap := make(map[string]interface{})
+		if err := yaml.Unmarshal([]byte(raw), &userDataMap); err != nil {
+			return errors.Annotate(err, "cloudinit-userdata: must be valid YAML")
+		}
+
+		// if there packages, ensure they are strings
+		if packages, ok := userDataMap["packages"].([]interface{}); ok {
+			for _, v := range packages {
+				checker := schema.String()
+				if _, err := checker.Coerce(v, nil); err != nil {
+					return errors.Annotate(err, "cloudinit-userdata: packages must be a list of strings")
+				}
+			}
+		}
+
+		// error if users is specified
+		if _, ok := userDataMap["users"]; ok {
+			return errors.New("cloudinit-userdata: users not allowed")
+		}
+
+		// error if runcmd is specified
+		if _, ok := userDataMap["runcmd"]; ok {
+			return errors.New("cloudinit-userdata: runcmd not allowed, use preruncmd or postruncmd instead")
+		}
+
+		// error if bootcmd is specified
+		if _, ok := userDataMap["bootcmd"]; ok {
+			return errors.New("cloudinit-userdata: bootcmd not allowed")
+		}
+	}
+
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
@@ -671,6 +744,12 @@ func (c *Config) ProxySSH() bool {
 func (c *Config) NetBondReconfigureDelay() int {
 	value, _ := c.defined[NetBondReconfigureDelayKey].(int)
 	return value
+}
+
+// ContainerNetworkingMethod returns the method with which
+// containers network should be set up.
+func (c *Config) ContainerNetworkingMethod() string {
+	return c.asString(ContainerNetworkingMethod)
 }
 
 // ProxySettings returns all four proxy settings; http, https, ftp, and no
@@ -957,6 +1036,13 @@ func (c *Config) StorageDefaultBlockSource() (string, bool) {
 	return bs, bs != ""
 }
 
+// StorageDefaultFilesystemSource returns the default filesystem
+// storage source for the environment.
+func (c *Config) StorageDefaultFilesystemSource() (string, bool) {
+	bs := c.asString(StorageDefaultFilesystemSourceKey)
+	return bs, bs != ""
+}
+
 // ResourceTags returns a set of tags to set on environment resources
 // that Juju creates and manages, if the provider supports them. These
 // tags have no special meaning to Juju, but may be used for existing
@@ -1042,6 +1128,24 @@ func (c *Config) EgressSubnets() []string {
 	return result
 }
 
+// FanConfig is the configuration of FAN network running in the model.
+func (c *Config) FanConfig() (network.FanConfig, error) {
+	// At this point we are sure that the line is valid.
+	return network.ParseFanConfig(c.asString(FanConfig))
+}
+
+// CloudInitUserData returns a copy of the raw user data attributes
+// that were specified by the user.
+func (c *Config) CloudInitUserData() map[string]interface{} {
+	raw := c.asString(CloudInitUserDataKey)
+	if raw == "" {
+		return nil
+	}
+	userDataMap := make(map[string]interface{})
+	yaml.Unmarshal([]byte(raw), &userDataMap)
+	return userDataMap
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1115,7 +1219,8 @@ var alwaysOptional = schema.Defaults{
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
-	StorageDefaultBlockSourceKey: schema.Omit,
+	StorageDefaultBlockSourceKey:      schema.Omit,
+	StorageDefaultFilesystemSourceKey: schema.Omit,
 
 	"firewall-mode":              schema.Omit,
 	"logging-config":             schema.Omit,
@@ -1147,12 +1252,15 @@ var alwaysOptional = schema.Defaults{
 	"test-mode":                  schema.Omit,
 	TransmitVendorMetricsKey:     schema.Omit,
 	NetBondReconfigureDelayKey:   schema.Omit,
+	ContainerNetworkingMethod:    schema.Omit,
 	MaxStatusHistoryAge:          schema.Omit,
 	MaxStatusHistorySize:         schema.Omit,
 	MaxActionResultsAge:          schema.Omit,
 	MaxActionResultsSize:         schema.Omit,
 	UpdateStatusHookInterval:     schema.Omit,
 	EgressSubnets:                schema.Omit,
+	FanConfig:                    schema.Omit,
+	CloudInitUserDataKey:         schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1200,9 +1308,9 @@ var (
 // of juju that does recognise the fields, but that their presence is still
 // anomalous to some degree and should be flagged (and that there is thereby
 // a mechanism for observing fields that really are typos etc).
-func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.Defaults) (map[string]interface{}, error) {
+func (cfg *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults schema.Defaults) (map[string]interface{}, error) {
 	attrs := cfg.UnknownAttrs()
-	checker := schema.FieldMap(fields, defaults)
+	checker := schema.FieldMap(extrafields, defaults)
 	coerced, err := checker.Coerce(attrs, nil)
 	if err != nil {
 		// TODO(ericsnow) Drop this?
@@ -1211,12 +1319,36 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 	}
 	result := coerced.(map[string]interface{})
 	for name, value := range attrs {
-		if fields[name] == nil {
+		if extrafields[name] == nil {
+			// We know this name isn't in the global fields, or it wouldn't be
+			// an UnknownAttr, it also appears to not be in the extra fields
+			// that are provider specific.  Check to see if an alternative
+			// spelling is in either the extra fields or the core fields.
 			if val, isString := value.(string); isString && val != "" {
 				// only warn about attributes with non-empty string values
-				logger.Warningf("unknown config field %q", name)
+				altName := strings.Replace(name, "_", "-", -1)
+				if extrafields[altName] != nil || fields[altName] != nil {
+					logger.Warningf("unknown config field %q, did you mean %q?", name, altName)
+				} else {
+					logger.Warningf("unknown config field %q", name)
+				}
 			}
 			result[name] = value
+			// The only allowed types for unknown attributes are string, int, float and bool
+			switch value.(type) {
+			case string:
+				continue
+			case int:
+				continue
+			case bool:
+				continue
+			case float32:
+				continue
+			case float64:
+				continue
+			default:
+				return nil, fmt.Errorf("%s: unknown type (%q)", name, value)
+			}
 		}
 	}
 	return result, nil
@@ -1489,6 +1621,11 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
+	StorageDefaultFilesystemSourceKey: {
+		Description: "The default filesystem storage source for the model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
 	"test-mode": {
 		Description: `Whether the model is intended for testing.
 If true, accessing the charm store does not affect statistical
@@ -1524,6 +1661,11 @@ data of the store. (default false)`,
 		Type:        environschema.Tint,
 		Group:       environschema.EnvironGroup,
 	},
+	ContainerNetworkingMethod: {
+		Description: "Method of container networking setup - one of fan, provider, local",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
 	MaxStatusHistoryAge: {
 		Description: "The maximum age for status history entries before they are pruned, in human-readable time format",
 		Type:        environschema.Tstring,
@@ -1551,6 +1693,16 @@ data of the store. (default false)`,
 	},
 	EgressSubnets: {
 		Description: "Source address(es) for traffic originating from this model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	FanConfig: {
+		Description: "Configuration for fan networking for this model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	CloudInitUserDataKey: {
+		Description: "Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

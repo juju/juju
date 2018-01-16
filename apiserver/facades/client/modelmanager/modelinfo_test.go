@@ -143,14 +143,14 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, &s.authorizer)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, &s.authorizer, s.st.model)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authorizer)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authorizer, s.st.model)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -558,6 +558,8 @@ type mockState struct {
 	block           state.BlockType
 	migration       *mockMigration
 	modelConfig     *config.Config
+
+	modelDetailsForUser func() ([]state.ModelSummary, error)
 }
 
 type fakeModelDescription struct {
@@ -738,6 +740,16 @@ func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission
 	return permission.UserAccess{}, st.NextErr()
 }
 
+func (st *mockState) ModelSummariesForUser(user names.UserTag, all bool) ([]state.ModelSummary, error) {
+	st.MethodCall(st, "ModelSummariesForUser", user, all)
+	return st.modelDetailsForUser()
+}
+
+func (st *mockState) ModelBasicInfoForUser(user names.UserTag) ([]state.ModelAccessInfo, error) {
+	st.MethodCall(st, "ModelBasicInfoForUser", user)
+	return []state.ModelAccessInfo{}, st.NextErr()
+}
+
 func (st *mockState) RemoveUserAccess(subject names.UserTag, target names.Tag) error {
 	st.MethodCall(st, "RemoveUserAccess", subject, target)
 	return st.NextErr()
@@ -904,6 +916,7 @@ type mockModel struct {
 	users           []*mockModelUser
 	migrationStatus state.MigrationMode
 	controllerUUID  string
+	cfgDefaults     config.ModelDefaultAttributes
 }
 
 func (m *mockModel) Config() (*config.Config, error) {
@@ -919,6 +932,11 @@ func (m *mockModel) Owner() names.UserTag {
 func (m *mockModel) ModelTag() names.ModelTag {
 	m.MethodCall(m, "ModelTag")
 	return m.tag
+}
+
+func (m *mockModel) Type() state.ModelType {
+	m.MethodCall(m, "Type")
+	return state.ModelTypeIAAS
 }
 
 func (m *mockModel) Life() state.Life {
@@ -1007,6 +1025,32 @@ func (m *mockModel) AddUser(spec state.UserAccessSpec) (permission.UserAccess, e
 func (m *mockModel) LastModelConnection(user names.UserTag) (time.Time, error) {
 	m.MethodCall(m, "LastModelConnection", user)
 	return time.Time{}, m.NextErr()
+}
+
+func (m *mockModel) AutoConfigureContainerNetworking(environ environs.Environ) error {
+	m.MethodCall(m, "AutoConfigureContainerNetworking", environ)
+	return m.NextErr()
+}
+
+func (m *mockModel) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
+	m.MethodCall(m, "ModelConfigDefaultValues")
+	return m.cfgDefaults, nil
+}
+
+func (m *mockModel) getModelDetails() state.ModelSummary {
+	cred, _ := m.CloudCredential()
+	return state.ModelSummary{
+		Name:               m.Name(),
+		UUID:               m.UUID(),
+		Life:               m.Life(),
+		Owner:              m.Owner().Id(),
+		ControllerUUID:     m.ControllerUUID(),
+		SLALevel:           m.SLALevel(),
+		SLAOwner:           m.SLAOwner(),
+		CloudTag:           m.Cloud(),
+		CloudRegion:        m.CloudRegion(),
+		CloudCredentialTag: cred.String(),
+	}
 }
 
 type mockModelUser struct {

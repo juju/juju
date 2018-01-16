@@ -6,8 +6,8 @@ package charms
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/resource"
 	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -48,10 +48,27 @@ func NewFacade(ctx facade.Context) (*API, error) {
 		return nil, common.ErrPerm
 	}
 
+	st := ctx.State()
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &API{
 		authorizer: authorizer,
-		backend:    ctx.State(),
+		backend:    getState(st, m),
 	}, nil
+}
+
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
+type stateShim struct {
+	*state.State
+	*state.Model
+}
+
+var getState = func(st *state.State, m *state.Model) backend {
+	return stateShim{st, m}
 }
 
 // CharmInfo returns information about the requested charm.

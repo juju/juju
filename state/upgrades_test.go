@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -20,7 +21,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type upgradesSuite struct {
@@ -976,9 +977,9 @@ func (s *upgradesSuite) TestAddControllerLogCollectionsSizeSettings(c *gc.C) {
 	)
 }
 
-func (s *upgradesSuite) makeModel(c *gc.C, name string, attr testing.Attrs) *State {
+func (s *upgradesSuite) makeModel(c *gc.C, name string, attr coretesting.Attrs) *State {
 	uuid := utils.MustNewUUID()
-	cfg := testing.CustomModelConfig(c, testing.Attrs{
+	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
 		"name": name,
 		"uuid": uuid.String(),
 	}.Merge(attr))
@@ -1011,13 +1012,13 @@ func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// One model has a valid setting that is not default.
-	m1 := s.makeModel(c, "m1", testing.Attrs{
+	m1 := s.makeModel(c, "m1", coretesting.Attrs{
 		"update-status-hook-interval": "20m",
 	})
 	defer m1.Close()
 
 	// This model is missing a setting entirely.
-	m2 := s.makeModel(c, "m2", testing.Attrs{})
+	m2 := s.makeModel(c, "m2", coretesting.Attrs{})
 	defer m2.Close()
 	// We remove the 'update-status-hook-interval' value to
 	// represent an old-style model that needs updating.
@@ -1034,12 +1035,16 @@ func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg1, err := m1.ModelConfig()
+	model1, err := m1.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg1, err := model1.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected1 := cfg1.AllAttrs()
 	expected1["resource-tags"] = ""
 
-	cfg2, err := m2.ModelConfig()
+	model2, err := m2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg2, err := model2.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected2 := cfg2.AllAttrs()
 	expected2["update-status-hook-interval"] = "5m"
@@ -1314,7 +1319,7 @@ func (s *upgradesSuite) TestSplitLogCollection(c *gc.C) {
 			"e":   modelUUID,
 			"r":   "2.1.2",
 			"n":   fmt.Sprintf("fake-entitiy-%d", i),
-			"m":   "juju.testing",
+			"m":   "juju.coretesting",
 			"l":   "fake-file.go:1234",
 			"v":   int(loggo.DEBUG),
 			"x":   "test message",
@@ -1385,7 +1390,7 @@ func (s *upgradesSuite) TestSplitLogsIgnoresDupeRecordsAlreadyThere(c *gc.C) {
 			"e":   modelUUID,
 			"r":   "2.1.2",
 			"n":   fmt.Sprintf("fake-entitiy-%d", i),
-			"m":   "juju.testing",
+			"m":   "juju.coretesting",
 			"l":   "fake-file.go:1234",
 			"v":   int(loggo.DEBUG),
 			"x":   "test message",
@@ -1449,7 +1454,7 @@ func (s *upgradesSuite) TestCorrectRelationUnitCounts(c *gc.C) {
 
 	// Use the non-controller model to ensure we can run the function
 	// across multiple models.
-	otherState := s.makeModel(c, "crack-up", testing.Attrs{})
+	otherState := s.makeModel(c, "crack-up", coretesting.Attrs{})
 	defer otherState.Close()
 
 	uuid := otherState.ModelUUID()
@@ -1798,13 +1803,13 @@ func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaul
 	_, err := settingsColl.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m1 := s.makeModel(c, "m1", testing.Attrs{
+	m1 := s.makeModel(c, "m1", coretesting.Attrs{
 		ageProp:  "96h",
 		sizeProp: "4G",
 	})
 	defer m1.Close()
 
-	m2 := s.makeModel(c, "m2", testing.Attrs{})
+	m2 := s.makeModel(c, "m2", coretesting.Attrs{})
 	defer m2.Close()
 
 	err = settingsColl.Insert(bson.M{
@@ -1814,12 +1819,16 @@ func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaul
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg1, err := m1.ModelConfig()
+	model1, err := m1.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg1, err := model1.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected1 := cfg1.AllAttrs()
 	expected1["resource-tags"] = ""
 
-	cfg2, err := m2.ModelConfig()
+	model2, err := m2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg2, err := model2.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected2 := cfg2.AllAttrs()
 	expected2[ageProp] = defaultAge
@@ -1844,5 +1853,175 @@ func (s *upgradesSuite) checkAddPruneSettings(c *gc.C, ageProp, sizeProp, defaul
 
 	s.assertUpgradedData(c, updateFunc,
 		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}
+
+func (s *upgradesSuite) TestMigrateLeasesToGlobalTime(c *gc.C) {
+	leases, closer := s.state.db().GetRawCollection(leasesC)
+	defer closer()
+
+	// Use the non-controller model to ensure we can run the function
+	// across multiple models.
+	otherState := s.makeModel(c, "crack-up", coretesting.Attrs{})
+	defer otherState.Close()
+
+	uuid := otherState.ModelUUID()
+
+	err := leases.Insert(bson.M{
+		"_id":        uuid + ":some-garbage",
+		"model-uuid": uuid,
+	}, bson.M{
+		"_id":        uuid + ":clock#some-namespace#some-name#",
+		"model-uuid": uuid,
+		"type":       "clock",
+	}, bson.M{
+		"_id":        uuid + ":lease#some-namespace#some-name#",
+		"model-uuid": uuid,
+		"type":       "lease",
+		"namespace":  "some-namespace",
+		"name":       "some-name",
+		"holder":     "hand",
+		"expiry":     "later",
+		"writer":     "ghost",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// - garbage doc is left alone has it has no "type" field
+	// - clock doc is removed, but no replacement required
+	// - lease doc is removed and replaced
+	expectedLeases := []bson.M{{
+		"_id":        uuid + ":some-garbage",
+		"model-uuid": uuid,
+	}, bson.M{
+		"_id":        uuid + ":some-namespace#some-name#",
+		"model-uuid": uuid,
+		"namespace":  "some-namespace",
+		"name":       "some-name",
+		"holder":     "hand",
+		"start":      int64(0),
+		"duration":   int64(time.Minute),
+		"writer":     "ghost",
+	}}
+	s.assertUpgradedData(c, MigrateLeasesToGlobalTime,
+		expectUpgradedData{leases, expectedLeases},
+	)
+}
+
+func (s *upgradesSuite) TestMoveOldAuditLogNoRecords(c *gc.C) {
+	// Ensure an empty audit log collection exists.
+	auditLog, closer := s.state.db().GetRawCollection("audit.log")
+	defer closer()
+	err := auditLog.Create(&mgo.CollectionInfo{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Sanity check.
+	count, err := auditLog.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(count, gc.Equals, 0)
+
+	err = MoveOldAuditLog(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	db := s.state.MongoSession().DB("juju")
+	names, err := db.CollectionNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)
+
+	err = MoveOldAuditLog(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *upgradesSuite) TestMoveOldAuditLogRename(c *gc.C) {
+	auditLog, closer := s.state.db().GetRawCollection("audit.log")
+	defer closer()
+	oldLog, oldCloser := s.state.db().GetRawCollection("old-audit.log")
+	defer oldCloser()
+
+	// Put some rows into audit log and check that they're moved.
+	data := []bson.M{
+		{"_id": "band", "king": "gizzard", "lizard": "wizard"},
+		{"_id": "song", "crumbling": "castle"},
+	}
+	err := auditLog.Insert(data[0], data[1])
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUpgradedData(c, MoveOldAuditLog,
+		expectUpgradedData{oldLog, data},
+	)
+
+	db := s.state.MongoSession().DB("juju")
+	names, err := db.CollectionNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)
+}
+
+func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
+	// Set a test clock so we can dictate the
+	// time set in the new status doc.
+	clock := testing.NewClock(time.Unix(0, 123))
+	s.state.SetClockForTesting(clock)
+
+	relations, closer := s.state.db().GetRawCollection(relationsC)
+	defer closer()
+
+	statuses, closer := s.state.db().GetRawCollection(statusesC)
+	defer closer()
+
+	err := relations.Insert(bson.M{
+		"_id":        s.state.ModelUUID() + ":0",
+		"id":         0,
+		"model-uuid": s.state.ModelUUID(),
+	}, bson.M{
+		"_id":        s.state.ModelUUID() + ":1",
+		"id":         1,
+		"model-uuid": s.state.ModelUUID(),
+		"unitcount":  1,
+	}, bson.M{
+		"_id":        s.state.ModelUUID() + ":2",
+		"id":         2,
+		"model-uuid": s.state.ModelUUID(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = statuses.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = statuses.Insert(bson.M{
+		"_id":        s.state.ModelUUID() + ":r#2",
+		"model-uuid": s.state.ModelUUID(),
+		"status":     "broken",
+		"statusdata": bson.M{},
+		"statusinfo": "",
+		"updated":    int64(321),
+		"neverset":   false,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedStatuses := []bson.M{{
+		"_id":        s.state.ModelUUID() + ":r#0",
+		"model-uuid": s.state.ModelUUID(),
+		"status":     "joining",
+		"statusdata": bson.M{},
+		"statusinfo": "",
+		"updated":    int64(123),
+		"neverset":   false,
+	}, {
+		"_id":        s.state.ModelUUID() + ":r#1",
+		"model-uuid": s.state.ModelUUID(),
+		"status":     "joined",
+		"statusdata": bson.M{},
+		"statusinfo": "",
+		"updated":    int64(123),
+		"neverset":   false,
+	}, {
+		"_id":        s.state.ModelUUID() + ":r#2",
+		"model-uuid": s.state.ModelUUID(),
+		"status":     "broken",
+		"statusdata": bson.M{},
+		"statusinfo": "",
+		"updated":    int64(321),
+		"neverset":   false,
+	}}
+
+	s.assertUpgradedData(c, AddRelationStatus,
+		expectUpgradedData{statuses, expectedStatuses},
 	)
 }

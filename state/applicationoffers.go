@@ -9,8 +9,10 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v6-unstable"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -108,7 +110,7 @@ func (s *applicationOffers) ApplicationOffer(offerName string) (*crossmodel.Appl
 	return s.makeApplicationOffer(*offerDoc)
 }
 
-// ApplicationOffer returns the application offer for the UUID.
+// ApplicationOfferForUUID returns the application offer for the UUID.
 func (s *applicationOffers) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
 	offerDoc, err := s.offerQuery(bson.D{{"offer-uuid", offerUUID}})
 	if err != nil {
@@ -143,24 +145,118 @@ func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.Applica
 // Remove deletes the application offer for offerName immediately.
 func (s *applicationOffers) Remove(offerName string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot delete application offer %q", offerName)
-	err = s.st.db().RunTransaction(s.removeOps(offerName))
-	if err == txn.ErrAborted {
-		// Already deleted.
-		return nil
-	}
-	return err
-}
 
-// removeOps returns the operations required to remove the record for offerName.
-func (s *applicationOffers) removeOps(offerName string) []txn.Op {
-	return []txn.Op{
-		{
+	offer, err := s.ApplicationOffer(offerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			offer, err = s.ApplicationOffer(offerName)
+			if errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			}
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		// Load the application before counting the connections
+		// so we can do a consistency check on relation count.
+		app, err := s.st.Application(offer.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		conns, err := s.st.OfferConnections(offer.OfferUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(conns) > 0 {
+			return nil, errors.Errorf("offer has %d relation%s", len(conns), plural(len(conns)))
+		}
+		// Because we don't refcount offer connections, we instead
+		// assert here that the relation count doesn't change, and
+		// that the specific relations that make up that count aren't
+		// removed.
+		rels, err := app.Relations()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(rels) != app.doc.RelationCount {
+			return nil, jujutxn.ErrTransientFailure
+		}
+		ops := []txn.Op{{
+			C:      applicationsC,
+			Id:     offer.ApplicationName,
+			Assert: bson.D{{"relationcount", app.doc.RelationCount}},
+		}}
+		for _, rel := range rels {
+			crossModel, err := rel.IsCrossModel()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if crossModel {
+				return nil, jujutxn.ErrTransientFailure
+			}
+			ops = append(ops, txn.Op{
+				C:      relationsC,
+				Id:     rel.doc.DocID,
+				Assert: txn.DocExists,
+			})
+		}
+		decRefOp, err := decApplicationOffersRefOp(s.st, offer.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, txn.Op{
 			C:      applicationOffersC,
-			Id:     offerName,
+			Id:     offer.OfferName,
 			Assert: txn.DocExists,
 			Remove: true,
-		},
+		}, decRefOp)
+		return ops, nil
 	}
+	return errors.Trace(s.st.db().Run(buildTxn))
+}
+
+// removeApplicationOffersOps returns txn.Ops that will remove all offers for
+// the specified application. No assertions on the application or the offer
+// connections are made; the caller is responsible for ensuring that offer
+// connections have already been removed, or will be removed along with the
+// offers.
+func removeApplicationOffersOps(st *State, application string) ([]txn.Op, error) {
+	// Check how many offer refs there are. If there are none, there's
+	// nothing more to do. If there are refs, we assume that the number
+	// if refs is the same as what we find below. If there is a
+	// discrepancy, then it'll result in a transaction failure, and
+	// we'll retry.
+	countRefsOp, n, err := countApplicationOffersRefOp(st, application)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n == 0 {
+		return []txn.Op{countRefsOp}, nil
+	}
+
+	applicationOffersCollection, closer := st.db().GetCollection(applicationOffersC)
+	defer closer()
+	query := bson.D{{"application-name", application}}
+	var docs []applicationOfferDoc
+	if err := applicationOffersCollection.Find(query).All(&docs); err != nil {
+		return nil, errors.Annotatef(err, "reading application %q offers", application)
+	}
+
+	var ops []txn.Op
+	for _, doc := range docs {
+		ops = append(ops, txn.Op{
+			C:      applicationOffersC,
+			Id:     doc.OfferName,
+			Assert: txn.DocExists,
+			Remove: true,
+		})
+	}
+	offerRefCountKey := applicationOffersRefCountKey(application)
+	removeRefsOp := nsRefcounts.JustRemoveOp(refcountsC, offerRefCountKey, len(docs))
+	return append(ops, removeRefsOp), nil
 }
 
 var errDuplicateApplicationOffer = errors.Errorf("application offer already exists")
@@ -219,6 +315,10 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 				return nil, errDuplicateApplicationOffer
 			}
 		}
+		incRefOp, err := incApplicationOffersRefOp(s.st, offerArgs.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		ops := []txn.Op{
 			model.assertActiveOp(),
 			{
@@ -227,6 +327,7 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 				Assert: txn.DocMissing,
 				Insert: doc,
 			},
+			incRefOp,
 		}
 		return ops, nil
 	}
@@ -274,6 +375,18 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 		return nil, errors.Trace(err)
 	}
 	doc := s.makeApplicationOfferDoc(s.st, offer.OfferUUID, offerArgs)
+	var refOps []txn.Op
+	if offerArgs.ApplicationName != offer.ApplicationName {
+		incRefOp, err := incApplicationOffersRefOp(s.st, offerArgs.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		decRefOp, err := decApplicationOffersRefOp(s.st, offer.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		refOps = append(refOps, incRefOp, decRefOp)
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// environment may have been destroyed.
@@ -297,6 +410,7 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 				Update: bson.M{"$set": doc},
 			},
 		}
+		ops = append(ops, refOps...)
 		return ops, nil
 	}
 	err = s.st.db().Run(buildTxn)
@@ -325,8 +439,7 @@ func (s *applicationOffers) makeFilterTerm(filterTerm crossmodel.ApplicationOffe
 	}
 	// We match on partial names, eg "-sql"
 	if filterTerm.OfferName != "" {
-		name := regexp.QuoteMeta(filterTerm.OfferName)
-		filter = append(filter, bson.DocElem{"offer-name", bson.D{{"$regex", fmt.Sprintf(".*%s.*", name)}}})
+		filter = append(filter, bson.DocElem{"offer-name", bson.D{{"$regex", fmt.Sprintf(".*%s.*", filterTerm.OfferName)}}})
 	}
 	// We match descriptions by looking for containing terms.
 	if filterTerm.ApplicationDescription != "" {
@@ -337,31 +450,38 @@ func (s *applicationOffers) makeFilterTerm(filterTerm crossmodel.ApplicationOffe
 }
 
 // ListOffers returns the application offers matching any one of the filter terms.
-func (s *applicationOffers) ListOffers(filter ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
+func (s *applicationOffers) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
 	applicationOffersCollection, closer := s.st.db().GetCollection(applicationOffersC)
 	defer closer()
 
-	// TODO(wallyworld) - add support for filtering on endpoints
-	var mgoTerms []bson.D
-	for _, term := range filter {
-		elems := s.makeFilterTerm(term)
-		if len(elems) == 0 {
-			continue
+	var offerDocs []applicationOfferDoc
+	if len(filters) == 0 {
+		err := applicationOffersCollection.Find(nil).All(&offerDocs)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		mgoTerms = append(mgoTerms, bson.D{{"$and", []bson.D{elems}}})
 	}
-	var docs []applicationOfferDoc
-	var mgoQuery bson.D
-	if len(mgoTerms) > 0 {
-		mgoQuery = bson.D{{"$or", mgoTerms}}
+	for _, filter := range filters {
+		var mgoQuery bson.D
+		elems := s.makeFilterTerm(filter)
+		mgoQuery = append(mgoQuery, elems...)
+
+		var docs []applicationOfferDoc
+		err := applicationOffersCollection.Find(mgoQuery).All(&docs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		docs, err = s.filterOffers(docs, filter)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		offerDocs = append(offerDocs, docs...)
 	}
-	err := applicationOffersCollection.Find(mgoQuery).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot find application offers")
-	}
-	sort.Sort(srSlice(docs))
-	offers := make([]crossmodel.ApplicationOffer, len(docs))
-	for i, doc := range docs {
+	sort.Sort(offerSlice(offerDocs))
+
+	offers := make([]crossmodel.ApplicationOffer, len(offerDocs))
+	for i, doc := range offerDocs {
 		offer, err := s.makeApplicationOffer(doc)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -369,6 +489,121 @@ func (s *applicationOffers) ListOffers(filter ...crossmodel.ApplicationOfferFilt
 		offers[i] = *offer
 	}
 	return offers, nil
+}
+
+// filterOffers takes a list of offers resulting from a db query
+// and performs additional filtering which cannot be done via mongo.
+func (s *applicationOffers) filterOffers(
+	in []applicationOfferDoc,
+	filter crossmodel.ApplicationOfferFilter,
+) ([]applicationOfferDoc, error) {
+
+	out, err := s.filterOffersByEndpoint(in, filter.Endpoints)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out, err = s.filterOffersByConnectedUser(out, filter.ConnectedUsers)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.filterOffersByAllowedConsumer(out, filter.AllowedConsumers)
+}
+
+func (s *applicationOffers) filterOffersByEndpoint(
+	in []applicationOfferDoc,
+	endpoints []crossmodel.EndpointFilterTerm,
+) ([]applicationOfferDoc, error) {
+
+	if len(endpoints) == 0 {
+		return in, nil
+	}
+
+	match := func(ep Endpoint) bool {
+		for _, fep := range endpoints {
+			if fep.Interface != "" && fep.Interface == ep.Interface {
+				continue
+			}
+			if fep.Name != "" && fep.Name == ep.Name {
+				continue
+			}
+			if fep.Role != "" && fep.Role == ep.Role {
+				continue
+			}
+			return false
+		}
+		return true
+	}
+
+	var out []applicationOfferDoc
+	for _, doc := range in {
+		app, err := s.st.Application(doc.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, epName := range doc.Endpoints {
+			ep, err := app.Endpoint(epName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if match(ep) {
+				out = append(out, doc)
+			}
+		}
+	}
+	return out, nil
+}
+
+func (s *applicationOffers) filterOffersByConnectedUser(
+	in []applicationOfferDoc,
+	users []string,
+) ([]applicationOfferDoc, error) {
+
+	if len(users) == 0 {
+		return in, nil
+	}
+
+	offerUUIDS := make(set.Strings)
+	for _, username := range users {
+		conns, err := s.st.OfferConnectionsForUser(username)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, oc := range conns {
+			offerUUIDS.Add(oc.OfferUUID())
+		}
+	}
+	var out []applicationOfferDoc
+	for _, doc := range in {
+		if offerUUIDS.Contains(doc.OfferUUID) {
+			out = append(out, doc)
+		}
+	}
+	return out, nil
+}
+
+func (s *applicationOffers) filterOffersByAllowedConsumer(
+	in []applicationOfferDoc,
+	users []string,
+) ([]applicationOfferDoc, error) {
+
+	if len(users) == 0 {
+		return in, nil
+	}
+
+	var out []applicationOfferDoc
+	for _, doc := range in {
+		offerUsers, err := s.st.GetOfferUsers(doc.OfferUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, username := range users {
+			if offerUsers[username].EqualOrGreaterOfferAccessThan(permission.ConsumeAccess) {
+				out = append(out, doc)
+				break
+			}
+		}
+	}
+	return out, nil
 }
 
 func (s *applicationOffers) makeApplicationOffer(doc applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
@@ -402,15 +637,28 @@ func getApplicationEndpoints(application *Application, endpointNames map[string]
 	return result, nil
 }
 
-type srSlice []applicationOfferDoc
+type offerSlice []applicationOfferDoc
 
-func (sr srSlice) Len() int      { return len(sr) }
-func (sr srSlice) Swap(i, j int) { sr[i], sr[j] = sr[j], sr[i] }
-func (sr srSlice) Less(i, j int) bool {
+func (sr offerSlice) Len() int      { return len(sr) }
+func (sr offerSlice) Swap(i, j int) { sr[i], sr[j] = sr[j], sr[i] }
+func (sr offerSlice) Less(i, j int) bool {
 	sr1 := sr[i]
 	sr2 := sr[j]
 	if sr1.OfferName == sr2.OfferName {
 		return sr1.ApplicationName < sr2.ApplicationName
 	}
 	return sr1.OfferName < sr2.OfferName
+}
+
+// WatchOfferStatus returns a NotifyWatcher that notifies of changes
+// to the offer's status.
+func (st *State) WatchOfferStatus(offerUUID string) (NotifyWatcher, error) {
+	oa := NewApplicationOffers(st)
+	offer, err := oa.ApplicationOfferForUUID(offerUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO(wallyworld) - for now, the offer status is just the application status
+	appKey := applicationGlobalKey(offer.ApplicationName)
+	return newEntityWatcher(st, statusesC, st.docID(appKey)), nil
 }

@@ -17,6 +17,7 @@ import (
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
 	state      *state.State
+	model      *state.Model
 	resources  facade.Resources
 	authorizer facade.Authorizer
 	check      *common.BlockChecker
@@ -28,8 +29,14 @@ func NewActionAPI(st *state.State, resources facade.Resources, authorizer facade
 		return nil, common.ErrPerm
 	}
 
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &ActionAPI{
 		state:      st,
+		model:      m,
 		resources:  resources,
 		authorizer: authorizer,
 		check:      common.NewBlockChecker(st),
@@ -37,7 +44,7 @@ func NewActionAPI(st *state.State, resources facade.Resources, authorizer facade
 }
 
 func (a *ActionAPI) checkCanRead() error {
-	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.state.ModelTag())
+	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.model.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -48,7 +55,7 @@ func (a *ActionAPI) checkCanRead() error {
 }
 
 func (a *ActionAPI) checkCanWrite() error {
-	canWrite, err := a.authorizer.HasPermission(permission.WriteAccess, a.state.ModelTag())
+	canWrite, err := a.authorizer.HasPermission(permission.WriteAccess, a.model.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -59,7 +66,7 @@ func (a *ActionAPI) checkCanWrite() error {
 }
 
 func (a *ActionAPI) checkCanAdmin() error {
-	canAdmin, err := a.authorizer.HasPermission(permission.AdminAccess, a.state.ModelTag())
+	canAdmin, err := a.authorizer.HasPermission(permission.AdminAccess, a.model.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}

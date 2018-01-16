@@ -6,6 +6,8 @@ package common
 import (
 	"sort"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 )
@@ -31,6 +33,17 @@ type ZonedEnviron interface {
 	// zones for the specified instances. The error returned follows the same
 	// rules as Environ.Instances.
 	InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error)
+
+	// DeriveAvailabilityZones attempts to derive availability zones from
+	// the specified StartInstanceParams.
+	//
+	// The parameters for starting an instance may imply (or explicitly
+	// specify) availability zones, e.g. due to placement, or due to the
+	// attachment of existing volumes, or due to subnet placement. If
+	// there is no such restriction, then DeriveAvailabilityZones should
+	// return an empty string slice to indicate that the caller should
+	// choose an availability zone.
+	DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error)
 }
 
 // AvailabilityZoneInstances describes an availability zone and
@@ -163,4 +176,23 @@ func DistributeInstances(env ZonedEnviron, candidates, group []instance.Id) ([]i
 		}
 	}
 	return eligible, nil
+}
+
+// ValidateAvailabilityZone returns nil iff the availability
+// zone exists and is available, otherwise returns a NotValid
+// error.
+func ValidateAvailabilityZone(env ZonedEnviron, zone string) error {
+	zones, err := env.AvailabilityZones()
+	if err != nil {
+		return err
+	}
+	for _, z := range zones {
+		if z.Name() == zone {
+			if z.Available() {
+				return nil
+			}
+			return errors.Errorf("availability zone %q is unavailable", zone)
+		}
+	}
+	return errors.NotValidf("availability zone %q", zone)
 }

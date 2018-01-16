@@ -6,10 +6,11 @@ package client
 import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -36,11 +37,13 @@ type Backend interface {
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
 	AllRelations() ([]*state.Relation, error)
+	AllSubnets() ([]*state.Subnet, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
 	APIHostPorts() ([][]network.HostPort, error)
 	Application(string) (*state.Application, error)
 	ApplicationLeaders() (map[string]string, error)
 	Charm(*charm.URL) (*state.Charm, error)
+	ControllerConfig() (controller.Config, error)
 	ControllerTag() names.ControllerTag
 	EndpointsRelation(...state.Endpoint) (*state.Relation, error)
 	FindEntity(names.Tag) (state.Entity, error)
@@ -59,9 +62,8 @@ type Backend interface {
 	RemoteConnectionStatus(string) (*state.RemoteConnectionStatus, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	SetAnnotations(state.GlobalEntity, map[string]string) error
-	SetModelAgentVersion(version.Number) error
+	SetModelAgentVersion(version.Number, bool) error
 	SetModelConstraints(constraints.Value) error
-	Subnet(string) (*state.Subnet, error)
 	Unit(string) (Unit, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 	Watch(params state.WatchParams) *state.Multiwatcher
@@ -89,9 +91,19 @@ type Unit interface {
 	AgentHistory() status.StatusHistoryGetter
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
 	model *state.Model
+}
+
+func (st stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
+	return st.model.UpdateModelConfig(u, r, a...)
+}
+
+func (st stateShim) ModelConfigValues() (config.ConfigValues, error) {
+	return st.model.ModelConfigValues()
 }
 
 func (s *stateShim) Annotations(entity state.GlobalEntity) (map[string]string, error) {
@@ -129,4 +141,21 @@ func (p *poolShim) GetModel(uuid string) (*state.Model, func(), error) {
 		return nil, nil, errors.Trace(err)
 	}
 	return model, func() { release() }, nil
+}
+
+func (s stateShim) ModelConfig() (*config.Config, error) {
+	model, err := s.State.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return cfg, nil
+}
+
+func (st stateShim) ModelTag() names.ModelTag {
+	return names.NewModelTag(st.State.ModelUUID())
 }

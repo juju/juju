@@ -15,13 +15,14 @@ import (
 )
 
 const (
-	portFormat = "<port>[/<protocol>] or <from>-<to>[/<protocol>]"
+	portFormat = "<port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp"
 
-	portExp  = "(?:[0-9]+)"
-	protoExp = "(?:[a-z0-9]+)"
+	portExp       = "(?:[0-9]+)"
+	protoExp      = "(?:[a-z0-9]+)"
+	portPlusProto = portExp + "(?:-" + portExp + ")?(/" + protoExp + ")?"
 )
 
-var validPortOrRange = regexp.MustCompile("^" + portExp + "(?:-" + portExp + ")?(/" + protoExp + ")?$")
+var validPortOrRange = regexp.MustCompile("^icmp|" + portPlusProto + "$")
 
 type port struct {
 	number   int
@@ -29,12 +30,18 @@ type port struct {
 }
 
 func (p port) validate() error {
+	proto := strings.ToLower(p.protocol)
+	if proto == "icmp" {
+		if p.number == -1 {
+			return nil
+		}
+		return errors.Errorf(`protocol "icmp" doesn't support any ports; got "%v"`, p.number)
+	}
 	if p.number < 1 || p.number > 65535 {
 		return errors.Errorf(`port must be in the range [1, 65535]; got "%v"`, p.number)
 	}
-	proto := strings.ToLower(p.protocol)
-	if proto != "tcp" && proto != "udp" {
-		return errors.Errorf(`protocol must be "tcp" or "udp"; got %q`, p.protocol)
+	if proto != "tcp" && proto != "udp" && proto != "icmp" {
+		return errors.Errorf(`protocol must be "tcp", "udp", or "icmp"; got %q`, p.protocol)
 	}
 	return nil
 }
@@ -54,15 +61,21 @@ func (pr portRange) validate() error {
 			pr.fromPort, pr.toPort, pr.protocol,
 		)
 	}
+	proto := strings.ToLower(pr.protocol)
+	if proto == "icmp" {
+		if pr.fromPort == pr.toPort && pr.fromPort == -1 {
+			return nil
+		}
+		return errors.Errorf(`protocol "icmp" doesn't support any ports; got "%v"`, pr.fromPort)
+	}
 	if pr.fromPort < 1 || pr.fromPort > 65535 {
 		return errors.Errorf(`fromPort must be in the range [1, 65535]; got "%v"`, pr.fromPort)
 	}
 	if pr.toPort < 1 || pr.toPort > 65535 {
 		return errors.Errorf(`toPort must be in the range [1, 65535]; got "%v"`, pr.toPort)
 	}
-	proto := strings.ToLower(pr.protocol)
-	if proto != "tcp" && proto != "udp" {
-		return errors.Errorf(`protocol must be "tcp" or "udp"; got %q`, pr.protocol)
+	if proto != "tcp" && proto != "udp" && proto != "icmp" {
+		return errors.Errorf(`protocol must be "tcp", "udp", or "icmp"; got %q`, pr.protocol)
 	}
 	return nil
 }
@@ -83,11 +96,16 @@ func parseArguments(args []string) (portRange, error) {
 	portParts := strings.SplitN(ports, "-", 2)
 	fromPort, toPort := 0, 0
 	if len(portParts) >= 1 {
-		port, err := strconv.Atoi(portParts[0])
-		if err != nil {
-			return portRange{}, errors.Annotatef(err, "expected port number; got %q", portParts[0])
+		if portParts[0] == "icmp" {
+			protocol = "icmp"
+			fromPort, toPort = -1, -1
+		} else {
+			port, err := strconv.Atoi(portParts[0])
+			if err != nil {
+				return portRange{}, errors.Annotatef(err, "expected port number; got %q", portParts[0])
+			}
+			fromPort = port
 		}
-		fromPort = port
 	}
 	if len(portParts) == 2 {
 		port, err := strconv.Atoi(portParts[1])

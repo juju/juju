@@ -35,6 +35,11 @@ type mockBackend struct {
 	stub testing.Stub
 }
 
+// ControllerTag is part of the singular.Backend interface.
+func (mock *mockBackend) ControllerTag() names.ControllerTag {
+	return coretesting.ControllerTag
+}
+
 // ModelTag is part of the singular.Backend interface.
 func (mock *mockBackend) ModelTag() names.ModelTag {
 	return coretesting.ModelTag
@@ -52,7 +57,12 @@ func (mock *mockBackend) Claim(lease, holder string, duration time.Duration) err
 }
 
 // WaitUntilExpired is part of the lease.Claimer interface.
-func (mock *mockBackend) WaitUntilExpired(lease string) error {
-	mock.stub.AddCall("WaitUntilExpired", lease)
+func (mock *mockBackend) WaitUntilExpired(leaseId string, cancel <-chan struct{}) error {
+	mock.stub.AddCall("WaitUntilExpired", leaseId)
+	select {
+	case <-cancel:
+		return lease.ErrWaitCancelled
+	default:
+	}
 	return mock.stub.NextErr()
 }

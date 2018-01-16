@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
@@ -445,7 +445,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) 
 
 func (s *StorageStateSuite) assertAddServiceStorageConstraintsDefaults(c *gc.C, pool string, cons, expect map[string]state.StorageConstraints) {
 	if pool != "" {
-		err := s.State.UpdateModelConfig(map[string]interface{}{
+		err := s.IAASModel.UpdateModelConfig(map[string]interface{}{
 			"storage-default-block-source": pool,
 		}, nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -547,7 +547,7 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 }
 
 func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
-	err := s.State.UpdateModelConfig(map[string]interface{}{
+	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "loop-pool",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)

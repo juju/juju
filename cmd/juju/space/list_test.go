@@ -276,6 +276,26 @@ func (s *ListSuite) TestRunWhenNoSpacesExistSucceeds(c *gc.C) {
 	s.api.CheckCall(c, 0, "ListSpaces")
 }
 
+func (s *ListSuite) TestRunWhenNoSpacesExistSucceedsWithProperFormat(c *gc.C) {
+	s.api.Spaces = s.api.Spaces[0:0]
+
+	s.AssertRunSucceeds(c,
+		`no spaces to display\n`,
+		"{\"spaces\":{}}\n", // json formatted stdout.
+		"--format=json",
+	)
+
+	s.AssertRunSucceeds(c,
+		`no spaces to display\n`,
+		"spaces: {}\n", // yaml formatted stdout.
+		"--format=yaml",
+	)
+
+	s.api.CheckCallNames(c, "ListSpaces", "Close", "ListSpaces", "Close")
+	s.api.CheckCall(c, 0, "ListSpaces")
+	s.api.CheckCall(c, 2, "ListSpaces")
+}
+
 func (s *ListSuite) TestRunWhenSpacesNotSupported(c *gc.C) {
 	s.api.SetErrors(errors.NewNotSupported(nil, "spaces not supported"))
 

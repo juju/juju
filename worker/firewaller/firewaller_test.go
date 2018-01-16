@@ -4,16 +4,18 @@
 package firewaller_test
 
 import (
+	"fmt"
 	"reflect"
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/macaroon.v1"
@@ -25,6 +27,7 @@ import (
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -52,7 +55,7 @@ type firewallerBaseSuite struct {
 	firewaller           *apifirewaller.Client
 	remoteRelations      *remoterelations.Client
 	crossmodelFirewaller *crossmodelrelations.Client
-	mockClock            *mockClock
+	clock                clock.Clock
 }
 
 func (s *firewallerBaseSuite) SetUpSuite(c *gc.C) {
@@ -108,10 +111,13 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 // assertPorts retrieves the open ports of the instance and compares them
 // to the expected.
 func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machineId string, expected []network.IngressRule) {
+	fwInst, ok := inst.(instance.InstanceFirewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
-		got, err := inst.IngressRules(machineId)
+		got, err := fwInst.IngressRules(machineId)
 		if err != nil {
 			c.Fatal(err)
 			return
@@ -133,10 +139,13 @@ func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machi
 // assertEnvironPorts retrieves the open ports of environment and compares them
 // to the expected.
 func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.IngressRule) {
+	fwEnv, ok := s.Environ.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
-		got, err := s.Environ.IngressRules()
+		got, err := fwEnv.IngressRules()
 		if err != nil {
 			c.Fatal(err)
 			return
@@ -202,18 +211,25 @@ func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 }
 
 func (s *InstanceModeSuite) newFirewaller(c *gc.C) worker.Worker {
-	s.mockClock = &mockClock{c: c}
+	return s.newFirewallerWithClock(c, &mockClock{c: c})
+}
+
+func (s *InstanceModeSuite) newFirewallerWithClock(c *gc.C, clock clock.Clock) worker.Worker {
+	s.clock = clock
+	fwEnv, ok := s.Environ.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	cfg := firewaller.Config{
 		ModelUUID:          s.State.ModelUUID(),
 		Mode:               config.FwInstance,
-		EnvironFirewaller:  s.Environ,
+		EnvironFirewaller:  fwEnv,
 		EnvironInstances:   s.Environ,
 		FirewallerAPI:      s.firewaller,
 		RemoteRelationsApi: s.remoteRelations,
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock: s.mockClock,
+		Clock: s.clock,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -464,6 +480,37 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	})
 }
 
+func assertMachineInMachineds(c *gc.C, fw *firewaller.Firewaller, tag names.MachineTag, find bool) {
+	machineds := firewaller.GetMachineds(fw)
+	_, found := machineds[tag]
+	c.Assert(found, gc.Equals, find)
+}
+
+func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *gc.C) {
+	fw := s.newFirewaller(c)
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:     "quantal",
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: "2",
+		Nonce:      "manual:",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = firewaller.StartMachine(fw.(*firewaller.Firewaller), m.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	assertMachineInMachineds(c, fw.(*firewaller.Firewaller), m.MachineTag(), false)
+
+	m2, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = firewaller.StartMachine(fw.(*firewaller.Firewaller), m2.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	assertMachineInMachineds(c, fw.(*firewaller.Firewaller), m2.MachineTag(), true)
+}
+
 func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	fw := s.newFirewaller(c)
 	defer statetesting.AssertKillAndWait(c, fw)
@@ -708,7 +755,9 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C) {
+func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
+	c *gc.C, published chan bool, apiErr *bool, ingressRequired *bool, clock clock.Clock,
+) (worker.Worker, *state.RelationUnit) {
 	// Set up the consuming model - create the local app.
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	// Set up the consuming model - create the remote app.
@@ -729,9 +778,7 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 
 	mac, err := macaroon.New(nil, "apimac", "")
 	c.Assert(err, jc.ErrorIsNil)
-	published := make(chan bool)
 	var relToken string
-	var ingressRequired bool
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CrossModelRelations")
 		c.Check(version, gc.Equals, 0)
@@ -742,18 +789,21 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 				RelationToken:    relToken,
 				ApplicationToken: appToken,
 				Networks:         []string{"10.0.0.4/32"},
-				IngressRequired:  ingressRequired,
+				IngressRequired:  *ingressRequired,
 				Macaroons:        macaroon.Slice{mac},
 			}},
 		}
-		expected.Changes[0].IngressRequired = ingressRequired
-		if !ingressRequired {
+		expected.Changes[0].IngressRequired = *ingressRequired
+		if !*ingressRequired {
 			expected.Changes[0].Networks = []string{}
 		}
 		c.Check(arg, gc.DeepEquals, expected)
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
+		}
+		if *apiErr {
+			return errors.New("fail")
 		}
 		published <- true
 		return nil
@@ -763,8 +813,7 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	c.Assert(s.crossmodelFirewaller, gc.NotNil)
 
 	// Create the firewaller facade on the consuming model.
-	fw := s.newFirewaller(c)
-	defer statetesting.AssertKillAndWait(c, fw)
+	fw := s.newFirewallerWithClock(c, clock)
 
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -779,7 +828,6 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	err = re.ImportRemoteEntity(app.Tag(), appToken)
 	c.Assert(err, jc.ErrorIsNil)
-	ingressRequired = true
 
 	// We should not have published any ingress events yet - no unit has entered scope.
 	select {
@@ -798,11 +846,21 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
+	return fw, ru
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C) {
+	published := make(chan bool)
+	ingressRequired := true
+	apiErr := false
+	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired, &mockClock{c: c})
+	defer statetesting.AssertKillAndWait(c, fw)
 
 	// Add a unit on the consuming app and have it enter the relation scope.
 	// This will trigger the firewaller to publish the changes.
-	err = ru.EnterScope(map[string]interface{}{})
+	err := ru.EnterScope(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
+	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on enter scope")
@@ -810,15 +868,46 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	}
 
 	// Check the relation ready poll time is as expected.
-	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
+	c.Assert(s.clock.(*mockClock).wait, gc.Equals, 3*time.Second)
 
 	// Change should be sent when unit leaves scope.
 	ingressRequired = false
 	err = ru.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
+	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on leave scope")
+	case <-published:
+	}
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
+	published := make(chan bool)
+	ingressRequired := true
+	apiErr := true
+	fw, ru := s.setupRemoteRelationRequirerRoleConsumingSide(c, published, &apiErr, &ingressRequired, testing.NewClock(time.Time{}))
+	defer statetesting.AssertKillAndWait(c, fw)
+
+	// Add a unit on the consuming app and have it enter the relation scope.
+	// This will trigger the firewaller to try and publish the changes.
+	err := ru.EnterScope(map[string]interface{}{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.BackingState.StartSync()
+
+	// We should not have published any ingress events yet - no changed published.
+	select {
+	case <-time.After(coretesting.ShortWait):
+	case <-published:
+		c.Fatal("unexpected ingress change to be published")
+	}
+
+	// Give the worker time to restart and try again.
+	apiErr = false
+	s.clock.(*testing.Clock).WaitAdvance(60*time.Second, coretesting.LongWait, 1)
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("time out waiting for ingress change to be published on enter scope")
 	case <-published:
 	}
 }
@@ -901,7 +990,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 	}
 
 	// Check the relation ready poll time is as expected.
-	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
+	c.Assert(s.clock.(*mockClock).wait, gc.Equals, 3*time.Second)
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
@@ -971,6 +1060,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	// This will trigger the firewaller to publish the changes.
 	err = ru.EnterScope(map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
+	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("time out waiting for ingress change to be published on enter scope")
@@ -997,7 +1087,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
+func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expected []string) {
 	// Set up the offering model - create the local app.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	u, m := s.addUnit(c, mysql)
@@ -1036,32 +1126,105 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
 
 	// Save a new ingress network against the relation.
 	rin := state.NewRelationIngressNetworks(s.State)
-	_, err = rin.Save(rel.Tag().Id(), false, []string{"10.0.0.4/16"})
+	_, err = rin.Save(rel.Tag().Id(), false, ingress)
 	c.Assert(err, jc.ErrorIsNil)
 
 	//Ports opened.
 	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
+		network.MustNewIngressRule("tcp", 3306, 3306, expected...),
 	})
 
 	// Check the relation ready poll time is as expected.
-	c.Assert(s.mockClock.wait, gc.Equals, 3*time.Second)
+	c.Assert(s.clock.(*mockClock).wait, gc.Equals, 3*time.Second)
 
 	// Change should be sent when ingress networks disappear.
 	_, err = rin.Save(rel.Tag().Id(), false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), nil)
 
-	_, err = rin.Save(rel.Tag().Id(), false, []string{"10.0.0.4/16"})
+	_, err = rin.Save(rel.Tag().Id(), false, ingress)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
-		network.MustNewIngressRule("tcp", 3306, 3306, "10.0.0.4/16"),
+		network.MustNewIngressRule("tcp", 3306, 3306, expected...),
+	})
+
+	// And again when relation is suspended.
+	err = rel.SetSuspended(true, "")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPorts(c, inst, m.Id(), nil)
+
+	// And again when relation is resumed.
+	err = rel.SetSuspended(false, "")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertPorts(c, inst, m.Id(), []network.IngressRule{
+		network.MustNewIngressRule("tcp", 3306, 3306, expected...),
 	})
 
 	// And again when relation is destroyed.
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), nil)
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *gc.C) {
+	s.assertIngressCidrs(c, []string{"10.0.0.4/16"}, []string{"10.0.0.4/16"})
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToPublic(c *gc.C) {
+	var ingress []string
+	for i := 1; i < 30; i++ {
+		ingress = append(ingress, fmt.Sprintf("10.%d.0.1/32", i))
+	}
+	s.assertIngressCidrs(c, ingress, []string{"0.0.0.0/0"})
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C) {
+	fwRules := state.NewFirewallRules(s.State)
+	err := fwRules.Save(state.FirewallRule{
+		WellKnownService: state.JujuApplicationOfferRule,
+		WhitelistCIDRs:   []string{"192.168.1.0/16"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	var ingress []string
+	for i := 1; i < 30; i++ {
+		ingress = append(ingress, fmt.Sprintf("10.%d.0.1/32", i))
+	}
+	s.assertIngressCidrs(c, ingress, []string{"192.168.1.0/16"})
+}
+
+func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *gc.C) {
+	ingress := []string{
+		"192.0.1.254/31",
+		"192.0.2.0/28",
+		"192.0.2.16/28",
+		"192.0.2.32/28",
+		"192.0.2.48/28",
+		"192.0.2.64/28",
+		"192.0.2.80/28",
+		"192.0.2.96/28",
+		"192.0.2.112/28",
+		"192.0.2.128/28",
+		"192.0.2.144/28",
+		"192.0.2.160/28",
+		"192.0.2.176/28",
+		"192.0.2.192/28",
+		"192.0.2.208/28",
+		"192.0.2.224/28",
+		"192.0.2.240/28",
+		"192.0.3.0/28",
+		"192.0.4.0/28",
+		"192.0.5.0/28",
+		"192.0.6.0/28",
+	}
+	expected := []string{
+		"192.0.1.254/31",
+		"192.0.2.0/24",
+		"192.0.3.0/28",
+		"192.0.4.0/28",
+		"192.0.5.0/28",
+		"192.0.6.0/28",
+	}
+	s.assertIngressCidrs(c, ingress, expected)
 }
 
 type GlobalModeSuite struct {
@@ -1079,10 +1242,13 @@ func (s *GlobalModeSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *GlobalModeSuite) newFirewaller(c *gc.C) worker.Worker {
+	fwEnv, ok := s.Environ.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	cfg := firewaller.Config{
 		ModelUUID:          s.State.ModelUUID(),
 		Mode:               config.FwGlobal,
-		EnvironFirewaller:  s.Environ,
+		EnvironFirewaller:  fwEnv,
 		EnvironInstances:   s.Environ,
 		FirewallerAPI:      s.firewaller,
 		RemoteRelationsApi: s.remoteRelations,
@@ -1326,10 +1492,13 @@ func (s *NoneModeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
+	fwEnv, ok := s.Environ.(environs.Firewaller)
+	c.Assert(ok, gc.Equals, true)
+
 	cfg := firewaller.Config{
 		ModelUUID:          s.State.ModelUUID(),
 		Mode:               config.FwNone,
-		EnvironFirewaller:  s.Environ,
+		EnvironFirewaller:  fwEnv,
 		EnvironInstances:   s.Environ,
 		FirewallerAPI:      s.firewaller,
 		RemoteRelationsApi: s.remoteRelations,

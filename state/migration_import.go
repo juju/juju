@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -62,9 +62,14 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.New("can't import models with remote applications")
 	}
 
-	modelType, err := ParseModelType(model.Type())
-	if err != nil {
-		return nil, nil, errors.Trace(err)
+	// Unfortunately a version was released that exports v4 models
+	// with the Type field blank. Treat this as IAAS.
+	modelType := ModelTypeIAAS
+	if model.Type() != "" {
+		modelType, err = ParseModelType(model.Type())
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
 	}
 
 	// Create the model.
@@ -73,18 +78,13 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 	args := ModelArgs{
-		Type:           modelType,
-		CloudName:      model.Cloud(),
-		CloudRegion:    model.CloudRegion(),
-		Config:         cfg,
-		Owner:          model.Owner(),
-		MigrationMode:  MigrationModeImporting,
-		EnvironVersion: model.EnvironVersion(),
-
-		// NOTE(axw) we create the model without any storage
-		// pools. We'll need to import the storage pools from
-		// the model description before adding any volumes,
-		// filesystems or storage instances.
+		Type:                    modelType,
+		CloudName:               model.Cloud(),
+		CloudRegion:             model.CloudRegion(),
+		Config:                  cfg,
+		Owner:                   model.Owner(),
+		MigrationMode:           MigrationModeImporting,
+		EnvironVersion:          model.EnvironVersion(),
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	}
 	if creds := model.CloudCredential(); creds != nil {
@@ -239,8 +239,8 @@ type importer struct {
 	model   description.Model
 	logger  loggo.Logger
 	// applicationUnits is populated at the end of loading the applications, and is a
-	// map of application name to units of that application.
-	applicationUnits map[string][]*Unit
+	// map of application name to the units of that application.
+	applicationUnits map[string]map[string]*Unit
 }
 
 func (i *importer) modelExtras() error {
@@ -707,10 +707,14 @@ func (i *importer) loadUnits() error {
 		return errors.Annotate(err, "cannot get all units")
 	}
 
-	result := make(map[string][]*Unit)
+	result := make(map[string]map[string]*Unit)
 	for _, doc := range docs {
-		units := result[doc.Application]
-		result[doc.Application] = append(units, newUnit(i.st, &doc))
+		units, found := result[doc.Application]
+		if !found {
+			units = make(map[string]*Unit)
+			result[doc.Application] = units
+		}
+		units[doc.Name] = newUnit(i.st, &doc)
 	}
 	i.applicationUnits = result
 	return nil
@@ -751,14 +755,16 @@ func (i *importer) application(a description.Application) error {
 	// mean to use the default, i.e. don't set the value.
 	// There may have existed some applications with settings that contained
 	// nil values, see lp#1667199. When importing, we want these stripped.
-	removeNils(a.Settings())
+	removeNils(a.CharmConfig())
+	removeNils(a.ApplicationConfig())
 
 	ops, err := addApplicationOps(i.st, app, addApplicationOpsArgs{
 		applicationDoc:     appDoc,
 		statusDoc:          statusDoc,
 		constraints:        i.constraints(a.Constraints()),
 		storage:            i.storageConstraints(a.StorageConstraints()),
-		settings:           a.Settings(),
+		charmConfig:        a.CharmConfig(),
+		applicationConfig:  a.ApplicationConfig(),
 		leadershipSettings: a.LeadershipSettings(),
 	})
 	if err != nil {
@@ -893,6 +899,7 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	}
 	agentStatusDoc := i.makeStatusDoc(agentStatus)
 
+	// TODO(caas) - don't import workload status or version for CAAS models
 	workloadStatus := u.WorkloadStatus()
 	if workloadStatus == nil {
 		return errors.NotValidf("missing workload status")
@@ -912,8 +919,8 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	ops, err := addUnitOps(i.st, addUnitOpsArgs{
 		unitDoc:            udoc,
 		agentStatusDoc:     agentStatusDoc,
-		workloadStatusDoc:  workloadStatusDoc,
-		workloadVersionDoc: workloadVersionDoc,
+		workloadStatusDoc:  &workloadStatusDoc,
+		workloadVersionDoc: &workloadVersionDoc,
 		meterStatusDoc: &meterStatusDoc{
 			Code: u.MeterStatusCode(),
 			Info: u.MeterStatusInfo(),
@@ -991,26 +998,27 @@ func (i *importer) importUnitPayloads(unit *Unit, payloads []description.Payload
 	return nil
 }
 
-func (i *importer) makeApplicationDoc(s description.Application) (*applicationDoc, error) {
-	charmURL, err := charm.ParseURL(s.CharmURL())
+func (i *importer) makeApplicationDoc(a description.Application) (*applicationDoc, error) {
+	charmURL, err := charm.ParseURL(a.CharmURL())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &applicationDoc{
-		Name:                 s.Name(),
-		Series:               s.Series(),
-		Subordinate:          s.Subordinate(),
+		Name:                 a.Name(),
+		Series:               a.Series(),
+		Subordinate:          a.Subordinate(),
 		CharmURL:             charmURL,
-		Channel:              s.Channel(),
-		CharmModifiedVersion: s.CharmModifiedVersion(),
-		ForceCharm:           s.ForceCharm(),
+		Channel:              a.Channel(),
+		CharmModifiedVersion: a.CharmModifiedVersion(),
+		ForceCharm:           a.ForceCharm(),
+		PasswordHash:         a.PasswordHash(),
 		Life:                 Alive,
-		UnitCount:            len(s.Units()),
-		RelationCount:        i.relationCount(s.Name()),
-		Exposed:              s.Exposed(),
-		MinUnits:             s.MinUnits(),
-		MetricCredentials:    s.MetricsCredentials(),
+		UnitCount:            len(a.Units()),
+		RelationCount:        i.relationCount(a.Name()),
+		Exposed:              a.Exposed(),
+		MinUnits:             a.MinUnits(),
+		MetricCredentials:    a.MetricsCredentials(),
 	}, nil
 }
 
@@ -1096,10 +1104,24 @@ func (i *importer) relation(rel description.Relation) error {
 			Insert: relationDoc,
 		},
 	}
-	if rel.Status() != nil {
-		status := i.makeStatusDoc(rel.Status())
-		ops = append(ops, createStatusOp(i.im.mb, relationGlobalScope(rel.Id()), status))
+
+	var relStatusDoc statusDoc
+	relStatus := rel.Status()
+	if relStatus != nil {
+		relStatusDoc = i.makeStatusDoc(relStatus)
+	} else {
+		// Relations are marked as either
+		// joining or joined, depending on
+		// whether there are any units in scope.
+		relStatusDoc = statusDoc{
+			Status:  status.Joining,
+			Updated: time.Now().UnixNano(),
+		}
+		if relationDoc.UnitCount > 0 {
+			relStatusDoc.Status = status.Joined
+		}
 	}
+	ops = append(ops, createStatusOp(i.im.mb, relationGlobalScope(rel.Id()), relStatusDoc))
 
 	dbRelation := newRelation(i.st, relationDoc)
 	// Add an op that adds the relation scope document for each
@@ -1107,7 +1129,11 @@ func (i *importer) relation(rel description.Relation) error {
 	// for each unit.
 	for _, endpoint := range rel.Endpoints() {
 		units := i.applicationUnits[endpoint.ApplicationName()]
-		for _, unit := range units {
+		for unitName, settings := range endpoint.AllSettings() {
+			unit, ok := units[unitName]
+			if !ok {
+				return errors.NotFoundf("unit %q", unitName)
+			}
 			ru, err := dbRelation.Unit(unit)
 			if err != nil {
 				return errors.Trace(err)
@@ -1121,7 +1147,7 @@ func (i *importer) relation(rel description.Relation) error {
 					Key: ruKey,
 				},
 			},
-				createSettingsOp(settingsC, ruKey, endpoint.Settings(unit.Name())),
+				createSettingsOp(settingsC, ruKey, settings),
 			)
 		}
 	}
@@ -1261,6 +1287,8 @@ func (i *importer) subnets() error {
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
 			SpaceName:         subnet.SpaceName(),
+			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
+			FanOverlay:        subnet.FanOverlay(),
 		}
 		// TODO(babbageclunk): at the moment state.Subnet only stores
 		// one AZ.
@@ -1339,6 +1367,7 @@ func (i *importer) addIPAddress(addr description.IPAddress) error {
 		DNSServers:       addr.DNSServers(),
 		DNSSearchDomains: addr.DNSSearchDomains(),
 		GatewayAddress:   addr.GatewayAddress(),
+		IsDefaultGateway: addr.IsDefaultGateway(),
 	}
 
 	ops := []txn.Op{{
@@ -1578,14 +1607,16 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 		Insert: doc,
 	})
 
-	refcounts, closer := i.st.db().GetCollection(refcountsC)
-	defer closer()
-	storageRefcountKey := entityStorageRefcountKey(owner, storage.Name())
-	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, 1)
-	if err != nil {
-		return errors.Trace(err)
+	if owner != nil {
+		refcounts, closer := i.st.db().GetCollection(refcountsC)
+		defer closer()
+		storageRefcountKey := entityStorageRefcountKey(owner, storage.Name())
+		incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, 1)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, incRefOp)
 	}
-	ops = append(ops, incRefOp)
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)

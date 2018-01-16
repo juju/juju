@@ -159,12 +159,12 @@ func RegisterHTTPHandlers(
 	handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
 	handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 	handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
-	handle("/depengine/", depengineHandler{sources.DependencyEngine})
-	handle("/statepool/", introspectionReporterHandler{
+	handle("/depengine", depengineHandler{sources.DependencyEngine})
+	handle("/statepool", introspectionReporterHandler{
 		name:     "State Pool Report",
 		reporter: sources.StatePool,
 	})
-	handle("/pubsub/", introspectionReporterHandler{
+	handle("/pubsub", introspectionReporterHandler{
 		name:     "PubSub Report",
 		reporter: sources.PubSub,
 	})

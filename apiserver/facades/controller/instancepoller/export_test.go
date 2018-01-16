@@ -10,7 +10,7 @@ type Patcher interface {
 }
 
 func PatchState(p Patcher, st StateInterface) {
-	p.PatchValue(&getState, func(*state.State) StateInterface {
+	p.PatchValue(&getState, func(*state.State, *state.Model) StateInterface {
 		return st
 	})
 }

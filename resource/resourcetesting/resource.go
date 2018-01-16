@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 
 	"github.com/juju/juju/resource"
 )

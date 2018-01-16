@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -106,7 +107,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	// NOTE(axw) we cannot patch BundleTools here, as the "gc.C" argument
 	// is invalidated once this method returns.
-	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, *version.Number) (version.Binary, string, error) {
+	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, *version.Number) (version.Binary, bool, string, error) {
 		panic("tests must call setupAutoUploadTest or otherwise patch envtools.BundleTools")
 	})
 
@@ -420,12 +421,12 @@ var bootstrapTests = []bootstrapTest{{
 	info:    "agent-version doesn't match client version major",
 	version: "1.3.3-saucy-ppc64el",
 	args:    []string{"--agent-version", "2.3.0"},
-	err:     `requested agent version major.minor mismatch`,
+	err:     regexp.QuoteMeta(`this client can only bootstrap 1.3 agents`),
 }, {
 	info:    "agent-version doesn't match client version minor",
 	version: "1.3.3-saucy-ppc64el",
 	args:    []string{"--agent-version", "1.4.0"},
-	err:     `requested agent version major.minor mismatch`,
+	err:     regexp.QuoteMeta(`this client can only bootstrap 1.3 agents`),
 }, {
 	info: "--clouds with --regions",
 	args: []string{"--clouds", "--regions", "aws"},
@@ -708,6 +709,19 @@ func (s *BootstrapSuite) TestBootstrapAttributesInheritedOverDefaults(c *gc.C) {
 		"inheritedControllerAttrs": {key: true},
 		"userConfigAttrs":          {},
 	})
+}
+
+func (s *BootstrapSuite) TestBootstrapRegionConfigNoRegionSpecified(c *gc.C) {
+	resetJujuXDGDataHome(c)
+
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy-cloud-dummy-region-config")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(bootstrap.args.ControllerInheritedConfig["secret"], gc.Equals, "region-test")
 }
 
 func (s *BootstrapSuite) TestBootstrapRegionConfigAttributesOverCloudConfig(c *gc.C) {
@@ -1003,8 +1017,8 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.0"))
-	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, *version.Number) (version.Binary, string, error) {
-		return version.Binary{}, "", errors.New("no agent binaries for you")
+	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, *version.Number) (version.Binary, bool, string, error) {
+		return version.Binary{}, false, "", errors.New("no agent binaries for you")
 	})
 	resetJujuXDGDataHome(c)
 
@@ -1393,6 +1407,38 @@ func (s *BootstrapSuite) TestBootstrapProviderManyDetectedCredentials(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ambiguousDetectedCredentialError.Error())
 }
 
+func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
+	dummyProvider, err := environs.Provider("dummy")
+	c.Assert(err, jc.ErrorIsNil)
+
+	tmpFile, err := ioutil.TempFile("", "juju-bootstrap-test")
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { err := os.Remove(tmpFile.Name()); c.Assert(err, jc.ErrorIsNil) }()
+
+	contents := []byte("{something: special}\n")
+	err = ioutil.WriteFile(tmpFile.Name(), contents, 0644)
+
+	unfinalizedCredential := cloud.NewEmptyCredential()
+	finalizedCredential := cloud.NewEmptyCredential()
+	fp := fileCredentialProvider{dummyProvider, tmpFile.Name(), &unfinalizedCredential, &finalizedCredential}
+	environs.RegisterProvider("file-credentials", fp)
+
+	resetJujuXDGDataHome(c)
+	_, err = cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(), "file-credentials", "ctrl",
+		"--config", "default-series=precise",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// When credentials are "finalized" any credential attribute indicated
+	// to be a file path is replaced by that file's contents. Here we check to see
+	// that the state of the credential under test before finalization is
+	// indeed the file path itself and that the state of the credential
+	// after finalization is the contents of that file.
+	c.Assert(unfinalizedCredential.Attributes()["file"], gc.Matches, tmpFile.Name())
+	c.Assert(finalizedCredential.Attributes()["file"], gc.Matches, string(contents))
+}
+
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegionsInvalid(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy/not-dummy", "ctrl")
@@ -1691,24 +1737,25 @@ func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, `
 You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
-Cloud                           Credentials  Default Region
-aws                             fred         us-west-1
-                                mary         
-aws-china                                    
-aws-gov                                      
-azure                                        
-azure-china                                  
-cloudsigma                                   
-google                                       
-joyent                                       
-oracle                                       
-rackspace                                    
-localhost                                    
-dummy-cloud                     joe          home
-dummy-cloud-with-config                      
-dummy-cloud-with-region-config               
-dummy-cloud-without-regions                  
-many-credentials-no-auth-types               
+Cloud                            Credentials  Default Region
+aws                              fred         us-west-1
+                                 mary         
+aws-china                                     
+aws-gov                                       
+azure                                         
+azure-china                                   
+cloudsigma                                    
+google                                        
+joyent                                        
+oracle                                        
+rackspace                                     
+localhost                                     
+dummy-cloud                      joe          home
+dummy-cloud-dummy-region-config               
+dummy-cloud-with-config                       
+dummy-cloud-with-region-config                
+dummy-cloud-without-regions                   
+many-credentials-no-auth-types                
 
 You will need to have a credential if you want to bootstrap on a cloud, see
 ‘juju autoload-credentials’ and ‘juju add-credential’. The first credential
@@ -1729,6 +1776,7 @@ us-west-2
 ca-central-1
 eu-west-1
 eu-west-2
+eu-west-3
 eu-central-1
 ap-south-1
 ap-southeast-1
@@ -1855,6 +1903,14 @@ clouds:
             region-2:
     dummy-cloud-without-regions:
         type: dummy
+    dummy-cloud-dummy-region-config:
+        type: dummy
+        regions:
+            region-1:
+            region-2:
+        region-config:
+            region-1:
+                secret: region-test
     dummy-cloud-with-region-config:
         type: dummy
         regions:
@@ -1871,16 +1927,6 @@ clouds:
             broken: Bootstrap
             controller: not-a-bool
             use-floating-ip: true
-    dummy-cloud-with-region-config:
-        type: dummy
-        regions:
-            region-1:
-            region-2:
-        config:
-            network: cloud-network
-        region-config:
-            region-1:
-                network: region-network
     many-credentials-no-auth-types:
         type: many-credentials
 `[1:]), 0644)
@@ -1890,7 +1936,7 @@ clouds:
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 	list, err := envtools.FindTools(
-		env, jujuversion.Current.Major, jujuversion.Current.Minor, "released", coretools.Filter{})
+		env, jujuversion.Current.Major, jujuversion.Current.Minor, []string{"released"}, coretools.Filter{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
@@ -1985,7 +2031,7 @@ func (noCloudRegionsProvider) DetectRegions() ([]cloud.Region, error) {
 }
 
 func (noCloudRegionsProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return nil
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: cloud.CredentialSchema{}}
 }
 
 type noCredentialsProvider struct {
@@ -2026,6 +2072,41 @@ func (manyCredentialsProvider) CredentialSchemas() map[cloud.AuthType]cloud.Cred
 }
 
 type cloudDetectorFunc func() ([]cloud.Cloud, error)
+
+type fileCredentialProvider struct {
+	environs.EnvironProvider
+	testFileName          string
+	unFinalizedCredential *cloud.Credential
+	finalizedCredential   *cloud.Credential
+}
+
+func (f fileCredentialProvider) DetectRegions() ([]cloud.Region, error) {
+	return []cloud.Region{{Name: "region"}}, nil
+}
+
+func (f fileCredentialProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	credential := cloud.NewCredential(cloud.JSONFileAuthType,
+		map[string]string{"file": f.testFileName})
+	cc := &cloud.CloudCredential{AuthCredentials: map[string]cloud.Credential{
+		"cred": credential,
+	}}
+	*f.unFinalizedCredential = credential
+	return cc, nil
+}
+
+func (fileCredentialProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.JSONFileAuthType: cloud.CredentialSchema{cloud.NamedCredentialAttr{
+		Name: "file",
+		CredentialAttr: cloud.CredentialAttr{
+			FilePath: true,
+		}},
+	}}
+}
+
+func (f fileCredentialProvider) FinalizeCredential(_ environs.FinalizeCredentialContext, fp environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	*f.finalizedCredential = fp.Credential
+	return &fp.Credential, nil
+}
 
 func (c cloudDetectorFunc) DetectCloud(name string) (cloud.Cloud, error) {
 	clouds, err := c.DetectClouds()

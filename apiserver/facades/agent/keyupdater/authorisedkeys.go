@@ -25,6 +25,7 @@ type KeyUpdater interface {
 // implementation of the api end point.
 type KeyUpdaterAPI struct {
 	state      *state.State
+	model      *state.Model
 	resources  facade.Resources
 	authorizer facade.Authorizer
 	getCanRead common.GetAuthFunc
@@ -46,7 +47,11 @@ func NewKeyUpdaterAPI(
 	getCanRead := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	return &KeyUpdaterAPI{state: st, resources: resources, authorizer: authorizer, getCanRead: getCanRead}, nil
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &KeyUpdaterAPI{state: st, model: m, resources: resources, authorizer: authorizer, getCanRead: getCanRead}, nil
 }
 
 // WatchAuthorisedKeys starts a watcher to track changes to the authorised ssh keys
@@ -81,7 +86,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 			continue
 		}
 		// 3. Watch for changes
-		watch := api.state.WatchForModelConfigChanges()
+		watch := api.model.WatchForModelConfigChanges()
 		// Consume the initial event.
 		if _, ok := <-watch.Changes(); ok {
 			results[i].NotifyWatcherId = api.resources.Register(watch)
@@ -104,7 +109,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsRes
 
 	// For now, authorised keys are global, common to all machines.
 	var keys []string
-	config, configErr := api.state.ModelConfig()
+	config, configErr := api.model.ModelConfig()
 	if configErr == nil {
 		keys = ssh.SplitAuthorisedKeys(config.AuthorizedKeys())
 	}

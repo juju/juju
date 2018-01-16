@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -161,6 +161,7 @@ func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
 var (
 	model = M{
 		"name":       "controller",
+		"type":       "iaas",
 		"controller": "kontroll",
 		"cloud":      "dummy",
 		"region":     "dummy-region",
@@ -2570,6 +2571,7 @@ var statusTests = []testCase{
 			M{
 				"model": M{
 					"name":              "controller",
+					"type":              "iaas",
 					"controller":        "kontroll",
 					"cloud":             "dummy",
 					"region":            "dummy-region",
@@ -2866,6 +2868,7 @@ var statusTests = []testCase{
 			M{
 				"model": M{
 					"name":       "controller",
+					"type":       "iaas",
 					"controller": "kontroll",
 					"cloud":      "dummy",
 					"region":     "dummy-region",
@@ -2893,6 +2896,7 @@ var statusTests = []testCase{
 			M{
 				"model": M{
 					"name":       "controller",
+					"type":       "iaas",
 					"controller": "kontroll",
 					"cloud":      "dummy",
 					"region":     "dummy-region",
@@ -3305,6 +3309,7 @@ func (oc addOfferConnection) step(c *gc.C, ctx *context) {
 		OfferUUID:       offer.OfferUUID,
 		Username:        oc.username,
 		RelationId:      rel.Id(),
+		RelationKey:     rel.Tag().Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -3737,6 +3742,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 	expected := M{
 		"model": M{
 			"name":       "hosted",
+			"type":       "iaas",
 			"controller": "kontroll",
 			"cloud":      "dummy",
 			"region":     "dummy-region",
@@ -4110,7 +4116,7 @@ Machine  State    DNS       Inst id       Series   AZ          Message
 3        started  10.0.3.1  controller-3  quantal              I am number three
 
 Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
-hosted-mysql  mysql        mysql  1    1          server    mysql      provider
+hosted-mysql  mysql        mysql  1    1/1        server    mysql      provider
 
 Relation provider      Requirer                   Interface  Type         Message
 mysql:juju-info        logging:info               juju-info  subordinate  
@@ -4165,6 +4171,44 @@ foo/0  maintenance  executing                                  (config-changed) 
 foo/1  maintenance  executing                                  (backup database) doing some work
 
 Machine  State  DNS  Inst id  Series  AZ  Message
+`[1:])
+}
+
+func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
+	status := formattedStatus{
+		Model: modelStatus{
+			Type: "caas",
+		},
+		Applications: map[string]applicationStatus{
+			"foo": {
+				Units: map[string]unitStatus{
+					"foo/0": {
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Active,
+						},
+					},
+					"foo/1": {
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Active,
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
+foo                     0/2                  0      
+
+Unit   Status  Address  Ports  Message
+foo/0  <todo>                  
+foo/1  <todo>                  
 `[1:])
 }
 
@@ -4382,6 +4426,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 	const expected = "" +
 		"model:\n" +
 		"  name: controller\n" +
+		"  type: iaas\n" +
 		"  controller: kontroll\n" +
 		"  cloud: dummy\n" +
 		"  region: dummy-region\n" +
@@ -4687,6 +4732,7 @@ var statusTimeTest = test(
 		M{
 			"model": M{
 				"name":       "controller",
+				"type":       "iaas",
 				"controller": "kontroll",
 				"cloud":      "dummy",
 				"region":     "dummy-region",

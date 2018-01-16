@@ -5,13 +5,12 @@ package uniter
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -650,8 +649,8 @@ type RelationStatus struct {
 	// Tag is the relation tag.
 	Tag names.RelationTag
 
-	// Status is the status of the relation.
-	Status relation.Status
+	// Suspended is true if the relation is suspended.
+	Suspended bool
 
 	// InScope is true if the relation unit is in scope.
 	InScope bool
@@ -682,9 +681,9 @@ func (u *Unit) RelationsStatus() ([]RelationStatus, error) {
 			return nil, err
 		}
 		statusResult = append(statusResult, RelationStatus{
-			Tag:     tag,
-			InScope: result.InScope,
-			Status:  relation.Status(result.Status),
+			Tag:       tag,
+			InScope:   result.InScope,
+			Suspended: result.Suspended,
 		})
 	}
 	return statusResult, nil

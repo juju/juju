@@ -154,13 +154,7 @@ func (suite *maas2EnvironSuite) TestInstancesPartialResult(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestAvailabilityZones(c *gc.C) {
-	controller := &fakeController{
-		zones: []gomaasapi.Zone{
-			&fakeZone{name: "mossack"},
-			&fakeZone{name: "fonseca"},
-		},
-	}
-	env := suite.makeEnviron(c, controller)
+	env := suite.makeEnviron(c, newFakeController())
 	result, err := env.AvailabilityZones()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedZones := set.NewStrings("mossack", "fonseca")
@@ -304,7 +298,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceError(c *gc.C) {
 	})
 	env := suite.makeEnviron(c, nil)
 	_, err := env.StartInstance(environs.StartInstanceParams{})
-	c.Assert(err, gc.ErrorMatches, ".* cannot run instance: Charles Babbage")
+	c.Assert(err, gc.ErrorMatches, "failed to acquire node: Charles Babbage")
 }
 
 func (suite *maas2EnvironSuite) TestStartInstance(c *gc.C) {
@@ -353,9 +347,9 @@ func (suite *maas2EnvironSuite) TestStartInstanceParams(c *gc.C) {
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 	params := environs.StartInstanceParams{
-		ControllerUUID: suite.controllerUUID,
-		Placement:      "zone=foo",
-		Constraints:    constraints.MustParse("mem=8G"),
+		ControllerUUID:   suite.controllerUUID,
+		AvailabilityZone: "foo",
+		Constraints:      constraints.MustParse("mem=8G"),
 	}
 	result, err := jujutesting.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -377,7 +371,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	_, err := env.acquireNode2("", "", constraints.Value{}, nil, nil)
+	_, err := env.acquireNode2("", "", "", constraints.Value{}, nil, nil)
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -390,7 +384,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *
 	}
 	env, _ = suite.injectControllerWithSpacesAndCheck(c, nil, expected)
 	_, err := env.acquireNode2(
-		"", "",
+		"", "", "",
 		constraints.Value{Tags: stringslicep("tag1", "^tag2", "tag3", "^tag4")},
 		nil, nil,
 	)
@@ -433,7 +427,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c
 	env, _ := suite.injectControllerWithSpacesAndCheck(c, getFourSpaces(), expected)
 
 	_, err := env.acquireNode2(
-		"", "",
+		"", "", "",
 		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
 		nil, nil,
 	)
@@ -446,7 +440,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeDisambiguatesNamedLabelsFromIndex
 	suite.PatchValue(&numericLabelLimit, shortLimit)
 
 	_, err := env.acquireNode2(
-		"", "",
+		"", "", "",
 		constraints.Value{Spaces: stringslicep("space-1", "^space-2", "space-3", "^space-4")},
 		[]interfaceBinding{{"0", "first-clash"}, {"1", "final-clash"}},
 		nil,
@@ -500,7 +494,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeStorage(c *gc.C) {
 			return test.expected
 		}
 		env = suite.makeEnviron(c, nil)
-		_, err := env.acquireNode2("", "", constraints.Value{}, nil, test.volumes)
+		_, err := env.acquireNode2("", "", "", constraints.Value{}, nil, test.volumes)
 		c.Check(err, jc.ErrorIsNil)
 	}
 }
@@ -611,7 +605,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		getPositives = func() []gomaasapi.InterfaceSpec {
 			return test.expectedPositives
 		}
-		_, err := env.acquireNode2("", "", cons, test.interfaces, nil)
+		_, err := env.acquireNode2("", "", "", cons, test.interfaces, nil)
 		if test.expectedError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectedError)
 			c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -645,7 +639,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeConvertsSpaceNames(c *gc.C) {
 	cons := constraints.Value{
 		Spaces: stringslicep("foo", "^bar"),
 	}
-	_, err := env.acquireNode2("", "", cons, nil, nil)
+	_, err := env.acquireNode2("", "", "", cons, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -658,7 +652,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeTranslatesSpaceNames(c *gc.C) {
 	cons := constraints.Value{
 		Spaces: stringslicep("foo-1", "^bar-3"),
 	}
-	_, err := env.acquireNode2("", "", cons, nil, nil)
+	_, err := env.acquireNode2("", "", "", cons, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -668,7 +662,7 @@ func (suite *maas2EnvironSuite) TestAcquireNodeUnrecognisedSpace(c *gc.C) {
 	cons := constraints.Value{
 		Spaces: stringslicep("baz"),
 	}
-	_, err := env.acquireNode2("", "", cons, nil, nil)
+	_, err := env.acquireNode2("", "", "", cons, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `unrecognised space in constraint "baz"`)
 }
 
@@ -1549,11 +1543,11 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func getArgs(c *gc.C, calls []testing.StubCall) interface{} {
-	c.Assert(calls, gc.HasLen, 1)
-	args := calls[0].Args
-	c.Assert(args, gc.HasLen, 1)
-	return args[0]
+func getArgs(c *gc.C, calls []testing.StubCall, callNum, argNum int) interface{} {
+	c.Assert(len(calls), gc.Not(jc.LessThan), callNum)
+	args := calls[callNum].Args
+	c.Assert(len(args), gc.Not(jc.LessThan), argNum)
+	return args[argNum]
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDeviceError(c *gc.C) {
@@ -1724,7 +1718,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 	ignored := names.NewMachineTag("1/lxd/0")
 	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
 	c.Assert(err, gc.ErrorMatches, `failed to create MAAS device for "juju-06f00d-1-lxd-0": creating device interface: boom`)
-	args := getArgs(c, device.Calls())
+	args := getArgs(c, device.Calls(), 0, 0)
 	maasArgs, ok := args.(gomaasapi.CreateInterfaceArgs)
 	c.Assert(ok, jc.IsTrue)
 	expected := gomaasapi.CreateInterfaceArgs{
@@ -1772,37 +1766,9 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c 
 		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
-	allocated, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allocated, jc.DeepEquals, []network.InterfaceInfo{{
-		DeviceIndex:      0,
-		CIDR:             "",
-		ProviderId:       "0",
-		ProviderSubnetId: "",
-		ProviderVLANId:   "0",
-		VLANTag:          0,
-		InterfaceName:    "",
-		InterfaceType:    "ethernet",
-		ConfigType:       "",
-		MTU:              1500,
-		Disabled:         true,
-		NoAutoStart:      true,
-	}, {
-		DeviceIndex:      1,
-		CIDR:             "",
-		ProviderId:       "0",
-		ProviderSubnetId: "",
-		ProviderVLANId:   "0",
-		VLANTag:          0,
-		InterfaceName:    "",
-		InterfaceType:    "ethernet",
-		ConfigType:       "",
-		MTU:              1500,
-		Disabled:         true,
-		NoAutoStart:      true,
-	}})
-
-	args := getArgs(c, interface_.Calls())
+	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
+	c.Assert(err, gc.ErrorMatches, "failed to create MAAS device.*boom")
+	args := getArgs(c, interface_.Calls(), 0, 0)
 	maasArgs, ok := args.(gomaasapi.LinkSubnetArgs)
 	c.Assert(ok, jc.IsTrue)
 	expected := gomaasapi.LinkSubnetArgs{
@@ -2301,7 +2267,7 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
-	c.Check(err, gc.ErrorMatches, ".*cannot run instances.*")
+	c.Check(err, gc.ErrorMatches, "cannot start bootstrap instance in any availability zone \\(mossack, fonseca\\)")
 }
 
 func (suite *maas2EnvironSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -2355,7 +2321,7 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddresses(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	args, ok := getArgs(c, controller.Calls()).(gomaasapi.DevicesArgs)
+	args, ok := getArgs(c, controller.Calls(), 0, 0).(gomaasapi.DevicesArgs)
 	c.Assert(ok, jc.IsTrue)
 	expected := gomaasapi.DevicesArgs{MACAddresses: []string{"will", "dustin", "eleven"}}
 	c.Assert(args, gc.DeepEquals, expected)
@@ -2376,7 +2342,7 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddresses_HandlesDupes(c *gc
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	args, ok := getArgs(c, controller.Calls()).(gomaasapi.DevicesArgs)
+	args, ok := getArgs(c, controller.Calls(), 0, 0).(gomaasapi.DevicesArgs)
 	c.Assert(ok, jc.IsTrue)
 	expected := gomaasapi.DevicesArgs{MACAddresses: []string{"will", "eleven"}}
 	c.Assert(args, gc.DeepEquals, expected)
@@ -2404,7 +2370,7 @@ func (suite *maas2EnvironSuite) TestReleaseContainerAddressesErrorDeletingDevice
 	})
 	c.Assert(err, gc.ErrorMatches, "deleting device hopper: don't delete me")
 
-	_, ok := getArgs(c, controller.Calls()).(gomaasapi.DevicesArgs)
+	_, ok := getArgs(c, controller.Calls(), 0, 0).(gomaasapi.DevicesArgs)
 	c.Assert(ok, jc.IsTrue)
 
 	dev1.CheckCallNames(c, "Delete")

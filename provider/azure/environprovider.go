@@ -142,7 +142,15 @@ func (prov *azureEnvironProvider) PrepareConfig(args environs.PrepareConfigParam
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	return args.Config, nil
+	// Set the default block-storage source.
+	attrs := make(map[string]interface{})
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs[config.StorageDefaultBlockSourceKey] = azureStorageProviderType
+	}
+	if len(attrs) == 0 {
+		return args.Config, nil
+	}
+	return args.Config.Apply(attrs)
 }
 
 func validateCloudSpec(spec environs.CloudSpec) error {

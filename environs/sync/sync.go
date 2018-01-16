@@ -94,19 +94,17 @@ func SyncTools(syncContext *SyncContext) error {
 		// We now store the tools in a directory named after their stream, but the
 		// legacy behaviour is to store all tools in a single "releases" directory.
 		toolsDir = envtools.ReleasedStream
-		syncContext.Stream = envtools.PreferredStream(&jujuversion.Current, false, "")
+		// Always use the primary stream here - the user can specify
+		// to override that decision.
+		syncContext.Stream = envtools.PreferredStreams(&jujuversion.Current, false, "")[0]
 	}
-	sourceTools, err := envtools.FindToolsForCloud(
-		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
-		syncContext.Stream, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
 	// For backwards compatibility with cloud storage, if there are no tools in the specified stream,
 	// double check the release stream.
 	// TODO - remove this when we no longer need to support cloud storage upgrades.
-	if err == envtools.ErrNoTools {
-		sourceTools, err = envtools.FindToolsForCloud(
-			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
-			envtools.ReleasedStream, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
-	}
+	streams := []string{syncContext.Stream, envtools.ReleasedStream}
+	sourceTools, err := envtools.FindToolsForCloud(
+		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
+		streams, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -118,7 +116,7 @@ func SyncTools(syncContext *SyncContext) error {
 		logger.Infof("found %d recent agent binaries (version %s)", len(sourceTools), latest)
 	}
 	for _, tool := range sourceTools {
-		logger.Debugf("found source tool: %v", tool)
+		logger.Debugf("found source agent binary: %v", tool)
 	}
 
 	logger.Infof("listing target agent binaries storage")
@@ -160,7 +158,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 		return nil, err
 	}
 	logger.Infof("source for sync of agent binaries: %v", sourceURL)
-	return simplestreams.NewURLSignedDataSource("sync tools source", sourceURL, keys.JujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
+	return simplestreams.NewURLSignedDataSource("sync agent binaries source", sourceURL, keys.JujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 }
 
 // copyTools copies a set of tools from the source to the target.
@@ -273,7 +271,7 @@ func cloneToolsForSeries(toolsInfo *BuiltAgent, stream string, series ...string)
 	if err != nil {
 		return err
 	}
-	logger.Debugf("generating agent binary metadata")
+	logger.Debugf("generating agent metadata")
 	return envtools.MergeAndWriteMetadata(metadataStore, stream, stream, targetTools, false)
 }
 
@@ -281,6 +279,7 @@ func cloneToolsForSeries(toolsInfo *BuiltAgent, stream string, series ...string)
 // a call to BundleTools.
 type BuiltAgent struct {
 	Version     version.Binary
+	Official    bool
 	Dir         string
 	StorageName string
 	Sha256Hash  string
@@ -309,7 +308,7 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	toolsVersion, sha256Hash, err := envtools.BundleTools(build, f, forceVersion)
+	toolsVersion, official, sha256Hash, err := envtools.BundleTools(build, f, forceVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -319,18 +318,22 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 	clientVersion := jujuversion.Current
 	clientVersion.Build = 0
 	if builtVersion.Number.Compare(clientVersion) != 0 {
-		return nil, errors.Errorf("agent binary %v not compatibile with bootstrap client %v", toolsVersion.Number, jujuversion.Current)
+		return nil, errors.Errorf("agent binary %v not compatible with bootstrap client %v", toolsVersion.Number, jujuversion.Current)
 	}
 	fileInfo, err := f.Stat()
 	if err != nil {
-		return nil, errors.Errorf("cannot stat newly made tools archive: %v", err)
+		return nil, errors.Errorf("cannot stat newly made agent binary archive: %v", err)
 	}
 	size := fileInfo.Size()
 	reportedVersion := toolsVersion
-	if forceVersion != nil {
+	if !official && forceVersion != nil {
 		reportedVersion.Number = *forceVersion
 	}
-	logger.Infof("using agent binary %v aliased to %v (%dkB)", toolsVersion, reportedVersion, (size+512)/1024)
+	if official {
+		logger.Infof("using official agent binary %v (%dkB)", toolsVersion, (size+512)/1024)
+	} else {
+		logger.Infof("using agent binary %v aliased to %v (%dkB)", toolsVersion, reportedVersion, (size+512)/1024)
+	}
 	baseToolsDir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return nil, err
@@ -354,6 +357,7 @@ func buildAgentTarball(build bool, forceVersion *version.Number, stream string) 
 	}
 	return &BuiltAgent{
 		Version:     toolsVersion,
+		Official:    official,
 		Dir:         baseToolsDir,
 		StorageName: storageName,
 		Size:        size,
@@ -421,7 +425,7 @@ func (u StorageToolsUploader) UploadTools(toolsDir, stream string, tools *coreto
 	}
 	err := envtools.MergeAndWriteMetadata(u.Storage, toolsDir, stream, coretools.List{tools}, u.WriteMirrors)
 	if err != nil {
-		logger.Errorf("error writing agent binary metadata: %v", err)
+		logger.Errorf("error writing agent metadata: %v", err)
 		return err
 	}
 	return nil

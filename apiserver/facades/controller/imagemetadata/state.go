@@ -29,3 +29,12 @@ type stateShim struct {
 func (s stateShim) SaveMetadata(m []cloudimagemetadata.Metadata) error {
 	return s.State.CloudImageMetadataStorage.SaveMetadata(m)
 }
+
+func (st stateShim) ModelConfig() (*config.Config, error) {
+	m, err := st.Model()
+	if err != nil {
+		return nil, err
+	}
+
+	return m.ModelConfig()
+}

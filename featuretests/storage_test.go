@@ -494,8 +494,8 @@ func (s *cmdStorageSuite) TestStorageAddToUnitSuccess(c *gc.C) {
 
 	context, err := runAddToUnit(c, u, "allecto=1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, "added \"allecto\"\n")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "added storage allecto/1 to storage-block/0\n")
 
 	instancesAfter, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
@@ -521,7 +521,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitUnitDoesntExist(c *gc.C) {
 	context, err := runAddToUnit(c, "fluffyunit/0", "allecto=1")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "failed to add \"allecto\": unit \"fluffyunit/0\" not found\n")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "failed to add storage \"allecto\" to fluffyunit/0: unit \"fluffyunit/0\" not found\n")
 }
 
 func (s *cmdStorageSuite) TestStorageAddToUnitCollapseUnitErrors(c *gc.C) {
@@ -551,7 +551,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitStorageDoesntExist(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals,
-		`failed to add "nonstorage": adding "nonstorage" storage to storage-block/0: charm storage "nonstorage" not found`+"\n",
+		`failed to add storage "nonstorage" to storage-block/0: adding "nonstorage" storage to storage-block/0: charm storage "nonstorage" not found`+"\n",
 	)
 
 	instancesAfter, err := s.IAASModel.AllStorageInstances()
@@ -585,8 +585,7 @@ storage-filesystem/0  data/0  filesystem                     pending
 
 	context, err = runAddToUnit(c, u, "data=modelscoped-block,1G")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, "added \"data\"\n")
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "added storage data/1 to storage-filesystem/0\n")
 
 	instancesAfter, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)

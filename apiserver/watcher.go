@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
@@ -92,7 +93,7 @@ type srvNotifyWatcher struct {
 }
 
 func isAgent(auth facade.Authorizer) bool {
-	return auth.AuthMachineAgent() || auth.AuthUnitAgent()
+	return auth.AuthMachineAgent() || auth.AuthUnitAgent() || auth.AuthApplicationAgent()
 }
 
 func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
@@ -100,7 +101,7 @@ func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 
-	if !isAgent(auth) {
+	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(state.NotifyWatcher)
@@ -247,19 +248,19 @@ func newRelationStatusWatcher(context facade.Context) (facade.Facade, error) {
 // Next returns when a change has occured to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvRelationStatusWatcher.
-func (w *srvRelationStatusWatcher) Next() (params.RelationStatusWatchResult, error) {
+func (w *srvRelationStatusWatcher) Next() (params.RelationLifeSuspendedStatusWatchResult, error) {
 	if changes, ok := <-w.watcher.Changes(); ok {
-		changesParams := make([]params.RelationStatusChange, len(changes))
+		changesParams := make([]params.RelationLifeSuspendedStatusChange, len(changes))
 		for i, key := range changes {
-			change, err := crossmodel.GetRelationStatusChange(crossmodel.GetBackend(w.st), key)
+			change, err := crossmodel.GetRelationLifeSuspendedStatusChange(crossmodel.GetBackend(w.st), key)
 			if err != nil {
-				return params.RelationStatusWatchResult{
+				return params.RelationLifeSuspendedStatusWatchResult{
 					Error: common.ServerError(err),
 				}, nil
 			}
 			changesParams[i] = *change
 		}
-		return params.RelationStatusWatchResult{
+		return params.RelationLifeSuspendedStatusWatchResult{
 			Changes: changesParams,
 		}, nil
 	}
@@ -267,7 +268,57 @@ func (w *srvRelationStatusWatcher) Next() (params.RelationStatusWatchResult, err
 	if err == nil {
 		err = common.ErrStoppedWatcher
 	}
-	return params.RelationStatusWatchResult{}, err
+	return params.RelationLifeSuspendedStatusWatchResult{}, err
+}
+
+// srvOfferStatusWatcher defines the API wrapping a crossmodelrelations.OfferStatusWatcher.
+type srvOfferStatusWatcher struct {
+	watcherCommon
+	st      *state.State
+	watcher crossmodelrelations.OfferWatcher
+}
+
+func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
+	// TODO(wallyworld) - enhance this watcher to support
+	// anonymous api calls with macaroons.
+	if auth.GetAuthTag() != nil && !isAgent(auth) {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(crossmodelrelations.OfferWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvOfferStatusWatcher{
+		watcherCommon: newWatcherCommon(context),
+		st:            context.State(),
+		watcher:       watcher,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvOfferStatusWatcher.
+func (w *srvOfferStatusWatcher) Next() (params.OfferStatusWatchResult, error) {
+	if _, ok := <-w.watcher.Changes(); ok {
+		change, err := crossmodel.GetOfferStatusChange(crossmodel.GetBackend(w.st), w.watcher.OfferUUID())
+		if err != nil {
+			return params.OfferStatusWatchResult{
+				Error: common.ServerError(err),
+			}, nil
+		}
+		return params.OfferStatusWatchResult{
+			Changes: []params.OfferStatusChange{*change},
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.OfferStatusWatchResult{}, err
 }
 
 // srvMachineStorageIdsWatcher defines the API wrapping a state.StringsWatcher

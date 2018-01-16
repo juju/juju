@@ -57,3 +57,38 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNamesNoInstances(c 
 	_, err := zonedEnviron.InstanceAvailabilityZoneNames([]instance.Id{"inst-0"})
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 }
+
+func (s *environAvailzonesSuite) TestDeriveAvailabilityZones(c *gc.C) {
+	s.client.computeResources = []*mo.ComputeResource{
+		newComputeResource("test-available"),
+	}
+
+	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
+	zonedEnviron := s.env.(common.ZonedEnviron)
+
+	zones, err := zonedEnviron.DeriveAvailabilityZones(
+		environs.StartInstanceParams{Placement: "zone=test-available"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zones, gc.DeepEquals, []string{"test-available"})
+}
+
+func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
+	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
+	zonedEnviron := s.env.(common.ZonedEnviron)
+
+	zones, err := zonedEnviron.DeriveAvailabilityZones(
+		environs.StartInstanceParams{Placement: "zone=test-unknown"})
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not found`)
+	c.Assert(zones, gc.HasLen, 0)
+}
+
+func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *gc.C) {
+	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
+	zonedEnviron := s.env.(common.ZonedEnviron)
+
+	zones, err := zonedEnviron.DeriveAvailabilityZones(environs.StartInstanceParams{
+		Placement: "invalid-placement",
+	})
+	c.Assert(err, gc.ErrorMatches, `unknown placement directive: invalid-placement`)
+	c.Assert(zones, gc.HasLen, 0)
+}

@@ -27,6 +27,7 @@ type BaseAPI struct {
 	ControllerModel      Backend
 	StatePool            StatePool
 	getEnviron           environFromModelFunc
+	getControllerInfo    func() (apiAddrs []string, caCert string, _ error)
 }
 
 // checkPermission ensures that the logged in user holds the given permission on an entity.
@@ -59,21 +60,24 @@ func (api *BaseAPI) checkAdmin(backend Backend) error {
 	return nil
 }
 
-// modelForName looks up the model details for the named model.
-func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, bool, error) {
+// modelForName looks up the model details for the named model and returns
+// the model (if found), the absolute model model path which was used in the lookup,
+// and a bool indicating if the model was found,
+func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, string, bool, error) {
 	user := api.Authorizer.GetAuthTag()
 	if ownerName == "" {
 		ownerName = user.Id()
 	}
+	modelPath := fmt.Sprintf("%s/%s", ownerName, modelName)
 	var model Model
 	uuids, err := api.ControllerModel.AllModelUUIDs()
 	if err != nil {
-		return nil, false, errors.Trace(err)
+		return nil, modelPath, false, errors.Trace(err)
 	}
 	for _, uuid := range uuids {
 		m, release, err := api.StatePool.GetModel(uuid)
 		if err != nil {
-			return nil, false, errors.Trace(err)
+			return nil, modelPath, false, errors.Trace(err)
 		}
 		defer release()
 		if m.Name() == modelName && m.Owner().Id() == ownerName {
@@ -81,7 +85,18 @@ func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, bool, erro
 			break
 		}
 	}
-	return model, model != nil, nil
+	return model, modelPath, model != nil, nil
+}
+
+func (api *BaseAPI) userDisplayName(backend Backend, userTag names.UserTag) (string, error) {
+	var displayName string
+	user, err := backend.User(userTag)
+	if err != nil && !errors.IsNotFound(err) {
+		return "", errors.Trace(err)
+	} else if err == nil {
+		displayName = user.DisplayName()
+	}
+	return displayName, nil
 }
 
 // applicationOffersFromModel gets details about remote applications that match given filters.
@@ -89,7 +104,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 	modelUUID string,
 	requiredAccess permission.Access,
 	filters ...jujucrossmodel.ApplicationOfferFilter,
-) ([]params.ApplicationOfferDetails, error) {
+) ([]params.ApplicationOfferAdminDetails, error) {
 	// Get the relevant backend for the specified model.
 	backend, releaser, err := api.StatePool.Get(modelUUID)
 	if err != nil {
@@ -114,7 +129,13 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 
-	var results []params.ApplicationOfferDetails
+	apiUserTag := api.Authorizer.GetAuthTag().(names.UserTag)
+	apiUserDisplayName, err := api.userDisplayName(backend, apiUserTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var results []params.ApplicationOfferAdminDetails
 	for _, appOffer := range offers {
 		userAccess := permission.AdminAccess
 		// If the user is not a model admin, they need at least read
@@ -128,62 +149,94 @@ func (api *BaseAPI) applicationOffersFromModel(
 			}
 			isAdmin = userAccess == permission.AdminAccess
 		}
-		offerParams, app, err := api.makeOfferParams(backend, &appOffer, userAccess)
+		offerParams, app, err := api.makeOfferParams(backend, &appOffer)
 		// Just because we can't compose the result for one offer, log
 		// that and move on to the next one.
 		if err != nil {
 			logger.Warningf("cannot get application offer: %v", err)
 			continue
 		}
-		offer := params.ApplicationOfferDetails{
-			ApplicationOffer: *offerParams,
+		offerParams.Users = []params.OfferUserDetails{{
+			UserName:    apiUserTag.Id(),
+			DisplayName: apiUserDisplayName,
+			Access:      string(userAccess),
+		}}
+		offer := params.ApplicationOfferAdminDetails{
+			ApplicationOfferDetails: *offerParams,
 		}
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
-			curl, _ := app.CharmURL()
-			conns, err := backend.OfferConnections(offer.OfferUUID)
-			if err != nil {
-				logger.Warningf("cannot get offer connection details: %v", err)
-				continue
-			}
-			offer.ApplicationName = app.Name()
-			offer.CharmURL = curl.String()
-			for _, oc := range conns {
-				connDetails := params.OfferConnection{
-					SourceModelTag: names.NewModelTag(oc.SourceModelUUID()).String(),
-					Username:       oc.UserName(),
-					RelationId:     oc.RelationId(),
-				}
-				rel, err := backend.KeyRelation(oc.RelationKey())
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				ep, err := rel.Endpoint(app.Name())
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				relStatus, err := rel.Status()
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				connDetails.Endpoint = ep.Name
-				connDetails.Status = params.EntityStatus{
-					Status: relStatus.Status,
-					Info:   relStatus.Message,
-					Data:   relStatus.Data,
-					Since:  relStatus.Since,
-				}
-				relIngress, err := backend.IngressNetworks(oc.RelationKey())
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				connDetails.IngressSubnets = relIngress.CIDRS()
-				offer.Connections = append(offer.Connections, connDetails)
+			if err := api.getOfferAdminDetails(backend, app, &offer); err != nil {
+				logger.Warningf("cannot get offer admin details: %v", err)
 			}
 		}
 		results = append(results, offer)
 	}
 	return results, nil
+}
+
+func (api *BaseAPI) getOfferAdminDetails(backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetails) error {
+	curl, _ := app.CharmURL()
+	conns, err := backend.OfferConnections(offer.OfferUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	offer.ApplicationName = app.Name()
+	offer.CharmURL = curl.String()
+	for _, oc := range conns {
+		connDetails := params.OfferConnection{
+			SourceModelTag: names.NewModelTag(oc.SourceModelUUID()).String(),
+			Username:       oc.UserName(),
+			RelationId:     oc.RelationId(),
+		}
+		rel, err := backend.KeyRelation(oc.RelationKey())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ep, err := rel.Endpoint(app.Name())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		relStatus, err := rel.Status()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		connDetails.Endpoint = ep.Name
+		connDetails.Status = params.EntityStatus{
+			Status: relStatus.Status,
+			Info:   relStatus.Message,
+			Data:   relStatus.Data,
+			Since:  relStatus.Since,
+		}
+		relIngress, err := backend.IngressNetworks(oc.RelationKey())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		connDetails.IngressSubnets = relIngress.CIDRS()
+		offer.Connections = append(offer.Connections, connDetails)
+	}
+
+	offerUsers, err := backend.GetOfferUsers(offer.OfferUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	apiUserTag := api.Authorizer.GetAuthTag().(names.UserTag)
+	for userName, access := range offerUsers {
+		if userName == apiUserTag.Id() {
+			continue
+		}
+		displayName, err := api.userDisplayName(backend, names.NewUserTag(userName))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		offer.Users = append(offer.Users, params.OfferUserDetails{
+			UserName:    userName,
+			DisplayName: displayName,
+			Access:      string(access),
+		})
+	}
+	return nil
 }
 
 // checkOfferAccess returns the level of access the authenticated user has to the offer,
@@ -211,7 +264,7 @@ func (api *BaseAPI) getModelsFromOffers(offerURLs ...string) ([]offerModel, erro
 	// Cache the models found so far so we don't look them up more than once.
 	modelsCache := make(map[string]Model)
 	oneModel := func(offerURL string) (Model, error) {
-		url, err := jujucrossmodel.ParseApplicationURL(offerURL)
+		url, err := jujucrossmodel.ParseOfferURL(offerURL)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -220,12 +273,12 @@ func (api *BaseAPI) getModelsFromOffers(offerURLs ...string) ([]offerModel, erro
 			return model, nil
 		}
 
-		model, ok, err := api.modelForName(url.ModelName, url.User)
+		model, absModelPath, ok, err := api.modelForName(url.ModelName, url.User)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if !ok {
-			return nil, errors.NotFoundf("model %q", modelPath)
+			return nil, errors.NotFoundf("model %q", absModelPath)
 		}
 		return model, nil
 	}
@@ -262,12 +315,12 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 		)
 		if modelUUID, ok = modelUUIDs[f.ModelName]; !ok {
 			var err error
-			model, ok, err := api.modelForName(f.ModelName, f.OwnerName)
+			model, absModelPath, ok, err := api.modelForName(f.ModelName, f.OwnerName)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
 			if !ok {
-				err := errors.NotFoundf("model %q", f.ModelName)
+				err := errors.NotFoundf("model %q", absModelPath)
 				return nil, nil, errors.Trace(err)
 			}
 			// Record the UUID and model for next time.
@@ -278,7 +331,11 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 
 		// Record the filter and model details against the model UUID.
 		filters := filtersPerModel[modelUUID]
-		filters = append(filters, makeOfferFilterFromParams(f))
+		filter, err := makeOfferFilterFromParams(f)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		filters = append(filters, filter)
 		filtersPerModel[modelUUID] = filters
 	}
 	return models, filtersPerModel, nil
@@ -288,7 +345,7 @@ func (api *BaseAPI) getModelFilters(filters params.OfferFilters) (
 func (api *BaseAPI) getApplicationOffersDetails(
 	filters params.OfferFilters,
 	requiredPermission permission.Access,
-) ([]params.ApplicationOfferDetails, error) {
+) ([]params.ApplicationOfferAdminDetails, error) {
 
 	// If there are no filters specified, that's an error since the
 	// caller is expected to specify at the least one or more models
@@ -311,7 +368,7 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	sort.Strings(allUUIDs)
 
 	// Do the per model queries.
-	var result []params.ApplicationOfferDetails
+	var result []params.ApplicationOfferAdminDetails
 	for _, modelUUID := range allUUIDs {
 		filters := filtersPerModel[modelUUID]
 		offers, err := api.applicationOffersFromModel(modelUUID, requiredPermission, filters...)
@@ -328,18 +385,41 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	return result, nil
 }
 
-func makeOfferFilterFromParams(filter params.OfferFilter) jujucrossmodel.ApplicationOfferFilter {
+func makeOfferFilterFromParams(filter params.OfferFilter) (jujucrossmodel.ApplicationOfferFilter, error) {
 	offerFilter := jujucrossmodel.ApplicationOfferFilter{
 		OfferName:              filter.OfferName,
 		ApplicationName:        filter.ApplicationName,
 		ApplicationDescription: filter.ApplicationDescription,
+		Endpoints:              make([]jujucrossmodel.EndpointFilterTerm, len(filter.Endpoints)),
+		AllowedConsumers:       make([]string, len(filter.AllowedConsumerTags)),
+		ConnectedUsers:         make([]string, len(filter.ConnectedUserTags)),
 	}
-	// TODO(wallyworld) - add support for Endpoint filter attribute
-	return offerFilter
+	for i, ep := range filter.Endpoints {
+		offerFilter.Endpoints[i] = jujucrossmodel.EndpointFilterTerm{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      ep.Role,
+		}
+	}
+	for i, tag := range filter.AllowedConsumerTags {
+		u, err := names.ParseUserTag(tag)
+		if err != nil {
+			return jujucrossmodel.ApplicationOfferFilter{}, errors.Trace(err)
+		}
+		offerFilter.AllowedConsumers[i] = u.Id()
+	}
+	for i, tag := range filter.ConnectedUserTags {
+		u, err := names.ParseUserTag(tag)
+		if err != nil {
+			return jujucrossmodel.ApplicationOfferFilter{}, errors.Trace(err)
+		}
+		offerFilter.ConnectedUsers[i] = u.Id()
+	}
+	return offerFilter, nil
 }
 
-func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.ApplicationOffer, access permission.Access) (
-	*params.ApplicationOffer, crossmodel.Application, error,
+func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.ApplicationOffer) (
+	*params.ApplicationOfferDetails, crossmodel.Application, error,
 ) {
 	app, err := backend.Application(offer.ApplicationName)
 	if err != nil {
@@ -349,12 +429,11 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	result := params.ApplicationOffer{
+	result := params.ApplicationOfferDetails{
 		SourceModelTag:         backend.ModelTag().String(),
 		OfferName:              offer.OfferName,
 		OfferUUID:              offer.OfferUUID,
 		ApplicationDescription: offer.ApplicationDescription,
-		Access:                 string(access),
 	}
 
 	spaceNames := set.NewStrings()

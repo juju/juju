@@ -27,6 +27,8 @@ type CrossModelRelationsState interface {
 	OfferConnectionForRelation(string) (OfferConnection, error)
 }
 
+// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	common.Backend
 	st *state.State

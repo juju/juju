@@ -237,9 +237,9 @@ func (s *baseStorageSuite) constructState() *mockState {
 			return []state.Filesystem{s.filesystem}, nil
 		},
 		modelName: "storagetest",
-		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageConstraints) error {
+		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 			s.stub.AddCall(addStorageForUnitCall)
-			return nil
+			return nil, nil
 		},
 		getBlockForType: func(t state.BlockType) (state.Block, bool, error) {
 			s.stub.AddCall(getBlockForTypeCall, t)

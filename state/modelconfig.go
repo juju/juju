@@ -19,10 +19,9 @@ var disallowedModelConfigAttrs = [...]string{
 	"ca-private-key",
 }
 
-// ModelConfig returns the complete config for the model represented
-// by this state.
-func (st *State) ModelConfig() (*config.Config, error) {
-	return getModelConfig(st.db())
+// ModelConfig returns the complete config for the model
+func (m *Model) ModelConfig() (*config.Config, error) {
+	return getModelConfig(m.st.db())
 }
 
 func getModelConfig(db Database) (*config.Config, error) {
@@ -78,7 +77,7 @@ func (st *State) inheritedConfigAttributes() (map[string]interface{}, error) {
 
 // modelConfigValues returns the values and source for the supplied model config
 // when combined with controller and Juju defaults.
-func (st *State) modelConfigValues(modelCfg attrValues) (config.ConfigValues, error) {
+func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues, error) {
 	resultValues := make(attrValues)
 	for k, v := range modelCfg {
 		resultValues[k] = v
@@ -86,11 +85,11 @@ func (st *State) modelConfigValues(modelCfg attrValues) (config.ConfigValues, er
 
 	// Read all of the current inherited config values so
 	// we can dynamically reflect the origin of the model config.
-	rspec, err := st.regionSpec()
+	rspec, err := model.st.regionSpec()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	configSources := modelConfigSources(st, rspec)
+	configSources := modelConfigSources(model.st, rspec)
 	sourceNames := make([]string, 0, len(configSources))
 	sourceAttrs := make([]attrValues, 0, len(configSources))
 	for _, src := range configSources {
@@ -138,7 +137,7 @@ func (st *State) modelConfigValues(modelCfg attrValues) (config.ConfigValues, er
 }
 
 // UpdateModelConfigDefaultValues updates the inherited settings used when creating a new model.
-func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string, regionSpec *environs.RegionSpec) error {
+func (model *Model) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string, regionSpec *environs.RegionSpec) error {
 	var key string
 
 	if regionSpec != nil {
@@ -146,13 +145,13 @@ func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, re
 	} else {
 		key = controllerInheritedSettingsGlobalKey
 	}
-	settings, err := readSettings(st.db(), globalSettingsC, key)
+	settings, err := readSettings(model.st.db(), globalSettingsC, key)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
 		// We haven't created settings for this region yet.
-		_, err := createSettings(st.db(), globalSettingsC, key, attrs)
+		_, err := createSettings(model.st.db(), globalSettingsC, key, attrs)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -175,30 +174,26 @@ func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, re
 
 // ModelConfigValues returns the config values for the model represented
 // by this state.
-func (st *State) ModelConfigValues() (config.ConfigValues, error) {
-	cfg, err := st.ModelConfig()
+func (model *Model) ModelConfigValues() (config.ConfigValues, error) {
+	cfg, err := model.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return st.modelConfigValues(cfg.AllAttrs())
+	return model.modelConfigValues(cfg.AllAttrs())
 }
 
 // ModelConfigDefaultValues returns the default config values to be used
 // when creating a new model, and the origin of those values.
-func (st *State) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (model *Model) ModelConfigDefaultValues() (config.ModelDefaultAttributes, error) {
 	cloudName := model.Cloud()
-	cloud, err := st.Cloud(cloudName)
+	cloud, err := model.State().Cloud(cloudName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	result := make(config.ModelDefaultAttributes)
 	// Juju defaults
-	defaultAttrs, err := st.defaultInheritedConfig()
+	defaultAttrs, err := model.State().defaultInheritedConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -206,7 +201,7 @@ func (st *State) ModelConfigDefaultValues() (config.ModelDefaultAttributes, erro
 		result[k] = config.AttributeDefaultValues{Default: v}
 	}
 	// Controller config
-	ciCfg, err := st.controllerInheritedConfig()
+	ciCfg, err := model.State().controllerInheritedConfig()
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 
@@ -222,7 +217,7 @@ func (st *State) ModelConfigDefaultValues() (config.ModelDefaultAttributes, erro
 	// Region config
 	for _, region := range cloud.Regions {
 		rspec := &environs.RegionSpec{Cloud: cloudName, Region: region.Name}
-		riCfg, err := st.regionInheritedConfig(rspec)()
+		riCfg, err := model.State().regionInheritedConfig(rspec)()
 		if err != nil {
 			if errors.IsNotFound(err) {
 				continue
@@ -280,11 +275,12 @@ type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []s
 // UpdateModelConfig adds, updates or removes attributes in the current
 // configuration of the model with the provided updateAttrs and
 // removeAttrs.
-func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...ValidateConfigFunc) error {
+func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ...ValidateConfigFunc) error {
 	if len(updateAttrs)+len(removeAttrs) == 0 {
 		return nil
 	}
 
+	st := m.State()
 	if len(removeAttrs) > 0 {
 		var removed []string
 		if updateAttrs == nil {
@@ -322,8 +318,7 @@ func (st *State) UpdateModelConfig(updateAttrs map[string]interface{}, removeAtt
 		return errors.Trace(err)
 	}
 
-	// Get the existing model config from state.
-	oldConfig, err := st.ModelConfig()
+	oldConfig, err := m.ModelConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}

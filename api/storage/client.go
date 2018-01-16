@@ -139,8 +139,11 @@ func (c *Client) ListFilesystems(machines []string) ([]params.FilesystemDetailsL
 }
 
 // AddToUnit adds specified storage to desired units.
-func (c *Client) AddToUnit(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
-	out := params.ErrorResults{}
+//
+// NOTE(axw) for old controllers, the results will only
+// contain errors.
+func (c *Client) AddToUnit(storages []params.StorageAddParams) ([]params.AddStorageResult, error) {
+	out := params.AddStorageResults{}
 	in := params.StoragesAddParams{Storages: storages}
 	err := c.facade.FacadeCall("AddToUnit", in, &out)
 	if err != nil {

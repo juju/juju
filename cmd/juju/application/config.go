@@ -49,13 +49,13 @@ See also:
 )
 
 // NewConfigCommand returns a command used to get, reset, and set application
-// attributes.
+// charm attributes.
 func NewConfigCommand() cmd.Command {
 	return modelcmd.Wrap(&configCommand{})
 }
 
 // NewConfigCommandForTest returns a SetCommand with the api provided as specified.
-func NewConfigCommandForTest(api configCommandAPI) modelcmd.ModelCommand {
+func NewConfigCommandForTest(api applicationAPI) modelcmd.ModelCommand {
 	return modelcmd.Wrap(&configCommand{
 		api: api,
 	})
@@ -63,13 +63,13 @@ func NewConfigCommandForTest(api configCommandAPI) modelcmd.ModelCommand {
 
 type attributes map[string]string
 
-// configCommand get, sets, and resets configuration values of an application.
+// configCommand get, sets, and resets configuration values of an application' charm.
 type configCommand struct {
-	api configCommandAPI
+	api applicationAPI
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action          func(configCommandAPI, *cmd.Context) error // get, set, or reset action set in  Init
+	action          func(applicationAPI, *cmd.Context) error // get, set, or reset action set in  Init
 	applicationName string
 	configFile      cmd.FileVar
 	keys            []string
@@ -79,13 +79,19 @@ type configCommand struct {
 	values          attributes
 }
 
-// configCommandAPI is an interface to allow passing in a fake implementation under test.
-type configCommandAPI interface {
+// applicationAPI is an interface to allow passing in a fake implementation under test.
+type applicationAPI interface {
 	Close() error
 	Update(args params.ApplicationUpdate) error
 	Get(application string) (*params.ApplicationGetResults, error)
 	Set(application string, options map[string]string) error
 	Unset(application string, options []string) error
+	BestAPIVersion() int
+
+	// These methods are on API V6.
+
+	SetApplicationConfig(application string, config map[string]string) error
+	UnsetApplicationConfig(application string, options []string) error
 }
 
 // Info is part of the cmd.Command interface.
@@ -108,7 +114,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // getAPI either uses the fake API set at test time or that is nil, gets a real
 // API and sets that as the API.
-func (c *configCommand) getAPI() (configCommandAPI, error) {
+func (c *configCommand) getAPI() (applicationAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -263,13 +269,19 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 }
 
 // resetConfig is the run action when we are resetting attributes.
-func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) error {
-	return block.ProcessBlockedError(client.Unset(c.applicationName, c.resetKeys), block.BlockChange)
+func (c *configCommand) resetConfig(client applicationAPI, ctx *cmd.Context) error {
+	var err error
+	if client.BestAPIVersion() < 6 {
+		err = client.Unset(c.applicationName, c.resetKeys)
+	} else {
+		err = client.UnsetApplicationConfig(c.applicationName, c.resetKeys)
+	}
+	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
 // setConfig is the run action when we are setting new attribute values as args
 // or as a file passed in.
-func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) error {
+func (c *configCommand) setConfig(client applicationAPI, ctx *cmd.Context) error {
 	if c.useFile {
 		return c.setConfigFromFile(client, ctx)
 	}
@@ -285,7 +297,7 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 	}
 
 	for k, v := range settings {
-		configValue := result.Config[k]
+		configValue := result.CharmConfig[k]
 
 		configValueMap, ok := configValue.(map[string]interface{})
 		if ok {
@@ -296,12 +308,17 @@ func (c *configCommand) setConfig(client configCommandAPI, ctx *cmd.Context) err
 		}
 	}
 
-	return block.ProcessBlockedError(client.Set(c.applicationName, settings), block.BlockChange)
+	if client.BestAPIVersion() < 6 {
+		err = client.Set(c.applicationName, settings)
+	} else {
+		err = client.SetApplicationConfig(c.applicationName, settings)
+	}
+	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
 // setConfigFromFile sets the application configuration from settings passed
 // in a YAML file.
-func (c *configCommand) setConfigFromFile(client configCommandAPI, ctx *cmd.Context) error {
+func (c *configCommand) setConfigFromFile(client applicationAPI, ctx *cmd.Context) error {
 	var (
 		b   []byte
 		err error
@@ -324,16 +341,19 @@ func (c *configCommand) setConfigFromFile(client configCommandAPI, ctx *cmd.Cont
 }
 
 // getConfig is the run action to return one or all configuration values.
-func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) error {
+func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error {
 	results, err := client.Get(c.applicationName)
 	if err != nil {
 		return err
 	}
 	if len(c.keys) == 1 {
 		key := c.keys[0]
-		info, found := results.Config[key].(map[string]interface{})
+		info, found := results.CharmConfig[key].(map[string]interface{})
+		if !found && len(results.ApplicationConfig) > 0 {
+			info, found = results.ApplicationConfig[key].(map[string]interface{})
+		}
 		if !found {
-			return errors.Errorf("key %q not found in %q application settings.", key, c.applicationName)
+			return errors.Errorf("key %q not found in %q application config or charm settings.", key, c.applicationName)
 		}
 		out := &bytes.Buffer{}
 		err := cmd.FormatYaml(out, info["value"])
@@ -347,7 +367,10 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 	resultsMap := map[string]interface{}{
 		"application": results.Application,
 		"charm":       results.Charm,
-		"settings":    results.Config,
+		"settings":    results.CharmConfig,
+	}
+	if len(results.ApplicationConfig) > 0 {
+		resultsMap["application-config"] = results.ApplicationConfig
 	}
 	return c.out.Write(ctx, resultsMap)
 }

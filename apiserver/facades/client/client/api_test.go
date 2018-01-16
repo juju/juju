@@ -9,7 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
@@ -101,6 +101,7 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 var scenarioStatus = &params.FullStatus{
 	Model: params.ModelStatusInfo{
 		Name:        "controller",
+		Type:        "iaas",
 		CloudTag:    "cloud-dummy",
 		CloudRegion: "dummy-region",
 		Version:     "1.2.3",
@@ -166,8 +167,8 @@ var scenarioStatus = &params.FullStatus{
 	},
 	RemoteApplications: map[string]params.RemoteApplicationStatus{
 		"remote-db2": {
-			ApplicationURL: "admin/prod.db2",
-			OfferName:      "remote-db2",
+			OfferURL:  "admin/prod.db2",
+			OfferName: "remote-db2",
 			Endpoints: []params.RemoteEndpoint{{
 				Name:      "database",
 				Interface: "db2",
@@ -191,7 +192,8 @@ var scenarioStatus = &params.FullStatus{
 					Interface: "mysql",
 					Role:      "provider",
 				}},
-			ConnectedCount: 1,
+			ActiveConnectedCount: 0,
+			TotalConnectedCount:  1,
 		},
 	},
 	Applications: map[string]params.ApplicationStatus{
@@ -310,7 +312,7 @@ var scenarioStatus = &params.FullStatus{
 			Interface: "logging",
 			Scope:     "container",
 			Status: params.DetailedStatus{
-				Status: "joined",
+				Status: "joining",
 				Info:   "",
 				Data:   make(map[string]interface{}),
 			},
@@ -371,7 +373,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 	setDefaultPassword(c, u)
 	add(u)
-	err = s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		config.AgentVersionKey: "1.2.3"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -441,6 +443,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		Username:        "fred",
 		OfferUUID:       offer.OfferUUID,
 		RelationId:      mwRel.Id(),
+		RelationKey:     mwRel.Tag().Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

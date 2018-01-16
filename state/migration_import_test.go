@@ -5,15 +5,18 @@ package state_test
 
 import (
 	"fmt"
+	"strconv"
 	"time" // only uses time.Time values
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
@@ -28,6 +31,7 @@ import (
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type MigrationImportSuite struct {
@@ -412,17 +416,22 @@ func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
-	// Add a application with both settings and leadership settings.
+	// Add a application with charm settings, app config, and leadership settings.
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "starsay", // it has resources
 	})
 	c.Assert(charm.Meta().Resources, gc.HasLen, 3)
-	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	application, pwd := s.Factory.MakeApplicationReturningPassword(c, &factory.ApplicationParams{
 		Charm: charm,
-		Settings: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
+		ApplicationConfig: map[string]interface{}{
+			"app foo": "app bar",
+		},
+		ApplicationConfigFields: environschema.Fields{
+			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		Constraints: cons,
 	})
 	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
@@ -442,6 +451,14 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(allApplications, gc.HasLen, 1)
 
 	newModel, newSt := s.importModel(c)
+	// Manually copy across the charm from the old model
+	// as it's normally done later.
+	f := factory.NewFactory(newSt)
+	f.MakeCharm(c, &factory.CharmParams{
+		Name:     "starsay", // it has resources
+		URL:      charm.URL().String(),
+		Revision: strconv.Itoa(charm.Revision()),
+	})
 
 	importedApplications, err := newSt.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -454,12 +471,19 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(imported.Series(), gc.Equals, exported.Series())
 	c.Assert(imported.IsExposed(), gc.Equals, exported.IsExposed())
 	c.Assert(imported.MetricCredentials(), jc.DeepEquals, exported.MetricCredentials())
+	c.Assert(imported.PasswordValid(pwd), jc.IsTrue)
 
-	exportedConfig, err := exported.ConfigSettings()
+	exportedCharmConfig, err := exported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	importedConfig, err := imported.ConfigSettings()
+	importedCharmConfig, err := imported.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedConfig, jc.DeepEquals, exportedConfig)
+	c.Assert(importedCharmConfig, jc.DeepEquals, exportedCharmConfig)
+
+	exportedAppConfig, err := exported.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	importedAppConfig, err := imported.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedAppConfig, jc.DeepEquals, exportedAppConfig)
 
 	exportedLeaderSettings, err := exported.LeaderSettings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -670,6 +694,8 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
+	err = rel.SetStatus(status.StatusInfo{Status: status.Joined})
+	c.Assert(err, jc.ErrorIsNil)
 	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 
 	ru, err := rel.Unit(wordpress_0)
@@ -702,6 +728,57 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	settings, err := ru.Settings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings.Map(), gc.DeepEquals, relSettings)
+}
+
+func (s *MigrationImportSuite) assertRelationsMissingStatus(c *gc.C, hasUnits bool) {
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	if hasUnits {
+		wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+		ru, err := rel.Unit(wordpress_0)
+		c.Assert(err, jc.ErrorIsNil)
+		relSettings := map[string]interface{}{
+			"name": "wordpress/0",
+		}
+		err = ru.EnterScope(relSettings)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	_, newSt := s.importModel(c, func(desc map[string]interface{}) {
+		relations := desc["relations"].(map[interface{}]interface{})
+		for _, item := range relations["relations"].([]interface{}) {
+			relation := item.(map[interface{}]interface{})
+			delete(relation, "status")
+		}
+	})
+
+	newWordpress, err := newSt.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(state.RelationCount(newWordpress), gc.Equals, 1)
+	rels, err := newWordpress.Relations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rels, gc.HasLen, 1)
+
+	relStatus, err := rels[0].Status()
+	c.Assert(err, jc.ErrorIsNil)
+	if hasUnits {
+		c.Assert(relStatus.Status, gc.Equals, status.Joined)
+	} else {
+		c.Assert(relStatus.Status, gc.Equals, status.Joining)
+	}
+}
+
+func (s *MigrationImportSuite) TestRelationsMissingStatusWithUnits(c *gc.C) {
+	s.assertRelationsMissingStatus(c, true)
+}
+
+func (s *MigrationImportSuite) TestRelationsMissingStatusNoUnits(c *gc.C) {
+	s.assertRelationsMissingStatus(c, false)
 }
 
 func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
@@ -883,6 +960,42 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
 	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
 	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "")
+	c.Assert(subnet.FanOverlay(), gc.Equals, "")
+}
+
+func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
+	_, err := s.State.AddSubnet(state.SubnetInfo{
+		CIDR:      "100.2.0.0/16",
+		SpaceName: "bam",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	original, err := s.State.AddSubnet(state.SubnetInfo{
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        network.Id("foo"),
+		ProviderNetworkId: network.Id("elm"),
+		VLANTag:           64,
+		AvailabilityZone:  "bar",
+		FanLocalUnderlay:  "100.2.0.0/16",
+		FanOverlay:        "253.0.0.0/8",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("bam", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+
+	subnet, err := newSt.Subnet(original.CIDR())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
+	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
+	c.Assert(subnet.ProviderNetworkId(), gc.Equals, network.Id("elm"))
+	c.Assert(subnet.VLANTag(), gc.Equals, 64)
+	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
+	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
+	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
 }
 
 func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
@@ -1160,7 +1273,7 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cons, jc.DeepEquals, map[string]state.StorageConstraints{
-		"data":    {Pool: "loop-pool", Size: 0x400, Count: 1},
+		"data":    {Pool: "modelscoped", Size: 0x400, Count: 1},
 		"allecto": {Pool: "loop", Size: 0x400},
 	})
 
@@ -1180,6 +1293,20 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 	attachments, err := newIM.StorageAttachments(storageTag)
 	c.Assert(attachments, gc.HasLen, 1)
 	c.Assert(attachments[0].Unit(), gc.Equals, u.UnitTag())
+}
+
+func (s *MigrationImportSuite) TestStorageDetached(c *gc.C) {
+	_, u, storageTag := s.makeUnitWithStorage(c)
+	err := u.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.IAASModel.DetachStorage(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.importModel(c)
 }
 
 func (s *MigrationImportSuite) TestStorageInstanceConstraints(c *gc.C) {
@@ -1202,7 +1329,7 @@ func (s *MigrationImportSuite) TestStorageInstanceConstraints(c *gc.C) {
 func (s *MigrationImportSuite) TestStorageInstanceConstraintsFallback(c *gc.C) {
 	_, u, storageTag0 := s.makeUnitWithStorage(c)
 
-	err := s.IAASModel.AddStorageForUnit(u.UnitTag(), "allecto", state.StorageConstraints{
+	_, err := s.IAASModel.AddStorageForUnit(u.UnitTag(), "allecto", state.StorageConstraints{
 		Count: 3,
 		Size:  1234,
 		Pool:  "modelscoped",
@@ -1336,7 +1463,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
-		SourceModel: s.State.ModelTag(),
+		SourceModel: s.IAASModel.ModelTag(),
 		Token:       "charisma",
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
@@ -1363,6 +1490,14 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
+	// Models for this version of Juju don't export remote
+	// applications but we still want to guard against accidentally
+	// importing any that may exist from earlier versions.
+	in.AddRemoteApplication(description.RemoteApplicationArgs{
+		SourceModel: coretesting.ModelTag,
+		OfferUUID:   utils.MustNewUUID().String(),
+		Tag:         names.NewApplicationTag("remote"),
+	})
 
 	_, newSt, err := s.State.Import(in)
 	if err == nil {
@@ -1373,7 +1508,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Settings: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
 	})
@@ -1384,7 +1519,7 @@ func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
 	// strip config setting values to nil directly to simulate
 	// what could happen to some applications in 2.0 and 2.1.
 	// For more context, see https://bugs.launchpad.net/juju/+bug/1667199
-	settings := state.GetApplicationSettings(s.State, application)
+	settings := state.GetApplicationCharmConfig(s.State, application)
 	settings.Set("foo", nil)
 	_, err := settings.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1398,9 +1533,130 @@ func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
 
 	// Ensure that during import application settings with nil config values
 	// were stripped and not written into database.
-	importedSettings := state.GetApplicationSettings(newSt, importedApplication)
+	importedSettings := state.GetApplicationCharmConfig(newSt, importedApplication)
 	_, importedFound := importedSettings.Get("foo")
 	c.Assert(importedFound, jc.IsFalse)
+}
+
+func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
+	// Check that invalid relationscopes aren't created when importing
+	// a subordinate related to 2 principals.
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	mysql0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	logging := s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+
+	addSubordinate := func(app *state.Application, unit *state.Unit) string {
+		eps, err := s.State.InferEndpoints(app.Name(), logging.Name())
+		c.Assert(err, jc.ErrorIsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, jc.ErrorIsNil)
+		pru, err := rel.Unit(unit)
+		c.Assert(err, jc.ErrorIsNil)
+		err = pru.EnterScope(nil)
+		c.Assert(err, jc.ErrorIsNil)
+		// Need to reload the doc to get the subordinates.
+		err = unit.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		subordinates := unit.SubordinateNames()
+		c.Assert(subordinates, gc.HasLen, 1)
+		loggingUnit, err := s.State.Unit(subordinates[0])
+		c.Assert(err, jc.ErrorIsNil)
+		sub, err := rel.Unit(loggingUnit)
+		c.Assert(err, jc.ErrorIsNil)
+		err = sub.EnterScope(nil)
+		c.Assert(err, jc.ErrorIsNil)
+		return rel.String()
+	}
+
+	logMysqlKey := addSubordinate(mysql, mysql0)
+	logWpKey := addSubordinate(wordpress, wordpress0)
+
+	units, err := logging.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 2)
+
+	for _, unit := range units {
+		app, err := unit.Application()
+		c.Assert(err, jc.ErrorIsNil)
+		agentTools := version.Binary{
+			Number: jujuversion.Current,
+			Arch:   arch.HostArch(),
+			Series: app.Series(),
+		}
+		err = unit.SetAgentVersion(agentTools)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	_, newSt := s.importModel(c)
+
+	logMysqlRel, err := newSt.KeyRelation(logMysqlKey)
+	c.Assert(err, jc.ErrorIsNil)
+	logWpRel, err := newSt.KeyRelation(logWpKey)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mysqlLogUnit, err := newSt.Unit("logging/0")
+	c.Assert(err, jc.ErrorIsNil)
+	wpLogUnit, err := newSt.Unit("logging/1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Sanity checks
+	name, ok := mysqlLogUnit.PrincipalName()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(name, gc.Equals, "mysql/0")
+
+	name, ok = wpLogUnit.PrincipalName()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(name, gc.Equals, "wordpress/0")
+
+	checkScope := func(unit *state.Unit, rel *state.Relation, expected bool) {
+		ru, err := rel.Unit(unit)
+		c.Assert(err, jc.ErrorIsNil)
+		// Sanity check
+		valid, err := ru.Valid()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(valid, gc.Equals, expected)
+
+		inscope, err := ru.InScope()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(inscope, gc.Equals, expected)
+	}
+	// The WP logging unit shouldn't be in scope for the mysql-logging
+	// relation.
+	checkScope(wpLogUnit, logMysqlRel, false)
+	// Similarly, the mysql logging unit shouldn't be in scope for the
+	// wp-logging relation.
+	checkScope(mysqlLogUnit, logWpRel, false)
+
+	// But obviously the units should be in their relations.
+	checkScope(mysqlLogUnit, logMysqlRel, true)
+	checkScope(wpLogUnit, logWpRel, true)
+}
+
+func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	newConfig := model.Config()
+	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
+	newConfig["name"] = "something-new"
+	noTypeModel := description.NewModel(description.ModelArgs{
+		Type:               "",
+		Owner:              model.Owner(),
+		Config:             newConfig,
+		LatestToolsVersion: model.LatestToolsVersion(),
+		EnvironVersion:     model.EnvironVersion(),
+		Blocks:             model.Blocks(),
+		Cloud:              model.Cloud(),
+		CloudRegion:        model.CloudRegion(),
+	})
+	imported, newSt, err := s.State.Import(noTypeModel)
+	c.Assert(err, jc.ErrorIsNil)
+	defer newSt.Close()
+
+	c.Assert(imported.Type(), gc.Equals, state.ModelTypeIAAS)
 }
 
 // newModel replaces the uuid and name of the config attributes so we

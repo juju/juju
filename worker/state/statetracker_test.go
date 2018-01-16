@@ -14,7 +14,7 @@ import (
 
 type StateTrackerSuite struct {
 	statetesting.StateSuite
-	st           *state.State
+	pool         *state.State
 	stateTracker workerstate.StateTracker
 }
 
@@ -22,7 +22,32 @@ var _ = gc.Suite(&StateTrackerSuite{})
 
 func (s *StateTrackerSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
+
+	// Close the state pool, as it's not needed, and it
+	// refers to the state object's mongo session. If we
+	// do not close the pool, its embedded watcher may
+	// attempt to access mongo after it has been closed
+	// by the state tracker.
+	err := s.StatePool.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.stateTracker = workerstate.NewStateTracker(s.State)
+}
+
+func (s *StateTrackerSuite) TearDownTest(c *gc.C) {
+	// Even though we no longer have to worry about the StateSuite's
+	// StatePool, we do have to make sure the one in the stateTracker
+	// is closed.
+
+	for {
+		err := s.stateTracker.Done()
+		if err == workerstate.ErrStateClosed {
+			break
+		}
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	s.StateSuite.TearDownTest(c)
 }
 
 func (s *StateTrackerSuite) TestDoneWithNoUse(c *gc.C) {
@@ -42,12 +67,12 @@ func (s *StateTrackerSuite) TestTooManyDones(c *gc.C) {
 }
 
 func (s *StateTrackerSuite) TestUse(c *gc.C) {
-	st, err := s.stateTracker.Use()
-	c.Check(st, gc.Equals, s.State)
+	pool, err := s.stateTracker.Use()
+	c.Check(pool.SystemState(), gc.Equals, s.State)
 	c.Check(err, jc.ErrorIsNil)
 
-	st, err = s.stateTracker.Use()
-	c.Check(st, gc.Equals, s.State)
+	pool, err = s.stateTracker.Use()
+	c.Check(pool.SystemState(), gc.Equals, s.State)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -86,8 +111,8 @@ func (s *StateTrackerSuite) TestUseAndDone(c *gc.C) {
 func (s *StateTrackerSuite) TestUseWhenClosed(c *gc.C) {
 	c.Assert(s.stateTracker.Done(), jc.ErrorIsNil)
 
-	st, err := s.stateTracker.Use()
-	c.Check(st, gc.IsNil)
+	pool, err := s.stateTracker.Use()
+	c.Check(pool, gc.IsNil)
 	c.Check(err, gc.Equals, workerstate.ErrStateClosed)
 }
 

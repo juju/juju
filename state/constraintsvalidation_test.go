@@ -56,8 +56,8 @@ var setConstraintsTests = []struct {
 	consFallback string
 
 	effectiveModelCons   string // model constraints after setting consFallback
-	effectiveServiceCons string // service constraints after setting consToSet
-	effectiveUnitCons    string // unit constraints after setting consToSet on the service
+	effectiveServiceCons string // application constraints after setting consToSet
+	effectiveUnitCons    string // unit constraints after setting consToSet on the application
 	effectiveMachineCons string // machine constraints after setting consToSet
 }{{
 	about:        "(implictly) empty constraints are OK and stored as empty",
@@ -88,7 +88,7 @@ var setConstraintsTests = []struct {
 	effectiveUnitCons:    "arch=amd64 cores=42 mem=2G tags=foo",
 	// set as given, then merged with fallbacks; since consToSet is
 	// empty, the effective values inherit everything from fallbacks;
-	// like the unit, but only because the service constraints are
+	// like the unit, but only because the application constraints are
 	// also empty.
 	effectiveMachineCons: "arch=amd64 cores=42 mem=2G tags=foo",
 }, {
@@ -165,7 +165,7 @@ var setConstraintsTests = []struct {
 	consFallback: "tags=foo cpu-power=42",
 
 	// a variation of the above case showing there's no difference
-	// between deployment (service, unit) and provisioning (machine)
+	// between deployment (application, unit) and provisioning (machine)
 	// constraints when it comes to effective values.
 	effectiveModelCons:   "tags=foo cpu-power=42",
 	effectiveServiceCons: "cpu-power= tags= spaces=bar",
@@ -176,10 +176,10 @@ var setConstraintsTests = []struct {
 	consToSet:    "container=kvm arch=amd64",
 	consFallback: "container=lxd mem=8G",
 
-	// service deployment constraints are transformed into machine
+	// application deployment constraints are transformed into machine
 	// provisioning constraints, and the container type only makes
 	// sense currently as a deployment constraint, so it's cleared
-	// when merging service/model deployment constraints into
+	// when merging application/model deployment constraints into
 	// effective machine provisioning constraints.
 	effectiveModelCons:   "container=lxd mem=8G",
 	effectiveServiceCons: "container=kvm arch=amd64",
@@ -251,7 +251,7 @@ func (s *constraintsValidationSuite) TestServiceConstraints(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		econs, err := s.State.ModelConstraints()
 		c.Check(econs, jc.DeepEquals, constraints.MustParse(t.effectiveModelCons))
-		// Set the service deployment constraints.
+		// Set the application deployment constraints.
 		err = service.SetConstraints(constraints.MustParse(t.consToSet))
 		c.Check(err, jc.ErrorIsNil)
 		u, err := service.AddUnit(state.AddUnitParams{})

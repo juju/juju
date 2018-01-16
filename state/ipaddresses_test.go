@@ -5,9 +5,11 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
@@ -26,6 +28,14 @@ type ipAddressesStateSuite struct {
 }
 
 var _ = gc.Suite(&ipAddressesStateSuite{})
+
+type AddressSorter []*state.Address
+
+func (a AddressSorter) Len() int           { return len(a) }
+func (a AddressSorter) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a AddressSorter) Less(i, j int) bool { return a[i].DocID() < a[j].DocID() }
+
+var _ sort.Interface = (AddressSorter)(nil)
 
 func (s *ipAddressesStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
@@ -164,15 +174,18 @@ func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWhenMissing(
 
 func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWithUnknownOrLocalSubnet(c *gc.C) {
 	cidrs := []string{"127.0.0.0/8", "::1/128", "8.8.0.0/16"}
+	missingCIDRs := set.NewStrings(cidrs...)
 	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", cidrs...)
 
-	for i, address := range addresses {
+	for _, address := range addresses {
 		result, err := address.Subnet()
 		c.Check(result, gc.IsNil)
 		c.Check(err, jc.Satisfies, errors.IsNotFound)
-		expectedError := fmt.Sprintf("subnet %q not found", cidrs[i])
+		expectedError := fmt.Sprintf("subnet %q not found", address.SubnetCIDR())
 		c.Check(err, gc.ErrorMatches, expectedError)
+		missingCIDRs.Remove(address.SubnetCIDR())
 	}
+	c.Check(missingCIDRs.SortedValues(), gc.DeepEquals, []string{})
 }
 
 func (s *ipAddressesStateSuite) TestRemoveSuccess(c *gc.C) {
@@ -261,7 +274,9 @@ func (s *ipAddressesStateSuite) addTwoDevicesWithTwoAddressesEach(c *gc.C) []*st
 	_, device1Addresses := s.addNamedDeviceWithAddresses(c, "eth1", "10.20.0.1/16", "10.20.0.2/16")
 	_, device2Addresses := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.100.2/16", "fc00::/64")
 	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 4)
-	return append(device1Addresses, device2Addresses...)
+	addresses := append(device1Addresses, device2Addresses...)
+	sort.Sort(AddressSorter(addresses))
+	return addresses
 }
 
 func (s *ipAddressesStateSuite) removeAllAddressesOnMachineAndAssertNoneRemain(c *gc.C) {
@@ -280,6 +295,7 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 	addedAddresses := s.addTwoDevicesWithTwoAddressesEach(c)
 
 	allAddresses, err := s.machine.AllAddresses()
+	sort.Sort(AddressSorter(allAddresses))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allAddresses, jc.DeepEquals, addedAddresses)
 }

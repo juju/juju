@@ -4,11 +4,11 @@
 package peergrouper
 
 import (
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
+	jc "github.com/juju/testing/checkers"
 )
 
 type publishSuite struct {
@@ -30,15 +30,15 @@ func (s *mockAPIHostPortsSetter) SetAPIHostPorts(apiHostPorts [][]network.HostPo
 
 func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 	var mock mockAPIHostPortsSetter
-	statePublish := newPublisher(&mock)
+	statePublish := &CachingAPIHostPortsSetter{APIHostPortsSetter: &mock}
 
 	hostPorts1 := network.NewHostPorts(1234, "testing1.invalid", "127.0.0.1")
 	hostPorts2 := network.NewHostPorts(1234, "testing2.invalid", "127.0.0.2")
 
-	// statePublish.publishAPIServers should not update state a second time.
+	// statePublish.SetAPIHostPorts should not update state a second time.
 	apiServers := [][]network.HostPort{hostPorts1}
 	for i := 0; i < 2; i++ {
-		err := statePublish.publishAPIServers(apiServers, nil)
+		err := statePublish.SetAPIHostPorts(apiServers)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -47,7 +47,7 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 
 	apiServers = append(apiServers, hostPorts2)
 	for i := 0; i < 2; i++ {
-		err := statePublish.publishAPIServers(apiServers, nil)
+		err := statePublish.SetAPIHostPorts(apiServers)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	c.Assert(mock.calls, gc.Equals, 2)
@@ -60,9 +60,9 @@ func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
 
 	check := func(publish, expect []network.HostPort) {
 		var mock mockAPIHostPortsSetter
-		statePublish := newPublisher(&mock)
+		statePublish := &CachingAPIHostPortsSetter{APIHostPortsSetter: &mock}
 		for i := 0; i < 2; i++ {
-			err := statePublish.publishAPIServers([][]network.HostPort{publish}, nil)
+			err := statePublish.SetAPIHostPorts([][]network.HostPort{publish})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		c.Assert(mock.calls, gc.Equals, 1)
@@ -75,7 +75,7 @@ func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
 
 func (s *publishSuite) TestPublisherRejectsNoServers(c *gc.C) {
 	var mock mockAPIHostPortsSetter
-	statePublish := newPublisher(&mock)
-	err := statePublish.PublishAPIServers(nil, nil)
-	c.Assert(err, gc.ErrorMatches, "no api servers specified")
+	statePublish := &CachingAPIHostPortsSetter{APIHostPortsSetter: &mock}
+	err := statePublish.SetAPIHostPorts(nil)
+	c.Assert(err, gc.ErrorMatches, "no API servers specified")
 }

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -22,7 +21,6 @@ type rawProvider struct {
 	lxdProfiles
 	lxdImages
 	lxdStorage
-	common.Firewaller
 
 	remote lxdclient.Remote
 }
@@ -105,7 +103,6 @@ func newRawProviderFromConfig(config lxdclient.Config) (*rawProvider, error) {
 		lxdProfiles:  client,
 		lxdImages:    client,
 		lxdStorage:   client,
-		Firewaller:   common.NewFirewaller(),
 		remote:       config.Remote,
 	}, nil
 }

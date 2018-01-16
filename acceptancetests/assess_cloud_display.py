@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 from __future__ import print_function
 
 from argparse import ArgumentParser
@@ -7,7 +8,7 @@ from copy import deepcopy
 from difflib import ndiff
 import os
 from pprint import pformat
-
+import sys
 import yaml
 
 from jujupy import client_from_config
@@ -104,8 +105,8 @@ def main():
     add_arg_juju_bin(parser)
     args = parser.parse_args()
     client = client_from_config(None, args.juju_bin)
-    with client.env.make_jes_home(client.env.juju_home, 'mytest',
-                                  {}) as juju_home:
+    with client.env.make_juju_home(
+            client.env.juju_home, 'mytest') as juju_home:
         client.env.juju_home = juju_home
         with open(get_home_path(client, 'public-clouds.yaml'), 'w') as f:
             f.write('')
@@ -123,4 +124,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

@@ -14,7 +14,10 @@ import (
 // using an anonymous login. Any facade added here needs to perform
 // its own authentication and authorisation if required.
 var anonymousFacadeNames = set.NewStrings(
+	"CrossController",
 	"CrossModelRelations",
+	"NotifyWatcher",
+	"OfferStatusWatcher",
 	"RelationStatusWatcher",
 	"RelationUnitsWatcher",
 	"StringsWatcher",

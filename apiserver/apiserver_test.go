@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 
@@ -31,7 +32,6 @@ const (
 
 type apiserverBaseSuite struct {
 	statetesting.StateSuite
-	pool *state.StatePool
 }
 
 func (s *apiserverBaseSuite) SetUpTest(c *gc.C) {
@@ -41,29 +41,30 @@ func (s *apiserverBaseSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetPassword(ownerPassword)
 	c.Assert(err, jc.ErrorIsNil)
-	s.pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.pool.Close() })
 }
 
 func (s *apiserverBaseSuite) sampleConfig(c *gc.C) apiserver.ServerConfig {
 	machineTag := names.NewMachineTag("0")
 	return apiserver.ServerConfig{
 		Clock:           clock.WallClock,
-		Cert:            coretesting.ServerCert,
-		Key:             coretesting.ServerKey,
+		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
 		Tag:             machineTag,
 		LogDir:          c.MkDir(),
 		Hub:             centralhub.New(machineTag),
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL:     "https://0.1.2.3/no-autocert-here",
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
+		UpgradeComplete: func() bool { return true },
+		RestoreStatus: func() state.RestoreStatus {
+			return state.RestoreNotActive
+		},
 	}
 }
 
 func (s *apiserverBaseSuite) newServerNoCleanup(c *gc.C, config apiserver.ServerConfig) *apiserver.Server {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.pool, listener, config)
+	srv, err := apiserver.NewServer(s.StatePool, listener, config)
 	c.Assert(err, jc.ErrorIsNil)
 	return srv
 }
@@ -100,7 +101,7 @@ func (s *apiserverBaseSuite) openAPIAs(c *gc.C, srv *apiserver.Server, tag names
 	apiInfo.Password = password
 	apiInfo.Nonce = nonce
 	if !controllerOnly {
-		apiInfo.ModelTag = s.State.ModelTag()
+		apiInfo.ModelTag = s.IAASModel.ModelTag()
 	}
 	conn, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)

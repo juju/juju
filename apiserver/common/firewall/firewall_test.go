@@ -4,11 +4,9 @@
 package firewall_test
 
 import (
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -61,9 +59,15 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 			},
 		},
 	}
-	db2Relation.inScope = set.NewStrings("django/0", "django/1")
 	s.st.relations["remote-db2:db django:db"] = db2Relation
 	s.st.remoteEntities[names.NewRelationTag("remote-db2:db django:db")] = "token-db2:db django:db"
+	// django/0 and django/1 are initially in scope
+	db2Relation.ruw.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{
+			"django/0": {},
+			"django/1": {},
+		},
+	}
 
 	unit := newMockUnit("django/0")
 	unit.publicAddress = network.NewScopedAddress("1.2.3.4", network.ScopePublic)
@@ -94,13 +98,24 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	c.Assert(resource, gc.NotNil)
 	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
 
-	s.st.CheckCalls(c, []testing.StubCall{
-		{"KeyRelation", []interface{}{"remote-db2:db django:db"}},
-		{"Application", []interface{}{"django"}},
-		{"Application", []interface{}{"django"}},
-		{"Machine", []interface{}{"0"}},
-		{"Machine", []interface{}{"1"}},
-	})
+	s.st.CheckCallNames(c, "KeyRelation", "Application", "Unit", "Machine", "Unit", "Machine")
+	s.st.CheckCall(c, 0, "KeyRelation", "remote-db2:db django:db")
+	s.st.CheckCall(c, 1, "Application", "django")
+
+	django0Call := s.st.Calls()[2]
+	django0MachineCall := s.st.Calls()[3]
+	django1Call := s.st.Calls()[4]
+	django1MachineCall := s.st.Calls()[5]
+
+	c.Assert(django0Call.Args, gc.HasLen, 1)
+	if django0Call.Args[0] == "django/1" {
+		django0Call, django1Call = django1Call, django0Call
+		django0MachineCall, django1MachineCall = django1MachineCall, django0MachineCall
+	}
+	c.Assert(django0Call.Args, jc.DeepEquals, []interface{}{"django/0"})
+	c.Assert(django0MachineCall.Args, jc.DeepEquals, []interface{}{"0"})
+	c.Assert(django1Call.Args, jc.DeepEquals, []interface{}{"django/1"})
+	c.Assert(django1MachineCall.Args, jc.DeepEquals, []interface{}{"1"})
 }
 
 func (s *FirewallSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *gc.C) {

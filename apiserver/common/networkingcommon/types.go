@@ -187,6 +187,7 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []pa
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      v.GatewayAddress.Value,
 			Routes:              routes,
+			IsDefaultGateway:    v.IsDefaultGateway,
 		}
 	}
 	return result
@@ -267,6 +268,7 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 			DNSServers:       netConfig.DNSServers,
 			DNSSearchDomains: netConfig.DNSSearchDomains,
 			GatewayAddress:   netConfig.GatewayAddress,
+			IsDefaultGateway: netConfig.IsDefaultGateway,
 		}
 		logger.Tracef("state address args for device: %+v", addr)
 		devicesAddrs = append(devicesAddrs, addr)
@@ -284,9 +286,6 @@ func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter)
 	modelConfig, err := configGetter.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get model config")
-	}
-	if modelConfig.Type() == "dummy" {
-		return nil, errors.NotSupportedf("dummy provider network config")
 	}
 	env, err := environs.GetEnviron(configGetter, environs.New)
 	if err != nil {
@@ -319,7 +318,9 @@ type NetworkConfigSource interface {
 // MergeProviderAndObservedNetworkConfigs returns the effective network configs,
 // using observedConfigs as a base and selectively updating it using the
 // matching providerConfigs for each interface.
-func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []params.NetworkConfig) []params.NetworkConfig {
+func MergeProviderAndObservedNetworkConfigs(
+	providerConfigs, observedConfigs []params.NetworkConfig,
+) []params.NetworkConfig {
 
 	providerConfigByName := networkConfigsByName(providerConfigs)
 	logger.Tracef("known provider config by name: %+v", providerConfigByName)
@@ -369,6 +370,7 @@ func networkConfigsByAddress(input []params.NetworkConfig) map[string]params.Net
 }
 
 func mergeObservedAndProviderInterfaceConfig(observedConfig, providerConfig params.NetworkConfig) params.NetworkConfig {
+	logger.Debugf("mergeObservedAndProviderInterfaceConfig %+v %+v", observedConfig, providerConfig)
 	finalConfig := observedConfig
 
 	// The following fields cannot be observed and are only known by the
@@ -391,6 +393,7 @@ func mergeObservedAndProviderInterfaceConfig(observedConfig, providerConfig para
 	if observedConfig.ParentInterfaceName == "" {
 		finalConfig.ParentInterfaceName = providerConfig.ParentInterfaceName
 	}
+	logger.Debugf("mergeObservedAndProviderInterfaceConfig %+v", finalConfig)
 
 	return finalConfig
 }
@@ -464,4 +467,29 @@ func MachineNetworkInfoResultToNetworkInfoResult(inResult state.MachineNetworkIn
 	return params.NetworkInfoResult{
 		Info: infos,
 	}
+}
+
+func FanConfigToFanConfigResult(config network.FanConfig) params.FanConfigResult {
+	result := params.FanConfigResult{make([]params.FanConfigEntry, len(config))}
+	for i, entry := range config {
+		result.Fans[i] = params.FanConfigEntry{entry.Underlay.String(), entry.Overlay.String()}
+	}
+	return result
+}
+
+func FanConfigResultToFanConfig(config params.FanConfigResult) (network.FanConfig, error) {
+	rv := make(network.FanConfig, len(config.Fans))
+	for i, entry := range config.Fans {
+		_, ipnet, err := net.ParseCIDR(entry.Underlay)
+		if err != nil {
+			return nil, err
+		}
+		rv[i].Underlay = ipnet
+		_, ipnet, err = net.ParseCIDR(entry.Overlay)
+		if err != nil {
+			return nil, err
+		}
+		rv[i].Overlay = ipnet
+	}
+	return rv, nil
 }

@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+import boto
 import errno
 import hashlib
 import logging
@@ -8,8 +9,20 @@ import socket
 import sys
 import urlparse
 
-from pipdeps import s3_auth_with_rc
 from utility import configure_logging
+
+
+def s3_auth_with_rc(cloud_city):
+    """Gives authenticated S3 connection using cloud-city credentials."""
+    access_key = secret_key = None
+    with open(os.path.join(cloud_city, "ec2rc")) as rc:
+        for line in rc:
+            parts = line.rstrip().split("=", 1)
+            if parts[0] == "AWS_ACCESS_KEY":
+                access_key = parts[1]
+            elif parts[0] == "AWS_SECRET_KEY":
+                secret_key = parts[1]
+    return boto.s3.connection.S3Connection(access_key, secret_key)
 
 
 def s3_download_files(s3_path, credential_path, dst_dir=None,

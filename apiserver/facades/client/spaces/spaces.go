@@ -38,7 +38,11 @@ type spacesAPI struct {
 // NewAPI creates a new Space API server-side facade with a
 // state.State backing.
 func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (API, error) {
-	return newAPIWithBacking(networkingcommon.NewStateShim(st), res, auth)
+	stateShim, err := networkingcommon.NewStateShim(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newAPIWithBacking(stateShim, res, auth)
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with

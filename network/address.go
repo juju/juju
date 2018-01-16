@@ -15,14 +15,16 @@ import (
 	"github.com/juju/utils/set"
 )
 
-// Private network ranges for IPv4 and IPv6.
+// Private and special use network ranges for IPv4 and IPv6.
 // See: http://tools.ietf.org/html/rfc1918
 // Also: http://tools.ietf.org/html/rfc4193
+// And: https://tools.ietf.org/html/rfc6890
 var (
 	classAPrivate   = mustParseCIDR("10.0.0.0/8")
 	classBPrivate   = mustParseCIDR("172.16.0.0/12")
 	classCPrivate   = mustParseCIDR("192.168.0.0/16")
 	ipv6UniqueLocal = mustParseCIDR("fc00::/7")
+	classEReserved  = mustParseCIDR("240.0.0.0/4")
 )
 
 const (
@@ -84,6 +86,7 @@ const (
 	ScopeUnknown      Scope = ""
 	ScopePublic       Scope = "public"
 	ScopeCloudLocal   Scope = "local-cloud"
+	ScopeFanLocal     Scope = "local-fan"
 	ScopeMachineLocal Scope = "local-machine"
 	ScopeLinkLocal    Scope = "link-local"
 )
@@ -214,6 +217,13 @@ func isIPv4PrivateNetworkAddress(addrType AddressType, ip net.IP) bool {
 		classCPrivate.Contains(ip)
 }
 
+func isIPv4ReservedEAddress(addrType AddressType, ip net.IP) bool {
+	if addrType != IPv4Address {
+		return false
+	}
+	return classEReserved.Contains(ip)
+}
+
 func isIPv6UniqueLocalAddress(addrType AddressType, ip net.IP) bool {
 	if addrType != IPv6Address {
 		return false
@@ -239,6 +249,10 @@ func deriveScope(addr Address) Scope {
 		isIPv6UniqueLocalAddress(addr.Type, ip) {
 		return ScopeCloudLocal
 	}
+	if isIPv4ReservedEAddress(addr.Type, ip) {
+		return ScopeFanLocal
+	}
+
 	if ip.IsLinkLocalMulticast() ||
 		ip.IsLinkLocalUnicast() ||
 		ip.IsInterfaceLocalMulticast() {
@@ -454,11 +468,16 @@ func publicMatch(addr Address) scopeMatch {
 			return exactScopeIPv4
 		}
 		return exactScope
-	case ScopeCloudLocal, ScopeUnknown:
+	case ScopeCloudLocal:
 		if addr.Type == IPv4Address {
-			return fallbackScopeIPv4
+			return firstFallbackScopeIPv4
 		}
-		return fallbackScope
+		return firstFallbackScope
+	case ScopeFanLocal, ScopeUnknown:
+		if addr.Type == IPv4Address {
+			return secondFallbackScopeIPv4
+		}
+		return secondFallbackScope
 	}
 	return invalidScope
 }
@@ -477,11 +496,16 @@ func cloudLocalMatch(addr Address) scopeMatch {
 			return exactScopeIPv4
 		}
 		return exactScope
+	case ScopeFanLocal:
+		if addr.Type == IPv4Address {
+			return firstFallbackScopeIPv4
+		}
+		return firstFallbackScope
 	case ScopePublic, ScopeUnknown:
 		if addr.Type == IPv4Address {
-			return fallbackScopeIPv4
+			return secondFallbackScopeIPv4
 		}
-		return fallbackScope
+		return secondFallbackScope
 	}
 	return invalidScope
 }
@@ -502,8 +526,10 @@ const (
 	invalidScope scopeMatch = iota
 	exactScopeIPv4
 	exactScope
-	fallbackScopeIPv4
-	fallbackScope
+	firstFallbackScopeIPv4
+	firstFallbackScope
+	secondFallbackScopeIPv4
+	secondFallbackScope
 )
 
 type scopeMatchFunc func(addr Address) scopeMatch
@@ -529,7 +555,7 @@ func bestAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matchFunc s
 	matches := filterAndCollateAddressIndexes(numAddr, getAddrFunc, matchFunc)
 
 	// Retrieve the indexes of the addresses with the best scope and type match.
-	allowedMatchTypes := []scopeMatch{exactScopeIPv4, exactScope, fallbackScopeIPv4, fallbackScope}
+	allowedMatchTypes := []scopeMatch{exactScopeIPv4, exactScope, firstFallbackScopeIPv4, firstFallbackScope, secondFallbackScopeIPv4, secondFallbackScope}
 	for _, matchType := range allowedMatchTypes {
 		indexes, ok := matches[matchType]
 		if ok && len(indexes) > 0 {
@@ -544,7 +570,7 @@ func prioritizedAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matc
 	matches := filterAndCollateAddressIndexes(numAddr, getAddrFunc, matchFunc)
 
 	// Retrieve the indexes of the addresses with the best scope and type match.
-	allowedMatchTypes := []scopeMatch{exactScopeIPv4, exactScope, fallbackScopeIPv4, fallbackScope}
+	allowedMatchTypes := []scopeMatch{exactScopeIPv4, exactScope, firstFallbackScopeIPv4, firstFallbackScope, secondFallbackScopeIPv4, secondFallbackScope}
 	var prioritized []int
 	for _, matchType := range allowedMatchTypes {
 		indexes, ok := matches[matchType]
@@ -561,7 +587,7 @@ func filterAndCollateAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc,
 	for i := 0; i < numAddr; i++ {
 		matchType := matchFunc(getAddrFunc(i))
 		switch matchType {
-		case exactScopeIPv4, exactScope, fallbackScopeIPv4, fallbackScope:
+		case exactScopeIPv4, exactScope, firstFallbackScopeIPv4, firstFallbackScope, secondFallbackScopeIPv4, secondFallbackScope:
 			matches[matchType] = append(matches[matchType], i)
 		}
 	}
@@ -572,6 +598,7 @@ func filterAndCollateAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc,
 // - public IPs first;
 // - hostnames after that, but "localhost" will be last if present;
 // - cloud-local next;
+// - fan-local next;
 // - machine-local next;
 // - link-local next;
 // - non-hostnames with unknown scope last.
@@ -582,10 +609,12 @@ func (a Address) sortOrder() int {
 		order = 0x00
 	case ScopeCloudLocal:
 		order = 0x20
-	case ScopeMachineLocal:
+	case ScopeFanLocal:
 		order = 0x40
-	case ScopeLinkLocal:
+	case ScopeMachineLocal:
 		order = 0x80
+	case ScopeLinkLocal:
+		order = 0xA0
 	}
 	switch a.Type {
 	case HostName:

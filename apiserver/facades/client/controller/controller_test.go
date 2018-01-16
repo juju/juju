@@ -36,8 +36,7 @@ import (
 type controllerSuite struct {
 	statetesting.StateSuite
 
-	statePool  *state.StatePool
-	controller *controller.ControllerAPIv4
+	controller *controller.ControllerAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 }
@@ -52,12 +51,6 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 
 	s.StateSuite.SetUpTest(c)
 
-	s.statePool = state.NewStatePool(s.State)
-	s.AddCleanup(func(c *gc.C) {
-		err := s.statePool.Close()
-		c.Assert(err, jc.ErrorIsNil)
-	})
-
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
@@ -69,7 +62,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     s.State,
-			StatePool_: s.statePool,
+			StatePool_: s.StatePool,
 			Resources_: s.resources,
 			Auth_:      s.authorizer,
 		})
@@ -266,7 +259,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 	controller, err := controller.NewControllerAPIv4(
 		facadetest.Context{
 			State_:     st,
-			StatePool_: s.statePool,
+			StatePool_: s.StatePool,
 			Resources_: common.NewResources(),
 			Auth_:      authorizer,
 		})
@@ -375,9 +368,13 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	// Create two hosted models to migrate.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer st1.Close()
+	model1, err := st1.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
+	model2, err := st2.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	mac, err := macaroon.New([]byte("secret"), "id", "location")
 	c.Assert(err, jc.ErrorIsNil)
@@ -390,7 +387,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{
 			{
-				ModelTag: st1.ModelTag().String(),
+				ModelTag: model1.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
@@ -399,7 +396,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 					Password:      "secret1",
 				},
 			}, {
-				ModelTag: st2.ModelTag().String(),
+				ModelTag: model2.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"3.3.3.3:3333"},
@@ -453,11 +450,13 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
 	// Create a hosted model to migrate.
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Kick off the migration with missing details.
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{{
-			ModelTag: st.ModelTag().String(),
+			ModelTag: model.ModelTag().String(),
 			// TargetInfo missing
 		}},
 	}
@@ -475,10 +474,13 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	defer st.Close()
 	controller.SetPrecheckResult(s, nil)
 
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{
 			{
-				ModelTag: st.ModelTag().String(),
+				ModelTag: m.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
@@ -495,7 +497,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 2)
 
-	c.Check(out.Results[0].ModelTag, gc.Equals, st.ModelTag().String())
+	c.Check(out.Results[0].ModelTag, gc.Equals, m.ModelTag().String())
 	c.Check(out.Results[0].Error, gc.IsNil)
 
 	c.Check(out.Results[1].ModelTag, gc.Equals, args.Specs[1].ModelTag)
@@ -506,10 +508,13 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{
 			{
-				ModelTag: st.ModelTag().String(),
+				ModelTag: m.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
 					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
@@ -534,9 +539,12 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 
 	controller.SetPrecheckResult(s, errors.New("boom"))
 
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{{
-			ModelTag: st.ModelTag().String(),
+			ModelTag: m.ModelTag().String(),
 			TargetInfo: params.MigrationTargetInfo{
 				ControllerTag: randomControllerTag(),
 				Addrs:         []string{"1.1.1.1:1111"},
@@ -826,4 +834,69 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	c.Assert(*results.Results[1].Error, gc.DeepEquals, params.Error{
 		Message: "permission denied", Code: "unauthorized access",
 	})
+}
+
+func (s *controllerSuite) TestModelStatusV3(c *gc.C) {
+	api, err := controller.NewControllerAPIv3(
+		facadetest.Context{
+			State_:     s.State,
+			StatePool_: s.StatePool,
+			Resources_: s.resources,
+			Auth_:      s.authorizer,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that we err out immediately if a model errs.
+	results, err := api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: "bad-tag",
+	}, {
+		Tag: s.IAASModel.ModelTag().String(),
+	}}})
+	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
+
+	// Check that we err out if a model errs even if some firsts in collection pass.
+	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.IAASModel.ModelTag().String(),
+	}, {
+		Tag: "bad-tag",
+	}}})
+	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
+
+	// Check that we return successfully if no errors.
+	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.IAASModel.ModelTag().String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+}
+
+func (s *controllerSuite) TestModelStatus(c *gc.C) {
+	// Check that we don't err out immediately if a model errs.
+	results, err := s.controller.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: "bad-tag",
+	}, {
+		Tag: s.IAASModel.ModelTag().String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+
+	// Check that we don't err out if a model errs even if some firsts in collection pass.
+	results, err = s.controller.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.IAASModel.ModelTag().String(),
+	}, {
+		Tag: "bad-tag",
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
+
+	// Check that we return successfully if no errors.
+	results, err = s.controller.ModelStatus(params.Entities{[]params.Entity{{
+		Tag: s.IAASModel.ModelTag().String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
 }

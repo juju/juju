@@ -317,7 +317,7 @@ type RelationResults struct {
 type RelationResult struct {
 	Error            *Error                `json:"error,omitempty"`
 	Life             Life                  `json:"life"`
-	Status           RelationStatusValue   `json:"status,omitempty"`
+	Suspended        bool                  `json:"bool,omitempty"`
 	Id               int                   `json:"id"`
 	Key              string                `json:"key"`
 	Endpoint         multiwatcher.Endpoint `json:"endpoint"`
@@ -584,12 +584,12 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult `json:"results"`
 }
 
-// RelationUnitStatusResult holds details about scope and status
-// for a relation unit.
+// RelationUnitStatusResult holds details about scope
+// and suspended status for a relation unit.
 type RelationUnitStatus struct {
-	RelationTag string              `json:"relation-tag"`
-	InScope     bool                `json:"in-scope"`
-	Status      RelationStatusValue `json:"status"`
+	RelationTag string `json:"relation-tag"`
+	InScope     bool   `json:"in-scope"`
+	Suspended   bool   `json:"suspended"`
 }
 
 // RelationUnitStatusResult holds details about scope and status for
@@ -685,6 +685,7 @@ type ProvisioningInfo struct {
 	ImageMetadata     []CloudImageMetadata      `json:"image-metadata,omitempty"`
 	EndpointBindings  map[string]string         `json:"endpoint-bindings,omitempty"`
 	ControllerConfig  map[string]interface{}    `json:"controller-config,omitempty"`
+	CloudInitUserData map[string]interface{}    `json:"cloudinit-userdata,omitempty"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
@@ -747,12 +748,12 @@ type MeterStatusResults struct {
 	Results []MeterStatusResult `json:"results"`
 }
 
-// SingularClaim represents a request for exclusive model administration access
-// on the part of some controller.
+// SingularClaim represents a request for exclusive administrative access
+// to an entity (model or controller) on the part of the claimaint.
 type SingularClaim struct {
-	ModelTag      string        `json:"model-tag"`
-	ControllerTag string        `json:"controller-tag"`
-	Duration      time.Duration `json:"duration"`
+	EntityTag   string        `json:"entity-tag"`
+	ClaimantTag string        `json:"claimant-tag"`
+	Duration    time.Duration `json:"duration"`
 }
 
 // SingularClaims holds any number of SingularClaim~s.
@@ -818,4 +819,16 @@ type UnitRefreshResult struct {
 // up returning a list of UnitRefreshResult.
 type UnitRefreshResults struct {
 	Results []UnitRefreshResult
+}
+
+// EntityString holds an entity tag and a string value.
+type EntityString struct {
+	Tag   string `json:"tag"`
+	Value string `json:"value"`
+}
+
+// SetContainerSpecParams holds the arguments for setting the container
+// spec for a set of entities.
+type SetContainerSpecParams struct {
+	Entities []EntityString `json:"entities"`
 }

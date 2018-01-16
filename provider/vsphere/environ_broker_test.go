@@ -4,13 +4,12 @@
 package vsphere_test
 
 import (
-	"errors"
 	"fmt"
-	"os"
+	"io/ioutil"
 	"path"
-	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -18,9 +17,7 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -28,6 +25,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere"
+	"github.com/juju/juju/provider/vsphere/internal/ovatest"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
@@ -64,10 +62,11 @@ func (s *environBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInst
 	tools := setInstanceConfigTools(c, instanceConfig)
 
 	return environs.StartInstanceParams{
-		ControllerUUID: instanceConfig.Controller.Config.ControllerUUID(),
-		InstanceConfig: instanceConfig,
-		Tools:          tools,
-		Constraints:    cons,
+		AvailabilityZone: "z1",
+		ControllerUUID:   instanceConfig.Controller.Config.ControllerUUID(),
+		InstanceConfig:   instanceConfig,
+		Tools:            tools,
+		Constraints:      cons,
 		StatusCallback: func(status status.Status, info string, data map[string]interface{}) error {
 			s.statusCallbackStub.AddCall("StatusCallback", status, info, data)
 			return s.statusCallbackStub.NextErr()
@@ -114,21 +113,35 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(call.Args[1], gc.FitsTypeOf, vsphereclient.CreateVirtualMachineParams{})
 
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.OVADir, gc.Not(gc.Equals), "")
 	c.Assert(createVMArgs.UserData, gc.Not(gc.Equals), "")
-	createVMArgs.OVADir = ""
+	c.Assert(createVMArgs.ReadOVA, gc.NotNil)
+	readOVA := createVMArgs.ReadOVA
 	createVMArgs.UserData = ""
 	createVMArgs.Constraints = constraints.Value{}
 	createVMArgs.UpdateProgress = nil
 	createVMArgs.Clock = nil
+	createVMArgs.ReadOVA = nil
 	c.Assert(createVMArgs, jc.DeepEquals, vsphereclient.CreateVirtualMachineParams{
 		Name:                   "juju-f75cba-0",
 		Folder:                 `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
-		OVF:                    "FakeOvfContent",
+		VMDKDirectory:          "juju-vmdks/deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		Series:                 startInstArgs.Tools.OneSeries(),
+		OVASHA256:              ovatest.FakeOVASHA256(),
 		Metadata:               startInstArgs.InstanceConfig.Tags,
 		ComputeResource:        s.client.computeResources[0],
 		UpdateProgressInterval: 5 * time.Second,
 	})
+
+	ovaLocation, ovaReadCloser, err := readOVA()
+	c.Assert(err, jc.ErrorIsNil)
+	defer ovaReadCloser.Close()
+	c.Assert(
+		ovaLocation, gc.Equals,
+		s.imageServer.URL+"/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova",
+	)
+	ovaBody, err := ioutil.ReadAll(ovaReadCloser)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ovaBody, jc.DeepEquals, ovatest.FakeOVAContents())
 }
 
 func (s *environBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
@@ -174,78 +187,12 @@ func (s *environBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 	)
 }
 
-func (s *environBrokerSuite) TestStartInstanceImageCaching(c *gc.C) {
-	startInstArgs := s.createStartInstanceArgs(c)
-	instanceConfig, err := instancecfg.NewInstanceConfig(
-		coretesting.ControllerTag,
-		"0", // machine ID
-		"fake-nonce",
-		"released",
-		"trusty",
-		&api.Info{
-			Addrs:    []string{"0.1.2.3:4567"},
-			Tag:      names.NewMachineTag("0"),
-			Password: "sekrit",
-			CACert:   coretesting.CACert,
-			ModelTag: coretesting.ModelTag,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	setInstanceConfigAuthorizedKeys(c, instanceConfig)
-	startInstArgs.Tools = setInstanceConfigTools(c, instanceConfig)
-	startInstArgs.InstanceConfig = instanceConfig
-
-	// Create some junk in the OVA cache dir to show that it
-	// will be removed when downloading a new image.
-	archDir := filepath.Join(s.ovaCacheDir, "trusty", "amd64")
-	oldDir := filepath.Join(archDir, "junk")
-	err = os.MkdirAll(oldDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.env.StartInstance(startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.imageServerRequests, gc.HasLen, 3)
-	c.Assert(s.imageServerRequests[0].URL.Path, gc.Equals, "/streams/v1/index.json")
-	c.Assert(s.imageServerRequests[1].URL.Path, gc.Equals, "/streams/v1/com.ubuntu.cloud:released:download.json")
-	c.Assert(s.imageServerRequests[2].URL.Path, gc.Equals, "/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova")
-	s.statusCallbackStub.CheckCalls(c, []testing.StubCall{
-		{"StatusCallback", []interface{}{
-			status.Provisioning,
-			"downloading " + s.imageServer.URL + "/server/releases/trusty/release-20150305/ubuntu-14.04-server-cloudimg-amd64.ova",
-			map[string]interface{}(nil),
-		}},
-	})
-
-	// The old directory should have been removed.
-	_, err = os.Stat(oldDir)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-
-	// And there should be a new directory named by the SHA-256 hash.
-	dir, err := os.Open(filepath.Join(archDir, fakeOvaSha256))
-	c.Assert(err, jc.ErrorIsNil)
-	entries, err := dir.Readdirnames(-1)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entries, jc.SameContents, []string{
-		"ubuntu-14.04-server-cloudimg-amd64.ovf",
-		"ubuntu-14.04-server-cloudimg-amd64.vmdk",
-	})
-
-	// Starting a second instance will use the cached image.
-	s.statusCallbackStub.ResetCalls()
-	_, err = s.env.StartInstance(startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.imageServerRequests, gc.HasLen, 5)
-	c.Assert(s.imageServerRequests[3].URL.Path, gc.Equals, "/streams/v1/index.json")
-	c.Assert(s.imageServerRequests[4].URL.Path, gc.Equals, "/streams/v1/com.ubuntu.cloud:released:download.json")
-	s.statusCallbackStub.CheckNoCalls(c) // no download
-}
-
 func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	startInstArgs.Tools[0].Version.Arch = "someArch"
 	_, err := s.env.StartInstance(startInstArgs)
 	c.Assert(err, gc.ErrorMatches, "no matching images found for given constraints: .*")
+	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
 }
 
 // if tools for multiple architectures are avaliable, provider should filter tools by arch of the selected image
@@ -332,16 +279,9 @@ func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConst
 	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB("trusty")*uint64(1024))
 }
 
-func (s *environBrokerSuite) TestStartInstanceInvalidPlacement(c *gc.C) {
-	startInstArgs := s.createStartInstanceArgs(c)
-	startInstArgs.Placement = "someInvalidPlacement"
-	_, err := s.env.StartInstance(startInstArgs)
-	c.Assert(err, gc.ErrorMatches, "unknown placement directive: .*")
-}
-
 func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
-	startInstArgs.Placement = "zone=z2"
+	startInstArgs.AvailabilityZone = "z2"
 	_, err := s.env.StartInstance(startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -355,41 +295,16 @@ func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	c.Assert(createVMArgs.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
 }
 
-func (s *environBrokerSuite) TestStartInstanceCallsAvailabilityZoneAllocations(c *gc.C) {
-	startInstArgs := s.createStartInstanceArgs(c)
-	startInstArgs.DistributionGroup = func() ([]instance.Id, error) {
-		return []instance.Id{instance.Id("old-vm")}, nil
-	}
-
-	s.client.virtualMachines = []*mo.VirtualMachine{
-		buildVM("old-vm").resourcePool(s.client.computeResources[0].ResourcePool).vm(),
-	}
-
-	_, err := s.env.StartInstance(startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.client.CheckCallNames(c, "ComputeResources", "VirtualMachines", "CreateVirtualMachine", "Close")
-	call := s.client.Calls()[2]
-	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-
-	// Because the old VM is allocated to the first compute resource,
-	// the second one should be used for the new VM.
-	c.Assert(createVMArgs.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
-}
-
-func (s *environBrokerSuite) TestStartInstanceTriesToCreateInstanceInAllAvailabilityZones(c *gc.C) {
+func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C) {
 	s.client.SetErrors(nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err := s.env.StartInstance(startInstArgs)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 
-	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "CreateVirtualMachine", "Close")
+	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "Close")
 	createVMCall1 := s.client.Calls()[1]
 	createVMArgs1 := createVMCall1.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs1.ComputeResource, jc.DeepEquals, s.client.computeResources[0])
-	createVMCall2 := s.client.Calls()[2]
-	createVMArgs2 := createVMCall2.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs2.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
 }
 
 func (s *environBrokerSuite) TestStartInstanceDatastore(c *gc.C) {

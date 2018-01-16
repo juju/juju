@@ -4,13 +4,14 @@
 package resource_test
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
@@ -69,15 +70,15 @@ func (s *SvcFormatterSuite) TestFormatSvcResource(c *gc.C) {
 		ApplicationID: "a-application",
 	}
 
-	f := resourcecmd.FormatSvcResource(r)
-	c.Assert(f, gc.Equals, resourcecmd.FormattedSvcResource{
+	f := resourcecmd.FormatAppResource(r)
+	c.Assert(f, gc.Equals, resourcecmd.FormattedAppResource{
 		ID:               "a-application/website",
 		ApplicationID:    "a-application",
 		Name:             r.Name,
 		Type:             "file",
 		Path:             r.Path,
 		Used:             true,
-		Revision:         r.Revision,
+		Revision:         fmt.Sprintf("%v", r.Revision),
 		Origin:           "store",
 		Fingerprint:      fp.String(),
 		Size:             10,
@@ -95,7 +96,7 @@ func (s *SvcFormatterSuite) TestNotUsed(c *gc.C) {
 	r := resource.Resource{
 		Timestamp: time.Time{},
 	}
-	f := resourcecmd.FormatSvcResource(r)
+	f := resourcecmd.FormatAppResource(r)
 	c.Assert(f.Used, jc.IsFalse)
 }
 
@@ -103,7 +104,7 @@ func (s *SvcFormatterSuite) TestUsed(c *gc.C) {
 	r := resource.Resource{
 		Timestamp: time.Now(),
 	}
-	f := resourcecmd.FormatSvcResource(r)
+	f := resourcecmd.FormatAppResource(r)
 	c.Assert(f.Used, jc.IsTrue)
 }
 
@@ -116,7 +117,7 @@ func (s *SvcFormatterSuite) TestOriginUploadDeployed(c *gc.C) {
 		Username:  "bill",
 		Timestamp: time.Now(),
 	}
-	f := resourcecmd.FormatSvcResource(r)
+	f := resourcecmd.FormatAppResource(r)
 	c.Assert(f.CombinedOrigin, gc.Equals, "bill")
 }
 
@@ -126,7 +127,7 @@ func (s *SvcFormatterSuite) TestInitialOriginUpload(c *gc.C) {
 			Origin: charmresource.OriginUpload,
 		},
 	}
-	f := resourcecmd.FormatSvcResource(r)
+	f := resourcecmd.FormatAppResource(r)
 	c.Assert(f.CombinedOrigin, gc.Equals, "upload")
 }
 
@@ -188,10 +189,10 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 		resourcecmd.FormattedDetailResource{
 			UnitNumber:  55,
 			UnitID:      "a-application/55",
-			Expected:    resourcecmd.FormatSvcResource(svc),
+			Expected:    resourcecmd.FormatAppResource(svc),
 			Progress:    8,
 			RevProgress: "5 (fetching: 80%)",
-			Unit:        resourcecmd.FormatSvcResource(unit),
+			Unit:        resourcecmd.FormatAppResource(unit),
 		},
 	)
 }
@@ -228,10 +229,10 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 		resourcecmd.FormattedDetailResource{
 			UnitNumber:  55,
 			UnitID:      "a-application/55",
-			Expected:    resourcecmd.FormatSvcResource(svc),
+			Expected:    resourcecmd.FormatAppResource(svc),
 			Progress:    0,
 			RevProgress: "5 (fetching: 0%)",
-			Unit:        resourcecmd.FormatSvcResource(unit),
+			Unit:        resourcecmd.FormatAppResource(unit),
 		},
 	)
 }

@@ -110,7 +110,8 @@ type UnsetModelDefaults struct {
 // SetModelAgentVersion contains the arguments for
 // SetModelAgentVersion client API call.
 type SetModelAgentVersion struct {
-	Version version.Number `json:"version"`
+	Version             version.Number `json:"version"`
+	IgnoreAgentVersions bool           `json:"force,omitempty"`
 }
 
 // ModelMigrationStatus holds information about the progress of a (possibly
@@ -162,10 +163,84 @@ type ModelInfo struct {
 	AgentVersion *version.Number `json:"agent-version"`
 }
 
+// ModelSummary holds summary about a Juju model.
+type ModelSummary struct {
+	Name               string `json:"name"`
+	UUID               string `json:"uuid"`
+	ControllerUUID     string `json:"controller-uuid"`
+	ProviderType       string `json:"provider-type,omitempty"`
+	DefaultSeries      string `json:"default-series,omitempty"`
+	CloudTag           string `json:"cloud-tag"`
+	CloudRegion        string `json:"cloud-region,omitempty"`
+	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
+
+	// OwnerTag is the tag of the user that owns the model.
+	OwnerTag string `json:"owner-tag"`
+
+	// Life is the current lifecycle state of the model.
+	Life Life `json:"life"`
+
+	// Status is the current status of the model.
+	Status EntityStatus `json:"status,omitempty"`
+
+	// UserAccess is model access level for the  current user.
+	UserAccess UserAccessPermission `json:"user-access"`
+
+	// UserLastConnection contains the time when current user logged in
+	// into the model last.
+	UserLastConnection *time.Time `json:"last-connection"`
+
+	// Counts contains counts of interesting entities
+	// in the model, for example machines, cores, containers, units, etc.
+	Counts []ModelEntityCount `json:"counts"`
+
+	// Migration contains information about the latest failed or
+	// currently-running migration. It'll be nil if there isn't one.
+	Migration *ModelMigrationStatus `json:"migration,omitempty"`
+
+	// SLA contains the information about the SLA for the model, if set.
+	SLA *ModelSLAInfo `json:"sla"`
+
+	// AgentVersion is the agent version for this model.
+	AgentVersion *version.Number `json:"agent-version"`
+}
+
+// ModelEntityCount represent a count for a model entity where entities could be
+// machines, units, etc...
+type ModelEntityCount struct {
+	Entity CountedEntity `json:"entity"`
+	Count  int64         `json:"count"`
+}
+
+// CountedEntity identifies an entity that has a count.
+type CountedEntity string
+
+const (
+	Machines CountedEntity = "machines"
+	Cores    CountedEntity = "cores"
+)
+
 // ModelSLAInfo describes the SLA info for a model.
 type ModelSLAInfo struct {
 	Level string `json:"level"`
 	Owner string `json:"owner"`
+}
+
+// ModelSummaryResult holds the result of a ListModelsWithInfo call.
+type ModelSummaryResult struct {
+	Result *ModelSummary `json:"result,omitempty"`
+	Error  *Error        `json:"error,omitempty"`
+}
+
+// ModelSummaryResults holds the result of a bulk ListModelsWithInfo call.
+type ModelSummaryResults struct {
+	Results []ModelSummaryResult `json:"results"`
+}
+
+// ModelSummariesRequest encapsulates how we request a list of model summaries.
+type ModelSummariesRequest struct {
+	UserTag string `json:"user-tag"`
+	All     bool   `json:"all,omitempty"`
 }
 
 // ModelInfoResult holds the result of a ModelInfo call.
@@ -174,7 +249,7 @@ type ModelInfoResult struct {
 	Error  *Error     `json:"error,omitempty"`
 }
 
-// ModelInfoResult holds the result of a bulk ModelInfo call.
+// ModelInfoResults holds the result of a bulk ModelInfo call.
 type ModelInfoResults struct {
 	Results []ModelInfoResult `json:"results"`
 }

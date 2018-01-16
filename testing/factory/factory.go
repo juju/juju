@@ -16,11 +16,14 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -90,12 +93,16 @@ type MachineParams struct {
 
 // ApplicationParams is used when specifying parameters for a new application.
 type ApplicationParams struct {
-	Name        string
-	Charm       *state.Charm
-	Status      *status.StatusInfo
-	Settings    map[string]interface{}
-	Storage     map[string]state.StorageConstraints
-	Constraints constraints.Value
+	Name                    string
+	Charm                   *state.Charm
+	Status                  *status.StatusInfo
+	ApplicationConfig       map[string]interface{}
+	ApplicationConfigFields environschema.Fields
+	CharmConfig             map[string]interface{}
+	Storage                 map[string]state.StorageConstraints
+	Constraints             constraints.Value
+	EndpointBindings        map[string]string
+	Password                string
 }
 
 // UnitParams are used to create units.
@@ -423,6 +430,15 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 // sane defaults for missing values.
 // If params is not specified, defaults are used.
 func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *state.Application {
+	app, _ := factory.MakeApplicationReturningPassword(c, params)
+	return app
+}
+
+// MakeApplication creates an application with the specified parameters, substituting
+// sane defaults for missing values.
+// If params is not specified, defaults are used.
+// It returns the application and its password.
+func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *ApplicationParams) (*state.Application, string) {
 	if params == nil {
 		params = &ApplicationParams{}
 	}
@@ -431,6 +447,11 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 	}
 	if params.Name == "" {
 		params.Name = params.Charm.Meta().Name
+	}
+	if params.Password == "" {
+		var err error
+		params.Password, err = utils.RandomPassword()
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	rSt, err := factory.st.Resources()
@@ -446,14 +467,20 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 		resourceMap[name] = pendingID
 	}
 
+	appConfig, err := application.NewConfig(params.ApplicationConfig, params.ApplicationConfigFields, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
-		Name:        params.Name,
-		Charm:       params.Charm,
-		Settings:    charm.Settings(params.Settings),
-		Storage:     params.Storage,
-		Constraints: params.Constraints,
-		Resources:   resourceMap,
+		Name:              params.Name,
+		Charm:             params.Charm,
+		CharmConfig:       charm.Settings(params.CharmConfig),
+		ApplicationConfig: appConfig,
+		Storage:           params.Storage,
+		Constraints:       params.Constraints,
+		Resources:         resourceMap,
+		EndpointBindings:  params.EndpointBindings,
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Status != nil {
@@ -468,12 +495,15 @@ func (factory *Factory) MakeApplication(c *gc.C, params *ApplicationParams) *sta
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	return application
+	return application, params.Password
 }
 
 // MakeUnit creates an application unit with specified params, filling in
-// sane defaults for missing values.
-// If params is not specified, defaults are used.
+// sane defaults for missing values. If params is not specified, defaults
+// are used.
+//
+// If the unit is being added to an IAAS model, then it will be assigned
+// to a machine.
 func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 	unit, _ := factory.MakeUnitReturningPassword(c, params)
 	return unit
@@ -482,12 +512,30 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 // MakeUnit creates an application unit with specified params, filling in sane
 // defaults for missing values. If params is not specified, defaults are used.
 // The unit and its password are returned.
+//
+// If the unit is being added to an IAAS model, then it will be assigned to a
+// machine.
 func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (*state.Unit, string) {
 	if params == nil {
 		params = &UnitParams{}
 	}
-	if params.Machine == nil {
-		params.Machine = factory.MakeMachine(c, nil)
+	model, err := factory.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	switch model.Type() {
+	case state.ModelTypeIAAS:
+		if params.Machine == nil {
+			var mParams *MachineParams
+			if params.Application != nil {
+				mParams = &MachineParams{
+					Series: params.Application.Series(),
+				}
+			}
+			params.Machine = factory.MakeMachine(c, mParams)
+		}
+	default:
+		if params.Machine != nil {
+			c.Fatalf("machines not supported by model of type %q", model.Type())
+		}
 	}
 	if params.Application == nil {
 		params.Application = factory.MakeApplication(c, &ApplicationParams{
@@ -501,8 +549,11 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 	unit, err := params.Application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(params.Machine)
-	c.Assert(err, jc.ErrorIsNil)
+
+	if params.Machine != nil {
+		err = unit.AssignToMachine(params.Machine)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	agentTools := version.Binary{
 		Number: jujuversion.Current,
@@ -610,12 +661,19 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 	return relation
 }
 
+// NilStorageProviderRegistry is used to specify a model
+// should be created with a nil storage.ProviderRegistry.
+type NilStorageProviderRegistry struct {
+	storage.ProviderRegistry
+}
+
 // MakeModel creates an model with specified params,
 // filling in sane defaults for missing values. If params is nil,
 // defaults are used for all values.
 //
-// By default the new model shares the same owner as the calling
-// Factory's model.
+// By default the new model shares the same owner as the calling Factory's
+// model. TODO(ericclaudejones) MakeModel should return the model itself rather
+// than the state.
 func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params == nil {
 		params = new(ModelParams)
@@ -632,6 +690,9 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params.CloudRegion == "" {
 		params.CloudRegion = "dummy-region"
 	}
+	if params.CloudRegion == "<none>" {
+		params.CloudRegion = ""
+	}
 	if params.Owner == nil {
 		origEnv, err := factory.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
@@ -640,10 +701,13 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 	if params.StorageProviderRegistry == nil {
 		params.StorageProviderRegistry = provider.CommonStorageProviders()
 	}
+	nilRegistry := NilStorageProviderRegistry{}
+	if params.StorageProviderRegistry == nilRegistry {
+		params.StorageProviderRegistry = nil
+	}
 	// It only makes sense to make an model with the same provider
 	// as the initial model, or things will break elsewhere.
-	currentCfg, err := factory.st.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	currentCfg := factory.currentCfg(c)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -678,4 +742,14 @@ func (factory *Factory) MakeSpace(c *gc.C, params *SpaceParams) *state.Space {
 	space, err := factory.st.AddSpace(params.Name, params.ProviderID, params.Subnets, params.IsPublic)
 	c.Assert(err, jc.ErrorIsNil)
 	return space
+}
+
+func (factory *Factory) currentCfg(c *gc.C) *config.Config {
+	model, err := factory.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	currentCfg, err := model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	return currentCfg
 }

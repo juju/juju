@@ -22,8 +22,13 @@ type MessageWriter interface {
 
 var dialOpts = api.DialOpts{
 	DialAddressInterval: 20 * time.Millisecond,
-	Timeout:             50 * time.Millisecond,
-	RetryDelay:          50 * time.Millisecond,
+	// If for some reason we are getting rate limited, there is a standard
+	// five second delay before we get the login response. Ideally we need
+	// to wait long enough for this response to get back to us.
+	// Ideally the apiserver wouldn't be rate limiting connections from other
+	// API servers, see bug #1733256.
+	Timeout:    10 * time.Second,
+	RetryDelay: 1 * time.Second,
 }
 
 // NewMessageWriter will connect to the remote defined by the info,

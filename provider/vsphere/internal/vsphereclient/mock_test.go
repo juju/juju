@@ -4,26 +4,76 @@
 package vsphereclient
 
 import (
+	"context"
+
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
-	"github.com/pkg/errors"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
-	"golang.org/x/net/context"
 )
 
 var logger = loggo.GetLogger("vsphereclient")
 
+var (
+	lease = types.ManagedObjectReference{
+		Type:  "Lease",
+		Value: "FakeLease",
+	}
+	reconfigVMTask = types.ManagedObjectReference{
+		Type:  "Task",
+		Value: "ReconfigVMTask",
+	}
+	destroyTask = types.ManagedObjectReference{
+		Type:  "Task",
+		Value: "DestroyTask",
+	}
+	moveIntoFolderTask = types.ManagedObjectReference{
+		Type:  "Task",
+		Value: "MoveIntoFolder",
+	}
+	powerOffVMTask = types.ManagedObjectReference{
+		Type:  "Task",
+		Value: "PowerOffVM",
+	}
+	powerOnVMTask = types.ManagedObjectReference{
+		Type:  "Task",
+		Value: "PowerOnVM",
+	}
+	cloneVMTask = types.ManagedObjectReference{
+		Type:  "Task",
+		Value: "CloneVM",
+	}
+	searchDatastoreTask = types.ManagedObjectReference{
+		Type:  "Task",
+		Value: "SearchDatastore",
+	}
+	deleteDatastoreFileTask = types.ManagedObjectReference{
+		Type:  "Task",
+		Value: "DeleteDatastoreFile",
+	}
+	moveDatastoreFileTask = types.ManagedObjectReference{
+		Type:  "Task",
+		Value: "MoveDatastoreFile",
+	}
+	extendVirtualDiskTask = types.ManagedObjectReference{
+		Type:  "Task",
+		Value: "ExtendVirtualDisk",
+	}
+)
+
 type mockRoundTripper struct {
 	testing.Stub
 
-	serverURL     string
-	roundTrip     func(ctx context.Context, req, res soap.HasFault) error
-	contents      map[string][]types.ObjectContent
-	collectors    map[string]*collector
-	leaseProgress chan int32
+	serverURL        string
+	roundTrip        func(ctx context.Context, req, res soap.HasFault) error
+	contents         map[string][]types.ObjectContent
+	collectors       map[string]*collector
+	importVAppResult types.ManagedObjectReference
+	taskError        map[types.ManagedObjectReference]*types.LocalizedMethodFault
+	taskResult       map[types.ManagedObjectReference]types.AnyType
 }
 
 func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault) error {
@@ -33,31 +83,6 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 
 	if r.roundTrip != nil {
 		return r.roundTrip(ctx, req, res)
-	}
-
-	lease := types.ManagedObjectReference{
-		Type:  "Lease",
-		Value: "FakeLease",
-	}
-	reconfigVMTask := types.ManagedObjectReference{
-		Type:  "Task",
-		Value: "ReconfigVMTask",
-	}
-	destroyTask := types.ManagedObjectReference{
-		Type:  "Task",
-		Value: "DestroyTask",
-	}
-	moveIntoFolderTask := types.ManagedObjectReference{
-		Type:  "Task",
-		Value: "MoveIntoFolder",
-	}
-	powerOffVMTask := types.ManagedObjectReference{
-		Type:  "Task",
-		Value: "PowerOffVM",
-	}
-	powerOnVMTask := types.ManagedObjectReference{
-		Type:  "Task",
-		Value: "PowerOnVM",
 	}
 
 	switch res := res.(type) {
@@ -82,6 +107,9 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 	case *methods.PowerOnVM_TaskBody:
 		r.MethodCall(r, "PowerOnVM_Task")
 		res.Res = &types.PowerOnVM_TaskResponse{powerOnVMTask}
+	case *methods.CloneVM_TaskBody:
+		r.MethodCall(r, "CloneVM_Task")
+		res.Res = &types.CloneVM_TaskResponse{cloneVMTask}
 	case *methods.CreateFolderBody:
 		r.MethodCall(r, "CreateFolder")
 		res.Res = &types.CreateFolderResponse{}
@@ -97,13 +125,37 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 						Size:     14,
 					},
 				},
-				ImportSpec: &types.VirtualMachineImportSpec{},
+				ImportSpec: &types.VirtualMachineImportSpec{
+					ConfigSpec: types.VirtualMachineConfigSpec{
+						Name: "vm-name",
+					},
+				},
 			},
 		}
 	case *methods.ImportVAppBody:
 		req := req.(*methods.ImportVAppBody).Req
 		r.MethodCall(r, "ImportVApp", req.Spec)
 		res.Res = &types.ImportVAppResponse{lease}
+	case *methods.SearchDatastore_TaskBody:
+		req := req.(*methods.SearchDatastore_TaskBody).Req
+		r.MethodCall(r, "SearchDatastore", req.DatastorePath, req.SearchSpec)
+		res.Res = &types.SearchDatastore_TaskResponse{searchDatastoreTask}
+	case *methods.DeleteDatastoreFile_TaskBody:
+		req := req.(*methods.DeleteDatastoreFile_TaskBody).Req
+		r.MethodCall(r, "DeleteDatastoreFile", req.Name)
+		res.Res = &types.DeleteDatastoreFile_TaskResponse{deleteDatastoreFileTask}
+	case *methods.MoveDatastoreFile_TaskBody:
+		req := req.(*methods.MoveDatastoreFile_TaskBody).Req
+		r.MethodCall(r, "MoveDatastoreFile", req.SourceName, req.DestinationName, req.Force)
+		res.Res = &types.MoveDatastoreFile_TaskResponse{moveDatastoreFileTask}
+	case *methods.MakeDirectoryBody:
+		req := req.(*methods.MakeDirectoryBody).Req
+		r.MethodCall(r, "MakeDirectory", req.Name)
+		res.Res = &types.MakeDirectoryResponse{}
+	case *methods.ExtendVirtualDisk_TaskBody:
+		req := req.(*methods.ExtendVirtualDisk_TaskBody).Req
+		r.MethodCall(r, "ExtendVirtualDisk", req.Name, req.NewCapacityKb)
+		res.Res = &types.ExtendVirtualDisk_TaskResponse{extendVirtualDiskTask}
 	case *methods.CreatePropertyCollectorBody:
 		r.MethodCall(r, "CreatePropertyCollector")
 		uuid := utils.MustNewUUID().String()
@@ -126,14 +178,6 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		r.MethodCall(r, "HttpNfcLeaseComplete", req.This.Value)
 		delete(r.collectors, req.This.Value)
 		res.Res = &types.HttpNfcLeaseCompleteResponse{}
-	case *methods.HttpNfcLeaseProgressBody:
-		req := req.(*methods.HttpNfcLeaseProgressBody).Req
-		r.MethodCall(r, "HttpNfcLeaseProgress", req.This.Value, req.Percent)
-		res.Res = &types.HttpNfcLeaseProgressResponse{}
-		select {
-		case r.leaseProgress <- req.Percent:
-		default:
-		}
 	case *methods.WaitForUpdatesExBody:
 		r.MethodCall(r, "WaitForUpdatesEx")
 		req := req.(*methods.WaitForUpdatesExBody).Req
@@ -144,6 +188,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 			changes = []types.PropertyChange{{
 				Name: "info",
 				Val: types.HttpNfcLeaseInfo{
+					Entity: r.importVAppResult,
 					DeviceUrl: []types.HttpNfcLeaseDeviceUrl{
 						types.HttpNfcLeaseDeviceUrl{
 							ImportKey: "key1",
@@ -156,12 +201,21 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 				Val:  types.HttpNfcLeaseStateReady,
 			}}
 		} else {
+			task := collector.filter.ObjectSet[0].Obj
+			taskState := types.TaskInfoStateSuccess
+			taskResult := r.taskResult[task]
+			taskError := r.taskError[task]
+			if taskError != nil {
+				taskState = types.TaskInfoStateError
+			}
 			changes = []types.PropertyChange{{
 				Name: "info",
 				Op:   types.PropertyChangeOpAssign,
 				Val: types.TaskInfo{
 					Entity: &types.ManagedObjectReference{},
-					State:  types.TaskInfoStateSuccess,
+					State:  taskState,
+					Result: taskResult,
+					Error:  taskError,
 				},
 			}}
 		}

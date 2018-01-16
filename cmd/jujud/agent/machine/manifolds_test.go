@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
@@ -26,7 +25,7 @@ var _ = gc.Suite(&ManifoldsSuite{})
 
 func (*ManifoldsSuite) TestStartFuncs(c *gc.C) {
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{
-		Agent: fakeAgent{},
+		Agent: &mockAgent{},
 	})
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
@@ -35,7 +34,9 @@ func (*ManifoldsSuite) TestStartFuncs(c *gc.C) {
 }
 
 func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{})
+	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+		Agent: &mockAgent{},
+	})
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
 		keys = append(keys, k)
@@ -46,9 +47,19 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"api-address-updater",
 		"api-caller",
 		"api-config-watcher",
+		"api-server",
 		"central-hub",
+		"certificate-updater",
+		"certificate-watcher",
+		"clock",
 		"disk-manager",
+		"external-controller-updater",
+		"fan-configurer",
+		"global-clock-updater",
 		"host-key-reporter",
+		"is-controller-flag",
+		"is-primary-controller-flag",
+		"log-pruner",
 		"log-sender",
 		"logging-config-updater",
 		"machine-action-runner",
@@ -57,9 +68,12 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"migration-fortress",
 		"migration-minion",
 		"migration-inactive-flag",
+		"model-worker-manager",
+		"peer-grouper",
 		"proxy-config-updater",
 		"pubsub-forwarder",
 		"reboot-executor",
+		"restore-watcher",
 		"serving-info-setter",
 		"ssh-authkeys-updater",
 		"ssh-identity-writer",
@@ -68,8 +82,8 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"storage-provisioner",
 		"termination-signal-handler",
 		"tools-version-checker",
+		"transaction-pruner",
 		"unconverted-api-workers",
-		"unconverted-state-workers",
 		"unit-agent-deployer",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
@@ -82,7 +96,9 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 }
 
 func (*ManifoldsSuite) TestUpgradesBlockMigration(c *gc.C) {
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{})
+	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+		Agent: &mockAgent{},
+	})
 	manifold, ok := manifolds["migration-fortress"]
 	c.Assert(ok, jc.IsTrue)
 
@@ -95,13 +111,22 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"api-server",
+		"certificate-updater",
+		"certificate-watcher",
 		"central-hub",
+		"clock",
+		"global-clock-updater",
+		"is-controller-flag",
+		"is-primary-controller-flag",
 		"log-forwarder",
+		"model-worker-manager",
+		"peer-grouper",
 		"pubsub-forwarder",
+		"restore-watcher",
 		"state",
 		"state-config-watcher",
 		"termination-signal-handler",
-		"unconverted-state-workers",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -112,12 +137,34 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"upgrade-steps-runner",
 		"upgrader",
 	)
-	manifolds := machine.Manifolds(machine.ManifoldsConfig{})
+	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+		Agent: &mockAgent{},
+	})
 	for name, manifold := range manifolds {
 		c.Logf(name)
 		if !exempt.Contains(name) {
 			checkContains(c, manifold.Inputs, "migration-fortress")
 			checkContains(c, manifold.Inputs, "migration-inactive-flag")
+		}
+	}
+}
+
+func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
+	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+		Agent: &mockAgent{},
+	})
+	for name, manifold := range manifolds {
+		c.Logf(name)
+		switch name {
+		case "certificate-watcher", "is-primary-controller-flag":
+			checkContains(c, manifold.Inputs, "is-controller-flag")
+			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
+		case "external-controller-updater", "log-pruner", "transaction-pruner":
+			checkNotContains(c, manifold.Inputs, "is-controller-flag")
+			checkContains(c, manifold.Inputs, "is-primary-controller-flag")
+		default:
+			checkNotContains(c, manifold.Inputs, "is-controller-flag")
+			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
 		}
 	}
 }
@@ -131,10 +178,20 @@ func checkContains(c *gc.C, names []string, seek string) {
 	c.Errorf("%q not found in %v", seek, names)
 }
 
+func checkNotContains(c *gc.C, names []string, seek string) {
+	for _, name := range names {
+		if name == seek {
+			c.Errorf("%q found in %v", seek, names)
+			return
+		}
+	}
+}
+
 func (*ManifoldsSuite) TestUpgradeGates(c *gc.C) {
 	upgradeStepsLock := gate.NewLock()
 	upgradeCheckLock := gate.NewLock()
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{
+		Agent:            &mockAgent{},
 		UpgradeStepsLock: upgradeStepsLock,
 		UpgradeCheckLock: upgradeCheckLock,
 	})
@@ -164,8 +221,4 @@ func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 	default:
 		c.Fatalf("expected gate to be unlocked")
 	}
-}
-
-type fakeAgent struct {
-	agent.Agent
 }
