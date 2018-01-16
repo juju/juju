@@ -17,23 +17,19 @@ import (
 // AutoConfigureContainerNetworking tries to set up best container networking available
 // for the specific model if user hasn't set anything.
 func (m *Model) AutoConfigureContainerNetworking(environ environs.Environ) error {
-	netEnviron, ok := environs.SupportsNetworking(environ)
-	if !ok {
-		return errors.NotSupportedf("fan configuration in a non-networking environ")
-	}
+	updateAttrs := make(map[string]interface{})
 	modelConfig, err := m.ModelConfig()
 	if err != nil {
 		return err
 	}
-	updateAttrs := make(map[string]interface{})
-	fanConfigured, err := m.discoverFan(netEnviron, modelConfig, updateAttrs)
+	fanConfigured, err := m.discoverFan(environ, modelConfig, updateAttrs)
 	if err != nil {
 		return err
 	}
 
 	if modelConfig.ContainerNetworkingMethod() != "" {
 		// Do nothing, user has decided what to do
-	} else if ok, _ := netEnviron.SupportsContainerAddresses(); ok {
+	} else if environs.SupportsContainerAddresses(environ) {
 		updateAttrs["container-networking-method"] = "provider"
 	} else if fanConfigured {
 		updateAttrs["container-networking-method"] = "fan"
@@ -44,7 +40,12 @@ func (m *Model) AutoConfigureContainerNetworking(environ environs.Environ) error
 	return err
 }
 
-func (m *Model) discoverFan(netEnviron environs.NetworkingEnviron, modelConfig *config.Config, updateAttrs map[string]interface{}) (bool, error) {
+func (m *Model) discoverFan(environ environs.Environ, modelConfig *config.Config, updateAttrs map[string]interface{}) (bool, error) {
+	netEnviron, ok := environs.SupportsNetworking(environ)
+	if !ok {
+		// Not a networking environ, nothing to do here
+		return false, nil
+	}
 	fanConfig, err := modelConfig.FanConfig()
 	if err != nil {
 		return false, err
