@@ -207,7 +207,6 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			} else {
 				nicInfo.Address.SpaceProviderId = spaceId
 				nicInfo.ProviderSpaceId = spaceId
-				logger.Debugf("interface %q link %d space %q", iface.Name, link.ID, sub.Space)
 			}
 
 			gwAddr := network.NewAddressOnSpace(sub.Space, sub.GatewayIP)
@@ -313,7 +312,6 @@ func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]netwo
 			} else {
 				nicInfo.Address.SpaceProviderId = spaceId
 				nicInfo.ProviderSpaceId = spaceId
-				logger.Debugf("interface %q link %d space %q", iface.Name(), link.ID(), sub.Space())
 			}
 
 			gwAddr := network.NewAddressOnSpace(sub.Space(), sub.Gateway())
