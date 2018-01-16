@@ -107,7 +107,7 @@ const (
 
 	// DefaultAuditingEnabled contains the default value for the
 	// AuditingEnabled config value.
-	DefaultAuditingEnabled = false
+	DefaultAuditingEnabled = true
 
 	// DefaultAuditLogCaptureArgs is the default for the
 	// AuditLogCaptureArgs setting (which is not to capture them).

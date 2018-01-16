@@ -207,7 +207,7 @@ func (s *ConfigSuite) TestTxnLogConfigValue(c *gc.C) {
 func (s *ConfigSuite) TestAuditLogDefaults(c *gc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AuditingEnabled(), gc.Equals, false)
+	c.Assert(cfg.AuditingEnabled(), gc.Equals, true)
 	c.Assert(cfg.AuditLogCaptureArgs(), gc.Equals, false)
 	c.Assert(cfg.AuditLogMaxSizeMB(), gc.Equals, 300)
 	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
@@ -220,7 +220,7 @@ func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{
-			"auditing-enabled":          true,
+			"auditing-enabled":          false,
 			"audit-log-capture-args":    true,
 			"audit-log-max-size":        "100M",
 			"audit-log-max-backups":     10.0,
@@ -228,7 +228,7 @@ func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AuditingEnabled(), gc.Equals, true)
+	c.Assert(cfg.AuditingEnabled(), gc.Equals, false)
 	c.Assert(cfg.AuditLogCaptureArgs(), gc.Equals, true)
 	c.Assert(cfg.AuditLogMaxSizeMB(), gc.Equals, 100)
 	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)

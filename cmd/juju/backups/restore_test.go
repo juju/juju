@@ -292,7 +292,7 @@ func (s *restoreSuite) TestRestoreReboostrapControllerConfigDefaults(c *gc.C) {
 			"max-logs-age":              "72h",
 			"max-logs-size":             "4096M",
 			"max-txn-log-size":          "10M",
-			"auditing-enabled":          false,
+			"auditing-enabled":          true,
 			"audit-log-capture-args":    false,
 			"audit-log-max-size":        "300M",
 			"audit-log-max-backups":     10,
