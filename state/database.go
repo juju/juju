@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"runtime/debug"
+	"strings"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -205,7 +206,7 @@ func createCollection(raw *mgo.Collection, spec *mgo.CollectionInfo) error {
 	err := raw.Create(spec)
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.mongodb.org/browse/SERVER-6992
-	if err == nil || err.Error() == "collection already exists" {
+	if err == nil || strings.HasSuffix(err.Error(), "already exists") {
 		return nil
 	}
 	return err
