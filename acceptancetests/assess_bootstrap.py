@@ -9,9 +9,6 @@ import sys
 from deploy_stack import (
     BootstrapManager,
     )
-from jujupy import (
-    get_machine_dns_name,
-    )
 from utility import (
     add_basic_testing_arguments,
     configure_logging,

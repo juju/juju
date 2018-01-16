@@ -1,5 +1,4 @@
 from argparse import Namespace
-from contextlib import contextmanager
 import json
 import os
 from StringIO import StringIO

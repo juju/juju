@@ -971,57 +971,12 @@ class TestDeployJob(FakeHomeTestCase):
         with bc_cxt, fc_cxt, bm_cxt as bm_mock, juju_cxt, ajr_cxt, dds_cxt:
             yield client, bm_mock
 
-    @skipIf(sys.platform in ('win32', 'darwin'),
-            'Not supported on Windown and OS X')
-    def test_background_chaos_used(self):
-        args = Namespace(
-            env='base', juju_bin='/fake/juju', logs='log', temp_env_name='foo',
-            charm_prefix=None, bootstrap_host=None, machine=None,
-            series='trusty', debug=False, agent_url=None, agent_stream=None,
-            keep_env=False, upload_tools=False, with_chaos=1,
-            region=None, verbose=False, upgrade=False, deadline=None,
-            controller_host=None, use_charmstore=False, to=None
-        )
-        with self.ds_cxt():
-            with patch('deploy_stack.background_chaos',
-                       autospec=True) as bc_mock:
-                with patch('deploy_stack.assess_juju_relations',
-                           autospec=True):
-                    with patch('subprocess.Popen', autospec=True,
-                               return_value=FakePopen('', '', 0)):
-                        _deploy_job(args, 'local:trusty/', 'trusty')
-        self.assertEqual(bc_mock.call_count, 1)
-        self.assertEqual(bc_mock.mock_calls[0][1][0], 'foo')
-        self.assertEqual(bc_mock.mock_calls[0][1][2], 'log')
-        self.assertEqual(bc_mock.mock_calls[0][1][3], 1)
-
-    @skipIf(sys.platform in ('win32', 'darwin'),
-            'Not supported on Windown and OS X')
-    def test_background_chaos_not_used(self):
-        args = Namespace(
-            env='base', juju_bin='/fake/juju', logs='log', temp_env_name='foo',
-            charm_prefix=None, bootstrap_host=None, machine=None,
-            series='trusty', debug=False, agent_url=None, agent_stream=None,
-            keep_env=False, upload_tools=False, with_chaos=0,
-            region=None, verbose=False, upgrade=False, deadline=None,
-            controller_host=None, use_charmstore=False, to=None
-        )
-        with self.ds_cxt():
-            with patch('deploy_stack.background_chaos',
-                       autospec=True) as bc_mock:
-                with patch('deploy_stack.assess_juju_relations',
-                           autospec=True):
-                    with patch('subprocess.Popen', autospec=True,
-                               return_value=FakePopen('', '', 0)):
-                        _deploy_job(args, 'local:trusty/', 'trusty')
-        self.assertEqual(bc_mock.call_count, 0)
-
     def test_region(self):
         args = Namespace(
             env='base', juju_bin='/fake/juju', logs='log', temp_env_name='foo',
             charm_prefix=None, bootstrap_host=None, machine=None,
             series='trusty', debug=False, agent_url=None, agent_stream=None,
-            keep_env=False, upload_tools=False, with_chaos=0,
+            keep_env=False, upload_tools=False,
             region='region-foo', verbose=False, upgrade=False, deadline=None,
             controller_host=None, use_charmstore=False, to=None)
         with self.ds_cxt() as (client, bm_mock):
@@ -1042,7 +997,7 @@ class TestDeployJob(FakeHomeTestCase):
             series='windows', temp_env_name='windows', env=None, upgrade=None,
             charm_prefix=None, bootstrap_host=None, machine=None, logs=None,
             debug=None, juju_bin=None, agent_url=None, agent_stream=None,
-            keep_env=None, upload_tools=None, with_chaos=None,
+            keep_env=None, upload_tools=None,
             region=None, verbose=None, use_charmstore=False, to=None)
         with patch('deploy_stack.deploy_job_parse_args', return_value=args,
                    autospec=True):
@@ -1055,7 +1010,7 @@ class TestDeployJob(FakeHomeTestCase):
             series='centos', temp_env_name='centos', env=None, upgrade=None,
             charm_prefix=None, bootstrap_host=None, machine=None, logs=None,
             debug=None, juju_bin=None, agent_url=None, agent_stream=None,
-            keep_env=None, upload_tools=None, with_chaos=None,
+            keep_env=None, upload_tools=None,
             region=None, verbose=None, use_charmstore=False, to=None)
         with patch('deploy_stack.deploy_job_parse_args', return_value=args,
                    autospec=True):
@@ -2226,7 +2181,6 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
             upgrade=False,
             verbose=logging.INFO,
             upload_tools=False,
-            with_chaos=0,
             region=None,
             to=None,
             deadline=None,

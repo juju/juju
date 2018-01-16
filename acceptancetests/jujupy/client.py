@@ -569,6 +569,9 @@ class ModelClient:
 
     controller_permissions = frozenset(['login', 'addmodel', 'superuser'])
 
+    # Granting 'login' will error as a created user has that at creation.
+    ignore_permissions = frozenset(['login'])
+
     reserved_spaces = frozenset([
         'endpoint-bindings-data', 'endpoint-bindings-public'])
 
@@ -947,7 +950,7 @@ class ModelClient:
         exit_status, _ = self.juju(
             'destroy-model',
             ('{}:{}'.format(self.env.controller.name, self.env.environment),
-            '-y', '--destroy-storage',),
+             '-y', '--destroy-storage',),
             include_e=False, timeout=get_teardown_timeout(self))
         return exit_status
 
@@ -1843,22 +1846,8 @@ class ModelClient:
         user_client = self.create_cloned_environment(juju_home,
                                                      controller_name,
                                                      username)
-
-        try:
-            child = user_client.expect('register', (token), include_e=False)
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
-            child.expect('(?i)name')
-            child.sendline(controller_name)
-            self._end_pexpect_session(child)
-        except pexpect.TIMEOUT:
-            log.error('Buffer: {}'.format(child.buffer))
-            log.error('Before: {}'.format(child.before))
-            raise Exception(
-                'Registering user failed: pexpect session timed out')
         user_client.env.user_name = username
+        register_user_interactively(user_client, token, controller_name)
         return user_client
 
     def login_user(self, username=None, password=None):
@@ -1933,6 +1922,9 @@ class ModelClient:
 
     def grant(self, user_name, permission, model=None):
         """Grant the user with model or controller permission."""
+        if permission in self.ignore_permissions:
+            log.info('Ignoring permission "{}".'.format(permission))
+            return
         if permission in self.controller_permissions:
             self.juju(
                 'grant',
@@ -2106,6 +2098,30 @@ class ModelClient:
         if not args:
             raise ValueError('No target to switch to has been given.')
         self.juju('switch', (':'.join(args),), include_e=False)
+
+
+def register_user_interactively(client, token, controller_name):
+    """Register a user with the supplied token and controller name.
+
+    :param client: ModelClient on which to register the user (using the models
+      controller.)
+    :param token: Token string to use when registering.
+    :param controller_name: String to use when naming the controller.
+    """
+    try:
+        child = client.expect('register', (token), include_e=False)
+        child.expect('(?i)password')
+        child.sendline(client.env.user_name + '_password')
+        child.expect('(?i)password')
+        child.sendline(client.env.user_name + '_password')
+        child.expect('(?i)name')
+        child.sendline(controller_name)
+        client._end_pexpect_session(child)
+    except pexpect.TIMEOUT:
+        log.error('Buffer: {}'.format(child.buffer))
+        log.error('Before: {}'.format(child.before))
+        raise Exception(
+            'Registering user failed: pexpect session timed out')
 
 
 def juju_home_path(juju_home, dir_name):
