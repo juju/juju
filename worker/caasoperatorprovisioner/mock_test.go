@@ -55,6 +55,16 @@ func (m *mockProvisionerFacade) SetPasswords(passwords []apicaasprovisioner.Appl
 	return params.ErrorResults{}, nil
 }
 
+func (m *mockProvisionerFacade) UpdateUnits(arg params.UpdateApplicationUnits) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "UpdateUnits", arg)
+	if err := m.stub.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
 type mockAgentConfig struct {
 	agent.Config
 }

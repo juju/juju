@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
@@ -142,6 +143,7 @@ func (s *CAASProvisionerSuite) TestUnitsChange(c *gc.C) {
 
 	s.assertOperatorCreated(c)
 	s.caasClient.ResetCalls()
+	s.provisionerFacade.stub.ResetCalls()
 
 	select {
 	case s.unitsChanges <- struct{}{}:
@@ -156,4 +158,14 @@ func (s *CAASProvisionerSuite) TestUnitsChange(c *gc.C) {
 	}
 	s.caasClient.CheckCallNames(c, "Units")
 	c.Assert(s.caasClient.Calls()[0].Args, jc.DeepEquals, []interface{}{"myapp"})
+
+	s.provisionerFacade.stub.CheckCallNames(c, "UpdateUnits")
+	c.Assert(s.provisionerFacade.stub.Calls()[0].Args, jc.DeepEquals, []interface{}{
+		params.UpdateApplicationUnits{
+			ApplicationTag: names.NewApplicationTag("myapp").String(),
+			Units: []params.ApplicationUnitParams{
+				{Id: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: "allocating"},
+			},
+		},
+	})
 }

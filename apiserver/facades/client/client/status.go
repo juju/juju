@@ -1089,6 +1089,7 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 	if leader := context.leaders[unit.ApplicationName()]; leader == unit.Name() {
 		result.Leader = true
 	}
+	result.ProviderId = unit.ProviderId()
 	return result
 }
 

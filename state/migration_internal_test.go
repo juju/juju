@@ -396,6 +396,8 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 		"Series",
 		"CharmURL",
 		"TxnRevno",
+		// TODO(caas)
+		"ProviderId",
 	)
 	migrated := set.NewStrings(
 		"Name",

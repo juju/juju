@@ -474,6 +474,28 @@ type AddApplicationUnits struct {
 	AttachStorage   []string              `json:"attach-storage,omitempty"`
 }
 
+// UpdateApplicationUnitArgs holds the parameters for
+// updating application units.
+type UpdateApplicationUnitArgs struct {
+	Args []UpdateApplicationUnits `json:"args"`
+}
+
+// UpdateApplicationUnits holds unit parameters for a specified application.
+type UpdateApplicationUnits struct {
+	ApplicationTag string                  `json:"application-tag"`
+	Units          []ApplicationUnitParams `json:"units"`
+}
+
+// ApplicationUnitParams holds unit parameters used to update a unit.
+type ApplicationUnitParams struct {
+	Id      string                 `json:"id"`
+	Address string                 `json:"address"`
+	Ports   []string               `json:"ports"`
+	Status  string                 `json:"status"`
+	Info    string                 `json:"info"`
+	Data    map[string]interface{} `json:"data"`
+}
+
 // DestroyApplicationUnits holds parameters for the deprecated
 // Application.DestroyUnits call.
 type DestroyApplicationUnits struct {

@@ -1252,6 +1252,7 @@ func (a *Application) addUnitOps(
 		principalName: principalName,
 		storageCons:   storageCons,
 		attachStorage: args.AttachStorage,
+		providerId:    args.ProviderId,
 	})
 	if err != nil {
 		return names, ops, err
@@ -1267,6 +1268,7 @@ type applicationAddUnitOpsArgs struct {
 	cons          constraints.Value
 	storageCons   map[string]StorageConstraints
 	attachStorage []names.StorageTag
+	providerId    string
 }
 
 // addApplicationUnitOps is just like addUnitOps but explicitly takes a
@@ -1310,6 +1312,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	udoc := &unitDoc{
 		DocID:                  docID,
 		Name:                   name,
+		ProviderId:             args.providerId,
 		Application:            a.doc.Name,
 		Series:                 a.doc.Series,
 		Life:                   Alive,
@@ -1544,6 +1547,9 @@ func (a *Application) incUnitCountOp(asserts bson.D) txn.Op {
 type AddUnitParams struct {
 	// AttachStorage identifies storage instances to attach to the unit.
 	AttachStorage []names.StorageTag
+
+	// ProviderId identifies the unit for a given provider.
+	ProviderId string
 }
 
 // AddUnit adds a new principal unit to the application.
@@ -2229,4 +2235,132 @@ func (a *Application) PasswordValid(password string) bool {
 		return true
 	}
 	return false
+}
+
+// UnitUpdateProperties holds information used to update
+// the state model for the unit.
+type UnitUpdateProperties struct {
+	ProviderId string
+	Status     *status.StatusInfo
+}
+
+// UpdateUnits applies the given application unit update operations.
+func (a *Application) UpdateUnits(unitsOp *UpdateUnitsOperation) error {
+	return a.st.ApplyOperation(unitsOp)
+}
+
+// UpdateUnitsOperation is a model operation for updating
+// some units of an application.
+type UpdateUnitsOperation struct {
+	Adds    []*AddUnitOperation
+	Deletes []*DestroyUnitOperation
+	Updates []*UpdateUnitOperation
+}
+
+func (op *UpdateUnitsOperation) allOps() []ModelOperation {
+	var all []ModelOperation
+	for _, mop := range op.Adds {
+		all = append(all, mop)
+	}
+	for _, mop := range op.Deletes {
+		all = append(all, mop)
+	}
+	for _, mop := range op.Updates {
+		all = append(all, mop)
+	}
+	return all
+}
+
+// Build is part of the ModelOperation interface.
+func (op *UpdateUnitsOperation) Build(attempt int) ([]txn.Op, error) {
+	var ops []txn.Op
+
+	all := op.allOps()
+	for _, op := range all {
+		switch nextOps, err := op.Build(attempt); err {
+		case jujutxn.ErrNoOperations:
+			continue
+		case nil:
+			ops = append(ops, nextOps...)
+		default:
+			return nil, errors.Trace(err)
+		}
+	}
+	return ops, nil
+}
+
+// Done is part of the ModelOperation interface.
+func (op *UpdateUnitsOperation) Done(err error) error {
+	if err != nil {
+		return errors.Annotate(err, "updating units")
+	}
+	all := op.allOps()
+	for _, op := range all {
+		if err := op.Done(nil); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// AddOperation returns a model operation that will add a unit.
+func (a *Application) AddOperation(props UnitUpdateProperties) *AddUnitOperation {
+	return &AddUnitOperation{
+		application: &Application{st: a.st, doc: a.doc},
+		props:       props,
+	}
+}
+
+// AddUnitOperation is a model operation that will add a unit.
+type AddUnitOperation struct {
+	application *Application
+	props       UnitUpdateProperties
+
+	unitName string
+}
+
+// Build is part of the ModelOperation interface.
+func (op *AddUnitOperation) Build(attempt int) ([]txn.Op, error) {
+	var ops []txn.Op
+
+	addUnitArgs := AddUnitParams{
+		ProviderId: op.props.ProviderId,
+	}
+	name, addOps, err := op.application.addUnitOps("", addUnitArgs, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	op.unitName = name
+	ops = append(ops, addOps...)
+
+	return ops, nil
+}
+
+// Done is part of the ModelOperation interface.
+func (op *AddUnitOperation) Done(err error) error {
+	if err != nil {
+		return errors.Annotatef(err, "adding unit to %q", op.application.Name())
+	}
+	// We do a separate status update here because we require all units to be
+	// created as "allocating". If the add operation specifies a status,
+	// that status is used to update the initial "allocating" status. We then
+	// get the expected 2 status entries in history. This is done in a separate
+	// transaction; a failure here will effectively be retried because the worker
+	// which has made the API call will restart and re-do the call.
+	if op.props.Status != nil {
+		u, err := op.application.st.Unit(op.unitName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		now := op.application.st.clock().Now()
+		if err := u.Agent().SetStatus(status.StatusInfo{
+			Status:  op.props.Status.Status,
+			Message: op.props.Status.Message,
+			Data:    op.props.Status.Data,
+			Since:   &now,
+		}); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }

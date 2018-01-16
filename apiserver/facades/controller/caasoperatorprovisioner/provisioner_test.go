@@ -4,6 +4,7 @@
 package caasoperatorprovisioner_test
 
 import (
+	"github.com/juju/juju/status"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -86,4 +87,60 @@ func (s *CAASProvisionerSuite) TestSetPasswords(c *gc.C) {
 		},
 	})
 	c.Assert(s.st.app.password, gc.Equals, "xxx-12345678901234567890")
+}
+
+func (s *CAASProvisionerSuite) TestUpdateApplicationsUnits(c *gc.C) {
+	s.st.app = &mockApplication{
+		tag: names.NewApplicationTag("app"),
+		units: []caasoperatorprovisioner.Unit{
+			&mockUnit{name: "app/0", providerId: "uuid"},
+			&mockUnit{name: "app/1"},
+			&mockUnit{name: "app/2", providerId: "uuid2"},
+		},
+	}
+
+	units := []params.ApplicationUnitParams{
+		{Id: "uuid", Address: "address", Ports: []string{"port"},
+			Status: "running", Info: "message"},
+		{Id: "another-uuid", Address: "another-address", Ports: []string{"another-port"},
+			Status: "running", Info: "another message"},
+		{Id: "last-uuid", Address: "last-address", Ports: []string{"last-port"},
+			Status: "running", Info: "last message"},
+	}
+	args := params.UpdateApplicationUnitArgs{
+		Args: []params.UpdateApplicationUnits{
+			{ApplicationTag: "application-app", Units: units},
+			{ApplicationTag: "application-another", Units: []params.ApplicationUnitParams{}},
+		},
+	}
+	results, err := s.api.UpdateApplicationsUnits(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{&params.Error{Message: "application another not found", Code: "not found"}},
+		},
+	})
+	s.st.app.CheckCallNames(c, "AddOperation")
+	s.st.app.CheckCall(c, 0, "AddOperation", state.UnitUpdateProperties{
+		ProviderId: "last-uuid",
+		// TODO(caas)
+		//Address: "last-address", Ports: []string{"last-port"},
+		Status: &status.StatusInfo{Status: status.Running, Message: "last message"},
+	})
+	s.st.app.units[0].(*mockUnit).CheckCallNames(c, "UpdateOperation")
+	s.st.app.units[0].(*mockUnit).CheckCall(c, 0, "UpdateOperation", state.UnitUpdateProperties{
+		ProviderId: "uuid",
+		// TODO(caas)
+		// Address: "address", Ports: []string{"port"},
+		Status: &status.StatusInfo{Status: status.Running, Message: "message"},
+	})
+	s.st.app.units[1].(*mockUnit).CheckCallNames(c, "UpdateOperation")
+	s.st.app.units[1].(*mockUnit).CheckCall(c, 0, "UpdateOperation", state.UnitUpdateProperties{
+		ProviderId: "another-uuid",
+		// TODO(caas)
+		//Address: "another-address", Ports: []string{"another-port"},
+		Status: &status.StatusInfo{Status: status.Running, Message: "another message"},
+	})
+	s.st.app.units[2].(*mockUnit).CheckCallNames(c, "DestroyOperation")
 }

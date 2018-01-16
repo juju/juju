@@ -3300,3 +3300,101 @@ func (s *ApplicationSuite) TestDestroyApplicationRemovesConfig(c *gc.C) {
 	err = appConfig.Read()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
+
+func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+
+	existingUnit, err := app.AddUnit(state.AddUnitParams{ProviderId: "unit-uuid"})
+	c.Assert(err, jc.ErrorIsNil)
+	removedUnit, err := app.AddUnit(state.AddUnitParams{ProviderId: "removed-unit-uuid"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var updateUnits state.UpdateUnitsOperation
+	updateUnits.Deletes = []*state.DestroyUnitOperation{removedUnit.DestroyOperation()}
+	updateUnits.Adds = []*state.AddUnitOperation{app.AddOperation(state.UnitUpdateProperties{
+		ProviderId: "new-unit-uuid",
+		Status: &status.StatusInfo{
+			Status:  status.Running,
+			Message: "new running",
+		},
+	})}
+	updateUnits.Updates = []*state.UpdateUnitOperation{existingUnit.UpdateOperation(state.UnitUpdateProperties{
+		ProviderId: "unit-uuid",
+		Status: &status.StatusInfo{
+			Status:  status.Running,
+			Message: "existing running",
+		},
+	})}
+	err = app.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := app.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 2)
+
+	unitsById := make(map[string]*state.Unit)
+	for _, u := range units {
+		if u.ProviderId() == "" {
+			c.Fail()
+		}
+		unitsById[u.ProviderId()] = u
+	}
+	u, ok := unitsById["unit-uuid"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(u.Name(), gc.Equals, existingUnit.Name())
+	statusInfo, err := u.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, status.Running)
+	c.Assert(statusInfo.Message, gc.Equals, "existing running")
+	history, err := u.AgentHistory().StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 2)
+	// Creating a new unit may cause the history entries to be written with
+	// the same timestamp due to the precision used by the db.
+	if history[0].Status == status.Running {
+		c.Assert(history[0].Status, gc.Equals, status.Running)
+		c.Assert(history[1].Status, gc.Equals, status.Allocating)
+	} else {
+		c.Assert(history[1].Status, gc.Equals, status.Running)
+		c.Assert(history[0].Status, gc.Equals, status.Allocating)
+		c.Assert(history[0].Since.Unix(), gc.Equals, history[1].Since.Unix())
+	}
+
+	u, ok = unitsById["new-unit-uuid"]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(u.Name(), gc.Equals, "wordpress/2")
+	statusInfo, err = u.AgentStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, status.Running)
+	c.Assert(statusInfo.Message, gc.Equals, "new running")
+	history, err = u.AgentHistory().StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 2)
+	// Creating a new unit may cause the history entries to be written with
+	// the same timestamp due to the precision used by the db.
+	if history[0].Status == status.Running {
+		c.Assert(history[0].Status, gc.Equals, status.Running)
+		c.Assert(history[1].Status, gc.Equals, status.Allocating)
+	} else {
+		c.Assert(history[1].Status, gc.Equals, status.Running)
+		c.Assert(history[0].Status, gc.Equals, status.Allocating)
+		c.Assert(history[0].Since.Unix(), gc.Equals, history[1].Since.Unix())
+	}
+
+	err = removedUnit.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ApplicationSuite) TestAddUnitWithProviderId(c *gc.C) {
+	u, err := s.mysql.AddUnit(state.AddUnitParams{ProviderId: "provider-id"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.ProviderId(), gc.Equals, "provider-id")
+}

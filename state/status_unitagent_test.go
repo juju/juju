@@ -98,6 +98,22 @@ func (s *StatusUnitAgentSuite) TestSetStatusUnassigned(c *gc.C) {
 	}
 }
 
+func (s *StatusUnitAgentSuite) TestSetStatusRunningNonCAAS(c *gc.C) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"})
+	u, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	agent := u.Agent()
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Running,
+		Message: "",
+		Since:   &now,
+	}
+	err = agent.SetStatus(sInfo)
+	c.Check(err, gc.ErrorMatches, `cannot set invalid status "running"`)
+	s.checkInitialStatus(c)
+}
+
 func (s *StatusUnitAgentSuite) TestSetOverwritesData(c *gc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{

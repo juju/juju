@@ -369,16 +369,20 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]caas.Unit, len(podsList.Items))
+	var result []caas.Unit
 	now := time.Now()
-	for i, p := range podsList.Items {
+	for _, p := range podsList.Items {
 		var ports []string
 		for _, c := range p.Spec.Containers {
 			for _, p := range c.Ports {
 				ports = append(ports, fmt.Sprintf("%v/%v", p.ContainerPort, p.Protocol))
 			}
 		}
-		result[i] = caas.Unit{
+		dying := p.DeletionTimestamp != nil
+		if dying {
+			continue
+		}
+		result = append(result, caas.Unit{
 			Id:      string(p.UID),
 			Address: p.Status.PodIP,
 			Ports:   ports,
@@ -387,7 +391,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 				Message: p.Status.Message,
 				Since:   &now,
 			},
-		}
+		})
 	}
 	return result, nil
 }
@@ -395,7 +399,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 func (k *kubernetesClient) jujuStatus(podPhase v1.PodPhase) status.Status {
 	switch podPhase {
 	case v1.PodRunning:
-		return status.Active
+		return status.Running
 	case v1.PodFailed:
 		return status.Error
 	default:

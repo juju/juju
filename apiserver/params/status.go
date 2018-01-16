@@ -163,6 +163,7 @@ type UnitStatus struct {
 	Charm         string                `json:"charm"`
 	Subordinates  map[string]UnitStatus `json:"subordinates"`
 	Leader        bool                  `json:"leader,omitempty"`
+	ProviderId    string                `json:"provider-id,omitempty"`
 }
 
 // RelationStatus holds status info about a relation.

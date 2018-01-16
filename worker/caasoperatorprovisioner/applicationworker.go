@@ -5,7 +5,9 @@ package caasoperatorprovisioner
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -53,8 +55,24 @@ func (w *applicationWorker) loop() (err error) {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Infof("units for %v: %+v", w.applicationName, units)
-			// TODO(caas) - record changes in Juju model.
+			logger.Debugf("units for %v: %+v", w.applicationName, units)
+			args := params.UpdateApplicationUnits{
+				ApplicationTag: names.NewApplicationTag(w.applicationName).String(),
+				Units:          make([]params.ApplicationUnitParams, len(units)),
+			}
+			for i, u := range units {
+				args.Units[i] = params.ApplicationUnitParams{
+					Id:      u.Id,
+					Address: u.Address,
+					Ports:   u.Ports,
+					Status:  u.Status.Status.String(),
+					Info:    u.Status.Message,
+					Data:    u.Status.Data,
+				}
+			}
+			if err := w.facade.UpdateUnits(args); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }

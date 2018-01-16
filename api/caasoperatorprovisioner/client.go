@@ -65,3 +65,18 @@ func (c *Client) SetPasswords(appPasswords []ApplicationPassword) (params.ErrorR
 	}
 	return result, nil
 }
+
+// UpdateUnits updates the state model to reflect the state of the units
+// as reported by the cloud.
+func (c *Client) UpdateUnits(arg params.UpdateApplicationUnits) error {
+	var result params.ErrorResults
+	args := params.UpdateApplicationUnitArgs{Args: []params.UpdateApplicationUnits{arg}}
+	err := c.facade.FacadeCall("UpdateApplicationsUnits", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(result.Results) != len(args.Args) {
+		return errors.Errorf("expected %d result(s), got %d", len(args.Args), len(result.Results))
+	}
+	return result.OneError()
+}

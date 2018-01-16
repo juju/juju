@@ -148,12 +148,11 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		}
 		w.Print(indent("", level*2, name))
 		if fs.Model.Type == caasModelType {
+			w.PrintStatus(u.JujuStatusInfo.Current)
 			// TODO(caas)
-			//w.PrintStatus(u.JujuStatusInfo.Current)
 			p(
-				"<todo>",
-				u.Address,
-				strings.Join(u.OpenedPorts, ","),
+				"<todo>", //u.Address,
+				"<todo>", //strings.Join(u.OpenedPorts, ","),
 				message,
 			)
 			return

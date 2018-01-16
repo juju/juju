@@ -28,6 +28,7 @@ var logger = loggo.GetLogger("juju.workers.caasprovisioner")
 type CAASProvisionerFacade interface {
 	WatchApplications() (watcher.StringsWatcher, error)
 	SetPasswords([]apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error)
+	UpdateUnits(arg params.UpdateApplicationUnits) error
 }
 
 // Config defines the operation of a Worker.
