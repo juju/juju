@@ -294,7 +294,7 @@ func SelectAddressBySpaceNames(addresses []Address, spaceNames ...SpaceName) (Ad
 }
 
 // SelectHostPortsBySpaceNames filters the input slice of HostPorts down to
-// those in the inpu space name.
+// those in the input space name.
 func SelectHostPortsBySpaceNames(hps []HostPort, spaceNames ...SpaceName) ([]HostPort, bool) {
 	if len(spaceNames) == 0 {
 		logger.Errorf("host ports not filtered - no spaces given.")
