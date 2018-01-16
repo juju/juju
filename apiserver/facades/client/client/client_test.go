@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -1492,6 +1493,10 @@ func (s *clientSuite) TestBlockChangesRetryProvisioning(c *gc.C) {
 }
 
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
+	apiHostPorts, err := s.APIState.Client().APIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(apiHostPorts, gc.HasLen, 0)
+
 	server1Addresses := []network.Address{{
 		Value: "server-1",
 		Type:  network.HostName,
@@ -1511,11 +1516,58 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 		network.AddressesWithPort(server2Addresses, 456),
 	}
 
-	err := s.State.SetAPIHostPorts(stateAPIHostPorts)
+	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
-	apiHostPorts, err := s.APIState.Client().APIHostPorts()
+	apiHostPorts, err = s.APIState.Client().APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
+}
+
+// clientMgmtSpaceSuite mimics a controller having been configured
+// with a management space.
+// This is the space name that constrains the set of addresses agents should
+// use for controller communication.
+type clientMgmtSpaceSuite struct {
+	clientSuite
+}
+
+var _ = gc.Suite(&clientMgmtSpaceSuite{})
+
+func (s *clientMgmtSpaceSuite) SetUpTest(c *gc.C) {
+	s.ControllerConfigAttrs = map[string]interface{}{
+		controller.JujuManagementSpace: "mgmt01",
+	}
+	s.clientSuite.SetUpTest(c)
+}
+
+func (s *clientSuite) TestAPIHostPortsForAgents(c *gc.C) {
+	apiHostPorts, err := s.APIState.Client().APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(apiHostPorts, gc.HasLen, 0)
+
+	hostPort1 := network.HostPort{
+		Address: network.Address{
+			Value: "0.2.4.6",
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}
+	hostPort2 := network.HostPort{
+		Address: network.Address{
+			Value:     "0.4.8.16",
+			Type:      network.IPv4Address,
+			Scope:     network.ScopePublic,
+			SpaceName: "mgmt01",
+		},
+		Port: 2,
+	}
+	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort1, hostPort2}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiHostPorts, err = s.APIState.Client().APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(apiHostPorts, gc.DeepEquals, [][]network.HostPort{{hostPort2}})
 }
 
 func (s *clientSuite) TestClientAgentVersion(c *gc.C) {

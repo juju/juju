@@ -17,6 +17,7 @@ type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
 	ModelUUID() string
 	APIHostPorts() ([][]network.HostPort, error)
+	APIHostPortsForAgents() ([][]network.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher
 }
 
@@ -38,6 +39,19 @@ func NewAPIAddresser(getter AddressAndCertGetter, resources facade.Resources) *A
 // APIHostPorts returns the API server addresses.
 func (api *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
 	servers, err := api.getter.APIHostPorts()
+	if err != nil {
+		return params.APIHostPortsResult{}, err
+	}
+	return params.APIHostPortsResult{
+		Servers: params.FromNetworkHostsPorts(servers),
+	}, nil
+}
+
+// APIHostPortsForAgents returns the API server addresses that are suitable for
+// agent use based on the configured management space.
+// +// If no such space is configured, this will return the same as APIHostPorts().
+func (api *APIAddresser) APIHostPortsForAgents() (params.APIHostPortsResult, error) {
+	servers, err := api.getter.APIHostPortsForAgents()
 	if err != nil {
 		return params.APIHostPortsResult{}, err
 	}
