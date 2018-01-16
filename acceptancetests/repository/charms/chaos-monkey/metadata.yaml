@@ -13,7 +13,5 @@ subordinate: true
 series:
   - trusty
   - xenial
-  - zesty
-  - zesty
   - artful
   - bionic
