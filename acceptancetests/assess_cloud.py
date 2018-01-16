@@ -8,12 +8,13 @@ from deploy_stack import (
     BootstrapManager,
     )
 from jujupy import (
-    ConditionList,
     get_juju_home,
     ModelClient,
     FakeBackend,
     FakeControllerState,
-    get_client_class,
+    )
+from jujupy.wait_condition import (
+    ConditionList,
     )
 from utility import (
     add_basic_testing_arguments,
@@ -27,15 +28,14 @@ def client_from_args(args):
     If the path given is FAKE, fake_juju_client() is used.  Otherwise, the
     client is determined based on the path and version.
     """
+    client_class = ModelClient
     if args.juju_bin == 'FAKE':
-        client_class = ModelClient
         controller_state = FakeControllerState()
         version = '2.0.0'
         backend = FakeBackend(controller_state, full_path=args.juju_bin,
                               version=version)
     else:
         version = ModelClient.get_version(args.juju_bin)
-        client_class = get_client_class(version)
         backend = None
     juju_home = get_juju_home()
     with open(args.clouds_file) as f:

@@ -12,6 +12,7 @@ series:
   - xenial
   - zesty
   - artful
+  - bionic
 subordinate: false
 peers:
   xplod:

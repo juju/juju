@@ -31,11 +31,14 @@ import yaml
 
 from jujupy import (
     ModelClient,
-    JESNotSupported,
     JujuData,
+)
+from jujupy.exceptions import (
     SoftDeadlineExceeded,
 )
-from jujupy.client import CommandTime
+from jujupy.wait_condition import (
+    CommandTime,
+    )
 
 __metaclass__ = type
 
@@ -100,13 +103,10 @@ class FakeControllerState:
             {username: {'state': '', 'permission': permissions}})
         self.shares.append(username)
 
-    def bootstrap(self, model_name, config, separate_controller):
+    def bootstrap(self, model_name, config):
         default_model = self.add_model(model_name)
         default_model.name = model_name
-        if separate_controller:
-            controller_model = default_model.controller.add_model('controller')
-        else:
-            controller_model = default_model
+        controller_model = default_model.controller.add_model('controller')
         self.controller_model = controller_model
         controller_model.state_servers.append(controller_model.add_machine())
         self.state = 'bootstrapped'
@@ -206,15 +206,6 @@ class FakeEnvironmentState:
                 raise subprocess.CalledProcessError(1, 'machine assigned.')
         self.machines.remove(machine_id)
         self.containers.pop(machine_id, None)
-
-    def remove_state_server(self, machine_id):
-        self.remove_machine(machine_id)
-        self.state_servers.remove(machine_id)
-
-    def destroy_environment(self):
-        self._clear()
-        self.controller.state = 'destroyed'
-        return 0
 
     def destroy_model(self):
         del self.controller.models[self.name]
@@ -401,7 +392,7 @@ class AutoloadCredentials(FakeExpectChild):
                 'password': self.extra_env['OS_PASSWORD'],
                 'tenant-name': self.extra_env['OS_TENANT_NAME'],
                 }}})
-        juju_data.dump_yaml(self.juju_home, {})
+        juju_data.dump_yaml(self.juju_home)
         return False
 
     def eof(self):
@@ -701,15 +692,7 @@ class FakeBackend:
                               full_path, debug,
                               past_deadline=self._past_deadline)
 
-    def set_feature(self, feature, enabled):
-        if enabled:
-            self.feature_flags.add(feature)
-        else:
-            self.feature_flags.discard(feature)
-
     def is_feature_enabled(self, feature):
-        if feature == 'jes':
-            return True
         return bool(feature in self.feature_flags)
 
     @contextmanager
@@ -767,21 +750,11 @@ class FakeBackend:
         config['name'] = parsed.default_model
         if parsed.bootstrap_series is not None:
             config['default-series'] = parsed.bootstrap_series
-        self.controller_state.bootstrap(parsed.default_model, config,
-                                        self.is_feature_enabled('jes'))
+        self.controller_state.bootstrap(parsed.default_model, config)
 
     def quickstart(self, model_name, config, bundle):
-        default_model = self.controller_state.bootstrap(
-            model_name, config, self.is_feature_enabled('jes'))
+        default_model = self.controller_state.bootstrap(model_name, config)
         default_model.deploy_bundle(bundle)
-
-    def destroy_environment(self, model_name):
-        try:
-            state = self.controller_state.models[model_name]
-        except KeyError:
-            return 0
-        state.destroy_environment()
-        return 0
 
     def add_machines(self, model_state, args):
         if len(args) == 0:
@@ -889,9 +862,6 @@ class FakeBackend:
             }
         return {model_name: data}
 
-    def set_action_result(self, unit_id, action, result):
-        self.action_results.setdefault(unit_id, {})[action] = result
-
     def run_action(self, unit_id, action):
         action_uuid = '{}'.format(uuid.uuid1())
         try:
@@ -995,8 +965,6 @@ class FakeBackend:
                 self.controller_state.destroy(kill=True)
                 return (0, CommandTime(command, args))
             if command == 'destroy-model':
-                if not self.is_feature_enabled('jes'):
-                    raise JESNotSupported()
                 model = args[0].split(':')[1]
                 try:
                     model_state = self.controller_state.models[model]
@@ -1013,8 +981,6 @@ class FakeBackend:
                 model_state = self.controller_state.controller_model
                 model_state.enable_ha()
             if command == 'add-model':
-                if not self.is_feature_enabled('jes'):
-                    raise JESNotSupported()
                 parser = ArgumentParser()
                 parser.add_argument('-c', '--controller')
                 parser.add_argument('--config')
@@ -1147,38 +1113,6 @@ def get_user_register_token(username):
     return b64encode(sha512(username.encode('utf-8')).digest()).decode('ascii')
 
 
-class FakeBackend2_1(FakeBackend):
-    """Backend for 2.1 and earlier."""
-    def expect(self, command, args, used_feature_flags, juju_home, model=None,
-               timeout=None, extra_env=None):
-        if command == 'add-cloud':
-            return AddCloud2_1(self, juju_home, extra_env)
-        return super(FakeBackend2_1, self).expect(
-            command, args, used_feature_flags, juju_home, model, timeout,
-            extra_env)
-
-
-class FakeBackend2B7(FakeBackend2_1):
-
-    def juju(self, command, args, used_feature_flags,
-             juju_home, model=None, check=True, timeout=None, extra_env=None):
-        if model is not None:
-            model_state = self.controller_state.models[model]
-        if command == 'destroy-service':
-            model_state.destroy_service(*args)
-        if command == 'remove-service':
-            model_state.destroy_service(*args)
-        return super(FakeBackend2B7).juju(command, args, used_feature_flags,
-                                          juju_home, model, check, timeout,
-                                          extra_env)
-
-
-class FakeBackendOptionalJES(FakeBackend):
-
-    def is_feature_enabled(self, feature):
-        return bool(feature in self.feature_flags)
-
-
 def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
                      _backend=None, cls=ModelClient, juju_home=None):
     if juju_home is None:
@@ -1198,29 +1132,7 @@ def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
         _backend = FakeBackend(
             backend_state, version=version, full_path=full_path,
             debug=debug)
-        _backend.set_feature('jes', True)
     client = cls(
         env, version, full_path, juju_home, debug, _backend=_backend)
     client.bootstrap_replaces = {}
     return client
-
-
-def fake_juju_client_optional_jes(env=None, full_path=None, debug=False,
-                                  jes_enabled=True, version='2.0.0',
-                                  _backend=None):
-    if _backend is None:
-        backend_state = FakeControllerState()
-        _backend = FakeBackendOptionalJES(
-            backend_state, version=version, full_path=full_path,
-            debug=debug)
-        _backend.set_feature('jes', jes_enabled)
-    client = fake_juju_client(env, full_path, debug, version, _backend,
-                              cls=FakeJujuClientOptionalJES)
-    client.used_feature_flags = frozenset(['jes'])
-    return client
-
-
-class FakeJujuClientOptionalJES(ModelClient):
-
-    def get_controller_model_name(self):
-        return self._backend.controller_state.controller_model.name

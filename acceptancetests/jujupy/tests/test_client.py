@@ -1,4 +1,3 @@
-from collections import defaultdict
 from contextlib import contextmanager
 import copy
 from datetime import (
@@ -16,9 +15,7 @@ except ImportError:
 import subprocess
 import sys
 from textwrap import dedent
-import types
 
-from dateutil import tz
 from mock import (
     call,
     Mock,
@@ -28,77 +25,52 @@ import yaml
 
 from jujupy.configuration import (
     get_bootstrap_config_path,
-    get_environments_path,
-    get_jenv_path,
-    NoSuchEnvironment,
     )
 from jujupy import (
-    FakeControllerState,
     fake_juju_client,
-    get_client_class,
     )
-from jujupy.client import (
+from jujupy.exceptions import (
     AuthNotAccepted,
-    AgentError,
-    AgentUnresolvedError,
     AppError,
-    BaseCondition,
-    CommandTime,
-    CommandComplete,
     CannotConnectEnv,
-    ConditionList,
-    Controller,
-    describe_substrate,
     ErroredUnit,
-    GroupReporter,
-    get_cache_path,
-    get_local_root,
-    get_machine_dns_name,
-    get_timeout_path,
-    get_timeout_prefix,
-    HookFailedError,
-    InstallError,
     InvalidEndpoint,
-    jes_home_path,
-    Juju2Backend,
-    JujuData,
-    JUJU_DEV_FEATURE_FLAGS,
-    KILL_CONTROLLER,
-    Machine,
-    MachineDown,
     MachineError,
-    make_safe_config,
-    ModelClient,
     NameNotAccepted,
-    NoActiveModel,
-    NoopCondition,
-    NoProvider,
-    parse_new_state_server_from_error,
-    ProvisioningError,
-    SimpleEnvironment,
     SoftDeadlineExceeded,
-    Status,
     StatusError,
-    StatusItem,
     StatusNotMet,
     StatusTimeout,
-    StuckAllocatingError,
-    SYSTEM,
+    TypeNotAccepted,
+    UnitError,
+)
+from jujupy.client import (
+    Controller,
+    describe_substrate,
+    GroupReporter,
+    get_cache_path,
+    get_machine_dns_name,
+    juju_home_path,
+    JujuData,
+    Machine,
+    make_safe_config,
+    ModelClient,
+    parse_new_state_server_from_error,
     temp_bootstrap_env,
     temp_yaml_file,
-    TypeNotAccepted,
-    uniquify_local,
-    UnitError,
-    WaitMachineNotPresent,
-    WaitApplicationNotPresent
     )
 from jujupy.fake import (
     get_user_register_command_info,
     get_user_register_token,
 )
-from jujupy.version_client import (
-    EnvJujuClient1X,
-    EnvJujuClient24,
+from jujupy.status import (
+    Status,
+    StatusItem,
+    )
+from jujupy.wait_condition import (
+    CommandTime,
+    ConditionList,
+    WaitMachineNotPresent,
     )
 from tests import (
     assert_juju_call,
@@ -111,6 +83,7 @@ from tests import (
     TestCase,
     )
 from jujupy.utility import (
+    get_timeout_path,
     JujuResourceTimeout,
     scoped_environ,
     temp_dir,
@@ -132,28 +105,11 @@ class ClientTest(FakeHomeTestCase):
     def setUp(self):
         super(ClientTest, self).setUp()
         patcher = patch('jujupy.client.pause')
+        backend_patcher = patch('jujupy.backend.pause')
         self.addCleanup(patcher.stop)
+        self.addCleanup(backend_patcher.stop)
         self.pause_mock = patcher.start()
-
-    def fake_juju_client(self):
-        """Provide a faked juju client for the version under test.
-
-        Requires client_version, client_class, fake_backend_class to be
-        defined.
-        """
-        backend_state = FakeControllerState()
-        backend = self.fake_backend_class(backend_state,
-                                          version=self.client_version)
-        return fake_juju_client(version=self.client_version,
-                                cls=self.client_class, _backend=backend)
-
-    def check_basics(self):
-        """Basic tests for a recent ClientTest.
-
-        These are opt-in because not every ClientTest declares client_class
-        and client_version.
-        """
-        self.assertIs(self.client_class, get_client_class(self.client_version))
+        backend_patcher.start()
 
 
 class TestTempYamlFile(TestCase):
@@ -164,293 +120,12 @@ class TestTempYamlFile(TestCase):
                 self.assertEqual({'foo': 'bar'}, yaml.safe_load(f))
 
 
-class TestJuju2Backend(TestCase):
-
-    test_environ = {'PATH': 'foo:bar'}
-
-    def test_juju2_backend(self):
-        backend = Juju2Backend('/bin/path', '2.0', set(), False)
-        self.assertEqual('/bin/path', backend.full_path)
-        self.assertEqual('2.0', backend.version)
-
-    def test_clone_retains_soft_deadline(self):
-        soft_deadline = object()
-        backend = Juju2Backend('/bin/path', '2.0', feature_flags=set(),
-                               debug=False, soft_deadline=soft_deadline)
-        cloned = backend.clone(full_path=None, version=None, debug=None,
-                               feature_flags=None)
-        self.assertIsNot(cloned, backend)
-        self.assertIs(soft_deadline, cloned.soft_deadline)
-
-    def test_cloned_backends_share_juju_timings(self):
-        backend = Juju2Backend('/bin/path', '2.0', set(), False)
-        cloned = backend.clone(
-            full_path=None, version=None, debug=None, feature_flags=None)
-        self.assertIs(cloned.juju_timings, backend.juju_timings)
-
-    def test__check_timeouts(self):
-        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
-                               soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
-        with patch('jujupy.Juju2Backend._now',
-                   return_value=backend.soft_deadline):
-            with backend._check_timeouts():
-                pass
-        now = backend.soft_deadline + timedelta(seconds=1)
-        with patch('jujupy.Juju2Backend._now', return_value=now):
-            with self.assertRaisesRegexp(SoftDeadlineExceeded,
-                                         'Operation exceeded deadline.'):
-                with backend._check_timeouts():
-                    pass
-
-    def test__check_timeouts_no_deadline(self):
-        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
-                               soft_deadline=None)
-        now = datetime(2015, 1, 2, 3, 4, 6)
-        with patch('jujupy.Juju2Backend._now', return_value=now):
-            with backend._check_timeouts():
-                pass
-
-    def test_ignore_soft_deadline_check_timeouts(self):
-        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
-                               soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
-        now = backend.soft_deadline + timedelta(seconds=1)
-        with patch('jujupy.Juju2Backend._now', return_value=now):
-            with backend.ignore_soft_deadline():
-                with backend._check_timeouts():
-                    pass
-            with self.assertRaisesRegexp(SoftDeadlineExceeded,
-                                         'Operation exceeded deadline.'):
-                with backend._check_timeouts():
-                    pass
-
-    def test_shell_environ_feature_flags(self):
-        backend = Juju2Backend('/bin/path', '2.0', {'may', 'june'},
-                               debug=False, soft_deadline=None)
-        env = backend.shell_environ({'april', 'june'}, 'fake-home')
-        self.assertEqual('june', env[JUJU_DEV_FEATURE_FLAGS])
-
-    def test_shell_environ_feature_flags_environmental(self):
-        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
-                               soft_deadline=None)
-        with scoped_environ():
-            os.environ[JUJU_DEV_FEATURE_FLAGS] = 'run-test'
-            env = backend.shell_environ(set(), 'fake-home')
-        self.assertEqual('run-test', env[JUJU_DEV_FEATURE_FLAGS])
-
-    def test_shell_environ_feature_flags_environmental_union(self):
-        backend = Juju2Backend('/bin/path', '2.0', {'june'}, debug=False,
-                               soft_deadline=None)
-        with scoped_environ():
-            os.environ[JUJU_DEV_FEATURE_FLAGS] = 'run-test'
-            env = backend.shell_environ({'june'}, 'fake-home')
-        # The feature_flags are combined in alphabetic order.
-        self.assertEqual('june,run-test', env[JUJU_DEV_FEATURE_FLAGS])
-
-    def test_full_args(self):
-        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
-        full = backend.full_args('help', ('commands',), None, None)
-        self.assertEqual(('juju', '--show-log', 'help', 'commands'), full)
-
-    def test_full_args_debug(self):
-        backend = Juju2Backend('/bin/path/juju', '2.0', set(), True, None)
-        full = backend.full_args('help', ('commands',), None, None)
-        self.assertEqual(('juju', '--debug', 'help', 'commands'), full)
-
-    def test_full_args_model(self):
-        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
-        full = backend.full_args('help', ('commands',), 'test', None)
-        self.assertEqual(('juju', '--show-log', 'help', '-m', 'test',
-                          'commands'), full)
-
-    def test_full_args_timeout(self):
-        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
-        full = backend.full_args('help', ('commands',), None, 600)
-        self.assertEqual(get_timeout_prefix(600, backend._timeout_path) +
-                         ('juju', '--show-log', 'help', 'commands'), full)
-
-    def test_juju_checks_timeouts(self):
-        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
-                               soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
-        with patch('subprocess.check_call'):
-            with patch('jujupy.Juju2Backend._now',
-                       return_value=backend.soft_deadline):
-                backend.juju('cmd', ('args',), [], 'home')
-            now = backend.soft_deadline + timedelta(seconds=1)
-            with patch('jujupy.Juju2Backend._now', return_value=now):
-                with self.assertRaisesRegexp(SoftDeadlineExceeded,
-                                             'Operation exceeded deadline.'):
-                    backend.juju('cmd', ('args',), [], 'home')
-
-    def test_juju_async_checks_timeouts(self):
-        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
-                               soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
-        with patch('subprocess.Popen') as mock_popen:
-            mock_popen.return_value.wait.return_value = 0
-            with patch('jujupy.Juju2Backend._now',
-                       return_value=backend.soft_deadline):
-                with backend.juju_async('cmd', ('args',), [], 'home'):
-                    pass
-            now = backend.soft_deadline + timedelta(seconds=1)
-            with patch('jujupy.Juju2Backend._now', return_value=now):
-                with self.assertRaisesRegexp(SoftDeadlineExceeded,
-                                             'Operation exceeded deadline.'):
-                    with backend.juju_async('cmd', ('args',), [], 'home'):
-                        pass
-
-    def test_get_juju_output_checks_timeouts(self):
-        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
-                               soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
-        with patch('subprocess.Popen') as mock_popen:
-            mock_popen.return_value.returncode = 0
-            mock_popen.return_value.communicate.return_value = ('', '')
-            with patch('jujupy.Juju2Backend._now',
-                       return_value=backend.soft_deadline):
-                backend.get_juju_output('cmd', ('args',), [], 'home')
-            now = backend.soft_deadline + timedelta(seconds=1)
-            with patch('jujupy.Juju2Backend._now', return_value=now):
-                with self.assertRaisesRegexp(SoftDeadlineExceeded,
-                                             'Operation exceeded deadline.'):
-                    backend.get_juju_output('cmd', ('args',), [], 'home')
-
-    def test_get_active_model(self):
-        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
-                               soft_deadline=None)
-        with patch('subprocess.Popen') as mock_popen:
-            mock_popen.return_value.communicate.return_value = (
-                '{"current-model": "model"}', '')
-            mock_popen.return_value.returncode = 0
-            result = backend.get_active_model('/foo/bar')
-        self.assertEqual(('model'), result)
-
-    def test_get_active_model_none(self):
-        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
-                               soft_deadline=None)
-        with patch('subprocess.Popen', autospec=True, return_value=FakePopen(
-                   '{"models": {}}', '', 0)):
-            with self.assertRaises(NoActiveModel):
-                backend.get_active_model('/foo/bar')
-
-
 def backend_call(client, cmd, args, model=None, check=True, timeout=None,
                  extra_env=None):
     """Return the mock.call for this command."""
     return call(cmd, args, client.used_feature_flags,
                 client.env.juju_home, model, check, timeout, extra_env,
                 suppress_err=False)
-
-
-class TestBaseCondition(ClientTest):
-
-    def test_timeout(self):
-        condition = BaseCondition()
-        self.assertEqual(300, condition.timeout)
-        condition = BaseCondition(600)
-        self.assertEqual(600, condition.timeout)
-
-
-class TestConditionList(ClientTest):
-
-    def test_uses_max_timeout(self):
-        conditions = ConditionList([Mock(timeout=300), Mock(timeout=400)])
-        self.assertEqual(400, conditions.timeout)
-
-    def test_empty_timeout(self):
-        conditions = ConditionList([])
-        self.assertEqual(300, conditions.timeout)
-
-    def test_iter_blocking_state(self):
-        mock_ab = Mock(timeout=0)
-        mock_ab.iter_blocking_state.return_value = [('a', 'b')]
-        mock_cd = Mock(timeout=0)
-        mock_cd.iter_blocking_state.return_value = [('c', 'd')]
-        conditions = ConditionList([mock_ab, mock_cd])
-        self.assertEqual([('a', 'b'), ('c', 'd')],
-                         list(conditions.iter_blocking_state(None)))
-
-
-class TestNoopCondition(ClientTest):
-
-    def test_iter_blocking_state_is_noop(self):
-        condition = NoopCondition()
-        called = False
-        for _ in condition.iter_blocking_state({}):
-            called = True
-        self.assertFalse(called)
-
-    def test_do_raise_raises_Exception(self):
-        condition = NoopCondition()
-        with self.assertRaises(Exception):
-            condition.do_raise('model_name', {})
-
-
-class TestWaitMachineNotPresent(ClientTest):
-
-    def test_iter_blocking_state(self):
-        not_present = WaitMachineNotPresent('0')
-        client = fake_juju_client()
-        client.bootstrap()
-        self.assertItemsEqual(
-            [], not_present.iter_blocking_state(client.get_status()))
-        client.juju('add-machine', ())
-        self.assertItemsEqual(
-            [('0', 'still-present')],
-            not_present.iter_blocking_state(client.get_status()))
-        client.juju('remove-machine', ('0'))
-        self.assertItemsEqual(
-            [], not_present.iter_blocking_state(client.get_status()))
-
-    def test_do_raise(self):
-        not_present = WaitMachineNotPresent('0')
-        with self.assertRaisesRegexp(
-                Exception, 'Timed out waiting for machine removal 0'):
-            not_present.do_raise('', None)
-
-
-class TestWaitApplicationNotPresent(ClientTest):
-
-    def test_iter_blocking_state(self):
-        not_present = WaitApplicationNotPresent('foo')
-        client = fake_juju_client()
-        client.bootstrap()
-        self.assertItemsEqual(
-            [], not_present.iter_blocking_state(client.get_status()))
-        client.deploy('foo')
-        self.assertItemsEqual(
-            [('foo', 'still-present')],
-            not_present.iter_blocking_state(client.get_status()))
-        client.remove_service('foo')
-        self.assertItemsEqual(
-            [], not_present.iter_blocking_state(client.get_status()))
-
-    def test_do_raise(self):
-        not_present = WaitApplicationNotPresent('foo')
-        with self.assertRaisesRegexp(
-                Exception, 'Timed out waiting for application removal foo'):
-            not_present.do_raise('', None)
-
-
-class TestMachineDown(ClientTest):
-
-    def test_iter_blocking_state(self):
-        down = MachineDown('0')
-        client = fake_juju_client()
-        client.bootstrap()
-        client.juju('add-machine', ())
-        self.assertItemsEqual(
-            [('0', 'idle')],
-            down.iter_blocking_state(client.get_status()))
-        status = Status({'machines': {'0': {'juju-status': {
-            'current': 'down',
-            }}}}, '')
-        self.assertItemsEqual(
-            [], down.iter_blocking_state(status))
-
-    def test_do_raise(self):
-        down = MachineDown('0')
-        with self.assertRaisesRegexp(
-                Exception,
-                'Timed out waiting for juju to determine machine 0 down.'):
-            down.do_raise('', None)
 
 
 def make_resource_list(service_app_id='applicationId'):
@@ -498,16 +173,6 @@ class TestModelClient(ClientTest):
         client = ModelClient(env, '1.25', 'full_path')
         self.assertIs(env, client.env)
 
-    def test_convert_to_juju_data(self):
-        env = SimpleEnvironment('foo', {'type': 'bar'}, 'baz')
-        with patch.object(JujuData, 'load_yaml'):
-            client = ModelClient(env, '1.25', 'full_path')
-            client.env.load_yaml.assert_called_once_with()
-        self.assertIsInstance(client.env, JujuData)
-        self.assertEqual(client.env.environment, 'foo')
-        self.assertEqual(client.env._config, {'type': 'bar'})
-        self.assertEqual(client.env.juju_home, 'baz')
-
     def test_get_version(self):
         value = ' 5.6 \n'.encode('ascii')
         with patch('subprocess.check_output', return_value=value) as vsn:
@@ -523,13 +188,9 @@ class TestModelClient(ClientTest):
 
     def test_get_matching_agent_version(self):
         client = ModelClient(
-            JujuData(None, {'type': 'local'}, juju_home='foo'),
+            JujuData(None, {'type': 'lxd'}, juju_home='foo'),
             '1.23-series-arch', None)
-        self.assertEqual('1.23.1', client.get_matching_agent_version())
-        self.assertEqual('1.23', client.get_matching_agent_version(
-                         no_build=True))
-        client = client.clone(version='1.20-beta1-series-arch')
-        self.assertEqual('1.20-beta1.1', client.get_matching_agent_version())
+        self.assertEqual('1.23', client.get_matching_agent_version())
 
     def test_upgrade_juju_nonlocal(self):
         client = ModelClient(
@@ -538,16 +199,9 @@ class TestModelClient(ClientTest):
             client.upgrade_juju()
         juju_mock.assert_called_with(('--agent-version', '2.0'))
 
-    def test_upgrade_juju_local(self):
-        client = ModelClient(
-            JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
-        with patch.object(client, '_upgrade_juju') as juju_mock:
-            client.upgrade_juju()
-        juju_mock.assert_called_with(('--agent-version', '2.0',))
-
     def test_upgrade_juju_no_force_version(self):
         client = ModelClient(
-            JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
+            JujuData('foo', {'type': 'lxd'}), '2.0-betaX', None)
         with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju(force_version=False)
         juju_mock.assert_called_with(())
@@ -564,19 +218,6 @@ class TestModelClient(ClientTest):
         self.assertIs(client1.debug, client2.debug)
         self.assertEqual(client1.feature_flags, client2.feature_flags)
         self.assertEqual(client1._backend, client2._backend)
-
-    def test_clone_changed(self):
-        client1 = ModelClient(JujuData('foo'), '1.27', 'full/path',
-                              debug=True)
-        env2 = SimpleEnvironment('bar')
-        client2 = client1.clone(env2, '1.28', 'other/path', debug=False,
-                                cls=EnvJujuClient1X)
-        self.assertIs(EnvJujuClient1X, type(client2))
-        self.assertIs(env2, client2.env)
-        self.assertEqual('1.28', client2.version)
-        self.assertEqual('other/path', client2.full_path)
-        self.assertIs(False, client2.debug)
-        self.assertEqual(client1.feature_flags, client2.feature_flags)
 
     def test_get_cache_path(self):
         client = ModelClient(JujuData('foo', juju_home='/foo/'),
@@ -888,18 +529,14 @@ class TestModelClient(ClientTest):
                                       agent_version='2.0-lambda1')
 
     def test_add_model_hypenated_controller(self):
-        self.do_add_model(
-            'kill-controller', 'add-model', ('-c', 'foo'))
+        self.do_add_model('add-model', ('-c', 'foo'))
 
-    def do_add_model(self, jes_command, create_cmd, controller_option):
+    def do_add_model(self, create_cmd, controller_option):
         controller_client = ModelClient(JujuData('foo'), None, None)
         model_data = JujuData('bar', {'type': 'foo'})
-        client = ModelClient(model_data, None, None)
-        with patch.object(client, 'get_jes_command',
-                          return_value=jes_command):
-                with patch_juju_call(controller_client) as ccj_mock:
-                    with observable_temp_file() as config_file:
-                        controller_client.add_model(model_data)
+        with patch_juju_call(controller_client) as ccj_mock:
+            with observable_temp_file() as config_file:
+                controller_client.add_model(model_data)
         ccj_mock.assert_called_once_with(
             create_cmd, controller_option + (
                 'bar', '--config', config_file.name), include_e=False)
@@ -928,11 +565,6 @@ class TestModelClient(ClientTest):
             '-c', 'name', 'new-model', '--config', config_file.name),
             frozenset({'migration'}), 'foo', None, True, None, None,
             suppress_err=False)
-
-    def test_destroy_environment(self):
-        env = JujuData('foo')
-        client = ModelClient(env, None, None)
-        self.assertIs(False, hasattr(client, 'destroy_environment'))
 
     def test_destroy_model(self):
         env = JujuData('foo', {'type': 'ec2'})
@@ -976,16 +608,6 @@ class TestModelClient(ClientTest):
         juju_mock.assert_called_once_with(
             'kill-controller', ('foo', '-y'), check=True, include_e=False,
             timeout=600)
-
-    def do_kill_controller_azure(self, jes_command, kill_command):
-        client = ModelClient(JujuData('foo', {'type': 'azure'}), None, None)
-        with patch.object(client, 'get_jes_command',
-                          return_value=jes_command):
-            with patch_juju_call(client) as juju_mock:
-                client.kill_controller()
-        juju_mock.assert_called_once_with(
-            kill_command, ('foo', '-y'), check=False, include_e=False,
-            timeout=2700)
 
     def test_kill_controller_gce(self):
         client = ModelClient(JujuData('foo', {'type': 'gce'}), None, None)
@@ -1255,21 +877,21 @@ class TestModelClient(ClientTest):
 
     def test_deploy_non_joyent(self):
         env = ModelClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb')
         mock_juju.assert_called_with('deploy', ('mondogb',))
 
     def test_deploy_joyent(self):
         env = ModelClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb')
         mock_juju.assert_called_with('deploy', ('mondogb',))
 
     def test_deploy_repository(self):
         env = ModelClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('/home/jrandom/repo/mongodb')
         mock_juju.assert_called_with(
@@ -1277,7 +899,7 @@ class TestModelClient(ClientTest):
 
     def test_deploy_to(self):
         env = ModelClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb', to='0')
         mock_juju.assert_called_with(
@@ -1285,7 +907,7 @@ class TestModelClient(ClientTest):
 
     def test_deploy_service(self):
         env = ModelClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('local:mondogb', service='my-mondogb')
         mock_juju.assert_called_with(
@@ -1293,14 +915,14 @@ class TestModelClient(ClientTest):
 
     def test_deploy_force(self):
         env = ModelClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('local:mondogb', force=True)
         mock_juju.assert_called_with('deploy', ('local:mondogb', '--force',))
 
     def test_deploy_series(self):
         env = ModelClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('local:blah', series='xenial')
         mock_juju.assert_called_with(
@@ -1308,57 +930,57 @@ class TestModelClient(ClientTest):
 
     def test_deploy_multiple(self):
         env = ModelClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('local:blah', num=2)
         mock_juju.assert_called_with(
             'deploy', ('local:blah', '-n', '2'))
 
     def test_deploy_resource(self):
-        env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
+        env = ModelClient(JujuData('foo', {'type': 'lxd'}), None, None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('local:blah', resource='foo=/path/dir')
         mock_juju.assert_called_with(
             'deploy', ('local:blah', '--resource', 'foo=/path/dir'))
 
     def test_deploy_storage(self):
-        env = EnvJujuClient1X(
-            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        env = ModelClient(
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb', storage='rootfs,1G')
         mock_juju.assert_called_with(
             'deploy', ('mondogb', '--storage', 'rootfs,1G'))
 
     def test_deploy_constraints(self):
-        env = EnvJujuClient1X(
-            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        env = ModelClient(
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('mondogb', constraints='virt-type=kvm')
         mock_juju.assert_called_with(
             'deploy', ('mondogb', '--constraints', 'virt-type=kvm'))
 
     def test_deploy_bind(self):
-        env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
+        env = ModelClient(JujuData('foo', {'type': 'lxd'}), None, None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('mydb', bind='backspace')
         mock_juju.assert_called_with('deploy', ('mydb', '--bind', 'backspace'))
 
     def test_deploy_aliased(self):
-        env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
+        env = ModelClient(JujuData('foo', {'type': 'lxd'}), None, None)
         with patch_juju_call(env) as mock_juju:
             env.deploy('local:blah', alias='blah-blah')
         mock_juju.assert_called_with(
             'deploy', ('local:blah', 'blah-blah'))
 
     def test_attach(self):
-        env = ModelClient(JujuData('foo', {'type': 'local'}), None, None)
+        env = ModelClient(JujuData('foo', {'type': 'lxd'}), None, None)
         with patch_juju_call(env) as mock_juju:
             env.attach('foo', resource='foo=/path/dir')
         mock_juju.assert_called_with('attach', ('foo', 'foo=/path/dir'))
 
     def test_list_resources(self):
         data = 'resourceid: resource/foo'
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         with patch.object(
                 client, 'get_juju_output', return_value=data) as mock_gjo:
             status = client.list_resources('foo')
@@ -1367,7 +989,7 @@ class TestModelClient(ClientTest):
             'list-resources', '--format', 'yaml', 'foo', '--details')
 
     def test_wait_for_resource(self):
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         with patch.object(
                 client, 'list_resources',
                 return_value=make_resource_list()) as mock_lr:
@@ -1375,7 +997,7 @@ class TestModelClient(ClientTest):
         mock_lr.assert_called_once_with('foo')
 
     def test_wait_for_resource_timeout(self):
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         resource_list = make_resource_list()
         resource_list['resources'][0]['expected']['resourceid'] = 'bad_id'
         with patch.object(
@@ -1394,7 +1016,7 @@ class TestModelClient(ClientTest):
         self.assertEqual(mock_ju.mock_calls, [call(60)])
 
     def test_wait_for_resource_suppresses_deadline(self):
-        client = ModelClient(JujuData('local', juju_home=''), None, None)
+        client = ModelClient(JujuData('lxd', juju_home=''), None, None)
         with client_past_deadline(client):
             real_check_timeouts = client.check_timeouts
 
@@ -1410,7 +1032,7 @@ class TestModelClient(ClientTest):
 
     def test_wait_for_resource_checks_deadline(self):
         resource_list = make_resource_list()
-        client = ModelClient(JujuData('local', juju_home=''), None, None)
+        client = ModelClient(JujuData('lxd', juju_home=''), None, None)
         with client_past_deadline(client):
             with patch.object(client, 'list_resources', autospec=True,
                               return_value=resource_list):
@@ -1435,7 +1057,7 @@ class TestModelClient(ClientTest):
 
     def test_upgrade_charm(self):
         env = ModelClient(
-            JujuData('foo', {'type': 'local'}), '2.34-74', None)
+            JujuData('foo', {'type': 'lxd'}), '2.34-74', None)
         with patch_juju_call(env) as mock_juju:
             env.upgrade_charm('foo-service',
                               '/bar/repository/angsty/mongodb')
@@ -1445,14 +1067,14 @@ class TestModelClient(ClientTest):
 
     def test_remove_service(self):
         env = ModelClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         with patch_juju_call(env) as mock_juju:
             env.remove_service('mondogb')
         mock_juju.assert_called_with('remove-application', ('mondogb',))
 
     def test_status_until_always_runs_once(self):
         client = ModelClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         status_txt = self.make_status_yaml('agent-state', 'started', 'started')
         with patch.object(client, 'get_juju_output', return_value=status_txt):
             result = list(client.status_until(-1))
@@ -1462,7 +1084,7 @@ class TestModelClient(ClientTest):
 
     def test_status_until_timeout(self):
         client = ModelClient(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
+            JujuData('foo', {'type': 'lxd'}), '1.234-76', None)
         status_txt = self.make_status_yaml('agent-state', 'started', 'started')
         status_yaml = yaml.safe_load(status_txt)
 
@@ -1642,13 +1264,13 @@ class TestModelClient(ClientTest):
 
     def test_wait_for_started(self):
         value = self.make_status_yaml('agent-state', 'started', 'started')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for_started()
 
     def test_wait_for_started_timeout(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         with patch('jujupy.client.until_timeout',
                    lambda x, start=None: range(1)):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -1657,13 +1279,13 @@ class TestModelClient(ClientTest):
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
                             StatusNotMet,
-                            'Timed out waiting for agents to start in local'):
+                            'Timed out waiting for agents to start in lxd'):
                         client.wait_for_started()
                 self.assertEqual(writes, ['pending: 0', ' .', '\n'])
 
     def test_wait_for_started_start(self):
         value = self.make_status_yaml('agent-state', 'started', 'pending')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -1672,7 +1294,7 @@ class TestModelClient(ClientTest):
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
                             StatusNotMet,
-                            'Timed out waiting for agents to start in local'):
+                            'Timed out waiting for agents to start in lxd'):
                         client.wait_for_started(start=now - timedelta(1200))
                 self.assertEqual(writes, ['pending: jenkins/0', '\n'])
 
@@ -1692,7 +1314,7 @@ class TestModelClient(ClientTest):
         Also, the client is patched so that the soft_deadline has been hit.
         """
         if client is None:
-            client = ModelClient(JujuData('local', juju_home=''), None, None)
+            client = ModelClient(JujuData('lxd', juju_home=''), None, None)
         with client_past_deadline(client):
             # This will work even after we patch check_timeouts below.
             real_check_timeouts = client.check_timeouts
@@ -1721,7 +1343,7 @@ class TestModelClient(ClientTest):
         Also, the client is patched so that the soft_deadline has been hit.
         """
         if client is None:
-            client = ModelClient(JujuData('local', juju_home=''), None, None)
+            client = ModelClient(JujuData('lxd', juju_home=''), None, None)
         with client_past_deadline(client):
             status_obj = client.status_class(status, '')
             with patch.object(client, 'get_status', autospec=True,
@@ -1788,14 +1410,14 @@ class TestModelClient(ClientTest):
 
     def test_wait_for_started_logs_status(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
             with patch.object(GroupReporter, '_write', autospec=True,
                               side_effect=lambda _, s: writes.append(s)):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
-                        'Timed out waiting for agents to start in local'):
+                        'Timed out waiting for agents to start in lxd'):
                     client.wait_for_started(0)
             self.assertEqual(writes, ['pending: 0', '\n'])
         self.assertEqual(
@@ -1822,7 +1444,7 @@ class TestModelClient(ClientTest):
                       sub3/0:
                         agent-state: started
         """).encode('ascii')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -1860,7 +1482,7 @@ class TestModelClient(ClientTest):
                         agent-status:
                           current: idle
         """).encode('ascii')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -1891,7 +1513,7 @@ class TestModelClient(ClientTest):
                       sub/1:
                         agent-state: started
         """).encode('ascii')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
@@ -1918,13 +1540,13 @@ class TestModelClient(ClientTest):
                       sub1:
                         agent-state: started
         """).encode('ascii')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
-                        'Timed out waiting for agents to start in local'):
+                        'Timed out waiting for agents to start in lxd'):
                     client.wait_for_subordinate_units(
                         'jenkins', 'sub1', start=now - timedelta(1200))
 
@@ -1939,13 +1561,13 @@ class TestModelClient(ClientTest):
                   jenkins/0:
                     agent-state: started
         """).encode('ascii')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         now = datetime.now() + timedelta(days=1)
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
-                        'Timed out waiting for agents to start in local'):
+                        'Timed out waiting for agents to start in lxd'):
                     client.wait_for_subordinate_units(
                         'jenkins', 'sub1', start=now - timedelta(1200))
 
@@ -1966,7 +1588,7 @@ class TestModelClient(ClientTest):
         final_status = Status(copy.deepcopy(initial_status.status), None)
         final_status.status['applications']['jenkins']['units']['jenkins/0'][
             'workload-status']['current'] = 'active'
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         writes = []
         with patch('utility.until_timeout', autospec=True, return_value=[1]):
             with patch.object(client, 'get_status', autospec=True,
@@ -1989,7 +1611,7 @@ class TestModelClient(ClientTest):
                       workload-status:
                         current: unknown
         """)
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         writes = []
         with patch('utility.until_timeout', autospec=True, return_value=[]):
             with patch.object(client, 'get_status', autospec=True,
@@ -2007,7 +1629,7 @@ class TestModelClient(ClientTest):
                   jenkins/0:
                     agent-state: active
         """)
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         writes = []
         with patch('utility.until_timeout', autospec=True, return_value=[]):
             with patch.object(client, 'get_status', autospec=True,
@@ -2366,7 +1988,7 @@ class TestModelClient(ClientTest):
         self.assertEqual(Machine('3', {}), leader)
 
     def make_controller_client(self):
-        client = ModelClient(JujuData('local', {'name': 'test'}), None, None)
+        client = ModelClient(JujuData('lxd', {'name': 'test'}), None, None)
         return client.get_controller_client()
 
     def test_wait_for_ha(self):
@@ -2461,7 +2083,7 @@ class TestModelClient(ClientTest):
                 }
             }
         }).encode('ascii')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for_deploy_started()
 
@@ -2472,7 +2094,7 @@ class TestModelClient(ClientTest):
             },
             'applications': {},
         })
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         with patch('jujupy.client.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
@@ -2507,13 +2129,13 @@ class TestModelClient(ClientTest):
 
     def test_wait_for_version(self):
         value = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for_version('1.17.2')
 
     def test_wait_for_version_timeout(self):
         value = self.make_status_yaml('agent-version', '1.17.2', '1.17.1')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         writes = []
         with patch('jujupy.client.until_timeout',
                    lambda x, start=None: [x]):
@@ -2539,7 +2161,7 @@ class TestModelClient(ClientTest):
             else:
                 return action
 
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         with patch.object(client, 'get_juju_output', get_juju_output_fake):
             client.wait_for_version('1.17.2')
 
@@ -2555,7 +2177,7 @@ class TestModelClient(ClientTest):
             else:
                 return action
 
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         with patch.object(client, 'get_juju_output', get_juju_output_fake):
             with self.assertRaisesRegexp(Exception, 'foo'):
                 client.wait_for_version('1.17.2')
@@ -2566,7 +2188,7 @@ class TestModelClient(ClientTest):
                 '0': {'agent-state': 'started'},
             },
         }).encode('ascii')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
             client.wait_for(WaitMachineNotPresent('1'), quiet=True)
 
@@ -2577,7 +2199,7 @@ class TestModelClient(ClientTest):
                 '1': {'agent-state': 'started'},
             },
         }).encode('ascii')
-        client = ModelClient(JujuData('local'), None, None)
+        client = ModelClient(JujuData('lxd'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value), \
             patch('jujupy.client.until_timeout',
                   lambda x, start=None: range(1)), \
@@ -3052,28 +2674,6 @@ class TestModelClient(ClientTest):
                 pass
             self.assertNotEqual(environ, os.environ)
 
-    def test_is_jes_enabled(self):
-        # ModelClient knows that JES is always enabled, and doesn't need to
-        # shell out.
-        env = JujuData('qux')
-        client = ModelClient(env, None, '/foobar/baz')
-        fake_popen = FakePopen(' %s' % SYSTEM, None, 0)
-        with patch('subprocess.Popen',
-                   return_value=fake_popen) as po_mock:
-            self.assertTrue(client.is_jes_enabled())
-        self.assertEqual(0, po_mock.call_count)
-
-    def test_get_jes_command(self):
-        env = JujuData('qux')
-        client = ModelClient(env, None, '/foobar/baz')
-        # Juju 1.24 and older do not have a JES command. It is an error
-        # to call get_jes_command when is_jes_enabled is False
-        fake_popen = FakePopen(' %s' % SYSTEM, None, 0)
-        with patch('subprocess.Popen',
-                   return_value=fake_popen) as po_mock:
-            self.assertEqual(KILL_CONTROLLER, client.get_jes_command())
-        self.assertEqual(0, po_mock.call_count)
-
     def test_get_juju_timings(self):
         first_start = datetime(2017, 3, 22, 23, 36, 52, 0)
         first_end = first_start + timedelta(seconds=2)
@@ -3105,7 +2705,7 @@ class TestModelClient(ClientTest):
         self.assertEqual(flattened_timings, expected)
 
     def test_deployer(self):
-        client = ModelClient(JujuData('foo', {'type': 'local'}),
+        client = ModelClient(JujuData('foo', {'type': 'lxd'}),
                              '1.23-series-arch', None)
         with patch.object(ModelClient, 'juju') as mock:
             client.deployer('bundle:~juju-qa/some-bundle')
@@ -3116,7 +2716,7 @@ class TestModelClient(ClientTest):
             include_e=False)
 
     def test_deployer_with_bundle_name(self):
-        client = ModelClient(JujuData('foo', {'type': 'local'}),
+        client = ModelClient(JujuData('foo', {'type': 'lxd'}),
                              '2.0.0-series-arch', None)
         with patch.object(ModelClient, 'juju') as mock:
             client.deployer('bundle:~juju-qa/some-bundle', 'name')
@@ -3137,7 +2737,7 @@ class TestModelClient(ClientTest):
             extra_env={'JUJU': '/juju'})
 
     def test_quickstart_local(self):
-        client = ModelClient(JujuData(None, {'type': 'local'}),
+        client = ModelClient(JujuData(None, {'type': 'lxd'}),
                              '1.23-series-arch', '/juju')
         with patch.object(ModelClient, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
@@ -3147,7 +2747,7 @@ class TestModelClient(ClientTest):
             extra_env={'JUJU': '/juju'})
 
     def test_quickstart_template(self):
-        client = ModelClient(JujuData(None, {'type': 'local'}),
+        client = ModelClient(JujuData(None, {'type': 'lxd'}),
                              '1.23-series-arch', '/juju')
         with patch.object(ModelClient, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-{container}-bundle')
@@ -3157,7 +2757,7 @@ class TestModelClient(ClientTest):
             extra_env={'JUJU': '/juju'})
 
     def test_action_do(self):
-        client = ModelClient(JujuData(None, {'type': 'local'}),
+        client = ModelClient(JujuData(None, {'type': 'lxd'}),
                              '1.23-series-arch', None)
         with patch.object(ModelClient, 'get_juju_output') as mock:
             mock.return_value = \
@@ -3169,7 +2769,7 @@ class TestModelClient(ClientTest):
         )
 
     def test_action_do_error(self):
-        client = ModelClient(JujuData(None, {'type': 'local'}),
+        client = ModelClient(JujuData(None, {'type': 'lxd'}),
                              '1.23-series-arch', None)
         with patch.object(ModelClient, 'get_juju_output') as mock:
             mock.return_value = "some bad text"
@@ -3178,7 +2778,7 @@ class TestModelClient(ClientTest):
                 client.action_do("foo/0", "myaction", "param=5")
 
     def test_action_fetch(self):
-        client = ModelClient(JujuData(None, {'type': 'local'}),
+        client = ModelClient(JujuData(None, {'type': 'lxd'}),
                              '1.23-series-arch', None)
         with patch.object(ModelClient, 'get_juju_output') as mock:
             ret = "status: completed\nfoo: bar"
@@ -3190,7 +2790,7 @@ class TestModelClient(ClientTest):
         )
 
     def test_action_fetch_timeout(self):
-        client = ModelClient(JujuData(None, {'type': 'local'}),
+        client = ModelClient(JujuData(None, {'type': 'lxd'}),
                              '1.23-series-arch', None)
         ret = "status: pending\nfoo: bar"
         with patch.object(ModelClient,
@@ -3200,7 +2800,7 @@ class TestModelClient(ClientTest):
                 client.action_fetch("123")
 
     def test_action_do_fetch(self):
-        client = ModelClient(JujuData(None, {'type': 'local'}),
+        client = ModelClient(JujuData(None, {'type': 'lxd'}),
                              '1.23-series-arch', None)
         with patch.object(ModelClient, 'get_juju_output') as mock:
             ret = "status: completed\nfoo: bar"
@@ -3255,7 +2855,7 @@ class TestModelClient(ClientTest):
             'run', '--format', 'json', '--unit', 'foo/0,foo/1,foo/2', 'true')
 
     def test_list_space(self):
-        client = ModelClient(JujuData(None, {'type': 'local'}),
+        client = ModelClient(JujuData(None, {'type': 'lxd'}),
                              '1.23-series-arch', None)
         yaml_dict = {'foo': 'bar'}
         output = yaml.safe_dump(yaml_dict)
@@ -3266,14 +2866,14 @@ class TestModelClient(ClientTest):
         gjo_mock.assert_called_once_with('list-space')
 
     def test_add_space(self):
-        client = ModelClient(JujuData(None, {'type': 'local'}),
+        client = ModelClient(JujuData(None, {'type': 'lxd'}),
                              '1.23-series-arch', None)
         with patch.object(client, 'juju', autospec=True) as juju_mock:
             client.add_space('foo-space')
         juju_mock.assert_called_once_with('add-space', ('foo-space'))
 
     def test_add_subnet(self):
-        client = ModelClient(JujuData(None, {'type': 'local'}),
+        client = ModelClient(JujuData(None, {'type': 'lxd'}),
                              '1.23-series-arch', None)
         with patch.object(client, 'juju', autospec=True) as juju_mock:
             client.add_subnet('bar-subnet', 'foo-space')
@@ -3435,11 +3035,12 @@ class TestModelClient(ClientTest):
                 get_output.assert_called_with(
                     'add-user', *expected_args, include_e=False)
                 if permissions == 'login':
-                    mock_juju.assert_called_once_with(
-                        'grant',
-                        ('fakeuser', permissions,
-                         '-c', fake_client.env.controller.name),
-                        include_e=False)
+                    # Granting login is ignored, it's implicit when adding
+                    # a user.
+                    if mock_juju.call_count != 0:
+                        raise Exception(
+                            'Call count {} != 0'.format(
+                                mock_juju.call_count))
                 else:
                     mock_juju.assert_called_once_with(
                         'grant',
@@ -3798,69 +3399,20 @@ class TestModelClient(ClientTest):
         self.assertRaises(ValueError, client.switch)
 
 
-class TestUniquifyLocal(TestCase):
-
-    def test_uniquify_local_empty(self):
-        env = SimpleEnvironment('foo', {'type': 'local'})
-        uniquify_local(env)
-        self.assertEqual(env._config, {
-            'type': 'local',
-            'api-port': 17071,
-            'state-port': 37018,
-            'storage-port': 8041,
-            'syslog-port': 6515,
-        })
-
-    def test_uniquify_local_preset(self):
-        env = SimpleEnvironment('foo', {
-            'type': 'local',
-            'api-port': 17071,
-            'state-port': 37018,
-            'storage-port': 8041,
-            'syslog-port': 6515,
-        })
-        uniquify_local(env)
-        self.assertEqual(env._config, {
-            'type': 'local',
-            'api-port': 17072,
-            'state-port': 37019,
-            'storage-port': 8042,
-            'syslog-port': 6516,
-        })
-
-    def test_uniquify_nonlocal(self):
-        env = SimpleEnvironment('foo', {
-            'type': 'nonlocal',
-            'api-port': 17071,
-            'state-port': 37018,
-            'storage-port': 8041,
-            'syslog-port': 6515,
-        })
-        uniquify_local(env)
-        self.assertEqual(env._config, {
-            'type': 'nonlocal',
-            'api-port': 17071,
-            'state-port': 37018,
-            'storage-port': 8041,
-            'syslog-port': 6515,
-        })
-
-
 @contextmanager
 def bootstrap_context(client=None):
     # Avoid unnecessary syscalls.
-    with patch('jujupy.client.check_free_disk_space'):
-        with scoped_environ():
-            with temp_dir() as fake_home:
-                os.environ['JUJU_HOME'] = fake_home
-                yield fake_home
+    with scoped_environ():
+        with temp_dir() as fake_home:
+            os.environ['JUJU_HOME'] = fake_home
+            yield fake_home
 
 
-class TestJesHomePath(TestCase):
+class TestJujuHomePath(TestCase):
 
-    def test_jes_home_path(self):
-        path = jes_home_path('/home/jrandom/foo', 'bar')
-        self.assertEqual(path, '/home/jrandom/foo/jes-homes/bar')
+    def test_juju_home_path(self):
+        path = juju_home_path('/home/jrandom/foo', 'bar')
+        self.assertEqual(path, '/home/jrandom/foo/juju-homes/bar')
 
 
 class TestGetCachePath(TestCase):
@@ -3872,13 +3424,6 @@ class TestGetCachePath(TestCase):
     def test_get_cache_path_models(self):
         path = get_cache_path('/home/jrandom/foo', models=True)
         self.assertEqual(path, '/home/jrandom/foo/models/cache.yaml')
-
-
-def stub_bootstrap(client):
-    jenv_path = get_jenv_path(client.env.juju_home, 'qux')
-    os.mkdir(os.path.dirname(jenv_path))
-    with open(jenv_path, 'w') as f:
-        f.write('Bogus jenv')
 
 
 class TestMakeSafeConfig(TestCase):
@@ -3895,15 +3440,6 @@ class TestMakeSafeConfig(TestCase):
             'agent-version': '1.2-alpha3',
             }, config)
 
-    def test_local(self):
-        with temp_dir() as juju_home:
-            env = JujuData('foo', {'type': 'local'}, juju_home=juju_home)
-            client = fake_juju_client(env)
-            with patch('jujupy.client.check_free_disk_space'):
-                config = make_safe_config(client)
-        self.assertEqual(get_local_root(client.env.juju_home, client.env),
-                         config['root-dir'])
-
     def test_bootstrap_replaces_agent_version(self):
         client = fake_juju_client(JujuData('foo', {'type': 'bar'},
                                   juju_home='foo'))
@@ -3917,1225 +3453,38 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
 
     @staticmethod
     def get_client(env):
-        return EnvJujuClient24(env, '1.24-fake', 'fake-juju-path')
+        return ModelClient(env, '1.24-fake', 'fake-juju-path')
 
     def test_no_config_mangling_side_effect(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'lxd'})
         client = self.get_client(env)
         with bootstrap_context(client) as fake_home:
             with temp_bootstrap_env(fake_home, client):
-                stub_bootstrap(client)
-        self.assertEqual(env.provider, 'local')
-
-    def test_temp_bootstrap_env_environment(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
-        with bootstrap_context() as fake_home:
-            client = self.get_client(env)
-            agent_version = client.get_matching_agent_version()
-            with temp_bootstrap_env(fake_home, client):
-                temp_home = os.environ['JUJU_HOME']
-                self.assertEqual(temp_home, os.environ['JUJU_DATA'])
-                self.assertNotEqual(temp_home, fake_home)
-                symlink_path = get_jenv_path(fake_home, 'qux')
-                symlink_target = os.path.realpath(symlink_path)
-                expected_target = os.path.realpath(
-                    get_jenv_path(temp_home, 'qux'))
-                self.assertEqual(symlink_target, expected_target)
-                config = yaml.safe_load(
-                    open(get_environments_path(temp_home)))
-                self.assertEqual(config, {'environments': {'qux': {
-                    'type': 'local',
-                    'root-dir': get_local_root(fake_home, client.env),
-                    'agent-version': agent_version,
-                    'test-mode': True,
-                    'name': 'qux',
-                }}})
-                stub_bootstrap(client)
+                pass
+        self.assertEqual(env.provider, 'lxd')
 
     def test_temp_bootstrap_env_provides_dir(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'lxd'})
         client = self.get_client(env)
-        juju_home = os.path.join(self.home_dir, 'asdf')
+        juju_home = os.path.join(self.home_dir, 'juju-homes', 'qux')
 
         def side_effect(*args, **kwargs):
             os.mkdir(juju_home)
             return juju_home
 
         with patch('jujupy.utility.mkdtemp', side_effect=side_effect):
-            with patch('jujupy.client.check_free_disk_space', autospec=True):
-                with temp_bootstrap_env(self.home_dir, client) as temp_home:
-                    pass
+            with temp_bootstrap_env(self.home_dir, client) as temp_home:
+                pass
         self.assertEqual(temp_home, juju_home)
 
     def test_temp_bootstrap_env_no_set_home(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
+        env = JujuData('qux', {'type': 'lxd'})
         client = self.get_client(env)
         os.environ['JUJU_HOME'] = 'foo'
         os.environ['JUJU_DATA'] = 'bar'
-        with patch('jujupy.client.check_free_disk_space', autospec=True):
-            with temp_bootstrap_env(self.home_dir, client, set_home=False):
-                self.assertEqual(os.environ['JUJU_HOME'], 'foo')
-                self.assertEqual(os.environ['JUJU_DATA'], 'bar')
-
-    def test_output(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
-        client = self.get_client(env)
-        with bootstrap_context(client) as fake_home:
-            with temp_bootstrap_env(fake_home, client):
-                stub_bootstrap(client)
-            jenv_path = get_jenv_path(fake_home, 'qux')
-            self.assertFalse(os.path.islink(jenv_path))
-            self.assertEqual(open(jenv_path).read(), 'Bogus jenv')
-
-    def test_rename_on_exception(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
-        client = self.get_client(env)
-        with bootstrap_context(client) as fake_home:
-            with self.assertRaisesRegexp(Exception, 'test-rename'):
-                with temp_bootstrap_env(fake_home, client):
-                    stub_bootstrap(client)
-                    raise Exception('test-rename')
-            jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
-            self.assertFalse(os.path.islink(jenv_path))
-            self.assertEqual(open(jenv_path).read(), 'Bogus jenv')
-
-    def test_exception_no_jenv(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
-        client = self.get_client(env)
-        with bootstrap_context(client) as fake_home:
-            with self.assertRaisesRegexp(Exception, 'test-rename'):
-                with temp_bootstrap_env(fake_home, client):
-                    jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
-                    os.mkdir(os.path.dirname(jenv_path))
-                    raise Exception('test-rename')
-            jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
-            self.assertFalse(os.path.lexists(jenv_path))
-
-    def test_check_space_local_lxc(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
-        with bootstrap_context() as fake_home:
-            client = self.get_client(env)
-            with patch('jujupy.client.check_free_disk_space') as mock_cfds:
-                with temp_bootstrap_env(fake_home, client):
-                    stub_bootstrap(client)
-        self.assertEqual(mock_cfds.mock_calls, [
-            call(os.path.join(fake_home, 'qux'), 8000000, 'MongoDB files'),
-            call('/var/lib/lxc', 2000000, 'LXC containers'),
-        ])
-
-    def test_check_space_local_kvm(self):
-        env = SimpleEnvironment('qux', {'type': 'local', 'container': 'kvm'})
-        with bootstrap_context() as fake_home:
-            client = self.get_client(env)
-            with patch('jujupy.client.check_free_disk_space') as mock_cfds:
-                with temp_bootstrap_env(fake_home, client):
-                    stub_bootstrap(client)
-        self.assertEqual(mock_cfds.mock_calls, [
-            call(os.path.join(fake_home, 'qux'), 8000000, 'MongoDB files'),
-            call('/var/lib/uvtool/libvirt/images', 2000000, 'KVM disk files'),
-        ])
-
-    def test_error_on_jenv(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
-        client = self.get_client(env)
-        with bootstrap_context(client) as fake_home:
-            jenv_path = get_jenv_path(fake_home, 'qux')
-            os.mkdir(os.path.dirname(jenv_path))
-            with open(jenv_path, 'w') as f:
-                f.write('In the way')
-            with self.assertRaisesRegexp(Exception, '.* already exists!'):
-                with temp_bootstrap_env(fake_home, client):
-                    stub_bootstrap(client)
-
-    def test_not_permanent(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
-        client = self.get_client(env)
-        with bootstrap_context(client) as fake_home:
-            client.env.juju_home = fake_home
-            with temp_bootstrap_env(fake_home, client,
-                                    permanent=False) as tb_home:
-                stub_bootstrap(client)
-            self.assertFalse(os.path.exists(tb_home))
-            self.assertTrue(os.path.exists(get_jenv_path(fake_home,
-                            client.env.environment)))
-            self.assertFalse(os.path.exists(get_jenv_path(tb_home,
-                             client.env.environment)))
-        self.assertFalse(os.path.exists(tb_home))
-        self.assertEqual(client.env.juju_home, fake_home)
-        self.assertNotEqual(tb_home,
-                            jes_home_path(fake_home, client.env.environment))
-
-    def test_permanent(self):
-        env = SimpleEnvironment('qux', {'type': 'local'})
-        client = self.get_client(env)
-        with bootstrap_context(client) as fake_home:
-            client.env.juju_home = fake_home
-            with temp_bootstrap_env(fake_home, client,
-                                    permanent=True) as tb_home:
-                stub_bootstrap(client)
-            self.assertTrue(os.path.exists(tb_home))
-            self.assertFalse(os.path.exists(get_jenv_path(fake_home,
-                             client.env.environment)))
-            self.assertTrue(os.path.exists(get_jenv_path(tb_home,
-                            client.env.environment)))
-        self.assertFalse(os.path.exists(tb_home))
-        self.assertEqual(client.env.juju_home, tb_home)
-
-
-class TestStatusErrorTree(TestCase):
-    """TestCase for StatusError and the tree of exceptions it roots."""
-
-    def test_priority(self):
-        pos = len(StatusError.ordering) - 1
-        self.assertEqual(pos, StatusError.priority())
-
-    def test_priority_mass(self):
-        for index, error_type in enumerate(StatusError.ordering):
-            self.assertEqual(index, error_type.priority())
-
-    def test_priority_children_first(self):
-        for index, error_type in enumerate(StatusError.ordering, 1):
-            for second_error in StatusError.ordering[index:]:
-                self.assertFalse(issubclass(second_error, error_type))
-
-    def test_priority_pairs(self):
-        self.assertLess(MachineError.priority(), UnitError.priority())
-        self.assertLess(UnitError.priority(), AppError.priority())
-        self.assertLess(StuckAllocatingError.priority(),
-                        MachineError.priority())
-        self.assertLess(ProvisioningError.priority(),
-                        StuckAllocatingError.priority())
-
-
-class TestStatusItem(TestCase):
-
-    @staticmethod
-    def make_status_item(status_name, item_name, **kwargs):
-        return StatusItem(status_name, item_name, {status_name: kwargs})
-
-    def assertIsType(self, obj, target_type):
-        self.assertIs(type(obj), target_type)
-
-    def test_datetime_since(self):
-        item = self.make_status_item(StatusItem.JUJU, '0',
-                                     since='19 Aug 2016 05:36:42Z')
-        target = datetime(2016, 8, 19, 5, 36, 42, tzinfo=tz.gettz('UTC'))
-        self.assertEqual(item.datetime_since, target)
-
-    def test_datetime_since_lxd(self):
-        UTC = tz.gettz('UTC')
-        item = self.make_status_item(StatusItem.JUJU, '0',
-                                     since='30 Nov 2016 09:58:43-05:00')
-        target = datetime(2016, 11, 30, 14, 58, 43, tzinfo=UTC)
-        self.assertEqual(item.datetime_since.astimezone(UTC), target)
-
-    def test_datetime_since_none(self):
-        item = self.make_status_item(StatusItem.JUJU, '0')
-        self.assertIsNone(item.datetime_since)
-
-    def test_to_exception_good(self):
-        item = self.make_status_item(StatusItem.JUJU, '0', current='idle')
-        self.assertIsNone(item.to_exception())
-
-    def test_to_exception_machine_error(self):
-        item = self.make_status_item(StatusItem.MACHINE, '0', current='error')
-        self.assertIsType(item.to_exception(), MachineError)
-
-    def test_to_exception_provisioning_error(self):
-        item = self.make_status_item(StatusItem.MACHINE, '0',
-                                     current='provisioning error')
-        self.assertIsType(item.to_exception(), ProvisioningError)
-
-    def test_to_exception_stuck_allocating(self):
-        item = self.make_status_item(StatusItem.MACHINE, '0',
-                                     current='allocating', message='foo')
-        with self.assertRaisesRegexp(
-                StuckAllocatingError,
-                "\('0', 'Stuck allocating.  Last message: foo'\)"):
-            raise item.to_exception()
-
-    def test_to_exception_allocating_unit(self):
-        item = self.make_status_item(StatusItem.JUJU, '0',
-                                     current='allocating', message='foo')
-        self.assertIs(None, item.to_exception())
-
-    def test_to_exception_app_error(self):
-        item = self.make_status_item(StatusItem.APPLICATION, '0',
-                                     current='error')
-        self.assertIsType(item.to_exception(), AppError)
-
-    def test_to_exception_unit_error(self):
-        item = self.make_status_item(StatusItem.WORKLOAD, 'fake/0',
-                                     current='error',
-                                     message='generic unit error')
-        self.assertIsType(item.to_exception(), UnitError)
-
-    def test_to_exception_hook_failed_error(self):
-        item = self.make_status_item(StatusItem.WORKLOAD, 'fake/0',
-                                     current='error',
-                                     message='hook failed: "bad hook"')
-        self.assertIsType(item.to_exception(), HookFailedError)
-
-    def test_to_exception_install_error(self):
-        item = self.make_status_item(StatusItem.WORKLOAD, 'fake/0',
-                                     current='error',
-                                     message='hook failed: "install error"')
-        self.assertIsType(item.to_exception(), InstallError)
-
-    def make_agent_item_ago(self, minutes):
-        now = datetime.utcnow()
-        then = now - timedelta(minutes=minutes)
-        then_str = then.strftime('%d %b %Y %H:%M:%SZ')
-        return self.make_status_item(StatusItem.JUJU, '0', current='error',
-                                     message='some error', since=then_str)
-
-    def test_to_exception_agent_error(self):
-        item = self.make_agent_item_ago(minutes=3)
-        self.assertIsType(item.to_exception(), AgentError)
-
-    def test_to_exception_agent_error_no_since(self):
-        item = self.make_status_item(StatusItem.JUJU, '0', current='error')
-        self.assertIsType(item.to_exception(), AgentError)
-
-    def test_to_exception_agent_unresolved_error(self):
-        item = self.make_agent_item_ago(minutes=6)
-        self.assertIsType(item.to_exception(), AgentUnresolvedError)
-
-
-class TestStatus(FakeHomeTestCase):
-
-    def test_model_name(self):
-        status = Status({'model': {'name': 'bar'}}, '')
-        self.assertEqual('bar', status.model_name)
-
-    def test_iter_machines_no_containers(self):
-        status = Status({
-            'machines': {
-                '1': {'foo': 'bar', 'containers': {'1/lxc/0': {'baz': 'qux'}}}
-            },
-            'applications': {}}, '')
-        self.assertEqual(list(status.iter_machines()),
-                         [('1', status.status['machines']['1'])])
-
-    def test_iter_machines_containers(self):
-        status = Status({
-            'machines': {
-                '1': {'foo': 'bar', 'containers': {'1/lxc/0': {'baz': 'qux'}}}
-            },
-            'applications': {}}, '')
-        self.assertEqual(list(status.iter_machines(containers=True)), [
-            ('1', status.status['machines']['1']),
-            ('1/lxc/0', {'baz': 'qux'}),
-        ])
-
-    def test__iter_units_in_application(self):
-        status = Status({}, '')
-        app_status = {
-            'units': {'jenkins/1': {'subordinates': {'sub': {'baz': 'qux'}}}}
-            }
-        expected = [
-            ('jenkins/1', {'subordinates': {'sub': {'baz': 'qux'}}}),
-            ('sub', {'baz': 'qux'})]
-        self.assertItemsEqual(expected,
-                              status._iter_units_in_application(app_status))
-
-    def test_agent_items_empty(self):
-        status = Status({'machines': {}, 'applications': {}}, '')
-        self.assertItemsEqual([], status.agent_items())
-
-    def test_agent_items(self):
-        status = Status({
-            'machines': {
-                '1': {'foo': 'bar'}
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {
-                            'subordinates': {
-                                'sub': {'baz': 'qux'}
-                            }
-                        }
-                    }
-                }
-            }
-        }, '')
-        expected = [
-            ('1', {'foo': 'bar'}),
-            ('jenkins/1', {'subordinates': {'sub': {'baz': 'qux'}}}),
-            ('sub', {'baz': 'qux'})]
-        self.assertItemsEqual(expected, status.agent_items())
-
-    def test_agent_items_containers(self):
-        status = Status({
-            'machines': {
-                '1': {'foo': 'bar', 'containers': {
-                    '2': {'qux': 'baz'},
-                    }}
-                },
-            'applications': {}
-            }, '')
-        expected = [
-            ('1', {'foo': 'bar', 'containers': {'2': {'qux': 'baz'}}}),
-            ('2', {'qux': 'baz'})
-            ]
-        self.assertItemsEqual(expected, status.agent_items())
-
-    def get_unit_agent_states_data(self):
-        status = Status({
-            'applications': {
-                'jenkins': {
-                    'units': {'jenkins/0': {'agent-state': 'good'},
-                              'jenkins/1': {'agent-state': 'bad'}},
-                    },
-                'fakejob': {
-                    'life': 'dying',
-                    'units': {'fakejob/0': {'agent-state': 'good'}},
-                    },
-                }
-            }, '')
-        expected = {
-            'good': ['jenkins/0'],
-            'bad': ['jenkins/1'],
-            'dying': ['fakejob/0'],
-            }
-        return status, expected
-
-    def test_unit_agent_states_new(self):
-        (status, expected) = self.get_unit_agent_states_data()
-        actual = status.unit_agent_states()
-        self.assertEqual(expected, actual)
-
-    def test_unit_agent_states_existing(self):
-        (status, expected) = self.get_unit_agent_states_data()
-        actual = defaultdict(list)
-        status.unit_agent_states(actual)
-        self.assertEqual(expected, actual)
-
-    def test_get_service_count_zero(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'good'},
-                '2': {},
-                },
-            }, '')
-        self.assertEqual(0, status.get_service_count())
-
-    def test_get_service_count(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'good'},
-                '2': {},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {'agent-state': 'bad'},
-                    }
-                },
-                'dummy-sink': {
-                    'units': {
-                        'dummy-sink/0': {'agent-state': 'started'},
-                    }
-                },
-                'juju-reports': {
-                    'units': {
-                        'juju-reports/0': {'agent-state': 'pending'},
-                    }
-                }
-            }
-        }, '')
-        self.assertEqual(3, status.get_service_count())
-
-    def test_get_service_unit_count_zero(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'good'},
-                '2': {},
-            },
-        }, '')
-        self.assertEqual(0, status.get_service_unit_count('jenkins'))
-
-    def test_get_service_unit_count(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'good'},
-                '2': {},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {'agent-state': 'bad'},
-                        'jenkins/2': {'agent-state': 'bad'},
-                        'jenkins/3': {'agent-state': 'bad'},
-                    }
-                }
-            }
-        }, '')
-        self.assertEqual(3, status.get_service_unit_count('jenkins'))
-
-    def test_get_unit(self):
-        status = Status({
-            'machines': {
-                '1': {},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {'agent-state': 'bad'},
-                    }
-                },
-                'dummy-sink': {
-                    'units': {
-                        'jenkins/2': {'agent-state': 'started'},
-                    }
-                },
-            }
-        }, '')
-        self.assertEqual(
-            status.get_unit('jenkins/1'), {'agent-state': 'bad'})
-        self.assertEqual(
-            status.get_unit('jenkins/2'), {'agent-state': 'started'})
-        with self.assertRaisesRegexp(KeyError, 'jenkins/3'):
-            status.get_unit('jenkins/3')
-
-    def test_service_subordinate_units(self):
-        status = Status({
-            'machines': {
-                '1': {},
-            },
-            'applications': {
-                'ubuntu': {},
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {
-                            'subordinates': {
-                                'chaos-monkey/0': {'agent-state': 'started'},
-                            }
-                        }
-                    }
-                },
-                'dummy-sink': {
-                    'units': {
-                        'jenkins/2': {
-                            'subordinates': {
-                                'chaos-monkey/1': {'agent-state': 'started'}
-                            }
-                        },
-                        'jenkins/3': {
-                            'subordinates': {
-                                'chaos-monkey/2': {'agent-state': 'started'}
-                            }
-                        }
-                    }
-                }
-            }
-        }, '')
-        self.assertItemsEqual(
-            status.service_subordinate_units('ubuntu'),
-            [])
-        self.assertItemsEqual(
-            status.service_subordinate_units('jenkins'),
-            [('chaos-monkey/0', {'agent-state': 'started'},)])
-        self.assertItemsEqual(
-            status.service_subordinate_units('dummy-sink'), [
-                ('chaos-monkey/1', {'agent-state': 'started'}),
-                ('chaos-monkey/2', {'agent-state': 'started'})]
-            )
-
-    def test_get_open_ports(self):
-        status = Status({
-            'machines': {
-                '1': {},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {'agent-state': 'bad'},
-                    }
-                },
-                'dummy-sink': {
-                    'units': {
-                        'jenkins/2': {'open-ports': ['42/tcp']},
-                    }
-                },
-            }
-        }, '')
-        self.assertEqual(status.get_open_ports('jenkins/1'), [])
-        self.assertEqual(status.get_open_ports('jenkins/2'), ['42/tcp'])
-
-    def test_agent_states_with_agent_state(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'good'},
-                '2': {},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {'agent-state': 'bad'},
-                        'jenkins/2': {'agent-state': 'good'},
-                    }
-                }
-            }
-        }, '')
-        expected = {
-            'good': ['1', 'jenkins/2'],
-            'bad': ['jenkins/1'],
-            'no-agent': ['2'],
-        }
-        self.assertEqual(expected, status.agent_states())
-
-    def test_agent_states_with_agent_status(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'good'},
-                '2': {},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {'agent-status': {'current': 'bad'}},
-                        'jenkins/2': {'agent-status': {'current': 'good'}},
-                        'jenkins/3': {},
-                    }
-                }
-            }
-        }, '')
-        expected = {
-            'good': ['1', 'jenkins/2'],
-            'bad': ['jenkins/1'],
-            'no-agent': ['2', 'jenkins/3'],
-        }
-        self.assertEqual(expected, status.agent_states())
-
-    def test_agent_states_with_juju_status(self):
-        status = Status({
-            'machines': {
-                '1': {'juju-status': {'current': 'good'}},
-                '2': {},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {'juju-status': {'current': 'bad'}},
-                        'jenkins/2': {'juju-status': {'current': 'good'}},
-                        'jenkins/3': {},
-                    }
-                }
-            }
-        }, '')
-        expected = {
-            'good': ['1', 'jenkins/2'],
-            'bad': ['jenkins/1'],
-            'no-agent': ['2', 'jenkins/3'],
-        }
-        self.assertEqual(expected, status.agent_states())
-
-    def test_agent_states_with_dying(self):
-        status = Status({
-            'machines': {},
-            'applications': {
-                'jenkins': {
-                    'life': 'alive',
-                    'units': {
-                        'jenkins/1': {'juju-status': {'current': 'bad'}},
-                        'jenkins/2': {'juju-status': {'current': 'good'}},
-                        }
-                    },
-                'fakejob': {
-                    'life': 'dying',
-                    'units': {
-                        'fakejob/1': {'juju-status': {'current': 'bad'}},
-                        'fakejob/2': {'juju-status': {'current': 'good'}},
-                        }
-                    },
-                }
-            }, '')
-        expected = {
-            'good': ['jenkins/2'],
-            'bad': ['jenkins/1'],
-            'dying': ['fakejob/1', 'fakejob/2'],
-            }
-        self.assertEqual(expected, status.agent_states())
-
-    def test_check_agents_started_not_started(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'good'},
-                '2': {},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {'agent-state': 'bad'},
-                        'jenkins/2': {'agent-state': 'good'},
-                    }
-                }
-            }
-        }, '')
-        self.assertEqual(status.agent_states(),
-                         status.check_agents_started('env1'))
-
-    def test_check_agents_started_all_started_with_agent_state(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'started'},
-                '2': {'agent-state': 'started'},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {
-                            'agent-state': 'started',
-                            'subordinates': {
-                                'sub1': {
-                                    'agent-state': 'started'
-                                }
-                            }
-                        },
-                        'jenkins/2': {'agent-state': 'started'},
-                    }
-                }
-            }
-        }, '')
-        self.assertIsNone(status.check_agents_started('env1'))
-
-    def test_check_agents_started_all_started_with_agent_status(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'started'},
-                '2': {'agent-state': 'started'},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {
-                            'agent-status': {'current': 'idle'},
-                            'subordinates': {
-                                'sub1': {
-                                    'agent-status': {'current': 'idle'}
-                                }
-                            }
-                        },
-                        'jenkins/2': {'agent-status': {'current': 'idle'}},
-                    }
-                }
-            }
-        }, '')
-        self.assertIsNone(status.check_agents_started('env1'))
-
-    def test_check_agents_started_dying(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'started'},
-                '2': {'agent-state': 'started'},
-                },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/1': {
-                            'agent-status': {'current': 'idle'},
-                            'subordinates': {
-                                'sub1': {
-                                    'agent-status': {'current': 'idle'}
-                                    }
-                                }
-                            },
-                        'jenkins/2': {'agent-status': {'current': 'idle'}},
-                        },
-                    'life': 'dying',
-                    }
-                }
-            }, '')
-        self.assertEqual(status.agent_states(),
-                         status.check_agents_started('env1'))
-
-    def test_check_agents_started_agent_error(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'any-error'},
-            },
-            'applications': {}
-        }, '')
-        with self.assertRaisesRegexp(ErroredUnit,
-                                     '1 is in state any-error'):
-            status.check_agents_started('env1')
-
-    def do_check_agents_started_agent_state_info_failure(self, failure):
-        status = Status({
-            'machines': {'0': {
-                'agent-state-info': failure}},
-            'applications': {},
-        }, '')
-        with self.assertRaises(ErroredUnit) as e_cxt:
-            status.check_agents_started()
-        e = e_cxt.exception
-        self.assertEqual(
-            str(e), '0 is in state {}'.format(failure))
-        self.assertEqual(e.unit_name, '0')
-        self.assertEqual(e.state, failure)
-
-    def do_check_agents_started_juju_status_failure(self, failure):
-        status = Status({
-            'machines': {
-                '0': {
-                    'juju-status': {
-                        'current': 'error',
-                        'message': failure}
-                    },
-                }
-            }, '')
-        with self.assertRaises(ErroredUnit) as e_cxt:
-            status.check_agents_started()
-        e = e_cxt.exception
-        # if message is blank, the failure should reflect the state instead
-        if not failure:
-            failure = 'error'
-        self.assertEqual(
-            str(e), '0 is in state {}'.format(failure))
-        self.assertEqual(e.unit_name, '0')
-        self.assertEqual(e.state, failure)
-
-    def do_check_agents_started_info_and_status_failure(self, failure):
-        status = Status({
-            'machines': {
-                '0': {
-                    'agent-state-info': failure,
-                    'juju-status': {
-                        'current': 'error',
-                        'message': failure}
-                    },
-                }
-            }, '')
-        with self.assertRaises(ErroredUnit) as e_cxt:
-            status.check_agents_started()
-        e = e_cxt.exception
-        self.assertEqual(
-            str(e), '0 is in state {}'.format(failure))
-        self.assertEqual(e.unit_name, '0')
-        self.assertEqual(e.state, failure)
-
-    def test_check_agents_started_read_juju_status_error(self):
-        failures = ['no "centos7" images in us-east-1 with arches [amd64]',
-                    'sending new instance request: GCE operation ' +
-                    '"operation-143" failed', '']
-        for failure in failures:
-            self.do_check_agents_started_juju_status_failure(failure)
-
-    def test_check_agents_started_read_agent_state_info_error(self):
-        failures = ['cannot set up groups foobar', 'cannot run instance',
-                    'cannot run instances', 'error executing "lxc-start"']
-        for failure in failures:
-            self.do_check_agents_started_agent_state_info_failure(failure)
-
-    def test_check_agents_started_agent_info_error(self):
-        # Sometimes the error is indicated in a special 'agent-state-info'
-        # field.
-        status = Status({
-            'machines': {
-                '1': {'agent-state-info': 'any-error'},
-            },
-            'applications': {}
-        }, '')
-        with self.assertRaisesRegexp(ErroredUnit,
-                                     '1 is in state any-error'):
-            status.check_agents_started('env1')
-
-    def test_get_agent_versions_1x(self):
-        status = Status({
-            'machines': {
-                '1': {'agent-version': '1.6.2'},
-                '2': {'agent-version': '1.6.1'},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/0': {
-                            'agent-version': '1.6.1'},
-                        'jenkins/1': {},
-                    },
-                }
-            }
-        }, '')
-        self.assertEqual({
-            '1.6.2': {'1'},
-            '1.6.1': {'jenkins/0', '2'},
-            'unknown': {'jenkins/1'},
-        }, status.get_agent_versions())
-
-    def test_get_agent_versions_2x(self):
-        status = Status({
-            'machines': {
-                '1': {'juju-status': {'version': '1.6.2'}},
-                '2': {'juju-status': {'version': '1.6.1'}},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/0': {
-                            'juju-status': {'version': '1.6.1'}},
-                        'jenkins/1': {},
-                    },
-                }
-            }
-        }, '')
-        self.assertEqual({
-            '1.6.2': {'1'},
-            '1.6.1': {'jenkins/0', '2'},
-            'unknown': {'jenkins/1'},
-        }, status.get_agent_versions())
-
-    def test_iter_new_machines(self):
-        old_status = Status({
-            'machines': {
-                'bar': 'bar_info',
-            }
-        }, '')
-        new_status = Status({
-            'machines': {
-                'foo': 'foo_info',
-                'bar': 'bar_info',
-            }
-        }, '')
-        self.assertItemsEqual(new_status.iter_new_machines(old_status),
-                              [('foo', 'foo_info')])
-
-    def test_iter_new_machines_no_containers(self):
-        bar_info = {'containers': {'bar/lxd/1': {}}}
-        old_status = Status({
-            'machines': {
-                'bar': bar_info,
-            }
-        }, '')
-        foo_info = {'containers': {'foo/lxd/1': {}}}
-        new_status = Status({
-            'machines': {
-                'foo': foo_info,
-                'bar': bar_info,
-            }
-        }, '')
-        self.assertItemsEqual(new_status.iter_new_machines(old_status,
-                                                           containers=False),
-                              [('foo', foo_info)])
-
-    def test_iter_new_machines_with_containers(self):
-        bar_info = {'containers': {'bar/lxd/1': {}}}
-        old_status = Status({
-            'machines': {
-                'bar': bar_info,
-            }
-        }, '')
-        foo_info = {'containers': {'foo/lxd/1': {}}}
-        new_status = Status({
-            'machines': {
-                'foo': foo_info,
-                'bar': bar_info,
-            }
-        }, '')
-        self.assertItemsEqual(new_status.iter_new_machines(old_status,
-                                                           containers=True),
-                              [('foo', foo_info), ('foo/lxd/1', {})])
-
-    def test_get_instance_id(self):
-        status = Status({
-            'machines': {
-                '0': {'instance-id': 'foo-bar'},
-                '1': {},
-            }
-        }, '')
-        self.assertEqual(status.get_instance_id('0'), 'foo-bar')
-        with self.assertRaises(KeyError):
-            status.get_instance_id('1')
-        with self.assertRaises(KeyError):
-            status.get_instance_id('2')
-
-    def test_get_machine_dns_name(self):
-        status = Status({
-            'machines': {
-                '0': {'dns-name': '255.1.1.0'},
-                '1': {},
-            }
-        }, '')
-        self.assertEqual(status.get_machine_dns_name('0'), '255.1.1.0')
-        with self.assertRaisesRegexp(KeyError, 'dns-name'):
-            status.get_machine_dns_name('1')
-        with self.assertRaisesRegexp(KeyError, '2'):
-            status.get_machine_dns_name('2')
-
-    def test_from_text(self):
-        text = TestModelClient.make_status_yaml(
-            'agent-state', 'pending', 'horsefeathers').decode('ascii')
-        status = Status.from_text(text)
-        self.assertEqual(status.status_text, text)
-        self.assertEqual(status.status, {
-            'model': {'name': 'foo'},
-            'machines': {'0': {'agent-state': 'pending'}},
-            'applications': {'jenkins': {'units': {'jenkins/0': {
-                'agent-state': 'horsefeathers'}}}}
-        })
-
-    def test_iter_units(self):
-        started_unit = {'agent-state': 'started'}
-        unit_with_subordinates = {
-            'agent-state': 'started',
-            'subordinates': {
-                'ntp/0': started_unit,
-                'nrpe/0': started_unit,
-            },
-        }
-        status = Status({
-            'machines': {
-                '1': {'agent-state': 'started'},
-            },
-            'applications': {
-                'jenkins': {
-                    'units': {
-                        'jenkins/0': unit_with_subordinates,
-                    }
-                },
-                'application': {
-                    'units': {
-                        'application/0': started_unit,
-                        'application/1': started_unit,
-                    }
-                },
-            }
-        }, '')
-        expected = [
-            ('application/0', started_unit),
-            ('application/1', started_unit),
-            ('jenkins/0', unit_with_subordinates),
-            ('nrpe/0', started_unit),
-            ('ntp/0', started_unit),
-        ]
-        gen = status.iter_units()
-        self.assertIsInstance(gen, types.GeneratorType)
-        self.assertEqual(expected, list(gen))
-
-    @staticmethod
-    def run_iter_status():
-        status = Status({
-            'machines': {
-                '0': {
-                    'juju-status': {
-                        'current': 'idle',
-                        'since': 'DD MM YYYY hh:mm:ss',
-                        'version': '2.0.0',
-                        },
-                    'machine-status': {
-                        'current': 'running',
-                        'message': 'Running',
-                        'since': 'DD MM YYYY hh:mm:ss',
-                        },
-                    },
-                '1': {
-                    'juju-status': {
-                        'current': 'idle',
-                        'since': 'DD MM YYYY hh:mm:ss',
-                        'version': '2.0.0',
-                        },
-                    'machine-status': {
-                        'current': 'running',
-                        'message': 'Running',
-                        'since': 'DD MM YYYY hh:mm:ss',
-                        },
-                    },
-                },
-            'applications': {
-                'fakejob': {
-                    'application-status': {
-                        'current': 'idle',
-                        'since': 'DD MM YYYY hh:mm:ss',
-                        },
-                    'units': {
-                        'fakejob/0': {
-                            'workload-status': {
-                                'current': 'maintenance',
-                                'message': 'Started',
-                                'since': 'DD MM YYYY hh:mm:ss',
-                                },
-                            'juju-status': {
-                                'current': 'idle',
-                                'since': 'DD MM YYYY hh:mm:ss',
-                                'version': '2.0.0',
-                                },
-                            },
-                        'fakejob/1': {
-                            'workload-status': {
-                                'current': 'maintenance',
-                                'message': 'Started',
-                                'since': 'DD MM YYYY hh:mm:ss',
-                                },
-                            'juju-status': {
-                                'current': 'idle',
-                                'since': 'DD MM YYYY hh:mm:ss',
-                                'version': '2.0.0',
-                                },
-                            },
-                        },
-                    }
-                },
-            }, '')
-        for sub_status in status.iter_status():
-            yield sub_status
-
-    def test_iter_status_range(self):
-        status_set = set([(status_item.item_name, status_item.status_name)
-                          for status_item in self.run_iter_status()])
-        self.assertEqual({
-            ('0', 'juju-status'), ('0', 'machine-status'),
-            ('1', 'juju-status'), ('1', 'machine-status'),
-            ('fakejob', 'application-status'),
-            ('fakejob/0', 'workload-status'), ('fakejob/0', 'juju-status'),
-            ('fakejob/1', 'workload-status'), ('fakejob/1', 'juju-status'),
-            }, status_set)
-
-    def test_iter_status_data(self):
-        min_set = set(['current', 'since'])
-        max_set = set(['current', 'message', 'since', 'version'])
-        for status_item in self.run_iter_status():
-            if 'fakejob' == status_item.item_name:
-                self.assertEqual(StatusItem.APPLICATION,
-                                 status_item.status_name)
-                self.assertEqual({'current': 'idle',
-                                  'since': 'DD MM YYYY hh:mm:ss',
-                                  }, status_item.status)
-            else:
-                cur_set = set(status_item.status.keys())
-                self.assertTrue(min_set < cur_set)
-                self.assertTrue(cur_set < max_set)
-
-    def test_iter_status_container(self):
-        status_dict = {'machines': {'0': {
-            'containers': {'0/lxd/0': {
-                'machine-status': 'foo',
-                'juju-status': 'bar',
-                }}
-            }}}
-        status = Status(status_dict, '')
-        machine_0_data = status.status['machines']['0']
-        container_data = machine_0_data['containers']['0/lxd/0']
-        self.assertEqual([
-            StatusItem(StatusItem.MACHINE, '0', machine_0_data),
-            StatusItem(StatusItem.JUJU, '0', machine_0_data),
-            StatusItem(StatusItem.MACHINE, '0/lxd/0', container_data),
-            StatusItem(StatusItem.JUJU, '0/lxd/0', container_data),
-            ], list(status.iter_status()))
-
-    def test_iter_status_subordinate(self):
-        status_dict = {
-            'machines': {},
-            'applications': {
-                'dummy': {
-                    'units': {'dummy/0': {
-                        'subordinates': {
-                            'dummy-sub/0': {}
-                            }
-                        }},
-                    }
-                },
-            }
-        status = Status(status_dict, '')
-        dummy_data = status.status['applications']['dummy']
-        dummy_0_data = dummy_data['units']['dummy/0']
-        dummy_sub_0_data = dummy_0_data['subordinates']['dummy-sub/0']
-        self.assertEqual([
-            StatusItem(StatusItem.APPLICATION, 'dummy', dummy_data),
-            StatusItem(StatusItem.WORKLOAD, 'dummy/0', dummy_0_data),
-            StatusItem(StatusItem.JUJU, 'dummy/0', dummy_0_data),
-            StatusItem(StatusItem.WORKLOAD, 'dummy-sub/0', dummy_sub_0_data),
-            StatusItem(StatusItem.JUJU, 'dummy-sub/0', dummy_sub_0_data),
-            ], list(status.iter_status()))
-
-    def test_iter_errors(self):
-        status = Status({}, '')
-        retval = [
-            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'started'}),
-            StatusItem(StatusItem.APPLICATION, 'job', {'current': 'started'}),
-            StatusItem(StatusItem.MACHINE, '0', {'current': 'error'}),
-            ]
-        with patch.object(status, 'iter_status', autospec=True,
-                          return_value=retval):
-            errors = list(status.iter_errors())
-        self.assertEqual(len(errors), 1)
-        self.assertIsInstance(errors[0], MachineError)
-        self.assertEqual(('0', None), errors[0].args)
-
-    def test_iter_errors_ignore_recoverable(self):
-        status = Status({}, '')
-        retval = [
-            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'error'}),
-            StatusItem(StatusItem.MACHINE, '0', {'current': 'error'}),
-            ]
-        with patch.object(status, 'iter_status', autospec=True,
-                          return_value=retval):
-            errors = list(status.iter_errors(ignore_recoverable=True))
-        self.assertEqual(len(errors), 1)
-        self.assertIsInstance(errors[0], MachineError)
-        self.assertEqual(('0', None), errors[0].args)
-        with patch.object(status, 'iter_status', autospec=True,
-                          return_value=retval):
-            recoverable = list(status.iter_errors())
-        self.assertGreater(len(recoverable), len(errors))
-
-    def test_check_for_errors_good(self):
-        status = Status({}, '')
-        with patch.object(status, 'iter_errors', autospec=True,
-                          return_value=[]) as error_mock:
-            self.assertEqual([], status.check_for_errors())
-        error_mock.assert_called_once_with(False)
-
-    def test_check_for_errors(self):
-        status = Status({}, '')
-        errors = [MachineError('0'), StatusError('2'), UnitError('1')]
-        with patch.object(status, 'iter_errors', autospec=True,
-                          return_value=errors) as errors_mock:
-            sorted_errors = status.check_for_errors()
-        errors_mock.assert_called_once_with(False)
-        self.assertEqual(sorted_errors[0].args, ('0',))
-        self.assertEqual(sorted_errors[1].args, ('1',))
-        self.assertEqual(sorted_errors[2].args, ('2',))
-
-    def test_raise_highest_error(self):
-        status = Status({}, '')
-        retval = [
-            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'error'}),
-            StatusItem(StatusItem.MACHINE, '0', {'current': 'error'}),
-            ]
-        with patch.object(status, 'iter_status', autospec=True,
-                          return_value=retval):
-            with self.assertRaises(MachineError):
-                status.raise_highest_error()
-
-    def test_raise_highest_error_ignore_recoverable(self):
-        status = Status({}, '')
-        retval = [
-            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'error'})]
-        with patch.object(status, 'iter_status', autospec=True,
-                          return_value=retval):
-            status.raise_highest_error(ignore_recoverable=True)
-            with self.assertRaises(UnitError):
-                status.raise_highest_error(ignore_recoverable=False)
-
-    def test_get_applications_gets_applications(self):
-        status = Status({
-            'services': {'service': {}},
-            'applications': {'application': {}},
-            }, '')
-        self.assertEqual({'application': {}}, status.get_applications())
-
-
-@contextmanager
-def temp_config():
-    with temp_dir() as home:
-        os.environ['JUJU_HOME'] = home
-        environments_path = os.path.join(home, 'environments.yaml')
-        with open(environments_path, 'w') as environments:
-            yaml.dump({'environments': {
-                'foo': {'type': 'local'}
-            }}, environments)
-        yield
+        with temp_bootstrap_env(self.home_dir, client):
+            self.assertEqual(os.environ['JUJU_HOME'], 'foo')
+            self.assertEqual(os.environ['JUJU_DATA'], 'bar')
 
 
 class TestController(TestCase):
@@ -5143,294 +3492,6 @@ class TestController(TestCase):
     def test_controller(self):
         controller = Controller('ctrl')
         self.assertEqual('ctrl', controller.name)
-
-
-class TestSimpleEnvironment(TestCase):
-
-    def test_init(self):
-        controller = Mock()
-        with temp_dir() as juju_home:
-            juju_data = SimpleEnvironment(
-                'foo', {'enable_os_upgrade': False},
-                juju_home=juju_home, controller=controller,
-                bootstrap_to='zone=baz')
-            self.assertEqual(juju_home, juju_data.juju_home)
-            self.assertIs(controller, juju_data.controller)
-            self.assertEqual('zone=baz', juju_data.bootstrap_to)
-
-    def test_default_controller(self):
-        default = SimpleEnvironment('foo')
-        self.assertEqual('foo', default.controller.name)
-
-    def test_clone(self):
-        orig = SimpleEnvironment('foo', {'type': 'bar'}, 'myhome')
-        orig.local = 'local1'
-        orig.kvm = 'kvm1'
-        orig.maas = 'maas1'
-        orig.joyent = 'joyent1'
-        orig.user_name = 'user1'
-        orig.bootstrap_to = 'zonea'
-        copy = orig.clone()
-        self.assertIs(SimpleEnvironment, type(copy))
-        self.assertIsNot(orig, copy)
-        self.assertEqual(copy.environment, 'foo')
-        self.assertIsNot(orig._config, copy._config)
-        self.assertEqual({'type': 'bar'}, copy._config)
-        self.assertEqual('myhome', copy.juju_home)
-        self.assertEqual('local1', copy.local)
-        self.assertEqual('kvm1', copy.kvm)
-        self.assertEqual('maas1', copy.maas)
-        self.assertEqual('joyent1', copy.joyent)
-        self.assertEqual('user1', copy.user_name)
-        self.assertEqual('zonea', copy.bootstrap_to)
-        self.assertIs(orig.controller, copy.controller)
-
-    def test_clone_model_name(self):
-        orig = SimpleEnvironment('foo', {'type': 'bar', 'name': 'oldname'},
-                                 'myhome')
-        copy = orig.clone(model_name='newname')
-        self.assertEqual('newname', copy.environment)
-        self.assertEqual('newname', copy.get_option('name'))
-
-    def test_set_model_name(self):
-        env = SimpleEnvironment('foo', {})
-        env.set_model_name('bar')
-        self.assertEqual(env.environment, 'bar')
-        self.assertEqual(env.controller.name, 'bar')
-        self.assertEqual(env.get_option('name'), 'bar')
-
-    def test_set_model_name_not_controller(self):
-        env = SimpleEnvironment('foo', {})
-        env.set_model_name('bar', set_controller=False)
-        self.assertEqual(env.environment, 'bar')
-        self.assertEqual(env.controller.name, 'foo')
-        self.assertEqual(env.get_option('name'), 'bar')
-
-    def test_local_from_config(self):
-        env = SimpleEnvironment('local', {'type': 'openstack'})
-        self.assertFalse(env.local, 'Does not respect config type.')
-        env = SimpleEnvironment('local', {'type': 'local'})
-        self.assertTrue(env.local, 'Does not respect config type.')
-
-    def test_kvm_from_config(self):
-        env = SimpleEnvironment('local', {'type': 'local'})
-        self.assertFalse(env.kvm, 'Does not respect config type.')
-        env = SimpleEnvironment('local',
-                                {'type': 'local', 'container': 'kvm'})
-        self.assertTrue(env.kvm, 'Does not respect config type.')
-
-    def test_from_config(self):
-        with temp_config():
-            env = SimpleEnvironment.from_config('foo')
-            self.assertIs(SimpleEnvironment, type(env))
-            self.assertEqual({'type': 'local'}, env._config)
-
-    def test_from_bogus_config(self):
-        with temp_config():
-            with self.assertRaises(NoSuchEnvironment):
-                SimpleEnvironment.from_config('bar')
-
-    def test_from_config_none(self):
-        with temp_config():
-            os.environ['JUJU_ENV'] = 'foo'
-            # GZ 2015-10-15: Currently default_env calls the juju on path here.
-            with patch('jujupy.configuration.default_env', autospec=True,
-                       return_value='foo') as cde_mock:
-                env = SimpleEnvironment.from_config(None)
-            self.assertEqual(env.environment, 'foo')
-            cde_mock.assert_called_once_with()
-
-    def test_juju_home(self):
-        env = SimpleEnvironment('foo')
-        self.assertIs(None, env.juju_home)
-        env = SimpleEnvironment('foo', juju_home='baz')
-        self.assertEqual('baz', env.juju_home)
-
-    def test_make_jes_home(self):
-        with temp_dir() as juju_home:
-            with SimpleEnvironment('foo').make_jes_home(
-                    juju_home, 'bar', {'baz': 'qux'}) as jes_home:
-                pass
-            with open(get_environments_path(jes_home)) as env_file:
-                env = yaml.safe_load(env_file)
-        self.assertEqual(env, {'baz': 'qux'})
-        self.assertEqual(jes_home, jes_home_path(juju_home, 'bar'))
-
-    def test_make_jes_home_clean_existing(self):
-        env = SimpleEnvironment('foo')
-        with temp_dir() as juju_home:
-            with env.make_jes_home(juju_home, 'bar',
-                                   {'baz': 'qux'}) as jes_home:
-                foo_path = os.path.join(jes_home, 'foo')
-                with open(foo_path, 'w') as foo:
-                    foo.write('foo')
-                self.assertTrue(os.path.isfile(foo_path))
-            with env.make_jes_home(juju_home, 'bar',
-                                   {'baz': 'qux'}) as jes_home:
-                self.assertFalse(os.path.exists(foo_path))
-
-    def test_discard_option(self):
-        env = SimpleEnvironment('foo', {'type': 'foo', 'bar': 'baz'})
-        discarded = env.discard_option('bar')
-        self.assertEqual('baz', discarded)
-        self.assertEqual({'type': 'foo'}, env._config)
-
-    def test_discard_option_not_present(self):
-        env = SimpleEnvironment('foo', {'type': 'foo'})
-        discarded = env.discard_option('bar')
-        self.assertIs(None, discarded)
-        self.assertEqual({'type': 'foo'}, env._config)
-
-    def test_get_option(self):
-        env = SimpleEnvironment('foo', {'type': 'azure', 'foo': 'bar'})
-        self.assertEqual(env.get_option('foo'), 'bar')
-        self.assertIs(env.get_option('baz'), None)
-
-    def test_get_option_sentinel(self):
-        env = SimpleEnvironment('foo', {'type': 'azure', 'foo': 'bar'})
-        sentinel = object()
-        self.assertIs(env.get_option('baz', sentinel), sentinel)
-
-    def test_make_jes_home_copy_public_clouds(self):
-        file_name = 'public-clouds.yaml'
-        env = SimpleEnvironment('foo')
-        test_string = 'Test string for: {}'.format(file_name)
-        with temp_dir() as juju_home:
-            with open(os.path.join(juju_home, file_name), 'w') as file:
-                file.write(test_string)
-            with env.make_jes_home(juju_home, 'bar',
-                                   {'baz': 'qux'}) as jes_home:
-                with open(os.path.join(jes_home, file_name)) as file:
-                    contents = file.readlines()
-        self.assertEqual([test_string], contents)
-
-    def test_update_config(self):
-        env = SimpleEnvironment('foo', {'type': 'azure'})
-        env.update_config({'bar': 'baz', 'qux': 'quxx'})
-        self.assertEqual(env._config, {
-            'type': 'azure', 'bar': 'baz', 'qux': 'quxx'})
-
-    def test_update_config_region(self):
-        env = SimpleEnvironment('foo', {'type': 'azure'})
-        env.update_config({'region': 'foo1'})
-        self.assertEqual(env._config, {
-            'type': 'azure', 'location': 'foo1'})
-        self.assertEqual('WARNING Using set_region to set region to "foo1".\n',
-                         self.log_stream.getvalue())
-
-    def test_update_config_type(self):
-        env = SimpleEnvironment('foo', {'type': 'azure'})
-        env.update_config({'type': 'foo1'})
-        self.assertEqual(env.provider, 'foo1')
-        self.assertEqual('WARNING Setting type is not 2.x compatible.\n',
-                         self.log_stream.getvalue())
-
-    def test_provider(self):
-        env = SimpleEnvironment('foo', {'type': 'provider1'})
-        self.assertEqual('provider1', env.provider)
-
-    def test_provider_no_provider(self):
-        env = SimpleEnvironment('foo', {'foo': 'bar'})
-        with self.assertRaisesRegexp(NoProvider, 'No provider specified.'):
-            env.provider
-
-    def test_get_region(self):
-        self.assertEqual(
-            'bar', SimpleEnvironment(
-                'foo', {'type': 'foo', 'region': 'bar'}, 'home').get_region())
-
-    def test_get_region_old_azure(self):
-        self.assertEqual('northeu', SimpleEnvironment('foo', {
-            'type': 'azure', 'location': 'North EU'}, 'home').get_region())
-
-    def test_get_region_azure_arm(self):
-        self.assertEqual('bar', SimpleEnvironment('foo', {
-            'type': 'azure', 'location': 'bar', 'tenant-id': 'baz'},
-            'home').get_region())
-
-    def test_get_region_joyent(self):
-        self.assertEqual('bar', SimpleEnvironment('foo', {
-            'type': 'joyent', 'sdc-url': 'https://bar.api.joyentcloud.com'},
-            'home').get_region())
-
-    def test_get_region_lxd(self):
-        self.assertEqual('localhost', SimpleEnvironment(
-            'foo', {'type': 'lxd'}, 'home').get_region())
-
-    def test_get_region_lxd_specified(self):
-        self.assertEqual('foo', SimpleEnvironment(
-            'foo', {'type': 'lxd', 'region': 'foo'}, 'home').get_region())
-
-    def test_get_region_maas(self):
-        self.assertIs(None, SimpleEnvironment('foo', {
-            'type': 'maas', 'region': 'bar',
-        }, 'home').get_region())
-
-    def test_get_region_manual(self):
-        self.assertEqual('baz', SimpleEnvironment('foo', {
-            'type': 'manual', 'region': 'bar',
-            'bootstrap-host': 'baz'}, 'home').get_region())
-
-    def test_set_region(self):
-        env = SimpleEnvironment('foo', {'type': 'bar'}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('region'), 'baz')
-        self.assertEqual(env.get_region(), 'baz')
-
-    def test_set_region_no_provider(self):
-        env = SimpleEnvironment('foo', {}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('region'), 'baz')
-
-    def test_set_region_joyent(self):
-        env = SimpleEnvironment('foo', {'type': 'joyent'}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('sdc-url'),
-                         'https://baz.api.joyentcloud.com')
-        self.assertEqual(env.get_region(), 'baz')
-
-    def test_set_region_azure(self):
-        env = SimpleEnvironment('foo', {'type': 'azure'}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('location'), 'baz')
-        self.assertEqual(env.get_region(), 'baz')
-
-    def test_set_region_lxd(self):
-        env = SimpleEnvironment('foo', {'type': 'lxd'}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('region'), 'baz')
-
-    def test_set_region_manual(self):
-        env = SimpleEnvironment('foo', {'type': 'manual'}, 'home')
-        env.set_region('baz')
-        self.assertEqual(env.get_option('bootstrap-host'), 'baz')
-        self.assertEqual(env.get_region(), 'baz')
-
-    def test_set_region_maas(self):
-        env = SimpleEnvironment('foo', {'type': 'maas'}, 'home')
-        with self.assertRaisesRegexp(ValueError,
-                                     'Only None allowed for maas.'):
-            env.set_region('baz')
-        env.set_region(None)
-        self.assertIs(env.get_region(), None)
-
-    def test_get_cloud_credentials_returns_config(self):
-        env = SimpleEnvironment(
-            'foo', {'type': 'ec2', 'region': 'foo'}, 'home')
-        env.credentials = {'credentials': {
-            'aws': {'credentials': {'aws': True}},
-            'azure': {'credentials': {'azure': True}},
-            }}
-        self.assertEqual(env._config, env.get_cloud_credentials())
-
-    def test_dump_yaml(self):
-        env = SimpleEnvironment('baz', {'type': 'qux'}, 'home')
-        with temp_dir() as path:
-            env.dump_yaml(path, {'foo': 'bar'})
-            self.assertItemsEqual(
-                ['environments.yaml'], os.listdir(path))
-            with open(os.path.join(path, 'environments.yaml')) as f:
-                self.assertEqual({'foo': 'bar'}, yaml.safe_load(f))
 
 
 class TestJujuData(TestCase):
@@ -5452,7 +3513,7 @@ class TestJujuData(TestCase):
             data_writer = JujuData('foo', {}, juju_home)
             data_writer.clouds = {'clouds': {'foo': {}}}
             data_writer.credentials = {'credentials': {'bar': {}}}
-            data_writer.dump_yaml(juju_home, {})
+            data_writer.dump_yaml(juju_home)
             data_reader = JujuData.from_cloud_region('bar', region, {}, {
                 'clouds': {'bar': {'type': provider_type, 'endpoint': 'x'}},
                 }, juju_home)
@@ -5507,6 +3568,13 @@ class TestJujuData(TestCase):
                         bootstrap_to='zonea', cloud_name='cloudname')
         orig.credentials = {'secret': 'password'}
         orig.clouds = {'name': {'meta': 'data'}}
+        orig.local = 'local1'
+        orig.kvm = 'kvm1'
+        orig.maas = 'maas1'
+        orig.joyent = 'joyent1'
+        orig.user_name = 'user1'
+        orig.bootstrap_to = 'zonea'
+
         copy = orig.clone()
         self.assertIs(JujuData, type(copy))
         self.assertIsNot(orig, copy)
@@ -5520,6 +3588,21 @@ class TestJujuData(TestCase):
         self.assertIsNot(orig.clouds, copy.clouds)
         self.assertEqual(orig.clouds, copy.clouds)
         self.assertEqual('cloudname', copy._cloud_name)
+        self.assertEqual({'type': 'bar'}, copy._config)
+        self.assertEqual('myhome', copy.juju_home)
+        self.assertEqual('kvm1', copy.kvm)
+        self.assertEqual('maas1', copy.maas)
+        self.assertEqual('joyent1', copy.joyent)
+        self.assertEqual('user1', copy.user_name)
+        self.assertEqual('zonea', copy.bootstrap_to)
+        self.assertIs(orig.controller, copy.controller)
+
+    def test_set_model_name(self):
+        env = JujuData('foo', {}, juju_home='')
+        env.set_model_name('bar')
+        self.assertEqual(env.environment, 'bar')
+        self.assertEqual(env.controller.name, 'bar')
+        self.assertEqual(env.get_option('name'), 'bar')
 
     def test_clone_model_name(self):
         orig = JujuData('foo', {'type': 'bar', 'name': 'oldname'}, 'myhome')
@@ -5528,6 +3611,18 @@ class TestJujuData(TestCase):
         copy = orig.clone(model_name='newname')
         self.assertEqual('newname', copy.environment)
         self.assertEqual('newname', copy.get_option('name'))
+
+    def test_discard_option(self):
+        env = JujuData('foo', {'type': 'foo', 'bar': 'baz'}, juju_home='')
+        discarded = env.discard_option('bar')
+        self.assertEqual('baz', discarded)
+        self.assertEqual({'type': 'foo'}, env._config)
+
+    def test_discard_option_not_present(self):
+        env = JujuData('foo', {'type': 'foo'}, juju_home='')
+        discarded = env.discard_option('bar')
+        self.assertIs(None, discarded)
+        self.assertEqual({'type': 'foo'}, env._config)
 
     def test_update_config(self):
         env = JujuData('foo', {'type': 'azure'}, juju_home='')
@@ -5751,7 +3846,7 @@ class TestJujuData(TestCase):
         data.clouds = dict(cloud_dict)
         data.credentials = dict(credential_dict)
         with temp_dir() as path:
-            data.dump_yaml(path, {})
+            data.dump_yaml(path)
             self.assertItemsEqual(
                 ['clouds.yaml', 'credentials.yaml'], os.listdir(path))
             with open(os.path.join(path, 'clouds.yaml')) as f:
@@ -5770,73 +3865,70 @@ class TestJujuData(TestCase):
             data = JujuData('baz', {'type': 'qux'}, path)
             data.load_yaml()
 
+    def test_get_option(self):
+        env = JujuData('foo', {'type': 'azure', 'foo': 'bar'}, juju_home='')
+        self.assertEqual(env.get_option('foo'), 'bar')
+        self.assertIs(env.get_option('baz'), None)
+
+    def test_get_option_sentinel(self):
+        env = JujuData('foo', {'type': 'azure', 'foo': 'bar'}, juju_home='')
+        sentinel = object()
+        self.assertIs(env.get_option('baz', sentinel), sentinel)
+
 
 class TestDescribeSubstrate(TestCase):
 
-    def test_local_lxc(self):
-        env = SimpleEnvironment('foo', {
-            'type': 'local',
-            })
-        self.assertEqual(describe_substrate(env), 'LXC (local)')
-        env = SimpleEnvironment('foo', {
-            'type': 'local',
-            'container': 'lxc',
-            })
-        self.assertEqual(describe_substrate(env), 'LXC (local)')
-
-    def test_local_kvm(self):
-        env = SimpleEnvironment('foo', {
-            'type': 'local',
-            'container': 'kvm',
-            })
-        self.assertEqual(describe_substrate(env), 'KVM (local)')
+    def setUp(self):
+        super(TestDescribeSubstrate, self).setUp()
+        # JujuData expects a JUJU_HOME or HOME env as it gets juju_home_path
+        os.environ['HOME'] = '/tmp/jujupy-tests/'
 
     def test_openstack(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'openstack',
             'auth-url': 'foo',
             })
         self.assertEqual(describe_substrate(env), 'Openstack')
 
     def test_canonistack(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'openstack',
             'auth-url': 'https://keystone.canonistack.canonical.com:443/v2.0/',
             })
         self.assertEqual(describe_substrate(env), 'Canonistack')
 
     def test_aws(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'ec2',
             })
         self.assertEqual(describe_substrate(env), 'AWS')
 
     def test_rackspace(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'rackspace',
             })
         self.assertEqual(describe_substrate(env), 'Rackspace')
 
     def test_joyent(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'joyent',
             })
         self.assertEqual(describe_substrate(env), 'Joyent')
 
     def test_azure(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'azure',
             })
         self.assertEqual(describe_substrate(env), 'Azure')
 
     def test_maas(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'maas',
             })
         self.assertEqual(describe_substrate(env), 'MAAS')
 
     def test_bar(self):
-        env = SimpleEnvironment('foo', {
+        env = JujuData('foo', {
             'type': 'bar',
             })
         self.assertEqual(describe_substrate(env), 'bar')
@@ -6079,125 +4171,3 @@ class TestGetMachineDNSName(TestCase):
         self.assertEqual(host, "2001:db8::3")
         fake_client.status_until.assert_called_once_with(timeout=600)
         self.assertEqual(self.log_stream.getvalue(), "")
-
-
-class TestCommandTime(TestCase):
-
-    def test_default_values(self):
-        full_args = ['juju', '--showlog', 'bootstrap']
-        utcnow = datetime(2017, 3, 22, 23, 36, 52, 530631)
-        with patch('jujupy.client.datetime', autospec=True) as m_dt:
-            m_dt.utcnow.return_value = utcnow
-            ct = CommandTime('bootstrap', full_args)
-            self.assertEqual(ct.cmd, 'bootstrap')
-            self.assertEqual(ct.full_args, full_args)
-            self.assertEqual(ct.envvars, None)
-            self.assertEqual(ct.start, utcnow)
-            self.assertEqual(ct.end, None)
-
-    def test_set_start_time(self):
-        ct = CommandTime('cmd', [], start='abc')
-        self.assertEqual(ct.start, 'abc')
-
-    def test_set_envvar(self):
-        details = {'abc': 123}
-        ct = CommandTime('cmd', [], envvars=details)
-        self.assertEqual(ct.envvars, details)
-
-    def test_actual_completion_sets_default(self):
-        utcnow = datetime(2017, 3, 22, 23, 36, 52, 530631)
-        ct = CommandTime('cmd', [])
-        with patch('jujupy.client.datetime', autospec=True) as m_dt:
-            m_dt.utcnow.return_value = utcnow
-            ct.actual_completion()
-        self.assertEqual(ct.end, utcnow)
-
-    def test_actual_completion_idempotent(self):
-        ct = CommandTime('cmd', [])
-        ct.actual_completion(end='a')
-        ct.actual_completion(end='b')
-        self.assertEqual(ct.end, 'a')
-
-    def test_actual_completion_set_value(self):
-        utcnow = datetime(2017, 3, 22, 23, 36, 52, 530631)
-        ct = CommandTime('cmd', [])
-        ct.actual_completion(end=utcnow)
-        self.assertEqual(ct.end, utcnow)
-
-    def test_total_seconds_returns_None_when_not_complete(self):
-        ct = CommandTime('cmd', [])
-        self.assertEqual(ct.total_seconds, None)
-
-    def test_total_seconds_returns_seconds_taken_to_complete(self):
-        utcstart = datetime(2017, 3, 22, 23, 36, 52, 530631)
-        utcend = utcstart + timedelta(seconds=1)
-        with patch('jujupy.client.datetime', autospec=True) as m_dt:
-            m_dt.utcnow.side_effect = [utcstart, utcend]
-            ct = CommandTime('cmd', [])
-            ct.actual_completion()
-        self.assertEqual(ct.total_seconds, 1)
-
-
-class TestCommandComplete(TestCase):
-
-    def test_default_values(self):
-        ct = CommandTime('cmd', [])
-        base_condition = BaseCondition()
-        cc = CommandComplete(base_condition, ct)
-
-        self.assertEqual(cc.timeout, 300)
-        self.assertEqual(cc.already_satisfied, False)
-        self.assertEqual(cc._real_condition, base_condition)
-        self.assertEqual(cc.command_time, ct)
-        # actual_completion shouldn't be set as the condition is not already
-        # satisfied.
-        self.assertEqual(cc.command_time.end, None)
-
-    def test_sets_total_seconds_when_already_satisfied(self):
-        base_condition = BaseCondition(already_satisfied=True)
-        ct = CommandTime('cmd', [])
-        cc = CommandComplete(base_condition, ct)
-
-        self.assertIsNotNone(cc.command_time.total_seconds)
-
-    def test_calls_wrapper_condition_iter(self):
-        class TestCondition(BaseCondition):
-            def iter_blocking_state(self, status):
-                yield 'item', status
-
-        ct = CommandTime('cmd', [])
-        cc = CommandComplete(TestCondition(), ct)
-
-        k, v = next(cc.iter_blocking_state('status_obj'))
-        self.assertEqual(k, 'item')
-        self.assertEqual(v, 'status_obj')
-
-    def test_sets_actual_completion_when_complete(self):
-        """When the condition hits success must set actual_completion."""
-        class TestCondition(BaseCondition):
-            def __init__(self):
-                super(TestCondition, self).__init__()
-                self._already_called = False
-
-            def iter_blocking_state(self, status):
-                if not self._already_called:
-                    self._already_called = True
-                    yield 'item', status
-
-        ct = CommandTime('cmd', [])
-        cc = CommandComplete(TestCondition(), ct)
-
-        next(cc.iter_blocking_state('status_obj'))
-        self.assertIsNone(cc.command_time.end)
-        next(cc.iter_blocking_state('status_obj'), None)
-        self.assertIsNotNone(cc.command_time.end)
-
-    def test_raises_exception_with_command_details(self):
-        ct = CommandTime('cmd', ['cmd', 'arg1', 'arg2'])
-        cc = CommandComplete(BaseCondition(), ct)
-
-        with self.assertRaises(RuntimeError) as ex:
-            cc.do_raise('status')
-        self.assertEqual(
-            str(ex.exception),
-            'Timed out waiting for "cmd" command to complete: "cmd arg1 arg2"')

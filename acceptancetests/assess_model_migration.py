@@ -23,10 +23,11 @@ from deploy_stack import (
     get_random_string
     )
 from jujupy.client import (
-    BaseCondition,
     get_stripped_version_number,
 )
-from jujupy.version_client import ModelClient2_0
+from jujupy.wait_condition import (
+    BaseCondition,
+    )
 from jujucharm import local_charm_path
 from remote import remote_from_address
 from utility import (
@@ -68,11 +69,10 @@ def assess_model_migration(bs1, bs2, args):
                 assess_development_branch_migrations(
                     source_client, dest_client)
 
-        if client_is_at_least_2_1(bs1.client):
-            # Continue test where we ensure that a migrated model continues to
-            # work after it's originating controller has been destroyed.
-            assert_model_migrated_successfully(
-                migrated_client, application, resource_contents)
+        # Continue test where we ensure that a migrated model continues to
+        # work after it's originating controller has been destroyed.
+        assert_model_migrated_successfully(
+            migrated_client, application, resource_contents)
         log.info(
             'SUCCESS: Model operational after origin controller destroyed')
 
@@ -92,11 +92,6 @@ def assess_development_branch_migrations(source_client, dest_client):
                 source_client, dest_client, temp)
     ensure_migration_rolls_back_on_failure(source_client, dest_client)
     ensure_api_login_redirects(source_client, dest_client)
-
-
-def client_is_at_least_2_1(client):
-    """Return true of the given ModelClient is version 2.1 or greater."""
-    return not isinstance(client, ModelClient2_0)
 
 
 def after_22beta4(client_version):
@@ -165,7 +160,7 @@ def _wait_for_model_check(client, model_check, timeout):
     raise ModelCheckFailed()
 
 
-def wait_until_model_disappears(client, model_name, timeout=60):
+def wait_until_model_disappears(client, model_name, timeout=120):
     """Waits for a while for 'model_name' model to no longer be listed.
 
     :raises JujuAssertionError: If the named model continues to be listed in
@@ -196,7 +191,7 @@ def wait_until_model_disappears(client, model_name, timeout=60):
                 model_name, timeout))
 
 
-def wait_for_model(client, model_name, timeout=60):
+def wait_for_model(client, model_name, timeout=120):
     """Wait for a given timeout for the client to see the model_name.
 
     :raises JujuAssertionError: If the named model does not appear in the
@@ -217,7 +212,7 @@ def wait_for_model(client, model_name, timeout=60):
                 model_name, timeout))
 
 
-def wait_for_migrating(client, timeout=60):
+def wait_for_migrating(client, timeout=120):
     """Block until provided model client has a migration status.
 
     :raises JujuAssertionError: If the status doesn't show migration within the
@@ -381,19 +376,21 @@ def ensure_superuser_can_migrate_other_user_models(
 
 
 def deploy_simple_server_to_new_model(
-        client, model_name, resource_contents=None):
+        client, model_name, resource_contents=None, series='xenial'):
     # As per bug LP:1709773 deploy 2 primary apps and have a subordinate
     #  related to both
     new_model = client.add_model(client.env.clone(model_name))
-    application = deploy_simple_resource_server(new_model, resource_contents)
-    _, deploy_complete = new_model.deploy('cs:ubuntu')
+    application = deploy_simple_resource_server(
+        new_model, resource_contents, series)
+    _, deploy_complete = new_model.deploy('cs:ubuntu', series=series)
     new_model.wait_for(deploy_complete)
-    new_model.deploy('cs:ntp')
-    new_model.juju('add-relation', ('ntp', application))
-    new_model.juju('add-relation', ('ntp', 'ubuntu'))
+    new_model.deploy('cs:nrpe', series=series)
+    new_model.juju('add-relation', ('nrpe', application))
+    new_model.juju('add-relation', ('nrpe', 'ubuntu'))
     # Need to wait for the subordinate charms too.
     new_model.wait_for(AllApplicationActive())
     new_model.wait_for(AllApplicationWorkloads())
+    new_model.wait_for(AgentsIdle(['nrpe/0', 'nrpe/1']))
     assert_deployed_charm_is_responding(new_model, resource_contents)
 
     return new_model, application
@@ -434,6 +431,29 @@ class AllApplicationWorkloads(BaseCondition):
             'Timed out waiting for all application workloads to be active.')
 
 
+class AgentsIdle(BaseCondition):
+    """Ensure all specified agents are finished doing setup work."""
+
+    def __init__(self, units, *args, **kws):
+        self.units = units
+        super(AgentsIdle, self).__init__(*args, **kws)
+
+    def iter_blocking_state(self, status):
+        idles = []
+        for name in self.units:
+            try:
+                unit = status.get_unit(name)
+                state = unit['juju-status']['current'] == 'idle'
+            except KeyError:
+                state = False
+            idles.append(state)
+        if not all(idles):
+            yield 'application-agents', 'not-all-idle'
+
+    def do_raise(self, model_name, status):
+        raise Exception("Timed out waiting for all agents to be idle.")
+
+
 def deploy_dummy_source_to_new_model(client, model_name):
     new_model_client = client.add_model(client.env.clone(model_name))
     charm_path = local_charm_path(
@@ -445,7 +465,8 @@ def deploy_dummy_source_to_new_model(client, model_name):
     return new_model_client
 
 
-def deploy_simple_resource_server(client, resource_contents=None):
+def deploy_simple_resource_server(
+        client, resource_contents=None, series='xenial'):
     application_name = 'simple-resource-http'
     log.info('Deploying charm: '.format(application_name))
     charm_path = local_charm_path(
@@ -456,9 +477,12 @@ def deploy_simple_resource_server(client, resource_contents=None):
             index_file = os.path.join(temp, 'index.html')
             with open(index_file, 'wt') as f:
                 f.write(resource_contents)
-            client.deploy(charm_path, resource='index={}'.format(index_file))
+            client.deploy(
+                charm_path,
+                series=series,
+                resource='index={}'.format(index_file))
     else:
-        client.deploy(charm_path)
+        client.deploy(charm_path, series=series)
 
     client.wait_for_started()
     client.wait_for_workloads()
@@ -486,7 +510,7 @@ def migrate_model_to_controller(
         wait_for_model(migration_target_client, source_client.env.environment)
         migration_target_client.wait_for_started()
         wait_until_model_disappears(
-            source_client, source_client.env.environment)
+            source_client, source_client.env.environment, timeout=480)
     except JujuAssertionError as e:
         # Attempt to show model details as it might log migration failure
         # message.
@@ -502,7 +526,8 @@ def migrate_model_to_controller(
         try:
             source_client.juju(
                 'show-model',
-                get_full_model_name(migration_target_client, include_user_name),
+                get_full_model_name(
+                    migration_target_client, include_user_name),
                 include_e=False)
         except:
             log.info('Ignoring failed output.')
@@ -570,7 +595,7 @@ def raise_if_shared_machines(unit_machines):
         raise JujuAssertionError('Appliction units reside on the same machine')
 
 
-def ensure_model_logs_are_migrated(source_client, dest_client, timeout=60):
+def ensure_model_logs_are_migrated(source_client, dest_client, timeout=120):
     """Ensure logs are migrated when a model is migrated between controllers.
 
     :param source_client: ModelClient representing source controller to create

@@ -11,7 +11,7 @@ series:
   - xenial
   - zesty
   - artful
-
+  - bionic
 requires:
   juju-info:
     interface: juju-info

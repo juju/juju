@@ -24,10 +24,6 @@ from contextlib import (
     contextmanager,
     )
 from copy import deepcopy
-from datetime import (
-    datetime,
-    timedelta,
-    )
 import errno
 from itertools import chain
 import json
@@ -40,49 +36,60 @@ import subprocess
 import sys
 import time
 
-from dateutil.parser import parse as datetime_parse
-from dateutil import tz
 import pexpect
 import yaml
 
+from jujupy.backend import (
+    JujuBackend,
+)
 from jujupy.configuration import (
     get_bootstrap_config_path,
-    get_environments_path,
-    get_jenv_path,
     get_juju_home,
     get_selected_environment,
     )
+from jujupy.exceptions import (
+    AgentsNotStarted,
+    ApplicationsNotStarted,
+    AuthNotAccepted,
+    InvalidEndpoint,
+    NameNotAccepted,
+    NoProvider,
+    StatusNotMet,
+    StatusTimeout,
+    TypeNotAccepted,
+    VotingNotEnabled,
+    WorkloadsNotReady,
+    )
+from jujupy.status import (
+    AGENTS_READY,
+    coalesce_agent_status,
+    Status,
+    )
 from jujupy.utility import (
-    check_free_disk_space,
-    ensure_dir,
-    get_timeout_path,
-    is_ipv6_address,
+    _dns_name_for_machine,
     JujuResourceTimeout,
     pause,
-    quote,
     qualified_model_name,
-    scoped_environ,
     skip_on_missing_file,
     split_address_port,
-    temp_dir,
     temp_yaml_file,
     unqualified_model_name,
     until_timeout,
+    )
+from jujupy.wait_condition import (
+    CommandComplete,
+    NoopCondition,
+    WaitAgentsStarted,
+    WaitMachineNotPresent,
+    WaitVersion,
     )
 
 
 __metaclass__ = type
 
-# Python 2 and 3 compatibility
-try:
-    argtype = basestring
-except NameError:
-    argtype = str
 
-AGENTS_READY = set(['started', 'idle'])
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
-JUJU_DEV_FEATURE_FLAGS = 'JUJU_DEV_FEATURE_FLAGS'
 CONTROLLER = 'controller'
 KILL_CONTROLLER = 'kill-controller'
 SYSTEM = 'system'
@@ -93,68 +100,12 @@ LXD_MACHINE = 'lxd'
 
 _DEFAULT_BUNDLE_TIMEOUT = 3600
 
-_jes_cmds = {KILL_CONTROLLER: {
-    'create': 'create-environment',
-    'kill': KILL_CONTROLLER,
-}}
-for super_cmd in [SYSTEM, CONTROLLER]:
-    _jes_cmds[super_cmd] = {
-        'create': '{} create-environment'.format(super_cmd),
-        'kill': '{} kill'.format(super_cmd),
-    }
 
 log = logging.getLogger("jujupy")
 
 
-class StatusTimeout(Exception):
-    """Raised when 'juju status' timed out."""
-
-
-class SoftDeadlineExceeded(Exception):
-    """Raised when an overall client operation takes too long."""
-
-    def __init__(self):
-        super(SoftDeadlineExceeded, self).__init__(
-            'Operation exceeded deadline.')
-
-
-class NoProvider(Exception):
-    """Raised when an environment defines no provider."""
-
-
-class TypeNotAccepted(Exception):
-    """Raised when the provided type was not accepted."""
-
-
-class NameNotAccepted(Exception):
-    """Raised when the provided name was not accepted."""
-
-
-class InvalidEndpoint(Exception):
-    """Raised when the provided endpoint was deemed invalid."""
-
-
-class AuthNotAccepted(Exception):
-    """Raised when the provided auth was not accepted."""
-
-
-class NoActiveModel(Exception):
-    """Raised when no active model could be found."""
-
-
-class NoActiveControllers(Exception):
-    """Raised when no active environment could be found."""
-
-
-def get_timeout_prefix(duration, timeout_path=None):
-    """Return extra arguments to run a command with a timeout."""
-    if timeout_path is None:
-        timeout_path = get_timeout_path()
-    return (sys.executable, timeout_path, '%.2f' % duration, '--')
-
-
 def get_teardown_timeout(client):
-    """Return the timeout need byt the client to teardown resources."""
+    """Return the timeout need by the client to teardown resources."""
     if client.env.provider == 'azure':
         return 2700
     elif client.env.provider == 'gce':
@@ -174,335 +125,11 @@ def parse_new_state_server_from_error(error):
     return None
 
 
-class ErroredUnit(Exception):
-
-    def __init__(self, unit_name, state):
-        msg = '%s is in state %s' % (unit_name, state)
-        Exception.__init__(self, msg)
-        self.unit_name = unit_name
-        self.state = state
-
-
-class UpgradeMongoNotSupported(Exception):
-
-    def __init__(self):
-        super(UpgradeMongoNotSupported, self).__init__(
-            'This client does not support upgrade-mongo')
-
-
-class JESNotSupported(Exception):
-
-    def __init__(self):
-        super(JESNotSupported, self).__init__(
-            'This client does not support JES')
-
-
-class JESByDefault(Exception):
-
-    def __init__(self):
-        super(JESByDefault, self).__init__(
-            'This client does not need to enable JES')
-
-
 Machine = namedtuple('Machine', ['machine_id', 'info'])
 
 
-def coalesce_agent_status(agent_item):
-    """Return the machine agent-state or the unit agent-status."""
-    state = agent_item.get('agent-state')
-    if state is None and agent_item.get('agent-status') is not None:
-        state = agent_item.get('agent-status').get('current')
-    if state is None and agent_item.get('juju-status') is not None:
-        state = agent_item.get('juju-status').get('current')
-    if state is None:
-        state = 'no-agent'
-    return state
-
-
-class CannotConnectEnv(subprocess.CalledProcessError):
-
-    def __init__(self, e):
-        super(CannotConnectEnv, self).__init__(e.returncode, e.cmd, e.output)
-
-
-class StatusNotMet(Exception):
-
-    _fmt = 'Expected status not reached in {env}.'
-
-    def __init__(self, environment_name, status):
-        self.env = environment_name
-        self.status = status
-
-    def __str__(self):
-        return self._fmt.format(env=self.env)
-
-
-class AgentsNotStarted(StatusNotMet):
-
-    _fmt = 'Timed out waiting for agents to start in {env}.'
-
-
-class VersionsNotUpdated(StatusNotMet):
-
-    _fmt = 'Some versions did not update.'
-
-
-class WorkloadsNotReady(StatusNotMet):
-
-    _fmt = 'Workloads not ready in {env}.'
-
-
-class ApplicationsNotStarted(StatusNotMet):
-
-    _fmt = 'Timed out waiting for applications to start in {env}.'
-
-
-class VotingNotEnabled(StatusNotMet):
-
-    _fmt = 'Timed out waiting for voting to be enabled in {env}.'
-
-
-class SimpleEnvironment:
-    """Represents a model in a JUJU_HOME directory for juju 1."""
-
-    def __init__(self, environment, config=None, juju_home=None,
-                 controller=None, bootstrap_to=None):
-        """Constructor.
-
-        :param environment: Name of the environment.
-        :param config: Dictionary with configuration options, default is None.
-        :param juju_home: Path to JUJU_HOME directory, default is None.
-        :param controller: Controller instance-- this model's controller.
-            If not given or None a new instance is created.
-        :param bootstrap_to: A placement directive to use when bootstrapping.
-            See Juju provider docs to examples of what Juju might expect.
-        """
-        self.user_name = None
-        if controller is None:
-            controller = Controller(environment)
-        self.controller = controller
-        self.environment = environment
-        self._config = config
-        self.juju_home = juju_home
-        self.bootstrap_to = bootstrap_to
-        if self._config is not None:
-            try:
-                provider = self.provider
-            except NoProvider:
-                provider = None
-            self.local = bool(provider == 'local')
-            self.kvm = (
-                self.local and bool(self._config.get('container') == 'kvm'))
-            self.maas = bool(provider == 'maas')
-            self.joyent = bool(provider == 'joyent')
-        else:
-            self.local = False
-            self.kvm = False
-            self.maas = False
-            self.joyent = False
-
-    def get_option(self, key, default=None):
-        return self._config.get(key, default)
-
-    def update_config(self, new_config):
-        for key, value in new_config.items():
-            if key == 'region':
-                logging.warning(
-                    'Using set_region to set region to "{}".'.format(value))
-                self.set_region(value)
-                continue
-            if key == 'type':
-                logging.warning('Setting type is not 2.x compatible.')
-            self._config[key] = value
-
-    def discard_option(self, key):
-        return self._config.pop(key, None)
-
-    def make_config_copy(self):
-        return deepcopy(self._config)
-
-    @property
-    def provider(self):
-        """Return the provider type for this environment.
-
-        See get_cloud to determine the specific cloud.
-        """
-        try:
-            return self._config['type']
-        except KeyError:
-            raise NoProvider('No provider specified.')
-
-    def is_cloud_provider(self):
-        """Return True if the commandline cloud is a provider.
-
-        This is True when LXD or Manual would be specified on the commandline,
-        false otherwse.
-        """
-        return bool(self.provider in ('lxd', 'manual'))
-
-    def get_region(self):
-        """Determine the region from a 1.x-style config.
-
-        This requires translating Azure's and Joyent's conventions for
-        specifying region.
-
-        It means that endpoint, rather than region, should be supplied if the
-        cloud (not the provider) is named "lxd" or "manual".
-
-        May return None for MAAS or LXD clouds.
-        """
-        provider = self.provider
-        # In 1.x, providers define region differently.  Translate.
-        if provider == 'azure':
-            if 'tenant-id' not in self._config:
-                return self._config['location'].replace(' ', '').lower()
-            return self._config['location']
-        elif provider == 'joyent':
-            matcher = re.compile('https://(.*).api.joyentcloud.com')
-            return matcher.match(self._config['sdc-url']).group(1)
-        elif provider == 'maas':
-            return None
-        # In 2.x, certain providers can be specified on the commandline in
-        # place of a cloud.  The "region" in these cases is the endpoint.
-        elif self.is_cloud_provider():
-            return self._get_config_endpoint()
-        else:
-            # The manual provider is typically used without a region.
-            if provider == 'manual':
-                return self._config.get('region')
-            return self._config['region']
-
-    def _get_config_endpoint(self):
-        if self.provider == 'lxd':
-            return self._config.get('region', 'localhost')
-        elif self.provider == 'manual':
-            return self._config['bootstrap-host']
-
-    def set_region(self, region):
-        """Assign the region to a 1.x-style config.
-
-        This requires translating Azure's and Joyent's conventions for
-        specifying region.
-
-        It means that endpoint, rather than region, should be updated if the
-        cloud (not the provider) is named "lxd" or "manual".
-
-        Only None is acccepted for MAAS.
-        """
-        try:
-            provider = self.provider
-            cloud_is_provider = self.is_cloud_provider()
-        except NoProvider:
-            provider = None
-            cloud_is_provider = False
-        if provider == 'azure':
-            self._config['location'] = region
-        elif provider == 'joyent':
-            self._config['sdc-url'] = (
-                'https://{}.api.joyentcloud.com'.format(region))
-        elif cloud_is_provider:
-            self._set_config_endpoint(region)
-        elif provider == 'maas':
-            if region is not None:
-                raise ValueError('Only None allowed for maas.')
-        else:
-            self._config['region'] = region
-
-    def _set_config_endpoint(self, endpoint):
-        if self.provider == 'lxd':
-            self._config['region'] = endpoint
-        elif self.provider == 'manual':
-            self._config['bootstrap-host'] = endpoint
-
-    def clone(self, model_name=None):
-        config = deepcopy(self._config)
-        if model_name is None:
-            model_name = self.environment
-        else:
-            config['name'] = unqualified_model_name(model_name)
-        result = self.__class__(model_name, config, juju_home=self.juju_home,
-                                controller=self.controller,
-                                bootstrap_to=self.bootstrap_to)
-        result.local = self.local
-        result.kvm = self.kvm
-        result.maas = self.maas
-        result.joyent = self.joyent
-        result.user_name = self.user_name
-        return result
-
-    def __eq__(self, other):
-        if type(self) != type(other):
-            return False
-        if self.environment != other.environment:
-            return False
-        if self._config != other._config:
-            return False
-        if self.local != other.local:
-            return False
-        if self.maas != other.maas:
-            return False
-        if self.bootstrap_to != other.bootstrap_to:
-            return False
-        return True
-
-    def __ne__(self, other):
-        return not self == other
-
-    def set_model_name(self, model_name, set_controller=True):
-        if set_controller:
-            self.controller.name = model_name
-        self.environment = model_name
-        self._config['name'] = unqualified_model_name(model_name)
-
-    @classmethod
-    def from_config(cls, name):
-        """Create an environment from the configuation file.
-
-        :param name: Name of the environment to get the configuration from."""
-        return cls._from_config(name)
-
-    @classmethod
-    def _from_config(cls, name):
-        config, selected = get_selected_environment(name)
-        if name is None:
-            name = selected
-        return cls(name, config)
-
-    @contextmanager
-    def make_jes_home(self, juju_home, dir_name, new_config):
-        """Make a JUJU_HOME/DATA directory to avoid conflicts.
-
-        :param juju_home: Current JUJU_HOME/DATA directory, used as a
-            base path for the new directory.
-        :param dir_name: Name of sub-directory to make the home in.
-        :param new_config: Dictionary representing the contents of
-            the environments.yaml configuation file."""
-        home_path = jes_home_path(juju_home, dir_name)
-        with skip_on_missing_file():
-            shutil.rmtree(home_path)
-        os.makedirs(home_path)
-        self.dump_yaml(home_path, new_config)
-        # For extention: Add all files carried over to the list.
-        for file_name in ['public-clouds.yaml']:
-            src_path = os.path.join(juju_home, file_name)
-            with skip_on_missing_file():
-                shutil.copy(src_path, home_path)
-        yield home_path
-
-    def get_cloud_credentials(self):
-        """Return the credentials for this model's cloud.
-
-        This implementation returns config variables in addition to
-        credentials.
-        """
-        return self._config
-
-    def dump_yaml(self, path, config):
-        dump_environments_yaml(path, config)
-
-
-class JujuData(SimpleEnvironment):
-    """Represents a model in a JUJU_DATA directory for juju 2."""
+class JujuData:
+    """Represents a model in a JUJU_DATA directory for juju."""
 
     def __init__(self, environment, config=None, juju_home=None,
                  controller=None, cloud_name=None, bootstrap_to=None):
@@ -521,14 +148,55 @@ class JujuData(SimpleEnvironment):
         """
         if juju_home is None:
             juju_home = get_juju_home()
-        super(JujuData, self).__init__(environment, config, juju_home,
-                                       controller, bootstrap_to)
+        self.user_name = None
+        if controller is None:
+            controller = Controller(environment)
+        self.controller = controller
+        self.environment = environment
+        self._config = config
+        self.juju_home = juju_home
+        self.bootstrap_to = bootstrap_to
+        if self._config is not None:
+            try:
+                provider = self.provider
+            except NoProvider:
+                provider = None
+            self.kvm = (bool(self._config.get('container') == 'kvm'))
+            self.maas = bool(provider == 'maas')
+            self.joyent = bool(provider == 'joyent')
+        else:
+            self.kvm = False
+            self.maas = False
+            self.joyent = False
         self.credentials = {}
         self.clouds = {}
         self._cloud_name = cloud_name
 
+    @property
+    def provider(self):
+        """Return the provider type for this environment.
+
+        See get_cloud to determine the specific cloud.
+        """
+        try:
+            return self._config['type']
+        except KeyError:
+            raise NoProvider('No provider specified.')
+
     def clone(self, model_name=None):
-        result = super(JujuData, self).clone(model_name)
+        config = deepcopy(self._config)
+        if model_name is None:
+            model_name = self.environment
+        else:
+            config['name'] = unqualified_model_name(model_name)
+        result = JujuData(
+            model_name, config, juju_home=self.juju_home,
+            controller=self.controller,
+            bootstrap_to=self.bootstrap_to)
+        result.kvm = self.kvm
+        result.maas = self.maas
+        result.joyent = self.joyent
+        result.user_name = self.user_name
         result.credentials = deepcopy(self.credentials)
         result.clouds = deepcopy(self.clouds)
         result._cloud_name = self._cloud_name
@@ -539,6 +207,29 @@ class JujuData(SimpleEnvironment):
         juju_data = cls(env.environment, env._config, env.juju_home)
         juju_data.load_yaml()
         return juju_data
+
+    def make_config_copy(self):
+        return deepcopy(self._config)
+
+    @contextmanager
+    def make_juju_home(self, juju_home, dir_name):
+        """Make a JUJU_HOME/DATA directory to avoid conflicts.
+
+        :param juju_home: Current JUJU_HOME/DATA directory, used as a
+            base path for the new directory.
+        :param dir_name: Name of sub-directory to make the home in.
+        """
+        home_path = juju_home_path(juju_home, dir_name)
+        with skip_on_missing_file():
+            shutil.rmtree(home_path)
+        os.makedirs(home_path)
+        self.dump_yaml(home_path)
+        # For extention: Add all files carried over to the list.
+        for file_name in ['public-clouds.yaml']:
+            src_path = os.path.join(juju_home, file_name)
+            with skip_on_missing_file():
+                shutil.copy(src_path, home_path)
+        yield home_path
 
     def update_config(self, new_config):
         if 'type' in new_config:
@@ -551,7 +242,16 @@ class JujuData(SimpleEnvironment):
                     raise ValueError(
                         '{} cannot be changed with explicit cloud'
                         ' name.'.format(endpoint_key))
-        super(JujuData, self).update_config(new_config)
+
+        for key, value in new_config.items():
+            if key == 'region':
+                logging.warning(
+                    'Using set_region to set region to "{}".'.format(value))
+                self.set_region(value)
+                continue
+            if key == 'type':
+                logging.warning('Setting type is not 2.x compatible.')
+            self._config[key] = value
 
     def load_yaml(self):
         try:
@@ -582,6 +282,13 @@ class JujuData(SimpleEnvironment):
         juju_data = cls._from_config(name)
         juju_data.load_yaml()
         return juju_data
+
+    @classmethod
+    def _from_config(cls, name):
+        config, selected = get_selected_environment(name)
+        if name is None:
+            name = selected
+        return cls(name, config)
 
     @classmethod
     def from_cloud_region(cls, cloud, region, config, clouds, juju_home):
@@ -631,12 +338,8 @@ class JujuData(SimpleEnvironment):
         data.load_yaml()
         return data
 
-    def dump_yaml(self, path, config):
-        """Dump the configuration files to the specified path.
-
-        config is unused, but is accepted for compatibility with
-        SimpleEnvironment and make_jes_home().
-        """
+    def dump_yaml(self, path):
+        """Dump the configuration files to the specified path."""
         with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
             yaml.safe_dump(self.credentials, f)
         self.write_clouds(path, self.clouds)
@@ -653,6 +356,42 @@ class JujuData(SimpleEnvironment):
             if cloud_config['endpoint'] == endpoint:
                 return cloud
         raise LookupError('No such endpoint: {}'.format(endpoint))
+
+    def set_model_name(self, model_name, set_controller=True):
+        if set_controller:
+            self.controller.name = model_name
+        self.environment = model_name
+        self._config['name'] = unqualified_model_name(model_name)
+
+    def set_region(self, region):
+        """Assign the region to a 1.x-style config.
+
+        This requires translating Azure's and Joyent's conventions for
+        specifying region.
+
+        It means that endpoint, rather than region, should be updated if the
+        cloud (not the provider) is named "lxd" or "manual".
+
+        Only None is acccepted for MAAS.
+        """
+        try:
+            provider = self.provider
+            cloud_is_provider = self.is_cloud_provider()
+        except NoProvider:
+            provider = None
+            cloud_is_provider = False
+        if provider == 'azure':
+            self._config['location'] = region
+        elif provider == 'joyent':
+            self._config['sdc-url'] = (
+                'https://{}.api.joyentcloud.com'.format(region))
+        elif cloud_is_provider:
+            self._set_config_endpoint(region)
+        elif provider == 'maas':
+            if region is not None:
+                raise ValueError('Only None allowed for maas.')
+        else:
+            self._config['region'] = region
 
     def get_cloud(self):
         if self._cloud_name is not None:
@@ -685,6 +424,44 @@ class JujuData(SimpleEnvironment):
         """Return the credentials for this model's cloud."""
         return self.get_cloud_credentials_item()[1]
 
+    def get_option(self, key, default=None):
+        return self._config.get(key, default)
+
+    def discard_option(self, key):
+        return self._config.pop(key, None)
+
+    def get_region(self):
+        """Determine the region from a 1.x-style config.
+
+        This requires translating Azure's and Joyent's conventions for
+        specifying region.
+
+        It means that endpoint, rather than region, should be supplied if the
+        cloud (not the provider) is named "lxd" or "manual".
+
+        May return None for MAAS or LXD clouds.
+        """
+        provider = self.provider
+        # In 1.x, providers define region differently.  Translate.
+        if provider == 'azure':
+            if 'tenant-id' not in self._config:
+                return self._config['location'].replace(' ', '').lower()
+            return self._config['location']
+        elif provider == 'joyent':
+            matcher = re.compile('https://(.*).api.joyentcloud.com')
+            return matcher.match(self._config['sdc-url']).group(1)
+        elif provider == 'maas':
+            return None
+        # In 2.x, certain providers can be specified on the commandline in
+        # place of a cloud.  The "region" in these cases is the endpoint.
+        elif self.is_cloud_provider():
+            return self._get_config_endpoint()
+        else:
+            # The manual provider is typically used without a region.
+            if provider == 'manual':
+                return self._config.get('region')
+            return self._config['region']
+
     def is_cloud_provider(self):
         """Return True if the commandline cloud is a provider.
 
@@ -696,382 +473,37 @@ class JujuData(SimpleEnvironment):
         return bool(self.provider in ('lxd', 'manual') and
                     self.get_cloud() in ('lxd', 'manual'))
 
+    def _get_config_endpoint(self):
+        if self.provider == 'lxd':
+            return self._config.get('region', 'localhost')
+        elif self.provider == 'manual':
+            return self._config['bootstrap-host']
 
-class StatusError(Exception):
-    """Generic error for Status."""
-
-    recoverable = True
-
-    # This has to be filled in after the classes are declared.
-    ordering = []
-
-    @classmethod
-    def priority(cls):
-        """Get the priority of the StatusError as an number.
-
-        Lower number means higher priority. This can be used as a key
-        function in sorting."""
-        return cls.ordering.index(cls)
-
-
-class MachineError(StatusError):
-    """Error in machine-status."""
-
-    recoverable = False
-
-
-class ProvisioningError(MachineError):
-    """Machine experianced a 'provisioning error'."""
-
-
-class StuckAllocatingError(MachineError):
-    """Machine did not transition out of 'allocating' state."""
-
-    recoverable = True
-
-
-class UnitError(StatusError):
-    """Error in a unit's status."""
-
-
-class HookFailedError(UnitError):
-    """A unit hook has failed."""
-
-    def __init__(self, item_name, msg):
-        match = re.search('^hook failed: "([^"]+)"$', msg)
-        if match:
-            msg = match.group(1)
-        super(HookFailedError, self).__init__(item_name, msg)
-
-
-class InstallError(HookFailedError):
-    """The unit's install hook has failed."""
-
-    recoverable = True
-
-
-class AppError(StatusError):
-    """Error in an application's status."""
-
-
-class AgentError(StatusError):
-    """Error in a juju agent."""
-
-
-class AgentUnresolvedError(AgentError):
-    """Agent error has not recovered in a reasonable time."""
-
-    # This is the time limit set by IS for recovery from an agent error.
-    a_reasonable_time = timedelta(minutes=5)
-
-
-StatusError.ordering = [
-    ProvisioningError, StuckAllocatingError, MachineError, InstallError,
-    AgentUnresolvedError, HookFailedError, UnitError, AppError, AgentError,
-    StatusError,
-    ]
-
-
-class StatusItem:
-
-    APPLICATION = 'application-status'
-    WORKLOAD = 'workload-status'
-    MACHINE = 'machine-status'
-    JUJU = 'juju-status'
-
-    def __init__(self, status_name, item_name, item_value):
-        """Create a new StatusItem from its fields.
-
-        :param status_name: One of the status strings.
-        :param item_name: The name of the machine/unit/application the status
-            information is about.
-        :param item_value: A dictionary of status values. If there is an entry
-            with the status_name in the dictionary its contents are used."""
-        self.status_name = status_name
-        self.item_name = item_name
-        self.status = item_value.get(status_name, item_value)
+    def _set_config_endpoint(self, endpoint):
+        if self.provider == 'lxd':
+            self._config['region'] = endpoint
+        elif self.provider == 'manual':
+            self._config['bootstrap-host'] = endpoint
 
     def __eq__(self, other):
-        if type(other) != type(self):
+        if type(self) != type(other):
             return False
-        elif self.status_name != other.status_name:
+        if self.environment != other.environment:
             return False
-        elif self.item_name != other.item_name:
+        if self._config != other._config:
             return False
-        elif self.status != other.status:
+        if self.maas != other.maas:
             return False
-        else:
-            return True
+        if self.bootstrap_to != other.bootstrap_to:
+            return False
+        return True
 
     def __ne__(self, other):
-        return bool(not self == other)
-
-    @property
-    def message(self):
-        return self.status.get('message')
-
-    @property
-    def since(self):
-        return self.status.get('since')
-
-    @property
-    def current(self):
-        return self.status.get('current')
-
-    @property
-    def version(self):
-        return self.status.get('version')
-
-    @property
-    def datetime_since(self):
-        if self.since is None:
-            return None
-        return datetime_parse(self.since)
-
-    def to_exception(self):
-        """Create an exception representing the error if one exists.
-
-        :return: StatusError (or subtype) to represent an error or None
-        to show that there is no error."""
-        if self.current not in ['error', 'failed', 'down',
-                                'provisioning error']:
-            if (self.current, self.status_name) != (
-                    'allocating', self.MACHINE):
-                return None
-        if self.APPLICATION == self.status_name:
-            return AppError(self.item_name, self.message)
-        elif self.WORKLOAD == self.status_name:
-            if self.message is None:
-                return UnitError(self.item_name, self.message)
-            elif re.match('hook failed: ".*install.*"', self.message):
-                return InstallError(self.item_name, self.message)
-            elif re.match('hook failed', self.message):
-                return HookFailedError(self.item_name, self.message)
-            else:
-                return UnitError(self.item_name, self.message)
-        elif self.MACHINE == self.status_name:
-            if self.current == 'provisioning error':
-                return ProvisioningError(self.item_name, self.message)
-            if self.current == 'allocating':
-                return StuckAllocatingError(
-                    self.item_name,
-                    'Stuck allocating.  Last message: {}'.format(self.message))
-            else:
-                return MachineError(self.item_name, self.message)
-        elif self.JUJU == self.status_name:
-            if self.since is None:
-                return AgentError(self.item_name, self.message)
-            time_since = datetime.now(tz.gettz('UTC')) - self.datetime_since
-            if time_since > AgentUnresolvedError.a_reasonable_time:
-                return AgentUnresolvedError(self.item_name, self.message,
-                                            time_since.total_seconds())
-            else:
-                return AgentError(self.item_name, self.message)
-        else:
-            raise ValueError('Unknown status:{}'.format(self.status_name),
-                             (self.item_name, self.status_value))
-
-    def __repr__(self):
-        return 'StatusItem({!r}, {!r}, {!r})'.format(
-            self.status_name, self.item_name, self.status)
-
-
-class Status:
-
-    def __init__(self, status, status_text):
-        self.status = status
-        self.status_text = status_text
-
-    @classmethod
-    def from_text(cls, text):
-        try:
-            # Parsing as JSON is much faster than parsing as YAML, so try
-            # parsing as JSON first and fall back to YAML.
-            status_yaml = json.loads(text)
-        except ValueError:
-            status_yaml = yaml.safe_load(text)
-        return cls(status_yaml, text)
-
-    @property
-    def model_name(self):
-        return self.status['model']['name']
-
-    def get_applications(self):
-        return self.status.get('applications', {})
-
-    def iter_machines(self, containers=False, machines=True):
-        for machine_name, machine in sorted(self.status['machines'].items()):
-            if machines:
-                yield machine_name, machine
-            if containers:
-                for contained, unit in machine.get('containers', {}).items():
-                    yield contained, unit
-
-    def iter_new_machines(self, old_status, containers=False):
-        old = dict(old_status.iter_machines(containers=containers))
-        for machine, data in self.iter_machines(containers=containers):
-            if machine in old:
-                continue
-            yield machine, data
-
-    def _iter_units_in_application(self, app_data):
-        """Given application data, iterate through every unit in it."""
-        for unit_name, unit in sorted(app_data.get('units', {}).items()):
-            yield unit_name, unit
-            subordinates = unit.get('subordinates', ())
-            for sub_name in sorted(subordinates):
-                yield sub_name, subordinates[sub_name]
-
-    def iter_units(self):
-        """Iterate over every unit in every application."""
-        for service_name, service in sorted(self.get_applications().items()):
-            for name, data in self._iter_units_in_application(service):
-                yield name, data
-
-    def agent_items(self):
-        for machine_name, machine in self.iter_machines(containers=True):
-            yield machine_name, machine
-        for unit_name, unit in self.iter_units():
-            yield unit_name, unit
-
-    def unit_agent_states(self, states=None):
-        """Fill in a dictionary with the states of units.
-
-        Units of a dying application are marked as dying.
-
-        :param states: If not None, when it should be a defaultdict(list)),
-        then states are added to this dictionary."""
-        if states is None:
-            states = defaultdict(list)
-        for app_name, app_data in sorted(self.get_applications().items()):
-            if app_data.get('life') == 'dying':
-                for unit, data in self._iter_units_in_application(app_data):
-                    states['dying'].append(unit)
-            else:
-                for unit, data in self._iter_units_in_application(app_data):
-                    states[coalesce_agent_status(data)].append(unit)
-        return states
-
-    def agent_states(self):
-        """Map agent states to the units and machines in those states."""
-        states = defaultdict(list)
-        for item_name, item in self.iter_machines(containers=True):
-            states[coalesce_agent_status(item)].append(item_name)
-        self.unit_agent_states(states)
-        return states
-
-    def check_agents_started(self, environment_name=None):
-        """Check whether all agents are in the 'started' state.
-
-        If not, return agent_states output.  If so, return None.
-        If an error is encountered for an agent, raise ErroredUnit
-        """
-        bad_state_info = re.compile(
-            '(.*error|^(cannot set up groups|cannot run instance)).*')
-        for item_name, item in self.agent_items():
-            state_info = item.get('agent-state-info', '')
-            if bad_state_info.match(state_info):
-                raise ErroredUnit(item_name, state_info)
-        states = self.agent_states()
-        if set(states.keys()).issubset(AGENTS_READY):
-            return None
-        for state, entries in states.items():
-            if 'error' in state:
-                # sometimes the state may be hidden in juju status message
-                juju_status = dict(
-                    self.agent_items())[entries[0]].get('juju-status')
-                if juju_status:
-                    juju_status_msg = juju_status.get('message')
-                    if juju_status_msg:
-                        state = juju_status_msg
-                raise ErroredUnit(entries[0], state)
-        return states
-
-    def get_service_count(self):
-        return len(self.get_applications())
-
-    def get_service_unit_count(self, service):
-        return len(
-            self.get_applications().get(service, {}).get('units', {}))
-
-    def get_agent_versions(self):
-        versions = defaultdict(set)
-        for item_name, item in self.agent_items():
-            if item.get('juju-status', None):
-                version = item['juju-status'].get('version', 'unknown')
-                versions[version].add(item_name)
-            else:
-                versions[item.get('agent-version', 'unknown')].add(item_name)
-        return versions
-
-    def get_instance_id(self, machine_id):
-        return self.status['machines'][machine_id]['instance-id']
-
-    def get_machine_dns_name(self, machine_id):
-        return _dns_name_for_machine(self, machine_id)
-
-    def get_unit(self, unit_name):
-        """Return metadata about a unit."""
-        for name, service in sorted(self.get_applications().items()):
-            if unit_name in service.get('units', {}):
-                return service['units'][unit_name]
-        raise KeyError(unit_name)
-
-    def service_subordinate_units(self, service_name):
-        """Return subordinate metadata for a service_name."""
-        services = self.get_applications()
-        if service_name in services:
-            for name, unit in sorted(services[service_name].get(
-                    'units', {}).items()):
-                for sub_name, sub in unit.get('subordinates', {}).items():
-                    yield sub_name, sub
-
-    def get_open_ports(self, unit_name):
-        """List the open ports for the specified unit.
-
-        If no ports are listed for the unit, the empty list is returned.
-        """
-        return self.get_unit(unit_name).get('open-ports', [])
-
-    def iter_status(self):
-        """Iterate through every status field in the larger status data."""
-        for machine_name, machine_value in self.iter_machines(containers=True):
-            yield StatusItem(StatusItem.MACHINE, machine_name, machine_value)
-            yield StatusItem(StatusItem.JUJU, machine_name, machine_value)
-        for app_name, app_value in self.get_applications().items():
-            yield StatusItem(StatusItem.APPLICATION, app_name, app_value)
-            unit_iterator = self._iter_units_in_application(app_value)
-            for unit_name, unit_value in unit_iterator:
-                yield StatusItem(StatusItem.WORKLOAD, unit_name, unit_value)
-                yield StatusItem(StatusItem.JUJU, unit_name, unit_value)
-
-    def iter_errors(self, ignore_recoverable=False):
-        """Iterate through every error, repersented by exceptions."""
-        for sub_status in self.iter_status():
-            error = sub_status.to_exception()
-            if error is not None:
-                if not (ignore_recoverable and error.recoverable):
-                    yield error
-
-    def check_for_errors(self, ignore_recoverable=False):
-        """Return a list of errors, in order of their priority."""
-        return sorted(self.iter_errors(ignore_recoverable),
-                      key=lambda item: item.priority())
-
-    def raise_highest_error(self, ignore_recoverable=False):
-        """Raise an exception reperenting the highest priority error."""
-        errors = self.check_for_errors(ignore_recoverable)
-        if errors:
-            raise errors[0]
+        return not self == other
 
 
 def describe_substrate(env):
-    if env.provider == 'local':
-        return {
-            'kvm': 'KVM (local)',
-            'lxc': 'LXC (local)'
-        }[env.get_option('container', 'lxc')]
-    elif env.provider == 'openstack':
+    if env.provider == 'openstack':
         if env.get_option('auth-url') == (
                 'https://keystone.canonistack.canonical.com:443/v2.0/'):
             return 'Canonistack'
@@ -1089,507 +521,6 @@ def describe_substrate(env):
         return env.provider
 
 
-class Juju2Backend:
-    """A Juju backend referring to a specific juju 2 binary.
-
-    Uses -m to specify models, uses JUJU_DATA to specify home directory.
-    """
-
-    _model_flag = '-m'
-
-    def __init__(self, full_path, version, feature_flags, debug,
-                 soft_deadline=None):
-        self._version = version
-        self._full_path = full_path
-        self.feature_flags = feature_flags
-        self.debug = debug
-        self._timeout_path = get_timeout_path()
-        self.juju_timings = []
-        self.soft_deadline = soft_deadline
-        self._ignore_soft_deadline = False
-
-    def _now(self):
-        return datetime.utcnow()
-
-    @contextmanager
-    def _check_timeouts(self):
-        # If an exception occurred, we don't want to replace it with
-        # SoftDeadlineExceeded.
-        yield
-        if self.soft_deadline is None or self._ignore_soft_deadline:
-            return
-        if self._now() > self.soft_deadline:
-            raise SoftDeadlineExceeded()
-
-    @contextmanager
-    def ignore_soft_deadline(self):
-        """Ignore the client deadline.  For cleanup code."""
-        old_val = self._ignore_soft_deadline
-        self._ignore_soft_deadline = True
-        try:
-            yield
-        finally:
-            self._ignore_soft_deadline = old_val
-
-    def clone(self, full_path, version, debug, feature_flags):
-        if version is None:
-            version = self.version
-        if full_path is None:
-            full_path = self.full_path
-        if debug is None:
-            debug = self.debug
-        result = self.__class__(full_path, version, feature_flags, debug,
-                                self.soft_deadline)
-        # Each clone shares a reference to juju_timings allowing us to collect
-        # all commands run during a test.
-        result.juju_timings = self.juju_timings
-        return result
-
-    @property
-    def version(self):
-        return self._version
-
-    @property
-    def full_path(self):
-        return self._full_path
-
-    @property
-    def juju_name(self):
-        return os.path.basename(self._full_path)
-
-    def _get_attr_tuple(self):
-        return (self._version, self._full_path, self.feature_flags,
-                self.debug, self.juju_timings)
-
-    def __eq__(self, other):
-        if type(self) != type(other):
-            return False
-        return self._get_attr_tuple() == other._get_attr_tuple()
-
-    def shell_environ(self, used_feature_flags, juju_home):
-        """Generate a suitable shell environment.
-
-        Juju's directory must be in the PATH to support plugins.
-        """
-        env = dict(os.environ)
-        if self.full_path is not None:
-            env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
-                                          os.pathsep, env['PATH'])
-        flags = self.feature_flags.intersection(used_feature_flags)
-        feature_flag_string = env.get(JUJU_DEV_FEATURE_FLAGS, '')
-        if feature_flag_string != '':
-            flags.update(feature_flag_string.split(','))
-        if flags:
-            env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
-        env['JUJU_DATA'] = juju_home
-        return env
-
-    def full_args(self, command, args, model, timeout):
-        if model is not None:
-            e_arg = (self._model_flag, model)
-        else:
-            e_arg = ()
-        if timeout is None:
-            prefix = ()
-        else:
-            prefix = get_timeout_prefix(timeout, self._timeout_path)
-        logging = '--debug' if self.debug else '--show-log'
-
-        # If args is a string, make it a tuple. This makes writing commands
-        # with one argument a bit nicer.
-        if isinstance(args, argtype):
-            args = (args,)
-        # we split the command here so that the caller can control where the -m
-        # model flag goes.  Everything in the command string is put before the
-        # -m flag.
-        command = command.split()
-        return (prefix + (self.juju_name, logging,) + tuple(command) + e_arg +
-                args)
-
-    def juju(self, command, args, used_feature_flags,
-             juju_home, model=None, check=True, timeout=None, extra_env=None,
-             suppress_err=False):
-        """Run a command under juju for the current environment.
-
-        :return: Tuple rval, CommandTime rval being the commands exit code and
-          a CommandTime object used for storing command timing data.
-        """
-        args = self.full_args(command, args, model, timeout)
-        log.info(' '.join(args))
-        env = self.shell_environ(used_feature_flags, juju_home)
-        if extra_env is not None:
-            env.update(extra_env)
-        if check:
-            call_func = subprocess.check_call
-        else:
-            call_func = subprocess.call
-        # Mutate os.environ instead of supplying env parameter so Windows can
-        # search env['PATH']
-        stderr = subprocess.PIPE if suppress_err else None
-        # Keep track of commands and how long the take.
-        command_time = CommandTime(command, args, env)
-        with scoped_environ(env):
-            log.debug('Running juju with env: {}'.format(env))
-            with self._check_timeouts():
-                rval = call_func(args, stderr=stderr)
-        self.juju_timings.append(command_time)
-        return rval, command_time
-
-    def expect(self, command, args, used_feature_flags, juju_home, model=None,
-               timeout=None, extra_env=None):
-        args = self.full_args(command, args, model, timeout)
-        log.info(' '.join(args))
-        env = self.shell_environ(used_feature_flags, juju_home)
-        if extra_env is not None:
-            env.update(extra_env)
-        # pexpect.spawn expects a string. This is better than trying to extract
-        # command + args from the returned tuple (as there could be an intial
-        # timing command tacked on).
-        command_string = ' '.join(quote(a) for a in args)
-        with scoped_environ(env):
-            return pexpect.spawn(command_string)
-
-    @contextmanager
-    def juju_async(self, command, args, used_feature_flags,
-                   juju_home, model=None, timeout=None):
-        full_args = self.full_args(command, args, model, timeout)
-        log.info(' '.join(args))
-        env = self.shell_environ(used_feature_flags, juju_home)
-        # Mutate os.environ instead of supplying env parameter so Windows can
-        # search env['PATH']
-        with scoped_environ(env):
-            with self._check_timeouts():
-                proc = subprocess.Popen(full_args)
-        yield proc
-        retcode = proc.wait()
-        if retcode != 0:
-            raise subprocess.CalledProcessError(retcode, full_args)
-
-    def get_juju_output(self, command, args, used_feature_flags, juju_home,
-                        model=None, timeout=None, user_name=None,
-                        merge_stderr=False):
-        args = self.full_args(command, args, model, timeout)
-        env = self.shell_environ(used_feature_flags, juju_home)
-        log.debug(args)
-        # Mutate os.environ instead of supplying env parameter so
-        # Windows can search env['PATH']
-        with scoped_environ(env):
-            proc = subprocess.Popen(
-                args, stdout=subprocess.PIPE, stdin=subprocess.PIPE,
-                stderr=subprocess.STDOUT if merge_stderr else subprocess.PIPE)
-            with self._check_timeouts():
-                sub_output, sub_error = proc.communicate()
-            log.debug(sub_output)
-            if proc.returncode != 0:
-                log.debug(sub_error)
-                e = subprocess.CalledProcessError(
-                    proc.returncode, args, sub_output)
-                e.stderr = sub_error
-                if sub_error and (
-                    b'Unable to connect to environment' in sub_error or
-                        b'MissingOrIncorrectVersionHeader' in sub_error or
-                        b'307: Temporary Redirect' in sub_error):
-                    raise CannotConnectEnv(e)
-                raise e
-        return sub_output
-
-    def get_active_model(self, juju_data_dir):
-        """Determine the active model in a juju data dir."""
-        try:
-            current = json.loads(self.get_juju_output(
-                'models', ('--format', 'json'), set(),
-                juju_data_dir, model=None).decode('ascii'))
-        except subprocess.CalledProcessError as e:
-            raise NoActiveControllers(
-                'No active controller for {}'.format(juju_data_dir))
-        try:
-            return current['current-model']
-        except KeyError:
-            raise NoActiveModel('No active model for {}'.format(juju_data_dir))
-
-    def get_active_controller(self, juju_data_dir):
-        """Determine the active controller in a juju data dir."""
-        try:
-            current = json.loads(self.get_juju_output(
-                'controllers', ('--format', 'json'), set(),
-                juju_data_dir, model=None).decode('ascii'))
-        except subprocess.CalledProcessError as e:
-            raise NoActiveControllers(
-                'No active controller for {}'.format(juju_data_dir))
-        try:
-            return current['current-controller']
-        except KeyError:
-            raise NoActiveControllers(
-                'No active controller for {}'.format(juju_data_dir))
-
-    def get_active_user(self, juju_data_dir, controller):
-        """Determine the active user for a controller."""
-        try:
-            current = json.loads(self.get_juju_output(
-                'controllers', ('--format', 'json'), set(),
-                juju_data_dir, model=None).decode('ascii'))
-        except subprocess.CalledProcessError as e:
-            raise NoActiveControllers(
-                'No active controller for {}'.format(juju_data_dir))
-        return current['controllers'][controller]['user']
-
-    def pause(self, seconds):
-        pause(seconds)
-
-
-class BaseCondition:
-    """Base class for conditions that support client.wait_for."""
-
-    def __init__(self, timeout=300, already_satisfied=False):
-        self.timeout = timeout
-        self.already_satisfied = already_satisfied
-
-    def iter_blocking_state(self, status):
-        """Identify when the condition required is met.
-
-        When the operation is complete yield nothing. Otherwise yields a
-        tuple ('<item detail>', '<state>')
-        as to why the action cannot be considered complete yet.
-
-        An example for a condition of an application being removed:
-            yield <application name>, 'still-present'
-        """
-        raise NotImplementedError()
-
-    def do_raise(self, model_name, status):
-        """Raise exception for when success condition fails to be achieved."""
-        raise NotImplementedError()
-
-
-class ConditionList(BaseCondition):
-    """A list of conditions that support client.wait_for.
-
-    This combines the supplied list of conditions.  It is only satisfied when
-    all conditions are met.  It times out when any member times out.  When
-    asked to raise, it causes the first condition to raise an exception.  An
-    improvement would be to raise the first condition whose timeout has been
-    exceeded.
-    """
-
-    def __init__(self, conditions):
-        if len(conditions) == 0:
-            timeout = 300
-        else:
-            timeout = max(c.timeout for c in conditions)
-        already_satisfied = all(c.already_satisfied for c in conditions)
-        super(ConditionList, self).__init__(timeout, already_satisfied)
-        self._conditions = conditions
-
-    def iter_blocking_state(self, status):
-        for condition in self._conditions:
-            for item, state in condition.iter_blocking_state(status):
-                yield item, state
-
-    def do_raise(self, model_name, status):
-        self._conditions[0].do_raise(model_name, status)
-
-
-class NoopCondition(BaseCondition):
-
-    def iter_blocking_state(self, status):
-        return iter(())
-
-    def do_raise(self, model_name, status):
-        raise Exception('NoopCondition failed: {}'.format(model_name))
-
-
-class WaitMachineNotPresent(BaseCondition):
-    """Condition satisfied when a given machine is not present."""
-
-    def __init__(self, machine, timeout=300):
-        super(WaitMachineNotPresent, self).__init__(timeout)
-        self.machine = machine
-
-    def __eq__(self, other):
-        if not type(self) is type(other):
-            return False
-        if self.timeout != other.timeout:
-            return False
-        if self.machine != other.machine:
-            return False
-        return True
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def iter_blocking_state(self, status):
-        for machine, info in status.iter_machines():
-            if machine == self.machine:
-                yield machine, 'still-present'
-
-    def do_raise(self, model_name, status):
-        raise Exception("Timed out waiting for machine removal %s" %
-                        self.machine)
-
-
-class WaitApplicationNotPresent(BaseCondition):
-    """Condition satisfied when a given machine is not present."""
-
-    def __init__(self, application, timeout=300):
-        super(WaitApplicationNotPresent, self).__init__(timeout)
-        self.application = application
-
-    def __eq__(self, other):
-        if not type(self) is type(other):
-            return False
-        if self.timeout != other.timeout:
-            return False
-        if self.application != other.application:
-            return False
-        return True
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def iter_blocking_state(self, status):
-        for application in status.get_applications().keys():
-            if application == self.application:
-                yield application, 'still-present'
-
-    def do_raise(self, model_name, status):
-        raise Exception("Timed out waiting for application "
-                        "removal {}".format(self.application))
-
-
-class MachineDown(BaseCondition):
-    """Condition satisfied when a given machine is down."""
-
-    def __init__(self, machine_id):
-        super(MachineDown, self).__init__()
-        self.machine_id = machine_id
-
-    def iter_blocking_state(self, status):
-        """Yield the juju-status of the machine if it is not 'down'."""
-        juju_status = status.status['machines'][self.machine_id]['juju-status']
-        if juju_status['current'] != 'down':
-            yield self.machine_id, juju_status['current']
-
-    def do_raise(self, model_name, status):
-        raise Exception(
-            "Timed out waiting for juju to determine machine {} down.".format(
-                self.machine_id))
-
-
-class WaitVersion(BaseCondition):
-
-    def __init__(self, target_version, timeout=300):
-        super(WaitVersion, self).__init__(timeout)
-        self.target_version = target_version
-
-    def iter_blocking_state(self, status):
-        for version, agents in status.get_agent_versions().items():
-            if version == self.target_version:
-                continue
-            for agent in agents:
-                yield agent, version
-
-    def do_raise(self, model_name, status):
-        raise VersionsNotUpdated(model_name, status)
-
-
-class WaitAgentsStarted(BaseCondition):
-    """Wait until all agents are idle or started."""
-
-    def __init__(self, timeout=1200):
-        super(WaitAgentsStarted, self).__init__(timeout)
-
-    def iter_blocking_state(self, status):
-        states = Status.check_agents_started(status)
-
-        if states is not None:
-            for state, item in states.items():
-                yield item[0], state
-
-    def do_raise(self, model_name, status):
-        raise AgentsNotStarted(model_name, status)
-
-
-class CommandTime:
-    """Store timing details for a juju command."""
-
-    def __init__(self, cmd, full_args, envvars=None, start=None):
-        """Constructor.
-
-        :param cmd: Command string for command run (e.g. bootstrap)
-        :param args: List of all args the command was called with.
-        :param envvars: Dict of any extra envvars set before command was
-          called.
-        :param start: datetime.datetime object representing when the command
-          was run. If None defaults to datetime.utcnow()
-        """
-        self.cmd = cmd
-        self.full_args = full_args
-        self.envvars = envvars
-        self.start = start if start else datetime.utcnow()
-        self.end = None
-
-    def actual_completion(self, end=None):
-        """Signify that actual completion time of the command.
-
-        Note. ignores multiple calls after the initial call.
-
-        :param end: datetime.datetime object. If None defaults to
-          datetime.datetime.utcnow()
-        """
-        if self.end is None:
-            self.end = end if end else datetime.utcnow()
-
-    @property
-    def total_seconds(self):
-        """Total amount of seconds a command took to complete.
-
-        :return: Int representing number of seconds or None if the command
-          timing has never been completed.
-        """
-        if self.end is None:
-            return None
-        return (self.end - self.start).total_seconds()
-
-
-class CommandComplete(BaseCondition):
-    """Wraps a CommandTime and gives the ability to wait_for completion."""
-
-    def __init__(self, real_condition, command_time):
-        """Constructor.
-
-        :param real_condition: BaseCondition object.
-        :param command_time: CommandTime object representing the command to
-          wait for completion.
-        """
-        super(CommandComplete, self).__init__(
-            real_condition.timeout,
-            real_condition.already_satisfied)
-        self._real_condition = real_condition
-        self.command_time = command_time
-        if real_condition.already_satisfied:
-            self.command_time.actual_completion()
-
-    def iter_blocking_state(self, status):
-        """Wraps the iter_blocking_state of the stored BaseCondition.
-
-        When the operation is complete iter_blocking_state yields nothing.
-        Otherwise iter_blocking_state yields details as to why the action
-        cannot be considered complete yet.
-        """
-        completed = True
-        for item, state in self._real_condition.iter_blocking_state(status):
-            completed = False
-            yield item, state
-        if completed:
-            self.command_time.actual_completion()
-
-    def do_raise(self, status):
-        raise RuntimeError(
-            'Timed out waiting for "{}" command to complete: "{}"'.format(
-                self.command_time.cmd,
-                ' '.join(self.command_time.full_args)))
-
-
 def get_stripped_version_number(version_string):
     # strip the series and arch from the built version.
     version_parts = version_string.split('-')
@@ -1605,8 +536,7 @@ class ModelClient:
 
     Note: A model is often called an enviroment (Juju 1 legacy).
 
-    This class represents the latest Juju version.  Subclasses are used to
-    support older versions (see get_client_class).
+    This class represents the latest Juju version.
     """
 
     # The environments.yaml options that are replaced by bootstrap options.
@@ -1617,7 +547,7 @@ class ModelClient:
     bootstrap_replaces = frozenset(['agent-version'])
 
     # What feature flags have existed that CI used.
-    known_feature_flags = frozenset(['actions', 'jes', 'migration'])
+    known_feature_flags = frozenset(['actions', 'migration'])
 
     # What feature flags are used by this version of the juju client.
     used_feature_flags = frozenset(['migration'])
@@ -1627,7 +557,7 @@ class ModelClient:
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE,
                                            LXD_MACHINE])
 
-    default_backend = Juju2Backend
+    default_backend = JujuBackend
 
     config_class = JujuData
 
@@ -1638,6 +568,9 @@ class ModelClient:
     model_permissions = frozenset(['read', 'write', 'admin'])
 
     controller_permissions = frozenset(['login', 'addmodel', 'superuser'])
+
+    # Granting 'login' will error as a created user has that at creation.
+    ignore_permissions = frozenset(['login'])
 
     reserved_spaces = frozenset([
         'endpoint-bindings-data', 'endpoint-bindings-public'])
@@ -1688,34 +621,6 @@ class ModelClient:
             raise ValueError('Unknown feature flag: %r' % (flag,))
         self.feature_flags.add(flag)
 
-    def get_jes_command(self):
-        """For Juju 2.0, this is always kill-controller."""
-        return KILL_CONTROLLER
-
-    def is_jes_enabled(self):
-        """Does the state-server support multiple environments."""
-        try:
-            self.get_jes_command()
-            return True
-        except JESNotSupported:
-            return False
-
-    def enable_jes(self):
-        """Enable JES if JES is optional.
-
-        Specifically implemented by the clients that optionally support JES.
-        This version raises either JESByDefault or JESNotSupported.
-
-        :raises: JESByDefault when JES is always enabled; Juju has the
-            'destroy-controller' command.
-        :raises: JESNotSupported when JES is not supported; Juju does not have
-            the 'system kill' command when the JES feature flag is set.
-        """
-        if self.is_jes_enabled():
-            raise JESByDefault()
-        else:
-            raise JESNotSupported()
-
     @classmethod
     def get_full_path(cls):
         if sys.platform == 'win32':
@@ -1723,16 +628,14 @@ class ModelClient:
         return subprocess.check_output(
             ('which', 'juju')).decode(getpreferredencoding()).rstrip('\n')
 
-    def clone_path_cls(self, juju_path):
-        """Clone using the supplied path to determine the class."""
-        from jujupy.version_client import get_client_class
-        version = self.get_version(juju_path)
-        cls = get_client_class(version)
+    def clone_from_path(self, juju_path):
+        """Clone using the supplied path."""
         if juju_path is None:
             full_path = self.get_full_path()
         else:
             full_path = os.path.abspath(juju_path)
-        return self.clone(version=version, full_path=full_path, cls=cls)
+        return self.clone(
+            full_path=full_path, version=self.get_version(juju_path))
 
     def clone(self, env=None, version=None, full_path=None, debug=None,
               cls=None):
@@ -1772,14 +675,6 @@ class ModelClient:
                 controller=self.env.controller.name,
                 model=self.model_name)
 
-    @staticmethod
-    def _get_env(env):
-        if not isinstance(env, JujuData) and isinstance(env,
-                                                        SimpleEnvironment):
-            # FIXME: JujuData should be used from the start.
-            env = JujuData.from_env(env)
-        return env
-
     def __init__(self, env, version, full_path, juju_home=None, debug=False,
                  soft_deadline=None, _backend=None):
         """Create a new juju client.
@@ -1799,7 +694,7 @@ class ModelClient:
         :param _backend: The backend to use for interacting with the client.
             If None (the default), self.default_backend will be used.
         """
-        self.env = self._get_env(env)
+        self.env = env
         if _backend is None:
             _backend = self.default_backend(full_path, version, set(), debug,
                                             soft_deadline)
@@ -1944,7 +839,7 @@ class ModelClient:
         :param env: Either a class representing the new model/environment
             or the name of the new model/environment which will then be
             otherwise identical to the current model/environment."""
-        if not isinstance(env, SimpleEnvironment):
+        if not isinstance(env, JujuData):
             env = self.env.clone(env)
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
@@ -2053,8 +948,9 @@ class ModelClient:
 
     def destroy_model(self):
         exit_status, _ = self.juju(
-            'destroy-model', ('{}:{}'.format(self.env.controller.name,
-                                             self.env.environment), '-y',),
+            'destroy-model',
+            ('{}:{}'.format(self.env.controller.name, self.env.environment),
+             '-y', '--destroy-storage',),
             include_e=False, timeout=get_teardown_timeout(self))
         return exit_status
 
@@ -2523,10 +1419,7 @@ class ModelClient:
         return self.get_models()['models']
 
     def iter_model_clients(self):
-        """Iterate through all the models that share this model's controller.
-
-        Works only if JES is enabled.
-        """
+        """Iterate through all the models that share this model's controller"""
         models = self._get_models()
         if not models:
             yield self
@@ -2732,16 +1625,14 @@ class ModelClient:
             reporter.finish()
         condition.do_raise(self.model_name, status)
 
-    def get_matching_agent_version(self, no_build=False):
+    def get_matching_agent_version(self):
         version_number = get_stripped_version_number(self.version)
-        if not no_build and self.env.local:
-            version_number += '.1'
         return version_number
 
     def upgrade_juju(self, force_version=True):
         args = ()
         if force_version:
-            version = self.get_matching_agent_version(no_build=True)
+            version = self.get_matching_agent_version()
             args += ('--agent-version', version)
         self._upgrade_juju(args)
 
@@ -2794,12 +1685,10 @@ class ModelClient:
         out = self.get_juju_output("show-action-output", id, "--wait", timeout)
         status = yaml.safe_load(out)["status"]
         if status != "completed":
-            name = ""
-            if action is not None:
-                name = " " + action
+            action_name = '' if not action else ' "{}"'.format(action)
             raise Exception(
-                "timed out waiting for action%s to complete during fetch" %
-                name)
+                'Timed out waiting for action{} to complete during fetch '
+                'with status: {}.'.format(action_name, status))
         return out
 
     def action_do(self, unit, action, *args):
@@ -2957,22 +1846,8 @@ class ModelClient:
         user_client = self.create_cloned_environment(juju_home,
                                                      controller_name,
                                                      username)
-
-        try:
-            child = user_client.expect('register', (token), include_e=False)
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
-            child.expect('(?i)name')
-            child.sendline(controller_name)
-            self._end_pexpect_session(child)
-        except pexpect.TIMEOUT:
-            log.error('Buffer: {}'.format(child.buffer))
-            log.error('Before: {}'.format(child.before))
-            raise Exception(
-                'Registering user failed: pexpect session timed out')
         user_client.env.user_name = username
+        register_user_interactively(user_client, token, controller_name)
         return user_client
 
     def login_user(self, username=None, password=None):
@@ -3040,13 +1915,16 @@ class ModelClient:
             user_client.env.user_name = user_name
             user_client.env.environment = qualified_model_name(
                 user_client.env.environment, self.env.user_name)
-        user_client.env.dump_yaml(user_client.env.juju_home, None)
+        user_client.env.dump_yaml(user_client.env.juju_home)
         # New user names the controller.
         user_client.env.controller = Controller(controller_name)
         return user_client
 
     def grant(self, user_name, permission, model=None):
         """Grant the user with model or controller permission."""
+        if permission in self.ignore_permissions:
+            log.info('Ignoring permission "{}".'.format(permission))
+            return
         if permission in self.controller_permissions:
             self.juju(
                 'grant',
@@ -3222,70 +2100,32 @@ class ModelClient:
         self.juju('switch', (':'.join(args),), include_e=False)
 
 
-def get_local_root(juju_home, env):
-    return os.path.join(juju_home, env.environment)
+def register_user_interactively(client, token, controller_name):
+    """Register a user with the supplied token and controller name.
 
-
-def bootstrap_from_env(juju_home, client):
-    with temp_bootstrap_env(juju_home, client):
-        client.bootstrap()
-
-
-def quickstart_from_env(juju_home, client, bundle):
-    with temp_bootstrap_env(juju_home, client):
-        client.quickstart(bundle)
-
-
-def uniquify_local(env):
-    """Ensure that local environments have unique port settings.
-
-    This allows local environments to be duplicated despite
-    https://bugs.launchpad.net/bugs/1382131
+    :param client: ModelClient on which to register the user (using the models
+      controller.)
+    :param token: Token string to use when registering.
+    :param controller_name: String to use when naming the controller.
     """
-    if not env.local:
-        return
-    port_defaults = {
-        'api-port': 17070,
-        'state-port': 37017,
-        'storage-port': 8040,
-        'syslog-port': 6514,
-    }
-    new_config = {}
-    for key, default in port_defaults.items():
-        new_config[key] = env.get_option(key, default) + 1
-    env.update_config(new_config)
+    try:
+        child = client.expect('register', (token), include_e=False)
+        child.expect('(?i)password')
+        child.sendline(client.env.user_name + '_password')
+        child.expect('(?i)password')
+        child.sendline(client.env.user_name + '_password')
+        child.expect('(?i)name')
+        child.sendline(controller_name)
+        client._end_pexpect_session(child)
+    except pexpect.TIMEOUT:
+        log.error('Buffer: {}'.format(child.buffer))
+        log.error('Before: {}'.format(child.before))
+        raise Exception(
+            'Registering user failed: pexpect session timed out')
 
 
-def dump_environments_yaml(juju_home, config):
-    """Dump yaml data to the environment file.
-
-    :param juju_home: Path to the JUJU_HOME directory.
-    :param config: Dictionary repersenting yaml data to dump."""
-    environments_path = get_environments_path(juju_home)
-    with open(environments_path, 'w') as config_file:
-        yaml.safe_dump(config, config_file)
-
-
-@contextmanager
-def _temp_env(new_config, parent=None, set_home=True):
-    """Use the supplied config as juju environment.
-
-    This is not a fully-formed version for bootstrapping.  See
-    temp_bootstrap_env.
-    """
-    with temp_dir(parent) as temp_juju_home:
-        dump_environments_yaml(temp_juju_home, new_config)
-        if set_home:
-            with scoped_environ():
-                os.environ['JUJU_HOME'] = temp_juju_home
-                os.environ['JUJU_DATA'] = temp_juju_home
-                yield temp_juju_home
-        else:
-            yield temp_juju_home
-
-
-def jes_home_path(juju_home, dir_name):
-    return os.path.join(juju_home, 'jes-homes', dir_name)
+def juju_home_path(juju_home, dir_name):
+    return os.path.join(juju_home, 'juju-homes', dir_name)
 
 
 def get_cache_path(juju_home, models=False):
@@ -3308,28 +2148,12 @@ def make_safe_config(client):
     # Explicitly set 'name', which Juju implicitly sets to env.environment to
     # ensure MAASAccount knows what the name will be.
     config['name'] = unqualified_model_name(client.env.environment)
-    if config['type'] == 'local':
-        config.setdefault('root-dir', get_local_root(client.env.juju_home,
-                          client.env))
-        # MongoDB requires a lot of free disk space, and the only
-        # visible error message is from "juju bootstrap":
-        # "cannot initiate replication set" if disk space is low.
-        # What "low" exactly means, is unclear, but 8GB should be
-        # enough.
-        ensure_dir(config['root-dir'])
-        check_free_disk_space(config['root-dir'], 8000000, "MongoDB files")
-        if client.env.kvm:
-            check_free_disk_space(
-                "/var/lib/uvtool/libvirt/images", 2000000,
-                "KVM disk files")
-        else:
-            check_free_disk_space(
-                "/var/lib/lxc", 2000000, "LXC containers")
+
     return config
 
 
 @contextmanager
-def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
+def temp_bootstrap_env(juju_home, client):
     """Create a temporary environment for bootstrapping.
 
     This involves creating a temporary juju home directory and returning its
@@ -3339,45 +2163,12 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     :param client: The client being prepared for bootstrapping.
     :param set_home: Set JUJU_HOME to match the temporary home in this
         context.  If False, juju_home should be supplied to bootstrap.
-    :param permanent: If permanent, the environment is kept afterwards.
-        Otherwise the environment is deleted when exiting the context.
     """
-    new_config = {
-        'environments': {client.env.environment: make_safe_config(client)}}
     # Always bootstrap a matching environment.
-    jenv_path = get_jenv_path(juju_home, client.env.environment)
-    if permanent:
-        context = client.env.make_jes_home(
-            juju_home, client.env.environment, new_config)
-    else:
-        context = _temp_env(new_config, juju_home, set_home)
+    context = client.env.make_juju_home(juju_home, client.env.environment)
     with context as temp_juju_home:
-        if os.path.lexists(jenv_path):
-            raise Exception('%s already exists!' % jenv_path)
-        new_jenv_path = get_jenv_path(temp_juju_home, client.env.environment)
-        # Create a symlink to allow access while bootstrapping, and to reduce
-        # races.  Can't use a hard link because jenv doesn't exist until
-        # partway through bootstrap.
-        ensure_dir(os.path.join(juju_home, 'environments'))
-        # Skip creating symlink where not supported (i.e. Windows).
-        if not permanent and getattr(os, 'symlink', None) is not None:
-            os.symlink(new_jenv_path, jenv_path)
-        old_juju_home = client.env.juju_home
         client.env.juju_home = temp_juju_home
-        try:
-            yield temp_juju_home
-        finally:
-            if not permanent:
-                # replace symlink with file before deleting temp home.
-                try:
-                    os.rename(new_jenv_path, jenv_path)
-                except OSError as e:
-                    if e.errno != errno.ENOENT:
-                        raise
-                    # Remove dangling symlink
-                    with skip_on_missing_file():
-                        os.unlink(jenv_path)
-                client.env.juju_home = old_juju_home
+        yield temp_juju_home
 
 
 def get_machine_dns_name(client, machine, timeout=600):
@@ -3387,13 +2178,6 @@ def get_machine_dns_name(client, machine, timeout=600):
             return _dns_name_for_machine(status, machine)
         except KeyError:
             log.debug("No dns-name yet for machine %s", machine)
-
-
-def _dns_name_for_machine(status, machine):
-    host = status.status['machines'][machine]['dns-name']
-    if is_ipv6_address(host):
-        log.warning("Selected IPv6 address for machine %s: %r", machine, host)
-    return host
 
 
 class Controller:
@@ -3442,3 +2226,65 @@ class GroupReporter:
         self.last_group = group
         self.ticks = 0
         self.wrap_offset = lead_length if lead_length < self.wrap_width else 0
+
+
+def _get_full_path(juju_path):
+    """Helper to ensure a full path is used.
+
+    If juju_path is None, ModelClient.get_full_path is used.  Otherwise,
+    the supplied path is converted to absolute.
+    """
+    if juju_path is None:
+        return ModelClient.get_full_path()
+    else:
+        return os.path.abspath(juju_path)
+
+
+def client_from_config(config, juju_path, debug=False, soft_deadline=None):
+    """Create a client from an environment's configuration.
+
+    :param config: Name of the environment to use the config from.
+    :param juju_path: Path to juju binary the client should wrap.
+    :param debug=False: The debug flag for the client, False by default.
+    :param soft_deadline: A datetime representing the deadline by which
+        normal operations should complete.  If None, no deadline is
+        enforced.
+    """
+    version = ModelClient.get_version(juju_path)
+    if config is None:
+        env = ModelClient.config_class('', {})
+    else:
+        env = ModelClient.config_class.from_config(config)
+    full_path = _get_full_path(juju_path)
+    return ModelClient(
+        env, version, full_path, debug=debug, soft_deadline=soft_deadline)
+
+
+def client_for_existing(juju_path, juju_data_dir, debug=False,
+                        soft_deadline=None, controller_name=None,
+                        model_name=None):
+    """Create a client for an existing controller/model.
+
+    :param juju_path: Path to juju binary the client should wrap.
+    :param juju_data_dir: Path to the juju data directory referring the the
+        controller and model.
+    :param debug=False: The debug flag for the client, False by default.
+    :param soft_deadline: A datetime representing the deadline by which
+        normal operations should complete.  If None, no deadline is
+        enforced.
+    """
+    version = ModelClient.get_version(juju_path)
+    full_path = _get_full_path(juju_path)
+    backend = ModelClient.default_backend(
+        full_path, version, set(), debug=debug, soft_deadline=soft_deadline)
+    if controller_name is None:
+        current_controller = backend.get_active_controller(juju_data_dir)
+        controller_name = current_controller
+    if model_name is None:
+        current_model = backend.get_active_model(juju_data_dir)
+        model_name = current_model
+    config = ModelClient.config_class.for_existing(
+        juju_data_dir, controller_name, model_name)
+    return ModelClient(
+        config, version, full_path,
+        debug=debug, soft_deadline=soft_deadline, _backend=backend)

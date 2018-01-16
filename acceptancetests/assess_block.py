@@ -14,7 +14,6 @@ from deploy_stack import (
     BootstrapManager,
     deploy_dummy_stack,
     )
-from jujupy import EnvJujuClient1X
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -34,26 +33,6 @@ def make_block_list(client, disabled_commands):
     :param disabled_commands: list of client.command_set_* elements to
         include in simulated output.
     """
-    if isinstance(client, EnvJujuClient1X):
-        blocks = []
-        commands = [
-            client.command_set_destroy_model,
-            client.command_set_remove_object,
-            client.command_set_all]
-        for command in commands:
-            if command in disabled_commands:
-                blocks.append({
-                    'message': '',
-                    'enabled': True,
-                    'block': command
-                    })
-            else:
-                blocks.append({
-                    'enabled': False,
-                    'block': command
-                    })
-        return blocks
-
     if not disabled_commands:
         return []
 

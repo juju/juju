@@ -9,6 +9,7 @@ series:
   - xenial
   - zesty
   - artful
+  - bionic
 resources:
   foo:
     type: file
