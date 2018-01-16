@@ -6,6 +6,7 @@ package kvm_test
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"runtime"
 
 	"github.com/juju/loggo"
@@ -41,6 +42,10 @@ func (s *LiveSuite) SetUpTest(c *gc.C) {
 	// Skip if not linux
 	if runtime.GOOS != "linux" {
 		c.Skip("not running linux")
+	}
+	// Skip if virsh is not installed.
+	if _, err := exec.LookPath("virsh"); err != nil {
+		c.Skip("virsh not found")
 	}
 	// Skip if not running as root.
 	if os.Getuid() != 0 {
