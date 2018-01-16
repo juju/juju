@@ -34,8 +34,8 @@ type ConnSuite struct {
 	modelTag     names.ModelTag
 }
 
-func (cs *ConnSuite) SetUpTest(c *gc.C) {
-	cs.policy = statetesting.MockPolicy{
+func (s *ConnSuite) SetUpTest(c *gc.C) {
+	s.policy = statetesting.MockPolicy{
 		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
 			return storage.ChainedProviderRegistry{
 				dummy.StorageProviders(),
@@ -43,23 +43,23 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 			}, nil
 		},
 	}
-	cs.StateSuite.NewPolicy = func(*state.State) state.Policy {
-		return &cs.policy
+	s.StateSuite.NewPolicy = func(*state.State) state.Policy {
+		return &s.policy
 	}
 
-	cs.StateSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 
-	cs.modelTag = cs.IAASModel.ModelTag()
+	s.modelTag = s.IAASModel.ModelTag()
 
-	jujuDB := cs.MgoSuite.Session.DB("juju")
-	cs.annotations = jujuDB.C("annotations")
-	cs.charms = jujuDB.C("charms")
-	cs.machines = jujuDB.C("machines")
-	cs.instanceData = jujuDB.C("instanceData")
-	cs.relations = jujuDB.C("relations")
-	cs.services = jujuDB.C("applications")
-	cs.units = jujuDB.C("units")
-	cs.controllers = jujuDB.C("controllers")
+	jujuDB := s.MgoSuite.Session.DB("juju")
+	s.annotations = jujuDB.C("annotations")
+	s.charms = jujuDB.C("charms")
+	s.machines = jujuDB.C("machines")
+	s.instanceData = jujuDB.C("instanceData")
+	s.relations = jujuDB.C("relations")
+	s.services = jujuDB.C("applications")
+	s.units = jujuDB.C("units")
+	s.controllers = jujuDB.C("controllers")
 }
 
 func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
@@ -127,4 +127,15 @@ func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.Stat
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { otherState.Close() })
 	return otherState
+}
+
+// SetJujuManagementSpace mimics a controller having been configured with a
+// management space. It is the space name that constrains the set of
+// addresses agents should use for controller communication.
+func (s *ConnSuite) SetJujuManagementSpace(c *gc.C, space string) {
+	controllerSettings, err := s.State.ReadSettings("controllers", "controllerSettings")
+	c.Assert(err, jc.ErrorIsNil)
+	controllerSettings.Set("juju-mgmt-space", space)
+	_, err = controllerSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
 }
