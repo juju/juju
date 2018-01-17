@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	coretesting "github.com/juju/juju/testing"
@@ -45,6 +46,33 @@ type WorkerSuite struct {
 
 var _ = gc.Suite(&WorkerSuite{})
 
+var (
+	containerSpec = `
+name: gitlab
+image-name: gitlab/latest
+ports:
+- container-port: 80
+  protocol: TCP
+- container-port: 443
+config:
+  attr: foo=bar; fred=blogs
+  foo: bar
+`[1:]
+
+	parsedSpec = caas.ContainerSpec{
+		Name:      "gitlab",
+		ImageName: "gitlab/latest",
+		Ports: []caas.ContainerPort{
+			{ContainerPort: 80, Protocol: "TCP"},
+			{ContainerPort: 443},
+		},
+		Config: map[string]string{
+			"attr": "foo=bar; fred=blogs",
+			"foo":  "bar",
+		},
+	}
+)
+
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
@@ -63,7 +91,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.containerSpecGetter = mockContainerSpecGetter{
 		watcher: watchertest.NewMockNotifyWatcher(s.containerSpecChanges),
 	}
-	s.containerSpecGetter.setSpec("container-spec")
+	s.containerSpecGetter.setSpec(containerSpec)
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.containerSpecGetter.watcher) })
 
 	s.unitGetter = mockUnitGetter{
@@ -198,7 +226,7 @@ func (s *WorkerSuite) TestNewJujuManagedUnit(c *gc.C) {
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
 	s.containerBroker.CheckCallNames(c, "WatchUnits", "EnsureUnit")
-	s.containerBroker.CheckCall(c, 1, "EnsureUnit", "gitlab", "gitlab/0", "container-spec")
+	s.containerBroker.CheckCall(c, 1, "EnsureUnit", "gitlab", "gitlab/0", &parsedSpec)
 }
 
 func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
@@ -215,7 +243,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", "container-spec", 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 
 	s.serviceBroker.ResetCalls()
 	// Add another unit.
@@ -233,7 +261,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", "container-spec", 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", &parsedSpec, 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 
 	s.serviceBroker.ResetCalls()
 	// Delete a unit.
@@ -252,7 +280,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", "container-spec", 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func (s *WorkerSuite) TestNewBrokerManagedUnitSpecChange(c *gc.C) {
@@ -270,7 +298,19 @@ func (s *WorkerSuite) TestNewBrokerManagedUnitSpecChange(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 	}
 
-	s.containerSpecGetter.setSpec("another-spec")
+	var (
+		anotherSpec = `
+name: gitlab
+image-name: gitlab/latest
+`[1:]
+
+		anotherParsedSpec = caas.ContainerSpec{
+			Name:      "gitlab",
+			ImageName: "gitlab/latest",
+		}
+	)
+
+	s.containerSpecGetter.setSpec(anotherSpec)
 	s.sendContainerSpecChange(c)
 	s.containerSpecGetter.assertSpecRetrieved(c)
 
@@ -282,7 +322,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnitSpecChange(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", "another-spec", 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", &anotherParsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func (s *WorkerSuite) TestNewBrokerManagedUnitAllRemoved(c *gc.C) {

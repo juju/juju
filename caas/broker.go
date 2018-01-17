@@ -20,7 +20,7 @@ type Broker interface {
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
 
 	// EnsureService creates or updates a service for pods with the given spec.
-	EnsureService(appName, unitSpec string, numUnits int, config application.ConfigAttributes) error
+	EnsureService(appName string, spec *ContainerSpec, numUnits int, config application.ConfigAttributes) error
 
 	// DeleteService deletes the specified service.
 	DeleteService(appName string) error
@@ -32,7 +32,7 @@ type Broker interface {
 	UnexposeService(appName string) error
 
 	// EnsureUnit creates or updates a pod with the given spec.
-	EnsureUnit(appName, unitName, spec string) error
+	EnsureUnit(appName, unitName string, spec *ContainerSpec) error
 
 	// WatchUnits returns a watcher which notifies when there
 	// are changes to units of the specified application.

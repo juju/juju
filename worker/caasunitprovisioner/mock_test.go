@@ -38,7 +38,7 @@ type mockServiceBroker struct {
 	ensured chan<- struct{}
 }
 
-func (m *mockServiceBroker) EnsureService(appName, unitSpec string, numUnits int, config application.ConfigAttributes) error {
+func (m *mockServiceBroker) EnsureService(appName string, unitSpec *caas.ContainerSpec, numUnits int, config application.ConfigAttributes) error {
 	m.MethodCall(m, "EnsureService", appName, unitSpec, numUnits, config)
 	m.ensured <- struct{}{}
 	return m.NextErr()
@@ -55,7 +55,7 @@ type mockContainerBroker struct {
 	unitsWatcher *watchertest.MockNotifyWatcher
 }
 
-func (m *mockContainerBroker) EnsureUnit(appName, unitName, spec string) error {
+func (m *mockContainerBroker) EnsureUnit(appName, unitName string, spec *caas.ContainerSpec) error {
 	m.MethodCall(m, "EnsureUnit", appName, unitName, spec)
 	m.ensured <- struct{}{}
 	return m.NextErr()

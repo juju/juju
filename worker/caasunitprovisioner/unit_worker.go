@@ -5,6 +5,7 @@ package caasunitprovisioner
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/caas"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/worker/catacomb"
@@ -68,7 +69,7 @@ func (w *unitWorker) loop() error {
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
-			spec, err := w.containerSpecGetter.ContainerSpec(w.unit)
+			specStr, err := w.containerSpecGetter.ContainerSpec(w.unit)
 			if errors.IsNotFound(err) {
 				// No container spec defined for this unit yet;
 				// wait for one to be set.
@@ -76,6 +77,10 @@ func (w *unitWorker) loop() error {
 			}
 			if err != nil {
 				return errors.Trace(err)
+			}
+			spec, err := caas.ParseContainerSpec(specStr)
+			if err != nil {
+				return errors.Annotate(err, "cannot parse container spec")
 			}
 			if err := w.broker.EnsureUnit(w.application, w.unit, spec); err != nil {
 				return errors.Trace(err)
