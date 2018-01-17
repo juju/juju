@@ -97,6 +97,10 @@ func (s *RunSuite) TestInit(c *gc.C) {
 		args:        []string{validUnitId, "BadName"},
 		expectError: "invalid unit or action name \"BadName\"",
 	}, {
+		should:      "fail with invalid action name ending in \"-\"",
+		args:        []string{validUnitId, "name-end-with-dash-"},
+		expectError: "invalid unit or action name \"name-end-with-dash-\"",
+	}, {
 		should:      "fail with wrong formatting of k-v args",
 		args:        []string{validUnitId, "valid-action-name", "uh"},
 		expectError: "argument \"uh\" must be of the form key...=value",
@@ -108,6 +112,21 @@ func (s *RunSuite) TestInit(c *gc.C) {
 		should:      "fail with wrong formatting of k-v args",
 		args:        []string{validUnitId, "valid-action-name", "no-go?od=3"},
 		expectError: "key \"no-go\\?od\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens",
+	}, {
+		should:       "work with action name ending in numeric values",
+		args:         []string{validUnitId, "action-01"},
+		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectAction: "action-01",
+	}, {
+		should:       "work with numeric values within action name",
+		args:         []string{validUnitId, "action-00-foo"},
+		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectAction: "action-00-foo",
+	}, {
+		should:       "work with action name starting with numeric values",
+		args:         []string{validUnitId, "00-action"},
+		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectAction: "00-action",
 	}, {
 		should:       "work with empty values",
 		args:         []string{validUnitId, "valid-action-name", "ok="},
