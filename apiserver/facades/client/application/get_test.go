@@ -15,15 +15,21 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/constraints"
+	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type getSuite struct {
 	jujutesting.JujuConnSuite
 
-	serviceAPI *application.API
-	authorizer apiservertesting.FakeAuthorizer
+	applicationAPI *application.APIv6
+	authorizer     apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&getSuite{})
@@ -37,7 +43,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	backend, err := application.NewStateBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
-	s.serviceAPI, err = application.NewAPI(
+	api, err := application.NewAPIV5(
 		backend,
 		s.authorizer,
 		blockChecker,
@@ -45,17 +51,18 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		application.DeployApplication,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	s.applicationAPI = &application.APIv6{api}
 }
 
-func (s *getSuite) TestClientServiceGetSmoketestV4(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v4 := &application.APIv4{s.serviceAPI}
+	v4 := &application.APIv4{s.applicationAPI.APIv5}
 	results, err := v4.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
 		Charm:       "wordpress",
-		Config: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"blog-title": map[string]interface{}{
 				"default":     true,
 				"description": "A descriptive title used for the blog.",
@@ -67,14 +74,15 @@ func (s *getSuite) TestClientServiceGetSmoketestV4(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
+func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	results, err := s.serviceAPI.Get(params.ApplicationGet{"wordpress"})
+	v5 := s.applicationAPI.APIv5
+	results, err := v5.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
 		Charm:       "wordpress",
-		Config: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"blog-title": map[string]interface{}{
 				"default":     "My Title",
 				"description": "A descriptive title used for the blog.",
@@ -87,8 +95,112 @@ func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestServiceGetUnknownService(c *gc.C) {
-	_, err := s.serviceAPI.Get(params.ApplicationGet{"unknown"})
+func (s *getSuite) TestClientApplicationGetIAASModelSmoketest(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+
+	results, err := s.applicationAPI.Get(params.ApplicationGet{"wordpress"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
+		Application: "wordpress",
+		Charm:       "wordpress",
+		CharmConfig: map[string]interface{}{
+			"blog-title": map[string]interface{}{
+				"default":     "My Title",
+				"description": "A descriptive title used for the blog.",
+				"source":      "default",
+				"type":        "string",
+				"value":       "My Title",
+			},
+		},
+		ApplicationConfig: map[string]interface{}{},
+		Series:            "quantal",
+	})
+}
+
+func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+
+	schemaFields, err := caas.ConfigSchema(k8s.ConfigSchema())
+	c.Assert(err, jc.ErrorIsNil)
+	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	appConfig, err := coreapplication.NewConfig(map[string]interface{}{"juju-external-hostname": "ext"}, schemaFields, defaults)
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.UpdateApplicationConfig(appConfig.Attributes(), nil, schemaFields, defaults)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedAppConfig := make(map[string]interface{})
+	for name, field := range schemaFields {
+		info := map[string]interface{}{
+			"description": field.Description,
+			"source":      "unset",
+			"type":        field.Type,
+		}
+		expectedAppConfig[name] = info
+	}
+
+	for name, val := range appConfig.Attributes() {
+		field := schemaFields[name]
+		info := map[string]interface{}{
+			"description": field.Description,
+			"source":      "unset",
+			"type":        field.Type,
+		}
+		if val != nil {
+			info["source"] = "user"
+			info["value"] = val
+		}
+		if defaultVal := defaults[name]; defaultVal != nil {
+			info["default"] = defaultVal
+			info["source"] = "default"
+			if val != defaultVal {
+				info["source"] = "user"
+			}
+		}
+		expectedAppConfig[name] = info
+	}
+
+	backend, err := application.NewStateBackend(st)
+	c.Assert(err, jc.ErrorIsNil)
+	blockChecker := common.NewBlockChecker(st)
+	api, err := application.NewAPIV5(
+		backend,
+		s.authorizer,
+		blockChecker,
+		application.CharmToStateCharm,
+		application.DeployApplication,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	apiV6 := &application.APIv6{api}
+
+	results, err := apiV6.Get(params.ApplicationGet{"wordpress"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
+		Application: "wordpress",
+		Charm:       "wordpress",
+		CharmConfig: map[string]interface{}{
+			"blog-title": map[string]interface{}{
+				"default":     "My Title",
+				"description": "A descriptive title used for the blog.",
+				"source":      "default",
+				"type":        "string",
+				"value":       "My Title",
+			},
+		},
+		ApplicationConfig: expectedAppConfig,
+		Series:            "quantal",
+	})
+}
+
+func (s *getSuite) TestApplicationGetUnknownApplication(c *gc.C) {
+	_, err := s.applicationAPI.Get(params.ApplicationGet{"unknown"})
 	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)
 }
 
@@ -99,7 +211,7 @@ var getTests = []struct {
 	config      charm.Settings
 	expect      params.ApplicationGetResults
 }{{
-	about:       "deployed service",
+	about:       "deployed application",
 	charm:       "dummy",
 	constraints: "mem=2G cpu-power=400",
 	config: charm.Settings{
@@ -112,7 +224,7 @@ var getTests = []struct {
 		// Outlook is left unset.
 	},
 	expect: params.ApplicationGetResults{
-		Config: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"title": map[string]interface{}{
 				"default":     "My Title",
 				"description": "A descriptive title used for the application.",
@@ -128,7 +240,7 @@ var getTests = []struct {
 			"username": map[string]interface{}{
 				"default":     "admin001",
 				"description": "The name of the initial account (given admin permissions).",
-				"source":      "user",
+				"source":      "default",
 				"type":        "string",
 				"value":       "admin001",
 			},
@@ -141,7 +253,7 @@ var getTests = []struct {
 		Series: "quantal",
 	},
 }, {
-	about: "deployed service  #2",
+	about: "deployed application  #2",
 	charm: "dummy",
 	config: charm.Settings{
 		// Set title to default.
@@ -154,7 +266,7 @@ var getTests = []struct {
 		"outlook": "phlegmatic",
 	},
 	expect: params.ApplicationGetResults{
-		Config: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"title": map[string]interface{}{
 				"default":     "My Title",
 				"description": "A descriptive title used for the application.",
@@ -190,15 +302,15 @@ var getTests = []struct {
 		Series: "quantal",
 	},
 }, {
-	about: "subordinate service",
+	about: "subordinate application",
 	charm: "logging",
 	expect: params.ApplicationGetResults{
-		Config: map[string]interface{}{},
-		Series: "quantal",
+		CharmConfig: map[string]interface{}{},
+		Series:      "quantal",
 	},
 }}
 
-func (s *getSuite) TestServiceGet(c *gc.C) {
+func (s *getSuite) TestApplicationGet(c *gc.C) {
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
 		ch := s.AddTestingCharm(c, t.charm)
@@ -211,7 +323,7 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		if t.config != nil {
-			err := app.UpdateConfigSettings(t.config)
+			err := app.UpdateCharmConfig(t.config)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		expect := t.expect
@@ -237,14 +349,14 @@ func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	c.Assert(int64(asFloat)+1, gc.Equals, nonFloatInt)
 
 	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "test-service", ch)
+	app := s.AddTestingApplication(c, "test-application", ch)
 
-	err := app.UpdateConfigSettings(map[string]interface{}{"skill-level": nonFloatInt})
+	err := app.UpdateCharmConfig(map[string]interface{}{"skill-level": nonFloatInt})
 	c.Assert(err, jc.ErrorIsNil)
 	client := apiapplication.NewClient(s.APIState)
 	got, err := client.Get(app.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got.Config["skill-level"], jc.DeepEquals, map[string]interface{}{
+	c.Assert(got.CharmConfig["skill-level"], jc.DeepEquals, map[string]interface{}{
 		"description": "A number indicating skill.",
 		"source":      "user",
 		"type":        "int",

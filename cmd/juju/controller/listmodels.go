@@ -82,10 +82,12 @@ func (c *modelsCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	controllerName, err := c.ControllerName()
 	if err != nil {
+		ctx.Infof(err.Error())
 		return errors.Trace(err)
 	}
 	accountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
+		ctx.Infof(err.Error())
 		return err
 	}
 	c.loggedInUser = accountDetails.User
@@ -94,7 +96,9 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		c.user = accountDetails.User
 	}
 	if !names.IsValidUser(c.user) {
-		return errors.NotValidf("user %q", c.user)
+		err := errors.NotValidf("user %q", c.user)
+		ctx.Infof(err.Error())
+		return err
 	}
 
 	c.runVars = modelsRunValues{
@@ -106,6 +110,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 
 	modelmanagerAPI, err := c.getModelManagerAPI()
 	if err != nil {
+		ctx.Infof(err.Error())
 		return errors.Trace(err)
 	}
 	defer modelmanagerAPI.Close()
@@ -113,11 +118,17 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 	haveModels := false
 	if modelmanagerAPI.BestAPIVersion() > 3 {
 		haveModels, err = c.getModelSummaries(ctx, modelmanagerAPI, now)
+		if err != nil {
+			// This is needed to provide a consistent behavior with previous
+			// 'models' implementation.
+			err = errors.Annotate(err, "cannot list models")
+		}
 	} else {
 		haveModels, err = c.oldModelsCommandBehaviour(ctx, modelmanagerAPI, now)
 	}
 	if err != nil {
-		return errors.Annotate(err, "cannot list models")
+		ctx.Infof(err.Error())
+		return err
 	}
 	if !haveModels && c.out.Name() == "tabular" {
 		// When the output is tabular, we inform the user when there
@@ -216,8 +227,6 @@ type ModelSummary struct {
 	ShortName string `json:"short-name" yaml:"short-name"`
 	UUID      string `json:"model-uuid" yaml:"model-uuid"`
 
-	// TODO (anastasiamac 2017-11-23) not sure why wed need controller name and uuid,
-	// since these will be the same for all models here...
 	ControllerUUID     string              `json:"controller-uuid" yaml:"controller-uuid"`
 	ControllerName     string              `json:"controller-name" yaml:"controller-name"`
 	Owner              string              `json:"owner" yaml:"owner"`

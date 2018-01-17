@@ -34,7 +34,7 @@ type NetworkGetCommand struct {
 
 func NewNetworkGetCommand(ctx Context) (_ cmd.Command, err error) {
 	cmd := &NetworkGetCommand{ctx: ctx}
-	cmd.relationIdProxy, err = newRelationIdValue(ctx, &cmd.RelationId)
+	cmd.relationIdProxy, err = NewRelationIdValue(ctx, &cmd.RelationId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

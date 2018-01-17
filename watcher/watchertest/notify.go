@@ -29,8 +29,8 @@ func NewMockNotifyWatcher(ch <-chan struct{}) *MockNotifyWatcher {
 	return w
 }
 
-func (w *MockNotifyWatcher) Changes() <-chan struct{} {
-	return w.ch
+func (w *MockNotifyWatcher) Changes() watcher.NotifyChannel {
+	return watcher.NotifyChannel(w.ch)
 }
 
 func (w *MockNotifyWatcher) Stop() error {
@@ -40,6 +40,12 @@ func (w *MockNotifyWatcher) Stop() error {
 
 func (w *MockNotifyWatcher) Kill() {
 	w.tomb.Kill(nil)
+}
+
+// KillErr can be used to kill the worker with
+// an error, to simulate a failing watcher.
+func (w *MockNotifyWatcher) KillErr(err error) {
+	w.tomb.Kill(err)
 }
 
 func (w *MockNotifyWatcher) Err() error {

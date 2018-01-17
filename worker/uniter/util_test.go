@@ -94,7 +94,7 @@ type context struct {
 	charms                 map[string][]byte
 	hooks                  []string
 	sch                    *state.Charm
-	svc                    *state.Application
+	application            *state.Application
 	unit                   *state.Unit
 	uniter                 *uniter.Uniter
 	relatedSvc             *state.Application
@@ -399,7 +399,7 @@ func (csau createApplicationAndUnit) step(c *gc.C, ctx *context) {
 
 	// Assign the unit to a provisioned machine to match expected state.
 	assertAssignUnit(c, ctx.st, unit)
-	ctx.svc = app
+	ctx.application = app
 	ctx.unit = unit
 
 	ctx.apiLogin(c)
@@ -476,7 +476,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	if err != nil {
 		panic(err.Error())
 	}
-	downloader := api.NewCharmDownloader(ctx.apiConn.Client())
+	downloader := api.NewCharmDownloader(ctx.apiConn)
 	operationExecutor := operation.NewExecutor
 	if s.newExecutorFunc != nil {
 		operationExecutor = s.newExecutorFunc
@@ -955,7 +955,7 @@ func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
 type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *gc.C, ctx *context) {
-	err := ctx.svc.UpdateConfigSettings(corecharm.Settings(s))
+	err := ctx.application.UpdateCharmConfig(corecharm.Settings(s))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -984,7 +984,7 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 		Charm:      sch,
 		ForceUnits: s.forced,
 	}
-	err = ctx.svc.SetCharm(cfg)
+	err = ctx.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	serveCharm{}.step(c, ctx)
 }
@@ -1547,7 +1547,7 @@ type mockLeaderTracker struct {
 }
 
 func (mock *mockLeaderTracker) ApplicationName() string {
-	return mock.ctx.svc.Name()
+	return mock.ctx.application.Name()
 }
 
 func (mock *mockLeaderTracker) ClaimDuration() time.Duration {
@@ -1596,7 +1596,7 @@ func (mock *mockLeaderTracker) setLeader(c *gc.C, isLeader bool) {
 	}
 	if isLeader {
 		err := mock.ctx.leaderClaimer.ClaimLeadership(
-			mock.ctx.svc.Name(), mock.ctx.unit.Name(), time.Minute,
+			mock.ctx.application.Name(), mock.ctx.unit.Name(), time.Minute,
 		)
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -1641,7 +1641,7 @@ type setLeaderSettings map[string]string
 func (s setLeaderSettings) step(c *gc.C, ctx *context) {
 	// We do this directly on State, not the API, so we don't have to worry
 	// about getting an API conn for whatever unit's meant to be leader.
-	err := ctx.svc.UpdateLeaderSettings(successToken{}, s)
+	err := ctx.application.UpdateLeaderSettings(successToken{}, s)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.s.BackingState.StartSync()
 }
@@ -1655,7 +1655,7 @@ func (successToken) Check(interface{}) error {
 type verifyLeaderSettings map[string]string
 
 func (verify verifyLeaderSettings) step(c *gc.C, ctx *context) {
-	actual, err := ctx.svc.LeaderSettings()
+	actual, err := ctx.application.LeaderSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, jc.DeepEquals, map[string]string(verify))
 }

@@ -19,20 +19,6 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// RebootPriority is the type used for reboot requests.
-type RebootPriority int
-
-const (
-	// RebootSkip is a noop.
-	RebootSkip RebootPriority = iota
-	// RebootAfterHook means wait for current hook to finish before
-	// rebooting.
-	RebootAfterHook
-	// RebootNow means reboot immediately, killing and requeueing the
-	// calling hook
-	RebootNow
-)
-
 // Context is the interface that all hook helper commands
 // depend on to interact with the rest of the system.
 type Context interface {
@@ -124,6 +110,9 @@ type ContextStatus interface {
 	// SetApplicationStatus updates the status for the unit's service.
 	SetApplicationStatus(StatusInfo) error
 }
+
+// RebootPriority is the type used for reboot requests.
+type RebootPriority int
 
 // ContextInstance is the part of a hook context related to the unit's instance.
 type ContextInstance interface {
@@ -308,9 +297,9 @@ type Settings interface {
 	Delete(string)
 }
 
-// newRelationIdValue returns a gnuflag.Value for convenient parsing of relation
+// NewRelationIdValue returns a gnuflag.Value for convenient parsing of relation
 // ids in ctx.
-func newRelationIdValue(ctx Context, result *int) (*relationIdValue, error) {
+func NewRelationIdValue(ctx Context, result *int) (*relationIdValue, error) {
 	v := &relationIdValue{result: result, ctx: ctx}
 	id := -1
 	if r, err := ctx.HookRelation(); err == nil {
@@ -352,46 +341,5 @@ func (v *relationIdValue) Set(value string) error {
 	}
 	*v.result = id
 	v.value = value
-	return nil
-}
-
-// newStorageIdValue returns a gnuflag.Value for convenient parsing of storage
-// ids in ctx.
-func newStorageIdValue(ctx Context, result *names.StorageTag) (*storageIdValue, error) {
-	v := &storageIdValue{result: result, ctx: ctx}
-	if s, err := ctx.HookStorage(); err == nil {
-		*v.result = s.Tag()
-	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-	return v, nil
-}
-
-// storageIdValue implements gnuflag.Value for use in storage commands.
-type storageIdValue struct {
-	result *names.StorageTag
-	ctx    Context
-}
-
-// String returns the current value.
-func (v *storageIdValue) String() string {
-	if *v.result == (names.StorageTag{}) {
-		return ""
-	}
-	return v.result.Id()
-}
-
-// Set interprets value as a storage id, if possible, and returns an error
-// if it is not known to the system. The parsed storage id will be written
-// to v.result.
-func (v *storageIdValue) Set(value string) error {
-	if !names.IsValidStorage(value) {
-		return errors.Errorf("invalid storage ID %q", value)
-	}
-	tag := names.NewStorageTag(value)
-	if _, err := v.ctx.Storage(tag); err != nil {
-		return errors.Trace(err)
-	}
-	*v.result = tag
 	return nil
 }

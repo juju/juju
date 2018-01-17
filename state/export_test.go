@@ -131,7 +131,7 @@ func ApplicationSettingsRefCount(st *State, appName string, curl *charm.URL) (in
 	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
-	key := applicationSettingsKey(appName, curl)
+	key := applicationCharmConfigKey(appName, curl)
 	return nsRefcounts.read(refcounts, key)
 }
 
@@ -701,10 +701,16 @@ func AssertNoCleanups(c *gc.C, st *State) {
 	}
 }
 
-// GetApplicationSettings allows access to settings collection for a
-// given application.
-func GetApplicationSettings(st *State, app *Application) *Settings {
-	return newSettings(st.db(), settingsC, app.settingsKey())
+// GetApplicationCharmConfig allows access to settings collection for a
+// given application in order to get the charm config.
+func GetApplicationCharmConfig(st *State, app *Application) *Settings {
+	return newSettings(st.db(), settingsC, app.charmConfigKey())
+}
+
+// GetApplicationConfig allows access to settings collection for a
+// given application in order to get the application config.
+func GetApplicationConfig(st *State, app *Application) *Settings {
+	return newSettings(st.db(), settingsC, app.applicationConfigKey())
 }
 
 // GetControllerSettings allows access to settings collection for

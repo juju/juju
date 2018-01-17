@@ -121,19 +121,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settings, err := readSettings(u.st.db(), settingsC, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
-	if err != nil {
-		return nil, err
-	}
-	chrm, err := u.st.Charm(u.doc.CharmURL)
-	if err != nil {
-		return nil, err
-	}
-	result := chrm.Config().DefaultSettings()
-	for name, value := range settings.Map() {
-		result[name] = value
-	}
-	return result, nil
+	return charmSettingsWithDefaults(u.st, u.doc.CharmURL, applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL))
 }
 
 // ApplicationName returns the application name.

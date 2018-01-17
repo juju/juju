@@ -1,0 +1,26 @@
+FROM ubuntu:latest
+
+# Some Python dependencies.
+RUN apt-get update && apt-get install -y \
+    python3-dev \
+    python3-yaml \
+    python3-pip \
+ && pip3 install --upgrade pip setuptools \
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -r /root/.cache
+
+# Install the standard charm dependencies.
+ENV WHEELHOUSE=/tmp/wheelhouse
+ENV PIP_WHEEL_DIR=/tmp/wheelhouse
+ENV PIP_FIND_LINKS=/tmp/wheelhouse
+
+COPY jujud-operator-requirements.txt /tmp/wheelhouse/jujud-operator-requirements.txt
+RUN pip3 install -r /tmp/wheelhouse/jujud-operator-requirements.txt
+
+# Finally jujud
+ARG JUJUD_DIR=/var/lib/juju/tools
+WORKDIR $JUJUD_DIR
+COPY jujud $JUJUD_DIR
+
+ENTRYPOINT ["sh", "-c"]
+CMD ["./jujud caasoperator --debug --application-name ${JUJU_APPLICATION}"]

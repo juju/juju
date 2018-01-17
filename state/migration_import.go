@@ -755,14 +755,16 @@ func (i *importer) application(a description.Application) error {
 	// mean to use the default, i.e. don't set the value.
 	// There may have existed some applications with settings that contained
 	// nil values, see lp#1667199. When importing, we want these stripped.
-	removeNils(a.Settings())
+	removeNils(a.CharmConfig())
+	removeNils(a.ApplicationConfig())
 
 	ops, err := addApplicationOps(i.st, app, addApplicationOpsArgs{
 		applicationDoc:     appDoc,
 		statusDoc:          statusDoc,
 		constraints:        i.constraints(a.Constraints()),
 		storage:            i.storageConstraints(a.StorageConstraints()),
-		settings:           a.Settings(),
+		charmConfig:        a.CharmConfig(),
+		applicationConfig:  a.ApplicationConfig(),
 		leadershipSettings: a.LeadershipSettings(),
 	})
 	if err != nil {
@@ -995,26 +997,27 @@ func (i *importer) importUnitPayloads(unit *Unit, payloads []description.Payload
 	return nil
 }
 
-func (i *importer) makeApplicationDoc(s description.Application) (*applicationDoc, error) {
-	charmURL, err := charm.ParseURL(s.CharmURL())
+func (i *importer) makeApplicationDoc(a description.Application) (*applicationDoc, error) {
+	charmURL, err := charm.ParseURL(a.CharmURL())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return &applicationDoc{
-		Name:                 s.Name(),
-		Series:               s.Series(),
-		Subordinate:          s.Subordinate(),
+		Name:                 a.Name(),
+		Series:               a.Series(),
+		Subordinate:          a.Subordinate(),
 		CharmURL:             charmURL,
-		Channel:              s.Channel(),
-		CharmModifiedVersion: s.CharmModifiedVersion(),
-		ForceCharm:           s.ForceCharm(),
+		Channel:              a.Channel(),
+		CharmModifiedVersion: a.CharmModifiedVersion(),
+		ForceCharm:           a.ForceCharm(),
+		PasswordHash:         a.PasswordHash(),
 		Life:                 Alive,
-		UnitCount:            len(s.Units()),
-		RelationCount:        i.relationCount(s.Name()),
-		Exposed:              s.Exposed(),
-		MinUnits:             s.MinUnits(),
-		MetricCredentials:    s.MetricsCredentials(),
+		UnitCount:            len(a.Units()),
+		RelationCount:        i.relationCount(a.Name()),
+		Exposed:              a.Exposed(),
+		MinUnits:             a.MinUnits(),
+		MetricCredentials:    a.MetricsCredentials(),
 	}, nil
 }
 
@@ -1100,10 +1103,24 @@ func (i *importer) relation(rel description.Relation) error {
 			Insert: relationDoc,
 		},
 	}
-	if rel.Status() != nil {
-		status := i.makeStatusDoc(rel.Status())
-		ops = append(ops, createStatusOp(i.im.mb, relationGlobalScope(rel.Id()), status))
+
+	var relStatusDoc statusDoc
+	relStatus := rel.Status()
+	if relStatus != nil {
+		relStatusDoc = i.makeStatusDoc(relStatus)
+	} else {
+		// Relations are marked as either
+		// joining or joined, depending on
+		// whether there are any units in scope.
+		relStatusDoc = statusDoc{
+			Status:  status.Joining,
+			Updated: time.Now().UnixNano(),
+		}
+		if relationDoc.UnitCount > 0 {
+			relStatusDoc.Status = status.Joined
+		}
 	}
+	ops = append(ops, createStatusOp(i.im.mb, relationGlobalScope(rel.Id()), relStatusDoc))
 
 	dbRelation := newRelation(i.st, relationDoc)
 	// Add an op that adds the relation scope document for each

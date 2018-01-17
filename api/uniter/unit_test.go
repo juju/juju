@@ -522,7 +522,7 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	})
 
 	// Update the config and check we get the changes on the next call.
-	err = s.wordpressApplication.UpdateConfigSettings(charm.Settings{
+	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
 		"blog-title": "superhero paparazzi",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -552,18 +552,18 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
-	err = s.wordpressApplication.UpdateConfigSettings(charm.Settings{
+	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
 		"blog-title": "superhero paparazzi",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpressApplication.UpdateConfigSettings(charm.Settings{
+	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Non-change is not reported.
-	err = s.wordpressApplication.UpdateConfigSettings(charm.Settings{
+	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)

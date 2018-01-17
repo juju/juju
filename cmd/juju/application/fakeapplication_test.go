@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -14,11 +15,13 @@ import (
 // fakeServiceAPI is the fake application API for testing the application
 // update command.
 type fakeApplicationAPI struct {
-	name      string
-	charmName string
-	values    map[string]interface{}
-	config    string
-	err       error
+	name        string
+	charmName   string
+	charmValues map[string]interface{}
+	appValues   map[string]interface{}
+	config      string
+	err         error
+	version     int
 }
 
 func (f *fakeApplicationAPI) Update(args params.ApplicationUpdate) error {
@@ -34,6 +37,10 @@ func (f *fakeApplicationAPI) Update(args params.ApplicationUpdate) error {
 	return nil
 }
 
+func (f *fakeApplicationAPI) BestAPIVersion() int {
+	return f.version
+}
+
 func (f *fakeApplicationAPI) Close() error {
 	return nil
 }
@@ -43,9 +50,17 @@ func (f *fakeApplicationAPI) Get(application string) (*params.ApplicationGetResu
 		return nil, errors.NotFoundf("application %q", application)
 	}
 
-	configInfo := make(map[string]interface{})
-	for k, v := range f.values {
-		configInfo[k] = map[string]interface{}{
+	charmConfigInfo := make(map[string]interface{})
+	for k, v := range f.charmValues {
+		charmConfigInfo[k] = map[string]interface{}{
+			"description": fmt.Sprintf("Specifies %s", k),
+			"type":        fmt.Sprintf("%T", v),
+			"value":       v,
+		}
+	}
+	appConfigInfo := make(map[string]interface{})
+	for k, v := range f.appValues {
+		appConfigInfo[k] = map[string]interface{}{
 			"description": fmt.Sprintf("Specifies %s", k),
 			"type":        fmt.Sprintf("%T", v),
 			"value":       v,
@@ -53,9 +68,10 @@ func (f *fakeApplicationAPI) Get(application string) (*params.ApplicationGetResu
 	}
 
 	return &params.ApplicationGetResults{
-		Application: f.name,
-		Charm:       f.charmName,
-		Config:      configInfo,
+		Application:       f.name,
+		Charm:             f.charmName,
+		CharmConfig:       charmConfigInfo,
+		ApplicationConfig: appConfigInfo,
 	}, nil
 }
 
@@ -68,14 +84,23 @@ func (f *fakeApplicationAPI) Set(application string, options map[string]string) 
 		return errors.NotFoundf("application %q", application)
 	}
 
-	if f.values == nil {
-		f.values = make(map[string]interface{})
+	charmKeys := set.NewStrings("title", "skill-level", "username", "outlook")
+	if f.charmValues == nil {
+		f.charmValues = make(map[string]interface{})
 	}
 	for k, v := range options {
-		f.values[k] = v
+		if charmKeys.Contains(k) {
+			f.charmValues[k] = v
+		} else {
+			f.appValues[k] = v
+		}
 	}
 
 	return nil
+}
+
+func (f *fakeApplicationAPI) SetApplicationConfig(application string, config map[string]string) error {
+	return f.Set(application, config)
 }
 
 func (f *fakeApplicationAPI) Unset(application string, options []string) error {
@@ -89,14 +114,22 @@ func (f *fakeApplicationAPI) Unset(application string, options []string) error {
 
 	// Verify all options before unsetting any of them.
 	for _, name := range options {
-		if _, ok := f.values[name]; !ok {
+		if _, ok := f.appValues[name]; ok {
+			continue
+		}
+		if _, ok := f.charmValues[name]; !ok {
 			return errors.Errorf("unknown option %q", name)
 		}
 	}
 
 	for _, name := range options {
-		delete(f.values, name)
+		delete(f.charmValues, name)
+		delete(f.appValues, name)
 	}
 
 	return nil
+}
+
+func (f *fakeApplicationAPI) UnsetApplicationConfig(application string, options []string) error {
+	return f.Unset(application, options)
 }

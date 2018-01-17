@@ -16,8 +16,12 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas"
+	k8s "github.com/juju/juju/caas/kubernetes/provider"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -27,21 +31,22 @@ import (
 type ApplicationSuite struct {
 	testing.IsolationSuite
 	coretesting.JujuOSEnvSuite
-	backend   mockBackend
-	endpoints []state.Endpoint
-	relation  mockRelation
+	backend     mockBackend
+	endpoints   []state.Endpoint
+	relation    mockRelation
+	application mockApplication
 
 	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.API
+	api          *application.APIv6
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
 
 func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
-	api, err := application.NewAPI(
+	api, err := application.NewAPIV5(
 		&s.backend,
 		s.authorizer,
 		&s.blockChecker,
@@ -53,7 +58,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = api
+	s.api = &application.APIv6{api}
 }
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {
@@ -69,9 +74,10 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.relation = mockRelation{tag: names.NewRelationTag("wordpress:db mysql:db")}
 	s.backend = mockBackend{
+		modelType:   state.ModelTypeIAAS,
 		controllers: make(map[string]crossmodel.ControllerInfo),
-		applications: map[string]application.Application{
-			"postgresql": &mockApplication{
+		applications: map[string]*mockApplication{
+			"postgresql": {
 				name:        "postgresql",
 				series:      "quantal",
 				subordinate: false,
@@ -83,13 +89,15 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 						},
 					},
 				},
-				units: []mockUnit{{
-					tag: names.NewUnitTag("postgresql/0"),
-				}, {
-					tag: names.NewUnitTag("postgresql/1"),
-				}},
+				units: []mockUnit{
+					{tag: names.NewUnitTag("postgresql/0")},
+					{tag: names.NewUnitTag("postgresql/1")},
+				},
+				addedUnit: mockUnit{
+					tag: names.NewUnitTag("postgresql/99"),
+				},
 			},
-			"postgresql-subordinate": &mockApplication{
+			"postgresql-subordinate": {
 				name:        "postgresql-subordinate",
 				series:      "quantal",
 				subordinate: true,
@@ -101,11 +109,13 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 						},
 					},
 				},
-				units: []mockUnit{{
-					tag: names.NewUnitTag("postgresql-subordinate/0"),
-				}, {
-					tag: names.NewUnitTag("postgresql-subordinate/1"),
-				}},
+				units: []mockUnit{
+					{tag: names.NewUnitTag("postgresql-subordinate/0")},
+					{tag: names.NewUnitTag("postgresql-subordinate/1")},
+				},
+				addedUnit: mockUnit{
+					tag: names.NewUnitTag("postgresql-subordinate/99"),
+				},
 			},
 		},
 		remoteApplications: map[string]application.RemoteApplication{
@@ -151,7 +161,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.blockChecker = mockBlockChecker{}
-	api, err := application.NewAPI(
+	api, err := application.NewAPIV5(
 		&s.backend,
 		s.authorizer,
 		&s.blockChecker,
@@ -163,7 +173,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = api
+	s.api = &application.APIv6{api}
 }
 
 func (s *ApplicationSuite) TearDownTest(c *gc.C) {
@@ -186,8 +196,8 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ModelTag", "Application", "Charm")
-	app := s.backend.applications["postgresql"].(*mockApplication)
+	s.backend.CheckCallNames(c, "Application", "Charm")
+	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "SetCharm")
 	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
 		Charm: &state.Charm{},
@@ -207,9 +217,9 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 		ConfigSettings:  map[string]string{"stringOption": "value"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ModelTag", "Application", "Charm")
+	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
-	app := s.backend.applications["postgresql"].(*mockApplication)
+	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "SetCharm")
 	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
@@ -227,9 +237,9 @@ postgresql:
 `,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ModelTag", "Application", "Charm")
+	s.backend.CheckCallNames(c, "Application", "Charm")
 	s.backend.charm.CheckCallNames(c, "Config")
-	app := s.backend.applications["postgresql"].(*mockApplication)
+	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "SetCharm")
 	app.CheckCall(c, 0, "SetCharm", state.SetCharmConfig{
 		Charm:          &state.Charm{},
@@ -241,8 +251,8 @@ func (s *ApplicationSuite) TestDestroyRelation(c *gc.C) {
 	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
-	s.backend.CheckCallNames(c, "ModelTag", "InferEndpoints", "EndpointsRelation")
-	s.backend.CheckCall(c, 1, "InferEndpoints", []string{"a", "b"})
+	s.backend.CheckCallNames(c, "InferEndpoints", "EndpointsRelation")
+	s.backend.CheckCall(c, 0, "InferEndpoints", []string{"a", "b"})
 	s.relation.CheckCallNames(c, "Destroy")
 }
 
@@ -253,7 +263,7 @@ func (s *ApplicationSuite) TestDestroyRelationNoRelationsFound(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyRelationRelationNotFound(c *gc.C) {
-	s.backend.SetErrors(nil, nil, errors.NotFoundf(`relation "a:b c:d"`))
+	s.backend.SetErrors(nil, errors.NotFoundf(`relation "a:b c:d"`))
 	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a:b", "c:d"}})
 	c.Assert(err, gc.ErrorMatches, `relation "a:b c:d" not found`)
 }
@@ -263,7 +273,7 @@ func (s *ApplicationSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
 	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
 	c.Assert(err, gc.ErrorMatches, "postgresql")
 	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
-	s.backend.CheckCallNames(c, "ModelTag")
+	s.backend.CheckNoCalls(c)
 	s.relation.CheckNoCalls(c)
 }
 
@@ -271,13 +281,13 @@ func (s *ApplicationSuite) TestDestroyRelationId(c *gc.C) {
 	err := s.api.DestroyRelation(params.DestroyRelation{RelationId: 123})
 	c.Assert(err, jc.ErrorIsNil)
 	s.blockChecker.CheckCallNames(c, "RemoveAllowed")
-	s.backend.CheckCallNames(c, "ModelTag", "Relation")
-	s.backend.CheckCall(c, 1, "Relation", 123)
+	s.backend.CheckCallNames(c, "Relation")
+	s.backend.CheckCall(c, 0, "Relation", 123)
 	s.relation.CheckCallNames(c, "Destroy")
 }
 
 func (s *ApplicationSuite) TestDestroyRelationIdRelationNotFound(c *gc.C) {
-	s.backend.SetErrors(nil, errors.NotFoundf(`relation "123"`))
+	s.backend.SetErrors(errors.NotFoundf(`relation "123"`))
 	err := s.api.DestroyRelation(params.DestroyRelation{RelationId: 123})
 	c.Assert(err, gc.ErrorMatches, `relation "123" not found`)
 }
@@ -306,7 +316,6 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 	})
 
 	s.backend.CheckCallNames(c,
-		"ModelTag",
 		"Application",
 		"UnitStorageAttachments",
 		"StorageInstance",
@@ -316,7 +325,7 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 8, "ApplyOperation", &state.DestroyApplicationOperation{})
+	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyApplicationOperation{})
 }
 
 func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
@@ -342,7 +351,6 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 	})
 
 	s.backend.CheckCallNames(c,
-		"ModelTag",
 		"Application",
 		"UnitStorageAttachments",
 		"StorageInstance",
@@ -350,7 +358,7 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyApplicationOperation{
+	s.backend.CheckCall(c, 5, "ApplyOperation", &state.DestroyApplicationOperation{
 		DestroyStorage: true,
 	})
 }
@@ -380,10 +388,7 @@ func (s *ApplicationSuite) TestDestroyConsumedApplication(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], jc.DeepEquals, params.ErrorResult{})
 
-	s.backend.CheckCallNames(c,
-		"ModelTag",
-		"RemoteApplication",
-	)
+	s.backend.CheckCallNames(c, "RemoteApplication")
 	app := s.backend.remoteApplications["hosted-db2"]
 	app.(*mockRemoteApplication).CheckCallNames(c, "Destroy")
 }
@@ -429,7 +434,6 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	}})
 
 	s.backend.CheckCallNames(c,
-		"ModelTag",
 		"Unit",
 		"UnitStorageAttachments",
 		"StorageInstance",
@@ -442,8 +446,8 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 		"UnitStorageAttachments",
 		"ApplyOperation",
 	)
-	s.backend.CheckCall(c, 7, "ApplyOperation", &state.DestroyUnitOperation{})
-	s.backend.CheckCall(c, 10, "ApplyOperation", &state.DestroyUnitOperation{
+	s.backend.CheckCall(c, 6, "ApplyOperation", &state.DestroyUnitOperation{})
+	s.backend.CheckCall(c, 9, "ApplyOperation", &state.DestroyUnitOperation{
 		DestroyStorage: true,
 	})
 }
@@ -475,18 +479,73 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 	c.Assert(results.Results[2].Error, gc.ErrorMatches, `"volume-baz-0" is not a valid volume tag`)
 }
 
-func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
+func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	args := params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{{
+			ApplicationName: "foo",
+			CharmURL:        "local:foo-0",
+			NumUnits:        1,
+		}, {
+			ApplicationName: "bar",
+			CharmURL:        "local:bar-0",
+			NumUnits:        1,
+			AttachStorage:   []string{"storage-bar-0"},
+		}, {
+			ApplicationName: "baz",
+			CharmURL:        "local:baz-0",
+			NumUnits:        1,
+			Placement:       []*instance.Placement{{}},
+		}},
+	}
+	results, err := s.api.Deploy(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 3)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
+	c.Assert(results.Results[2].Error, gc.ErrorMatches, "Placement may not be specified for caas models")
+}
+
+func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	results, err := s.api.AddUnits(params.AddApplicationUnits{
+		ApplicationName: "postgresql",
+		NumUnits:        1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, jc.DeepEquals, params.AddApplicationUnitsResults{
+		Units: []string{"postgresql/99"},
+	})
+	app := s.backend.applications["postgresql"]
+	app.CheckCall(c, 0, "AddUnit", state.AddUnitParams{})
+	app.addedUnit.CheckCall(c, 0, "AssignWithPolicy", state.AssignCleanEmpty)
+}
+
+func (s *ApplicationSuite) TestAddUnitsCAASModel(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	results, err := s.api.AddUnits(params.AddApplicationUnits{
+		ApplicationName: "postgresql",
+		NumUnits:        1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results, jc.DeepEquals, params.AddApplicationUnitsResults{
+		Units: []string{"postgresql/99"},
+	})
+	app := s.backend.applications["postgresql"]
+	app.CheckCall(c, 0, "AddUnit", state.AddUnitParams{})
+	app.addedUnit.CheckNoCalls(c) // no assignment
+}
+
+func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
+	_, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "postgresql",
 		NumUnits:        1,
 		AttachStorage:   []string{"storage-pgdata-0"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.AddApplicationUnitsResults{
-		Units: []string{"postgresql/99"},
-	})
 
-	app := s.backend.applications["postgresql"].(*mockApplication)
+	app := s.backend.applications["postgresql"]
 	app.CheckCall(c, 0, "AddUnit", state.AddUnitParams{
 		AttachStorage: []names.StorageTag{names.NewStorageTag("pgdata/0")},
 	})
@@ -508,6 +567,26 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorageInvalidStorageTag(c *gc.C) {
 		AttachStorage:   []string{"volume-0"},
 	})
 	c.Assert(err, gc.ErrorMatches, `"volume-0" is not a valid storage tag`)
+}
+
+func (s *ApplicationSuite) TestAddUnitsAttachStorageCAASModel(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	_, err := s.api.AddUnits(params.AddApplicationUnits{
+		ApplicationName: "postgresql",
+		NumUnits:        1,
+		AttachStorage:   []string{"storage-pgdata-0"},
+	})
+	c.Assert(err, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
+}
+
+func (s *ApplicationSuite) TestAddUnitsPlacementCAASModel(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	_, err := s.api.AddUnits(params.AddApplicationUnits{
+		ApplicationName: "postgresql",
+		NumUnits:        1,
+		Placement:       []*instance.Placement{{}},
+	})
+	c.Assert(err, gc.ErrorMatches, "Placement may not be specified for caas models")
 }
 
 func (s *ApplicationSuite) TestSetRelationSuspended(c *gc.C) {
@@ -588,7 +667,7 @@ func (s *ApplicationSuite) TestBlockSetRelationSuspended(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetRelationSuspendedPermissionDenied(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("fred")
-	api, err := application.NewAPI(
+	apiv5, err := application.NewAPIV5(
 		&s.backend,
 		s.authorizer,
 		&s.blockChecker,
@@ -600,6 +679,7 @@ func (s *ApplicationSuite) TestSetRelationSuspendedPermissionDenied(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	api := &application.APIv6{apiv5}
 	_, err = api.SetRelationsSuspended(params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
@@ -871,11 +951,10 @@ func (s *ApplicationSuite) TestApplicationUpdateSeries(c *gc.C) {
 			{Error: &params.Error{Message: "application \"name\" not found", Code: "not found"}},
 			{Error: &params.Error{Message: "\"unit-mysql-0\" is not a valid application tag", Code: ""}},
 		}})
-	s.backend.CheckCall(c, 0, "ModelTag")
+	s.backend.CheckCall(c, 0, "Application", "postgresql")
 	s.backend.CheckCall(c, 1, "Application", "postgresql")
-	s.backend.CheckCall(c, 2, "Application", "postgresql")
 
-	app := s.backend.applications["postgresql"].(*mockApplication)
+	app := s.backend.applications["postgresql"]
 	app.CheckCall(c, 0, "IsPrincipal")
 	app.CheckCall(c, 1, "Series")
 	app.CheckCall(c, 2, "UpdateApplicationSeries", "trusty", false)
@@ -894,7 +973,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesNoParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{}})
 
-	s.backend.CheckCallNames(c, "ModelTag")
+	s.backend.CheckNoCalls(c)
 }
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesNoSeries(c *gc.C) {
@@ -912,7 +991,7 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesNoSeries(c *gc.C) {
 		},
 	})
 
-	s.backend.CheckCallNames(c, "ModelTag")
+	s.backend.CheckNoCalls(c)
 }
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
@@ -932,15 +1011,14 @@ func (s *ApplicationSuite) TestApplicationUpdateSeriesOfSubordinate(c *gc.C) {
 		},
 	})
 
-	s.backend.CheckCall(c, 0, "ModelTag")
-	s.backend.CheckCall(c, 1, "Application", "postgresql-subordinate")
+	s.backend.CheckCall(c, 0, "Application", "postgresql-subordinate")
 
-	app := s.backend.applications["postgresql-subordinate"].(*mockApplication)
+	app := s.backend.applications["postgresql-subordinate"]
 	app.CheckCall(c, 0, "IsPrincipal")
 }
 
 func (s *ApplicationSuite) TestApplicationUpdateSeriesIncompatibleSeries(c *gc.C) {
-	app := s.backend.applications["postgresql"].(*mockApplication)
+	app := s.backend.applications["postgresql"]
 	app.SetErrors(nil, nil, &state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial"})
 	results, err := s.api.UpdateApplicationSeries(
 		params.UpdateSeriesArgs{
@@ -983,4 +1061,134 @@ func (s *ApplicationSuite) TestRemoteRelationDisAllowedCIDR(c *gc.C) {
 	endpoints := []string{"wordpress", "hosted-mysql:nope"}
 	_, err := s.api.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"0.0.0.0/0"}})
 	c.Assert(err, gc.ErrorMatches, `CIDR "0.0.0.0/0" not allowed`)
+}
+
+func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	result, err := s.api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
+		Args: []params.ApplicationConfigSet{{
+			ApplicationName: "postgresql",
+			Config: map[string]string{
+				"juju-external-hostname": "value",
+				"stringOption":           "stringVal"},
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "Application")
+	app := s.backend.applications["postgresql"]
+	app.CheckCallNames(c, "UpdateApplicationConfig", "UpdateCharmConfig")
+
+	schema, err := caas.ConfigSchema(k8s.ConfigSchema())
+	c.Assert(err, jc.ErrorIsNil)
+	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes{
+		"juju-external-hostname": "value",
+	}, []string(nil), schema, defaults)
+	app.CheckCall(c, 1, "UpdateCharmConfig", charm.Settings{"stringOption": "stringVal"})
+}
+
+func (s *ApplicationSuite) TestBlockSetApplicationConfig(c *gc.C) {
+	s.blockChecker.SetErrors(errors.New("blocked"))
+	_, err := s.api.SetApplicationsConfig(params.ApplicationConfigSetArgs{})
+	c.Assert(err, gc.ErrorMatches, "blocked")
+	s.blockChecker.CheckCallNames(c, "ChangeAllowed")
+	s.relation.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestSetApplicationConfigPermissionDenied(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("fred")
+	apiv5, err := application.NewAPIV5(
+		&s.backend,
+		s.authorizer,
+		&s.blockChecker,
+		func(application.Charm) *state.Charm {
+			return &state.Charm{}
+		},
+		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
+			return nil, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	api := &application.APIv6{apiv5}
+	_, err = api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
+		Args: []params.ApplicationConfigSet{{
+			ApplicationName: "postgresql",
+		}}})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	s.application.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	result, err := s.api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{
+		Args: []params.ApplicationUnset{{
+			ApplicationName: "postgresql",
+			Options:         []string{"juju-external-hostname", "stringVal"},
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.backend.CheckCallNames(c, "Application")
+	app := s.backend.applications["postgresql"]
+	app.CheckCallNames(c, "UpdateApplicationConfig", "UpdateCharmConfig")
+
+	schema, err := caas.ConfigSchema(k8s.ConfigSchema())
+	c.Assert(err, jc.ErrorIsNil)
+	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes(nil),
+		[]string{"juju-external-hostname"}, schema, defaults)
+	app.CheckCall(c, 1, "UpdateCharmConfig", charm.Settings{"stringVal": nil})
+}
+
+func (s *ApplicationSuite) TestBlockUnsetApplicationConfig(c *gc.C) {
+	s.blockChecker.SetErrors(errors.New("blocked"))
+	_, err := s.api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{})
+	c.Assert(err, gc.ErrorMatches, "blocked")
+	s.blockChecker.CheckCallNames(c, "ChangeAllowed")
+	s.relation.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestUnsetApplicationConfigPermissionDenied(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("fred")
+	apiv5, err := application.NewAPIV5(
+		&s.backend,
+		s.authorizer,
+		&s.blockChecker,
+		func(application.Charm) *state.Charm {
+			return &state.Charm{}
+		},
+		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
+			return nil, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	api := &application.APIv6{apiv5}
+	_, err = api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{
+		Args: []params.ApplicationUnset{{
+			ApplicationName: "postgresql",
+			Options:         []string{"option"},
+		}}})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	s.application.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestCAASExposeWithoutHostname(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	err := s.api.Expose(params.ApplicationExpose{
+		ApplicationName: "postgresql",
+	})
+	c.Assert(err, gc.ErrorMatches,
+		`cannot expose a CAAS application without a "juju-external-hostname" value set, run\n`+
+			`juju config postgresql juju-external-hostname=<value>`)
+}
+
+func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
+	s.backend.modelType = state.ModelTypeCAAS
+	app := s.backend.applications["postgresql"]
+	app.config = coreapplication.ConfigAttributes{"juju-external-hostname": "exthost"}
+	err := s.api.Expose(params.ApplicationExpose{
+		ApplicationName: "postgresql",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	app.CheckCallNames(c, "ApplicationConfig", "SetExposed")
 }

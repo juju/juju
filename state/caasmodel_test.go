@@ -15,18 +15,43 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type CAASModelSuite struct {
+type CAASFixture struct {
 	ConnSuite
+}
+
+func (s *CAASFixture) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.CAAS)
+}
+
+// createTestModelConfig returns a new model config and its UUID for testing.
+func (s *CAASFixture) createTestModelConfig(c *gc.C) (*config.Config, string) {
+	return createTestModelConfig(c, s.modelTag.Id())
+}
+
+func (s *CAASFixture) newCAASModel(c *gc.C) (*state.CAASModel, *state.State) {
+	cfg, _ := s.createTestModelConfig(c)
+	owner := names.NewUserTag("test@remote")
+	model, st, err := s.State.NewModel(state.ModelArgs{
+		Type:      state.ModelTypeCAAS,
+		CloudName: "dummy",
+		Config:    cfg,
+		Owner:     owner,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { st.Close() })
+	caasModel, err := model.CAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+	return caasModel, st
+}
+
+type CAASModelSuite struct {
+	CAASFixture
 }
 
 var _ = gc.Suite(&CAASModelSuite{})
 
-// createTestModelConfig returns a new model config and its UUID for testing.
-func (s *CAASModelSuite) createTestModelConfig(c *gc.C) (*config.Config, string) {
-	return createTestModelConfig(c, s.modelTag.Id())
-}
-
-func (s *CAASModelSuite) newCAASModel(c *gc.C) (*state.Model, names.ModelTag, names.UserTag) {
+func (s *CAASModelSuite) TestNewModel(c *gc.C) {
 	cfg, uuid := s.createTestModelConfig(c)
 	modelTag := names.NewModelTag(uuid)
 	owner := names.NewUserTag("test@remote")
@@ -37,14 +62,8 @@ func (s *CAASModelSuite) newCAASModel(c *gc.C) (*state.Model, names.ModelTag, na
 		Owner:     owner,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { st.Close() })
-	return model, modelTag, owner
-}
+	defer st.Close()
 
-func (s *CAASModelSuite) TestNewModel(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
-
-	model, modelTag, owner := s.newCAASModel(c)
 	c.Assert(model.Type(), gc.Equals, state.ModelTypeCAAS)
 	c.Assert(model.UUID(), gc.Equals, modelTag.Id())
 	c.Assert(model.Tag(), gc.Equals, modelTag)
@@ -56,9 +75,7 @@ func (s *CAASModelSuite) TestNewModel(c *gc.C) {
 }
 
 func (s *CAASModelSuite) TestModelDestroy(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
-
-	model, _, _ := s.newCAASModel(c)
+	model, _ := s.newCAASModel(c)
 	err := model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.Refresh()
@@ -68,7 +85,6 @@ func (s *CAASModelSuite) TestModelDestroy(c *gc.C) {
 }
 
 func (s *CAASModelSuite) TestCAASModelsCantHaveCloudRegion(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
 	cfg, _ := s.createTestModelConfig(c)
 	_, _, err := s.State.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeCAAS,
@@ -81,6 +97,7 @@ func (s *CAASModelSuite) TestCAASModelsCantHaveCloudRegion(c *gc.C) {
 }
 
 func (s *CAASModelSuite) TestNewModelCAASNeedsFeature(c *gc.C) {
+	s.SetFeatureFlags( /* no feature flags */ )
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 	_, _, err := s.State.NewModel(state.ModelArgs{
@@ -93,8 +110,6 @@ func (s *CAASModelSuite) TestNewModelCAASNeedsFeature(c *gc.C) {
 }
 
 func (s *CAASModelSuite) TestNewModelCAASWithStorageRegistry(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
-
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
 	_, _, err := s.State.NewModel(state.ModelArgs{
@@ -108,7 +123,6 @@ func (s *CAASModelSuite) TestNewModelCAASWithStorageRegistry(c *gc.C) {
 }
 
 func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
 	st2 := s.Factory.MakeModel(c, &factory.ModelParams{
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>", StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
 	defer st2.Close()
@@ -150,7 +164,6 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 }
 
 func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
 	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>", StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
 	defer otherSt.Close()

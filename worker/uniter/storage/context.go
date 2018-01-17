@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// contextStorage is an implementation of jujuc.ContextStorageAttachment.
+// contextStorage is an implementation of hooks.ContextStorageAttachment.
 type contextStorage struct {
 	tag      names.StorageTag
 	kind     storage.StorageKind

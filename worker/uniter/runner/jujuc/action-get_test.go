@@ -13,10 +13,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
 )
 
 type ActionGetSuite struct {
-	ContextSuite
+	jujuctesting.ContextSuite
 }
 
 var _ = gc.Suite(&ActionGetSuite{})

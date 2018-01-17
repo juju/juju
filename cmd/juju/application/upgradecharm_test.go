@@ -24,10 +24,10 @@ import (
 	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/charmrepo.v2/csclient"
 	csclientparams "gopkg.in/juju/charmrepo.v2/csclient/params"
-	charmstore "gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/juju/charmstore.v5-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	macaroon "gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
@@ -650,8 +650,8 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) 
 	c.Assert(err, gc.IsNil)
 
 	s.assertCharmsUploaded(c, "cs:~client-username/trusty/wordpress-0", "cs:~client-username/trusty/wordpress-1")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"wordpress": {charm: "cs:~client-username/trusty/wordpress-1"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"wordpress": {charm: "cs:~client-username/trusty/wordpress-1", config: ch.Config().DefaultSettings()},
 	})
 }
 

@@ -5,32 +5,31 @@ package commands
 
 import (
 	"sort"
+
+	"github.com/juju/cmd"
 )
 
-// CmdSuffix is the filename suffix to use for executables.
-const cmdSuffix = ""
+type creator func(Context) (cmd.Command, error)
 
-type command interface{}
-
-var registeredCommands = map[string]command{}
+var registeredCommands = map[string]creator{}
 
 // baseCommands maps Command names to creators.
-var baseCommands = map[string]command{
-	"config-get" + cmdSuffix:              nil,
-	"juju-log" + cmdSuffix:                nil,
-	"status-get" + cmdSuffix:              nil,
-	"status-set" + cmdSuffix:              nil,
-	"application-version-set" + cmdSuffix: nil,
-	"relation-ids" + cmdSuffix:            nil,
-	"relation-list" + cmdSuffix:           nil,
-	"relation-set" + cmdSuffix:            nil,
-	"relation-get" + cmdSuffix:            nil,
-	"container-spec-set" + cmdSuffix:      nil,
+var baseCommands = map[string]creator{
+	"config-get":              NewConfigGetCommand,
+	"juju-log":                NewJujuLogCommand,
+	"status-get":              nil,
+	"status-set":              NewStatusSetCommand,
+	"application-version-set": nil,
+	"relation-ids":            nil,
+	"relation-list":           nil,
+	"relation-set":            nil,
+	"relation-get":            nil,
+	"container-spec-set":      NewContainerspecSetCommand,
 }
 
-func allEnabledCommands() map[string]command {
-	all := map[string]command{}
-	add := func(m map[string]command) {
+func allEnabledCommands() map[string]creator {
+	all := map[string]creator{}
+	add := func(m map[string]creator) {
 		for k, v := range m {
 			all[k] = v
 		}

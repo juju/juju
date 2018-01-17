@@ -12,6 +12,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
@@ -47,7 +48,7 @@ const (
 	// IdentityPublicKey sets the public key of the identity manager.
 	IdentityPublicKey = "identity-public-key"
 
-	// NUMAControlPolicyKey stores the value for this setting
+	// SetNUMAControlPolicyKey stores the value for this setting
 	SetNUMAControlPolicyKey = "set-numa-control-policy"
 
 	// AutocertDNSNameKey sets the DNS name of the controller. If a
@@ -110,6 +111,14 @@ const (
 
 	// DefaultMaxTxnLogCollectionMB is the maximum size the txn log collection.
 	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
+
+	// JujuHASpace is the network space within which the MongoDB replica-set
+	// should communicate.
+	JujuHASpace = "juju-ha-space"
+
+	// JujuManagementSpace is the network space that agents should use to
+	// communicate with controllers.
+	JujuManagementSpace = "juju-mgmt-space"
 )
 
 // ControllerOnlyConfigAttributes are attributes which are only relevant
@@ -129,6 +138,8 @@ var ControllerOnlyConfigAttributes = []string{
 	MaxLogsSize,
 	MaxLogsAge,
 	MaxTxnLogSize,
+	JujuHASpace,
+	JujuManagementSpace,
 }
 
 // ControllerOnlyAttribute returns true if the specified attribute name
@@ -142,6 +153,7 @@ func ControllerOnlyAttribute(attr string) bool {
 	return false
 }
 
+// Config is a string-keyed map of controller configuration attributes.
 type Config map[string]interface{}
 
 // Validate validates the controller configuration.
@@ -316,6 +328,18 @@ func (c Config) MaxTxnLogSizeMB() int {
 	return int(val)
 }
 
+// JujuHASpace is the network space within which the MongoDB replica-set
+// should communicate.
+func (c Config) JujuHASpace() string {
+	return c.asString(JujuHASpace)
+}
+
+// JujuManagementSpace is the network space that agents should use to
+// communicate with controllers.
+func (c Config) JujuManagementSpace() string {
+	return c.asString(JujuManagementSpace)
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -375,6 +399,30 @@ func Validate(c Config) error {
 		}
 	}
 
+	if err := validateSpaceConfig(c, JujuHASpace, "juju HA"); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := validateSpaceConfig(c, JujuManagementSpace, "juju mgmt"); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func validateSpaceConfig(c Config, key, topic string) error {
+	val := c[key]
+	if val == nil {
+		return nil
+	}
+	if v, ok := val.(string); ok {
+		if !names.IsValidSpace(v) {
+			return errors.NotValidf("%s space name %q", topic, val)
+		}
+	} else {
+		return errors.NotValidf("type for %s space name %v", topic, val)
+	}
+
 	return nil
 }
 
@@ -398,6 +446,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxLogsAge:              schema.String(),
 	MaxLogsSize:             schema.String(),
 	MaxTxnLogSize:           schema.String(),
+	JujuHASpace:             schema.String(),
+	JujuManagementSpace:     schema.String(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -412,4 +462,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
 	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
+	JujuHASpace:             schema.Omit,
+	JujuManagementSpace:     schema.Omit,
 })

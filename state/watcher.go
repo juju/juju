@@ -1592,6 +1592,14 @@ func (im *IAASModel) WatchFilesystemAttachment(m names.MachineTag, f names.Files
 	return newEntityWatcher(im.mb, filesystemAttachmentsC, im.mb.docID(id))
 }
 
+// WatchCharmConfig returns a watcher for observing changes to the
+// application's charm configuration settings. The returned watcher will be
+// valid only while the application's charm URL is not changed.
+func (a *Application) WatchCharmConfig() (NotifyWatcher, error) {
+	configKey := a.charmConfigKey()
+	return newEntityWatcher(a.st, settingsC, a.st.docID(configKey)), nil
+}
+
 // WatchConfigSettings returns a watcher for observing changes to the
 // unit's service configuration settings. The unit must have a charm URL
 // set before this method is called, and the returned watcher will be
@@ -1602,7 +1610,7 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settingsKey := applicationSettingsKey(u.doc.Application, u.doc.CharmURL)
+	settingsKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
 	return newEntityWatcher(u.st, settingsC, u.st.docID(settingsKey)), nil
 }
 
@@ -3139,4 +3147,34 @@ func (w *externalControllersWatcher) loop() error {
 			changes = make(set.Strings)
 		}
 	}
+}
+
+// WatchContainerSpec returns a watcher observing changes that affect the
+// container spec for an application or unit.
+func (m *CAASModel) WatchContainerSpec(entity names.Tag) (NotifyWatcher, error) {
+	var docKeys []docKey
+	switch kind := entity.Kind(); kind {
+	case names.ApplicationTagKind:
+		docKeys = []docKey{{
+			containerSpecsC,
+			m.st.docID(entity.String()),
+		}}
+	case names.UnitTagKind:
+		appName, err := names.UnitApplication(entity.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		docKeys = []docKey{{
+			containerSpecsC,
+			m.st.docID(entity.String()),
+		}, {
+			containerSpecsC,
+			m.st.docID(names.NewApplicationTag(appName).String()),
+		}}
+	default:
+		return nil, errors.NotSupportedf(
+			"watching container spec for %s entity", kind,
+		)
+	}
+	return newDocWatcher(m.st, docKeys), nil
 }

@@ -78,6 +78,10 @@ type DeployArgs struct {
 	// ConfigYAML is a string that overrides the default config.yml.
 	ConfigYAML string
 
+	// Config are values that override those in the default config.yaml
+	// or configure the application itself.
+	Config map[string]string
+
 	// Cons contains constraints on where units of this application
 	// may be placed.
 	Cons constraints.Value
@@ -131,6 +135,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 			Channel:          string(args.CharmID.Channel),
 			NumUnits:         args.NumUnits,
 			ConfigYAML:       args.ConfigYAML,
+			Config:           args.Config,
 			Constraints:      args.Cons,
 			Placement:        args.Placement,
 			Storage:          args.Storage,
@@ -163,8 +168,8 @@ func (c *Client) GetCharmURL(serviceName string) (*charm.URL, error) {
 	return charm.ParseURL(result.Result)
 }
 
-// GetConfig returns the application configuration settings for each of the
-// applications. If any of the applicataions are not found, an error is
+// GetConfig returns the charm configuration settings for each of the
+// applications. If any of the applications are not found, an error is
 // returned.
 func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error) {
 	var allSettings []map[string]interface{}
@@ -174,7 +179,7 @@ func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error)
 			if err != nil {
 				return nil, errors.Annotatef(err, "unable to get settings for %q", appName)
 			}
-			settings, err := describeV5(results.Config)
+			settings, err := describeV5(results.CharmConfig)
 			if err != nil {
 				return nil, errors.Annotatef(err, "unable to process settings for %q", appName)
 			}
@@ -183,6 +188,10 @@ func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error)
 		return allSettings, nil
 	}
 
+	apiName := "CharmConfig"
+	if c.BestAPIVersion() < 6 {
+		apiName = "GetConfig"
+	}
 	// Make a single call to get all the settings.
 	var results params.ApplicationGetConfigResults
 	var args params.Entities
@@ -190,7 +199,7 @@ func (c *Client) GetConfig(appNames ...string) ([]map[string]interface{}, error)
 		args.Entities = append(args.Entities,
 			params.Entity{names.NewApplicationTag(appName).String()})
 	}
-	err := c.facade.FacadeCall("GetConfig", args, &results)
+	err := c.facade.FacadeCall(apiName, args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -724,4 +733,42 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 		localName = arg.ApplicationAlias
 	}
 	return localName, nil
+}
+
+// SetApplicationConfig sets configuration options on an application.
+func (c *Client) SetApplicationConfig(application string, config map[string]string) error {
+	if c.BestAPIVersion() < 6 {
+		return errors.NotSupportedf("SetApplicationsConfig not supported by this version of Juju")
+	}
+	args := params.ApplicationConfigSetArgs{
+		Args: []params.ApplicationConfigSet{{
+			ApplicationName: application,
+			Config:          config,
+		}},
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("SetApplicationsConfig", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+// UnsetApplicationConfig resets configuration options on an application.
+func (c *Client) UnsetApplicationConfig(application string, options []string) error {
+	if c.BestAPIVersion() < 6 {
+		return errors.NotSupportedf("UnsetApplicationConfig not supported by this version of Juju")
+	}
+	args := params.ApplicationConfigUnsetArgs{
+		Args: []params.ApplicationUnset{{
+			ApplicationName: application,
+			Options:         options,
+		}},
+	}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("UnsetApplicationsConfig", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
 }

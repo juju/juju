@@ -3035,11 +3035,12 @@ class TestModelClient(ClientTest):
                 get_output.assert_called_with(
                     'add-user', *expected_args, include_e=False)
                 if permissions == 'login':
-                    mock_juju.assert_called_once_with(
-                        'grant',
-                        ('fakeuser', permissions,
-                         '-c', fake_client.env.controller.name),
-                        include_e=False)
+                    # Granting login is ignored, it's implicit when adding
+                    # a user.
+                    if mock_juju.call_count != 0:
+                        raise Exception(
+                            'Call count {} != 0'.format(
+                                mock_juju.call_count))
                 else:
                     mock_juju.assert_called_once_with(
                         'grant',

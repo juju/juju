@@ -24,8 +24,10 @@ import (
 
 type configCommandSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	dir  string
-	fake *fakeApplicationAPI
+	dir                string
+	fake               *fakeApplicationAPI
+	defaultCharmValues map[string]interface{}
+	defaultAppValues   map[string]interface{}
 }
 
 var (
@@ -36,50 +38,76 @@ var (
 	yamlConfigValue     = "dummy-application:\n  skill-level: 9000\n  username: admin001\n\n"
 )
 
+var charmSettings = map[string]interface{}{
+	"title": map[string]interface{}{
+		"description": "Specifies title",
+		"type":        "string",
+		"value":       "Nearly There",
+	},
+	"skill-level": map[string]interface{}{
+		"description": "Specifies skill-level",
+		"value":       100,
+		"type":        "int",
+	},
+	"username": map[string]interface{}{
+		"description": "Specifies username",
+		"type":        "string",
+		"value":       "admin001",
+	},
+	"outlook": map[string]interface{}{
+		"description": "Specifies outlook",
+		"type":        "string",
+		"value":       "true",
+	},
+}
+
 var getTests = []struct {
-	application string
-	expected    map[string]interface{}
+	application  string
+	useAppConfig bool
+	expected     map[string]interface{}
 }{
 	{
 		"dummy-application",
+		true,
 		map[string]interface{}{
 			"application": "dummy-application",
 			"charm":       "dummy",
-			"settings": map[string]interface{}{
-				"title": map[string]interface{}{
-					"description": "Specifies title",
+			"application-config": map[string]interface{}{
+				"juju-external-hostname": map[string]interface{}{
+					"description": "Specifies juju-external-hostname",
 					"type":        "string",
-					"value":       "Nearly There",
-				},
-				"skill-level": map[string]interface{}{
-					"description": "Specifies skill-level",
-					"value":       100,
-					"type":        "int",
-				},
-				"username": map[string]interface{}{
-					"description": "Specifies username",
-					"type":        "string",
-					"value":       "admin001",
-				},
-				"outlook": map[string]interface{}{
-					"description": "Specifies outlook",
-					"type":        "string",
-					"value":       "true",
+					"value":       "ext-host",
 				},
 			},
+			"settings": charmSettings,
+		},
+	}, {
+		"dummy-application",
+		false,
+		map[string]interface{}{
+			"application": "dummy-application",
+			"charm":       "dummy",
+			"settings":    charmSettings,
 		},
 	},
 }
 
 func (s *configCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.defaultCharmValues = map[string]interface{}{
+		"title":       "Nearly There",
+		"skill-level": 100,
+		"username":    "admin001",
+		"outlook":     "true",
+	}
+	s.defaultAppValues = map[string]interface{}{
+		"juju-external-hostname": "ext-host",
+	}
+
 	s.fake = &fakeApplicationAPI{name: "dummy-application", charmName: "dummy",
-		values: map[string]interface{}{
-			"title":       "Nearly There",
-			"skill-level": 100,
-			"username":    "admin001",
-			"outlook":     "true",
-		}}
+		charmValues: s.defaultCharmValues,
+		appValues:   s.defaultAppValues,
+		version:     6}
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.dir = c.MkDir()
@@ -111,6 +139,9 @@ func (s *configCommandSuite) TestGetCommandInitWithKey(c *gc.C) {
 
 func (s *configCommandSuite) TestGetConfig(c *gc.C) {
 	for _, t := range getTests {
+		if !t.useAppConfig {
+			s.fake.appValues = nil
+		}
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{t.application})
 		c.Check(code, gc.Equals, 0)
@@ -127,11 +158,11 @@ func (s *configCommandSuite) TestGetConfig(c *gc.C) {
 		actual := make(map[string]interface{})
 		err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(actual, gc.DeepEquals, expected)
+		c.Assert(actual, jc.DeepEquals, expected)
 	}
 }
 
-func (s *configCommandSuite) TestGetConfigKey(c *gc.C) {
+func (s *configCommandSuite) TestGetCharmConfigKey(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{"dummy-application", "title"})
 	c.Check(code, gc.Equals, 0)
@@ -139,9 +170,17 @@ func (s *configCommandSuite) TestGetConfigKey(c *gc.C) {
 	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "Nearly There\n")
 }
 
+func (s *configCommandSuite) TestGetAppConfigKey(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(application.NewConfigCommandForTest(s.fake), ctx, []string{"dummy-application", "juju-external-hostname"})
+	c.Check(code, gc.Equals, 0)
+	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+	c.Assert(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "ext-host\n")
+}
+
 func (s *configCommandSuite) TestGetConfigKeyNotFound(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, application.NewConfigCommandForTest(s.fake), "dummy-application", "invalid")
-	c.Assert(err, gc.ErrorMatches, `key "invalid" not found in "dummy-application" application settings.`, gc.Commentf("details: %v", errors.Details(err)))
+	c.Assert(err, gc.ErrorMatches, `key "invalid" not found in "dummy-application" application config or charm settings.`, gc.Commentf("details: %v", errors.Details(err)))
 }
 
 var setCommandInitErrorTests = []struct {
@@ -196,39 +235,52 @@ func (s *configCommandSuite) TestSetCommandInitError(c *gc.C) {
 	}
 }
 
-func (s *configCommandSuite) TestSetOptionSuccess(c *gc.C) {
+func (s *configCommandSuite) TestSetCharmConfigSuccess(c *gc.C) {
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello",
 		"outlook=hello@world.tld",
-	}, map[string]interface{}{
+	}, s.defaultAppValues, map[string]interface{}{
 		"username": "hello",
 		"outlook":  "hello@world.tld",
 	})
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello=foo",
-	}, map[string]interface{}{
+	}, s.defaultAppValues, map[string]interface{}{
 		"username": "hello=foo",
 		"outlook":  "hello@world.tld",
 	})
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=@valid.txt",
-	}, map[string]interface{}{
+	}, s.defaultAppValues, map[string]interface{}{
 		"username": validSetTestValue,
 		"outlook":  "hello@world.tld",
 	})
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=",
-	}, map[string]interface{}{
+	}, s.defaultAppValues, map[string]interface{}{
 		"username": "",
 		"outlook":  "hello@world.tld",
 	})
+}
+
+func (s *configCommandSuite) TestSetAppConfigSuccess(c *gc.C) {
+	s.assertSetSuccess(c, s.dir, []string{
+		"juju-external-hostname=hello",
+	}, map[string]interface{}{
+		"juju-external-hostname": "hello",
+	}, s.defaultCharmValues)
+	s.assertSetSuccess(c, s.dir, []string{
+		"juju-external-hostname=",
+	}, map[string]interface{}{
+		"juju-external-hostname": "",
+	}, s.defaultCharmValues)
 }
 
 func (s *configCommandSuite) TestSetSameValue(c *gc.C) {
 	s.assertSetSuccess(c, s.dir, []string{
 		"username=hello",
 		"outlook=hello@world.tld",
-	}, map[string]interface{}{
+	}, s.defaultAppValues, map[string]interface{}{
 		"username": "hello",
 		"outlook":  "hello@world.tld",
 	})
@@ -241,7 +293,7 @@ func (s *configCommandSuite) TestSetSameValue(c *gc.C) {
 
 }
 
-func (s *configCommandSuite) TestSetOptionFail(c *gc.C) {
+func (s *configCommandSuite) TestSetConfigFail(c *gc.C) {
 	s.assertSetFail(c, s.dir, []string{"foo", "bar"},
 		"can only retrieve a single value, or all values")
 	s.assertSetFail(c, s.dir, []string{"=bar"}, "expected \"key=value\", got \"=bar\"")
@@ -256,7 +308,7 @@ func (s *configCommandSuite) TestSetOptionFail(c *gc.C) {
 	}, "value for option \"username\" contains non-UTF-8 sequences")
 }
 
-func (s *configCommandSuite) TestSetConfig(c *gc.C) {
+func (s *configCommandSuite) TestSetCharmConfigFromYAML(c *gc.C) {
 	s.assertSetFail(c, s.dir, []string{
 		"--file",
 		"missing.yaml",
@@ -285,14 +337,24 @@ func (s *configCommandSuite) TestSetFromStdin(c *gc.C) {
 	c.Check(s.fake.config, jc.DeepEquals, "settings:\n  username:\n  value: world\n")
 }
 
-func (s *configCommandSuite) TestResetConfigToDefault(c *gc.C) {
-	s.fake = &fakeApplicationAPI{name: "dummy-application", values: map[string]interface{}{
+func (s *configCommandSuite) TestResetCharmConfigToDefault(c *gc.C) {
+	s.fake = &fakeApplicationAPI{name: "dummy-application", charmValues: map[string]interface{}{
 		"username": "hello",
 	}}
-	s.assertSetSuccess(c, s.dir, []string{
+	s.assertResetSuccess(c, s.dir, []string{
 		"--reset",
 		"username",
-	}, make(map[string]interface{}))
+	}, nil, make(map[string]interface{}))
+}
+
+func (s *configCommandSuite) TestResetAppConfig(c *gc.C) {
+	s.fake = &fakeApplicationAPI{name: "dummy-application", appValues: map[string]interface{}{
+		"juju-external-hostname": "app-value",
+	}}
+	s.assertResetSuccess(c, s.dir, []string{
+		"--reset",
+		"juju-external-hostname",
+	}, make(map[string]interface{}), nil)
 }
 
 func (s *configCommandSuite) TestBlockSetConfig(c *gc.C) {
@@ -310,15 +372,47 @@ func (s *configCommandSuite) TestBlockSetConfig(c *gc.C) {
 }
 
 // assertSetSuccess sets configuration options and checks the expected settings.
-// TODO(rog) the expect parameter is ignored here - presumably
-// it's meant to be checked somehow.
-func (s *configCommandSuite) assertSetSuccess(c *gc.C, dir string, args []string, expect map[string]interface{}) {
+func (s *configCommandSuite) assertSetSuccess(
+	c *gc.C, dir string, args []string,
+	expectAppValues map[string]interface{}, expectCharmValues map[string]interface{},
+) {
 	cmd := application.NewConfigCommandForTest(s.fake)
 	cmd.SetClientStore(application.NewMockStore())
 
 	args = append([]string{"dummy-application"}, args...)
 	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
 	c.Assert(err, jc.ErrorIsNil)
+	appValues := make(map[string]interface{})
+	for k, v := range s.defaultAppValues {
+		appValues[k] = v
+	}
+	for k, v := range expectAppValues {
+		appValues[k] = v
+	}
+	c.Assert(s.fake.appValues, jc.DeepEquals, appValues)
+
+	charmValues := make(map[string]interface{})
+	for k, v := range s.defaultCharmValues {
+		charmValues[k] = v
+	}
+	for k, v := range expectCharmValues {
+		charmValues[k] = v
+	}
+	c.Assert(s.fake.charmValues, jc.DeepEquals, charmValues)
+}
+
+func (s *configCommandSuite) assertResetSuccess(
+	c *gc.C, dir string, args []string,
+	expectAppValues map[string]interface{}, expectCharmValues map[string]interface{},
+) {
+	cmd := application.NewConfigCommandForTest(s.fake)
+	cmd.SetClientStore(application.NewMockStore())
+
+	args = append([]string{"dummy-application"}, args...)
+	_, err := cmdtesting.RunCommandInDir(c, cmd, args, dir)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.appValues, jc.DeepEquals, expectAppValues)
+	c.Assert(s.fake.charmValues, jc.DeepEquals, expectCharmValues)
 }
 
 // assertSetFail sets configuration options and checks the expected error.

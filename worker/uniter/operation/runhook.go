@@ -7,14 +7,15 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type runHook struct {
@@ -100,7 +101,7 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	err := rh.runner.RunHook(rh.name)
 	cause := errors.Cause(err)
 	switch {
-	case context.IsMissingHookError(cause):
+	case charmrunner.IsMissingHookError(cause):
 		ranHook = false
 		err = nil
 	case cause == context.ErrRequeueAndReboot:

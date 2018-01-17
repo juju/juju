@@ -5,6 +5,7 @@ package application
 
 import (
 	"archive/zip"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
@@ -54,7 +56,7 @@ type ApplicationAPI interface {
 	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
 	GetConfig(appNames ...string) ([]map[string]interface{}, error)
 	GetConstraints(appNames ...string) ([]constraints.Value, error)
-	GetCharmURL(serviceName string) (*charm.URL, error)
+	GetCharmURL(applicationName string) (*charm.URL, error)
 	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)
 	SetCharm(application.SetCharmConfig) error
 	SetConstraints(application string, constraints constraints.Value) error
@@ -70,7 +72,7 @@ type ModelAPI interface {
 // command needs for metered charms.
 type MeteredDeployAPI interface {
 	IsMetered(charmURL string) (bool, error)
-	SetMetricCredentials(service string, credentials []byte) error
+	SetMetricCredentials(application string, credentials []byte) error
 }
 
 // DeployAPI represents the methods of the API the deploy
@@ -186,7 +188,7 @@ func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.Annotation
 	return a.annotationsClient.Get(tags)
 }
 
-// NewDeployCommandForTest returns a command to deploy services inteded to be used only in tests.
+// NewDeployCommandForTest returns a command to deploy applications inteded to be used only in tests.
 func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []DeployStep) modelcmd.ModelCommand {
 	deployCmd := &DeployCommand{
 		Steps:      steps,
@@ -219,7 +221,7 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 	return modelcmd.Wrap(deployCmd)
 }
 
-// NewDeployCommand returns a command to deploy services.
+// NewDeployCommand returns a command to deploy applications.
 func NewDeployCommand() modelcmd.ModelCommand {
 	steps := []DeployStep{
 		&RegisterMeteredCharm{
@@ -284,7 +286,7 @@ type DeployCommand struct {
 	DryRun bool
 
 	ApplicationName string
-	Config          cmd.FileVar
+	ConfigOptions   common.ConfigFlag
 	ConstraintsStr  string
 	Constraints     constraints.Value
 	BindToSpaces    string
@@ -508,6 +510,7 @@ type DeploymentInfo struct {
 	ApplicationName string
 	ModelUUID       string
 	CharmInfo       *apicharms.CharmInfo
+	ApplicationPlan string
 }
 
 func (c *DeployCommand) Info() *cmd.Info {
@@ -533,13 +536,14 @@ var (
 )
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ConfigOptions.SetPreserveStringValue(true)
 	// Keep above charmOnlyFlags and bundleOnlyFlags lists updated when adding
 	// new flags.
 	c.UnitCommandBase.SetFlags(f)
 	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
-	f.Var(&c.Config, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
+	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
 	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
@@ -640,7 +644,47 @@ func (c *DeployCommand) deployBundle(
 	channel params.Channel,
 	apiRoot DeployAPI,
 	bundleStorage map[string]map[string]storage.Constraints,
-) error {
+) (rErr error) {
+	bakeryClient, err := c.BakeryClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelUUID, ok := apiRoot.ModelUUID()
+	if !ok {
+		return errors.New("API connection is controller-only (should never happen)")
+	}
+
+	for application, applicationSpec := range data.Applications {
+		if applicationSpec.Plan != "" {
+			for _, step := range c.Steps {
+				s := step
+				charmURL, err := charm.ParseURL(applicationSpec.Charm)
+				if err != nil {
+					return errors.Trace(err)
+				}
+
+				deployInfo := DeploymentInfo{
+					CharmID:         charmstore.CharmID{URL: charmURL},
+					ApplicationName: application,
+					ApplicationPlan: applicationSpec.Plan,
+					ModelUUID:       modelUUID,
+				}
+
+				err = s.RunPre(apiRoot, bakeryClient, ctx, deployInfo)
+				if err != nil {
+					return errors.Trace(err)
+				}
+
+				defer func() {
+					err = errors.Trace(s.RunPost(apiRoot, bakeryClient, ctx, deployInfo, rErr))
+					if err != nil {
+						rErr = err
+					}
+				}()
+			}
+		}
+	}
+
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
 	if _, err := deployBundle(
 		filePath,
@@ -688,13 +732,63 @@ func (c *DeployCommand) deployCharm(
 			return errors.New("cannot use --num-units or --to with subordinate application")
 		}
 	}
-	serviceName := c.ApplicationName
-	if serviceName == "" {
-		serviceName = charmInfo.Meta.Name
+	applicationName := c.ApplicationName
+	if applicationName == "" {
+		applicationName = charmInfo.Meta.Name
 	}
+
+	// Process the --config args.
+	// We may have a single file arg specified, in which case
+	// it points to a YAML file keyed on the charm name and
+	// containing values for any charm settings.
+	// We may also have key/value pairs representing
+	// charm settings which overrides anything in the YAML file.
+	// If more than one file is specified, that is an error.
 	var configYAML []byte
-	if c.Config.Path != "" {
-		configYAML, err = c.Config.Read(ctx)
+	files, err := c.ConfigOptions.AbsoluteFileNames(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(files) > 1 {
+		return errors.Errorf("only a single config YAML file can be specified, got %d", len(files))
+	}
+	if len(files) == 1 {
+		configYAML, err = ioutil.ReadFile(files[0])
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	attr, err := c.ConfigOptions.ReadConfigPairs(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	appConfig := make(map[string]string)
+	for k, v := range attr {
+		appConfig[k] = v.(string)
+	}
+
+	// Application facade V5 expects charm config to either all be in YAML
+	// or config map. If config map is specified, that overrides YAML.
+	// So we need to combine the two here to have only one.
+	if apiRoot.BestFacadeVersion("Application") < 6 && len(appConfig) > 0 {
+		var configFromFile map[string]map[string]string
+		err := yaml.Unmarshal(configYAML, &configFromFile)
+		if err != nil {
+			return errors.Annotate(err, "badly formatted YAML config file")
+		}
+		if configFromFile == nil {
+			configFromFile = make(map[string]map[string]string)
+		}
+		charmSettings, ok := configFromFile[applicationName]
+		if !ok {
+			charmSettings = make(map[string]string)
+		}
+		for k, v := range appConfig {
+			charmSettings[k] = v
+		}
+		appConfig = nil
+		configFromFile[applicationName] = charmSettings
+		configYAML, err = yaml.Marshal(configFromFile)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -712,7 +806,7 @@ func (c *DeployCommand) deployCharm(
 
 	deployInfo := DeploymentInfo{
 		CharmID:         id,
-		ApplicationName: serviceName,
+		ApplicationName: applicationName,
 		ModelUUID:       uuid,
 		CharmInfo:       charmInfo,
 	}
@@ -739,7 +833,7 @@ func (c *DeployCommand) deployCharm(
 	}
 
 	ids, err := resourceadapters.DeployResources(
-		serviceName,
+		applicationName,
 		id,
 		csMac,
 		c.Resources,
@@ -750,19 +844,27 @@ func (c *DeployCommand) deployCharm(
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(apiRoot.Deploy(application.DeployArgs{
+	if len(appConfig) == 0 {
+		appConfig = nil
+	}
+	args := application.DeployArgs{
 		CharmID:          id,
 		Cons:             c.Constraints,
-		ApplicationName:  serviceName,
+		ApplicationName:  applicationName,
 		Series:           series,
 		NumUnits:         numUnits,
 		ConfigYAML:       string(configYAML),
+		Config:           appConfig,
 		Placement:        c.Placement,
 		Storage:          c.Storage,
 		AttachStorage:    c.AttachStorage,
 		Resources:        ids,
 		EndpointBindings: c.Bindings,
-	}))
+	}
+	if len(appConfig) > 0 {
+		args.Config = appConfig
+	}
+	return errors.Trace(apiRoot.Deploy(args))
 }
 
 const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<endpoint-name>=<space> ...]'. "

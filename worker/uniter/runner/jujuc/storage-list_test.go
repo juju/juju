@@ -13,7 +13,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
+	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
 )
 
 type storageListSuite struct {

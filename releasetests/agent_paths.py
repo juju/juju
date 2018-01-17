@@ -45,5 +45,6 @@ def main():
         })
     json_dump(agent_downloads, 'downloads-' + args.output)
 
+
 if __name__ == '__main__':
     sys.exit(main())

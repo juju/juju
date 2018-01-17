@@ -661,15 +661,21 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	application := ctx.application
 	appName := application.Name()
 	globalKey := application.globalKey()
-	settingsKey := application.settingsKey()
+	charmConfigKey := application.charmConfigKey()
+	appConfigKey := application.applicationConfigKey()
 	leadershipKey := leadershipSettingsKey(appName)
 	storageConstraintsKey := application.storageConstraintsKey()
 
-	applicationSettingsDoc, found := e.modelSettings[settingsKey]
+	applicationCharmSettingsDoc, found := e.modelSettings[charmConfigKey]
 	if !found && !e.cfg.SkipSettings {
-		return errors.Errorf("missing settings for application %q", appName)
+		return errors.Errorf("missing charm settings for application %q", appName)
 	}
-	delete(e.modelSettings, settingsKey)
+	delete(e.modelSettings, charmConfigKey)
+	applicationConfigDoc, found := e.modelSettings[appConfigKey]
+	if !found && !e.cfg.SkipSettings {
+		return errors.Errorf("missing config for application %q", appName)
+	}
+	delete(e.modelSettings, appConfigKey)
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
 	if !found && !e.cfg.SkipSettings {
 		return errors.Errorf("missing leadership settings for application %q", appName)
@@ -678,6 +684,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 
 	args := description.ApplicationArgs{
 		Tag:                  application.ApplicationTag(),
+		Type:                 e.model.Type(),
 		Series:               application.doc.Series,
 		Subordinate:          application.doc.Subordinate,
 		CharmURL:             application.doc.CharmURL.String(),
@@ -685,9 +692,11 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		CharmModifiedVersion: application.doc.CharmModifiedVersion,
 		ForceCharm:           application.doc.ForceCharm,
 		Exposed:              application.doc.Exposed,
+		PasswordHash:         application.doc.PasswordHash,
 		MinUnits:             application.doc.MinUnits,
 		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
-		Settings:             applicationSettingsDoc.Settings,
+		ApplicationConfig:    applicationConfigDoc.Settings,
+		CharmConfig:          applicationCharmSettingsDoc.Settings,
 		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   application.doc.MetricCredentials,

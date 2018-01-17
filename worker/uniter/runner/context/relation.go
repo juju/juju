@@ -17,7 +17,7 @@ type RelationInfo struct {
 	MemberNames  []string
 }
 
-// ContextRelation is the implementation of jujuc.ContextRelation.
+// ContextRelation is the implementation of hooks.ContextRelation.
 type ContextRelation struct {
 	ru           *uniter.RelationUnit
 	relationId   int

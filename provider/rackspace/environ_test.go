@@ -267,16 +267,6 @@ func (e *fakeConfigurator) FindIngressRules() ([]network.IngressRule, error) {
 	return nil, nil
 }
 
-func (e *fakeConfigurator) AddIpAddress(nic string, addr string) error {
-	e.Push("AddIpAddress", nic, addr)
-	return nil
-}
-
-func (e *fakeConfigurator) ReleaseIpAddress(addr string) error {
-	e.Push("AddIpAddress", addr)
-	return nil
-}
-
 type fakeInstance struct {
 	methodCalls []methodCall
 }

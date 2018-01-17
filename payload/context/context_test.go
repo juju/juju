@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/context"
-	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
+	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
 )
 
 type contextSuite struct {

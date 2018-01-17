@@ -12,16 +12,17 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
 )
 
 var _ = gc.Suite(&ActionSetSuite{})
 
 type ActionSetSuite struct {
-	ContextSuite
+	jujuctesting.ContextSuite
 }
 
 type actionSettingContext struct {
-	Context
+	jujuc.Context
 	commands [][]string
 }
 
@@ -35,7 +36,7 @@ func (a *actionSettingContext) UpdateActionResults(keys []string, value string) 
 }
 
 type nonActionSettingContext struct {
-	Context
+	jujuc.Context
 }
 
 func (a *nonActionSettingContext) UpdateActionResults(keys []string, value string) error {

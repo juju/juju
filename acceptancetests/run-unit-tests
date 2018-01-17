@@ -112,6 +112,7 @@ if [[ $INSTANCE_TYPE == "lxc" ]]; then
     echo "$instance_id is at $instance_name"
 elif [[ $INSTANCE_TYPE == "host" ]]; then
     instance_name=$AMI_IMAGE
+    user="jenkins"
 else
     instance_id=$($SCRIPTS/ec2-run-instance-get-id)
     for attempt in $(seq 5); do
@@ -126,6 +127,7 @@ else
     echo Starting instance $instance_id
     instance_name=$($SCRIPTS/ec2-get-name $instance_id)
     echo Instance has name $instance_name
+    user="ubuntu"
     sleep 30
     $SCRIPTS/wait-for-port $instance_name 22
 fi
@@ -135,10 +137,10 @@ fi
 set -x
 set +e
 scp -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    $tarfile_path ubuntu@$instance_name:~/
+    $tarfile_path $user@$instance_name:~/
 
 ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    ubuntu@$instance_name  <<EOT
+    $user@$instance_name  <<EOT
 set -eux
 if  [[ -L /tmp ]]; then
     export TMPDIR=\$(readlink -f /tmp)
@@ -161,7 +163,7 @@ fi
 export GOPATH=\$HOME/$juju_version
 if [[ -d \$GOPATH ]]; then
     echo "Cleaning up files unpacked into the GOPATH by a previous test."
-    rm -r \$GOPATH
+    sudo rm -r \$GOPATH
 fi
 tar -xzf $tarfile_basename
 if [[ -d \$HOME/goroot ]]; then
@@ -212,14 +214,14 @@ if [[ $INSTANCE_TYPE == "host" ]]; then
     sudo killall -SIGABRT /usr/bin/mongod || true
     sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
     sudo killall -9 mongod || true
-    rm -rf /tmp/adduser-* || true
-    rm -rf /tmp/check* || true
-    rm -rf /tmp/go-* || true
-    rm -rf /tmp/gocheck* || true
-    rm -rf /tmp/gui* || true
-    rm -rf /tmp/juju-* || true
-    rm -rf /tmp/pprof* || true
-    rm -rf /tmp/test-* || true
+    sudo rm -rf /tmp/adduser-* || true
+    sudo rm -rf /tmp/check* || true
+    sudo rm -rf /tmp/go-* || true
+    sudo rm -rf /tmp/gocheck* || true
+    sudo rm -rf /tmp/gui* || true
+    sudo rm -rf /tmp/juju-* || true
+    sudo rm -rf /tmp/pprof* || true
+    sudo rm -rf /tmp/test-* || true
 fi
 
 make setup-lxd || true
@@ -242,21 +244,21 @@ if [[ $INSTANCE_TYPE == "lxc" ]]; then
     sudo lxc-destroy -n $instance_id
 elif [[ $INSTANCE_TYPE == "host" ]]; then
     ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-        ubuntu@$instance_name  <<EOT
+        $user@$instance_name  <<EOT
     set -eux
     echo "Cleaning up /tmp"
     sudo killall -SIGABRT /usr/bin/mongod || true
     sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
     sudo killall -9 mongod || true
-    rm -rf /home/ubuntu/$juju_version || true
-    rm -rf /tmp/adduser-* || true
-    rm -rf /tmp/check* || true
-    rm -rf /tmp/go-* || true
-    rm -rf /tmp/gocheck* || true
-    rm -rf /tmp/gui* || true
-    rm -rf /tmp/juju-* || true
-    rm -rf /tmp/pprof* || true
-    rm -rf /tmp/test-* || true
+    sudo rm -rf /home/ubuntu/$juju_version || true
+    sudo rm -rf /tmp/adduser-* || true
+    sudo rm -rf /tmp/check* || true
+    sudo rm -rf /tmp/go-* || true
+    sudo rm -rf /tmp/gocheck* || true
+    sudo rm -rf /tmp/gui* || true
+    sudo rm -rf /tmp/juju-* || true
+    sudo rm -rf /tmp/pprof* || true
+    sudo rm -rf /tmp/test-* || true
 EOT
 else
     set +e

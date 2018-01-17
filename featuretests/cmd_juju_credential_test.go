@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/commands"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/testing"
 )
 
 type cmdCredentialSuite struct {
@@ -33,24 +34,36 @@ func (s *cmdCredentialSuite) run(c *gc.C, args ...string) *cmd.Context {
 }
 
 func (s *cmdCredentialSuite) TestUpdateCredentialCommand(c *gc.C) {
+	//Add dummy cloud to cloud metadata
+	s.Home.AddFiles(c, testing.TestFile{
+		Name: ".local/share/clouds.yaml",
+		Data: `
+clouds:
+  dummy:
+    type: oracle
+    description: Dummy Test Cloud Metadata
+    auth-types: [ userpass ]
+`,
+	})
+
 	store := jujuclient.NewFileClientStore()
 	store.UpdateCredential("dummy", cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
-			"mine": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "fred", "password": "secret"}),
+			"cred": cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "fred", "password": "secret", "identity-domain": "domain"}),
 		},
 	})
-	s.run(c, "update-credential", "dummy", "mine")
+	s.run(c, "update-credential", "dummy", "cred")
 
 	client := apicloud.NewClient(s.OpenControllerAPI(c))
 	defer client.Close()
 
-	tag := names.NewCloudCredentialTag("dummy/admin@local/mine")
+	tag := names.NewCloudCredentialTag("dummy/admin@local/cred")
 	result, err := client.Credentials(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []params.CloudCredentialResult{
 		{Result: &params.CloudCredential{
 			AuthType:   "userpass",
-			Attributes: map[string]string{"username": "fred"},
+			Attributes: map[string]string{"username": "fred", "identity-domain": "domain"},
 			Redacted:   []string{"password"},
 		}},
 	})

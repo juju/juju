@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package context contains the ContextFactory and Context definitions. Context implements
-// jujuc.Context and is used together with uniter.Runner to run hooks, commands and actions.
+// hooks.Context and is used together with uniter.Runner to run hooks, commands and actions.
 package context
 
 import (
@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -93,7 +94,7 @@ type HookProcess interface {
 	Kill() error
 }
 
-// HookContext is the implementation of jujuc.Context.
+// HookContext is the implementation of hooks.Context.
 type HookContext struct {
 	unit *uniter.Unit
 
@@ -104,7 +105,7 @@ type HookContext struct {
 	// not fully there yet.
 	state *uniter.State
 
-	// LeadershipContext supplies several jujuc.Context methods.
+	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
 
 	// principal is the unitName of the principal charm.
@@ -183,7 +184,7 @@ type HookContext struct {
 	// like a juju-run command or a hook
 	process HookProcess
 
-	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is jujuc.RebootNow
+	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is hooks.RebootNow
 	// the hook will be killed and requeued
 	rebootPriority jujuc.RebootPriority
 
@@ -216,7 +217,7 @@ type HookContext struct {
 	slaLevel string
 }
 
-// Component implements jujuc.Context.
+// Component implements hooks.Context.
 func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
 	compCtxFunc, ok := ctx.componentFuncs[name]
 	if !ok {
@@ -249,7 +250,7 @@ func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
 	}
 
 	switch err {
-	case nil, ErrNoProcess:
+	case nil, charmrunner.ErrNoProcess:
 		// ErrNoProcess almost certainly means we are running in debug hooks
 	default:
 		ctx.SetRebootPriority(jujuc.RebootSkip)
@@ -751,7 +752,7 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 	// and discard the error state.  Actions should not error the uniter.
 	if err != nil {
 		message = err.Error()
-		if IsMissingHookError(err) {
+		if charmrunner.IsMissingHookError(err) {
 			message = fmt.Sprintf("action not implemented on unit %q", ctx.unitName)
 		}
 		status = params.ActionFailed
@@ -769,7 +770,7 @@ func (ctx *HookContext) killCharmHook() error {
 	proc := ctx.GetProcess()
 	if proc == nil {
 		// nothing to kill
-		return ErrNoProcess
+		return charmrunner.ErrNoProcess
 	}
 	logger.Infof("trying to kill context process %v", proc.Pid())
 

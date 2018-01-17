@@ -15,7 +15,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
@@ -43,7 +42,6 @@ type CaasOperatorAgent struct {
 	runner          *worker.Runner
 	bufferedLogger  *logsender.BufferedLogWriter
 	setupLogging    func(agent.Config) error
-	logToStdErr     bool
 	ctx             *cmd.Context
 
 	// Used to signal that the upgrade worker will not
@@ -82,7 +80,6 @@ func (op *CaasOperatorAgent) Info() *cmd.Info {
 func (op *CaasOperatorAgent) SetFlags(f *gnuflag.FlagSet) {
 	op.AgentConf.AddFlags(f)
 	f.StringVar(&op.ApplicationName, "application-name", "", "name of the application")
-	f.BoolVar(&op.logToStdErr, "log-to-stderr", false, "whether to log to standard error instead of log files")
 }
 
 // Init initializes the command for running.
@@ -96,22 +93,11 @@ func (op *CaasOperatorAgent) Init(args []string) error {
 	if err := op.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
-	op.runner = worker.NewRunner(worker.RunnerParams{IsFatal: cmdutil.IsFatal, MoreImportant: cmdutil.MoreImportant, RestartDelay: jworker.RestartDelay})
-
-	if !op.logToStdErr {
-		if err := op.ReadConfig(op.Tag().String()); err != nil {
-			return err
-		}
-		operatorConfig := op.CurrentConfig()
-
-		// the writer in ctx.stderr gets set as the loggo writer in github.com/juju/cmd/logging.go
-		op.ctx.Stderr = &lumberjack.Logger{
-			Filename:   agent.LogFilename(operatorConfig),
-			MaxSize:    300, // megabytes
-			MaxBackups: 2,
-		}
-
-	}
+	op.runner = worker.NewRunner(worker.RunnerParams{
+		IsFatal:       cmdutil.IsFatal,
+		MoreImportant: cmdutil.MoreImportant,
+		RestartDelay:  jworker.RestartDelay,
+	})
 	return nil
 }
 

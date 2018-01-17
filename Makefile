@@ -1,7 +1,6 @@
 #
 # Makefile for juju-core.
 #
-
 ifndef GOPATH
 $(warning You need to set up a GOPATH.  See the README file.)
 endif
@@ -48,17 +47,32 @@ godeps:
 	@echo "skipping godeps"
 endif
 
-build: godeps
-	go build $(PROJECT)/...
+build: godeps go-build
+
+add-patches:
+	cat $(PWD)/patches/*.diff | patch -f -u -p1 -r- -d $(PWD)/../../../
+
+#this is useful to run after release-build, or as needed
+remove-patches:
+	cat $(PWD)/patches/*.diff | patch -f -R -u -p1 -r- -d $(PWD)/../../../
+
+release-build: godeps add-patches go-build
+
+release-install: godeps add-patches go-install remove-patches
 
 check: godeps
 	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
 
-install: godeps
-	go install -v $(PROJECT)/...
+install: godeps go-install
 
 clean:
 	go clean $(PROJECT)/...
+
+go-install:
+	go install -v $(PROJECT)/...
+
+go-build:
+	go build $(PROJECT)/...
 
 else # --------------------------------
 
@@ -125,21 +139,21 @@ check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
 # CAAS related targets
-DOCKER_USERNAME?=juju
+DOCKER_USERNAME?=jujusolutions
 JUJUD_STAGING_DIR=/tmp/jujud-operator
 JUJUD_BIN_DIR=${GOPATH}/bin
 
-operator-image: install
+operator-image: install caas/jujud-operator-dockerfile caas/jujud-operator-requirements.txt
 	rm -rf ${JUJUD_STAGING_DIR}
 	mkdir ${JUJUD_STAGING_DIR}
 	cp ${JUJUD_BIN_DIR}/jujud ${JUJUD_STAGING_DIR}
-	cp jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
-	cp jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
+	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
+	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
 	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${DOCKER_USERNAME}/caas-jujud-operator ${JUJUD_STAGING_DIR}
 
 push-operator-image: operator-image
 	docker push ${DOCKER_USERNAME}/caas-jujud-operator
-	
+
 check-k8s-model:
 	@:$(if $(value JUJU_K8S_MODEL),, $(error Undefined JUJU_K8S_MODEL))
 	@juju show-model ${JUJU_K8S_MODEL} > /dev/null
@@ -150,8 +164,9 @@ local-operator-update: check-k8s-model operator-image
 	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} /tmp/caas-jujud-operator-image.tar.gz $(wm):/tmp/caas-jujud-operator-image.tar.gz ; )
 	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/caas-jujud-operator-image.tar.gz | docker load" ; )
 
-.PHONY: build check install
+.PHONY: build check install release-install release-build go-build go-install
 .PHONY: clean format simplify
 .PHONY: install-dependencies
 .PHONY: rebuild-dependencies.tsv
 .PHONY: check-deps
+.PHONY: add-patches remove-patches

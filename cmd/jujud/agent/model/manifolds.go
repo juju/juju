@@ -6,6 +6,7 @@ package model
 import (
 	"time"
 
+	"github.com/juju/juju/worker/caasfirewaller"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/names.v2"
@@ -13,6 +14,9 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	caasfirewallerapi "github.com/juju/juju/api/caasfirewaller"
+	caasunitprovisionerapi "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
@@ -25,7 +29,8 @@ import (
 	"github.com/juju/juju/worker/applicationscaler"
 	"github.com/juju/juju/worker/caasbroker"
 	"github.com/juju/juju/worker/caasmodelupgrader"
-	"github.com/juju/juju/worker/caasprovisioner"
+	"github.com/juju/juju/worker/caasoperatorprovisioner"
+	"github.com/juju/juju/worker/caasunitprovisioner"
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/cleaner"
@@ -394,12 +399,32 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:          apiCallerName,
 			NewContainerBrokerFunc: config.NewContainerBrokerFunc,
 		})),
-		caasProvisionerName: ifNotMigrating(caasprovisioner.Manifold(
-			caasprovisioner.ManifoldConfig{
+		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
+			caasfirewaller.ManifoldConfig{
+				APICallerName: apiCallerName,
+				BrokerName:    caasBrokerTrackerName,
+				NewClient: func(caller base.APICaller) caasfirewaller.Client {
+					return caasfirewallerapi.NewClient(caller)
+				},
+				NewWorker: caasfirewaller.NewWorker,
+			},
+		)),
+		caasOperatorProvisionerName: ifNotMigrating(caasoperatorprovisioner.Manifold(
+			caasoperatorprovisioner.ManifoldConfig{
 				AgentName:     agentName,
 				APICallerName: apiCallerName,
 				BrokerName:    caasBrokerTrackerName,
-				NewWorker:     caasprovisioner.NewProvisionerWorker,
+				NewWorker:     caasoperatorprovisioner.NewProvisionerWorker,
+			},
+		)),
+		caasUnitProvisionerName: ifNotMigrating(caasunitprovisioner.Manifold(
+			caasunitprovisioner.ManifoldConfig{
+				APICallerName: apiCallerName,
+				BrokerName:    caasBrokerTrackerName,
+				NewClient: func(caller base.APICaller) caasunitprovisioner.Client {
+					return caasunitprovisionerapi.NewClient(caller)
+				},
+				NewWorker: caasunitprovisioner.NewWorker,
 			},
 		)),
 		modelUpgraderName: caasmodelupgrader.Manifold(caasmodelupgrader.ManifoldConfig{
@@ -521,6 +546,8 @@ const (
 	remoteRelationsName      = "remote-relations"
 	logForwarderName         = "log-forwarder"
 
-	caasProvisionerName   = "caas-provisioner"
-	caasBrokerTrackerName = "caas-broker-tracker"
+	caasFirewallerName          = "caas-firewaller"
+	caasOperatorProvisionerName = "caas-operator-provisioner"
+	caasUnitProvisionerName     = "caas-unit-provisioner"
+	caasBrokerTrackerName       = "caas-broker-tracker"
 )

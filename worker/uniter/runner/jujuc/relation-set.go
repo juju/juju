@@ -43,7 +43,7 @@ type RelationSetCommand struct {
 func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
 	c := &RelationSetCommand{ctx: ctx}
 
-	rV, err := newRelationIdValue(ctx, &c.RelationId)
+	rV, err := NewRelationIdValue(ctx, &c.RelationId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

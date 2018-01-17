@@ -14,7 +14,12 @@ import (
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
+	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
+)
+
+const (
+	formatYaml = iota
+	formatJson
 )
 
 func bufferBytes(stream io.Writer) []byte {

@@ -1,0 +1,11 @@
+services:
+    wordpress:
+        charm: wordpress
+        num_units: 1
+        plan: "default"
+    mysql:
+        charm: mysql
+        num_units: 1
+        plan: "test/plan"
+relations:
+    - ["wordpress:db", "mysql:server"]

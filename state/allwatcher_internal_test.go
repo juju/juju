@@ -486,7 +486,7 @@ func applicationCharmURL(app *Application) *charm.URL {
 }
 
 func setApplicationConfigAttr(c *gc.C, app *Application, attr string, val interface{}) {
-	err := app.UpdateConfigSettings(charm.Settings{attr: val})
+	err := app.UpdateCharmConfig(charm.Settings{attr: val})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1257,7 +1257,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				app, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = app.UpdateConfigSettings(charm.Settings{"blog-title": "boring"})
+				err = app.UpdateCharmConfig(charm.Settings{"blog-title": "boring"})
 				c.Assert(err, jc.ErrorIsNil)
 				return 1
 			},
