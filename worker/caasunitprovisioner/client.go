@@ -4,6 +4,7 @@
 package caasunitprovisioner
 
 import (
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/watcher"
@@ -17,6 +18,7 @@ type Client interface {
 	ContainerSpecGetter
 	LifeGetter
 	UnitGetter
+	UnitUpdater
 }
 
 // ApplicationGetter provides an interface for
@@ -48,4 +50,10 @@ type LifeGetter interface {
 // their details.
 type UnitGetter interface {
 	WatchUnits(string) (watcher.StringsWatcher, error)
+}
+
+// UnitUpdater provides an interface for updating
+// Juju units from changes in the cloud.
+type UnitUpdater interface {
+	UpdateUnits(arg params.UpdateApplicationUnits) error
 }

@@ -7,9 +7,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
-	"time"
 
-	"github.com/juju/juju/watcher/watchertest"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,7 +16,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
@@ -31,8 +28,6 @@ type CAASProvisionerSuite struct {
 	coretesting.BaseSuite
 	stub *jujutesting.Stub
 
-	clock             *jujutesting.Clock
-	unitsChanges      chan struct{}
 	provisionerFacade *mockProvisionerFacade
 	caasClient        *mockBroker
 	agentConfig       agent.Config
@@ -44,10 +39,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 
 	s.stub = new(jujutesting.Stub)
 	s.provisionerFacade = newMockProvisionerFacade(s.stub)
-	s.unitsChanges = make(chan struct{})
-	s.caasClient = &mockBroker{
-		unitsWatcher: watchertest.NewMockNotifyWatcher(s.unitsChanges),
-	}
+	s.caasClient = &mockBroker{}
 	s.agentConfig = &mockAgentConfig{}
 	s.modelTag = coretesting.ModelTag
 }
@@ -68,13 +60,12 @@ func waitForStubCalls(c *gc.C, stub *jujutesting.Stub, expected []jujutesting.St
 }
 
 func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
-	s.clock = jujutesting.NewClock(time.Now())
 	w, err := caasoperatorprovisioner.NewProvisionerWorker(caasoperatorprovisioner.Config{
 		Facade:      s.provisionerFacade,
 		Broker:      s.caasClient,
 		ModelTag:    s.modelTag,
 		AgentConfig: s.agentConfig,
-		Clock:       s.clock})
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"WatchApplications", nil},
@@ -97,7 +88,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C) {
 			break
 		}
 	}
-	s.caasClient.CheckCallNames(c, "EnsureOperator", "WatchUnits")
+	s.caasClient.CheckCallNames(c, "EnsureOperator")
 
 	args := s.caasClient.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 3)
@@ -105,7 +96,6 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C) {
 	c.Assert(args[1], gc.Equals, "/var/lib/juju")
 	c.Assert(args[2], gc.FitsTypeOf, &caas.OperatorConfig{})
 	config := args[2].(*caas.OperatorConfig)
-	c.Assert(s.caasClient.Calls()[1].Args, gc.DeepEquals, []interface{}{"myapp"})
 
 	agentFile := filepath.Join(c.MkDir(), "agent.config")
 	err := ioutil.WriteFile(agentFile, []byte(config.AgentConf), 0644)
@@ -135,37 +125,4 @@ func (s *CAASProvisionerSuite) TestOperatorCreated(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.assertOperatorCreated(c)
-}
-
-func (s *CAASProvisionerSuite) TestUnitsChange(c *gc.C) {
-	w := s.assertWorker(c)
-	defer workertest.CleanKill(c, w)
-
-	s.assertOperatorCreated(c)
-	s.caasClient.ResetCalls()
-	s.provisionerFacade.stub.ResetCalls()
-
-	select {
-	case s.unitsChanges <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
-	}
-
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if len(s.caasClient.Calls()) > 0 {
-			break
-		}
-	}
-	s.caasClient.CheckCallNames(c, "Units")
-	c.Assert(s.caasClient.Calls()[0].Args, jc.DeepEquals, []interface{}{"myapp"})
-
-	s.provisionerFacade.stub.CheckCallNames(c, "UpdateUnits")
-	c.Assert(s.provisionerFacade.stub.Calls()[0].Args, jc.DeepEquals, []interface{}{
-		params.UpdateApplicationUnits{
-			ApplicationTag: names.NewApplicationTag("myapp").String(),
-			Units: []params.ApplicationUnitParams{
-				{Id: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: "allocating"},
-			},
-		},
-	})
 }

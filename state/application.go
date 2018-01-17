@@ -2346,7 +2346,7 @@ func (op *AddUnitOperation) Done(err error) error {
 	// that status is used to update the initial "allocating" status. We then
 	// get the expected 2 status entries in history. This is done in a separate
 	// transaction; a failure here will effectively be retried because the worker
-	// which has made the API call will restart and re-do the call.
+	// which has made the API call will restart and then perform the necessary update..
 	if op.props.Status != nil {
 		u, err := op.application.st.Unit(op.unitName)
 		if err != nil {
