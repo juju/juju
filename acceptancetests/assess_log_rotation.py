@@ -3,6 +3,7 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 from datetime import datetime
+from time import sleep
 import re
 
 import yaml
@@ -16,7 +17,7 @@ from jujucharm import (
     )
 from jujupy import (
     client_from_config,
-    jes_home_path,
+    juju_home_path,
     )
 from utility import (
     add_basic_testing_arguments,
@@ -85,10 +86,18 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
     # we'll obviously already have some data in the logs, so adding exactly
     # 300megs should do the trick.
 
+    def run_fill_log_action():
+        """Using fill action to fill logs, returns resulting output."""
+        client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
+        # Need to give the disk sometime to actually move files before
+        # requesting resulting output.
+        sleep(10)
+        # Retrieve resulting log details (file names, sizes etc.)
+        out = client.action_do_fetch("fill-logs/0", size_action)
+        return yaml.safe_load(out)
+
     # we run do_fetch here so that we wait for fill-logs to finish.
-    client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
-    out = client.action_do_fetch("fill-logs/0", size_action)
-    action_output = yaml.safe_load(out)
+    action_output = run_fill_log_action()
 
     # Now we should have one primary log file, and one backup log file.
     # The backup should be approximately 300 megs.
@@ -101,10 +110,7 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
     check_for_extra_backup("log2", action_output)
 
     # do it all again, this should generate a second backup.
-
-    client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
-    out = client.action_do_fetch("fill-logs/0", size_action)
-    action_output = yaml.safe_load(out)
+    action_output = run_fill_log_action()
 
     # we should have two backups.
     check_log0(logfile, action_output)
@@ -114,10 +120,7 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
     check_for_extra_backup("log3", action_output)
 
     # one more time... we should still only have 2 backups and primary
-
-    client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
-    out = client.action_do_fetch("fill-logs/0", size_action)
-    action_output = yaml.safe_load(out)
+    action_output = run_fill_log_action()
 
     check_log0(logfile, action_output)
     check_expected_backup("log1", prefix, action_output)
@@ -160,8 +163,8 @@ def check_expected_backup(key, logprefix, action_output):
     size = int(log["size"])
     if size > 30:
         raise LogRotateError(
-            "Backup log '%s' should be less than 30MB (as gzipped), but is %sMB." %
-            (log_name, size))
+            "Backup log '%s' should be less than 30MB (as gzipped), "
+            "but is %sMB." % (log_name, size))
 
     dt = matches.groups()[0]
     dt_pattern = "%Y-%m-%dT%H-%M-%S.%f"
@@ -211,10 +214,8 @@ def make_client_from_args(args):
         client.env, args.temp_env_name, series=args.series,
         bootstrap_host=args.bootstrap_host, agent_url=args.agent_url,
         agent_stream=args.agent_stream, region=args.region)
-    jes_enabled = client.is_jes_enabled()
-    if jes_enabled:
-        client.env.juju_home = jes_home_path(client.env.juju_home,
-                                             args.temp_env_name)
+    client.env.juju_home = juju_home_path(
+        client.env.juju_home, args.temp_env_name)
     client.kill_controller()
     return client
 
@@ -232,6 +233,7 @@ def main():
         charm_path = local_charm_path(
             charm='fill-logs', juju_ver=client.version, series='trusty')
         client.deploy(charm_path)
+        client.wait_for_workloads()
         if args.agent == "unit":
             test_unit_rotation(client)
         if args.agent == "machine":

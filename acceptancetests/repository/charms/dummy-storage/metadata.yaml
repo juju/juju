@@ -9,8 +9,8 @@ categories:
 series:
   - trusty
   - xenial
-  - zesty
   - artful
+  - bionic
 storage:
   single-fs:
     type: filesystem

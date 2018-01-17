@@ -14,7 +14,7 @@ from boto.s3.connection import S3Connection
 import requests
 from requests.auth import HTTPBasicAuth
 
-from jujuci import(
+from jujuci import (
     get_build_data,
     add_credential_args,
     get_credentials,
@@ -374,6 +374,7 @@ def main(argv=None):
         print('Uploading the latest test result.')
         print('WARNING: latest can be a moving target.')
         uploader.upload_last_completed_test_result()
+
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv[1:]))

@@ -12,10 +12,8 @@ from jujucharm import (
 )
 from jujupy import (
     client_from_config,
-    EnvJujuClient1X,
     fake_juju_client,
-    IncompatibleConfigClass,
-    SimpleEnvironment,
+    JujuData,
     )
 from deploy_stack import (
     BootstrapManager,
@@ -46,7 +44,7 @@ def prepare_dummy_env(client):
 def get_clients(initial, other, base_env, debug, agent_url):
     """Return the clients to use for testing."""
     if initial == 'FAKE':
-        environment = SimpleEnvironment.from_config(base_env)
+        environment = JujuData.from_config(base_env)
         client = fake_juju_client(env=environment)
         return client, client, client
     else:
@@ -54,27 +52,13 @@ def get_clients(initial, other, base_env, debug, agent_url):
         environment = initial_client.env
     if agent_url is None:
         environment.discard_option('tools-metadata-url')
-    other_client = initial_client.clone_path_cls(other)
-    # System juju is assumed to be released and the best choice for tearing
-    # down environments reliably.  (For example, 1.18.x cannot tear down
-    # environments with alpha agent-versions.)
-    try:
-        released_client = initial_client.clone_path_cls(None)
-    except IncompatibleConfigClass:
-        # If initial_client's config class is incompatible with the system
-        # juju, use initial client for teardown.
-        released_client = initial_client
-    # If released_client is a different major version, it cannot tear down
-    # initial client, so use initial client for teardown.
-    if (
-            isinstance(released_client, EnvJujuClient1X) !=
-            isinstance(initial_client, EnvJujuClient1X)
-            ):
-        released_client = initial_client
-    else:
-        # If system juju is used, ensure it has identical env to
-        # initial_client.
-        released_client.env = initial_client.env
+    other_client = initial_client.clone_from_path(other)
+    # This used to catch an exception of the config didn't match.
+    # version_client no longer exists so that no longer made sense.
+    released_client = initial_client.clone_from_path(None)
+    # If system juju is used, ensure it has identical env to
+    # initial_client.
+    released_client.env = initial_client.env
     return initial_client, other_client, released_client
 
 
@@ -88,12 +72,11 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
     """
     initial_client, other_client, teardown_client = get_clients(
         initial, other, base_env, debug, agent_url)
-    jes_enabled = initial_client.is_jes_enabled()
     bs_manager = BootstrapManager(
         environment_name, initial_client, teardown_client,
         bootstrap_host=None, machines=[], series=series, agent_url=agent_url,
         agent_stream=agent_stream, region=None, log_dir=log_dir,
-        keep_env=False, permanent=jes_enabled, jes_enabled=jes_enabled)
+        keep_env=False)
     test_control_heterogeneous(bs_manager, other_client, upload_tools)
 
 
@@ -179,6 +162,7 @@ def test_control_heterogeneous(bs_manager, other, upload_tools):
         other.remove_machine(container_holder)
         wait_until_removed(other, container_holder)
 
+
 # suppress nosetests
 test_control_heterogeneous.__test__ = False
 
@@ -207,11 +191,7 @@ def callback_with_fallback(other, released, callback):
 
 
 def nice_tear_down(client):
-    if client.is_jes_enabled():
-        client.kill_controller()
-    else:
-        if client.destroy_environment(force=False) != 0:
-            raise CalledProcessError(1, 'juju destroy-environment')
+    client.kill_controller()
 
 
 def has_agent(client, agent_id):

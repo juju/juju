@@ -89,11 +89,26 @@ def assess_ha_recovery(bs_manager, client):
     # Juju commands will hang when the controller is down, so ensure the
     # call is interrupted and raise HARecoveryError. The controller
     # might return an error, but it still has
-    try:
-        client.juju('status', (), check=True, timeout=300)
-        client.get_status(300)
-    except CalledProcessError:
-        raise HARecoveryError()
+    # Give juju 3 quick attempts to get a status response that doesn't die
+    # partway through comms (due to reconfiguration in progress).
+    status_attempt_countdown = 2
+    while True:
+        try:
+            client.juju('status', (), check=True, timeout=300)
+            client.get_status(300)
+            break
+        except CalledProcessError:
+            if status_attempt_countdown > 0:
+                log.info('Status failed, will attempt again.')
+                status_attempt_countdown -= 1
+            else:
+                raise HARecoveryError(
+                    'Juju failed to respond (status failed).')
+    # Status works, now exercise juju further. Ensure setting model config and
+    # reading back the result works.
+    client.set_env_option('ha-testing-value', 'abc123')
+    if client.get_env_option('ha-testing-value').strip() != 'abc123':
+        raise HARecoveryError('Juju failed to respond (model-config failed).')
     bs_manager.has_controller = True
     log.info("HA recovered from leader failure.")
     log.info("PASS")

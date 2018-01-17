@@ -11,8 +11,8 @@ categories:
 series:
   - trusty
   - xenial
-  - zesty
   - artful
+  - bionic
 resources:
   index:
     type: file

@@ -9,9 +9,6 @@ import sys
 from deploy_stack import (
     BootstrapManager,
     )
-from jujupy import (
-    get_machine_dns_name,
-    )
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -73,11 +70,6 @@ def assess_metadata(bs_manager, local_source):
             data = client.get_model_config()
     if INVALID_URL != data['agent-metadata-url']['value']:
         raise JujuAssertionError('Error, possible web metadata.')
-
-
-def get_controller_address(client):
-    """Get the address of the controller for this model."""
-    return get_machine_dns_name(client, "0")
 
 
 def get_controller_hostname(client):

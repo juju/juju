@@ -10,8 +10,8 @@ tags:
 series:
   - trusty
   - xenial
-  - zesty
   - artful
+  - bionic
 subordinate: false
 peers:
   xplod:

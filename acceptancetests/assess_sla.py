@@ -12,9 +12,6 @@ import sys
 from deploy_stack import (
     BootstrapManager,
 )
-from jujucharm import (
-    local_charm_path,
-)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -36,18 +33,13 @@ def list_sla(client):
 
 def assert_sla_state(client, expected_state):
     sla_state = list_sla(client)
-    if not expected_state in sla_state:
+    if expected_state not in sla_state:
         raise JujuAssertionError(
             'Found: {}\nExpected: {}'.format(sla_state, expected_state))
 
 
-def assess_sla(client, series='xenial'):
+def assess_sla(client):
     client.wait_for_started()
-    dummy_source = local_charm_path(charm='dummy-source',
-                                    juju_ver=client.version,
-                                    series=series)
-    client.deploy(charm=dummy_source)
-    client.wait_for_workloads()
     # As we are unable to test supported models, for now, we only can assert
     # on the model shows correctly as unsupported
     assert_sla_state(client, 'unsupported')
@@ -65,7 +57,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with bs_manager.booted_context(args.upload_tools):
-        assess_sla(bs_manager.client, args.series)
+        assess_sla(bs_manager.client)
     return 0
 
 
