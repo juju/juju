@@ -21,7 +21,6 @@ peers:
 series:
   - trusty
   - xenial
-  - zesty
   - artful
   - bionic
 

@@ -20,7 +20,6 @@ import time
 import yaml
 import shutil
 
-from chaos import background_chaos
 from jujucharm import (
     local_charm_path,
 )
@@ -421,8 +420,6 @@ def deploy_job_parse_args(argv=None):
     add_basic_testing_arguments(parser)
     parser.add_argument('--upgrade', action="store_true", default=False,
                         help='Perform an upgrade test.')
-    parser.add_argument('--with-chaos', default=0, type=int,
-                        help='Deploy and run Chaos Monkey in the background.')
     parser.add_argument(
         '--controller-host', help=(
             'Host with a controller to use.  If supplied, SSO_EMAIL and'
@@ -1147,13 +1144,9 @@ def _deploy_job(args, charm_series, series):
         series, args.agent_url, args.agent_stream, args.region, args.logs,
         args.keep_env, controller_strategy=controller_strategy)
     with bs_manager.booted_context(args.upload_tools):
-        if args.with_chaos > 0:
-            manager = background_chaos(args.temp_env_name, client,
-                                       args.logs, args.with_chaos)
-        else:
-            # Create a no-op context manager, to avoid duplicate calls of
-            # deploy_dummy_stack(), as was the case prior to this revision.
-            manager = nested()
+        # Create a no-op context manager, to avoid duplicate calls of
+        # deploy_dummy_stack(), as was the case prior to this revision.
+        manager = nested()
         with manager:
             deploy_dummy_stack(client, charm_series, args.use_charmstore)
         assess_juju_relations(client)

@@ -5,6 +5,7 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 from collections import namedtuple
+from launchpadlib.launchpad import Launchpad
 import os
 import re
 import shutil
@@ -32,7 +33,7 @@ SUPPORTED_RELEASES = """\
 15.10 wily HISTORIC
 16.04 xenial LTS
 16.10 yakkety HISTORIC
-17.04 zesty SUPPORTED
+17.04 zesty HISTORIC
 17.10 artful SUPPORTED
 18.04 bionic DEVEL
 """
@@ -380,7 +381,7 @@ def make_changelog_message(version, bugs=None):
     else:
         message = 'New upstream stable point release.'
     if bugs:
-        fixes = ', '.join(['LP #%s' % b for b in bugs])
+        fixes = ', '.join(['LP #%s' % bug for bug,description in bugs])
         message = '%s (%s)' % (message, fixes)
     return message
 
@@ -454,7 +455,7 @@ def create_source_package(source_dir, spb, series, version,
         sign_source_package(source_dir, gpgcmd, debemail, debfullname)
 
 
-def build_source(tarfile_path, location, series, bugs,
+def build_source(tarfile_path, location, series, milestone,
                  debemail=None, debfullname=None, gpgcmd=None,
                  branch=None, upatch=1, verbose=False,
                  date=None, build=None, revid=None, epoch=None):
@@ -482,6 +483,7 @@ def build_source(tarfile_path, location, series, bugs,
     :param epoch: The epoch to pass in version name
     :return: the exit code (which is 0 or else an exception was raised).
     """
+    bugs = get_bugs("juju-build-package", milestone)
     if not isinstance(series, list):
         series = [series]
     tarfile_name = os.path.basename(tarfile_path)
@@ -510,6 +512,28 @@ def build_source(tarfile_path, location, series, bugs,
     return 0
 
 
+def get_lp_bug_tasks(script, milestone_name):
+    """Return an iterators of Lp BugTasks,"""
+    lp = Launchpad.login_anonymously(
+        script, service_root='https://api.launchpad.net', version='devel')
+    if milestone_name.startswith('1.'):
+        project = lp.projects['juju-core']
+    else:
+        project = lp.projects['juju']
+    milestone = project.getMilestone(name=milestone_name)
+    return milestone.searchTasks(status=['Fix Committed'])
+
+
+def get_bugs(script, milestone):
+    """Return a list of bug tuples (id, title)."""
+    bug_tasks = get_lp_bug_tasks(script, milestone)
+    bugs = []
+    for bugtask in bug_tasks:
+        bug = bugtask.bug
+        bugs.append((bug.id, bug.title.capitalize()))
+    return bugs
+
+
 def print_series_info(package_version=None):
     exitcode = 1
     if package_version:
@@ -526,7 +550,7 @@ def main(argv):
     args = get_args(argv)
     if args.command == 'source':
         exitcode = build_source(
-            args.tar_file, args.location, args.series, args.bugs,
+            args.tar_file, args.location, args.series, args.milestone,
             debemail=args.debemail, debfullname=args.debfullname,
             gpgcmd=args.gpgcmd, branch=args.branch, upatch=args.upatch,
             verbose=args.verbose, date=args.date, build=args.build,
@@ -575,7 +599,7 @@ def get_args(argv=None):
     src_parser.add_argument(
         '--revid', default=None, help="The short hash for revid")
     src_parser.add_argument(
-        'bugs', nargs='*', help="Bugs this version will fix in the release.")
+        'milestone', default=None, help="The milestone this release is for.")
     bin_parser = subparsers.add_parser('binary', help='Build a binary package')
     bin_parser.add_argument(
         '--ppa', default=None, help="The PPA that provides package deps.")
