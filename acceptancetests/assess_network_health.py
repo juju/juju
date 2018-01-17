@@ -13,7 +13,6 @@ import time
 import os
 import socket
 from collections import defaultdict
-import ipaddress
 
 from jujupy import (
     client_for_existing
@@ -54,7 +53,6 @@ class AssessNetworkHealth:
         self.expose_client = None
         self.existing_series = set([])
         self.expose_test_charms = set([])
-        self.supported_spaces_providers = [ 'ec2' ];
 
     def assess_network_health(self, client, bundle=None, target_model=None,
                               reboot=False, series=None, maas=None):
@@ -79,16 +77,12 @@ class AssessNetworkHealth:
                 raise Exception('\n'.join(error_string))
             log.info('SUCESS')
             return
-        results_spaces = self.verify_spaces(client)
-        self.remove_spaces_machines(client)
         log.info('Units completed pre-reboot tests, rebooting machines.')
         self.reboot_machines(client)
         results_post = self.testing_iterations(client, series, target_model,
                                                reboot_msg='Post-reboot ')
-        if results_pre or results_post or results_spaces:
+        if results_pre or results_post:
             error_string.extend(results_pre or 'No pre-reboot failures.')
-            error_string.extend(['Spaces test failures:'])
-            error_string.extend(results_spaces or 'No spaces test failures.')
             error_string.extend(['Post-reboot test failures:'])
             error_string.extend(results_post or 'No post-reboot failures.')
             raise Exception('\n'.join(error_string))
@@ -140,7 +134,6 @@ class AssessNetworkHealth:
         if bundle:
             self.setup_bundle_deployment(client, bundle)
         elif bundle is None and target_model is None:
-            self.assign_spaces(client)
             self.setup_dummy_deployment(client, series)
         apps = client.get_status().get_applications()
         for _, info in apps.items():
@@ -172,8 +165,6 @@ class AssessNetworkHealth:
             app_series = info['series']
             client.wait_for_subordinate_units(
                 app, 'network-health-{}'.format(app_series))
-        # finally, add more machines for spaces testing
-        self.deploy_spaces_machines(client, series)
 
     def connect_to_existing_model(self, client, target_model):
         """Connects to an existing Juju model.
@@ -185,220 +176,16 @@ class AssessNetworkHealth:
         if client.show_model().keys()[0] is not target_model:
             client.switch(target_model)
 
-    def assign_spaces(self, client):
-        """Assigns spaces to subnets
-        Currently this only supports EC2.
-        Name the spaces sequentially: space1, space2, space3, etc.
-        We require at least 3 spaces.
-
-        :param client: Juju client object with controller
-        """
-        if client.env.provider not in self.supported_spaces_providers:
-            log.info('Skipping spaces assignment. Supported providers are: '
-                     '{}'.format(' '.join(self.supported_spaces_providers)))
-            return
-
-        log.info('Assigning network spaces on {}.'.format(client.env.provider))
-        subnets = yaml.safe_load(client.get_juju_output('list-subnets',
-            '--format=yaml'))
-        if not subnets:
-            # TODO We need to set up subnets beforehand so that we never get here
-            raise Exception(
-                'No subnets defined in {}'.format(client.env.provider))
-        subnet_count = 0
-        for subnet in non_infan_subnets(subnets)['subnets'].keys():
-            subnet_count += 1
-            client.juju('add-space', ('space{}'.format(subnet_count), subnet))
-        if subnet_count < 3:
-            raise Exception('3 subnets required for spaces assignment. {} '
-                            'found.'.format(subnet_count))
-
-
-
-    def verify_spaces(self, client):
-        """Verify that spaces are set up proper and functioning
-        Currently this only supports EC2.
-
-        :param client: Juju client object with machines and spaces
-        """
-        if client.env.provider not in self.supported_spaces_providers:
-            return
-
-        spaces = non_infan_subnets(
-            yaml.safe_load(
-                client.get_juju_output(
-                    'list-spaces', '--format=yaml')))
-        log.info(
-            'SPACES:\n {}'.format(
-                json.dumps(spaces['spaces'], indent=4, sort_keys=True)))
-        machines = yaml.safe_load(client.get_juju_output('list-machines',
-            '--format=yaml'))['machines']
-        machine_test = self.verify_machine_spaces(
-            client, spaces['spaces'], machines)
-        log.info('Machines in Expected Spaces '
-                 'result:\n {0}'.format(json.dumps(machine_test, indent=4,
-                                                   sort_keys=True)))
-
-        ping_test = self.verify_spaces_connectivity(client, machines)
-        log.info('Ping tests '
-                 'result:\n {0}'.format(json.dumps(ping_test, indent=4,
-                                                   sort_keys=True)))
-
-        fail_test = self.add_container_with_wrong_space_errs(client)
-        log.info('Ensure failure to start container with wrong '
-                 'space:\n {0}'.format(json.dumps(fail_test, indent=4,
-                                                  sort_keys=True)))
-
-        return self.parse_spaces_results(machine_test, ping_test, fail_test)
-
-
-    def parse_spaces_results(self, machine_test, ping_test, fail_test):
-        """Parses test results and return any errors
-
-        :param machine_test: results from machine spaces verification
-        :param ping_test: results from connectivity test
-        :param fail_test: true if we failed to start container
-        """
-        log.info('Parsing results from spaces tests.')
-        error_string = []
-        for machine, res in machine_test.items():
-                if not res:
-                        expected_space = 'space0'
-                        if machine != '0':
-                            expected_space = 'space{}'.format(machine)
-                        error = ('Machine {0} had incorrect space. '
-                                 'expected: {1}'.format(machine, expected_space))
-                        error_string.append(error)
-        for pinged, res in ping_test.items():
-            if not res:
-                error = 'Machine {}: Failed.'.format(pinged)
-                error_string.append(error)
-        for failed, res in fail_test.items():
-            if not res:
-                error = ('Starting up container on Machine 2 (space2) with '
-                         'a constraint for space1 should have failed '
-                         'but it did not.')
-                error_string.append(error)
-        return error_string
-
-    def verify_machine_spaces(self, client, spaces, machines):
-        """Check all the machines to verify they are in the expected spaces
-        We should have 4 machines in 3 spaces
-        0 and 1 in space1
-        2 in space2
-        3 in space3
-
-        :param client: Juju client object with machines and spaces
-        :param spaces: dict of all the defined spaces
-        :param machines: dict of all the defiend machines
-        :returns: dict of results by machine
-        """
-        results = {}
-        for machine in machines.keys():
-            if machine == '0':
-                expected_space = 'space1'
-            else:
-                expected_space = 'space{}'.format(machine)
-            eth0 = machines[machine]['network-interfaces']['eth0']
-            results[machine] = False
-            subnet = spaces['spaces'][expected_space].keys()[0]
-            for ip in eth0['ip-addresses']:
-                if ip_in_cidr(ip, subnet):
-                    results[machine] = True
-                    break
-                else:
-                    log.info('In machine {machine}, {ip} is not in '
-                             '{space}({subnet})'.format(
-                                machine=machine,
-                                ip=ip,
-                                space=expected_space,
-                                subnet=subnet))
-        # TODO instead of returning results, just return error strings
-        return results
-
-    def verify_spaces_connectivity(self, client, machines):
-        """Check to make sure machines in the same space can ping
-        and that machines in different spaces cannot.
-        Machines 0 and 1 are in space1. Ping should succeed.
-        Machines 2 and 3 are in space2 and space3. Ping should fail.
-
-        :param client: Juju client object with machines and spaces
-        :param machines: dict of all the defined machines
-        :returns: dict of ping results
-        """
-        results = {}
-        results['0 can ping 1'] = machine_can_ping_ip(client, '0',
-            machines['1']['network-interfaces']['eth0']['ip-addresses'][0])
-        # Restrictions and access control between spaces is not yet enforced
-        #results['2 cannot ping 3'] = not machine_can_ping_ip(client, '2',
-        #    machines['3']['network-interfaces']['eth0']['ip-addresses'][0])
-        return results
-
-
-
-    def add_container_with_wrong_space_errs(self, client):
-        """If we attempt to add a container with a space constraint to a
-        machine that already has a space, if the spaces don't match, it
-        will fail.
-
-        :param client: Juju client object with machines and spaces
-        :returns: true if the add fails
-        """
-        # add container on machine 2 with space1
-        client.juju('add-machine', ('lxd:2', '--constraints', 'spaces=space1'))
-        client.wait_for_started()
-        machine = client.show_machine('2')['machines'][0]
-        container = machine['containers']['2/lxd/0']
-        if container['juju-status']['current'] == 'started':
-            return { 'failed to add?': False }
-        else:
-            return { 'failed to add?': True }
-
-
     def setup_dummy_deployment(self, client, series):
         """Sets up a dummy test environment with 2 ubuntu charms.
 
         :param client: Bootstrapped juju client
         """
         log.info("Deploying dummy charm for basic testing.")
-        ## TODO add test here to only add constraint if we're testing spaces
-        client.deploy('ubuntu', num=2, series=series,
-            constraints='spaces=space1')
+        client.deploy('ubuntu', num=2, series=series)
         client.juju('expose', ('ubuntu',))
         client.wait_for_started()
         client.wait_for_workloads()
-
-    def deploy_spaces_machines(self, client, series=None):
-        """Add a couple of extra machines to test spaces.
-        Currently only supported on EC2.
-
-        :param client: Juju client object with bootstrapped controller
-        :param series: Ubuntu series to deploy
-        """
-        if client.env.provider not in self.supported_spaces_providers:
-            return
-
-        log.info("Adding network spaces machines")
-        client.juju('add-machine', ('--series={}'.format(series),
-                                    '--constraints', 'spaces=space2'))
-        client.juju('add-machine', ('--series={}'.format(series),
-                                    '--constraints', 'spaces=space3'))
-        client.wait_for_started()
-
-    def remove_spaces_machines(self, client):
-        """Remove extra machines for the spaces test.
-        Only works for while using EC2.
-
-        :param client: Juju client object
-        """
-        if client.env.provider not in self.supported_spaces_providers:
-            log.info('Skipping spaces assignment. Supported providers are: '
-                     '{}'.format(' '.join(self.supported_spaces_providers)))
-            return
-
-        log.info("Removing network spaces machines")
-        client.remove_machine('2', force=True)
-        client.remove_machine('3', force=True)
 
     def setup_bundle_deployment(self, client, bundle):
         """Deploys a test environment with supplied bundle.
@@ -538,13 +325,6 @@ class AssessNetworkHealth:
             self.setup_expose_test(client, series, exposed)
 
         service_results = {}
-        log.info(
-            'MACHINE:\n {}'.format(
-                json.dumps(
-                    yaml.safe_load(
-                        client.get_juju_output(
-                            'list-machines', '--format=yaml'))['machines'],
-                    indent=4, sort_keys=True))) # TODO remove this debug
         for unit, info in client.get_status().iter_units():
             ip = info['public-address']
             if nh_only and 'network-health' in unit:
@@ -715,56 +495,25 @@ class AssessNetworkHealth:
                 else:
                     raise
 
-def non_infan_subnets(subnets):
-    """Returns all subnets that don't have INFAN in the provider-id
-    Subnets with INFAN in the provider-id may be inherited from underlay
-    and therefore cannot be assigned to a space.
+    def is_ipv6(self, address):
+        try:
+            socket.inet_pton(socket.AF_INET6, address)
+        except socket.error:
+            return False
+        return True
 
-    :param subnets: A dict of subnets or spaces as returned by
-                    juju list-subnets or  juju list-spaces
-    """
-    newsubnets = {}
-    if 'subnets' in subnets:
-        newsubnets['subnets'] = {}
-        for subnet in subnets['subnets'].keys():
-            if 'INFAN' not in subnets['subnets'][subnet]['provider-id']:
-                newsubnets['subnets'][subnet] = subnets['subnets'][subnet]
+    def to_json(self, units):
+        """Returns a formatted json string to be passed through juju run-action.
 
-    if 'spaces' in subnets:
-        newsubnets['spaces'] = {}
-        for space in subnets['spaces'].keys():
-            for subnet in subnets['spaces'][space].keys:
-                if ('INFAN' not in
-                        subnets['spaces'][space][subnet]['provider-id']):
-                    newsubnets['spaces'].setdefault(space, {})
-                    newsubnets['spaces'][space][subnet] = \
-                        subnets['spaces'][space][subnet]
-
-    return newsubnets
-            
-
-def machine_can_ping_ip(client, machine, ip):
-    """SSH to the machine and attempt to ping the given IP.
-
-    :param client: juju client object
-    :param machine: machine to connect to
-    :param ip: IP address to ping
-    :returns: success of ping
-    """
-    rc, _ = client.juju('ssh',
-                ('--proxy', machine, 'ping -c1 -q ' + ip), check=False)
-    return rc == 0
-
-def ip_in_cidr(self, address, cidr):
-    """Returns true if the ip address given is within the range defined
-    by the cidr subnet.
-
-    :param address: A valid IPv4 address
-    :param cidr: A valid subnet in CIDR notation
-    """
-    return (ipaddress.ip_address(address.decode('utf-8'))
-            in ipaddress.ip_network(cidr.decode('utf-8')))
-
+        :param units: Dict of units
+        :return: A "JSON-like" string that can be passed to Juju without it
+        puking
+        """
+        json_string = json.dumps(units, separators=(',', '='))
+        # Replace curly brackets so juju doesn't think it's JSON and puke
+        json_string = json_string.replace('{', '(')
+        json_string = json_string.replace('}', ')')
+        return json_string
 
 
 def setup_spaces(maas, bundle=None):
