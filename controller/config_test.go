@@ -11,6 +11,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	utilscert "github.com/juju/utils/cert"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cert"
@@ -143,6 +144,13 @@ var validateTests = []struct {
 		controller.AuditLogMaxBackups: -10,
 	},
 	expectError: `invalid audit log max backups: should be a number of files \(or 0 to keep all\), got -10`,
+}, {
+	about: "invalid audit log exclude",
+	config: controller.Config{
+		controller.CACertKey:              testing.CACert,
+		controller.AuditLogExcludeMethods: []interface{}{"Dap.Kings", "Sharon Jones"},
+	},
+	expectError: `invalid audit log exclude methods: should be a list of "Facade.Method" names, got "Sharon Jones" at position 2`,
 }}
 
 func (s *ConfigSuite) TestValidate(c *gc.C) {
@@ -199,10 +207,12 @@ func (s *ConfigSuite) TestTxnLogConfigValue(c *gc.C) {
 func (s *ConfigSuite) TestAuditLogDefaults(c *gc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AuditingEnabled(), gc.Equals, false)
+	c.Assert(cfg.AuditingEnabled(), gc.Equals, true)
 	c.Assert(cfg.AuditLogCaptureArgs(), gc.Equals, false)
 	c.Assert(cfg.AuditLogMaxSizeMB(), gc.Equals, 300)
 	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
+	c.Assert(cfg.AuditLogExcludeMethods(), gc.DeepEquals,
+		set.NewStrings(controller.DefaultAuditLogExcludeMethods...))
 }
 
 func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
@@ -210,15 +220,31 @@ func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
 		testing.ControllerTag.Id(),
 		testing.CACert,
 		map[string]interface{}{
-			"auditing-enabled":       true,
-			"audit-log-capture-args": true,
-			"audit-log-max-size":     "100M",
-			"audit-log-max-backups":  10.0,
+			"auditing-enabled":          false,
+			"audit-log-capture-args":    true,
+			"audit-log-max-size":        "100M",
+			"audit-log-max-backups":     10.0,
+			"audit-log-exclude-methods": []string{"Fleet.Foxes", "King.Gizzard"},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AuditingEnabled(), gc.Equals, true)
+	c.Assert(cfg.AuditingEnabled(), gc.Equals, false)
 	c.Assert(cfg.AuditLogCaptureArgs(), gc.Equals, true)
 	c.Assert(cfg.AuditLogMaxSizeMB(), gc.Equals, 100)
 	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
+	c.Assert(cfg.AuditLogExcludeMethods(), gc.DeepEquals, set.NewStrings(
+		"Fleet.Foxes",
+		"King.Gizzard",
+	))
+}
+
+func (s *ConfigSuite) TestAuditLogExcludeMethodsType(c *gc.C) {
+	_, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"audit-log-exclude-methods": []int{2, 3, 4},
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, `audit-log-exclude-methods\[0\]: expected string, got int\(2\)`)
 }
