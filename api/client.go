@@ -56,7 +56,11 @@ func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 // StatusHistory retrieves the last <size> results of
 // <kind:combined|agent|workload|machine|machineinstance|container|containerinstance> status
 // for <name> unit
-func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error) {
+func (c *Client) StatusHistory(
+	kind status.HistoryKind,
+	tag names.Tag,
+	filter status.StatusHistoryFilter,
+) (status.History, error) {
 	var results params.StatusHistoryResults
 	args := params.StatusHistoryRequest{
 		Kind: string(kind),
@@ -535,9 +539,20 @@ func (c *Client) httpPost(content io.ReadSeeker, endpoint, contentType string, r
 
 // APIHostPorts returns a slice of network.HostPort for each API server.
 func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
+	return c.apiHostPortsCall("APIHostPorts")
+}
+
+// APIHostPortsForAgents returns a slice of network.HostPort for each API server,
+// based on the configured management space.
+// If no such space is configured, this will return the same as APIHostPorts().
+func (c *Client) APIHostPortsForAgents() ([][]network.HostPort, error) {
+	return c.apiHostPortsCall("APIHostPortsForAgents")
+}
+
+func (c *Client) apiHostPortsCall(req string) ([][]network.HostPort, error) {
 	var result params.APIHostPortsResult
-	if err := c.facade.FacadeCall("APIHostPorts", nil, &result); err != nil {
-		return nil, err
+	if err := c.facade.FacadeCall(req, nil, &result); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return result.NetworkHostsPorts(), nil
 }
