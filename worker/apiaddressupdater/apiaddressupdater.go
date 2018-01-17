@@ -29,6 +29,7 @@ type APIAddressUpdater struct {
 // which can be used to watch for API address changes.
 type APIAddresser interface {
 	APIHostPorts() ([][]network.HostPort, error)
+	APIHostPortsForAgents() ([][]network.HostPort, error)
 	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
 }
 
@@ -62,7 +63,7 @@ func (c *APIAddressUpdater) SetUp() (watcher.NotifyWatcher, error) {
 
 // Handle is part of the watcher.NotifyHandler interface.
 func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
-	addresses, err := c.addresser.APIHostPorts()
+	addresses, err := c.addresser.APIHostPortsForAgents()
 	if err != nil {
 		return fmt.Errorf("error getting addresses: %v", err)
 	}
