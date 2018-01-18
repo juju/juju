@@ -6,8 +6,6 @@ package caasoperatorprovisioner_test
 import (
 	"sync"
 
-	"github.com/juju/juju/status"
-	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
@@ -86,28 +84,11 @@ func (m *mockAgentConfig) APIAddresses() ([]string, error) {
 type mockBroker struct {
 	testing.Stub
 	caas.Broker
-	unitsWatcher *watchertest.MockNotifyWatcher
 }
 
 func (m *mockBroker) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
 	m.MethodCall(m, "EnsureOperator", appName, agentPath, config)
 	return m.NextErr()
-}
-
-func (m *mockBroker) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
-	m.MethodCall(m, "WatchUnits", appName)
-	return m.unitsWatcher, m.NextErr()
-}
-
-func (m *mockBroker) Units(appName string) ([]caas.Unit, error) {
-	m.MethodCall(m, "Units", appName)
-	return []caas.Unit{
-		{
-			Id:      "u1",
-			Address: "10.0.0.1",
-			Status:  status.StatusInfo{Status: status.Allocating},
-		},
-	}, m.NextErr()
 }
 
 type mockWatcher struct {

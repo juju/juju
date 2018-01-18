@@ -4,10 +4,12 @@
 package caasunitprovisioner
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // CAASUnitProvisionerState provides the subset of global state
@@ -31,6 +33,9 @@ type Model interface {
 type Application interface {
 	WatchUnits() state.StringsWatcher
 	ApplicationConfig() (application.ConfigAttributes, error)
+	AllUnits() (units []Unit, err error)
+	AddOperation(state.UnitUpdateProperties) *state.AddUnitOperation
+	UpdateUnits(*state.UpdateUnitsOperation) error
 }
 
 type stateShim struct {
@@ -42,7 +47,7 @@ func (s stateShim) Application(id string) (Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	return app, nil
+	return applicationShim{app}, nil
 }
 
 func (s stateShim) Model() (Model, error) {
@@ -51,4 +56,29 @@ func (s stateShim) Model() (Model, error) {
 		return nil, err
 	}
 	return model.CAASModel()
+}
+
+type applicationShim struct {
+	*state.Application
+}
+
+func (a applicationShim) AllUnits() ([]Unit, error) {
+	all, err := a.Application.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]Unit, len(all))
+	for i, u := range all {
+		result[i] = u
+	}
+	return result, nil
+}
+
+type Unit interface {
+	Name() string
+	Life() state.Life
+	ProviderId() string
+	AgentStatus() (status.StatusInfo, error)
+	UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation
+	DestroyOperation() *state.DestroyUnitOperation
 }

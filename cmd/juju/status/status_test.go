@@ -4184,12 +4184,12 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 				Units: map[string]unitStatus{
 					"foo/0": {
 						JujuStatusInfo: statusInfoContents{
-							Current: status.Active,
+							Current: status.Allocating,
 						},
 					},
 					"foo/1": {
 						JujuStatusInfo: statusInfoContents{
-							Current: status.Active,
+							Current: status.Running,
 						},
 					},
 				},
@@ -4204,11 +4204,11 @@ Model  Controller  Cloud/Region  Version
                                  
 
 App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
-foo                     0/2                  0      
+foo                     1/2                  0      
 
-Unit   Status  Address  Ports  Message
-foo/0  <todo>                  
-foo/1  <todo>                  
+Unit   Status      Address  Ports   Message
+foo/0  allocating  <todo>   <todo>  
+foo/1  running     <todo>   <todo>  
 `[1:])
 }
 

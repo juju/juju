@@ -195,6 +195,7 @@ type unitStatus struct {
 	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
 	PublicAddress string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
 	Address       string                `json:"address,omitempty" yaml:"address,omitempty"`
+	ProviderId    string                `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
 	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
 }
 
@@ -208,7 +209,7 @@ func (s *formattedStatus) applicationScale(name string) (string, bool) {
 	match := func(u unitStatus) {
 		desiredUnitCount += 1
 		switch u.JujuStatusInfo.Current {
-		case status.Executing, status.Idle:
+		case status.Executing, status.Idle, status.Running:
 			currentUnitCount += 1
 		}
 	}

@@ -10,8 +10,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	coretesting "github.com/juju/juju/testing"
@@ -30,12 +32,15 @@ type WorkerSuite struct {
 	containerSpecGetter mockContainerSpecGetter
 	lifeGetter          mockLifeGetter
 	unitGetter          mockUnitGetter
+	unitUpdater         mockUnitUpdater
 
 	applicationChanges   chan []string
-	unitChanges          chan []string
+	jujuUnitChanges      chan []string
+	caasUnitsChanges     chan struct{}
 	containerSpecChanges chan struct{}
 	serviceEnsured       chan struct{}
 	unitEnsured          chan struct{}
+	clock                *testing.Clock
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -44,7 +49,8 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.applicationChanges = make(chan []string)
-	s.unitChanges = make(chan []string)
+	s.jujuUnitChanges = make(chan []string)
+	s.caasUnitsChanges = make(chan struct{})
 	s.containerSpecChanges = make(chan struct{})
 	s.serviceEnsured = make(chan struct{})
 	s.unitEnsured = make(chan struct{})
@@ -61,12 +67,14 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.containerSpecGetter.watcher) })
 
 	s.unitGetter = mockUnitGetter{
-		watcher: watchertest.NewMockStringsWatcher(s.unitChanges),
+		watcher: watchertest.NewMockStringsWatcher(s.jujuUnitChanges),
 	}
+	s.unitUpdater = mockUnitUpdater{}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.unitGetter.watcher) })
 
 	s.containerBroker = mockContainerBroker{
-		ensured: s.unitEnsured,
+		ensured:      s.unitEnsured,
+		unitsWatcher: watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
 	}
 	s.lifeGetter = mockLifeGetter{}
 	s.lifeGetter.setLife(life.Alive)
@@ -81,6 +89,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		ContainerSpecGetter: &s.containerSpecGetter,
 		LifeGetter:          &s.lifeGetter,
 		UnitGetter:          &s.unitGetter,
+		UnitUpdater:         &s.unitUpdater,
 	}
 }
 
@@ -149,7 +158,7 @@ func (s *WorkerSuite) setupNewUnitScenario(c *gc.C, brokerManaged bool, opChan c
 	}
 
 	select {
-	case s.unitChanges <- []string{"gitlab/0"}:
+	case s.jujuUnitChanges <- []string{"gitlab/0"}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending units change")
 	}
@@ -188,8 +197,8 @@ func (s *WorkerSuite) TestNewJujuManagedUnit(c *gc.C) {
 	s.lifeGetter.CheckCallNames(c, "Life", "Life")
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
-	s.containerBroker.CheckCallNames(c, "EnsureUnit")
-	s.containerBroker.CheckCall(c, 0, "EnsureUnit", "gitlab", "gitlab/0", "container-spec")
+	s.containerBroker.CheckCallNames(c, "WatchUnits", "EnsureUnit")
+	s.containerBroker.CheckCall(c, 1, "EnsureUnit", "gitlab", "gitlab/0", "container-spec")
 }
 
 func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
@@ -211,7 +220,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 	s.serviceBroker.ResetCalls()
 	// Add another unit.
 	select {
-	case s.unitChanges <- []string{"gitlab/1"}:
+	case s.jujuUnitChanges <- []string{"gitlab/1"}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending units change")
 	}
@@ -230,7 +239,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 	// Delete a unit.
 	s.lifeGetter.setLife(life.Dead)
 	select {
-	case s.unitChanges <- []string{"gitlab/0"}:
+	case s.jujuUnitChanges <- []string{"gitlab/0"}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending units change")
 	}
@@ -283,7 +292,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnitAllRemoved(c *gc.C) {
 	s.serviceBroker.ResetCalls()
 	// Add another unit.
 	select {
-	case s.unitChanges <- []string{"gitlab/1"}:
+	case s.jujuUnitChanges <- []string{"gitlab/1"}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending units change")
 	}
@@ -298,7 +307,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnitAllRemoved(c *gc.C) {
 	// Now the units die.
 	s.lifeGetter.setLife(life.Dead)
 	select {
-	case s.unitChanges <- []string{"gitlab/0", "gitlab/1"}:
+	case s.jujuUnitChanges <- []string{"gitlab/0", "gitlab/1"}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending units change")
 	}
@@ -326,7 +335,7 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 	}
 
 	select {
-	case s.unitChanges <- []string{"gitlab/0"}:
+	case s.jujuUnitChanges <- []string{"gitlab/0"}:
 		c.Fatal("unexpected watch for units")
 	case <-time.After(coretesting.ShortWait):
 	}
@@ -351,7 +360,7 @@ func (s *WorkerSuite) TestWatchUnitDead(c *gc.C) {
 	// unit is initially dead
 	s.lifeGetter.setLife(life.Dead)
 	select {
-	case s.unitChanges <- []string{"gitlab/0"}:
+	case s.jujuUnitChanges <- []string{"gitlab/0"}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending units change")
 	}
@@ -393,14 +402,14 @@ func (s *WorkerSuite) TestRemoveUnitStopsWatchingContainerSpec(c *gc.C) {
 	}
 
 	select {
-	case s.unitChanges <- []string{"gitlab/0"}:
+	case s.jujuUnitChanges <- []string{"gitlab/0"}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending units change")
 	}
 
 	s.lifeGetter.SetErrors(errors.NotFoundf("unit"))
 	select {
-	case s.unitChanges <- []string{"gitlab/0"}:
+	case s.jujuUnitChanges <- []string{"gitlab/0"}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending units change")
 	}
@@ -420,7 +429,7 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 	}
 
 	select {
-	case s.unitChanges <- []string{"gitlab/0"}:
+	case s.jujuUnitChanges <- []string{"gitlab/0"}:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending units change")
 	}
@@ -431,4 +440,48 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 	workertest.CheckKilled(c, s.applicationGetter.watcher)
 	err = workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, "splat")
+}
+
+func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
+	w, err := caasunitprovisioner.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+	defer workertest.CleanKill(c, w)
+
+	s.containerBroker.ResetCalls()
+
+	select {
+	case s.caasUnitsChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending units change")
+	}
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.containerBroker.Calls()) > 1 {
+			break
+		}
+	}
+	s.containerBroker.CheckCallNames(c, "WatchUnits", "Units")
+	c.Assert(s.containerBroker.Calls()[1].Args, jc.DeepEquals, []interface{}{"gitlab"})
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.unitUpdater.Calls()) > 0 {
+			break
+		}
+	}
+	s.unitUpdater.CheckCallNames(c, "UpdateUnits")
+	c.Assert(s.unitUpdater.Calls()[0].Args, jc.DeepEquals, []interface{}{
+		params.UpdateApplicationUnits{
+			ApplicationTag: names.NewApplicationTag("gitlab").String(),
+			Units: []params.ApplicationUnitParams{
+				{Id: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: "allocating"},
+			},
+		},
+	})
 }

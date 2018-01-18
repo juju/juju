@@ -134,5 +134,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ContainerSpecGetter: &s.client,
 		LifeGetter:          &s.client,
 		UnitGetter:          &s.client,
+		UnitUpdater:         &s.client,
 	})
 }

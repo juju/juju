@@ -324,6 +324,7 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 		JujuStatusInfo:     sf.getAgentStatusInfo(info.unit),
 		Machine:            info.unit.Machine,
 		OpenedPorts:        info.unit.OpenedPorts,
+		ProviderId:         info.unit.ProviderId,
 		PublicAddress:      info.unit.PublicAddress,
 		Charm:              info.unit.Charm,
 		Subordinates:       make(map[string]unitStatus),

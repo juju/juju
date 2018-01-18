@@ -10,9 +10,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
@@ -49,13 +51,30 @@ func (m *mockServiceBroker) DeleteService(appName string) error {
 
 type mockContainerBroker struct {
 	testing.Stub
-	ensured chan<- struct{}
+	ensured      chan<- struct{}
+	unitsWatcher *watchertest.MockNotifyWatcher
 }
 
 func (m *mockContainerBroker) EnsureUnit(appName, unitName, spec string) error {
 	m.MethodCall(m, "EnsureUnit", appName, unitName, spec)
 	m.ensured <- struct{}{}
 	return m.NextErr()
+}
+
+func (m *mockContainerBroker) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
+	m.MethodCall(m, "WatchUnits", appName)
+	return m.unitsWatcher, m.NextErr()
+}
+
+func (m *mockContainerBroker) Units(appName string) ([]caas.Unit, error) {
+	m.MethodCall(m, "Units", appName)
+	return []caas.Unit{
+		{
+			Id:      "u1",
+			Address: "10.0.0.1",
+			Status:  status.StatusInfo{Status: status.Allocating},
+		},
+	}, m.NextErr()
 }
 
 type mockApplicationGetter struct {
@@ -160,4 +179,16 @@ func (m *mockUnitGetter) WatchUnits(application string) (watcher.StringsWatcher,
 		return nil, err
 	}
 	return m.watcher, nil
+}
+
+type mockUnitUpdater struct {
+	testing.Stub
+}
+
+func (m *mockUnitUpdater) UpdateUnits(arg params.UpdateApplicationUnits) error {
+	m.MethodCall(m, "UpdateUnits", arg)
+	if err := m.NextErr(); err != nil {
+		return err
+	}
+	return nil
 }
