@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	coreapiserver "github.com/juju/juju/apiserver"
@@ -41,6 +42,12 @@ func (s *WorkerStateSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *WorkerStateSuite) SetUpTest(c *gc.C) {
+	if s.ControllerConfig == nil {
+		s.ControllerConfig = make(map[string]interface{})
+	}
+	s.ControllerConfig["auditing-enabled"] = true
+	s.ControllerConfig["audit-log-exclude-methods"] = []interface{}{"Exclude.This"}
+
 	s.workerFixture.SetUpTest(c)
 	s.StateSuite.SetUpTest(c)
 	s.config.StatePool = s.StatePool
@@ -94,7 +101,13 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 
 	rateLimitConfig := coreapiserver.DefaultRateLimitConfig()
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
-	auditLogConfig := coreapiserver.DefaultAuditLogConfig()
+	auditLogConfig := coreapiserver.AuditLogConfig{
+		Enabled:        true,
+		CaptureAPIArgs: true,
+		MaxSizeMB:      200,
+		MaxBackups:     5,
+		ExcludeMethods: set.NewStrings("Exclude.This"),
+	}
 
 	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
 		Clock:                s.clock,
