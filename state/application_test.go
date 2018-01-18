@@ -3321,6 +3321,8 @@ func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 	updateUnits.Deletes = []*state.DestroyUnitOperation{removedUnit.DestroyOperation()}
 	updateUnits.Adds = []*state.AddUnitOperation{app.AddOperation(state.UnitUpdateProperties{
 		ProviderId: "new-unit-uuid",
+		Address:    "192.168.1.1",
+		Ports:      []string{"80"},
 		Status: &status.StatusInfo{
 			Status:  status.Running,
 			Message: "new running",
@@ -3328,6 +3330,8 @@ func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 	})}
 	updateUnits.Updates = []*state.UpdateUnitOperation{existingUnit.UpdateOperation(state.UnitUpdateProperties{
 		ProviderId: "unit-uuid",
+		Address:    "192.168.1.2",
+		Ports:      []string{"443"},
 		Status: &status.StatusInfo{
 			Status:  status.Running,
 			Message: "existing running",
@@ -3350,6 +3354,10 @@ func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 	u, ok := unitsById["unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(u.Name(), gc.Equals, existingUnit.Name())
+	c.Assert(u.ContainerInfo(), jc.DeepEquals, state.ContainerInfo{
+		Address: "192.168.1.2",
+		Ports:   []string{"443"},
+	})
 	statusInfo, err := u.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)
@@ -3371,6 +3379,10 @@ func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 	u, ok = unitsById["new-unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(u.Name(), gc.Equals, "wordpress/2")
+	c.Assert(u.ContainerInfo(), jc.DeepEquals, state.ContainerInfo{
+		Address: "192.168.1.1",
+		Ports:   []string{"80"},
+	})
 	statusInfo, err = u.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)

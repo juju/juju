@@ -1253,6 +1253,8 @@ func (a *Application) addUnitOps(
 		storageCons:   storageCons,
 		attachStorage: args.AttachStorage,
 		providerId:    args.ProviderId,
+		address:       args.Address,
+		ports:         args.Ports,
 	})
 	if err != nil {
 		return names, ops, err
@@ -1268,7 +1270,11 @@ type applicationAddUnitOpsArgs struct {
 	cons          constraints.Value
 	storageCons   map[string]StorageConstraints
 	attachStorage []names.StorageTag
-	providerId    string
+
+	// These attributes are relevant to CAAS models.
+	providerId string
+	address    string
+	ports      []string
 }
 
 // addApplicationUnitOps is just like addUnitOps but explicitly takes a
@@ -1318,6 +1324,12 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Life:                   Alive,
 		Principal:              args.principalName,
 		StorageAttachmentCount: numStorageAttachments,
+	}
+	if args.address != "" || args.ports != nil {
+		udoc.ContainerInfo = ContainerInfo{
+			Address: args.address,
+			Ports:   args.ports,
+		}
 	}
 	now := a.st.clock().Now()
 	agentStatusDoc := statusDoc{
@@ -1548,8 +1560,16 @@ type AddUnitParams struct {
 	// AttachStorage identifies storage instances to attach to the unit.
 	AttachStorage []names.StorageTag
 
+	// These attributes are relevant to CAAS models.
+
 	// ProviderId identifies the unit for a given provider.
 	ProviderId string
+
+	// Address is the container address.
+	Address string
+
+	// Ports are the open ports on the container.
+	Ports []string
 }
 
 // AddUnit adds a new principal unit to the application.
@@ -2241,6 +2261,8 @@ func (a *Application) PasswordValid(password string) bool {
 // the state model for the unit.
 type UnitUpdateProperties struct {
 	ProviderId string
+	Address    string
+	Ports      []string
 	Status     *status.StatusInfo
 }
 
@@ -2325,6 +2347,8 @@ func (op *AddUnitOperation) Build(attempt int) ([]txn.Op, error) {
 
 	addUnitArgs := AddUnitParams{
 		ProviderId: op.props.ProviderId,
+		Address:    op.props.Address,
+		Ports:      op.props.Ports,
 	}
 	name, addOps, err := op.application.addUnitOps("", addUnitArgs, nil)
 	if err != nil {

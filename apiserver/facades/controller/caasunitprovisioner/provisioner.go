@@ -296,9 +296,8 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 	unitUpdateProperties := func(unitParams params.ApplicationUnitParams) state.UnitUpdateProperties {
 		return state.UnitUpdateProperties{
 			ProviderId: unitParams.Id,
-			// TODO(caas)
-			//Address:    unitParams.Address,
-			//Ports:      unitParams.Ports,
+			Address:    unitParams.Address,
+			Ports:      unitParams.Ports,
 			Status: &status.StatusInfo{
 				Status:  status.Status(unitParams.Status),
 				Message: unitParams.Info,
