@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -932,18 +933,38 @@ func (context *statusContext) processApplication(application *state.Application)
 		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 	}
 
-	versions := make([]status.StatusInfo, 0, len(units))
-	for _, unit := range units {
-		workloadVersion, err := context.status.FullUnitWorkloadVersion(unit.Name())
-		if err != nil {
-			processedStatus.Err = common.ServerError(err)
-			return processedStatus
+	// TODO(caas) - there's no way for a CAAS charm to set workload version yet
+	if context.model.Type() == state.ModelTypeIAAS {
+		versions := make([]status.StatusInfo, 0, len(units))
+		for _, unit := range units {
+			workloadVersion, err := context.status.FullUnitWorkloadVersion(unit.Name())
+			if err != nil {
+				processedStatus.Err = common.ServerError(err)
+				return processedStatus
+			}
+			versions = append(versions, workloadVersion)
 		}
-		versions = append(versions, workloadVersion)
-	}
-	if len(versions) > 0 {
-		sort.Sort(bySinceDescending(versions))
-		processedStatus.WorkloadVersion = versions[0].Message
+		if len(versions) > 0 {
+			sort.Sort(bySinceDescending(versions))
+			processedStatus.WorkloadVersion = versions[0].Message
+		}
+	} else {
+		// We'll punt on using the docker image name.
+		caasModel, err := context.model.CAASModel()
+		if err != nil {
+			return params.ApplicationStatus{Err: common.ServerError(err)}
+		}
+		specStr, err := caasModel.ContainerSpec(application.Tag())
+		if err != nil && !errors.IsNotFound(err) {
+			return params.ApplicationStatus{Err: common.ServerError(err)}
+		}
+		if specStr != "" {
+			spec, err := caas.ParseContainerSpec(specStr)
+			if err != nil {
+				return params.ApplicationStatus{Err: common.ServerError(err)}
+			}
+			processedStatus.WorkloadVersion = fmt.Sprintf("%v", spec.ImageName)
+		}
 	}
 
 	return processedStatus
@@ -1090,6 +1111,11 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 		result.Leader = true
 	}
 	result.ProviderId = unit.ProviderId()
+	containerInfo := unit.ContainerInfo()
+	result.Address = containerInfo.Address
+	if len(result.OpenedPorts) == 0 {
+		result.OpenedPorts = containerInfo.Ports
+	}
 	return result
 }
 

@@ -28,14 +28,21 @@ import (
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
 func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
-	const maxVersionWidth = 15
 	const ellipsis = "..."
-	const truncatedWidth = maxVersionWidth - len(ellipsis)
+	const iaasMaxVersionWidth = 15
+	const caasMaxVersionWidth = 30
 
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
 		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
+
+	maxVersionWidth := iaasMaxVersionWidth
+	if fs.Model.Type == "caas" {
+		maxVersionWidth = caasMaxVersionWidth
+	}
+	truncatedWidth := maxVersionWidth - len(ellipsis)
+
 	// To format things into columns.
 	tw := output.TabWriter(writer)
 	if forceColor {
@@ -104,6 +111,13 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
 		app := fs.Applications[appName]
 		version := app.Version
+		// CAAS versions may have repo prefix we don't care about.
+		if fs.Model.Type == "caas" {
+			parts := strings.Split(version, "/")
+			if len(parts) == 2 {
+				version = parts[1]
+			}
+		}
 		// Don't let a long version push out the version column.
 		if len(version) > maxVersionWidth {
 			version = version[:truncatedWidth] + ellipsis
@@ -149,10 +163,9 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		w.Print(indent("", level*2, name))
 		if fs.Model.Type == caasModelType {
 			w.PrintStatus(u.JujuStatusInfo.Current)
-			// TODO(caas)
 			p(
-				"<todo>", //u.Address,
-				"<todo>", //strings.Join(u.OpenedPorts, ","),
+				u.Address,
+				strings.Join(u.OpenedPorts, ","),
 				message,
 			)
 			return

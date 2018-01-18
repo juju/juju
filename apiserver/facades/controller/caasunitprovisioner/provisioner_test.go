@@ -223,22 +223,19 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnits(c *gc.C) {
 	s.st.application.CheckCallNames(c, "AddOperation")
 	s.st.application.CheckCall(c, 0, "AddOperation", state.UnitUpdateProperties{
 		ProviderId: "last-uuid",
-		// TODO(caas)
-		//Address: "last-address", Ports: []string{"last-port"},
+		Address:    "last-address", Ports: []string{"last-port"},
 		Status: &status.StatusInfo{Status: status.Running, Message: "last message"},
 	})
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: "uuid",
-		// TODO(caas)
-		// Address: "address", Ports: []string{"port"},
+		Address:    "address", Ports: []string{"port"},
 		Status: &status.StatusInfo{Status: status.Running, Message: "message"},
 	})
 	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: "another-uuid",
-		// TODO(caas)
-		//Address: "another-address", Ports: []string{"another-port"},
+		Address:    "another-address", Ports: []string{"another-port"},
 		Status: &status.StatusInfo{Status: status.Running, Message: "another message"},
 	})
 	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life", "DestroyOperation")

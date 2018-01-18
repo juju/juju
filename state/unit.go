@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
@@ -75,6 +76,13 @@ type port struct {
 	Number   int    `bson:"number"`
 }
 
+// ContainerInfo holds attributes about the containing
+// hosting a unit in a CAAS model.
+type ContainerInfo struct {
+	Address string   `bson:"address"`
+	Ports   []string `bson:"ports"`
+}
+
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
@@ -95,7 +103,8 @@ type unitDoc struct {
 	PasswordHash           string
 
 	// ProviderId is used by CAAS models.
-	ProviderId string `bson:"provider-id"`
+	ProviderId    string        `bson:"provider-id"`
+	ContainerInfo ContainerInfo `bson:"container-info"`
 }
 
 // Unit represents the state of a service unit.
@@ -116,6 +125,12 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 // This is only used for CAAS models.
 func (u *Unit) ProviderId() string {
 	return u.doc.ProviderId
+}
+
+// ContainerInfo returns information about the containing hosting this unit.
+// This is only used for CAAS models.
+func (u *Unit) ContainerInfo() ContainerInfo {
+	return u.doc.ContainerInfo
 }
 
 // Application returns the application.
@@ -317,17 +332,32 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 	op.setStatusDocs = make(map[string]statusDoc)
 	var ops []txn.Op
 
-	if op.unit.ProviderId() == "" && op.props.ProviderId != "" {
-		asserts := append(isAliveDoc, bson.DocElem{"provider-id", ""})
+	if op.unit.ProviderId() != "" &&
+		op.props.ProviderId != "" &&
+		op.unit.ProviderId() != op.props.ProviderId {
+		return nil, errors.Errorf("unit %q has provider id %q which does not match %q",
+			op.unit.Name(), op.unit.ProviderId(), op.props.ProviderId)
+	}
+	containerInfo := ContainerInfo{
+		Address: op.props.Address,
+		Ports:   op.props.Ports,
+	}
+	var updates bson.D
+	asserts := isAliveDoc
+	if op.unit.ProviderId() != op.props.ProviderId {
+		updates = append(updates, bson.DocElem{"provider-id", op.props.ProviderId})
+		asserts = append(asserts, bson.DocElem{"provider-id", ""})
+	}
+	if !reflect.DeepEqual(containerInfo, op.unit.ContainerInfo()) {
+		updates = append(updates, bson.DocElem{"container-info", containerInfo})
+	}
+	if len(updates) > 0 {
 		ops = []txn.Op{{
 			C:      unitsC,
 			Id:     op.unit.doc.DocID,
 			Assert: asserts,
-			Update: bson.D{{"$set", bson.D{{"provider-id", op.props.ProviderId}}}},
+			Update: bson.D{{"$set", updates}},
 		}}
-	} else if op.unit.ProviderId() != op.props.ProviderId {
-		return nil, errors.Errorf("unit %q has provider id %q which does not match %q",
-			op.unit.Name(), op.unit.ProviderId(), op.props.ProviderId)
 	}
 
 	if op.props.Status != nil {
