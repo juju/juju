@@ -4,9 +4,11 @@
 package provider
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/juju/errors"
@@ -110,13 +112,15 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 }
 
 // EnsureService creates or updates a service for pods with the given spec.
-func (k *kubernetesClient) EnsureService(appName, unitspec string, numUnits int, config application.ConfigAttributes) (err error) {
+func (k *kubernetesClient) EnsureService(
+	appName string, spec *caas.ContainerSpec, numUnits int, config application.ConfigAttributes,
+) (err error) {
 	logger.Debugf("creating/updating application %s", appName)
 
 	if numUnits <= 0 {
 		return errors.Errorf("number of units must be > 0")
 	}
-	if unitspec == "" {
+	if spec == nil {
 		return errors.Errorf("missing container spec")
 	}
 
@@ -130,7 +134,7 @@ func (k *kubernetesClient) EnsureService(appName, unitspec string, numUnits int,
 		}
 	}()
 
-	unitSpec, err := parseUnitSpec(unitspec)
+	unitSpec, err := makeUnitSpec(spec)
 	if err != nil {
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
@@ -408,9 +412,9 @@ func (k *kubernetesClient) jujuStatus(podPhase v1.PodPhase) status.Status {
 }
 
 // EnsureUnit creates or updates a unit pod with the given unit name and spec.
-func (k *kubernetesClient) EnsureUnit(appName, unitName, spec string) error {
+func (k *kubernetesClient) EnsureUnit(appName, unitName string, spec *caas.ContainerSpec) error {
 	logger.Debugf("creating/updating unit %s", unitName)
-	unitSpec, err := parseUnitSpec(spec)
+	unitSpec, err := makeUnitSpec(spec)
 	if err != nil {
 		return errors.Annotatef(err, "parsing spec for %s", unitName)
 	}
@@ -543,13 +547,41 @@ type unitSpec struct {
 	Pod v1.PodSpec `json:"pod"`
 }
 
-func parseUnitSpec(in string) (*unitSpec, error) {
-	var spec unitSpec
-	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
-	if err := decoder.Decode(&spec); err != nil {
+var defaultPodTemplate = `
+pod:
+  containers:
+  - name: {{.Name}}
+    image: {{.ImageName}}
+    {{if .Ports}}
+    ports:
+    {{- range .Ports }}
+        - containerPort: {{.ContainerPort}}
+          {{if .Protocol}}protocol: {{.Protocol}}{{end}}
+    {{- end}}
+    {{end}}
+    {{if .Config}}
+    env:
+    {{- range $k, $v := .Config }}
+        - name: {{$k}}
+          value: {{$v}}
+    {{- end}}
+    {{end}}
+`[1:]
+
+func makeUnitSpec(containerSpec *caas.ContainerSpec) (*unitSpec, error) {
+	tmpl := template.Must(template.New("").Parse(defaultPodTemplate))
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, containerSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &spec, nil
+	unitSpecString := buf.String()
+
+	var unitSpec unitSpec
+	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
+	if err := decoder.Decode(&unitSpec); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &unitSpec, nil
 }
 
 func operatorPodName(appName string) string {

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -104,7 +105,7 @@ func (w *deploymentWorker) loop() error {
 		if !gotSpecNotify {
 			continue
 		}
-		unitSpec, err := w.containerSpecGetter.ContainerSpec(aliveUnits[0])
+		specStr, err := w.containerSpecGetter.ContainerSpec(aliveUnits[0])
 		if errors.IsNotFound(err) {
 			// No container spec defined for a unit yet;
 			// wait for one to be set.
@@ -114,18 +115,22 @@ func (w *deploymentWorker) loop() error {
 		}
 
 		numUnits := len(aliveUnits)
-		if numUnits == currentAliveCount && unitSpec == currentSpec {
+		if numUnits == currentAliveCount && specStr == currentSpec {
 			continue
 		}
 
 		currentAliveCount = numUnits
-		currentSpec = unitSpec
+		currentSpec = specStr
 
 		appConfig, err := w.applicationGetter.ApplicationConfig(w.application)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		err = w.broker.EnsureService(w.application, unitSpec, numUnits, appConfig)
+		spec, err := caas.ParseContainerSpec(specStr)
+		if err != nil {
+			return errors.Annotate(err, "cannot parse container spec")
+		}
+		err = w.broker.EnsureService(w.application, spec, numUnits, appConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -186,11 +186,17 @@ func (s *CAASOperatorSuite) TestWatchCharmConfig(c *gc.C) {
 }
 
 func (s *CAASOperatorSuite) TestSetContainerSpec(c *gc.C) {
+	validSpecStr := `
+name: gitlab
+image-name: gitlab/latest
+`[1:]
+
 	args := params.SetContainerSpecParams{
 		Entities: []params.EntityString{
-			{Tag: "application-gitlab", Value: "foo"},
-			{Tag: "unit-gitlab-0", Value: "bar"},
-			{Tag: "unit-gitlab-1", Value: "baz"},
+			{Tag: "application-gitlab", Value: validSpecStr},
+			{Tag: "unit-gitlab-0", Value: validSpecStr},
+			{Tag: "unit-gitlab-1", Value: "bad spec"},
+			{Tag: "unit-gitlab-2", Value: validSpecStr},
 			{Tag: "application-other"},
 			{Tag: "unit-other-0"},
 			{Tag: "machine-0"},
@@ -206,6 +212,10 @@ func (s *CAASOperatorSuite) TestSetContainerSpec(c *gc.C) {
 			Error: nil,
 		}, {
 			Error: nil,
+		}, {
+			Error: &params.Error{
+				Message: "invalid container spec",
+			},
 		}, {
 			Error: &params.Error{
 				Message: "bloop",
@@ -230,9 +240,9 @@ func (s *CAASOperatorSuite) TestSetContainerSpec(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model")
 	s.st.model.CheckCallNames(c, "SetContainerSpec", "SetContainerSpec", "SetContainerSpec")
-	s.st.model.CheckCall(c, 0, "SetContainerSpec", names.NewApplicationTag("gitlab"), "foo")
-	s.st.model.CheckCall(c, 1, "SetContainerSpec", names.NewUnitTag("gitlab/0"), "bar")
-	s.st.model.CheckCall(c, 2, "SetContainerSpec", names.NewUnitTag("gitlab/1"), "baz")
+	s.st.model.CheckCall(c, 0, "SetContainerSpec", names.NewApplicationTag("gitlab"), validSpecStr)
+	s.st.model.CheckCall(c, 1, "SetContainerSpec", names.NewUnitTag("gitlab/0"), validSpecStr)
+	s.st.model.CheckCall(c, 2, "SetContainerSpec", names.NewUnitTag("gitlab/2"), validSpecStr)
 }
 
 func (s *CAASOperatorSuite) TestModelName(c *gc.C) {
