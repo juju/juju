@@ -16,6 +16,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
@@ -953,13 +954,13 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 	// interesting requests.
 	log.CheckCallNames(c)
 
-	var addResult params.AddMachinesResult
+	var addResults params.AddMachinesResults
 	addReq := &params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
 			Jobs: []multiwatcher.MachineJob{"JobHostUnits"},
 		}},
 	}
-	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResult)
+	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
@@ -1019,15 +1020,74 @@ func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 	// something happens.
 	c.Assert(err, jc.ErrorIsNil)
 
-	var addResult params.AddMachinesResult
+	var addResults params.AddMachinesResults
 	addReq := &params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
 			Jobs: []multiwatcher.MachineJob{"JobHostUnits"},
 		}},
 	}
-	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResult)
+	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, gc.ErrorMatches, "bad news bears")
+}
 
+func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
+	log := &servertesting.FakeAuditLog{}
+	cfg := defaultServerConfig(c)
+	cfg.AuditLogConfig.Enabled = true
+	cfg.AuditLogConfig.ExcludeMethods = set.NewStrings("Client.AddMachines")
+	cfg.AuditLog = log
+	info, srv := newServerWithConfig(c, s.StatePool, cfg)
+	defer assertStop(c, srv)
+	info.ModelTag = s.IAASModel.Tag().(names.ModelTag)
+
+	password := "shhh..."
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Password: password,
+	})
+	conn := s.openAPIWithoutLogin(c, info)
+
+	var result params.LoginResult
+	request := &params.LoginRequest{
+		AuthTag:     user.Tag().String(),
+		Credentials: password,
+		CLIArgs:     "hey you guys",
+	}
+	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.UserInfo, gc.NotNil)
+	// Nothing's logged at this point because there haven't been any
+	// interesting requests.
+	log.CheckCallNames(c)
+
+	var addResults params.AddMachinesResults
+	addReq := &params.AddMachines{
+		MachineParams: []params.AddMachineParams{{
+			Jobs: []multiwatcher.MachineJob{"JobHostUnits"},
+		}},
+	}
+	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResults)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Still nothing logged - the AddMachines call has been filtered out.
+	log.CheckCallNames(c)
+
+	// Call something else.
+	destroyReq := &params.DestroyMachines{
+		MachineNames: []string{addResults.Machines[0].Machine},
+	}
+	err = conn.APICall("Client", 1, "", "DestroyMachines", destroyReq, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now the conversation and both requests are logged.
+	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse", "AddRequest", "AddResponse")
+
+	req1 := log.Calls()[1].Args[0].(auditlog.Request)
+	c.Assert(req1.Facade, gc.Equals, "Client")
+	c.Assert(req1.Method, gc.Equals, "AddMachines")
+
+	req2 := log.Calls()[3].Args[0].(auditlog.Request)
+	c.Assert(req2.Facade, gc.Equals, "Client")
+	c.Assert(req2.Method, gc.Equals, "DestroyMachines")
 }
 
 var _ = gc.Suite(&macaroonLoginSuite{})

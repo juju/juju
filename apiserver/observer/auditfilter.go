@@ -105,12 +105,13 @@ func (l *bufferedLog) flush() error {
 	return nil
 }
 
-// InterestingRequest returns whether this API request is interesting enough
-// to write the conversation to the audit log.
-func InterestingRequest(req auditlog.Request) bool {
-	return !readOnlyMethods.Contains(fmt.Sprintf("%s.%s", req.Facade, req.Method))
+// MakeInterestingRequestFilter takes a set of method names (as
+// facade.method, e.g. "Client.FullStatus") that aren't very
+// interesting from an auditing perspective, and returns a filter
+// function for audit logging that will mark the request as
+// interesting if it's a call to a method that isn't listed.
+func MakeInterestingRequestFilter(excludeMethods set.Strings) func(auditlog.Request) bool {
+	return func(req auditlog.Request) bool {
+		return !excludeMethods.Contains(fmt.Sprintf("%s.%s", req.Facade, req.Method))
+	}
 }
-
-var readOnlyMethods = set.NewStrings(
-	"Client.FullStatus",
-)

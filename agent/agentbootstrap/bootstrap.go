@@ -222,11 +222,7 @@ func InitializeState(
 	defer hostedModelState.Close()
 
 	if err := model.AutoConfigureContainerNetworking(hostedModelEnv); err != nil {
-		if errors.IsNotSupported(err) {
-			logger.Debugf("Not performing container networking autoconfiguration on a non-networking environment")
-		} else {
-			return nil, nil, errors.Annotate(err, "autoconfiguring container networking")
-		}
+		return nil, nil, errors.Annotate(err, "autoconfiguring container networking")
 	}
 
 	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
