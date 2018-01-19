@@ -434,7 +434,8 @@ func (s *MongoSuite) TestInstallMongodFallsBack(c *gc.C) {
 		{"precise", "mongodb-server"},
 		{"trusty", "juju-mongodb3.2\njuju-mongodb"},
 		{"wily", "juju-mongodb3.2\njuju-mongodb"},
-		{"xenial", "juju-mongodb3.2\njuju-mongodb"},
+		{"xenial", "juju-mongodb3.2"},
+		{"bionic", "juju-mongodb3.2"},
 	}
 
 	dataDir := c.MkDir()
