@@ -113,6 +113,8 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		a.srv.facades,
 		a.root.resources,
 		a.root,
+		a.root.providerRegistry,
+		a.root.imageSourceRegistry,
 	)
 	apiRoot, err = restrictAPIRoot(
 		a.srv,

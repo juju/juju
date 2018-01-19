@@ -28,7 +28,8 @@ var logger = loggo.GetLogger("juju.apiserver.upgrader")
 // do not depend on who is currently connected.
 
 // NewUpgraderFacade provides the signature required for facade registration.
-func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.Authorizer) (Upgrader, error) {
+func NewUpgraderFacade(ctx facade.Context) (Upgrader, error) {
+	auth := ctx.Auth()
 	// The type of upgrader we return depends on who is asking.
 	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
 	// This is tested in the api/upgrader package since there
@@ -40,9 +41,9 @@ func NewUpgraderFacade(st *state.State, resources facade.Resources, auth facade.
 	}
 	switch tag.(type) {
 	case names.MachineTag:
-		return NewUpgraderAPI(st, resources, auth)
+		return NewUpgraderAPI(ctx)
 	case names.UnitTag:
-		return NewUnitUpgraderAPI(st, resources, auth)
+		return NewUnitUpgraderAPI(ctx.State(), ctx.Resources(), auth)
 	}
 	// Not a machine or unit.
 	return nil, common.ErrPerm
@@ -67,11 +68,9 @@ type UpgraderAPI struct {
 }
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
-func NewUpgraderAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*UpgraderAPI, error) {
+func NewUpgraderAPI(ctx facade.Context) (*UpgraderAPI, error) {
+	st := ctx.State()
+	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
@@ -84,12 +83,13 @@ func NewUpgraderAPI(
 	}
 	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	configGetter := stateenvirons.EnvironConfigGetter{st, env}
+	providerRegistry := ctx.ProviderRegistry()
 	return &UpgraderAPI{
-		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, getCanReadWrite),
+		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, getCanReadWrite, providerRegistry),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
 		st:          st,
 		m:           env,
-		resources:   resources,
+		resources:   ctx.Resources(),
 		authorizer:  authorizer,
 	}, nil
 }

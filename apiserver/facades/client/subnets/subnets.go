@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
 )
 
 // SubnetsAPI defines the methods the Subnets API facade implements.
@@ -35,19 +35,22 @@ type SubnetsAPI interface {
 
 // subnetsAPI implements the SubnetsAPI interface.
 type subnetsAPI struct {
-	backing    networkingcommon.NetworkBacking
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	backing          networkingcommon.NetworkBacking
+	resources        facade.Resources
+	authorizer       facade.Authorizer
+	providerRegistry *environs.ProviderRegistry
 }
 
 // NewAPI creates a new Subnets API server-side facade with a
 // state.State backing.
-func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (SubnetsAPI, error) {
+func NewAPI(ctx facade.Context) (SubnetsAPI, error) {
+	st := ctx.State()
 	stateshim, err := networkingcommon.NewStateShim(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIWithBacking(stateshim, res, auth)
+	providerRegistry := ctx.ProviderRegistry()
+	return newAPIWithBacking(stateshim, ctx.Resources(), ctx.Auth(), providerRegistry)
 }
 
 func (api *subnetsAPI) checkCanRead() error {
@@ -74,15 +77,16 @@ func (api *subnetsAPI) checkCanWrite() error {
 
 // newAPIWithBacking creates a new server-side Subnets API facade with
 // a common.NetworkBacking
-func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources facade.Resources, authorizer facade.Authorizer) (SubnetsAPI, error) {
+func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources facade.Resources, authorizer facade.Authorizer, providerRegistry *environs.ProviderRegistry) (SubnetsAPI, error) {
 	// Only clients can access the Subnets facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	return &subnetsAPI{
-		backing:    backing,
-		resources:  resources,
-		authorizer: authorizer,
+		backing:          backing,
+		resources:        resources,
+		authorizer:       authorizer,
+		providerRegistry: providerRegistry,
 	}, nil
 }
 
@@ -91,7 +95,7 @@ func (api *subnetsAPI) AllZones() (params.ZoneResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ZoneResults{}, err
 	}
-	return networkingcommon.AllZones(api.backing)
+	return networkingcommon.AllZones(api.backing, api.providerRegistry)
 }
 
 // AllSpaces is defined on the API interface.
@@ -122,7 +126,7 @@ func (api *subnetsAPI) AddSubnets(args params.AddSubnetsParams) (params.ErrorRes
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
-	return networkingcommon.AddSubnets(api.backing, args)
+	return networkingcommon.AddSubnets(api.backing, args, api.providerRegistry)
 }
 
 // ListSubnets lists all the available subnets or only those matching

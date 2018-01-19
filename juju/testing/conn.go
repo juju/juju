@@ -490,6 +490,7 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 
 	newPolicyFunc := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
+		environs.GlobalProviderRegistry(),
 	)
 	controllerTag := names.NewControllerTag(controllerUUID)
 	args := state.OpenParams{

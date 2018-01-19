@@ -59,10 +59,17 @@ type ProvisionerAPI struct {
 	configGetter            environs.EnvironConfigGetter
 	getAuthFunc             common.GetAuthFunc
 	getCanModify            common.GetAuthFunc
+	providerRegistry        *environs.ProviderRegistry
+	imageSourceRegistry     *environs.ImageSourceRegistry
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
-func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPI, error) {
+func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
+	authorizer := ctx.Auth()
+	st := ctx.State()
+	resources := ctx.Resources()
+	providerRegistry := ctx.ProviderRegistry()
+	imageSourceRegistry := ctx.ImageSourceRegistry()
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
@@ -106,7 +113,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		return nil, err
 	}
 	configGetter := stateenvirons.EnvironConfigGetter{st, model}
-	env, err := environs.GetEnviron(configGetter, environs.New)
+	env, err := environs.GetEnviron(configGetter, providerRegistry.NewEnviron)
 	if err != nil {
 		return nil, err
 	}
@@ -125,9 +132,9 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI:     common.NewStateControllerConfig(st),
 		InstanceIdGetter:        common.NewInstanceIdGetter(st, getAuthFunc),
-		ToolsFinder:             common.NewToolsFinder(configGetter, st, urlGetter),
-		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
-		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, getCanModify),
+		ToolsFinder:             common.NewToolsFinder(configGetter, st, urlGetter, providerRegistry),
+		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner, providerRegistry),
+		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, getCanModify, providerRegistry),
 		st:                      st,
 		m:                       model,
 		resources:               resources,
@@ -137,6 +144,8 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		storagePoolManager:      poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
 		getAuthFunc:             getAuthFunc,
 		getCanModify:            getCanModify,
+		providerRegistry:        providerRegistry,
+		imageSourceRegistry:     imageSourceRegistry,
 	}, nil
 }
 
@@ -145,8 +154,8 @@ type ProvisionerAPIV5 struct {
 }
 
 // NewProvisionerAPIV5 creates a new server-side Provisioner API facade.
-func NewProvisionerAPIV5(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV5, error) {
-	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+func NewProvisionerAPIV5(ctx facade.Context) (*ProvisionerAPIV5, error) {
+	provisionerAPI, err := NewProvisionerAPI(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -932,7 +941,7 @@ func (p *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(args params.Entities
 // prepareContainerAccessEnvironment retrieves the environment, host machine, and access
 // for working with containers.
 func (p *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Environ, *state.Machine, common.AuthFunc, error) {
-	env, err := environs.GetEnviron(p.configGetter, environs.New)
+	env, err := environs.GetEnviron(p.configGetter, p.providerRegistry.NewEnviron)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}

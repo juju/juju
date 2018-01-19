@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
@@ -65,6 +66,8 @@ type Server struct {
 	limiter                utils.Limiter
 	loginRetryPause        time.Duration
 	facades                *facade.Registry
+	providerRegistry       *environs.ProviderRegistry
+	imageSourceRegistry    *environs.ImageSourceRegistry
 	modelUUID              string
 	loginAuthCtxt          *authContext
 	offerAuthCtxt          *crossmodel.AuthContext
@@ -110,6 +113,14 @@ type ServerConfig struct {
 	DataDir   string
 	LogDir    string
 	Hub       *pubsub.StructuredHub
+
+	// ProviderRegistry holds the registered providers
+	// for the server to consult.
+	ProviderRegistry *environs.ProviderRegistry
+
+	// ImageSourceRegistry holds the registered image sources
+	// for the server to consult.
+	ImageSourceRegistry *environs.ImageSourceRegistry
 
 	// GetCertificate holds a function that returns the current
 	// local TLS certificate for the server. The function may
@@ -174,6 +185,12 @@ type ServerConfig struct {
 
 // Validate validates the API server configuration.
 func (c ServerConfig) Validate() error {
+	if c.ProviderRegistry == nil {
+		return errors.NotValidf("missing ProviderRegistry")
+	}
+	if c.ImageSourceRegistry == nil {
+		return errors.NotValidf("missing ImageSourceRegistry")
+	}
 	if c.Hub == nil {
 		return errors.NotValidf("missing Hub")
 	}
@@ -263,6 +280,8 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 		upgradeComplete:               cfg.UpgradeComplete,
 		restoreStatus:                 cfg.RestoreStatus,
 		facades:                       AllFacades(),
+		providerRegistry:              cfg.ProviderRegistry,
+		imageSourceRegistry:           cfg.ImageSourceRegistry,
 		centralHub:                    cfg.Hub,
 		getCertificate:                cfg.GetCertificate,
 		allowModelAccess:              cfg.AllowModelAccess,
@@ -625,7 +644,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	)
 	add("/model/:modeluuid/backups",
 		&backupHandler{
-			ctxt: strictCtxt,
+			ctxt:             strictCtxt,
+			providerRegistry: srv.providerRegistry,
 		},
 	)
 	add("/model/:modeluuid/api", mainAPIHandler)

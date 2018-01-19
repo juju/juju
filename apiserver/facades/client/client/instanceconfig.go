@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -22,7 +23,7 @@ import (
 // is needed for machine cloud-init (for non-controllers only). It
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
-func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
+func InstanceConfig(st *state.State, machineId, nonce, dataDir string, providerRegistry *environs.ProviderRegistry) (*instancecfg.InstanceConfig, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state model")
@@ -54,7 +55,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
 	configGetter := stateenvirons.EnvironConfigGetter{st, model}
-	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
+	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, providerRegistry)
 	findToolsResult, err := toolsFinder.FindTools(params.FindToolsParams{
 		Number:       agentVersion,
 		MajorVersion: -1,

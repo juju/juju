@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -22,8 +21,10 @@ import (
 // *trivially* correct, you would be Doing It Wrong.
 
 // NewFacadeV3 provides the signature required for facade registration.
-func NewFacadeV3(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*StorageProvisionerAPIv3, error) {
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
+func NewFacadeV3(ctx facade.Context) (*StorageProvisionerAPIv3, error) {
+	st := ctx.State()
+	providerRegistry := ctx.ProviderRegistry()
+	env, err := stateenvirons.GetNewEnvironFunc(providerRegistry.NewEnviron)(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting environ")
 	}
@@ -34,12 +35,18 @@ func NewFacadeV3(st *state.State, resources facade.Resources, authorizer facade.
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
 	}
-	return NewStorageProvisionerAPIv3(backend, resources, authorizer, registry, pm)
+	return NewStorageProvisionerAPIv3(
+		backend,
+		ctx.Resources(),
+		ctx.Auth(),
+		registry,
+		pm,
+	)
 }
 
 // NewFacadeV4 provides the signature required for facade registration.
-func NewFacadeV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*StorageProvisionerAPIv4, error) {
-	v3, err := NewFacadeV3(st, resources, authorizer)
+func NewFacadeV4(ctx facade.Context) (*StorageProvisionerAPIv4, error) {
+	v3, err := NewFacadeV3(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

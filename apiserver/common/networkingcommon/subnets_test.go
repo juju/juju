@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
@@ -60,7 +61,7 @@ func (s *SubnetsSuite) AssertAllZonesResult(c *gc.C, got params.ZoneResults, exp
 func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(errors.NotSupportedf("zones"))
 
-	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
+	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, gc.ErrorMatches, "zones not supported")
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
@@ -72,7 +73,7 @@ func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *gc.C) {
-	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
+	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertAllZonesResult(c, results, apiservertesting.BackingInstance.Zones)
 
@@ -89,7 +90,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
 		apiservertesting.WithSpaces,
 		apiservertesting.WithSubnets)
 
-	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
+	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertAllZonesResult(c, results, apiservertesting.ProviderInstance.Zones)
 
@@ -120,7 +121,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 		errors.NotSupportedf("setting"), // Backing.SetAvailabilityZones
 	)
 
-	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
+	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: setting not supported`,
 	)
@@ -154,7 +155,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 		errors.NotValidf("foo"), // ZonedEnviron.AvailabilityZones
 	)
 
-	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
+	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: foo not valid`,
 	)
@@ -184,7 +185,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C
 		errors.NotFoundf("config"), // Backing.ModelConfig
 	)
 
-	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
+	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: opening environment: config not found`,
 	)
@@ -213,7 +214,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 		errors.NotValidf("config"), // Provider.Open
 	)
 
-	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
+	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: opening environment: config not valid`,
 	)
@@ -238,7 +239,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 		apiservertesting.WithSpaces,
 		apiservertesting.WithSubnets)
 
-	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance)
+	results, err := networkingcommon.AllZones(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: availability zones not supported`,
 	)
@@ -504,7 +505,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		SpaceName:         "private",
 	}}
 	c.Check(expectedErrors, gc.HasLen, len(args.Subnets))
-	results, err := networkingcommon.AddSubnets(apiservertesting.BackingInstance, args)
+	results, err := networkingcommon.AddSubnets(apiservertesting.BackingInstance, args, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results.Results), gc.Equals, len(args.Subnets))
 	for i, result := range results.Results {
@@ -565,7 +566,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 	apiservertesting.ResetStub(apiservertesting.SharedStub)
 
 	// Finally, check that no params yields no results.
-	results, err = networkingcommon.AddSubnets(apiservertesting.BackingInstance, params.AddSubnetsParams{})
+	results, err = networkingcommon.AddSubnets(apiservertesting.BackingInstance, params.AddSubnetsParams{}, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.NotNil)
 	c.Assert(results.Results, gc.HasLen, 0)
@@ -687,7 +688,7 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 			Zones:            []string{"zone3"},
 		}},
 	}
-	results, err := networkingcommon.AddSubnets(apiservertesting.BackingInstance, args)
+	results, err := networkingcommon.AddSubnets(apiservertesting.BackingInstance, args, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Subnets))
 	for _, result := range results.Results {

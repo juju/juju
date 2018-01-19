@@ -109,6 +109,10 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		ExcludeMethods: set.NewStrings("Exclude.This"),
 	}
 
+	c.Assert(config.ProviderRegistry, gc.NotNil)
+	c.Assert(config.ImageSourceRegistry, gc.NotNil)
+	config.ProviderRegistry = nil
+	config.ImageSourceRegistry = nil
 	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
 		Clock:                s.clock,
 		Tag:                  s.agentConfig.Tag(),

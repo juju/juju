@@ -5,17 +5,20 @@ package facadetest
 
 import (
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
 
 // Context implements facade.Context in the simplest possible way.
 type Context struct {
-	Auth_      facade.Authorizer
-	Dispose_   func()
-	Resources_ facade.Resources
-	State_     *state.State
-	StatePool_ *state.StatePool
-	ID_        string
+	Auth_                facade.Authorizer
+	Dispose_             func()
+	Resources_           facade.Resources
+	State_               *state.State
+	StatePool_           *state.StatePool
+	ID_                  string
+	ProviderRegistry_    *environs.ProviderRegistry
+	ImageSourceRegistry_ *environs.ImageSourceRegistry
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
 	Identity string
@@ -29,6 +32,16 @@ func (context Context) Auth() facade.Authorizer {
 // Dispose is part of the facade.Context interface.
 func (context Context) Dispose() {
 	context.Dispose_()
+}
+
+// ProviderRegistry is part of the facade.Context interface.
+func (context Context) ProviderRegistry() *environs.ProviderRegistry {
+	return context.ProviderRegistry_
+}
+
+// ImageSourceRegistry is part of the facade.Context interface.
+func (context Context) ImageSourceRegistry() *environs.ImageSourceRegistry {
+	return context.ImageSourceRegistry_
 }
 
 // Resources is part of the facade.Context interface.

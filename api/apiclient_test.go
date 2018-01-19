@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/centralhub"
@@ -570,18 +571,20 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	machineTag := names.NewMachineTag("0")
 	srv, err := apiserver.NewServer(s.StatePool, listener, apiserver.ServerConfig{
-		Clock:           clock.WallClock,
-		GetCertificate:  func() *tls.Certificate { return jtesting.ServerTLSCert },
-		Tag:             machineTag,
-		Hub:             centralhub.New(machineTag),
-		DataDir:         c.MkDir(),
-		LogDir:          c.MkDir(),
-		AutocertDNSName: "somewhere.example.com",
-		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL:     "https://0.1.2.3/no-autocert-here",
-		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-		UpgradeComplete: func() bool { return true },
-		RestoreStatus:   func() state.RestoreStatus { return state.RestoreNotActive },
+		Clock:               clock.WallClock,
+		GetCertificate:      func() *tls.Certificate { return jtesting.ServerTLSCert },
+		Tag:                 machineTag,
+		Hub:                 centralhub.New(machineTag),
+		DataDir:             c.MkDir(),
+		LogDir:              c.MkDir(),
+		AutocertDNSName:     "somewhere.example.com",
+		NewObserver:         func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL:         "https://0.1.2.3/no-autocert-here",
+		RateLimitConfig:     apiserver.DefaultRateLimitConfig(),
+		UpgradeComplete:     func() bool { return true },
+		RestoreStatus:       func() state.RestoreStatus { return state.RestoreNotActive },
+		ProviderRegistry:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry: environs.GlobalImageSourceRegistry(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(srv)

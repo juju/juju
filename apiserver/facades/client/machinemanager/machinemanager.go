@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
@@ -25,10 +26,11 @@ var logger = loggo.GetLogger("juju.apiserver.machinemanager")
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
-	st         Backend
-	pool       Pool
-	authorizer facade.Authorizer
-	check      *common.BlockChecker
+	st               Backend
+	pool             Pool
+	authorizer       facade.Authorizer
+	check            *common.BlockChecker
+	providerRegistry *environs.ProviderRegistry
 }
 
 // NewFacade create a new server-side MachineManager API facade. This
@@ -41,7 +43,8 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 	}
 	backend := &stateShim{State: st, IAASModel: im}
 	pool := &poolShim{ctx.StatePool()}
-	return NewMachineManagerAPI(backend, pool, ctx.Auth())
+	providerRegistry := ctx.ProviderRegistry()
+	return NewMachineManagerAPI(backend, pool, ctx.Auth(), providerRegistry)
 }
 
 type MachineManagerAPIV4 struct {
@@ -58,15 +61,16 @@ func NewFacadeV4(ctx facade.Context) (*MachineManagerAPIV4, error) {
 }
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
-func NewMachineManagerAPI(backend Backend, pool Pool, auth facade.Authorizer) (*MachineManagerAPI, error) {
+func NewMachineManagerAPI(backend Backend, pool Pool, auth facade.Authorizer, providerRegistry *environs.ProviderRegistry) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	return &MachineManagerAPI{
-		st:         backend,
-		pool:       pool,
-		authorizer: auth,
-		check:      common.NewBlockChecker(backend),
+		st:               backend,
+		pool:             pool,
+		authorizer:       auth,
+		check:            common.NewBlockChecker(backend),
+		providerRegistry: providerRegistry,
 	}, nil
 }
 

@@ -282,12 +282,12 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 // environs.NetworkingEnviron using the given configGetter. Returns an error
 // satisfying errors.IsNotSupported() if the model config does not support
 // networking features.
-func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter) (environs.NetworkingEnviron, error) {
+func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter, providerRegistry *environs.ProviderRegistry) (environs.NetworkingEnviron, error) {
 	modelConfig, err := configGetter.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get model config")
 	}
-	env, err := environs.GetEnviron(configGetter, environs.New)
+	env, err := environs.GetEnviron(configGetter, providerRegistry.NewEnviron)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to construct a model from config")
 	}

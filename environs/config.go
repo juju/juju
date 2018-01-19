@@ -24,6 +24,12 @@ type ProviderRegistry struct {
 	aliases map[string]string
 }
 
+var providerRegistry = NewProviderRegistry()
+
+func GlobalProviderRegistry() *ProviderRegistry {
+	return providerRegistry
+}
+
 func NewProviderRegistry() *ProviderRegistry {
 	return &ProviderRegistry{
 		providers: map[string]EnvironProvider{},
@@ -90,6 +96,16 @@ func (r *ProviderRegistry) Provider(providerType string) (EnvironProvider, error
 	return p, nil
 }
 
+// NewEnviron returns a new environment using the provider
+// registered under args.Cloud.Type.
+func (r *ProviderRegistry) NewEnviron(args OpenParams) (Environ, error) {
+	p, err := r.Provider(args.Cloud.Type)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return p.Open(args)
+}
+
 // RegisterProvider registers a new environment provider. Name gives the name
 // of the provider, and p the interface to that provider.
 //
@@ -97,7 +113,7 @@ func (r *ProviderRegistry) Provider(providerType string) (EnvironProvider, error
 // are registered more than once.
 // The return function can be used to unregister the provider and is used by tests.
 func RegisterProvider(name string, p EnvironProvider, alias ...string) {
-	providers := GlobalRegistry().Providers()
+	providers := GlobalProviderRegistry()
 	if err := providers.Register(p, name, alias...); err != nil {
 		panic(fmt.Errorf("juju: %v", err))
 	}
@@ -106,15 +122,15 @@ func RegisterProvider(name string, p EnvironProvider, alias ...string) {
 // UnregisterProvider removes the provider with the given
 // name from the registry.
 func UnregisterProvider(name string) {
-	GlobalRegistry().Providers().Unregister(name)
+	GlobalProviderRegistry().Unregister(name)
 }
 
 // RegisteredProviders enumerate all the environ providers which have been registered.
 func RegisteredProviders() []string {
-	return GlobalRegistry().Providers().RegisteredNames()
+	return GlobalProviderRegistry().RegisteredNames()
 }
 
 // Provider returns the previously registered provider with the given type.
 func Provider(providerType string) (EnvironProvider, error) {
-	return GlobalRegistry().Providers().Provider(providerType)
+	return GlobalProviderRegistry().Provider(providerType)
 }

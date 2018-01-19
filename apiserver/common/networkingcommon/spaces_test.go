@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -68,7 +69,7 @@ func (s *SpacesSuite) checkCreateSpaces(c *gc.C, p checkCreateSpacesParams) {
 
 	spaces := params.CreateSpacesParams{}
 	spaces.Spaces = append(spaces.Spaces, args)
-	results, err := networkingcommon.CreateSpaces(apiservertesting.BackingInstance, spaces)
+	results, err := networkingcommon.CreateSpaces(apiservertesting.BackingInstance, environs.GlobalProviderRegistry(), spaces)
 
 	c.Assert(len(results.Results), gc.Equals, 1)
 	c.Assert(err, gc.IsNil)
@@ -153,7 +154,7 @@ func (s *SpacesSuite) TestCreateSpacesModelConfigError(c *gc.C) {
 	)
 
 	spaces := params.CreateSpacesParams{}
-	_, err := networkingcommon.CreateSpaces(apiservertesting.BackingInstance, spaces)
+	_, err := networkingcommon.CreateSpaces(apiservertesting.BackingInstance, environs.GlobalProviderRegistry(), spaces)
 	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
 }
 
@@ -165,7 +166,7 @@ func (s *SpacesSuite) TestCreateSpacesProviderOpenError(c *gc.C) {
 	)
 
 	spaces := params.CreateSpacesParams{}
-	_, err := networkingcommon.CreateSpaces(apiservertesting.BackingInstance, spaces)
+	_, err := networkingcommon.CreateSpaces(apiservertesting.BackingInstance, environs.GlobalProviderRegistry(), spaces)
 	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
 }
 
@@ -178,7 +179,7 @@ func (s *SpacesSuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 	)
 
 	spaces := params.CreateSpacesParams{}
-	_, err := networkingcommon.CreateSpaces(apiservertesting.BackingInstance, spaces)
+	_, err := networkingcommon.CreateSpaces(apiservertesting.BackingInstance, environs.GlobalProviderRegistry(), spaces)
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
 }
 
@@ -187,7 +188,7 @@ func (s *SpacesSuite) TestSuppportsSpacesModelConfigError(c *gc.C) {
 		errors.New("boom"), // Backing.ModelConfig()
 	)
 
-	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
+	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
 }
 
@@ -198,7 +199,7 @@ func (s *SpacesSuite) TestSuppportsSpacesEnvironNewError(c *gc.C) {
 		errors.New("boom"), // environs.New()
 	)
 
-	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
+	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
 }
 
@@ -210,7 +211,7 @@ func (s *SpacesSuite) TestSuppportsSpacesWithoutNetworking(c *gc.C) {
 		apiservertesting.WithoutSpaces,
 		apiservertesting.WithoutSubnets)
 
-	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
+	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
@@ -229,11 +230,11 @@ func (s *SpacesSuite) TestSuppportsSpacesWithoutSpaces(c *gc.C) {
 		errors.New("boom"), // Backing.SupportsSpaces()
 	)
 
-	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
+	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *SpacesSuite) TestSuppportsSpaces(c *gc.C) {
-	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance)
+	err := networkingcommon.SupportsSpaces(apiservertesting.BackingInstance, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
@@ -29,7 +30,7 @@ func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
 	}{s.State, s.IAASModel.Model}
 	store := backups.NewStorage(db)
 	defer store.Close()
-	backupsState := backups.NewBackups(store)
+	backupsState := backups.NewBackups(store, environs.GlobalProviderRegistry())
 
 	r := strings.NewReader("<compressed archive data>")
 	meta, err := backups.NewMetadataState(db, "0", "xenial")

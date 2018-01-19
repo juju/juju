@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
@@ -217,17 +218,19 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	srv, err := apiserver.NewServer(s.StatePool, lis, apiserver.ServerConfig{
-		Clock:           clock.WallClock,
-		GetCertificate:  func() *tls.Certificate { return testing.ServerTLSCert },
-		Tag:             names.NewMachineTag("0"),
-		Hub:             pubsub.NewStructuredHub(nil),
-		DataDir:         c.MkDir(),
-		LogDir:          c.MkDir(),
-		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL:     "https://0.1.2.3/no-autocert-here",
-		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-		UpgradeComplete: func() bool { return true },
-		RestoreStatus:   func() state.RestoreStatus { return state.RestoreNotActive },
+		Clock:               clock.WallClock,
+		GetCertificate:      func() *tls.Certificate { return testing.ServerTLSCert },
+		Tag:                 names.NewMachineTag("0"),
+		Hub:                 pubsub.NewStructuredHub(nil),
+		DataDir:             c.MkDir(),
+		LogDir:              c.MkDir(),
+		NewObserver:         func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL:         "https://0.1.2.3/no-autocert-here",
+		RateLimitConfig:     apiserver.DefaultRateLimitConfig(),
+		UpgradeComplete:     func() bool { return true },
+		RestoreStatus:       func() state.RestoreStatus { return state.RestoreNotActive },
+		ProviderRegistry:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry: environs.GlobalImageSourceRegistry(),
 	})
 	c.Assert(err, gc.IsNil)
 

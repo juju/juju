@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
@@ -30,7 +31,7 @@ var _ = gc.Suite(&backupsSuite{}) // Register the suite.
 func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.api = backups.NewBackups(s.Storage)
+	s.api = backups.NewBackups(s.Storage, environs.GlobalProviderRegistry())
 }
 
 func (s *backupsSuite) setStored(id string) *time.Time {
@@ -64,7 +65,7 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 }
 
 func (s *backupsSuite) TestNewBackups(c *gc.C) {
-	api := backups.NewBackups(s.Storage)
+	api := backups.NewBackups(s.Storage, environs.GlobalProviderRegistry())
 
 	c.Check(api, gc.NotNil)
 }

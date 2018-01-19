@@ -21,16 +21,21 @@ var logger = loggo.GetLogger("juju.apiserver.sshclient")
 
 // Facade implements the API required by the sshclient worker.
 type Facade struct {
-	backend    Backend
-	authorizer facade.Authorizer
+	backend          Backend
+	authorizer       facade.Authorizer
+	providerRegistry *environs.ProviderRegistry
 }
 
 // New returns a new API facade for the sshclient worker.
-func New(backend Backend, _ facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
-	if !authorizer.AuthClient() {
+func New(backend Backend, auth facade.Authorizer, providerRegistry *environs.ProviderRegistry) (*Facade, error) {
+	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	return &Facade{backend: backend, authorizer: authorizer}, nil
+	return &Facade{
+		backend:          backend,
+		authorizer:       auth,
+		providerRegistry: providerRegistry,
+	}, nil
 }
 
 func (facade *Facade) checkIsModelAdmin() error {
@@ -75,7 +80,7 @@ func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesRes
 	if err := facade.checkIsModelAdmin(); err != nil {
 		return params.SSHAddressesResults{}, errors.Trace(err)
 	}
-	env, err := environs.GetEnviron(facade.backend, environs.New)
+	env, err := environs.GetEnviron(facade.backend, facade.providerRegistry.NewEnviron)
 	if err != nil {
 		return params.SSHAddressesResults{}, errors.Annotate(err, "opening environment")
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -36,6 +37,12 @@ func (ctx *charmsSuiteContext) Resources() facade.Resources { return common.NewR
 func (ctx *charmsSuiteContext) State() *state.State         { return ctx.cs.State }
 func (ctx *charmsSuiteContext) StatePool() *state.StatePool { return nil }
 func (ctx *charmsSuiteContext) ID() string                  { return "" }
+func (ctx *charmsSuiteContext) ProviderRegistry() *environs.ProviderRegistry {
+	panic("unexpected call to ProviderRegistry")
+}
+func (ctx *charmsSuiteContext) ImageSourceRegistry() *environs.ImageSourceRegistry {
+	panic("unexpected call to ImageSourceRegistry")
+}
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)

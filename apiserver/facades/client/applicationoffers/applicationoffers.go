@@ -77,7 +77,8 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 			return nil, errors.Trace(err)
 		}
 		g := stateenvirons.EnvironConfigGetter{st, model}
-		env, err := environs.GetEnviron(g, environs.New)
+		providerRegistry := ctx.ProviderRegistry()
+		env, err := environs.GetEnviron(g, providerRegistry.NewEnviron)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

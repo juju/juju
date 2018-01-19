@@ -47,7 +47,8 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 			},
 		},
 	}
-	api, err := machinemanager.NewMachineManagerAPI(backend, pool, authorizer)
+	providerRegistry := environs.GlobalProviderRegistry()
+	api, err := machinemanager.NewMachineManagerAPI(backend, pool, authorizer, providerRegistry)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := params.ModelInstanceTypesConstraints{
@@ -58,7 +59,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 	) (environs.Environ, error) {
 		return &env, nil
 	}
-	r, err := machinemanager.InstanceTypes(api, fakeEnvironGet, cons)
+	r, err := machinemanager.InstanceTypes(api, fakeEnvironGet, cons, providerRegistry)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 3)
 	expected := []params.InstanceTypesResult{

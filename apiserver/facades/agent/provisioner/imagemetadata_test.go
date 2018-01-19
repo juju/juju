@@ -8,8 +8,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -53,7 +55,13 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
-	api, err := provisioner.NewProvisionerAPI(s.State, s.resources, s.authorizer)
+	api, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                s.authorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.ProvisioningInfo(s.getTestMachinesTags(c))
@@ -75,7 +83,13 @@ func (s *ImageMetadataSuite) TestMetadataNotInStateButInDataSources(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 	c.Assert(found, gc.HasLen, 0)
 
-	api, err := provisioner.NewProvisionerAPI(s.State, s.resources, s.authorizer)
+	api, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                s.authorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.ProvisioningInfo(s.getTestMachinesTags(c))
@@ -99,7 +113,13 @@ func (s *ImageMetadataSuite) TestMetadataNotInStateButInDataSources(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
-	api, err := provisioner.NewProvisionerAPI(s.State, s.resources, s.authorizer)
+	api, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                s.authorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := s.expectedDataSoureImageMetadata()

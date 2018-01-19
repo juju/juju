@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -58,6 +59,8 @@ func (s *apiserverBaseSuite) sampleConfig(c *gc.C) apiserver.ServerConfig {
 		RestoreStatus: func() state.RestoreStatus {
 			return state.RestoreNotActive
 		},
+		ProviderRegistry:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry: environs.GlobalImageSourceRegistry(),
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	backupsAPI "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
@@ -57,7 +58,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 
 	tag := names.NewLocalUserTag("admin")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	s.api, err = backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
+	s.api, err = backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	s.meta = backupstesting.NewMetadataStarted()
 }
@@ -73,7 +74,7 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 		fake.Error = errors.Errorf(err)
 	}
 	s.PatchValue(backupsAPI.NewBackups,
-		func(backupsAPI.Backend) (backups.Backups, io.Closer) {
+		func(backupsAPI.Backend, *environs.ProviderRegistry) (backups.Backups, io.Closer) {
 			return &fake, ioutil.NopCloser(nil)
 		},
 	)
@@ -81,13 +82,13 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 }
 
 func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
-	_, err := backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
+	_, err := backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer, environs.NewProviderRegistry())
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 	s.authorizer.Tag = names.NewApplicationTag("eggs")
-	_, err := backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
+	_, err := backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer, environs.NewProviderRegistry())
 
 	c.Check(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
@@ -97,6 +98,6 @@ func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *gc.C) {
 	defer otherState.Close()
 	otherModel, err := otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = backupsAPI.NewAPI(&stateShim{otherState, otherModel}, s.resources, s.authorizer)
+	_, err = backupsAPI.NewAPI(&stateShim{otherState, otherModel}, s.resources, s.authorizer, environs.NewProviderRegistry())
 	c.Check(err, gc.ErrorMatches, "backups are only supported from the controller model\nUse juju switch to select the controller model")
 }

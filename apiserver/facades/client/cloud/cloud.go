@@ -37,6 +37,7 @@ type CloudAPI struct {
 	ctlrBackend            Backend
 	authorizer             facade.Authorizer
 	apiUser                names.UserTag
+	providerRegistry       *environs.ProviderRegistry
 	getCredentialsAuthFunc common.GetAuthFunc
 }
 
@@ -53,18 +54,18 @@ var (
 func NewFacade(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
 	ctlrSt := NewStateBackend(context.StatePool().SystemState())
-	return NewCloudAPI(st, ctlrSt, context.Auth())
+	return NewCloudAPI(st, ctlrSt, context.Auth(), context.ProviderRegistry())
 }
 
 func NewFacadeV2(context facade.Context) (*CloudAPIV2, error) {
 	st := NewStateBackend(context.State())
 	ctlrSt := NewStateBackend(context.StatePool().SystemState())
-	return NewCloudAPIV2(st, ctlrSt, context.Auth())
+	return NewCloudAPIV2(st, ctlrSt, context.Auth(), context.ProviderRegistry())
 }
 
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
-func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*CloudAPI, error) {
+func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer, providerRegistry *environs.ProviderRegistry) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -87,12 +88,13 @@ func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*C
 		backend:                backend,
 		ctlrBackend:            ctlrBackend,
 		authorizer:             authorizer,
+		providerRegistry:       providerRegistry,
 		getCredentialsAuthFunc: getUserAuthFunc,
 	}, nil
 }
 
-func NewCloudAPIV2(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*CloudAPIV2, error) {
-	cloudAPI, err := NewCloudAPI(backend, ctlrBackend, authorizer)
+func NewCloudAPIV2(backend, ctlrBackend Backend, authorizer facade.Authorizer, providerRegistry *environs.ProviderRegistry) (*CloudAPIV2, error) {
+	cloudAPI, err := NewCloudAPI(backend, ctlrBackend, authorizer, providerRegistry)
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +333,7 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 			if err != nil {
 				return nil, err
 			}
-			provider, err := environs.Provider(cloud.Type)
+			provider, err := api.providerRegistry.Provider(cloud.Type)
 			if err != nil {
 				return nil, err
 			}

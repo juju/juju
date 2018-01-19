@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 	_ "github.com/juju/juju/provider/dummy"
 )
 
@@ -58,9 +59,9 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.api, err = cloudfacade.NewCloudAPI(s.backend, s.ctlrBackend, s.authorizer)
+	s.api, err = cloudfacade.NewCloudAPI(s.backend, s.ctlrBackend, s.authorizer, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiv2, err = cloudfacade.NewCloudAPIV2(s.backend, s.ctlrBackend, s.authorizer)
+	s.apiv2, err = cloudfacade.NewCloudAPIV2(s.backend, s.ctlrBackend, s.authorizer, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

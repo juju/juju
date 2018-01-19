@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/spaces"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -51,7 +52,10 @@ func (s *SpacesSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.facade, err = spaces.NewAPIWithBacking(
-		apiservertesting.BackingInstance, s.resources, s.authorizer,
+		apiservertesting.BackingInstance,
+		s.resources,
+		s.authorizer,
+		environs.GlobalProviderRegistry(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
@@ -67,7 +71,9 @@ func (s *SpacesSuite) TearDownTest(c *gc.C) {
 func (s *SpacesSuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
 	facade, err := spaces.NewAPIWithBacking(
-		apiservertesting.BackingInstance, s.resources, s.authorizer,
+		apiservertesting.BackingInstance,
+		s.resources, s.authorizer,
+		environs.GlobalProviderRegistry(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
@@ -78,7 +84,7 @@ func (s *SpacesSuite) TestNewAPIWithBacking(c *gc.C) {
 	agentAuthorizer := s.authorizer
 	agentAuthorizer.Tag = names.NewMachineTag("42")
 	facade, err = spaces.NewAPIWithBacking(
-		apiservertesting.BackingInstance, s.resources, agentAuthorizer,
+		apiservertesting.BackingInstance, s.resources, agentAuthorizer, environs.GlobalProviderRegistry(),
 	)
 	c.Assert(err, jc.DeepEquals, common.ErrPerm)
 	c.Assert(facade, gc.IsNil)
@@ -373,7 +379,7 @@ func (s *SpacesSuite) TestReloadSpacesUserDenied(c *gc.C) {
 	agentAuthorizer := s.authorizer
 	agentAuthorizer.Tag = names.NewUserTag("regular")
 	facade, err := spaces.NewAPIWithBacking(
-		apiservertesting.BackingInstance, s.resources, agentAuthorizer,
+		apiservertesting.BackingInstance, s.resources, agentAuthorizer, environs.GlobalProviderRegistry(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = facade.ReloadSpaces()

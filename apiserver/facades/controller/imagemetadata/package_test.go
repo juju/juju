@@ -50,7 +50,7 @@ func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.api, err = imagemetadata.CreateAPI(s.state, func() (environs.Environ, error) {
 		return &mockEnviron{}, nil
-	}, s.resources, s.authorizer)
+	}, s.resources, s.authorizer, environs.GlobalImageSourceRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

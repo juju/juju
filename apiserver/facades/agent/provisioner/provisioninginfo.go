@@ -36,7 +36,7 @@ func (p *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provisio
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	env, err := environs.GetEnviron(p.configGetter, environs.New)
+	env, err := environs.GetEnviron(p.configGetter, p.providerRegistry.NewEnviron)
 	if err != nil {
 		return result, errors.Annotate(err, "could not get environ")
 	}
@@ -505,7 +505,7 @@ func (p *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.ImageC
 
 // imageMetadataFromDataSources finds image metadata that match specified criteria in existing data sources.
 func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
-	sources, err := environs.ImageMetadataSources(env)
+	sources, err := p.imageSourceRegistry.Sources(env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

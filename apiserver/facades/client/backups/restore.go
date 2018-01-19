@@ -24,7 +24,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	logger.Infof("Starting server side restore")
 
 	// Get hold of a backup file Reader
-	backup, closer := newBackups(a.backend)
+	backup, closer := newBackups(a.backend, a.providerRegistry)
 	defer closer.Close()
 
 	// Obtain the address of current machine, where we will be performing restore.

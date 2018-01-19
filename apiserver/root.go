@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -41,11 +42,13 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.Root which it
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state     *state.State
-	model     *state.Model
-	rpcConn   *rpc.Conn
-	resources *common.Resources
-	entity    state.Entity
+	state               *state.State
+	model               *state.Model
+	rpcConn             *rpc.Conn
+	resources           *common.Resources
+	providerRegistry    *environs.ProviderRegistry
+	imageSourceRegistry *environs.ImageSourceRegistry
+	entity              state.Entity
 
 	// An empty modelUUID means that the user has logged in through the
 	// root of the API server rather than the /model/:model-uuid/api
@@ -71,13 +74,15 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		return nil, errors.Trace(err)
 	}
 	r := &apiHandler{
-		state:        st,
-		model:        m,
-		resources:    common.NewResources(),
-		rpcConn:      rpcConn,
-		modelUUID:    modelUUID,
-		connectionID: connectionID,
-		serverHost:   serverHost,
+		state:               st,
+		model:               m,
+		resources:           common.NewResources(),
+		providerRegistry:    srv.providerRegistry,
+		imageSourceRegistry: srv.imageSourceRegistry,
+		rpcConn:             rpcConn,
+		modelUUID:           modelUUID,
+		connectionID:        connectionID,
+		serverHost:          serverHost,
 	}
 
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
@@ -155,24 +160,36 @@ func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (
 
 // apiRoot implements basic method dispatching to the facade registry.
 type apiRoot struct {
-	state       *state.State
-	pool        *state.StatePool
-	facades     *facade.Registry
-	resources   *common.Resources
-	authorizer  facade.Authorizer
-	objectMutex sync.RWMutex
-	objectCache map[objectKey]reflect.Value
+	state               *state.State
+	pool                *state.StatePool
+	facades             *facade.Registry
+	resources           *common.Resources
+	authorizer          facade.Authorizer
+	providerRegistry    *environs.ProviderRegistry
+	imageSourceRegistry *environs.ImageSourceRegistry
+	objectMutex         sync.RWMutex
+	objectCache         map[objectKey]reflect.Value
 }
 
 // newAPIRoot returns a new apiRoot.
-func newAPIRoot(st *state.State, pool *state.StatePool, facades *facade.Registry, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
+func newAPIRoot(
+	st *state.State,
+	pool *state.StatePool,
+	facades *facade.Registry,
+	resources *common.Resources,
+	authorizer facade.Authorizer,
+	providerRegistry *environs.ProviderRegistry,
+	imageSourceRegistry *environs.ImageSourceRegistry,
+) *apiRoot {
 	r := &apiRoot{
-		state:       st,
-		pool:        pool,
-		facades:     facades,
-		resources:   resources,
-		authorizer:  authorizer,
-		objectCache: make(map[objectKey]reflect.Value),
+		state:               st,
+		pool:                pool,
+		facades:             facades,
+		resources:           resources,
+		authorizer:          authorizer,
+		providerRegistry:    providerRegistry,
+		imageSourceRegistry: imageSourceRegistry,
+		objectCache:         make(map[objectKey]reflect.Value),
 	}
 	return r
 }
@@ -389,6 +406,16 @@ func (ctx *facadeContext) Auth() facade.Authorizer {
 // Dispose is part of of the facade.Context interface.
 func (ctx *facadeContext) Dispose() {
 	ctx.r.dispose(ctx.key)
+}
+
+// ProviderRegistry is part of of the facade.Context interface.
+func (ctx *facadeContext) ProviderRegistry() *environs.ProviderRegistry {
+	return ctx.r.providerRegistry
+}
+
+// ImageSourceRegistry is part of of the facade.Context interface.
+func (ctx *facadeContext) ImageSourceRegistry() *environs.ImageSourceRegistry {
+	return ctx.r.imageSourceRegistry
 }
 
 // Resources is part of of the facade.Context interface.

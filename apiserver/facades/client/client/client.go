@@ -56,9 +56,10 @@ type Client struct {
 	// on the client facade until GUI and Python client library are updated.
 	*modelconfig.ModelConfigAPI
 
-	api        *API
-	newEnviron func() (environs.Environ, error)
-	check      *common.BlockChecker
+	api              *API
+	newEnviron       func() (environs.Environ, error)
+	check            *common.BlockChecker
+	providerRegistry *environs.ProviderRegistry
 }
 
 func (c *Client) checkCanRead() error {
@@ -114,6 +115,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	st := ctx.State()
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
+	providerRegistry := ctx.ProviderRegistry()
 
 	model, err := st.Model()
 	if err != nil {
@@ -123,9 +125,9 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	configGetter := stateenvirons.EnvironConfigGetter{st, model}
 	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
-	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
+	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, providerRegistry)
 	newEnviron := func() (environs.Environ, error) {
-		return environs.GetEnviron(configGetter, environs.New)
+		return environs.GetEnviron(configGetter, providerRegistry.NewEnviron)
 	}
 	blockChecker := common.NewBlockChecker(st)
 	backend := modelconfig.NewStateBackend(model)
@@ -143,6 +145,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		toolsFinder,
 		newEnviron,
 		blockChecker,
+		providerRegistry,
 	)
 }
 
@@ -157,6 +160,7 @@ func NewClient(
 	toolsFinder *common.ToolsFinder,
 	newEnviron func() (environs.Environ, error),
 	blockChecker *common.BlockChecker,
+	providerRegistry *environs.ProviderRegistry,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -171,8 +175,9 @@ func NewClient(
 			statusSetter:  statusSetter,
 			toolsFinder:   toolsFinder,
 		},
-		newEnviron: newEnviron,
-		check:      blockChecker,
+		newEnviron:       newEnviron,
+		check:            blockChecker,
+		providerRegistry: providerRegistry,
 	}
 	return client, nil
 }
@@ -423,7 +428,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	}
 
 	var result params.ProvisioningScriptResult
-	icfg, err := InstanceConfig(c.api.state(), args.MachineId, args.Nonce, args.DataDir)
+	icfg, err := InstanceConfig(c.api.state(), args.MachineId, args.Nonce, args.DataDir, c.providerRegistry)
 	if err != nil {
 		return result, common.ServerError(errors.Annotate(
 			err, "getting instance config",

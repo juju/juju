@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
 	_ "github.com/juju/juju/provider/azure"
@@ -56,7 +57,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.adminUser,
 	}
-	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, nil, s.authoriser, s.st.model)
+	api, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, nil, s.authoriser, s.st.model, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -74,7 +75,7 @@ func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mock
 
 func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	modelmanager, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, nil, s.authoriser, s.st.model)
+	modelmanager, err := modelmanager.NewModelManagerAPI(s.st, &mockState{}, nil, s.authoriser, s.st.model, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = modelmanager
 }

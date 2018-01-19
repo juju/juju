@@ -16,11 +16,13 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -85,12 +87,13 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	// Register, and to register the root for tools URLs.
 	s.resources = common.NewResources()
 
-	// Create a provisioner API for the machine.
-	provisionerAPI, err := provisioner.NewProvisionerAPI(
-		s.State,
-		s.resources,
-		s.authorizer,
-	)
+	provisionerAPI, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                s.authorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.provisioner = provisionerAPI
 }
@@ -111,13 +114,25 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = true
 	// Works with an environment manager, which is not a machine agent.
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 
 	// But fails with neither a machine agent or an environment manager.
 	anAuthorizer.Controller = false
-	aProvisioner, err = provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	aProvisioner, err = provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, gc.NotNil)
 	c.Assert(aProvisioner, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -188,7 +203,13 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 
@@ -489,8 +510,13 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = names.NewMachineTag("1")
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
-		anAuthorizer)
+	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Running,
@@ -675,8 +701,13 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
-		anAuthorizer)
+	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertModelConfig(c, aProvisioner)
 }
@@ -981,7 +1012,13 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	provisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -1097,7 +1134,13 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	provisionerV5, err := provisioner.NewProvisionerAPIV5(s.State, s.resources, anAuthorizer)
+	provisionerV5, err := provisioner.NewProvisionerAPIV5(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
@@ -1327,7 +1370,13 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := aProvisioner.WatchModelMachines()
@@ -1417,7 +1466,14 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 
@@ -1533,7 +1589,13 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
+	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := aProvisioner.WatchMachineErrorRetry()

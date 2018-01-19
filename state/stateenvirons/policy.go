@@ -18,17 +18,25 @@ import (
 // environStatePolicy implements state.Policy in
 // terms of environs.Environ and related types.
 type environStatePolicy struct {
-	st         *state.State
-	getEnviron func(*state.State) (environs.Environ, error)
+	st               *state.State
+	getEnviron       func(*state.State) (environs.Environ, error)
+	providerRegistry *environs.ProviderRegistry
 }
 
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
 // a state.Policy implemented in terms of environs.Environ and
 // related types. The provided function will be used to construct
 // environs.Environs given a state.State.
-func GetNewPolicyFunc(getEnviron func(*state.State) (environs.Environ, error)) state.NewPolicyFunc {
+func GetNewPolicyFunc(
+	getEnviron func(*state.State) (environs.Environ, error),
+	providerRegistry *environs.ProviderRegistry,
+) state.NewPolicyFunc {
 	return func(st *state.State) state.Policy {
-		return environStatePolicy{st, getEnviron}
+		return environStatePolicy{
+			st:               st,
+			getEnviron:       getEnviron,
+			providerRegistry: providerRegistry,
+		}
 	}
 }
 
@@ -57,7 +65,7 @@ func (p environStatePolicy) ConfigValidator() (config.Validator, error) {
 		// config validation.
 		return nil, errors.NotImplementedf("ConfigValidator")
 	}
-	return environProvider(p.st)
+	return p.environProvider(p.st)
 }
 
 // ProviderConfigSchemaSource implements state.Policy.
@@ -71,7 +79,7 @@ func (p environStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSou
 		// a config schema.
 		return nil, errors.NotImplementedf("ProviderConfigSchemaSource")
 	}
-	provider, err := environProvider(p.st)
+	provider, err := p.environProvider(p.st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -142,7 +150,7 @@ func NewStorageProviderRegistry(env environs.Environ) storage.ProviderRegistry {
 	return storage.ChainedProviderRegistry{env, provider.CommonStorageProviders()}
 }
 
-func environProvider(st *state.State) (environs.EnvironProvider, error) {
+func (p environStatePolicy) environProvider(st *state.State) (environs.EnvironProvider, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model")
@@ -152,5 +160,5 @@ func environProvider(st *state.State) (environs.EnvironProvider, error) {
 		return nil, errors.Annotate(err, "getting cloud")
 	}
 	// EnvironProvider implements state.ConfigValidator.
-	return environs.Provider(cloud.Type)
+	return p.providerRegistry.Provider(cloud.Type)
 }

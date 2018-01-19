@@ -62,9 +62,11 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := factory(&facadetest.Context{
-		State_:     s.State,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                s.authorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
@@ -414,10 +416,12 @@ func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
 
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc) (*migrationtarget.API, error) {
 	ctx := facadetest.Context{
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:               s.State,
+		StatePool_:           s.StatePool,
+		Resources_:           s.resources,
+		Auth_:                s.authorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
 	}
 	api, err := migrationtarget.NewAPI(ctx, environFunc)
 	return api, err

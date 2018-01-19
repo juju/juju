@@ -16,7 +16,7 @@ import (
 // InstanceTypes returns instance type information for the cloud and region
 // in which the current model is deployed.
 func (mm *MachineManagerAPI) InstanceTypes(cons params.ModelInstanceTypesConstraints) (params.InstanceTypesResults, error) {
-	return instanceTypes(mm, environs.GetEnviron, cons)
+	return instanceTypes(mm, environs.GetEnviron, cons, mm.providerRegistry)
 }
 
 type environGetFunc func(st environs.EnvironConfigGetter, newEnviron environs.NewEnvironFunc) (environs.Environ, error)
@@ -24,6 +24,7 @@ type environGetFunc func(st environs.EnvironConfigGetter, newEnviron environs.Ne
 func instanceTypes(mm *MachineManagerAPI,
 	getEnviron environGetFunc,
 	cons params.ModelInstanceTypesConstraints,
+	providerRegistry *environs.ProviderRegistry,
 ) (params.InstanceTypesResults, error) {
 	model, err := mm.st.Model()
 	if err != nil {
@@ -41,7 +42,7 @@ func instanceTypes(mm *MachineManagerAPI,
 		ModelConfigFunc: model.Config,
 	}
 
-	env, err := getEnviron(backend, environs.New)
+	env, err := getEnviron(backend, providerRegistry.NewEnviron)
 	result := make([]params.InstanceTypesResult, len(cons.Constraints))
 	// TODO(perrito666) Cache the results to avoid excessive querying of the cloud.
 	for i, c := range cons.Constraints {

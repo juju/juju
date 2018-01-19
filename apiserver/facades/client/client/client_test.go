@@ -62,10 +62,12 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 
 func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.Authorizer) *client.Client {
 	context := &facadetest.Context{
-		State_:     st,
-		StatePool_: s.StatePool,
-		Auth_:      auth,
-		Resources_: common.NewResources(),
+		State_:               st,
+		StatePool_:           s.StatePool,
+		Auth_:                auth,
+		Resources_:           common.NewResources(),
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
 	}
 	apiserverClient, err := client.NewFacade(context)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1254,7 +1256,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		Nonce:     apiParams.Nonce,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	icfg, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
+	icfg, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "", environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	provisioningScript, err := sshprovisioner.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)

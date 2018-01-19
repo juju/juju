@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -34,7 +33,8 @@ type API struct {
 
 // NewFacade is used for API registration.
 func NewFacade(ctx facade.Context) (*API, error) {
-	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(environs.New))
+	providerRegistry := ctx.ProviderRegistry()
+	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(providerRegistry.NewEnviron))
 }
 
 // NewAPI returns a new API. Accepts a NewEnvironFunc for testing

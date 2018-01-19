@@ -67,7 +67,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 				CloudRegion: "a-region",
 				Constraints: &itCons}},
 	}
-	r, err := cloud.InstanceTypes(api, fakeEnvironGet, cons)
+	r, err := cloud.InstanceTypes(api, fakeEnvironGet, cons, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 3)
 	expected := []params.InstanceTypesResult{

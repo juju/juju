@@ -205,17 +205,17 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
 	}
-	api, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authoriser, s.st.model)
+	api, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authoriser, s.st.model, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
-	caasApi, err := modelmanager.NewModelManagerAPI(s.caasSt, s.ctlrSt, nil, s.authoriser, s.st.model)
+	caasApi, err := modelmanager.NewModelManagerAPI(s.caasSt, s.ctlrSt, nil, s.authoriser, s.st.model, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	s.caasApi = caasApi
 }
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	mm, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authoriser, s.st.model)
+	mm, err := modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authoriser, s.st.model, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
 }
@@ -874,6 +874,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		stateenvirons.EnvironConfigGetter{s.State, s.IAASModel.Model},
 		s.authoriser,
 		s.IAASModel,
+		environs.GlobalProviderRegistry(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelmanager = modelmanager
@@ -887,6 +888,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
 		nil, anAuthoriser,
 		s.IAASModel.Model,
+		environs.GlobalProviderRegistry(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
@@ -899,6 +901,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
 		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
 		nil, anAuthoriser, s.IAASModel.Model,
+		environs.GlobalProviderRegistry(),
 	)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -1104,6 +1107,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
 		nil, s.authoriser,
 		s.IAASModel.Model,
+		environs.GlobalProviderRegistry(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1141,6 +1145,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
 		nil, s.authoriser,
 		s.IAASModel.Model,
+		environs.GlobalProviderRegistry(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1175,6 +1180,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		common.NewModelManagerBackend(model, s.StatePool),
 		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
 		nil, s.authoriser, s.IAASModel.Model,
+		environs.GlobalProviderRegistry(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

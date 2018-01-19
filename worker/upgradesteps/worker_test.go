@@ -415,6 +415,7 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob
 func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 	newPolicy := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
+		environs.GlobalProviderRegistry(),
 	)
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,

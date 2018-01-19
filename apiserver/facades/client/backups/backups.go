@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -40,15 +41,16 @@ type Backend interface {
 
 // API serves backup-specific API methods.
 type API struct {
-	backend Backend
-	paths   *backups.Paths
+	backend          Backend
+	paths            *backups.Paths
+	providerRegistry *environs.ProviderRegistry
 
 	// machineID is the ID of the machine where the API server is running.
 	machineID string
 }
 
 // NewAPI creates a new instance of the Backups API facade.
-func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer, providerRegistry *environs.ProviderRegistry) (*API, error) {
 	isControllerAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -83,9 +85,10 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 		return nil, errors.Trace(err)
 	}
 	b := API{
-		backend:   backend,
-		paths:     &paths,
-		machineID: machineID,
+		backend:          backend,
+		paths:            &paths,
+		machineID:        machineID,
+		providerRegistry: providerRegistry,
 	}
 	return &b, nil
 }
@@ -103,9 +106,9 @@ func extractResourceValue(resources facade.Resources, key string) (string, error
 	return strRes.String(), nil
 }
 
-var newBackups = func(backend Backend) (backups.Backups, io.Closer) {
+var newBackups = func(backend Backend, providerRegistry *environs.ProviderRegistry) (backups.Backups, io.Closer) {
 	stor := backups.NewStorage(backend)
-	return backups.NewBackups(stor), stor
+	return backups.NewBackups(stor, providerRegistry), stor
 }
 
 // ResultFromMetadata updates the result with the information in the

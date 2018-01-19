@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -226,15 +227,17 @@ func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.Structure
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
-		Clock:           clock.WallClock,
-		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
-		Tag:             names.NewMachineTag("0"),
-		LogDir:          c.MkDir(),
-		Hub:             hub,
-		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-		UpgradeComplete: func() bool { return true },
-		RestoreStatus:   func() state.RestoreStatus { return state.RestoreNotActive },
+		Clock:               clock.WallClock,
+		GetCertificate:      func() *tls.Certificate { return coretesting.ServerTLSCert },
+		Tag:                 names.NewMachineTag("0"),
+		LogDir:              c.MkDir(),
+		Hub:                 hub,
+		NewObserver:         func() observer.Observer { return &fakeobserver.Instance{} },
+		RateLimitConfig:     apiserver.DefaultRateLimitConfig(),
+		UpgradeComplete:     func() bool { return true },
+		RestoreStatus:       func() state.RestoreStatus { return state.RestoreNotActive },
+		ProviderRegistry:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry: environs.GlobalImageSourceRegistry(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	port := listener.Addr().(*net.TCPAddr).Port

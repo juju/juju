@@ -632,6 +632,11 @@ func (h *guiVersionHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 		if err := sendError(w, errors.Trace(err)); err != nil {
 			logger.Errorf("%v", err)
 		}
+	} else {
+		// Go versions differ in whether they treat an empty body
+		// as text/plain (starting at Go 1.10). Avoid argument by
+		// setting the content explicitly.
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	}
 }
 

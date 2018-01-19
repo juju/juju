@@ -289,6 +289,7 @@ var dummy = environProvider{
 	state: make(map[string]*environState),
 	newStatePolicy: stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
+		environs.GlobalProviderRegistry(),
 	),
 	supportsSpaces:         true,
 	supportsSpaceDiscovery: false,
@@ -306,6 +307,7 @@ func Reset(c *gc.C) {
 	dummy.state = make(map[string]*environState)
 	dummy.newStatePolicy = stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
+		environs.GlobalProviderRegistry(),
 	)
 	dummy.supportsSpaces = true
 	dummy.supportsSpaceDiscovery = false
@@ -860,6 +862,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				RestoreStatus: func() state.RestoreStatus {
 					return state.RestoreNotActive
 				},
+				ProviderRegistry:    environs.GlobalProviderRegistry(),
+				ImageSourceRegistry: environs.GlobalImageSourceRegistry(),
 			})
 			if err != nil {
 				statePool.Close()

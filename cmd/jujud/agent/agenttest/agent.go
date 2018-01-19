@@ -266,6 +266,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 		MongoSession:       session,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
+			environs.GlobalProviderRegistry(),
 		),
 	})
 	c.Assert(err, jc.ErrorIsNil)

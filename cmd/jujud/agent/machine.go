@@ -785,6 +785,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 		MongoSession:       session,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
+			environs.GlobalProviderRegistry(),
 		),
 		// state.InitDatabase is idempotent and needs to be called just
 		// prior to performing any upgrades since a new Juju binary may
@@ -940,6 +941,7 @@ func (a *MachineAgent) initController(agentConfig agent.Config) (*state.Controll
 		MongoSession:       session,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
+			environs.GlobalProviderRegistry(),
 		),
 		RunTransactionObserver: a.mongoTxnCollector.AfterRunTransaction,
 	})
@@ -1087,6 +1089,7 @@ func openState(
 		MongoSession:       session,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
+			environs.GlobalProviderRegistry(),
 		),
 		RunTransactionObserver: runTransactionObserver,
 	})

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
@@ -41,6 +42,7 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		nil, // toolsFinder
 		nil, // newEnviron
 		nil, // blockChecker
+		environs.GlobalProviderRegistry(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
@@ -38,7 +39,7 @@ func (s *backupsCommonSuite) SetUpTest(c *gc.C) {
 
 	s.fake = &backupstesting.FakeBackups{}
 	s.PatchValue(apiserver.NewBackups,
-		func(st *state.State, m *state.Model) (backups.Backups, io.Closer) {
+		func(*state.State, *state.Model, *environs.ProviderRegistry) (backups.Backups, io.Closer) {
 			return s.fake, ioutil.NopCloser(nil)
 		},
 	)

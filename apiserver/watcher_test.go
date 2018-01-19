@@ -17,6 +17,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -54,10 +55,12 @@ func (s *watcherSuite) getFacade(
 
 func (s *watcherSuite) facadeContext(id string, dispose func()) facadetest.Context {
 	return facadetest.Context{
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-		ID_:        id,
-		Dispose_:   dispose,
+		Resources_:           s.resources,
+		Auth_:                s.authorizer,
+		ID_:                  id,
+		Dispose_:             dispose,
+		ProviderRegistry_:    environs.NewProviderRegistry(),
+		ImageSourceRegistry_: environs.NewImageSourceRegistry(),
 	}
 }
 

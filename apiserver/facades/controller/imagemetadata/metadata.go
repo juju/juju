@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	envmetadata "github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -26,8 +25,9 @@ var logger = loggo.GetLogger("juju.apiserver.imagemetadata")
 // API is the concrete implementation of the api end point
 // for loud image metadata manipulations.
 type API struct {
-	metadata   metadataAccess
-	newEnviron func() (environs.Environ, error)
+	metadata            metadataAccess
+	newEnviron          func() (environs.Environ, error)
+	imageSourceRegistry *environs.ImageSourceRegistry
 }
 
 // createAPI returns a new image metadata API facade.
@@ -36,27 +36,27 @@ func createAPI(
 	newEnviron func() (environs.Environ, error),
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	imageSourceRegistry *environs.ImageSourceRegistry,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 
 	return &API{
-		metadata:   st,
-		newEnviron: newEnviron,
+		metadata:            st,
+		newEnviron:          newEnviron,
+		imageSourceRegistry: imageSourceRegistry,
 	}, nil
 }
 
 // NewAPI returns a new cloud image metadata API facade.
-func NewAPI(
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-) (*API, error) {
+func NewAPI(ctx facade.Context) (*API, error) {
+	st := ctx.State()
+	providerRegistry := ctx.ProviderRegistry()
 	newEnviron := func() (environs.Environ, error) {
-		return stateenvirons.GetNewEnvironFunc(environs.New)(st)
+		return stateenvirons.GetNewEnvironFunc(providerRegistry.NewEnviron)(st)
 	}
-	return createAPI(getState(st), newEnviron, resources, authorizer)
+	return createAPI(getState(st), newEnviron, ctx.Resources(), ctx.Auth(), ctx.ImageSourceRegistry())
 }
 
 // UpdateFromPublishedImages retrieves currently published image metadata and
@@ -71,7 +71,7 @@ func (api *API) retrievePublished() error {
 		return errors.Annotatef(err, "getting environ")
 	}
 
-	sources, err := environs.ImageMetadataSources(env)
+	sources, err := api.imageSourceRegistry.Sources(env)
 	if err != nil {
 		return errors.Annotatef(err, "getting cloud specific image metadata sources")
 	}

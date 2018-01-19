@@ -46,20 +46,20 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 	s.authorizer = new(apiservertesting.FakeAuthorizer)
 	s.authorizer.Tag = names.NewUserTag("igor")
 	s.authorizer.AdminTag = names.NewUserTag("igor")
-	facade, err := sshclient.New(s.backend, nil, s.authorizer)
+	facade, err := sshclient.New(s.backend, s.authorizer, environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
 
 func (s *facadeSuite) TestMachineAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
-	_, err := sshclient.New(s.backend, nil, s.authorizer)
+	_, err := sshclient.New(s.backend, s.authorizer, environs.GlobalProviderRegistry())
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 
 func (s *facadeSuite) TestUnitAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewUnitTag("foo/0")
-	_, err := sshclient.New(s.backend, nil, s.authorizer)
+	_, err := sshclient.New(s.backend, s.authorizer, environs.GlobalProviderRegistry())
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 

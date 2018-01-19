@@ -35,12 +35,15 @@ type SSHMachine interface {
 }
 
 // NewFacade wraps New to express the supplied *state.State as a Backend.
-func NewFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
+func NewFacade(ctx facade.Context) (*Facade, error) {
+	st := ctx.State()
+	auth := ctx.Auth()
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return New(&backend{stateenvirons.EnvironConfigGetter{st, m}}, res, auth)
+	providerRegistry := ctx.ProviderRegistry()
+	return New(&backend{stateenvirons.EnvironConfigGetter{st, m}}, auth, providerRegistry)
 }
 
 type backend struct {

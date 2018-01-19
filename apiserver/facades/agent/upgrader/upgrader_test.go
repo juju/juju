@@ -15,9 +15,11 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -58,7 +60,13 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.rawMachine.Tag(),
 	}
-	s.upgrader, err = upgrader.NewUpgraderAPI(s.State, s.resources, s.authorizer)
+	s.upgrader, err = upgrader.NewUpgraderAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                s.authorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -102,7 +110,13 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 func (s *upgraderSuite) TestUpgraderAPIRefusesNonMachineAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
-	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUpgraderAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Check(err, gc.NotNil)
 	c.Check(anUpgrader, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -112,7 +126,13 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	// We are a machine agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
-	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUpgraderAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
@@ -135,7 +155,13 @@ func (s *upgraderSuite) TestToolsNothing(c *gc.C) {
 func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
-	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUpgraderAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
@@ -187,7 +213,13 @@ func (s *upgraderSuite) TestSetToolsNothing(c *gc.C) {
 func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
-	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUpgraderAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
@@ -247,7 +279,13 @@ func (s *upgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
-	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
+	anUpgrader, err := upgrader.NewUpgraderAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                anAuthorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
@@ -317,7 +355,13 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.apiMachine.Tag(),
 	}
-	upgraderAPI, err := upgrader.NewUpgraderAPI(s.State, s.resources, authorizer)
+	upgraderAPI, err := upgrader.NewUpgraderAPI(facadetest.Context{
+		State_:               s.State,
+		Resources_:           s.resources,
+		Auth_:                authorizer,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag().String()}}}
 	results, err := upgraderAPI.DesiredVersion(args)

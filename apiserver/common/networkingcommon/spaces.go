@@ -15,8 +15,8 @@ import (
 
 // SupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
-func SupportsSpaces(backing environs.EnvironConfigGetter) error {
-	env, err := environs.GetEnviron(backing, environs.New)
+func SupportsSpaces(backing environs.EnvironConfigGetter, providerRegistry *environs.ProviderRegistry) error {
+	env, err := environs.GetEnviron(backing, providerRegistry.NewEnviron)
 	if err != nil {
 		return errors.Annotate(err, "getting environ")
 	}
@@ -28,8 +28,8 @@ func SupportsSpaces(backing environs.EnvironConfigGetter) error {
 
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
-func CreateSpaces(backing NetworkBacking, args params.CreateSpacesParams) (results params.ErrorResults, err error) {
-	err = SupportsSpaces(backing)
+func CreateSpaces(backing NetworkBacking, providerRegistry *environs.ProviderRegistry, args params.CreateSpacesParams) (results params.ErrorResults, err error) {
+	err = SupportsSpaces(backing, providerRegistry)
 	if err != nil {
 		return results, common.ServerError(errors.Trace(err))
 	}

@@ -77,14 +77,15 @@ type ModelManagerV2 interface {
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
-	state       common.ModelManagerBackend
-	ctlrState   common.ModelManagerBackend
-	check       *common.BlockChecker
-	authorizer  facade.Authorizer
-	toolsFinder *common.ToolsFinder
-	apiUser     names.UserTag
-	isAdmin     bool
-	model       common.Model
+	state            common.ModelManagerBackend
+	ctlrState        common.ModelManagerBackend
+	check            *common.BlockChecker
+	authorizer       facade.Authorizer
+	toolsFinder      *common.ToolsFinder
+	apiUser          names.UserTag
+	isAdmin          bool
+	model            common.Model
+	providerRegistry *environs.ProviderRegistry
 }
 
 // ModelManagerAPIV2 provides a way to wrap the different calls between
@@ -111,6 +112,7 @@ func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 	pool := ctx.StatePool()
 	ctlrSt := pool.SystemState()
 	auth := ctx.Auth()
+	providerRegistry := ctx.ProviderRegistry()
 
 	var err error
 	model, err := st.Model()
@@ -131,6 +133,7 @@ func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 		configGetter,
 		auth,
 		model,
+		providerRegistry,
 	)
 }
 
@@ -160,6 +163,7 @@ func NewModelManagerAPI(
 	configGetter environs.EnvironConfigGetter,
 	authorizer facade.Authorizer,
 	m common.Model,
+	providerRegistry *environs.ProviderRegistry,
 ) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -175,15 +179,16 @@ func NewModelManagerAPI(
 	}
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	return &ModelManagerAPI{
-		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
-		state:          st,
-		ctlrState:      ctlrSt,
-		check:          common.NewBlockChecker(st),
-		authorizer:     authorizer,
-		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
-		apiUser:        apiUser,
-		isAdmin:        isAdmin,
-		model:          m,
+		ModelStatusAPI:   common.NewModelStatusAPI(st, authorizer, apiUser),
+		state:            st,
+		ctlrState:        ctlrSt,
+		check:            common.NewBlockChecker(st),
+		authorizer:       authorizer,
+		toolsFinder:      common.NewToolsFinder(configGetter, st, urlGetter, providerRegistry),
+		apiUser:          apiUser,
+		isAdmin:          isAdmin,
+		model:            m,
+		providerRegistry: providerRegistry,
 	}, nil
 }
 
@@ -252,7 +257,7 @@ func (m *ModelManagerAPI) newModelConfig(
 	}
 
 	creator := modelmanager.ModelConfigCreator{
-		Provider: environs.Provider,
+		Provider: m.providerRegistry.Provider,
 		FindTools: func(n version.Number) (tools.List, error) {
 			result, err := m.toolsFinder.FindTools(params.FindToolsParams{
 				Number: n,
@@ -469,7 +474,7 @@ func (m *ModelManagerAPI) newIAASModel(
 	}
 
 	// Create the Environ.
-	env, err := environs.New(environs.OpenParams{
+	env, err := m.providerRegistry.NewEnviron(environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: newConfig,
 	})

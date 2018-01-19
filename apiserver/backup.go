@@ -15,22 +15,24 @@ import (
 	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/httpattachment"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
 
-var newBackups = func(st *state.State, m *state.Model) (backups.Backups, io.Closer) {
+var newBackups = func(st *state.State, m *state.Model, providerRegistry *environs.ProviderRegistry) (backups.Backups, io.Closer) {
 	backend := struct {
 		*state.State
 		*state.Model
 	}{st, m}
 	stor := backups.NewStorage(backend)
-	return backups.NewBackups(stor), stor
+	return backups.NewBackups(stor, providerRegistry), stor
 }
 
 // backupHandler handles backup requests.
 type backupHandler struct {
-	ctxt httpContext
+	ctxt             httpContext
+	providerRegistry *environs.ProviderRegistry
 }
 
 func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
@@ -49,7 +51,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	backups, closer := newBackups(st, m)
+	backups, closer := newBackups(st, m, h.providerRegistry)
 	defer closer.Close()
 
 	switch req.Method {

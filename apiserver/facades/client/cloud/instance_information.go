@@ -36,7 +36,7 @@ func (g cloudEnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
 // InstanceTypes returns instance type information for the cloud and region
 // in which the current model is deployed.
 func (api *CloudAPI) InstanceTypes(cons params.CloudInstanceTypesConstraints) (params.InstanceTypesResults, error) {
-	return instanceTypes(api, environs.GetEnviron, cons)
+	return instanceTypes(api, environs.GetEnviron, cons, api.providerRegistry)
 }
 
 type environGetFunc func(st environs.EnvironConfigGetter, newEnviron environs.NewEnvironFunc) (environs.Environ, error)
@@ -44,6 +44,7 @@ type environGetFunc func(st environs.EnvironConfigGetter, newEnviron environs.Ne
 func instanceTypes(api *CloudAPI,
 	environGet environGetFunc,
 	cons params.CloudInstanceTypesConstraints,
+	providerRegistry *environs.ProviderRegistry,
 ) (params.InstanceTypesResults, error) {
 	m, err := api.ctlrBackend.Model()
 	if err != nil {
@@ -72,7 +73,7 @@ func instanceTypes(api *CloudAPI,
 			continue
 		}
 
-		env, err := environGet(backend, environs.New)
+		env, err := environGet(backend, providerRegistry.NewEnviron)
 		if err != nil {
 			return params.InstanceTypesResults{}, errors.Trace(err)
 		}

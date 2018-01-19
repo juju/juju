@@ -277,6 +277,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			dialOpts,
 			stateenvirons.GetNewPolicyFunc(
 				stateenvirons.GetNewEnvironFunc(environs.New),
+				environs.GlobalProviderRegistry(),
 			),
 		)
 		return stateErr

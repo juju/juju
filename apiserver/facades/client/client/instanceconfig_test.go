@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -44,7 +45,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 1)
 
 	machineId := machines[0].Machine
-	instanceConfig, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
+	instanceConfig, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "", environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.State.ControllerConfig()
@@ -68,7 +69,7 @@ func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
-	_, err = client.InstanceConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
+	_, err = client.InstanceConfig(s.State, machines[0].Machine, apiParams.Nonce, "", environs.GlobalProviderRegistry())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("arch is not set for %q", "machine-"+machines[0].Machine))
 }
 
@@ -86,6 +87,6 @@ func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.InstanceConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
+	_, err = client.InstanceConfig(s.State, machines[0].Machine, apiParams.Nonce, "", environs.GlobalProviderRegistry())
 	c.Assert(err, gc.ErrorMatches, "finding agent binaries: "+coretools.ErrNoMatches.Error())
 }

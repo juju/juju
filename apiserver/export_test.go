@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -94,7 +95,7 @@ func NewErrRoot(err error) *errRoot {
 // *barely* connected to anything.  Just enough to let you probe some
 // of the interfaces, but not enough to actually do any RPC calls.
 func TestingAPIRoot(facades *facade.Registry) rpc.Root {
-	return newAPIRoot(nil, state.NewStatePool(nil), facades, common.NewResources(), nil)
+	return newAPIRoot(nil, state.NewStatePool(nil), facades, common.NewResources(), nil, environs.NewProviderRegistry(), environs.NewImageSourceRegistry())
 }
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to

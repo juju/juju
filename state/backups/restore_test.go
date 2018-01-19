@@ -226,11 +226,12 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	r.PatchValue(&mongoDefaultDialOpts, mongotest.DialOpts)
 	r.PatchValue(&environsGetNewPolicyFunc, func(
 		func(*state.State) (environs.Environ, error),
+		*environs.ProviderRegistry,
 	) state.NewPolicyFunc {
 		return nil
 	})
 
-	st, err = newStateConnection(st.ControllerTag(), names.NewModelTag(st.ModelUUID()), statetesting.NewMongoInfo())
+	st, err = newStateConnection(st.ControllerTag(), names.NewModelTag(st.ModelUUID()), statetesting.NewMongoInfo(), environs.GlobalProviderRegistry())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }

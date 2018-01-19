@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
 
@@ -135,6 +136,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          config.PrometheusRegisterer,
 		AuditLogConfig:                auditConfig,
+		ProviderRegistry:              environs.GlobalProviderRegistry(),
+		ImageSourceRegistry:           environs.GlobalImageSourceRegistry(),
 	}
 	if auditConfig.Enabled {
 		serverConfig.AuditLog = auditlog.NewLogFile(

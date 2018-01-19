@@ -11,9 +11,11 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/machine"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -38,11 +40,13 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 
 	// Create a machiner API for machine 1.
-	machiner, err := machine.NewMachinerAPI(
-		s.State,
-		s.resources,
-		s.authorizer,
-	)
+	machiner, err := machine.NewMachinerAPI(&facadetest.Context{
+		State_:               s.State,
+		Auth_:                s.authorizer,
+		Resources_:           s.resources,
+		ProviderRegistry_:    environs.GlobalProviderRegistry(),
+		ImageSourceRegistry_: environs.GlobalImageSourceRegistry(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.machiner = machiner
 }
@@ -50,7 +54,13 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
-	aMachiner, err := machine.NewMachinerAPI(s.State, s.resources, anAuthorizer)
+	aMachiner, err := machine.NewMachinerAPI(&facadetest.Context{
+		State_:               s.State,
+		Auth_:                anAuthorizer,
+		Resources_:           s.resources,
+		ProviderRegistry_:    environs.NewProviderRegistry(),
+		ImageSourceRegistry_: environs.NewImageSourceRegistry(),
+	})
 	c.Assert(err, gc.NotNil)
 	c.Assert(aMachiner, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")

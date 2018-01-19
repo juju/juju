@@ -17,7 +17,7 @@ var waitUntilReady = replicaset.WaitUntilReady
 // Create is the API method that requests juju to create a new backup
 // of its state.  It returns the metadata for that backup.
 func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataResult, err error) {
-	backupsMethods, closer := newBackups(a.backend)
+	backupsMethods, closer := newBackups(a.backend, a.providerRegistry)
 	defer closer.Close()
 
 	session := a.backend.MongoSession().Copy()

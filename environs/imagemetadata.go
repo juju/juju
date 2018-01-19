@@ -13,6 +13,12 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 )
 
+var imageSourceRegistry = NewImageSourceRegistry()
+
+func GlobalImageSourceRegistry() *ImageSourceRegistry {
+	return imageSourceRegistry
+}
+
 // ImageDataSourceFunc is a function type that takes an environment and
 // returns a simplestreams datasource.
 //
@@ -20,32 +26,6 @@ import (
 // Any error satisfying errors.IsNotSupported will be ignored;
 // any other error will be cause ImageMetadataSources to fail.
 type ImageDataSourceFunc func(Environ) (simplestreams.DataSource, error)
-
-// RegisterUserImageDataSourceFunc registers an ImageDataSourceFunc
-// with the specified id at the start of the search path, overwriting
-// any function previously registered with the same id.
-func RegisterUserImageDataSourceFunc(id string, f ImageDataSourceFunc) {
-	GlobalRegistry().ImageSources().RegisterFirst(id, f)
-}
-
-// RegisterImageDataSourceFunc registers an ImageDataSourceFunc
-// with the specified id, overwriting any function previously registered
-// with the same id.
-func RegisterImageDataSourceFunc(id string, f ImageDataSourceFunc) {
-	GlobalRegistry().ImageSources().Register(id, f)
-}
-
-// ImageMetadataSources returns the sources to use when looking for
-// simplestreams image id metadata for the given Environ.
-func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
-	return GlobalRegistry().ImageSources().Sources(env)
-}
-
-// UnregisterImageDataSourceFunc unregisters an ImageDataSourceFunc
-// with the specified id.
-func UnregisterImageDataSourceFunc(id string) {
-	GlobalRegistry().ImageSources().Unregister(id)
-}
 
 type datasourceFuncId struct {
 	id string
@@ -165,4 +145,30 @@ func (r *ImageSourceRegistry) dataSources(env Environ) ([]simplestreams.DataSour
 		datasources = append(datasources, datasource)
 	}
 	return datasources, nil
+}
+
+// RegisterUserImageDataSourceFunc registers an ImageDataSourceFunc
+// with the specified id at the start of the search path, overwriting
+// any function previously registered with the same id.
+func RegisterUserImageDataSourceFunc(id string, f ImageDataSourceFunc) {
+	GlobalImageSourceRegistry().RegisterFirst(id, f)
+}
+
+// RegisterImageDataSourceFunc registers an ImageDataSourceFunc
+// with the specified id, overwriting any function previously registered
+// with the same id.
+func RegisterImageDataSourceFunc(id string, f ImageDataSourceFunc) {
+	GlobalImageSourceRegistry().Register(id, f)
+}
+
+// ImageMetadataSources returns the sources to use when looking for
+// simplestreams image id metadata for the given Environ.
+func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
+	return GlobalImageSourceRegistry().Sources(env)
+}
+
+// UnregisterImageDataSourceFunc unregisters an ImageDataSourceFunc
+// with the specified id.
+func UnregisterImageDataSourceFunc(id string) {
+	GlobalImageSourceRegistry().Unregister(id)
 }

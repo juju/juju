@@ -14,11 +14,7 @@ const AdminUser = "admin"
 
 // New returns a new environment based on the provided configuration.
 func New(args OpenParams) (Environ, error) {
-	p, err := Provider(args.Cloud.Type)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return p.Open(args)
+	return GlobalProviderRegistry().NewEnviron(args)
 }
 
 // Destroy destroys the controller and, if successful,

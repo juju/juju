@@ -40,6 +40,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/filestorage"
 	"gopkg.in/juju/names.v2"
@@ -106,13 +107,15 @@ type Backups interface {
 }
 
 type backups struct {
-	storage filestorage.FileStorage
+	storage          filestorage.FileStorage
+	providerRegistry *environs.ProviderRegistry
 }
 
 // NewBackups creates a new Backups value using the FileStorage provided.
-func NewBackups(stor filestorage.FileStorage) Backups {
+func NewBackups(stor filestorage.FileStorage, providerRegistry *environs.ProviderRegistry) Backups {
 	b := backups{
-		storage: stor,
+		storage:          stor,
+		providerRegistry: providerRegistry,
 	}
 	return &b
 }

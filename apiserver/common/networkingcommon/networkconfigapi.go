@@ -14,19 +14,22 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
 type NetworkConfigAPI struct {
-	st           *state.State
-	getCanModify common.GetAuthFunc
+	st               *state.State
+	getCanModify     common.GetAuthFunc
+	providerRegistry *environs.ProviderRegistry
 }
 
-func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) *NetworkConfigAPI {
+func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc, providerRegistry *environs.ProviderRegistry) *NetworkConfigAPI {
 	return &NetworkConfigAPI{
-		st:           st,
-		getCanModify: getCanModify,
+		st:               st,
+		getCanModify:     getCanModify,
+		providerRegistry: providerRegistry,
 	}
 }
 
@@ -197,6 +200,7 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 			State: api.st,
 			Model: model,
 		},
+		api.providerRegistry,
 	)
 	if errors.IsNotSupported(err) {
 		logger.Infof("provider network config not supported: %v", err)

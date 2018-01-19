@@ -33,12 +33,16 @@ func (s *stateShim) MachineSeries(id string) (string, error) {
 }
 
 // NewFacade provides the required signature for facade registration.
-func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+func NewFacade(fctx facade.Context) (*API, error) {
+	st := fctx.State()
+	resources := fctx.Resources()
+	authorizer := fctx.Auth()
+	registry := fctx.ProviderRegistry()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewAPI(&stateShim{st, model}, resources, authorizer)
+	return NewAPI(&stateShim{st, model}, resources, authorizer, registry)
 }
 
 // ControllerTag disambiguates the ControllerTag method pending further

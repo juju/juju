@@ -6,6 +6,7 @@ package facade
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -37,8 +38,11 @@ type Context interface {
 	// be disposed by calling this method.
 	Dispose()
 
-	// EnvironsRegistry returns the provider and image source registry.
-	//EnvironsRegistry() *environs.Registry
+	// ProviderRegistry returns the provider registry.
+	ProviderRegistry() *environs.ProviderRegistry
+
+	// ImageSourceRegistry returns the image source registry.
+	ImageSourceRegistry() *environs.ImageSourceRegistry
 
 	// Resources exposes per-connection capabilities. By adding a
 	// resource, you make it accessible by (returned) id to all
