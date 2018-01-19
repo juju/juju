@@ -47,7 +47,7 @@ type addModelCommand struct {
 	apiRoot          api.Connection
 	newAddModelAPI   func(base.APICallCloser) AddModelAPI
 	newCloudAPI      func(base.APICallCloser) CloudAPI
-	providerRegistry environs.ProviderRegistry
+	providerRegistry *environs.ProviderRegistry
 
 	Name           string
 	Owner          string

@@ -19,11 +19,10 @@ import (
 
 type upgradeModelConfigSuite struct {
 	coretesting.BaseSuite
-	stub     testing.Stub
-	cfg      *config.Config
-	reader   upgrades.ModelConfigReader
-	updater  upgrades.ModelConfigUpdater
-	registry *mockProviderRegistry
+	stub    testing.Stub
+	cfg     *config.Config
+	reader  upgrades.ModelConfigReader
+	updater upgrades.ModelConfigUpdater
 }
 
 var _ = gc.Suite(&upgradeModelConfigSuite{})
@@ -33,9 +32,6 @@ func (s *upgradeModelConfigSuite) SetUpTest(c *gc.C) {
 
 	s.stub = testing.Stub{}
 	s.cfg = coretesting.ModelConfig(c)
-	s.registry = &mockProviderRegistry{
-		providers: make(map[string]environs.EnvironProvider),
-	}
 
 	s.reader = environConfigFunc(func() (*config.Config, error) {
 		s.stub.AddCall("ModelConfig")
@@ -52,25 +48,22 @@ func (s *upgradeModelConfigSuite) SetUpTest(c *gc.C) {
 
 func (s *upgradeModelConfigSuite) TestUpgradeModelConfigModelConfigError(c *gc.C) {
 	s.stub.SetErrors(errors.New("cannot read environ config"))
-	err := upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
+	err := upgrades.UpgradeModelConfig(s.reader, s.updater, environs.NewProviderRegistry())
 	c.Assert(err, gc.ErrorMatches, "reading model config: cannot read environ config")
 	s.stub.CheckCallNames(c, "ModelConfig")
 }
 
 func (s *upgradeModelConfigSuite) TestUpgradeModelConfigProviderNotRegistered(c *gc.C) {
-	s.registry.SetErrors(errors.New(`no registered provider for "someprovider"`))
-	err := upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
+	err := upgrades.UpgradeModelConfig(s.reader, s.updater, environs.NewProviderRegistry())
 	c.Assert(err, gc.ErrorMatches, `getting provider: no registered provider for "someprovider"`)
 	s.stub.CheckCallNames(c, "ModelConfig")
 }
 
 func (s *upgradeModelConfigSuite) TestUpgradeModelConfigProviderNotConfigUpgrader(c *gc.C) {
-	s.registry.providers["someprovider"] = &mockEnvironProvider{}
-	err := upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
+	registry := environs.NewProviderRegistry()
+	registry.Register(&mockEnvironProvider{}, "someprovider")
+	err := upgrades.UpgradeModelConfig(s.reader, s.updater, registry)
 	c.Assert(err, jc.ErrorIsNil)
-	s.registry.CheckCalls(c, []testing.StubCall{{
-		FuncName: "Provider", Args: []interface{}{"someprovider"},
-	}})
 	s.stub.CheckCallNames(c, "ModelConfig")
 }
 
@@ -79,12 +72,13 @@ func (s *upgradeModelConfigSuite) TestUpgradeModelConfigProviderConfigUpgrader(c
 	s.cfg, err = s.cfg.Apply(map[string]interface{}{"test-key": "test-value"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.registry.providers["someprovider"] = &mockModelConfigUpgrader{
+	registry := environs.NewProviderRegistry()
+	registry.Register(&mockModelConfigUpgrader{
 		upgradeConfig: func(cfg *config.Config) (*config.Config, error) {
 			return cfg.Remove([]string{"test-key"})
 		},
-	}
-	err = upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
+	}, "someprovider")
+	err = upgrades.UpgradeModelConfig(s.reader, s.updater, registry)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "ModelConfig", "UpdateModelConfig")
@@ -98,24 +92,26 @@ func (s *upgradeModelConfigSuite) TestUpgradeModelConfigProviderConfigUpgrader(c
 }
 
 func (s *upgradeModelConfigSuite) TestUpgradeModelConfigUpgradeConfigError(c *gc.C) {
-	s.registry.providers["someprovider"] = &mockModelConfigUpgrader{
+	registry := environs.NewProviderRegistry()
+	registry.Register(&mockModelConfigUpgrader{
 		upgradeConfig: func(cfg *config.Config) (*config.Config, error) {
 			return nil, errors.New("cannot upgrade config")
 		},
-	}
-	err := upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
+	}, "someprovider")
+	err := upgrades.UpgradeModelConfig(s.reader, s.updater, registry)
 	c.Assert(err, gc.ErrorMatches, "upgrading config: cannot upgrade config")
 	s.stub.CheckCallNames(c, "ModelConfig")
 }
 
 func (s *upgradeModelConfigSuite) TestUpgradeModelConfigUpdateConfigError(c *gc.C) {
 	s.stub.SetErrors(nil, errors.New("cannot update environ config"))
-	s.registry.providers["someprovider"] = &mockModelConfigUpgrader{
+	registry := environs.NewProviderRegistry()
+	registry.Register(&mockModelConfigUpgrader{
 		upgradeConfig: func(cfg *config.Config) (*config.Config, error) {
 			return cfg, nil
 		},
-	}
-	err := upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
+	}, "someprovider")
+	err := upgrades.UpgradeModelConfig(s.reader, s.updater, registry)
 	c.Assert(err, gc.ErrorMatches, "updating config in state: cannot update environ config")
 
 	s.stub.CheckCallNames(c, "ModelConfig", "UpdateModelConfig")
@@ -138,17 +134,6 @@ func (f updateModelConfigFunc) UpdateModelConfig(
 	update map[string]interface{}, remove []string, validate ...state.ValidateConfigFunc,
 ) error {
 	return f(update, remove, validate...)
-}
-
-type mockProviderRegistry struct {
-	environs.ProviderRegistry
-	testing.Stub
-	providers map[string]environs.EnvironProvider
-}
-
-func (r *mockProviderRegistry) Provider(name string) (environs.EnvironProvider, error) {
-	r.MethodCall(r, "Provider", name)
-	return r.providers[name], r.NextErr()
 }
 
 type mockEnvironProvider struct {

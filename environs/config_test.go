@@ -40,8 +40,6 @@ type dummyProvider struct {
 }
 
 func (s *suite) TestRegisterProvider(c *gc.C) {
-	s.PatchValue(environs.Providers, make(map[string]environs.EnvironProvider))
-	s.PatchValue(environs.ProviderAliases, make(map[string]string))
 	type step struct {
 		name    string
 		aliases []string
@@ -56,12 +54,12 @@ func (s *suite) TestRegisterProvider(c *gc.C) {
 		[]step{{
 			name:    "providerName",
 			aliases: []string{"providerName"},
-			err:     "juju: duplicate provider alias \"providerName\"",
+			err:     "duplicate provider alias \"providerName\"",
 		}},
 		[]step{{
 			name:    "providerName",
 			aliases: []string{"providerAlias", "providerAlias"},
-			err:     "juju: duplicate provider alias \"providerAlias\"",
+			err:     "duplicate provider alias \"providerAlias\"",
 		}},
 		[]step{{
 			name:    "providerName",
@@ -71,7 +69,7 @@ func (s *suite) TestRegisterProvider(c *gc.C) {
 			name: "providerName",
 		}, {
 			name: "providerName",
-			err:  "juju: duplicate provider name \"providerName\"",
+			err:  "duplicate provider name \"providerName\"",
 		}},
 		[]step{{
 			name: "providerName1",
@@ -84,19 +82,22 @@ func (s *suite) TestRegisterProvider(c *gc.C) {
 		}, {
 			name:    "providerName2",
 			aliases: []string{"providerName1"},
-			err:     "juju: duplicate provider alias \"providerName1\"",
+			err:     "duplicate provider alias \"providerName1\"",
 		}},
 	}
 
-	registerProvider := func(name string, aliases []string) (err error) {
-		defer func() { err, _ = recover().(error) }()
+	var registry *environs.ProviderRegistry
+	registerProvider := func(name string, aliases []string) error {
 		registered := &dummyProvider{}
-		environs.RegisterProvider(name, registered, aliases...)
-		p, err := environs.Provider(name)
+		err := registry.Register(registered, name, aliases...)
+		if err != nil {
+			return err
+		}
+		p, err := registry.Provider(name)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(p, gc.Equals, registered)
 		for _, alias := range aliases {
-			p, err := environs.Provider(alias)
+			p, err := registry.Provider(alias)
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(p, gc.Equals, registered)
 			c.Assert(p, gc.Equals, registered)
@@ -105,12 +106,7 @@ func (s *suite) TestRegisterProvider(c *gc.C) {
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
-		for k := range *environs.Providers {
-			delete(*environs.Providers, k)
-		}
-		for k := range *environs.ProviderAliases {
-			delete(*environs.ProviderAliases, k)
-		}
+		registry = environs.NewProviderRegistry()
 		for _, step := range test {
 			err := registerProvider(step.name, step.aliases)
 			if step.err == "" {
@@ -123,15 +119,15 @@ func (s *suite) TestRegisterProvider(c *gc.C) {
 }
 
 func (s *suite) TestUnregisterProvider(c *gc.C) {
-	s.PatchValue(environs.Providers, make(map[string]environs.EnvironProvider))
-	s.PatchValue(environs.ProviderAliases, make(map[string]string))
+	registry := environs.NewProviderRegistry()
 	registered := &dummyProvider{}
-	unreg := environs.RegisterProvider("test", registered, "alias1", "alias2")
-	unreg()
-	_, err := environs.Provider("test")
+	err := registry.Register(registered, "test", "alias1", "alias2")
+	c.Assert(err, jc.ErrorIsNil)
+	registry.Unregister("test")
+	_, err = registry.Provider("test")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = environs.Provider("alias1")
+	_, err = registry.Provider("alias1")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = environs.Provider("alias2")
+	_, err = registry.Provider("alias2")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

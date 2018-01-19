@@ -45,7 +45,7 @@ func NewAddModelCommandForTest(
 	api AddModelAPI,
 	cloudAPI CloudAPI,
 	store jujuclient.ClientStore,
-	providerRegistry environs.ProviderRegistry,
+	providerRegistry *environs.ProviderRegistry,
 ) (cmd.Command, *AddModelCommand) {
 	c := &addModelCommand{
 		apiRoot: apiRoot,

@@ -96,24 +96,16 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
 			"type": "cloud-type",
 		},
 	}
-	var registry mockProviderRegistry
-
+	registry := environs.NewProviderRegistry()
+	registry.Register(&mockEnvironProvider{}, "cloud-type")
 	f := modelcmd.NewGetBootstrapConfigParamsFunc(
 		cmdtesting.Context(c),
 		clientStore,
-		&registry,
+		registry,
 	)
 	_, params, err := f("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(params.Cloud.Credential.Label, gc.Equals, "finalized")
-}
-
-type mockProviderRegistry struct {
-	environs.ProviderRegistry
-}
-
-func (r *mockProviderRegistry) Provider(t string) (environs.EnvironProvider, error) {
-	return &mockEnvironProvider{}, nil
 }
 
 type mockEnvironProvider struct {

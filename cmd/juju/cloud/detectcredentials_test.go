@@ -97,9 +97,9 @@ func (p *mockProvider) FinalizeCredential(
 
 func (s *detectCredentialsSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	unreg := environs.RegisterProvider("mock-provider", &mockProvider{detectedCreds: &s.aCredential})
+	environs.RegisterProvider("mock-provider", &mockProvider{detectedCreds: &s.aCredential})
 	s.AddCleanup(func(_ *gc.C) {
-		unreg()
+		environs.UnregisterProvider("mock-provider")
 	})
 }
 

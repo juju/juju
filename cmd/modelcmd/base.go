@@ -434,7 +434,7 @@ func newAPIConnectionParams(
 func NewGetBootstrapConfigParamsFunc(
 	ctx *cmd.Context,
 	store jujuclient.ClientStore,
-	providerRegistry environs.ProviderRegistry,
+	providerRegistry *environs.ProviderRegistry,
 ) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
 	return bootstrapConfigGetter{ctx, store, providerRegistry}.getBootstrapConfigParams
 }
@@ -442,7 +442,7 @@ func NewGetBootstrapConfigParamsFunc(
 type bootstrapConfigGetter struct {
 	ctx      *cmd.Context
 	store    jujuclient.ClientStore
-	registry environs.ProviderRegistry
+	registry *environs.ProviderRegistry
 }
 
 func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {

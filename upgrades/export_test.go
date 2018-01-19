@@ -16,7 +16,7 @@ type ModelConfigReader environConfigReader
 func UpgradeModelConfig(
 	reader ModelConfigReader,
 	updater ModelConfigUpdater,
-	registry environs.ProviderRegistry,
+	registry *environs.ProviderRegistry,
 ) error {
 	return upgradeModelConfig(reader, updater, registry)
 }

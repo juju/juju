@@ -30,7 +30,7 @@ type environConfigReader interface {
 func upgradeModelConfig(
 	reader environConfigReader,
 	updater environConfigUpdater,
-	registry environs.ProviderRegistry,
+	registry *environs.ProviderRegistry,
 ) error {
 	cfg, err := reader.ModelConfig()
 	if err != nil {

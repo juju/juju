@@ -32,11 +32,10 @@ import (
 
 type AddModelSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	fakeAddModelAPI      *fakeAddClient
-	fakeCloudAPI         *fakeCloudAPI
-	fakeProvider         *fakeProvider
-	fakeProviderRegistry *fakeProviderRegistry
-	store                *jujuclient.MemStore
+	fakeAddModelAPI *fakeAddClient
+	fakeCloudAPI    *fakeCloudAPI
+	fakeProvider    *fakeProvider
+	store           *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&AddModelSuite{})
@@ -67,9 +66,6 @@ func (s *AddModelSuite) SetUpTest(c *gc.C) {
 	s.fakeProvider = &fakeProvider{
 		detected: cloud.NewEmptyCloudCredential(),
 	}
-	s.fakeProviderRegistry = &fakeProviderRegistry{
-		provider: s.fakeProvider,
-	}
 
 	// Set up the current controller, and write just enough info
 	// so we don't try to refresh
@@ -99,12 +95,14 @@ func (*fakeAPIConnection) Close() error {
 }
 
 func (s *AddModelSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
+	registry := environs.NewProviderRegistry()
+	registry.Register(s.fakeProvider, "ec2")
 	command, _ := controller.NewAddModelCommandForTest(
 		&fakeAPIConnection{},
 		s.fakeAddModelAPI,
 		s.fakeCloudAPI,
 		s.store,
-		s.fakeProviderRegistry,
+		registry,
 	)
 	return cmdtesting.RunCommand(c, command, args...)
 }
@@ -670,17 +668,6 @@ func (c *fakeCloudAPI) UserCredentials(user names.UserTag, cloud names.CloudTag)
 func (c *fakeCloudAPI) UpdateCredential(credentialTag names.CloudCredentialTag, credential cloud.Credential) error {
 	c.MethodCall(c, "UpdateCredential", credentialTag, credential)
 	return c.NextErr()
-}
-
-type fakeProviderRegistry struct {
-	gitjujutesting.Stub
-	environs.ProviderRegistry
-	provider environs.EnvironProvider
-}
-
-func (r *fakeProviderRegistry) Provider(providerType string) (environs.EnvironProvider, error) {
-	r.MethodCall(r, "Provider", providerType)
-	return r.provider, r.NextErr()
 }
 
 type fakeProvider struct {

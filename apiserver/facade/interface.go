@@ -37,6 +37,9 @@ type Context interface {
 	// be disposed by calling this method.
 	Dispose()
 
+	// EnvironsRegistry returns the provider and image source registry.
+	//EnvironsRegistry() *environs.Registry
+
 	// Resources exposes per-connection capabilities. By adding a
 	// resource, you make it accessible by (returned) id to all
 	// other facades used by this connection. It's mostly used to
