@@ -711,12 +711,12 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 // yet be.
 func packagesForSeries(series string) ([]string, []string) {
 	switch series {
-	case "precise", "quantal", "raring", "saucy", "centos7":
+	case "precise", "centos7":
 		return []string{"mongodb-server"}, []string{}
-	case "trusty", "wily":
-		return []string{JujuMongoPackage, JujuMongoToolsPackage}, []string{"juju-mongodb"}
+	case "trusty":
+		return []string{"juju-mongodb"}, []string{}
 	default:
-		// y and onwards
+		// xenial and onwards
 		return []string{JujuMongoPackage, JujuMongoToolsPackage}, []string{}
 	}
 }
