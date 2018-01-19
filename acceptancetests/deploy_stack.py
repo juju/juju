@@ -33,6 +33,9 @@ from jujupy import (
     JujuData,
     temp_bootstrap_env,
     )
+from jujupy.configuration import (
+    get_juju_data,
+)
 from jujupy.exceptions import (
     NoProvider,
 )
@@ -65,6 +68,10 @@ from utility import (
 
 
 __metaclass__ = type
+
+
+class NoExistingController(Exception):
+    pass
 
 
 def deploy_dummy_stack(client, charm_series, use_charmstore=False):
@@ -585,7 +592,10 @@ class ExistingController:
 
     def tear_down(self, _):
         """Destroys the current model"""
-        self.client.destroy_model()
+        # Need to destroy any models that where added during this run, can't
+        # just kill the controller
+        for client in self.client._backend.added_models:
+            client.destroy_model()
 
 
 class PublicController:
@@ -686,9 +696,7 @@ class BootstrapManager:
         self.has_controller = False
         self.resource_details = None
 
-        # We can probably just make this just 1 state.
-        self.existing_controller = existing_controller is not None
-        self.controller_id = existing_controller
+        self.existing_controller = existing_controller
 
     def ensure_cleanup(self):
         """
@@ -737,11 +745,11 @@ class BootstrapManager:
 
     @classmethod
     def from_args(cls, args):
-        if 'existing' in args and args.existing:
-            return cls._from_existing_controller(args)
-
         if not args.logs:
             args.logs = generate_default_clean_dir(args.temp_env_name)
+
+        if 'existing' in args and args.existing:
+            return cls._for_existing_controller(args)
 
         # GZ 2016-08-11: Move this logic into client_from_config maybe?
         if args.juju_bin == 'FAKE':
@@ -756,35 +764,22 @@ class BootstrapManager:
         return cls.from_client(args, client)
 
     @classmethod
-    def _from_existing_controller(cls, args):
-        if 'existing' not in args:
+    def _for_existing_controller(cls, args):
+        juju_home = get_juju_data()
+        if not os.path.isdir(juju_home):
             raise RuntimeError(
-                'Attempting to use existing controller without providing '
-                'controller id.')
-        try:
-            juju_home = os.environ['JUJU_DATA']
-        except KeyError:
-            home = os.path.expanduser('~')
-            if os.path.isdir(os.path.join(home, '.local/share/juju/')):
-                juju_home = os.path.join(home, '.local/share/juju/')
-            elif os.path.isdir(os.path.join(home, '.juju/')):
-                juju_home = os.path.join(home, '.juju/')
-            else:
-                raise Exception(
-                    'No juju data directory found at ~/.local/share/juju/ '
-                    'or ~/.juju If your juju data is located somewhere '
-                    'else please set the JUJU_DATA env variable to that path.')
-        if not args.logs:
-            args.logs = generate_default_clean_dir(args.temp_env_name)
+                'No Juju data directory found (tried {}).\n'
+                'Have you set JUJU_DATA env variable?'.format(juju_home))
+
         model = args.temp_env_name.replace('-temp-env', '')
 
         if args.existing == 'current':
             controller = None
         else:
             controller = args.existing
-        client = client_for_existing(args.juju_bin, juju_home,
-                                     controller_name=controller,
-                                     model_name=model)
+        client = client_for_existing(
+            args.juju_bin, juju_home,
+            controller_name=controller, model_name=model)
         client.has_controller = True
         return cls.from_client_existing(args, client, args.existing)
 
@@ -1054,26 +1049,32 @@ class BootstrapManager:
         :param **kwargs: All remaining keyword arguments are passed to the
         client's bootstrap.
         """
-        if self.existing_controller:
-            yield self.existing_context(upload_tools, **kwargs)
-        else:
+        try:
             try:
-                with self.top_context() as machines:
-                    with self.bootstrap_context(
-                            machines,
-                            omit_config=self.client.bootstrap_replaces):
-                        self.controller_strategy.create_initial_model(
-                            upload_tools, self.series, kwargs)
-                    with self.runtime_context(machines):
-                        self.client.list_controllers()
-                        self.client.list_models()
-                        for m_client in self.client.iter_model_clients():
-                            m_client.show_status()
-                        yield machines
-            except LoggedException:
-                if self.logged_exception_exit:
-                    sys.exit(1)
-                raise
+                with self.existing_bootstrapped() as machines:
+                    yield machines
+            except NoExistingController:
+                with self.new_bootstrap(upload_tools, **kwargs) as machines:
+                    yield machines
+        except LoggedException:
+            if self.logged_exception_exit:
+                sys.exit(1)
+            raise
+
+    @contextmanager
+    def new_bootstrap(self, upload_tools, **kwargs):
+        with self.top_context() as machines:
+            with self.bootstrap_context(
+                    machines,
+                    omit_config=self.client.bootstrap_replaces):
+                self.controller_strategy.create_initial_model(
+                    upload_tools, self.series, kwargs)
+            with self.runtime_context(machines):
+                self.client.list_controllers()
+                self.client.list_models()
+                for m_client in self.client.iter_model_clients():
+                    m_client.show_status()
+                yield machines
 
     @contextmanager
     def existing_booted_context(self, upload_tools, **kwargs):
@@ -1092,15 +1093,16 @@ class BootstrapManager:
             sys.exit(1)
 
     @contextmanager
-    def existing_context(self, upload_tools):
-        if self.controller_id is None:
-            raise RuntimeError()   # Lets make it so this isn't possible.
+    def existing_bootstrapped(self):
+        if self.existing_controller is None:
+            raise NoExistingController()
         try:
             with self.top_context() as machines:
                 with self.runtime_context(machines):
                     self.has_controller = True
-                    if self.controller_id != 'current':
-                        self.controller_strategy.prepare(self.controller_id)
+                    if self.existing_controller != 'current':
+                        self.controller_strategy.prepare(
+                            self.existing_controller)
                     self.controller_strategy.create_initial_model()
                     yield machines
         except LoggedException:

@@ -844,6 +844,9 @@ class ModelClient:
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
             self._add_model(env.environment, config_file)
+        # Make sure we track this in case it needs special cleanup (i.e. using
+        # an existing controller).
+        self._backend.track_model(model_client)
         return model_client
 
     def make_model_config(self):
@@ -858,6 +861,10 @@ class ModelClient:
             'admin-secret',
             'application-id',
             'application-password',
+            'audit-log-capture-args',
+            'audit-log-max-size',
+            'audit-log-max-backups',
+            'auditing-enabled',
             'auth-url',
             'bootstrap-host',
             'client-email',
@@ -952,6 +959,9 @@ class ModelClient:
             ('{}:{}'.format(self.env.controller.name, self.env.environment),
              '-y', '--destroy-storage',),
             include_e=False, timeout=get_teardown_timeout(self))
+        # Ensure things don't get confused at teardown time (i.e. if using an
+        #  existing controller)
+        self._backend.untrack_model(self)
         return exit_status
 
     def kill_controller(self, check=False):
@@ -1357,6 +1367,7 @@ class ModelClient:
                             break
                         status.raise_highest_error(ignore_recoverable=True)
                         reporter.update(states)
+                        time.sleep(1)
                     else:
                         if status is not None:
                             log.error(status.status_text)
@@ -1573,6 +1584,7 @@ class ModelClient:
                     status = self.get_status()
                     if status.get_service_count() >= service_count:
                         return
+                    time.sleep(1)
                 else:
                     raise ApplicationsNotStarted(self.env.environment, status)
 
@@ -1617,6 +1629,7 @@ class ModelClient:
                     return
                 if not quiet:
                     reporter.update(states)
+                time.sleep(1)
             else:
                 status.raise_highest_error(ignore_recoverable=False)
         except StatusTimeout:

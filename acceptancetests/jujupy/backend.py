@@ -70,6 +70,10 @@ class JujuBackend:
         self.juju_timings = []
         self.soft_deadline = soft_deadline
         self._ignore_soft_deadline = False
+        # List of ModelClients, keep track of models added so we can remove
+        # only those added during a test run (i.e. when using an existing
+        # controller.)
+        self._added_models = []
 
     def _now(self):
         return datetime.utcnow()
@@ -106,7 +110,27 @@ class JujuBackend:
         # Each clone shares a reference to juju_timings allowing us to collect
         # all commands run during a test.
         result.juju_timings = self.juju_timings
+
+        # Each clone shares a reference to _added_models to ensure we track any
+        # added models regardless of the ModelClient that adds them.
+        result._added_models = self._added_models
         return result
+
+    def track_model(self, client):
+        # Keep a reference to `client` for the lifetime of this backend (or
+        # until it's untracked).
+        self._added_models.append(client)
+
+    def untrack_model(self, client):
+        """Remove `client` from tracking. Silently fails if not present."""
+        # No longer need to track this client for whatever reason.
+        try:
+            self._added_models.remove(client)
+        except ValueError:
+            log.debug(
+                'Attempted to remove client "{}" that was not tracked.'.format(
+                    client.env.environment))
+            pass
 
     @property
     def version(self):
@@ -119,6 +143,11 @@ class JujuBackend:
     @property
     def juju_name(self):
         return os.path.basename(self._full_path)
+
+    @property
+    def added_models(self):
+        # Return a copy of the list so any modifications don't trip callees up.
+        return list(self._added_models)
 
     def _get_attr_tuple(self):
         return (self._version, self._full_path, self.feature_flags,

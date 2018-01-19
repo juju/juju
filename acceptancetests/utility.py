@@ -245,6 +245,8 @@ def add_basic_testing_arguments(
     :param using_jes: whether args should be tailored for JES testing.
     :param deadline: If true, support the --timeout option and convert to a
         deadline.
+    :param existing: If true will supply the 'existing' argument to allow
+        running on an existing bootstrapped controller.
     """
 
     # Optional postional arguments
