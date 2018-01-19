@@ -63,3 +63,74 @@ func (s *ControllerSuite) TestPing(c *gc.C) {
 	gitjujutesting.MgoServer.Restart()
 	c.Assert(s.Controller.Ping(), gc.NotNil)
 }
+
+func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	// Sanity check.
+	c.Check(cfg.AuditingEnabled(), gc.Equals, false)
+	c.Check(cfg.AuditLogCaptureArgs(), gc.Equals, true)
+	c.Check(cfg.AuditLogMaxBackups(), gc.Equals, 5)
+
+	err = s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.AuditingEnabled:     true,
+		controller.AuditLogCaptureArgs: false,
+		controller.AuditLogMaxBackups:  10,
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(newCfg.AuditingEnabled(), gc.Equals, true)
+	c.Assert(newCfg.AuditLogCaptureArgs(), gc.Equals, false)
+	c.Assert(newCfg.AuditLogMaxBackups(), gc.Equals, 10)
+}
+
+func (s *ControllerSuite) TestUpdateControllerConfigRemoveYieldsDefaults(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.AuditingEnabled:     true,
+		controller.AuditLogCaptureArgs: true,
+		controller.AuditLogMaxBackups:  5,
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.UpdateControllerConfig(nil, []string{
+		controller.AuditLogCaptureArgs,
+		controller.AuditLogMaxBackups,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(newCfg.AuditLogCaptureArgs(), gc.Equals, false)
+	c.Assert(newCfg.AuditLogMaxBackups(), gc.Equals, 10)
+}
+
+func (s *ControllerSuite) TestUpdateControllerConfigRejectsNonAuditUpdates(c *gc.C) {
+	// Sanity check.
+	c.Assert(controller.AllowedUpdateConfigAttributes.Contains(controller.APIPort), jc.IsFalse)
+
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.APIPort: 1234,
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, `can't change "api-port" after bootstrap`)
+
+	err = s.State.UpdateControllerConfig(nil, []string{controller.APIPort})
+	c.Assert(err, gc.ErrorMatches, `can't change "api-port" after bootstrap`)
+}
+
+func (s *ControllerSuite) TestUpdateControllerConfigChecksSchema(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.AuditLogExcludeMethods: []int{1, 2, 3},
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, `audit-log-exclude-methods\[0\]: expected string, got int\(1\)`)
+}
+
+func (s *ControllerSuite) TestUpdateControllerConfigValidates(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.AuditLogMaxSize: "45ZipMorps",
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, `invalid audit log max size in configuration: invalid multiplier suffix "ZipMorps", expected one of MGTPEZY`)
+}

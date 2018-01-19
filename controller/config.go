@@ -170,6 +170,20 @@ var (
 		AuditLogExcludeMethods,
 	}
 
+	// AllowedUpdateConfigAttributes contains all of the controller
+	// config attributes that are allowed to be updated after the
+	// controller has been restarted.
+	// TODO(babbageclunk): initially this will only be audit log
+	// values, but we should work out which others can also be changed
+	// safely.
+	AllowedUpdateConfigAttributes = set.NewStrings(
+		AuditingEnabled,
+		AuditLogCaptureArgs,
+		AuditLogMaxSize,
+		AuditLogMaxBackups,
+		AuditLogExcludeMethods,
+	)
+
 	// DefaultAuditLogExcludeMethods is the default list of methods to
 	// exclude from the audit log.
 	DefaultAuditLogExcludeMethods = []string{
