@@ -59,7 +59,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
-	controller, err := controller.NewControllerAPIv4(
+	controller, err := controller.NewControllerAPIv5(
 		facadetest.Context{
 			State_:     s.State,
 			StatePool_: s.StatePool,
@@ -899,4 +899,42 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
+}
+
+func (s *controllerSuite) TestConfigSet(c *gc.C) {
+	config, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	// Sanity check.
+	c.Assert(config.AuditingEnabled(), gc.Equals, false)
+
+	err = s.controller.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
+		"auditing-enabled": true,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err = s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(config.AuditingEnabled(), gc.Equals, true)
+}
+
+func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Access: permission.ReadAccess,
+	})
+	anAuthoriser := apiservertesting.FakeAuthorizer{
+		Tag: user.Tag(),
+	}
+	endpoint, err := controller.NewControllerAPIv5(
+		facadetest.Context{
+			State_:     s.State,
+			Resources_: s.resources,
+			Auth_:      anAuthoriser,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = endpoint.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
+		"something": 23,
+	}})
+
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

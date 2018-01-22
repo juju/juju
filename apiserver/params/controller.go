@@ -90,6 +90,12 @@ type UserAccessResults struct {
 	Results []UserAccessResult `json:"results,omitempty"`
 }
 
+// ControllerConfigSet holds new config values for
+// Controller.ConfigSet.
+type ControllerConfigSet struct {
+	Config map[string]interface{} `json:"config"`
+}
+
 // ControllerAction is an action that can be performed on a model.
 type ControllerAction string
 
