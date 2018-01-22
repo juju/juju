@@ -586,8 +586,8 @@ def main(argv=None):
         vpcid = vpc_bootstrap(args)
         if not vpcid:
             return 0
-        bs_manager = BootstrapManager.from_args(
-            args, extraconfig={'vpc-id': vpcid})
+        bs_manager = BootstrapManager.from_args(args)
+        bs_manager.client.env.update_config({'vpc-id': vpcid})
         try:
             with bs_manager.booted_context(args.upload_tools):
                 start_test(bs_manager.client, args)

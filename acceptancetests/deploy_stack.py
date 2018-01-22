@@ -732,7 +732,7 @@ class BootstrapManager:
         return self.controller_strategy.tear_down_client
 
     @classmethod
-    def from_args(cls, args, extraconfig={}):
+    def from_args(cls, args):
         if not args.logs:
             args.logs = generate_default_clean_dir(args.temp_env_name)
 
@@ -743,8 +743,7 @@ class BootstrapManager:
         else:
             client = client_from_config(args.env, args.juju_bin,
                                         debug=args.debug,
-                                        soft_deadline=args.deadline,
-                                        extraconfig=extraconfig)
+                                        soft_deadline=args.deadline)
             if args.to is not None:
                 client.env.bootstrap_to = args.to
         return cls.from_client(args, client)

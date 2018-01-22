@@ -277,16 +277,15 @@ class JujuData:
             return {'clouds': {}}
 
     @classmethod
-    def from_config(cls, name, extraconfig={}):
+    def from_config(cls, name):
         """Create a model from the three configuration files."""
-        juju_data = cls._from_config(name,extraconfig=extraconfig)
+        juju_data = cls._from_config(name)
         juju_data.load_yaml()
         return juju_data
 
     @classmethod
-    def _from_config(cls, name, extraconfig={}):
+    def _from_config(cls, name):
         config, selected = get_selected_environment(name)
-        config.update(extraconfig)
         if name is None:
             name = selected
         return cls(name, config)
@@ -2241,8 +2240,7 @@ def _get_full_path(juju_path):
         return os.path.abspath(juju_path)
 
 
-def client_from_config(config, juju_path, debug=False, soft_deadline=None,
-    extraconfig={}):
+def client_from_config(config, juju_path, debug=False, soft_deadline=None):
     """Create a client from an environment's configuration.
 
     :param config: Name of the environment to use the config from.
@@ -2251,15 +2249,12 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None,
     :param soft_deadline: A datetime representing the deadline by which
         normal operations should complete.  If None, no deadline is
         enforced.
-    :param extraconfig: Extra config values fed directly to
-        JujuData/bootstrap.
     """
     version = ModelClient.get_version(juju_path)
     if config is None:
         env = ModelClient.config_class('', {})
     else:
-        env = ModelClient.config_class.from_config(
-            config,extraconfig=extraconfig)
+        env = ModelClient.config_class.from_config(config)
     full_path = _get_full_path(juju_path)
     return ModelClient(
         env, version, full_path, debug=debug, soft_deadline=soft_deadline)
