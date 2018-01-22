@@ -20,7 +20,8 @@ import (
 	"github.com/juju/juju/cmd/output"
 )
 
-var keyRule *regexp.Regexp = charm.GetActionNameRule()
+// nameRule describes the name format of an action or keyName must match to be valid.
+var nameRule = charm.GetActionNameRule()
 
 func NewRunCommand() cmd.Command {
 	return modelcmd.Wrap(&runCommand{})
@@ -118,9 +119,6 @@ $ juju run-action sleeper/0 pause --string-args time=1000
 The value for the "time" param will be the string literal "1000".
 `
 
-// ActionNameRule describes the format an action name must match to be valid.
-var ActionNameRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
-
 // SetFlags offers an option for YAML output.
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
@@ -145,7 +143,7 @@ func (c *runCommand) Init(args []string) error {
 	for idx, arg := range args {
 		if names.IsValidUnit(arg) {
 			unitNames = args[:idx+1]
-		} else if ActionNameRule.MatchString(arg) {
+		} else if nameRule.MatchString(arg) {
 			c.actionName = arg
 			break
 		} else {
@@ -173,7 +171,7 @@ func (c *runCommand) Init(args []string) error {
 		keySlice := strings.Split(thisArg[0], ".")
 		// check each key for validity
 		for _, key := range keySlice {
-			if valid := keyRule.MatchString(key); !valid {
+			if valid := nameRule.MatchString(key); !valid {
 				return errors.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens", key)
 			}
 		}
