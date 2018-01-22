@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -27,6 +28,20 @@ type httpContext struct {
 	controllerModelOnly bool
 	// srv holds the API server instance.
 	srv *Server
+}
+
+func (ctxt *httpContext) authRequest(req *http.Request) (apiserverhttp.AuthInfo, error) {
+	_, release, entity, err := ctxt.stateForRequestAuthenticated(req)
+	if err != nil {
+		return apiserverhttp.AuthInfo{}, errors.Trace(err)
+	}
+	defer release()
+
+	info := apiserverhttp.AuthInfo{
+		Tag:        entity.Tag(),
+		Controller: isMachineWithJob(entity, state.JobManageModel),
+	}
+	return info, nil
 }
 
 // stateForRequestUnauthenticated returns a state instance appropriate for

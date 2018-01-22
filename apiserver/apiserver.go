@@ -17,7 +17,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -31,6 +30,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
@@ -84,6 +84,7 @@ type Server struct {
 	auditLogger            auditlog.AuditLog
 	upgradeComplete        func() bool
 	restoreStatus          func() state.RestoreStatus
+	mux                    *apiserverhttp.Mux
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -282,6 +283,8 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 		},
 	}
 
+	httpCtxt := httpContext{srv: srv}
+	srv.mux = apiserverhttp.NewMux(apiserverhttp.WithAuth(httpCtxt.authRequest))
 	srv.tlsConfig = srv.newTLSConfig(cfg)
 	srv.lis = newThrottlingListener(
 		tls.NewListener(lis, srv.tlsConfig), cfg.RateLimitConfig, clock.WallClock)
@@ -398,6 +401,12 @@ func (srv *Server) Dead() <-chan struct{} {
 	return srv.tomb.Dead()
 }
 
+// Mux returns the server's Mux, for other workers to register
+// handlers on.
+func (srv *Server) Mux() *apiserverhttp.Mux {
+	return srv.mux
+}
+
 // Stop stops the server and returns when all running requests
 // have completed.
 func (srv *Server) Stop() error {
@@ -447,9 +456,8 @@ func (srv *Server) loop() error {
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
-	mux := pat.New()
 	for _, endpoint := range srv.endpoints() {
-		registerEndpoint(endpoint, mux)
+		registerEndpoint(endpoint, srv.mux)
 	}
 
 	// TODO(axw) graceful HTTP server shutdown. Then we'll shutdown the
@@ -458,7 +466,7 @@ func (srv *Server) loop() error {
 	go func() {
 		logger.Debugf("Starting API http server on address %q", srv.lis.Addr())
 		httpSrv := &http.Server{
-			Handler:   mux,
+			Handler:   srv.mux,
 			TLSConfig: srv.tlsConfig,
 			ErrorLog: log.New(&loggoWrapper{
 				level:  loggo.WARNING,
@@ -751,10 +759,10 @@ func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 	})
 }
 
-func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
-	mux.Add(ep.Method, ep.Pattern, ep.Handler)
+func registerEndpoint(ep apihttp.Endpoint, mux *apiserverhttp.Mux) {
+	mux.AddHandler(ep.Method, ep.Pattern, ep.Handler)
 	if ep.Method == "GET" {
-		mux.Add("HEAD", ep.Pattern, ep.Handler)
+		mux.AddHandler("HEAD", ep.Pattern, ep.Handler)
 	}
 }
 
