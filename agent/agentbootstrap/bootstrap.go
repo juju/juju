@@ -5,6 +5,7 @@ package agentbootstrap
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/raft"
 )
 
 var logger = loggo.GetLogger("juju.agent.agentbootstrap")
@@ -89,6 +91,10 @@ func InitializeState(
 	}
 	info.Tag = nil
 	info.Password = c.OldPassword()
+
+	if err := initRaft(c); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	session, err := initMongo(info.Info, dialOpts, info.Password)
 	if err != nil {
@@ -247,6 +253,15 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 		SharedSecret:   i.SharedSecret,
 		SystemIdentity: i.SystemIdentity,
 	}
+}
+
+func initRaft(agentConfig agent.Config) error {
+	raftDir := filepath.Join(agentConfig.DataDir(), "raft")
+	return raft.Bootstrap(raft.Config{
+		StorageDir: raftDir,
+		Logger:     logger,
+		Tag:        agentConfig.Tag(),
+	})
 }
 
 // initMongo dials the initial MongoDB connection, setting a
