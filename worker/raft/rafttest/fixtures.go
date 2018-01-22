@@ -39,15 +39,8 @@ func (s *RaftFixture) SetUpTest(c *gc.C) {
 	s.Transport = transport
 	s.AddCleanup(func(*gc.C) { s.Transport.Close() })
 
-	raftConfig := raft.DefaultConfig()
-	raftConfig.HeartbeatTimeout = 100 * time.Millisecond
-	raftConfig.ElectionTimeout = raftConfig.HeartbeatTimeout
-	raftConfig.LeaderLeaseTimeout = raftConfig.HeartbeatTimeout
+	raftConfig := s.DefaultConfig()
 	raftConfig.LocalID = raft.ServerID(string(addr))
-	raftConfig.Logger = log.New(&raftutil.LoggoWriter{
-		loggo.GetLogger("juju.worker.raft.raftclusterer_test"),
-		loggo.DEBUG,
-	}, "", 0)
 
 	r, err := raft.NewRaft(raftConfig, s.FSM, s.Store, s.Store, s.SnapshotStore, s.Transport)
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,4 +61,16 @@ func (s *RaftFixture) SetUpTest(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for raft leadership")
 	}
+}
+
+func (s *RaftFixture) DefaultConfig() *raft.Config {
+	raftConfig := raft.DefaultConfig()
+	raftConfig.HeartbeatTimeout = 100 * time.Millisecond
+	raftConfig.ElectionTimeout = raftConfig.HeartbeatTimeout
+	raftConfig.LeaderLeaseTimeout = raftConfig.HeartbeatTimeout
+	raftConfig.Logger = log.New(&raftutil.LoggoWriter{
+		loggo.GetLogger("juju.worker.raft.raftclusterer_test"),
+		loggo.DEBUG,
+	}, "", 0)
+	return raftConfig
 }
