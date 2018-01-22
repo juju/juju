@@ -29,3 +29,4 @@ pywinrm>=0.0.3
 pexpect>=2.4
 xmltodict>=0.9.2
 python-novaclient>=6.0.2
+pyOpenSSL>=17.5.0
