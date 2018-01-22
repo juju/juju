@@ -10,8 +10,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -215,6 +218,46 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
 		"password": password,
 		"nonce":    nonce,
 	})
+}
+
+func (s *httpSuite) TestAuthHTTPRequest(c *gc.C) {
+	apiInfo := &api.Info{}
+
+	req := s.authHTTPRequest(c, apiInfo)
+	_, _, ok := req.BasicAuth()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(req.Header, gc.HasLen, 0)
+
+	apiInfo.Nonce = "foo"
+	req = s.authHTTPRequest(c, apiInfo)
+	_, _, ok = req.BasicAuth()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
+
+	apiInfo.Tag = names.NewMachineTag("123")
+	apiInfo.Password = "password"
+	req = s.authHTTPRequest(c, apiInfo)
+	user, pass, ok := req.BasicAuth()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(user, gc.Equals, "machine-123")
+	c.Assert(pass, gc.Equals, "password")
+	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
+
+	mac, err := macaroon.New(nil, "id", "loc")
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.Macaroons = []macaroon.Slice{{mac}}
+	req = s.authHTTPRequest(c, apiInfo)
+	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
+	macaroons := httpbakery.RequestMacaroons(req)
+	c.Assert(macaroons, jc.DeepEquals, apiInfo.Macaroons)
+}
+
+func (s *httpSuite) authHTTPRequest(c *gc.C, info *api.Info) *http.Request {
+	req, err := http.NewRequest("GET", "/", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = api.AuthHTTPRequest(req, info)
+	c.Assert(err, jc.ErrorIsNil)
+	return req
 }
 
 // Note: the fact that the code works against the actual API server is

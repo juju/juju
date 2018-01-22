@@ -69,27 +69,14 @@ func (doer httpRequestDoer) Do(req *http.Request) (*http.Response, error) {
 
 // DoWithBody implements httprequest.DoerWithBody.DoWithBody.
 func (doer httpRequestDoer) DoWithBody(req *http.Request, body io.ReadSeeker) (*http.Response, error) {
-	// Add basic auth if appropriate
-	// Call doer.bakeryClient.DoWithBodyAndCustomError
-	if doer.st.tag != "" {
-		// Note that password may be empty here; we still
-		// want to pass the tag along. An empty password
-		// indicates that we're using macaroon authentication.
-		req.SetBasicAuth(doer.st.tag, doer.st.password)
-	}
-
-	// Set the machine nonce if it was provided.
-	if doer.st.nonce != "" {
-		req.Header.Set(params.MachineNonceHeader, doer.st.nonce)
-	}
-
-	// Add any explicitly-specified macaroons.
-	for _, ms := range doer.st.macaroons {
-		encoded, err := encodeMacaroonSlice(ms)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		req.Header.Add(httpbakery.MacaroonsHeader, encoded)
+	if err := authHTTPRequest(
+		req,
+		doer.st.tag,
+		doer.st.password,
+		doer.st.nonce,
+		doer.st.macaroons,
+	); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return doer.st.bakeryClient.DoWithBodyAndCustomError(req, body, func(resp *http.Response) error {
 		// At this point we are only interested in errors that
@@ -101,6 +88,36 @@ func (doer httpRequestDoer) DoWithBody(req *http.Request, body io.ReadSeeker) (*
 		}
 		return bakeryError(unmarshalHTTPErrorResponse(resp))
 	})
+}
+
+// AuthHTTPRequest adds Juju auth info (username, password, nonce, macaroons)
+// to the given HTTP request, suitable for sending to a Juju API server.
+func AuthHTTPRequest(req *http.Request, info *Info) error {
+	var tag string
+	if info.Tag != nil {
+		tag = info.Tag.String()
+	}
+	return authHTTPRequest(req, tag, info.Password, info.Nonce, info.Macaroons)
+}
+
+func authHTTPRequest(req *http.Request, tag, password, nonce string, macaroons []macaroon.Slice) error {
+	if tag != "" {
+		// Note that password may be empty here; we still
+		// want to pass the tag along. An empty password
+		// indicates that we're using macaroon authentication.
+		req.SetBasicAuth(tag, password)
+	}
+	if nonce != "" {
+		req.Header.Set(params.MachineNonceHeader, nonce)
+	}
+	for _, ms := range macaroons {
+		encoded, err := encodeMacaroonSlice(ms)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		req.Header.Add(httpbakery.MacaroonsHeader, encoded)
+	}
+	return nil
 }
 
 // encodeMacaroonSlice base64-JSON-encodes a slice of macaroons.

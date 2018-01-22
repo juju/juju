@@ -829,14 +829,9 @@ func (d dialer) dial(_ <-chan struct{}) (io.Closer, error) {
 
 // dial1 makes a single dial attempt.
 func (d dialer) dial1() (jsoncodec.JSONConn, *tls.Config, error) {
-	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig := NewTLSConfig(d.opts.certPool)
 	tlsConfig.InsecureSkipVerify = d.opts.InsecureSkipVerify
-	if d.opts.certPool != nil {
-		// We want to be specific here (rather than just using "anything").
-		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
-		tlsConfig.RootCAs = d.opts.certPool
-		tlsConfig.ServerName = "juju-apiserver"
-	} else {
+	if d.opts.certPool == nil {
 		tlsConfig.ServerName = d.serverName
 	}
 	conn, err := d.opts.DialWebsocket(d.ctx, d.urlStr, tlsConfig, d.ipAddr)
@@ -873,6 +868,20 @@ func (d dialer) dial1() (jsoncodec.JSONConn, *tls.Config, error) {
 		return nil, nil, errors.Trace(err)
 	}
 	return conn, tlsConfig, nil
+}
+
+// NewTLSConfig returns a new *tls.Config suitable for connecting to a Juju
+// API server. If certPool is non-nil, we use it as the config's RootCAs,
+// and the server name is set to "juju-apiserver".
+func NewTLSConfig(certPool *x509.CertPool) *tls.Config {
+	tlsConfig := utils.SecureTLSConfig()
+	if certPool != nil {
+		// We want to be specific here (rather than just using "anything").
+		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
+		tlsConfig.RootCAs = certPool
+		tlsConfig.ServerName = "juju-apiserver"
+	}
+	return tlsConfig
 }
 
 // isNumericHost reports whether the given host name is
