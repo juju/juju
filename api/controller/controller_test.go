@@ -350,3 +350,18 @@ func (s *Suite) TestModelStatusError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "model error")
 	c.Assert(out, gc.IsNil)
 }
+
+func (s *Suite) TestConfigSet(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			c.Assert(args, gc.DeepEquals, params.ControllerConfigSet{Config: map[string]interface{}{
+				"some-setting": 345,
+			}})
+			return errors.New("ruth mundy")
+		})
+	client := controller.NewClient(apiCaller)
+	err := client.ConfigSet(map[string]interface{}{
+		"some-setting": 345,
+	})
+	c.Assert(err, gc.ErrorMatches, "ruth mundy")
+}

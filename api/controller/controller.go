@@ -239,6 +239,15 @@ func (c *Client) GetControllerAccess(user string) (permission.Access, error) {
 	return permission.Access(results.Results[0].Result.Access), nil
 }
 
+// ConfigSet updates the passed controller configuration values. Any
+// settings that aren't passed will be left with their previous
+// values.
+func (c *Client) ConfigSet(values map[string]interface{}) error {
+	return errors.Trace(
+		c.facade.FacadeCall("ConfigSet", params.ControllerConfigSet{Config: values}, nil),
+	)
+}
+
 // MigrationSpec holds the details required to start the migration of
 // a single model.
 type MigrationSpec struct {
