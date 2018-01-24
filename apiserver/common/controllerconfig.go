@@ -82,7 +82,8 @@ func (s *controllerStateShim) ControllerInfo(modelUUID string) (addrs []string, 
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	return info.ControllerInfo().Addrs, info.ControllerInfo().CACert, nil
+	ci := info.ControllerInfo()
+	return ci.Addrs, ci.CACert, nil
 }
 
 // StateControllerInfo returns the local controller details for the given State.
