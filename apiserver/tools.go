@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -26,6 +27,30 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
 )
+
+// toolsReadCloser wraps the ReadCloser for the tools blob
+// and the state StorageCloser.
+// It allows us to stream the tools binary from state,
+// closing them both at once when done.
+type toolsReadCloser struct {
+	f  io.ReadCloser
+	st binarystorage.StorageCloser
+}
+
+func (t *toolsReadCloser) Read(p []byte) (n int, err error) {
+	return t.f.Read(p)
+}
+
+func (t *toolsReadCloser) Close() error {
+	var err error
+	if err = t.f.Close(); err == nil {
+		return t.st.Close()
+	}
+	if err2 := t.st.Close(); err2 != nil {
+		err = errors.Wrap(err, err2)
+	}
+	return err
+}
 
 // toolsHandler handles tool upload through HTTPS in the API server.
 type toolsUploadHandler struct {
@@ -50,7 +75,7 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	switch r.Method {
 	case "GET":
-		tarball, err := h.processGet(r, st)
+		reader, size, err := h.getToolsForRequest(r, st)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
 			if err := sendError(w, errors.NewBadRequest(err, "")); err != nil {
@@ -58,7 +83,8 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			}
 			return
 		}
-		if err := h.sendTools(w, http.StatusOK, tarball); err != nil {
+		defer reader.Close()
+		if err := h.sendTools(w, reader, size); err != nil {
 			logger.Errorf("%v", err)
 		}
 	default:
@@ -102,58 +128,65 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// processGet handles a tools GET request.
-func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]byte, error) {
+// getToolsForRequest retrieves the compressed agent binaries tarball from state
+// based on the input HTTP request.
+// It is returned with the size of the file as recorded in the stored metadata.
+func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.State) (io.ReadCloser, int64, error) {
 	version, err := version.ParseBinary(r.URL.Query().Get(":version"))
 	if err != nil {
-		return nil, errors.Annotate(err, "error parsing version")
+		return nil, 0, errors.Annotate(err, "error parsing version")
 	}
+	logger.Debugf("request for agent binaries: %s", version)
+
 	storage, err := st.ToolsStorage()
 	if err != nil {
-		return nil, errors.Annotate(err, "error getting storage for agent binaries")
+		return nil, 0, errors.Annotate(err, "error getting storage for agent binaries")
 	}
-	defer storage.Close()
-	_, reader, err := storage.Open(version.String())
+
+	md, reader, err := storage.Open(version.String())
 	if errors.IsNotFound(err) {
 		// Tools could not be found in tools storage,
-		// so look for them in simplestreams, fetch
-		// them and cache in tools storage.
+		// so look for them in simplestreams,
+		// fetch them and cache in tools storage.
 		logger.Infof("%v agent binaries not found locally, fetching", version)
-		reader, err = h.fetchAndCacheTools(version, storage, st)
+		md, reader, err = h.fetchAndCacheTools(version, storage, st)
 		if err != nil {
 			err = errors.Annotate(err, "error fetching agent binaries")
 		}
 	}
 	if err != nil {
-		return nil, err
+		storage.Close()
+		return nil, 0, err
 	}
-	defer reader.Close()
-	data, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to read agent binaries tarball")
-	}
-	return data, nil
+
+	return &toolsReadCloser{f: reader, st: storage}, md.Size, nil
 }
 
 // fetchAndCacheTools fetches tools with the specified version by searching for a URL
 // in simplestreams and GETting it, caching the result in tools storage before returning
 // to the caller.
-func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor binarystorage.Storage, st *state.State) (io.ReadCloser, error) {
+func (h *toolsDownloadHandler) fetchAndCacheTools(
+	v version.Binary,
+	stor binarystorage.Storage,
+	st *state.State,
+) (binarystorage.Metadata, io.ReadCloser, error) {
+	md := binarystorage.Metadata{Version: v.String()}
+
 	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 	env, err := newEnviron(st)
 	if err != nil {
-		return nil, err
+		return md, nil, err
 	}
 	tools, err := envtools.FindExactTools(env, v.Number, v.Series, v.Arch)
 	if err != nil {
-		return nil, err
+		return md, nil, err
 	}
 
 	// No need to verify the server's identity because we verify the SHA-256 hash.
 	logger.Infof("fetching %v agent binaries from %v", v, tools.URL)
 	resp, err := utils.GetNonValidatingHTTPClient().Get(tools.URL)
 	if err != nil {
-		return nil, err
+		return md, nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -161,41 +194,38 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor binarys
 		if body, err := ioutil.ReadAll(resp.Body); err == nil {
 			msg += fmt.Sprintf(" (%s)", bytes.TrimSpace(body))
 		}
-		return nil, errors.New(msg)
-	}
-	data, sha256, err := readAndHash(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(data)) != tools.Size {
-		return nil, errors.Errorf("size mismatch for %s", tools.URL)
-	}
-	if sha256 != tools.SHA256 {
-		return nil, errors.Errorf("hash mismatch for %s", tools.URL)
+		return md, nil, errors.New(msg)
 	}
 
-	// Cache tarball in tools storage before returning.
-	metadata := binarystorage.Metadata{
-		Version: v.String(),
-		Size:    tools.Size,
-		SHA256:  tools.SHA256,
+	data, sha256, err := readAndHash(resp.Body)
+	if err != nil {
+		return md, nil, err
 	}
-	if err := stor.Add(bytes.NewReader(data), metadata); err != nil {
-		return nil, errors.Annotate(err, "error caching agent binaries")
+	if int64(len(data)) != tools.Size {
+		return md, nil, errors.Errorf("size mismatch for %s", tools.URL)
 	}
-	return ioutil.NopCloser(bytes.NewReader(data)), nil
+	md.Size = tools.Size
+	if sha256 != tools.SHA256 {
+		return md, nil, errors.Errorf("hash mismatch for %s", tools.URL)
+	}
+	md.SHA256 = tools.SHA256
+
+	if err := stor.Add(bytes.NewReader(data), md); err != nil {
+		return md, nil, errors.Annotate(err, "error caching agent binaries")
+	}
+	return md, ioutil.NopCloser(bytes.NewReader(data)), nil
 }
 
 // sendTools streams the tools tarball to the client.
-func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, tarball []byte) error {
+func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, reader io.ReadCloser, size int64) error {
+	logger.Tracef("sending %d bytes", size)
+
 	w.Header().Set("Content-Type", "application/x-tar-gz")
-	w.Header().Set("Content-Length", fmt.Sprint(len(tarball)))
-	w.WriteHeader(statusCode)
-	if _, err := w.Write(tarball); err != nil {
-		return errors.Trace(sendError(
-			w,
-			errors.NewBadRequest(errors.Annotatef(err, "failed to write agent binaries"), ""),
-		))
+	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+
+	if _, err := io.Copy(w, reader); err != nil {
+		// Having begun writing, it is too late to send an error response here.
+		return errors.Annotatef(err, "failed to send agent binaries")
 	}
 	return nil
 }

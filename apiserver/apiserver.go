@@ -877,8 +877,5 @@ func (srv *Server) localCertificate(serverName string) (*tls.Certificate, bool) 
 }
 
 func serverError(err error) error {
-	if err := common.ServerError(err); err != nil {
-		return err
-	}
-	return nil
+	return common.ServerError(err)
 }
