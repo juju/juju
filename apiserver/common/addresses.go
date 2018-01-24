@@ -83,7 +83,7 @@ func (api *APIAddresser) APIAddresses() (params.StringsResult, error) {
 }
 
 func apiAddresses(getter APIHostPortsGetter) ([]string, error) {
-	apiHostPorts, err := getter.APIHostPorts()
+	apiHostPorts, err := getter.APIHostPortsForAgents()
 	if err != nil {
 		return nil, err
 	}

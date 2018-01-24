@@ -29,10 +29,11 @@ type ToolsURLGetter interface {
 	ToolsURLs(v version.Binary) ([]string, error)
 }
 
-// APIHostPortsGetter is an interface providing the APIHostPorts method.
+// APIHostPortsGetter is an interface providing the APIHostPorts methods.
 type APIHostPortsGetter interface {
 	// APIHostPorst returns the HostPorts for each API server.
 	APIHostPorts() ([][]network.HostPort, error)
+	APIHostPortsForAgents() ([][]network.HostPort, error)
 }
 
 // ToolsStorageGetter is an interface providing the ToolsStorage method.
