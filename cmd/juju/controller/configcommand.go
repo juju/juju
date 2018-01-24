@@ -19,20 +19,20 @@ import (
 	"github.com/juju/juju/controller"
 )
 
-func NewGetConfigCommand() cmd.Command {
-	return modelcmd.WrapController(&getConfigCommand{})
+func NewConfigCommand() cmd.Command {
+	return modelcmd.WrapController(&configCommand{})
 }
 
 // getConfigCommand is able to output either the entire environment or
 // the requested value in a format of the user's choosing.
-type getConfigCommand struct {
+type configCommand struct {
 	modelcmd.ControllerCommandBase
 	api controllerAPI
 	key string
 	out cmd.Output
 }
 
-const getControllerHelpDoc = `
+const configCommandHelpDoc = `
 By default, all configuration (keys and values) for the controller are
 displayed if a key is not specified.
 
@@ -52,16 +52,16 @@ See also:
     show-cloud
 `
 
-func (c *getConfigCommand) Info() *cmd.Info {
+func (c *configCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "controller-config",
 		Args:    "[<attribute key>]",
 		Purpose: "Displays configuration settings for a controller.",
-		Doc:     strings.TrimSpace(getControllerHelpDoc),
+		Doc:     strings.TrimSpace(configCommandHelpDoc),
 	}
 }
 
-func (c *getConfigCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"json":    cmd.FormatJson,
@@ -70,7 +70,7 @@ func (c *getConfigCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-func (c *getConfigCommand) Init(args []string) (err error) {
+func (c *configCommand) Init(args []string) (err error) {
 	c.key, err = cmd.ZeroOrOneArgs(args)
 	return
 }
@@ -80,7 +80,7 @@ type controllerAPI interface {
 	ControllerConfig() (controller.Config, error)
 }
 
-func (c *getConfigCommand) getAPI() (controllerAPI, error) {
+func (c *configCommand) getAPI() (controllerAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -91,7 +91,7 @@ func (c *getConfigCommand) getAPI() (controllerAPI, error) {
 	return apicontroller.NewClient(root), nil
 }
 
-func (c *getConfigCommand) Run(ctx *cmd.Context) error {
+func (c *configCommand) Run(ctx *cmd.Context) error {
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return errors.Trace(err)
