@@ -243,6 +243,9 @@ func (c *Client) GetControllerAccess(user string) (permission.Access, error) {
 // settings that aren't passed will be left with their previous
 // values.
 func (c *Client) ConfigSet(values map[string]interface{}) error {
+	if c.BestAPIVersion() < 5 {
+		return errors.Errorf("controller must be version 2.3.3 or higher to update controller config")
+	}
 	return errors.Trace(
 		c.facade.FacadeCall("ConfigSet", params.ControllerConfigSet{Config: values}, nil),
 	)
