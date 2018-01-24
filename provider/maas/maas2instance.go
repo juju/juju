@@ -69,12 +69,13 @@ func (mi *maas2Instance) Addresses() ([]network.Address, error) {
 	var addresses []network.Address
 	for _, iface := range interfaces {
 		if iface.Address.Value != "" {
-			logger.Debugf("found address %q on interface %q", iface.Address, iface.InterfaceName)
 			addresses = append(addresses, iface.Address)
 		} else {
-			logger.Infof("no address found on interface %q", iface.InterfaceName)
+			logger.Debugf("no address found on interface %q", iface.InterfaceName)
 		}
 	}
+
+	logger.Debugf("%q has addresses %q", mi.machine.Hostname(), addresses)
 	return addresses, nil
 }
 
