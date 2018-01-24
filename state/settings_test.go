@@ -484,3 +484,27 @@ func (s *SettingsSuite) TestList(c *gc.C) {
 		"key#2": {"foo2": "bar2"},
 	})
 }
+
+func (s *SettingsSuite) TestUpdatingInterfaceSliceValue(c *gc.C) {
+	// When storing config values that are coerced from schemas as
+	// List(Something), the value will always be a []interface{}. Make
+	// sure we can safely update settings with those values.
+	s1, err := s.createSettings(s.key, map[string]interface{}{
+		"foo1": []interface{}{"bar1"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s1.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s2, err := s.readSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	s2.Set("foo1", []interface{}{"bar1", "bar2"})
+	_, err = s2.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s3, err := s.readSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	value, found := s3.Get("foo1")
+	c.Assert(found, gc.Equals, true)
+	c.Assert(value, gc.DeepEquals, []interface{}{"bar1", "bar2"})
+}

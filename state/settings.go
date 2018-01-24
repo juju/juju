@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -172,7 +173,7 @@ func (s *Settings) settingsUpdateOps() ([]ItemChange, []txn.Op) {
 	for key := range cacheKeys(s.disk, s.core) {
 		old, ondisk := s.disk[key]
 		new, incore := s.core[key]
-		if new == old {
+		if reflect.DeepEqual(new, old) {
 			continue
 		}
 		var change ItemChange
