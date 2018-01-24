@@ -294,9 +294,15 @@ def add_basic_testing_arguments(
                         help='Keep the Juju environment after the test'
                         ' completes.')
     if existing:
-        parser.add_argument('--existing', action='store',
-                            help='Existing controller to test against. Using '
-                            '"current" selects the current controller')
+        parser.add_argument(
+            '--existing',
+            action='store',
+            default=None,
+            const='current',
+            nargs='?',
+            help='Test using an existing bootstrapped controller. '
+                 'If no controller name is provided defaults to using the '
+                 'current selected controller.')
     if deadline:
         parser.add_argument('--timeout', dest='deadline', type=_to_deadline,
                             help="The script timeout, in seconds.")
