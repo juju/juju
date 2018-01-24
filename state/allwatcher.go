@@ -1350,6 +1350,14 @@ func (b *allModelWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(modelUUID string, all *multiwatcherStore) error {
 	st, releaser, err := b.stPool.Get(modelUUID)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// This can occur if the model has been destroyed since
+			// the moment when model uuid has been retrieved.
+			// If we cannot find the model in the above call,
+			// we do not want to err out and we do not want to proceed
+			// with this call - just leave.
+			return nil
+		}
 		return errors.Trace(err)
 	}
 	defer releaser()
