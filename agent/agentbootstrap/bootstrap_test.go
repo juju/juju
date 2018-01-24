@@ -439,7 +439,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	if err == nil {
 		st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "failed to initialize mongo: cannot set admin password: not authorized .*")
+	c.Assert(err, gc.ErrorMatches, "bootstrapping raft cluster: bootstrap only works on new clusters")
 }
 
 func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
