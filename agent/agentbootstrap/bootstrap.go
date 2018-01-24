@@ -56,7 +56,7 @@ type InitializeStateParams struct {
 	StorageProviderRegistry storage.ProviderRegistry
 }
 
-// InitializeState should be called on the bootstrap machine's agent
+// InitializeState should be called with the bootstrap machine's agent
 // configuration. It uses that information to create the controller, dial the
 // controller, and initialize it. It also generates a new password for the
 // bootstrap machine and calls Write to save the the configuration.
@@ -338,18 +338,7 @@ func initBootstrapMachine(c agent.ConfigSetter, st *state.State, args Initialize
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
 func initAPIHostPorts(c agent.ConfigSetter, st *state.State, addrs []network.Address, apiPort int) error {
-	var hostPorts []network.HostPort
-	// First try to select the correct address using the default space where all
-	// API servers should be accessible on.
-	spaceAddr, ok := network.SelectAddressBySpaces(addrs)
-	if ok {
-		logger.Debugf("selected %q as API address", spaceAddr.Value)
-		hostPorts = network.AddressesWithPort([]network.Address{spaceAddr}, apiPort)
-	} else {
-		// Fallback to using all instead.
-		hostPorts = network.AddressesWithPort(addrs, apiPort)
-	}
-
+	hostPorts := network.AddressesWithPort(addrs, apiPort)
 	return st.SetAPIHostPorts([][]network.HostPort{hostPorts})
 }
 

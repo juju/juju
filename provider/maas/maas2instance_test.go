@@ -7,13 +7,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/gomaasapi"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 )
 
 type maas2InstanceSuite struct {
-	baseProviderSuite
+	maas2Suite
 }
 
 var _ = gc.Suite(&maas2InstanceSuite{})
@@ -31,18 +32,53 @@ func (s *maas2InstanceSuite) TestID(c *gc.C) {
 }
 
 func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {
-	machine := &fakeMachine{ipAddresses: []string{
-		"0.0.0.0",
-		"1.2.3.4",
-		"127.0.0.1",
-	}}
-	instance := &maas2Instance{machine: machine}
-	expectedAddresses := []network.Address{
-		network.NewAddress("0.0.0.0"),
-		network.NewAddress("1.2.3.4"),
-		network.NewAddress("127.0.0.1"),
+	vlan := fakeVLAN{vid: 66}
+	subnet := fakeSubnet{
+		id:    99,
+		vlan:  vlan,
+		cidr:  "192.168.10.0/24",
+		space: "freckles",
 	}
+	machine := &fakeMachine{
+		systemID: "1",
+		interfaceSet: []gomaasapi.Interface{
+			&fakeInterface{
+				id:         91,
+				name:       "eth0",
+				type_:      "physical",
+				enabled:    true,
+				macAddress: "52:54:00:70:9b:fe",
+				vlan:       vlan,
+				links: []gomaasapi.Link{
+					&fakeLink{
+						id:        436,
+						subnet:    &subnet,
+						ipAddress: "192.168.10.1",
+						mode:      "static",
+					},
+				},
+				parents:  []string{},
+				children: []string{},
+			},
+		},
+	}
+	controller := &fakeController{
+		spaces: []gomaasapi.Space{
+			fakeSpace{
+				name:    "freckles",
+				id:      4567,
+				subnets: []gomaasapi.Subnet{subnet},
+			},
+		},
+		machines: []gomaasapi.Machine{machine},
+	}
+	instance := &maas2Instance{machine: machine, environ: s.makeEnviron(c, controller)}
 	addresses, err := instance.Addresses()
+
+	expectedAddresses := []network.Address{
+		newAddressOnSpaceWithId("freckles", network.Id("4567"), "192.168.10.1"),
+	}
+
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, jc.SameContents, expectedAddresses)
 }

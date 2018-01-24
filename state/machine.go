@@ -1196,7 +1196,11 @@ func (m *Machine) DesiredSpaces() (set.Strings, error) {
 // that if the provisioner crashes (or its connection to the state is
 // lost) after starting the instance, we can be sure that only a single
 // instance will be able to act for that machine.
-func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) (err error) {
+func (m *Machine) SetProvisioned(
+	id instance.Id,
+	nonce string,
+	characteristics *instance.HardwareCharacteristics,
+) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set instance data for machine %q", m)
 
 	if id == "" || nonce == "" {
@@ -1266,7 +1270,9 @@ func (m *Machine) SetInstanceInfo(
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
-	logger.Tracef("setting instance info: machine %v, deviceAddrs: %#v, devicesArgs: %#v", m.Id(), devicesAddrs, devicesArgs)
+	logger.Tracef(
+		"setting instance info: machine %v, deviceAddrs: %#v, devicesArgs: %#v",
+		m.Id(), devicesAddrs, devicesArgs)
 
 	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
 		return errors.Trace(err)
@@ -1341,7 +1347,13 @@ func (m *Machine) PublicAddress() (network.Address, error) {
 // match, and if not it selects the best from the slice of all available
 // addresses. It returns the new address and a bool indicating if a different
 // one was picked.
-func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []address, getAddr func([]address) network.Address, checkScope func(address) bool) (address, bool) {
+func maybeGetNewAddress(
+	addr address,
+	providerAddresses,
+	machineAddresses []address,
+	getAddr func([]address) network.Address,
+	checkScope func(address) bool,
+) (address, bool) {
 	// For picking the best address, try provider addresses first.
 	var newAddr address
 	netAddr := getAddr(providerAddresses)
@@ -1433,7 +1445,10 @@ func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
 
 func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, *address) {
 	publicAddress := m.doc.PreferredPublicAddress
-	logger.Tracef("machine %v: current public address: %#v \nprovider addresses: %#v \nmachine addresses: %#v", m.Id(), publicAddress, providerAddresses, machineAddresses)
+	logger.Tracef(
+		"machine %v: current public address: %#v \nprovider addresses: %#v \nmachine addresses: %#v",
+		m.Id(), publicAddress, providerAddresses, machineAddresses)
+
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
 		return network.ExactScopeMatch(addr.networkAddress(), network.ScopePublic)
@@ -1458,7 +1473,8 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 	privateAddress := m.doc.PreferredPrivateAddress
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
-		return network.ExactScopeMatch(addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal, network.ScopeFanLocal)
+		return network.ExactScopeMatch(
+			addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal, network.ScopeFanLocal)
 	}
 	// Without an exact match, prefer a fallback match.
 	getAddr := func(addresses []address) network.Address {

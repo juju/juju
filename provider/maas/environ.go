@@ -784,7 +784,11 @@ func (environ *maasEnviron) acquireNode2(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &maas2Instance{machine, constraintMatches}, nil
+	return &maas2Instance{
+		machine:           machine,
+		constraintMatches: constraintMatches,
+		environ:           environ,
+	}, nil
 }
 
 // acquireNode allocates a node from the MAAS.
@@ -1491,6 +1495,47 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 
 }
 
+// Instances returns the instance.Instance objects corresponding to the given
+// slice of instance.Id.  The error is ErrNoInstances if no instances
+// were found.
+func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	if len(ids) == 0 {
+		// This would be treated as "return all instances" below, so
+		// treat it as a special case.
+		// The interface requires us to return this particular error
+		// if no instances were found.
+		return nil, environs.ErrNoInstances
+	}
+	instances, err := environ.acquiredInstances(ids)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(instances) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+
+	idMap := make(map[instance.Id]instance.Instance)
+	for _, instance := range instances {
+		idMap[instance.Id()] = instance
+	}
+
+	missing := false
+	result := make([]instance.Instance, len(ids))
+	for index, id := range ids {
+		val, ok := idMap[id]
+		if !ok {
+			missing = true
+			continue
+		}
+		result[index] = val
+	}
+
+	if missing {
+		return result, environs.ErrPartialInstances
+	}
+	return result, nil
+}
+
 // acquireInstances calls the MAAS API to list acquired nodes.
 //
 // The "ids" slice is a filter for specific instance IDs.
@@ -1542,50 +1587,9 @@ func (environ *maasEnviron) instances2(args gomaasapi.MachinesArgs) ([]instance.
 	}
 	instances := make([]instance.Instance, len(machines))
 	for index, machine := range machines {
-		instances[index] = &maas2Instance{machine: machine}
+		instances[index] = &maas2Instance{machine: machine, environ: environ}
 	}
 	return instances, nil
-}
-
-// Instances returns the instance.Instance objects corresponding to the given
-// slice of instance.Id.  The error is ErrNoInstances if no instances
-// were found.
-func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	if len(ids) == 0 {
-		// This would be treated as "return all instances" below, so
-		// treat it as a special case.
-		// The interface requires us to return this particular error
-		// if no instances were found.
-		return nil, environs.ErrNoInstances
-	}
-	instances, err := environ.acquiredInstances(ids)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(instances) == 0 {
-		return nil, environs.ErrNoInstances
-	}
-
-	idMap := make(map[instance.Id]instance.Instance)
-	for _, instance := range instances {
-		idMap[instance.Id()] = instance
-	}
-
-	missing := false
-	result := make([]instance.Instance, len(ids))
-	for index, id := range ids {
-		val, ok := idMap[id]
-		if !ok {
-			missing = true
-			continue
-		}
-		result[index] = val
-	}
-
-	if missing {
-		return result, environs.ErrPartialInstances
-	}
-	return result, nil
 }
 
 // subnetsFromNode fetches all the subnets for a specific node.

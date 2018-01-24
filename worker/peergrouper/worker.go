@@ -438,13 +438,13 @@ func (w *pgWorker) getMongoSpace(addrs [][]network.Address) (network.SpaceName, 
 			}
 			logger.Warningf("couldn't find a space containing all peer group machines")
 			return unset, nil
-		} else {
-			spaceName, err := w.config.State.SetOrGetMongoSpaceName(spaceStats.LargestSpace)
-			if err != nil {
-				return unset, errors.Annotate(err, "error setting/getting Mongo space")
-			}
-			return spaceName, nil
 		}
+
+		spaceName, err := w.config.State.SetOrGetMongoSpaceName(spaceStats.LargestSpace)
+		if err != nil {
+			return unset, errors.Annotate(err, "error setting/getting Mongo space")
+		}
+		return spaceName, nil
 
 	case state.MongoSpaceValid:
 		space, err := w.config.State.Space(stateInfo.MongoSpaceName)

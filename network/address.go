@@ -275,9 +275,9 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 	return false
 }
 
-// SelectAddressBySpaces picks the first address from the given slice that has
+// SelectAddressBySpaceNames picks the first address from the given slice that has
 // the given space name associated.
-func SelectAddressBySpaces(addresses []Address, spaceNames ...SpaceName) (Address, bool) {
+func SelectAddressBySpaceNames(addresses []Address, spaceNames ...SpaceName) (Address, bool) {
 	for _, addr := range addresses {
 		if spaceNameList(spaceNames).IndexOf(addr.SpaceName) >= 0 {
 			logger.Debugf("selected %q as first address in space %q", addr.Value, addr.SpaceName)
@@ -293,9 +293,9 @@ func SelectAddressBySpaces(addresses []Address, spaceNames ...SpaceName) (Addres
 	return Address{}, false
 }
 
-// SelectHostsPortBySpaces picks the first HostPort from the given slice that has
-// the given space name associated.
-func SelectHostsPortBySpaces(hps []HostPort, spaceNames ...SpaceName) ([]HostPort, bool) {
+// SelectHostPortsBySpaceNames filters the input slice of HostPorts down to
+// those in the input space name.
+func SelectHostPortsBySpaceNames(hps []HostPort, spaceNames ...SpaceName) ([]HostPort, bool) {
 	if len(spaceNames) == 0 {
 		logger.Errorf("host ports not filtered - no spaces given.")
 		return hps, false
@@ -331,15 +331,15 @@ func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, b
 	return internalAddress, ok
 }
 
-// SelectMongoHostPorts returns the most suitable HostPort (as string) to
+// SelectMongoHostPortsBySpaceNames returns the most suitable HostPort (as string) to
 // use as a Juju Controller (API/state server) endpoint given the list of
 // hostPorts. It first tries to find the first HostPort bound to the
 // spaces provided, then, if that fails, uses the older selection method based on scope.
 // When machineLocal is true and an address can't be selected by space both
 // ScopeCloudLocal and ScopeMachineLocal addresses are considered during the
 // selection, otherwise just ScopeCloudLocal are.
-func SelectMongoHostPortsBySpaces(hostPorts []HostPort, spaces []SpaceName) ([]string, bool) {
-	filteredHostPorts, ok := SelectHostsPortBySpaces(hostPorts, spaces...)
+func SelectMongoHostPortsBySpaceNames(hostPorts []HostPort, spaces []SpaceName) ([]string, bool) {
+	filteredHostPorts, ok := SelectHostPortsBySpaceNames(hostPorts, spaces...)
 	if ok {
 		logger.Debugf(
 			"selected %q as controller host:port, using spaces %q",
