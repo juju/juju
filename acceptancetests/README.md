@@ -86,6 +86,30 @@ This feature is available via the ```--existing``` argument for an *assess* scri
 
 Adding this feature to a new test is as easy as passing ```existing=True``` to ```add_basic_testing_arguments``` which will enable the argument in the script.
 
+### Running a test on an existing controller
+
+To iterate quickly on a test it can be useful to bootstrap a controller and run the test against that multiple times.
+This example isolates the juju interactions so your system configuration is not touched.
+
+```bash
+# Use freshly built juju binaries
+export PATH=/home/user/src/Go/bin:$PATH
+export JUJU_DATA=/tmp/testing-controller
+# The test will still need JUJU_HOME to find it's environment.yaml and credentials.yaml
+export JUJU_HOME=~/cloud-city/
+mkdir -p $JUJU_DATA
+
+juju bootstrap lxd/localhost testing-feature-x
+
+./assess_feature-x.py lxd --existing testing-feature-x
+```
+
+**Note:** If you don't explicitly set **JUJU_DATA** the test will check for an existing path in this order:
+
+  1. **$JUJU_DATA**
+  1. **$XDG_DATA_HOME**/juju
+  1. **$HOME**/.local/share/juju
+  
 ### Keeping an environment after a run
 
 Normally a test script will teardown any bootstrapped controllers, if you wish to investigate the environment after a run use ```--keep-env``.
