@@ -4,13 +4,13 @@
 package action
 
 import (
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	yaml "gopkg.in/yaml.v2"
 
@@ -20,7 +20,8 @@ import (
 	"github.com/juju/juju/cmd/output"
 )
 
-var keyRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+// nameRule describes the name format of an action or keyName must match to be valid.
+var nameRule = charm.GetActionNameRule()
 
 func NewRunCommand() cmd.Command {
 	return modelcmd.Wrap(&runCommand{})
@@ -43,8 +44,8 @@ const runDoc = `
 Queue an Action for execution on a given unit, with a given set of params.
 The Action ID is returned for use with 'juju show-action-output <ID>' or
 'juju show-action-status <ID>'.
- 
-Params are validated according to the charm for the unit's application.  The 
+
+Params are validated according to the charm for the unit's application.  The
 valid params can be seen using "juju actions <application> --schema".
 Params may be in a yaml file which is passed with the --params flag, or they
 may be specified by a key.key.key...=value format (see examples below.)
@@ -68,7 +69,7 @@ result:
     name: foo.sql
 
 
-$ juju run-action mysql/3 backup 
+$ juju run-action mysql/3 backup
 action: <ID>
 
 $ juju show-action-output <ID>
@@ -118,9 +119,6 @@ $ juju run-action sleeper/0 pause --string-args time=1000
 The value for the "time" param will be the string literal "1000".
 `
 
-// ActionNameRule describes the format an action name must match to be valid.
-var ActionNameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
-
 // SetFlags offers an option for YAML output.
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
@@ -145,7 +143,7 @@ func (c *runCommand) Init(args []string) error {
 	for idx, arg := range args {
 		if names.IsValidUnit(arg) {
 			unitNames = args[:idx+1]
-		} else if ActionNameRule.MatchString(arg) {
+		} else if nameRule.MatchString(arg) {
 			c.actionName = arg
 			break
 		} else {
@@ -173,7 +171,7 @@ func (c *runCommand) Init(args []string) error {
 		keySlice := strings.Split(thisArg[0], ".")
 		// check each key for validity
 		for _, key := range keySlice {
-			if valid := keyRule.MatchString(key); !valid {
+			if valid := nameRule.MatchString(key); !valid {
 				return errors.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens", key)
 			}
 		}
