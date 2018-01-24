@@ -200,12 +200,14 @@ func (st *State) Model() (*Model, error) {
 
 // AllModelUUIDs returns the UUIDs for all models in the controller.
 // Results are sorted by (name, owner).
+// All dead models are excluded.
 func (st *State) AllModelUUIDs() ([]string, error) {
 	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
+	notDead := bson.M{"life": bson.M{"$ne": Dead}}
 	var docs []bson.M
-	err := models.Find(nil).Sort("name", "owner").Select(bson.M{"_id": 1}).All(&docs)
+	err := models.Find(notDead).Sort("name", "owner").Select(bson.M{"_id": 1}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
