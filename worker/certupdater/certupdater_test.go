@@ -99,7 +99,7 @@ func (g *mockConfigGetter) ControllerConfig() (jujucontroller.Config, error) {
 
 type mockAPIHostGetter struct{}
 
-func (g *mockAPIHostGetter) APIHostPorts() ([][]network.HostPort, error) {
+func (g *mockAPIHostGetter) APIHostPortsForAgents() ([][]network.HostPort, error) {
 	return [][]network.HostPort{
 		{
 			{Address: network.Address{Value: "192.168.1.1", Scope: network.ScopeCloudLocal}, Port: 17070},

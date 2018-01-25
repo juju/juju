@@ -61,7 +61,7 @@ type StateServingInfoSetter func(info params.StateServingInfo) error
 // APIHostPortsGetter is an interface that is provided to NewCertificateUpdater
 // whose APIHostPorts method will be invoked to get controller addresses.
 type APIHostPortsGetter interface {
-	APIHostPorts() ([][]network.HostPort, error)
+	APIHostPortsForAgents() ([][]network.HostPort, error)
 }
 
 // Config holds the configuration for the certificate updater worker.
@@ -89,7 +89,7 @@ func NewCertificateUpdater(config Config) worker.Worker {
 // SetUp is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) SetUp() (state.NotifyWatcher, error) {
 	// Populate certificate SAN with any addresses we know about now.
-	apiHostPorts, err := c.hostPortsGetter.APIHostPorts()
+	apiHostPorts, err := c.hostPortsGetter.APIHostPortsForAgents()
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving initial server addesses")
 	}
