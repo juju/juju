@@ -328,7 +328,7 @@ type mockAPIHostPortsGetter struct {
 	err       error
 }
 
-func (g mockAPIHostPortsGetter) APIHostPorts() ([][]network.HostPort, error) {
+func (g mockAPIHostPortsGetter) APIHostPortsForAgents() ([][]network.HostPort, error) {
 	return g.hostPorts, g.err
 }
 
