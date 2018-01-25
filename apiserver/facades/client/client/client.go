@@ -695,22 +695,6 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	return result, nil
 }
 
-// APIHostPortsForAgents returns the API host/port addresses stored in state
-// and intended for use by agents based on the configured management space.
-// If no such space is configured, this will return the same as APIHostPorts().
-func (c *Client) APIHostPortsForAgents() (result params.APIHostPortsResult, err error) {
-	if err := c.checkCanWrite(); err != nil {
-		return result, err
-	}
-
-	var servers [][]network.HostPort
-	if servers, err = c.api.stateAccessor.APIHostPortsForAgents(); err != nil {
-		return params.APIHostPortsResult{}, err
-	}
-	result.Servers = params.FromNetworkHostsPorts(servers)
-	return result, nil
-}
-
 // CACert returns the certificate used to validate the state connection.
 func (c *Client) CACert() (params.BytesResult, error) {
 	cfg, err := c.api.stateAccessor.ControllerConfig()
