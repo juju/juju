@@ -1540,36 +1540,6 @@ func (s *clientMgmtSpaceSuite) SetUpTest(c *gc.C) {
 	s.clientSuite.SetUpTest(c)
 }
 
-func (s *clientSuite) TestAPIHostPortsForAgents(c *gc.C) {
-	apiHostPorts, err := s.APIState.Client().APIHostPortsForAgents()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiHostPorts, gc.HasLen, 0)
-
-	hostPort1 := network.HostPort{
-		Address: network.Address{
-			Value: "0.2.4.6",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		},
-		Port: 1,
-	}
-	hostPort2 := network.HostPort{
-		Address: network.Address{
-			Value:     "0.4.8.16",
-			Type:      network.IPv4Address,
-			Scope:     network.ScopePublic,
-			SpaceName: "mgmt01",
-		},
-		Port: 2,
-	}
-	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort1, hostPort2}})
-	c.Assert(err, jc.ErrorIsNil)
-
-	apiHostPorts, err = s.APIState.Client().APIHostPortsForAgents()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiHostPorts, gc.DeepEquals, [][]network.HostPort{{hostPort2}})
-}
-
 func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	current := version.MustParse("1.2.0")
 	s.PatchValue(&jujuversion.Current, current)
