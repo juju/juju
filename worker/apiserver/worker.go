@@ -115,8 +115,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
 
-	// TODO(babbageclunk): get this from agent config.
-	auditConfig := apiserver.DefaultAuditLogConfig()
+	auditConfig := getAuditLogConfig(controllerConfig)
 
 	serverConfig := apiserver.ServerConfig{
 		Clock:                         config.Clock,

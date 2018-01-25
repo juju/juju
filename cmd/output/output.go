@@ -94,6 +94,7 @@ var GoodHighlight = ansiterm.Foreground(ansiterm.Green)
 var statusColors = map[status.Status]*ansiterm.Context{
 	// good
 	status.Active:    GoodHighlight,
+	status.Running:   GoodHighlight,
 	status.Idle:      GoodHighlight,
 	status.Started:   GoodHighlight,
 	status.Executing: GoodHighlight,

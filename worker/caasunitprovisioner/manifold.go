@@ -66,6 +66,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ContainerSpecGetter: client,
 		LifeGetter:          client,
 		UnitGetter:          client,
+		UnitUpdater:         client,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -32,6 +32,7 @@ type StateSuite struct {
 	Owner                     names.UserTag
 	Factory                   *factory.Factory
 	InitialConfig             *config.Config
+	ControllerConfig          map[string]interface{}
 	ControllerInheritedConfig map[string]interface{}
 	RegionConfig              cloud.RegionConfig
 	Clock                     *jujutesting.Clock
@@ -56,6 +57,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.Controller, s.State = InitializeWithArgs(c, InitializeArgs{
 		Owner:                     s.Owner,
 		InitialConfig:             s.InitialConfig,
+		ControllerConfig:          s.ControllerConfig,
 		ControllerInheritedConfig: s.ControllerInheritedConfig,
 		RegionConfig:              s.RegionConfig,
 		NewPolicy:                 s.NewPolicy,

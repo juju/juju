@@ -4,12 +4,9 @@
 package caasoperatorprovisioner
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -36,7 +33,6 @@ type Config struct {
 	Broker      caas.Broker
 	ModelTag    names.ModelTag
 	AgentConfig agent.Config
-	Clock       clock.Clock
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
@@ -46,21 +42,10 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 		broker:            config.Broker,
 		modelTag:          config.ModelTag,
 		agentConfig:       config.AgentConfig,
-		runner: worker.NewRunner(worker.RunnerParams{
-			Clock: config.Clock,
-
-			// One of the application/unit workers failing should not
-			// prevent the others from running.
-			IsFatal: func(error) bool { return false },
-
-			// For any failures, try again in 5 seconds.
-			RestartDelay: 5 * time.Second,
-		}),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
 		Work: p.loop,
-		Init: []worker.Worker{p.runner},
 	})
 	return p, err
 }
@@ -69,8 +54,6 @@ type provisioner struct {
 	catacomb          catacomb.Catacomb
 	provisionerFacade CAASProvisionerFacade
 	broker            caas.Broker
-
-	runner *worker.Runner
 
 	modelTag    names.ModelTag
 	agentConfig agent.Config
@@ -108,6 +91,8 @@ func (p *provisioner) loop() error {
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
+			// TODO(caas) - cleanup when an application is deleted
+
 			var appPasswords []apicaasprovisioner.ApplicationPassword
 			for _, app := range apps {
 				password, err := p.handleApplicationChange(app)
@@ -146,33 +131,6 @@ func (p *provisioner) handleApplicationChange(app string) (string, error) {
 	if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), config); err != nil {
 		return "", errors.Annotatef(err, "failed to start operator for %q", app)
 	}
-
-	if _, err := p.runner.Worker(app, p.catacomb.Dying()); err == nil {
-		// TODO(wallyworld): handle application dying or dead.
-		// As of now, if the worker is already running, that's all we need.
-		return "", nil
-	}
-
-	startFunc := func() (worker.Worker, error) {
-		appWorker := &applicationWorker{
-			applicationName: app,
-			broker:          p.broker,
-			facade:          p.provisionerFacade,
-		}
-		if err := catacomb.Invoke(catacomb.Plan{
-			Site: &appWorker.catacomb,
-			Work: appWorker.loop,
-		}); err != nil {
-			return nil, errors.Trace(err)
-		}
-		return appWorker, nil
-	}
-
-	logger.Debugf("starting unit watcher for application %q", app)
-	if err := p.runner.StartWorker(app, startFunc); err != nil {
-		return "", errors.Annotate(err, "error starting application worker")
-	}
-
 	return password, nil
 }
 

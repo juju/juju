@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
@@ -74,6 +76,13 @@ type port struct {
 	Number   int    `bson:"number"`
 }
 
+// ContainerInfo holds attributes about the containing
+// hosting a unit in a CAAS model.
+type ContainerInfo struct {
+	Address string   `bson:"address"`
+	Ports   []string `bson:"ports"`
+}
+
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
@@ -92,6 +101,10 @@ type unitDoc struct {
 	Life                   Life
 	TxnRevno               int64 `bson:"txn-revno"`
 	PasswordHash           string
+
+	// ProviderId is used by CAAS models.
+	ProviderId    string        `bson:"provider-id"`
+	ContainerInfo ContainerInfo `bson:"container-info"`
 }
 
 // Unit represents the state of a service unit.
@@ -106,6 +119,18 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 		doc: *udoc,
 	}
 	return unit
+}
+
+// ProviderId returns the unit's id as set by the provider.
+// This is only used for CAAS models.
+func (u *Unit) ProviderId() string {
+	return u.doc.ProviderId
+}
+
+// ContainerInfo returns information about the containing hosting this unit.
+// This is only used for CAAS models.
+func (u *Unit) ContainerInfo() ContainerInfo {
+	return u.doc.ContainerInfo
 }
 
 // Application returns the application.
@@ -284,6 +309,88 @@ func (u *Unit) PasswordValid(password string) bool {
 	return false
 }
 
+// UpdateOperation returns a model operation that will update a unit.
+func (u *Unit) UpdateOperation(props UnitUpdateProperties) *UpdateUnitOperation {
+	return &UpdateUnitOperation{
+		unit:  &Unit{st: u.st, doc: u.doc},
+		props: props,
+	}
+}
+
+// UpdateUnitsOperation is a model operation for updating a unit.
+type UpdateUnitOperation struct {
+	unit  *Unit
+	props UnitUpdateProperties
+
+	setStatusDocs map[string]statusDoc
+}
+
+// Build is part of the ModelOperation interface.
+func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
+	// TODO(caas) - we don't yet model containers for units so do not update address or port
+
+	op.setStatusDocs = make(map[string]statusDoc)
+	var ops []txn.Op
+
+	if op.unit.ProviderId() != "" &&
+		op.props.ProviderId != "" &&
+		op.unit.ProviderId() != op.props.ProviderId {
+		return nil, errors.Errorf("unit %q has provider id %q which does not match %q",
+			op.unit.Name(), op.unit.ProviderId(), op.props.ProviderId)
+	}
+	containerInfo := ContainerInfo{
+		Address: op.props.Address,
+		Ports:   op.props.Ports,
+	}
+	var updates bson.D
+	asserts := isAliveDoc
+	if op.unit.ProviderId() != op.props.ProviderId {
+		updates = append(updates, bson.DocElem{"provider-id", op.props.ProviderId})
+		asserts = append(asserts, bson.DocElem{"provider-id", ""})
+	}
+	if !reflect.DeepEqual(containerInfo, op.unit.ContainerInfo()) {
+		updates = append(updates, bson.DocElem{"container-info", containerInfo})
+	}
+	if len(updates) > 0 {
+		ops = []txn.Op{{
+			C:      unitsC,
+			Id:     op.unit.doc.DocID,
+			Assert: asserts,
+			Update: bson.D{{"$set", updates}},
+		}}
+	}
+
+	if op.props.Status != nil {
+		now := op.unit.st.clock().Now()
+		doc := statusDoc{
+			Status:     op.props.Status.Status,
+			StatusInfo: op.props.Status.Message,
+			StatusData: mgoutils.EscapeKeys(op.props.Status.Data),
+			Updated:    now.UnixNano(),
+		}
+		op.setStatusDocs[op.unit.globalAgentKey()] = doc
+		statusOps, err := statusSetOps(op.unit.st.db(), doc, op.unit.globalAgentKey())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, statusOps...)
+	}
+	return ops, nil
+}
+
+// Done is part of the ModelOperation interface.
+func (op *UpdateUnitOperation) Done(err error) error {
+	if err != nil {
+		return errors.Annotatef(err, "updating unit %q", op.unit.Name())
+	}
+	// We can't include in the ops slice the necessary status history updates,
+	// so as with existing practice, do a best effort update of status history.
+	for key, doc := range op.setStatusDocs {
+		probablyUpdateStatusHistory(op.unit.st.db(), key, doc)
+	}
+	return nil
+}
+
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
 // possible; it otherwise has no effect. In most situations, the unit's
 // life is just set to Dying; but if a principal unit that is not assigned
@@ -417,7 +524,9 @@ func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 	if isAssigned && agentStatusInfo.Status != status.Allocating {
 		return setDyingOps, nil
 	}
-	if agentStatusInfo.Status != status.Error && agentStatusInfo.Status != status.Allocating {
+	switch agentStatusInfo.Status {
+	case status.Error, status.Allocating, status.Running:
+	default:
 		return nil, errors.Errorf("unexpected unit state - unit with status %v is not assigned to a machine", agentStatusInfo.Status)
 	}
 
@@ -2550,7 +2659,7 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	if args.meterStatusDoc != nil {
 		prereqOps = append(prereqOps, createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc))
 	}
-	if args.workloadStatusDoc != nil {
+	if args.workloadVersionDoc != nil {
 		prereqOps = append(prereqOps, createStatusOp(st, globalWorkloadVersionKey(name), *args.workloadVersionDoc))
 	}
 	prereqOps = append(prereqOps,

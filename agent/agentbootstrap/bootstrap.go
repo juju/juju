@@ -5,6 +5,7 @@ package agentbootstrap
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/raft"
 )
 
 var logger = loggo.GetLogger("juju.agent.agentbootstrap")
@@ -54,7 +56,7 @@ type InitializeStateParams struct {
 	StorageProviderRegistry storage.ProviderRegistry
 }
 
-// InitializeState should be called on the bootstrap machine's agent
+// InitializeState should be called with the bootstrap machine's agent
 // configuration. It uses that information to create the controller, dial the
 // controller, and initialize it. It also generates a new password for the
 // bootstrap machine and calls Write to save the the configuration.
@@ -89,6 +91,10 @@ func InitializeState(
 	}
 	info.Tag = nil
 	info.Password = c.OldPassword()
+
+	if err := initRaft(c); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	session, err := initMongo(info.Info, dialOpts, info.Password)
 	if err != nil {
@@ -222,11 +228,7 @@ func InitializeState(
 	defer hostedModelState.Close()
 
 	if err := model.AutoConfigureContainerNetworking(hostedModelEnv); err != nil {
-		if errors.IsNotSupported(err) {
-			logger.Debugf("Not performing container networking autoconfiguration on a non-networking environment")
-		} else {
-			return nil, nil, errors.Annotate(err, "autoconfiguring container networking")
-		}
+		return nil, nil, errors.Annotate(err, "autoconfiguring container networking")
 	}
 
 	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
@@ -251,6 +253,15 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 		SharedSecret:   i.SharedSecret,
 		SystemIdentity: i.SystemIdentity,
 	}
+}
+
+func initRaft(agentConfig agent.Config) error {
+	raftDir := filepath.Join(agentConfig.DataDir(), "raft")
+	return raft.Bootstrap(raft.Config{
+		StorageDir: raftDir,
+		Logger:     logger,
+		Tag:        agentConfig.Tag(),
+	})
 }
 
 // initMongo dials the initial MongoDB connection, setting a
@@ -327,18 +338,7 @@ func initBootstrapMachine(c agent.ConfigSetter, st *state.State, args Initialize
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
 func initAPIHostPorts(c agent.ConfigSetter, st *state.State, addrs []network.Address, apiPort int) error {
-	var hostPorts []network.HostPort
-	// First try to select the correct address using the default space where all
-	// API servers should be accessible on.
-	spaceAddr, ok := network.SelectAddressBySpaces(addrs)
-	if ok {
-		logger.Debugf("selected %q as API address", spaceAddr.Value)
-		hostPorts = network.AddressesWithPort([]network.Address{spaceAddr}, apiPort)
-	} else {
-		// Fallback to using all instead.
-		hostPorts = network.AddressesWithPort(addrs, apiPort)
-	}
-
+	hostPorts := network.AddressesWithPort(addrs, apiPort)
 	return st.SetAPIHostPorts([][]network.HostPort{hostPorts})
 }
 

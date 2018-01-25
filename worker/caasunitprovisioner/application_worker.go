@@ -6,8 +6,10 @@ package caasunitprovisioner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -23,6 +25,7 @@ type applicationWorker struct {
 	lifeGetter          LifeGetter
 	applicationGetter   ApplicationGetter
 	unitGetter          UnitGetter
+	unitUpdater         UnitUpdater
 
 	aliveUnitsChan chan []string
 }
@@ -36,6 +39,7 @@ func newApplicationWorker(
 	lifeGetter LifeGetter,
 	applicationGetter ApplicationGetter,
 	unitGetter UnitGetter,
+	unitUpdater UnitUpdater,
 ) (worker.Worker, error) {
 	w := &applicationWorker{
 		application:         application,
@@ -46,6 +50,7 @@ func newApplicationWorker(
 		lifeGetter:          lifeGetter,
 		applicationGetter:   applicationGetter,
 		unitGetter:          unitGetter,
+		unitUpdater:         unitUpdater,
 		aliveUnitsChan:      make(chan []string),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -68,11 +73,19 @@ func (w *applicationWorker) Wait() error {
 }
 
 func (aw *applicationWorker) loop() error {
-	uw, err := aw.unitGetter.WatchUnits(aw.application)
+	jujuUnitsWatcher, err := aw.unitGetter.WatchUnits(aw.application)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	aw.catacomb.Add(uw)
+	aw.catacomb.Add(jujuUnitsWatcher)
+
+	brokerUnitsWatcher, err := aw.containerBroker.WatchUnits(aw.application)
+	if err != nil {
+		return errors.Annotatef(err, "failed to start unit watcher for %q", aw.application)
+	}
+	if err := aw.catacomb.Add(brokerUnitsWatcher); err != nil {
+		return errors.Trace(err)
+	}
 
 	var deploymentWorker worker.Worker
 	if aw.brokerManagedUnits {
@@ -95,7 +108,7 @@ func (aw *applicationWorker) loop() error {
 		select {
 		case <-aw.catacomb.Dying():
 			return aw.catacomb.ErrDying()
-		case units, ok := <-uw.Changes():
+		case units, ok := <-jujuUnitsWatcher.Changes():
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
@@ -141,6 +154,33 @@ func (aw *applicationWorker) loop() error {
 			}
 		case aliveUnitsChan <- aliveUnits.Values():
 			aliveUnitsChan = nil
+		case _, ok := <-brokerUnitsWatcher.Changes():
+			logger.Debugf("units changed: %#v", ok)
+			if !ok {
+				return brokerUnitsWatcher.Wait()
+			}
+			units, err := aw.containerBroker.Units(aw.application)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			logger.Debugf("units for %v: %+v", aw.application, units)
+			args := params.UpdateApplicationUnits{
+				ApplicationTag: names.NewApplicationTag(aw.application).String(),
+				Units:          make([]params.ApplicationUnitParams, len(units)),
+			}
+			for i, u := range units {
+				args.Units[i] = params.ApplicationUnitParams{
+					Id:      u.Id,
+					Address: u.Address,
+					Ports:   u.Ports,
+					Status:  u.Status.Status.String(),
+					Info:    u.Status.Message,
+					Data:    u.Status.Data,
+				}
+			}
+			if err := aw.unitUpdater.UpdateUnits(args); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 }

@@ -81,6 +81,14 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 		if isAssigned {
 			return errors.Errorf("cannot set status %q as unit is already assigned", unitAgentStatus.Status)
 		}
+	case status.Running:
+		model, err := u.st.Model()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if model.Type() != ModelTypeCAAS {
+			return errors.Errorf("cannot set invalid status %q", unitAgentStatus.Status)
+		}
 	case status.Lost:
 		return errors.Errorf("cannot set status %q", unitAgentStatus.Status)
 	default:

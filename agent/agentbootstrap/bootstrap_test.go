@@ -331,13 +331,16 @@ LXC_BRIDGE="ignored"`[1:])
 		"Provider",
 		"Version",
 	)
+	// Those attritbutes are configured during initialization, after "Open".
+	expectedCalledCfg, err := hostedCfg.Apply(map[string]interface{}{"container-networking-method": ""})
+	c.Assert(err, jc.ErrorIsNil)
 	envProvider.CheckCall(c, 2, "Open", environs.OpenParams{
 		Cloud: environs.CloudSpec{
 			Type:   "dummy",
 			Name:   "dummy",
 			Region: "dummy-region",
 		},
-		Config: hostedCfg,
+		Config: expectedCalledCfg,
 	})
 	envProvider.CheckCall(c, 3, "Create", environs.CreateParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
@@ -436,7 +439,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	if err == nil {
 		st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "failed to initialize mongo: cannot set admin password: not authorized .*")
+	c.Assert(err, gc.ErrorMatches, "bootstrapping raft cluster: bootstrap only works on new clusters")
 }
 
 func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {

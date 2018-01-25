@@ -163,6 +163,11 @@ type UnitStatus struct {
 	Charm         string                `json:"charm"`
 	Subordinates  map[string]UnitStatus `json:"subordinates"`
 	Leader        bool                  `json:"leader,omitempty"`
+
+	// The following are for CAAS models.
+
+	ProviderId string `json:"provider-id,omitempty"`
+	Address    string `json:"address,omitempty"`
 }
 
 // RelationStatus holds status info about a relation.

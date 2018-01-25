@@ -178,7 +178,7 @@ func UploadFakeToolsVersions(stor storage.Storage, toolsDir, stream string, vers
 	for _, tools := range existing {
 		existingTools[tools.Version] = tools
 	}
-	var agentTools coretools.List = make(coretools.List, len(versions))
+	var agentTools = make(coretools.List, len(versions))
 	for i, version := range versions {
 		if tools, ok := existingTools[version]; ok {
 			agentTools[i] = tools
@@ -243,8 +243,6 @@ func SignFileData(stor storage.Storage, fileName string) error {
 // AssertUploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
 func AssertUploadFakeToolsVersions(c *gc.C, stor storage.Storage, toolsDir, stream string, versions ...version.Binary) []*coretools.Tools {
 	agentTools, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...)
-	c.Assert(err, jc.ErrorIsNil)
-	err = envtools.MergeAndWriteMetadata(stor, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors)
 	c.Assert(err, jc.ErrorIsNil)
 	return agentTools
 }

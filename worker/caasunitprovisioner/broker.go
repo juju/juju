@@ -3,13 +3,19 @@
 
 package caasunitprovisioner
 
-import "github.com/juju/juju/core/application"
+import (
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/watcher"
+)
 
 type ContainerBroker interface {
-	EnsureUnit(appName, unitName, spec string) error
+	EnsureUnit(appName, unitName string, spec *caas.ContainerSpec) error
+	WatchUnits(appName string) (watcher.NotifyWatcher, error)
+	Units(appName string) ([]caas.Unit, error)
 }
 
 type ServiceBroker interface {
-	EnsureService(appName, unitSpec string, numUnits int, config application.ConfigAttributes) error
+	EnsureService(appName string, unitSpec *caas.ContainerSpec, numUnits int, config application.ConfigAttributes) error
 	DeleteService(appName string) error
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
@@ -275,6 +276,10 @@ func (f *Facade) SetContainerSpec(args params.SetContainerSpecParams) (params.Er
 		}
 		if !canAccess(tag) {
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if _, err := caas.ParseContainerSpec(arg.Value); err != nil {
+			results.Results[i].Error = common.ServerError(errors.New("invalid container spec"))
 			continue
 		}
 		results.Results[i].Error = common.ServerError(

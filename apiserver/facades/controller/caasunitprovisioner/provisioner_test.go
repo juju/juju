@@ -14,6 +14,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -41,6 +42,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.unitsChanges = make(chan []string, 1)
 	s.st = &mockState{
 		application: mockApplication{
+			tag:          names.NewApplicationTag("gitlab"),
 			life:         state.Alive,
 			unitsWatcher: statetesting.NewMockStringsWatcher(s.unitsChanges),
 		},
@@ -187,4 +189,54 @@ func (s *CAASProvisionerSuite) TestApplicationConfig(c *gc.C) {
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 	c.Assert(results.Results[0].Config, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
+}
+
+func (s *CAASProvisionerSuite) TestUpdateApplicationsUnits(c *gc.C) {
+	s.st.application.units = []caasunitprovisioner.Unit{
+		&mockUnit{name: "gitlab/0", providerId: "uuid", life: state.Alive},
+		&mockUnit{name: "gitlab/1", life: state.Alive},
+		&mockUnit{name: "gitlab/2", providerId: "uuid2", life: state.Alive},
+	}
+
+	units := []params.ApplicationUnitParams{
+		{Id: "uuid", Address: "address", Ports: []string{"port"},
+			Status: "running", Info: "message"},
+		{Id: "another-uuid", Address: "another-address", Ports: []string{"another-port"},
+			Status: "running", Info: "another message"},
+		{Id: "last-uuid", Address: "last-address", Ports: []string{"last-port"},
+			Status: "running", Info: "last message"},
+	}
+	args := params.UpdateApplicationUnitArgs{
+		Args: []params.UpdateApplicationUnits{
+			{ApplicationTag: "application-gitlab", Units: units},
+			{ApplicationTag: "application-another", Units: []params.ApplicationUnitParams{}},
+		},
+	}
+	results, err := s.facade.UpdateApplicationsUnits(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{&params.Error{Message: "application another not found", Code: "not found"}},
+		},
+	})
+	s.st.application.CheckCallNames(c, "AddOperation")
+	s.st.application.CheckCall(c, 0, "AddOperation", state.UnitUpdateProperties{
+		ProviderId: "last-uuid",
+		Address:    "last-address", Ports: []string{"last-port"},
+		Status: &status.StatusInfo{Status: status.Running, Message: "last message"},
+	})
+	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
+		ProviderId: "uuid",
+		Address:    "address", Ports: []string{"port"},
+		Status: &status.StatusInfo{Status: status.Running, Message: "message"},
+	})
+	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
+		ProviderId: "another-uuid",
+		Address:    "another-address", Ports: []string{"another-port"},
+		Status: &status.StatusInfo{Status: status.Running, Message: "another message"},
+	})
+	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life", "DestroyOperation")
 }

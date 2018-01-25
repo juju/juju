@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -159,7 +160,14 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 }
 
 func (sf *statusFormatter) formatApplication(name string, application params.ApplicationStatus) applicationStatus {
+	var osInfo string
 	appOS, _ := series.GetOSFromSeries(application.Series)
+	osInfo = strings.ToLower(appOS.String())
+
+	// TODO(caas) - enhance GetOSFromSeries
+	if appOS == os.Unknown && sf.status.Model.Type == "caas" {
+		osInfo = application.Series
+	}
 	var (
 		charmOrigin = ""
 		charmName   = ""
@@ -186,7 +194,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		Err:           application.Err,
 		Charm:         application.Charm,
 		Series:        application.Series,
-		OS:            strings.ToLower(appOS.String()),
+		OS:            osInfo,
 		CharmOrigin:   charmOrigin,
 		CharmName:     charmName,
 		CharmRev:      charmRev,
@@ -324,6 +332,8 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 		JujuStatusInfo:     sf.getAgentStatusInfo(info.unit),
 		Machine:            info.unit.Machine,
 		OpenedPorts:        info.unit.OpenedPorts,
+		ProviderId:         info.unit.ProviderId,
+		Address:            info.unit.Address,
 		PublicAddress:      info.unit.PublicAddress,
 		Charm:              info.unit.Charm,
 		Subordinates:       make(map[string]unitStatus),

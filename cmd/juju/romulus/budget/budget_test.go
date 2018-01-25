@@ -73,7 +73,15 @@ func (s *budgetSuite) TestUpdateBudget(c *gc.C) {
 	ctx, err := s.run(c, "5")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "budget set to 5\n")
-	s.mockAPI.CheckCall(c, 0, "UpdateBudget", "model-uuid", "5")
+	s.mockAPI.CheckCall(c, 0, "UpdateBudget", "model-uuid", "", "5")
+}
+
+func (s *budgetSuite) TestUpdateBudgetMoveToWallet(c *gc.C) {
+	s.mockAPI.resp = "budget moved to wallet 'work', budget set to 5"
+	ctx, err := s.run(c, "work:5")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "budget moved to wallet 'work', budget set to 5\n")
+	s.mockAPI.CheckCall(c, 0, "UpdateBudget", "model-uuid", "work", "5")
 }
 
 func (s *budgetSuite) TestUpdateBudgetByModelUUID(c *gc.C) {
@@ -82,7 +90,7 @@ func (s *budgetSuite) TestUpdateBudgetByModelUUID(c *gc.C) {
 	ctx, err := s.run(c, "--model-uuid", modelUUID, "5")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "budget set to 5\n")
-	s.mockAPI.CheckCall(c, 0, "UpdateBudget", modelUUID, "5")
+	s.mockAPI.CheckCall(c, 0, "UpdateBudget", modelUUID, "", "5")
 }
 
 func (s *budgetSuite) TestUpdateBudgetByModelName(c *gc.C) {
@@ -90,7 +98,7 @@ func (s *budgetSuite) TestUpdateBudgetByModelName(c *gc.C) {
 	ctx, err := s.run(c, "--model", "anothercontroller:somemodel", "5")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "budget set to 5\n")
-	s.mockAPI.CheckCall(c, 0, "UpdateBudget", "another-model-uuid", "5")
+	s.mockAPI.CheckCall(c, 0, "UpdateBudget", "another-model-uuid", "", "5")
 }
 
 func (s *budgetSuite) TestUpdateBudgetInvalidModelUUID(c *gc.C) {
@@ -104,7 +112,7 @@ func (s *budgetSuite) TestUpdateBudgetAPIError(c *gc.C) {
 	s.stub.SetErrors(errors.New("something failed"))
 	_, err := s.run(c, "5")
 	c.Assert(err, gc.ErrorMatches, "failed to update the budget: something failed")
-	s.mockAPI.CheckCall(c, 0, "UpdateBudget", "model-uuid", "5")
+	s.mockAPI.CheckCall(c, 0, "UpdateBudget", "model-uuid", "", "5")
 }
 
 func (s *budgetSuite) TestUpdateBudgetErrors(c *gc.C) {
@@ -114,9 +122,13 @@ func (s *budgetSuite) TestUpdateBudgetErrors(c *gc.C) {
 		expectedError string
 	}{
 		{
-			about:         "value needs to be a number",
+			about:         "budget limit needs to be a number",
 			args:          []string{"badvalue"},
-			expectedError: "value needs to be a whole number",
+			expectedError: "budget limit needs to be a whole number",
+		}, {
+			about:         "budget limit needs to be a number",
+			args:          []string{"wallet:"},
+			expectedError: "budget limit needs to be a whole number",
 		}, {
 			about:         "no args",
 			args:          []string{},
@@ -141,7 +153,7 @@ type mockapi struct {
 	resp string
 }
 
-func (api *mockapi) UpdateBudget(modelUUID, value string) (string, error) {
-	api.MethodCall(api, "UpdateBudget", modelUUID, value)
+func (api *mockapi) UpdateBudget(modelUUID, wallet, value string) (string, error) {
+	api.MethodCall(api, "UpdateBudget", modelUUID, wallet, value)
 	return api.resp, api.NextErr()
 }

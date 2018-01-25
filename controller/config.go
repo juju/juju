@@ -6,12 +6,14 @@ package controller
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
@@ -44,6 +46,13 @@ const (
 	// AuditLogMaxBackups is the number of old audit log files to keep
 	// (compressed).
 	AuditLogMaxBackups = "audit-log-max-backups"
+
+	// AuditLogExcludeMethods is a list of Facade.Method names that
+	// aren't interesting for audit logging purposes. A conversation
+	// with only calls to these will be excluded from the
+	// log. (They'll still appear in conversations that have other
+	// interesting calls though.)
+	AuditLogExcludeMethods = "audit-log-exclude-methods"
 
 	// StatePort is the port used for mongo connections.
 	StatePort = "state-port"
@@ -99,7 +108,7 @@ const (
 
 	// DefaultAuditingEnabled contains the default value for the
 	// AuditingEnabled config value.
-	DefaultAuditingEnabled = false
+	DefaultAuditingEnabled = true
 
 	// DefaultAuditLogCaptureArgs is the default for the
 	// AuditLogCaptureArgs setting (which is not to capture them).
@@ -145,30 +154,93 @@ const (
 	JujuManagementSpace = "juju-mgmt-space"
 )
 
-// ControllerOnlyConfigAttributes are attributes which are only relevant
-// for a controller, never a model.
-var ControllerOnlyConfigAttributes = []string{
-	AllowModelAccessKey,
-	APIPort,
-	AutocertDNSNameKey,
-	AutocertURLKey,
-	CACertKey,
-	ControllerUUIDKey,
-	IdentityPublicKey,
-	IdentityURL,
-	SetNUMAControlPolicyKey,
-	StatePort,
-	MongoMemoryProfile,
-	MaxLogsSize,
-	MaxLogsAge,
-	MaxTxnLogSize,
-	JujuHASpace,
-	JujuManagementSpace,
-	AuditingEnabled,
-	AuditLogCaptureArgs,
-	AuditLogMaxSize,
-	AuditLogMaxBackups,
-}
+var (
+	// ControllerOnlyConfigAttributes are attributes which are only relevant
+	// for a controller, never a model.
+	ControllerOnlyConfigAttributes = []string{
+		AllowModelAccessKey,
+		APIPort,
+		AutocertDNSNameKey,
+		AutocertURLKey,
+		CACertKey,
+		ControllerUUIDKey,
+		IdentityPublicKey,
+		IdentityURL,
+		SetNUMAControlPolicyKey,
+		StatePort,
+		MongoMemoryProfile,
+		MaxLogsSize,
+		MaxLogsAge,
+		MaxTxnLogSize,
+		JujuHASpace,
+		JujuManagementSpace,
+		AuditingEnabled,
+		AuditLogCaptureArgs,
+		AuditLogMaxSize,
+		AuditLogMaxBackups,
+		AuditLogExcludeMethods,
+	}
+
+	// DefaultAuditLogExcludeMethods is the default list of methods to
+	// exclude from the audit log.
+	DefaultAuditLogExcludeMethods = []string{
+		// Collected by running read-only commands.
+		"Action.Actions",
+		"Action.ApplicationsCharmsActions",
+		"Action.FindActionsByNames",
+		"Action.FindActionTagsByPrefix",
+		"Application.GetConstraints",
+		"ApplicationOffers.ApplicationOffers",
+		"Backups.Info",
+		"Client.FullStatus",
+		"Client.GetModelConstraints",
+		"Client.StatusHistory",
+		"Controller.AllModels",
+		"Controller.ControllerConfig",
+		"Controller.GetControllerAccess",
+		"Controller.ModelConfig",
+		"Controller.ModelStatus",
+		"MetricsDebug.GetMetrics",
+		"ModelConfig.ModelGet",
+		"ModelManager.ModelInfo",
+		"ModelManager.ModelDefaults",
+		"Pinger.Ping",
+		"UserManager.UserInfo",
+
+		// Don't filter out Application.Get - since it includes secrets
+		// it's worthwhile to track when it's run, and it's not likely to
+		// swamp the log.
+
+		// All client facade methods that start with List.
+		"Action.ListAll",
+		"Action.ListPending",
+		"Action.ListRunning",
+		"Action.ListComplete",
+		"ApplicationOffers.ListApplicationOffers",
+		"Backups.List",
+		"Block.List",
+		"Charms.List",
+		"Controller.ListBlockedModels",
+		"FirewallRules.ListFirewallRules",
+		"ImageManager.ListImages",
+		"ImageMetadata.List",
+		"KeyManager.ListKeys",
+		"ModelManager.ListModels",
+		"ModelManager.ListModelSummaries",
+		"Payloads.List",
+		"PayloadsHookContext.List",
+		"Resources.ListResources",
+		"ResourcesHookContext.ListResources",
+		"Spaces.ListSpaces",
+		"Storage.ListStorageDetails",
+		"Storage.ListPools",
+		"Storage.ListVolumes",
+		"Storage.ListFilesystems",
+		"Subnets.ListSubnets",
+	}
+
+	methodNameRE = regexp.MustCompile(`[[:alpha:]][[:alnum:]]*\.[[:alpha:]][[:alnum:]]*`)
+)
 
 // ControllerOnlyAttribute returns true if the specified attribute name
 // is only relevant for a controller.
@@ -283,6 +355,21 @@ func (c Config) AuditLogMaxBackups() int {
 		return value.(int)
 	}
 	return DefaultAuditLogMaxBackups
+}
+
+// AuditLogExcludeMethods returns the set of method names that are
+// considered uninteresting for audit logging. Conversations
+// containing only these will be excluded from the audit log.
+func (c Config) AuditLogExcludeMethods() set.Strings {
+	if value, ok := c[AuditLogExcludeMethods]; ok {
+		value := value.([]interface{})
+		items := set.NewStrings()
+		for _, item := range value {
+			items.Add(item.(string))
+		}
+		return items
+	}
+	return set.NewStrings(DefaultAuditLogExcludeMethods...)
 }
 
 // ControllerUUID returns the uuid for the model's controller.
@@ -482,6 +569,18 @@ func Validate(c Config) error {
 		}
 	}
 
+	if v, ok := c[AuditLogExcludeMethods].([]interface{}); ok {
+		for i, name := range v {
+			if !methodNameRE.MatchString(name.(string)) {
+				return errors.Errorf(
+					`invalid audit log exclude methods: should be a list of "Facade.Method" names, got %q at position %d`,
+					name,
+					i+1,
+				)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -512,6 +611,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogCaptureArgs:     schema.Bool(),
 	AuditLogMaxSize:         schema.String(),
 	AuditLogMaxBackups:      schema.ForceInt(),
+	AuditLogExcludeMethods:  schema.List(schema.String()),
 	APIPort:                 schema.ForceInt(),
 	StatePort:               schema.ForceInt(),
 	IdentityURL:             schema.String(),
@@ -532,6 +632,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AuditLogCaptureArgs:     DefaultAuditLogCaptureArgs,
 	AuditLogMaxSize:         fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),
 	AuditLogMaxBackups:      DefaultAuditLogMaxBackups,
+	AuditLogExcludeMethods:  DefaultAuditLogExcludeMethods,
 	StatePort:               DefaultStatePort,
 	IdentityURL:             schema.Omit,
 	IdentityPublicKey:       schema.Omit,

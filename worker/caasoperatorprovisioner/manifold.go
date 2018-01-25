@@ -5,7 +5,6 @@ package caasoperatorprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
@@ -73,7 +72,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Broker:      broker,
 		ModelTag:    modelTag,
 		AgentConfig: agentConfig,
-		Clock:       clock.WallClock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

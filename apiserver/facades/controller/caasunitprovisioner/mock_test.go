@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 )
 
 type mockState struct {
@@ -29,10 +30,10 @@ func (st *mockState) WatchApplications() state.StringsWatcher {
 
 func (st *mockState) Application(name string) (caasunitprovisioner.Application, error) {
 	st.MethodCall(st, "Application", name)
-	if err := st.NextErr(); err != nil {
-		return nil, err
+	if name != st.application.tag.Id() {
+		return nil, errors.NotFoundf("application %v", name)
 	}
-	return &st.application, nil
+	return &st.application, st.NextErr()
 }
 
 func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
@@ -83,6 +84,10 @@ type mockApplication struct {
 	testing.Stub
 	life         state.Life
 	unitsWatcher *statetesting.MockStringsWatcher
+
+	tag   names.Tag
+	units []caasunitprovisioner.Unit
+	ops   *state.UpdateUnitsOperation
 }
 
 func (*mockApplication) Tag() names.Tag {
@@ -104,9 +109,27 @@ func (a *mockApplication) ApplicationConfig() (application.ConfigAttributes, err
 	return application.ConfigAttributes{"foo": "bar"}, a.NextErr()
 }
 
+func (m *mockApplication) AllUnits() (units []caasunitprovisioner.Unit, err error) {
+	return m.units, nil
+}
+
+func (m *mockApplication) UpdateUnits(ops *state.UpdateUnitsOperation) error {
+	m.ops = ops
+	return nil
+}
+
+var addOp = &state.AddUnitOperation{}
+
+func (m *mockApplication) AddOperation(props state.UnitUpdateProperties) *state.AddUnitOperation {
+	m.MethodCall(m, "AddOperation", props)
+	return addOp
+}
+
 type mockUnit struct {
 	testing.Stub
-	life state.Life
+	name       string
+	life       state.Life
+	providerId string
 }
 
 func (*mockUnit) Tag() names.Tag {
@@ -116,4 +139,30 @@ func (*mockUnit) Tag() names.Tag {
 func (u *mockUnit) Life() state.Life {
 	u.MethodCall(u, "Life")
 	return u.life
+}
+
+func (m *mockUnit) Name() string {
+	return m.name
+}
+
+func (m *mockUnit) ProviderId() string {
+	return m.providerId
+}
+
+func (m *mockUnit) AgentStatus() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: status.Allocating}, nil
+}
+
+var updateOp = &state.UpdateUnitOperation{}
+
+func (m *mockUnit) UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation {
+	m.MethodCall(m, "UpdateOperation", props)
+	return updateOp
+}
+
+var destroyOp = &state.DestroyUnitOperation{}
+
+func (m *mockUnit) DestroyOperation() *state.DestroyUnitOperation {
+	m.MethodCall(m, "DestroyOperation")
+	return destroyOp
 }

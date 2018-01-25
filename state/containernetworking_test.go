@@ -43,7 +43,25 @@ var _ environs.NetworkingEnviron = (*containerTestNetworkedEnviron)(nil)
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNetworkless(c *gc.C) {
 	err := s.Model.AutoConfigureContainerNetworking(containerTestNetworkLessEnviron{})
-	c.Check(err, gc.ErrorMatches, "fan configuration in a non-networking environ not supported")
+	c.Assert(err, jc.ErrorIsNil)
+	config, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	attrs := config.AllAttrs()
+	c.Check(attrs["container-networking-method"], gc.Equals, "local")
+	c.Check(attrs["fan-config"], gc.Equals, "")
+}
+
+func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDoesntChangeDefault(c *gc.C) {
+	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{
+		"container-networking-method": "provider",
+	}, nil)
+	err = s.Model.AutoConfigureContainerNetworking(containerTestNetworkLessEnviron{})
+	c.Assert(err, jc.ErrorIsNil)
+	config, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	attrs := config.AllAttrs()
+	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
+	c.Check(attrs["fan-config"], gc.Equals, "")
 }
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingAlreadyConfigured(c *gc.C) {
