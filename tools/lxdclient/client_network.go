@@ -51,7 +51,7 @@ type creator interface {
 func checkBridgeConfig(client rawNetworkClient, bridge string) error {
 	n, err := client.NetworkGet(bridge)
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "LXD %s network config", bridge)
 	}
 	ipv6AddressConfig := n.Config["ipv6.address"]
 	if n.Managed && ipv6AddressConfig != "none" && ipv6AddressConfig != "" {
