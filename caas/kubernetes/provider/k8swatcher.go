@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v1"
 	apierrs "k8s.io/client-go/pkg/api/errors"
+	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/watch"
 
 	"github.com/juju/juju/watcher"
@@ -59,7 +60,10 @@ func (w *kubernetesWatcher) loop() error {
 			if !ok {
 				return errors.Errorf("k8s event watcher closed, restarting")
 			}
-			logger.Tracef("received k8s event: %+v", evt)
+			logger.Tracef("received k8s event: %+v", evt.Type)
+			if pod, ok := evt.Object.(*v1.Pod); ok {
+				logger.Tracef("%v(%v) = %v, status=%+v", pod.Name, pod.UID, pod.Labels, pod.Status)
+			}
 			if evt.Type == watch.Error {
 				return errors.Errorf("kubernetes watcher error: %v", apierrs.FromObject(evt.Object))
 			}

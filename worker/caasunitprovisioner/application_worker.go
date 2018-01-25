@@ -87,19 +87,17 @@ func (aw *applicationWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	var deploymentWorker worker.Worker
-	if aw.brokerManagedUnits {
-		deploymentWorker, err = newDeploymentWorker(
-			aw.application,
-			aw.serviceBroker,
-			aw.containerSpecGetter,
-			aw.applicationGetter,
-			aw.aliveUnitsChan)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		aw.catacomb.Add(deploymentWorker)
+	deploymentWorker, err := newDeploymentWorker(
+		aw.application,
+		aw.brokerManagedUnits,
+		aw.serviceBroker,
+		aw.containerSpecGetter,
+		aw.applicationGetter,
+		aw.aliveUnitsChan)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	aw.catacomb.Add(deploymentWorker)
 	unitWorkers := make(map[string]worker.Worker)
 	aliveUnits := make(set.Strings)
 	var aliveUnitsChan chan []string
@@ -112,12 +110,13 @@ func (aw *applicationWorker) loop() error {
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
-			if aw.brokerManagedUnits {
-				aliveUnitsChan = aw.aliveUnitsChan
-			}
+			aliveUnitsChan = aw.aliveUnitsChan
 			for _, unitId := range units {
 				unitLife, err := aw.lifeGetter.Life(unitId)
-				if errors.IsNotFound(err) {
+				if err != nil && !errors.IsNotFound(err) {
+					return errors.Trace(err)
+				}
+				if errors.IsNotFound(err) || unitLife == life.Dead {
 					aliveUnits.Remove(unitId)
 					w, ok := unitWorkers[unitId]
 					if ok {
@@ -126,25 +125,28 @@ func (aw *applicationWorker) loop() error {
 						}
 						delete(unitWorkers, unitId)
 					}
-					continue
-				}
-				if err != nil {
-					return errors.Trace(err)
-				}
-
-				if unitLife == life.Dead {
-					aliveUnits.Remove(unitId)
 				} else {
 					aliveUnits.Add(unitId)
 				}
 				if !aw.brokerManagedUnits {
-					// For Juju managed units, we start a worker to manage the unit.
+					// Juju managed units....
+
+					// Remove any deleted unit.
+					if !aliveUnits.Contains(unitId) {
+						if err := aw.containerBroker.DeleteUnit(unitId); err != nil {
+							return errors.Trace(err)
+						}
+						logger.Debugf("deleted unit %s", unitId)
+						continue
+					}
+					// Start a worker to manage any new units.
 					if _, ok := unitWorkers[unitId]; ok || unitLife == life.Dead {
 						// Already watching the unit. or we're
 						// not yet watching it and it's dead.
 						continue
 					}
-					w, err := newUnitWorker(aw.application, unitId, aw.containerBroker, aw.containerSpecGetter)
+					w, err := newUnitWorker(
+						aw.application, unitId, aw.containerBroker, aw.containerSpecGetter, aw.lifeGetter)
 					if err != nil {
 						return errors.Trace(err)
 					}
@@ -170,12 +172,13 @@ func (aw *applicationWorker) loop() error {
 			}
 			for i, u := range units {
 				args.Units[i] = params.ApplicationUnitParams{
-					Id:      u.Id,
-					Address: u.Address,
-					Ports:   u.Ports,
-					Status:  u.Status.Status.String(),
-					Info:    u.Status.Message,
-					Data:    u.Status.Data,
+					ProviderId: u.Id,
+					UnitTag:    u.UnitTag,
+					Address:    u.Address,
+					Ports:      u.Ports,
+					Status:     u.Status.Status.String(),
+					Info:       u.Status.Message,
+					Data:       u.Status.Data,
 				}
 			}
 			if err := aw.unitUpdater.UpdateUnits(args); err != nil {

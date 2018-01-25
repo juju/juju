@@ -488,12 +488,13 @@ type UpdateApplicationUnits struct {
 
 // ApplicationUnitParams holds unit parameters used to update a unit.
 type ApplicationUnitParams struct {
-	Id      string                 `json:"id"`
-	Address string                 `json:"address"`
-	Ports   []string               `json:"ports"`
-	Status  string                 `json:"status"`
-	Info    string                 `json:"info"`
-	Data    map[string]interface{} `json:"data"`
+	ProviderId string                 `json:"provider-id"`
+	UnitTag    string                 `json:"unit-tag"`
+	Address    string                 `json:"address"`
+	Ports      []string               `json:"ports"`
+	Status     string                 `json:"status"`
+	Info       string                 `json:"info"`
+	Data       map[string]interface{} `json:"data"`
 }
 
 // DestroyApplicationUnits holds parameters for the deprecated

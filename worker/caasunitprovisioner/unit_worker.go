@@ -5,9 +5,10 @@ package caasunitprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/caas"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -17,6 +18,7 @@ type unitWorker struct {
 	unit                string
 	broker              ContainerBroker
 	containerSpecGetter ContainerSpecGetter
+	lifeGetter          LifeGetter
 }
 
 func newUnitWorker(
@@ -24,12 +26,14 @@ func newUnitWorker(
 	unit string,
 	broker ContainerBroker,
 	containerSpecGetter ContainerSpecGetter,
+	lifeGetter LifeGetter,
 ) (worker.Worker, error) {
 	w := &unitWorker{
 		application:         application,
 		unit:                unit,
 		broker:              broker,
 		containerSpecGetter: containerSpecGetter,
+		lifeGetter:          lifeGetter,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -61,6 +65,8 @@ func (w *unitWorker) loop() error {
 	// ensure that the unit pod stays up, redeploying it if the pod goes
 	// away. For some runtimes we *could* rely on the the runtime's
 	// features to do this.
+
+	var currentSpec string
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -68,6 +74,14 @@ func (w *unitWorker) loop() error {
 		case _, ok := <-cw.Changes():
 			if !ok {
 				return errors.New("watcher closed channel")
+			}
+			// If the unit is not alive, don't ask the CAAS broker to create it.
+			unitLife, err := w.lifeGetter.Life(w.unit)
+			if err != nil && !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			if err != nil || unitLife != life.Alive {
+				continue
 			}
 			specStr, err := w.containerSpecGetter.ContainerSpec(w.unit)
 			if errors.IsNotFound(err) {
@@ -78,6 +92,11 @@ func (w *unitWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
+			if specStr == currentSpec {
+				continue
+			}
+			currentSpec = specStr
+
 			spec, err := caas.ParseContainerSpec(specStr)
 			if err != nil {
 				return errors.Annotate(err, "cannot parse container spec")

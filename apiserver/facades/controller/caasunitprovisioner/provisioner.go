@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -245,7 +246,9 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 		addedCloudUnits []params.ApplicationUnitParams
 	)
 	stateUnitsById := make(map[string]Unit)
-	aliveCloudUnits := make(map[string]params.ApplicationUnitParams)
+	stateUnitsByTag := make(map[string]Unit)
+	aliveCloudUnitsById := make(map[string]params.ApplicationUnitParams)
+	aliveCloudUnitTags := make(set.Strings)
 
 	existingCloudUnitsById := make(map[string]params.ApplicationUnitParams)
 
@@ -253,35 +256,76 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 	// We initially assume the corresponding Juju unit is alive
 	// and will remove dying/dead ones below.
 	for _, u := range units {
-		aliveCloudUnits[u.Id] = u
+		aliveCloudUnitsById[u.ProviderId] = u
+		if u.UnitTag != "" {
+			aliveCloudUnitTags.Add(u.UnitTag)
+		}
+	}
+
+	stateUnitExistsInCloud := func(u Unit) bool {
+		// Tags take precedence over provider ids.
+		if aliveCloudUnitTags.Contains(u.UnitTag().String()) {
+			return true
+		}
+		// If any units have been created with tags, we only
+		// support the case where they all have tags
+		// (ie managed by Juju).
+		if len(aliveCloudUnitTags) > 0 {
+			return false
+		}
+		_, ok := aliveCloudUnitsById[u.ProviderId()]
+		return ok
+	}
+	cloudUnitExistsInState := func(u params.ApplicationUnitParams) bool {
+		// Tags take precedence over provider ids.
+		if _, ok := stateUnitsByTag[u.UnitTag]; ok {
+			return true
+		}
+		// If the cloud unit has a tag it was created by Juju
+		// and we don't check provider id.
+		if u.UnitTag != "" {
+			return false
+		}
+		_, ok := stateUnitsById[u.ProviderId]
+		return ok
 	}
 
 	// Loop over any existing state units and record those which do not yet have
 	// provider ids, and those which have been removed or updated.
 	for _, u := range existingStateUnits {
 		unitAlive := u.Life() == state.Alive
+		stateUnitInCloud := stateUnitExistsInCloud(u)
+		if stateUnitInCloud {
+			stateUnitsById[u.ProviderId()] = u
+			stateUnitsByTag[u.UnitTag().String()] = u
+		}
 		if u.ProviderId() == "" && unitAlive {
-			logger.Debugf("unit %q is unallocated", u.Name())
+			logger.Debugf("unit %q is not associated with any pod", u.Name())
 			unassociatedUnits = append(unassociatedUnits, u)
 		} else {
 			if !unitAlive {
-				delete(aliveCloudUnits, u.ProviderId())
+				delete(aliveCloudUnitsById, u.ProviderId())
+				aliveCloudUnitTags.Remove(u.UnitTag().String())
 				continue
 			}
-			if _, ok := aliveCloudUnits[u.ProviderId()]; ok {
+			if stateUnitInCloud {
 				logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), u.ProviderId())
-				stateUnitsById[u.ProviderId()] = u
 			} else {
 				logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), u.ProviderId())
 				removedUnits = append(removedUnits, u)
 			}
 		}
 	}
-	for _, u := range aliveCloudUnits {
-		if _, ok := stateUnitsById[u.Id]; ok {
-			existingCloudUnitsById[u.Id] = u
+
+	for _, u := range aliveCloudUnitsById {
+		if cloudUnitExistsInState(u) {
+			existingCloudUnitsById[u.ProviderId] = u
 		} else {
-			addedCloudUnits = append(addedCloudUnits, u)
+			if u.UnitTag == "" {
+				addedCloudUnits = append(addedCloudUnits, u)
+			} else {
+				logger.Warningf("ignoring orphaned cloud unit: %v", u.UnitTag)
+			}
 		}
 	}
 
@@ -295,7 +339,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 
 	unitUpdateProperties := func(unitParams params.ApplicationUnitParams) state.UnitUpdateProperties {
 		return state.UnitUpdateProperties{
-			ProviderId: unitParams.Id,
+			ProviderId: unitParams.ProviderId,
 			Address:    unitParams.Address,
 			Ports:      unitParams.Ports,
 			Status: &status.StatusInfo{
@@ -307,6 +351,9 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 	}
 
 	shouldUpdate := func(u Unit, params params.ApplicationUnitParams) (bool, error) {
+		if u.ProviderId() == "" {
+			return true, nil
+		}
 		existingStatus, err := u.AgentStatus()
 		if err != nil {
 			return false, errors.Trace(err)
@@ -322,7 +369,14 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 
 	// For existing units which have been updated, create the necessary update ops.
 	for id, unitParams := range existingCloudUnitsById {
-		u := stateUnitsById[id]
+		u, ok := stateUnitsByTag[unitParams.UnitTag]
+		if !ok {
+			u, ok = stateUnitsById[id]
+		}
+		if !ok {
+			logger.Warningf("missing unit parameters %+v", unitParams)
+			continue
+		}
 		// Check to see if any update is needed.
 		update, err := shouldUpdate(u, unitParams)
 		if err != nil {

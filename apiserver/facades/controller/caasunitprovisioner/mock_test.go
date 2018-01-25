@@ -136,6 +136,10 @@ func (*mockUnit) Tag() names.Tag {
 	panic("should not be called")
 }
 
+func (u *mockUnit) UnitTag() names.UnitTag {
+	return names.NewUnitTag(u.name)
+}
+
 func (u *mockUnit) Life() state.Life {
 	u.MethodCall(u, "Life")
 	return u.life

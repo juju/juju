@@ -17,6 +17,7 @@ import (
 type deploymentWorker struct {
 	catacomb            catacomb.Catacomb
 	application         string
+	brokerManagedUnits  bool
 	broker              ServiceBroker
 	applicationGetter   ApplicationGetter
 	containerSpecGetter ContainerSpecGetter
@@ -26,6 +27,7 @@ type deploymentWorker struct {
 
 func newDeploymentWorker(
 	application string,
+	brokerManagedUnits bool,
 	broker ServiceBroker,
 	containerSpecGetter ContainerSpecGetter,
 	applicationGetter ApplicationGetter,
@@ -33,6 +35,7 @@ func newDeploymentWorker(
 ) (worker.Worker, error) {
 	w := &deploymentWorker{
 		application:         application,
+		brokerManagedUnits:  brokerManagedUnits,
 		broker:              broker,
 		containerSpecGetter: containerSpecGetter,
 		applicationGetter:   applicationGetter,
@@ -118,9 +121,14 @@ func (w *deploymentWorker) loop() error {
 		if numUnits == currentAliveCount && specStr == currentSpec {
 			continue
 		}
+		// For Juju managed units, we only need to create the service once.
+		skipService := currentAliveCount != 0 && !w.brokerManagedUnits
 
 		currentAliveCount = numUnits
 		currentSpec = specStr
+		if skipService {
+			continue
+		}
 
 		appConfig, err := w.applicationGetter.ApplicationConfig(w.application)
 		if err != nil {
@@ -130,10 +138,19 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Annotate(err, "cannot parse container spec")
 		}
+		// When Juju manages the units, we don't ask the
+		// substrate to create any itself.
+		if !w.brokerManagedUnits {
+			numUnits = 0
+		}
 		err = w.broker.EnsureService(w.application, spec, numUnits, appConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("created/updated deployment for %s for %d units", w.application, numUnits)
+		if w.brokerManagedUnits {
+			logger.Debugf("created/updated deployment for %s for %d units", w.application, numUnits)
+		} else {
+			logger.Debugf("created/updated service for %s", w.application)
+		}
 	}
 }
