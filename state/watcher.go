@@ -273,17 +273,17 @@ func (im *IAASModel) watchMachineStorage(m names.MachineTag, collection string) 
 // changes to the lifecycles of all volume attachments related to environ-
 // scoped volumes.
 func (im *IAASModel) WatchModelVolumeAttachments() StringsWatcher {
-	return im.watchModelMachinestorageAttachments(volumeAttachmentsC)
+	return im.watchModelMachineStorageAttachments(volumeAttachmentsC)
 }
 
 // WatchModelFilesystemAttachments returns a StringsWatcher that notifies
 // of changes to the lifecycles of all filesystem attachments related to
 // environ-scoped filesystems.
 func (im *IAASModel) WatchModelFilesystemAttachments() StringsWatcher {
-	return im.watchModelMachinestorageAttachments(filesystemAttachmentsC)
+	return im.watchModelMachineStorageAttachments(filesystemAttachmentsC)
 }
 
-func (im *IAASModel) watchModelMachinestorageAttachments(collection string) StringsWatcher {
+func (im *IAASModel) watchModelMachineStorageAttachments(collection string) StringsWatcher {
 	mb := im.mb
 	pattern := fmt.Sprintf("^%s.*:%s$", mb.docID(""), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
@@ -1569,6 +1569,12 @@ func (st *State) WatchForUnitAssignment() StringsWatcher {
 // when the set of API addresses changes.
 func (st *State) WatchAPIHostPorts() NotifyWatcher {
 	return newEntityWatcher(st, controllersC, apiHostPortsKey)
+}
+
+// WatchAPIHostPortsForAgents returns a NotifyWatcher that notifies
+// when the set of API addresses intended for agent communication changes.
+func (st *State) WatchAPIHostPortsForAgents() NotifyWatcher {
+	return newEntityWatcher(st, controllersC, apiHostPortsForAgentsKey)
 }
 
 // WatchStorageAttachment returns a watcher for observing changes
