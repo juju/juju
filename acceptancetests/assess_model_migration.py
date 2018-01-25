@@ -109,7 +109,7 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(
         description="Test model migration feature")
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, existing=False)
     parser.add_argument(
         '--use-develop',
         action='store_true',

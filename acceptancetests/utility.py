@@ -222,7 +222,7 @@ def add_arg_juju_bin(parser):
 
 
 def add_basic_testing_arguments(
-        parser, using_jes=False, deadline=True, env=True, existing=False):
+        parser, using_jes=False, deadline=True, env=True, existing=True):
     """Returns the parser loaded with basic testing arguments.
 
     The basic testing arguments, used in conjuction with boot_context ensures

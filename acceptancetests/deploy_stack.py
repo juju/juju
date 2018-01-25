@@ -424,7 +424,7 @@ def upgrade_juju(client):
 
 def deploy_job_parse_args(argv=None):
     parser = ArgumentParser('deploy_job')
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, existing=False)
     parser.add_argument('--upgrade', action="store_true", default=False,
                         help='Perform an upgrade test.')
     parser.add_argument(

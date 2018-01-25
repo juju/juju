@@ -124,7 +124,7 @@ def parse_args(args):
         subparser.add_argument('clouds_file',
                                help='A clouds.yaml file to use for testing.')
         subparser.add_argument('cloud', help='Specific cloud to test.')
-        add_basic_testing_arguments(subparser, env=False)
+        add_basic_testing_arguments(subparser, env=False, existing=False)
         subparser.add_argument('--config')
         if test == 'provisioning':
             subparser.add_argument('--machine-series', action='append',
