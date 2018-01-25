@@ -29,7 +29,7 @@ func (t *Tools) GetBSON() (interface{}, error) {
 func (t *Tools) SetBSON(raw bson.Raw) error {
 	if raw.Kind == 10 {
 		// Preserve the nil value in that case.
-		return bson.SetZero
+		return bson.ErrSetZero
 	}
 	var doc toolsDoc
 	if err := raw.Unmarshal(&doc); err != nil {
