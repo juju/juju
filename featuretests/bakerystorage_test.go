@@ -6,13 +6,13 @@ package featuretests
 import (
 	"time"
 
+	"github.com/juju/mgo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon.v1"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/bakerystorage"

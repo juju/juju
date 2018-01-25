@@ -4,7 +4,7 @@
 package state
 
 import (
-	"gopkg.in/mgo.v2/txn"
+	"github.com/juju/mgo/txn"
 )
 
 // ModelOperation is a high-level model operation,

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
 	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/mgo.v2"
 )
 
 var expiryTimeIndex = mgo.Index{

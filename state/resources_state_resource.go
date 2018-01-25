@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
 )

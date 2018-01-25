@@ -6,9 +6,9 @@ package lease_test
 import (
 	"time" // Only used for time types.
 
+	"github.com/juju/mgo/txn"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/lease"
 )

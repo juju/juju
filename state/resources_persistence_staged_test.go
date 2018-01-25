@@ -5,10 +5,10 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/mgo/txn"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/state/statetest"
 )

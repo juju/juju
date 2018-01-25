@@ -15,11 +15,11 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/bson"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"

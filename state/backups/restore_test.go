@@ -14,13 +14,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/mgo/bson"
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"

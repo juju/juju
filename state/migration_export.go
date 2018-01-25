@@ -11,10 +11,10 @@ import (
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/bson"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"

@@ -6,11 +6,11 @@ package watcher_test
 import (
 	"time"
 
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/txn"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/txn"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/mongo"

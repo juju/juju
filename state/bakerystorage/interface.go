@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
 	"github.com/juju/utils/clock"
 	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 )

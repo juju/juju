@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/bson"
+	"github.com/juju/mgo/txn"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/payload"

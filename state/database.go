@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/txn"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/feature"

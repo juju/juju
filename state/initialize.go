@@ -5,11 +5,11 @@ package state
 
 import (
 	"github.com/juju/errors"
+	mgo "github.com/juju/mgo"
+	"github.com/juju/mgo/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	names "gopkg.in/juju/names.v2"
-	mgo "gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"

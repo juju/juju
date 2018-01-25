@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/txn"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
 )

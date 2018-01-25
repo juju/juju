@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/loggo"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
 )
 
 // pruneCollection removes collection entries until

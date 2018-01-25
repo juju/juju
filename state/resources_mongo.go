@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/bson"
+	"github.com/juju/mgo/txn"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
 )

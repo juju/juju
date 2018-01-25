@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
 )
 
 // beingRemover tracks what records we've decided we wanted to remove.

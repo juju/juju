@@ -5,8 +5,8 @@ package imagestorage
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
 	"gopkg.in/juju/blobstore.v2"
-	"gopkg.in/mgo.v2"
 )
 
 // ManagedStorage returns the managedStorage attribute for the storage.

@@ -5,9 +5,9 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/mgo/txn"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/txn"
 )
 
 type SettingsSuite struct {

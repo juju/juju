@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/bson"
+	"github.com/juju/mgo/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 )
 
 // machineRemovalDoc indicates that this machine needs to be removed

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -21,7 +22,6 @@ import (
 	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"

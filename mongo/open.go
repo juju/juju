@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/cert"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
 )
 
 // SocketTimeout should be long enough that even a slow mongo server

@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
+	"github.com/juju/mgo/bson"
+	"github.com/juju/mgo/txn"
 
 	"github.com/juju/juju/network"
 )
