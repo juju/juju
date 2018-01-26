@@ -172,7 +172,7 @@ def assert_stable_juju_suitable_for_testing(stable_bsm, devel_bsm):
 def parse_args(argv):
     parser = argparse.ArgumentParser(
         description='Test model migration between versioned controllers.')
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, existing=False)
     parser.add_argument(
         '--stable-juju-bin',
         help='Path to juju binary to be used as the stable version of juju.')
