@@ -115,7 +115,8 @@ def check_services(client):
 def parse_args(argv=None):
     """Parse all arguments."""
     parser = ArgumentParser()
-    add_basic_testing_arguments(parser, using_jes=True, deadline=True)
+    add_basic_testing_arguments(
+        parser, using_jes=True, deadline=True, existing=False)
     return parser.parse_args(argv)
 
 

@@ -50,9 +50,9 @@ def parse_args(argv=None):
     case of failure pull logs and configuration files from the machine that
     we detected a problem on for later analysis.
     """)
-    parser = add_basic_testing_arguments(ArgumentParser(
-        description=description
-    ))
+    parser = add_basic_testing_arguments(
+        ArgumentParser(description=description),
+        existing=False)
     parser.add_argument(
         '--machine-type',
         help='Which virtual machine/container type to test. Defaults to all.',

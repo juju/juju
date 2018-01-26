@@ -211,7 +211,7 @@ def deploy_primary_charm(client, charm_name, series='xenial'):
 def parse_args(argv):
     parser = argparse.ArgumentParser(
         description="Test relations between primary and subordinate charms.")
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, existing=True)
     return parser.parse_args(argv)
 
 

@@ -31,9 +31,9 @@ def parse_args(argv=None):
     case of failure pull logs and configuration files from the machine that
     we detected a problem on for later analysis.
     """)
-    parser = add_basic_testing_arguments(ArgumentParser(
-        description=description
-    ))
+    parser = add_basic_testing_arguments(
+        ArgumentParser(description=description),
+        existing=False)
     parser.add_argument(
         '--clean-environment', action='store_true', help=dedent("""\
         Attempts to re-use an existing environment rather than destroying it

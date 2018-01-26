@@ -221,8 +221,8 @@ def add_arg_juju_bin(parser):
                         default=None)
 
 
-def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
-                                env=True):
+def add_basic_testing_arguments(
+        parser, using_jes=False, deadline=True, env=True, existing=True):
     """Returns the parser loaded with basic testing arguments.
 
     The basic testing arguments, used in conjuction with boot_context ensures
@@ -245,6 +245,8 @@ def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
     :param using_jes: whether args should be tailored for JES testing.
     :param deadline: If true, support the --timeout option and convert to a
         deadline.
+    :param existing: If true will supply the 'existing' argument to allow
+        running on an existing bootstrapped controller.
     """
 
     # Optional postional arguments
@@ -291,9 +293,16 @@ def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
     parser.add_argument('--keep-env', action='store_true',
                         help='Keep the Juju environment after the test'
                         ' completes.')
-    parser.add_argument('--existing', action='store',
-                        help='Existing controller to test against. Using '
-                        '"current" selects the current controller')
+    if existing:
+        parser.add_argument(
+            '--existing',
+            action='store',
+            default=None,
+            const='current',
+            nargs='?',
+            help='Test using an existing bootstrapped controller. '
+                 'If no controller name is provided defaults to using the '
+                 'current selected controller.')
     if deadline:
         parser.add_argument('--timeout', dest='deadline', type=_to_deadline,
                             help="The script timeout, in seconds.")

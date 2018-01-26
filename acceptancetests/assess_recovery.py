@@ -188,7 +188,7 @@ def restore_missing_state_server(bs_manager, controller_client, backup_file,
 
 def parse_args(argv=None):
     parser = ArgumentParser(description='Test recovery strategies.')
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, existing=False)
     parser.add_argument(
         '--charm-series', help='Charm series.', default='')
     strategy = parser.add_argument_group('test strategy')

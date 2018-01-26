@@ -244,7 +244,9 @@ def assess_show_wallet(client, wallet_name, wallet_value):
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Test wallet commands")
-    add_basic_testing_arguments(parser)
+    # Set to false it it's possible to overwrite actual cookie data if someone
+    # runs it against an existing environment
+    add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
 
 
