@@ -2,7 +2,9 @@ import groovy.json.JsonSlurperClassic
 
 node('juju-core-slave-b') {
     // setup working directory and script dir paths (for after scm checkout.)
-    work_dir = "${pwd(tmp: true)}/${env.BUILD_NUMBER}"
+    base_workspace = pwd()
+    tmp_dir = pwd(tmp: true)
+    work_dir = "${tmp_dir}/${env.BUILD_NUMBER}"
     scripts_dir = "${work_dir}/acceptancetests"
     release_scripts = "${work_dir}/releasetests"
     // This is where we will check cloud-city out into.
@@ -77,7 +79,6 @@ node('juju-core-slave-b') {
                         returnStdout: true).trim()
                     go_dir = sh(script: "dirname $go_src_path", returnStdout: true).trim()
 
-                    // env.GOPATH = go_dir
                     try {
                         withEnv(["GOPATH=${go_dir}"]) {
                             sh 'echo Using $GOPATH'
@@ -120,8 +121,9 @@ node('juju-core-slave-b') {
         }
     } finally {
         // Clean up after ourselves.
-        dir(work_dir) {
+        dir(tmp_dir) {
             deleteDir()
         }
+        cleanWs(notFailBuild: true)
     }
 }
