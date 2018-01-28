@@ -156,6 +156,7 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag
 	if err != nil {
 		if errors.IsNotFound(err) {
 			ctx.Infof("model with uuid %v has been removed", tag.Id())
+			return nil
 		}
 		return errors.Annotate(err, "failed open model")
 	}
