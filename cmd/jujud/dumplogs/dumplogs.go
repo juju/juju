@@ -162,6 +162,10 @@ func (c *dumpLogsCommand) findMachineId(dataDir string) (string, error) {
 func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.StatePool, tag names.ModelTag) error {
 	st, release, err := statePool.Get(tag.Id())
 	if err != nil {
+		if errors.IsNotFound(err) {
+			ctx.Infof("model with uuid %v has been removed", tag.Id())
+			return nil
+		}
 		return errors.Annotate(err, "failed open model")
 	}
 	defer release()
