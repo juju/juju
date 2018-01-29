@@ -6,10 +6,13 @@ package raftflag
 import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/worker/catacomb"
 )
+
+var logger = loggo.GetLogger("juju.worker.raft.raftflag")
 
 // Config holds a raftflag.Worker's dependencies and resources.
 type Config struct {
@@ -91,6 +94,7 @@ func (flag *Worker) loop() error {
 		case <-flag.catacomb.Dying():
 			return flag.catacomb.ErrDying()
 		case <-ch:
+			logger.Debugf("raft state changed: %s", flag.config.Raft.State())
 			if check(flag.config.Raft) != flag.leader {
 				return ErrRefresh
 			}
