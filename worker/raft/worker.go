@@ -4,7 +4,6 @@
 package raft
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -26,6 +25,16 @@ const (
 	// defaultSnapshotRetention is the number of
 	// snapshots to retain on disk by default.
 	defaultSnapshotRetention = 2
+
+	// bootstrapAddress is the raft server address
+	// configured for the bootstrap node. This address
+	// will (must) be used at least until the cluster
+	// is grown beyond a single node.
+	//
+	// The .localhost label ensures that the address
+	// will not resolve globally. We do not require
+	// or expect the address to be resolvable at all.
+	bootstrapAddress raft.ServerAddress = "juju.localhost"
 )
 
 var (
@@ -97,14 +106,6 @@ func (config Config) Validate() error {
 	if config.Transport == nil {
 		return errors.NotValidf("nil Transport")
 	}
-	expectedLocalAddr := raft.ServerAddress(config.Tag.String())
-	transportLocalAddr := config.Transport.LocalAddr()
-	if transportLocalAddr != expectedLocalAddr {
-		return errors.NewNotValid(nil, fmt.Sprintf(
-			"transport local address %q not valid, expected %q",
-			transportLocalAddr, expectedLocalAddr,
-		))
-	}
 	return nil
 }
 
@@ -123,8 +124,7 @@ func Bootstrap(config Config) error {
 	// During bootstrap we use an in-memory transport. We just need
 	// to make sure we use the same local address as we'll use later.
 	localID := raft.ServerID(config.Tag.String())
-	localAddr := raft.ServerAddress(localID)
-	_, transport := raft.NewInmemTransport(localAddr)
+	_, transport := raft.NewInmemTransport(bootstrapAddress)
 	defer transport.Close()
 	config.Transport = transport
 
@@ -145,7 +145,7 @@ func Bootstrap(config Config) error {
 	if err := r.BootstrapCluster(raft.Configuration{
 		Servers: []raft.Server{{
 			ID:      localID,
-			Address: localAddr,
+			Address: bootstrapAddress,
 		}},
 	}).Error(); err != nil {
 		return errors.Annotate(err, "bootstrapping raft cluster")
