@@ -172,7 +172,7 @@ var (
 
 	// AllowedUpdateConfigAttributes contains all of the controller
 	// config attributes that are allowed to be updated after the
-	// controller has been restarted.
+	// controller has been created.
 	// TODO(babbageclunk): initially this will only be audit log
 	// values, but we should work out which others can also be changed
 	// safely.

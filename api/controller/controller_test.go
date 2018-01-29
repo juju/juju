@@ -355,6 +355,10 @@ func (s *Suite) TestConfigSet(c *gc.C) {
 	apiCaller := apitesting.BestVersionCaller{
 		BestVersion: 5,
 		APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
+			c.Assert(objType, gc.Equals, "Controller")
+			c.Assert(version, gc.Equals, 5)
+			c.Assert(request, gc.Equals, "ConfigSet")
+			c.Assert(result, gc.IsNil)
 			c.Assert(args, gc.DeepEquals, params.ControllerConfigSet{Config: map[string]interface{}{
 				"some-setting": 345,
 			}})
@@ -374,5 +378,5 @@ func (s *Suite) TestConfigSetAgainstOlderAPIVersion(c *gc.C) {
 	err := client.ConfigSet(map[string]interface{}{
 		"some-setting": 345,
 	})
-	c.Assert(err, gc.ErrorMatches, "controller must be version 2.3.3 or higher to update controller config")
+	c.Assert(err, gc.ErrorMatches, "this controller version doesn't support updating controller config")
 }

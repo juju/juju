@@ -67,6 +67,8 @@ See also:
     show-cloud
 `
 
+// Info returns information about this commmand - it's part of
+// cmd.Command.
 func (c *configCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "controller-config",
@@ -76,6 +78,8 @@ func (c *configCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags adds command-specific flags to the flag set. It's part of
+// cmd.Command.
 func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
@@ -85,6 +89,8 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
+// Init initialised the command from the arguments - it's part of
+// cmd.Command.
 func (c *configCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
@@ -155,6 +161,8 @@ func (c *configCommand) getAPI() (controllerAPI, error) {
 	return apicontroller.NewClient(root), nil
 }
 
+// Run executes the command as directed by the options and
+// arguments. It's part of cmd.Command.
 func (c *configCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {

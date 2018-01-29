@@ -109,7 +109,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 			User:        admin.UserTag(),
 			CreatedBy:   remoteUserTag,
 			DisplayName: "Foo Bar",
-			Access:      permission.ReadAccess})
+			Access:      permission.WriteAccess})
 
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()

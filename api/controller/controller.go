@@ -244,7 +244,7 @@ func (c *Client) GetControllerAccess(user string) (permission.Access, error) {
 // values.
 func (c *Client) ConfigSet(values map[string]interface{}) error {
 	if c.BestAPIVersion() < 5 {
-		return errors.Errorf("controller must be version 2.3.3 or higher to update controller config")
+		return errors.Errorf("this controller version doesn't support updating controller config")
 	}
 	return errors.Trace(
 		c.facade.FacadeCall("ConfigSet", params.ControllerConfigSet{Config: values}, nil),
