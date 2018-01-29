@@ -15,7 +15,7 @@ import logging
 import sys
 
 from deploy_stack import (
-    test_on_controller,
+    BootstrapManager,
     )
 from utility import (
     add_basic_testing_arguments,
@@ -41,6 +41,8 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="TODO: script info")
     # TODO: Add additional positional arguments.
+    # NOTE: If this test does *not* support running on an existing bootstrapped
+    #   controller, pass `existing=False` to add_basic_testing_arguments.
     add_basic_testing_arguments(parser)
     # TODO: Add additional optional arguments.
     return parser.parse_args(argv)
@@ -49,7 +51,9 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    test_on_controller(assess_TEMPLATE, args)
+    bs_manager = BootstrapManager.from_args(args)
+    with bs_manager.booted_context(args.upload_tools):
+        assess_TEMPLATE(bs_manager.client)
     return 0
 
 
