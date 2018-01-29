@@ -77,6 +77,7 @@ func (a applicationShim) AllUnits() ([]Unit, error) {
 type Unit interface {
 	Name() string
 	Life() state.Life
+	UnitTag() names.UnitTag
 	ProviderId() string
 	AgentStatus() (status.StatusInfo, error)
 	UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation

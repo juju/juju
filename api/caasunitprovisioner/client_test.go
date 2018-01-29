@@ -243,7 +243,7 @@ func (s *unitprovisionerSuite) TestUpdateUnits(c *gc.C) {
 				{
 					ApplicationTag: "application-app",
 					Units: []params.ApplicationUnitParams{
-						{Id: "uuid", Address: "address", Ports: []string{"port"},
+						{ProviderId: "uuid", UnitTag: "unit-gitlab-0", Address: "address", Ports: []string{"port"},
 							Status: "active", Info: "message"},
 					},
 				},
@@ -258,7 +258,7 @@ func (s *unitprovisionerSuite) TestUpdateUnits(c *gc.C) {
 	err := client.UpdateUnits(params.UpdateApplicationUnits{
 		ApplicationTag: names.NewApplicationTag("app").String(),
 		Units: []params.ApplicationUnitParams{
-			{Id: "uuid", Address: "address", Ports: []string{"port"},
+			{ProviderId: "uuid", UnitTag: "unit-gitlab-0", Address: "address", Ports: []string{"port"},
 				Status: "active", Info: "message"},
 		},
 	})
@@ -279,7 +279,7 @@ func (s *unitprovisionerSuite) TestUpdateUnitsCount(c *gc.C) {
 	err := client.UpdateUnits(params.UpdateApplicationUnits{
 		ApplicationTag: names.NewApplicationTag("app").String(),
 		Units: []params.ApplicationUnitParams{
-			{Id: "uuid", Address: "address"},
+			{ProviderId: "uuid", Address: "address"},
 		},
 	})
 	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)

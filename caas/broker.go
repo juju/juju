@@ -34,6 +34,9 @@ type Broker interface {
 	// EnsureUnit creates or updates a pod with the given spec.
 	EnsureUnit(appName, unitName string, spec *ContainerSpec) error
 
+	// DeleteUnit deletes a unit pod with the given unit name.
+	DeleteUnit(unitName string) error
+
 	// WatchUnits returns a watcher which notifies when there
 	// are changes to units of the specified application.
 	WatchUnits(appName string) (watcher.NotifyWatcher, error)
@@ -45,6 +48,7 @@ type Broker interface {
 // Unit represents information about the status of a "pod".
 type Unit struct {
 	Id      string
+	UnitTag string
 	Address string
 	Ports   []string
 	Status  status.StatusInfo

@@ -4,6 +4,7 @@
 package caasunitprovisioner_test
 
 import (
+	"sync"
 	"time"
 
 	"github.com/juju/testing"
@@ -52,12 +53,19 @@ func (m *mockServiceBroker) DeleteService(appName string) error {
 type mockContainerBroker struct {
 	testing.Stub
 	ensured      chan<- struct{}
+	unitDeleted  chan<- struct{}
 	unitsWatcher *watchertest.MockNotifyWatcher
 }
 
 func (m *mockContainerBroker) EnsureUnit(appName, unitName string, spec *caas.ContainerSpec) error {
 	m.MethodCall(m, "EnsureUnit", appName, unitName, spec)
 	m.ensured <- struct{}{}
+	return m.NextErr()
+}
+
+func (m *mockContainerBroker) DeleteUnit(unitName string) error {
+	m.MethodCall(m, "DeleteUnit", unitName)
+	m.unitDeleted <- struct{}{}
 	return m.NextErr()
 }
 
@@ -104,7 +112,7 @@ type mockContainerSpecGetter struct {
 
 func (m *mockContainerSpecGetter) setSpec(spec string) {
 	m.spec = spec
-	m.specRetrieved = make(chan struct{}, 1)
+	m.specRetrieved = make(chan struct{}, 2)
 }
 
 func (m *mockContainerSpecGetter) assertSpecRetrieved(c *gc.C) {
@@ -138,11 +146,14 @@ func (m *mockContainerSpecGetter) WatchContainerSpec(entityName string) (watcher
 
 type mockLifeGetter struct {
 	testing.Stub
+	mu            sync.Mutex
 	life          life.Value
 	lifeRetrieved chan struct{}
 }
 
 func (m *mockLifeGetter) setLife(life life.Value) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.life = life
 	m.lifeRetrieved = make(chan struct{}, 1)
 }
@@ -156,6 +167,8 @@ func (m *mockLifeGetter) assertLifeRetrieved(c *gc.C) {
 }
 
 func (m *mockLifeGetter) Life(entityName string) (life.Value, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.MethodCall(m, "Life", entityName)
 	if err := m.NextErr(); err != nil {
 		return "", err

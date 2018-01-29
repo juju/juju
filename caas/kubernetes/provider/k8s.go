@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 )
 
@@ -39,6 +40,8 @@ const (
 	// TODO(caas) should be using a juju specific namespace
 	namespace = "default"
 
+	labelOperator    = "juju-operator"
+	labelVersion     = "juju-version"
 	labelApplication = "juju-application"
 	labelUnit        = "juju-unit"
 )
@@ -95,10 +98,14 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		return errors.Annotate(err, "creating or updating ConfigMap")
 	}
 	pod := operatorPod(appName, agentPath)
-	if err := k.deletePod(pod.Name); err != nil {
-		return errors.Trace(err)
+	// See if we are able to just update the pod image, otherwise we'll need to
+	// delete and create as without deployment controller that's all we can do.
+	// TODO(caas) - consider using a deployment controller for operator for easier management
+	if err := k.maybeUpdatePodImage(
+		operatorSelector(appName), version.Current.String(), pod.Spec.Containers[0].Image); err != nil {
+		return k.ensurePod(pod)
 	}
-	return k.createPod(pod)
+	return nil
 }
 
 // DeleteService deletes the specified service.
@@ -117,8 +124,8 @@ func (k *kubernetesClient) EnsureService(
 ) (err error) {
 	logger.Debugf("creating/updating application %s", appName)
 
-	if numUnits <= 0 {
-		return errors.Errorf("number of units must be > 0")
+	if numUnits < 0 {
+		return errors.Errorf("number of units must be >= 0")
 	}
 	if spec == nil {
 		return errors.Errorf("missing container spec")
@@ -138,11 +145,16 @@ func (k *kubernetesClient) EnsureService(
 	if err != nil {
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
-	numPods := int32(numUnits)
-	if err := k.configureDeployment(appName, unitSpec, &numPods); err != nil {
-		return errors.Annotate(err, "creating or updating deployment controller")
+
+	// See if a deployment controller is required. If num units is > 0 then
+	// a deployment controller set to create that number of units is required.
+	if numUnits > 0 {
+		numPods := int32(numUnits)
+		if err := k.configureDeployment(appName, unitSpec, &numPods); err != nil {
+			return errors.Annotate(err, "creating or updating deployment controller")
+		}
+		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	}
-	cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 
 	var ports []v1.ContainerPort
 	for _, c := range unitSpec.Pod.Containers {
@@ -346,6 +358,10 @@ func (k *kubernetesClient) deleteIngress(appName string) error {
 	return errors.Trace(err)
 }
 
+func operatorSelector(appName string) string {
+	return fmt.Sprintf("%v==%v", labelOperator, appName)
+}
+
 func applicationSelector(appName string) string {
 	return fmt.Sprintf("%v==%v", labelApplication, appName)
 }
@@ -386,7 +402,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 		if dying {
 			continue
 		}
-		result = append(result, caas.Unit{
+		unitInfo := caas.Unit{
 			Id:      string(p.UID),
 			Address: p.Status.PodIP,
 			Ports:   ports,
@@ -395,7 +411,17 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 				Message: p.Status.Message,
 				Since:   &now,
 			},
-		})
+		}
+		// If the pod is a Juju unit label, it was created directly
+		// by Juju an we can extract the unit tag to include on the result.
+		unitLabel := p.Labels[labelUnit]
+		if strings.HasPrefix(unitLabel, "juju-") {
+			unitTag, err := names.ParseUnitTag(unitLabel[5:])
+			if err == nil {
+				unitInfo.UnitTag = unitTag.String()
+			}
+		}
+		result = append(result, unitInfo)
 	}
 	return result, nil
 }
@@ -419,18 +445,22 @@ func (k *kubernetesClient) EnsureUnit(appName, unitName string, spec *caas.Conta
 		return errors.Annotatef(err, "parsing spec for %s", unitName)
 	}
 	podName := unitPodName(unitName)
-	if err := k.deletePod(podName); err != nil {
-		return errors.Trace(err)
-	}
-	pod := &v1.Pod{
+	pod := v1.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name: podName,
 			Labels: map[string]string{
 				labelApplication: appName,
-				labelUnit:        unitName}},
+				labelUnit:        podName}},
 		Spec: unitSpec.Pod,
 	}
-	return k.createPod(pod)
+	return k.ensurePod(&pod)
+}
+
+// DeleteUnit deletes a unit pod with the given unit name.
+func (k *kubernetesClient) DeleteUnit(unitName string) error {
+	logger.Debugf("deleting unit %s", unitName)
+	podName := unitPodName(unitName)
+	return k.deletePod(podName)
 }
 
 func (k *kubernetesClient) ensureConfigMap(configMap *v1.ConfigMap) error {
@@ -442,9 +472,39 @@ func (k *kubernetesClient) ensureConfigMap(configMap *v1.ConfigMap) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) createPod(spec *v1.Pod) error {
+// maybeUpdatePodImage updates the pod image for the selector so long as its Juju version
+// label matches the given version.
+func (k *kubernetesClient) maybeUpdatePodImage(selector, jujuVersion, image string) error {
 	pods := k.CoreV1().Pods(namespace)
-	_, err := pods.Create(spec)
+	podList, err := pods.List(v1.ListOptions{
+		LabelSelector: selector,
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(podList.Items) == 0 {
+		return errors.NotFoundf("pod %q", selector)
+	}
+	pod := podList.Items[0]
+
+	// The the pod is for the same Juju version, we know the pod spec
+	// will not have changed so can just update the image.
+	if pod.Labels[jujuVersion] != jujuVersion {
+		return errors.New("version mismatch")
+	}
+	pod.Spec.Containers[0].Image = image
+	_, err = pods.Update(&pod)
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) ensurePod(pod *v1.Pod) error {
+	// Kubernetes doesn't support updating a pod except under specific
+	// circumstances so we need to delete and create.
+	pods := k.CoreV1().Pods(namespace)
+	if err := k.deletePod(pod.Name); err != nil {
+		return errors.Trace(err)
+	}
+	_, err := pods.Create(pod)
 	return errors.Trace(err)
 }
 
@@ -496,7 +556,10 @@ func operatorPod(appName, agentPath string) *v1.Pod {
 
 	appTag := names.NewApplicationTag(appName)
 	return &v1.Pod{
-		ObjectMeta: v1.ObjectMeta{Name: podName},
+		ObjectMeta: v1.ObjectMeta{
+			Name:   podName,
+			Labels: map[string]string{labelOperator: appName, labelVersion: version.Current.String()},
+		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{{
 				Name:            "juju-operator",
