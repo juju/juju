@@ -4,7 +4,7 @@
 package rafttransport_test
 
 import (
-	"context"
+	"crypto/tls"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -20,8 +20,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/pubsub/apiserver"
-	"github.com/juju/juju/pubsub/centralhub"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/workertest"
@@ -43,15 +41,16 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		APIInfo: &api.Info{
 			Tag:      tag,
 			Password: "valid-password",
+			Addrs:    []string{"testing.invalid:1234"},
 		},
-		APIOpen: api.Open,
-		Hub:     centralhub.New(tag),
+		DialConn: rafttransport.DialConn,
 		Mux: apiserverhttp.NewMux(
 			apiserverhttp.WithAuth(s.auth),
 		),
-		Path:    "/raft/path",
-		Tag:     tag,
-		Timeout: coretesting.LongWait,
+		Path:      "/raft/path",
+		Tag:       tag,
+		Timeout:   coretesting.LongWait,
+		TLSConfig: &tls.Config{},
 	}
 
 	logger := loggo.GetLogger("juju.worker.raft")
@@ -83,6 +82,12 @@ type WorkerValidationSuite struct {
 
 var _ = gc.Suite(&WorkerValidationSuite{})
 
+func (s *WorkerValidationSuite) TestValidate(c *gc.C) {
+	w, err := rafttransport.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	workertest.DirtyKill(c, w)
+}
+
 func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	type test struct {
 		f      func(*rafttransport.Config)
@@ -92,11 +97,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *rafttransport.Config) { cfg.APIInfo = nil },
 		"nil APIInfo not valid",
 	}, {
-		func(cfg *rafttransport.Config) { cfg.APIOpen = nil },
-		"nil APIOpen not valid",
-	}, {
-		func(cfg *rafttransport.Config) { cfg.Hub = nil },
-		"nil Hub not valid",
+		func(cfg *rafttransport.Config) { cfg.DialConn = nil },
+		"nil DialConn not valid",
 	}, {
 		func(cfg *rafttransport.Config) { cfg.Mux = nil },
 		"nil Mux not valid",
@@ -106,6 +108,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *rafttransport.Config) { cfg.Tag = nil },
 		"nil Tag not valid",
+	}, {
+		func(cfg *rafttransport.Config) { cfg.TLSConfig = nil },
+		"nil TLSConfig not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
@@ -127,10 +132,9 @@ func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*rafttransport
 
 type WorkerSuite struct {
 	workerFixture
-	stub    testing.Stub
-	apiConn *mockAPIConnection
-	server  *httptest.Server
-	worker  *rafttransport.Worker
+	stub   testing.Stub
+	server *httptest.Server
+	worker *rafttransport.Worker
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -139,28 +143,13 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.workerFixture.SetUpTest(c)
 
 	s.stub.ResetCalls()
-	s.server = httptest.NewServer(s.config.Mux)
+	s.server = httptest.NewTLSServer(s.config.Mux)
 	s.AddCleanup(func(c *gc.C) {
 		s.server.Close()
 	})
-	dialContext := func(ctx context.Context) (net.Conn, error) {
-		var dialer net.Dialer
-		addr := s.server.Listener.Addr()
-		return dialer.DialContext(ctx, addr.Network(), addr.String())
-	}
-	s.apiConn = &mockAPIConnection{
-		dialContext: dialContext,
-	}
-	s.config.APIOpen = s.apiOpen
+	clientTransport := s.server.Client().Transport.(*http.Transport)
+	s.config.TLSConfig = clientTransport.TLSClientConfig
 	s.worker = s.newWorker(c, s.config)
-	s.config.Hub.Publish(apiserver.DetailsTopic, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"123": apiserver.APIServer{
-				ID:        "123",
-				Addresses: []string{"testing.invalid:1234"},
-			},
-		},
-	})
 }
 
 // newWorker returns a new rafttransport.Worker. The caller is expected to
@@ -174,15 +163,12 @@ func (s *WorkerSuite) newWorker(c *gc.C, config rafttransport.Config) *rafttrans
 	return worker
 }
 
-func (s *WorkerSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-	s.stub.MethodCall(s, "APIOpen", info, opts)
-	return s.apiConn, s.stub.NextErr()
-}
-
-func (s *WorkerSuite) requestVote(t raft.Transport, tag string) (raft.RequestVoteResponse, error) {
+func (s *WorkerSuite) requestVote(t raft.Transport) (raft.RequestVoteResponse, error) {
 	var resp raft.RequestVoteResponse
 	req := &raft.RequestVoteRequest{}
-	return resp, t.RequestVote(raft.ServerID(tag), raft.ServerAddress(tag), req, &resp)
+	serverID := raft.ServerID("machine-123")
+	serverAddress := raft.ServerAddress(s.server.Listener.Addr().String())
+	return resp, t.RequestVote(serverID, serverAddress, req, &resp)
 }
 
 func (s *WorkerSuite) TestStartStop(c *gc.C) {
@@ -194,16 +180,10 @@ func (s *WorkerSuite) TestLocalAddr(c *gc.C) {
 	c.Assert(addr, gc.Equals, raft.ServerAddress("machine-123"))
 }
 
-func (s *WorkerSuite) TestInvalidAddr(c *gc.C) {
-	_, err := s.requestVote(s.worker, "zoink123")
-	c.Assert(err, gc.ErrorMatches, `dial failed: "zoink123" is not a valid tag`)
-	c.Assert(errors.Cause(err), jc.DeepEquals, net.InvalidAddrError(`"zoink123" is not a valid tag`))
-}
-
 func (s *WorkerSuite) TestTransportWorkerStopped(c *gc.C) {
 	workertest.CleanKill(c, s.worker)
 
-	_, err := s.requestVote(s.worker, "machine-123")
+	_, err := s.requestVote(s.worker)
 	c.Assert(err, gc.ErrorMatches, "dial failed: worker stopped")
 
 	c.Assert(errors.Cause(err), gc.Implements, new(net.Error))
@@ -217,29 +197,13 @@ func (s *WorkerSuite) TestTransportTimeout(c *gc.C) {
 	config.Timeout = time.Millisecond
 	worker := s.newWorker(c, config)
 
-	_, err := s.requestVote(worker, "machine-123")
-	c.Assert(err, gc.ErrorMatches, "dial failed: timed out dialing")
+	_, err := s.requestVote(worker)
+	c.Assert(err, gc.ErrorMatches, "dial failed:.*timed out.*")
 
 	c.Assert(errors.Cause(err), gc.Implements, new(net.Error))
 	netErr := errors.Cause(err).(net.Error)
 	c.Assert(netErr.Temporary(), jc.IsTrue)
 	c.Assert(netErr.Timeout(), jc.IsTrue)
-}
-
-func (s *WorkerSuite) TestAPIOpen(c *gc.C) {
-	s.apiConn.SetErrors(errors.New("DialConn failed"))
-
-	_, err := s.requestVote(s.worker, "machine-123")
-	c.Assert(err, gc.ErrorMatches, "dial failed: DialConn failed")
-
-	s.stub.CheckCallNames(c, "APIOpen")
-	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 2)
-
-	c.Assert(args[0], jc.DeepEquals, &api.Info{
-		Addrs:     []string{"testing.invalid:1234"},
-		SkipLogin: true,
-	})
 }
 
 func (s *WorkerSuite) TestRoundTrip(c *gc.C) {
@@ -250,7 +214,7 @@ func (s *WorkerSuite) TestRoundTrip(c *gc.C) {
 		}
 		rpc.Respond(resp, nil)
 	}()
-	resp, err := s.requestVote(s.worker, "machine-123")
+	resp, err := s.requestVote(s.worker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Granted, jc.IsTrue)
 }

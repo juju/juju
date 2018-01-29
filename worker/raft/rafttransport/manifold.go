@@ -6,7 +6,6 @@ package rafttransport
 import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
@@ -18,11 +17,10 @@ import (
 // ManifoldConfig holds the information necessary to run an apiserver-based
 // raft transport worker in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName      string
-	CentralHubName string
-	MuxName        string
+	AgentName string
+	MuxName   string
 
-	APIOpen   api.OpenFunc
+	DialConn  DialConnFunc
 	NewWorker func(Config) (worker.Worker, error)
 
 	// Path is the path of the raft HTTP endpoint.
@@ -34,14 +32,11 @@ func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
-	if config.CentralHubName == "" {
-		return errors.NotValidf("empty CentralHubName")
-	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
 	}
-	if config.APIOpen == nil {
-		return errors.NotValidf("nil APIOpen")
+	if config.DialConn == nil {
+		return errors.NotValidf("nil DialConn")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -58,7 +53,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
-			config.CentralHubName,
 			config.MuxName,
 		},
 		Start:  config.start,
@@ -82,25 +76,22 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var hub *pubsub.StructuredHub
-	if err := context.Get(config.CentralHubName, &hub); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	apiInfo, ok := agent.CurrentConfig().APIInfo()
 	if !ok {
 		return nil, dependency.ErrMissing
 	}
-	apiInfo.Addrs = nil
-	apiInfo.SNIHostName = ""
+	certPool, err := api.CreateCertPool(apiInfo.CACert)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	return config.NewWorker(Config{
-		APIInfo: apiInfo,
-		APIOpen: config.APIOpen,
-		Hub:     hub,
-		Mux:     mux,
-		Path:    config.Path,
-		Tag:     agent.CurrentConfig().Tag(),
+		APIInfo:   apiInfo,
+		DialConn:  config.DialConn,
+		Mux:       mux,
+		Path:      config.Path,
+		Tag:       agent.CurrentConfig().Tag(),
+		TLSConfig: api.NewTLSConfig(certPool),
 	})
 }
 

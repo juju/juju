@@ -4,9 +4,12 @@
 package rafttransport_test
 
 import (
+	"context"
+	"crypto/tls"
+	"net"
+
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/raft/rafttransport"
@@ -26,7 +30,6 @@ type ManifoldSuite struct {
 	manifold dependency.Manifold
 	context  dependency.Context
 	agent    *mockAgent
-	hub      *pubsub.StructuredHub
 	mux      *apiserverhttp.Mux
 	worker   worker.Worker
 	stub     testing.Stub
@@ -42,11 +45,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			tag: names.NewMachineTag("123"),
 			apiInfo: &api.Info{
 				Addrs:  []string{"testing.invalid:1234"},
-				CACert: "ca-cert",
+				CACert: coretesting.CACert,
 			},
 		},
 	}
-	s.hub = &pubsub.StructuredHub{}
 	s.mux = &apiserverhttp.Mux{}
 	s.stub.ResetCalls()
 	s.worker = &mockTransportWorker{
@@ -55,20 +57,18 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.manifold = rafttransport.Manifold(rafttransport.ManifoldConfig{
-		AgentName:      "agent",
-		CentralHubName: "central-hub",
-		MuxName:        "mux",
-		APIOpen:        s.apiOpen,
-		NewWorker:      s.newWorker,
-		Path:           "raft/path",
+		AgentName: "agent",
+		MuxName:   "mux",
+		DialConn:  s.dialConn,
+		NewWorker: s.newWorker,
+		Path:      "raft/path",
 	})
 }
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent":       s.agent,
-		"central-hub": s.hub,
-		"mux":         s.mux,
+		"agent": s.agent,
+		"mux":   s.mux,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -84,14 +84,12 @@ func (s *ManifoldSuite) newWorker(config rafttransport.Config) (worker.Worker, e
 	return s.worker, nil
 }
 
-func (s *ManifoldSuite) apiOpen(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-	s.stub.MethodCall(s, "APIOpen", info, opts)
+func (s *ManifoldSuite) dialConn(ctx context.Context, addr string, tlsConfig *tls.Config) (net.Conn, error) {
+	s.stub.MethodCall(s, "DialConn")
 	return nil, s.stub.NextErr()
 }
 
-var expectedInputs = []string{
-	"agent", "central-hub", "mux",
-}
+var expectedInputs = []string{"agent", "mux"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -116,17 +114,22 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args[0], gc.FitsTypeOf, rafttransport.Config{})
 	config := args[0].(rafttransport.Config)
 
-	c.Assert(config.APIOpen, gc.NotNil)
-	config.APIOpen(config.APIInfo, api.DefaultDialOpts())
-	s.stub.CheckCallNames(c, "NewWorker", "APIOpen")
-	config.APIOpen = nil
+	c.Assert(config.DialConn, gc.NotNil)
+	config.DialConn(context.Background(), "foo", &tls.Config{})
+	s.stub.CheckCallNames(c, "NewWorker", "DialConn")
+	config.DialConn = nil
+
+	c.Assert(config.TLSConfig, gc.NotNil)
+	config.TLSConfig = nil
 
 	c.Assert(config, jc.DeepEquals, rafttransport.Config{
-		APIInfo: &api.Info{CACert: "ca-cert"},
-		Hub:     s.hub,
-		Mux:     s.mux,
-		Path:    "raft/path",
-		Tag:     s.agent.conf.tag,
+		APIInfo: &api.Info{
+			Addrs:  []string{"testing.invalid:1234"},
+			CACert: coretesting.CACert,
+		},
+		Mux:  s.mux,
+		Path: "raft/path",
+		Tag:  s.agent.conf.tag,
 	})
 }
 
