@@ -358,7 +358,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	ctx.Verbosef("available agent binaries:\n%s", formatTools(context.tools))
-	ctx.Verbosef("best version:\n    %s", context.chosen)
+	fmt.Fprintf(ctx.Stderr, "best version:\n    %v\n", context.chosen)
 	if warnCompat {
 		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", context.chosen, jujuversion.Current)
 	}
