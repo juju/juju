@@ -10,9 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/worker/catacomb"
@@ -50,10 +49,22 @@ func NewWorker(config Config) (worker.Worker, error) {
 		config:        config,
 		serverDetails: make(chan apiserver.Details),
 	}
+	// Subscribe to API server address changes.
+	unsubscribe, err := config.Hub.Subscribe(
+		apiserver.DetailsTopic,
+		w.apiserverDetailsChanged,
+	)
+	if err != nil {
+		return nil, errors.Annotate(err, "subscribing to apiserver details")
+	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
-		Work: w.loop,
+		Work: func() error {
+			defer unsubscribe()
+			return w.loop()
+		},
 	}); err != nil {
+		unsubscribe()
 		return nil, errors.Trace(err)
 	}
 	return w, nil
@@ -79,18 +90,8 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() error {
-	// Subscribe to API server address changes.
-	unsubscribe, err := w.config.Hub.Subscribe(
-		apiserver.DetailsTopic,
-		w.apiserverDetailsChanged,
-	)
-	if err != nil {
-		return errors.Annotate(err, "subscribing to apiserver details")
-	}
-	defer unsubscribe()
-
 	// Get the initial raft cluster configuration.
-	serverIDs, err := w.getConfiguration()
+	servers, prevIndex, err := w.getConfiguration()
 	if err != nil {
 		return errors.Annotate(err, "getting raft configuration")
 	}
@@ -100,49 +101,137 @@ func (w *Worker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case details := <-w.serverDetails:
-			if err := w.updateConfiguration(serverIDs, details); err != nil {
+			prevIndex, err = w.updateConfiguration(servers, prevIndex, details)
+			if err != nil {
 				return errors.Annotate(err, "updating raft configuration")
 			}
 		}
 	}
 }
 
-func (w *Worker) getConfiguration() (serverIDs set.Strings, _ error) {
+func (w *Worker) getConfiguration() (map[raft.ServerID]raft.ServerAddress, uint64, error) {
 	future := w.config.Raft.GetConfiguration()
-	if _, err := w.waitIndexFuture(future); err != nil {
-		return nil, errors.Trace(err)
+	prevIndex, err := w.waitIndexFuture(future)
+	if err != nil {
+		return nil, 0, errors.Trace(err)
 	}
-	serverIDs = set.NewStrings()
-	for _, server := range future.Configuration().Servers {
-		serverIDs.Add(string(server.ID))
+	servers := make(map[raft.ServerID]raft.ServerAddress)
+	config := future.Configuration()
+	for _, server := range config.Servers {
+		servers[server.ID] = server.Address
 	}
-	return serverIDs, nil
+	return servers, prevIndex, nil
 }
 
-func (w *Worker) updateConfiguration(configuredServerIDs set.Strings, details apiserver.Details) error {
-	newServerIDs := set.NewStrings()
+func (w *Worker) updateConfiguration(
+	configuredServers map[raft.ServerID]raft.ServerAddress,
+	prevIndex uint64,
+	details apiserver.Details,
+) (uint64, error) {
+	newServers := make(map[raft.ServerID]raft.ServerAddress)
 	for _, server := range details.Servers {
-		newServerIDs.Add(names.NewMachineTag(server.ID).String())
-	}
-	var futures []raft.IndexFuture
-	for _, serverID := range configuredServerIDs.Difference(newServerIDs).Values() {
-		configuredServerIDs.Remove(serverID)
-		f := w.config.Raft.RemoveServer(raft.ServerID(serverID), 0, 0)
-		futures = append(futures, f)
-	}
-	for _, serverID := range newServerIDs.Difference(configuredServerIDs).Values() {
-		configuredServerIDs.Add(serverID)
-		raftServerID := raft.ServerID(serverID)
-		raftServerAddress := raft.ServerAddress(serverID)
-		f := w.config.Raft.AddVoter(raftServerID, raftServerAddress, 0, 0)
-		futures = append(futures, f)
-	}
-	for _, f := range futures {
-		if _, err := w.waitIndexFuture(f); err != nil {
-			return errors.Trace(err)
+		if server.InternalAddress == "" {
+			continue
 		}
+		serverID := raft.ServerID(names.NewMachineTag(server.ID).String())
+		serverAddress := raft.ServerAddress(server.InternalAddress)
+		newServers[serverID] = serverAddress
 	}
-	return nil
+	if len(newServers) < 3 {
+		// NOTE(axw) when we bootstrap the cluster, we set
+		// the first node's address to be localhost. Until
+		// the cluster is grown beyond a single node, we
+		// can never update the address.
+		//
+		// Changing a node's address can only be done by
+		// removing it from the configuration and adding it
+		// back in with its new address; this cannot be
+		// done if there is only one node, as there must
+		// be one voting node in the configuration at all
+		// times.
+		return prevIndex, nil
+	}
+	ops := w.configOps(configuredServers, newServers)
+	for _, op := range ops {
+		future := op(prevIndex)
+		if err := future.Error(); err != nil {
+			return 0, errors.Trace(err)
+		}
+		prevIndex = future.Index()
+	}
+	return prevIndex, nil
+}
+
+func (w *Worker) configOps(configuredServers, newServers map[raft.ServerID]raft.ServerAddress) []configOp {
+	// This worker can only run on the raft leader, ergo Leader
+	// returns the local address.
+	localAddr := w.config.Raft.Leader()
+
+	// Add new servers first, then remove old servers,
+	// and finish by changing addresses. If the local
+	// server is to be removed, we do that last, to
+	// ensure that the other servers can communicate
+	// amongst themselves.
+	var ops []configOp
+	for id, newAddr := range newServers {
+		if _, ok := configuredServers[id]; ok {
+			continue
+		}
+		logger.Infof("server %q added with address %q", id, newAddr)
+		ops = append(ops, w.addVoterOp(id, newAddr))
+		configuredServers[id] = newAddr
+	}
+	var removeLocal raft.ServerID
+	for id, oldAddr := range configuredServers {
+		if _, ok := newServers[id]; ok {
+			continue
+		}
+		logger.Infof("server %q removed", id)
+		delete(configuredServers, id)
+		if oldAddr == localAddr {
+			removeLocal = id
+			continue
+		}
+		ops = append(ops, w.removeServerOp(id))
+	}
+	for id, newAddr := range newServers {
+		oldAddr := configuredServers[id]
+		if oldAddr == newAddr {
+			continue
+		}
+		logger.Infof("server %q address changed from %q to %q", id, oldAddr, newAddr)
+		configuredServers[id] = newAddr
+		if oldAddr == localAddr {
+			removeLocal = id
+			continue
+		}
+		ops = append(ops, w.removeServerOp(id))
+		ops = append(ops, w.addVoterOp(id, newAddr))
+	}
+	if removeLocal != "" {
+		// Whether the local (leader) server was removed or
+		// its address has changed, here we simply remove it
+		// from the raft configuration. This will prompt
+		// another server to become leader; if the address
+		// changed, then the new leader will add the server
+		// back in with its new address.
+		ops = append(ops, w.removeServerOp(removeLocal))
+	}
+	return ops
+}
+
+type configOp func(prevIndex uint64) raft.IndexFuture
+
+func (w *Worker) removeServerOp(id raft.ServerID) configOp {
+	return func(prevIndex uint64) raft.IndexFuture {
+		return w.config.Raft.RemoveServer(id, prevIndex, 0)
+	}
+}
+
+func (w *Worker) addVoterOp(id raft.ServerID, addr raft.ServerAddress) configOp {
+	return func(prevIndex uint64) raft.IndexFuture {
+		return w.config.Raft.AddVoter(id, addr, prevIndex, 0)
+	}
 }
 
 // waitIndexFuture waits for the future to return, or for the worker
