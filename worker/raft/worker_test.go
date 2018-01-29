@@ -209,3 +209,15 @@ func (s *WorkerSuite) TestRestoreSnapshot(c *gc.C) {
 		[]byte("command1"),
 	})
 }
+
+func (s *WorkerSuite) TestStartStop(c *gc.C) {
+	workertest.CleanKill(c, s.worker)
+}
+
+func (s *WorkerSuite) TestShutdownRaftKillsWorker(c *gc.C) {
+	r := s.waitLeader(c)
+	c.Assert(r.Shutdown().Error(), jc.ErrorIsNil)
+
+	err := workertest.CheckKilled(c, s.worker)
+	c.Assert(err, gc.ErrorMatches, "raft shutdown")
+}

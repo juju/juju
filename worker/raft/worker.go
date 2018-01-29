@@ -248,10 +248,23 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 		}
 	}()
 
+	shutdown := make(chan raft.Observation)
+	observer := raft.NewObserver(shutdown, true, func(o *raft.Observation) bool {
+		return o.Data == raft.Shutdown
+	})
+	r.RegisterObserver(observer)
+	defer r.DeregisterObserver(observer)
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+		case <-shutdown:
+			// The raft server shutdown without this worker
+			// telling it to do so. This typically means that
+			// the local node was removed from the cluster
+			// configuration, causing it to shutdown.
+			return errors.New("raft shutdown")
 		case w.raftCh <- r:
 		}
 	}
