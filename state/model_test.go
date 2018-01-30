@@ -1330,6 +1330,10 @@ func (s *ModelSuite) TestAllModelUUIDsExcludesDead(c *gc.C) {
 	obtained, err = s.State.AllModelUUIDs()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, jc.DeepEquals, expected)
+
+	obtained, err = s.State.AllModelUUIDsIncludingDead()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, jc.DeepEquals, expectedWithAddition)
 }
 
 func (s *ModelSuite) TestHostedModelCount(c *gc.C) {
