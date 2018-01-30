@@ -270,6 +270,9 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		c.Version = jujuversion.Current
 	}
 	warnCompat := false
+
+	// TODO (agprado:01/30/2018):
+	// This logic seems to be overly complicated and it checks the same condition multiple times.
 	switch {
 	case !canUpgradeRunningVersion(agentVersion):
 		// This version of upgrade-juju cannot upgrade the running
