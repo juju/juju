@@ -11,16 +11,19 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// AddressAndCertGetter can be used to find out
-// controller addresses and the CA public certificate.
+// AddressAndCertGetter can be used to find out controller addresses
+// and the CA public certificate.
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
 	ModelUUID() string
-	APIHostPorts() ([][]network.HostPort, error)
-	WatchAPIHostPorts() state.NotifyWatcher
+	APIHostPortsForAgents() ([][]network.HostPort, error)
+	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 
-// APIAddresser implements the APIAddresses method
+// APIAddresser implements the APIAddresses method.
+// Note that the getter backing for this implies that it is suitable for use by
+// agents, which are bound by the configured controller management space.
+// It is not suitable for callers requiring *all* available API addresses.
 type APIAddresser struct {
 	resources facade.Resources
 	getter    AddressAndCertGetter
@@ -37,7 +40,7 @@ func NewAPIAddresser(getter AddressAndCertGetter, resources facade.Resources) *A
 
 // APIHostPorts returns the API server addresses.
 func (api *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
-	servers, err := api.getter.APIHostPorts()
+	servers, err := api.getter.APIHostPortsForAgents()
 	if err != nil {
 		return params.APIHostPortsResult{}, err
 	}
@@ -48,7 +51,7 @@ func (api *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
 
 // WatchAPIHostPorts watches the API server addresses.
 func (api *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
-	watch := api.getter.WatchAPIHostPorts()
+	watch := api.getter.WatchAPIHostPortsForAgents()
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
 			NotifyWatcherId: api.resources.Register(watch),
@@ -68,8 +71,8 @@ func (api *APIAddresser) APIAddresses() (params.StringsResult, error) {
 	}, nil
 }
 
-func apiAddresses(getter APIHostPortsGetter) ([]string, error) {
-	apiHostPorts, err := getter.APIHostPorts()
+func apiAddresses(getter APIHostPortsForAgentsGetter) ([]string, error) {
+	apiHostPorts, err := getter.APIHostPortsForAgents()
 	if err != nil {
 		return nil, err
 	}

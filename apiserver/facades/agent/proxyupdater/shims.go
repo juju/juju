@@ -21,12 +21,12 @@ func (s *stateShim) ModelConfig() (*config.Config, error) {
 	return s.m.ModelConfig()
 }
 
-func (s *stateShim) APIHostPorts() ([][]network.HostPort, error) {
-	return s.st.APIHostPorts()
+func (s *stateShim) APIHostPortsForAgents() ([][]network.HostPort, error) {
+	return s.st.APIHostPortsForAgents()
 }
 
-func (s *stateShim) WatchAPIHostPorts() state.NotifyWatcher {
-	return s.st.WatchAPIHostPorts()
+func (s *stateShim) WatchAPIHostPortsForAgents() state.NotifyWatcher {
+	return s.st.WatchAPIHostPortsForAgents()
 }
 
 func (s *stateShim) WatchForModelConfigChanges() state.NotifyWatcher {

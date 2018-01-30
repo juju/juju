@@ -39,7 +39,7 @@ type Backend interface {
 	AllRelations() ([]*state.Relation, error)
 	AllSubnets() ([]*state.Subnet, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
-	APIHostPorts() ([][]network.HostPort, error)
+	APIHostPortsForClients() ([][]network.HostPort, error)
 	Application(string) (*state.Application, error)
 	ApplicationLeaders() (map[string]string, error)
 	Charm(*charm.URL) (*state.Charm, error)

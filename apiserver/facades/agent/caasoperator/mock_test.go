@@ -55,8 +55,8 @@ func (st *mockState) Model() (caasoperator.Model, error) {
 	return &st.model, nil
 }
 
-func (st *mockState) APIHostPorts() ([][]network.HostPort, error) {
-	st.MethodCall(st, "APIHostPorts")
+func (st *mockState) APIHostPortsForAgents() ([][]network.HostPort, error) {
+	st.MethodCall(st, "APIHostPortsForAgents")
 	if err := st.NextErr(); err != nil {
 		return nil, err
 	}

@@ -29,10 +29,13 @@ type ToolsURLGetter interface {
 	ToolsURLs(v version.Binary) ([]string, error)
 }
 
-// APIHostPortsGetter is an interface providing the APIHostPorts method.
-type APIHostPortsGetter interface {
-	// APIHostPorst returns the HostPorts for each API server.
-	APIHostPorts() ([][]network.HostPort, error)
+// APIHostPortsGetter is an interface providing the APIHostPortsForAgents
+// method.
+type APIHostPortsForAgentsGetter interface {
+	// APIHostPortsForAgents returns the HostPorts for each API server that
+	// are suitable for agent-to-controller API communication based on the
+	// configured (if any) controller management space.
+	APIHostPortsForAgents() ([][]network.HostPort, error)
 }
 
 // ToolsStorageGetter is an interface providing the ToolsStorage method.
@@ -335,12 +338,12 @@ func toolsFilter(args params.FindToolsParams) coretools.Filter {
 
 type toolsURLGetter struct {
 	modelUUID          string
-	apiHostPortsGetter APIHostPortsGetter
+	apiHostPortsGetter APIHostPortsForAgentsGetter
 }
 
 // NewToolsURLGetter creates a new ToolsURLGetter that
 // returns tools URLs pointing at an API server.
-func NewToolsURLGetter(modelUUID string, a APIHostPortsGetter) *toolsURLGetter {
+func NewToolsURLGetter(modelUUID string, a APIHostPortsForAgentsGetter) *toolsURLGetter {
 	return &toolsURLGetter{modelUUID, a}
 }
 

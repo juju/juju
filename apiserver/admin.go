@@ -101,7 +101,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	// Fetch the API server addresses from state.
-	hostPorts, err := a.root.state.APIHostPorts()
+	hostPorts, err := a.root.state.APIHostPortsForAgents()
 	if err != nil {
 		return fail, errors.Trace(err)
 	}

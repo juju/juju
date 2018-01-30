@@ -18,7 +18,7 @@ import (
 type CAASOperatorState interface {
 	Application(string) (Application, error)
 	Model() (Model, error)
-	APIHostPorts() ([][]network.HostPort, error)
+	APIHostPortsForAgents() ([][]network.HostPort, error)
 }
 
 // Model provides the subset of CAAS model state required

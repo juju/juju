@@ -289,7 +289,7 @@ LXC_BRIDGE="ignored"`[1:])
 	c.Assert(*gotHW, gc.DeepEquals, expectHW)
 
 	// Check that the API host ports are initialised correctly.
-	apiHostPorts, err := st.APIHostPorts()
+	apiHostPorts, err := st.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiHostPorts, jc.DeepEquals, [][]network.HostPort{
 		network.AddressesWithPort(filteredAddrs, 1234),

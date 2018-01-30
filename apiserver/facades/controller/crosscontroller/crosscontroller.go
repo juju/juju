@@ -32,7 +32,7 @@ func NewStateCrossControllerAPI(ctx facade.Context) (*CrossControllerAPI, error)
 	return NewCrossControllerAPI(
 		ctx.Resources(),
 		func() ([]string, string, error) { return common.StateControllerInfo(st) },
-		st.WatchAPIHostPorts,
+		st.WatchAPIHostPortsForClients,
 	)
 }
 

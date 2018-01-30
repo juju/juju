@@ -283,7 +283,7 @@ func addControllerMachine(c *gc.C, st *state.State) {
 	// The AddControllerMachine call will update the API host ports
 	// to made-up addresses. We need valid addresses so that the uniter
 	// can download charms from the API server.
-	apiHostPorts, err := st.APIHostPorts()
+	apiHostPorts, err := st.APIHostPortsForClients()
 	c.Assert(err, gc.IsNil)
 	testing.AddControllerMachine(c, st)
 	err = st.SetAPIHostPorts(apiHostPorts)

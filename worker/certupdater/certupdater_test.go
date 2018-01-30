@@ -99,7 +99,7 @@ func (g *mockConfigGetter) ControllerConfig() (jujucontroller.Config, error) {
 
 type mockAPIHostGetter struct{}
 
-func (g *mockAPIHostGetter) APIHostPorts() ([][]network.HostPort, error) {
+func (g *mockAPIHostGetter) APIHostPortsForAgents() ([][]network.HostPort, error) {
 	return [][]network.HostPort{
 		{
 			{Address: network.Address{Value: "192.168.1.1", Scope: network.ScopeCloudLocal}, Port: 17070},
@@ -175,7 +175,7 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 
 	// The server certificates must report "juju-apiserver" as a DNS
 	// name for backwards-compatibility with API clients. They must
-	// also report "juju-mongodb" because these certicates are also
+	// also report "juju-mongodb" because these certificates are also
 	// used for serving MongoDB connections.
 	c.Assert(srvCert.DNSNames, jc.SameContents,
 		[]string{"localhost", "juju-apiserver", "juju-mongodb", "anything"})
