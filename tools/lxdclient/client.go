@@ -215,6 +215,19 @@ func isSupportedAPIVersion(version string) bool {
 func newRawClient(remote Remote) (*lxd.Client, error) {
 	host := remote.Host
 
+	// LXD socket is different depending on installation method
+	// We prefer upstream's preference of snap installed LXD
+	const debianSocket = "/var/lib/lxd/"
+	const snapSocket = "/var/snap/lxd/common/lxd/"
+
+	if _, err := os.Stat(snapSocket); err == nil {
+		logger.Debugf("Using LXD snap socket")
+		os.Setenv("LXD_DIR", snapSocket)
+	} else {
+		logger.Debugf("LXD snap socket not found, falling back to debian socket")
+		os.Setenv("LXD_DIR", debianSocket)
+	}
+
 	if remote.ID() == remoteIDForLocal && host == "" {
 		host = "unix://" + lxdshared.VarPath("unix.socket")
 	} else {
@@ -473,7 +486,7 @@ Please configure LXD by running:
 
 	installText := `
 Please install LXD by running:
-	$ sudo apt-get install lxd
+	$ sudo snap install lxd
 and then configure it with:
 	$ newgrp lxd
 	$ lxd init
