@@ -32,8 +32,8 @@ func (st *State) ProcessDyingModel() (err error) {
 		if st.IsController() {
 			// We should not mark the controller model as Dead until
 			// all hosted models have been removed, otherwise the
-			// hosted model environs may not have beeen destroyed.
-			modelUUIDs, err := st.AllModelUUIDs()
+			// hosted model environs may not have been destroyed.
+			modelUUIDs, err := st.AllModelUUIDsIncludingDead()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
