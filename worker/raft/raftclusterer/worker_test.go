@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
@@ -240,11 +240,8 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 	// servers are added.
 	//
 	// We add machine-1 and machine-2, and change machine-0's
-	// address. The new machines should be added first, and
-	// then machine-0 should be *removed* from the configuration,
-	// under the expectation that one of the new servers will
-	// become leader and add it back to the configuration with
-	// its new address.
+	// address. Changing machine-0's address should not affect
+	// its leadership.
 	s.publishDetails(c, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {
@@ -262,6 +259,10 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 		},
 	})
 	waitConfiguration(c, raft1, []raft.Server{{
+		ID:       "machine-0",
+		Address:  "testing.invalid:1234",
+		Suffrage: raft.Voter,
+	}, {
 		ID:       "machine-1",
 		Address:  raft.ServerAddress(machine1Address),
 		Suffrage: raft.Voter,
@@ -271,11 +272,10 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 		Suffrage: raft.Voter,
 	}})
 
-	select {
-	case <-newLeaderElected:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for leader observation")
-	}
+	// Having the leader change its own address
+	// should not cause it to step down.
+	future := s.Raft.VerifyLeader()
+	c.Assert(future.Error(), jc.ErrorIsNil)
 }
 
 func (s *WorkerSuite) publishDetails(c *gc.C, details apiserver.Details) {
@@ -298,5 +298,11 @@ func waitConfiguration(c *gc.C, r *raft.Raft, expectedServers []raft.Server) {
 			return
 		}
 	}
-	c.Assert(configuration.Servers, jc.SameContents, expectedServers)
+	c.Assert(
+		configuration.Servers, jc.SameContents, expectedServers,
+		gc.Commentf(
+			"waited %s and still did not see the expected configuration",
+			coretesting.LongAttempt.Total,
+		),
+	)
 }

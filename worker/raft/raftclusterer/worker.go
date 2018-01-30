@@ -137,27 +137,13 @@ func (w *Worker) updateConfiguration(
 		serverAddress := raft.ServerAddress(server.InternalAddress)
 		newServers[serverID] = serverAddress
 	}
-	if len(newServers) < 3 {
-		// NOTE(axw) when we bootstrap the cluster, we set
-		// the first node's address to be localhost. Until
-		// the cluster is grown beyond a single node, we
-		// can never update the address.
-		//
-		// Changing a node's address can only be done by
-		// removing it from the configuration and adding it
-		// back in with its new address; this cannot be
-		// done if there is only one node, as there must
-		// be one voting node in the configuration at all
-		// times.
-		return prevIndex, nil
-	}
 	ops := w.configOps(configuredServers, newServers)
 	for _, op := range ops {
-		future := op(prevIndex)
-		if err := future.Error(); err != nil {
+		var err error
+		prevIndex, err = w.waitIndexFuture(op(prevIndex))
+		if err != nil {
 			return 0, errors.Trace(err)
 		}
-		prevIndex = future.Index()
 	}
 	return prevIndex, nil
 }
@@ -174,10 +160,18 @@ func (w *Worker) configOps(configuredServers, newServers map[raft.ServerID]raft.
 	// amongst themselves.
 	var ops []configOp
 	for id, newAddr := range newServers {
-		if _, ok := configuredServers[id]; ok {
-			continue
+		if oldAddr, ok := configuredServers[id]; ok {
+			if oldAddr == newAddr {
+				continue
+			}
+			logger.Infof("server %q address changed from %q to %q", id, oldAddr, newAddr)
+		} else {
+			logger.Infof("server %q added with address %q", id, newAddr)
 		}
-		logger.Infof("server %q added with address %q", id, newAddr)
+		// NOTE(axw) the docs for AddVoter say that it is ineffective
+		// if the server is already a voting member, but that is not
+		// correct. Calling AddVoter will update the address for an
+		// existing entry.
 		ops = append(ops, w.addVoterOp(id, newAddr))
 		configuredServers[id] = newAddr
 	}
@@ -194,27 +188,10 @@ func (w *Worker) configOps(configuredServers, newServers map[raft.ServerID]raft.
 		}
 		ops = append(ops, w.removeServerOp(id))
 	}
-	for id, newAddr := range newServers {
-		oldAddr := configuredServers[id]
-		if oldAddr == newAddr {
-			continue
-		}
-		logger.Infof("server %q address changed from %q to %q", id, oldAddr, newAddr)
-		configuredServers[id] = newAddr
-		if oldAddr == localAddr {
-			removeLocal = id
-			continue
-		}
-		ops = append(ops, w.removeServerOp(id))
-		ops = append(ops, w.addVoterOp(id, newAddr))
-	}
 	if removeLocal != "" {
-		// Whether the local (leader) server was removed or
-		// its address has changed, here we simply remove it
-		// from the raft configuration. This will prompt
-		// another server to become leader; if the address
-		// changed, then the new leader will add the server
-		// back in with its new address.
+		// The local (leader) server was removed, so we remove
+		// it from the raft configuration. This will prompt
+		// another server to become leader.
 		ops = append(ops, w.removeServerOp(removeLocal))
 	}
 	return ops
