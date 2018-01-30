@@ -205,16 +205,17 @@ func (st *State) AllModelUUIDs() ([]string, error) {
 	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
-	notDead := bson.M{"life": bson.M{"$ne": Dead}}
 	var docs []bson.M
-	err := models.Find(notDead).Sort("name", "owner").Select(bson.M{"_id": 1}).All(&docs)
+	err := models.Find(nil).Sort("name", "owner").Select(bson.M{"_id": 1}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]string, len(docs))
-	for i, doc := range docs {
-		out[i] = doc["_id"].(string)
+	out := []string{}
+	for _, doc := range docs {
+		if doc["life"] != Dead {
+			out = append(out, doc["_id"].(string))
+		}
 	}
 	return out, nil
 }
