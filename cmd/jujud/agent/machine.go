@@ -1290,8 +1290,6 @@ func (a *MachineAgent) newAPIserverWorker(
 		return nil, errors.Annotate(err, "getting log sink config")
 	}
 
-	auditConfig := getAuditLogConfig(controllerConfig)
-
 	serverConfig := apiserver.ServerConfig{
 		Clock:                         clock.WallClock,
 		Cert:                          cert,
@@ -1311,12 +1309,7 @@ func (a *MachineAgent) newAPIserverWorker(
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          a.prometheusRegistry,
-		AuditLogConfig:                auditConfig,
-	}
-
-	if auditConfig.Enabled {
-		serverConfig.AuditLog = auditlog.NewLogFile(
-			logDir, auditConfig.MaxSizeMB, auditConfig.MaxBackups)
+		AuditLogConfig:                getAuditLogConfig(controllerConfig, logDir),
 	}
 
 	server, err := apiserver.NewServer(statePool, listener, serverConfig)
@@ -1787,12 +1780,17 @@ func getLogSinkConfig(cfg agent.Config) (apiserver.LogSinkConfig, error) {
 	return result, nil
 }
 
-func getAuditLogConfig(cfg controller.Config) apiserver.AuditLogConfig {
-	return apiserver.AuditLogConfig{
+func getAuditLogConfig(cfg controller.Config, logDir string) apiserver.AuditLogConfig {
+	result := apiserver.AuditLogConfig{
 		Enabled:        cfg.AuditingEnabled(),
 		CaptureAPIArgs: cfg.AuditLogCaptureArgs(),
 		MaxSizeMB:      cfg.AuditLogMaxSizeMB(),
 		MaxBackups:     cfg.AuditLogMaxBackups(),
 		ExcludeMethods: cfg.AuditLogExcludeMethods(),
 	}
+	if result.Enabled {
+		result.Target = auditlog.NewLogFile(
+			logDir, result.MaxSizeMB, result.MaxBackups)
+	}
+	return result
 }

@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+
+	"github.com/juju/juju/core/auditlog"
 )
 
 // These vars define how we rate limit incoming connections.
@@ -101,6 +103,17 @@ type AuditLogConfig struct {
 	// shouldn't consider to be interesting: if a conversation only
 	// consists of these method calls we won't log it.
 	ExcludeMethods set.Strings
+
+	// Target is the AuditLog entries should be written to.
+	Target auditlog.AuditLog
+}
+
+// Validate checks the audit logging configuration.
+func (cfg AuditLogConfig) Validate() error {
+	if cfg.Enabled && cfg.Target == nil {
+		return errors.NotValidf("logging enabled but no target provided")
+	}
+	return nil
 }
 
 // LogSinkConfig holds parameters to control the API server's

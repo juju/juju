@@ -1426,7 +1426,9 @@ func (s *MachineSuite) TestGetAuditLogConfig(c *gc.C) {
 	cfg := coretesting.FakeControllerConfig()
 	cfg["auditing-enabled"] = true
 	cfg["audit-log-exclude-methods"] = []interface{}{"Exclude.This"}
-	result := getAuditLogConfig(cfg)
+	result := getAuditLogConfig(cfg, c.MkDir())
+	c.Assert(result.Target, gc.NotNil)
+	result.Target = nil
 	c.Assert(result, gc.DeepEquals, apiserver.AuditLogConfig{
 		Enabled:        true,
 		CaptureAPIArgs: true,

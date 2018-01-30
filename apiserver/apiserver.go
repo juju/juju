@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
-	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
@@ -82,7 +81,6 @@ type Server struct {
 	logsinkRateLimitConfig logsink.RateLimitConfig
 	dbloggers              dbloggers
 	auditLogConfig         AuditLogConfig
-	auditLogger            auditlog.AuditLog
 	upgradeComplete        func() bool
 	restoreStatus          func() state.RestoreStatus
 
@@ -170,7 +168,6 @@ type ServerConfig struct {
 
 	// AuditLogConfig holds parameters to configure audit logging.
 	AuditLogConfig AuditLogConfig
-	AuditLog       auditlog.AuditLog
 
 	// PrometheusRegisterer registers Prometheus collectors.
 	PrometheusRegisterer prometheus.Registerer
@@ -201,8 +198,8 @@ func (c ServerConfig) Validate() error {
 			return errors.Annotate(err, "validating logsink configuration")
 		}
 	}
-	if c.AuditLogConfig.Enabled && c.AuditLog == nil {
-		return errors.NotValidf("audit logging enabled but no logger provided")
+	if err := c.AuditLogConfig.Validate(); err != nil {
+		return errors.Annotatef(err, "validating audit log configuration")
 	}
 	return nil
 }
@@ -275,7 +272,6 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 			Clock:  cfg.Clock,
 		},
 		auditLogConfig: cfg.AuditLogConfig,
-		auditLogger:    cfg.AuditLog,
 		dbloggers: dbloggers{
 			clock:                 cfg.Clock,
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
@@ -1002,4 +998,8 @@ func (srv *Server) processModelRemovals() error {
 			}
 		}
 	}
+}
+
+func (srv *Server) getAuditConfig() (AuditLogConfig, error) {
+	return srv.auditLogConfig, nil
 }

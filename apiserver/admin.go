@@ -136,13 +136,17 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		modelTag = a.root.model.Tag().String()
 	}
 
-	auditRecorder, err := a.getAuditRecorder(req, authResult)
+	auditConfig, err := a.srv.getAuditConfig()
+	if err != nil {
+		return fail, errors.Trace(err)
+	}
+	auditRecorder, err := a.getAuditRecorder(req, authResult, auditConfig)
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
 
 	recorderFactory := observer.NewRecorderFactory(
-		a.apiObserver, auditRecorder, a.srv.auditLogConfig.CaptureAPIArgs)
+		a.apiObserver, auditRecorder, auditConfig.CaptureAPIArgs)
 
 	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
 	return params.LoginResult{
@@ -156,16 +160,15 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}, nil
 }
 
-func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult) (*auditlog.Recorder, error) {
-	if !authResult.userLogin || a.srv.auditLogger == nil {
+func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult, cfg AuditLogConfig) (*auditlog.Recorder, error) {
+	if !authResult.userLogin || cfg.Enabled == false {
 		return nil, nil
 	}
 	// Wrap the audit logger in a filter that prevents us from logging
 	// lots of readonly conversations (like "juju status" requests).
-	filter := observer.MakeInterestingRequestFilter(a.srv.auditLogConfig.ExcludeMethods)
+	filter := observer.MakeInterestingRequestFilter(cfg.ExcludeMethods)
 	result, err := auditlog.NewRecorder(
-		observer.NewAuditLogFilter(
-			a.srv.auditLogger, filter),
+		observer.NewAuditLogFilter(cfg.Target, filter),
 		a.srv.clock,
 		auditlog.ConversationArgs{
 			Who:          req.AuthTag,
