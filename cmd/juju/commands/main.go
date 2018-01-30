@@ -436,7 +436,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewUnregisterCommand(jujuclient.NewFileClientStore()))
 	r.Register(controller.NewEnableDestroyControllerCommand())
 	r.Register(controller.NewShowControllerCommand())
-	r.Register(controller.NewGetConfigCommand())
+	r.Register(controller.NewConfigCommand())
 
 	// Debug Metrics
 	r.Register(metricsdebug.New())

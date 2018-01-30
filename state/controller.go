@@ -87,3 +87,51 @@ func (st *State) ControllerConfig() (jujucontroller.Config, error) {
 	}
 	return settings.Map(), nil
 }
+
+// UpdateControllerConfig allows changing some of the configuration
+// for the controller. Changes passed in updateAttrs will be applied
+// to the current config, and keys in removeAttrs will be unset (and
+// so revert to their defaults). Only a subset of keys can be changed
+// after bootstrapping.
+func (st *State) UpdateControllerConfig(updateAttrs map[string]interface{}, removeAttrs []string) error {
+	if err := checkControllerConfigNames(updateAttrs, removeAttrs); err != nil {
+		return errors.Trace(err)
+	}
+
+	settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, r := range removeAttrs {
+		settings.Delete(r)
+	}
+	settings.Update(updateAttrs)
+
+	// Ensure the resulting config is still valid.
+	newValues := settings.Map()
+	_, err = jujucontroller.NewConfig(
+		newValues[jujucontroller.ControllerUUIDKey].(string),
+		newValues[jujucontroller.CACertKey].(string),
+		newValues,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	_, ops := settings.settingsUpdateOps()
+	return errors.Trace(settings.write(ops))
+}
+
+func checkControllerConfigNames(updateAttrs map[string]interface{}, removeAttrs []string) error {
+	for k := range updateAttrs {
+		if !jujucontroller.AllowedUpdateConfigAttributes.Contains(k) {
+			return errors.Errorf("can't change %q after bootstrap", k)
+		}
+	}
+	for _, r := range removeAttrs {
+		if !jujucontroller.AllowedUpdateConfigAttributes.Contains(r) {
+			return errors.Errorf("can't change %q after bootstrap", r)
+		}
+	}
+	return nil
+}

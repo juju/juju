@@ -42,13 +42,20 @@ type ControllerAPI struct {
 	resources  facade.Resources
 }
 
-// ControllerAPIv3 provides the v3 Controller API.
-type ControllerAPIv3 struct {
+// ControllerAPIv4 provides the v4 Controller API. The only difference
+// between this and v5 is that v4 doesn't have the
+// UpdateControllerConfig method.
+type ControllerAPIv4 struct {
 	*ControllerAPI
 }
 
-// NewControllerAPIv4 creates a new ControllerAPIv4.
-func NewControllerAPIv4(ctx facade.Context) (*ControllerAPI, error) {
+// ControllerAPIv3 provides the v3 Controller API.
+type ControllerAPIv3 struct {
+	*ControllerAPIv4
+}
+
+// NewControllerAPIv5 creates a new ControllerAPIv5.
+func NewControllerAPIv5(ctx facade.Context) (*ControllerAPI, error) {
 	st := ctx.State()
 	authorizer := ctx.Auth()
 	pool := ctx.StatePool()
@@ -60,6 +67,15 @@ func NewControllerAPIv4(ctx facade.Context) (*ControllerAPI, error) {
 		authorizer,
 		resources,
 	)
+}
+
+// NewControllerAPIv4 creates a new ControllerAPIv4.
+func NewControllerAPIv4(ctx facade.Context) (*ControllerAPIv4, error) {
+	v5, err := NewControllerAPIv5(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ControllerAPIv4{v5}, nil
 }
 
 // NewControllerAPIv3 creates a new ControllerAPIv3.
@@ -497,6 +513,23 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 	}
 	return result, nil
 }
+
+// ConfigSet changes the value of specified controller configuration
+// settings. Only some settings can be changed after bootstrap.
+// Settings that aren't specified in the params are left unchanged.
+func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
+	if err := c.checkHasAdmin(); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(c.state.UpdateControllerConfig(args.Config, nil))
+}
+
+// Mask the ConfigSet method from the v4 API. The API reflection code
+// in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
+// this removes the method as far as the RPC machinery is concerned.
+
+// ConfigSet isn't on the v4 API.
+func (c *ControllerAPIv4) ConfigSet(_, _ struct{}) {}
 
 // runMigrationPrechecks runs prechecks on the migration and updates
 // information in targetInfo as needed based on information

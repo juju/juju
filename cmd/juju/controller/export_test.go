@@ -153,10 +153,10 @@ func KillWaitForModels(command cmd.Command, ctx *cmd.Context, api destroyControl
 	return modelcmd.InnerCommand(command).(*killCommand).WaitForModels(ctx, api, uuid)
 }
 
-// NewGetConfigCommandCommandForTest returns a GetConfigCommandCommand with
+// NewConfigCommandCommandForTest returns a ConfigCommand with
 // the api provided as specified.
-func NewGetConfigCommandForTest(api controllerAPI, store jujuclient.ClientStore) cmd.Command {
-	c := &getConfigCommand{api: api}
+func NewConfigCommandForTest(api controllerAPI, store jujuclient.ClientStore) cmd.Command {
+	c := &configCommand{api: api}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
 }
