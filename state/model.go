@@ -198,14 +198,25 @@ func (st *State) Model() (*Model, error) {
 	return model, nil
 }
 
-// AllModelUUIDs returns the UUIDs for all models in the controller.
+// AllModelUUIDs returns the UUIDs for all non-dead models in the controller.
 // Results are sorted by (name, owner).
 func (st *State) AllModelUUIDs() ([]string, error) {
+	return st.filteredModelUUIDs(notDeadDoc)
+}
+
+// AllModelUUIDsIncludingDead returns the UUIDs for all models in the controller.
+// Results are sorted by (name, owner).
+func (st *State) AllModelUUIDsIncludingDead() ([]string, error) {
+	return st.filteredModelUUIDs(nil)
+}
+
+// filteredModelUUIDs returns all model uuids that match the filter.
+func (st *State) filteredModelUUIDs(filter bson.D) ([]string, error) {
 	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
 	var docs []bson.M
-	err := models.Find(nil).Sort("name", "owner").Select(bson.M{"_id": 1}).All(&docs)
+	err := models.Find(filter).Sort("name", "owner").Select(bson.M{"_id": 1}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
@@ -1086,7 +1097,7 @@ func (m *Model) destroyOps(
 				im, modelEntityRefs,
 			)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			prereqOps = storageOps
 		}
@@ -1114,18 +1125,18 @@ func (m *Model) destroyOps(
 		pool := NewStatePool(m.st)
 		defer pool.Close()
 
-		modelUUIDs, err := m.st.AllModelUUIDs()
+		modelUUIDs, err := m.st.AllModelUUIDsIncludingDead()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		var aliveEmpty, aliveNonEmpty, dying, dead int
-		for _, modelUUID := range modelUUIDs {
-			if modelUUID == m.UUID() {
+		for _, aModelUUID := range modelUUIDs {
+			if aModelUUID == m.UUID() {
 				// Ignore the controller model.
 				continue
 			}
 
-			st, release, err := pool.Get(modelUUID)
+			st, release, err := pool.Get(aModelUUID)
 			if err != nil {
 				// This model could have been removed.
 				if errors.IsNotFound(err) {

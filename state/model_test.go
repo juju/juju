@@ -1205,6 +1205,33 @@ func (s *ModelSuite) TestAllModelUUIDs(c *gc.C) {
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
+func (s *ModelSuite) TestAllModelUUIDsExcludesDead(c *gc.C) {
+	expected := []string{
+		s.State.ModelUUID(),
+	}
+
+	st1 := s.Factory.MakeModel(c, nil)
+	defer st1.Close()
+
+	m1, err := st1.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedWithAddition := append(expected, m1.UUID())
+	obtained, err := s.State.AllModelUUIDs()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, jc.DeepEquals, expectedWithAddition)
+
+	err = m1.SetDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtained, err = s.State.AllModelUUIDs()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, jc.DeepEquals, expected)
+
+	obtained, err = s.State.AllModelUUIDsIncludingDead()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, jc.DeepEquals, expectedWithAddition)
+}
+
 func (s *ModelSuite) TestHostedModelCount(c *gc.C) {
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
 
