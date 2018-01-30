@@ -372,8 +372,8 @@ func (s *clientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, error) {
-		return nil, fmt.Errorf("bad connection")
+	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, *http.Response, error) {
+		return nil, nil, fmt.Errorf("bad connection")
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "bad connection")
@@ -381,8 +381,8 @@ func (s *clientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorNoData(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, error) {
-		return fakeStreamReader{&bytes.Buffer{}}, nil
+	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, *http.Response, error) {
+		return fakeStreamReader{&bytes.Buffer{}}, nil, nil
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to read initial response: EOF")
@@ -390,8 +390,8 @@ func (s *clientSuite) TestConnectStreamErrorNoData(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorBadData(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, error) {
-		return fakeStreamReader{strings.NewReader("junk\n")}, nil
+	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, *http.Response, error) {
+		return fakeStreamReader{strings.NewReader("junk\n")}, nil, nil
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to unmarshal initial response: .*")
@@ -399,9 +399,9 @@ func (s *clientSuite) TestConnectStreamErrorBadData(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorReadError(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, error) {
+	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, *http.Response, error) {
 		err := fmt.Errorf("bad read")
-		return fakeStreamReader{&badReader{err}}, nil
+		return fakeStreamReader{&badReader{err}}, nil, nil
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
 	c.Assert(err, gc.ErrorMatches, "unable to read initial response: bad read")
@@ -501,11 +501,11 @@ func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
 
-	// Passing in a bad model UUID should fail with a known error
-	info.ModelTag = names.NewModelTag("dead-beef-123456")
+	// Passing in an unknown model UUID should fail with a known error
+	info.ModelTag = names.NewModelTag("1eaf1e55-70ad-face-b007-70ad57001999")
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `unknown model: "dead-beef-123456"`,
+		Message: `unknown model: "1eaf1e55-70ad-face-b007-70ad57001999"`,
 		Code:    "model not found",
 	})
 	c.Check(err, jc.Satisfies, params.IsCodeModelNotFound)
@@ -568,14 +568,14 @@ type urlCatcher struct {
 	headers  http.Header
 }
 
-func (u *urlCatcher) recordLocation(d *websocket.Dialer, urlStr string, header http.Header) (base.Stream, error) {
+func (u *urlCatcher) recordLocation(d *websocket.Dialer, urlStr string, header http.Header) (base.Stream, *http.Response, error) {
 	u.location = urlStr
 	u.headers = header
 	pr, pw := io.Pipe()
 	go func() {
 		fmt.Fprintf(pw, "null\n")
 	}()
-	return fakeStreamReader{pr}, nil
+	return fakeStreamReader{pr}, nil, nil
 }
 
 type fakeStreamReader struct {

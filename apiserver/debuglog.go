@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
@@ -73,7 +72,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		socket := &debugLogSocketImpl{conn}
 		defer conn.Close()
 
-		st, _, err := h.ctxt.stateForRequestAuthenticatedTag(req, names.MachineTagKind, names.UserTagKind)
+		st, _, err := h.ctxt.stateForRequestAuthenticated(req)
 		if err != nil {
 			socket.sendError(err)
 			return

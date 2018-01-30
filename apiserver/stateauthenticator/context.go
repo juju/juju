@@ -1,13 +1,12 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2015-2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package stateauthenticator
 
 import (
 	"net/http"
 	"net/url"
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
@@ -18,10 +17,10 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/bakeryutil"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/bakerystorage"
 )
 
 const (
@@ -40,7 +39,7 @@ type authContext struct {
 	// for authenticating local users. In time, we may want to use this for
 	// both local and external users. Note that this service does not
 	// discharge the third-party caveats.
-	localUserBakeryService *expirableStorageBakeryService
+	localUserBakeryService *bakeryutil.ExpirableStorageBakeryService
 
 	// localUserThirdPartyBakeryService is the bakery.Service used by the
 	// controller for discharging third-party caveats for local users.
@@ -57,18 +56,20 @@ type authContext struct {
 }
 
 // newAuthContext creates a new authentication context for st.
-func newAuthContext(st *state.State) (*authContext, error) {
+func newAuthContext(
+	st *state.State,
+	clock clock.Clock,
+) (*authContext, error) {
 	ctxt := &authContext{
-		st: st,
-		// TODO(fwereade) 2016-07-21 there should be a clock parameter
-		clock: clock.WallClock,
+		st:    st,
+		clock: clock,
 		localUserInteractions: authentication.NewInteractions(),
 	}
 
 	// Create a bakery service for discharging third-party caveats for
 	// local user authentication. This service does not persist keys;
 	// its macaroons should be very short-lived.
-	localUserThirdPartyBakeryService, _, err := newBakeryService(st, nil, nil)
+	localUserThirdPartyBakeryService, _, err := bakeryutil.NewBakeryService(st, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -80,26 +81,17 @@ func newAuthContext(st *state.State) (*authContext, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	locator := bakeryServicePublicKeyLocator{ctxt.localUserThirdPartyBakeryService}
-	localUserBakeryService, localUserBakeryServiceKey, err := newBakeryService(
+	locator := bakeryutil.BakeryServicePublicKeyLocator{ctxt.localUserThirdPartyBakeryService}
+	localUserBakeryService, localUserBakeryServiceKey, err := bakeryutil.NewBakeryService(
 		st, store, locator,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctxt.localUserBakeryService = &expirableStorageBakeryService{
+	ctxt.localUserBakeryService = &bakeryutil.ExpirableStorageBakeryService{
 		localUserBakeryService, localUserBakeryServiceKey, store, locator,
 	}
 	return ctxt, nil
-}
-
-type bakeryServicePublicKeyLocator struct {
-	service *bakery.Service
-}
-
-// PublicKeyForLocation implements bakery.PublicKeyLocator.
-func (b bakeryServicePublicKeyLocator) PublicKeyForLocation(string) (*bakery.PublicKey, error) {
-	return b.service.PublicKey(), nil
 }
 
 // CreateLocalLoginMacaroon creates a macaroon that may be provided to a user
@@ -239,7 +231,7 @@ func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonA
 	// TODO(axw) we should store the key in mongo, so that multiple servers
 	// can authenticate. That will require that we encode the server's ID
 	// in the macaroon ID so that servers don't overwrite each others' keys.
-	svc, _, err := newBakeryService(st, nil, locator)
+	svc, _, err := bakeryutil.NewBakeryService(st, nil, locator)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make bakery service")
 	}
@@ -251,49 +243,4 @@ func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonA
 	}
 	auth.IdentityLocation = idURL
 	return &auth, nil
-}
-
-// newBakeryService creates a new bakery.Service.
-func newBakeryService(
-	st *state.State,
-	store bakerystorage.ExpirableStorage,
-	locator bakery.PublicKeyLocator,
-) (*bakery.Service, *bakery.KeyPair, error) {
-	key, err := bakery.GenerateKey()
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "generating key for bakery service")
-	}
-	service, err := bakery.NewService(bakery.NewServiceParams{
-		Location: "juju model " + st.ModelUUID(),
-		Store:    store,
-		Key:      key,
-		Locator:  locator,
-	})
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return service, key, nil
-}
-
-// expirableStorageBakeryService wraps bakery.Service, adding the ExpireStorageAt method.
-type expirableStorageBakeryService struct {
-	*bakery.Service
-	key     *bakery.KeyPair
-	store   bakerystorage.ExpirableStorage
-	locator bakery.PublicKeyLocator
-}
-
-// ExpireStorageAt implements authentication.ExpirableStorageBakeryService.
-func (s *expirableStorageBakeryService) ExpireStorageAt(t time.Time) (authentication.ExpirableStorageBakeryService, error) {
-	store := s.store.ExpireAt(t)
-	service, err := bakery.NewService(bakery.NewServiceParams{
-		Location: s.Location(),
-		Store:    store,
-		Key:      s.key,
-		Locator:  s.locator,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &expirableStorageBakeryService{service, s.key, store, s.locator}, nil
 }

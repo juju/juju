@@ -4,7 +4,6 @@
 package pubsub_test
 
 import (
-	"crypto/tls"
 	"errors"
 	"io"
 	"net/url"
@@ -13,7 +12,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -21,10 +19,8 @@ import (
 	"github.com/juju/juju/api/base"
 	apipubsub "github.com/juju/juju/api/pubsub"
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -138,6 +134,7 @@ type PubSubIntegrationSuite struct {
 	nonce      string
 	hub        *pubsub.StructuredHub
 	server     *apiserver.Server
+	info       *api.Info
 }
 
 var _ = gc.Suite(&PubSubIntegrationSuite{})
@@ -156,20 +153,23 @@ func (s *PubSubIntegrationSuite) SetUpTest(c *gc.C) {
 
 	statePool := state.NewStatePool(s.State)
 	s.AddCleanup(func(*gc.C) { statePool.Close() })
-	s.server = newServerWithHub(c, statePool, s.hub)
+	config := testserver.DefaultServerConfig(c)
+	config.Hub = s.hub
+	info, server, httpServer := testserver.NewServerWithConfig(c, statePool, config)
+	httpServer.StartTLS()
+	s.AddCleanup(func(*gc.C) { httpServer.Close() })
+	s.server = server
 	s.AddCleanup(func(*gc.C) { s.server.Stop() })
+
+	s.info = info
+	s.info.ModelTag = s.IAASModel.ModelTag()
+	s.info.Tag = s.machineTag
+	s.info.Password = s.password
+	s.info.Nonce = s.nonce
 }
 
 func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
-	info := &api.Info{
-		Addrs:    []string{s.server.Addr().String()},
-		CACert:   coretesting.CACert,
-		ModelTag: s.IAASModel.ModelTag(),
-		Tag:      s.machineTag,
-		Password: s.password,
-		Nonce:    s.nonce,
-	}
-	conn, err := api.Open(info, api.DialOpts{})
+	conn, err := api.Open(s.info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 
@@ -218,22 +218,4 @@ func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 		c.Fatal("messages not received")
 	}
 	c.Assert(messages, jc.DeepEquals, []map[string]interface{}{first, second})
-}
-
-func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.StructuredHub) *apiserver.Server {
-	srv, err := apiserver.NewServer(statePool, apiserver.ServerConfig{
-		ListenAddr:      "localhost:0",
-		Clock:           clock.WallClock,
-		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
-		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
-		Tag:             names.NewMachineTag("0"),
-		LogDir:          c.MkDir(),
-		Hub:             hub,
-		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-		UpgradeComplete: func() bool { return true },
-		RestoreStatus:   func() state.RestoreStatus { return state.RestoreNotActive },
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return srv
 }

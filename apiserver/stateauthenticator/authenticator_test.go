@@ -1,46 +1,43 @@
-// Copyright 2014 Canonical Ltd. All rights reserved.
+// Copyright 2014-2018 Canonical Ltd. All rights reserved.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver_test
+package stateauthenticator_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
+// TODO update these tests (moved from apiserver) to test
+// via the public interface, and then get rid of export_test.go.
 type agentAuthenticatorSuite struct {
-	testing.JujuConnSuite
-}
-
-type userFinder struct {
-	user state.Entity
-}
-
-func (u userFinder) FindEntity(tag names.Tag) (state.Entity, error) {
-	return u.user, nil
+	statetesting.StateSuite
+	authenticator *stateauthenticator.Authenticator
 }
 
 var _ = gc.Suite(&agentAuthenticatorSuite{})
 
 func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
+	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.authenticator = authenticator
 }
 
 func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	fact := factory.NewFactory(s.State)
 	user := fact.MakeUser(c, &factory.UserParams{Password: "password"})
-	_, srv := newServer(c, s.StatePool)
-	defer assertStop(c, srv)
 
-	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, user.Tag())
+	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, user.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authenticator, gc.NotNil)
 	userFinder := userFinder{user}
@@ -54,27 +51,29 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
-	_, srv := newServer(c, s.StatePool)
-	defer srv.Stop()
-	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewMachineTag("0"))
+	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
 	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
-	_, srv := newServer(c, s.StatePool)
-	defer srv.Stop()
-	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewUnitTag("wordpress/0"))
+	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewUnitTag("wordpress/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
 	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *gc.C) {
-	_, srv := newServer(c, s.StatePool)
-	defer srv.Stop()
-	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewCloudTag("not-support"))
+	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewCloudTag("not-support"))
 	c.Assert(err, gc.ErrorMatches, "unexpected login entity tag: invalid request")
 	c.Assert(authenticator, gc.IsNil)
+}
+
+type userFinder struct {
+	user state.Entity
+}
+
+func (u userFinder) FindEntity(tag names.Tag) (state.Entity, error) {
+	return u.user, nil
 }

@@ -21,9 +21,8 @@ package dummy
 import (
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
-	"net/http"
+	"net/http/httptest"
 	"os"
 	"runtime"
 	"strconv"
@@ -49,8 +48,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -248,7 +249,8 @@ type environState struct {
 	insts          map[instance.Id]*dummyInstance
 	globalRules    network.IngressRuleSlice
 	bootstrapped   bool
-	apiListener    net.Listener
+	mux            *apiserverhttp.Mux
+	httpServer     *httptest.Server
 	apiServer      *apiserver.Server
 	apiState       *state.State
 	apiStatePool   *state.StatePool
@@ -318,8 +320,8 @@ func Reset(c *gc.C) {
 	// may require waiting on RPC calls that interact with the
 	// EnvironProvider (e.g. EnvironProvider.Open).
 	for _, s := range oldState {
-		if s.apiListener != nil {
-			s.apiListener.Close()
+		if s.httpServer != nil {
+			s.httpServer.Close()
 		}
 		s.destroy()
 	}
@@ -431,15 +433,19 @@ func newState(name string, ops chan<- Operation, newStatePolicy state.NewPolicyF
 	return s
 }
 
-// listenAPI starts a network listener listening for API
-// connections and proxies them to the API server port.
+// listenAPI starts an HTTP server listening for API connections.
 func (s *environState) listenAPI() int {
-	l, err := net.Listen("tcp", ":0")
+	certPool, err := api.CreateCertPool(testing.CACert)
 	if err != nil {
-		panic(fmt.Errorf("cannot start listener: %v", err))
+		panic(err)
 	}
-	s.apiListener = l
-	return l.Addr().(*net.TCPAddr).Port
+	tlsConfig := api.NewTLSConfig(certPool)
+	tlsConfig.ServerName = "juju-apiserver"
+	tlsConfig.Certificates = []tls.Certificate{*testing.ServerTLSCert}
+	s.mux = apiserverhttp.NewMux()
+	s.httpServer = httptest.NewUnstartedServer(s.mux)
+	s.httpServer.TLS = tlsConfig
+	return s.httpServer.Listener.Addr().(*net.TCPAddr).Port
 }
 
 // SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
@@ -838,27 +844,29 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			owner.SetPassword(icfg.Controller.MongoInfo.Password)
 
 			statePool := state.NewStatePool(st)
+			stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock.WallClock)
+			if err != nil {
+				statePool.Close()
+				st.Close()
+				return err
+			}
+			stateAuthenticator.AddHandlers(estate.mux)
+
 			machineTag := names.NewMachineTag("0")
-			estate.apiServer, err = apiserver.NewServer(statePool, apiserver.ServerConfig{
-				Listener:       estate.apiListener,
-				Clock:          clock.WallClock,
-				GetCertificate: func() *tls.Certificate { return testing.ServerTLSCert },
-				GetAuditConfig: func() auditlog.Config { return auditlog.Config{} },
-				Tag:            machineTag,
-				DataDir:        DataDir,
-				LogDir:         LogDir,
-				Hub:            centralhub.New(machineTag),
-				NewObserver:    func() observer.Observer { return &fakeobserver.Instance{} },
-				// Should never be used but prevent external access just in case.
-				AutocertURL:                     "https://0.1.2.3/no-autocert-here",
-				AutocertDNSName:                 icfg.Controller.Config.AutocertDNSName(),
-				DisableAutocertChallengeHandler: true,
-				RegisterIntrospectionHandlers: func(f func(path string, h http.Handler)) {
-					f("navel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						io.WriteString(w, "gazing")
-					}))
-				},
+			estate.httpServer.StartTLS()
+			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
+				StatePool:       statePool,
+				Authenticator:   stateAuthenticator,
+				Clock:           clock.WallClock,
+				GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
+				Tag:             machineTag,
+				DataDir:         DataDir,
+				LogDir:          LogDir,
+				Mux:             estate.mux,
+				Hub:             centralhub.New(machineTag),
+				NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
+				PublicDNSName:   icfg.Controller.Config.AutocertDNSName(),
 				UpgradeComplete: func() bool {
 					return true
 				},
@@ -873,6 +881,14 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			}
 			estate.apiState = st
 			estate.apiStatePool = statePool
+
+			// Maintain the state authenticator (time out local user interactions).
+			abort := make(chan struct{})
+			go stateAuthenticator.Maintain(abort)
+			go func(apiServer *apiserver.Server) {
+				defer close(abort)
+				apiServer.Wait()
+			}(estate.apiServer)
 		}
 		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
 		return nil
