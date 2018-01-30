@@ -71,7 +71,7 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 
 	s.state.Stub.CheckCallNames(c,
 		"WatchForModelConfigChanges",
-		"WatchAPIHostPorts",
+		"WatchAPIHostPortsForAgents",
 	)
 
 	// Verify the watcher resource was registered.
@@ -102,7 +102,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 
 	s.state.Stub.CheckCallNames(c,
 		"ModelConfig",
-		"APIHostPorts",
+		"APIHostPortsForAgents",
 	)
 
 	noProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
@@ -128,7 +128,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 	cfg := s.facade.ProxyConfig(s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
 		"ModelConfig",
-		"APIHostPorts",
+		"APIHostPortsForAgents",
 	)
 
 	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5,9.9.9.9"
@@ -154,7 +154,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 	cfg := s.facade.ProxyConfig(s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
 		"ModelConfig",
-		"APIHostPorts",
+		"APIHostPortsForAgents",
 	)
 
 	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
@@ -208,8 +208,8 @@ func (sb *stubBackend) ModelConfig() (*config.Config, error) {
 	return coretesting.CustomModelConfig(sb.c, sb.configAttrs), nil
 }
 
-func (sb *stubBackend) APIHostPorts() ([][]network.HostPort, error) {
-	sb.MethodCall(sb, "APIHostPorts")
+func (sb *stubBackend) APIHostPortsForAgents() ([][]network.HostPort, error) {
+	sb.MethodCall(sb, "APIHostPortsForAgents")
 	if err := sb.NextErr(); err != nil {
 		return nil, err
 	}
@@ -221,8 +221,8 @@ func (sb *stubBackend) APIHostPorts() ([][]network.HostPort, error) {
 	return hps, nil
 }
 
-func (sb *stubBackend) WatchAPIHostPorts() state.NotifyWatcher {
-	sb.MethodCall(sb, "WatchAPIHostPorts")
+func (sb *stubBackend) WatchAPIHostPortsForAgents() state.NotifyWatcher {
+	sb.MethodCall(sb, "WatchAPIHostPortsForAgents")
 	return sb.hpWatcher
 }
 

@@ -19,8 +19,8 @@ import (
 )
 
 // InstanceConfig returns information from the environment config that
-// is needed for machine cloud-init (for non-controllers only). It
-// is exposed for testing purposes.
+// is needed for machine cloud-init (for non-controllers only).
+// It is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
 	model, err := st.Model()
@@ -77,7 +77,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	caCert, _ := controllerConfig.CACert()
 
 	// Get the API connection info; attempt all API addresses.
-	apiHostPorts, err := st.APIHostPorts()
+	apiHostPorts, err := st.APIHostPortsForAgents()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API addresses")
 	}

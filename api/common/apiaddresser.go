@@ -56,9 +56,19 @@ func (a *APIAddresser) ModelUUID() (string, error) {
 
 // APIHostPorts returns the host/port addresses of the API servers.
 func (a *APIAddresser) APIHostPorts() ([][]network.HostPort, error) {
+	return a.apiHostPortsCall("APIHostPorts")
+}
+
+// APIHostPortsForAgents returns the host/port addresses of the API servers
+// that are suitable for agent use, based on the configured management space.
+// If no such space is configured, this will return the same as APIHostPorts().
+func (a *APIAddresser) APIHostPortsForAgents() ([][]network.HostPort, error) {
+	return a.apiHostPortsCall("APIHostPortsForAgents")
+}
+
+func (a *APIAddresser) apiHostPortsCall(req string) ([][]network.HostPort, error) {
 	var result params.APIHostPortsResult
-	err := a.facade.FacadeCall("APIHostPorts", nil, &result)
-	if err != nil {
+	if err := a.facade.FacadeCall(req, nil, &result); err != nil {
 		return nil, err
 	}
 	return result.NetworkHostsPorts(), nil

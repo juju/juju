@@ -117,6 +117,10 @@ func (f fakeAddresses) APIHostPorts() ([][]network.HostPort, error) {
 	return f.hostPorts, nil
 }
 
+func (f fakeAddresses) APIHostPortsForAgents() ([][]network.HostPort, error) {
+	return f.hostPorts, nil
+}
+
 func (fakeAddresses) WatchAPIHostPorts() state.NotifyWatcher {
 	panic("should never be called")
 }

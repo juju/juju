@@ -4531,11 +4531,7 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) 
 }
 
 func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
-	// Simulate a controller configured with a management network space.
-	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
-	c.Assert(err, jc.ErrorIsNil)
-	controllerSettings.Set("juju-mgmt-space", "mgmt01")
-	_, err = controllerSettings.Write()
+	s.SetJujuManagementSpace(c, "mgmt01")
 
 	addrs, err := s.State.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)

@@ -56,7 +56,11 @@ func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 // StatusHistory retrieves the last <size> results of
 // <kind:combined|agent|workload|machine|machineinstance|container|containerinstance> status
 // for <name> unit
-func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error) {
+func (c *Client) StatusHistory(
+	kind status.HistoryKind,
+	tag names.Tag,
+	filter status.StatusHistoryFilter,
+) (status.History, error) {
 	var results params.StatusHistoryResults
 	args := params.StatusHistoryRequest{
 		Kind: string(kind),
@@ -537,7 +541,7 @@ func (c *Client) httpPost(content io.ReadSeeker, endpoint, contentType string, r
 func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 	var result params.APIHostPortsResult
 	if err := c.facade.FacadeCall("APIHostPorts", nil, &result); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return result.NetworkHostsPorts(), nil
 }

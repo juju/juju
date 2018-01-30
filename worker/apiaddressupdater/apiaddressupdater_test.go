@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -78,16 +79,45 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 	}
 }
 
-func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
+// APIAddressUpdaterSuiteMgmtSpace mimics a controller having been configured
+// with a management space.
+// This is the space name that constrains the set of addresses agents should
+// use for controller communication.
+type APIAddressUpdaterMgmtSpaceSuite struct {
+	APIAddressUpdaterSuite
+	ManagementSpaceName string
+}
+
+var _ = gc.Suite(&APIAddressUpdaterMgmtSpaceSuite{ManagementSpaceName: "mgmt01"})
+
+func (s *APIAddressUpdaterMgmtSpaceSuite) SetUpTest(c *gc.C) {
+	s.ControllerConfigAttrs = map[string]interface{}{
+		controller.JujuManagementSpace: s.ManagementSpaceName,
+	}
+	s.APIAddressUpdaterSuite.SetUpTest(c)
+}
+
+func (s *APIAddressUpdaterMgmtSpaceSuite) TestAddressChangeAgentHostPorts(c *gc.C) {
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
+
 	s.BackingState.StartSync()
-	updatedServers := [][]network.HostPort{
-		network.NewHostPorts(1234, "localhost", "127.0.0.1"),
+	spaceHostPorts := []network.HostPort{{
+		Address: network.Address{
+			Value:     "0.2.4.6",
+			Type:      network.IPv4Address,
+			Scope:     network.ScopeCloudLocal,
+			SpaceName: network.SpaceName(s.ManagementSpaceName),
+		},
+		Port: 1,
+	}}
+
+	allHostPorts := [][]network.HostPort{
+		append(spaceHostPorts, network.NewHostPorts(1234, "localhost", "127.0.0.1")...),
 	}
 	// SetAPIHostPorts should be called with the initial value (empty),
 	// and then the updated value.
@@ -97,14 +127,14 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	case servers := <-setter.servers:
 		c.Assert(servers, gc.HasLen, 0)
 	}
-	err = s.State.SetAPIHostPorts(updatedServers)
+	err = s.State.SetAPIHostPorts(allHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for SetAPIHostPorts to be called after update")
 	case servers := <-setter.servers:
-		c.Assert(servers, gc.DeepEquals, updatedServers)
+		c.Assert(servers, gc.DeepEquals, [][]network.HostPort{spaceHostPorts})
 	}
 }
 
