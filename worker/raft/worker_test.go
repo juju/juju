@@ -153,7 +153,7 @@ func (s *WorkerSuite) TestBootstrapAddress(c *gc.C) {
 	c.Assert(f.Configuration().Servers, jc.DeepEquals, []coreraft.Server{{
 		Suffrage: coreraft.Voter,
 		ID:       "machine-123",
-		Address:  "juju.localhost",
+		Address:  "localhost",
 	}})
 }
 

@@ -28,13 +28,9 @@ const (
 
 	// bootstrapAddress is the raft server address
 	// configured for the bootstrap node. This address
-	// will (must) be used at least until the cluster
-	// is grown beyond a single node.
-	//
-	// The .localhost label ensures that the address
-	// will not resolve globally. We do not require
-	// or expect the address to be resolvable at all.
-	bootstrapAddress raft.ServerAddress = "juju.localhost"
+	// will be replaced once the raftclusterer worker
+	// observes an address for the server.
+	bootstrapAddress raft.ServerAddress = "localhost"
 )
 
 var (
