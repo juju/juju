@@ -39,8 +39,8 @@ func NewAPIAddresser(getter AddressAndCertGetter, resources facade.Resources) *A
 }
 
 // APIHostPorts returns the API server addresses.
-func (api *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
-	servers, err := api.getter.APIHostPortsForAgents()
+func (a *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
+	servers, err := a.getter.APIHostPortsForAgents()
 	if err != nil {
 		return params.APIHostPortsResult{}, err
 	}
@@ -50,19 +50,19 @@ func (api *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
 }
 
 // WatchAPIHostPorts watches the API server addresses.
-func (api *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
-	watch := api.getter.WatchAPIHostPortsForAgents()
+func (a *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
+	watch := a.getter.WatchAPIHostPortsForAgents()
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
-			NotifyWatcherId: api.resources.Register(watch),
+			NotifyWatcherId: a.resources.Register(watch),
 		}, nil
 	}
 	return params.NotifyWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-func (api *APIAddresser) APIAddresses() (params.StringsResult, error) {
-	addrs, err := apiAddresses(api.getter)
+func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
+	addrs, err := apiAddresses(a.getter)
 	if err != nil {
 		return params.StringsResult{}, err
 	}
