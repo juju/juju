@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"

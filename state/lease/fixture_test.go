@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/mgo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state/lease"

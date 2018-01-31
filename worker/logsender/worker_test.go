@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/api"
 	apilogsender "github.com/juju/juju/api/logsender"

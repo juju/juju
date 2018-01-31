@@ -8,14 +8,14 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"

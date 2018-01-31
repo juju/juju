@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
 )
 
 type sequenceDoc struct {

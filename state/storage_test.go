@@ -8,12 +8,12 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"

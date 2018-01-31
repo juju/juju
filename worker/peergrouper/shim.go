@@ -4,8 +4,8 @@
 package peergrouper
 
 import (
+	"github.com/juju/mgo"
 	"github.com/juju/replicaset"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
 )

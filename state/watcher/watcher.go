@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/mongo"

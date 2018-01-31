@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/bson"
+	"github.com/juju/mgo/txn"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"

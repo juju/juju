@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"

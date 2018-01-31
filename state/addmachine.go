@@ -8,11 +8,11 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/bson"
+	"github.com/juju/mgo/txn"
 	"github.com/juju/replicaset"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"

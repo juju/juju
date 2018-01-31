@@ -7,13 +7,13 @@ import (
 	"encoding/json"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
+	"github.com/juju/mgo/txn"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 )
 
 // remoteEntityDoc represents the internal state of a remote entity in

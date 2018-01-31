@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"gopkg.in/mgo.v2"
+	"github.com/juju/mgo"
 )
 
 // AdminUser is the name of the user that is initially created in mongo.

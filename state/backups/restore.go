@@ -15,12 +15,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs"

@@ -5,8 +5,8 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
+	"github.com/juju/mgo/bson"
+	"github.com/juju/mgo/txn"
 )
 
 var ErrModelNotDying = errors.New("model is not dying")

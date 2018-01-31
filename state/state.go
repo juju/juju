@@ -15,6 +15,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
+	"github.com/juju/mgo/txn"
 	"github.com/juju/pubsub"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
@@ -26,9 +29,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"

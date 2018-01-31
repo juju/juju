@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/mgo/bson"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/common"

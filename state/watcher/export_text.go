@@ -4,7 +4,7 @@
 package watcher
 
 import (
-	"gopkg.in/mgo.v2"
+	"github.com/juju/mgo"
 
 	"github.com/juju/juju/mongo"
 )

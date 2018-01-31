@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2"
+	"github.com/juju/mgo"
 )
 
 // Reader provides a means of reading the global clock time.

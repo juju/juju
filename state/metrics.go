@@ -10,11 +10,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
+	"github.com/juju/mgo/txn"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 )
 
 var metricsLogger = loggo.GetLogger("juju.state.metrics")

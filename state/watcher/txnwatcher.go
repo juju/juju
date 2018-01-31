@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/retry.v1"
 	"gopkg.in/tomb.v1"
 

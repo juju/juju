@@ -5,8 +5,8 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/mgo/txn"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/mgo.v2/txn"
 )
 
 var errCharmInUse = errors.New("charm in use")

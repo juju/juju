@@ -16,6 +16,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
 	"github.com/juju/replicaset"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
@@ -23,8 +25,6 @@ import (
 	"github.com/juju/utils/fs"
 	"github.com/juju/utils/packaging/manager"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/juju/paths"

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/juju/mgo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,7 +18,6 @@ import (
 	"gopkg.in/juju/charmstore.v5-unstable"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/testcharms"
 )

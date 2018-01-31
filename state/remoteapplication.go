@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
+	"github.com/juju/mgo/txn"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"

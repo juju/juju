@@ -6,9 +6,9 @@ package lease_test
 import (
 	"time"
 
+	"github.com/juju/mgo"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/clock"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 )

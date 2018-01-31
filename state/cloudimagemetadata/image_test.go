@@ -7,12 +7,12 @@ import (
 	"regexp"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"

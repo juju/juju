@@ -7,10 +7,10 @@ import (
 	"time" // Only used for time types.
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/txn"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/leadership"

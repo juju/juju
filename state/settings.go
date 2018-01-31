@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
+	"github.com/juju/mgo/txn"
 )
 
 // See: http://docs.mongodb.org/manual/faq/developers/#faq-dollar-sign-escaping

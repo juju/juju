@@ -7,10 +7,10 @@ import (
 	"regexp"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/bson"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"

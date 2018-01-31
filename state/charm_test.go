@@ -10,12 +10,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon.v1"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"

@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
 	"github.com/juju/utils/set"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"

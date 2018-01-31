@@ -12,6 +12,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo"
+	"github.com/juju/mgo/bson"
+	mgotxn "github.com/juju/mgo/txn"
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,9 +27,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
-	mgotxn "gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"

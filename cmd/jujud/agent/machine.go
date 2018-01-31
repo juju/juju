@@ -16,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/mgo"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
@@ -30,7 +31,6 @@ import (
 	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gopkg.in/tomb.v1"
 

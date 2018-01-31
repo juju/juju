@@ -122,7 +122,7 @@ index a369ded..37b2799 100644
  import (
  	"flag"
 +	. "gopkg.in/check.v1"
- 	"gopkg.in/mgo.v2"
+ 	"github.com/juju/mgo"
  	"gopkg.in/mgo.v2/bson"
  	"gopkg.in/mgo.v2/dbtest"
  	"gopkg.in/mgo.v2/txn"

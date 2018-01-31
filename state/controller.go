@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	mgo "github.com/juju/mgo"
 	"github.com/juju/utils/clock"
 	names "gopkg.in/juju/names.v2"
-	mgo "gopkg.in/mgo.v2"
 
 	jujucontroller "github.com/juju/juju/controller"
 )
