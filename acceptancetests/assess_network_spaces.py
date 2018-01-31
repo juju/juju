@@ -488,7 +488,7 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     # The bs_manager.client env's region doesn't normally get updated
     # until we've bootstrapped. Let's force an early update.
-    bs_manager.client.env.update_config({'region': bs_manager.region})
+    bs_manager.client.env.set_region(bs_manager.region)
     spaces = get_spaces_object(bs_manager.client)
     if not spaces.pre_bootstrap(bs_manager.client):
         return 0
