@@ -7,9 +7,10 @@ import (
 	"github.com/hashicorp/raft"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/raft/raftflag"
 	"github.com/juju/juju/worker/raft/rafttest"
 	"github.com/juju/juju/worker/workertest"
@@ -90,45 +91,63 @@ func (s *WorkerSuite) TestCheckLeader(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestErrRefresh(c *gc.C) {
-	addr, transport := raft.NewInmemTransport("machine-1")
-	defer transport.Close()
-	s.Transport.Connect(addr, transport)
-	defer s.Transport.Disconnect(addr)
-
-	store := raft.NewInmemStore()
-	snapshotStore := raft.NewInmemSnapshotStore()
-	raftConfig := s.DefaultConfig()
-	raftConfig.LocalID = raft.ServerID(string(addr))
-	fsm := &rafttest.FSM{}
-	raft2, err := raft.NewRaft(raftConfig, fsm, store, store, snapshotStore, transport)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		f := raft2.Shutdown()
-		c.Assert(f.Error(), jc.ErrorIsNil)
-	}()
-	f := s.Raft.AddVoter("machine-1", addr, 0, 0)
+	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &rafttest.FSM{})
+	raft2, _, transport2, _, _ := s.NewRaft(c, "machine-2", &rafttest.FSM{})
+	transports := []raft.LoopbackTransport{s.Transport, transport1, transport2}
+	for _, t1 := range transports {
+		for _, t2 := range transports {
+			//if t1 == t2 {
+			//	continue
+			//}
+			t1.Connect(t2.LocalAddr(), t2)
+		}
+	}
+	var f raft.Future = s.Raft.AddVoter("machine-1", transport1.LocalAddr(), 0, 0)
+	c.Assert(f.Error(), jc.ErrorIsNil)
+	f = s.Raft.AddVoter("machine-2", transport2.LocalAddr(), 0, 0)
 	c.Assert(f.Error(), jc.ErrorIsNil)
 
 	// Start a new raftflag worker for the second raft.
-	config2 := s.config
-	config2.Raft = raft2
-	worker2, err := raftflag.NewWorker(config2)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		workertest.DirtyKill(c, worker2)
-	}()
-	flag2 := worker2.(engine.Flag)
-	c.Assert(flag2.Check(), jc.IsFalse)
+	newFlagWorker := func(r *raft.Raft) (worker.Worker, bool) {
+		config := s.config
+		config.Raft = r
+		worker, err := raftflag.NewWorker(config)
+		c.Assert(err, jc.ErrorIsNil)
+		s.AddCleanup(func(c *gc.C) {
+			workertest.DirtyKill(c, worker)
+		})
+		return worker, worker.(engine.Flag).Check()
+	}
+	worker1, flag1 := newFlagWorker(raft1)
+	worker2, flag2 := newFlagWorker(raft2)
+	c.Assert(flag1, jc.IsFalse)
+	c.Assert(flag2, jc.IsFalse)
 
-	// Demote the original node, causing the new node to
-	// become the leader.
-	f = s.Raft.DemoteVoter(raft.ServerID(string(s.Transport.LocalAddr())), 0, 0)
+	// Shutdown the original node, causing one of the other
+	// two nodes to become the leader.
+	f = s.Raft.Shutdown()
 	c.Assert(f.Error(), jc.ErrorIsNil)
 
 	// When the raft node toggles between leader/follower,
 	// then the worker will exit with ErrRefresh.
-	err = s.worker.Wait()
+	err := workertest.CheckKilled(c, s.worker)
 	c.Assert(err, gc.Equals, raftflag.ErrRefresh)
-	err = worker2.Wait()
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if raft1.State() == raft.Leader || raft2.State() == raft.Leader {
+			break
+		}
+	}
+	var leaderWorker, followerWorker worker.Worker
+	switch {
+	case raft1.State() == raft.Leader:
+		c.Assert(raft2.State(), gc.Equals, raft.Follower)
+		leaderWorker, followerWorker = worker1, worker2
+	case raft2.State() == raft.Leader:
+		c.Assert(raft1.State(), gc.Equals, raft.Follower)
+		leaderWorker, followerWorker = worker2, worker1
+	}
+	err = workertest.CheckKilled(c, leaderWorker)
 	c.Assert(err, gc.Equals, raftflag.ErrRefresh)
+	workertest.CheckAlive(c, followerWorker)
 }
