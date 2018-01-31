@@ -59,9 +59,9 @@ type StateServingInfoGetter interface {
 type StateServingInfoSetter func(info params.StateServingInfo) error
 
 // APIHostPortsGetter is an interface that is provided to NewCertificateUpdater.
-// It provides addresses suitable for agent-to-controller API communication.
+// It returns all known API addresses.
 type APIHostPortsGetter interface {
-	APIHostPortsForAgents() ([][]network.HostPort, error)
+	APIHostPortsForClients() ([][]network.HostPort, error)
 }
 
 // Config holds the configuration for the certificate updater worker.
@@ -89,7 +89,7 @@ func NewCertificateUpdater(config Config) worker.Worker {
 // SetUp is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) SetUp() (state.NotifyWatcher, error) {
 	// Populate certificate SAN with any addresses we know about now.
-	apiHostPorts, err := c.hostPortsGetter.APIHostPortsForAgents()
+	apiHostPorts, err := c.hostPortsGetter.APIHostPortsForClients()
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving initial server addresses")
 	}
@@ -171,8 +171,8 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address) erro
 	if err != nil {
 		return errors.Annotate(err, "cannot generate controller certificate")
 	}
-	stateInfo.Cert = string(newCert)
-	stateInfo.PrivateKey = string(newKey)
+	stateInfo.Cert = newCert
+	stateInfo.PrivateKey = newKey
 	err = c.setter(stateInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot write agent config")
