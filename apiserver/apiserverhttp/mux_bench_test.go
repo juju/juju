@@ -6,6 +6,7 @@ package apiserverhttp_test
 import (
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/bmizerany/pat"
 	"github.com/juju/testing"
@@ -35,9 +36,17 @@ func (s *MuxBenchSuite) BenchmarkPatMux(c *gc.C) {
 func (s *MuxBenchSuite) benchmarkMux(c *gc.C, mux http.Handler) {
 	req := newRequest("GET", "/hello/blake", nil)
 	c.ResetTimer()
-	for n := 0; n < c.N; n++ {
-		mux.ServeHTTP(nil, req)
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for n := 0; n < c.N; n++ {
+				mux.ServeHTTP(nil, req)
+			}
+		}()
 	}
+	wg.Wait()
 }
 
 func newRequest(method, urlStr string, body io.Reader) *http.Request {

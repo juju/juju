@@ -7,8 +7,6 @@ import (
 	"context"
 	"net/http"
 	"sync"
-	"sync/atomic"
-	"unsafe"
 
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
@@ -31,8 +29,8 @@ var (
 // calls will create a new mux underneath. These operations
 // are not expected to be frequently occurring.
 type Mux struct {
-	// p is accessed atomically.
-	p *pat.PatternServeMux
+	pmu sync.Mutex
+	p   *pat.PatternServeMux
 
 	auth authFunc
 
@@ -80,7 +78,9 @@ func WithAuth(f func(req *http.Request) (AuthInfo, error)) muxOption {
 // ServeHTTP routes the request to a handler registered with
 // AddHandler, according to the rules defined by bmizerany/pat.
 func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	p := (*pat.PatternServeMux)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&m.p))))
+	m.pmu.Lock()
+	p := m.p
+	m.pmu.Unlock()
 	if m.auth != nil {
 		ctx := r.Context()
 		ctx = context.WithValue(ctx, authKey{}, m.auth)
@@ -152,7 +152,9 @@ func (m *Mux) recreate() {
 			p.Add(meth, ph.pat, ph.h)
 		}
 	}
-	atomic.StorePointer((*unsafe.Pointer)((unsafe.Pointer)(&m.p)), unsafe.Pointer(p))
+	m.pmu.Lock()
+	m.p = p
+	m.pmu.Unlock()
 }
 
 // Auth is returned by Mux.Authenticate to identify the

@@ -6,6 +6,8 @@ package apiserverhttp_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -80,4 +82,76 @@ func (s *MuxSuite) TestMethodNotSupported(c *gc.C) {
 	defer resp.Body.Close()
 
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
+}
+
+func (s *MuxSuite) TestConcurrentAddHandler(c *gc.C) {
+	err := s.mux.AddHandler("GET", "/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Concurrently add and remove another handler to show that
+	// adding and removing handlers will not race with request
+	// handling.
+	const N = 1000
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < N; i++ {
+			s.mux.AddHandler("POST", "/", http.NotFoundHandler())
+			s.mux.RemoveHandler("POST", "/")
+		}
+	}()
+	defer wg.Wait()
+
+	for i := 0; i < N; i++ {
+		resp, err := s.client.Get(s.server.URL + "/")
+		c.Assert(err, jc.ErrorIsNil)
+		resp.Body.Close()
+		c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	}
+}
+
+func (s *MuxSuite) TestConcurrentRemoveHandler(c *gc.C) {
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	// Concurrently add and remove another handler to show that
+	// adding and removing handlers will not race with request
+	// handling.
+	const N = 500
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < N; i++ {
+			s.mux.AddHandler("GET", "/", h)
+			// Sleep to give the client a
+			// chance to hit the endpoint.
+			time.Sleep(time.Millisecond)
+			s.mux.RemoveHandler("GET", "/")
+		}
+	}()
+	defer wg.Wait()
+
+	var ok, notfound int
+	for i := 0; i < N; i++ {
+		resp, err := s.client.Get(s.server.URL + "/")
+		c.Assert(err, jc.ErrorIsNil)
+		resp.Body.Close()
+		switch resp.StatusCode {
+		case http.StatusOK:
+			ok++
+		case http.StatusNotFound:
+			notfound++
+		default:
+			c.Fatalf(
+				"got status %d, expected %d or %d",
+				resp.StatusCode,
+				http.StatusOK,
+				http.StatusNotFound,
+			)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	c.Assert(ok, gc.Not(gc.Equals), 0)
+	c.Assert(notfound, gc.Not(gc.Equals), 0)
 }
