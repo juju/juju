@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/raft"
-	"github.com/juju/names"
 	"github.com/pkg/errors"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 )
 
