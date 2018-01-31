@@ -32,7 +32,7 @@ type Facade struct {
 // doesn't identity the client as a machine agent or a unit agent,
 // it will return common.ErrPerm.
 func New(backend Backend, resources facade.Resources, auth facade.Authorizer) (*Facade, error) {
-	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
+	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() && !auth.AuthApplicationAgent() {
 		return nil, common.ErrPerm
 	}
 	return &Facade{

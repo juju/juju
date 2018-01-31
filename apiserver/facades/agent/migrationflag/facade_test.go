@@ -33,6 +33,12 @@ func (*FacadeSuite) TestAcceptsUnitAgent(c *gc.C) {
 	c.Check(facade, gc.NotNil)
 }
 
+func (*FacadeSuite) TestAcceptsApplicationAgent(c *gc.C) {
+	facade, err := migrationflag.New(nil, nil, agentAuth{application: true})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(facade, gc.NotNil)
+}
+
 func (*FacadeSuite) TestRejectsNonAgent(c *gc.C) {
 	facade, err := migrationflag.New(nil, nil, agentAuth{})
 	c.Check(err, gc.Equals, common.ErrPerm)

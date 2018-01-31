@@ -16,8 +16,9 @@ import (
 // agentAuth implements facade.Authorizer for use in the tests.
 type agentAuth struct {
 	facade.Authorizer
-	machine bool
-	unit    bool
+	machine     bool
+	unit        bool
+	application bool
 }
 
 // AuthMachineAgent is part of the facade.Authorizer interface.
@@ -28,6 +29,11 @@ func (auth agentAuth) AuthMachineAgent() bool {
 // AuthUnitAgent is part of the facade.Authorizer interface.
 func (auth agentAuth) AuthUnitAgent() bool {
 	return auth.unit
+}
+
+// AuthApplicationAgent is part of the facade.Authorizer interface.
+func (auth agentAuth) AuthApplicationAgent() bool {
+	return auth.application
 }
 
 // newMockBackend returns a mock Backend that will add calls to the

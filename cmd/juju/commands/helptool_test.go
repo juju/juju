@@ -38,6 +38,7 @@ Currently available charm hook tools are:
     application-version-set  specify which version of the application is deployed
     close-port               ensure a port or range is always closed
     config-get               print application configuration
+    container-spec-set       set container spec information
     is-leader                print application leadership status
     juju-log                 write a message to the juju log
     juju-reboot              Reboot the host machine
@@ -75,6 +76,7 @@ var expectedCommands = []string{
 	"application-version-set",
 	"close-port",
 	"config-get",
+	"container-spec-set",
 	"is-leader",
 	"juju-log",
 	"juju-reboot",

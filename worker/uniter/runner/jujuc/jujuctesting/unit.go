@@ -12,6 +12,8 @@ import (
 type Unit struct {
 	Name           string
 	ConfigSettings charm.Settings
+	ContainerSpec  string
+	Application    bool
 }
 
 // ContextUnit is a test double for jujuc.ContextUnit.
@@ -36,4 +38,14 @@ func (c *ContextUnit) ConfigSettings() (charm.Settings, error) {
 	}
 
 	return c.info.ConfigSettings, nil
+}
+
+func (c *ContextUnit) SetContainerSpec(specYaml string, application bool) error {
+	c.stub.AddCall("SetContainerSpec", specYaml, application)
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+	c.info.Application = application
+	c.info.ContainerSpec = specYaml
+	return nil
 }
