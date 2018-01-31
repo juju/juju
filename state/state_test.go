@@ -4680,6 +4680,7 @@ func (s *StateSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 		mgmtHP,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
 
 	// This should cause no change to APIHostPortsForAgents.
 	// We expect only one watcher notification.
@@ -4695,8 +4696,7 @@ func (s *StateSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 		},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-
-	wc.AssertOneChange()
+	wc.AssertNoChange()
 
 	// Stop, check closed.
 	statetesting.AssertStop(c, w)
