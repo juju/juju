@@ -20,6 +20,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/pubsub/centralhub"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/workertest"
@@ -44,6 +46,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 			Addrs:    []string{"testing.invalid:1234"},
 		},
 		DialConn: rafttransport.DialConn,
+		Hub:      centralhub.New(tag),
 		Mux: apiserverhttp.NewMux(
 			apiserverhttp.WithAuth(s.auth),
 		),
@@ -100,6 +103,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *rafttransport.Config) { cfg.DialConn = nil },
 		"nil DialConn not valid",
 	}, {
+		func(cfg *rafttransport.Config) { cfg.Hub = nil },
+		"nil Hub not valid",
+	}, {
 		func(cfg *rafttransport.Config) { cfg.Mux = nil },
 		"nil Mux not valid",
 	}, {
@@ -150,6 +156,14 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	clientTransport := s.server.Client().Transport.(*http.Transport)
 	s.config.TLSConfig = clientTransport.TLSClientConfig
 	s.worker = s.newWorker(c, s.config)
+	s.config.Hub.Publish(apiserver.DetailsTopic, apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"123": {
+				ID:              "123",
+				InternalAddress: "testing.invalid:1234",
+			},
+		},
+	})
 }
 
 // newWorker returns a new rafttransport.Worker. The caller is expected to
@@ -177,7 +191,29 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 
 func (s *WorkerSuite) TestLocalAddr(c *gc.C) {
 	addr := s.worker.LocalAddr()
-	c.Assert(addr, gc.Equals, raft.ServerAddress("machine-123"))
+	c.Assert(addr, gc.Equals, raft.ServerAddress("testing.invalid:1234"))
+
+	// Publishing an address change should lead to the transport
+	// advertising the new address eventually.
+	newAddress := "testing.invalid:5678"
+	s.config.Hub.Publish(apiserver.DetailsTopic, apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"123": {
+				ID:              "123",
+				InternalAddress: newAddress,
+			},
+		},
+	})
+	for a := coretesting.LongAttempt.Start(); a.HasNext(); {
+		addr = s.worker.LocalAddr()
+		if addr == raft.ServerAddress(newAddress) {
+			return
+		}
+	}
+	c.Fatalf(
+		"waited %s for address to change to %s, got %s",
+		coretesting.LongAttempt.Total, newAddress, addr,
+	)
 }
 
 func (s *WorkerSuite) TestTransportWorkerStopped(c *gc.C) {

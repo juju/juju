@@ -6,6 +6,7 @@ package rafttransport
 import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
+	"github.com/juju/pubsub"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
@@ -18,6 +19,7 @@ import (
 // raft transport worker in a dependency.Engine.
 type ManifoldConfig struct {
 	AgentName string
+	HubName   string
 	MuxName   string
 
 	DialConn  DialConnFunc
@@ -31,6 +33,9 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
+	}
+	if config.HubName == "" {
+		return errors.NotValidf("empty HubName")
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
@@ -53,6 +58,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
+			config.HubName,
 			config.MuxName,
 		},
 		Start:  config.start,
@@ -68,6 +74,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var agent agent.Agent
 	if err := context.Get(config.AgentName, &agent); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var hub *pubsub.StructuredHub
+	if err := context.Get(config.HubName, &hub); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -88,6 +99,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	return config.NewWorker(Config{
 		APIInfo:   apiInfo,
 		DialConn:  config.DialConn,
+		Hub:       hub,
 		Mux:       mux,
 		Path:      config.Path,
 		Tag:       agent.CurrentConfig().Tag(),

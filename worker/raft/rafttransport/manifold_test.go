@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
+	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/pubsub/centralhub"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -30,6 +32,7 @@ type ManifoldSuite struct {
 	manifold dependency.Manifold
 	context  dependency.Context
 	agent    *mockAgent
+	hub      *pubsub.StructuredHub
 	mux      *apiserverhttp.Mux
 	worker   worker.Worker
 	stub     testing.Stub
@@ -40,15 +43,17 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	tag := names.NewMachineTag("123")
 	s.agent = &mockAgent{
 		conf: mockAgentConfig{
-			tag: names.NewMachineTag("123"),
+			tag: tag,
 			apiInfo: &api.Info{
 				Addrs:  []string{"testing.invalid:1234"},
 				CACert: coretesting.CACert,
 			},
 		},
 	}
+	s.hub = centralhub.New(tag)
 	s.mux = &apiserverhttp.Mux{}
 	s.stub.ResetCalls()
 	s.worker = &mockTransportWorker{
@@ -58,6 +63,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.context = s.newContext(nil)
 	s.manifold = rafttransport.Manifold(rafttransport.ManifoldConfig{
 		AgentName: "agent",
+		HubName:   "hub",
 		MuxName:   "mux",
 		DialConn:  s.dialConn,
 		NewWorker: s.newWorker,
@@ -68,6 +74,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
 		"agent": s.agent,
+		"hub":   s.hub,
 		"mux":   s.mux,
 	}
 	for k, v := range overlay {
@@ -89,7 +96,7 @@ func (s *ManifoldSuite) dialConn(ctx context.Context, addr string, tlsConfig *tl
 	return nil, s.stub.NextErr()
 }
 
-var expectedInputs = []string{"agent", "mux"}
+var expectedInputs = []string{"agent", "hub", "mux"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -127,6 +134,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 			Addrs:  []string{"testing.invalid:1234"},
 			CACert: coretesting.CACert,
 		},
+		Hub:  s.hub,
 		Mux:  s.mux,
 		Path: "raft/path",
 		Tag:  s.agent.conf.tag,

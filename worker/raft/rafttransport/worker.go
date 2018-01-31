@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"gopkg.in/juju/names.v2"
 
@@ -40,6 +41,10 @@ type Config struct {
 	// DialConn is the function to use for dialing connections to
 	// other API servers.
 	DialConn DialConnFunc
+
+	// Hub is the central hub to which the worker will subscribe
+	// for notification of local address changes.
+	Hub *pubsub.StructuredHub
 
 	// Mux is the API server HTTP mux into which the handler will
 	// be installed.
@@ -73,6 +78,9 @@ func (config Config) Validate() error {
 	}
 	if config.DialConn == nil {
 		return errors.NotValidf("nil DialConn")
+	}
+	if config.Hub == nil {
+		return errors.NotValidf("nil Hub")
 	}
 	if config.Mux == nil {
 		return errors.NotValidf("nil Mux")
@@ -115,7 +123,7 @@ func NewWorker(config Config) (*Worker, error) {
 	transport := raft.NewNetworkTransportWithConfig(&raft.NetworkTransportConfig{
 		Logger:  logLogger,
 		MaxPool: maxPoolSize,
-		Stream: newStreamLayer(config.Tag, w.connections, &Dialer{
+		Stream: newStreamLayer(config.Tag, config.Hub, w.connections, &Dialer{
 			APIInfo: config.APIInfo,
 			DialRaw: w.dialRaw,
 			Path:    config.Path,

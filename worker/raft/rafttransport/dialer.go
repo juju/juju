@@ -34,6 +34,8 @@ type Dialer struct {
 
 // Dial dials a new raft network connection to the controller agent
 // with the tag identified by the given address.
+//
+// Based on code from https://github.com/CanonicalLtd/raft-http.
 func (d *Dialer) Dial(addr raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
 	request := &http.Request{
 		Method:     "GET",
