@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -217,8 +218,8 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 
 	// LXD socket is different depending on installation method
 	// We prefer upstream's preference of snap installed LXD
-	const debianSocket = "/var/lib/lxd/"
-	const snapSocket = "/var/snap/lxd/common/lxd/"
+	debianSocket := filepath.Join("var", "lib", "lxd")
+	snapSocket := filepath.Join("var", "snap", "lxd", "common", "lxd")
 
 	if _, err := os.Stat(snapSocket); err == nil {
 		logger.Debugf("Using LXD snap socket")
