@@ -592,6 +592,7 @@ type DryRunTest struct {
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
+
 	tests := []DryRunTest{
 		{
 			about:          "dry run outputs and doesn't change anything when uploading agent binaries",
@@ -599,7 +600,9 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.1.3-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `upgrade to this version by running
+			expectedCmdOutput: `best version:
+    2.1.3.1
+upgrade to this version by running
     juju upgrade-juju --build-agent
 `,
 		},
@@ -609,7 +612,9 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `upgrade to this version by running
+			expectedCmdOutput: `best version:
+    2.1.3
+upgrade to this version by running
     juju upgrade-juju
 `,
 		},
@@ -619,7 +624,9 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "1.2.3-myawesomeseries-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `upgrade to this version by running
+			expectedCmdOutput: `best version:
+    2.1.3
+upgrade to this version by running
     juju upgrade-juju
 `,
 		},
