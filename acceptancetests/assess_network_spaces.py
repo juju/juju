@@ -232,11 +232,6 @@ class AssessNetworkSpaces:
                     '--constraints', 'spaces=space{}'.format(space)))
         client.wait_for_started()
 
-    def cleanup(self, client):
-        log.info('Cleaning up launched machines.')
-        for unit in client.get_status().iter_machines(containers=False):
-            client.remove_machine(unit[0], force=True)
-
 
 class SubnetsNotReady(Exception):
     pass
@@ -335,7 +330,7 @@ def start_test(client, args):
     try:
         test.assess_network_spaces(client, args.series)
     finally:
-        test.cleanup(client)
+        # no needed cleanup
         log.info('Cleanup complete.')
 
 
@@ -491,6 +486,9 @@ def main(argv=None):
     configure_logging(args.verbose)
 
     bs_manager = BootstrapManager.from_args(args)
+    # The bs_manager.client env's region doesn't normally get updated
+    # until we've bootstrapped. Let's force an early update.
+    bs_manager.client.env.update_config({'region': bs_manager.region})
     spaces = get_spaces_object(bs_manager.client)
     if not spaces.pre_bootstrap(bs_manager.client):
         return 0
