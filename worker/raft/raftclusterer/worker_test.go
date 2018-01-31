@@ -4,7 +4,6 @@
 package raftclusterer_test
 
 import (
-	"reflect"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -142,7 +141,7 @@ func (s *WorkerSuite) TestAddRemoveServers(c *gc.C) {
 			},
 		},
 	})
-	waitConfiguration(c, s.Raft, []raft.Server{{
+	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
 		ID:       "machine-0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Voter,
@@ -180,7 +179,7 @@ func (s *WorkerSuite) TestAddRemoveServers(c *gc.C) {
 			},
 		},
 	})
-	waitConfiguration(c, raft1, []raft.Server{{
+	rafttest.CheckConfiguration(c, raft1, []raft.Server{{
 		ID:       "machine-0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Voter,
@@ -258,7 +257,7 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 			},
 		},
 	})
-	waitConfiguration(c, raft1, []raft.Server{{
+	rafttest.CheckConfiguration(c, raft1, []raft.Server{{
 		ID:       "machine-0",
 		Address:  "testing.invalid:1234",
 		Suffrage: raft.Voter,
@@ -286,23 +285,4 @@ func (s *WorkerSuite) publishDetails(c *gc.C, details apiserver.Details) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for details to be received")
 	}
-}
-
-func waitConfiguration(c *gc.C, r *raft.Raft, expectedServers []raft.Server) {
-	var configuration raft.Configuration
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		f := r.GetConfiguration()
-		c.Assert(f.Error(), jc.ErrorIsNil)
-		configuration = f.Configuration()
-		if reflect.DeepEqual(configuration.Servers, expectedServers) {
-			return
-		}
-	}
-	c.Assert(
-		configuration.Servers, jc.SameContents, expectedServers,
-		gc.Commentf(
-			"waited %s and still did not see the expected configuration",
-			coretesting.LongAttempt.Total,
-		),
-	)
 }
