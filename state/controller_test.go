@@ -70,12 +70,10 @@ func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
 	// Sanity check.
 	c.Check(cfg.AuditingEnabled(), gc.Equals, false)
 	c.Check(cfg.AuditLogCaptureArgs(), gc.Equals, true)
-	c.Check(cfg.AuditLogMaxBackups(), gc.Equals, 5)
 
 	err = s.State.UpdateControllerConfig(map[string]interface{}{
 		controller.AuditingEnabled:     true,
 		controller.AuditLogCaptureArgs: false,
-		controller.AuditLogMaxBackups:  10,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -84,20 +82,17 @@ func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
 
 	c.Assert(newCfg.AuditingEnabled(), gc.Equals, true)
 	c.Assert(newCfg.AuditLogCaptureArgs(), gc.Equals, false)
-	c.Assert(newCfg.AuditLogMaxBackups(), gc.Equals, 10)
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigRemoveYieldsDefaults(c *gc.C) {
 	err := s.State.UpdateControllerConfig(map[string]interface{}{
 		controller.AuditingEnabled:     true,
 		controller.AuditLogCaptureArgs: true,
-		controller.AuditLogMaxBackups:  5,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.UpdateControllerConfig(nil, []string{
 		controller.AuditLogCaptureArgs,
-		controller.AuditLogMaxBackups,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -105,7 +100,6 @@ func (s *ControllerSuite) TestUpdateControllerConfigRemoveYieldsDefaults(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(newCfg.AuditLogCaptureArgs(), gc.Equals, false)
-	c.Assert(newCfg.AuditLogMaxBackups(), gc.Equals, 10)
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigRejectsNonAuditUpdates(c *gc.C) {
@@ -130,7 +124,7 @@ func (s *ControllerSuite) TestUpdateControllerConfigChecksSchema(c *gc.C) {
 
 func (s *ControllerSuite) TestUpdateControllerConfigValidates(c *gc.C) {
 	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		controller.AuditLogMaxSize: "45ZipMorps",
+		controller.AuditLogExcludeMethods: []string{"thing"},
 	}, nil)
-	c.Assert(err, gc.ErrorMatches, `invalid audit log max size in configuration: invalid multiplier suffix "ZipMorps", expected one of MGTPEZY`)
+	c.Assert(err, gc.ErrorMatches, `invalid audit log exclude methods: should be a list of "Facade.Method" names, got "thing" at position 1`)
 }

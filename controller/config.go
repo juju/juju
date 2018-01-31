@@ -179,8 +179,6 @@ var (
 	AllowedUpdateConfigAttributes = set.NewStrings(
 		AuditingEnabled,
 		AuditLogCaptureArgs,
-		AuditLogMaxSize,
-		AuditLogMaxBackups,
 		AuditLogExcludeMethods,
 	)
 
