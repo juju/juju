@@ -1117,7 +1117,7 @@ func (a *MachineAgent) startStateWorkers(
 			// TODO(babbageclunk): add a worker that watches the
 			// controller config and publishes to this chan when it
 			// changes.
-			auditConfigChan := make(chan apiserver.AuditLogConfig, 1)
+			auditConfigChan := make(chan auditlog.Config, 1)
 
 			// Each time apiserver worker is restarted, we need a fresh copy of state due
 			// to the fact that state holds lease managers which are killed and need to be reset.
@@ -1217,7 +1217,7 @@ var stateWorkerDialOpts mongo.DialOpts
 func (a *MachineAgent) apiserverWorkerStarter(
 	stateOpener func() (*state.State, error),
 	certChanged <-chan params.StateServingInfo,
-	auditConfigChanged <-chan apiserver.AuditLogConfig,
+	auditConfigChanged <-chan auditlog.Config,
 	dependencyReporter dependency.Reporter,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
@@ -1242,7 +1242,7 @@ func (a *MachineAgent) newAPIserverWorker(
 	st *state.State,
 	statePool *state.StatePool,
 	certChanged <-chan params.StateServingInfo,
-	auditConfigChanged <-chan apiserver.AuditLogConfig,
+	auditConfigChanged <-chan auditlog.Config,
 	dependencyReporter dependency.Reporter,
 ) (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
@@ -1794,8 +1794,8 @@ func getLogSinkConfig(cfg agent.Config) (apiserver.LogSinkConfig, error) {
 	return result, nil
 }
 
-func getAuditLogConfig(cfg controller.Config, logDir string) apiserver.AuditLogConfig {
-	result := apiserver.AuditLogConfig{
+func getAuditLogConfig(cfg controller.Config, logDir string) auditlog.Config {
+	result := auditlog.Config{
 		Enabled:        cfg.AuditingEnabled(),
 		CaptureAPIArgs: cfg.AuditLogCaptureArgs(),
 		MaxSizeMB:      cfg.AuditLogMaxSizeMB(),

@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
@@ -80,8 +81,8 @@ type Server struct {
 	logSinkWriter          io.WriteCloser
 	logsinkRateLimitConfig logsink.RateLimitConfig
 	dbloggers              dbloggers
-	auditConfigChanged     <-chan AuditLogConfig
-	currentAuditConfig     AuditLogConfig
+	auditConfigChanged     <-chan auditlog.Config
+	currentAuditConfig     auditlog.Config
 	upgradeComplete        func() bool
 	restoreStatus          func() state.RestoreStatus
 
@@ -169,11 +170,11 @@ type ServerConfig struct {
 
 	// AuditConfig controls whether and how we track user-initiated
 	// API requests for auditing purposes.
-	AuditConfig AuditLogConfig
+	AuditConfig auditlog.Config
 
 	// AuditConfigChanged is a channel which reports the new audit
 	// configuration whenever it changes.
-	AuditConfigChanged <-chan AuditLogConfig
+	AuditConfigChanged <-chan auditlog.Config
 
 	// PrometheusRegisterer registers Prometheus collectors.
 	PrometheusRegisterer prometheus.Registerer
@@ -1028,14 +1029,14 @@ func (srv *Server) processAuditConfigChanges() error {
 	}
 }
 
-func (srv *Server) updateAuditConfig(newConfig AuditLogConfig) {
+func (srv *Server) updateAuditConfig(newConfig auditlog.Config) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	srv.currentAuditConfig = newConfig
 }
 
 // GetAuditConfig returns the current audit logging configuration.
-func (srv *Server) GetAuditConfig() AuditLogConfig {
+func (srv *Server) GetAuditConfig() auditlog.Config {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	return srv.currentAuditConfig

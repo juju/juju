@@ -7,9 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
-
-	"github.com/juju/juju/core/auditlog"
 )
 
 // These vars define how we rate limit incoming connections.
@@ -81,37 +78,6 @@ func (c RateLimitConfig) Validate() error {
 	}
 	if c.ConnLookbackWindow < 0 || c.ConnLookbackWindow > 5*time.Second {
 		return errors.NotValidf("conn-lookback-window %d < 0 or > 5s", c.ConnMaxPause)
-	}
-	return nil
-}
-
-// AuditLogConfig holds parameters to control audit logging.
-type AuditLogConfig struct {
-	Enabled bool
-
-	// CaptureAPIArgs says whether to capture API method args (command
-	// line args will always be captured).
-	CaptureAPIArgs bool
-
-	// MaxSizeMB defines the maximum log file size.
-	MaxSizeMB int
-
-	// MaxBackups determines how many files back to keep.
-	MaxBackups int
-
-	// ExcludeMethods is a set of facade.method names that we
-	// shouldn't consider to be interesting: if a conversation only
-	// consists of these method calls we won't log it.
-	ExcludeMethods set.Strings
-
-	// Target is the AuditLog entries should be written to.
-	Target auditlog.AuditLog
-}
-
-// Validate checks the audit logging configuration.
-func (cfg AuditLogConfig) Validate() error {
-	if cfg.Enabled && cfg.Target == nil {
-		return errors.NewNotValid(nil, "logging enabled but no target provided")
 	}
 	return nil
 }

@@ -157,7 +157,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}, nil
 }
 
-func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult, cfg AuditLogConfig) (*auditlog.Recorder, error) {
+func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult, cfg auditlog.Config) (*auditlog.Recorder, error) {
 	if !authResult.userLogin || cfg.Enabled == false {
 		return nil, nil
 	}
