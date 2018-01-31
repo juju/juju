@@ -136,10 +136,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		modelTag = a.root.model.Tag().String()
 	}
 
-	auditConfig, err := a.srv.getAuditConfig()
-	if err != nil {
-		return fail, errors.Trace(err)
-	}
+	auditConfig := a.srv.GetAuditConfig()
 	auditRecorder, err := a.getAuditRecorder(req, authResult, auditConfig)
 	if err != nil {
 		return fail, errors.Trace(err)

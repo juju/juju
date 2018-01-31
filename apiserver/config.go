@@ -111,7 +111,7 @@ type AuditLogConfig struct {
 // Validate checks the audit logging configuration.
 func (cfg AuditLogConfig) Validate() error {
 	if cfg.Enabled && cfg.Target == nil {
-		return errors.NotValidf("logging enabled but no target provided")
+		return errors.NewNotValid(nil, "logging enabled but no target provided")
 	}
 	return nil
 }

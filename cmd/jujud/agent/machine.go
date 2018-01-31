@@ -1110,6 +1110,15 @@ func (a *MachineAgent) startStateWorkers(
 			//
 			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 10)
+
+			// Similarly, buffer the audit config change channel so
+			// that controller config changes coming in don't block
+			// apiserver startup.
+			// TODO(babbageclunk): add a worker that watches the
+			// controller config and publishes to this chan when it
+			// changes.
+			auditConfigChan := make(chan apiserver.AuditLogConfig, 1)
+
 			// Each time apiserver worker is restarted, we need a fresh copy of state due
 			// to the fact that state holds lease managers which are killed and need to be reset.
 			dialOpts, err := mongoDialOptions(
@@ -1132,8 +1141,10 @@ func (a *MachineAgent) startStateWorkers(
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(
 				stateOpener,
 				certChangedChan,
+				auditConfigChan,
 				dependencyReporter,
 			))
+
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
@@ -1205,7 +1216,8 @@ var stateWorkerDialOpts mongo.DialOpts
 
 func (a *MachineAgent) apiserverWorkerStarter(
 	stateOpener func() (*state.State, error),
-	certChanged chan params.StateServingInfo,
+	certChanged <-chan params.StateServingInfo,
+	auditConfigChanged <-chan apiserver.AuditLogConfig,
 	dependencyReporter dependency.Reporter,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
@@ -1215,7 +1227,7 @@ func (a *MachineAgent) apiserverWorkerStarter(
 		}
 		statePool := state.NewStatePool(st)
 		w, err := a.newAPIserverWorker(
-			st, statePool, certChanged, dependencyReporter,
+			st, statePool, certChanged, auditConfigChanged, dependencyReporter,
 		)
 		if err != nil {
 			statePool.Close()
@@ -1229,7 +1241,8 @@ func (a *MachineAgent) apiserverWorkerStarter(
 func (a *MachineAgent) newAPIserverWorker(
 	st *state.State,
 	statePool *state.StatePool,
-	certChanged chan params.StateServingInfo,
+	certChanged <-chan params.StateServingInfo,
+	auditConfigChanged <-chan apiserver.AuditLogConfig,
 	dependencyReporter dependency.Reporter,
 ) (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
@@ -1309,7 +1322,8 @@ func (a *MachineAgent) newAPIserverWorker(
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          a.prometheusRegistry,
-		AuditLogConfig:                getAuditLogConfig(controllerConfig, logDir),
+		AuditConfig:                   getAuditLogConfig(controllerConfig, logDir),
+		AuditConfigChanged:            auditConfigChanged,
 	}
 
 	server, err := apiserver.NewServer(statePool, listener, serverConfig)

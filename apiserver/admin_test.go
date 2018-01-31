@@ -950,8 +950,8 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 	log := &servertesting.FakeAuditLog{}
 	cfg := defaultServerConfig(c)
-	cfg.AuditLogConfig.Enabled = true
-	cfg.AuditLogConfig.Target = log
+	cfg.AuditConfig.Enabled = true
+	cfg.AuditConfig.Target = log
 	cfg.Clock = jt.NewClock(cfg.Clock.Now())
 	info, srv := newServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
@@ -1018,8 +1018,8 @@ func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 	log := &servertesting.FakeAuditLog{}
 	log.SetErrors(errors.Errorf("bad news bears"))
 	cfg := defaultServerConfig(c)
-	cfg.AuditLogConfig.Enabled = true
-	cfg.AuditLogConfig.Target = log
+	cfg.AuditConfig.Enabled = true
+	cfg.AuditConfig.Target = log
 	info, srv := newServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
 
@@ -1055,9 +1055,9 @@ func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 	log := &servertesting.FakeAuditLog{}
 	cfg := defaultServerConfig(c)
-	cfg.AuditLogConfig.Enabled = true
-	cfg.AuditLogConfig.ExcludeMethods = set.NewStrings("Client.AddMachines")
-	cfg.AuditLogConfig.Target = log
+	cfg.AuditConfig.Enabled = true
+	cfg.AuditConfig.ExcludeMethods = set.NewStrings("Client.AddMachines")
+	cfg.AuditConfig.Target = log
 	info, srv := newServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
 	info.ModelTag = s.IAASModel.Tag().(names.ModelTag)
