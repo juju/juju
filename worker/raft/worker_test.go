@@ -67,12 +67,6 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *raft.Config) { cfg.Transport = nil },
 		"nil Transport not valid",
-	}, {
-		func(cfg *raft.Config) {
-			_, transport := coreraft.NewInmemTransport("321-enihcam")
-			cfg.Transport = transport
-		},
-		`transport local address "321-enihcam" not valid, expected "machine-123"`,
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
@@ -151,6 +145,18 @@ func (s *WorkerSuite) waitLeader(c *gc.C) *coreraft.Raft {
 	return r
 }
 
+func (s *WorkerSuite) TestBootstrapAddress(c *gc.C) {
+	r := s.waitLeader(c)
+
+	f := r.GetConfiguration()
+	c.Assert(f.Error(), jc.ErrorIsNil)
+	c.Assert(f.Configuration().Servers, jc.DeepEquals, []coreraft.Server{{
+		Suffrage: coreraft.Voter,
+		ID:       "machine-123",
+		Address:  "localhost",
+	}})
+}
+
 func (s *WorkerSuite) TestRaft(c *gc.C) {
 	r := s.waitLeader(c)
 
@@ -202,4 +208,16 @@ func (s *WorkerSuite) TestRestoreSnapshot(c *gc.C) {
 	c.Assert(s.fsm.Logs(), jc.DeepEquals, [][]byte{
 		[]byte("command1"),
 	})
+}
+
+func (s *WorkerSuite) TestStartStop(c *gc.C) {
+	workertest.CleanKill(c, s.worker)
+}
+
+func (s *WorkerSuite) TestShutdownRaftKillsWorker(c *gc.C) {
+	r := s.waitLeader(c)
+	c.Assert(r.Shutdown().Error(), jc.ErrorIsNil)
+
+	err := workertest.CheckKilled(c, s.worker)
+	c.Assert(err, gc.ErrorMatches, "raft shutdown")
 }
