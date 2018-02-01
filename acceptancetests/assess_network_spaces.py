@@ -110,10 +110,6 @@ class AssessNetworkSpaces:
         :param client: Juju client object with machines and spaces
         """
         log.info('Assessing machines are in the correct spaces.')
-        spaces = non_infan_subnets(
-            yaml.safe_load(
-                client.get_juju_output(
-                    'list-spaces', '--format=yaml')))
         machines = yaml.safe_load(
             client.get_juju_output(
                 'list-machines', '--format=yaml'))['machines']
@@ -123,10 +119,8 @@ class AssessNetworkSpaces:
                 expected_space = 'space1'
             else:
                 expected_space = 'space{}'.format(machine)
-            subnet = spaces['spaces'][expected_space].keys()[0]
-            if not any(
-                    [ip for ip in machines[machine]['ip-addresses']
-                        if ip_in_cidr(ip, subnet)]):
+            ip = get_machine_ip_in_space(client, machine, expected_space)
+            if not ip:
                 raise TestFailure(
                         'Machine {machine} has NO IPs in '
                         '{space}({subnet})'.format(
@@ -145,26 +139,15 @@ class AssessNetworkSpaces:
         :param client: Juju client object with machines and spaces
         """
         log.info('Assessing interconnectivity between machines.')
-        machines = yaml.safe_load(
-            client.get_juju_output(
-                'list-machines', '--format=yaml'))['machines']
-        spaces = non_infan_subnets(
-            yaml.safe_load(
-                client.get_juju_output(
-                    'list-spaces', '--format=yaml')))
         # try 0 to 1
         log.info('Testing ping from Machine 0 to Machine 1 (same space)')
-        subnet = spaces['spaces']['space1'].keys()[0]
-        ip_to_ping = [ip for ip in machines['1']['ip-addresses']
-                      if ip_in_cidr(ip, subnet)][0]
+        ip_to_ping = get_machine_ip_in_space(client, '1', 'space1')
         if not machine_can_ping_ip(client, '0', ip_to_ping):
             raise TestFailure('Ping from 0 to 1 Failed.')
         """Restrictions and access control between spaces is not yet enforced
         # try 2 to 3
         log.info('Testing ping from Machine 2 to Machine 3 (diff spaces)')
-        subnet = spaces['spaces']['space3'].keys()[0]
-        ip_to_ping = [ip for ip in machines['3']['ip-addresses']
-                      if ip_in_cidr(ip, subnet)][0]
+        ip_to_ping = get_machine_ip_in_space(client, '3', 'space3')
         if machine_can_ping_ip(client, '2', ip_to_ping):
             raise TestFailure('Ping from 2 to 3 should have failed.')
         """
@@ -187,7 +170,7 @@ class AssessNetworkSpaces:
             container = machine['containers']['2/lxd/0']
             if container['juju-status']['current'] == 'started':
                 raise TestFailure(
-                        'Encountered no conflit when launching a container '
+                        'Encountered no conflict when launching a container '
                         'on a machine with a different spaces constraint.')
         except ProvisioningError:
             log.info('Container correctly failed to provision.')
@@ -296,6 +279,26 @@ def non_infan_subnets(subnets):
                     newsubnets['spaces'][space][subnet] = subnet_details
     return newsubnets
 
+def get_machine_ip_in_space(client, machine, space):
+    """Given a machine id and a space name, will return an IP that
+    the machine has in the given space.
+
+    :param client:  juju client object with machines and spaces
+    :param machine: string. ID of machine to check.
+    :param space:   string. Name of space to look for.
+    :return ip:     string. IP address of machine in requested space.
+    """
+    machines = yaml.safe_load(
+        client.get_juju_output(
+            'list-machines', '--format=yaml'))['machines']
+    spaces = non_infam_subnets(
+        yaml.safe_load(
+            client.get_juju_output(
+                'list-spaces', '--format=yaml')))
+    subnet = spaces['spaces'][space].keys()[0]
+    for ip in machines[machine]['ip-addresses']:
+        if ip_in_cidr(ip, subnet):
+            return ip
 
 def machine_can_ping_ip(client, machine, ip):
     """SSH to the machine and attempt to ping the given IP.
