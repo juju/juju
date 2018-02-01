@@ -123,13 +123,12 @@ class AssessNetworkSpaces:
                 expected_space = 'space1'
             else:
                 expected_space = 'space{}'.format(machine)
-            eth0 = machines[machine]['network-interfaces']['eth0']
             subnet = spaces['spaces'][expected_space].keys()[0]
             if not any(
-                    [ip for ip in eth0['ip-addresses']
+                    [ip for ip in machines[machine]['ip-addresses']
                         if ip_in_cidr(ip, subnet)]):
                 raise TestFailure(
-                        'Machine {machine} eth0 is NOT in '
+                        'Machine {machine} has NO IPs in '
                         '{space}({subnet})'.format(
                             machine=machine,
                             space=expected_space,
@@ -149,18 +148,24 @@ class AssessNetworkSpaces:
         machines = yaml.safe_load(
             client.get_juju_output(
                 'list-machines', '--format=yaml'))['machines']
+        spaces = non_infan_subnets(
+            yaml.safe_load(
+                client.get_juju_output(
+                    'list-spaces', '--format=yaml')))
         # try 0 to 1
-        log.info('Testing ping from Machine 0 Machine 1 (same space)')
-        if not machine_can_ping_ip(
-                client, '0',
-                machines['1']['network-interfaces']['eth0']
-                        ['ip-addresses'][0]):
+        log.info('Testing ping from Machine 0 to Machine 1 (same space)')
+        subnet = spaces['spaces']['space1'].keys()[0]
+        ip_to_ping = [ip for ip in machines['1']['ip-addresses']
+                      if ip_in_cidr(ip, subnet)][0]
+        if not machine_can_ping_ip(client, '0', ip_to_ping):
             raise TestFailure('Ping from 0 to 1 Failed.')
         """Restrictions and access control between spaces is not yet enforced
         # try 2 to 3
-        log.info('Testing ping from Machine 2 Machine 3 (diff spaces)')
-        if machine_can_ping_ip(client, '2',
-            machines['3']['network-interfaces']['eth0']['ip-addresses'][0]):
+        log.info('Testing ping from Machine 2 to Machine 3 (diff spaces)')
+        subnet = spaces['spaces']['space3'].keys()[0]
+        ip_to_ping = [ip for ip in machines['3']['ip-addresses']
+                      if ip_in_cidr(ip, subnet)][0]
+        if machine_can_ping_ip(client, '2', ip_to_ping):
             raise TestFailure('Ping from 2 to 3 should have failed.')
         """
         log.info('PASSED')
