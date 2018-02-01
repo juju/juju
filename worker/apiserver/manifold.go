@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
@@ -74,7 +75,8 @@ func (config ManifoldConfig) Validate() error {
 }
 
 // Manifold returns a dependency.Manifold that will run an apiserver
-// worker.
+// worker. The manifold outputs an *apiserverhttp.Mux, for other workers
+// to register handlers against.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -85,7 +87,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateName,
 			config.UpgradeGateName,
 		},
-		Start: config.start,
+		Start:  config.start,
+		Output: manifoldOutput,
 	}
 }
 
@@ -149,6 +152,26 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Worker:  w,
 		cleanup: func() { stTracker.Done() },
 	}, nil
+}
+
+func manifoldOutput(in worker.Worker, out interface{}) error {
+	if w, ok := in.(*cleanupWorker); ok {
+		in = w.Worker
+	}
+	w, ok := in.(withMux)
+	if !ok {
+		return errors.Errorf("expected worker implementing %T, got %T", w, in)
+	}
+	muxp, ok := out.(**apiserverhttp.Mux)
+	if !ok {
+		return errors.Errorf("expected output of type %T, got %T", muxp, out)
+	}
+	*muxp = w.Mux()
+	return nil
+}
+
+type withMux interface {
+	Mux() *apiserverhttp.Mux
 }
 
 type cleanupWorker struct {
