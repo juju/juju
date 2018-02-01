@@ -184,8 +184,8 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 	service := mockBakeryService{}
 	clock := testclock.NewClock(time.Time{})
 	authenticator := &authentication.UserAuthenticator{
-		Service: &service,
-		Clock:   clock,
+		Service:                   &service,
+		Clock:                     clock,
 		LocalUserIdentityLocation: "https://testing.invalid:1234/auth",
 	}
 

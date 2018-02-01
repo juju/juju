@@ -5,6 +5,13 @@ package storage
 
 import "gopkg.in/juju/names.v2"
 
+type DeviceType string
+
+var (
+	DeviceTypeLocal DeviceType = "local"
+	DeviceTypeISCSI DeviceType = "iscsi"
+)
+
 // Volume identifies and describes a volume (disk, logical volume, etc.)
 type Volume struct {
 	// Name is a unique name assigned by Juju to the volume.
@@ -51,6 +58,31 @@ type VolumeAttachment struct {
 	VolumeAttachmentInfo
 }
 
+type VolumeAttachmentPlan struct {
+	// Volume is the unique tag assigned by Juju for the volume
+	// that this attachment corresponds to.
+	Volume names.VolumeTag
+
+	// Machine is the unique tag assigned by Juju for the machine that
+	// this attachment corresponds to.
+	Machine names.MachineTag
+
+	VolumeAttachmentPlanInfo
+}
+
+type VolumeAttachmentPlanInfo struct {
+	// DeviceType describes what type of volume we are dealing with
+	// possible options are:
+	// * local - a block device that is directly attached to this instance
+	// * iscsi - an iSCSI disk. This type of disk will require the machine agent
+	// to execute additional steps before the device is available
+	DeviceType DeviceType
+	// DeviceAttributes is a map that contains DeviceType specific initialization
+	// values. For example, in the case of iscsi, it may contain server address:port,
+	// target, chap secrets, etc.
+	DeviceAttributes map[string]string
+}
+
 // VolumeAttachmentInfo describes machine-specific volume attachment
 // information, including how the volume is exposed on the machine.
 type VolumeAttachmentInfo struct {
@@ -76,4 +108,8 @@ type VolumeAttachmentInfo struct {
 
 	// ReadOnly signifies whether the volume is read only or writable.
 	ReadOnly bool
+
+	// PlanInfo holds information that the machine agent might use to
+	// initialize the block device that has been attached to it.
+	PlanInfo *VolumeAttachmentPlanInfo
 }

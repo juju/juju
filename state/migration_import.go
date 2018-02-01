@@ -1742,6 +1742,8 @@ func (i *importer) volumes() error {
 
 func (i *importer) addVolume(volume description.Volume, sb *storageBackend) error {
 	attachments := volume.Attachments()
+	attachmentPlans := volume.AttachmentPlans()
+
 	tag := volume.Tag()
 	var params *VolumeParams
 	var info *VolumeInfo
@@ -1777,7 +1779,13 @@ func (i *importer) addVolume(volume description.Volume, sb *storageBackend) erro
 	ops := sb.newVolumeOps(doc, status)
 
 	for _, attachment := range attachments {
-		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment))
+		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment, attachment.VolumePlanInfo()))
+	}
+
+	if attachmentPlans != nil && len(attachmentPlans) > 0 {
+		for _, val := range attachmentPlans {
+			ops = append(ops, i.addVolumeAttachmentPlanOp(tag.Id(), val))
+		}
 	}
 
 	if err := i.st.db().RunTransaction(ops); err != nil {
@@ -1790,15 +1798,68 @@ func (i *importer) addVolume(volume description.Volume, sb *storageBackend) erro
 	return nil
 }
 
-func (i *importer) addVolumeAttachmentOp(volID string, attachment description.VolumeAttachment) txn.Op {
+func (i *importer) addVolumeAttachmentPlanOp(volID string, volumePlan description.VolumeAttachmentPlan) txn.Op {
+	descriptionPlanInfo := volumePlan.VolumePlanInfo()
+	planInfo := &VolumeAttachmentPlanInfo{
+		DeviceType:       storage.DeviceType(descriptionPlanInfo.DeviceType()),
+		DeviceAttributes: descriptionPlanInfo.DeviceAttributes(),
+	}
+
+	descriptionBlockInfo := volumePlan.BlockDevice()
+	blockInfo := &BlockDeviceInfo{
+		DeviceName:     descriptionBlockInfo.Name(),
+		DeviceLinks:    descriptionBlockInfo.Links(),
+		Label:          descriptionBlockInfo.Label(),
+		UUID:           descriptionBlockInfo.UUID(),
+		HardwareId:     descriptionBlockInfo.HardwareID(),
+		WWN:            descriptionBlockInfo.WWN(),
+		BusAddress:     descriptionBlockInfo.BusAddress(),
+		Size:           descriptionBlockInfo.Size(),
+		FilesystemType: descriptionBlockInfo.FilesystemType(),
+		InUse:          descriptionBlockInfo.InUse(),
+		MountPoint:     descriptionBlockInfo.MountPoint(),
+	}
+
+	machineId := volumePlan.Machine().Id()
+	return txn.Op{
+		C:      volumeAttachmentPlanC,
+		Id:     volumeAttachmentId(machineId, volID),
+		Assert: txn.DocMissing,
+		Insert: &volumeAttachmentPlanDoc{
+			Volume:      volID,
+			Machine:     machineId,
+			PlanInfo:    planInfo,
+			BlockDevice: blockInfo,
+		},
+	}
+}
+
+func (i *importer) addVolumeAttachmentOp(volID string, attachment description.VolumeAttachment, planInfo description.VolumePlanInfo) txn.Op {
 	var info *VolumeAttachmentInfo
 	var params *VolumeAttachmentParams
+
+	planInf := &VolumeAttachmentPlanInfo{}
+
+	deviceType := planInfo.DeviceType()
+	deviceAttrs := planInfo.DeviceAttributes()
+	if deviceType != "" || deviceAttrs != nil {
+		if deviceType != "" {
+			planInf.DeviceType = storage.DeviceType(deviceType)
+		}
+		if deviceAttrs != nil {
+			planInf.DeviceAttributes = deviceAttrs
+		}
+	} else {
+		planInf = nil
+	}
+
 	if attachment.Provisioned() {
 		info = &VolumeAttachmentInfo{
 			DeviceName: attachment.DeviceName(),
 			DeviceLink: attachment.DeviceLink(),
 			BusAddress: attachment.BusAddress(),
 			ReadOnly:   attachment.ReadOnly(),
+			PlanInfo:   planInf,
 		}
 	} else {
 		params = &VolumeAttachmentParams{

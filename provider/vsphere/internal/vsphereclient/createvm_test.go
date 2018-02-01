@@ -451,7 +451,7 @@ func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {
 		Constraints:            constraints.Value{},
 		UpdateProgress:         func(status string) {},
 		UpdateProgressInterval: time.Second,
-		Clock: testclock.NewClock(time.Time{}),
+		Clock:                  testclock.NewClock(time.Time{}),
 	}
 }
 

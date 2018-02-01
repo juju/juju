@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
@@ -1243,6 +1244,9 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 		}, {
 			Volume:     state.VolumeParams{Size: 4000},
 			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
+		}, {
+			Volume:     state.VolumeParams{Size: 3000},
+			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
 		}},
 	})
 	machineTag := machine.MachineTag()
@@ -1267,7 +1271,60 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 		BusAddress: "bus address",
 		ReadOnly:   true,
 	}
+
 	err = sb.SetVolumeAttachmentInfo(machineTag, volTag, volAttachmentInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// attach a iSCSI volume
+	iscsiVolTag := names.NewVolumeTag("0/2")
+	iscsiVolInfo := state.VolumeInfo{
+		HardwareId: "magic",
+		WWN:        "iscsi",
+		Size:       1500,
+		Pool:       "loop",
+		VolumeId:   "iscsi id",
+		Persistent: true,
+	}
+
+	deviceAttrs := map[string]string{
+		"iqn":         "bogusIQN",
+		"address":     "192.168.1.1",
+		"port":        "9999",
+		"chap-user":   "example",
+		"chap-secret": "supersecretpassword",
+	}
+
+	attachmentPlanInfo := state.VolumeAttachmentPlanInfo{
+		DeviceType:       storage.DeviceTypeISCSI,
+		DeviceAttributes: deviceAttrs,
+	}
+
+	iscsiVolAttachmentInfo := state.VolumeAttachmentInfo{
+		DeviceName: "iscsi device",
+		DeviceLink: "iscsi link",
+		BusAddress: "iscsi address",
+		ReadOnly:   true,
+		PlanInfo:   &attachmentPlanInfo,
+	}
+
+	err = sb.SetVolumeInfo(iscsiVolTag, iscsiVolInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = sb.SetVolumeAttachmentInfo(machineTag, iscsiVolTag, iscsiVolAttachmentInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = sb.CreateVolumeAttachmentPlan(machineTag, iscsiVolTag, attachmentPlanInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	deviceLinks := []string{"/dev/sdb", "/dev/mapper/testDevice"}
+
+	blockInfo := state.BlockDeviceInfo{
+		WWN:         "testWWN",
+		DeviceLinks: deviceLinks,
+		HardwareId:  "test-id",
+	}
+
+	err = sb.SetVolumeAttachmentPlanBlockInfo(machineTag, iscsiVolTag, blockInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c, s.State)
@@ -1289,6 +1346,9 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(attInfo, jc.DeepEquals, volAttachmentInfo)
 
+	_, err = newSb.VolumeAttachmentPlan(machineTag, volTag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
 	volTag = names.NewVolumeTag("0/1")
 	volume, err = newSb.Volume(volTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1303,6 +1363,32 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	attParams, needsProvisioning := attachment.Params()
 	c.Check(needsProvisioning, jc.IsTrue)
 	c.Check(attParams.ReadOnly, jc.IsTrue)
+
+	iscsiVolume, err := newSb.Volume(iscsiVolTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	iscsiInfo, err := iscsiVolume.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(iscsiInfo, jc.DeepEquals, iscsiVolInfo)
+
+	attachment, err = newSb.VolumeAttachment(machineTag, iscsiVolTag)
+	c.Assert(err, jc.ErrorIsNil)
+	attInfo, err = attachment.Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(attInfo, jc.DeepEquals, iscsiVolAttachmentInfo)
+
+	attachmentPlan, err := newSb.VolumeAttachmentPlan(machineTag, iscsiVolTag)
+	c.Assert(err, gc.IsNil)
+	c.Assert(attachmentPlan.Volume(), gc.Equals, iscsiVolTag)
+	c.Assert(attachmentPlan.Machine(), gc.Equals, machineTag)
+
+	planInfo, err := attachmentPlan.PlanInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(planInfo, jc.DeepEquals, attachmentPlanInfo)
+
+	volBlockInfo, err := attachmentPlan.BlockDeviceInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(volBlockInfo, jc.DeepEquals, blockInfo)
 }
 
 func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {

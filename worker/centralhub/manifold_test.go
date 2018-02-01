@@ -29,7 +29,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.config = centralhub.ManifoldConfig{
 		StateConfigWatcherName: "state-config-watcher",
-		Hub: s.hub,
+		Hub:                    s.hub,
 	}
 }
 

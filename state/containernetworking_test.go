@@ -99,7 +99,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNoSuperSu
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingSupportsContainerAddresses(c *gc.C) {
 	environ := containerTestNetworkedEnviron{
-		stub: &testing.Stub{},
+		stub:                       &testing.Stub{},
 		supportsContainerAddresses: true,
 		superSubnets:               []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
 	}
@@ -114,7 +114,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingSupportsC
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDefault(c *gc.C) {
 	environ := containerTestNetworkedEnviron{
-		stub: &testing.Stub{},
+		stub:                       &testing.Stub{},
 		supportsContainerAddresses: false,
 		superSubnets:               []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
 	}
@@ -129,7 +129,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDefault(c
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingIgnoresIPv6(c *gc.C) {
 	environ := containerTestNetworkedEnviron{
-		stub: &testing.Stub{},
+		stub:                       &testing.Stub{},
 		supportsContainerAddresses: true,
 		superSubnets:               []string{"172.31.0.0/16", "2000::dead:beef:1/64"},
 	}

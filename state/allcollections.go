@@ -370,7 +370,8 @@ func allCollections() collectionSchema {
 				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
-		volumeAttachmentsC: {},
+		volumeAttachmentsC:    {},
+		volumeAttachmentPlanC: {},
 
 		// -----
 
@@ -597,7 +598,9 @@ const (
 	usermodelnameC             = "usermodelname"
 	usersC                     = "users"
 	volumeAttachmentsC         = "volumeattachments"
+	volumeAttachmentPlanC      = "volumeattachmentplan"
 	volumesC                   = "volumes"
+
 	// "resources" (see resource/persistence/mongo.go)
 
 	// Cross model relations

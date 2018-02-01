@@ -32,8 +32,26 @@ func MatchingBlockDevice(
 	blockDevices []state.BlockDeviceInfo,
 	volumeInfo state.VolumeInfo,
 	attachmentInfo state.VolumeAttachmentInfo,
+	planBlockInfo state.BlockDeviceInfo,
 ) (*state.BlockDeviceInfo, bool) {
 	for _, dev := range blockDevices {
+		if planBlockInfo.HardwareId != "" {
+			if planBlockInfo.HardwareId == dev.HardwareId {
+				return &dev, true
+			}
+		}
+		if planBlockInfo.WWN != "" {
+			if planBlockInfo.WWN == dev.WWN {
+				return &dev, true
+			}
+			continue
+		}
+		if planBlockInfo.DeviceName != "" {
+			if planBlockInfo.DeviceName == dev.DeviceName {
+				return &dev, true
+			}
+			continue
+		}
 		if volumeInfo.WWN != "" {
 			if volumeInfo.WWN == dev.WWN {
 				return &dev, true

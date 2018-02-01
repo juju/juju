@@ -123,12 +123,12 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	}
 
 	w, err := cfg.NewFirewallerWorker(Config{
-		ModelUUID:          agent.CurrentConfig().Model().Id(),
-		RemoteRelationsApi: remoteRelationsAPI,
-		FirewallerAPI:      firewallerAPI,
-		EnvironFirewaller:  fwEnv,
-		EnvironInstances:   environ,
-		Mode:               mode,
+		ModelUUID:               agent.CurrentConfig().Model().Id(),
+		RemoteRelationsApi:      remoteRelationsAPI,
+		FirewallerAPI:           firewallerAPI,
+		EnvironFirewaller:       fwEnv,
+		EnvironInstances:        environ,
+		Mode:                    mode,
 		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),
 		CredentialAPI:           credentialAPI,
 	})

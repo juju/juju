@@ -282,6 +282,29 @@ func (sb *storageBackend) watchHostStorage(host names.Tag, collection string) St
 	return newLifecycleWatcher(mb, collection, members, filter, nil)
 }
 
+// WatchMachineAttachmentsPlans returns a StringsWatcher that notifies machine agents
+// that a volume has been attached to their instance by the environment provider.
+// This allows machine agents to do extra initialization to the volume, in cases
+// such as iSCSI disks, or other disks that have similar requirements
+func (sb *storageBackend) WatchMachineAttachmentsPlans(m names.MachineTag) StringsWatcher {
+	return sb.watchMachineVolumeAttachmentPlans(m)
+}
+
+func (sb *storageBackend) watchMachineVolumeAttachmentPlans(m names.MachineTag) StringsWatcher {
+	mb := sb.mb
+	pattern := fmt.Sprintf("^%s:%s$", mb.docID(m.Id()), names.NumberSnippet)
+	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
+	prefix := fmt.Sprintf("%s:", m.Id())
+	filter := func(id interface{}) bool {
+		k, err := mb.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return strings.HasPrefix(k, prefix)
+	}
+	return newLifecycleWatcher(mb, volumeAttachmentPlanC, members, filter, nil)
+}
+
 // WatchModelVolumeAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all volume attachments related to environ-
 // scoped volumes.

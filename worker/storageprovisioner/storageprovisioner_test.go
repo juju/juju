@@ -127,6 +127,11 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 		c.Assert(volumeAttachments, jc.SameContents, expectedVolumeAttachments)
 		return nil, nil
 	}
+	volumeAttachmentPlansCreate := make(chan interface{})
+	volumeAccessor.createVolumeAttachmentPlans = func(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
+		defer close(volumeAttachmentPlansCreate)
+		return make([]params.ErrorResult, len(volumeAttachmentPlans)), nil
+	}
 
 	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
@@ -138,11 +143,12 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 	}, {
 		MachineTag: "machine-1", AttachmentTag: "volume-2",
 	}}
+	assertNoEvent(c, volumeAttachmentPlansCreate, "volume attachment plans set")
 	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment set")
-
 	// The worker should create volumes according to ids "1" and "2".
 	volumeAccessor.volumesWatcher.changes <- []string{"1", "2"}
 	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
+	waitChannel(c, volumeAttachmentPlansCreate, "waiting for volume attachment plans to be set")
 	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
 }
 
@@ -154,6 +160,11 @@ func (s *storageProvisionerSuite) TestCreateVolumeCreatesAttachment(c *gc.C) {
 	volumeAccessor.setVolumeAttachmentInfo = func(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
 		defer close(volumeAttachmentInfoSet)
 		return make([]params.ErrorResult, len(volumeAttachments)), nil
+	}
+	volumeAttachmentPlansCreate := make(chan interface{})
+	volumeAccessor.createVolumeAttachmentPlans = func(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
+		defer close(volumeAttachmentPlansCreate)
+		return make([]params.ErrorResult, len(volumeAttachmentPlans)), nil
 	}
 
 	s.provider.createVolumesFunc = func(args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {

@@ -38,6 +38,10 @@ type VolumeAccess interface {
 	// to the specified host and volume.
 	VolumeAttachment(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
 
+	// VolumeAttachmentPlan returns state.VolumeAttachmentPlan corresponding
+	// to the specified machine and volume
+	VolumeAttachmentPlan(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error)
+
 	// BlockDevices returns information about block devices published
 	// for the specified machine.
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
@@ -120,6 +124,21 @@ func volumeStorageAttachmentInfo(
 		return nil, errors.Annotate(err, "getting volume attachment info")
 	}
 
+	blockDeviceInfo := state.BlockDeviceInfo{}
+	volumeAttachmentPlan, err := st.VolumeAttachmentPlan(hostTag, volume.VolumeTag())
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, errors.Annotate(err, "getting attachment plans")
+		}
+	} else {
+		blockDeviceInfo, err = volumeAttachmentPlan.BlockDeviceInfo()
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, errors.Annotate(err, "getting block device info")
+			}
+		}
+	}
+
 	// TODO(caas) - we currently only support block devices on machines.
 	if hostTag.Kind() != names.MachineTagKind {
 		return nil, errors.NotProvisionedf("%v", names.ReadableString(storageTag))
@@ -132,6 +151,7 @@ func volumeStorageAttachmentInfo(
 		blockDevices,
 		volumeInfo,
 		volumeAttachmentInfo,
+		blockDeviceInfo,
 	)
 	if !ok {
 		// We must not say that a block-kind storage attachment is
@@ -202,10 +222,16 @@ func volumeAttachmentDevicePath(
 		if volumeAttachmentInfo.DeviceLink != "" {
 			deviceLinks = []string{volumeAttachmentInfo.DeviceLink}
 		}
+		var deviceName string
+		if blockDevice.DeviceName != "" {
+			deviceName = blockDevice.DeviceName
+		} else {
+			deviceName = volumeAttachmentInfo.DeviceName
+		}
 		return storage.BlockDevicePath(storage.BlockDevice{
 			HardwareId:  volumeInfo.HardwareId,
 			WWN:         volumeInfo.WWN,
-			DeviceName:  volumeAttachmentInfo.DeviceName,
+			DeviceName:  deviceName,
 			DeviceLinks: deviceLinks,
 		})
 	}

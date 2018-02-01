@@ -1264,11 +1264,17 @@ func volumesToAPIserver(volumes []storage.Volume) []params.Volume {
 func volumeAttachmentsToAPIserver(attachments []storage.VolumeAttachment) map[string]params.VolumeAttachmentInfo {
 	result := make(map[string]params.VolumeAttachmentInfo)
 	for _, a := range attachments {
+		var planInfo *params.VolumeAttachmentPlanInfo
+		if a.PlanInfo != nil {
+			planInfo.DeviceType = a.PlanInfo.DeviceType
+			planInfo.DeviceAttributes = a.PlanInfo.DeviceAttributes
+		}
 		result[a.Volume.String()] = params.VolumeAttachmentInfo{
 			a.DeviceName,
 			a.DeviceLink,
 			a.BusAddress,
 			a.ReadOnly,
+			planInfo,
 		}
 	}
 	return result

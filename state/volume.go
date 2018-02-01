@@ -77,6 +77,31 @@ type VolumeAttachment interface {
 	Params() (VolumeAttachmentParams, bool)
 }
 
+// VolumeAttachmentPlan describes the plan information for a particular volume
+// Machine agents use this information to do any extra initialization that is needed
+// This is separate from VolumeAttachment to allow separation of concerns between
+// the controller's idea of detaching a volume and the machine agent's idea.
+// This way, we can have the controller ask the environment for a volume, attach it
+// to the instance, which in some cases simply means granting the instance access
+// to connect to it, and then explicitly let the machine agent know that something
+// has been attached to it.
+type VolumeAttachmentPlan interface {
+	Lifer
+
+	// Volume returns the tag of the related Volume.
+	Volume() names.VolumeTag
+
+	// Machine returns the tag of the related Machine.
+	Machine() names.MachineTag
+
+	// PlanInfo returns the plan info for a volume
+	PlanInfo() (VolumeAttachmentPlanInfo, error)
+
+	// BlockDeviceInfo returns the block device info associated with
+	// this plan, as seen by the machine agent it is plugged into
+	BlockDeviceInfo() (BlockDeviceInfo, error)
+}
+
 type volume struct {
 	mb  modelBackend
 	doc volumeDoc
@@ -84,6 +109,10 @@ type volume struct {
 
 type volumeAttachment struct {
 	doc volumeAttachmentDoc
+}
+
+type volumeAttachmentPlan struct {
+	doc volumeAttachmentPlanDoc
 }
 
 // volumeDoc records information about a volume in the model.
@@ -117,6 +146,23 @@ type volumeAttachmentDoc struct {
 	Params    *VolumeAttachmentParams `bson:"params,omitempty"`
 }
 
+type volumeAttachmentPlanDoc struct {
+	DocID     string                    `bson:"_id"`
+	ModelUUID string                    `bson:"model-uuid"`
+	Volume    string                    `bson:"volumeid"`
+	Machine   string                    `bson:"machineid"`
+	Life      Life                      `bson:"life"`
+	PlanInfo  *VolumeAttachmentPlanInfo `bson:"plan-info,omitempty"`
+	// BlockDevice represents the block device from the point
+	// of view of the machine agent. Once the machine agent
+	// finishes provisioning the storage attachment, it gathers
+	// as much information about the new device as needed, and
+	// sets it in the volume attachment plan, in state. This
+	// information will later be used to match the block device
+	// in state, with the block device the machine agent sees.
+	BlockDevice *BlockDeviceInfo `bson:"block-device,omitempty"`
+}
+
 // VolumeParams records parameters for provisioning a new volume.
 type VolumeParams struct {
 	// storage, if non-zero, is the tag of the storage instance
@@ -148,6 +194,27 @@ type VolumeAttachmentInfo struct {
 	DeviceLink string `bson:"devicelink,omitempty"`
 	BusAddress string `bson:"busaddress,omitempty"`
 	ReadOnly   bool   `bson:"read-only"`
+	// PlanInfo holds information used by the machine storage
+	// provisioner to execute any needed steps in order to make
+	// make sure the actual storage device becomes available.
+	// For example, any storage backend that requires userspace
+	// setup, like iSCSI would fall into this category.
+	PlanInfo *VolumeAttachmentPlanInfo `bson:"plan-info,omitempty"`
+}
+
+type VolumeAttachmentPlanInfo struct {
+	// DeviceType is the type of storage type this plan info
+	// describes. For directly attached local storage, this
+	// can be left to its default value, or set as storage.DeviceTypeLocal
+	// This value will be used by the machine storage provisioner
+	// to load the appropriate storage plan, and execute any Attach/Detach
+	// operations.
+	DeviceType storage.DeviceType `bson:"device-type,omitempty"`
+	// DeviceAttributes holds a map of key/value pairs that may be used
+	// by the storage plan backend to initialize the storage device
+	// For example, if dealing with iSCSI, this can hold the IP address
+	// of the remote server, the LUN, access credentials, etc.
+	DeviceAttributes map[string]string `bson:"device-attributes,omitempty"`
 }
 
 // VolumeAttachmentParams records parameters for attaching a volume to a
@@ -248,6 +315,35 @@ func (v *volume) SetStatus(volumeStatus status.StatusInfo) error {
 		rawData:   volumeStatus.Data,
 		updated:   timeOrNow(volumeStatus.Since, v.mb.clock()),
 	})
+}
+
+func (v *volumeAttachmentPlan) Volume() names.VolumeTag {
+	return names.NewVolumeTag(v.doc.Volume)
+}
+
+// Machine is required to implement VolumeAttachmentPlan.
+func (v *volumeAttachmentPlan) Machine() names.MachineTag {
+	return names.NewMachineTag(v.doc.Machine)
+}
+
+// Life is required to implement VolumeAttachmentPlan.
+func (v *volumeAttachmentPlan) Life() Life {
+	return v.doc.Life
+}
+
+// PlanInfo is required to implement VolumeAttachment.
+func (v *volumeAttachmentPlan) PlanInfo() (VolumeAttachmentPlanInfo, error) {
+	if v.doc.PlanInfo == nil {
+		return VolumeAttachmentPlanInfo{}, errors.NotProvisionedf("volume attachment plan %q on %q", v.doc.Volume, v.doc.Machine)
+	}
+	return *v.doc.PlanInfo, nil
+}
+
+func (v *volumeAttachmentPlan) BlockDeviceInfo() (BlockDeviceInfo, error) {
+	if v.doc.BlockDevice == nil {
+		return BlockDeviceInfo{}, errors.NotFoundf("volume attachment plan block device %q on %q", v.doc.Volume, v.doc.Machine)
+	}
+	return *v.doc.BlockDevice, nil
 }
 
 // Volume is required to implement VolumeAttachment.
@@ -388,6 +484,20 @@ func (sb *storageBackend) VolumeAttachment(host names.Tag, volume names.VolumeTa
 	return &att, nil
 }
 
+func (sb *storageBackend) VolumeAttachmentPlan(host names.Tag, volume names.VolumeTag) (VolumeAttachmentPlan, error) {
+	coll, cleanup := sb.mb.db().GetCollection(volumeAttachmentPlanC)
+	defer cleanup()
+
+	var att volumeAttachmentPlan
+	err := coll.FindId(volumeAttachmentId(host.Id(), volume.Id())).One(&att.doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("volume attachment plan %q on host %q", volume.Id(), host.Id())
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "getting volume attachment plan %q on host %q", volume.Id(), host.Id())
+	}
+	return &att, nil
+}
+
 // MachineVolumeAttachments returns all of the VolumeAttachments for the
 // specified machine.
 func (sb *storageBackend) MachineVolumeAttachments(machine names.MachineTag) ([]VolumeAttachment, error) {
@@ -434,6 +544,43 @@ func (sb *storageBackend) volumeAttachments(query bson.D) ([]VolumeAttachment, e
 		attachments[i] = &volumeAttachment{doc}
 	}
 	return attachments, nil
+}
+
+func (sb *storageBackend) machineVolumeAttachmentPlans(host names.Tag, v names.VolumeTag) ([]VolumeAttachmentPlan, error) {
+	id := volumeAttachmentId(host.Id(), v.Id())
+	attachmentPlans, err := sb.volumeAttachmentPlans(bson.D{{"_id", id}})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting volume attachment plans for volume %q attached to machine %q", v.Id(), host.Id())
+	}
+	return attachmentPlans, nil
+}
+
+// VolumeAttachmentPlans returns all of the VolumeAttachmentPlans for the specified
+// volume.
+func (sb *storageBackend) VolumeAttachmentPlans(volume names.VolumeTag) ([]VolumeAttachmentPlan, error) {
+	attachmentPlans, err := sb.volumeAttachmentPlans(bson.D{{"volumeid", volume.Id()}})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting volume attachment plans for volume %q", volume.Id())
+	}
+	return attachmentPlans, nil
+}
+
+func (sb *storageBackend) volumeAttachmentPlans(query bson.D) ([]VolumeAttachmentPlan, error) {
+	coll, cleanup := sb.mb.db().GetCollection(volumeAttachmentPlanC)
+	defer cleanup()
+
+	var docs []volumeAttachmentPlanDoc
+	err := coll.Find(query).All(&docs)
+	if err == mgo.ErrNotFound {
+		return []VolumeAttachmentPlan{}, nil
+	} else if err != nil {
+		return []VolumeAttachmentPlan{}, errors.Trace(err)
+	}
+	attachmentPlans := make([]VolumeAttachmentPlan, len(docs))
+	for i, doc := range docs {
+		attachmentPlans[i] = &volumeAttachmentPlan{doc}
+	}
+	return attachmentPlans, nil
 }
 
 type errContainsFilesystem struct {
@@ -580,6 +727,13 @@ func (sb *storageBackend) DetachVolume(host names.Tag, volume names.VolumeTag) (
 		if !detachable {
 			return nil, errors.New("volume is not detachable")
 		}
+		if plans, err := sb.machineVolumeAttachmentPlans(host, volume); err != nil {
+			return nil, errors.Trace(err)
+		} else {
+			if len(plans) > 0 {
+				return detachStorageAttachmentOps(host, volume), nil
+			}
+		}
 		return detachVolumeOps(host, volume), nil
 	}
 	return sb.mb.db().Run(buildTxn)
@@ -591,6 +745,16 @@ func (sb *storageBackend) volumeFilesystemAttachment(host names.Tag, volume name
 		return nil, errors.Trace(err)
 	}
 	return sb.FilesystemAttachment(host, filesystem.FilesystemTag())
+}
+
+func detachStorageAttachmentOps(host names.Tag, v names.VolumeTag) []txn.Op {
+	id := volumeAttachmentId(host.Id(), v.Id())
+	return []txn.Op{{
+		C:      volumeAttachmentPlanC,
+		Id:     id,
+		Assert: isAliveDoc,
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
+	}}
 }
 
 func detachVolumeOps(host names.Tag, v names.VolumeTag) []txn.Op {
@@ -786,6 +950,7 @@ func destroyVolumeOps(im *storageBackend, v *volume, release bool, extraAssert b
 		)
 		ops = append(ops, detachOps...)
 	} else {
+		// TODO(gsamfira): add cleanup for volume plans
 		ops = append(ops, newCleanupOp(
 			cleanupAttachmentsForDyingVolume,
 			v.doc.Name,
@@ -1036,6 +1201,126 @@ func (sb *storageBackend) SetVolumeAttachmentInfo(hostTag names.Tag, volumeTag n
 	return sb.setVolumeAttachmentInfo(hostTag, volumeTag, info)
 }
 
+func (sb *storageBackend) SetVolumeAttachmentPlanBlockInfo(hostTag names.Tag, volumeTag names.VolumeTag, info BlockDeviceInfo) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set block device plan info for volume attachment %s:%s", volumeTag.Id(), hostTag.Id())
+	v, err := sb.Volume(volumeTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := v.Info(); err != nil {
+		return errors.Trace(err)
+	}
+	// Also ensure the machine is provisioned.
+	m, err := sb.machine(hostTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := m.InstanceId(); err != nil {
+		return errors.Trace(err)
+	}
+	return sb.setVolumePlanBlockInfo(hostTag, volumeTag, &info)
+}
+
+func (sb *storageBackend) setVolumePlanBlockInfo(hostTag names.Tag, volumeTag names.VolumeTag, info *BlockDeviceInfo) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		va, err := sb.VolumeAttachment(hostTag, volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if va.Life() != Alive {
+			return nil, jujutxn.ErrNoOperations
+		}
+		volumePlan, err := sb.machineVolumeAttachmentPlans(hostTag, volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if volumePlan == nil || len(volumePlan) == 0 {
+			return nil, jujutxn.ErrNoOperations
+		}
+		ops := setVolumePlanBlockInfoOps(
+			hostTag, volumeTag, info,
+		)
+		return ops, nil
+	}
+	return sb.mb.db().Run(buildTxn)
+}
+
+func setVolumePlanBlockInfoOps(hostTag names.Tag, volumeTag names.VolumeTag, info *BlockDeviceInfo) []txn.Op {
+	asserts := isAliveDoc
+	update := bson.D{
+		{"$set", bson.D{{"block-device", info}}},
+	}
+	return []txn.Op{{
+		C:      volumeAttachmentPlanC,
+		Id:     volumeAttachmentId(hostTag.Id(), volumeTag.Id()),
+		Assert: asserts,
+		Update: update,
+	}}
+}
+
+func (sb *storageBackend) CreateVolumeAttachmentPlan(hostTag names.Tag, volumeTag names.VolumeTag, info VolumeAttachmentPlanInfo) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set plan info for volume attachment %s:%s", volumeTag.Id(), hostTag.Id())
+	v, err := sb.Volume(volumeTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := v.Info(); err != nil {
+		return errors.Trace(err)
+	}
+	// Also ensure the machine is provisioned.
+	m, err := sb.machine(hostTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := m.InstanceId(); err != nil {
+		return errors.Trace(err)
+	}
+	return sb.createVolumePlan(hostTag, volumeTag, &info)
+}
+
+func (sb *storageBackend) createVolumePlan(hostTag names.Tag, volumeTag names.VolumeTag, info *VolumeAttachmentPlanInfo) error {
+	if info != nil && info.DeviceType == "" {
+		info.DeviceType = storage.DeviceTypeLocal
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		va, err := sb.VolumeAttachment(hostTag, volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if va.Life() != Alive {
+			return nil, jujutxn.ErrNoOperations
+		}
+		volumePlan, err := sb.machineVolumeAttachmentPlans(hostTag, volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if volumePlan != nil && len(volumePlan) > 0 {
+			return nil, jujutxn.ErrNoOperations
+		}
+		ops := createVolumeAttachmentPlanOps(
+			hostTag, volumeTag, info,
+		)
+		return ops, nil
+	}
+	return sb.mb.db().Run(buildTxn)
+}
+
+func createVolumeAttachmentPlanOps(hostTag names.Tag, volume names.VolumeTag, info *VolumeAttachmentPlanInfo) []txn.Op {
+	return []txn.Op{
+		{
+			C:      volumeAttachmentPlanC,
+			Id:     volumeAttachmentId(hostTag.Id(), volume.Id()),
+			Assert: txn.DocMissing,
+			Insert: &volumeAttachmentPlanDoc{
+				Volume:   volume.Id(),
+				Machine:  hostTag.Id(),
+				Life:     Alive,
+				PlanInfo: info,
+			},
+		},
+	}
+}
+
 func (sb *storageBackend) setVolumeAttachmentInfo(hostTag names.Tag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		va, err := sb.VolumeAttachment(hostTag, volumeTag)
@@ -1070,6 +1355,45 @@ func setVolumeAttachmentInfoOps(host names.Tag, volume names.VolumeTag, info Vol
 		Assert: asserts,
 		Update: update,
 	}}
+}
+
+// RemoveVolumeAttachmentPlan removes the volume attachment plan from state.
+func (sb *storageBackend) RemoveVolumeAttachmentPlan(hostTag names.Tag, volume names.VolumeTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "removing attachment plan of volume %s from machine %s", volume.Id(), hostTag.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		plans, err := sb.machineVolumeAttachmentPlans(hostTag, volume)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// We should only have one plan for a volume
+		if plans != nil && len(plans) > 0 {
+			if plans[0].Life() != Dying {
+				return nil, jujutxn.ErrNoOperations
+			}
+		} else {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return removeVolumeAttachmentPlanOps(hostTag, volume), nil
+	}
+	return sb.mb.db().Run(buildTxn)
+}
+
+// removeVolumeAttachmentPlanOps removes the plan from state and sets the volume attachment to Dying.
+// this will trigger the storageprovisioner on the controller to eventually detach the volume from
+// the machine.
+func removeVolumeAttachmentPlanOps(hostTag names.Tag, volume names.VolumeTag) []txn.Op {
+	detachOps := detachVolumeOps(hostTag, volume)
+	removeOps := []txn.Op{{
+		C:      volumeAttachmentPlanC,
+		Id:     volumeAttachmentId(hostTag.Id(), volume.Id()),
+		Assert: bson.D{{"life", Dying}},
+		Remove: true,
+	}}
+	removeOps = append(removeOps, detachOps...)
+	return removeOps
 }
 
 // setProvisionedVolumeInfo sets the initial info for newly
