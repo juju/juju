@@ -43,28 +43,45 @@ func (s *brokerSuite) SetUpSuite(c *gc.C) {
 		return map[string]interface{}{
 			"packages":   []interface{}{"python-novaclient"},
 			"fake-entry": []interface{}{"testing-garbage"},
-			"write_files": []interface{}{
-				map[string]interface{}{
-					"path":        "/tmp/testfile",
-					"permissions": 438,
-					"content":     "Hello World!\nEOF",
-				}},
+			"apt": map[interface{}]interface{}{
+				"primary": []interface{}{
+					map[interface{}]interface{}{
+						"arches": []interface{}{"default"},
+						"uri":    "http://archive.ubuntu.com/ubuntu",
+					},
+				},
+				"security": []interface{}{
+					map[interface{}]interface{}{
+						"arches": []interface{}{"default"},
+						"uri":    "http://archive.ubuntu.com/ubuntu",
+					},
+				},
+			},
+			"ca-certs": map[interface{}]interface{}{
+				"remove-defaults": true,
+				"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
+			},
 		}, nil
 	})
 }
 
 func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
-	obtained, err := provisioner.CombinedCloudInitData(nil, "write_files,packages", "xenial", loggo.Logger{})
+	obtained, err := provisioner.CombinedCloudInitData(nil, "ca-certs,apt-primary", "xenial", loggo.Logger{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCloudInitUserData(obtained, map[string]interface{}{
-		"write_files": []interface{}{
-			map[string]interface{}{
-				"path":        "/tmp/testfile",
-				"permissions": 438,
-				"content":     "Hello World!\nEOF",
-			}},
-		"packages": []interface{}{"python-novaclient"},
+		"apt": map[string]interface{}{
+			"primary": []interface{}{
+				map[interface{}]interface{}{
+					"arches": []interface{}{"default"},
+					"uri":    "http://archive.ubuntu.com/ubuntu",
+				},
+			},
+		},
+		"ca-certs": map[interface{}]interface{}{
+			"remove-defaults": true,
+			"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
+		},
 	}, c)
 }
 
@@ -343,13 +360,12 @@ func callMaintainInstance(c *gc.C, s patcher, broker environs.InstanceBroker, ma
 func assertCloudInitUserData(obtained, expected map[string]interface{}, c *gc.C) {
 	c.Assert(obtained, gc.HasLen, len(expected))
 	for obtainedK, obtainedV := range obtained {
-		c.Logf("\n%s\n", obtainedK)
 		expectedV, ok := expected[obtainedK]
 		c.Assert(ok, jc.IsTrue)
-		switch {
-		case obtainedK == "package_upgrade":
+		switch obtainedK {
+		case "package_upgrade":
 			c.Assert(obtainedV, gc.Equals, expectedV)
-		case obtainedK == "write_files":
+		case "apt", "ca-certs":
 			c.Assert(obtainedV, jc.DeepEquals, expectedV)
 		default:
 			c.Assert(obtainedV, jc.SameContents, expectedV)

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	utilsos "github.com/juju/utils/os"
 	utilsseries "github.com/juju/utils/series"
@@ -19,17 +20,18 @@ import (
 
 // GetMachineCloudInitData returns a map of all cloud init data on the machine.
 func GetMachineCloudInitData(series string) (map[string]interface{}, error) {
-	operatingSystem, err := utilsseries.GetOSFromSeries(series)
+	containerOS, err := utilsseries.GetOSFromSeries(series)
 	if err != nil {
 		return nil, err
 	}
-
-	switch operatingSystem {
-	case utilsos.Ubuntu:
-	case utilsos.CentOS:
-	case utilsos.OpenSUSE:
+	switch containerOS {
+	case utilsos.Ubuntu, utilsos.CentOS, utilsos.OpenSUSE:
+		if series != utilsseries.MustHostSeries() {
+			logger.Debugf("not attempting to get cloudinit data for %s, series of machine and container differ", series)
+			return nil, nil
+		}
 	default:
-		logger.Debugf("not attempting to get cloudinit data on %s", operatingSystem)
+		logger.Debugf("not attempting to get cloudinit data for %s container", series)
 		return nil, nil
 	}
 
@@ -147,6 +149,13 @@ func getMachineData(series, file string) (map[string]interface{}, error) {
 
 	decodedZippedBuf, err := utils.Gunzip(decodedData)
 	if err != nil {
+		// During testing, it was found that the trusty vendor-data.txt.i file
+		// can contain only the text "NONE", which doesn't unmarshall or decompress
+		// we don't want to fail in that case.
+		if series == "trusty" {
+			logger.Debugf("failed to unmarshall or decompress %q: %s", file, err)
+			return nil, nil
+		}
 		return nil, errors.Annotatef(err, "cannot unmarshall or decompress %q", file)
 	}
 	return unmarshallContainerCloudInit(decodedZippedBuf)
@@ -159,4 +168,121 @@ func unmarshallContainerCloudInit(raw []byte) (map[string]interface{}, error) {
 		return nil, err
 	}
 	return dataMap, nil
+}
+
+type cloudConfigTranslateFunc func(string, map[string]interface{}, loggo.Logger) map[string]interface{}
+
+// CloudConfigByVersionFunc returns the correct function to translate
+// container-inherit-properties to cloud-init data based on series.
+func CloudConfigByVersionFunc(series string) cloudConfigTranslateFunc {
+	if series == "trusty" {
+		return machineCloudConfigV077
+	}
+	// There is a big assumption that supported CentOS and OpenSUSE versions
+	// supported by juju are using cloud-init version >= 0.7.8
+	return machineCloudConfigV078
+}
+
+// machineCloudConfigV078 finds the containerInheritProperties properties and
+// values in the given dataMap and returns a cloud-init v0.7.8 formatted map.
+func machineCloudConfigV078(containerInheritProperties string, dataMap map[string]interface{}, log loggo.Logger) map[string]interface{} {
+	if containerInheritProperties == "" {
+		return nil
+	}
+	foundDataMap := make(map[string]interface{})
+	for _, k := range strings.Split(containerInheritProperties, ",") {
+		key := strings.TrimSpace(k)
+		switch key {
+		case "apt-security", "apt-sources", "apt-primary":
+			if val, ok := dataMap["apt"]; ok {
+				for k, v := range machineCloudConfigAptV078(key, val, log) {
+					// security, sources, and primary all nest under apt, ensure
+					// we don't overwrite prior translated data.
+					if apt, ok := foundDataMap["apt"].(map[string]interface{}); ok {
+						apt[k] = v
+					} else {
+						foundDataMap["apt"] = map[string]interface{}{
+							k: v,
+						}
+					}
+				}
+			} else {
+				log.Debugf("%s not found in machine cloud-init data", key)
+			}
+		case "ca-certs":
+			// no translation needed, ca-certs the same in both versions of cloudinit
+			if val, ok := dataMap[key]; ok {
+				foundDataMap[key] = val
+			} else {
+				log.Debugf("%s not found in machine cloud-init data", key)
+			}
+		}
+	}
+	return foundDataMap
+}
+
+func machineCloudConfigAptV078(key string, val interface{}, log loggo.Logger) map[string]interface{} {
+	split := strings.Split(key, "-")
+	secondary := split[1]
+
+	for k, v := range interfaceToMapStringInterface(val) {
+		if k == secondary {
+			foundDataMap := make(map[string]interface{})
+			foundDataMap[k] = v
+			return foundDataMap
+		}
+	}
+
+	log.Debugf("%s not found in machine cloud-init data", key)
+	return nil
+}
+
+var aptPrimaryKeys = []string{"apt_mirror", "apt_mirror_search", "apt_mirror_search_dns"}
+var aptSourcesKeys = []string{"apt_sources"}
+
+// machineCloudConfigV077 finds the containerInheritProperties properties and
+// values in the given dataMap and returns a cloud-init v0.7.7 formatted map.
+func machineCloudConfigV077(containerInheritProperties string, dataMap map[string]interface{}, log loggo.Logger) map[string]interface{} {
+	if containerInheritProperties == "" {
+		return nil
+	}
+	foundDataMap := make(map[string]interface{})
+	keySplit := strings.Split(containerInheritProperties, ",")
+	for _, k := range keySplit {
+		key := strings.TrimSpace(k)
+		switch key {
+		case "apt-primary", "apt-sources":
+			for _, aptKey := range append(aptPrimaryKeys, aptSourcesKeys...) {
+				if val, ok := dataMap[aptKey]; ok {
+					foundDataMap[aptKey] = val
+				} else {
+					log.Debugf("%s not found as part of %s, in machine cloud-init data", strings.Join(keySplit, "-"), key)
+				}
+			}
+		case "apt-security":
+			// Translation for apt-security unknown at this time.
+			log.Debugf("%s not found in machine cloud-init data", key)
+		case "ca-certs":
+			// no translation needed, ca-certs the same in both versions of cloudinit
+			if val, ok := dataMap[key]; ok {
+				foundDataMap[key] = val
+			} else {
+				log.Debugf("%s not found in machine cloud-init data", key)
+			}
+		}
+	}
+	return foundDataMap
+}
+
+func interfaceToMapStringInterface(in interface{}) map[string]interface{} {
+	if inMap, ok := in.(map[interface{}]interface{}); ok {
+		outMap := make(map[string]interface{}, len(inMap))
+		for k, v := range inMap {
+			if key, ok := k.(string); ok {
+				outMap[key] = v
+			}
+		}
+		return outMap
+	}
+	return nil
 }
