@@ -36,8 +36,9 @@ const (
 
 // Paths holds the paths that backups needs.
 type Paths struct {
-	DataDir string
-	LogsDir string
+	BackupDir string
+	DataDir   string
+	LogsDir   string
 }
 
 // GetFilesToBackUp returns the paths that should be included in the

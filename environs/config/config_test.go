@@ -563,6 +563,12 @@ var configTests = []configTest{
 			"container-inherit-properties": "apt-security, write_files,users,apt-sources",
 		}),
 		err: `container-inherit-properties: users, write_files not allowed`,
+	}, {
+		about:       "String as valid value",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"backup-dir": "/foo/bar",
+		}),
 	},
 }
 
@@ -1065,6 +1071,14 @@ func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
 
 	config := newTestConfig(c, nil)
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO;unit=DEBUG")
+}
+
+func (s *ConfigSuite) TestBackupDir(c *gc.C) {
+	s.addJujuFiles(c)
+	testDir := c.MkDir()
+	config := newTestConfig(c, testing.Attrs{
+		"backup-dir": testDir})
+	c.Assert(config.BackupDir(), gc.Equals, testDir)
 }
 
 func (s *ConfigSuite) TestAutoHookRetryDefault(c *gc.C) {

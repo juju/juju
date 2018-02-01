@@ -183,6 +183,9 @@ const (
 	// provisioning machines.
 	CloudInitUserDataKey = "cloudinit-userdata"
 
+	// BackupDirKey specifies the backup working directory.
+	BackupDirKey = "backup-dir"
+
 	// ContainerInheritProperiesKey is the key to specify a list of properties
 	// to be copied from a machine to a container during provisioning.  The
 	// list will be comma separated.
@@ -396,6 +399,7 @@ var defaultConfigValues = map[string]interface{}{
 	FanConfig:                    "",
 	CloudInitUserDataKey:         "",
 	ContainerInheritProperiesKey: "",
+	BackupDirKey:                 "",
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -985,6 +989,12 @@ func (c *Config) LoggingConfig() string {
 	return c.asString("logging-config")
 }
 
+// BackupDir returns the configuration string for the temporary files
+// backup.
+func (c *Config) BackupDir() string {
+	return c.asString(BackupDirKey)
+}
+
 // AutomaticallyRetryHooks returns whether we should automatically retry hooks.
 // By default this should be true.
 func (c *Config) AutomaticallyRetryHooks() bool {
@@ -1304,6 +1314,7 @@ var alwaysOptional = schema.Defaults{
 	FanConfig:                    schema.Omit,
 	CloudInitUserDataKey:         schema.Omit,
 	ContainerInheritProperiesKey: schema.Omit,
+	BackupDirKey:                 schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1751,6 +1762,11 @@ data of the store. (default false)`,
 	},
 	ContainerInheritProperiesKey: {
 		Description: "List of properties to be copied from the host machine to new containers created in this model (comma-separated)",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	BackupDirKey: {
+		Description: "Directory used to store the backup working directory",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
