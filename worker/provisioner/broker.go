@@ -4,12 +4,10 @@
 package provisioner
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/set"
+	//"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
@@ -174,58 +172,22 @@ func combinedCloudInitData(
 	if containerInheritProperties == "" {
 		return cloudInitData, nil
 	}
-	instanceData, err := GetMachineCloudInitData(series)
+	machineData, err := GetMachineCloudInitData(series)
 	if err != nil {
 		return nil, err
 	}
+	if machineData == nil {
+		return cloudInitData, nil
+	}
+
 	if cloudInitData == nil {
 		cloudInitData = make(map[string]interface{})
 	}
-	for _, key := range strings.Split(containerInheritProperties, ",") {
-		if val, ok := instanceData[key]; ok {
-			// TODO - what to do with apt-proxy??  special to containers
-			// TODO - translate xenial (17.x) cloudinit to trusty style 0.7.x
-			if key == "packages" {
-				if origVal, ok := cloudInitData[key]; ok {
-					newVal, err := combinePackages(origVal, val)
-					if err != nil {
-						return nil, err
-					}
-					cloudInitData[key] = newVal
-					continue
-				}
-			}
-			cloudInitData[key] = val
-		} else {
-			log.Debugf("%s not found in instance cloud-init data", key)
-		}
+
+	resultsMap := cloudconfig.CloudConfigByVersionFunc(series)(containerInheritProperties, machineData, log)
+	for k, v := range resultsMap {
+		cloudInitData[k] = v
 	}
+
 	return cloudInitData, nil
-}
-
-func combinePackages(given, new interface{}) (interface{}, error) {
-	givenPackages, ok := given.([]interface{})
-	if !ok {
-	}
-	newPackages, ok := new.([]interface{})
-	if !ok {
-	}
-	givenPackagesSet := interfaceSliceToSet(givenPackages)
-	newPackagesSet := interfaceSliceToSet(newPackages)
-	combinedPackagesSet := givenPackagesSet.Union(newPackagesSet)
-	packages := make([]interface{}, combinedPackagesSet.Size())
-	for i, val := range combinedPackagesSet.Values() {
-		packages[i] = val
-	}
-	return packages, nil
-}
-
-func interfaceSliceToSet(vals []interface{}) set.Strings {
-	new := set.NewStrings()
-	for _, val := range vals {
-		if v, ok := val.(string); ok {
-			new.Add(v)
-		}
-	}
-	return new
 }
