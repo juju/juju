@@ -271,8 +271,10 @@ func (w *modelStateWorker) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer release()
-	defer w.pool.Remove(w.modelUUID)
+	defer func() {
+		release()
+		w.pool.Remove(w.modelUUID)
+	}()
 
 	for {
 		select {

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/workertest"
+	"time"
 )
 
 type statePoolSuite struct {
@@ -194,4 +195,15 @@ func (s *statePoolSuite) TestGetRemovedNotAllowed(c *gc.C) {
 	_, _, err = s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("model %v has been removed", s.ModelUUID1))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *statePoolSuite) TestRemoveWithoutReleaseTimeoutClose(c *gc.C) {
+	st, _, err := s.StatePool.Get(s.ModelUUID1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Call remove without release and wait for forced removal.
+	_, err = s.StatePool.Remove(s.ModelUUID1)
+	c.Assert(err, jc.ErrorIsNil)
+	time.Sleep(60 * time.Millisecond)
+	assertClosed(c, st)
 }
