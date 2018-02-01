@@ -463,7 +463,7 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
     if bootstrap_host is not None:
         new_config['bootstrap-host'] = bootstrap_host
     if agent_url is not None:
-        new_config['tools-metadata-url'] = agent_url
+        new_config['agent-metadata-url'] = agent_url
     if agent_stream is not None:
         new_config['agent-stream'] = agent_stream
     env.update_config(new_config)
