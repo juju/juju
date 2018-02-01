@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -130,12 +131,12 @@ func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.Stat
 }
 
 // SetJujuManagementSpace mimics a controller having been configured with a
-// management space. It is the space name that constrains the set of
-// addresses agents should use for controller communication.
+// management space name. This is the space that constrains the set of
+// addresses that agents should use for controller communication.
 func (s *ConnSuite) SetJujuManagementSpace(c *gc.C, space string) {
-	controllerSettings, err := s.State.ReadSettings("controllers", "controllerSettings")
+	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
 	c.Assert(err, jc.ErrorIsNil)
-	controllerSettings.Set("juju-mgmt-space", space)
+	controllerSettings.Set(controller.JujuManagementSpace, space)
 	_, err = controllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 }

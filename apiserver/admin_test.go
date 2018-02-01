@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	servertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
+	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -47,6 +48,10 @@ type baseLoginSuite struct {
 }
 
 func (s *baseLoginSuite) SetUpTest(c *gc.C) {
+	if s.ControllerConfigAttrs == nil {
+		s.ControllerConfigAttrs = make(map[string]interface{})
+	}
+	s.ControllerConfigAttrs[corecontroller.JujuManagementSpace] = "mgmt01"
 	s.JujuConnSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 }
@@ -198,15 +203,15 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	})
 }
 
-func (s *loginSuite) TestLoginAddrs(c *gc.C) {
+func (s *loginSuite) TestLoginAddressesForAgents(c *gc.C) {
 	info, srv := s.newMachineAndServer(c)
 	defer assertStop(c, srv)
 
 	err := s.State.SetAPIHostPorts(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Initially just the address we connect with is returned,
-	// despite there being no APIHostPorts in state.
+	// Initially just the address we connect with is returned by the helper
+	// because there are no APIHostPorts in state.
 	connectedAddr, hostPorts := s.loginHostPorts(c, info)
 	connectedAddrHost, connectedAddrPortString, err := net.SplitHostPort(connectedAddr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -217,33 +222,79 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	}
 	c.Assert(hostPorts, gc.DeepEquals, connectedAddrHostPorts)
 
-	// After storing APIHostPorts in state, Login should store
-	// all of them and the address we connected with.
+	// After storing APIHostPorts in state, Login should return the list
+	// filtered for agents along with the address we connected to.
 	server1Addresses := []network.Address{{
 		Value: "server-1",
 		Type:  network.HostName,
 		Scope: network.ScopePublic,
 	}, {
-		Value: "10.0.0.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopeCloudLocal,
+		Value:     "10.0.0.1",
+		Type:      network.IPv4Address,
+		Scope:     network.ScopeCloudLocal,
+		SpaceName: "mgmt01",
 	}}
 	server2Addresses := []network.Address{{
 		Value: "::1",
 		Type:  network.IPv6Address,
 		Scope: network.ScopeMachineLocal,
 	}}
-	stateAPIHostPorts := [][]network.HostPort{
+
+	err = s.State.SetAPIHostPorts([][]network.HostPort{
+		network.AddressesWithPort(server1Addresses, 123),
+		network.AddressesWithPort(server2Addresses, 456),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, hostPorts = s.loginHostPorts(c, info)
+
+	// The login method is called with a machine tag, so we expect the
+	// first return slice to only have the address in the management space.
+	expectedAPIHostPorts := [][]network.HostPort{
+		network.AddressesWithPort([]network.Address{server1Addresses[1]}, 123),
+		network.AddressesWithPort(server2Addresses, 456),
+	}
+	// Prepended as before with the connection address.
+	expectedAPIHostPorts = append(connectedAddrHostPorts, expectedAPIHostPorts...)
+	c.Assert(hostPorts, gc.DeepEquals, expectedAPIHostPorts)
+}
+
+func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
+	info, srv := newServer(c, s.StatePool)
+	defer assertStop(c, srv)
+
+	// Login with a user tag to simulate a client connection.
+	password := "secret"
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
+	info.Tag = user.Tag()
+	info.Password = password
+
+	server1Addresses := []network.Address{{
+		Value: "server-1",
+		Type:  network.HostName,
+		Scope: network.ScopePublic,
+	}, {
+		Value:     "10.0.0.1",
+		Type:      network.IPv4Address,
+		Scope:     network.ScopeCloudLocal,
+		SpaceName: "mgmt01",
+	}}
+	server2Addresses := []network.Address{{
+		Value: "::1",
+		Type:  network.IPv6Address,
+		Scope: network.ScopeMachineLocal,
+	}}
+	newAPIHostPorts := [][]network.HostPort{
 		network.AddressesWithPort(server1Addresses, 123),
 		network.AddressesWithPort(server2Addresses, 456),
 	}
-	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
+	err := s.State.SetAPIHostPorts(newAPIHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
-	_, hostPorts = s.loginHostPorts(c, info)
-	// Now that we connected, we add the other stateAPIHostPorts. However,
-	// the one we connected to comes first.
-	stateAPIHostPorts = append(connectedAddrHostPorts, stateAPIHostPorts...)
-	c.Assert(hostPorts, gc.DeepEquals, stateAPIHostPorts)
+
+	_, hostPorts := s.loginHostPorts(c, info)
+	// Ignoring the address used to login, the returned API addresses should not
+	// Have management space filtering applied.
+	c.Assert(hostPorts[1:], gc.DeepEquals, newAPIHostPorts)
 }
 
 func startNLogins(c *gc.C, n int, info *api.Info) (chan error, *sync.WaitGroup) {
