@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/imagemetadata"
 	apimachiner "github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
@@ -1429,7 +1428,7 @@ func (s *MachineSuite) TestGetAuditLogConfig(c *gc.C) {
 	result := getAuditLogConfig(cfg, c.MkDir())
 	c.Assert(result.Target, gc.NotNil)
 	result.Target = nil
-	c.Assert(result, gc.DeepEquals, apiserver.AuditLogConfig{
+	c.Assert(result, gc.DeepEquals, auditlog.Config{
 		Enabled:        true,
 		CaptureAPIArgs: true,
 		MaxSizeMB:      200,
