@@ -182,7 +182,7 @@ func (b *fakeMigrationBackend) LatestMigration() (state.ModelMigration, error) {
 	return new(fakeModelMigration), nil
 }
 
-func (b *fakeMigrationBackend) APIHostPorts() ([][]network.HostPort, error) {
+func (b *fakeMigrationBackend) APIHostPortsForClients() ([][]network.HostPort, error) {
 	return [][]network.HostPort{
 		MustParseHostPorts("1.2.3.4:5", "2.3.4.5:6"),
 		MustParseHostPorts("3.4.5.6:7"),

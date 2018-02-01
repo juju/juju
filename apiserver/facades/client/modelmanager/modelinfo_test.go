@@ -539,7 +539,7 @@ type mockState struct {
 	gitjujutesting.Stub
 
 	environs.EnvironConfigGetter
-	common.APIHostPortsGetter
+	common.APIHostPortsForAgentsGetter
 	common.ToolsStorageGetter
 	common.BlockGetter
 	metricSender

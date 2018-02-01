@@ -457,7 +457,7 @@ var getMigrationBackend = func(st *state.State) migrationBackend {
 // migration watchers.
 type migrationBackend interface {
 	LatestMigration() (state.ModelMigration, error)
-	APIHostPorts() ([][]network.HostPort, error)
+	APIHostPortsForClients() ([][]network.HostPort, error)
 	ControllerConfig() (controller.Config, error)
 }
 
@@ -542,7 +542,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 }
 
 func (w *srvMigrationStatusWatcher) getLocalHostPorts() ([]string, error) {
-	hostports, err := w.st.APIHostPorts()
+	hostports, err := w.st.APIHostPortsForClients()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

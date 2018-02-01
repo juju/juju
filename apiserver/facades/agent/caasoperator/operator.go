@@ -70,7 +70,7 @@ func (f *Facade) APIAddresses() (params.StringsResult, error) {
 }
 
 func apiAddresses(getter CAASOperatorState) ([]string, error) {
-	apiHostPorts, err := getter.APIHostPorts()
+	apiHostPorts, err := getter.APIHostPortsForAgents()
 	if err != nil {
 		return nil, err
 	}

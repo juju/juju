@@ -58,10 +58,10 @@ type StateServingInfoGetter interface {
 // StateServingInfo value with a newly generated certificate.
 type StateServingInfoSetter func(info params.StateServingInfo) error
 
-// APIHostPortsGetter is an interface that is provided to NewCertificateUpdater
-// whose APIHostPorts method will be invoked to get controller addresses.
+// APIHostPortsGetter is an interface that is provided to NewCertificateUpdater.
+// It returns all known API addresses.
 type APIHostPortsGetter interface {
-	APIHostPorts() ([][]network.HostPort, error)
+	APIHostPortsForClients() ([][]network.HostPort, error)
 }
 
 // Config holds the configuration for the certificate updater worker.
@@ -89,9 +89,9 @@ func NewCertificateUpdater(config Config) worker.Worker {
 // SetUp is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) SetUp() (state.NotifyWatcher, error) {
 	// Populate certificate SAN with any addresses we know about now.
-	apiHostPorts, err := c.hostPortsGetter.APIHostPorts()
+	apiHostPorts, err := c.hostPortsGetter.APIHostPortsForClients()
 	if err != nil {
-		return nil, errors.Annotate(err, "retrieving initial server addesses")
+		return nil, errors.Annotate(err, "retrieving initial server addresses")
 	}
 	var initialSANAddresses []network.Address
 	for _, server := range apiHostPorts {
@@ -103,7 +103,7 @@ func (c *CertificateUpdater) SetUp() (state.NotifyWatcher, error) {
 		}
 	}
 	if err := c.updateCertificate(initialSANAddresses); err != nil {
-		return nil, errors.Annotate(err, "setting initial cerificate SAN list")
+		return nil, errors.Annotate(err, "setting initial certificate SAN list")
 	}
 	return c.addressWatcher.WatchAddresses(), nil
 }
@@ -143,7 +143,7 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address) erro
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
 	// and "juju-mongodb" as hostnames as that is what clients specify
-	// as the hostname for verification (this certicate is used both
+	// as the hostname for verification (this certificate is used both
 	// for serving MongoDB and API server connections).  We also
 	// explicitly include localhost.
 	serverAddrs := []string{"localhost", "juju-apiserver", "juju-mongodb", "anything"}
@@ -171,13 +171,13 @@ func (c *CertificateUpdater) updateCertificate(addresses []network.Address) erro
 	if err != nil {
 		return errors.Annotate(err, "cannot generate controller certificate")
 	}
-	stateInfo.Cert = string(newCert)
-	stateInfo.PrivateKey = string(newKey)
+	stateInfo.Cert = newCert
+	stateInfo.PrivateKey = newKey
 	err = c.setter(stateInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot write agent config")
 	}
-	logger.Infof("controller cerificate addresses updated to %q", newServerAddrs)
+	logger.Infof("controller certificate addresses updated to %q", newServerAddrs)
 	return nil
 }
 

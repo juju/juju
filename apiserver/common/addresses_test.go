@@ -113,10 +113,10 @@ func (fakeAddresses) ModelUUID() string {
 	return "the environ uuid"
 }
 
-func (f fakeAddresses) APIHostPorts() ([][]network.HostPort, error) {
+func (f fakeAddresses) APIHostPortsForAgents() ([][]network.HostPort, error) {
 	return f.hostPorts, nil
 }
 
-func (fakeAddresses) WatchAPIHostPorts() state.NotifyWatcher {
+func (fakeAddresses) WatchAPIHostPortsForAgents() state.NotifyWatcher {
 	panic("should never be called")
 }

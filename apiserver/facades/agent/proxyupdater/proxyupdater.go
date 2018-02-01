@@ -20,8 +20,8 @@ import (
 // mocked for testing.
 type Backend interface {
 	ModelConfig() (*config.Config, error)
-	APIHostPorts() ([][]network.HostPort, error)
-	WatchAPIHostPorts() state.NotifyWatcher
+	APIHostPortsForAgents() ([][]network.HostPort, error)
+	WatchAPIHostPortsForAgents() state.NotifyWatcher
 	WatchForModelConfigChanges() state.NotifyWatcher
 }
 
@@ -48,7 +48,7 @@ func (api *ProxyUpdaterAPI) oneWatch() params.NotifyWatchResult {
 
 	watch := common.NewMultiNotifyWatcher(
 		api.backend.WatchForModelConfigChanges(),
-		api.backend.WatchAPIHostPorts())
+		api.backend.WatchAPIHostPortsForAgents())
 
 	if _, ok := <-watch.Changes(); ok {
 		result = params.NotifyWatchResult{
@@ -118,7 +118,7 @@ func (api *ProxyUpdaterAPI) proxyConfig() params.ProxyConfigResult {
 		return result
 	}
 
-	apiHostPorts, err := api.backend.APIHostPorts()
+	apiHostPorts, err := api.backend.APIHostPortsForAgents()
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result

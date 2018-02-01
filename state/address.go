@@ -210,8 +210,8 @@ func (st *State) filterHostPortsForManagementSpace(apiHostPorts [][]network.Host
 	return hostPortsForAgents, nil
 }
 
-// APIHostPorts returns the collection of *all* API addresses as set by SetAPIHostPorts.
-func (st *State) APIHostPorts() ([][]network.HostPort, error) {
+// APIHostPortsForClients returns the collection of *all* known API addresses.
+func (st *State) APIHostPortsForClients() ([][]network.HostPort, error) {
 	hp, err := st.apiHostPortsForKey(apiHostPortsKey)
 	if err != nil {
 		err = errors.Trace(err)
@@ -219,18 +219,19 @@ func (st *State) APIHostPorts() ([][]network.HostPort, error) {
 	return hp, err
 }
 
-// APIHostPortsForAgents returns the collection of API addresses that should be used
-// by agents.
-// If there is no management network space configured for the controller
-// or if the space is misconfigured, the return will be the same as APIHostPorts.
+// APIHostPortsForAgents returns the collection of API addresses that should
+// be used by agents.
+// If there is no management network space configured for the controller,
+// or if the space is misconfigured, the return will be the same as
+// APIHostPortsForClients.
 // Otherwise the returned addresses will correspond with the management net space.
-// If there is no document at all, we simply fall back to APIHostPorts.
+// If there is no document at all, we simply fall back to APIHostPortsForClients.
 func (st *State) APIHostPortsForAgents() ([][]network.HostPort, error) {
 	hp, err := st.apiHostPortsForKey(apiHostPortsForAgentsKey)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			logger.Debugf("No document for %s; using %s", apiHostPortsForAgentsKey, apiHostPortsKey)
-			return st.APIHostPorts()
+			return st.APIHostPortsForClients()
 		}
 		return nil, errors.Trace(err)
 	}

@@ -23,7 +23,7 @@ import (
 // All the interface methods are defined directly on state.State
 // and are reproduced here for use in tests.
 type ModelManagerBackend interface {
-	APIHostPortsGetter
+	APIHostPortsForAgentsGetter
 	ToolsStorageGetter
 	BlockGetter
 	state.CloudAccessor

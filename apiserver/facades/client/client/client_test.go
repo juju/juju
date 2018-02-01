@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -480,6 +481,14 @@ func (s *serverSuite) TestBlockChangesAbortCurrentUpgrade(c *gc.C) {
 
 type clientSuite struct {
 	baseSuite
+}
+
+func (s *clientSuite) SetUpTest(c *gc.C) {
+	if s.ControllerConfigAttrs == nil {
+		s.ControllerConfigAttrs = make(map[string]interface{})
+	}
+	s.ControllerConfigAttrs[controller.JujuManagementSpace] = "mgmt01"
+	s.baseSuite.SetUpTest(c)
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -1497,9 +1506,10 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 		Type:  network.HostName,
 		Scope: network.ScopePublic,
 	}, {
-		Value: "10.0.0.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopeCloudLocal,
+		Value:     "10.0.0.1",
+		Type:      network.IPv4Address,
+		Scope:     network.ScopeCloudLocal,
+		SpaceName: "mgmt01",
 	}}
 	server2Addresses := []network.Address{{
 		Value: "::1",
@@ -1513,6 +1523,12 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 
 	err := s.State.SetAPIHostPorts(stateAPIHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure that address filtering by management space occurred.
+	agentHostPorts, err := s.State.APIHostPortsForAgents()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentHostPorts, gc.Not(gc.DeepEquals), stateAPIHostPorts)
+
 	apiHostPorts, err := s.APIState.Client().APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)

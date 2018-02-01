@@ -4368,7 +4368,7 @@ func (s *StateSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
-	addrs, err := s.State.APIHostPorts()
+	addrs, err := s.State.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
@@ -4397,7 +4397,7 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err := s.State.APIHostPorts()
+	gotHostPorts, err := s.State.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
@@ -4416,7 +4416,7 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err = s.State.APIHostPorts()
+	gotHostPorts, err = s.State.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
@@ -4445,7 +4445,7 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
 	// API host ports are concurrently changed to the same
 	// desired value; second arrival will fail its assertion,
 	// refresh finding nothing to do, and then issue a
-	// read-only assertion that suceeds.
+	// read-only assertion that succeeds.
 	ctrC := state.ControllersC
 	var prevRevno int64
 	var prevAgentsRevno int64
@@ -4521,7 +4521,7 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(revno, gc.Not(gc.Equals), prevAgentsRevno)
 
-	hostPorts, err := s.State.APIHostPorts()
+	hostPorts, err := s.State.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, [][]network.HostPort{hostPorts1})
 
@@ -4531,13 +4531,9 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) 
 }
 
 func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
-	// Simulate a controller configured with a management network space.
-	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
-	c.Assert(err, jc.ErrorIsNil)
-	controllerSettings.Set("juju-mgmt-space", "mgmt01")
-	_, err = controllerSettings.Write()
+	s.SetJujuManagementSpace(c, "mgmt01")
 
-	addrs, err := s.State.APIHostPorts()
+	addrs, err := s.State.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
@@ -4571,7 +4567,7 @@ func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	err = s.State.SetAPIHostPorts(newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err := s.State.APIHostPorts()
+	gotHostPorts, err := s.State.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
@@ -4583,7 +4579,7 @@ func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
-	addrs, err := s.State.APIHostPorts()
+	addrs, err := s.State.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
@@ -4612,7 +4608,7 @@ func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
 }
 
 func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
-	addrs, err := s.State.APIHostPorts()
+	addrs, err := s.State.APIHostPortsForClients()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
@@ -4640,8 +4636,8 @@ func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
 
-func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
-	w := s.State.WatchAPIHostPorts()
+func (s *StateSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
+	w := s.State.WatchAPIHostPortsForClients()
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
@@ -4654,6 +4650,53 @@ func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertOneChange()
+
+	// Stop, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *StateSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
+	s.SetJujuManagementSpace(c, "mgmt01")
+
+	w := s.State.WatchAPIHostPortsForAgents()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	mgmtHP := network.HostPort{
+		Address: network.Address{
+			Value:     "0.4.8.16",
+			Type:      network.IPv4Address,
+			Scope:     network.ScopeCloudLocal,
+			SpaceName: "mgmt01",
+		},
+		Port: 2,
+	}
+
+	err := s.State.SetAPIHostPorts([][]network.HostPort{{
+		mgmtHP,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// This should cause no change to APIHostPortsForAgents.
+	// We expect only one watcher notification.
+	err = s.State.SetAPIHostPorts([][]network.HostPort{{
+		mgmtHP,
+		network.HostPort{
+			Address: network.Address{
+				Value: "0.1.2.3",
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
+			},
+			Port: 99,
+		},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
 
 	// Stop, check closed.
 	statetesting.AssertStop(c, w)
