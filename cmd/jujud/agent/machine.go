@@ -76,6 +76,7 @@ import (
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/conv2state"
@@ -1138,10 +1139,18 @@ func (a *MachineAgent) startStateWorkers(
 				)
 				return st, err
 			}
+
+			controllerConfig, err := st.ControllerConfig()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			auditConfig := getAuditLogConfig(controllerConfig, agentConfig.LogDir())
+
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(
 				stateOpener,
 				certChangedChan,
 				auditConfigChan,
+				auditConfig,
 				dependencyReporter,
 			))
 
@@ -1159,6 +1168,13 @@ func (a *MachineAgent) startStateWorkers(
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
 				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
+			})
+
+			a.startWorkerAfterUpgrade(runner, "auditconfigupdater", func() (worker.Worker, error) {
+				logFactory := func(cfg auditlog.Config) auditlog.AuditLog {
+					return auditlog.NewLogFile(agentConfig.LogDir(), cfg.MaxSizeMB, cfg.MaxBackups)
+				}
+				return auditconfigupdater.New(st, auditConfig, logFactory, auditConfigChan)
 			})
 		default:
 			return nil, errors.Errorf("unknown job type %q", job)
@@ -1218,6 +1234,7 @@ func (a *MachineAgent) apiserverWorkerStarter(
 	stateOpener func() (*state.State, error),
 	certChanged <-chan params.StateServingInfo,
 	auditConfigChanged <-chan auditlog.Config,
+	auditConfig auditlog.Config,
 	dependencyReporter dependency.Reporter,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
@@ -1227,7 +1244,7 @@ func (a *MachineAgent) apiserverWorkerStarter(
 		}
 		statePool := state.NewStatePool(st)
 		w, err := a.newAPIserverWorker(
-			st, statePool, certChanged, auditConfigChanged, dependencyReporter,
+			st, statePool, certChanged, auditConfigChanged, auditConfig, dependencyReporter,
 		)
 		if err != nil {
 			statePool.Close()
@@ -1243,6 +1260,7 @@ func (a *MachineAgent) newAPIserverWorker(
 	statePool *state.StatePool,
 	certChanged <-chan params.StateServingInfo,
 	auditConfigChanged <-chan auditlog.Config,
+	auditConfig auditlog.Config,
 	dependencyReporter dependency.Reporter,
 ) (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
@@ -1322,7 +1340,7 @@ func (a *MachineAgent) newAPIserverWorker(
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          a.prometheusRegistry,
-		AuditConfig:                   getAuditLogConfig(controllerConfig, logDir),
+		AuditConfig:                   auditConfig,
 		AuditConfigChanged:            auditConfigChanged,
 	}
 
