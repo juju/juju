@@ -993,7 +993,7 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 	convo.ConversationID = "0123456789abcdef"
 	convo.ConnectionID = "something"
 	c.Assert(convo, gc.Equals, auditlog.Conversation{
-		Who:            user.Tag().String(),
+		Who:            user.Tag().Id(),
 		What:           "hey you guys",
 		When:           cfg.Clock.Now().Format(time.RFC3339),
 		ModelName:      s.IAASModel.Name(),

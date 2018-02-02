@@ -168,7 +168,7 @@ func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult
 			a.srv.auditLogger, filter),
 		a.srv.clock,
 		auditlog.ConversationArgs{
-			Who:          req.AuthTag,
+			Who:          a.root.entity.Tag().Id(),
 			What:         req.CLIArgs,
 			ModelName:    a.root.model.Name(),
 			ModelUUID:    a.root.model.UUID(),
