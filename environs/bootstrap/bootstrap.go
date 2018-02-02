@@ -305,6 +305,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}
+		if args.AgentVersion == nil {
+			// If agent version was not specified in the arguments,
+			// we always want the latest/newest available.
+			agentVersion, availableTools = availableTools.Newest()
+		}
 	}
 	// If there are no prepackaged tools and a specific version has not been
 	// requested, look for or build a local binary.
@@ -364,17 +369,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// agent-version to the correct thing.
 	if args.AgentVersion != nil {
 		agentVersion = *args.AgentVersion
-	} else {
-		// We will fall here when bootstrap command is given an
-		// --auto-upgrade option, meaning that any major.minor client
-		// can bootstrap a controller with the same major.minor version
-		// with the latest patch.
-		// For example, at the time when 2.3.0, 2.3.1 and 2.3.2 are released,
-		// a 2.3.1 client can bootstrap:
-		// * 2.3.0 controller by running 'bootstrap --agent-version=2.3.0';
-		// * 2.3.1 controller by running 'bootstrap' (on a machine that does not have codebase locally);
-		// * 2.3.2 controller by running 'bootstrap --auto-upgrade'.
-		agentVersion, availableTools = availableTools.Newest()
 	}
 	if cfg, err = cfg.Apply(map[string]interface{}{
 		"agent-version": agentVersion.String(),
