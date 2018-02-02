@@ -248,3 +248,11 @@ func (s *ConfigSuite) TestAuditLogExcludeMethodsType(c *gc.C) {
 	)
 	c.Assert(err, gc.ErrorMatches, `audit-log-exclude-methods\[0\]: expected string, got int\(2\)`)
 }
+
+func (s *ConfigSuite) TestAuditLogFloatBackupsLoadedDirectly(c *gc.C) {
+	// We still need to be able to handle floats in data loaded from the DB.
+	cfg := controller.Config{
+		controller.AuditLogMaxBackups: 10.0,
+	}
+	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
+}

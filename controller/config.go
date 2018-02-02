@@ -352,7 +352,11 @@ func (c Config) AuditLogMaxSizeMB() int {
 // files to keep.
 func (c Config) AuditLogMaxBackups() int {
 	if value, ok := c[AuditLogMaxBackups]; ok {
-		return value.(int)
+		if intValue, ok := value.(int); ok {
+			return intValue
+		}
+		return int(value.(float64))
+
 	}
 	return DefaultAuditLogMaxBackups
 }
