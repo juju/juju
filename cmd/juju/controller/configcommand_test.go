@@ -101,12 +101,30 @@ func (s *ConfigSuite) TestAllValues(c *gc.C) {
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
 	expected := `
-Attribute  Value
-api-port   1234
-ca-cert    |-
+Attribute                  Value
+api-port                   1234
+audit-log-exclude-methods  
+- Thing1
+- Thing2
+ca-cert  |-
   multi
   line
 controller-uuid  uuid`[1:]
+	c.Assert(output, gc.Equals, expected)
+}
+
+func (s *ConfigSuite) TestOneLineExcludeMethods(c *gc.C) {
+	var api fakeControllerAPI
+	api.config = map[string]interface{}{
+		"audit-log-exclude-methods": []string{"Actual.Size"},
+	}
+	context, err := s.runWithAPI(c, &api)
+	c.Assert(err, jc.ErrorIsNil)
+
+	output := strings.TrimSpace(cmdtesting.Stdout(context))
+	expected := `
+Attribute                  Value
+audit-log-exclude-methods  Actual.Size`[1:]
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -115,7 +133,7 @@ func (s *ConfigSuite) TestAllValuesJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(cmdtesting.Stdout(context))
-	expected := `{"api-port":1234,"ca-cert":"multi\nline","controller-uuid":"uuid"}`
+	expected := `{"api-port":1234,"audit-log-exclude-methods":["Thing1","Thing2"],"ca-cert":"multi\nline","controller-uuid":"uuid"}`
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -250,6 +268,7 @@ func writeFile(c *gc.C, name, content string) string {
 
 type fakeControllerAPI struct {
 	err    error
+	config map[string]interface{}
 	values map[string]interface{}
 }
 
@@ -261,11 +280,18 @@ func (f *fakeControllerAPI) ControllerConfig() (jujucontroller.Config, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
-	return map[string]interface{}{
-		"controller-uuid": "uuid",
-		"api-port":        1234,
-		"ca-cert":         "multi\nline",
-	}, nil
+	var result map[string]interface{}
+	if f.config != nil {
+		result = f.config
+	} else {
+		result = map[string]interface{}{
+			"controller-uuid":           "uuid",
+			"api-port":                  1234,
+			"ca-cert":                   "multi\nline",
+			"audit-log-exclude-methods": []interface{}{"Thing1", "Thing2"},
+		}
+	}
+	return result, nil
 }
 
 func (f *fakeControllerAPI) ConfigSet(values map[string]interface{}) error {
