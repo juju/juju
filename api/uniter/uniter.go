@@ -70,12 +70,12 @@ func newStateForVersionFn(version int) func(base.APICaller, names.UnitTag) *Stat
 	}
 }
 
-// newStateV7 creates a new client-side Uniter facade, version 7
-var newStateV7 = newStateForVersionFn(7)
+// newStateV8 creates a new client-side Uniter facade, version 8
+var newStateV8 = newStateForVersionFn(8)
 
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV7
+var NewState = newStateV8
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.
@@ -421,4 +421,28 @@ func (st *State) SLALevel() (string, error) {
 		return "", errors.Trace(err)
 	}
 	return result.Result, nil
+}
+
+// SetContainerSpec sets the container spec of the specified application or unit.
+func (c *State) SetContainerSpec(entityName string, spec string) error {
+	var tag names.Tag
+	switch {
+	case names.IsValidApplication(entityName):
+		tag = names.NewApplicationTag(entityName)
+	case names.IsValidUnit(entityName):
+		tag = names.NewUnitTag(entityName)
+	default:
+		return errors.NotValidf("application or unit name %q", entityName)
+	}
+	var result params.ErrorResults
+	args := params.SetContainerSpecParams{
+		Entities: []params.EntityString{{
+			Tag:   tag.String(),
+			Value: spec,
+		}},
+	}
+	if err := c.facade.FacadeCall("SetContainerSpec", args, &result); err != nil {
+		return errors.Trace(err)
+	}
+	return result.OneError()
 }

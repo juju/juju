@@ -20,6 +20,7 @@ import (
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -31,7 +32,7 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v7) of the Uniter API.
+// UniterAPI implements the latest version (v8) of the Uniter API.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -50,12 +51,17 @@ type UniterAPI struct {
 	accessApplication common.GetAuthFunc
 	unit              *state.Unit
 	accessMachine     common.GetAuthFunc
-	StorageAPI
+	*StorageAPI
+}
+
+// UniterAPIV7 adds CMR support to NetworkInfo.
+type UniterAPIV7 struct {
+	UniterAPI
 }
 
 // UniterAPIV6 adds NetworkInfo as a preferred method to calling NetworkConfig.
 type UniterAPIV6 struct {
-	UniterAPI
+	UniterAPIV7
 }
 
 // UniterAPIV5 returns a RelationResultsV5 instead of RelationResults
@@ -126,24 +132,29 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
 		}
 	}
-	ss, err := getStorageState(st)
+
+	m, err := st.Model()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting state")
+		return nil, errors.Trace(err)
 	}
-	storageAPI, err := newStorageAPI(ss, resources, accessUnit)
-	if err != nil {
-		return nil, err
+
+	// Only IAAS models support storage.
+	var storageAPI *StorageAPI
+	if m.Type() == state.ModelTypeIAAS {
+		ss, err := getStorageState(st)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting storage state")
+		}
+		storageAPI, err = newStorageAPI(ss, resources, accessUnit)
+		if err != nil {
+			return nil, err
+		}
 	}
 	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not create meter status API handler")
 	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
-
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
@@ -166,18 +177,29 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		accessApplication: accessApplication,
 		accessMachine:     accessMachine,
 		unit:              unit,
-		StorageAPI:        *storageAPI,
+		StorageAPI:        storageAPI,
+	}, nil
+}
+
+// NewUniterAPIV7 creates an instance of the V7 uniter API.
+func NewUniterAPIV7(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV7, error) {
+	uniterAPI, err := NewUniterAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV7{
+		UniterAPI: *uniterAPI,
 	}, nil
 }
 
 // NewUniterAPIV6 creates an instance of the V6 uniter API.
 func NewUniterAPIV6(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPIV6, error) {
-	uniterAPI, err := NewUniterAPI(st, resources, authorizer)
+	uniterAPI, err := NewUniterAPIV7(st, resources, authorizer)
 	if err != nil {
 		return nil, err
 	}
 	return &UniterAPIV6{
-		UniterAPI: *uniterAPI,
+		UniterAPIV7: *uniterAPI,
 	}, nil
 }
 
@@ -2205,4 +2227,57 @@ func (u *UniterAPIV6) NetworkInfo(args params.NetworkInfoParams) (params.Network
 		return params.NetworkInfoResultsV6{}, errors.Trace(err)
 	}
 	return networkInfoResultsToV6(v6Results), nil
+}
+
+// Mask the SetContainerSpec method from the v7 API. The API reflection code
+// in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
+// this removes the method as far as the RPC machinery is concerned.
+
+// SetContainerSpec isn't on the v7 API.
+func (u *UniterAPIV7) SetContainerSpec(_, _ struct{}) {}
+
+// SetContainerSpec sets the container specs for a set of entities.
+func (u *UniterAPI) SetContainerSpec(args params.SetContainerSpecParams) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	authTag := u.auth.GetAuthTag()
+	canAccess := func(tag names.Tag) bool {
+		if tag, ok := tag.(names.ApplicationTag); ok {
+			appName, err := names.UnitApplication(authTag.Id())
+			if err == nil && appName == tag.Id() {
+				return true
+			}
+		}
+		if tag, ok := tag.(names.UnitTag); ok {
+			if tag.Id() == authTag.Id() {
+				return true
+			}
+		}
+		return false
+	}
+	for i, arg := range args.Entities {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if _, err := caas.ParseContainerSpec(arg.Value); err != nil {
+			results.Results[i].Error = common.ServerError(errors.New("invalid container spec"))
+			continue
+		}
+		cm, err := u.m.CAASModel()
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Error = common.ServerError(
+			cm.SetContainerSpec(tag, arg.Value),
+		)
+	}
+	return results, nil
 }

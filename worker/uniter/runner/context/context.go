@@ -483,6 +483,21 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
+func (ctx *HookContext) SetContainerSpec(specYaml string, application bool) error {
+	entityName := ctx.unitName
+	if application {
+		isLeader, err := ctx.IsLeader()
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine leadership")
+		}
+		if !isLeader {
+			return ErrIsNotLeader
+		}
+		entityName = ctx.unit.ApplicationName()
+	}
+	return ctx.state.SetContainerSpec(entityName, specYaml)
+}
+
 // ActionName returns the name of the action.
 func (ctx *HookContext) ActionName() (string, error) {
 	if ctx.actionData == nil {

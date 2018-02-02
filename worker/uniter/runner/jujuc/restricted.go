@@ -30,6 +30,11 @@ func (*RestrictedContext) UnitStatus() (*StatusInfo, error) {
 	return nil, ErrRestrictedContext
 }
 
+// SetContainerSpec implements hooks.Context.
+func (c *RestrictedContext) SetContainerSpec(specYaml string, application bool) error {
+	return ErrRestrictedContext
+}
+
 // SetUnitStatus implements hooks.Context.
 func (*RestrictedContext) SetUnitStatus(StatusInfo) error { return ErrRestrictedContext }
 

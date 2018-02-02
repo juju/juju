@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter_test
@@ -15,38 +15,25 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type unitStorageSuite struct {
+type containerSpecSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&unitStorageSuite{})
+var _ = gc.Suite(&containerSpecSuite{})
 
-const expectedAPIVersion = 8
-
-func (s *unitStorageSuite) createTestUnit(c *gc.C, t string, apiCaller basetesting.APICallerFunc) *uniter.Unit {
-	tag := names.NewUnitTag(t)
-	st := uniter.NewState(apiCaller, tag)
-	return uniter.CreateUnit(st, tag)
-}
-
-func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
-	count := uint64(1)
-	args := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{
-			params.StorageConstraints{Count: &count}},
-	}
-
-	expected := params.StoragesAddParams{
-		Storages: []params.StorageAddParams{
-			{"unit-mysql-0", "data", params.StorageConstraints{Count: &count}},
-		},
+func (s *containerSpecSuite) TestSetContainerSpec(c *gc.C) {
+	expected := params.SetContainerSpecParams{
+		Entities: []params.EntityString{{
+			Tag:   "application-mysql",
+			Value: "spec",
+		}},
 	}
 
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(version, gc.Equals, expectedAPIVersion)
 		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "AddUnitStorage")
+		c.Assert(request, gc.Equals, "SetContainerSpec")
 		c.Assert(arg, gc.DeepEquals, expected)
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
@@ -56,21 +43,23 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 		}
 		return nil
 	})
-	u := s.createTestUnit(c, "mysql/0", apiCaller)
-	err := u.AddStorage(args)
+	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	err := st.SetContainerSpec("mysql", "spec")
 	c.Assert(err, gc.ErrorMatches, "yoink")
 }
 
-func (s *unitStorageSuite) TestAddUnitStorageError(c *gc.C) {
-	count := uint64(1)
-	args := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{params.StorageConstraints{Count: &count}},
-	}
+func (s *containerSpecSuite) TestSetContainerSpecInvalidEntityame(c *gc.C) {
+	st := uniter.NewState(nil, names.NewUnitTag("mysql/0"))
+	err := st.SetContainerSpec("", "spec")
+	c.Assert(err, gc.ErrorMatches, `application or unit name "" not valid`)
+}
 
-	expected := params.StoragesAddParams{
-		Storages: []params.StorageAddParams{
-			{"unit-mysql-0", "data", params.StorageConstraints{Count: &count}},
-		},
+func (s *containerSpecSuite) TestSetContainerSpecError(c *gc.C) {
+	expected := params.SetContainerSpecParams{
+		Entities: []params.EntityString{{
+			Tag:   "unit-mysql-0",
+			Value: "spec",
+		}},
 	}
 
 	var called bool
@@ -79,7 +68,7 @@ func (s *unitStorageSuite) TestAddUnitStorageError(c *gc.C) {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(version, gc.Equals, expectedAPIVersion)
 		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "AddUnitStorage")
+		c.Assert(request, gc.Equals, "SetContainerSpec")
 		c.Assert(arg, gc.DeepEquals, expected)
 		called = true
 
@@ -87,8 +76,8 @@ func (s *unitStorageSuite) TestAddUnitStorageError(c *gc.C) {
 		return errors.New(msg)
 	})
 
-	u := s.createTestUnit(c, "mysql/0", apiCaller)
-	err := u.AddStorage(args)
+	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	err := st.SetContainerSpec("mysql/0", "spec")
 	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
 }

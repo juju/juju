@@ -15,12 +15,17 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/api"
+	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -2983,6 +2988,84 @@ func (s *uniterSuite) TestRefreshNoArgs(c *gc.C) {
 	results, err := s.uniter.Refresh(params.Entities{Entities: []params.Entity{}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UnitRefreshResults{Results: []params.UnitRefreshResult{}})
+}
+
+var containerSpec = `
+name: gitlab
+image-name: gitlab/latest
+ports:
+- container-port: 80
+  protocol: TCP
+- container-port: 443
+config:
+  attr: foo=bar; fred=blogs
+  foo: bar
+`[1:]
+
+func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASModel, *state.Application, *state.Unit) {
+	s.SetFeatureFlags(feature.CAAS)
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "caascloud",
+		Type:      "kubernetes",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
+		"name": "caas-model",
+		"uuid": utils.MustNewUUID().String(),
+	})
+	m, st, err := s.State.NewModel(state.ModelArgs{
+		Type:      state.ModelTypeCAAS,
+		Owner:     names.NewUserTag("admin"),
+		CloudName: "caascloud",
+		Config:    cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	cm, err := m.CAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	f := factory.NewFactory(st)
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress"})
+	unit := f.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+		SetCharmURL: true,
+	})
+
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+
+	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.Tag = unit.Tag()
+	apiInfo.Password = password
+	apiState, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.CleanupSuite.AddCleanup(func(*gc.C) { apiState.Close() })
+
+	u, err := apiState.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
+	return u, cm, app, unit
+}
+
+func (s *uniterSuite) TestSetContainerSpecApplication(c *gc.C) {
+	u, cm, app, _ := s.setupCAASModel(c)
+	err := u.SetContainerSpec(app.Name(), containerSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	spec, err := cm.ContainerSpec(app.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec, gc.Equals, containerSpec)
+}
+
+func (s *uniterSuite) TestSetContainerSpecUnit(c *gc.C) {
+	u, cm, _, unit := s.setupCAASModel(c)
+	err := u.SetContainerSpec(unit.Name(), containerSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	spec, err := cm.ContainerSpec(unit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec, gc.Equals, containerSpec)
 }
 
 type unitMetricBatchesSuite struct {

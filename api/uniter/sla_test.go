@@ -23,6 +23,10 @@ func (s *slaSuiteV4) SetUpTest(c *gc.C) {
 	s.PatchValue(&uniter.NewState, uniter.NewStateV4)
 }
 
+func (s *slaSuiteV4) TestSetContainerSpecApplication(c *gc.C) {
+	c.Skip("this API not present in V4")
+}
+
 func (s *slaSuiteV4) TestSLALevelOldFacadeVersion(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil

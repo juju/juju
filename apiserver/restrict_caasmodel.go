@@ -36,6 +36,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"Singular",
 	"StatusHistory",
 	"StringsWatcher",
+	"Uniter",
 )
 
 // caasModelFacadeNames lists facades that are only used with CAAS
