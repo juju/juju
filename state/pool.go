@@ -249,13 +249,8 @@ func (p *StatePool) Remove(modelUUID string) (bool, error) {
 	removed, err := p.maybeRemoveItem(modelUUID, item)
 
 	// If the item was not removed, set a deadline to forcibly remove it.
-	if !removed {
-		go func() {
-			time.Sleep(p.forceRemoveTimeout)
-			if p.forceRemoveItem(modelUUID, item) == nil {
-				logger.Debugf("state pool item for %s forcibly removed.")
-			}
-		}()
+	if !removed && err == nil {
+		go p.beginForceRemoveCountdown(modelUUID)
 	}
 
 	return removed, err
@@ -266,6 +261,27 @@ func (p *StatePool) maybeRemoveItem(modelUUID string, item *PoolItem) (bool, err
 		return true, p.removeItem(modelUUID, item)
 	}
 	return false, nil
+}
+
+// beginForceRemoveCountdown waits for the set duration then ensures
+// (by force if required) that the item corresponding with the input model is
+// removed from the pool.
+// Call it from a Goroutine.
+func (p *StatePool) beginForceRemoveCountdown(modelUUID string) {
+	time.Sleep(p.forceRemoveTimeout)
+
+	// It may have been legitimately removed meantime,
+	// so check that it is still there.
+	// If it is, log a report of its references and force removal.
+	if item, ok := p.pool[modelUUID]; ok {
+		buf := &bytes.Buffer{}
+		inspectPoolItem(modelUUID, item, buf)
+		logger.Debugf("forcing removal of pool item: %s", buf)
+
+		if err := p.forceRemoveItem(modelUUID, item); err != nil {
+			logger.Errorf("removing pool item: %s", err.Error())
+		}
+	}
 }
 
 // forceRemoveItem is used to call removeItem "out of band".
@@ -320,24 +336,32 @@ func (p *StatePool) IntrospectionReport() string {
 	defer p.mu.Unlock()
 
 	removeCount := 0
-	buff := &bytes.Buffer{}
+	buf := &bytes.Buffer{}
 
 	for uuid, item := range p.pool {
-		if item.remove {
+		if inspectPoolItem(uuid, item, buf) {
 			removeCount++
 		}
-		fmt.Fprintf(buff, "\nModel: %s\n", uuid)
-		fmt.Fprintf(buff, "  Marked for removal: %v\n", item.remove)
-		fmt.Fprintf(buff, "  Reference count: %v\n", item.refCount())
-		index := 0
-		for _, ref := range item.referenceSources {
-			index++
-			fmt.Fprintf(buff, "    [%d]\n%s\n", index, ref)
-		}
 	}
-
 	return fmt.Sprintf(""+
 		"Model count: %d models\n"+
 		"Marked for removal: %d models\n"+
-		"\n%s", len(p.pool), removeCount, buff)
+		"\n%s", len(p.pool), removeCount, buf)
+}
+
+// inspectPoolItem generates a report for the state of a single PoolItem and
+// writes it to the supplied buffer.
+// The return indicates whether the item was marked for removal.
+func inspectPoolItem(modelUUID string, item *PoolItem, buf *bytes.Buffer) bool {
+	fmt.Fprintf(buf, "\nModel: %s\n", modelUUID)
+	fmt.Fprintf(buf, "  Marked for removal: %v\n", item.remove)
+	fmt.Fprintf(buf, "  Reference count: %v\n", item.refCount())
+
+	index := 0
+	for _, ref := range item.referenceSources {
+		index++
+		fmt.Fprintf(buf, "    [%d]\n%s\n", index, ref)
+	}
+
+	return item.remove
 }
