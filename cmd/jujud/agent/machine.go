@@ -76,6 +76,7 @@ import (
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/conv2state"
@@ -1110,6 +1111,12 @@ func (a *MachineAgent) startStateWorkers(
 			//
 			// TODO(ericsnow) For now we simply do not close the channel.
 			certChangedChan := make(chan params.StateServingInfo, 10)
+
+			// Similarly, buffer the audit config change channel so
+			// that controller config changes coming in don't block
+			// apiserver startup.
+			auditConfigChan := make(chan auditlog.Config, 1)
+
 			// Each time apiserver worker is restarted, we need a fresh copy of state due
 			// to the fact that state holds lease managers which are killed and need to be reset.
 			dialOpts, err := mongoDialOptions(
@@ -1129,11 +1136,25 @@ func (a *MachineAgent) startStateWorkers(
 				)
 				return st, err
 			}
+
+			controllerConfig, err := st.ControllerConfig()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			auditConfig := getAuditLogConfig(controllerConfig)
+			if auditConfig.Enabled {
+				auditConfig.Target = auditlog.NewLogFile(
+					agentConfig.LogDir(), auditConfig.MaxSizeMB, auditConfig.MaxBackups)
+			}
+
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(
 				stateOpener,
 				certChangedChan,
+				auditConfigChan,
+				auditConfig,
 				dependencyReporter,
 			))
+
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo, done <-chan struct{}) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
@@ -1148,6 +1169,13 @@ func (a *MachineAgent) startStateWorkers(
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
 				return newCertificateUpdater(m, agentConfig, st, st, stateServingSetter), nil
+			})
+
+			a.startWorkerAfterUpgrade(runner, "auditconfigupdater", func() (worker.Worker, error) {
+				logFactory := func(cfg auditlog.Config) auditlog.AuditLog {
+					return auditlog.NewLogFile(agentConfig.LogDir(), cfg.MaxSizeMB, cfg.MaxBackups)
+				}
+				return auditconfigupdater.New(st, auditConfig, logFactory, auditConfigChan)
 			})
 		default:
 			return nil, errors.Errorf("unknown job type %q", job)
@@ -1205,7 +1233,9 @@ var stateWorkerDialOpts mongo.DialOpts
 
 func (a *MachineAgent) apiserverWorkerStarter(
 	stateOpener func() (*state.State, error),
-	certChanged chan params.StateServingInfo,
+	certChanged <-chan params.StateServingInfo,
+	auditConfigChanged <-chan auditlog.Config,
+	auditConfig auditlog.Config,
 	dependencyReporter dependency.Reporter,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
@@ -1215,7 +1245,7 @@ func (a *MachineAgent) apiserverWorkerStarter(
 		}
 		statePool := state.NewStatePool(st)
 		w, err := a.newAPIserverWorker(
-			st, statePool, certChanged, dependencyReporter,
+			st, statePool, certChanged, auditConfigChanged, auditConfig, dependencyReporter,
 		)
 		if err != nil {
 			statePool.Close()
@@ -1229,7 +1259,9 @@ func (a *MachineAgent) apiserverWorkerStarter(
 func (a *MachineAgent) newAPIserverWorker(
 	st *state.State,
 	statePool *state.StatePool,
-	certChanged chan params.StateServingInfo,
+	certChanged <-chan params.StateServingInfo,
+	auditConfigChanged <-chan auditlog.Config,
+	auditConfig auditlog.Config,
 	dependencyReporter dependency.Reporter,
 ) (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
@@ -1290,8 +1322,6 @@ func (a *MachineAgent) newAPIserverWorker(
 		return nil, errors.Annotate(err, "getting log sink config")
 	}
 
-	auditConfig := getAuditLogConfig(controllerConfig)
-
 	serverConfig := apiserver.ServerConfig{
 		Clock:                         clock.WallClock,
 		Cert:                          cert,
@@ -1311,12 +1341,8 @@ func (a *MachineAgent) newAPIserverWorker(
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          a.prometheusRegistry,
-		AuditLogConfig:                auditConfig,
-	}
-
-	if auditConfig.Enabled {
-		serverConfig.AuditLog = auditlog.NewLogFile(
-			logDir, auditConfig.MaxSizeMB, auditConfig.MaxBackups)
+		AuditConfig:                   auditConfig,
+		AuditConfigChanged:            auditConfigChanged,
 	}
 
 	server, err := apiserver.NewServer(statePool, listener, serverConfig)
@@ -1787,12 +1813,13 @@ func getLogSinkConfig(cfg agent.Config) (apiserver.LogSinkConfig, error) {
 	return result, nil
 }
 
-func getAuditLogConfig(cfg controller.Config) apiserver.AuditLogConfig {
-	return apiserver.AuditLogConfig{
+func getAuditLogConfig(cfg controller.Config) auditlog.Config {
+	result := auditlog.Config{
 		Enabled:        cfg.AuditingEnabled(),
 		CaptureAPIArgs: cfg.AuditLogCaptureArgs(),
 		MaxSizeMB:      cfg.AuditLogMaxSizeMB(),
 		MaxBackups:     cfg.AuditLogMaxBackups(),
 		ExcludeMethods: cfg.AuditLogExcludeMethods(),
 	}
+	return result
 }

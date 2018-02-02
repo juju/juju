@@ -179,8 +179,6 @@ var (
 	AllowedUpdateConfigAttributes = set.NewStrings(
 		AuditingEnabled,
 		AuditLogCaptureArgs,
-		AuditLogMaxSize,
-		AuditLogMaxBackups,
 		AuditLogExcludeMethods,
 	)
 
@@ -354,6 +352,10 @@ func (c Config) AuditLogMaxSizeMB() int {
 // files to keep.
 func (c Config) AuditLogMaxBackups() int {
 	if value, ok := c[AuditLogMaxBackups]; ok {
+		// Values obtained over the API are encoded as float64.
+		if floatValue, ok := value.(float64); ok {
+			return int(floatValue)
+		}
 		return value.(int)
 	}
 	return DefaultAuditLogMaxBackups

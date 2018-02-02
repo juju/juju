@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/imagemetadata"
 	apimachiner "github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
@@ -650,29 +649,71 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 		Password: password,
 	})
 
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		"audit-log-exclude-methods": []interface{}{"Client.FullStatus"},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.assertJobWithState(c, state.JobManageModel, func(conf agent.Config, agentState *state.State) {
 		logPath := filepath.Join(conf.LogDir(), "audit.log")
 
-		apiInfo, ok := conf.APIInfo()
-		c.Assert(ok, jc.IsTrue)
-		apiInfo.Tag = user.Tag()
-		apiInfo.Password = password
-		st, err := api.Open(apiInfo, fastDialOpts)
-		c.Assert(err, jc.ErrorIsNil)
-		defer st.Close()
+		makeAPIRequest := func(doRequest func(*api.Client)) {
+			apiInfo, ok := conf.APIInfo()
+			c.Assert(ok, jc.IsTrue)
+			apiInfo.Tag = user.Tag()
+			apiInfo.Password = password
+			st, err := api.Open(apiInfo, fastDialOpts)
+			c.Assert(err, jc.ErrorIsNil)
+			defer st.Close()
+			doRequest(st.Client())
+		}
 
-		client := st.Client()
-		_, err = client.AddMachines([]params.AddMachineParams{{
-			Jobs: []multiwatcher.MachineJob{"JobHostUnits"},
-		}})
-		c.Assert(err, jc.ErrorIsNil)
+		// Make requests in separate API connections so they're separate conversations.
+		makeAPIRequest(func(client *api.Client) {
+			_, err = client.Status(nil)
+			c.Assert(err, jc.ErrorIsNil)
+		})
+		makeAPIRequest(func(client *api.Client) {
+			_, err = client.AddMachines([]params.AddMachineParams{{
+				Jobs: []multiwatcher.MachineJob{"JobHostUnits"},
+			}})
+			c.Assert(err, jc.ErrorIsNil)
+		})
 
-		// Check that there's a call to Client.AddMachinesV2 in the log.
+		// Check that there's a call to Client.AddMachinesV2 in the
+		// log, but no call to Client.FullStatus.
 		records := readAuditLog(c, logPath)
 		c.Assert(records, gc.HasLen, 3)
 		c.Assert(records[1].Request, gc.NotNil)
 		c.Assert(records[1].Request.Facade, gc.Equals, "Client")
 		c.Assert(records[1].Request.Method, gc.Equals, "AddMachinesV2")
+
+		// Now update the controller config to remove the exclusion.
+		err := s.State.UpdateControllerConfig(map[string]interface{}{
+			"audit-log-exclude-methods": []interface{}{},
+		}, nil)
+		c.Assert(err, jc.ErrorIsNil)
+
+		prevRecords := len(records)
+
+		// We might need to wait until the controller config change is
+		// propagated to the apiserver.
+		for a := coretesting.LongAttempt.Start(); a.Next(); {
+			makeAPIRequest(func(client *api.Client) {
+				_, err = client.Status(nil)
+				c.Assert(err, jc.ErrorIsNil)
+			})
+			// Check to see whether there are more logged requests.
+			records = readAuditLog(c, logPath)
+			if prevRecords < len(records) {
+				break
+			}
+		}
+		// Now there should also be a call to Client.FullStatus (and a response).
+		lastRequest := records[len(records)-2]
+		c.Assert(lastRequest.Request, gc.NotNil)
+		c.Assert(lastRequest.Request.Facade, gc.Equals, "Client")
+		c.Assert(lastRequest.Request.Method, gc.Equals, "FullStatus")
 	})
 }
 
@@ -1427,7 +1468,7 @@ func (s *MachineSuite) TestGetAuditLogConfig(c *gc.C) {
 	cfg["auditing-enabled"] = true
 	cfg["audit-log-exclude-methods"] = []interface{}{"Exclude.This"}
 	result := getAuditLogConfig(cfg)
-	c.Assert(result, gc.DeepEquals, apiserver.AuditLogConfig{
+	c.Assert(result, gc.DeepEquals, auditlog.Config{
 		Enabled:        true,
 		CaptureAPIArgs: true,
 		MaxSizeMB:      200,
