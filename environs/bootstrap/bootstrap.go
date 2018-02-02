@@ -291,9 +291,16 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		}
 	}
 
+	agentVersion := jujuversion.Current
 	var availableTools coretools.List
 	if !args.BuildAgent {
-		ctx.Infof("Looking for packaged Juju agent version %s for %s", args.AgentVersion, bootstrapArch)
+		latestPatchTxt := ""
+		versionTxt := fmt.Sprintf("%v", args.AgentVersion)
+		if args.AgentVersion == nil {
+			latestPatchTxt = "latest patch of "
+			versionTxt = fmt.Sprintf("%v.%v", agentVersion.Major, agentVersion.Minor)
+		}
+		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
 		availableTools, err = findPackagedTools(environ, args.AgentVersion, &bootstrapArch, bootstrapSeries)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
@@ -355,9 +362,19 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	// agent-version set anyway, to appease FinishInstanceConfig.
 	// In the latter case, setBootstrapTools will later set
 	// agent-version to the correct thing.
-	agentVersion := jujuversion.Current
 	if args.AgentVersion != nil {
 		agentVersion = *args.AgentVersion
+	} else {
+		// We will fall here when bootstrap command is given an
+		// --auto-upgrade option, meaning that any major.minor client
+		// can bootstrap a controller with the same major.minor version
+		// with the latest patch.
+		// For example, at the time when 2.3.0, 2.3.1 and 2.3.2 are released,
+		// a 2.3.1 client can bootstrap:
+		// * 2.3.0 controller by running 'bootstrap --agent-version=2.3.0';
+		// * 2.3.1 controller by running 'bootstrap' (on a machine that does not have codebase locally);
+		// * 2.3.2 controller by running 'bootstrap --auto-upgrade'.
+		agentVersion, availableTools = availableTools.Newest()
 	}
 	if cfg, err = cfg.Apply(map[string]interface{}{
 		"agent-version": agentVersion.String(),

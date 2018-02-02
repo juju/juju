@@ -104,6 +104,15 @@ In other words, a 2.2.1 client can bootstrap any 2.2.x agents but cannot
 bootstrap any 2.0.x or 2.1.x agents.
 The agent version can be specified a simple numeric version, e.g. 2.2.4.
 
+For example, at the time when 2.3.0, 2.3.1 and 2.3.2 are released and your
+agent stream is 'released' (default), then a 2.3.1 client can bootstrap:
+ * 2.3.0 controller by running '... bootstrap --agent-version=2.3.0 ...';
+ * 2.3.1 controller by running '... bootstrap ...';
+ * 2.3.2 controller by running 'bootstrap --auto-upgrade'.
+However, if this client has a copy of codebase, then a local copy of Juju 
+will be built and bootstrapped - 2.3.1.1.
+
+
 Examples:
     juju bootstrap
     juju bootstrap --clouds
