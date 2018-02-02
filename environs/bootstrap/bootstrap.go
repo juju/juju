@@ -291,12 +291,24 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		}
 	}
 
+	agentVersion := jujuversion.Current
 	var availableTools coretools.List
 	if !args.BuildAgent {
-		ctx.Infof("Looking for packaged Juju agent version %s for %s", args.AgentVersion, bootstrapArch)
+		latestPatchTxt := ""
+		versionTxt := fmt.Sprintf("%v", args.AgentVersion)
+		if args.AgentVersion == nil {
+			latestPatchTxt = "latest patch of "
+			versionTxt = fmt.Sprintf("%v.%v", agentVersion.Major, agentVersion.Minor)
+		}
+		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
 		availableTools, err = findPackagedTools(environ, args.AgentVersion, &bootstrapArch, bootstrapSeries)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
+		}
+		if len(availableTools) != 0 && args.AgentVersion == nil {
+			// If agent version was not specified in the arguments,
+			// we always want the latest/newest available.
+			agentVersion, availableTools = availableTools.Newest()
 		}
 	}
 	// If there are no prepackaged tools and a specific version has not been
@@ -350,12 +362,18 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return errors.New(noToolsMessage)
 	}
 
+	// TODO (anastasiamac 2018-02-02) By this stage, we will have a list
+	// of available tools (agent binaries) but they should all be the same
+	// version. Need to do check here, otherwise the provider.Bootstrap call
+	// may fail. This also means that compatibility check, currently done
+	// after provider.Bootstrap call in getBootstrapToolsVersion,
+	// should be done here.
+
 	// If we're uploading, we must override agent-version;
 	// if we're not uploading, we want to ensure we have an
 	// agent-version set anyway, to appease FinishInstanceConfig.
 	// In the latter case, setBootstrapTools will later set
 	// agent-version to the correct thing.
-	agentVersion := jujuversion.Current
 	if args.AgentVersion != nil {
 		agentVersion = *args.AgentVersion
 	}
