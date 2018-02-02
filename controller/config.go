@@ -352,11 +352,11 @@ func (c Config) AuditLogMaxSizeMB() int {
 // files to keep.
 func (c Config) AuditLogMaxBackups() int {
 	if value, ok := c[AuditLogMaxBackups]; ok {
-		if intValue, ok := value.(int); ok {
-			return intValue
+		// Values obtained over the API are encoded as float64.
+		if floatValue, ok := value.(float64); ok {
+			return int(floatValue)
 		}
-		return int(value.(float64))
-
+		return value.(int)
 	}
 	return DefaultAuditLogMaxBackups
 }

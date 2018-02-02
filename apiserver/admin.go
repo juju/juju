@@ -158,7 +158,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 }
 
 func (a *admin) getAuditRecorder(req params.LoginRequest, authResult *authResult, cfg auditlog.Config) (*auditlog.Recorder, error) {
-	if !authResult.userLogin || cfg.Enabled == false {
+	if !authResult.userLogin || !cfg.Enabled {
 		return nil, nil
 	}
 	// Wrap the audit logger in a filter that prevents us from logging

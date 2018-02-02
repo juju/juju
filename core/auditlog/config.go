@@ -10,6 +10,8 @@ import (
 
 // Config holds parameters to control audit logging.
 type Config struct {
+	// Enabled determines whether API requests should be audited at
+	// all.
 	Enabled bool
 
 	// CaptureAPIArgs says whether to capture API method args (command

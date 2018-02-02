@@ -108,6 +108,6 @@ func (s *auditConfigSuite) TestInvalidConfigLogsAndDiscards(c *gc.C) {
 
 	messages := logWriter.Log()
 	c.Assert(messages[len(messages)-1:], jc.LogMatches, []jc.SimpleMessage{{
-		loggo.CRITICAL, "discarding invalid audit config: logging enabled but no target provided",
+		loggo.WARNING, "discarding invalid audit config: logging enabled but no target provided",
 	}})
 }

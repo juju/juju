@@ -1021,7 +1021,7 @@ func (srv *Server) processAuditConfigChanges() error {
 			return tomb.ErrDying
 		case auditConfig := <-srv.auditConfigChanged:
 			if err := auditConfig.Validate(); err != nil {
-				logger.Criticalf("discarding invalid audit config: %s", err)
+				logger.Warningf("discarding invalid audit config: %s", err)
 			} else {
 				srv.updateAuditConfig(auditConfig)
 			}
@@ -1035,7 +1035,8 @@ func (srv *Server) updateAuditConfig(newConfig auditlog.Config) {
 	srv.currentAuditConfig = newConfig
 }
 
-// GetAuditConfig returns the current audit logging configuration.
+// GetAuditConfig returns a copy of the current audit logging
+// configuration.
 func (srv *Server) GetAuditConfig() auditlog.Config {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()

@@ -693,21 +693,27 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 			"audit-log-exclude-methods": []interface{}{},
 		}, nil)
 		c.Assert(err, jc.ErrorIsNil)
-		// Wait until the controller config change is propagated to
-		// the apiserver.
-		// TODO(babbageclunk): do this better!
-		time.Sleep(2 * time.Second)
 
-		makeAPIRequest(func(client *api.Client) {
-			_, err = client.Status(nil)
-			c.Assert(err, jc.ErrorIsNil)
-		})
-		// Now there's also a call to Client.FullStatus.
-		records = readAuditLog(c, logPath)
-		c.Assert(records, gc.HasLen, 6)
-		c.Assert(records[4].Request, gc.NotNil)
-		c.Assert(records[4].Request.Facade, gc.Equals, "Client")
-		c.Assert(records[4].Request.Method, gc.Equals, "FullStatus")
+		prevRecords := len(records)
+
+		// We might need to wait until the controller config change is
+		// propagated to the apiserver.
+		for a := coretesting.LongAttempt.Start(); a.Next(); {
+			makeAPIRequest(func(client *api.Client) {
+				_, err = client.Status(nil)
+				c.Assert(err, jc.ErrorIsNil)
+			})
+			// Check to see whether there are more logged requests.
+			records = readAuditLog(c, logPath)
+			if prevRecords < len(records) {
+				break
+			}
+		}
+		// Now there should also be a call to Client.FullStatus (and a response).
+		lastRequest := records[len(records)-2]
+		c.Assert(lastRequest.Request, gc.NotNil)
+		c.Assert(lastRequest.Request.Facade, gc.Equals, "Client")
+		c.Assert(lastRequest.Request.Method, gc.Equals, "FullStatus")
 	})
 }
 
@@ -1461,9 +1467,7 @@ func (s *MachineSuite) TestGetAuditLogConfig(c *gc.C) {
 	cfg := coretesting.FakeControllerConfig()
 	cfg["auditing-enabled"] = true
 	cfg["audit-log-exclude-methods"] = []interface{}{"Exclude.This"}
-	result := getAuditLogConfig(cfg, c.MkDir())
-	c.Assert(result.Target, gc.NotNil)
-	result.Target = nil
+	result := getAuditLogConfig(cfg)
 	c.Assert(result, gc.DeepEquals, auditlog.Config{
 		Enabled:        true,
 		CaptureAPIArgs: true,

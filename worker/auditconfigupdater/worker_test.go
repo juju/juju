@@ -6,7 +6,6 @@ package auditconfigupdater_test
 import (
 	"time"
 
-	// "github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"

@@ -1115,9 +1115,6 @@ func (a *MachineAgent) startStateWorkers(
 			// Similarly, buffer the audit config change channel so
 			// that controller config changes coming in don't block
 			// apiserver startup.
-			// TODO(babbageclunk): add a worker that watches the
-			// controller config and publishes to this chan when it
-			// changes.
 			auditConfigChan := make(chan auditlog.Config, 1)
 
 			// Each time apiserver worker is restarted, we need a fresh copy of state due
@@ -1144,7 +1141,11 @@ func (a *MachineAgent) startStateWorkers(
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			auditConfig := getAuditLogConfig(controllerConfig, agentConfig.LogDir())
+			auditConfig := getAuditLogConfig(controllerConfig)
+			if auditConfig.Enabled {
+				auditConfig.Target = auditlog.NewLogFile(
+					agentConfig.LogDir(), auditConfig.MaxSizeMB, auditConfig.MaxBackups)
+			}
 
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(
 				stateOpener,
@@ -1812,17 +1813,13 @@ func getLogSinkConfig(cfg agent.Config) (apiserver.LogSinkConfig, error) {
 	return result, nil
 }
 
-func getAuditLogConfig(cfg controller.Config, logDir string) auditlog.Config {
+func getAuditLogConfig(cfg controller.Config) auditlog.Config {
 	result := auditlog.Config{
 		Enabled:        cfg.AuditingEnabled(),
 		CaptureAPIArgs: cfg.AuditLogCaptureArgs(),
 		MaxSizeMB:      cfg.AuditLogMaxSizeMB(),
 		MaxBackups:     cfg.AuditLogMaxBackups(),
 		ExcludeMethods: cfg.AuditLogExcludeMethods(),
-	}
-	if result.Enabled {
-		result.Target = auditlog.NewLogFile(
-			logDir, result.MaxSizeMB, result.MaxBackups)
 	}
 	return result
 }
