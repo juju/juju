@@ -124,14 +124,24 @@ func (st *State) UpdateControllerConfig(updateAttrs map[string]interface{}, remo
 
 func checkControllerConfigNames(updateAttrs map[string]interface{}, removeAttrs []string) error {
 	for k := range updateAttrs {
-		if !jujucontroller.AllowedUpdateConfigAttributes.Contains(k) {
-			return errors.Errorf("can't change %q after bootstrap", k)
+		if err := checkUpdateControllerConfig(k); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	for _, r := range removeAttrs {
-		if !jujucontroller.AllowedUpdateConfigAttributes.Contains(r) {
-			return errors.Errorf("can't change %q after bootstrap", r)
+		if err := checkUpdateControllerConfig(r); err != nil {
+			return errors.Trace(err)
 		}
+	}
+	return nil
+}
+
+func checkUpdateControllerConfig(name string) error {
+	if !jujucontroller.ControllerOnlyAttribute(name) {
+		return errors.Errorf("unknown controller config setting %q", name)
+	}
+	if !jujucontroller.AllowedUpdateConfigAttributes.Contains(name) {
+		return errors.Errorf("can't change %q after bootstrap", name)
 	}
 	return nil
 }

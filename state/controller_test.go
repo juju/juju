@@ -134,3 +134,15 @@ func (s *ControllerSuite) TestUpdateControllerConfigValidates(c *gc.C) {
 	}, nil)
 	c.Assert(err, gc.ErrorMatches, `invalid audit log max size in configuration: invalid multiplier suffix "ZipMorps", expected one of MGTPEZY`)
 }
+
+func (s *ControllerSuite) TestUpdatingUnknownName(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		"ana-ng": "majestic",
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, `unknown controller config setting "ana-ng"`)
+}
+
+func (s *ControllerSuite) TestRemovingUnknownName(c *gc.C) {
+	err := s.State.UpdateControllerConfig(nil, []string{"dr-worm"})
+	c.Assert(err, gc.ErrorMatches, `unknown controller config setting "dr-worm"`)
+}
