@@ -84,7 +84,7 @@ func (*serviceSuite) TestListServicesScript(c *gc.C) {
 	expected = append(expected,
 		`case "$init_system" in`,
 		`systemd)`,
-		`    /bin/systemctl list-unit-files --no-legend --no-page -t service`+
+		`    /bin/systemctl list-unit-files --no-legend --no-page -l -t service`+
 			` | grep -o -P '^\w[\S]*(?=\.service)'`,
 		`    ;;`,
 		`upstart)`,
