@@ -189,12 +189,13 @@ func (w *stateWorker) processModelLifeChange(
 	modelStateWorkers map[string]worker.Worker,
 	pool *state.StatePool,
 ) error {
-	remove := func() {
+	remove := func() error {
 		if w, ok := modelStateWorkers[modelUUID]; ok {
 			w.Kill()
 			delete(modelStateWorkers, modelUUID)
 		}
-		pool.Remove(modelUUID)
+		_, err := pool.Remove(modelUUID)
+		return err
 	}
 
 	model, release, err := pool.GetModel(modelUUID)
@@ -202,8 +203,7 @@ func (w *stateWorker) processModelLifeChange(
 		if errors.IsNotFound(err) {
 			// Model has been removed from state.
 			logger.Debugf("model %q removed from state", modelUUID)
-			remove()
-			return nil
+			return errors.Trace(remove())
 		}
 		return errors.Trace(err)
 	}
@@ -212,8 +212,7 @@ func (w *stateWorker) processModelLifeChange(
 	if model.Life() == state.Dead {
 		// Model is Dead, and will soon be removed from state.
 		logger.Debugf("model %q is dead", modelUUID)
-		remove()
-		return nil
+		return errors.Trace(remove())
 	}
 
 	if modelStateWorkers[modelUUID] == nil {
@@ -266,14 +265,20 @@ func newModelStateWorker(
 	return w
 }
 
-func (w *modelStateWorker) loop() error {
+func (w *modelStateWorker) loop() (err error) {
 	st, release, err := w.pool.Get(w.modelUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// Make sure we do not ignore errors for pool item removal.
 	defer func() {
 		release()
-		w.pool.Remove(w.modelUUID)
+		if _, dErr := w.pool.Remove(w.modelUUID); dErr != nil {
+			if err == nil {
+				err = dErr
+			}
+			err = errors.Wrap(err, dErr)
+		}
 	}()
 
 	for {
