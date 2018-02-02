@@ -24,21 +24,21 @@ var _ = gc.Suite(&auditConfigSuite{})
 
 func (s *auditConfigSuite) TestUpdateConfig(c *gc.C) {
 	config := s.sampleConfig(c)
-	auditConfigChanged := make(chan apiserver.AuditLogConfig)
+	auditConfigChanged := make(chan auditlog.Config)
 	config.AuditConfigChanged = auditConfigChanged
-	config.AuditConfig = apiserver.AuditLogConfig{
+	config.AuditConfig = auditlog.Config{
 		ExcludeMethods: set.NewStrings("Midlake.Bandits"),
 	}
 
 	srv := s.newServer(c, config)
 
 	auditConfig := srv.GetAuditConfig()
-	c.Assert(auditConfig, gc.DeepEquals, apiserver.AuditLogConfig{
+	c.Assert(auditConfig, gc.DeepEquals, auditlog.Config{
 		ExcludeMethods: set.NewStrings("Midlake.Bandits"),
 	})
 
 	fakeLog := &servertesting.FakeAuditLog{}
-	newConfig := apiserver.AuditLogConfig{
+	newConfig := auditlog.Config{
 		Enabled:        true,
 		ExcludeMethods: set.NewStrings("ModelManager.ListModels"),
 		Target:         fakeLog,
@@ -62,7 +62,7 @@ func (s *auditConfigSuite) TestUpdateConfig(c *gc.C) {
 	})
 
 	auditConfig.Target = nil
-	c.Assert(auditConfig, gc.DeepEquals, apiserver.AuditLogConfig{
+	c.Assert(auditConfig, gc.DeepEquals, auditlog.Config{
 		Enabled:        true,
 		ExcludeMethods: set.NewStrings("ModelManager.ListModels"),
 	})
@@ -70,7 +70,7 @@ func (s *auditConfigSuite) TestUpdateConfig(c *gc.C) {
 
 func (s *auditConfigSuite) TestNewServerValidatesConfig(c *gc.C) {
 	config := s.sampleConfig(c)
-	config.AuditConfig = apiserver.AuditLogConfig{
+	config.AuditConfig = auditlog.Config{
 		Enabled: true,
 	}
 
@@ -85,11 +85,11 @@ func (s *auditConfigSuite) TestNewServerValidatesConfig(c *gc.C) {
 
 func (s *auditConfigSuite) TestInvalidConfigLogsAndDiscards(c *gc.C) {
 	config := s.sampleConfig(c)
-	auditConfigChanged := make(chan apiserver.AuditLogConfig)
+	auditConfigChanged := make(chan auditlog.Config)
 	config.AuditConfigChanged = auditConfigChanged
 
 	srv := s.newServer(c, config)
-	newConfig := apiserver.AuditLogConfig{
+	newConfig := auditlog.Config{
 		Enabled:        true,
 		ExcludeMethods: set.NewStrings("ModelManager.ListModels"),
 	}
