@@ -362,6 +362,13 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return errors.New(noToolsMessage)
 	}
 
+	// TODO (anastasiamac 2018-02-02) By this stage, we will have a list
+	// of available tools (agent binaries) but they should all be the same
+	// version. Need to do check here, otherwise the provider.Bootstrap call
+	// may fail. This also means that compatibility check, currently done
+	// after provider.Bootstrap call in getBootstrapToolsVersion,
+	// should be done here.
+
 	// If we're uploading, we must override agent-version;
 	// if we're not uploading, we want to ensure we have an
 	// agent-version set anyway, to appease FinishInstanceConfig.

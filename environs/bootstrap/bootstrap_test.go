@@ -1186,6 +1186,14 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 	_, err := envtesting.UploadFakeToolsVersions(env.storage, stream, stream, toolsBinaries...)
 	c.Assert(err, jc.ErrorIsNil)
 
+	env.checkToolsFunc = func(t tools.List) {
+		mockInstanceCfg := &instancecfg.InstanceConfig{}
+		// All providers call SetTools on instance config during StartInstance
+		// (which is called by Bootstrap). Checking here that the call will pass.
+		err := mockInstanceCfg.SetTools(t)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      "admin-secret",
@@ -1291,6 +1299,12 @@ type bootstrapEnviron struct {
 	args                      environs.BootstrapParams
 	instanceConfig            *instancecfg.InstanceConfig
 	storage                   storage.Storage
+
+	// Providers are expected to receive a list of available
+	// agent binaries (aka tools). This list needs to be valid.
+	// For example, as discovered in lp#1745951, all items in that list
+	// must be of the same version.
+	checkToolsFunc func(tools.List)
 }
 
 func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnviron {
@@ -1308,7 +1322,8 @@ func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}
 		panic(fmt.Errorf("cannot create config from %#v: %v", m, err))
 	}
 	return &bootstrapEnviron{
-		cfg: cfg,
+		cfg:            cfg,
+		checkToolsFunc: func(t tools.List) {},
 	}
 }
 
@@ -1324,6 +1339,9 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.bootstrapCount++
 	e.args = args
+
+	e.checkToolsFunc(args.AvailableTools)
+
 	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
 		e.finalizerCount++
 		e.instanceConfig = icfg
