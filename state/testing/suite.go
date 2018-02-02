@@ -69,7 +69,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		s.Controller.Close()
 	})
 
-	s.StatePool = state.NewStatePoolWithTimeout(s.State, 50*time.Millisecond)
+	s.StatePool = state.NewStatePoolWithTimeout(s.State, 10*time.Millisecond)
 	s.AddCleanup(func(*gc.C) { s.StatePool.Close() })
 
 	model, err := s.State.Model()

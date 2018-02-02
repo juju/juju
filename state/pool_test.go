@@ -9,11 +9,12 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"time"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/workertest"
-	"time"
 )
 
 type statePoolSuite struct {
@@ -204,6 +205,7 @@ func (s *statePoolSuite) TestRemoveWithoutReleaseTimeoutClose(c *gc.C) {
 	// Call remove without release and wait for forced removal.
 	_, err = s.StatePool.Remove(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	time.Sleep(60 * time.Millisecond)
+	assertNotClosed(c, st)
+	time.Sleep(testing.ShortWait)
 	assertClosed(c, st)
 }
