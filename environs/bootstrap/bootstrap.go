@@ -305,7 +305,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}
-		if args.AgentVersion == nil {
+		if len(availableTools) != 0 && args.AgentVersion == nil {
 			// If agent version was not specified in the arguments,
 			// we always want the latest/newest available.
 			agentVersion, availableTools = availableTools.Newest()
