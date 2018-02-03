@@ -232,6 +232,16 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 		// Some attribute values have a newline appended
 		// which makes the output messy.
 		valString := strings.TrimSuffix(out.String(), "\n")
+
+		// Special formatting for multiline exclude-methods lists.
+		if name == controller.AuditLogExcludeMethods {
+			if strings.Contains(valString, "\n") {
+				valString = "\n" + valString
+			} else {
+				valString = strings.TrimLeft(valString, "- ")
+			}
+		}
+
 		w.Println(name, valString)
 	}
 
