@@ -47,7 +47,7 @@ WantedBy=multi-user.target
 const jujud = "/var/lib/juju/bin/jujud"
 
 var listCmdArg = exec.RunParams{
-	Commands: `/bin/systemctl list-unit-files --no-legend --no-page -t service | grep -o -P '^\w[\S]*(?=\.service)'`,
+	Commands: `/bin/systemctl list-unit-files --no-legend --no-page -l -t service | grep -o -P '^\w[\S]*(?=\.service)'`,
 }
 
 type initSystemSuite struct {
