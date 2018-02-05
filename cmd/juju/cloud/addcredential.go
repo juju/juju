@@ -251,7 +251,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		return errors.NotSupportedf("auth type %q for cloud %q", authType, c.CloudName)
 	}
 
-	attrs, err := c.promptCredentialAttributes(pollster, authType, schema)
+	attrs, err := c.promptCredentialAttributes(pollster, authType, schema, ctxt)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -326,7 +326,7 @@ func (c *addCredentialCommand) promptAuthType(p *interact.Pollster, authTypes []
 	return jujucloud.AuthType(authType), nil
 }
 
-func (c *addCredentialCommand) promptCredentialAttributes(p *interact.Pollster, authType jujucloud.AuthType, schema jujucloud.CredentialSchema) (attributes map[string]string, err error) {
+func (c *addCredentialCommand) promptCredentialAttributes(p *interact.Pollster, authType jujucloud.AuthType, schema jujucloud.CredentialSchema, ctxt *cmd.Context) (attributes map[string]string, err error) {
 	// Interactive add does not support adding multi-line values, which
 	// is what we typically get when the attribute can come from a file.
 	// For now we'll skip, and just get the user to enter the file path.
@@ -339,7 +339,7 @@ func (c *addCredentialCommand) promptCredentialAttributes(p *interact.Pollster, 
 		var err error
 
 		if currentAttr.FileAttr == "" {
-			value, err = c.promptFieldValue(p, currentAttr)
+			value, err = c.promptFieldValue(p, ctxt, currentAttr)
 			if err != nil {
 				return nil, err
 			}
@@ -347,7 +347,7 @@ func (c *addCredentialCommand) promptCredentialAttributes(p *interact.Pollster, 
 			currentAttr.Name = currentAttr.FileAttr
 			currentAttr.Hidden = false
 			currentAttr.FilePath = true
-			value, err = c.promptFieldValue(p, currentAttr)
+			value, err = c.promptFieldValue(p, ctxt, currentAttr)
 			if err != nil {
 				return nil, err
 			}
@@ -360,8 +360,7 @@ func (c *addCredentialCommand) promptCredentialAttributes(p *interact.Pollster, 
 }
 
 func (c *addCredentialCommand) promptFieldValue(
-	p *interact.Pollster, attr jujucloud.NamedCredentialAttr,
-) (string, error) {
+	p *interact.Pollster, ctxt *cmd.Context, attr jujucloud.NamedCredentialAttr) (string, error) {
 	name := attr.Name
 
 	if len(attr.Options) > 0 {
@@ -383,9 +382,9 @@ func (c *addCredentialCommand) promptFieldValue(
 	case attr.Hidden:
 		return p.EnterPassword(name)
 	case attr.ExpandFilePath:
-		return enterFile(name, p, true, attr.Optional)
+		return enterFile(name, attr.Description, p, true, attr.Optional)
 	case attr.FilePath:
-		return enterFile(name, p, false, attr.Optional)
+		return enterFile(name, attr.Description, p, false, attr.Optional)
 	case attr.Optional:
 		return p.EnterOptional(name)
 	default:
@@ -393,16 +392,15 @@ func (c *addCredentialCommand) promptFieldValue(
 	}
 }
 
-func enterFile(name string, p *interact.Pollster, expanded, optional bool) (string, error) {
+func enterFile(name, descr string, p *interact.Pollster, expanded, optional bool) (string, error) {
 	inputSuffix := ""
 	if optional {
 		inputSuffix += " (optional)"
 	}
-	input, err := p.EnterVerify(fmt.Sprintf("file path for %s%s", name, inputSuffix), func(s string) (ok bool, msg string, err error) {
+	input, err := p.EnterVerify(fmt.Sprintf("%s%s", descr, inputSuffix), func(s string) (ok bool, msg string, err error) {
 		if optional && s == "" {
 			return true, "", nil
 		}
-
 		_, err = jujucloud.ValidateFileAttrValue(s)
 		if err != nil {
 			return false, err.Error(), nil
