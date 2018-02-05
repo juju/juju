@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
@@ -98,6 +99,7 @@ func InitState(c *gc.C, st *fakeState, numMachines int, ipVersion TestIPVersion)
 	st.session.Set(mkMembers("0v", ipVersion))
 	st.session.setStatus(mkStatuses("0p", ipVersion))
 	st.check = checkInvariants
+	st.controllerConfig = controller.Config{}
 }
 
 // ExpectedAPIHostPorts returns the expected addresses
@@ -441,9 +443,9 @@ func (s *workerSuite) TestControllersArePublishedOverHub(c *gc.C) {
 
 	expected := apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
-			"10": apiserver.APIServer{ID: "10", Addresses: []string{"0.1.2.10:5678"}, InternalAddress: "0.1.2.10:5678"},
-			"11": apiserver.APIServer{ID: "11", Addresses: []string{"0.1.2.11:5678"}},
-			"12": apiserver.APIServer{ID: "12", Addresses: []string{"0.1.2.12:5678"}},
+			"10": {ID: "10", Addresses: []string{"0.1.2.10:5678"}, InternalAddress: "0.1.2.10:5678"},
+			"11": {ID: "11", Addresses: []string{"0.1.2.11:5678"}},
+			"12": {ID: "12", Addresses: []string{"0.1.2.12:5678"}},
 		},
 		LocalOnly: true,
 	}
@@ -600,13 +602,31 @@ func (s *workerSuite) TestMongoSpaceNotOverwritten(c *gc.C) {
 		c.Assert(st.getMongoSpaceName(), gc.Equals, "one")
 
 		// Set st.mongoSpaceName to something different
-
 		st.SetMongoSpaceState(state.MongoSpaceUnknown)
 		st.SetOrGetMongoSpaceName("testing")
+		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
 
-		// Only space one has all three servers in it
 		c.Assert(st.getMongoSpaceName(), gc.Equals, "testing")
 		c.Assert(st.getMongoSpaceState(), gc.Equals, state.MongoSpaceValid)
+	})
+}
+
+func (s *workerSuite) TestMongoSpaceSetFromConfig(c *gc.C) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
+		st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, false)
+		st.setHASpace("controller-ha-space")
+
+		// As in the prior test, this would auto-determine the Mongo space to
+		// be "one", had we no controller config set for HA space.
+		for i, machine := range machines {
+			st.machine(machine).setAddresses(addrs[:i+1]...)
+		}
+
+		w := startWorkerSupportingSpaces(c, st, ipVersion)
+		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
+
+		// Only space one has all three servers in it
+		c.Assert(st.getMongoSpaceName(), gc.Equals, "controller-ha-space")
 	})
 }
 

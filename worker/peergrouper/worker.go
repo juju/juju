@@ -14,8 +14,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/clock"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
@@ -26,6 +27,7 @@ import (
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
 type State interface {
+	ControllerConfig() (controller.Config, error)
 	ControllerInfo() (*state.ControllerInfo, error)
 	Machine(id string) (Machine, error)
 	SetOrGetMongoSpaceName(spaceName network.SpaceName) (network.SpaceName, error)
@@ -210,7 +212,7 @@ func (w *pgWorker) loop() error {
 			// Scheduled update.
 		}
 
-		servers := w.apiserverHostPorts()
+		servers := w.apiServerHostPorts()
 		apiHostPorts := make([][]network.HostPort, 0, len(servers))
 		for _, serverHostPorts := range servers {
 			apiHostPorts = append(apiHostPorts, serverHostPorts)
@@ -222,7 +224,7 @@ func (w *pgWorker) loop() error {
 			failed = true
 		}
 
-		members, err := w.updateReplicaset()
+		members, err := w.updateReplicaSet()
 		if err != nil {
 			if _, isReplicaSetError := err.(*replicaSetError); !isReplicaSetError {
 				return err
@@ -357,8 +359,8 @@ func inStrings(t string, ss []string) bool {
 	return false
 }
 
-// apiserverHostPorts returns the host-ports for each apiserver machine.
-func (w *pgWorker) apiserverHostPorts() map[string][]network.HostPort {
+// apiServerHostPorts returns the host-ports for each apiserver machine.
+func (w *pgWorker) apiServerHostPorts() map[string][]network.HostPort {
 	servers := make(map[string][]network.HostPort)
 	for _, m := range w.machineTrackers {
 		hostPorts := network.AddressesWithPort(m.Addresses(), w.config.APIPort)
@@ -406,11 +408,11 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 		mongoPort: w.config.MongoPort,
 	}
 
-	status, err := w.config.MongoSession.CurrentStatus()
+	sts, err := w.config.MongoSession.CurrentStatus()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get replica set status: %v", err)
 	}
-	info.statuses = status.Members
+	info.statuses = sts.Members
 
 	info.members, err = w.config.MongoSession.CurrentMembers()
 	if err != nil {
@@ -435,13 +437,15 @@ func machineAddresses(machines map[string]*machineTracker) [][]network.Address {
 	return addresses
 }
 
+const unsetSpace = network.SpaceName("")
+
+var errSpaceNotSuperset = errors.New("could not find a space containing all peer group machines")
+
 // getMongoSpace updates info with the space that Mongo servers should exist in.
 func (w *pgWorker) getMongoSpace(addrs [][]network.Address) (network.SpaceName, error) {
-	unset := network.SpaceName("")
-
 	stateInfo, err := w.config.State.ControllerInfo()
 	if err != nil {
-		return unset, errors.Annotate(err, "cannot get state server info")
+		return unsetSpace, errors.Annotate(err, "cannot get state server info")
 	}
 
 	switch stateInfo.MongoSpaceState {
@@ -449,39 +453,70 @@ func (w *pgWorker) getMongoSpace(addrs [][]network.Address) (network.SpaceName, 
 		if !w.config.SupportsSpaces {
 			err := w.config.State.SetMongoSpaceState(state.MongoSpaceUnsupported)
 			if err != nil {
-				return unset, errors.Annotate(err, "cannot set Mongo space state")
+				return unsetSpace, errors.Annotate(err, "cannot set Mongo space state")
 			}
-			return unset, nil
+			return unsetSpace, nil
 		}
 
-		// We want to find a space that contains all Mongo servers so we can
-		// use it to look up the IP address of each Mongo server to be used
-		// to set up the peer group.
-		spaceStats := generateSpaceStats(addrs)
-		if spaceStats.LargestSpaceContainsAll == false {
-			err := w.config.State.SetMongoSpaceState(state.MongoSpaceInvalid)
-			if err != nil {
-				return unset, errors.Annotate(err, "cannot set Mongo space state")
-			}
-			logger.Warningf("couldn't find a space containing all peer group machines")
-			return unset, nil
-		}
-
-		spaceName, err := w.config.State.SetOrGetMongoSpaceName(spaceStats.LargestSpace)
+		// Check to see if a HA space was set in the controller config.
+		space := unsetSpace
+		space, err = w.tryGetMongoSpaceFromConfig(addrs)
 		if err != nil {
-			return unset, errors.Annotate(err, "error setting/getting Mongo space")
+			return space, errors.Annotate(err, "getting Mongo space from config")
 		}
-		return spaceName, nil
+
+		// If not, try to determine a space automatically.
+		if space == unsetSpace {
+			if space, err = w.tryFindMongoSpace(addrs); err != nil {
+				if err == errSpaceNotSuperset {
+					logger.Warningf(err.Error())
+					err = nil
+				}
+				return space, errors.Trace(err)
+			}
+		}
+
+		if space, err = w.config.State.SetOrGetMongoSpaceName(space); err != nil {
+			err = errors.Annotate(err, "error setting/getting Mongo space")
+		}
+		return space, err
 
 	case state.MongoSpaceValid:
 		space, err := w.config.State.Space(stateInfo.MongoSpaceName)
 		if err != nil {
-			return unset, errors.Annotate(err, "looking up space")
+			return unsetSpace, errors.Annotate(err, "looking up space")
 		}
 		return network.SpaceName(space.Name()), nil
 	}
 
-	return unset, nil
+	return unsetSpace, nil
+}
+
+// trySetMongoSpaceFromConfig checks whether a value was supplied for
+// juju-ha-space in the controllers config.
+// If so, an attempt is made to use that value as the Mongo space name.
+func (w *pgWorker) tryGetMongoSpaceFromConfig(addrs [][]network.Address) (network.SpaceName, error) {
+	config, err := w.config.State.ControllerConfig()
+	if err != nil {
+		return unsetSpace, err
+	}
+	return network.SpaceName(config.JujuHASpace()), nil
+}
+
+// tryAutoSetMongoSpace attempts to determine the largest space containing all
+// of the input addresses.
+// If there is no such space, set the space state to be invalid.
+func (w *pgWorker) tryFindMongoSpace(addrs [][]network.Address) (network.SpaceName, error) {
+	spaceStats := generateSpaceStats(addrs)
+	if !spaceStats.LargestSpaceContainsAll {
+		err := w.config.State.SetMongoSpaceState(state.MongoSpaceInvalid)
+		if err != nil {
+			return unsetSpace, errors.Annotate(err, "cannot set Mongo space state")
+		}
+		return unsetSpace, errSpaceNotSuperset
+	}
+
+	return spaceStats.LargestSpace, nil
 }
 
 // replicaSetError holds an error returned as a result
@@ -503,10 +538,10 @@ func prettyReplicaSetMembers(members []replicaset.Member) string {
 	return strings.Join(result, "\n")
 }
 
-// updateReplicaset sets the current replica set members, and applies the
+// updateReplicaSet sets the current replica set members, and applies the
 // given voting status to machines in the state. A mapping of machine ID
 // to replicaset.Member structures is returned.
-func (w *pgWorker) updateReplicaset() (map[string]replicaset.Member, error) {
+func (w *pgWorker) updateReplicaSet() (map[string]replicaset.Member, error) {
 	info, err := w.peerGroupInfo()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get peergrouper info")
@@ -599,12 +634,6 @@ func setHasVote(ms []*machineTracker, hasVote bool) error {
 	return nil
 }
 
-// allSpaceStats holds a SpaceStats for both API and Mongo machines
-type allSpaceStats struct {
-	APIMachines   spaceStats
-	MongoMachines spaceStats
-}
-
 // SpaceStats holds information useful when choosing which space to pick an
 // address from.
 type spaceStats struct {
@@ -634,6 +663,5 @@ func generateSpaceStats(addresses [][]network.Address) spaceStats {
 	}
 
 	stats.LargestSpaceContainsAll = stats.LargestSpaceSize == len(addresses)
-
 	return stats
 }
