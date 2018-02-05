@@ -73,7 +73,7 @@ Please configure LXD by running:
 	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: LXD socket not found; is LXD installed & running?
 
 Please install LXD by running:
-	$ sudo apt-get install lxd
+	$ sudo snap install lxd
 and then configure it with:
 	$ newgrp lxd
 	$ lxd init
@@ -86,7 +86,7 @@ and then configure it with:
 	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: boo!
 
 Please install LXD by running:
-	$ sudo apt-get install lxd
+	$ sudo snap install lxd
 and then configure it with:
 	$ newgrp lxd
 	$ lxd init
