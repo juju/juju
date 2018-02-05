@@ -220,13 +220,21 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 	// We prefer upstream's preference of snap installed LXD
 	debianSocket := filepath.Join("var", "lib", "lxd")
 	snapSocket := filepath.Join("var", "snap", "lxd", "common", "lxd")
+	envSocket := os.Getenv("LXD_DIR")
 
-	if _, err := os.Stat(snapSocket); err == nil {
-		logger.Debugf("Using LXD snap socket")
-		os.Setenv("LXD_DIR", snapSocket)
+	// The current lxdclient code ONLY looks at LXD_DIR, as it has no understanding
+	// of snaps. This forces us to set LXD_DIR to set the socket path.
+	// This should be updated once lxdclient dependency is updated
+	if envSocket != "" {
+		logger.Debugf("Using environment LXD_DIR as socket path: %q", envSocket)
 	} else {
-		logger.Debugf("LXD snap socket not found, falling back to debian socket")
-		os.Setenv("LXD_DIR", debianSocket)
+		if _, err := os.Stat(snapSocket); err == nil {
+			logger.Debugf("Using LXD snap socket")
+			os.Setenv("LXD_DIR", snapSocket)
+		} else {
+			logger.Debugf("LXD snap socket not found, falling back to debian socket")
+			os.Setenv("LXD_DIR", debianSocket)
+		}
 	}
 
 	if remote.ID() == remoteIDForLocal && host == "" {
