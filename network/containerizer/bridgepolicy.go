@@ -231,24 +231,36 @@ func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachin
 		containerMachine.Id(), network.QuoteSpaceSet(containerSpaces),
 		formatDeviceMap(devicesPerSpace))
 	spacesFound := set.NewStrings()
+	fanSpacesFound := set.NewStrings()
 	for spaceName, devices := range devicesPerSpace {
 		for _, device := range devices {
 			if device.Type() == state.BridgeDevice {
 				if b.ContainerNetworkingMethod != "local" && skippedDeviceNames.Contains(device.Name()) {
 					continue
 				}
-				spacesFound.Add(spaceName)
+				if strings.HasPrefix(device.Name(), "fan-") {
+					fanSpacesFound.Add(spaceName)
+				} else {
+					spacesFound.Add(spaceName)
+				}
 			}
 		}
 	}
 	notFound := containerSpaces.Difference(spacesFound)
-	if notFound.IsEmpty() {
-		// Nothing to do, just return success
-		return nil, 0, nil
-	}
+	fanNotFound := containerSpaces.Difference(fanSpacesFound)
 	if b.ContainerNetworkingMethod == "fan" {
-		return nil, 0, errors.Errorf("host machine %q has no available FAN devices in space(s) %s",
-			m.Id(), network.QuoteSpaceSet(notFound))
+		if fanNotFound.IsEmpty() {
+			// Nothing to do, just return success
+			return nil, 0, nil
+		} else {
+			return nil, 0, errors.Errorf("host machine %q has no available FAN devices in space(s) %s",
+				m.Id(), network.QuoteSpaceSet(fanNotFound))
+		}
+	} else {
+		if notFound.IsEmpty() {
+			// Nothing to do, just return success
+			return nil, 0, nil
+		}
 	}
 	hostDeviceNamesToBridge := make([]string, 0)
 	for _, spaceName := range notFound.Values() {
@@ -345,17 +357,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(m Machine, containerMac
 
 	for spaceName, hostDevices := range devicesPerSpace {
 		for _, hostDevice := range hostDevices {
-			var isFan bool
-			addresses, err := hostDevice.Addresses()
-			if err == nil && len(addresses) > 0 {
-				subnet, err := addresses[0].Subnet()
-				if err == nil {
-					if subnet.FanOverlay() != "" {
-						isFan = true
-					}
-				}
-
-			}
+			isFan := strings.HasPrefix(hostDevice.Name(), "fan-")
 			wantThisDevice := isFan == (p.ContainerNetworkingMethod == "fan")
 			deviceType, name := hostDevice.Type(), hostDevice.Name()
 			if wantThisDevice && deviceType == state.BridgeDevice && !skippedDeviceNames.Contains(name) {

@@ -201,3 +201,22 @@ func (*BridgeSuite) TestActivateFailure(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "bridge activation failed: artificial failure\n")
 	c.Check(result.Code, gc.Equals, 1)
 }
+
+func (*BridgeSuite) TestActivateFailureShortMessage(c *gc.C) {
+	filename := "testdata/TestInputSourceStanza/interfaces"
+
+	params := debinterfaces.ActivationParams{
+		Clock:    clock.WallClock,
+		Devices:  map[string]string{"eth0": "br-eth0", "eth1": "br-eth1"},
+		DryRun:   true,
+		Filename: filename,
+		// magic value causing the bash script to fail
+		ReconfigureDelay: 25696,
+		Timeout:          5 * time.Minute,
+	}
+
+	result, err := debinterfaces.BridgeAndActivate(params)
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, "bridge activation failed, see logs for details")
+	c.Check(result.Code, gc.Equals, 1)
+}

@@ -61,6 +61,7 @@ set -eu
 if [ $DRYRUN ]; then
   if [ %[4]d == 25694 ]; then sleep 30; fi
   if [ %[4]d == 25695 ]; then echo "artificial failure" >&2; exit 1; fi
+  if [ %[4]d == 25696 ]; then echo "a very very VERY long artificial failure that should cause the code to shorten it and direct user to logs" >&2; exit 1; fi
 fi
 
 write_backup() {
@@ -79,12 +80,12 @@ if [ -n %[2]q ]; then
     ${DRYRUN} write_backup %[2]q
 fi
 ${DRYRUN} write_content %[3]q
-${DRYRUN} ifdown --interfaces=%[1]q %[7]s
+${DRYRUN} ifdown --interfaces=%[1]q %[7]s || ${DRYRUN} ifdown --interfaces=%[1]q %[7]s || (${DRYRUN} ifup --interfaces=%[1]q -a; exit 1)
 ${DRYRUN} sleep %[4]d
 ${DRYRUN} cp %[3]q %[1]q
 # we want to have full control over what happens next
 set +e
-${DRYRUN} ifup --interfaces=%[1]q -a
+${DRYRUN} ifup --interfaces=%[1]q -a || ${DRYRUN} ifup --interfaces=%[1]q -a
 RESULT=$?
 if [ ${RESULT} != 0 ]; then
     echo "Bringing up bridged interfaces failed, see system logs and %[3]q" >&2
@@ -149,7 +150,12 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 	if result.Code != 0 {
 		logger.Errorf("bridge activation stdout\n%s\n", result.Stdout)
 		logger.Errorf("bridge activation stderr\n%s\n", result.Stderr)
-		return &activationResult, errors.Errorf("bridge activation failed: %s", string(result.Stderr))
+		// We want to suppress long output from ifup, ifdown - it will be shown in status message!
+		if len(result.Stderr) < 40 {
+			return &activationResult, errors.Errorf("bridge activation failed: %s", string(result.Stderr))
+		} else {
+			return &activationResult, errors.Errorf("bridge activation failed, see logs for details")
+		}
 	}
 
 	logger.Tracef("bridge activation stdout\n%s\n", result.Stdout)
