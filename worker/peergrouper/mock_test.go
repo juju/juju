@@ -13,11 +13,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/voyeur"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -30,13 +31,14 @@ import (
 // that we don't want to directly depend on in unit tests.
 
 type fakeState struct {
-	mu          sync.Mutex
-	errors      errorPatterns
-	machines    map[string]*fakeMachine
-	controllers voyeur.Value // of *state.ControllerInfo
-	statuses    voyeur.Value // of statuses collection
-	session     *fakeMongoSession
-	check       func(st *fakeState) error
+	mu               sync.Mutex
+	errors           errorPatterns
+	machines         map[string]*fakeMachine
+	controllers      voyeur.Value // of *state.ControllerInfo
+	statuses         voyeur.Value // of statuses collection
+	session          *fakeMongoSession
+	check            func(st *fakeState) error
+	controllerConfig controller.Config
 }
 
 var (
@@ -273,6 +275,14 @@ func (st *fakeState) ModelConfig() (*config.Config, error) {
 	attrs := coretesting.FakeConfig()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	return cfg, err
+}
+
+func (st *fakeState) ControllerConfig() (controller.Config, error) {
+	return st.controllerConfig, nil
+}
+
+func (st *fakeState) setHASpace(spaceName string) {
+	st.controllerConfig[controller.JujuHASpace] = spaceName
 }
 
 type fakeMachine struct {
