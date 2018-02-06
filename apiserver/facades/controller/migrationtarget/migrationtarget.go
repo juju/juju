@@ -111,11 +111,11 @@ func (api *API) getModel(modelTag string) (*state.Model, func(), error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	model, release, err := api.pool.GetModel(tag.Id())
+	model, cb, err := api.pool.GetModel(tag.Id())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return model, func() { release() }, nil
+	return model, func() { cb.Release() }, nil
 }
 
 func (api *API) getImportingModel(args params.ModelArgs) (*state.Model, func(), error) {
@@ -139,11 +139,11 @@ func (api *API) Abort(args params.ModelArgs) error {
 	}
 	defer releaseModel()
 
-	st, releaseSt, err := api.pool.Get(model.UUID())
+	st, cb, err := api.pool.Get(model.UUID())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer releaseSt()
+	defer cb.Release()
 	return st.RemoveImportingModelDocs()
 }
 
@@ -209,11 +209,11 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	st, release, err := api.pool.Get(tag.Id())
+	st, cb, err := api.pool.Get(tag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer release()
+	defer cb.Release()
 	env, err := api.getEnviron(st)
 	if err != nil {
 		return errors.Trace(err)
@@ -229,11 +229,11 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	st, release, err := api.pool.Get(tag.Id())
+	st, cb, err := api.pool.Get(tag.Id())
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	defer release()
+	defer cb.Release()
 
 	machines, err := st.AllMachines()
 	if err != nil {

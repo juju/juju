@@ -84,9 +84,9 @@ func (s *LogStreamIntSuite) TestParamStartTruncate(c *gc.C) {
 	}
 
 	now := time.Now()
-	clock := &mockClock{now: now}
+	clk := &mockClock{now: now}
 
-	_, err := handler.newLogStreamRequestHandler(nil, req, clock)
+	_, err := handler.newLogStreamRequestHandler(nil, req, clk)
 	c.Assert(err, jc.ErrorIsNil)
 
 	stub.CheckCallNames(c, "newSource", "getStart", "newTailer")
@@ -254,17 +254,19 @@ type stubSource struct {
 	ReturnNewTailer state.LogTailer
 }
 
-func (s *stubSource) newSource(req *http.Request) (logStreamSource, state.StatePoolReleaser, error) {
+func (s *stubSource) newSource(req *http.Request) (logStreamSource, state.PoolItemCallbacks, error) {
+	cb := state.PoolItemCallbacks{}
+
 	s.stub.AddCall("newSource", req)
 	if err := s.stub.NextErr(); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, cb, errors.Trace(err)
 	}
 
-	closer := func() bool {
+	cb.Release = func() bool {
 		s.stub.AddCall("close")
 		return false
 	}
-	return s, closer, nil
+	return s, cb, nil
 }
 
 func (s *stubSource) getStart(sink string) (time.Time, error) {

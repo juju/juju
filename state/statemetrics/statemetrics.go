@@ -181,12 +181,12 @@ func (c *Collector) updateMetrics() {
 }
 
 func (c *Collector) updateModelMetrics(modelUUID string) {
-	model, release, err := c.pool.GetModel(modelUUID)
+	model, cb, err := c.pool.GetModel(modelUUID)
 	if err != nil {
 		logger.Debugf("error getting model: %v", err)
 		return
 	}
-	defer release()
+	defer cb.Release()
 
 	modelStatus, err := model.Status()
 	if err != nil {
@@ -199,7 +199,7 @@ func (c *Collector) updateModelMetrics(modelUUID string) {
 	}
 
 	modelTag := model.ModelTag()
-	st, releaseState, err := c.pool.Get(modelTag.Id())
+	st, cbState, err := c.pool.Get(modelTag.Id())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return // Model removed
@@ -208,7 +208,7 @@ func (c *Collector) updateModelMetrics(modelUUID string) {
 		logger.Debugf("error getting model state: %v", err)
 		return
 	}
-	defer releaseState()
+	defer cbState.Release()
 
 	machines, err := st.AllMachines()
 	if err != nil {

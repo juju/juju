@@ -36,12 +36,12 @@ type backupHandler struct {
 func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
-	st, releaser, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	st, cb, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		h.sendError(resp, err)
 		return
 	}
-	defer releaser()
+	defer cb.Release()
 
 	m, err := st.Model()
 	if err != nil {

@@ -97,15 +97,15 @@ func (s *statePoolSuite) TestClose(c *gc.C) {
 }
 
 func (s *statePoolSuite) TestTooManyReleases(c *gc.C) {
-	st, firstRelease, err := s.StatePool.Get(s.ModelUUID1)
+	st, cb1, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	// Get a second reference to the same model
-	_, secondRelease, err := s.StatePool.Get(s.ModelUUID1)
+	_, cb2, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try to call the first releaser twice.
-	firstRelease()
-	firstRelease()
+	cb1.Release()
+	cb1.Release()
 
 	removed, err := s.StatePool.Remove(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,15 +114,15 @@ func (s *statePoolSuite) TestTooManyReleases(c *gc.C) {
 	// Not closed because r2 has not been called.
 	assertNotClosed(c, st)
 
-	removed = secondRelease()
+	removed = cb2.Release()
 	c.Assert(removed, jc.IsTrue)
 	assertClosed(c, st)
 }
 
 func (s *statePoolSuite) TestReleaseOnSystemStateUUID(c *gc.C) {
-	st, releaser, err := s.StatePool.Get(s.ModelUUID)
+	st, cb, err := s.StatePool.Get(s.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	removed := releaser()
+	removed := cb.Release()
 	c.Assert(removed, jc.IsFalse)
 	assertNotClosed(c, st)
 }
@@ -145,11 +145,11 @@ func assertClosed(c *gc.C, st *state.State) {
 }
 
 func (s *statePoolSuite) TestRemoveWithNoRefsCloses(c *gc.C) {
-	st, releaser, err := s.StatePool.Get(s.ModelUUID1)
+	st, cb, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Confirm the state isn't closed.
-	removed := releaser()
+	removed := cb.Release()
 	c.Assert(removed, jc.IsFalse)
 	assertNotClosed(c, st)
 
@@ -161,9 +161,9 @@ func (s *statePoolSuite) TestRemoveWithNoRefsCloses(c *gc.C) {
 }
 
 func (s *statePoolSuite) TestRemoveWithRefsClosesOnLastRelease(c *gc.C) {
-	st, firstRelease, err := s.StatePool.Get(s.ModelUUID1)
+	st, cb1, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, secondRelease, err := s.StatePool.Get(s.ModelUUID1)
+	_, cb2, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	// Now there are two references to the state.
 	// Sanity check!
@@ -175,13 +175,13 @@ func (s *statePoolSuite) TestRemoveWithRefsClosesOnLastRelease(c *gc.C) {
 	c.Assert(removed, jc.IsFalse)
 	assertNotClosed(c, st)
 
-	removed = firstRelease()
+	removed = cb1.Release()
 	// Hasn't been closed - still one outstanding reference.
 	c.Assert(removed, jc.IsFalse)
 	assertNotClosed(c, st)
 
 	// Should be closed when it's released back into the pool.
-	removed = secondRelease()
+	removed = cb2.Release()
 	c.Assert(removed, jc.IsTrue)
 	assertClosed(c, st)
 }

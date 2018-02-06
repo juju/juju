@@ -115,9 +115,9 @@ func main() {
 
 	statePool := state.NewStatePool(st)
 	defer statePool.Close()
-	modelSt, release, err := statePool.Get(modelUUID)
+	modelSt, cb, err := statePool.Get(modelUUID)
 	checkErr("open model", err)
-	defer release()
+	defer cb.Release()
 
 	checkErr("set model agent version", modelSt.SetModelAgentVersion(agentVersion, true))
 }

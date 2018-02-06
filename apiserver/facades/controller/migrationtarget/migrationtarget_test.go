@@ -128,9 +128,9 @@ func (s *Suite) TestImport(c *gc.C) {
 	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 	// Check the model was imported.
-	model, release, err := s.StatePool.GetModel(tag.Id())
+	model, cb, err := s.StatePool.GetModel(tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer cb.Release()
 	c.Assert(model.Name(), gc.Equals, "some-model")
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeImporting)
 }
@@ -179,9 +179,9 @@ func (s *Suite) TestActivate(c *gc.C) {
 	err := api.Activate(params.ModelArgs{ModelTag: tag.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, release, err := s.StatePool.GetModel(tag.Id())
+	model, cb, err := s.StatePool.GetModel(tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer cb.Release()
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
 }
 

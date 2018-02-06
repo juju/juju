@@ -511,10 +511,10 @@ type migrationSuite struct {
 var _ = gc.Suite(&migrationSuite{})
 
 func (s *migrationSuite) startSync(c *gc.C, st *state.State) {
-	backingSt, releaser, err := s.BackingStatePool.Get(st.ModelUUID())
+	backingSt, cb, err := s.BackingStatePool.Get(st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	backingSt.StartSync()
-	releaser()
+	cb.Release()
 }
 
 func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {

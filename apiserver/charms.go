@@ -76,7 +76,7 @@ func (h *CharmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type charmsHandler struct {
 	ctxt          httpContext
 	dataDir       string
-	stateAuthFunc func(*http.Request) (*state.State, state.StatePoolReleaser, error)
+	stateAuthFunc func(*http.Request) (*state.State, state.PoolItemCallbacks, error)
 }
 
 // bundleContentSenderFunc functions are responsible for sending a
@@ -92,11 +92,11 @@ func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error 
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
 
-	st, releaser, err := h.stateAuthFunc(r)
+	st, cb, err := h.stateAuthFunc(r)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer releaser()
+	defer cb.Release()
 
 	// Add a charm to the store provider.
 	charmURL, err := h.processPost(r, st)
@@ -111,11 +111,11 @@ func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
 
-	st, releaser, _, err := h.ctxt.stateForRequestAuthenticated(r)
+	st, cb, _, err := h.ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer releaser()
+	defer cb.Release()
 
 	// Retrieve or list charm files.
 	// Requires "url" (charm URL) and an optional "file" (the path to the

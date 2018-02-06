@@ -1136,7 +1136,7 @@ func (m *Model) destroyOps(
 				continue
 			}
 
-			st, release, err := pool.Get(aModelUUID)
+			st, cb, err := pool.Get(aModelUUID)
 			if err != nil {
 				// This model could have been removed.
 				if errors.IsNotFound(err) {
@@ -1144,7 +1144,7 @@ func (m *Model) destroyOps(
 				}
 				return nil, errors.Trace(err)
 			}
-			defer release()
+			defer cb.Release()
 
 			model, err := st.Model()
 			if err != nil {

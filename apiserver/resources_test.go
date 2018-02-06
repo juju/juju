@@ -62,13 +62,19 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string) (apiserver.ResourcesBackend, state.StatePoolReleaser, names.Tag, error) {
+func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string) (
+	apiserver.ResourcesBackend,
+	state.PoolItemCallbacks,
+	names.Tag,
+	error,
+) {
+	cb := state.PoolItemCallbacks{}
 	if s.stateAuthErr != nil {
-		return nil, nil, nil, errors.Trace(s.stateAuthErr)
+		return nil, cb, nil, errors.Trace(s.stateAuthErr)
 	}
-	closer := func() bool { return false }
+	cb.Release = func() bool { return false }
 	tag := names.NewUserTag(s.username)
-	return s.backend, closer, tag, nil
+	return s.backend, cb, tag, nil
 }
 
 func (s *ResourcesHandlerSuite) TestStateAuthFailure(c *gc.C) {

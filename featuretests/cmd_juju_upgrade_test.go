@@ -94,9 +94,9 @@ func (s *cmdUpgradeSuite) assertHostModelAgentVersion(c *gc.C, desiredAgentVersi
 
 	var desiredModel *state.Model
 	for _, modelUUID := range modelUUIDs {
-		model, release, err := s.StatePool.GetModel(modelUUID)
+		model, cb, err := s.StatePool.GetModel(modelUUID)
 		c.Assert(err, jc.ErrorIsNil)
-		defer release()
+		defer cb.Release()
 		if model.Name() == s.hostedModel {
 			desiredModel = model
 		}

@@ -129,14 +129,14 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 		}
 		modelState := api.state
 		if tag != api.model.ModelTag() {
-			var release func() bool
-			modelState, release, err = api.pool.Get(tag.Id())
+			var cb state.PoolItemCallbacks
+			modelState, cb, err = api.pool.Get(tag.Id())
 			if err != nil {
 				err = errors.Annotatef(err, "failed to access state for %s", tag)
 				result.Results[i].Error = common.ServerError(err)
 				continue
 			}
-			defer release()
+			defer cb.Release()
 		}
 
 		err = modelState.CleanupOldMetrics()
@@ -229,14 +229,14 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		}
 		modelState := api.state
 		if tag != api.model.ModelTag() {
-			var release func() bool
-			modelState, release, err = api.pool.Get(tag.Id())
+			var cb state.PoolItemCallbacks
+			modelState, cb, err = api.pool.Get(tag.Id())
 			if err != nil {
 				err = errors.Annotatef(err, "failed to access state for %s", tag)
 				result.Results[i].Error = common.ServerError(err)
 				continue
 			}
-			defer release()
+			defer cb.Release()
 		}
 		txVendorMetrics, err := transmitVendorMetrics(api.model)
 		if err != nil {

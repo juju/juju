@@ -136,11 +136,11 @@ type poolShim struct {
 }
 
 func (p *poolShim) GetModel(uuid string) (*state.Model, func(), error) {
-	model, release, err := p.pool.GetModel(uuid)
+	model, cb, err := p.pool.GetModel(uuid)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return model, func() { release() }, nil
+	return model, func() { cb.Release() }, nil
 }
 
 func (s stateShim) ModelConfig() (*config.Config, error) {

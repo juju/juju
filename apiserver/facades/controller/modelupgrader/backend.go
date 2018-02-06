@@ -32,9 +32,9 @@ type statePool struct {
 }
 
 func (p *statePool) GetModel(uuid string) (Model, func(), error) {
-	m, release, err := p.pool.GetModel(uuid)
+	m, cb, err := p.pool.GetModel(uuid)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return m, func() { release() }, nil
+	return m, func() { cb.Release() }, nil
 }

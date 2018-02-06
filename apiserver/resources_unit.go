@@ -20,19 +20,19 @@ import (
 // ResourcesHandler is the HTTP handler for unit agent downloads of
 // resources.
 type UnitResourcesHandler struct {
-	NewOpener func(*http.Request, ...string) (resource.Opener, state.StatePoolReleaser, error)
+	NewOpener func(*http.Request, ...string) (resource.Opener, state.PoolItemCallbacks, error)
 }
 
 // ServeHTTP implements http.Handler.
 func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case "GET":
-		opener, closer, err := h.NewOpener(req, names.UnitTagKind)
+		opener, cb, err := h.NewOpener(req, names.UnitTagKind)
 		if err != nil {
 			api.SendHTTPError(resp, err)
 			return
 		}
-		defer closer()
+		defer cb.Release()
 
 		name := req.URL.Query().Get(":resource")
 		opened, err := opener.OpenResource(name)

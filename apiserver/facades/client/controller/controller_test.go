@@ -121,9 +121,9 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	var obtained []string
 	for _, userModel := range response.UserModels {
 		obtained = append(obtained, userModel.Name)
-		stateModel, release, err := s.StatePool.GetModel(userModel.UUID)
+		stateModel, cb, err := s.StatePool.GetModel(userModel.UUID)
 		c.Assert(err, jc.ErrorIsNil)
-		defer release()
+		defer cb.Release()
 		s.checkEnvironmentMatches(c, userModel.Model, stateModel)
 	}
 	c.Assert(obtained, jc.DeepEquals, expected)

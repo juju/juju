@@ -178,9 +178,9 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	}
 	assertModelMatches(model)
 
-	model, release, err := s.StatePool.GetModel(uuid)
+	model, cb, err := s.StatePool.GetModel(uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer cb.Release()
 	assertModelMatches(model)
 
 	model, err = st.Model()
@@ -358,9 +358,9 @@ func (s *ModelSuite) TestConfigForOtherModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Obtain another instance of the model via the StatePool
-	model, release, err := s.StatePool.GetModel(otherModel.UUID())
+	model, cb, err := s.StatePool.GetModel(otherModel.UUID())
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer cb.Release()
 
 	conf, err := model.Config()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1143,9 +1143,9 @@ func (s *ModelSuite) TestListUsersTwoModels(c *gc.C) {
 	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherModel, expectedUsersOtherModel)
 
 	// It doesn't matter how you obtain the Model.
-	otherModel2, release, err := s.StatePool.GetModel(otherModel.UUID())
+	otherModel2, cb, err := s.StatePool.GetModel(otherModel.UUID())
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer cb.Release()
 	obtainedUsersOtherModel2, err := otherModel2.Users()
 	c.Assert(err, jc.ErrorIsNil)
 	assertObtainedUsersMatchExpectedUsers(c, obtainedUsersOtherModel2, expectedUsersOtherModel)
