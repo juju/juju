@@ -460,7 +460,7 @@ func (w *pgWorker) getMongoSpace(addrs [][]network.Address) (network.SpaceName, 
 
 		// Check to see if a HA space was set in the controller config.
 		space := unsetSpace
-		space, err = w.tryGetMongoSpaceFromConfig(addrs)
+		space, err = w.tryGetMongoSpaceFromConfig()
 		if err != nil {
 			return space, errors.Annotate(err, "getting Mongo space from config")
 		}
@@ -495,7 +495,7 @@ func (w *pgWorker) getMongoSpace(addrs [][]network.Address) (network.SpaceName, 
 // trySetMongoSpaceFromConfig checks whether a value was supplied for
 // juju-ha-space in the controllers config.
 // If so, an attempt is made to use that value as the Mongo space name.
-func (w *pgWorker) tryGetMongoSpaceFromConfig(addrs [][]network.Address) (network.SpaceName, error) {
+func (w *pgWorker) tryGetMongoSpaceFromConfig() (network.SpaceName, error) {
 	config, err := w.config.State.ControllerConfig()
 	if err != nil {
 		return unsetSpace, err
