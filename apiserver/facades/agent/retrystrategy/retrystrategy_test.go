@@ -93,7 +93,24 @@ func (s *retryStrategySuite) TestRetryStrategyBadTag(c *gc.C) {
 	}
 }
 
-func (s *retryStrategySuite) TestRetryStrategy(c *gc.C) {
+func (s *retryStrategySuite) TestRetryStrategyUnit(c *gc.C) {
+	s.assertRetryStrategy(c, s.unit.Tag().String())
+}
+
+func (s *retryStrategySuite) TestRetryStrategyApplication(c *gc.C) {
+	app := s.factory.MakeApplication(c, &jujufactory.ApplicationParams{Name: "app"})
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: app.Tag(),
+	}
+
+	strategy, err := retrystrategy.NewRetryStrategyAPI(s.State, s.resources, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	s.strategy = strategy
+
+	s.assertRetryStrategy(c, app.Tag().String())
+}
+
+func (s *retryStrategySuite) assertRetryStrategy(c *gc.C, tag string) {
 	expected := &params.RetryStrategy{
 		ShouldRetry:     true,
 		MinRetryTime:    retrystrategy.MinRetryTime,
@@ -101,7 +118,7 @@ func (s *retryStrategySuite) TestRetryStrategy(c *gc.C) {
 		JitterRetryTime: retrystrategy.JitterRetryTime,
 		RetryTimeFactor: retrystrategy.RetryTimeFactor,
 	}
-	args := params.Entities{Entities: []params.Entity{{Tag: s.unit.Tag().String()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: tag}}}
 	r, err := s.strategy.RetryStrategy(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 1)

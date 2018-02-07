@@ -64,6 +64,12 @@ func (m stubAuthorizer) AuthUnitAgent() bool {
 	_, ok := m.tag.(names.UnitTag)
 	return ok
 }
+
+func (m stubAuthorizer) AuthApplicationAgent() bool {
+	_, ok := m.tag.(names.ApplicationTag)
+	return ok
+}
+
 func (m stubAuthorizer) AuthOwner(tag names.Tag) bool {
 	return tag == m.tag
 }
@@ -103,6 +109,36 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	}
 
 	ldrSvc := newLeadershipService(c, claimer, nil)
+	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+		Params: []params.ClaimLeadershipParams{
+			{
+				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
+				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
+				DurationSeconds: 299.9,
+			},
+		},
+	})
+
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results[0].Error, gc.IsNil)
+}
+
+func (s *leadershipSuite) TestClaimLeadershipApplicationAgent(c *gc.C) {
+	claimer := &stubClaimer{
+		ClaimLeadershipFn: func(sid, uid string, duration time.Duration) error {
+			c.Check(sid, gc.Equals, StubServiceNm)
+			c.Check(uid, gc.Equals, StubUnitNm)
+			expectDuration := time.Duration(299.9 * float64(time.Second))
+			checkDurationEquals(c, duration, expectDuration)
+			return nil
+		},
+	}
+
+	authorizer := &stubAuthorizer{
+		tag: names.NewApplicationTag(StubServiceNm),
+	}
+	ldrSvc := newLeadershipService(c, claimer, authorizer)
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{

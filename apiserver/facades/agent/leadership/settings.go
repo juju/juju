@@ -4,6 +4,7 @@
 package leadership
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -60,15 +61,34 @@ type LeadershipSettingsAccessor struct {
 	mergeSettingsChunkFn MergeSettingsChunkFn
 }
 
+func (lsa *LeadershipSettingsAccessor) callerApplication() (string, error) {
+	var appName string
+	switch authTag := lsa.authorizer.GetAuthTag().(type) {
+	case names.UnitTag:
+		var err error
+		appName, err = names.UnitApplication(authTag.Id())
+		if err != nil {
+			return "", err
+		}
+	case names.ApplicationTag:
+		appName = authTag.Id()
+	default:
+		return "", errors.Errorf("invalid auth tag type %T: %v", authTag, authTag.String())
+	}
+	return appName, nil
+}
+
 // Merge merges in the provided leadership settings. Only leaders for
 // the given service may perform this operation.
 func (lsa *LeadershipSettingsAccessor) Merge(bulkArgs params.MergeLeadershipSettingsBulkParams) (params.ErrorResults, error) {
 
-	callerUnitId := lsa.authorizer.GetAuthTag().Id()
-	requireServiceId, err := names.UnitApplication(callerUnitId)
+	requireAppName, err := lsa.callerApplication()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
+	// Start out assuming the caller is a unit (for older clients).
+	callerUnitId := lsa.authorizer.GetAuthTag().Id()
+
 	results := make([]params.ErrorResult, len(bulkArgs.Params))
 
 	for i, arg := range bulkArgs.Params {
@@ -76,20 +96,30 @@ func (lsa *LeadershipSettingsAccessor) Merge(bulkArgs params.MergeLeadershipSett
 
 		// TODO(fwereade): we shoudn't assume a ApplicationTag: we should
 		// use an actual auth func to determine permissions.
-		ApplicationTag, err := names.ParseApplicationTag(arg.ApplicationTag)
+		applicationTag, err := names.ParseApplicationTag(arg.ApplicationTag)
 		if err != nil {
 			result.Error = common.ServerError(err)
 			continue
 		}
 
-		serviceId := ApplicationTag.Id()
-		if serviceId != requireServiceId {
+		// If a unit is passed in as an arg, use that instead of the caller id.
+		if arg.UnitTag != "" {
+			unitTag, err := names.ParseUnitTag(arg.UnitTag)
+			if err != nil {
+				result.Error = common.ServerError(err)
+				continue
+			}
+			callerUnitId = unitTag.Id()
+		}
+
+		appName := applicationTag.Id()
+		if appName != requireAppName {
 			result.Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
-		token := lsa.leaderCheckFn(serviceId, callerUnitId)
-		err = lsa.mergeSettingsChunkFn(token, serviceId, arg.Settings)
+		token := lsa.leaderCheckFn(appName, callerUnitId)
+		err = lsa.mergeSettingsChunkFn(token, appName, arg.Settings)
 		if err != nil {
 			result.Error = common.ServerError(err)
 		}
@@ -102,8 +132,7 @@ func (lsa *LeadershipSettingsAccessor) Merge(bulkArgs params.MergeLeadershipSett
 // unit of the service may perform this operation.
 func (lsa *LeadershipSettingsAccessor) Read(bulkArgs params.Entities) (params.GetLeadershipSettingsBulkResults, error) {
 
-	callerUnitId := lsa.authorizer.GetAuthTag().Id()
-	requireServiceId, err := names.UnitApplication(callerUnitId)
+	requireAppName, err := lsa.callerApplication()
 	if err != nil {
 		return params.GetLeadershipSettingsBulkResults{}, err
 	}
@@ -114,19 +143,19 @@ func (lsa *LeadershipSettingsAccessor) Read(bulkArgs params.Entities) (params.Ge
 
 		// TODO(fwereade): we shoudn't assume a ApplicationTag: we should
 		// use an actual auth func to determine permissions.
-		ApplicationTag, err := names.ParseApplicationTag(arg.Tag)
+		applicationTag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
 			result.Error = common.ServerError(err)
 			continue
 		}
 
-		serviceId := ApplicationTag.Id()
-		if serviceId != requireServiceId {
+		appName := applicationTag.Id()
+		if appName != requireAppName {
 			result.Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
-		settings, err := lsa.getSettingsFn(serviceId)
+		settings, err := lsa.getSettingsFn(appName)
 		if err != nil {
 			result.Error = common.ServerError(err)
 			continue
@@ -142,8 +171,7 @@ func (lsa *LeadershipSettingsAccessor) Read(bulkArgs params.Entities) (params.Ge
 // for the given service ID change.
 func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(bulkArgs params.Entities) (params.NotifyWatchResults, error) {
 
-	callerUnitId := lsa.authorizer.GetAuthTag().Id()
-	requireServiceId, err := names.UnitApplication(callerUnitId)
+	requireAppName, err := lsa.callerApplication()
 	if err != nil {
 		return params.NotifyWatchResults{}, err
 	}
@@ -154,19 +182,19 @@ func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(bulkArgs params.E
 
 		// TODO(fwereade): we shoudn't assume a ApplicationTag: we should
 		// use an actual auth func to determine permissions.
-		ApplicationTag, err := names.ParseApplicationTag(arg.Tag)
+		applicationTag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
 			result.Error = common.ServerError(err)
 			continue
 		}
 
-		serviceId := ApplicationTag.Id()
-		if serviceId != requireServiceId {
+		appName := applicationTag.Id()
+		if appName != requireAppName {
 			result.Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
-		watcherId, err := lsa.registerWatcherFn(serviceId)
+		watcherId, err := lsa.registerWatcherFn(appName)
 		if err != nil {
 			result.Error = common.ServerError(err)
 			continue

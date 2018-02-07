@@ -140,6 +140,7 @@ type RelationStatusArgs struct {
 
 // RelationStatusArg holds the new status value for a relation.
 type RelationStatusArg struct {
+	UnitTag    string              `json:"unit-tag"`
 	RelationId int                 `json:"relation-id"`
 	Status     RelationStatusValue `json:"status"`
 	Message    string              `json:"message"`

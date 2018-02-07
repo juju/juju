@@ -34,10 +34,10 @@ type RetryStrategy interface {
 
 // RetryStrategyAPI implements RetryStrategy
 type RetryStrategyAPI struct {
-	st         *state.State
-	model      *state.Model
-	accessUnit common.GetAuthFunc
-	resources  facade.Resources
+	st        *state.State
+	model     *state.Model
+	canAccess common.GetAuthFunc
+	resources facade.Resources
 }
 
 var _ RetryStrategy = (*RetryStrategyAPI)(nil)
@@ -48,7 +48,7 @@ func NewRetryStrategyAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*RetryStrategyAPI, error) {
-	if !authorizer.AuthUnitAgent() {
+	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, common.ErrPerm
 	}
 
@@ -60,7 +60,7 @@ func NewRetryStrategyAPI(
 	return &RetryStrategyAPI{
 		st:    st,
 		model: model,
-		accessUnit: func() (common.AuthFunc, error) {
+		canAccess: func() (common.AuthFunc, error) {
 			return authorizer.AuthOwner, nil
 		},
 		resources: resources,
@@ -73,7 +73,7 @@ func (h *RetryStrategyAPI) RetryStrategy(args params.Entities) (params.RetryStra
 	results := params.RetryStrategyResults{
 		Results: make([]params.RetryStrategyResult, len(args.Entities)),
 	}
-	canAccess, err := h.accessUnit()
+	canAccess, err := h.canAccess()
 	if err != nil {
 		return params.RetryStrategyResults{}, errors.Trace(err)
 	}
@@ -112,7 +112,7 @@ func (h *RetryStrategyAPI) WatchRetryStrategy(args params.Entities) (params.Noti
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	canAccess, err := h.accessUnit()
+	canAccess, err := h.canAccess()
 	if err != nil {
 		return params.NotifyWatchResults{}, errors.Trace(err)
 	}

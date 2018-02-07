@@ -19,6 +19,7 @@ type CAASOperatorState interface {
 	Application(string) (Application, error)
 	Model() (Model, error)
 	APIHostPortsForAgents() ([][]network.HostPort, error)
+	FindEntity(names.Tag) (state.Entity, error)
 }
 
 // Model provides the subset of CAAS model state required
@@ -33,9 +34,8 @@ type Model interface {
 // required by the CAAS operator facade.
 type Application interface {
 	Charm() (Charm, bool, error)
-	CharmConfig() (charm.Settings, error)
 	SetStatus(status.StatusInfo) error
-	WatchCharmConfig() (state.NotifyWatcher, error)
+	WatchUnits() state.StringsWatcher
 }
 
 // Charm provides the subset of charm state required by the

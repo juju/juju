@@ -49,7 +49,6 @@ type UniterAPI struct {
 	resources         facade.Resources
 	accessUnit        common.GetAuthFunc
 	accessApplication common.GetAuthFunc
-	unit              *state.Unit
 	accessMachine     common.GetAuthFunc
 	*StorageAPI
 }
@@ -80,25 +79,44 @@ type UniterAPIV4 struct {
 
 // NewUniterAPI creates a new instance of the core Uniter API.
 func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*UniterAPI, error) {
-	if !authorizer.AuthUnitAgent() {
+	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, common.ErrPerm
 	}
-	var unit *state.Unit
-	var err error
-	switch tag := authorizer.GetAuthTag().(type) {
-	case names.UnitTag:
-		unit, err = st.Unit(tag.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	default:
-		return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
-	}
 	accessUnit := func() (common.AuthFunc, error) {
-		return authorizer.AuthOwner, nil
+		switch tag := authorizer.GetAuthTag().(type) {
+		case names.ApplicationTag:
+			// If called by an application agent, and of the units
+			// belonging to that application can be accessed.
+			app, err := st.Application(tag.Name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			allUnits, err := app.AllUnits()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return func(tag names.Tag) bool {
+				for _, u := range allUnits {
+					if u.Tag() == tag {
+						return true
+					}
+				}
+				return false
+			}, nil
+		case names.UnitTag:
+			return func(tag names.Tag) bool {
+				return authorizer.AuthOwner(tag)
+			}, nil
+		default:
+			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
+		}
 	}
 	accessApplication := func() (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
+		case names.ApplicationTag:
+			return func(applicationTag names.Tag) bool {
+				return tag == applicationTag
+			}, nil
 		case names.UnitTag:
 			entity, err := st.Unit(tag.Id())
 			if err != nil {
@@ -110,11 +128,16 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 				return tag == applicationTag
 			}, nil
 		default:
-			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
+			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
 		}
 	}
 	accessMachine := func() (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
+		// Application agents can't access machines.
+		case names.ApplicationTag:
+			return func(tag names.Tag) bool {
+				return false
+			}, nil
 		case names.UnitTag:
 			entity, err := st.Unit(tag.Id())
 			if err != nil {
@@ -129,7 +152,7 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 				return tag == machineTag
 			}, nil
 		default:
-			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
+			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
 		}
 	}
 
@@ -138,8 +161,11 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		return nil, errors.Trace(err)
 	}
 
-	// Only IAAS models support storage.
-	var storageAPI *StorageAPI
+	// // Only IAAS models support storage and meter status (for now).
+	var (
+		storageAPI *StorageAPI
+		msAPI      *meterstatus.MeterStatusAPI
+	)
 	if m.Type() == state.ModelTypeIAAS {
 		ss, err := getStorageState(st)
 		if err != nil {
@@ -149,10 +175,10 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		if err != nil {
 			return nil, err
 		}
-	}
-	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer)
-	if err != nil {
-		return nil, errors.Annotate(err, "could not create meter status API handler")
+		msAPI, err = meterstatus.NewMeterStatusAPI(st, resources, authorizer)
+		if err != nil {
+			return nil, errors.Annotate(err, "could not create meter status API handler")
+		}
 	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
@@ -176,7 +202,6 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		accessUnit:        accessUnit,
 		accessApplication: accessApplication,
 		accessMachine:     accessMachine,
-		unit:              unit,
 		StorageAPI:        storageAPI,
 	}, nil
 }
@@ -1177,10 +1202,11 @@ func (u *UniterAPI) Refresh(args params.Entities) (params.UnitRefreshResults, er
 // CurrentModel returns the name and UUID for the current juju model.
 func (u *UniterAPI) CurrentModel() (params.ModelResult, error) {
 	result := params.ModelResult{}
-	env, err := u.st.Model()
+	model, err := u.st.Model()
 	if err == nil {
-		result.Name = env.Name()
-		result.UUID = env.UUID()
+		result.Name = model.Name()
+		result.UUID = model.UUID()
+		result.Type = string(model.Type())
 	}
 	return result, err
 }
@@ -1430,22 +1456,51 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 func (u *UniterAPI) SetRelationStatus(args params.RelationStatusArgs) (params.ErrorResults, error) {
 	var statusResults params.ErrorResults
 
-	// TODO(wallyworld) - the token should be passed to SetStatus() but the
-	// interface method doesn't allow for that yet.
-	checker := u.st.LeadershipChecker()
-	token := checker.LeadershipCheck(u.unit.ApplicationName(), u.unit.Name())
-	if err := token.Check(nil); err != nil {
-		return statusResults, err
+	unitCache := make(map[string]*state.Unit)
+	getUnit := func(tag string) (*state.Unit, error) {
+		if unit, ok := unitCache[tag]; ok {
+			return unit, nil
+		}
+		unitTag, err := names.ParseUnitTag(tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unit, err := u.st.Unit(unitTag.Id())
+		if errors.IsNotFound(err) {
+			return nil, common.ErrPerm
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unitCache[tag] = unit
+		return unit, nil
 	}
 
+	checker := u.st.LeadershipChecker()
 	changeOne := func(arg params.RelationStatusArg) error {
+		// TODO(wallyworld) - the token should be passed to SetStatus() but the
+		// interface method doesn't allow for that yet.
+		unitTag := arg.UnitTag
+		if unitTag == "" {
+			// Older clients don't pass in the unit tag explicitly.
+			unitTag = u.auth.GetAuthTag().String()
+		}
+		unit, err := getUnit(unitTag)
+		if err != nil {
+			return err
+		}
+		token := checker.LeadershipCheck(unit.ApplicationName(), unit.Name())
+		if err := token.Check(nil); err != nil {
+			return errors.Trace(err)
+		}
+
 		rel, err := u.st.Relation(arg.RelationId)
 		if errors.IsNotFound(err) {
 			return common.ErrPerm
 		} else if err != nil {
 			return errors.Trace(err)
 		}
-		_, err = rel.Unit(u.unit)
+		_, err = rel.Unit(unit)
 		if errors.IsNotFound(err) {
 			return common.ErrPerm
 		} else if err != nil {
@@ -2244,14 +2299,21 @@ func (u *UniterAPI) SetContainerSpec(args params.SetContainerSpecParams) (params
 	authTag := u.auth.GetAuthTag()
 	canAccess := func(tag names.Tag) bool {
 		if tag, ok := tag.(names.ApplicationTag); ok {
-			appName, err := names.UnitApplication(authTag.Id())
-			if err == nil && appName == tag.Id() {
-				return true
+			switch authTag.(type) {
+			case names.UnitTag:
+				appName, err := names.UnitApplication(authTag.Id())
+				return err == nil && appName == tag.Id()
+			case names.ApplicationTag:
+				return tag == authTag
 			}
 		}
 		if tag, ok := tag.(names.UnitTag); ok {
-			if tag.Id() == authTag.Id() {
-				return true
+			switch authTag.(type) {
+			case names.ApplicationTag:
+				appName, err := names.UnitApplication(tag.Id())
+				return err == nil && appName == authTag.Id()
+			case names.UnitTag:
+				return tag == authTag
 			}
 		}
 		return false

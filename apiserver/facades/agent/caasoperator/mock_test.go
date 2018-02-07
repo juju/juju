@@ -4,6 +4,7 @@
 package caasoperator_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6"
@@ -20,21 +21,24 @@ import (
 type mockState struct {
 	testing.Stub
 	app   mockApplication
+	unit  mockUnit
 	model mockModel
 }
 
 func newMockState() *mockState {
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
-	settingsWatcher := statetesting.NewMockNotifyWatcher(ch)
+	unitsChanges := make(chan []string, 1)
 	return &mockState{
 		app: mockApplication{
+			life: state.Alive,
 			charm: mockCharm{
 				url:    charm.MustParseURL("cs:gitlab-1"),
 				sha256: "fake-sha256",
 			},
-			settings:        charm.Settings{"k": 123},
-			settingsWatcher: settingsWatcher,
+			unitsChanges: unitsChanges,
+			unitsWatcher: statetesting.NewMockStringsWatcher(unitsChanges),
+		},
+		unit: mockUnit{
+			life: state.Dying,
 		},
 	}
 }
@@ -53,6 +57,21 @@ func (st *mockState) Model() (caasoperator.Model, error) {
 		return nil, err
 	}
 	return &st.model, nil
+}
+
+func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
+	st.MethodCall(st, "FindEntity", tag)
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	switch tag.(type) {
+	case names.ApplicationTag:
+		return &st.app, nil
+	case names.UnitTag:
+		return &st.unit, nil
+	default:
+		return nil, errors.NotFoundf("%s", names.ReadableString(tag))
+	}
 }
 
 func (st *mockState) APIHostPortsForAgents() ([][]network.HostPort, error) {
@@ -96,10 +115,20 @@ func (m *mockModel) Config() (*config.Config, error) {
 
 type mockApplication struct {
 	testing.Stub
-	charm           mockCharm
-	forceUpgrade    bool
-	settings        charm.Settings
-	settingsWatcher *statetesting.MockNotifyWatcher
+	life         state.Life
+	charm        mockCharm
+	forceUpgrade bool
+	unitsChanges chan []string
+	unitsWatcher *statetesting.MockStringsWatcher
+}
+
+func (*mockApplication) Tag() names.Tag {
+	panic("should not be called")
+}
+
+func (a *mockApplication) Life() state.Life {
+	a.MethodCall(a, "Life")
+	return a.life
 }
 
 func (app *mockApplication) SetStatus(info status.StatusInfo) error {
@@ -115,20 +144,23 @@ func (app *mockApplication) Charm() (caasoperator.Charm, bool, error) {
 	return &app.charm, app.forceUpgrade, nil
 }
 
-func (app *mockApplication) CharmConfig() (charm.Settings, error) {
-	app.MethodCall(app, "CharmConfig")
-	if err := app.NextErr(); err != nil {
-		return nil, err
-	}
-	return app.settings, nil
+func (a *mockApplication) WatchUnits() state.StringsWatcher {
+	a.MethodCall(a, "WatchUnits")
+	return a.unitsWatcher
 }
 
-func (app *mockApplication) WatchCharmConfig() (state.NotifyWatcher, error) {
-	app.MethodCall(app, "WatchCharmConfig")
-	if err := app.NextErr(); err != nil {
-		return nil, err
-	}
-	return app.settingsWatcher, nil
+type mockUnit struct {
+	testing.Stub
+	life state.Life
+}
+
+func (*mockUnit) Tag() names.Tag {
+	panic("should not be called")
+}
+
+func (u *mockUnit) Life() state.Life {
+	u.MethodCall(u, "Life")
+	return u.life
 }
 
 type mockCharm struct {
