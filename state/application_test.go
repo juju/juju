@@ -1874,7 +1874,12 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	// CAAS units have no workload (unit) status, workload version, nor meter status.
 	us, err := unitZero.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(us, jc.DeepEquals, status.StatusInfo{})
+	us.Since = nil
+	c.Assert(us, jc.DeepEquals, status.StatusInfo{
+		Status:  status.Waiting,
+		Message: "waiting for container",
+		Data:    map[string]interface{}{},
+	})
 	vers, err := unitZero.WorkloadVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers, gc.Equals, "")
@@ -3347,6 +3352,9 @@ func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 	unitsById := make(map[string]*state.Unit)
 	for _, u := range units {
 		if u.ProviderId() == "" {
+			c.Fail()
+		}
+		if u.ShouldBeAssigned() {
 			c.Fail()
 		}
 		unitsById[u.ProviderId()] = u

@@ -66,11 +66,12 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 		return errors.Trace(err)
 	}
 	isAssigned := unit.doc.MachineId != ""
+	shouldBeAssigned := unit.ShouldBeAssigned()
 	isPrincipal := unit.doc.Principal == ""
 
 	switch unitAgentStatus.Status {
 	case status.Idle, status.Executing, status.Rebooting, status.Failed:
-		if !isAssigned && isPrincipal {
+		if !isAssigned && isPrincipal && shouldBeAssigned {
 			return errors.Errorf("cannot set status %q until unit is assigned", unitAgentStatus.Status)
 		}
 	case status.Error:
@@ -82,11 +83,8 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 			return errors.Errorf("cannot set status %q as unit is already assigned", unitAgentStatus.Status)
 		}
 	case status.Running:
-		model, err := u.st.Model()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if model.Type() != ModelTypeCAAS {
+		// Only CAAS units (those that require assignment) can have a status of running.
+		if shouldBeAssigned {
 			return errors.Errorf("cannot set invalid status %q", unitAgentStatus.Status)
 		}
 	case status.Lost:

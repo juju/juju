@@ -850,7 +850,7 @@ func (m *Model) AllUnits() ([]*Unit, error) {
 	}
 	var units []*Unit
 	for i := range docs {
-		units = append(units, newUnit(m.st, &docs[i]))
+		units = append(units, newUnit(m.st, m.Type(), &docs[i]))
 	}
 	return units, nil
 }

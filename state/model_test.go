@@ -386,6 +386,9 @@ func (s *ModelSuite) TestAllUnits(c *gc.C) {
 
 	var names []string
 	for _, u := range units {
+		if !u.ShouldBeAssigned() {
+			c.Fail()
+		}
 		names = append(names, u.Name())
 	}
 	sort.Strings(names)

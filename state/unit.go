@@ -111,12 +111,17 @@ type unitDoc struct {
 type Unit struct {
 	st  *State
 	doc unitDoc
+
+	// Cache the model type as it is immutable as is referenced
+	// during the lifecycle of the unit.
+	modelType ModelType
 }
 
-func newUnit(st *State, udoc *unitDoc) *Unit {
+func newUnit(st *State, modelType ModelType, udoc *unitDoc) *Unit {
 	unit := &Unit{
-		st:  st,
-		doc: *udoc,
+		st:        st,
+		doc:       *udoc,
+		modelType: modelType,
 	}
 	return unit
 }
@@ -131,6 +136,12 @@ func (u *Unit) ProviderId() string {
 // This is only used for CAAS models.
 func (u *Unit) ContainerInfo() ContainerInfo {
 	return u.doc.ContainerInfo
+}
+
+// ShouldBeAssigned returns whether the unit should be assigned to a machine.
+// IAAS models require units to be assigned.
+func (u *Unit) ShouldBeAssigned() bool {
+	return u.modelType == ModelTypeIAAS
 }
 
 // Application returns the application.
@@ -312,7 +323,7 @@ func (u *Unit) PasswordValid(password string) bool {
 // UpdateOperation returns a model operation that will update a unit.
 func (u *Unit) UpdateOperation(props UnitUpdateProperties) *UpdateUnitOperation {
 	return &UpdateUnitOperation{
-		unit:  &Unit{st: u.st, doc: u.doc},
+		unit:  &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
 		props: props,
 	}
 }
@@ -335,7 +346,7 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 	if op.unit.ProviderId() != "" &&
 		op.props.ProviderId != "" &&
 		op.unit.ProviderId() != op.props.ProviderId {
-		return nil, errors.Errorf("unit %q has provider id %q which does not match %q",
+		logger.Debugf("unit %q has provider id %q which changed to %q",
 			op.unit.Name(), op.unit.ProviderId(), op.props.ProviderId)
 	}
 	containerInfo := ContainerInfo{
@@ -346,7 +357,7 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 	asserts := isAliveDoc
 	if op.unit.ProviderId() != op.props.ProviderId {
 		updates = append(updates, bson.DocElem{"provider-id", op.props.ProviderId})
-		asserts = append(asserts, bson.DocElem{"provider-id", ""})
+		asserts = append(asserts, bson.DocElem{"provider-id", op.unit.ProviderId()})
 	}
 	if !reflect.DeepEqual(containerInfo, op.unit.ContainerInfo()) {
 		updates = append(updates, bson.DocElem{"container-info", containerInfo})
@@ -408,7 +419,7 @@ func (u *Unit) Destroy() (err error) {
 
 // DestroyOperation returns a model operation that will destroy the unit.
 func (u *Unit) DestroyOperation() *DestroyUnitOperation {
-	return &DestroyUnitOperation{unit: &Unit{st: u.st, doc: u.doc}}
+	return &DestroyUnitOperation{unit: &Unit{st: u.st, doc: u.doc, modelType: u.modelType}}
 }
 
 // DestroyUnitOperation is a model operation for destroying a unit.
@@ -514,6 +525,7 @@ func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 	// See if the unit agent has started running.
 	// If so then we can't set directly to dead.
 	isAssigned := u.doc.MachineId != ""
+	shouldBeAssigned := u.ShouldBeAssigned()
 	agentStatusDocId := u.globalAgentKey()
 	agentStatusInfo, agentErr := getStatus(u.st.db(), agentStatusDocId, "agent")
 	if errors.IsNotFound(agentErr) {
@@ -524,10 +536,12 @@ func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 	if isAssigned && agentStatusInfo.Status != status.Allocating {
 		return setDyingOps, nil
 	}
-	switch agentStatusInfo.Status {
-	case status.Error, status.Allocating, status.Running:
-	default:
-		return nil, errors.Errorf("unexpected unit state - unit with status %v is not assigned to a machine", agentStatusInfo.Status)
+	if shouldBeAssigned {
+		switch agentStatusInfo.Status {
+		case status.Error, status.Allocating, status.Running:
+		default:
+			return nil, errors.Errorf("unexpected unit state - unit with status %v is not assigned to a machine", agentStatusInfo.Status)
+		}
 	}
 
 	statusOp := txn.Op{
@@ -542,7 +556,7 @@ func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 		},
 	})
 	// If the unit is unassigned, ensure it is not assigned in the interim.
-	if !isAssigned {
+	if !isAssigned && shouldBeAssigned {
 		removeAsserts = append(removeAsserts, bson.DocElem{"machineid", ""})
 	}
 
@@ -762,7 +776,7 @@ func (u *Unit) Remove() (err error) {
 
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
-	unit := &Unit{st: u.st, doc: u.doc}
+	unit := &Unit{st: u.st, doc: u.doc, modelType: u.modelType}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := unit.Refresh(); errors.IsNotFound(err) {
@@ -1306,7 +1320,20 @@ func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
 	pwatcher := u.st.workers.presenceWatcher()
-	return pwatcher.Alive(u.globalAgentKey())
+	if u.ShouldBeAssigned() {
+		return pwatcher.Alive(u.globalAgentKey())
+	}
+	app, err := u.Application()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	appAlive, err := pwatcher.Alive(app.globalKey())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	// TODO(caas) - record presence for application agent
+	// We return true so that the agent doesn't appwar as lost.
+	return true || appAlive, nil
 }
 
 // Tag returns a name identifying the unit.
