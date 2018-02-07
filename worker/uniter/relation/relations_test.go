@@ -121,7 +121,7 @@ func (s *relationsSuite) SetUpTest(c *gc.C) {
 	err = ioutil.WriteFile(filepath.Join(s.stateDir, "metadata.yaml"), []byte(minimalMetadata), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	s.relationsDir = filepath.Join(c.MkDir(), "relations")
-	s.leadershipContextFunc = func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker) context.LeadershipContext {
+	s.leadershipContextFunc = func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) context.LeadershipContext {
 		return &stubLeadershipContext{isLeader: true}
 	}
 }
@@ -166,7 +166,7 @@ func (s *relationsSuite) TestNewRelationsNoRelations(c *gc.C) {
 func (s *relationsSuite) assertNewRelationsWithExistingRelations(c *gc.C, isLeader bool) {
 	unitTag := names.NewUnitTag("wordpress/0")
 	abort := make(chan struct{})
-	s.leadershipContextFunc = func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker) context.LeadershipContext {
+	s.leadershipContextFunc = func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) context.LeadershipContext {
 		return &stubLeadershipContext{isLeader: isLeader}
 	}
 
@@ -188,6 +188,7 @@ func (s *relationsSuite) assertNewRelationsWithExistingRelations(c *gc.C, isLead
 		},
 	}
 	relationStatus := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		UnitTag:    "unit-wordpress-0",
 		RelationId: 1,
 		Status:     params.Joined,
 	}}}
@@ -292,6 +293,7 @@ func relationJoinedAPICalls() []apiCall {
 		{Relation: "relation-wordpress.db#mysql.db", Unit: "unit-wordpress-0"},
 	}}
 	relationStatus := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		UnitTag:    "unit-wordpress-0",
 		RelationId: 1,
 		Status:     params.Joined,
 	}}}
@@ -652,6 +654,7 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 		{Relation: "relation-wordpress.juju-info#juju-info.juju-info", Unit: "unit-wordpress-0"},
 	}}
 	relationStatus := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		UnitTag:    "unit-wordpress-0",
 		RelationId: 1,
 		Status:     params.Joined,
 	}}}
@@ -758,10 +761,12 @@ func subSubRelationAPICalls() []apiCall {
 		}},
 	}
 	relationStatus1 := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		UnitTag:    "unit-nrpe-0",
 		RelationId: 1,
 		Status:     params.Joined,
 	}}}
 	relationStatus2 := params.RelationStatusArgs{Args: []params.RelationStatusArg{{
+		UnitTag:    "unit-nrpe-0",
 		RelationId: 2,
 		Status:     params.Joined,
 	}}}

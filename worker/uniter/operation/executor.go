@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/mutex"
-	corecharm "gopkg.in/juju/charm.v6"
 )
 
 type executorStep struct {
@@ -36,19 +35,12 @@ type executor struct {
 // supplied path, and records state changes there. If no state file exists,
 // the executor's starting state will include a queued Install hook, for
 // the charm identified by the supplied func.
-func NewExecutor(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (Executor, error) {
+//func NewExecutor(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (Executor, error) {
+func NewExecutor(stateFilePath string, initialState State, acquireLock func() (mutex.Releaser, error)) (Executor, error) {
 	file := NewStateFile(stateFilePath)
 	state, err := file.Read()
 	if err == ErrNoStateFile {
-		charmURL, err := getInstallCharm()
-		if err != nil {
-			return nil, err
-		}
-		state = &State{
-			Kind:     Install,
-			Step:     Queued,
-			CharmURL: charmURL,
-		}
+		state = &initialState
 	} else if err != nil {
 		return nil, err
 	}

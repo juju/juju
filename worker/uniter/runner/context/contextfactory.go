@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -69,7 +70,8 @@ type contextFactory struct {
 	// Fields that shouldn't change in a factory's lifetime.
 	paths      Paths
 	modelUUID  string
-	envName    string
+	modelName  string
+	modelType  model.ModelType
 	machineTag names.MachineTag
 	storage    StorageContextAccessor
 	clock      clock.Clock
@@ -103,20 +105,25 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	machineTag, err := unit.AssignedMachine()
+	m, err := config.State.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	model, err := config.State.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	var (
+		machineTag names.MachineTag
+		zone       string
+	)
+	if m.Type() == model.IAAS {
+		machineTag, err = unit.AssignedMachine()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
-	zone, err := unit.AvailabilityZone()
-	if err != nil {
-		return nil, errors.Trace(err)
+		zone, err = unit.AvailabilityZone()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-
 	principal, ok, err := unit.PrincipalName()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -129,8 +136,8 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 		state:            config.State,
 		tracker:          config.Tracker,
 		paths:            config.Paths,
-		modelUUID:        model.UUID(),
-		envName:          model.Name(),
+		modelUUID:        m.UUID(),
+		modelName:        m.Name(),
 		machineTag:       machineTag,
 		getRelationInfos: config.GetRelationInfos,
 		relationCaches:   map[int]*RelationCache{},
@@ -139,6 +146,7 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 		clock:            config.Clock,
 		zone:             zone,
 		principal:        principal,
+		modelType:        m.Type(),
 	}
 	return f, nil
 }
@@ -154,13 +162,14 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 	leadershipContext := newLeadershipContext(
 		f.state.LeadershipSettings,
 		f.tracker,
+		f.unit.Name(),
 	)
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
 		LeadershipContext:  leadershipContext,
 		uuid:               f.modelUUID,
-		envName:            f.envName,
+		modelName:          f.modelName,
 		unitName:           f.unit.Name(),
 		assignedMachineTag: f.machineTag,
 		relations:          f.getContextRelations(),
@@ -282,19 +291,6 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	if err != nil {
 		return err
 	}
-	ctx.machinePorts, err = f.state.AllMachinePorts(f.machineTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	statusCode, statusInfo, err := f.unit.MeterStatus()
-	if err != nil {
-		return errors.Annotate(err, "could not retrieve meter status for unit")
-	}
-	ctx.meterStatus = &meterStatus{
-		code: statusCode,
-		info: statusInfo,
-	}
 
 	sla, err := f.state.SLALevel()
 	if err != nil {
@@ -310,16 +306,32 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 	ctx.proxySettings = modelConfig.ProxySettings()
 
-	// Calling these last, because there's a potential race: they're not guaranteed
-	// to be set in time to be needed for a hook. If they're not, we just leave them
-	// unset as we always have; this isn't great but it's about behaviour preservation.
-	ctx.publicAddress, err = f.unit.PublicAddress()
-	if err != nil && !params.IsCodeNoAddressSet(err) {
-		return err
-	}
-	ctx.privateAddress, err = f.unit.PrivateAddress()
-	if err != nil && !params.IsCodeNoAddressSet(err) {
-		return err
+	if f.modelType == model.IAAS {
+		ctx.machinePorts, err = f.state.AllMachinePorts(f.machineTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		statusCode, statusInfo, err := f.unit.MeterStatus()
+		if err != nil {
+			return errors.Annotate(err, "could not retrieve meter status for unit")
+		}
+		ctx.meterStatus = &meterStatus{
+			code: statusCode,
+			info: statusInfo,
+		}
+
+		// Calling these last, because there's a potential race: they're not guaranteed
+		// to be set in time to be needed for a hook. If they're not, we just leave them
+		// unset as we always have; this isn't great but it's about behaviour preservation.
+		ctx.publicAddress, err = f.unit.PublicAddress()
+		if err != nil && !params.IsCodeNoAddressSet(err) {
+			logger.Warningf("cannot get legacy public address for %v: %v", f.unit.Name(), err)
+		}
+		ctx.privateAddress, err = f.unit.PrivateAddress()
+		if err != nil && !params.IsCodeNoAddressSet(err) {
+			logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
+		}
 	}
 	return nil
 }

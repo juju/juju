@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/juju/core/model"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -98,6 +99,7 @@ func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 }
 
 type mockState struct {
+	modelType                   model.ModelType
 	unit                        mockUnit
 	relations                   map[names.RelationTag]*mockRelation
 	storageAttachment           map[params.StorageAttachmentId]params.StorageAttachment
