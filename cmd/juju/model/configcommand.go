@@ -87,7 +87,7 @@ type configCommandAPI interface {
 // Info implements part of the cmd.Command interface.
 func (c *configCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Args:    "[<model-key>[<=value>] ...]",
+		Args:    "[<model-key>[=<value>] ...]",
 		Name:    "model-config",
 		Purpose: modelConfigSummary,
 	}
@@ -184,7 +184,7 @@ func (c *configCommand) handleArgs(args []string) error {
 }
 
 // parseSetKeys iterates over the args and make sure that the key=value pairs
-// are valid. It also checks that the same key isn't being reset.
+// are valid.
 func (c *configCommand) parseSetKeys(args []string) error {
 	for _, arg := range args {
 		if err := c.setOptions.Set(arg); err != nil {

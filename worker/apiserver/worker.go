@@ -115,7 +115,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
 
-	auditConfig := getAuditLogConfig(controllerConfig)
+	auditConfig := getAuditLogConfig(controllerConfig, logDir)
 
 	serverConfig := apiserver.ServerConfig{
 		Clock:                         config.Clock,
@@ -134,10 +134,10 @@ func NewWorker(config Config) (worker.Worker, error) {
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          config.PrometheusRegisterer,
-		AuditLogConfig:                auditConfig,
+		AuditConfig:                auditConfig,
 	}
 	if auditConfig.Enabled {
-		serverConfig.AuditLog = auditlog.NewLogFile(
+		auditConfig.Target = auditlog.NewLogFile(
 			logDir, auditConfig.MaxSizeMB, auditConfig.MaxBackups)
 	}
 

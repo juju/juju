@@ -80,8 +80,8 @@ type Server struct {
 	logSinkWriter          io.WriteCloser
 	logsinkRateLimitConfig logsink.RateLimitConfig
 	dbloggers              dbloggers
-	auditLogConfig         AuditLogConfig
-	auditLogger            auditlog.AuditLog
+	auditConfigChanged     <-chan auditlog.Config
+	currentAuditConfig     auditlog.Config
 	upgradeComplete        func() bool
 	restoreStatus          func() state.RestoreStatus
 	mux                    *apiserverhttp.Mux
@@ -165,9 +165,13 @@ type ServerConfig struct {
 	// DefaultLogSinkConfig() will be used.
 	LogSinkConfig *LogSinkConfig
 
-	// AuditLogConfig holds parameters to configure audit logging.
-	AuditLogConfig AuditLogConfig
-	AuditLog       auditlog.AuditLog
+	// AuditConfig controls whether and how we track user-initiated
+	// API requests for auditing purposes.
+	AuditConfig auditlog.Config
+
+	// AuditConfigChanged is a channel which reports the new audit
+	// configuration whenever it changes.
+	AuditConfigChanged <-chan auditlog.Config
 
 	// PrometheusRegisterer registers Prometheus collectors.
 	PrometheusRegisterer prometheus.Registerer
@@ -201,8 +205,8 @@ func (c ServerConfig) Validate() error {
 			return errors.Annotate(err, "validating logsink configuration")
 		}
 	}
-	if c.AuditLogConfig.Enabled && c.AuditLog == nil {
-		return errors.NotValidf("audit logging enabled but no logger provided")
+	if err := c.AuditConfig.Validate(); err != nil {
+		return errors.Annotatef(err, "validating audit log configuration")
 	}
 	return nil
 }
@@ -274,8 +278,8 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 			Burst:  cfg.LogSinkConfig.RateLimitBurst,
 			Clock:  cfg.Clock,
 		},
-		auditLogConfig: cfg.AuditLogConfig,
-		auditLogger:    cfg.AuditLog,
+		auditConfigChanged: cfg.AuditConfigChanged,
+		currentAuditConfig: cfg.AuditConfig,
 		dbloggers: dbloggers{
 			clock:                 cfg.Clock,
 			dbLoggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
@@ -451,6 +455,12 @@ func (srv *Server) loop() error {
 		srv.wg.Wait() // wait for any outstanding requests to complete.
 		srv.dbloggers.dispose()
 		srv.logSinkWriter.Close()
+	}()
+
+	srv.wg.Add(1)
+	go func() {
+		defer srv.wg.Done()
+		srv.tomb.Kill(srv.processAuditConfigChanges())
 	}()
 
 	// for pat based handlers, they are matched in-order of being
@@ -886,4 +896,33 @@ func (srv *Server) localCertificate(serverName string) (*tls.Certificate, bool) 
 
 func serverError(err error) error {
 	return common.ServerError(err)
+}
+
+func (srv *Server) processAuditConfigChanges() error {
+	for {
+		select {
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		case auditConfig := <-srv.auditConfigChanged:
+			if err := auditConfig.Validate(); err != nil {
+				logger.Warningf("discarding invalid audit config: %s", err)
+			} else {
+				srv.updateAuditConfig(auditConfig)
+			}
+		}
+	}
+}
+
+func (srv *Server) updateAuditConfig(newConfig auditlog.Config) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	srv.currentAuditConfig = newConfig
+}
+
+// GetAuditConfig returns a copy of the current audit logging
+// configuration.
+func (srv *Server) GetAuditConfig() auditlog.Config {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	return srv.currentAuditConfig
 }

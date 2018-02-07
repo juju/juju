@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/auditlog"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -625,7 +626,7 @@ func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL:     "https://0.1.2.3/no-autocert-here",
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-		AuditLogConfig:  apiserver.AuditLogConfig{Enabled: false},
+		AuditConfig:     auditlog.Config{Enabled: false},
 		UpgradeComplete: func() bool { return true },
 		RestoreStatus: func() state.RestoreStatus {
 			return state.RestoreNotActive

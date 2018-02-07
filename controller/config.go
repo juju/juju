@@ -181,6 +181,18 @@ var (
 		AuditLogExcludeMethods,
 	}
 
+	// AllowedUpdateConfigAttributes contains all of the controller
+	// config attributes that are allowed to be updated after the
+	// controller has been created.
+	// TODO(babbageclunk): initially this will only be audit log
+	// values, but we should work out which others can also be changed
+	// safely.
+	AllowedUpdateConfigAttributes = set.NewStrings(
+		AuditingEnabled,
+		AuditLogCaptureArgs,
+		AuditLogExcludeMethods,
+	)
+
 	// DefaultAuditLogExcludeMethods is the default list of methods to
 	// exclude from the audit log.
 	DefaultAuditLogExcludeMethods = []string{
@@ -352,6 +364,10 @@ func (c Config) AuditLogMaxSizeMB() int {
 // files to keep.
 func (c Config) AuditLogMaxBackups() int {
 	if value, ok := c[AuditLogMaxBackups]; ok {
+		// Values obtained over the API are encoded as float64.
+		if floatValue, ok := value.(float64); ok {
+			return int(floatValue)
+		}
 		return value.(int)
 	}
 	return DefaultAuditLogMaxBackups

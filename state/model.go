@@ -220,7 +220,6 @@ func (st *State) filteredModelUUIDs(filter bson.D) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	out := make([]string, len(docs))
 	for i, doc := range docs {
 		out[i] = doc["_id"].(string)
