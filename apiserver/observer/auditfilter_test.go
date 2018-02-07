@@ -81,3 +81,17 @@ func (s *auditFilterSuite) TestMakeFilter(c *gc.C) {
 	c.Assert(f1(auditlog.Request{Facade: "Helplessness", Method: "Blues"}), jc.IsFalse)
 	c.Assert(f1(auditlog.Request{Facade: "The", Method: "Shrine"}), jc.IsTrue)
 }
+
+func (s *auditFilterSuite) TestExpandsReadonlyMethods(c *gc.C) {
+	f1 := observer.MakeInterestingRequestFilter(set.NewStrings("ReadOnlyMethods", "Helplessness.Blues"))
+	c.Assert(f1(auditlog.Request{Facade: "Helplessness", Method: "Blues"}), jc.IsFalse)
+	c.Assert(f1(auditlog.Request{Facade: "Client", Method: "FullStatus"}), jc.IsFalse)
+	c.Assert(f1(auditlog.Request{Facade: "Falcon", Method: "Heavy"}), jc.IsTrue)
+}
+
+func (s *auditFilterSuite) TestOnlyExcludeReadonlyMethodsIfWeShould(c *gc.C) {
+	f1 := observer.MakeInterestingRequestFilter(set.NewStrings("Helplessness.Blues"))
+	c.Assert(f1(auditlog.Request{Facade: "Helplessness", Method: "Blues"}), jc.IsFalse)
+	// Doesn't allow the readonly methods unless they've included the special key.
+	c.Assert(f1(auditlog.Request{Facade: "Client", Method: "FullStatus"}), jc.IsTrue)
+}

@@ -126,7 +126,7 @@ func (s *ControllerSuite) TestUpdateControllerConfigValidates(c *gc.C) {
 	err := s.State.UpdateControllerConfig(map[string]interface{}{
 		controller.AuditLogExcludeMethods: []string{"thing"},
 	}, nil)
-	c.Assert(err, gc.ErrorMatches, `invalid audit log exclude methods: should be a list of "Facade.Method" names, got "thing" at position 1`)
+	c.Assert(err, gc.ErrorMatches, `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "thing" at position 1`)
 }
 
 func (s *ControllerSuite) TestUpdatingUnknownName(c *gc.C) {
