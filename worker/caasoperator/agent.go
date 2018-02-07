@@ -7,15 +7,15 @@ import "github.com/juju/juju/status"
 
 // setAgentStatus sets the application's status if it has changed since last time this method was called.
 func setAgentStatus(op *caasOperator, agentStatus status.Status, info string, data map[string]interface{}) error {
-	op.setStatusMutex.Lock()
-	defer op.setStatusMutex.Unlock()
-	if op.lastReportedStatus == agentStatus && op.lastReportedMessage == info {
-		return nil
-	}
-	op.lastReportedStatus = agentStatus
-	op.lastReportedMessage = info
+	// TODO(caas) - add back support for application agent status
+	//op.setStatusMutex.Lock()
+	//defer op.setStatusMutex.Unlock()
+	//if op.lastReportedStatus == agentStatus && op.lastReportedMessage == info {
+	//	return nil
+	//}
+	//op.lastReportedStatus = agentStatus
+	//op.lastReportedMessage = info
 	logger.Infof("[AGENT-STATUS] %s: %s", agentStatus, info)
-	// TODO(caas)
 	return nil //op.SetAgentStatus(agentStatus, info, data)
 }
 

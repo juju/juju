@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -16,8 +17,9 @@ import (
 // with the CAASOperator API. Subsets of this
 // should be passed to the CAASOperator worker.
 type Client interface {
-	CharmConfigGetter
 	CharmGetter
+	UnitGetter
+	LifeGetter
 	ContainerSpecSetter
 	StatusSetter
 	APIAddressGetter
@@ -30,6 +32,20 @@ type Client interface {
 // assigned to the application.
 type CharmGetter interface {
 	Charm(application string) (_ *charm.URL, sha256 string, _ error)
+}
+
+// UnitGetter provides an interface for watching for
+// the lifecycle state changes (including addition)
+// of a specified application's units, and fetching
+// their details.
+type UnitGetter interface {
+	WatchUnits(string) (watcher.StringsWatcher, error)
+}
+
+// LifeGetter provides an interface for getting the
+// lifecycle state value for an application or unit.
+type LifeGetter interface {
+	Life(string) (life.Value, error)
 }
 
 // ContainerSpecSetter provides an interface for

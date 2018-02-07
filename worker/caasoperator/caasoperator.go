@@ -6,25 +6,28 @@ package caasoperator
 import (
 	"fmt"
 	"os"
-	"sync"
+	"path/filepath"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
-	"github.com/kr/pretty"
-	"gopkg.in/juju/charm.v6/hooks"
+	"github.com/juju/utils/set"
+	"github.com/juju/utils/symlink"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/status"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/caasoperator/commands"
-	"github.com/juju/juju/worker/caasoperator/hook"
-	"github.com/juju/juju/worker/caasoperator/operation"
-	"github.com/juju/juju/worker/caasoperator/runner"
 	"github.com/juju/juju/worker/caasoperator/runner/context"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/uniter"
 )
 
 var logger = loggo.GetLogger("juju.worker.caasoperator")
@@ -37,15 +40,7 @@ type caasOperator struct {
 	catacomb catacomb.Catacomb
 	config   Config
 	paths    context.Paths
-
-	// Cache the last reported status information
-	// so we don't make unnecessary api calls.
-	setStatusMutex      sync.Mutex
-	lastReportedStatus  status.Status
-	lastReportedMessage string
-
-	operationFactory  operation.Factory
-	operationExecutor operation.Executor
+	runner   *worker.Runner
 }
 
 // Config hold the configuration for a caasoperator worker.
@@ -56,23 +51,16 @@ type Config struct {
 	// ModelName is the name of the model.
 	ModelName string
 
-	// NewRunnerFactoryFunc returns a hook/cmd/action runner factory.
-	NewRunnerFactoryFunc runner.NewRunnerFactoryFunc
-
 	// Application holds the name of the application that
 	// this CAAS operator manages.
 	Application string
-
-	// CharmConfigGetter is an interface used for
-	// watching and getting the application's charm config settings.
-	CharmConfigGetter CharmConfigGetter
 
 	// CharmGetter is an interface used for getting the
 	// application's charm URL and SHA256 hash.
 	CharmGetter CharmGetter
 
 	// Clock holds the clock to be used by the CAAS operator
-	// for time-related operations.
+	// for time-related operations.5
 	Clock clock.Clock
 
 	// ContainerSpecSetter provides an interface for
@@ -100,17 +88,47 @@ type Config struct {
 	// ProxySettingsGetter is an interface for getting the
 	// model proxy settings.
 	ProxySettingsGetter ProxySettingsGetter
+
+	// LifeGetter is an interface for getting the Life of an entity.
+	LifeGetter LifeGetter
+
+	// UnitGetter is an interface for getting a unit.
+	UnitGetter UnitGetter
+
+	// LeadershipTrackerFunc is a function for getting a leadership tracker.
+	LeadershipTrackerFunc func(unitTag names.UnitTag) leadership.Tracker
+
+	// UniterFacadeFunc is a function for making a uniter facade.
+	UniterFacadeFunc func(unitTag names.UnitTag) *apiuniter.State
+
+	// UniterParams are parameters used to construct a uniter worker.
+	UniterParams *uniter.UniterParams
+
+	// StartUniterFunc starts a uniter worker using the given runner.
+	StartUniterFunc func(runner *worker.Runner, params *uniter.UniterParams) error
 }
 
 func (config Config) Validate() error {
 	if !names.IsValidApplication(config.Application) {
 		return errors.NotValidf("application name %q", config.Application)
 	}
-	if config.CharmConfigGetter == nil {
-		return errors.NotValidf("missing CharmConfigGetter")
-	}
 	if config.CharmGetter == nil {
 		return errors.NotValidf("missing CharmGetter")
+	}
+	if config.LifeGetter == nil {
+		return errors.NotValidf("missing LifeGetter")
+	}
+	if config.UnitGetter == nil {
+		return errors.NotValidf("missing UnitGetter")
+	}
+	if config.LeadershipTrackerFunc == nil {
+		return errors.NotValidf("missing LeadershipTrackerFunc")
+	}
+	if config.UniterFacadeFunc == nil {
+		return errors.NotValidf("missing UniterFacadeFunc")
+	}
+	if config.UniterParams == nil {
+		return errors.NotValidf("missing UniterParams")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("missing Clock")
@@ -146,10 +164,21 @@ func NewWorker(config Config) (worker.Worker, error) {
 	op := &caasOperator{
 		config: config,
 		paths:  NewPaths(config.DataDir, names.NewApplicationTag(config.Application)),
+		runner: worker.NewRunner(worker.RunnerParams{
+			Clock: config.Clock,
+
+			// One of the uniter workers failing should not
+			// prevent the others from running.
+			IsFatal: func(error) bool { return false },
+
+			// For any failures, try again in 3 seconds.
+			RestartDelay: 3 * time.Second,
+		}),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &op.catacomb,
 		Work: op.loop,
+		Init: []worker.Worker{op.runner},
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -167,30 +196,87 @@ func (op *caasOperator) loop() (err error) {
 		)
 	}
 
-	configGetter := op.config.CharmConfigGetter
-	configWatcher, err := configGetter.WatchCharmConfig(op.config.Application)
+	jujuUnitsWatcher, err := op.config.UnitGetter.WatchUnits(op.config.Application)
 	if err != nil {
-		return errors.Annotate(err, "starting an application charm config watcher")
+		return errors.Trace(err)
 	}
-	op.catacomb.Add(configWatcher)
+	op.catacomb.Add(jujuUnitsWatcher)
+
+	if op.setStatus(status.Active, ""); err != nil {
+		return errors.Trace(err)
+	}
+
+	aliveUnits := make(set.Strings)
 
 	for {
 		select {
 		case <-op.catacomb.Dying():
 			return op.catacomb.ErrDying()
-		case <-configWatcher.Changes():
-			settings, err := configGetter.CharmConfig(op.config.Application)
-			if err != nil {
-				return errors.Annotate(err, "getting application config")
+		case units, ok := <-jujuUnitsWatcher.Changes():
+			if !ok {
+				return errors.New("watcher closed channel")
 			}
-			logger.Debugf("application charm config changed: %s", pretty.Sprint(settings))
+			for _, unitId := range units {
+				unitLife, err := op.config.LifeGetter.Life(unitId)
+				if err != nil && !errors.IsNotFound(err) {
+					return errors.Trace(err)
+				}
+				if errors.IsNotFound(err) || unitLife == life.Dead {
+					aliveUnits.Remove(unitId)
+					if err := op.runner.StopWorker(unitId); err != nil {
+						return err
+					}
+				} else {
+					aliveUnits.Add(unitId)
+				}
+				// Start a worker to manage any new units.
+				if _, err := op.runner.Worker(unitId, op.catacomb.Dying()); err == nil || unitLife == life.Dead {
+					// Already watching the unit. or we're
+					// not yet watching it and it's dead.
+					continue
+				}
 
-			hookOp, err := op.operationFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if err := op.operationExecutor.Run(hookOp); err != nil {
-				return errors.Trace(err)
+				// All units share the same charm and agent binary.
+				// (but with different state dirs for each unit).
+				// Set up the required symlinks.
+
+				// First the agent binary.
+				agentBinaryDir := op.paths.GetToolsDir()
+				unitTag := names.NewUnitTag(unitId)
+				unitToolsDir := filepath.Join(agentBinaryDir, unitTag.String())
+				err = os.Mkdir(unitToolsDir, 0600)
+				if err != nil && !os.IsExist(err) {
+					return errors.Trace(err)
+				}
+				jujudPath := filepath.Join(agentBinaryDir, jujunames.Jujud)
+				err = symlink.New(jujudPath, filepath.Join(unitToolsDir, jujunames.Jujud))
+				// Ignore permission denied as this won't happen in production
+				// but may happen in testing depending on setup of /tmp
+				if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
+					return errors.Trace(err)
+				}
+
+				// Second the charm directory.
+				unitAgentDir := filepath.Join(op.config.DataDir, "agents", unitTag.String())
+				err = os.MkdirAll(unitAgentDir, 0600)
+				if err != nil && !os.IsExist(err) {
+					return errors.Trace(err)
+				}
+				agentCharmDir := op.paths.GetCharmDir()
+				err = symlink.New(agentCharmDir, filepath.Join(unitAgentDir, "charm"))
+				// Ignore permission denied as this won't happen in production
+				// but may happen in testing depending on setup of /tmp
+				if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
+					return errors.Trace(err)
+				}
+
+				params := op.config.UniterParams
+				params.UnitTag = unitTag
+				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
+				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
+				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
+					return errors.Trace(err)
+				}
 			}
 		}
 	}
@@ -209,47 +295,6 @@ func (op *caasOperator) init() (err error) {
 	if err := op.ensureCharm(); err != nil {
 		return errors.Trace(err)
 	}
-
-	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		ContextFactoryAPI: &contextFactoryAPIAdaptor{
-			APIAddressGetter:    op.config.APIAddressGetter,
-			ProxySettingsGetter: op.config.ProxySettingsGetter,
-		},
-		HookAPI: &hookAPIAdaptor{
-			appName:             op.config.Application,
-			StatusSetter:        op.config.StatusSetter,
-			CharmConfigGetter:   op.config.CharmConfigGetter,
-			ContainerSpecSetter: op.config.ContainerSpecSetter,
-		},
-		ModelUUID:        op.config.ModelUUID,
-		ModelName:        op.config.ModelName,
-		ApplicationTag:   names.NewApplicationTag(op.config.Application),
-		GetRelationInfos: nil, // TODO(caas)
-		Paths:            op.paths,
-		Clock:            op.config.Clock,
-	})
-	if err != nil {
-		return err
-	}
-	runnerFactory, err := op.config.NewRunnerFactoryFunc(
-		op.paths, contextFactory,
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	op.operationFactory = operation.NewFactory(operation.FactoryParams{
-		RunnerFactory: runnerFactory,
-		Abort:         op.catacomb.Dying(),
-		Callbacks:     &operationCallbacks{op},
-	})
-
-	operationExecutor, err := operation.NewExecutor()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	op.operationExecutor = operationExecutor
-
 	return nil
 }
 
