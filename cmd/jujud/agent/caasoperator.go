@@ -131,6 +131,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		Clock:                clock.WallClock,
 		LogSource:            op.bufferedLogger.Logs(),
 		PrometheusRegisterer: op.prometheusRegistry,
+		LeadershipGuarantee:  30 * time.Second,
 	})
 
 	config := dependency.EngineConfig{
