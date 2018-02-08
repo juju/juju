@@ -51,6 +51,7 @@ type Unit struct {
 	UnitTag string
 	Address string
 	Ports   []string
+	Dying   bool
 	Status  status.StatusInfo
 }
 

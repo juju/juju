@@ -421,9 +421,19 @@ func (u *Uniter) terminate() error {
 			if err := u.unit.EnsureDead(); err != nil {
 				return errors.Trace(err)
 			}
-			return jworker.ErrTerminateAgent
+			return u.stopUnitError()
 		}
 	}
+}
+
+// stopUnitError returns the error to use when exiting from stopping the unit.
+// For IAAS models, we want to terminate the agent, as each unit is run by
+// an individual agent for that unit.
+func (u *Uniter) stopUnitError() error {
+	if u.modelType == model.IAAS {
+		return jworker.ErrTerminateAgent
+	}
+	return nil
 }
 
 func (u *Uniter) init(unitTag names.UnitTag) (err error) {
@@ -436,7 +446,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		// become Dead immediately after starting up, we may well complete any
 		// operations in progress before detecting it; but that race is fundamental
 		// and inescapable, whereas this one is not.
-		return jworker.ErrTerminateAgent
+		return u.stopUnitError()
 	}
 	// If initialising for the first time after deploying, update the status.
 	currentStatus, err := u.unit.UnitStatus()

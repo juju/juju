@@ -162,7 +162,10 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 	defer func() {
 		cause := errors.Cause(err)
 		if params.IsCodeNotFoundOrCodeUnauthorized(cause) {
-			err = jworker.ErrTerminateAgent
+			// We only want to terminate the agent for IAAS models.
+			if w.modelType == model.IAAS {
+				err = jworker.ErrTerminateAgent
+			}
 		}
 	}()
 	if w.unit, err = w.st.Unit(unitTag); err != nil {

@@ -171,6 +171,11 @@ func (aw *applicationWorker) loop() error {
 				Units:          make([]params.ApplicationUnitParams, len(units)),
 			}
 			for i, u := range units {
+				// For pods managed by the substrate, any marked as dying
+				// are treated as non-existing.
+				if u.Dying && aw.brokerManagedUnits {
+					continue
+				}
 				args.Units[i] = params.ApplicationUnitParams{
 					ProviderId: u.Id,
 					UnitTag:    u.UnitTag,
