@@ -1351,11 +1351,12 @@ func (s *withoutControllerSuite) TestContainerManagerConfig(c *gc.C) {
 
 func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	attrs := map[string]interface{}{
-		"http-proxy":            "http://proxy.example.com:9000",
-		"apt-https-proxy":       "https://proxy.example.com:9000",
-		"allow-lxd-loop-mounts": true,
-		"apt-mirror":            "http://example.mirror.com",
-		"cloudinit-userdata":    validCloudInitUserData,
+		"http-proxy":                   "http://proxy.example.com:9000",
+		"apt-https-proxy":              "https://proxy.example.com:9000",
+		"allow-lxd-loop-mounts":        true,
+		"apt-mirror":                   "http://example.mirror.com",
+		"cloudinit-userdata":           validCloudInitUserData,
+		"container-inherit-properties": "ca-certs,apt-primary",
 	}
 	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1384,6 +1385,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
 		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 		"package_upgrade": false})
+	c.Check(results.ContainerInheritProperties, gc.DeepEquals, "ca-certs,apt-primary")
 }
 
 func (s *withoutControllerSuite) TestSetSupportedContainers(c *gc.C) {

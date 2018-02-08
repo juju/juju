@@ -78,6 +78,9 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		c.Skip("Skipping kvm tests on windows")
 	}
 	s.kvmSuite.SetUpTest(c)
+	s.PatchValue(&provisioner.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
+		return nil, nil
+	})
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -259,19 +262,76 @@ func (s *kvmBrokerSuite) TestStartInstanceWithCloudInitUserData(c *gc.C) {
 	broker, brokerErr := s.newKVMBrokerFakeManager(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 
-	_, err := s.startInstance(c, broker, "1/lxd/0")
+	_, err := s.startInstance(c, broker, "1/kvm/0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.manager.CheckCallNames(c, "CreateContainer")
 	call := s.manager.Calls()[0]
 	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
 	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
-	c.Assert(instanceConfig.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
+	assertCloudInitUserData(instanceConfig.CloudInitUserData, map[string]interface{}{
 		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
 		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
 		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 		"package_upgrade": false,
+	}, c)
+}
+
+func (s *kvmBrokerSuite) TestStartInstanceWithContainerInheritProperties(c *gc.C) {
+	s.PatchValue(&provisioner.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
+		return map[string]interface{}{
+			"packages":   []interface{}{"python-novaclient"},
+			"fake-entry": []interface{}{"testing-garbage"},
+			"apt": map[interface{}]interface{}{
+				"primary": []interface{}{
+					map[interface{}]interface{}{
+						"arches": []interface{}{"default"},
+						"uri":    "http://archive.ubuntu.com/ubuntu",
+					},
+				},
+				"security": []interface{}{
+					map[interface{}]interface{}{
+						"arches": []interface{}{"default"},
+						"uri":    "http://archive.ubuntu.com/ubuntu",
+					},
+				},
+			},
+			"ca-certs": map[interface{}]interface{}{
+				"remove-defaults": true,
+				"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
+			},
+		}, nil
 	})
+	s.api.fakeContainerConfig.ContainerInheritProperties = "ca-certs,apt-security"
+
+	broker, brokerErr := s.newKVMBrokerFakeManager(c)
+	c.Assert(brokerErr, jc.ErrorIsNil)
+
+	_, err := s.startInstance(c, broker, "1/kvm/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.manager.CheckCallNames(c, "CreateContainer")
+	call := s.manager.Calls()[0]
+	c.Assert(call.Args[0], gc.FitsTypeOf, &instancecfg.InstanceConfig{})
+	instanceConfig := call.Args[0].(*instancecfg.InstanceConfig)
+	assertCloudInitUserData(instanceConfig.CloudInitUserData, map[string]interface{}{
+		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+		"package_upgrade": false,
+		"apt": map[string]interface{}{
+			"security": []interface{}{
+				map[interface{}]interface{}{
+					"arches": []interface{}{"default"},
+					"uri":    "http://archive.ubuntu.com/ubuntu",
+				},
+			},
+		},
+		"ca-certs": map[interface{}]interface{}{
+			"remove-defaults": true,
+			"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
+		},
+	}, c)
 }
 
 type kvmProvisionerSuite struct {

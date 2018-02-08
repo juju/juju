@@ -292,6 +292,7 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.AptProxy = config.AptProxySettings()
 	result.AptMirror = config.AptMirror()
 	result.CloudInitUserData = config.CloudInitUserData()
+	result.ContainerInheritProperties = config.ContainerInheritProperies()
 	return result, nil
 }
 

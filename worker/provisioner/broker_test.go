@@ -31,6 +31,67 @@ import (
 	"github.com/juju/juju/worker/provisioner"
 )
 
+type brokerSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&brokerSuite{})
+
+func (s *brokerSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.PatchValue(&provisioner.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
+		return map[string]interface{}{
+			"packages":   []interface{}{"python-novaclient"},
+			"fake-entry": []interface{}{"testing-garbage"},
+			"apt": map[interface{}]interface{}{
+				"primary": []interface{}{
+					map[interface{}]interface{}{
+						"arches": []interface{}{"default"},
+						"uri":    "http://archive.ubuntu.com/ubuntu",
+					},
+				},
+				"security": []interface{}{
+					map[interface{}]interface{}{
+						"arches": []interface{}{"default"},
+						"uri":    "http://archive.ubuntu.com/ubuntu",
+					},
+				},
+			},
+			"ca-certs": map[interface{}]interface{}{
+				"remove-defaults": true,
+				"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
+			},
+		}, nil
+	})
+}
+
+func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
+	obtained, err := provisioner.CombinedCloudInitData(nil, "ca-certs,apt-primary", "xenial", loggo.Logger{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertCloudInitUserData(obtained, map[string]interface{}{
+		"apt": map[string]interface{}{
+			"primary": []interface{}{
+				map[interface{}]interface{}{
+					"arches": []interface{}{"default"},
+					"uri":    "http://archive.ubuntu.com/ubuntu",
+				},
+			},
+		},
+		"ca-certs": map[interface{}]interface{}{
+			"remove-defaults": true,
+			"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
+		},
+	}, c)
+}
+
+func (s *brokerSuite) TestCombinedCloudInitDataNoContainerInheritProperties(c *gc.C) {
+	containerConfig := fakeContainerConfig()
+	obtained, err := provisioner.CombinedCloudInitData(containerConfig.CloudInitUserData, "", "xenial", loggo.Logger{})
+	c.Assert(err, jc.ErrorIsNil)
+	assertCloudInitUserData(obtained, containerConfig.CloudInitUserData, c)
+}
+
 type fakeAddr struct{ value string }
 
 func (f *fakeAddr) Network() string { return "net" }
@@ -74,23 +135,25 @@ var fakeDeviceToBridge network.DeviceToBridge = network.DeviceToBridge{
 	BridgeName: "br-dummy0",
 }
 
-var fakeContainerConfig = params.ContainerConfig{
-	UpdateBehavior:          &params.UpdateBehavior{true, true},
-	ProviderType:            "fake",
-	AuthorizedKeys:          coretesting.FakeAuthKeys,
-	SSLHostnameVerification: true,
-	CloudInitUserData: map[string]interface{}{
-		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
-		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
-		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
-		"package_upgrade": false,
-	},
+func fakeContainerConfig() params.ContainerConfig {
+	return params.ContainerConfig{
+		UpdateBehavior:          &params.UpdateBehavior{true, true},
+		ProviderType:            "fake",
+		AuthorizedKeys:          coretesting.FakeAuthKeys,
+		SSLHostnameVerification: true,
+		CloudInitUserData: map[string]interface{}{
+			"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+			"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+			"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+			"package_upgrade": false,
+		},
+	}
 }
 
 func NewFakeAPI() *fakeAPI {
 	return &fakeAPI{
 		Stub:                &gitjujutesting.Stub{},
-		fakeContainerConfig: fakeContainerConfig,
+		fakeContainerConfig: fakeContainerConfig(),
 		fakeInterfaceInfo:   fakeInterfaceInfo,
 	}
 }
@@ -292,4 +355,20 @@ func callMaintainInstance(c *gc.C, s patcher, broker environs.InstanceBroker, ma
 		StatusCallback: makeNoOpStatusCallback(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func assertCloudInitUserData(obtained, expected map[string]interface{}, c *gc.C) {
+	c.Assert(obtained, gc.HasLen, len(expected))
+	for obtainedK, obtainedV := range obtained {
+		expectedV, ok := expected[obtainedK]
+		c.Assert(ok, jc.IsTrue)
+		switch obtainedK {
+		case "package_upgrade":
+			c.Assert(obtainedV, gc.Equals, expectedV)
+		case "apt", "ca-certs":
+			c.Assert(obtainedV, jc.DeepEquals, expectedV)
+		default:
+			c.Assert(obtainedV, jc.SameContents, expectedV)
+		}
+	}
 }
