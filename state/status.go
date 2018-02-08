@@ -280,7 +280,14 @@ func setStatus(db Database, params setStatusParams) (err error) {
 		StatusData: utils.EscapeKeys(params.rawData),
 		Updated:    params.updated.UnixNano(),
 	}
-	probablyUpdateStatusHistory(db, params.globalKey, doc)
+
+	newStatus, historyErr := probablyUpdateStatusHistory(db, params.globalKey, doc)
+	if !newStatus && historyErr == nil {
+		// If this status is not new (i.e. it is exactly the same as
+		// our last status), there is no need to update the record.
+		// Update here will only reset the 'Since' field.
+		return
+	}
 
 	// Set the authoritative status document, or fail trying.
 	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
@@ -348,7 +355,14 @@ type historicalStatusDoc struct {
 	Updated int64 `bson:"updated"`
 }
 
-func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) {
+// probablyUpdateStatusHistory inspects existing status-history
+// and determines if this status is new or the same as the last recorded.
+// If this is a new status, a new status history record will be added.
+// If this status is the same as the last status we've received,
+// we update that record to have a new timestamp.
+// Status messages are considered to be the same if they only differ in their timestamps.
+// The call returns true if a new status history record has been created.
+func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) (bool, error) {
 	historyDoc := &historicalStatusDoc{
 		Status:     doc.Status,
 		StatusInfo: doc.StatusInfo,
@@ -386,14 +400,32 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) {
 		if current.Status == doc.Status &&
 			current.StatusInfo == doc.StatusInfo &&
 			dataSame(current.StatusData, doc.StatusData) {
-			return
+			historyW := history.Writeable()
+			err = historyW.Update(
+				bson.D{
+					// Since status history records do not have a
+					// unique identifier (!!), we need to make sure
+					// that we are updating the right record.
+					{"globalkey", current.GlobalKey},
+					{"statusinfo", current.StatusInfo},
+					{"updated", current.Updated},
+				},
+				bson.D{{"$set", bson.D{{"updated", doc.Updated}}}})
+			if err != nil {
+				logger.Errorf("failed to update status history: %v", err)
+				return false, err
+			}
+			return false, nil
 		}
 	}
 
 	historyW := history.Writeable()
-	if err := historyW.Insert(historyDoc); err != nil {
+	err = historyW.Insert(historyDoc)
+	if err != nil {
 		logger.Errorf("failed to write status history: %v", err)
+		return false, err
 	}
+	return true, nil
 }
 
 // eraseStatusHistory removes all status history documents for
