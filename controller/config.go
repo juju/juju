@@ -53,6 +53,14 @@ const (
 	// interesting calls though.)
 	AuditLogExcludeMethods = "audit-log-exclude-methods"
 
+	// ReadOnlyMethodsWildcard is the special value that can be added
+	// to the exclude-methods list that represents all of the read
+	// only methods (see apiserver/observer/auditfilter.go). This
+	// value will be stored in the DB (rather than being expanded at
+	// write time) so any changes to the set of read-only methods in
+	// new versions of Juju will be honoured.
+	ReadOnlyMethodsWildcard = "ReadOnlyMethods"
+
 	// StatePort is the port used for mongo connections.
 	StatePort = "state-port"
 
@@ -185,59 +193,9 @@ var (
 	// DefaultAuditLogExcludeMethods is the default list of methods to
 	// exclude from the audit log.
 	DefaultAuditLogExcludeMethods = []string{
-		// Collected by running read-only commands.
-		"Action.Actions",
-		"Action.ApplicationsCharmsActions",
-		"Action.FindActionsByNames",
-		"Action.FindActionTagsByPrefix",
-		"Application.GetConstraints",
-		"ApplicationOffers.ApplicationOffers",
-		"Backups.Info",
-		"Client.FullStatus",
-		"Client.GetModelConstraints",
-		"Client.StatusHistory",
-		"Controller.AllModels",
-		"Controller.ControllerConfig",
-		"Controller.GetControllerAccess",
-		"Controller.ModelConfig",
-		"Controller.ModelStatus",
-		"MetricsDebug.GetMetrics",
-		"ModelConfig.ModelGet",
-		"ModelManager.ModelInfo",
-		"ModelManager.ModelDefaults",
-		"Pinger.Ping",
-		"UserManager.UserInfo",
-
-		// Don't filter out Application.Get - since it includes secrets
-		// it's worthwhile to track when it's run, and it's not likely to
-		// swamp the log.
-
-		// All client facade methods that start with List.
-		"Action.ListAll",
-		"Action.ListPending",
-		"Action.ListRunning",
-		"Action.ListComplete",
-		"ApplicationOffers.ListApplicationOffers",
-		"Backups.List",
-		"Block.List",
-		"Charms.List",
-		"Controller.ListBlockedModels",
-		"FirewallRules.ListFirewallRules",
-		"ImageManager.ListImages",
-		"ImageMetadata.List",
-		"KeyManager.ListKeys",
-		"ModelManager.ListModels",
-		"ModelManager.ListModelSummaries",
-		"Payloads.List",
-		"PayloadsHookContext.List",
-		"Resources.ListResources",
-		"ResourcesHookContext.ListResources",
-		"Spaces.ListSpaces",
-		"Storage.ListStorageDetails",
-		"Storage.ListPools",
-		"Storage.ListVolumes",
-		"Storage.ListFilesystems",
-		"Subnets.ListSubnets",
+		// This special value means we exclude any methods in the set
+		// listed in apiserver/observer/auditfilter.go
+		ReadOnlyMethodsWildcard,
 	}
 
 	methodNameRE = regexp.MustCompile(`[[:alpha:]][[:alnum:]]*\.[[:alpha:]][[:alnum:]]*`)
@@ -552,9 +510,10 @@ func Validate(c Config) error {
 
 	if v, ok := c[AuditLogExcludeMethods].([]interface{}); ok {
 		for i, name := range v {
-			if !methodNameRE.MatchString(name.(string)) {
+			name := name.(string)
+			if name != ReadOnlyMethodsWildcard && !methodNameRE.MatchString(name) {
 				return errors.Errorf(
-					`invalid audit log exclude methods: should be a list of "Facade.Method" names, got %q at position %d`,
+					`invalid audit log exclude methods: should be a list of "Facade.Method" names (or "ReadOnlyMethods"), got %q at position %d`,
 					name,
 					i+1,
 				)

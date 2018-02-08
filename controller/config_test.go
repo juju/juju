@@ -148,9 +148,9 @@ var validateTests = []struct {
 	about: "invalid audit log exclude",
 	config: controller.Config{
 		controller.CACertKey:              testing.CACert,
-		controller.AuditLogExcludeMethods: []interface{}{"Dap.Kings", "Sharon Jones"},
+		controller.AuditLogExcludeMethods: []interface{}{"Dap.Kings", "ReadOnlyMethods", "Sharon Jones"},
 	},
-	expectError: `invalid audit log exclude methods: should be a list of "Facade.Method" names, got "Sharon Jones" at position 2`,
+	expectError: `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "Sharon Jones" at position 3`,
 }}
 
 func (s *ConfigSuite) TestValidate(c *gc.C) {
@@ -224,7 +224,7 @@ func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
 			"audit-log-capture-args":    true,
 			"audit-log-max-size":        "100M",
 			"audit-log-max-backups":     10.0,
-			"audit-log-exclude-methods": []string{"Fleet.Foxes", "King.Gizzard"},
+			"audit-log-exclude-methods": []string{"Fleet.Foxes", "King.Gizzard", "ReadOnlyMethods"},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -235,6 +235,7 @@ func (s *ConfigSuite) TestAuditLogValues(c *gc.C) {
 	c.Assert(cfg.AuditLogExcludeMethods(), gc.DeepEquals, set.NewStrings(
 		"Fleet.Foxes",
 		"King.Gizzard",
+		"ReadOnlyMethods",
 	))
 }
 
