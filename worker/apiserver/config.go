@@ -146,6 +146,6 @@ func getAuditLogConfig(cfg controller.Config, logDir string) auditlog.Config {
 		MaxSizeMB:      cfg.AuditLogMaxSizeMB(),
 		MaxBackups:     cfg.AuditLogMaxBackups(),
 		ExcludeMethods: cfg.AuditLogExcludeMethods(),
-		Target: 		target,
+		Target:         target,
 	}
 }

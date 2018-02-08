@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapiserver "github.com/juju/juju/apiserver"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -96,12 +97,13 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 	c.Assert(config.NewObserver, gc.NotNil)
 	config.NewObserver = nil
 
-	c.Assert(config.AuditLog, gc.NotNil)
-	config.AuditLog = nil
+	c.Assert(config.AuditConfig.Target, gc.NotNil)
+	// Set the target to Nil because we don't want to compare it
+	config.AuditConfig.Target = nil
 
 	rateLimitConfig := coreapiserver.DefaultRateLimitConfig()
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
-	auditLogConfig := coreapiserver.AuditLogConfig{
+	auditConfig := auditlog.Config{
 		Enabled:        true,
 		CaptureAPIArgs: true,
 		MaxSizeMB:      200,
@@ -121,6 +123,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		RateLimitConfig:      rateLimitConfig,
 		LogSinkConfig:        &logSinkConfig,
 		PrometheusRegisterer: &s.prometheusRegisterer,
-		AuditLogConfig:       auditLogConfig,
+		AuditConfig:          auditConfig,
 	})
 }

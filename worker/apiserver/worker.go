@@ -134,7 +134,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          config.PrometheusRegisterer,
-		AuditConfig:                auditConfig,
+		AuditConfig:                   auditConfig,
 	}
 	if auditConfig.Enabled {
 		auditConfig.Target = auditlog.NewLogFile(
