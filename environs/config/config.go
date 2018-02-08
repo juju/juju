@@ -611,9 +611,9 @@ func Validate(cfg, old *Config) error {
 	}
 
 	if raw, ok := cfg.defined[CloudInitUserDataKey].(string); ok && raw != "" {
-		userDataMap := make(map[string]interface{})
-		if err := yaml.Unmarshal([]byte(raw), &userDataMap); err != nil {
-			return errors.Annotate(err, "cloudinit-userdata: must be valid YAML")
+		userDataMap, err := ensureStringMaps(raw)
+		if err != nil {
+			return errors.Annotate(err, "cloudinit-userdata")
 		}
 
 		// if there packages, ensure they are strings
@@ -676,6 +676,20 @@ func Validate(cfg, old *Config) error {
 
 	cfg.defined = ProcessDeprecatedAttributes(cfg.defined)
 	return nil
+}
+
+// ensureStringMaps takes in a string and returns YAML in a map
+// where all keys of any nested maps are strings.
+func ensureStringMaps(in string) (map[string]interface{}, error) {
+	userDataMap := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(in), &userDataMap); err != nil {
+		return nil, errors.Annotate(err, "must be valid YAML")
+	}
+	out, err := utils.ConformYAML(userDataMap)
+	if err != nil {
+		return nil, err
+	}
+	return out.(map[string]interface{}), nil
 }
 
 func isEmpty(val interface{}) bool {
@@ -1163,9 +1177,9 @@ func (c *Config) CloudInitUserData() map[string]interface{} {
 	if raw == "" {
 		return nil
 	}
-	userDataMap := make(map[string]interface{})
-	yaml.Unmarshal([]byte(raw), &userDataMap)
-	return userDataMap
+	// The raw data has already passed Validate()
+	conformingUserDataMap, _ := ensureStringMaps(raw)
+	return conformingUserDataMap
 }
 
 // ContainerInheritProperies returns a copy of the raw user data keys
