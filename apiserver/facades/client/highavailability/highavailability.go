@@ -150,46 +150,65 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 		}
 		series = templateMachine.Series()
 	}
-	if constraints.IsEmpty(&spec.Constraints) {
-		// No constraints specified, so we'll use the constraints off
-		// a running controller.
-		controllerInfo, err := st.ControllerInfo()
-		if err != nil {
-			return params.ControllersChanges{}, err
-		}
-		// We'll sort the controller ids to find the smallest.
-		// This will typically give the initial bootstrap machine.
-		var controllerIds []int
-		for _, id := range controllerInfo.MachineIds {
-			idNum, err := strconv.Atoi(id)
-			if err != nil {
-				logger.Warningf("ignoring non numeric controller id %v", id)
-				continue
-			}
-			controllerIds = append(controllerIds, idNum)
-		}
-		if len(controllerIds) == 0 {
-			errors.Errorf("internal error, failed to find any controllers")
-		}
-		sort.Ints(controllerIds)
 
-		// Load the controller machine and get its constraints.
-		controllerId := controllerIds[0]
-		controller, err := st.Machine(strconv.Itoa(controllerId))
+	// If there were no supplied constraints, use the original bootstrap
+	// constraints.
+	if constraints.IsEmpty(&spec.Constraints) {
+		var err error
+		spec.Constraints, err = getBootstrapConstraints(st)
 		if err != nil {
-			return params.ControllersChanges{}, errors.Annotatef(err, "reading controller id %v", controllerId)
-		}
-		spec.Constraints, err = controller.Constraints()
-		if err != nil {
-			return params.ControllersChanges{}, errors.Annotatef(err, "reading constraints for controller id %v", controllerId)
+			return params.ControllersChanges{}, errors.Trace(err)
 		}
 	}
+
+	// Retrieve the controller configuration and merge any implied space
+	// constraints into the spec constraints.
+	cfg, err := st.ControllerConfig()
+	if err != nil {
+		return params.ControllersChanges{}, errors.Annotate(err, "retrieving controller config")
+	}
+	spec.Constraints.Spaces = cfg.AsSpaceConstraints(spec.Constraints.Spaces).Spaces
 
 	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, series, spec.Placement, api.machineID)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}
 	return controllersChanges(changes), nil
+}
+
+// getBootstrapConstraints attempts to return the constraints for the initial
+// bootstrapped controller.
+func getBootstrapConstraints(st *state.State) (constraints.Value, error) {
+	controllerInfo, err := st.ControllerInfo()
+	if err != nil {
+		return constraints.Value{}, err
+	}
+
+	// Sort the controller IDs from low to high and take the first.
+	// This will typically give the initial bootstrap machine.
+	var controllerIds []int
+	for _, id := range controllerInfo.MachineIds {
+		idNum, err := strconv.Atoi(id)
+		if err != nil {
+			logger.Warningf("ignoring non numeric controller id %v", id)
+			continue
+		}
+		controllerIds = append(controllerIds, idNum)
+	}
+	if len(controllerIds) == 0 {
+		errors.Errorf("internal error, failed to find any controllers")
+	}
+	sort.Ints(controllerIds)
+	controllerId := controllerIds[0]
+
+	// Load the controller machine and get its constraints.
+	controller, err := st.Machine(strconv.Itoa(controllerId))
+	if err != nil {
+		return constraints.Value{}, errors.Annotatef(err, "reading controller id %v", controllerId)
+	}
+
+	cons, err := controller.Constraints()
+	return cons, errors.Annotatef(err, "reading constraints for controller id %v", controllerId)
 }
 
 // StopHAReplicationForUpgrade will prompt the HA cluster to enter upgrade
