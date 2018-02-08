@@ -65,3 +65,80 @@ func (s *ControllerSuite) TestPing(c *gc.C) {
 	gitjujutesting.MgoServer.Restart()
 	c.Assert(s.Controller.Ping(), gc.NotNil)
 }
+
+func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	// Sanity check.
+	c.Check(cfg.AuditingEnabled(), gc.Equals, false)
+	c.Check(cfg.AuditLogCaptureArgs(), gc.Equals, true)
+
+	err = s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.AuditingEnabled:     true,
+		controller.AuditLogCaptureArgs: false,
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(newCfg.AuditingEnabled(), gc.Equals, true)
+	c.Assert(newCfg.AuditLogCaptureArgs(), gc.Equals, false)
+}
+
+func (s *ControllerSuite) TestUpdateControllerConfigRemoveYieldsDefaults(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.AuditingEnabled:     true,
+		controller.AuditLogCaptureArgs: true,
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.UpdateControllerConfig(nil, []string{
+		controller.AuditLogCaptureArgs,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(newCfg.AuditLogCaptureArgs(), gc.Equals, false)
+}
+
+func (s *ControllerSuite) TestUpdateControllerConfigRejectsNonAuditUpdates(c *gc.C) {
+	// Sanity check.
+	c.Assert(controller.AllowedUpdateConfigAttributes.Contains(controller.APIPort), jc.IsFalse)
+
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.APIPort: 1234,
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, `can't change "api-port" after bootstrap`)
+
+	err = s.State.UpdateControllerConfig(nil, []string{controller.APIPort})
+	c.Assert(err, gc.ErrorMatches, `can't change "api-port" after bootstrap`)
+}
+
+func (s *ControllerSuite) TestUpdateControllerConfigChecksSchema(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.AuditLogExcludeMethods: []int{1, 2, 3},
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, `audit-log-exclude-methods\[0\]: expected string, got int\(1\)`)
+}
+
+func (s *ControllerSuite) TestUpdateControllerConfigValidates(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.AuditLogExcludeMethods: []string{"thing"},
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, `invalid audit log exclude methods: should be a list of "Facade.Method" names, got "thing" at position 1`)
+}
+
+func (s *ControllerSuite) TestUpdatingUnknownName(c *gc.C) {
+	err := s.State.UpdateControllerConfig(map[string]interface{}{
+		"ana-ng": "majestic",
+	}, nil)
+	c.Assert(err, gc.ErrorMatches, `unknown controller config setting "ana-ng"`)
+}
+
+func (s *ControllerSuite) TestRemovingUnknownName(c *gc.C) {
+	err := s.State.UpdateControllerConfig(nil, []string{"dr-worm"})
+	c.Assert(err, gc.ErrorMatches, `unknown controller config setting "dr-worm"`)
+}

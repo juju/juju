@@ -55,7 +55,7 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
-	controller, err := controller.NewControllerAPIv4(
+	controller, err := controller.NewControllerAPIv5(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
@@ -74,7 +74,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPIv4(
+	endpoint, err := controller.NewControllerAPIv5(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
@@ -99,7 +99,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	}
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner.Tag()})
 	defer st.Close()
-	endpoint, err := controller.NewControllerAPIv4(
+	endpoint, err := controller.NewControllerAPIv5(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,

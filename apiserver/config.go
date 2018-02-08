@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 )
 
 // These vars define how we rate limit incoming connections.
@@ -81,26 +80,6 @@ func (c RateLimitConfig) Validate() error {
 		return errors.NotValidf("conn-lookback-window %d < 0 or > 5s", c.ConnMaxPause)
 	}
 	return nil
-}
-
-// AuditLogConfig holds parameters to control audit logging.
-type AuditLogConfig struct {
-	Enabled bool
-
-	// CaptureAPIArgs says whether to capture API method args (command
-	// line args will always be captured).
-	CaptureAPIArgs bool
-
-	// MaxSizeMB defines the maximum log file size.
-	MaxSizeMB int
-
-	// MaxBackups determines how many files back to keep.
-	MaxBackups int
-
-	// ExcludeMethods is a set of facade.method names that we
-	// shouldn't consider to be interesting: if a conversation only
-	// consists of these method calls we won't log it.
-	ExcludeMethods set.Strings
 }
 
 // LogSinkConfig holds parameters to control the API server's
