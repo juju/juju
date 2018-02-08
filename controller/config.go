@@ -18,6 +18,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/constraints"
 )
 
 const (
@@ -540,11 +541,11 @@ func Validate(c Config) error {
 		}
 	}
 
-	if err := validateSpaceConfig(c, JujuHASpace, "juju HA"); err != nil {
+	if err := c.validateSpaceConfig(JujuHASpace, "juju HA"); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := validateSpaceConfig(c, JujuManagementSpace, "juju mgmt"); err != nil {
+	if err := c.validateSpaceConfig(JujuManagementSpace, "juju mgmt"); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -584,7 +585,7 @@ func Validate(c Config) error {
 	return nil
 }
 
-func validateSpaceConfig(c Config, key, topic string) error {
+func (c Config) validateSpaceConfig(key, topic string) error {
 	val := c[key]
 	if val == nil {
 		return nil
@@ -598,6 +599,32 @@ func validateSpaceConfig(c Config, key, topic string) error {
 	}
 
 	return nil
+}
+
+// AsSpaceConstraints checks to see whether config has spaces names populated
+// for management and/or HA (Mongo).
+// Non-empty values are merged with any input spaces and returned as a new
+// constraint.Value.
+func (c Config) AsSpaceConstraints(spaces *[]string) constraints.Value {
+	newSpaces := set.NewStrings()
+	if spaces != nil {
+		for _, s := range *spaces {
+			newSpaces.Add(s)
+		}
+	}
+
+	for _, c := range []string{c.JujuManagementSpace(), c.JujuHASpace()} {
+		if c != "" {
+			newSpaces.Add(c)
+		}
+	}
+
+	cons := constraints.Value{}
+	if len(newSpaces) > 0 {
+		s := newSpaces.Values()
+		cons.Spaces = &s
+	}
+	return cons
 }
 
 // GenerateControllerCertAndKey makes sure that the config has a CACert and

@@ -485,9 +485,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	// Set the current model to the initial hosted model.
-	if err := store.UpdateModel(c.controllerName, c.hostedModelName, jujuclient.ModelDetails{
-		hostedModelUUID.String(),
-	}); err != nil {
+	if err := store.UpdateModel(
+		c.controllerName,
+		c.hostedModelName,
+		jujuclient.ModelDetails{hostedModelUUID.String()},
+	); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -545,7 +547,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
 	go func() {
-		for _ = range interrupted {
+		for range interrupted {
 			ctx.Infof("Interrupt signalled: waiting for bootstrap to exit")
 		}
 	}()
@@ -557,14 +559,19 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		metadataDir = ctx.AbsPath(c.MetadataSource)
 	}
 
-	// Merge environ and bootstrap-specific constraints.
 	constraintsValidator, err := environ.ConstraintsValidator()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	bootstrapConstraints, err := constraintsValidator.Merge(
-		c.Constraints, c.BootstrapConstraints,
-	)
+	// Merge environ and bootstrap-specific constraints.
+	bootstrapConstraints, err := constraintsValidator.Merge(c.Constraints, c.BootstrapConstraints)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Merge in any space constraints that should be implied from controller
+	// space config.
+	spaceConstraints := config.controller.AsSpaceConstraints(bootstrapConstraints.Spaces)
+	bootstrapConstraints, err = constraintsValidator.Merge(bootstrapConstraints, spaceConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1118,7 +1125,7 @@ func handleBootstrapError(ctx *cmd.Context, cleanup func() error) {
 	defer ctx.StopInterruptNotify(ch)
 	defer close(ch)
 	go func() {
-		for _ = range ch {
+		for range ch {
 			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
 		}
 	}()

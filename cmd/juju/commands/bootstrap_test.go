@@ -57,6 +57,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/utils/set"
 )
 
 type BootstrapSuite struct {
@@ -570,6 +571,26 @@ func (s *BootstrapSuite) TestBootstrapTimeout(c *gc.C) {
 		"--config", "bootstrap-timeout=99",
 	)
 	c.Assert(bootstrap.args.DialOpts.Timeout, gc.Equals, 99*time.Second)
+}
+
+func (s *BootstrapSuite) TestBootstrapAllSpacesAsConstraintsMerged(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+	cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
+		"--config", "juju-ha-space=ha-space", "--config", "juju-mgmt-space=management-space",
+		"--constraints", "spaces=ha-space,random-space",
+	)
+	got := *(bootstrap.args.BootstrapConstraints.Spaces)
+	exp := set.NewStrings("management-space", "ha-space", "random-space")
+	c.Assert(got, gc.HasLen, len(exp))
+	for _, s := range got {
+		c.Assert(exp.Contains(s), gc.Equals, true)
+	}
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *gc.C) {
