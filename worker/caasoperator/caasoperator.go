@@ -60,7 +60,7 @@ type Config struct {
 	CharmGetter CharmGetter
 
 	// Clock holds the clock to be used by the CAAS operator
-	// for time-related operations.5
+	// for time-related operations.
 	Clock clock.Clock
 
 	// ContainerSpecSetter provides an interface for
@@ -185,6 +185,42 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return op, nil
 }
 
+func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
+	// All units share the same charm and agent binary.
+	// (but with different state dirs for each unit).
+	// Set up the required symlinks.
+
+	// First the agent binary.
+	agentBinaryDir := op.paths.GetToolsDir()
+	unitToolsDir := filepath.Join(agentBinaryDir, unitTag.String())
+	err := os.Mkdir(unitToolsDir, 0600)
+	if err != nil && !os.IsExist(err) {
+		return errors.Trace(err)
+	}
+	jujudPath := filepath.Join(agentBinaryDir, jujunames.Jujud)
+	err = symlink.New(jujudPath, filepath.Join(unitToolsDir, jujunames.Jujud))
+	// Ignore permission denied as this won't happen in production
+	// but may happen in testing depending on setup of /tmp
+	if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
+		return errors.Trace(err)
+	}
+
+	// Second the charm directory.
+	unitAgentDir := filepath.Join(op.config.DataDir, "agents", unitTag.String())
+	err = os.MkdirAll(unitAgentDir, 0600)
+	if err != nil && !os.IsExist(err) {
+		return errors.Trace(err)
+	}
+	agentCharmDir := op.paths.GetCharmDir()
+	err = symlink.New(agentCharmDir, filepath.Join(unitAgentDir, "charm"))
+	// Ignore permission denied as this won't happen in production
+	// but may happen in testing depending on setup of /tmp
+	if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (op *caasOperator) loop() (err error) {
 	if err := op.init(); err != nil {
 		if err == jworker.ErrTerminateAgent {
@@ -236,37 +272,9 @@ func (op *caasOperator) loop() (err error) {
 					continue
 				}
 
-				// All units share the same charm and agent binary.
-				// (but with different state dirs for each unit).
-				// Set up the required symlinks.
-
-				// First the agent binary.
-				agentBinaryDir := op.paths.GetToolsDir()
+				// Make all the required symlinks.
 				unitTag := names.NewUnitTag(unitId)
-				unitToolsDir := filepath.Join(agentBinaryDir, unitTag.String())
-				err = os.Mkdir(unitToolsDir, 0600)
-				if err != nil && !os.IsExist(err) {
-					return errors.Trace(err)
-				}
-				jujudPath := filepath.Join(agentBinaryDir, jujunames.Jujud)
-				err = symlink.New(jujudPath, filepath.Join(unitToolsDir, jujunames.Jujud))
-				// Ignore permission denied as this won't happen in production
-				// but may happen in testing depending on setup of /tmp
-				if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
-					return errors.Trace(err)
-				}
-
-				// Second the charm directory.
-				unitAgentDir := filepath.Join(op.config.DataDir, "agents", unitTag.String())
-				err = os.MkdirAll(unitAgentDir, 0600)
-				if err != nil && !os.IsExist(err) {
-					return errors.Trace(err)
-				}
-				agentCharmDir := op.paths.GetCharmDir()
-				err = symlink.New(agentCharmDir, filepath.Join(unitAgentDir, "charm"))
-				// Ignore permission denied as this won't happen in production
-				// but may happen in testing depending on setup of /tmp
-				if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
+				if err := op.makeAgentSymlinks(unitTag); err != nil {
 					return errors.Trace(err)
 				}
 

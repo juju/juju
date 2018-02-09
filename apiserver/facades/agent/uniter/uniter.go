@@ -85,7 +85,7 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 	accessUnit := func() (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
 		case names.ApplicationTag:
-			// If called by an application agent, and of the units
+			// If called by an application agent, any of the units
 			// belonging to that application can be accessed.
 			app, err := st.Application(tag.Name)
 			if err != nil {

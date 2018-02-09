@@ -127,7 +127,6 @@ type UniterParams struct {
 	Observer UniterExecutionObserver
 }
 
-//type NewExecutorFunc func(string, func() (*corecharm.URL, error), func() (mutex.Releaser, error)) (operation.Executor, error)
 type NewExecutorFunc func(string, operation.State, func() (mutex.Releaser, error)) (operation.Executor, error)
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
@@ -542,15 +541,12 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 	})
 
-	initialState := operation.State{
-		Hook: &hook.Info{Kind: hooks.Install},
-		Kind: operation.RunHook,
-		Step: operation.Queued,
-	}
 	charmURL, err := u.getApplicationCharmURL()
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	var initialState operation.State
 	if u.modelType == model.IAAS {
 		initialState = operation.State{
 			Kind:     operation.Install,
@@ -558,6 +554,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 			CharmURL: charmURL,
 		}
 	} else {
+		initialState = operation.State{
+			Hook: &hook.Info{Kind: hooks.Install},
+			Kind: operation.RunHook,
+			Step: operation.Queued,
+		}
 		if err := u.unit.SetCharmURL(charmURL); err != nil {
 			return errors.Trace(err)
 		}

@@ -110,6 +110,11 @@ func (lsa *LeadershipSettingsAccessor) Merge(bulkArgs params.MergeLeadershipSett
 				continue
 			}
 			callerUnitId = unitTag.Id()
+			unitAppName, err := names.UnitApplication(callerUnitId)
+			if err != nil || unitAppName != requireAppName {
+				result.Error = common.ServerError(common.ErrPerm)
+				continue
+			}
 		}
 
 		appName := applicationTag.Id()

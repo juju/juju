@@ -429,8 +429,10 @@ func (k *kubernetesClient) jujuStatus(podPhase v1.PodPhase) status.Status {
 		return status.Running
 	case v1.PodFailed:
 		return status.Error
-	default:
+	case v1.PodPending:
 		return status.Allocating
+	default:
+		return status.Unknown
 	}
 }
 

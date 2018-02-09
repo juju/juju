@@ -32,8 +32,8 @@ type leadershipSuite struct {
 var _ = gc.Suite(&leadershipSuite{})
 
 const (
-	StubServiceNm = "stub-application"
-	StubUnitNm    = "stub-application/0"
+	StubAppNm  = "stub-application"
+	StubUnitNm = "stub-application/0"
 )
 
 type stubClaimer struct {
@@ -100,7 +100,7 @@ func newLeadershipService(
 func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	claimer := &stubClaimer{
 		ClaimLeadershipFn: func(sid, uid string, duration time.Duration) error {
-			c.Check(sid, gc.Equals, StubServiceNm)
+			c.Check(sid, gc.Equals, StubAppNm)
 			c.Check(uid, gc.Equals, StubUnitNm)
 			expectDuration := time.Duration(299.9 * float64(time.Second))
 			checkDurationEquals(c, duration, expectDuration)
@@ -112,7 +112,7 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 299.9,
 			},
@@ -127,7 +127,7 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 func (s *leadershipSuite) TestClaimLeadershipApplicationAgent(c *gc.C) {
 	claimer := &stubClaimer{
 		ClaimLeadershipFn: func(sid, uid string, duration time.Duration) error {
-			c.Check(sid, gc.Equals, StubServiceNm)
+			c.Check(sid, gc.Equals, StubAppNm)
 			c.Check(uid, gc.Equals, StubUnitNm)
 			expectDuration := time.Duration(299.9 * float64(time.Second))
 			checkDurationEquals(c, duration, expectDuration)
@@ -136,13 +136,13 @@ func (s *leadershipSuite) TestClaimLeadershipApplicationAgent(c *gc.C) {
 	}
 
 	authorizer := &stubAuthorizer{
-		tag: names.NewApplicationTag(StubServiceNm),
+		tag: names.NewApplicationTag(StubAppNm),
 	}
 	ldrSvc := newLeadershipService(c, claimer, authorizer)
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 299.9,
 			},
@@ -157,7 +157,7 @@ func (s *leadershipSuite) TestClaimLeadershipApplicationAgent(c *gc.C) {
 func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 	claimer := &stubClaimer{
 		ClaimLeadershipFn: func(sid, uid string, duration time.Duration) error {
-			c.Check(sid, gc.Equals, StubServiceNm)
+			c.Check(sid, gc.Equals, StubAppNm)
 			c.Check(uid, gc.Equals, StubUnitNm)
 			expectDuration := time.Duration(5.001 * float64(time.Second))
 			checkDurationEquals(c, duration, expectDuration)
@@ -169,7 +169,7 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 5.001,
 			},
@@ -204,7 +204,7 @@ func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
 				UnitTag:         "unit-bad",
 				DurationSeconds: 123.45,
 			},
@@ -221,7 +221,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 4.99,
 			},
@@ -238,7 +238,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 300.1,
 			},
@@ -252,7 +252,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
 func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	claimer := &stubClaimer{
 		BlockUntilLeadershipReleasedFn: func(sid string, cancel <-chan struct{}) error {
-			c.Check(sid, gc.Equals, StubServiceNm)
+			c.Check(sid, gc.Equals, StubAppNm)
 			return nil
 		},
 	}
@@ -260,7 +260,7 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	ldrSvc := newLeadershipService(c, claimer, nil)
 	result, err := ldrSvc.BlockUntilLeadershipReleased(
 		context.Background(),
-		names.NewApplicationTag(StubServiceNm),
+		names.NewApplicationTag(StubAppNm),
 	)
 
 	c.Check(err, jc.ErrorIsNil)
@@ -272,7 +272,7 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedContext(c *gc.C) {
 	cancel()
 	claimer := &stubClaimer{
 		BlockUntilLeadershipReleasedFn: func(sid string, cancel <-chan struct{}) error {
-			c.Check(sid, gc.Equals, StubServiceNm)
+			c.Check(sid, gc.Equals, StubAppNm)
 			c.Check(cancel, gc.Equals, ctx.Done())
 			return coreleadership.ErrBlockCancelled
 		},
@@ -281,7 +281,7 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedContext(c *gc.C) {
 	ldrSvc := newLeadershipService(c, claimer, nil)
 	result, err := ldrSvc.BlockUntilLeadershipReleased(
 		ctx,
-		names.NewApplicationTag(StubServiceNm),
+		names.NewApplicationTag(StubAppNm),
 	)
 
 	c.Check(err, jc.ErrorIsNil)
@@ -297,7 +297,7 @@ func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
-				ApplicationTag:  names.NewApplicationTag(StubServiceNm).String(),
+				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
 				UnitTag:         names.NewUnitTag(StubUnitNm).String(),
 				DurationSeconds: 123.45,
 			},

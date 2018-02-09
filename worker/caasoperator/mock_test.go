@@ -60,30 +60,6 @@ func (c *fakeAgentConfig) DataDir() string {
 	return c.dataDir
 }
 
-type fakeLeadershipTracker struct {
-	unitTag names.UnitTag
-}
-
-//func (t *fakeLeadershipTracker) ApplicationName() string {
-//
-//}
-//
-//func (t *fakeLeadershipTracker) ClaimDuration() time.Duration {
-//
-//}
-//
-//func (t *fakeLeadershipTracker) ClaimLeader() Ticket {
-//
-//}
-//
-//func (t *fakeLeadershipTracker) WaitLeader() Ticket {
-//
-//}
-//
-//// WaitMinion will return a Ticket which, when Wait()ed for, will block
-//// until the tracker's future leadership can no longer be guaranteed.
-//WaitMinion() Ticket
-
 type fakeAPICaller struct {
 	base.APICaller
 }

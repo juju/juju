@@ -35,7 +35,6 @@ type executor struct {
 // supplied path, and records state changes there. If no state file exists,
 // the executor's starting state will include a queued Install hook, for
 // the charm identified by the supplied func.
-//func NewExecutor(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (Executor, error) {
 func NewExecutor(stateFilePath string, initialState State, acquireLock func() (mutex.Releaser, error)) (Executor, error) {
 	file := NewStateFile(stateFilePath)
 	state, err := file.Read()

@@ -28,15 +28,15 @@ func (s *settingsSuite) TestReadSettings(c *gc.C) {
 	numGetSettingCalls := 0
 	getSettings := func(serviceId string) (map[string]string, error) {
 		numGetSettingCalls++
-		c.Check(serviceId, gc.Equals, StubServiceNm)
+		c.Check(serviceId, gc.Equals, StubAppNm)
 		return settingsToReturn, nil
 	}
 	authorizer := stubAuthorizer{tag: names.NewUnitTag(StubUnitNm)}
 	accessor := leadership.NewLeadershipSettingsAccessor(authorizer, nil, getSettings, nil, nil)
 
 	results, err := accessor.Read(params.Entities{
-		[]params.Entity{
-			{Tag: names.NewApplicationTag(StubServiceNm).String()},
+		Entities: []params.Entity{
+			{Tag: names.NewApplicationTag(StubAppNm).String()},
 		},
 	})
 	c.Assert(err, gc.IsNil)
@@ -51,9 +51,9 @@ func (s *settingsSuite) TestWriteSettings(c *gc.C) {
 	expectToken := &fakeToken{}
 
 	numLeaderCheckCalls := 0
-	leaderCheck := func(serviceId, unitId string) coreleadership.Token {
+	leaderCheck := func(appName, unitId string) coreleadership.Token {
 		numLeaderCheckCalls++
-		c.Check(serviceId, gc.Equals, StubServiceNm)
+		c.Check(appName, gc.Equals, StubAppNm)
 		c.Check(unitId, gc.Equals, StubUnitNm)
 		return expectToken
 	}
@@ -61,7 +61,7 @@ func (s *settingsSuite) TestWriteSettings(c *gc.C) {
 	numWriteSettingCalls := 0
 	writeSettings := func(token coreleadership.Token, serviceId string, settings map[string]string) error {
 		numWriteSettingCalls++
-		c.Check(serviceId, gc.Equals, StubServiceNm)
+		c.Check(serviceId, gc.Equals, StubAppNm)
 		c.Check(token, gc.Equals, expectToken)
 		c.Check(settings, jc.DeepEquals, map[string]string{"baz": "biz"})
 		return nil
@@ -71,9 +71,9 @@ func (s *settingsSuite) TestWriteSettings(c *gc.C) {
 	accessor := leadership.NewLeadershipSettingsAccessor(authorizer, nil, nil, leaderCheck, writeSettings)
 
 	results, err := accessor.Merge(params.MergeLeadershipSettingsBulkParams{
-		[]params.MergeLeadershipSettingsParam{
+		Params: []params.MergeLeadershipSettingsParam{
 			{
-				ApplicationTag: names.NewApplicationTag(StubServiceNm).String(),
+				ApplicationTag: names.NewApplicationTag(StubAppNm).String(),
 				Settings:       map[string]string{"baz": "biz"},
 			},
 		},
@@ -85,6 +85,39 @@ func (s *settingsSuite) TestWriteSettings(c *gc.C) {
 	c.Check(numLeaderCheckCalls, gc.Equals, 1)
 }
 
+func (s *settingsSuite) TestWriteSettingsWrongUnit(c *gc.C) {
+
+	numLeaderCheckCalls := 0
+	leaderCheck := func(appName, unitId string) coreleadership.Token {
+		numLeaderCheckCalls++
+		return &fakeToken{}
+	}
+
+	numWriteSettingCalls := 0
+	writeSettings := func(token coreleadership.Token, serviceId string, settings map[string]string) error {
+		numWriteSettingCalls++
+		return nil
+	}
+
+	authorizer := stubAuthorizer{tag: names.NewUnitTag(StubUnitNm)}
+	accessor := leadership.NewLeadershipSettingsAccessor(authorizer, nil, nil, leaderCheck, writeSettings)
+
+	results, err := accessor.Merge(params.MergeLeadershipSettingsBulkParams{
+		Params: []params.MergeLeadershipSettingsParam{
+			{
+				ApplicationTag: names.NewApplicationTag(StubAppNm).String(),
+				UnitTag:        names.NewUnitTag("foo/0").String(),
+				Settings:       map[string]string{"baz": "biz"},
+			},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results[0].Error, gc.ErrorMatches, "permission denied")
+	c.Check(numWriteSettingCalls, gc.Equals, 0)
+	c.Check(numLeaderCheckCalls, gc.Equals, 0)
+}
+
 func (s *settingsSuite) TestWriteSettingsError(c *gc.C) {
 
 	expectToken := &fakeToken{}
@@ -92,7 +125,7 @@ func (s *settingsSuite) TestWriteSettingsError(c *gc.C) {
 	numLeaderCheckCalls := 0
 	leaderCheck := func(serviceId, unitId string) coreleadership.Token {
 		numLeaderCheckCalls++
-		c.Check(serviceId, gc.Equals, StubServiceNm)
+		c.Check(serviceId, gc.Equals, StubAppNm)
 		c.Check(unitId, gc.Equals, StubUnitNm)
 		return expectToken
 	}
@@ -100,7 +133,7 @@ func (s *settingsSuite) TestWriteSettingsError(c *gc.C) {
 	numWriteSettingCalls := 0
 	writeSettings := func(token coreleadership.Token, serviceId string, settings map[string]string) error {
 		numWriteSettingCalls++
-		c.Check(serviceId, gc.Equals, StubServiceNm)
+		c.Check(serviceId, gc.Equals, StubAppNm)
 		c.Check(token, gc.Equals, expectToken)
 		c.Check(settings, jc.DeepEquals, map[string]string{"baz": "biz"})
 		return errors.New("zap blort")
@@ -110,9 +143,9 @@ func (s *settingsSuite) TestWriteSettingsError(c *gc.C) {
 	accessor := leadership.NewLeadershipSettingsAccessor(authorizer, nil, nil, leaderCheck, writeSettings)
 
 	results, err := accessor.Merge(params.MergeLeadershipSettingsBulkParams{
-		[]params.MergeLeadershipSettingsParam{
+		Params: []params.MergeLeadershipSettingsParam{
 			{
-				ApplicationTag: names.NewApplicationTag(StubServiceNm).String(),
+				ApplicationTag: names.NewApplicationTag(StubAppNm).String(),
 				Settings:       map[string]string{"baz": "biz"},
 			},
 		},
@@ -127,17 +160,17 @@ func (s *settingsSuite) TestWriteSettingsError(c *gc.C) {
 func (s *settingsSuite) TestBlockUntilChanges(c *gc.C) {
 
 	numSettingsWatcherCalls := 0
-	registerWatcher := func(serviceId string) (string, error) {
+	registerWatcher := func(appName string) (string, error) {
 		numSettingsWatcherCalls++
-		c.Check(serviceId, gc.Equals, StubServiceNm)
+		c.Check(appName, gc.Equals, StubAppNm)
 		return "foo", nil
 	}
 
 	authorizer := &stubAuthorizer{tag: names.NewUnitTag(StubUnitNm)}
 	accessor := leadership.NewLeadershipSettingsAccessor(authorizer, registerWatcher, nil, nil, nil)
 
-	results, err := accessor.WatchLeadershipSettings(params.Entities{[]params.Entity{
-		{names.NewApplicationTag(StubServiceNm).String()},
+	results, err := accessor.WatchLeadershipSettings(params.Entities{Entities: []params.Entity{
+		{Tag: names.NewApplicationTag(StubAppNm).String()},
 	}})
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
