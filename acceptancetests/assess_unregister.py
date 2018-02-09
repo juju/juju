@@ -104,7 +104,7 @@ def assert_controller_list(client, controller_list):
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Test unregister feature.")
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
 
 

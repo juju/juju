@@ -350,7 +350,7 @@ def assess_endpoint_bindings(maas_manager, bootstrap_manager):
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="assess endpoint bindings")
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, existing=False)
     args = parser.parse_args(argv)
     if args.upload_tools:
         parser.error("giving --upload-tools meaningless on 2.0 only test")

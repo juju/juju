@@ -1,3 +1,4 @@
+mkfile_dir := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 p=test*.py
 py3="assess_model_change_watcher.py"
 test:
@@ -21,7 +22,7 @@ juju-ci-tools.common_0.1.4-0_all.deb: apt-update
 install-deps: juju-ci-tools.common_0.1.4-0_all.deb apt-update
 	sudo dpkg -i juju-ci-tools.common_0.1.4-0_all.deb || true
 	sudo apt-get install -y -f
-	pip install -r $HOME/juju/acceptancetests/requirements.txt
+	pip install --user -r $(mkfile_dir)/requirements.txt
 name=NAMEHERE
 assess_file=assess_$(name).py
 new-assess:

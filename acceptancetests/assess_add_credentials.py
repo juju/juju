@@ -288,7 +288,7 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(
         description='Test if juju properly adds credentials with the '
         'add-credential command.')
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
 
 

@@ -379,7 +379,7 @@ def parse_args(argv):
     parser = ArgumentParser(
         description="Test bootstrap for agent-metdadata-url")
 
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, existing=False)
 
     parser.add_argument('--agent-file', required=True, action='store',
                         help='agent file to be used during bootstrap.')

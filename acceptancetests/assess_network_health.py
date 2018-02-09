@@ -560,7 +560,7 @@ def _setup_spaces(bundle, existing_spaces):
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Test Network Health")
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, existing=False)
     parser.add_argument('--bundle', help='Bundle to test network against')
     parser.add_argument('--model', help='Existing Juju model to test against')
     parser.add_argument('--reboot', type=bool,

@@ -375,7 +375,7 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(
         description="Test grant and revoke permissions for users")
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
 
 
