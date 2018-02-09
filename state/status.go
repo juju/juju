@@ -355,6 +355,13 @@ type historicalStatusDoc struct {
 	Updated int64 `bson:"updated"`
 }
 
+type recordedHistoricalStatusDoc struct {
+	ID         bson.ObjectId          `bson:"_id"`
+	Status     status.Status          `bson:"status"`
+	StatusInfo string                 `bson:"statusinfo"`
+	StatusData map[string]interface{} `bson:"statusdata"`
+}
+
 // probablyUpdateStatusHistory inspects existing status-history
 // and determines if this status is new or the same as the last recorded.
 // If this is a new status, a new status history record will be added.
@@ -375,7 +382,7 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) (
 
 	// Find the current value to see if it is worthwhile adding the new
 	// status value.
-	var latest []historicalStatusDoc
+	var latest []recordedHistoricalStatusDoc
 	query := history.Find(bson.D{{globalKeyField, globalKey}})
 	query = query.Sort("-updated").Limit(1)
 	err := query.All(&latest)
@@ -400,16 +407,12 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) (
 		if current.Status == doc.Status &&
 			current.StatusInfo == doc.StatusInfo &&
 			dataSame(current.StatusData, doc.StatusData) {
+			// If the status values have not changed since the last run,
+			// update history record with this timestamp
+			// to keep correct track of when SetStatus ran.
 			historyW := history.Writeable()
 			err = historyW.Update(
-				bson.D{
-					// Since status history records do not have a
-					// unique identifier (!!), we need to make sure
-					// that we are updating the right record.
-					{"globalkey", current.GlobalKey},
-					{"statusinfo", current.StatusInfo},
-					{"updated", current.Updated},
-				},
+				bson.D{{"_id", current.ID}},
 				bson.D{{"$set", bson.D{{"updated", doc.Updated}}}})
 			if err != nil {
 				logger.Errorf("failed to update status history: %v", err)
