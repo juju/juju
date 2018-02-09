@@ -166,6 +166,54 @@ func (s *UnitStatusSuite) TestSetUnitStatusSince(c *gc.C) {
 	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), jc.IsTrue)
 }
 
+func (s *UnitStatusSuite) TestStatusSinceDoesNotChangeWhenReceivedStatusIsTheSameAsCurrent(c *gc.C) {
+	lastStatus, err := s.unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	history, err := s.unit.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Check(err, jc.ErrorIsNil)
+	originalHistoryLength := len(history)
+
+	// Ensure new status change has a distinctly different update time.
+	now := lastStatus.Since.Add(1 * time.Hour)
+	changeTime := now
+	msg := "within the loop"
+	sInfo := status.StatusInfo{
+		Status:  status.Maintenance,
+		Message: msg,
+		Since:   &now,
+	}
+
+	// Setting the same status consecutively with different timestamps,
+	// should not update a status. It should, however, update
+	// the history record with the timestamp of the last call made.
+	for i := 0; i < 10; i++ {
+		err = s.unit.SetStatus(sInfo)
+		c.Assert(err, jc.ErrorIsNil)
+		// Next status sent will be an hour from now.
+		now = now.Add(1 * time.Hour)
+		sInfo.Since = &now
+	}
+
+	statusInfo, err := s.unit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	//Check that 'since' field reflects when change first happened.
+	c.Assert(changeTime.Equal((*statusInfo.Since)), jc.IsTrue)
+
+	historyAfter, err := s.unit.StatusHistory(status.StatusHistoryFilter{Size: 10})
+	c.Check(err, jc.ErrorIsNil)
+	// Only expecting one more status history addition.
+	c.Assert(len(historyAfter), gc.Equals, originalHistoryLength+1)
+
+	// The time of history record for this change should be updated
+	// to the last time setstatus was called.
+	expectedTimeInHistory := changeTime.Add(9 * time.Hour)
+	for _, record := range historyAfter {
+		if record.Message == msg {
+			c.Assert(expectedTimeInHistory.Equal((*record.Since)), jc.IsTrue)
+		}
+	}
+}
+
 func (s *UnitStatusSuite) TestStatusHistoryInitial(c *gc.C) {
 	history, err := s.unit.StatusHistory(status.StatusHistoryFilter{Size: 1})
 	c.Check(err, jc.ErrorIsNil)

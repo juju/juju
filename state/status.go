@@ -280,7 +280,14 @@ func setStatus(db Database, params setStatusParams) (err error) {
 		StatusData: utils.EscapeKeys(params.rawData),
 		Updated:    params.updated.UnixNano(),
 	}
-	probablyUpdateStatusHistory(db, params.globalKey, doc)
+
+	newStatus, historyErr := probablyUpdateStatusHistory(db, params.globalKey, doc)
+	if !newStatus && historyErr == nil {
+		// If this status is not new (i.e. it is exactly the same as
+		// our last status), there is no need to update the record.
+		// Update here will only reset the 'Since' field.
+		return err
+	}
 
 	// Set the authoritative status document, or fail trying.
 	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
@@ -348,7 +355,21 @@ type historicalStatusDoc struct {
 	Updated int64 `bson:"updated"`
 }
 
-func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) {
+type recordedHistoricalStatusDoc struct {
+	ID         bson.ObjectId          `bson:"_id"`
+	Status     status.Status          `bson:"status"`
+	StatusInfo string                 `bson:"statusinfo"`
+	StatusData map[string]interface{} `bson:"statusdata"`
+}
+
+// probablyUpdateStatusHistory inspects existing status-history
+// and determines if this status is new or the same as the last recorded.
+// If this is a new status, a new status history record will be added.
+// If this status is the same as the last status we've received,
+// we update that record to have a new timestamp.
+// Status messages are considered to be the same if they only differ in their timestamps.
+// The call returns true if a new status history record has been created.
+func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) (bool, error) {
 	historyDoc := &historicalStatusDoc{
 		Status:     doc.Status,
 		StatusInfo: doc.StatusInfo,
@@ -361,7 +382,7 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) {
 
 	// Find the current value to see if it is worthwhile adding the new
 	// status value.
-	var latest []historicalStatusDoc
+	var latest []recordedHistoricalStatusDoc
 	query := history.Find(bson.D{{globalKeyField, globalKey}})
 	query = query.Sort("-updated").Limit(1)
 	err := query.All(&latest)
@@ -386,14 +407,28 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) {
 		if current.Status == doc.Status &&
 			current.StatusInfo == doc.StatusInfo &&
 			dataSame(current.StatusData, doc.StatusData) {
-			return
+			// If the status values have not changed since the last run,
+			// update history record with this timestamp
+			// to keep correct track of when SetStatus ran.
+			historyW := history.Writeable()
+			err = historyW.Update(
+				bson.D{{"_id", current.ID}},
+				bson.D{{"$set", bson.D{{"updated", doc.Updated}}}})
+			if err != nil {
+				logger.Errorf("failed to update status history: %v", err)
+				return false, err
+			}
+			return false, nil
 		}
 	}
 
 	historyW := history.Writeable()
-	if err := historyW.Insert(historyDoc); err != nil {
+	err = historyW.Insert(historyDoc)
+	if err != nil {
 		logger.Errorf("failed to write status history: %v", err)
+		return false, err
 	}
+	return true, nil
 }
 
 // eraseStatusHistory removes all status history documents for
