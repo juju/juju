@@ -900,7 +900,7 @@ func (s *ConfigSuite) TestValidateCloudInitUserData(c *gc.C) {
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 	for i, test := range configValidateCloudInitUserDataTests {
-		c.Logf("test %d. %s", i, test.about)
+		c.Logf("test %d of %d. %s", i+1, len(configValidateCloudInitUserDataTests), test.about)
 		test.checkNew(c)
 	}
 }
