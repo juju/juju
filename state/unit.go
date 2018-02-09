@@ -1323,6 +1323,8 @@ func (u *Unit) AgentPresence() (bool, error) {
 	if u.ShouldBeAssigned() {
 		return pwatcher.Alive(u.globalAgentKey())
 	}
+	// Units in CAAS models rely on the operator pings.
+	// These are for the application itself.
 	app, err := u.Application()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -1331,9 +1333,7 @@ func (u *Unit) AgentPresence() (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	// TODO(caas) - record presence for application agent
-	// We return true so that the agent doesn't appwar as lost.
-	return true || appAlive, nil
+	return appAlive, nil
 }
 
 // Tag returns a name identifying the unit.
@@ -1350,7 +1350,7 @@ func (u *Unit) UnitTag() names.UnitTag {
 }
 
 // WaitAgentPresence blocks until the respective agent is alive.
-// These should really only be used in the test suite.
+// This should really only be used in the test suite.
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)

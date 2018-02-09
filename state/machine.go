@@ -973,7 +973,7 @@ func (m *Machine) AgentPresence() (bool, error) {
 }
 
 // WaitAgentPresence blocks until the respective agent is alive.
-// These should really only be used in the test suite.
+// This should really only be used in the test suite.
 func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)

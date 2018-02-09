@@ -4186,12 +4186,18 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 						JujuStatusInfo: statusInfoContents{
 							Current: status.Allocating,
 						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Active,
+						},
 					},
 					"foo/1": {
 						Address:     "10.0.0.1",
 						OpenedPorts: []string{"80/TCP"},
 						JujuStatusInfo: statusInfoContents{
 							Current: status.Running,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Active,
 						},
 					},
 				},
@@ -4208,9 +4214,9 @@ Model  Controller  Cloud/Region  Version
 App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 foo                     1/2                  0      
 
-Unit   Status      Address   Ports   Message
-foo/0  allocating                    
-foo/1  running     10.0.0.1  80/TCP  
+Unit   Workload  Agent       Address   Ports   Message
+foo/0  active    allocating                    
+foo/1  active    running     10.0.0.1  80/TCP  
 `[1:])
 }
 
