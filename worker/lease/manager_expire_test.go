@@ -24,7 +24,7 @@ var _ = gc.Suite(&ExpireSuite{})
 func (s *ExpireSuite) TestStartup_ExpiryInPast(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{Expiry: offset(-time.Second)},
+			"redis": {Expiry: offset(-time.Second)},
 		},
 		expectCalls: []call{{
 			method: "Refresh",
@@ -42,7 +42,7 @@ func (s *ExpireSuite) TestStartup_ExpiryInPast(c *gc.C) {
 func (s *ExpireSuite) TestStartup_ExpiryInFuture(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{Expiry: offset(time.Second)},
+			"redis": {Expiry: offset(time.Second)},
 		},
 	}
 	fix.RunTest(c, func(_ *lease.Manager, clock *testing.Clock) {
@@ -53,7 +53,7 @@ func (s *ExpireSuite) TestStartup_ExpiryInFuture(c *gc.C) {
 func (s *ExpireSuite) TestStartup_ExpiryInFuture_TimePasses(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{Expiry: offset(time.Second)},
+			"redis": {Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
 			method: "Refresh",
@@ -80,7 +80,7 @@ func (s *ExpireSuite) TestStartup_NoExpiry_NotLongEnough(c *gc.C) {
 func (s *ExpireSuite) TestStartup_NoExpiry_LongEnough(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"goose": corelease.Info{Expiry: offset(3 * time.Hour)},
+			"goose": {Expiry: offset(3 * time.Hour)},
 		},
 		expectCalls: []call{{
 			method: "Refresh",
@@ -105,7 +105,7 @@ func (s *ExpireSuite) TestStartup_NoExpiry_LongEnough(c *gc.C) {
 func (s *ExpireSuite) TestExpire_ErrInvalid_Expired(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{Expiry: offset(time.Second)},
+			"redis": {Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
 			method: "Refresh",
@@ -126,7 +126,7 @@ func (s *ExpireSuite) TestExpire_ErrInvalid_Expired(c *gc.C) {
 func (s *ExpireSuite) TestExpire_ErrInvalid_Updated(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{Expiry: offset(time.Second)},
+			"redis": {Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
 			method: "Refresh",
@@ -147,7 +147,7 @@ func (s *ExpireSuite) TestExpire_ErrInvalid_Updated(c *gc.C) {
 func (s *ExpireSuite) TestExpire_OtherError(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{Expiry: offset(time.Second)},
+			"redis": {Expiry: offset(time.Second)},
 		},
 		expectCalls: []call{{
 			method: "Refresh",
@@ -218,7 +218,7 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 func (s *ExpireSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -245,7 +245,7 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -256,7 +256,7 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 			callback: func(leases map[string]corelease.Info) {
 				leases["redis"] = corelease.Info{
 					Holder: "redis/0",
-					Expiry: offset(63 * time.Second),
+					Expiry: offset(time.Minute),
 				}
 			},
 		}, {
@@ -280,23 +280,23 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 func (s *ExpireSuite) TestExpire_Multiple(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
-			"store": corelease.Info{
+			"store": {
 				Holder: "store/3",
 				Expiry: offset(5 * time.Second),
 			},
-			"tokumx": corelease.Info{
+			"tokumx": {
 				Holder: "tokumx/5",
 				Expiry: offset(10 * time.Second), // will not expire.
 			},
-			"ultron": corelease.Info{
+			"ultron": {
 				Holder: "ultron/7",
 				Expiry: offset(5 * time.Second),
 			},
-			"vvvvvv": corelease.Info{
+			"vvvvvv": {
 				Holder: "vvvvvv/2",
 				Expiry: offset(time.Second), // would expire, but errors first.
 			},
