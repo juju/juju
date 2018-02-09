@@ -112,6 +112,12 @@ func (s *introspectionSuite) TestGoroutineProfile(c *gc.C) {
 	matches(c, buf, `^goroutine profile: total \d+`)
 }
 
+func (s *introspectionSuite) TestTrace(c *gc.C) {
+	buf := s.call(c, "/debug/pprof/trace?seconds=1")
+	c.Assert(buf, gc.NotNil)
+	matches(c, buf, `^Content-Type: application/octet-stream*`)
+}
+
 func (s *introspectionSuite) TestMissingDepEngineReporter(c *gc.C) {
 	buf := s.call(c, "/depengine")
 	matches(c, buf, "404 Not Found")
