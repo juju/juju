@@ -339,28 +339,36 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 		unitUpdate.Deletes = append(unitUpdate.Deletes, u.DestroyOperation())
 	}
 
-	unitUpdateProperties := func(unitParams params.ApplicationUnitParams) state.UnitUpdateProperties {
-		return state.UnitUpdateProperties{
+	unitUpdateProperties := func(unitParams params.ApplicationUnitParams, includeStatus bool) state.UnitUpdateProperties {
+		props := state.UnitUpdateProperties{
 			ProviderId: unitParams.ProviderId,
 			Address:    unitParams.Address,
 			Ports:      unitParams.Ports,
-			Status: &status.StatusInfo{
+		}
+		if includeStatus {
+			props.Status = &status.StatusInfo{
 				Status:  status.Status(unitParams.Status),
 				Message: unitParams.Info,
 				Data:    unitParams.Data,
-			},
+			}
 		}
+		return props
 	}
 
-	shouldUpdate := func(u Unit, params params.ApplicationUnitParams) (bool, error) {
-		if u.ProviderId() == "" {
-			return true, nil
+	shouldUpdateStatus := func(u Unit, params params.ApplicationUnitParams) (bool, error) {
+		// The container runtime can spam us with unimportant
+		// status updates, so ignore any irrelevant ones.
+		// TODO(caas) - the pods may get bounced but we don't model that yet
+		// so ignore allocating and running for now.
+		switch status.Status(params.Status) {
+		case status.Unknown, status.Allocating, status.Running:
+			return false, nil
 		}
 		existingStatus, err := u.AgentStatus()
 		if err != nil {
 			return false, errors.Trace(err)
 		}
-		if string(existingStatus.Status) != params.Status ||
+		if existingStatus.Status.String() != params.Status ||
 			existingStatus.Message != params.Info ||
 			len(existingStatus.Data) != len(params.Data) ||
 			reflect.DeepEqual(existingStatus.Data, params.Data) {
@@ -380,15 +388,12 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 			continue
 		}
 		// Check to see if any update is needed.
-		update, err := shouldUpdate(u, unitParams)
+		updateStatus, err := shouldUpdateStatus(u, unitParams)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if !update {
-			continue
-		}
 		unitUpdate.Updates = append(unitUpdate.Updates,
-			u.UpdateOperation(unitUpdateProperties(unitParams)))
+			u.UpdateOperation(unitUpdateProperties(unitParams, updateStatus)))
 	}
 
 	// For newly added units in the cloud, either update state units which
@@ -399,13 +404,13 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 		if idx < len(unassociatedUnits) {
 			u := unassociatedUnits[idx]
 			unitUpdate.Updates = append(unitUpdate.Updates,
-				u.UpdateOperation(unitUpdateProperties(unitParams)))
+				u.UpdateOperation(unitUpdateProperties(unitParams, true)))
 			idx += 1
 			continue
 		}
 
 		unitUpdate.Adds = append(unitUpdate.Adds,
-			app.AddOperation(unitUpdateProperties(unitParams)))
+			app.AddOperation(unitUpdateProperties(unitParams, true)))
 	}
 	return app.UpdateUnits(&unitUpdate)
 }

@@ -24,6 +24,8 @@ import (
 	"github.com/juju/juju/status"
 )
 
+const caasModelType = "caas"
+
 // FormatTabular writes a tabular summary of machines, applications, and
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
@@ -38,7 +40,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	maxVersionWidth := iaasMaxVersionWidth
-	if fs.Model.Type == "caas" {
+	if fs.Model.Type == caasModelType {
 		maxVersionWidth = caasMaxVersionWidth
 	}
 	truncatedWidth := maxVersionWidth - len(ellipsis)
@@ -112,7 +114,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		app := fs.Applications[appName]
 		version := app.Version
 		// CAAS versions may have repo prefix we don't care about.
-		if fs.Model.Type == "caas" {
+		if fs.Model.Type == caasModelType {
 			parts := strings.Split(version, "/")
 			if len(parts) == 2 {
 				version = parts[1]
@@ -149,8 +151,6 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		}
 	}
 
-	const caasModelType = "caas"
-
 	pUnit := func(name string, u unitStatus, level int) {
 		message := u.WorkloadStatusInfo.Message
 		agentDoing := agentDoing(u.JujuStatusInfo)
@@ -161,8 +161,9 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 			name += "*"
 		}
 		w.Print(indent("", level*2, name))
+		w.PrintStatus(u.WorkloadStatusInfo.Current)
+		w.PrintStatus(u.JujuStatusInfo.Current)
 		if fs.Model.Type == caasModelType {
-			w.PrintStatus(u.JujuStatusInfo.Current)
 			p(
 				u.Address,
 				strings.Join(u.OpenedPorts, ","),
@@ -170,8 +171,6 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 			)
 			return
 		}
-		w.PrintStatus(u.WorkloadStatusInfo.Current)
-		w.PrintStatus(u.JujuStatusInfo.Current)
 		p(
 			u.Machine,
 			u.PublicAddress,
@@ -181,7 +180,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	if fs.Model.Type == caasModelType {
-		outputHeaders("Unit", "Status", "Address", "Ports", "Message")
+		outputHeaders("Unit", "Workload", "Agent", "Address", "Ports", "Message")
 	} else {
 		outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
 	}

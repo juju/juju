@@ -93,28 +93,29 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		return status, errors.Trace(err)
 	}
 
-	volumes, err := st.AllVolumes()
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	modelVolumes := ModelVolumeInfo(volumes)
-
-	filesystems, err := st.AllFilesystems()
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	modelFilesystems := ModelFilesystemInfo(filesystems)
-
-	return params.ModelStatus{
+	result := params.ModelStatus{
 		ModelTag:           tag,
 		OwnerTag:           model.Owner().String(),
 		Life:               params.Life(model.Life().String()),
 		HostedMachineCount: len(hostedMachines),
 		ApplicationCount:   len(applications),
 		Machines:           modelMachines,
-		Volumes:            modelVolumes,
-		Filesystems:        modelFilesystems,
-	}, nil
+	}
+
+	if model.Type() == state.ModelTypeIAAS {
+		volumes, err := st.AllVolumes()
+		if err != nil {
+			return status, errors.Trace(err)
+		}
+		result.Volumes = ModelVolumeInfo(volumes)
+
+		filesystems, err := st.AllFilesystems()
+		if err != nil {
+			return status, errors.Trace(err)
+		}
+		result.Filesystems = ModelFilesystemInfo(filesystems)
+	}
+	return result, nil
 }
 
 // ModelFilesystemInfo returns information about filesystems in the model.

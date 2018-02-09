@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -214,6 +215,54 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 				{Id: "0", Hardware: stdHw, InstanceId: "id-8", Status: "pending"},
 				{Id: "1", Hardware: stdHw, InstanceId: "id-9", Status: "pending"},
 			},
+		},
+	})
+}
+
+func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+	otherModelOwner := s.Factory.MakeModelUser(c, nil)
+	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		Owner: otherModelOwner.UserTag,
+		ConfigAttrs: testing.Attrs{
+			"controller": false,
+		},
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer otherSt.Close()
+
+	otherFactory := factory.NewFactory(otherSt)
+	otherFactory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: otherFactory.MakeCharm(c, nil),
+	})
+
+	otherModel, err := otherSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerModelTag := s.IAASModel.ModelTag().String()
+	hostedModelTag := otherModel.ModelTag().String()
+
+	req := params.Entities{
+		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
+	}
+	results, err := s.controller.ModelStatus(req)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
+		params.ModelStatus{
+			ModelTag:           controllerModelTag,
+			HostedMachineCount: 0,
+			ApplicationCount:   0,
+			OwnerTag:           s.Owner.String(),
+			Life:               params.Alive,
+		},
+		params.ModelStatus{
+			ModelTag:           hostedModelTag,
+			HostedMachineCount: 0,
+			ApplicationCount:   1,
+			OwnerTag:           otherModelOwner.UserTag.String(),
+			Life:               params.Alive,
 		},
 	})
 }
