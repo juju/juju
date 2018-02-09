@@ -1346,12 +1346,13 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
+	unitStatusDoc = &statusDoc{
+		Status:     status.Waiting,
+		StatusInfo: status.MessageWaitForContainer,
+		Updated:    now.UnixNano(),
+	}
 	if model.Type() != ModelTypeCAAS {
-		unitStatusDoc = &statusDoc{
-			Status:     status.Waiting,
-			StatusInfo: status.MessageWaitForMachine,
-			Updated:    now.UnixNano(),
-		}
+		unitStatusDoc.StatusInfo = status.MessageWaitForMachine
 		workloadVersionDoc = &statusDoc{
 			Status:  status.Unknown,
 			Updated: now.UnixNano(),
@@ -1719,8 +1720,12 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all units from application %q", application)
 	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	for i := range docs {
-		units = append(units, newUnit(st, &docs[i]))
+		units = append(units, newUnit(st, model.Type(), &docs[i]))
 	}
 	return units, nil
 }

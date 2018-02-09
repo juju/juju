@@ -707,6 +707,10 @@ func (i *importer) loadUnits() error {
 		return errors.Annotate(err, "cannot get all units")
 	}
 
+	model, err := i.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	result := make(map[string]map[string]*Unit)
 	for _, doc := range docs {
 		units, found := result[doc.Application]
@@ -714,7 +718,7 @@ func (i *importer) loadUnits() error {
 			units = make(map[string]*Unit)
 			result[doc.Application] = units
 		}
-		units[doc.Name] = newUnit(i.st, &doc)
+		units[doc.Name] = newUnit(i.st, model.Type(), &doc)
 	}
 	i.applicationUnits = result
 	return nil
@@ -953,7 +957,11 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 		return errors.Trace(err)
 	}
 
-	unit := newUnit(i.st, udoc)
+	model, err := i.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	unit := newUnit(i.st, model.Type(), udoc)
 	if annotations := u.Annotations(); len(annotations) > 0 {
 		if err := i.im.SetAnnotations(unit, annotations); err != nil {
 			return errors.Trace(err)

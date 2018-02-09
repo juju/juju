@@ -15,12 +15,14 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 const (
@@ -45,6 +47,7 @@ func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.unit, err = s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
+	c.Assert(s.unit.ShouldBeAssigned(), jc.IsTrue)
 }
 
 func (s *UnitSuite) TestUnitNotFound(c *gc.C) {
@@ -1926,4 +1929,38 @@ func unitMachine(c *gc.C, st *state.State, u *state.Unit) *state.Machine {
 	machine, err := st.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
+}
+
+type CAASUnitSuite struct {
+	ConnSuite
+	charm       *state.Charm
+	application *state.Application
+	unit        *state.Unit
+}
+
+var _ = gc.Suite(&CAASUnitSuite{})
+
+func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+
+	var err error
+	c.Assert(err, jc.ErrorIsNil)
+	s.unit, err = app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.unit.Series(), gc.Equals, "quantal")
+	c.Assert(s.unit.ShouldBeAssigned(), jc.IsFalse)
+
+	// A unit that has not set any status is removed directly.
+	err = s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
+	assertRemoved(c, s.unit)
 }

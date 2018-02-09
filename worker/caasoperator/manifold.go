@@ -4,6 +4,8 @@
 package caasoperator
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
@@ -11,8 +13,15 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/worker/caasoperator/runner"
+	apileadership "github.com/juju/juju/api/leadership"
+	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/operation"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a
@@ -21,6 +30,12 @@ type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 	ClockName     string
+
+	MachineLockName       string
+	LeadershipGuarantee   time.Duration
+	CharmDirName          string
+	HookRetryStrategyName string
+	TranslateResolverErr  func(error) error
 
 	NewWorker          func(Config) (worker.Worker, error)
 	NewClient          func(base.APICaller) Client
@@ -46,6 +61,18 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewCharmDownloader == nil {
 		return errors.NotValidf("missing NewCharmDownloader")
 	}
+	if config.CharmDirName == "" {
+		return errors.NotValidf("missing CharmDirName")
+	}
+	if config.MachineLockName == "" {
+		return errors.NotValidf("missing MachineLockName")
+	}
+	if config.HookRetryStrategyName == "" {
+		return errors.NotValidf("missing HookRetryStrategyName")
+	}
+	if config.LeadershipGuarantee == 0 {
+		return errors.NotValidf("missing LeadershipGuarantee")
+	}
 	return nil
 }
 
@@ -57,6 +84,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 			config.ClockName,
+			config.CharmDirName,
+			config.HookRetryStrategyName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -85,6 +114,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			var charmDirGuard fortress.Guard
+			if err := context.Get(config.CharmDirName, &charmDirGuard); err != nil {
+				return nil, err
+			}
+
+			var hookRetryStrategy params.RetryStrategy
+			if err := context.Get(config.HookRetryStrategyName, &hookRetryStrategy); err != nil {
+				return nil, err
+			}
+
 			// Configure and start the caasoperator worker.
 			agentConfig := agent.CurrentConfig()
 			tag := agentConfig.Tag()
@@ -92,20 +131,41 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if !ok {
 				return nil, errors.Errorf("expected an application tag, got %v", tag)
 			}
+			newUniterFunc := func(unitTag names.UnitTag) *apiuniter.State {
+				return apiuniter.NewState(apiCaller, unitTag)
+			}
+			leadershipTrackerFunc := func(unitTag names.UnitTag) coreleadership.Tracker {
+				claimer := apileadership.NewClient(apiCaller)
+				return leadership.NewTracker(unitTag, claimer, clock, config.LeadershipGuarantee)
+			}
 			w, err := config.NewWorker(Config{
-				ModelUUID:            agentConfig.Model().Id(),
-				ModelName:            modelName,
-				NewRunnerFactoryFunc: runner.NewFactory,
-				Application:          applicationTag.Id(),
-				CharmConfigGetter:    client,
-				CharmGetter:          client,
-				Clock:                clock,
-				ContainerSpecSetter:  client,
-				DataDir:              agentConfig.DataDir(),
-				Downloader:           downloader,
-				StatusSetter:         client,
-				APIAddressGetter:     client,
-				ProxySettingsGetter:  client,
+				ModelUUID:           agentConfig.Model().Id(),
+				ModelName:           modelName,
+				Application:         applicationTag.Id(),
+				CharmGetter:         client,
+				Clock:               clock,
+				ContainerSpecSetter: client,
+				DataDir:             agentConfig.DataDir(),
+				Downloader:          downloader,
+				StatusSetter:        client,
+				APIAddressGetter:    client,
+				ProxySettingsGetter: client,
+				LifeGetter:          client,
+				UnitGetter:          client,
+				StartUniterFunc:     uniter.StartUniter,
+
+				LeadershipTrackerFunc: leadershipTrackerFunc,
+				UniterFacadeFunc:      newUniterFunc,
+				UniterParams: &uniter.UniterParams{
+					NewOperationExecutor: operation.NewExecutor,
+					DataDir:              agentConfig.DataDir(),
+					Clock:                clock,
+					MachineLockName:      config.MachineLockName,
+					CharmDirGuard:        charmDirGuard,
+					UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
+					HookRetryStrategy:    hookRetryStrategy,
+					TranslateResolverErr: config.TranslateResolverErr,
+				},
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

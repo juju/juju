@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	corecharm "gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/status"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
@@ -61,6 +63,7 @@ type Uniter struct {
 	st        *uniter.State
 	paths     Paths
 	unit      *uniter.Unit
+	modelType model.ModelType
 	relations relation.Relations
 	storage   *storage.Attachments
 	clock     clock.Clock
@@ -124,12 +127,27 @@ type UniterParams struct {
 	Observer UniterExecutionObserver
 }
 
-type NewExecutorFunc func(string, func() (*corecharm.URL, error), func() (mutex.Releaser, error)) (operation.Executor, error)
+type NewExecutorFunc func(string, operation.State, func() (mutex.Releaser, error)) (operation.Executor, error)
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
 func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
+	startFunc := newUniter(uniterParams)
+	w, err := startFunc()
+	return w.(*Uniter), err
+}
+
+// StartUniter creates a new Uniter and starts it using the specified runner.
+func StartUniter(runner *worker.Runner, params *UniterParams) error {
+	startFunc := newUniter(params)
+
+	logger.Debugf("starting uniter for  %q", params.UnitTag.Id())
+	err := runner.StartWorker(params.UnitTag.Id(), startFunc)
+	return errors.Annotate(err, "error starting uniter worker")
+}
+
+func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 	translateResolverErr := uniterParams.TranslateResolverErr
 	if translateResolverErr == nil {
 		translateResolverErr = func(err error) error { return err }
@@ -149,13 +167,18 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 		clock:                uniterParams.Clock,
 		downloader:           uniterParams.Downloader,
 	}
-	err := catacomb.Invoke(catacomb.Plan{
-		Site: &u.catacomb,
-		Work: func() error {
-			return u.loop(uniterParams.UnitTag)
-		},
-	})
-	return u, errors.Trace(err)
+	startFunc := func() (worker.Worker, error) {
+		if err := catacomb.Invoke(catacomb.Plan{
+			Site: &u.catacomb,
+			Work: func() error {
+				return u.loop(uniterParams.UnitTag)
+			},
+		}); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return u, nil
+	}
+	return startFunc
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
@@ -246,6 +269,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				UpdateStatusChannel: u.updateStatusAt,
 				CommandChannel:      u.commandChannel,
 				RetryHookChannel:    retryHookChan,
+				ModelType:           u.modelType,
 			})
 		if err != nil {
 			return errors.Trace(err)
@@ -282,7 +306,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			break
 		}
 
-		uniterResolver := NewUniterResolver(ResolverConfig{
+		cfg := ResolverConfig{
 			ClearResolved:       clearResolved,
 			ReportHookError:     u.reportHookError,
 			ShouldRetryHooks:    u.hookRetryStrategy.ShouldRetry,
@@ -291,11 +315,15 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Actions:             actions.NewResolver(),
 			Leadership:          uniterleadership.NewResolver(),
 			Relations:           relation.NewRelationsResolver(u.relations),
-			Storage:             storage.NewResolver(u.storage),
+			Storage:             &NopResolver{},
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
-		})
+		}
+		if u.modelType == model.IAAS {
+			cfg.Storage = storage.NewResolver(u.storage)
+		}
+		uniterResolver := NewUniterResolver(cfg)
 
 		// We should not do anything until there has been a change
 		// to the remote state. The watcher will trigger at least
@@ -392,9 +420,19 @@ func (u *Uniter) terminate() error {
 			if err := u.unit.EnsureDead(); err != nil {
 				return errors.Trace(err)
 			}
-			return jworker.ErrTerminateAgent
+			return u.stopUnitError()
 		}
 	}
+}
+
+// stopUnitError returns the error to use when exiting from stopping the unit.
+// For IAAS models, we want to terminate the agent, as each unit is run by
+// an individual agent for that unit.
+func (u *Uniter) stopUnitError() error {
+	if u.modelType == model.IAAS {
+		return jworker.ErrTerminateAgent
+	}
+	return nil
 }
 
 func (u *Uniter) init(unitTag names.UnitTag) (err error) {
@@ -407,7 +445,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		// become Dead immediately after starting up, we may well complete any
 		// operations in progress before detecting it; but that race is fundamental
 		// and inescapable, whereas this one is not.
-		return jworker.ErrTerminateAgent
+		return u.stopUnitError()
 	}
 	// If initialising for the first time after deploying, update the status.
 	currentStatus, err := u.unit.UnitStatus()
@@ -444,26 +482,38 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create relations")
 	}
 	u.relations = relations
-	storageAttachments, err := storage.NewAttachments(
-		u.st, unitTag, u.paths.State.StorageDir, u.catacomb.Dying(),
-	)
-	if err != nil {
-		return errors.Annotatef(err, "cannot create storage hook source")
-	}
-	u.storage = storageAttachments
 	u.commands = runcommands.NewCommands()
 	u.commandChannel = make(chan string)
 
-	if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
-		logger.Warningf(err.Error())
-	}
-	deployer, err := charm.NewDeployer(
-		u.paths.State.CharmDir,
-		u.paths.State.DeployerDir,
-		charm.NewBundlesDir(u.paths.State.BundlesDir, u.downloader),
-	)
+	m, err := u.st.Model()
 	if err != nil {
-		return errors.Annotatef(err, "cannot create deployer")
+		return errors.Trace(err)
+	}
+	u.modelType = m.Type()
+
+	// Only IAAS models require the uniter to install charms.
+	// For CAAS models this is done by the operator.
+	var deployer charm.Deployer
+	if u.modelType == model.IAAS {
+		storageAttachments, err := storage.NewAttachments(
+			u.st, unitTag, u.paths.State.StorageDir, u.catacomb.Dying(),
+		)
+		if err != nil {
+			return errors.Annotatef(err, "cannot create storage hook source")
+		}
+		u.storage = storageAttachments
+
+		if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
+			logger.Warningf(err.Error())
+		}
+		deployer, err = charm.NewDeployer(
+			u.paths.State.CharmDir,
+			u.paths.State.DeployerDir,
+			charm.NewBundlesDir(u.paths.State.BundlesDir, u.downloader),
+		)
+		if err != nil {
+			return errors.Annotatef(err, "cannot create deployer")
+		}
 	}
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            u.st,
@@ -491,7 +541,29 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		MetricSpoolDir: u.paths.GetMetricsSpoolDir(),
 	})
 
-	operationExecutor, err := u.newOperationExecutor(u.paths.State.OperationsFile, u.getServiceCharmURL, u.acquireExecutionLock)
+	charmURL, err := u.getApplicationCharmURL()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var initialState operation.State
+	if u.modelType == model.IAAS {
+		initialState = operation.State{
+			Kind:     operation.Install,
+			Step:     operation.Queued,
+			CharmURL: charmURL,
+		}
+	} else {
+		initialState = operation.State{
+			Hook: &hook.Info{Kind: hooks.Install},
+			Kind: operation.RunHook,
+			Step: operation.Queued,
+		}
+		if err := u.unit.SetCharmURL(charmURL); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	operationExecutor, err := u.newOperationExecutor(u.paths.State.OperationsFile, initialState, u.acquireExecutionLock)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -528,7 +600,7 @@ func (u *Uniter) Wait() error {
 	return u.catacomb.Wait()
 }
 
-func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
+func (u *Uniter) getApplicationCharmURL() (*corecharm.URL, error) {
 	// TODO(fwereade): pretty sure there's no reason to make 2 API calls here.
 	service, err := u.st.Application(u.unit.ApplicationTag())
 	if err != nil {

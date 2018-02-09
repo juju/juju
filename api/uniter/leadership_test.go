@@ -153,7 +153,7 @@ func (s *leadershipSuite) TestMergeBadVersion(c *gc.C) {
 		Args:     []interface{}{"Merge"},
 	}}, func() {
 		s.stub.SetErrors(errors.New("splat"))
-		err := s.lsa.Merge("foobar", map[string]string{"foo": "bar"})
+		err := s.lsa.Merge("foobar", "foobar/0", map[string]string{"foo": "bar"})
 		c.Check(err, gc.ErrorMatches, "cannot access leadership api: splat")
 	})
 }
@@ -169,6 +169,7 @@ func (s *leadershipSuite) expectMergeCalls() []testing.StubCall {
 			params.MergeLeadershipSettingsBulkParams{
 				Params: []params.MergeLeadershipSettingsParam{{
 					ApplicationTag: "application-foobar",
+					UnitTag:        "unit-foobar-0",
 					Settings: map[string]string{
 						"foo": "bar",
 						"baz": "qux",
@@ -188,7 +189,7 @@ func (s *leadershipSuite) TestMergeSuccess(c *gc.C) {
 				Error: nil,
 			}}
 		})
-		err := s.lsa.Merge("foobar", map[string]string{
+		err := s.lsa.Merge("foobar", "foobar/0", map[string]string{
 			"foo": "bar",
 			"baz": "qux",
 		})
@@ -205,7 +206,7 @@ func (s *leadershipSuite) TestMergeFailure(c *gc.C) {
 				Error: &params.Error{Message: "zap"},
 			}}
 		})
-		err := s.lsa.Merge("foobar", map[string]string{
+		err := s.lsa.Merge("foobar", "foobar/0", map[string]string{
 			"foo": "bar",
 			"baz": "qux",
 		})
@@ -217,7 +218,7 @@ func (s *leadershipSuite) TestMergeError(c *gc.C) {
 	s.CheckCalls(c, s.expectMergeCalls(), func() {
 		s.addResponder(nil)
 		s.stub.SetErrors(nil, errors.New("dink"))
-		err := s.lsa.Merge("foobar", map[string]string{
+		err := s.lsa.Merge("foobar", "foobar/0", map[string]string{
 			"foo": "bar",
 			"baz": "qux",
 		})
@@ -228,7 +229,7 @@ func (s *leadershipSuite) TestMergeError(c *gc.C) {
 func (s *leadershipSuite) TestMergeNoResults(c *gc.C) {
 	s.CheckCalls(c, s.expectMergeCalls(), func() {
 		s.addResponder(nil)
-		err := s.lsa.Merge("foobar", map[string]string{
+		err := s.lsa.Merge("foobar", "foobar/0", map[string]string{
 			"foo": "bar",
 			"baz": "qux",
 		})

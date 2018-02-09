@@ -14,10 +14,12 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
+	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/workertest"
 )
 
@@ -52,20 +54,26 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.manifold = caasoperator.Manifold(caasoperator.ManifoldConfig{
-		AgentName:          "agent",
-		APICallerName:      "api-caller",
-		ClockName:          "clock",
-		NewWorker:          s.newWorker,
-		NewClient:          s.newClient,
-		NewCharmDownloader: s.newCharmDownloader,
+		AgentName:             "agent",
+		APICallerName:         "api-caller",
+		ClockName:             "clock",
+		CharmDirName:          "charm-dir",
+		HookRetryStrategyName: "hook-retry-strategy",
+		MachineLockName:       "machine-lock",
+		NewWorker:             s.newWorker,
+		NewClient:             s.newClient,
+		NewCharmDownloader:    s.newCharmDownloader,
+		LeadershipGuarantee:   30 * time.Second,
 	})
 }
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent":      &s.agent,
-		"api-caller": &s.apiCaller,
-		"clock":      s.clock,
+		"agent":               &s.agent,
+		"api-caller":          &s.apiCaller,
+		"clock":               s.clock,
+		"charm-dir":           &mockCharmDirGuard{},
+		"hook-retry-strategy": params.RetryStrategy{},
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -93,7 +101,7 @@ func (s *ManifoldSuite) newCharmDownloader(caller base.APICaller) caasoperator.D
 	return &s.charmDownloader
 }
 
-var expectedInputs = []string{"agent", "api-caller", "clock"}
+var expectedInputs = []string{"agent", "api-caller", "clock", "charm-dir", "hook-retry-strategy"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -122,13 +130,23 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args[0], gc.FitsTypeOf, caasoperator.Config{})
 	config := args[0].(caasoperator.Config)
 
-	// Don't care about new runner factory func here.
-	config.NewRunnerFactoryFunc = nil
+	// Don't care about some helper funcs.
+	c.Assert(config.UniterParams, gc.NotNil)
+	c.Assert(config.LeadershipTrackerFunc, gc.NotNil)
+	c.Assert(config.UniterFacadeFunc, gc.NotNil)
+	c.Assert(config.StartUniterFunc, gc.NotNil)
+	c.Assert(config.UniterParams.UpdateStatusSignal, gc.NotNil)
+	c.Assert(config.UniterParams.NewOperationExecutor, gc.NotNil)
+	config.LeadershipTrackerFunc = nil
+	config.StartUniterFunc = nil
+	config.UniterFacadeFunc = nil
+	config.UniterParams.UpdateStatusSignal = nil
+	config.UniterParams.NewOperationExecutor = nil
+
 	c.Assert(config, jc.DeepEquals, caasoperator.Config{
 		ModelUUID:           coretesting.ModelTag.Id(),
 		ModelName:           "gitlab-model",
 		Application:         "gitlab",
-		CharmConfigGetter:   &s.client,
 		DataDir:             s.dataDir,
 		CharmGetter:         &s.client,
 		Clock:               s.clock,
@@ -137,6 +155,14 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		StatusSetter:        &s.client,
 		APIAddressGetter:    &s.client,
 		ProxySettingsGetter: &s.client,
+		UnitGetter:          &s.client,
+		LifeGetter:          &s.client,
+		UniterParams: &uniter.UniterParams{
+			DataDir:         s.dataDir,
+			MachineLockName: "machine-lock",
+			CharmDirGuard:   &mockCharmDirGuard{},
+			Clock:           s.clock,
+		},
 	})
 }
 

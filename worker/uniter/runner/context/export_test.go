@@ -27,7 +27,7 @@ func NewHookContext(
 	state *uniter.State,
 	id,
 	uuid,
-	envName string,
+	modelName string,
 	relationId int,
 	remoteUnitName string,
 	relations map[int]*ContextRelation,
@@ -45,7 +45,7 @@ func NewHookContext(
 		state:              state,
 		id:                 id,
 		uuid:               uuid,
-		envName:            envName,
+		modelName:          modelName,
 		unitName:           unit.Name(),
 		relationId:         relationId,
 		remoteUnitName:     remoteUnitName,
@@ -124,7 +124,7 @@ func GetStubActionContext(in map[string]interface{}) *HookContext {
 	}
 }
 
-type LeadershipContextFunc func(LeadershipSettingsAccessor, leadership.Tracker) LeadershipContext
+type LeadershipContextFunc func(LeadershipSettingsAccessor, leadership.Tracker, string) LeadershipContext
 
 func PatchNewLeadershipContext(f LeadershipContextFunc) func() {
 	var old LeadershipContextFunc
@@ -139,7 +139,7 @@ func StorageAddConstraints(ctx *HookContext) map[string][]params.StorageConstrai
 // NewModelHookContext exists purely to set the fields used in rs.
 // The returned value is not otherwise valid.
 func NewModelHookContext(
-	id, modelUUID, envName, unitName, meterCode, meterInfo, slaLevel, availZone string,
+	id, modelUUID, modelName, unitName, meterCode, meterInfo, slaLevel, availZone string,
 	apiAddresses []string, proxySettings proxy.Settings,
 	machineTag names.MachineTag,
 ) *HookContext {
@@ -147,7 +147,7 @@ func NewModelHookContext(
 		id:            id,
 		unitName:      unitName,
 		uuid:          modelUUID,
-		envName:       envName,
+		modelName:     modelName,
 		apiAddrs:      apiAddresses,
 		proxySettings: proxySettings,
 		meterStatus: &meterStatus{
@@ -163,7 +163,7 @@ func NewModelHookContext(
 }
 
 func ContextEnvInfo(hctx *HookContext) (name, uuid string) {
-	return hctx.envName, hctx.uuid
+	return hctx.modelName, hctx.uuid
 }
 
 func ContextMachineTag(hctx *HookContext) names.MachineTag {

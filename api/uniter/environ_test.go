@@ -39,3 +39,7 @@ func (s *environSuite) TestUUID(c *gc.C) {
 func (s *environSuite) TestName(c *gc.C) {
 	c.Assert(s.apiEnviron.Name(), gc.Equals, s.stateEnviron.Name())
 }
+
+func (s *environSuite) TestType(c *gc.C) {
+	c.Assert(string(s.apiEnviron.Type().String()), gc.Equals, string(s.stateEnviron.Type()))
+}

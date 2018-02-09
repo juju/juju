@@ -206,8 +206,8 @@ func (m *noopExecutor) Run(op operation.Operation) error {
 }
 
 func (s *UniterSuite) TestUniterStartupStatus(c *gc.C) {
-	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
-		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
+	executorFunc := func(stateFilePath string, initialState operation.State, acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
+		e, err := operation.NewExecutor(stateFilePath, initialState, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}
@@ -1944,8 +1944,8 @@ func (m *mockExecutor) Run(op operation.Operation) error {
 }
 
 func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
-	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
-		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
+	executorFunc := func(stateFilePath string, initialState operation.State, acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
+		e, err := operation.NewExecutor(stateFilePath, initialState, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}
@@ -1965,8 +1965,8 @@ func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
 }
 
 func (s *UniterSuite) TestTranslateResolverError(c *gc.C) {
-	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
-		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
+	executorFunc := func(stateFilePath string, initialState operation.State, acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
+		e, err := operation.NewExecutor(stateFilePath, initialState, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}

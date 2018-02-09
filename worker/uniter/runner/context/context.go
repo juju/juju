@@ -135,8 +135,8 @@ type HookContext struct {
 	// uuid is the universally unique identifier of the environment.
 	uuid string
 
-	// envName is the human friendly name of the environment.
-	envName string
+	// modelName is the human friendly name of the environment.
+	modelName string
 
 	// unitName is the human friendly name of the local unit.
 	unitName string
@@ -598,16 +598,21 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket(),
 		"JUJU_UNIT_NAME="+context.unitName,
 		"JUJU_MODEL_UUID="+context.uuid,
-		"JUJU_MODEL_NAME="+context.envName,
+		"JUJU_MODEL_NAME="+context.modelName,
 		"JUJU_API_ADDRESSES="+strings.Join(context.apiAddrs, " "),
-		"JUJU_METER_STATUS="+context.meterStatus.code,
-		"JUJU_METER_INFO="+context.meterStatus.info,
 		"JUJU_SLA="+context.slaLevel,
 		"JUJU_MACHINE_ID="+context.assignedMachineTag.Id(),
 		"JUJU_PRINCIPAL_UNIT="+context.principal,
 		"JUJU_AVAILABILITY_ZONE="+context.availabilityzone,
 		"JUJU_VERSION="+version.Current.String(),
 	)
+	if context.meterStatus != nil {
+		vars = append(vars,
+			"JUJU_METER_STATUS="+context.meterStatus.code,
+			"JUJU_METER_INFO="+context.meterStatus.info,
+		)
+
+	}
 	if r, err := context.HookRelation(); err == nil {
 		vars = append(vars,
 			"JUJU_RELATION="+r.Name(),

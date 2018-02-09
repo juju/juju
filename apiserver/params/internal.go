@@ -93,6 +93,7 @@ type ModelResult struct {
 	Error *Error `json:"error,omitempty"`
 	Name  string `json:"name"`
 	UUID  string `json:"uuid"`
+	Type  string `json:"type"`
 }
 
 // ModelCreateArgs holds the arguments that are necessary to create

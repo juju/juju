@@ -10,8 +10,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -103,39 +104,6 @@ func (c *Client) Charm(application string) (_ *charm.URL, sha256 string, _ error
 	return curl, result.SHA256, nil
 }
 
-// WatchCharmConfig returns a watcher that is notified whenever the
-// application's charm config changes.
-func (c *Client) WatchCharmConfig(application string) (watcher.NotifyWatcher, error) {
-	tag, err := c.appTag(application)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return common.Watch(c.facade, "WatchCharmConfig", tag)
-}
-
-// CharmConfig returns the application's charm config settings.
-func (c *Client) CharmConfig(application string) (charm.Settings, error) {
-	tag, err := c.appTag(application)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var results params.ConfigSettingsResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
-	}
-	if err := c.facade.FacadeCall("CharmConfig", args, &results); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, errors.Trace(result.Error)
-	}
-	return charm.Settings(result.Settings), nil
-}
-
 // SetContainerSpec sets the container spec of the specified application or unit.
 func (c *Client) SetContainerSpec(entityName string, spec string) error {
 	var tag names.Tag
@@ -192,4 +160,79 @@ func proxySettingsParamToProxySettings(cfg params.ProxyConfig) proxy.Settings {
 		Ftp:     cfg.FTP,
 		NoProxy: cfg.NoProxy,
 	}
+}
+
+func applicationTag(application string) (names.ApplicationTag, error) {
+	if !names.IsValidApplication(application) {
+		return names.ApplicationTag{}, errors.NotValidf("application name %q", application)
+	}
+	return names.NewApplicationTag(application), nil
+}
+
+func entities(tags ...names.Tag) params.Entities {
+	entities := params.Entities{
+		Entities: make([]params.Entity, len(tags)),
+	}
+	for i, tag := range tags {
+		entities.Entities[i].Tag = tag.String()
+	}
+	return entities
+}
+
+// WatchUnits returns a StringsWatcher that notifies of
+// changes to the lifecycles of units of the specified
+// CAAS application in the current model.
+func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) {
+	applicationTag, err := applicationTag(application)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	args := entities(applicationTag)
+
+	var results params.StringsWatchResults
+	if err := c.facade.FacadeCall("WatchUnits", args, &results); err != nil {
+		return nil, err
+	}
+	if n := len(results.Results); n != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", n)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return nil, errors.Trace(err)
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), results.Results[0])
+	return w, nil
+}
+
+// Life returns the lifecycle state for the specified CAAS application
+// or unit in the current model.
+func (c *Client) Life(entityName string) (life.Value, error) {
+	var tag names.Tag
+	switch {
+	case names.IsValidApplication(entityName):
+		tag = names.NewApplicationTag(entityName)
+	case names.IsValidUnit(entityName):
+		tag = names.NewUnitTag(entityName)
+	default:
+		return "", errors.NotValidf("application or unit name %q", entityName)
+	}
+	args := entities(tag)
+
+	var results params.LifeResults
+	if err := c.facade.FacadeCall("Life", args, &results); err != nil {
+		return "", err
+	}
+	if n := len(results.Results); n != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", n)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return "", maybeNotFound(err)
+	}
+	return life.Value(results.Results[0].Life), nil
+}
+
+func maybeNotFound(err *params.Error) error {
+	if !params.IsCodeNotFound(err) {
+		return err
+	}
+	return errors.NewNotFound(err, "")
 }

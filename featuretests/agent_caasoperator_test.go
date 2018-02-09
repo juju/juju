@@ -153,11 +153,13 @@ var (
 	alwaysCAASWorkers = []string{
 		"agent",
 		"api-caller",
+		"charm-dir",
 		"clock",
+		"hook-retry-strategy",
 		"operator",
 	}
 	notMigratingCAASWorkers = []string{
-	// TODO(caas)
+		// TODO(caas)
 	}
 )
 

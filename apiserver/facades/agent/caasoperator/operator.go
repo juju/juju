@@ -21,6 +21,7 @@ type Facade struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 	state     CAASOperatorState
+	*common.LifeGetter
 
 	model Model
 }
@@ -46,6 +47,12 @@ func NewFacade(
 		return nil, errors.Trace(err)
 	}
 	return &Facade{
+		LifeGetter: common.NewLifeGetter(
+			st, common.AuthAny(
+				common.AuthFuncForTagKind(names.ApplicationTagKind),
+				common.AuthFuncForTagKind(names.UnitTagKind),
+			),
+		),
 		auth:      authorizer,
 		resources: resources,
 		state:     st,
@@ -178,78 +185,6 @@ func (f *Facade) Charm(args params.Entities) (params.ApplicationCharmResults, er
 	return results, nil
 }
 
-// WatchCharmConfig returns a NotifyWatcher that notifies when
-// the application's config settings have changed.
-func (f *Facade) WatchCharmConfig(args params.Entities) (params.NotifyWatchResults, error) {
-	results := params.NotifyWatchResults{
-		Results: make([]params.NotifyWatchResult, len(args.Entities)),
-	}
-	authTag := f.auth.GetAuthTag()
-	for i, arg := range args.Entities {
-		watcherId, err := f.watchCharmConfig(arg, authTag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		results.Results[i].NotifyWatcherId = watcherId
-	}
-	return results, nil
-}
-
-func (f *Facade) watchCharmConfig(arg params.Entity, authTag names.Tag) (string, error) {
-	tag, err := names.ParseApplicationTag(arg.Tag)
-	if err != nil {
-		return "", err
-	}
-	if tag != authTag {
-		return "", common.ErrPerm
-	}
-	application, err := f.state.Application(tag.Id())
-	if err != nil {
-		return "", err
-	}
-	w, err := application.WatchCharmConfig()
-	if err != nil {
-		return "", err
-	}
-	// Consume the initial event.
-	if _, ok := <-w.Changes(); !ok {
-		return "", watcher.EnsureErr(w)
-	}
-	return f.resources.Register(w), nil
-}
-
-// CharmConfig returns the application's charm config settings.
-func (f *Facade) CharmConfig(args params.Entities) (params.ConfigSettingsResults, error) {
-	results := params.ConfigSettingsResults{
-		Results: make([]params.ConfigSettingsResult, len(args.Entities)),
-	}
-	authTag := f.auth.GetAuthTag()
-	for i, arg := range args.Entities {
-		tag, err := names.ParseApplicationTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		if tag != authTag {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		application, err := f.state.Application(tag.Id())
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		settings, err := application.CharmConfig()
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		results.Results[i].Settings = params.ConfigSettings(settings)
-	}
-	return results, nil
-}
-
 // SetContainerSpec sets the container specs for a set of entities.
 func (f *Facade) SetContainerSpec(args params.SetContainerSpecParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
@@ -287,4 +222,39 @@ func (f *Facade) SetContainerSpec(args params.SetContainerSpecParams) (params.Er
 		)
 	}
 	return results, nil
+}
+
+// WatchUnits starts a StringsWatcher to watch changes to the
+// lifecycle states of units for the specified applications in
+// this model.
+func (f *Facade) WatchUnits(args params.Entities) (params.StringsWatchResults, error) {
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		id, changes, err := f.watchUnits(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].StringsWatcherId = id
+		results.Results[i].Changes = changes
+	}
+	return results, nil
+}
+
+func (f *Facade) watchUnits(tagString string) (string, []string, error) {
+	tag, err := names.ParseApplicationTag(tagString)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	app, err := f.state.Application(tag.Id())
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	w := app.WatchUnits()
+	if changes, ok := <-w.Changes(); ok {
+		return f.resources.Register(w), changes, nil
+	}
+	return "", nil, watcher.EnsureErr(w)
 }

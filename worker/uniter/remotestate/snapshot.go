@@ -16,7 +16,7 @@ type Snapshot struct {
 	Life params.Life
 
 	// Relations contains the lifecycle states of
-	// each of the service's relations, keyed by
+	// each of the application's relations, keyed by
 	// relation IDs.
 	Relations map[int]RelationSnapshot
 
@@ -24,7 +24,7 @@ type Snapshot struct {
 	// states of each of the unit's storage attachments.
 	Storage map[names.StorageTag]StorageSnapshot
 
-	// CharmModifiedVersion is increased whenever the service's charm was
+	// CharmModifiedVersion is increased whenever the application's charm was
 	// changed in some way.
 	CharmModifiedVersion int
 

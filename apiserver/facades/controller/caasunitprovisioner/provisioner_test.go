@@ -238,7 +238,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNoTags(c *gc.C) {
 		Address:    "another-address", Ports: []string{"another-port"},
 		Status: &status.StatusInfo{Status: status.Running, Message: "another message"},
 	})
-	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life", "DestroyOperation")
+	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life")
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithTags(c *gc.C) {
@@ -280,5 +280,5 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithTags(c *gc.C) {
 		Address:    "another-address", Ports: []string{"another-port"},
 		Status: &status.StatusInfo{Status: status.Running, Message: "another message"},
 	})
-	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life", "DestroyOperation")
+	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life")
 }

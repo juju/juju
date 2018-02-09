@@ -9,12 +9,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 )
 
 type operatorSuite struct {
@@ -111,58 +111,6 @@ func (s *operatorSuite) TestCharmInvalidApplicationName(c *gc.C) {
 	}))
 	_, _, err := client.Charm("")
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
-}
-
-func (s *operatorSuite) TestCharmConfig(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASOperator")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "CharmConfig")
-		c.Check(arg, jc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{
-				Tag: "application-gitlab",
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ConfigSettingsResults{})
-		*(result.(*params.ConfigSettingsResults)) = params.ConfigSettingsResults{
-			Results: []params.ConfigSettingsResult{{
-				Settings: params.ConfigSettings{"k": 123},
-			}},
-		}
-		return nil
-	})
-
-	client := caasoperator.NewClient(apiCaller)
-	settings, err := client.CharmConfig("gitlab")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, charm.Settings{"k": 123})
-}
-
-func (s *operatorSuite) TestWatchCharmConfig(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CAASOperator")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchCharmConfig")
-		c.Check(arg, jc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{
-				Tag: "application-gitlab",
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
-		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
-			Results: []params.NotifyWatchResult{{
-				Error: &params.Error{Message: "FAIL"},
-			}},
-		}
-		return nil
-	})
-
-	client := caasoperator.NewClient(apiCaller)
-	watcher, err := client.WatchCharmConfig("gitlab")
-	c.Assert(watcher, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
 func (s *operatorSuite) TestSetContainerSpec(c *gc.C) {
@@ -268,4 +216,86 @@ func (s *operatorSuite) TestProxySettings(c *gc.C) {
 		Ftp:     "ftp.proxy",
 		NoProxy: "no.proxy",
 	})
+}
+
+func (s *operatorSuite) TestWatchUnits(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchUnits")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	watcher, err := client.WatchUnits("gitlab")
+	c.Assert(watcher, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *operatorSuite) TestLife(c *gc.C) {
+	s.testLife(c, names.NewApplicationTag("gitlab"))
+	s.testLife(c, names.NewUnitTag("gitlab/0"))
+}
+
+func (s *operatorSuite) testLife(c *gc.C, tag names.Tag) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Life")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: tag.String(),
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
+		*(result.(*params.LifeResults)) = params.LifeResults{
+			Results: []params.LifeResult{{
+				Life: params.Alive,
+			}},
+		}
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	lifeValue, err := client.Life(tag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lifeValue, gc.Equals, life.Alive)
+}
+
+func (s *operatorSuite) TestLifeError(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.LifeResults)) = params.LifeResults{
+			Results: []params.LifeResult{{Error: &params.Error{
+				Code:    params.CodeNotFound,
+				Message: "bletch",
+			}}},
+		}
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	_, err := client.Life("gitlab/0")
+	c.Assert(err, gc.ErrorMatches, "bletch")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *operatorSuite) TestLifeInvalidEntityame(c *gc.C) {
+	client := caasoperator.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
+		return errors.New("should not be called")
+	}))
+	_, err := client.Life("")
+	c.Assert(err, gc.ErrorMatches, `application or unit name "" not valid`)
 }

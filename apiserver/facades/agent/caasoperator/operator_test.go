@@ -41,7 +41,7 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 
 	s.st = newMockState()
 	s.AddCleanup(func(c *gc.C) {
-		workertest.CleanKill(c, s.st.app.settingsWatcher)
+		workertest.CleanKill(c, s.st.app.unitsWatcher)
 	})
 
 	facade, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st)
@@ -126,63 +126,49 @@ func (s *CAASOperatorSuite) TestCharm(c *gc.C) {
 	s.st.app.CheckCallNames(c, "Charm")
 }
 
-func (s *CAASOperatorSuite) TestCharmconfig(c *gc.C) {
-	args := params.Entities{
+func (s *CAASOperatorSuite) TestWatchUnits(c *gc.C) {
+	s.st.app.unitsChanges <- []string{"gitlab/0", "gitlab/1"}
+
+	results, err := s.facade.WatchUnits(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
-			{Tag: "application-other"},
-			{Tag: "machine-0"},
+			{Tag: "unit-gitlab-0"},
 		},
-	}
-
-	results, err := s.facade.CharmConfig(args)
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ConfigSettingsResults{
-		Results: []params.ConfigSettingsResult{{
-			Settings: params.ConfigSettings{"k": 123},
-		}, {
-			Error: &params.Error{
-				Code:    "unauthorized access",
-				Message: "permission denied",
-			},
-		}, {
-			Error: &params.Error{Message: `"machine-0" is not a valid application tag`},
-		}},
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 
-	s.st.CheckCallNames(c, "Model", "Application")
-	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "CharmConfig")
+	c.Assert(results.Results[0].StringsWatcherId, gc.Equals, "1")
+	c.Assert(results.Results[0].Changes, jc.DeepEquals, []string{"gitlab/0", "gitlab/1"})
+	resource := s.resources.Get("1")
+	c.Assert(resource, gc.Equals, s.st.app.unitsWatcher)
 }
 
-func (s *CAASOperatorSuite) TestWatchCharmConfig(c *gc.C) {
-	args := params.Entities{
+func (s *CAASOperatorSuite) TestLife(c *gc.C) {
+	results, err := s.facade.Life(params.Entities{
 		Entities: []params.Entity{
+			{Tag: "unit-gitlab-0"},
 			{Tag: "application-gitlab"},
-			{Tag: "application-other"},
 			{Tag: "machine-0"},
 		},
-	}
-
-	results, err := s.facade.WatchCharmConfig(args)
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{{
-			NotifyWatcherId: "1",
+	c.Assert(results, jc.DeepEquals, params.LifeResults{
+		Results: []params.LifeResult{{
+			Life: params.Dying,
+		}, {
+			Life: params.Alive,
 		}, {
 			Error: &params.Error{
 				Code:    "unauthorized access",
 				Message: "permission denied",
 			},
-		}, {
-			Error: &params.Error{Message: `"machine-0" is not a valid application tag`},
 		}},
 	})
-
-	s.st.CheckCallNames(c, "Model", "Application")
-	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "WatchCharmConfig")
-	c.Assert(s.resources.Get("1"), gc.Equals, s.st.app.settingsWatcher)
 }
 
 func (s *CAASOperatorSuite) TestSetContainerSpec(c *gc.C) {

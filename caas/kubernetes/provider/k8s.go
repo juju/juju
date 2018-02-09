@@ -398,14 +398,11 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 				ports = append(ports, fmt.Sprintf("%v/%v", p.ContainerPort, p.Protocol))
 			}
 		}
-		dying := p.DeletionTimestamp != nil
-		if dying {
-			continue
-		}
 		unitInfo := caas.Unit{
 			Id:      string(p.UID),
 			Address: p.Status.PodIP,
 			Ports:   ports,
+			Dying:   p.DeletionTimestamp != nil,
 			Status: status.StatusInfo{
 				Status:  k.jujuStatus(p.Status.Phase),
 				Message: p.Status.Message,
@@ -432,8 +429,10 @@ func (k *kubernetesClient) jujuStatus(podPhase v1.PodPhase) status.Status {
 		return status.Running
 	case v1.PodFailed:
 		return status.Error
-	default:
+	case v1.PodPending:
 		return status.Allocating
+	default:
+		return status.Unknown
 	}
 }
 

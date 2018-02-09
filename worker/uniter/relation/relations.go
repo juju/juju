@@ -86,7 +86,7 @@ type relations struct {
 }
 
 // LeadershipContextFunc is a function that returns a leadership context.
-type LeadershipContextFunc func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker) context.LeadershipContext
+type LeadershipContextFunc func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) context.LeadershipContext
 
 // RelationsConfig contains configuration values
 // for the relations instance.
@@ -113,6 +113,7 @@ func NewRelations(config RelationsConfig) (Relations, error) {
 	leadershipContext := config.NewLeadershipContext(
 		config.State.LeadershipSettings,
 		config.Tracker,
+		config.UnitTag.Id(),
 	)
 	r := &relations{
 		st:            config.State,

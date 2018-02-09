@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
@@ -117,7 +118,11 @@ func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult
 
 func (st *State) setRelationStatus(id int, status relation.Status) error {
 	args := params.RelationStatusArgs{
-		Args: []params.RelationStatusArg{{RelationId: id, Status: params.RelationStatusValue(status)}},
+		Args: []params.RelationStatusArg{{
+			UnitTag:    st.unitTag.String(),
+			RelationId: id,
+			Status:     params.RelationStatusValue(status),
+		}},
 	}
 	var results params.ErrorResults
 	if err := st.facade.FacadeCall("SetRelationStatus", args, &results); err != nil {
@@ -327,9 +332,14 @@ func (st *State) Model() (*Model, error) {
 	if err := result.Error; err != nil {
 		return nil, err
 	}
+	modelType := model.ModelType(result.Type)
+	if modelType == "" {
+		modelType = model.IAAS
+	}
 	return &Model{
-		name: result.Name,
-		uuid: result.UUID,
+		name:      result.Name,
+		uuid:      result.UUID,
+		modelType: modelType,
 	}, nil
 }
 

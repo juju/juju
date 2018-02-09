@@ -4,6 +4,9 @@
 package caasoperator_test
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/testing"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6"
@@ -64,7 +67,7 @@ type fakeAPICaller struct {
 type fakeClient struct {
 	testing.Stub
 	caasoperator.Client
-	settingsWatcher *watchertest.MockNotifyWatcher
+	unitsWatcher *watchertest.MockStringsWatcher
 }
 
 func (c *fakeClient) SetStatus(application string, status status.Status, message string, data map[string]interface{}) error {
@@ -94,11 +97,23 @@ func (c *fakeClient) CharmConfig(application string) (charm.Settings, error) {
 }
 
 func (c *fakeClient) WatchCharmConfig(application string) (watcher.NotifyWatcher, error) {
-	c.MethodCall(c, "WatchCharmConfig", application)
+	return nil, errors.NotSupportedf("watch charm config")
+}
+
+func (c *fakeClient) WatchUnits(application string) (watcher.StringsWatcher, error) {
+	c.MethodCall(c, "WatchUnits", application)
 	if err := c.NextErr(); err != nil {
 		return nil, err
 	}
-	return c.settingsWatcher, nil
+	return c.unitsWatcher, nil
+}
+
+func (c *fakeClient) Life(entity string) (life.Value, error) {
+	c.MethodCall(c, "Life", entity)
+	if err := c.NextErr(); err != nil {
+		return life.Dead, err
+	}
+	return life.Alive, nil
 }
 
 func (c *fakeClient) APIAddresses() ([]string, error) {
@@ -164,4 +179,19 @@ func (m *mockHookRunner) RunHook(name string) error {
 	}
 	m.observer.recordHookCompleted(name)
 	return nil
+}
+
+type mockCharmDirGuard struct {
+	fortress.Guard
+	testing.Stub
+}
+
+func (l *mockCharmDirGuard) Unlock() error {
+	l.MethodCall(l, "Unlock")
+	return l.NextErr()
+}
+
+func (l *mockCharmDirGuard) Lockdown(abort fortress.Abort) error {
+	l.MethodCall(l, "Lockdown", abort)
+	return l.NextErr()
 }

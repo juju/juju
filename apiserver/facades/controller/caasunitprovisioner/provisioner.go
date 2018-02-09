@@ -311,8 +311,9 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 			if stateUnitInCloud {
 				logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), u.ProviderId())
 			} else {
-				logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), u.ProviderId())
-				removedUnits = append(removedUnits, u)
+				// TODO(caas) - the cloud watcher can mistakenly report pods as missing
+				//logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), u.ProviderId())
+				//removedUnits = append(removedUnits, u)
 			}
 		}
 	}
@@ -334,6 +335,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 	var unitUpdate state.UpdateUnitsOperation
 
 	for _, u := range removedUnits {
+		logger.Infof("removing unit %v from state because it no longer exists in the cloud", u.Name())
 		unitUpdate.Deletes = append(unitUpdate.Deletes, u.DestroyOperation())
 	}
 

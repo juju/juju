@@ -1429,6 +1429,7 @@ func (s *uniterSuite) TestCurrentModel(c *gc.C) {
 	expected := params.ModelResult{
 		Name: env.Name(),
 		UUID: env.UUID(),
+		Type: "iaas",
 	}
 	c.Assert(result, gc.DeepEquals, expected)
 }
@@ -2000,11 +2001,12 @@ func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
 
 	args := params.RelationStatusArgs{
 		Args: []params.RelationStatusArg{
-			{rel.Id(), params.Suspended, "message"},
+			{s.wordpressUnit.Tag().String(), rel.Id(), params.Suspended, "message"},
 		},
 	}
-	_, err = s.uniter.SetRelationStatus(args)
-	c.Assert(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
+	result, err := s.uniter.SetRelationStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
 }
 
 func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
@@ -2029,9 +2031,10 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 
 	args := params.RelationStatusArgs{
 		Args: []params.RelationStatusArg{
-			{rel.Id(), params.Suspended, "message"},
-			{rel2.Id(), params.Suspended, "gone"},
-			{rel3.Id(), params.Broken, ""},
+			{s.wordpressUnit.Tag().String(), rel.Id(), params.Suspended, "message"},
+			// This arg omits the explicit unit tag to test older servers.
+			{RelationId: rel2.Id(), Status: params.Suspended, Message: "gone"},
+			{s.wordpressUnit.Tag().String(), rel3.Id(), params.Broken, ""},
 			{RelationId: 4},
 		},
 	}

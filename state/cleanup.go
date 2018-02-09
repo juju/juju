@@ -494,7 +494,11 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 }
 
 func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool) error {
+	// Only IAAS models support storage at the moment.
 	im, err := st.IAASModel()
+	if errors.IsNotSupported(err) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -524,7 +528,11 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 }
 
 func (st *State) cleanupUnitStorageInstances(unitTag names.UnitTag) error {
+	// Only IAAS models support storage at the moment.
 	im, err := st.IAASModel()
+	if errors.IsNotSupported(err) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}

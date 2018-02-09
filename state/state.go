@@ -1983,7 +1983,11 @@ func (st *State) Unit(name string) (*Unit, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get unit %q", name)
 	}
-	return newUnit(st, &doc), nil
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newUnit(st, model.Type(), &doc), nil
 }
 
 // UnitsFor returns the units placed in the given machine id.

@@ -42,7 +42,7 @@ func NewLeadershipService(
 	claimer leadership.Claimer, authorizer facade.Authorizer,
 ) (LeadershipService, error) {
 
-	if !authorizer.AuthUnitAgent() {
+	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, errors.Unauthorizedf("permission denied")
 	}
 
@@ -66,7 +66,7 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 	for pIdx, p := range args.Params {
 
 		result := &results[pIdx]
-		ApplicationTag, unitTag, err := parseServiceAndUnitTags(p.ApplicationTag, p.UnitTag)
+		applicationTag, unitTag, err := parseApplicationAndUnitTags(p.ApplicationTag, p.UnitTag)
 		if err != nil {
 			result.Error = common.ServerError(err)
 			continue
@@ -80,13 +80,19 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 		// In the future, situations may arise wherein units will make
 		// leadership claims for other units. For now, units can only
 		// claim leadership for themselves, for their own service.
-		if !m.authorizer.AuthOwner(unitTag) || !m.authMember(ApplicationTag) {
+		authTag := m.authorizer.GetAuthTag()
+		canClaim := false
+		switch authTag.(type) {
+		case names.UnitTag:
+			canClaim = m.authorizer.AuthOwner(unitTag) && m.authMember(applicationTag)
+		case names.ApplicationTag:
+			canClaim = m.authorizer.AuthOwner(applicationTag)
+		}
+		if !canClaim {
 			result.Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-
-		err = m.claimer.ClaimLeadership(ApplicationTag.Id(), unitTag.Id(), duration)
-		if err != nil {
+		if err = m.claimer.ClaimLeadership(applicationTag.Id(), unitTag.Id(), duration); err != nil {
 			result.Error = common.ServerError(err)
 		}
 	}
@@ -95,35 +101,44 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 }
 
 // BlockUntilLeadershipReleased implements the LeadershipService interface.
-func (m *leadershipService) BlockUntilLeadershipReleased(ctx context.Context, ApplicationTag names.ApplicationTag) (params.ErrorResult, error) {
-	if !m.authMember(ApplicationTag) {
+func (m *leadershipService) BlockUntilLeadershipReleased(ctx context.Context, applicationTag names.ApplicationTag) (params.ErrorResult, error) {
+	authTag := m.authorizer.GetAuthTag()
+	hasPerm := false
+	switch authTag.(type) {
+	case names.UnitTag:
+		hasPerm = m.authMember(applicationTag)
+	case names.ApplicationTag:
+		hasPerm = m.authorizer.AuthOwner(applicationTag)
+	}
+
+	if !hasPerm {
 		return params.ErrorResult{Error: common.ServerError(common.ErrPerm)}, nil
 	}
 
-	if err := m.claimer.BlockUntilLeadershipReleased(ApplicationTag.Id(), ctx.Done()); err != nil {
+	if err := m.claimer.BlockUntilLeadershipReleased(applicationTag.Id(), ctx.Done()); err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
 }
 
-func (m *leadershipService) authMember(ApplicationTag names.ApplicationTag) bool {
+func (m *leadershipService) authMember(applicationTag names.ApplicationTag) bool {
 	ownerTag := m.authorizer.GetAuthTag()
 	unitTag, ok := ownerTag.(names.UnitTag)
 	if !ok {
 		return false
 	}
 	unitId := unitTag.Id()
-	requireServiceId, err := names.UnitApplication(unitId)
+	requireAppName, err := names.UnitApplication(unitId)
 	if err != nil {
 		return false
 	}
-	return ApplicationTag.Id() == requireServiceId
+	return applicationTag.Id() == requireAppName
 }
 
-// parseServiceAndUnitTags takes in string representations of service
+// parseApplicationAndUnitTags takes in string representations of application
 // and unit tags and returns their corresponding tags.
-func parseServiceAndUnitTags(
-	ApplicationTagString, unitTagString string,
+func parseApplicationAndUnitTags(
+	applicationTagString, unitTagString string,
 ) (
 	names.ApplicationTag, names.UnitTag, error,
 ) {
@@ -131,7 +146,7 @@ func parseServiceAndUnitTags(
 	// These permissions errors are not appropriate -- there's no permission or
 	// security issue in play here, because our tag format is public, and the
 	// error only triggers when the strings fail to match that format.
-	ApplicationTag, err := names.ParseApplicationTag(ApplicationTagString)
+	applicationTag, err := names.ParseApplicationTag(applicationTagString)
 	if err != nil {
 		return names.ApplicationTag{}, names.UnitTag{}, common.ErrPerm
 	}
@@ -141,5 +156,5 @@ func parseServiceAndUnitTags(
 		return names.ApplicationTag{}, names.UnitTag{}, common.ErrPerm
 	}
 
-	return ApplicationTag, unitTag, nil
+	return applicationTag, unitTag, nil
 }

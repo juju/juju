@@ -79,7 +79,11 @@ type MergeLeadershipSettingsBulkParams struct {
 type MergeLeadershipSettingsParam struct {
 	// ApplicationTag is the application for which you want to merge
 	// leadership settings.
-	ApplicationTag string `json:"application-tag"`
+	ApplicationTag string `json:"application-tag,omitempty"`
+
+	// UnitTag is the unit for which you want to merge
+	// leadership settings.
+	UnitTag string `json:"unit-tag,omitempty"`
 
 	// Settings are the Leadership settings you wish to merge in.
 	Settings Settings `json:"settings"`
