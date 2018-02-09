@@ -18,7 +18,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -80,7 +80,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	// Wait for the PA to load the new configuration. We wait for the change we expect
 	// like this because sometimes we pick up the initial harvest config (destroyed)
 	// rather than the one we change to (all).
-	received := []string{}
+	var received []string
 	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
@@ -1253,7 +1253,7 @@ type mockDistributionGroupFinder struct {
 func (mock *mockDistributionGroupFinder) DistributionGroupByMachineId(tags ...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error) {
 	result := make([]apiprovisioner.DistributionGroupResult, len(tags))
 	if len(mock.groups) == 0 {
-		for i, _ := range tags {
+		for i := range tags {
 			result[i] = apiprovisioner.DistributionGroupResult{[]string{}, nil}
 		}
 	} else {
@@ -1697,11 +1697,11 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesWithDG(c *gc
 	// Per provider dummy, there will be 3 available availability zones.
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	dgFinder := &mockDistributionGroupFinder{groups: map[names.MachineTag][]string{
-		names.NewMachineTag("1"): []string{"3, 4"},
-		names.NewMachineTag("2"): []string{},
-		names.NewMachineTag("3"): []string{"1, 4"},
-		names.NewMachineTag("4"): []string{"1, 3"},
-		names.NewMachineTag("5"): []string{},
+		names.NewMachineTag("1"): {"3, 4"},
+		names.NewMachineTag("2"): {},
+		names.NewMachineTag("3"): {"1, 4"},
+		names.NewMachineTag("4"): {"1, 3"},
+		names.NewMachineTag("5"): {},
 	}}
 
 	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, dgFinder, mockToolsFinder{})
@@ -1728,11 +1728,11 @@ func (s *ProvisionerSuite) TestAvailabilityZoneMachinesStartMachinesAZFailuresWi
 		},
 	}
 	dgFinder := &mockDistributionGroupFinder{groups: map[names.MachineTag][]string{
-		names.NewMachineTag("1"): []string{"4", "5"},
-		names.NewMachineTag("2"): []string{"3"},
-		names.NewMachineTag("3"): []string{"2"},
-		names.NewMachineTag("4"): []string{"1", "5"},
-		names.NewMachineTag("5"): []string{"1", "4"},
+		names.NewMachineTag("1"): {"4", "5"},
+		names.NewMachineTag("2"): {"3"},
+		names.NewMachineTag("3"): {"2"},
+		names.NewMachineTag("4"): {"1", "5"},
+		names.NewMachineTag("5"): {"1", "4"},
 	}}
 	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 2)
 	task := s.newProvisionerTaskWithRetryStrategy(c, config.HarvestDestroyed,
@@ -1753,10 +1753,10 @@ func (s *ProvisionerSuite) TestProvisioningMachinesSingleMachineDGFailure(c *gc.
 	// ensure the other machines are still provisioned.
 	dgFinder := &mockDistributionGroupFinder{
 		groups: map[names.MachineTag][]string{
-			names.NewMachineTag("2"): []string{"3", "5"},
-			names.NewMachineTag("3"): []string{"2", "5"},
-			names.NewMachineTag("4"): []string{"1"},
-			names.NewMachineTag("5"): []string{"2", "3"},
+			names.NewMachineTag("2"): {"3", "5"},
+			names.NewMachineTag("3"): {"2", "5"},
+			names.NewMachineTag("4"): {"1"},
+			names.NewMachineTag("5"): {"2", "3"},
 		},
 	}
 	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, dgFinder, mockToolsFinder{})
@@ -1876,11 +1876,11 @@ func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {
 			"5": {whenSucceed: 1, err: providercommon.ZoneIndependentError(errors.New("arf"))},
 		},
 		derivedAZ: map[string][]string{
-			"1": []string{"fail-zone"},
-			"2": []string{"zone4"},
-			"3": []string{"zone1", "zone4"},
-			"4": []string{"zone1"},
-			"5": []string{"zone3"},
+			"1": {"fail-zone"},
+			"2": {"zone4"},
+			"3": {"zone1", "zone4"},
+			"4": {"zone1"},
+			"5": {"zone3"},
 		},
 	}
 	retryStrategy := provisioner.NewRetryStrategy(5*time.Millisecond, 2)
@@ -1894,9 +1894,19 @@ func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {
 	mSucceed := machines[2:]
 
 	s.checkStartInstances(c, mSucceed)
-	c.Assert(e.retryCount[mFail[1].Id()], gc.Equals, 3)
 	c.Assert(e.retryCount[mSucceed[0].Id()], gc.Equals, 1)
 	c.Assert(e.retryCount[mSucceed[2].Id()], gc.Equals, 1)
+
+	// There is a potential race here where the provisioning has not yet been
+	// retried the specified number of times.
+	id := mFail[1].Id()
+	for e.retryCount[id] < 3 {
+		select {
+		case <-time.After(coretesting.ShortWait):
+			c.Fatalf("Failed provision of %q did not retry 3 times", id)
+		default:
+		}
+	}
 
 	_, err = mFail[0].InstanceId()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
