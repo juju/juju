@@ -166,6 +166,7 @@ func (s *ExpireSuite) TestExpire_OtherError(c *gc.C) {
 }
 
 func (s *ExpireSuite) TestClaim_ExpiryInFuture(c *gc.C) {
+	const newLeaseSecs = 63
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
@@ -173,7 +174,7 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture(c *gc.C) {
 			callback: func(leases map[string]corelease.Info) {
 				leases["redis"] = corelease.Info{
 					Holder: "redis/0",
-					Expiry: offset(63 * time.Second),
+					Expiry: offset(newLeaseSecs * time.Second),
 				}
 			},
 		}},
@@ -182,11 +183,12 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture(c *gc.C) {
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := manager.Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		clock.Advance(almostSeconds(63))
+		clock.Advance(almostSeconds(newLeaseSecs))
 	})
 }
 
 func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
+	const newLeaseSecs = 63
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
@@ -194,7 +196,7 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 			callback: func(leases map[string]corelease.Info) {
 				leases["redis"] = corelease.Info{
 					Holder: "redis/0",
-					Expiry: offset(63 * time.Second),
+					Expiry: offset(newLeaseSecs * time.Second),
 				}
 			},
 		}, {
@@ -211,11 +213,12 @@ func (s *ExpireSuite) TestClaim_ExpiryInFuture_TimePasses(c *gc.C) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := manager.Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		clock.Advance(63 * time.Second)
+		clock.Advance(justAfterSeconds(newLeaseSecs))
 	})
 }
 
 func (s *ExpireSuite) TestExtend_ExpiryInFuture(c *gc.C) {
+	const newLeaseSecs = 63
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
 			"redis": {
@@ -229,7 +232,7 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 			callback: func(leases map[string]corelease.Info) {
 				leases["redis"] = corelease.Info{
 					Holder: "redis/0",
-					Expiry: offset(63 * time.Second),
+					Expiry: offset(newLeaseSecs * time.Second),
 				}
 			},
 		}},
@@ -238,11 +241,12 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture(c *gc.C) {
 		// Ask for a minute, actually get 63s. Don't expire early.
 		err := manager.Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		clock.Advance(almostSeconds(63))
+		clock.Advance(almostSeconds(newLeaseSecs))
 	})
 }
 
 func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
+	const newLeaseSecs = 63
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
 			"redis": {
@@ -256,7 +260,7 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 			callback: func(leases map[string]corelease.Info) {
 				leases["redis"] = corelease.Info{
 					Holder: "redis/0",
-					Expiry: offset(time.Minute),
+					Expiry: offset(newLeaseSecs * time.Second),
 				}
 			},
 		}, {
@@ -273,7 +277,7 @@ func (s *ExpireSuite) TestExtend_ExpiryInFuture_TimePasses(c *gc.C) {
 		// Ask for a minute, actually get 63s. Expire on time.
 		err := manager.Claim("redis", "redis/0", time.Minute)
 		c.Assert(err, jc.ErrorIsNil)
-		clock.Advance(63 * time.Second)
+		clock.Advance(justAfterSeconds(newLeaseSecs))
 	})
 }
 
