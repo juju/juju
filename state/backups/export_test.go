@@ -94,8 +94,9 @@ func ExposeCreateResult(result *createResult) (io.ReadCloser, int64, string) {
 }
 
 // NewTestCreateArgs builds a new args value for create() calls.
-func NewTestCreateArgs(filesToBackUp []string, db DBDumper, metar io.Reader) *createArgs {
+func NewTestCreateArgs(backupDir string, filesToBackUp []string, db DBDumper, metar io.Reader) *createArgs {
 	args := createArgs{
+		backupDir:      backupDir,
 		filesToBackUp:  filesToBackUp,
 		db:             db,
 		metadataReader: metar,
@@ -104,8 +105,8 @@ func NewTestCreateArgs(filesToBackUp []string, db DBDumper, metar io.Reader) *cr
 }
 
 // ExposeCreateResult extracts the values in a create() args value.
-func ExposeCreateArgs(args *createArgs) ([]string, DBDumper) {
-	return args.filesToBackUp, args.db
+func ExposeCreateArgs(args *createArgs) (string, []string, DBDumper) {
+	return args.backupDir, args.filesToBackUp, args.db
 }
 
 // NewTestCreateResult builds a new create() result.

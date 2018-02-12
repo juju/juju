@@ -72,9 +72,17 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	config, err := backend.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	backupDir := config.BackupDir()
+
 	paths := backups.Paths{
-		DataDir: dataDir,
-		LogsDir: logsDir,
+		BackupDir: backupDir,
+		DataDir:   dataDir,
+		LogsDir:   logsDir,
 	}
 
 	// Build the API.

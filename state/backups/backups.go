@@ -138,11 +138,13 @@ func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error {
 	if err != nil {
 		return errors.Annotate(err, "while listing files to back up")
 	}
+
 	dumper, err := getDBDumper(dbInfo)
 	if err != nil {
 		return errors.Annotate(err, "while preparing for DB dump")
 	}
-	args := createArgs{filesToBackUp, dumper, metadataFile}
+
+	args := createArgs{paths.BackupDir, filesToBackUp, dumper, metadataFile}
 	result, err := runCreate(&args)
 	if err != nil {
 		return errors.Annotate(err, "while creating backup archive")
