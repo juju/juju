@@ -1902,9 +1902,10 @@ func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {
 	// The machine(s) arranged for provisioning failure have not yet been
 	// retried the specified number of times; so we wait.
 	id := mFail[1].Id()
+	timeout := time.After(coretesting.LongWait)
 	for e.retryCount[id] < 3 {
 		select {
-		case <-time.After(coretesting.ShortWait):
+		case <-timeout:
 			c.Fatalf("Failed provision of %q did not retry 3 times", id)
 		default:
 		}
