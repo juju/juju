@@ -43,13 +43,22 @@ func offset(d time.Duration) time.Time {
 	return defaultClockStart.Add(d)
 }
 
-// almostSeconds returns a duration smaller than the supplied number of
+// almostSeconds returns a duration shorter than the supplied number of
 // seconds by one nanosecond.
 func almostSeconds(seconds int) time.Duration {
 	if seconds < 1 {
-		panic("unexpected")
+		panic("expected positive time input")
 	}
 	return (time.Second * time.Duration(seconds)) - time.Nanosecond
+}
+
+// almostSeconds returns a duration longer than the supplied number of
+// seconds by one nanosecond.
+func justAfterSeconds(seconds int) time.Duration {
+	if seconds < 1 {
+		panic("expected positive time input")
+	}
+	return (time.Second * time.Duration(seconds)) + time.Nanosecond
 }
 
 // Fixture allows us to test a *lease.Manager with a usefully-mocked
