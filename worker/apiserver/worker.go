@@ -27,6 +27,8 @@ var logger = loggo.GetLogger("juju.worker.apiserver")
 // Config is the configuration required for running an API server worker.
 type Config struct {
 	AgentConfig                       agent.Config
+	AuditConfig                       auditlog.Config
+	AuditConfigChanged                <-chan auditlog.Config
 	Clock                             clock.Clock
 	Hub                               *pubsub.StructuredHub
 	StatePool                         *state.StatePool
@@ -104,7 +106,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot fetch the controller config")
 	}
 
-	logDir := config.AgentConfig.LogDir()
 	observerFactory, err := newObserverFn(
 		config.AgentConfig,
 		controllerConfig,
@@ -115,13 +116,11 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
 
-	auditConfig := getAuditLogConfig(controllerConfig, logDir)
-
 	serverConfig := apiserver.ServerConfig{
 		Clock:                         config.Clock,
 		Tag:                           config.AgentConfig.Tag(),
 		DataDir:                       config.AgentConfig.DataDir(),
-		LogDir:                        logDir,
+		LogDir:                        config.AgentConfig.LogDir(),
 		Hub:                           config.Hub,
 		GetCertificate:                config.GetCertificate,
 		RestoreStatus:                 config.RestoreStatus,
@@ -134,11 +133,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          config.PrometheusRegisterer,
-		AuditConfig:                   auditConfig,
-	}
-	if auditConfig.Enabled {
-		auditConfig.Target = auditlog.NewLogFile(
-			logDir, auditConfig.MaxSizeMB, auditConfig.MaxBackups)
+		AuditConfig:                   config.AuditConfig,
+		AuditConfigChanged:            config.AuditConfigChanged,
 	}
 
 	listener, err := net.Listen("tcp", listenAddr)

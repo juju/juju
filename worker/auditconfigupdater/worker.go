@@ -64,7 +64,11 @@ func (u *updater) Handle(abort <-chan struct{}) error {
 	newConfig := u.auditConfigFrom(cConfig)
 	if changed(u.current, newConfig) {
 		u.current = newConfig
-		u.changes <- newConfig
+		// Allow the send to be cancelled.
+		select {
+		case <-abort:
+		case u.changes <- newConfig:
+		}
 	}
 	return nil
 }

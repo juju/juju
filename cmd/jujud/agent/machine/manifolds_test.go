@@ -48,6 +48,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"api-caller",
 		"api-config-watcher",
 		"api-server",
+		"audit-config-updater",
 		"central-hub",
 		"certificate-updater",
 		"certificate-watcher",
@@ -112,6 +113,7 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"api-caller",
 		"api-config-watcher",
 		"api-server",
+		"audit-config-updater",
 		"certificate-updater",
 		"certificate-watcher",
 		"central-hub",
@@ -156,7 +158,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	for name, manifold := range manifolds {
 		c.Logf(name)
 		switch name {
-		case "certificate-watcher", "is-primary-controller-flag":
+		case "certificate-watcher", "audit-config-updater", "is-primary-controller-flag":
 			checkContains(c, manifold.Inputs, "is-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
 		case "external-controller-updater", "log-pruner", "transaction-pruner":

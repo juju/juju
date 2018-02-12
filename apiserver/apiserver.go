@@ -911,6 +911,7 @@ func (srv *Server) processAuditConfigChanges() error {
 				logger.Warningf("discarding invalid audit config: %s", err)
 			} else {
 				srv.updateAuditConfig(auditConfig)
+				logger.Debugf("audit logging config updated")
 			}
 		}
 	}

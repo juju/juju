@@ -4,14 +4,13 @@
 package certupdater
 
 import (
-	"sync"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
 	jujuagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 	workerstate "github.com/juju/juju/worker/state"
 )
@@ -94,22 +93,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ControllerConfigGetter: st,
 		APIHostPortsGetter:     st,
 	})
-	return &cleanupWorker{
-		Worker:  w,
-		cleanup: func() { stTracker.Done() },
-	}, nil
-}
-
-type cleanupWorker struct {
-	worker.Worker
-	cleanupOnce sync.Once
-	cleanup     func()
-}
-
-func (w *cleanupWorker) Wait() error {
-	err := w.Worker.Wait()
-	w.cleanupOnce.Do(w.cleanup)
-	return err
+	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
 }
 
 // NewMachineAddressWatcher is the function that non-test code should

@@ -4,12 +4,11 @@
 package modelworkermanager
 
 import (
-	"sync"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
 	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 	workerstate "github.com/juju/juju/worker/state"
 )
@@ -69,20 +68,5 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		stTracker.Done()
 		return nil, errors.Trace(err)
 	}
-	return &cleanupWorker{
-		Worker:  w,
-		cleanup: func() { stTracker.Done() },
-	}, nil
-}
-
-type cleanupWorker struct {
-	worker.Worker
-	cleanupOnce sync.Once
-	cleanup     func()
-}
-
-func (w *cleanupWorker) Wait() error {
-	err := w.Worker.Wait()
-	w.cleanupOnce.Do(w.cleanup)
-	return err
+	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
 }

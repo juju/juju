@@ -261,6 +261,30 @@ func (s *updaterSuite) TestChangingCaptureArgs(c *gc.C) {
 	c.Assert(newConfig.CaptureAPIArgs, gc.Equals, true)
 }
 
+func (s *updaterSuite) TestCanBeAbortedCleanly(c *gc.C) {
+	configChanged := make(chan struct{}, 1)
+	output := make(chan auditlog.Config)
+	initial := auditlog.Config{
+		Enabled:        true,
+		CaptureAPIArgs: false,
+		Target:         &apitesting.FakeAuditLog{},
+	}
+	source := configSource{
+		watcher: watchertest.NewNotifyWatcher(configChanged),
+		cfg:     makeControllerConfig(true, false, "Pink.Floyd"),
+	}
+
+	w, err := auditconfigupdater.New(&source, initial, nil, output)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	source.setConfig(makeControllerConfig(true, true))
+	configChanged <- ding
+
+	// Don't read from the output channel. The worker should still
+	// shut down cleanly.
+}
+
 func makeControllerConfig(auditEnabled bool, captureArgs bool, methods ...interface{}) controller.Config {
 	result := map[string]interface{}{
 		"other-setting":             "something",

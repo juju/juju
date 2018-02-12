@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/dependency"
@@ -39,6 +40,7 @@ type ManifoldSuite struct {
 	certWatcher          stubCertWatcher
 	hub                  pubsub.StructuredHub
 	upgradeGate          stubGateWaiter
+	auditConfig          stubAuditConfig
 
 	stub testing.Stub
 }
@@ -54,6 +56,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.certWatcher = stubCertWatcher{}
 	s.upgradeGate = stubGateWaiter{}
+	s.auditConfig = stubAuditConfig{}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -64,6 +67,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		RestoreStatusName:                 "restore-status",
 		StateName:                         "state",
 		UpgradeGateName:                   "upgrade",
+		AuditConfigUpdaterName:            "auditconfig-updater",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:       &s.hub,
@@ -73,12 +77,13 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent":          s.agent,
-		"cert-watcher":   s.certWatcher.get,
-		"clock":          s.clock,
-		"restore-status": s.RestoreStatus,
-		"state":          &s.state,
-		"upgrade":        &s.upgradeGate,
+		"agent":               s.agent,
+		"cert-watcher":        s.certWatcher.get,
+		"clock":               s.clock,
+		"restore-status":      s.RestoreStatus,
+		"state":               &s.state,
+		"upgrade":             &s.upgradeGate,
+		"auditconfig-updater": &s.auditConfig,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -100,7 +105,7 @@ func (s *ManifoldSuite) newWorker(config apiserver.Config) (worker.Worker, error
 }
 
 var expectedInputs = []string{
-	"agent", "cert-watcher", "clock", "restore-status", "state", "upgrade",
+	"agent", "cert-watcher", "clock", "restore-status", "state", "upgrade", "auditconfig-updater",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -114,6 +119,12 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 		})
 		_, err := s.manifold.Start(context)
 		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+
+		// The state tracker must have either no calls, or a Use and a Done.
+		if len(s.state.Calls()) > 0 {
+			s.state.CheckCallNames(c, "Use", "Done")
+		}
+		s.state.ResetCalls()
 	}
 }
 
@@ -265,4 +276,20 @@ type stubGateWaiter struct {
 func (w *stubGateWaiter) IsUnlocked() bool {
 	w.MethodCall(w, "IsUnlocked")
 	return true
+}
+
+type stubAuditConfig struct {
+	testing.Stub
+	config  auditlog.Config
+	changes <-chan auditlog.Config
+}
+
+func (c *stubAuditConfig) Config() auditlog.Config {
+	c.MethodCall(c, "Config")
+	return c.config
+}
+
+func (c *stubAuditConfig) Changes() <-chan auditlog.Config {
+	c.MethodCall(c, "Changes")
+	return c.changes
 }

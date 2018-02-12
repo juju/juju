@@ -11,8 +11,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/auditlog"
 )
 
 func getRateLimitConfig(cfg agent.Config) (apiserver.RateLimitConfig, error) {
@@ -136,16 +134,4 @@ func getLogSinkConfig(cfg agent.Config) (apiserver.LogSinkConfig, error) {
 		}
 	}
 	return result, nil
-}
-
-func getAuditLogConfig(cfg controller.Config, logDir string) auditlog.Config {
-	target := auditlog.NewLogFile(logDir, cfg.AuditLogMaxSizeMB(), cfg.AuditLogMaxBackups())
-	return auditlog.Config{
-		Enabled:        cfg.AuditingEnabled(),
-		CaptureAPIArgs: cfg.AuditLogCaptureArgs(),
-		MaxSizeMB:      cfg.AuditLogMaxSizeMB(),
-		MaxBackups:     cfg.AuditLogMaxBackups(),
-		ExcludeMethods: cfg.AuditLogExcludeMethods(),
-		Target:         target,
-	}
 }

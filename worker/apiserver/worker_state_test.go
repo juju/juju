@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapiserver "github.com/juju/juju/apiserver"
+	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -43,15 +44,18 @@ func (s *WorkerStateSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *WorkerStateSuite) SetUpTest(c *gc.C) {
-	if s.ControllerConfig == nil {
-		s.ControllerConfig = make(map[string]interface{})
-	}
-	s.ControllerConfig["auditing-enabled"] = true
-	s.ControllerConfig["audit-log-exclude-methods"] = []interface{}{"Exclude.This"}
-
 	s.workerFixture.SetUpTest(c)
 	s.StateSuite.SetUpTest(c)
 	s.config.StatePool = s.StatePool
+	s.config.AuditConfig = auditlog.Config{
+		Enabled:        true,
+		CaptureAPIArgs: true,
+		MaxSizeMB:      200,
+		MaxBackups:     5,
+		ExcludeMethods: set.NewStrings("Exclude.This"),
+		Target:         &apitesting.FakeAuditLog{},
+	}
+	s.config.AuditConfigChanged = make(chan auditlog.Config)
 }
 
 func (s *WorkerStateSuite) TearDownTest(c *gc.C) {
@@ -124,5 +128,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		LogSinkConfig:        &logSinkConfig,
 		PrometheusRegisterer: &s.prometheusRegisterer,
 		AuditConfig:          auditConfig,
+		AuditConfigChanged:   s.config.AuditConfigChanged,
 	})
 }
