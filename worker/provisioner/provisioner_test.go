@@ -1897,8 +1897,10 @@ func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {
 	c.Assert(e.retryCount[mSucceed[0].Id()], gc.Equals, 1)
 	c.Assert(e.retryCount[mSucceed[2].Id()], gc.Equals, 1)
 
-	// There is a potential race here where the provisioning has not yet been
-	// retried the specified number of times.
+	// This synchronisation addresses a potential race condition.
+	// It can happen that upon successful return from checkStartInstances
+	// The machine(s) arranged for provisioning failure have not yet been
+	// retried the specified number of times; so we wait.
 	id := mFail[1].Id()
 	for e.retryCount[id] < 3 {
 		select {
