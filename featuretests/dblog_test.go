@@ -137,7 +137,7 @@ func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
 
 func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
 	// Restart mongod without the replicaset enabled so as not to
-	// affect other test that rely on this mongod instance in this
+	// affect other tests that rely on this mongod instance in this
 	// package.
 	mongod := jujutesting.MgoServer
 	mongod.Params = []string{}
