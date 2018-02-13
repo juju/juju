@@ -26,8 +26,6 @@ type UserSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&UserSuite{})
-
 func (s *UserSuite) RunUserCommand(c *gc.C, stdin string, args ...string) (*cmd.Context, error) {
 	context := cmdtesting.Context(c)
 	if stdin != "" {

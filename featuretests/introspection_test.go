@@ -29,8 +29,6 @@ type introspectionSuite struct {
 	logger *logsender.BufferedLogWriter
 }
 
-var _ = gc.Suite(&introspectionSuite{})
-
 func (s *introspectionSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	if runtime.GOOS != "linux" {

@@ -115,8 +115,6 @@ type debugLogDbSuite struct {
 	agenttest.AgentSuite
 }
 
-var _ = gc.Suite(&debugLogDbSuite{})
-
 func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
 	// Restart mongod with a the replicaset enabled.
 	mongod := jujutesting.MgoServer

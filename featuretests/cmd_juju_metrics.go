@@ -21,8 +21,6 @@ type cmdMetricsCommandSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&cmdMetricsCommandSuite{})
-
 func (s *cmdMetricsCommandSuite) TestDebugNoArgs(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, metricsdebug.New())
 	c.Assert(err, gc.ErrorMatches, "you need to specify at least one unit or application")

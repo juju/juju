@@ -37,8 +37,6 @@ type CAASOperatorSuite struct {
 	agenttest.AgentSuite
 }
 
-var _ = gc.Suite(&CAASOperatorSuite{})
-
 func (s *CAASOperatorSuite) SetUpSuite(c *gc.C) {
 	s.SetInitialFeatureFlags(feature.CAAS)
 	s.AgentSuite.SetUpSuite(c)
@@ -159,7 +157,7 @@ var (
 		"operator",
 	}
 	notMigratingCAASWorkers = []string{
-		// TODO(caas)
+	// TODO(caas)
 	}
 )
 

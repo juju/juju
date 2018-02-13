@@ -40,8 +40,6 @@ type syslogSuite struct {
 	fakeEnsureMongo *agenttest.FakeEnsureMongo
 }
 
-var _ = gc.Suite(&syslogSuite{})
-
 func (s *syslogSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	// Tailing logs requires a replica set. Restart mongo with a
