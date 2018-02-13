@@ -24,8 +24,6 @@ type meterStatusIntegrationSuite struct {
 	unit   *state.Unit
 }
 
-var _ = gc.Suite(&meterStatusIntegrationSuite{})
-
 func (s *meterStatusIntegrationSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	f := factory.NewFactory(s.State)
