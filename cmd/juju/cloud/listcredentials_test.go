@@ -305,7 +305,7 @@ func (s *listCredentialsSuite) TestListCredentialsNone(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	out := strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
-	c.Assert(out, gc.Equals, "No credentials to display.")
+	c.Assert(out, gc.Equals, "No locally stored credentials to display.")
 
 	ctx, err = cmdtesting.RunCommand(c, listCmd, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)

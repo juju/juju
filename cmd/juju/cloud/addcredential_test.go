@@ -130,7 +130,7 @@ func (s *addCredentialSuite) TestAddFromFileExisting(c *gc.C) {
 	}
 	sourceFile := s.createTestCredentialData(c)
 	_, err := s.run(c, nil, "somecloud", "-f", sourceFile)
-	c.Assert(err, gc.ErrorMatches, `credentials for cloud somecloud already exist; use --replace to overwrite / merge`)
+	c.Assert(err, gc.ErrorMatches, `local credentials for cloud "somecloud" already exist; use --replace to overwrite / merge`)
 }
 
 func (s *addCredentialSuite) TestAddFromFileExistingReplace(c *gc.C) {
@@ -188,9 +188,7 @@ func (s *addCredentialSuite) TestAddCloudUnsupportedAuth(c *gc.C) {
 		regexp.QuoteMeta(`credential "me" contains invalid auth type "jsonfile", valid auth types for cloud "somecloud" are [access-key]`))
 }
 
-// TODO(wallyworld) - these tests should also validate that the prompts and messages are as expected.
-
-func (s *addCredentialSuite) assertAddUserpassCredential(c *gc.C, input string, expected *jujucloud.Credential) {
+func (s *addCredentialSuite) assertAddUserpassCredential(c *gc.C, input string, expected *jujucloud.Credential, msg string) {
 	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
 		jujucloud.UserPassAuthType: {
 			{
@@ -201,7 +199,7 @@ func (s *addCredentialSuite) assertAddUserpassCredential(c *gc.C, input string, 
 		},
 	}
 	stdin := strings.NewReader(input)
-	_, err := s.run(c, stdin, "somecloud")
+	ctx, err := s.run(c, stdin, "somecloud")
 	c.Assert(err, jc.ErrorIsNil)
 	var cred jujucloud.Credential
 	if expected == nil {
@@ -219,21 +217,53 @@ func (s *addCredentialSuite) assertAddUserpassCredential(c *gc.C, input string, 
 			},
 		},
 	})
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, msg)
 }
 
 func (s *addCredentialSuite) TestAddCredentialSingleAuthType(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
-	s.assertAddUserpassCredential(c, "fred\nuser\npassword\n", nil)
+	expected := `
+Enter credential name: 
+Using auth-type "userpass".
+
+Enter username: 
+Enter password: 
+Credential "fred" added locally for cloud "somecloud".
+
+`[1:]
+	s.assertAddUserpassCredential(c, "fred\nuser\npassword\n", nil, expected)
 }
 
 func (s *addCredentialSuite) TestAddCredentialRetryOnMissingMandatoryAttribute(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
-	s.assertAddUserpassCredential(c, "fred\n\nuser\npassword\n", nil)
+	expected := `
+Enter credential name: 
+Using auth-type "userpass".
+
+Enter username: 
+Enter username: 
+Enter password: 
+Credential "fred" added locally for cloud "somecloud".
+
+`[1:]
+	s.assertAddUserpassCredential(c, "fred\n\nuser\npassword\n", nil, expected)
 }
 
 func (s *addCredentialSuite) TestAddCredentialMultipleAuthType(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType, jujucloud.AccessKeyAuthType}
-	s.assertAddUserpassCredential(c, "fred\nuserpass\nuser\npassword\n", nil)
+	expected := `
+Enter credential name: 
+Auth Types
+  userpass
+  access-key
+
+Select auth type [userpass]: 
+Enter username: 
+Enter password: 
+Credential "fred" added locally for cloud "somecloud".
+
+`[1:]
+	s.assertAddUserpassCredential(c, "fred\nuserpass\nuser\npassword\n", nil, expected)
 }
 
 func (s *addCredentialSuite) TestAddCredentialInteractive(c *gc.C) {
@@ -254,7 +284,7 @@ Enter credential name:
 Using auth-type "interactive".
 
 Enter username: 
-Credentials added for cloud somecloud.
+Credential "bobscreds" added locally for cloud "somecloud".
 
 `[1:])
 
@@ -281,7 +311,18 @@ func (s *addCredentialSuite) TestAddCredentialReplace(c *gc.C) {
 		},
 	}
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
-	s.assertAddUserpassCredential(c, "fred\ny\nuser\npassword\n", nil)
+	expected := `
+Enter credential name: 
+A credential "fred" already exists locally on this client.
+Replace local credential? (y/N): 
+Using auth-type "userpass".
+
+Enter username: 
+Enter password: 
+Credential "fred" updated locally for cloud "somecloud".
+
+`[1:]
+	s.assertAddUserpassCredential(c, "fred\ny\nuser\npassword\n", nil, expected)
 }
 
 func (s *addCredentialSuite) TestAddCredentialReplaceDecline(c *gc.C) {
@@ -293,7 +334,12 @@ func (s *addCredentialSuite) TestAddCredentialReplaceDecline(c *gc.C) {
 		},
 	}
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType}
-	s.assertAddUserpassCredential(c, "fred\nn\n", &cred)
+	expected := `
+Enter credential name: 
+A credential "fred" already exists locally on this client.
+Replace local credential? (y/N): 
+`[1:]
+	s.assertAddUserpassCredential(c, "fred\nn\n", &cred, expected)
 }
 
 func (s *addCredentialSuite) assertAddFileCredential(c *gc.C, input, fileKey string) {

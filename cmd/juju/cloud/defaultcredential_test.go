@@ -55,7 +55,7 @@ func (s *defaultCredentialSuite) assertSetDefaultCredential(c *gc.C, cloudName s
 	c.Assert(err, jc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
-	c.Assert(output, gc.Equals, fmt.Sprintf(`Default credential for %s set to "my-sekrets".`, cloudName))
+	c.Assert(output, gc.Equals, fmt.Sprintf(`Local credential "my-sekrets" is set to be default for %q for this client.`, cloudName))
 	c.Assert(store.Credentials[cloudName].DefaultCredential, gc.Equals, "my-sekrets")
 }
 

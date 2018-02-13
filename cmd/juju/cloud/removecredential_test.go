@@ -45,7 +45,7 @@ func (s *removeCredentialSuite) TestMissingCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
-	c.Assert(output, gc.Equals, `No credential called "foo" exists for cloud "aws"`)
+	c.Assert(output, gc.Equals, `No local credential called "foo" exists for cloud "aws"`)
 }
 
 func (s *removeCredentialSuite) TestBadCloudName(c *gc.C) {
@@ -54,7 +54,7 @@ func (s *removeCredentialSuite) TestBadCloudName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
-	c.Assert(output, gc.Equals, `No credentials exist for cloud "somecloud"`)
+	c.Assert(output, gc.Equals, `No locally stored credentials exist for cloud "somecloud"`)
 }
 
 func (s *removeCredentialSuite) TestRemove(c *gc.C) {
@@ -73,7 +73,7 @@ func (s *removeCredentialSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
-	c.Assert(output, gc.Equals, `Credential "my-credential" for cloud "aws" has been deleted.`)
+	c.Assert(output, gc.Equals, `Local credential "my-credential" for cloud "aws" has been deleted.`)
 	_, stillThere := store.Credentials["aws"].AuthCredentials["my-credential"]
 	c.Assert(stillThere, jc.IsFalse)
 	c.Assert(store.Credentials["aws"].AuthCredentials, gc.HasLen, 1)
