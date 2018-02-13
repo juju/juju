@@ -57,5 +57,7 @@ func (c *rackspaceConfigurator) GetConfigDefaults() schema.Defaults {
 		"use-default-secgroup": false,
 		"network":              "",
 		"external-network":     "",
+		"use-openstack-gbp":    false,
+		"policy-target-group":  "",
 	}
 }
