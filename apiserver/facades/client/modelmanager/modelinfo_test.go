@@ -224,6 +224,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Cloud", nil},
 		{"CloudRegion", nil},
 		{"CloudCredential", nil},
+		{"ModelTag", nil},
 		{"SLALevel", nil},
 		{"SLAOwner", nil},
 		{"Life", nil},
