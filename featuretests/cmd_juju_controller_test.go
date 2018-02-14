@@ -123,6 +123,10 @@ models:
   owner: admin
   cloud: dummy
   region: dummy-region
+  credential:
+    name: cred
+    owner: admin
+    cloud: dummy
   type: dummy
   life: alive
   status:

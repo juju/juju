@@ -18,7 +18,12 @@ import (
 	"github.com/juju/juju/cmd/output"
 )
 
-const showModelCommandDoc = `Show information about the current or specified model`
+const showModelCommandDoc = `Show information about the current or specified 
+model.
+
+Additionally, users with controller- or model- admin access  to the shown model
+can see basic information about its cloud credential, stored on the controller. 
+`
 
 func NewShowCommand() cmd.Command {
 	showCmd := &showModelCommand{}
@@ -28,7 +33,6 @@ func NewShowCommand() cmd.Command {
 // showModelCommand shows all the users with access to the current model.
 type showModelCommand struct {
 	modelcmd.ModelCommandBase
-
 	out cmd.Output
 	api ShowModelAPI
 }

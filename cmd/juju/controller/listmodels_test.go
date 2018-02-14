@@ -265,6 +265,23 @@ func (s *BaseModelsSuite) TestModelsOwner(c *gc.C) {
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
+// TestModelsForAdmin tests that a model admin user will get model credential.
+// Credential will only appear in non-tabular format - either yaml or json.
+func (s *BaseModelsSuite) TestModelsWithCredentials(c *gc.C) {
+	for i, infoResult := range s.api.infos {
+		// let's say only some models will have credentials returned from api...
+		if i%2 == 0 {
+			infoResult.Result.CloudCredentialTag = "cloudcred-some-cloud_some-owner_some-credential"
+		}
+	}
+
+	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format=yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, "credential")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
+}
+
 func (s *BaseModelsSuite) TestModelsNonOwner(c *gc.C) {
 	// Ensure fake api caters to user 'bob'
 	for _, apiInfo := range s.api.infos {

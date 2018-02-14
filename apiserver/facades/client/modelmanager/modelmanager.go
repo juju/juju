@@ -706,8 +706,13 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 			ControllerUUID: mi.ControllerUUID,
 			Life:           params.Life(mi.Life.String()),
 
-			CloudTag:           mi.CloudTag,
-			CloudRegion:        mi.CloudRegion,
+			CloudTag:    mi.CloudTag,
+			CloudRegion: mi.CloudRegion,
+
+			// Due to the nature of the query that gets this information,
+			// it is assumed that by the time we get here, only
+			// controller and model admins will have valid credential
+			// tag here.
 			CloudCredentialTag: mi.CloudCredentialTag,
 
 			SLA: &params.ModelSLAInfo{
