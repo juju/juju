@@ -706,8 +706,9 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 			ControllerUUID: mi.ControllerUUID,
 			Life:           params.Life(mi.Life.String()),
 
-			CloudTag:           mi.CloudTag,
-			CloudRegion:        mi.CloudRegion,
+			CloudTag:    mi.CloudTag,
+			CloudRegion: mi.CloudRegion,
+
 			CloudCredentialTag: mi.CloudCredentialTag,
 
 			SLA: &params.ModelSLAInfo{

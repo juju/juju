@@ -36,6 +36,7 @@ type ModelInfo struct {
 	SLA            string                      `json:"sla,omitempty" yaml:"sla,omitempty"`
 	SLAOwner       string                      `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
 	AgentVersion   string                      `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
+	Credential     *ModelCredential            `json:"credential,omitempty" yaml:"credential,omitempty"`
 }
 
 // ModelMachineInfo contains information about a machine in a model.
@@ -70,6 +71,13 @@ func FriendlyDuration(when *time.Time, now time.Time) string {
 		return ""
 	}
 	return UserFriendlyDuration(*when, now)
+}
+
+// ModelCredential contains model credential basic details.
+type ModelCredential struct {
+	Name  string `json:"name" yaml:"name"`
+	Owner string `json:"owner" yaml:"owner"`
+	Cloud string `json:"cloud" yaml:"cloud"`
 }
 
 // ModelInfoFromParams translates a params.ModelInfo to ModelInfo.
@@ -130,6 +138,19 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		modelInfo.SLA = ModelSLAFromParams(info.SLA)
 		modelInfo.SLAOwner = ModelSLAOwnerFromParams(info.SLA)
 	}
+
+	if info.CloudCredentialTag != "" {
+		credTag, err := names.ParseCloudCredentialTag(info.CloudCredentialTag)
+		if err != nil {
+			return ModelInfo{}, errors.Trace(err)
+		}
+		modelInfo.Credential = &ModelCredential{
+			Name:  credTag.Name(),
+			Owner: credTag.Owner().Id(),
+			Cloud: credTag.Cloud().Id(),
+		}
+	}
+
 	return modelInfo, nil
 }
 

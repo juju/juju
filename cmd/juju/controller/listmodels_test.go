@@ -265,6 +265,23 @@ func (s *BaseModelsSuite) TestModelsOwner(c *gc.C) {
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
 }
 
+// TestModelsForAdmin tests that a model admin user will get model credential.
+// Credential will only appear in non-tabular format - either yaml or json.
+func (s *BaseModelsSuite) TestModelsWithCredentials(c *gc.C) {
+	for i, infoResult := range s.api.infos {
+		// let's say only some models will have credentials returned from api...
+		if i%2 == 0 {
+			infoResult.Result.CloudCredentialTag = "cloudcred-some-cloud_some-owner_some-credential"
+		}
+	}
+
+	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format=yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, "credential")
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
+	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
+}
+
 func (s *BaseModelsSuite) TestModelsNonOwner(c *gc.C) {
 	// Ensure fake api caters to user 'bob'
 	for _, apiInfo := range s.api.infos {
@@ -638,7 +655,7 @@ func (s *ModelsSuiteV4) SetUpTest(c *gc.C) {
 func (s *ModelsSuiteV4) TestModelsJson(c *gc.C) {
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","controller-uuid":"","controller-name":"fake","owner":"admin","cloud":"dummy","life":"","status":{"current":"active"},"access":"read","last-connection":"2015-03-20","agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","controller-uuid":"","controller-name":"fake","owner":"carlotta","cloud":"dummy","life":"","status":{"current":"active"},"access":"write","last-connection":"2015-03-01","agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","controller-uuid":"","controller-name":"fake","owner":"daiwik@external","cloud":"dummy","life":"","status":{"current":"destroying"},"access":"","last-connection":"never connected","agent-version":"2.55.5"}],"current-model":"test-model1"}
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `{"models":[{"name":"admin/test-model1","short-name":"test-model1","model-uuid":"test-model1-UUID","controller-uuid":"","controller-name":"fake","owner":"admin","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"life":"","status":{"current":"active"},"access":"read","last-connection":"2015-03-20","agent-version":"2.55.5"},{"name":"carlotta/test-model2","short-name":"test-model2","model-uuid":"test-model2-UUID","controller-uuid":"","controller-name":"fake","owner":"carlotta","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"life":"","status":{"current":"active"},"access":"write","last-connection":"2015-03-01","agent-version":"2.55.5"},{"name":"daiwik@external/test-model3","short-name":"test-model3","model-uuid":"test-model3-UUID","controller-uuid":"","controller-name":"fake","owner":"daiwik@external","cloud":"dummy","credential":{"name":"one","owner":"bob","cloud":"foo"},"life":"","status":{"current":"destroying"},"access":"","last-connection":"never connected","agent-version":"2.55.5"}],"current-model":"test-model1"}
 `)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 	s.checkAPICalls(c, "BestAPIVersion", "ListModels", "ModelInfo", "Close")
@@ -656,6 +673,10 @@ models:
   controller-name: fake
   owner: admin
   cloud: dummy
+  credential:
+    name: one
+    owner: bob
+    cloud: foo
   life: ""
   status:
     current: active
@@ -669,6 +690,10 @@ models:
   controller-name: fake
   owner: carlotta
   cloud: dummy
+  credential:
+    name: one
+    owner: bob
+    cloud: foo
   life: ""
   status:
     current: active
@@ -682,6 +707,10 @@ models:
   controller-name: fake
   owner: daiwik@external
   cloud: dummy
+  credential:
+    name: one
+    owner: bob
+    cloud: foo
   life: ""
   status:
     current: destroying

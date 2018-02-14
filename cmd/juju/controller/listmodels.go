@@ -227,16 +227,17 @@ type ModelSummary struct {
 	ShortName string `json:"short-name" yaml:"short-name"`
 	UUID      string `json:"model-uuid" yaml:"model-uuid"`
 
-	ControllerUUID     string              `json:"controller-uuid" yaml:"controller-uuid"`
-	ControllerName     string              `json:"controller-name" yaml:"controller-name"`
-	Owner              string              `json:"owner" yaml:"owner"`
-	Cloud              string              `json:"cloud" yaml:"cloud"`
-	CloudRegion        string              `json:"region,omitempty" yaml:"region,omitempty"`
-	ProviderType       string              `json:"type,omitempty" yaml:"type,omitempty"`
-	Life               string              `json:"life" yaml:"life"`
-	Status             *common.ModelStatus `json:"status,omitempty" yaml:"status,omitempty"`
-	UserAccess         string              `yaml:"access" json:"access"`
-	UserLastConnection string              `yaml:"last-connection" json:"last-connection"`
+	ControllerUUID     string                  `json:"controller-uuid" yaml:"controller-uuid"`
+	ControllerName     string                  `json:"controller-name" yaml:"controller-name"`
+	Owner              string                  `json:"owner" yaml:"owner"`
+	Cloud              string                  `json:"cloud" yaml:"cloud"`
+	CloudRegion        string                  `json:"region,omitempty" yaml:"region,omitempty"`
+	CloudCredential    *common.ModelCredential `json:"credential,omitempty" yaml:"credential,omitempty"`
+	ProviderType       string                  `json:"type,omitempty" yaml:"type,omitempty"`
+	Life               string                  `json:"life" yaml:"life"`
+	Status             *common.ModelStatus     `json:"status,omitempty" yaml:"status,omitempty"`
+	UserAccess         string                  `yaml:"access" json:"access"`
+	UserLastConnection string                  `yaml:"last-connection" json:"last-connection"`
 
 	// Counts is the map of different counts where key is the entity that was counted
 	// and value is the number, for e.g. {"machines":10,"cores":3}.
@@ -280,6 +281,14 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 	if apiSummary.ProviderType != "" {
 		summary.ProviderType = apiSummary.ProviderType
 
+	}
+	if apiSummary.CloudCredential != "" {
+		credTag := names.NewCloudCredentialTag(apiSummary.CloudCredential)
+		summary.CloudCredential = &common.ModelCredential{
+			Name:  credTag.Name(),
+			Owner: credTag.Owner().Id(),
+			Cloud: credTag.Cloud().Id(),
+		}
 	}
 	if apiSummary.UserLastConnection != nil {
 		summary.UserLastConnection = common.UserFriendlyDuration(*apiSummary.UserLastConnection, now)

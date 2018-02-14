@@ -145,7 +145,32 @@ func (s *ShowCommandSuite) TestShowFormatYaml(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
 }
 
+func (s *ShowCommandSuite) addCredentialToTestData() {
+	s.fake.info.CloudCredentialTag = "cloudcred-some-cloud_some-owner_some-credential"
+
+	modelOutput := s.expectedOutput["mymodel"].(attrs)
+	modelOutput["credential"] = attrs{
+		"name":  "some-credential",
+		"owner": "some-owner",
+		"cloud": "some-cloud",
+	}
+}
+
+func (s *ShowCommandSuite) TestShowWithCredentialFormatYaml(c *gc.C) {
+	s.addCredentialToTestData()
+	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
+}
+
 func (s *ShowCommandSuite) TestShowFormatJson(c *gc.C) {
+	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "json")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
+}
+
+func (s *ShowCommandSuite) TestShowWithCredentialFormatJson(c *gc.C) {
+	s.addCredentialToTestData()
 	ctx, err := cmdtesting.RunCommand(c, s.newShowCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
