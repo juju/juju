@@ -25,7 +25,7 @@ func (s *ClientSuite) TestLookupLeaseNotThere(c *gc.C) {
 	db := NewMongo(s.db)
 	coll, closer := db.GetCollection("default-collection")
 	defer closer()
-	_, err := statelease.LookupLease(coll,"default-namespace", "bar")
+	_, err := statelease.LookupLease(coll, "default-namespace", "bar")
 	c.Assert(err, gc.Equals, mgo.ErrNotFound)
 }
 
@@ -36,7 +36,7 @@ func (s *ClientSuite) TestLookupLease(c *gc.C) {
 	db := NewMongo(s.db)
 	coll, closer := db.GetCollection("default-collection")
 	defer closer()
-	doc, err := statelease.LookupLease(coll,"default-namespace", "name")
+	doc, err := statelease.LookupLease(coll, "default-namespace", "name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(doc.Name, gc.Equals, "name")
 	c.Check(doc.Holder, gc.Equals, "holder")
