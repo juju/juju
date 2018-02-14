@@ -292,9 +292,9 @@ func LookupLease(coll mongo.Collection, namespace, name string) (leaseDoc, error
 	var doc leaseDoc
 	err := coll.FindId(leaseDocId(namespace, name)).One(&doc)
 	if err != nil {
-		return doc, err
+		return leaseDoc{}, err
 	}
-	return doc, err
+	return doc, nil
 }
 
 // extendLeaseOps returns the []txn.Op necessary to extend the supplied lease
