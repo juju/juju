@@ -563,15 +563,16 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Merge environ and bootstrap-specific constraints.
-	bootstrapConstraints, err := constraintsValidator.Merge(c.Constraints, c.BootstrapConstraints)
-	if err != nil {
-		return errors.Trace(err)
-	}
+
 	// Merge in any space constraints that should be implied from controller
 	// space config.
-	spaceConstraints := config.controller.AsSpaceConstraints(bootstrapConstraints.Spaces)
-	bootstrapConstraints, err = constraintsValidator.Merge(bootstrapConstraints, spaceConstraints)
+	// Do it before calling merge, because the constraints will be validated
+	// there.
+	constraints := c.Constraints
+	constraints.Spaces = config.controller.AsSpaceConstraints(constraints.Spaces)
+
+	// Merge environ and bootstrap-specific constraints.
+	bootstrapConstraints, err := constraintsValidator.Merge(constraints, c.BootstrapConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}

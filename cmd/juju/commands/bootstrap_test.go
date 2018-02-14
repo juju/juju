@@ -57,7 +57,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/utils/set"
 )
 
 type BootstrapSuite struct {
@@ -585,12 +584,11 @@ func (s *BootstrapSuite) TestBootstrapAllSpacesAsConstraintsMerged(c *gc.C) {
 		"--config", "juju-ha-space=ha-space", "--config", "juju-mgmt-space=management-space",
 		"--constraints", "spaces=ha-space,random-space",
 	)
+
+	// Order is unimportant
 	got := *(bootstrap.args.BootstrapConstraints.Spaces)
-	exp := set.NewStrings("management-space", "ha-space", "random-space")
-	c.Assert(got, gc.HasLen, len(exp))
-	for _, s := range got {
-		c.Assert(exp.Contains(s), gc.Equals, true)
-	}
+	sort.Strings(got)
+	c.Check(got, gc.DeepEquals, []string{"ha-space", "management-space", "random-space"})
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *gc.C) {
@@ -2052,7 +2050,7 @@ func (noCloudRegionsProvider) DetectRegions() ([]cloud.Region, error) {
 }
 
 func (noCloudRegionsProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: cloud.CredentialSchema{}}
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
 }
 
 type noCredentialsProvider struct {
