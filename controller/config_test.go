@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"sort"
 	stdtesting "testing"
 	"time"
 
@@ -14,12 +15,9 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
-	"golang.org/x/tools/go/gcimporter15/testdata"
 )
 
 func Test(t *stdtesting.T) {
@@ -332,7 +330,7 @@ func (s *ConfigSuite) TestConfigManagementSpaceAsConstraint(c *gc.C) {
 		map[string]interface{}{controller.JujuHASpace: managementSpace},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*(cfg.AsSpaceConstraints(nil).Spaces), gc.DeepEquals, []string{managementSpace})
+	c.Check(cfg.AsSpaceConstraints(nil), gc.DeepEquals, []string{managementSpace})
 }
 
 func (s *ConfigSuite) TestConfigHASpaceAsConstraint(c *gc.C) {
@@ -343,7 +341,7 @@ func (s *ConfigSuite) TestConfigHASpaceAsConstraint(c *gc.C) {
 		map[string]interface{}{controller.JujuHASpace: haSpace},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*(cfg.AsSpaceConstraints(nil).Spaces), gc.DeepEquals, []string{haSpace})
+	c.Check(cfg.AsSpaceConstraints(nil), gc.DeepEquals, []string{haSpace})
 }
 
 func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *gc.C) {
@@ -361,10 +359,17 @@ func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	got := *(cfg.AsSpaceConstraints(&[]string{constraintSpace}).Spaces)
-	exp := set.NewStrings(haSpace, managementSpace, constraintSpace)
-	c.Assert(got, gc.HasLen, len(exp))
-	for _, s := range got {
-		c.Assert(exp.Contains(s), gc.Equals, true)
-	}
+	got := *cfg.AsSpaceConstraints(&[]string{constraintSpace})
+	sort.Strings(got)
+	c.Check(got, gc.DeepEquals, []string{constraintSpace, haSpace, managementSpace})
+}
+
+func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.AsSpaceConstraints(nil), gc.IsNil)
 }

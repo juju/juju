@@ -18,7 +18,6 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery"
 
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/constraints"
 )
 
 const (
@@ -579,8 +578,10 @@ func (c Config) validateSpaceConfig(key, topic string) error {
 // AsSpaceConstraints checks to see whether config has spaces names populated
 // for management and/or HA (Mongo).
 // Non-empty values are merged with any input spaces and returned as a new
-// constraint.Value.
-func (c Config) AsSpaceConstraints(spaces *[]string) constraints.Value {
+// slice reference.
+// A slice pointer is used for congruence with the Spaces member in
+// constraints.Value.
+func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 	newSpaces := set.NewStrings()
 	if spaces != nil {
 		for _, s := range *spaces {
@@ -594,12 +595,13 @@ func (c Config) AsSpaceConstraints(spaces *[]string) constraints.Value {
 		}
 	}
 
-	cons := constraints.Value{}
-	if len(newSpaces) > 0 {
-		s := newSpaces.Values()
-		cons.Spaces = &s
+	// Preserve a nil pointer if there is no change. This conveys information
+	// in constraints.Value (not set vs. deliberately set as empty).
+	if spaces == nil && len(newSpaces) == 0 {
+		return nil
 	}
-	return cons
+	ns := newSpaces.Values()
+	return &ns
 }
 
 // GenerateControllerCertAndKey makes sure that the config has a CACert and
