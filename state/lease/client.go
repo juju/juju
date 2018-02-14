@@ -286,6 +286,17 @@ func claimLeaseOps(
 	return []txn.Op{claimLeaseOp}, newEntry, nil
 }
 
+// LookupLease returns a lease claim if it exists.
+// If it doesn't exist, expect to get an mgo.NotFoundError, otherwise expect to get
+func LookupLease(coll mongo.Collection, namespace, name string) (leaseDoc, error) {
+	var doc leaseDoc
+	err := coll.FindId(leaseDocId(namespace, name)).One(&doc)
+	if err != nil {
+		return doc, err
+	}
+	return doc, err
+}
+
 // extendLeaseOps returns the []txn.Op necessary to extend the supplied lease
 // until duration in the future, and a cache entry corresponding to the values
 // that will be written if the transaction succeeds. If the supplied lease

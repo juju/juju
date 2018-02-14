@@ -1907,6 +1907,89 @@ func (s *upgradesSuite) TestMigrateLeasesToGlobalTime(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestMigrateLeasesToGlobalTimeWithNewTarget(c *gc.C) {
+	// It is possible that API servers will try to coordinate the singular lease before we can get to the upgrade steps.
+	// While upgrading leases, if we encounter any leases that already exist in the new GlobalTime format, they should
+	// be considered authoritative, and the old lease should just be deleted.
+	leases, closer := s.state.db().GetRawCollection(leasesC)
+	defer closer()
+
+	// Use the non-controller model to ensure we can run the function
+	// across multiple models.
+	otherState := s.makeModel(c, "crack-up", coretesting.Attrs{})
+	defer otherState.Close()
+
+	uuid := otherState.ModelUUID()
+
+	err := leases.Insert(bson.M{
+		"_id":        uuid + ":some-garbage",
+		"model-uuid": uuid,
+	}, bson.M{
+		"_id":        uuid + ":clock#some-namespace#some-name#",
+		"model-uuid": uuid,
+		"type":       "clock",
+	}, bson.M{
+		"_id":        uuid + ":lease#some-namespace#some-name#",
+		"model-uuid": uuid,
+		"type":       "lease",
+		"namespace":  "some-namespace",
+		"name":       "some-name",
+		"holder":     "hand",
+		"expiry":     "later",
+		"writer":     "ghost",
+	}, bson.M{
+		"_id":        uuid + ":lease#some-namespace2#some-name2#",
+		"model-uuid": uuid,
+		"type":       "lease",
+		"namespace":  "some-namespace2",
+		"name":       "some-name2",
+		"holder":     "hand",
+		"expiry":     "later",
+		"writer":     "ghost",
+	}, bson.M{
+		// some-namespace2 has already been created in the new format
+		"_id":        uuid + ":some-namespace2#some-name2#",
+		"model-uuid": uuid,
+		"namespace":  "some-namespace2",
+		"name":       "some-name2",
+		"holder":     "foot",
+		"start":      int64(0),
+		"duration":   int64(time.Minute),
+		"writer":     "gobble",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// - garbage doc is left alone has it has no "type" field
+	// - clock doc is removed, but no replacement required
+	// - lease doc is removed and replaced
+	// - second old lease doc is removed, and the new lease doc is not overwritten
+	expectedLeases := []bson.M{{
+		"_id":        uuid + ":some-garbage",
+		"model-uuid": uuid,
+	}, {
+		"_id":        uuid + ":some-namespace#some-name#",
+		"model-uuid": uuid,
+		"namespace":  "some-namespace",
+		"name":       "some-name",
+		"holder":     "hand",
+		"start":      int64(0),
+		"duration":   int64(time.Minute),
+		"writer":     "ghost",
+	}, {
+		"_id":        uuid + ":some-namespace2#some-name2#",
+		"model-uuid": uuid,
+		"namespace":  "some-namespace2",
+		"name":       "some-name2",
+		"holder":     "foot",
+		"start":      int64(0),
+		"duration":   int64(time.Minute),
+		"writer":     "gobble",
+	}}
+	s.assertUpgradedData(c, MigrateLeasesToGlobalTime,
+		expectUpgradedData{leases, expectedLeases},
+	)
+}
+
 func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 	// Set a test clock so we can dictate the
 	// time set in the new status doc.

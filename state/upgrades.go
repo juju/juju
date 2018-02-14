@@ -1272,6 +1272,15 @@ func migrateModelLeasesToGlobalTime(st *State) error {
 			if doc.Type != "lease" {
 				continue
 			}
+			// Check if the target exists
+
+			if _, err := lease.LookupLease(coll, doc.Namespace, doc.Name); err == nil {
+				// target already exists, it takes precedence over an old doc, which we still want to delete
+				continue
+			} else if err != mgo.ErrNotFound {
+				// We got an unknown error looking up this doc, don't suppress it
+				return nil, err
+			}
 			claimOps, err := lease.ClaimLeaseOps(
 				doc.Namespace,
 				doc.Name,
