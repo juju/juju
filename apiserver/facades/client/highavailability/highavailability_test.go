@@ -31,9 +31,10 @@ func TestAll(t *stdtesting.T) {
 type clientSuite struct {
 	testing.JujuConnSuite
 
-	resources  *common.Resources
-	authoriser apiservertesting.FakeAuthorizer
-	haServer   *highavailability.HighAvailabilityAPI
+	resources      *common.Resources
+	authoriser     apiservertesting.FakeAuthorizer
+	haServer       *highavailability.HighAvailabilityAPI
+	machine0Pinger *presence.Pinger
 
 	commontesting.BlockHelper
 }
@@ -53,6 +54,8 @@ var (
 func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
+	err := s.resources.RegisterNamed("machineID", common.StringResource("0"))
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
@@ -60,7 +63,6 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		Controller: true,
 	}
 
-	var err error
 	s.haServer, err = highavailability.NewHighAvailabilityAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -70,9 +72,10 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		Constraints: controllerCons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
 	// We have to ensure the agents are alive, or EnableHA will
 	// create more to replace them.
-	s.setAgentPresence(c, "0")
+	s.machine0Pinger = s.setAgentPresence(c, "0")
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
@@ -395,4 +398,21 @@ func (s *clientSuite) TestEnableHANoSpecs(c *gc.C) {
 	results, err := s.haServer.EnableHA(arg)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 0)
+}
+
+func (s *clientSuite) TestEnableHABootstrap(c *gc.C) {
+	// Testing based on lp:1748275 - Juju HA fails due to demotion of Machine 0
+	s.machine0Pinger.KillForTesting()
+
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
+
+	enableHAResult, err := s.enableHA(c, 3, emptyCons, defaultSeries, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+	c.Assert(enableHAResult.Demoted, gc.HasLen, 0)
 }
