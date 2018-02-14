@@ -884,22 +884,6 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 	return results, nil
 }
 
-// isModelAdmin reports if authorised user is either a controller admin
-// or has admin access to a given model.
-func (m *ModelManagerAPI) isModelAdmin(tag names.ModelTag) (bool, error) {
-	if m.isAdmin {
-		return true, nil
-	}
-	modelAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, tag)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return false, nil
-		}
-		return false, errors.Trace(err)
-	}
-	return modelAdmin, nil
-}
-
 func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, error) {
 	st, release, err := m.state.GetBackend(tag.Id())
 	if errors.IsNotFound(err) {
@@ -928,10 +912,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	}
 
 	if cloudCredentialTag, ok := model.CloudCredential(); ok {
-		// Only model admins can see what credential model uses.
-		if modelAdmin, _ := m.isModelAdmin(model.ModelTag()); modelAdmin {
-			info.CloudCredentialTag = cloudCredentialTag.String()
-		}
+		info.CloudCredentialTag = cloudCredentialTag.String()
 	}
 
 	// All users with access to the model can see the SLA information.
