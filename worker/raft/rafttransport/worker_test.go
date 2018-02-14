@@ -25,6 +25,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/workertest"
+	"strings"
 )
 
 var controllerTag = names.NewMachineTag("123")
@@ -230,12 +231,28 @@ func (s *WorkerSuite) TestTransportWorkerStopped(c *gc.C) {
 
 func (s *WorkerSuite) TestTransportTimeout(c *gc.C) {
 	config := s.config
-	config.Timeout = time.Millisecond
+	config.Timeout = time.Nanosecond
 	worker := s.newWorker(c, config)
 
-	_, err := s.requestVote(worker)
-	c.Assert(err, gc.ErrorMatches, "dial failed:.*timed out.*")
+	rv := func() error {
+		_, err := s.requestVote(worker)
+		return err
+	}
 
+	// This test previously had intermittent failures with a worker timeout
+	// set to 1 millisecond. With the nanosecond timeout, this should always
+	// break out first time, but it remains as a fail-safe.
+	deadline := time.After(coretesting.LongWait)
+	var err error
+	for err = rv(); !strings.Contains(err.Error(), "dial failed"); err = rv() {
+		select {
+		case <-deadline:
+			c.Fatal("failed to achieve dial timeout")
+		default:
+		}
+	}
+
+	c.Assert(err, gc.ErrorMatches, "dial failed:.*timed out.*")
 	c.Assert(errors.Cause(err), gc.Implements, new(net.Error))
 	netErr := errors.Cause(err).(net.Error)
 	c.Assert(netErr.Temporary(), jc.IsTrue)
