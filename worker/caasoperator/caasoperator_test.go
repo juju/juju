@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
@@ -179,10 +180,10 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
-	uniterStarted := false
+	var uniterStarted int32
 	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
 		c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
-		uniterStarted = true
+		atomic.AddInt32(&uniterStarted, 1)
 		return nil
 	}
 
@@ -232,7 +233,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if uniterStarted {
+		if atomic.LoadInt32(&uniterStarted) > 0 {
 			return
 		}
 	}

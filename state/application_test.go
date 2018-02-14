@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
@@ -1872,7 +1873,15 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
 	c.Assert(state.GetUnitModelUUID(unitZero), gc.Equals, st.ModelUUID())
 
-	// CAAS units have no workload (unit) status, workload version, nor meter status.
+	// CAAS units have no workload version, nor meter status.
+	vers, err := unitZero.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vers, gc.Equals, "")
+	ms, err := unitZero.GetMeterStatus()
+	c.Assert(err, gc.NotNil)
+	c.Assert(ms.Code, gc.Equals, state.MeterNotAvailable)
+
+	// But they do have status.
 	us, err := unitZero.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	us.Since = nil
@@ -1881,14 +1890,6 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 		Message: "waiting for container",
 		Data:    map[string]interface{}{},
 	})
-	vers, err := unitZero.WorkloadVersion()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, gc.Equals, "")
-	ms, err := unitZero.GetMeterStatus()
-	c.Assert(err, gc.NotNil)
-	c.Assert(ms.Code, gc.Equals, state.MeterNotAvailable)
-
-	// But they do have an agent status.
 	as, err := unitZero.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(as.Since, gc.NotNil)
@@ -3329,18 +3330,26 @@ func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 		ProviderId: "new-unit-uuid",
 		Address:    "192.168.1.1",
 		Ports:      []string{"80"},
-		Status: &status.StatusInfo{
+		AgentStatus: &status.StatusInfo{
 			Status:  status.Running,
 			Message: "new running",
+		},
+		UnitStatus: &status.StatusInfo{
+			Status:  status.Active,
+			Message: "new active",
 		},
 	})}
 	updateUnits.Updates = []*state.UpdateUnitOperation{existingUnit.UpdateOperation(state.UnitUpdateProperties{
 		ProviderId: "unit-uuid",
 		Address:    "192.168.1.2",
 		Ports:      []string{"443"},
-		Status: &status.StatusInfo{
+		AgentStatus: &status.StatusInfo{
 			Status:  status.Running,
 			Message: "existing running",
+		},
+		UnitStatus: &status.StatusInfo{
+			Status:  status.Active,
+			Message: "existing active",
 		},
 	})}
 	err = app.UpdateUnits(&updateUnits)
@@ -3384,6 +3393,10 @@ func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 		c.Assert(history[0].Status, gc.Equals, status.Allocating)
 		c.Assert(history[0].Since.Unix(), gc.Equals, history[1].Since.Unix())
 	}
+	statusInfo, err = u.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, status.Active)
+	c.Assert(statusInfo.Message, gc.Equals, "existing active")
 
 	u, ok = unitsById["new-unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
@@ -3392,6 +3405,17 @@ func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 		Address: "192.168.1.1",
 		Ports:   []string{"80"},
 	})
+	addr, err := u.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr, jc.DeepEquals, network.Address{
+		Value: "192.168.1.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeMachineLocal,
+	})
+	statusInfo, err = u.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statusInfo.Status, gc.Equals, status.Active)
+	c.Assert(statusInfo.Message, gc.Equals, "new active")
 	statusInfo, err = u.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)

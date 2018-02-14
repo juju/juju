@@ -224,18 +224,21 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNoTags(c *gc.C) {
 	s.st.application.CheckCall(c, 0, "AddOperation", state.UnitUpdateProperties{
 		ProviderId: "last-uuid",
 		Address:    "last-address", Ports: []string{"last-port"},
-		Status: &status.StatusInfo{Status: status.Error, Message: "last message"},
+		AgentStatus: &status.StatusInfo{Status: status.Error, Message: "last message"},
 	})
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: "uuid",
 		Address:    "address", Ports: []string{"port"},
+		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "message"},
+		AgentStatus: &status.StatusInfo{Status: status.Idle},
 	})
 	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: "another-uuid",
 		Address:    "another-address", Ports: []string{"another-port"},
-		Status: &status.StatusInfo{Status: status.Running, Message: "another message"},
+		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "another message"},
+		AgentStatus: &status.StatusInfo{Status: status.Idle},
 	})
 	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life")
 }
@@ -271,12 +274,14 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithTags(c *gc.C) {
 	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: "uuid",
 		Address:    "address", Ports: []string{"port"},
+		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "message"},
+		AgentStatus: &status.StatusInfo{Status: status.Idle},
 	})
 	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: "another-uuid",
 		Address:    "another-address", Ports: []string{"another-port"},
-		Status: &status.StatusInfo{Status: status.Error, Message: "another message"},
+		AgentStatus: &status.StatusInfo{Status: status.Error, Message: "another message"},
 	})
 	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life")
 }

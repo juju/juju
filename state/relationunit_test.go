@@ -18,10 +18,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type RUs []*state.RelationUnit
@@ -955,7 +957,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c 
 func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationDelayedPublicAddress(c *gc.C) {
 	clk := jujutesting.NewClock(time.Now())
 	attemptMade := make(chan struct{}, 10)
-	s.PatchValue(&state.PublicAddressRetryArgs, func() retry.CallArgs {
+	s.PatchValue(&state.PreferredAddressRetryArgs, func() retry.CallArgs {
 		return retry.CallArgs{
 			Clock:       clk,
 			Delay:       3 * time.Second,
@@ -1021,6 +1023,45 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationDelayedPublicAd
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
+func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	wpch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	mysqlch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
+	wp := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpch})
+	mysql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlch})
+
+	prr := newProReqRelationForApps(c, st, mysql, wp)
+
+	// First no address.
+	boundSpace, ingress, egress, err := state.NetworksForRelation("", prr.pu0, prr.rel, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(boundSpace, gc.Equals, "")
+	c.Assert(ingress, gc.HasLen, 0)
+	c.Assert(egress, gc.HasLen, 0)
+
+	// Add a container address.
+	unitUpdate := state.UpdateUnitsOperation{
+		Updates: []*state.UpdateUnitOperation{
+			prr.pu0.UpdateOperation(state.UnitUpdateProperties{ProviderId: "id", Address: "1.2.3.4"})},
+	}
+	err = mysql.UpdateUnits(&unitUpdate)
+	c.Assert(err, jc.ErrorIsNil)
+	err = prr.pu0.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	boundSpace, ingress, egress, err = state.NetworksForRelation("", prr.pu0, prr.rel, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(boundSpace, gc.Equals, "")
+	c.Assert(ingress, gc.DeepEquals, []string{"1.2.3.4"})
+	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
+}
+
 func (s *RelationUnitSuite) TestValidYes(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	rus := []*state.RelationUnit{prr.pru0, prr.pru1, prr.rru0, prr.rru1}
@@ -1034,7 +1075,7 @@ func (s *RelationUnitSuite) TestValidYes(c *gc.C) {
 func (s *RelationUnitSuite) TestValidNo(c *gc.C) {
 	mysqlLogging := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	wpApp := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wpLogging := newProReqRelationForApps(c, &s.ConnSuite, wpApp, mysqlLogging.rapp)
+	wpLogging := newProReqRelationForApps(c, s.State, wpApp, mysqlLogging.rapp)
 
 	// We have logging related to mysql and to wordpress. We can
 	// create an invalid RU by taking a logging unit from
@@ -1053,7 +1094,7 @@ func (s *RelationUnitSuite) TestValidSubordinateToSubordinate(c *gc.C) {
 	monApp := s.AddTestingApplication(c, "monitoring", s.AddTestingCharm(c, "monitoring"))
 	// Relate mysql and monitoring - relation to a non-subordinate
 	// needed to trigger creation of monitoring unit.
-	mysqlMonitoring := newProReqRelationForApps(c, &s.ConnSuite, mysqlLogging.papp, monApp)
+	mysqlMonitoring := newProReqRelationForApps(c, s.State, mysqlLogging.papp, monApp)
 	// Monitor the logging app (newProReqRelationForApps assumes that
 	// the providing app is a principal, so we need to do it by hand).
 	loggingApp := mysqlLogging.rapp
@@ -1136,7 +1177,7 @@ func newProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope) *ProReq
 	} else {
 		rapp = s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	}
-	return newProReqRelationForApps(c, s, papp, rapp)
+	return newProReqRelationForApps(c, s.State, papp, rapp)
 }
 
 func newProReqRelationWithBindings(c *gc.C, s *ConnSuite, scope charm.RelationScope, pbindings, rbindings map[string]string) *ProReqRelation {
@@ -1147,13 +1188,13 @@ func newProReqRelationWithBindings(c *gc.C, s *ConnSuite, scope charm.RelationSc
 	} else {
 		rapp = s.AddTestingApplicationWithBindings(c, "logging", s.AddTestingCharm(c, "logging"), rbindings)
 	}
-	return newProReqRelationForApps(c, s, papp, rapp)
+	return newProReqRelationForApps(c, s.State, papp, rapp)
 }
 
-func newProReqRelationForApps(c *gc.C, s *ConnSuite, proApp, reqApp *state.Application) *ProReqRelation {
-	eps, err := s.State.InferEndpoints(proApp.Name(), reqApp.Name())
+func newProReqRelationForApps(c *gc.C, st *state.State, proApp, reqApp *state.Application) *ProReqRelation {
+	eps, err := st.InferEndpoints(proApp.Name(), reqApp.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
+	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	prr := &ProReqRelation{rel: rel, papp: proApp, rapp: reqApp}
 	prr.pu0, prr.pru0 = addRU(c, proApp, rel, nil)

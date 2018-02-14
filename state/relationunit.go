@@ -477,9 +477,9 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	return node.Map(), nil
 }
 
-// PublicAddressRetryArgs returns the retry strategy for getting a unit's public address.
+// PreferredAddressRetryArgs returns the retry strategy for getting a unit's preferred address.
 // Override for testing to use a different clock.
-var PublicAddressRetryArgs = func() retry.CallArgs {
+var PreferredAddressRetryArgs = func() retry.CallArgs {
 	return retry.CallArgs{
 		Clock:       clock.WallClock,
 		Delay:       3 * time.Second,
@@ -517,9 +517,10 @@ func NetworksForRelation(
 		if err != nil {
 			return "", nil, nil, errors.Trace(err)
 		}
-		if crossmodel {
+		// TODO(caas) - we might need to use the service address
+		if crossmodel && unit.ShouldBeAssigned() {
 			var address network.Address
-			retryArg := PublicAddressRetryArgs()
+			retryArg := PreferredAddressRetryArgs()
 			retryArg.Func = func() error {
 				var err error
 				address, err = unit.PublicAddress()
@@ -544,25 +545,39 @@ func NetworksForRelation(
 		}
 	}
 	if len(ingress) == 0 {
-		// We don't yet have an ingress address, so pick one from the space to
-		// which the endpoint is bound.
-		machineID, err := unit.AssignedMachineId()
-		if err != nil {
-			return "", nil, nil, errors.Trace(err)
-		}
-
-		machine, err := st.Machine(machineID)
-		if err != nil {
-			return "", nil, nil, errors.Trace(err)
-		}
-
-		networkInfos := machine.GetNetworkInfoForSpaces(set.NewStrings(boundSpace))
-		// The binding address information based on link layer devices.
-		for _, nwInfo := range networkInfos[boundSpace].NetworkInfos {
-			for _, addr := range nwInfo.Addresses {
-				ingress = append(ingress, addr.Address)
+		if unit.ShouldBeAssigned() {
+			// We don't yet have an ingress address, so pick one from the space to
+			// which the endpoint is bound.
+			machineID, err := unit.AssignedMachineId()
+			if err != nil {
+				return "", nil, nil, errors.Trace(err)
 			}
 
+			machine, err := st.Machine(machineID)
+			if err != nil {
+				return "", nil, nil, errors.Trace(err)
+			}
+
+			networkInfos := machine.GetNetworkInfoForSpaces(set.NewStrings(boundSpace))
+			// The binding address information based on link layer devices.
+			for _, nwInfo := range networkInfos[boundSpace].NetworkInfos {
+				for _, addr := range nwInfo.Addresses {
+					ingress = append(ingress, addr.Address)
+				}
+
+			}
+		} else {
+			addr, err := unit.PrivateAddress()
+			if err != nil && !network.IsNoAddressError(err) {
+				return "", nil, nil, errors.Trace(err)
+			}
+			if err == nil {
+				ingress = []string{addr.Value}
+			} else {
+				logger.Warningf(
+					"no container address for unit %q in relation %q",
+					unit.Name(), rel)
+			}
 		}
 	}
 

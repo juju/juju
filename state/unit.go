@@ -102,6 +102,7 @@ type unitDoc struct {
 	TxnRevno               int64 `bson:"txn-revno"`
 	PasswordHash           string
 
+	// TODO(caas) - move to separate collection
 	// ProviderId is used by CAAS models.
 	ProviderId    string        `bson:"provider-id"`
 	ContainerInfo ContainerInfo `bson:"container-info"`
@@ -371,20 +372,31 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		}}
 	}
 
-	if op.props.Status != nil {
+	updateStatus := func(key string, status *status.StatusInfo) error {
 		now := op.unit.st.clock().Now()
 		doc := statusDoc{
-			Status:     op.props.Status.Status,
-			StatusInfo: op.props.Status.Message,
-			StatusData: mgoutils.EscapeKeys(op.props.Status.Data),
+			Status:     status.Status,
+			StatusInfo: status.Message,
+			StatusData: mgoutils.EscapeKeys(status.Data),
 			Updated:    now.UnixNano(),
 		}
-		op.setStatusDocs[op.unit.globalAgentKey()] = doc
-		statusOps, err := statusSetOps(op.unit.st.db(), doc, op.unit.globalAgentKey())
+		op.setStatusDocs[key] = doc
+		statusOps, err := statusSetOps(op.unit.st.db(), doc, key)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
 		ops = append(ops, statusOps...)
+		return nil
+	}
+	if op.props.AgentStatus != nil {
+		if err := updateStatus(op.unit.globalAgentKey(), op.props.AgentStatus); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	if op.props.UnitStatus != nil {
+		if err := updateStatus(op.unit.globalKey(), op.props.UnitStatus); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	return ops, nil
 }
@@ -913,12 +925,29 @@ func (u *Unit) PublicAddress() (network.Address, error) {
 
 // PrivateAddress returns the private address of the unit.
 func (u *Unit) PrivateAddress() (network.Address, error) {
+	if !u.ShouldBeAssigned() {
+		return u.containerAddress()
+	}
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Tracef("%v", err)
 		return network.Address{}, errors.Trace(err)
 	}
 	return m.PrivateAddress()
+}
+
+// containerAddress returns the address of the container (pod)
+// in which the unit workload is running.
+func (u *Unit) containerAddress() (network.Address, error) {
+	addr := u.doc.ContainerInfo.Address
+	if addr == "" {
+		return network.Address{}, network.NoAddressError("container")
+	}
+	return network.Address{
+		Value: addr,
+		Scope: network.ScopeMachineLocal,
+		Type:  network.DeriveAddressType(addr),
+	}, nil
 }
 
 // AvailabilityZone returns the name of the availability zone into which
