@@ -53,13 +53,16 @@ var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIO
 
 // Server holds the server side of the API.
 type Server struct {
-	tomb                   tomb.Tomb
-	clock                  clock.Clock
-	pingClock              clock.Clock
-	wg                     sync.WaitGroup
-	statePool              *state.StatePool
-	lis                    net.Listener
-	tag                    names.Tag
+	tomb      tomb.Tomb
+	clock     clock.Clock
+	pingClock clock.Clock
+	wg        sync.WaitGroup
+	statePool *state.StatePool
+	lis       net.Listener
+
+	// Tag of the machine where the API server is running.
+	tag names.Tag
+
 	dataDir                string
 	logDir                 string
 	limiter                utils.Limiter

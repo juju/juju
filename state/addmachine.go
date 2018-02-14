@@ -823,8 +823,9 @@ func (st *State) maintainControllersOps(mdocs []*machineDoc, currentInfo *Contro
 // If placement is not empty, any new machines which may be required are started
 // according to the specified placement directives until the placement list is
 // exhausted; thereafter any new machines are started according to the constraints and series.
+// MachineID is the id of the machine where the apiserver is running.
 func (st *State) EnableHA(
-	numControllers int, cons constraints.Value, series string, placement []string,
+	numControllers int, cons constraints.Value, series string, placement []string, machineId string,
 ) (ControllersChanges, error) {
 
 	if numControllers < 0 || (numControllers != 0 && numControllers%2 != 1) {
@@ -850,7 +851,7 @@ func (st *State) EnableHA(
 			return nil, errors.New("cannot reduce controller count")
 		}
 
-		intent, err := st.enableHAIntentions(currentInfo, placement)
+		intent, err := st.enableHAIntentions(currentInfo, placement, machineId)
 		if err != nil {
 			return nil, err
 		}
@@ -1000,7 +1001,7 @@ type enableHAIntent struct {
 //   demoting unavailable, voting machines;
 //   removing unavailable, non-voting, non-vote-holding machines;
 //   gathering available, non-voting machines that may be promoted;
-func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*enableHAIntent, error) {
+func (st *State) enableHAIntentions(info *ControllerInfo, placement []string, machineId string) (*enableHAIntent, error) {
 	var intent enableHAIntent
 	for _, s := range placement {
 		// TODO(natefinch): unscoped placements shouldn't ever get here (though
@@ -1052,17 +1053,25 @@ func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*
 			}
 			continue
 		}
-		if m.WantsVote() {
+
+		switch {
+		case m.WantsVote() && m.HasVote() && m.Id() == machineId:
+			// lp:1748275 - Shortly after bootstrap, it's possible that the
+			// controller hasn't pinged with agent presence yet, thereby
+			// failing the controllerAvailable check. So, don't demote the
+			// machine we're running on, if we're here, the agent must be running.
+			intent.maintain = append(intent.maintain, m)
+		case m.WantsVote():
 			// The machine wants to vote, so we simply set novote and allow it
 			// to run its course to have its vote removed by the worker that
 			// maintains the replicaset. We will replace it with an existing
 			// non-voting controller if there is one, starting a new one if
 			// not.
 			intent.demote = append(intent.demote, m)
-		} else if m.HasVote() {
+		case m.HasVote():
 			// The machine still has a vote, so keep it around for now.
 			intent.maintain = append(intent.maintain, m)
-		} else {
+		default:
 			// The machine neither wants to nor has a vote, so remove its
 			// JobManageModel job immediately.
 			intent.remove = append(intent.remove, m)
