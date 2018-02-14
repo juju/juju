@@ -29,6 +29,18 @@ ports:
 config:
   attr: foo=bar; fred=blogs
   foo: bar
+files:
+  - name: configuration
+    mount-path: /var/lib/foo
+    files:
+      file1: |
+        [config]
+        foo: bar
+`[1:]
+
+	expectedFileContent := `
+[config]
+foo: bar
 `[1:]
 
 	spec, err := caas.ParseContainerSpec(specStr)
@@ -43,6 +55,15 @@ config:
 		Config: map[string]string{
 			"attr": "foo=bar; fred=blogs",
 			"foo":  "bar",
+		},
+		Files: []caas.FileSet{
+			{
+				Name:      "configuration",
+				MountPath: "/var/lib/foo",
+				Files: map[string]string{
+					"file1": expectedFileContent,
+				},
+			},
 		},
 	})
 }
@@ -65,4 +86,37 @@ name: gitlab
 
 	_, err := caas.ParseContainerSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, "spec image name is missing")
+}
+
+func (s *ContainersSuite) TestParseFileSetPath(c *gc.C) {
+
+	specStr := `
+name: gitlab
+image-name: gitlab/latest
+files:
+  - files:
+      file1: |-
+        [config]
+        foo: bar
+`[1:]
+
+	_, err := caas.ParseContainerSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `file set name is missing`)
+}
+
+func (s *ContainersSuite) TestParseMissingMountPath(c *gc.C) {
+
+	specStr := `
+name: gitlab
+image-name: gitlab/latest
+files:
+  - name: configuration
+    files:
+      file1: |-
+        [config]
+        foo: bar
+`[1:]
+
+	_, err := caas.ParseContainerSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `mount path is missing for file set "configuration"`)
 }

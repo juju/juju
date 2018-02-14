@@ -87,6 +87,7 @@ func (w *unitWorker) loop() error {
 			if errors.IsNotFound(err) {
 				// No container spec defined for this unit yet;
 				// wait for one to be set.
+				logger.Debugf("no container spec defined for %v", w.unit)
 				continue
 			}
 			if err != nil {
