@@ -167,7 +167,7 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	if err != nil {
 		return params.ControllersChanges{}, errors.Annotate(err, "retrieving controller config")
 	}
-	spec.Constraints.Spaces = cfg.AsSpaceConstraints(spec.Constraints.Spaces).Spaces
+	spec.Constraints.Spaces = cfg.AsSpaceConstraints(spec.Constraints.Spaces)
 
 	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, series, spec.Placement, api.machineID)
 	if err != nil {
