@@ -4,7 +4,6 @@
 package modelmanager_test
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -224,7 +223,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"Cloud", nil},
 		{"CloudRegion", nil},
 		{"CloudCredential", nil},
-		{"ModelTag", nil},
 		{"SLALevel", nil},
 		{"SLAOwner", nil},
 		{"Life", nil},
@@ -247,29 +245,6 @@ func (s *modelInfoSuite) TestModelInfoOwner(c *gc.C) {
 	info := s.getModelInfo(c, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 4)
 	c.Assert(info.Machines, gc.HasLen, 2)
-}
-
-func (s *modelInfoSuite) TestModelInfoHasCredentialForAdmin(c *gc.C) {
-	// Need to convince fake authorizer that this user has admin right on a test model;
-	// so user name is <desired permission><model tag>.
-	userName := fmt.Sprintf("%s%s", "admin", s.st.model.tag)
-	user := names.NewUserTag(userName)
-	s.st.model.users = append(s.st.model.users, &mockModelUser{
-		userName:       userName,
-		lastConnection: time.Time{},
-		access:         permission.AdminAccess,
-	})
-	s.setAPIUser(c, user)
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
-	c.Assert(info.CloudCredentialTag, gc.Equals, "cloudcred-some-cloud_bob_some-credential")
-}
-
-func (s *modelInfoSuite) TestModelInfoHasCredentialForNonAdmin(c *gc.C) {
-	mary := names.NewUserTag("mary@local")
-	s.authorizer.HasWriteTag = mary
-	s.setAPIUser(c, mary)
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
-	c.Assert(info.CloudCredentialTag, gc.Equals, "")
 }
 
 func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
