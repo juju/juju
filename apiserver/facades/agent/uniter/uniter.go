@@ -1584,19 +1584,22 @@ func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error)
 	} else if err != nil {
 		return nothing, err
 	}
+	var applicationName string
 	tag := u.auth.GetAuthTag()
 	switch tag.(type) {
 	case names.UnitTag:
-		// do nothing
+		unit, err := u.st.Unit(tag.Id())
+		if err != nil {
+			return nothing, err
+		}
+		applicationName = unit.ApplicationName()
+	case names.ApplicationTag:
+		applicationName = tag.Id()
 	default:
-		panic("authenticated entity is not a unit")
-	}
-	unit, err := u.st.FindEntity(tag)
-	if err != nil {
-		return nothing, err
+		panic("authenticated entity is not a unit or application")
 	}
 	// Use the currently authenticated unit to get the endpoint.
-	result, err := u.prepareRelationResult(rel, unit.(*state.Unit))
+	result, err := u.prepareRelationResult(rel, applicationName)
 	if err != nil {
 		// An error from prepareRelationResult means the authenticated
 		// unit's application is not part of the requested
@@ -1625,16 +1628,16 @@ func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag string,
 	return rel, unit, err
 }
 
-func (u *UniterAPI) prepareRelationResult(rel *state.Relation, unit *state.Unit) (params.RelationResult, error) {
+func (u *UniterAPI) prepareRelationResult(rel *state.Relation, applicationName string) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
-	ep, err := rel.Endpoint(unit.ApplicationName())
+	ep, err := rel.Endpoint(applicationName)
 	if err != nil {
 		// An error here means the unit's application is not part of the
 		// relation.
 		return nothing, err
 	}
 	var otherAppName string
-	otherEndpoints, err := rel.RelatedEndpoints(unit.ApplicationName())
+	otherEndpoints, err := rel.RelatedEndpoints(applicationName)
 	if err != nil {
 		return nothing, err
 	}
@@ -1664,7 +1667,7 @@ func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag st
 	if err != nil {
 		return nothing, err
 	}
-	return u.prepareRelationResult(rel, unit)
+	return u.prepareRelationResult(rel, unit.ApplicationName())
 }
 
 func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
@@ -1738,9 +1741,29 @@ func (u *UniterAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.Re
 
 func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag string) (string, error) {
 	// Make sure the unit is indeed remote.
-	if remoteUnitTag == u.auth.GetAuthTag().String() {
-		return "", common.ErrPerm
+	switch tag := u.auth.GetAuthTag().(type) {
+	case names.UnitTag:
+		if remoteUnitTag == tag.String() {
+			return "", common.ErrPerm
+		}
+	case names.ApplicationTag:
+		// If called by an application agent, we need
+		// to check the units of the application.
+		app, err := u.st.Application(tag.Name)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		allUnits, err := app.AllUnits()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		for _, unit := range allUnits {
+			if remoteUnitTag == unit.Tag().String() {
+				return "", common.ErrPerm
+			}
+		}
 	}
+
 	// Check remoteUnit is indeed related. Note that we don't want to actually get
 	// the *Unit, because it might have been removed; but its relation settings will
 	// persist until the relation itself has been removed (and must remain accessible

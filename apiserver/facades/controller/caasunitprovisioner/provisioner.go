@@ -4,7 +4,7 @@
 package caasunitprovisioner
 
 import (
-	"reflect"
+	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -243,14 +243,13 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 		// represented in the unit params passed in.
 		removedUnits []Unit
 
-		addedCloudUnits []params.ApplicationUnitParams
+		addedCloudUnits    []params.ApplicationUnitParams
+		existingCloudUnits []params.ApplicationUnitParams
 	)
 	stateUnitsById := make(map[string]Unit)
 	stateUnitsByTag := make(map[string]Unit)
 	aliveCloudUnitsById := make(map[string]params.ApplicationUnitParams)
 	aliveCloudUnitTags := make(set.Strings)
-
-	existingCloudUnitsById := make(map[string]params.ApplicationUnitParams)
 
 	// Record all unit provider ids known to exist in the cloud.
 	// We initially assume the corresponding Juju unit is alive
@@ -318,9 +317,17 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 		}
 	}
 
-	for _, u := range aliveCloudUnitsById {
+	// Do it in sorted order so it's deterministic for tests.
+	var ids []string
+	for id := range aliveCloudUnitsById {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	for _, id := range ids {
+		u := aliveCloudUnitsById[id]
 		if cloudUnitExistsInState(u) {
-			existingCloudUnitsById[u.ProviderId] = u
+			existingCloudUnits = append(existingCloudUnits, u)
 		} else {
 			if u.UnitTag == "" {
 				addedCloudUnits = append(addedCloudUnits, u)
@@ -339,61 +346,69 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 		unitUpdate.Deletes = append(unitUpdate.Deletes, u.DestroyOperation())
 	}
 
-	unitUpdateProperties := func(unitParams params.ApplicationUnitParams, includeStatus bool) state.UnitUpdateProperties {
-		props := state.UnitUpdateProperties{
-			ProviderId: unitParams.ProviderId,
-			Address:    unitParams.Address,
-			Ports:      unitParams.Ports,
-		}
-		if includeStatus {
-			props.Status = &status.StatusInfo{
-				Status:  status.Status(unitParams.Status),
-				Message: unitParams.Info,
-				Data:    unitParams.Data,
+	// updateStatus constructs the unit and agent status values based on the pod status.
+	updateStatus := func(params params.ApplicationUnitParams) (
+		agentStatus *status.StatusInfo,
+		unitStatus *status.StatusInfo,
+		_ error,
+	) {
+		switch status.Status(params.Status) {
+		case status.Unknown:
+			// The container runtime can spam us with unimportant
+			// status updates, so ignore any irrelevant ones.
+			return nil, nil, nil
+		case status.Allocating:
+			// The container runtime has decided to restart the pod.
+			agentStatus = &status.StatusInfo{
+				Status:  status.Allocating,
+				Message: params.Info,
+			}
+			unitStatus = &status.StatusInfo{
+				Status:  status.Waiting,
+				Message: status.MessageWaitForContainer,
+			}
+		case status.Running:
+			// A pod has finished starting so the workload is now active.
+			agentStatus = &status.StatusInfo{
+				Status: status.Idle,
+			}
+			unitStatus = &status.StatusInfo{
+				Status:  status.Active,
+				Message: params.Info,
+			}
+		case status.Error:
+			agentStatus = &status.StatusInfo{
+				Status:  status.Error,
+				Message: params.Info,
+				Data:    params.Data,
 			}
 		}
-		return props
+		return agentStatus, unitStatus, nil
 	}
 
-	shouldUpdateStatus := func(u Unit, params params.ApplicationUnitParams) (bool, error) {
-		// The container runtime can spam us with unimportant
-		// status updates, so ignore any irrelevant ones.
-		// TODO(caas) - the pods may get bounced but we don't model that yet
-		// so ignore allocating and running for now.
-		switch status.Status(params.Status) {
-		case status.Unknown, status.Allocating, status.Running:
-			return false, nil
-		}
-		existingStatus, err := u.AgentStatus()
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		if existingStatus.Status.String() != params.Status ||
-			existingStatus.Message != params.Info ||
-			len(existingStatus.Data) != len(params.Data) ||
-			reflect.DeepEqual(existingStatus.Data, params.Data) {
-			return true, nil
-		}
-		return false, nil
-	}
-
-	// For existing units which have been updated, create the necessary update ops.
-	for id, unitParams := range existingCloudUnitsById {
+	for _, unitParams := range existingCloudUnits {
 		u, ok := stateUnitsByTag[unitParams.UnitTag]
 		if !ok {
-			u, ok = stateUnitsById[id]
+			u, ok = stateUnitsById[unitParams.ProviderId]
 		}
 		if !ok {
 			logger.Warningf("missing unit parameters %+v", unitParams)
 			continue
 		}
-		// Check to see if any update is needed.
-		updateStatus, err := shouldUpdateStatus(u, unitParams)
+		agentStatus, unitStatus, err := updateStatus(unitParams)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		updateProps := state.UnitUpdateProperties{
+			ProviderId:  unitParams.ProviderId,
+			Address:     unitParams.Address,
+			Ports:       unitParams.Ports,
+			AgentStatus: agentStatus,
+			UnitStatus:  unitStatus,
+		}
+
 		unitUpdate.Updates = append(unitUpdate.Updates,
-			u.UpdateOperation(unitUpdateProperties(unitParams, updateStatus)))
+			u.UpdateOperation(updateProps))
 	}
 
 	// For newly added units in the cloud, either update state units which
@@ -401,16 +416,28 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 	// id as well), or add a brand new unit.
 	idx := 0
 	for _, unitParams := range addedCloudUnits {
+		agentStatus, unitStatus, err := updateStatus(unitParams)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		updateProps := state.UnitUpdateProperties{
+			ProviderId:  unitParams.ProviderId,
+			Address:     unitParams.Address,
+			Ports:       unitParams.Ports,
+			AgentStatus: agentStatus,
+			UnitStatus:  unitStatus,
+		}
+
 		if idx < len(unassociatedUnits) {
 			u := unassociatedUnits[idx]
 			unitUpdate.Updates = append(unitUpdate.Updates,
-				u.UpdateOperation(unitUpdateProperties(unitParams, true)))
+				u.UpdateOperation(updateProps))
 			idx += 1
 			continue
 		}
 
 		unitUpdate.Adds = append(unitUpdate.Adds,
-			app.AddOperation(unitUpdateProperties(unitParams, true)))
+			app.AddOperation(updateProps))
 	}
 	return app.UpdateUnits(&unitUpdate)
 }

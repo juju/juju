@@ -156,9 +156,8 @@ var (
 		"hook-retry-strategy",
 		"operator",
 	}
-	notMigratingCAASWorkers = []string{
 	// TODO(caas)
-	}
+	notMigratingCAASWorkers = []string(nil)
 )
 
 func (s *CAASOperatorSuite) TestWorkers(c *gc.C) {
