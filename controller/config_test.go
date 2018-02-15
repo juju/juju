@@ -330,7 +330,7 @@ func (s *ConfigSuite) TestConfigManagementSpaceAsConstraint(c *gc.C) {
 		map[string]interface{}{controller.JujuHASpace: managementSpace},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.AsSpaceConstraints(nil), gc.DeepEquals, []string{managementSpace})
+	c.Check(*cfg.AsSpaceConstraints(nil), gc.DeepEquals, []string{managementSpace})
 }
 
 func (s *ConfigSuite) TestConfigHASpaceAsConstraint(c *gc.C) {
@@ -341,7 +341,7 @@ func (s *ConfigSuite) TestConfigHASpaceAsConstraint(c *gc.C) {
 		map[string]interface{}{controller.JujuHASpace: haSpace},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.AsSpaceConstraints(nil), gc.DeepEquals, []string{haSpace})
+	c.Check(*cfg.AsSpaceConstraints(nil), gc.DeepEquals, []string{haSpace})
 }
 
 func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *gc.C) {
