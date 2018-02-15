@@ -353,6 +353,11 @@ func (w *Watcher) flush() {
 				return
 			case req := <-w.request:
 				w.handle(req)
+				// handle may append to the w.pending array, and/or it may unwatch something that was previously pending
+				// thus changing e.ch to nil while we are waiting to send the request. We need to make sure we are using
+				// the correct 'e' object
+				// See TestRobustness which fails if this line doesn't exist
+				e = &w.pending[i]
 				continue
 			case e.ch <- Change{e.key, e.alive}:
 			}
