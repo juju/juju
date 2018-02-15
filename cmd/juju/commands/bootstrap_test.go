@@ -572,6 +572,25 @@ func (s *BootstrapSuite) TestBootstrapTimeout(c *gc.C) {
 	c.Assert(bootstrap.args.DialOpts.Timeout, gc.Equals, 99*time.Second)
 }
 
+func (s *BootstrapSuite) TestBootstrapAllSpacesAsConstraintsMerged(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+	cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
+		"--config", "juju-ha-space=ha-space", "--config", "juju-mgmt-space=management-space",
+		"--constraints", "spaces=ha-space,random-space",
+	)
+
+	// Order is unimportant
+	got := *(bootstrap.args.BootstrapConstraints.Spaces)
+	sort.Strings(got)
+	c.Check(got, gc.DeepEquals, []string{"ha-space", "management-space", "random-space"})
+}
+
 func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 
@@ -2031,7 +2050,7 @@ func (noCloudRegionsProvider) DetectRegions() ([]cloud.Region, error) {
 }
 
 func (noCloudRegionsProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: cloud.CredentialSchema{}}
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: {}}
 }
 
 type noCredentialsProvider struct {

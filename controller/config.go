@@ -514,11 +514,11 @@ func Validate(c Config) error {
 		}
 	}
 
-	if err := validateSpaceConfig(c, JujuHASpace, "juju HA"); err != nil {
+	if err := c.validateSpaceConfig(JujuHASpace, "juju HA"); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := validateSpaceConfig(c, JujuManagementSpace, "juju mgmt"); err != nil {
+	if err := c.validateSpaceConfig(JujuManagementSpace, "juju mgmt"); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -559,7 +559,7 @@ func Validate(c Config) error {
 	return nil
 }
 
-func validateSpaceConfig(c Config, key, topic string) error {
+func (c Config) validateSpaceConfig(key, topic string) error {
 	val := c[key]
 	if val == nil {
 		return nil
@@ -573,6 +573,35 @@ func validateSpaceConfig(c Config, key, topic string) error {
 	}
 
 	return nil
+}
+
+// AsSpaceConstraints checks to see whether config has spaces names populated
+// for management and/or HA (Mongo).
+// Non-empty values are merged with any input spaces and returned as a new
+// slice reference.
+// A slice pointer is used for congruence with the Spaces member in
+// constraints.Value.
+func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
+	newSpaces := set.NewStrings()
+	if spaces != nil {
+		for _, s := range *spaces {
+			newSpaces.Add(s)
+		}
+	}
+
+	for _, c := range []string{c.JujuManagementSpace(), c.JujuHASpace()} {
+		if c != "" {
+			newSpaces.Add(c)
+		}
+	}
+
+	// Preserve a nil pointer if there is no change. This conveys information
+	// in constraints.Value (not set vs. deliberately set as empty).
+	if spaces == nil && len(newSpaces) == 0 {
+		return nil
+	}
+	ns := newSpaces.Values()
+	return &ns
 }
 
 // GenerateControllerCertAndKey makes sure that the config has a CACert and

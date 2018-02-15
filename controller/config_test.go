@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"sort"
 	stdtesting "testing"
 	"time"
 
@@ -319,4 +320,56 @@ func (s *ConfigSuite) TestAuditLogFloatBackupsLoadedDirectly(c *gc.C) {
 		controller.AuditLogMaxBackups: 10.0,
 	}
 	c.Assert(cfg.AuditLogMaxBackups(), gc.Equals, 10)
+}
+
+func (s *ConfigSuite) TestConfigManagementSpaceAsConstraint(c *gc.C) {
+	managementSpace := "management-space"
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{controller.JujuHASpace: managementSpace},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(*cfg.AsSpaceConstraints(nil), gc.DeepEquals, []string{managementSpace})
+}
+
+func (s *ConfigSuite) TestConfigHASpaceAsConstraint(c *gc.C) {
+	haSpace := "ha-space"
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{controller.JujuHASpace: haSpace},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(*cfg.AsSpaceConstraints(nil), gc.DeepEquals, []string{haSpace})
+}
+
+func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *gc.C) {
+	haSpace := "ha-space"
+	managementSpace := "management-space"
+	constraintSpace := "constraint-space"
+
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.JujuHASpace:         haSpace,
+			controller.JujuManagementSpace: managementSpace,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	got := *cfg.AsSpaceConstraints(&[]string{constraintSpace})
+	sort.Strings(got)
+	c.Check(got, gc.DeepEquals, []string{constraintSpace, haSpace, managementSpace})
+}
+
+func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.AsSpaceConstraints(nil), gc.IsNil)
 }

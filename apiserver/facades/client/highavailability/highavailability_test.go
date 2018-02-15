@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
@@ -37,10 +38,6 @@ type clientSuite struct {
 	machine0Pinger *presence.Pinger
 
 	commontesting.BlockHelper
-}
-
-type KillerForTesting interface {
-	KillForTesting() error
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -102,7 +99,12 @@ func (s *clientSuite) enableHA(
 }
 
 func enableHA(
-	c *gc.C, haServer *highavailability.HighAvailabilityAPI, numControllers int, cons constraints.Value, series string, placement []string,
+	c *gc.C,
+	haServer *highavailability.HighAvailabilityAPI,
+	numControllers int,
+	cons constraints.Value,
+	series string,
+	placement []string,
 ) (params.ControllersChanges, error) {
 	arg := params.ControllersSpecs{
 		Specs: []params.ControllersSpec{{
@@ -203,6 +205,33 @@ func (s *clientSuite) TestEnableHAEmptyConstraints(c *gc.C) {
 		cons, err := m.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(cons, gc.DeepEquals, controllerCons)
+	}
+}
+
+func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
+	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
+	controllerSettings.Set(controller.JujuHASpace, "ha-space")
+	controllerSettings.Write()
+
+	enableHAResult, err := s.enableHA(c, 3, constraints.MustParse("spaces=random-space"), defaultSeries, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 3)
+	expectedCons := []constraints.Value{
+		controllerCons,
+		constraints.MustParse("spaces=random-space,ha-space"),
+		constraints.MustParse("spaces=random-space,ha-space"),
+	}
+	for i, m := range machines {
+		cons, err := m.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(cons, gc.DeepEquals, expectedCons[i])
 	}
 }
 
