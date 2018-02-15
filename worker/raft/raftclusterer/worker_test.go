@@ -101,15 +101,7 @@ func (s *WorkerSuite) TestAddRemoveServers(c *gc.C) {
 	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &rafttest.FSM{})
 	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &rafttest.FSM{})
 	_, _, transport3, _, _ := s.NewRaft(c, "machine-3", &rafttest.FSM{})
-	transports := []raft.LoopbackTransport{s.Transport, transport1, transport2, transport3}
-	for _, t1 := range transports {
-		for _, t2 := range transports {
-			if t1 == t2 {
-				continue
-			}
-			t1.Connect(t2.LocalAddr(), t2)
-		}
-	}
+	connectTransports(s.Transport, transport1, transport2, transport3)
 
 	machine0Address := string(s.Transport.LocalAddr())
 	machine1Address := string(transport1.LocalAddr())
@@ -195,57 +187,29 @@ func (s *WorkerSuite) TestAddRemoveServers(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
-	// Create 3 servers, machine-0, machine-1, and machine-2.
-	// The latter two servers can communicate bidirectionally;
-	// only machine-0 can dial the others, and not the other
-	// way around.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &rafttest.FSM{})
-	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &rafttest.FSM{})
-	s.Transport.Connect(transport1.LocalAddr(), transport1)
-	s.Transport.Connect(transport2.LocalAddr(), transport2)
-	transport1.Connect(transport2.LocalAddr(), transport2)
-	transport2.Connect(transport1.LocalAddr(), transport1)
-	machine1Address := string(transport1.LocalAddr())
-	machine2Address := string(transport2.LocalAddr())
+	// This test asserts that a
+	// configuration change which updates a raft leader's address does not
+	// result in a leadership change.
 
-	raft1Observations := make(chan raft.Observation, 10)
-	raft1Observer := raft.NewObserver(raft1Observations, false, func(o *raft.Observation) bool {
-		_, ok := o.Data.(raft.LeaderObservation)
-		return ok
-	})
-	raft1.RegisterObserver(raft1Observer)
-	defer close(raft1Observations)
-	defer raft1.DeregisterObserver(raft1Observer)
+	// Machine-0's address will be updated to a non-localhost address, and
+	// two new servers are added.
 
-	newLeaderElected := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case _, ok := <-raft1Observations:
-				if !ok {
-					return
-				}
-			}
-			leaderAddr := raft1.Leader()
-			if leaderAddr != "" && leaderAddr != s.Transport.LocalAddr() {
-				close(newLeaderElected)
-				return
-			}
-		}
-	}()
-
-	// Here we simulate "ensure-ha": machine-0's address will
-	// be updated to a non-localhost address, and two new
-	// servers are added.
-	//
 	// We add machine-1 and machine-2, and change machine-0's
 	// address. Changing machine-0's address should not affect
 	// its leadership.
+	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &rafttest.FSM{})
+	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &rafttest.FSM{})
+	connectTransports(s.Transport, transport1, transport2)
+	machine1Address := string(transport1.LocalAddr())
+	machine2Address := string(transport2.LocalAddr())
+
+	alternateAddress := "testing.invalid:1234"
+	c.Assert(s.Raft.Leader(), gc.Not(gc.Equals), alternateAddress)
 	s.publishDetails(c, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {
 				ID:              "0",
-				InternalAddress: "testing.invalid:1234",
+				InternalAddress: alternateAddress,
 			},
 			"1": {
 				ID:              "1",
@@ -257,9 +221,12 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 			},
 		},
 	})
+	//Check configuration asserts that the raft configuration should have
+	//been updated to reflect the two added machines and that the address of
+	//the leader has been changed.
 	rafttest.CheckConfiguration(c, raft1, []raft.Server{{
 		ID:       "machine-0",
-		Address:  "testing.invalid:1234",
+		Address:  raft.ServerAddress(alternateAddress),
 		Suffrage: raft.Voter,
 	}, {
 		ID:       "machine-1",
@@ -271,8 +238,7 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 		Suffrage: raft.Voter,
 	}})
 
-	// Having the leader change its own address
-	// should not cause it to step down.
+	// machine-0 should still be the leader
 	future := s.Raft.VerifyLeader()
 	c.Assert(future.Error(), jc.ErrorIsNil)
 }
@@ -284,5 +250,17 @@ func (s *WorkerSuite) publishDetails(c *gc.C, details apiserver.Details) {
 	case <-received:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for details to be received")
+	}
+}
+
+// Connect  all of the provided transport bidirectionally.
+func connectTransports(transports ...raft.LoopbackTransport) {
+	for _, t1 := range transports {
+		for _, t2 := range transports {
+			if t1 == t2 {
+				continue
+			}
+			t1.Connect(t2.LocalAddr(), t2)
+		}
 	}
 }
