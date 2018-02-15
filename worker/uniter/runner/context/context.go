@@ -125,6 +125,9 @@ type HookContext struct {
 	// configSettings holds the service configuration.
 	configSettings charm.Settings
 
+	// goalState holds the goal state struct
+	goalState string
+
 	// id identifies the context.
 	id string
 
@@ -481,6 +484,15 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 		result[name] = value
 	}
 	return result, nil
+}
+
+func (ctx *HookContext) GoalState() (string, error) {
+	var err error
+	ctx.goalState, err = ctx.state.GoalState()
+	if err != nil {
+		return "", err
+	}
+	return ctx.goalState, nil
 }
 
 func (ctx *HookContext) SetContainerSpec(specYaml string, application bool) error {

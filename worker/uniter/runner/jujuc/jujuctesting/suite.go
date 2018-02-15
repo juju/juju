@@ -31,9 +31,10 @@ func (s *ContextSuite) NewInfo() *ContextInfo {
 		"title":               "My Title",
 		"username":            "admin001",
 	}
+	info.GoalState        = "test-goal-state"
 	info.AvailabilityZone = "us-east-1a"
-	info.PublicAddress = "gimli.minecraft.testing.invalid"
-	info.PrivateAddress = "192.168.0.99"
+	info.PublicAddress    = "gimli.minecraft.testing.invalid"
+	info.PrivateAddress   = "192.168.0.99"
 	return &info
 }
 

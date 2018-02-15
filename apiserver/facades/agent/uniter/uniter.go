@@ -2411,3 +2411,29 @@ func (u *UniterAPI) SetContainerSpec(args params.SetContainerSpecParams) (params
 	}
 	return results, nil
 }
+
+// GoalStates returns information of charm units and relations.
+func (u *UniterAPI) GoalStates(args params.Entities) (string, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return "", err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		// TODO (agprado): get units and relations information from
+
+		result.Results[0].Result = "Hello World I'll be a yaml"
+	}
+	return result.Results[0].Result, nil
+}

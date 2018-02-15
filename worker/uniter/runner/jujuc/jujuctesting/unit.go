@@ -12,6 +12,7 @@ import (
 type Unit struct {
 	Name           string
 	ConfigSettings charm.Settings
+	GoalState      string
 	ContainerSpec  string
 	Application    bool
 }
@@ -38,6 +39,15 @@ func (c *ContextUnit) ConfigSettings() (charm.Settings, error) {
 	}
 
 	return c.info.ConfigSettings, nil
+}
+
+// GoalState implements jujuc.ContextUnit.
+func (c *ContextUnit) GoalState() (string, error) {
+	c.stub.AddCall("GoalState")
+	if err := c.stub.NextErr(); err != nil {
+		return "", errors.Trace(err)
+	}
+	return c.info.GoalState, nil
 }
 
 func (c *ContextUnit) SetContainerSpec(specYaml string, application bool) error {

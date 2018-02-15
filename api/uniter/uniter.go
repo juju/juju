@@ -433,6 +433,30 @@ func (st *State) SLALevel() (string, error) {
 	return result.Result, nil
 }
 
+// GoalState returns a GoalStateResult struct with the charm's
+// peers and related units information.
+func (c *State) GoalState() (string, error) {
+	var result params.StringResults
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: c.unitTag.String()},
+		},
+	}
+
+	err := c.facade.FacadeCall("GoalStates", args, &result)
+	if err != nil {
+		return "", err
+	}
+	if len(result.Results) != 1 {
+		return "", fmt.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	if err := result.Results[0].Error; err != nil {
+		return "", err
+	}
+	return result.Results[0].Result, nil
+}
+
 // SetContainerSpec sets the container spec of the specified application or unit.
 func (c *State) SetContainerSpec(entityName string, spec string) error {
 	var tag names.Tag
