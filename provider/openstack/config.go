@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/schema"
+	"github.com/juju/utils"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -29,6 +30,14 @@ var configSchema = environschema.Fields{
 		Description: "The network label or UUID to create floating IP addresses on when multiple external networks exist.",
 		Type:        environschema.Tstring,
 	},
+	"use-openstack-gbp": {
+		Description: "Whether to use Neutrons Group-Based Policy",
+		Type:        environschema.Tbool,
+	},
+	"policy-target-group": {
+		Description: "The UUID of Policy Target Group to use for Policy Targets created.",
+		Type:        environschema.Tstring,
+	},
 }
 
 var configDefaults = schema.Defaults{
@@ -36,6 +45,8 @@ var configDefaults = schema.Defaults{
 	"use-default-secgroup": false,
 	"network":              "",
 	"external-network":     "",
+	"use-openstack-gbp":    false,
+	"policy-target-group":  "",
 }
 
 var configFields = func() schema.Fields {
@@ -65,6 +76,14 @@ func (c *environConfig) network() string {
 
 func (c *environConfig) externalNetwork() string {
 	return c.attrs["external-network"].(string)
+}
+
+func (c *environConfig) useOpenstackGBP() bool {
+	return c.attrs["use-openstack-gbp"].(bool)
+}
+
+func (c *environConfig) policyTargetGroup() string {
+	return c.attrs["policy-target-group"].(string)
 }
 
 type AuthMode string
@@ -108,9 +127,27 @@ func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	}
 	ecfg := &environConfig{cfg, validated}
 
+	cfgAttrs := cfg.AllAttrs()
+	// If we have use-openstack-gbp set to Yes we require a proper UUID for policy-target-group.
+	hasPTG := false
+	if ptg := cfgAttrs["policy-target-group"]; ptg != nil && ptg.(string) != "" {
+		if utils.IsValidUUIDString(ptg.(string)) {
+			hasPTG = true
+		} else {
+			return nil, fmt.Errorf("policy-target-group has invalid UUID: %q", ptg)
+		}
+	}
+	if useGBP := cfgAttrs["use-openstack-gbp"]; useGBP != nil && useGBP.(bool) == true {
+		if hasPTG == false {
+			return nil, fmt.Errorf("policy-target-group must be set when use-openstack-gbp is set")
+		}
+		if network := cfgAttrs["network"]; network != nil && network.(string) != "" {
+			return nil, fmt.Errorf("cannot use 'network' config setting when use-openstack-gbp is set")
+		}
+	}
+
 	// Check for deprecated fields and log a warning. We also print to stderr to ensure the user sees the message
 	// even if they are not running with --debug.
-	cfgAttrs := cfg.AllAttrs()
 	if defaultImageId := cfgAttrs["default-image-id"]; defaultImageId != nil && defaultImageId.(string) != "" {
 		msg := fmt.Sprintf(
 			"Config attribute %q (%v) is deprecated and ignored.\n"+

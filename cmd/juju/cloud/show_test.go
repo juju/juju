@@ -88,6 +88,9 @@ network:
   type: string
   description: The network label or UUID to bring machines up on when multiple networks
     exist.
+policy-target-group:
+  type: string
+  description: The UUID of Policy Target Group to use for Policy Targets created.
 use-default-secgroup:
   type: bool
   description: Whether new machine instances should have the "default" Openstack security
@@ -97,6 +100,9 @@ use-floating-ip:
   description: Whether a floating IP address is required to give the nodes a public
     IP address. Some installations assign public IP addresses by default without requiring
     a floating IP address.
+use-openstack-gbp:
+  type: bool
+  description: Whether to use Neutrons Group-Based Policy
 `
 
 func (s *showSuite) TestShowWithRegionConfigAndFlags(c *gc.C) {

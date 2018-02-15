@@ -4,6 +4,7 @@
 package auditconfigupdater_test
 
 import (
+	"sync"
 	"time"
 
 	"github.com/juju/testing"
@@ -51,7 +52,7 @@ func (s *updaterSuite) TestWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	source.cfg["auditing-enabled"] = true
+	source.setConfig(makeControllerConfig(true, false))
 	configChanged <- ding
 
 	var newConfig auditlog.Config
@@ -99,7 +100,7 @@ func (s *updaterSuite) TestIgnoresIrrelevantChange(c *gc.C) {
 		c.Fatalf("irrelevant change shouldn't have triggered audit config change")
 	}
 
-	source.cfg = makeControllerConfig(true, false)
+	source.setConfig(makeControllerConfig(true, false))
 	configChanged <- ding
 
 	var newConfig auditlog.Config
@@ -143,7 +144,7 @@ func (s *updaterSuite) TestKeepsLogFileWhenAuditingDisabled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	source.cfg = makeControllerConfig(false, false)
+	source.setConfig(makeControllerConfig(false, false))
 	configChanged <- ding
 
 	var newConfig auditlog.Config
@@ -175,7 +176,7 @@ func (s *updaterSuite) TestKeepsLogFileWhenEnabled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	source.cfg = makeControllerConfig(true, false)
+	source.setConfig(makeControllerConfig(true, false))
 	configChanged <- ding
 
 	var newConfig auditlog.Config
@@ -206,7 +207,7 @@ func (s *updaterSuite) TestChangingExcludeMethod(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	source.cfg = makeControllerConfig(true, false, "Pink.Floyd", "Led.Zeppelin")
+	source.setConfig(makeControllerConfig(true, false, "Pink.Floyd", "Led.Zeppelin"))
 	configChanged <- ding
 
 	var newConfig auditlog.Config
@@ -218,7 +219,7 @@ func (s *updaterSuite) TestChangingExcludeMethod(c *gc.C) {
 
 	c.Assert(newConfig.ExcludeMethods, gc.DeepEquals, set.NewStrings("Pink.Floyd", "Led.Zeppelin"))
 
-	source.cfg = makeControllerConfig(true, false, "Led.Zeppelin")
+	source.setConfig(makeControllerConfig(true, false, "Led.Zeppelin"))
 	configChanged <- ding
 
 	select {
@@ -247,7 +248,7 @@ func (s *updaterSuite) TestChangingCaptureArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	source.cfg = makeControllerConfig(true, true)
+	source.setConfig(makeControllerConfig(true, true))
 	configChanged <- ding
 
 	var newConfig auditlog.Config
@@ -271,6 +272,7 @@ func makeControllerConfig(auditEnabled bool, captureArgs bool, methods ...interf
 }
 
 type configSource struct {
+	mu      sync.Mutex
 	stub    testing.Stub
 	watcher *watchertest.NotifyWatcher
 	cfg     controller.Config
@@ -282,9 +284,17 @@ func (s *configSource) WatchControllerConfig() state.NotifyWatcher {
 }
 
 func (s *configSource) ControllerConfig() (controller.Config, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.stub.AddCall("ControllerConfig")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
 	return s.cfg, nil
+}
+
+func (s *configSource) setConfig(cfg controller.Config) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cfg = cfg
 }
