@@ -11,7 +11,6 @@ import time
 
 from deploy_stack import (
     BootstrapManager,
-    test_on_controller,
     )
 from jujucharm import local_charm_path
 from utility import (
@@ -456,7 +455,8 @@ def main(argv=None):
         # PR7635 is for persistent storage feature on lxd.
         log.error('Incorrect substrate, must be AWS.')
         sys.exit(1)
-    test_on_controller(assess_persistent_storage, args)
+    with bs_manager.booted_context(args.upload_tools):
+        assess_persistent_storage(bs_manager.client)
     return 0
 
 

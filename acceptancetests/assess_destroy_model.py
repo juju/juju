@@ -147,7 +147,7 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(
         description='Test if juju drops selection of the current model '
         'when that model is destroyed.')
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
 
 

@@ -88,7 +88,8 @@ def set_clouds_yaml_config(client, config_details):
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Test Model Tree Config")
-    add_basic_testing_arguments(parser)
+    # Modifies controller config, can't using existing safely.
+    add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
 
 
