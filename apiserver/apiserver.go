@@ -585,34 +585,34 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	)
 
 	add("/model/:modeluuid/applications/:application/resources/:resource", &ResourcesHandler{
-		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.StatePoolReleaser, names.Tag, error) {
-			st, closer, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+		StateAuthFunc: func(req *http.Request, tagKinds ...string) (ResourcesBackend, state.PoolItemCallbacks, names.Tag, error) {
+			st, cb, entity, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
 			if err != nil {
-				return nil, nil, nil, errors.Trace(err)
+				return nil, cb, nil, errors.Trace(err)
 			}
 			rst, err := st.Resources()
 			if err != nil {
-				return nil, nil, nil, errors.Trace(err)
+				return nil, cb, nil, errors.Trace(err)
 			}
-			return rst, closer, entity.Tag(), nil
+			return rst, cb, entity.Tag(), nil
 		},
 	})
 	add("/model/:modeluuid/units/:unit/resources/:resource", &UnitResourcesHandler{
-		NewOpener: func(req *http.Request, tagKinds ...string) (resource.Opener, state.StatePoolReleaser, error) {
-			st, closer, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
+		NewOpener: func(req *http.Request, tagKinds ...string) (resource.Opener, state.PoolItemCallbacks, error) {
+			st, cb, _, err := httpCtxt.stateForRequestAuthenticatedTag(req, tagKinds...)
 			if err != nil {
-				return nil, nil, errors.Trace(err)
+				return nil, cb, errors.Trace(err)
 			}
 			tagStr := req.URL.Query().Get(":unit")
 			tag, err := names.ParseUnitTag(tagStr)
 			if err != nil {
-				return nil, nil, errors.Trace(err)
+				return nil, cb, errors.Trace(err)
 			}
 			opener, err := resourceadapters.NewResourceOpener(st, tag.Id())
 			if err != nil {
-				return nil, nil, errors.Trace(err)
+				return nil, cb, errors.Trace(err)
 			}
-			return opener, closer, nil
+			return opener, cb, nil
 		},
 	})
 
@@ -831,16 +831,16 @@ func (srv *Server) serveConn(
 		modelUUID: modelUUID,
 	})
 	var (
-		st       *state.State
-		h        *apiHandler
-		releaser state.StatePoolReleaser
+		st *state.State
+		h  *apiHandler
+		cb state.PoolItemCallbacks
 	)
 	if err == nil {
-		st, releaser, err = srv.statePool.Get(resolvedModelUUID)
+		st, cb, err = srv.statePool.Get(resolvedModelUUID)
 	}
 
 	if err == nil {
-		defer releaser()
+		defer cb.Release()
 		h, err = newAPIHandler(srv, st, conn, modelUUID, connectionID, host)
 	}
 

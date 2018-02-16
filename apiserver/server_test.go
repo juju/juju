@@ -557,9 +557,9 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the model's in the pool but not referenced.
-	st, releaser, err := s.StatePool.Get(otherState.ModelUUID())
+	st, cb, err := s.StatePool.Get(otherState.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
-	releaser()
+	cb.Release()
 
 	// Make a request for the model API to check it releases
 	// state back into the pool once the connection is closed.

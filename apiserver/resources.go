@@ -42,17 +42,17 @@ type ResourcesBackend interface {
 // ResourcesHandler is the HTTP handler for client downloads and
 // uploads of resources.
 type ResourcesHandler struct {
-	StateAuthFunc func(*http.Request, ...string) (ResourcesBackend, state.StatePoolReleaser, names.Tag, error)
+	StateAuthFunc func(*http.Request, ...string) (ResourcesBackend, state.PoolItemCallbacks, names.Tag, error)
 }
 
 // ServeHTTP implements http.Handler.
 func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	backend, closer, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind)
+	backend, cb, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind)
 	if err != nil {
 		api.SendHTTPError(resp, err)
 		return
 	}
-	defer closer()
+	defer cb.Release()
 
 	switch req.Method {
 	case "GET":

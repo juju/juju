@@ -273,13 +273,13 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	machines := []machineModel{}
+	var machines []machineModel
 	for _, modelUUID := range modelUUIDs {
-		st, release, err := pool.Get(modelUUID)
+		st, cb, err := pool.Get(modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		defer release()
+		defer cb.Release()
 
 		model, err := st.Model()
 		if err != nil {

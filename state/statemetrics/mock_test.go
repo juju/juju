@@ -24,10 +24,11 @@ func (p *mockStatePool) SystemState() statemetrics.State {
 	return p.system
 }
 
-func (p *mockStatePool) Get(modelUUID string) (statemetrics.State, state.StatePoolReleaser, error) {
+func (p *mockStatePool) Get(modelUUID string) (statemetrics.State, state.PoolItemCallbacks, error) {
 	p.MethodCall(p, "Get", modelUUID)
+	cb := state.PoolItemCallbacks{}
 	if err := p.NextErr(); err != nil {
-		return nil, nil, err
+		return nil, cb, err
 	}
 	for _, m := range p.models {
 		if m.tag.Id() == modelUUID {
@@ -35,20 +36,23 @@ func (p *mockStatePool) Get(modelUUID string) (statemetrics.State, state.StatePo
 				model:      m,
 				modelUUIDs: p.modelUUIDs(),
 			}
-			return st, st.release, nil
+			cb.Release = st.release
+			return st, cb, nil
 		}
 	}
 	panic("model not found")
 }
 
-func (p *mockStatePool) GetModel(modelUUID string) (statemetrics.Model, state.StatePoolReleaser, error) {
+func (p *mockStatePool) GetModel(modelUUID string) (statemetrics.Model, state.PoolItemCallbacks, error) {
 	p.MethodCall(p, "GetModel", modelUUID)
+	cb := state.PoolItemCallbacks{}
 	if err := p.NextErr(); err != nil {
-		return nil, nil, err
+		return nil, cb, err
 	}
 	for _, m := range p.models {
 		if m.tag.Id() == modelUUID {
-			return m, func() bool { return true }, nil
+			cb.Release = func() bool { return true }
+			return m, cb, nil
 		}
 	}
 	panic("model not found")

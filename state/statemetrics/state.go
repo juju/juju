@@ -14,8 +14,8 @@ import (
 // StatePool represents a pool of State objects.
 type StatePool interface {
 	SystemState() State
-	Get(modelUUID string) (State, state.StatePoolReleaser, error)
-	GetModel(modelUUID string) (Model, state.StatePoolReleaser, error)
+	Get(modelUUID string) (State, state.PoolItemCallbacks, error)
+	GetModel(modelUUID string) (Model, state.PoolItemCallbacks, error)
 }
 
 // State represents the global state managed by the Juju controller.
@@ -62,20 +62,20 @@ func (p statePoolShim) SystemState() State {
 	return stateShim{p.pool.SystemState()}
 }
 
-func (p statePoolShim) Get(modelUUID string) (State, state.StatePoolReleaser, error) {
-	st, releaser, err := p.pool.Get(modelUUID)
+func (p statePoolShim) Get(modelUUID string) (State, state.PoolItemCallbacks, error) {
+	st, cb, err := p.pool.Get(modelUUID)
 	if err != nil {
-		return nil, nil, err
+		return nil, cb, err
 	}
-	return stateShim{st}, releaser, nil
+	return stateShim{st}, cb, nil
 }
 
-func (p statePoolShim) GetModel(modelUUID string) (Model, state.StatePoolReleaser, error) {
-	model, releaser, err := p.pool.GetModel(modelUUID)
+func (p statePoolShim) GetModel(modelUUID string) (Model, state.PoolItemCallbacks, error) {
+	model, cb, err := p.pool.GetModel(modelUUID)
 	if err != nil {
-		return nil, nil, err
+		return nil, cb, err
 	}
-	return model, releaser, nil
+	return model, cb, nil
 }
 
 type stateShim struct {

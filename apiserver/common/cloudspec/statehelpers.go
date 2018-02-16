@@ -15,18 +15,18 @@ import (
 // Pool describes an interface for retrieving State instances from a
 // collection.
 type Pool interface {
-	Get(string) (*state.State, state.StatePoolReleaser, error)
+	Get(string) (*state.State, state.PoolItemCallbacks, error)
 }
 
 // MakeCloudSpecGetter returns a function which returns a CloudSpec
 // for a given model, using the given Pool.
 func MakeCloudSpecGetter(pool Pool) func(names.ModelTag) (environs.CloudSpec, error) {
 	return func(tag names.ModelTag) (environs.CloudSpec, error) {
-		st, release, err := pool.Get(tag.Id())
+		st, cb, err := pool.Get(tag.Id())
 		if err != nil {
 			return environs.CloudSpec{}, errors.Trace(err)
 		}
-		defer release()
+		defer cb.Release()
 
 		m, err := st.Model()
 		if err != nil {

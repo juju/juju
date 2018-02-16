@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
@@ -225,9 +225,9 @@ func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
 
 	// Get a reference to the state pool entry, so we can
 	// prevent it from being fully removed from the pool.
-	_, release, err := pool.Get(newSt.ModelUUID())
+	_, cb, err := pool.Get(newSt.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer cb.Release()
 
 	// Progress the model to Dead.
 	err = model.Destroy(state.DestroyModelParams{})
@@ -238,13 +238,13 @@ func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
 	s.State.StartSync()
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		_, release, err := pool.Get(newSt.ModelUUID())
+		_, cb, err := pool.Get(newSt.ModelUUID())
 		if errors.IsNotFound(err) {
 			c.Assert(err, gc.ErrorMatches, "model .* has been removed")
 			return
 		}
 		c.Assert(err, jc.ErrorIsNil)
-		release()
+		cb.Release()
 	}
 	c.Fatal("timed out waiting for model state to be removed from pool")
 }

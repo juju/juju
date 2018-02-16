@@ -929,9 +929,9 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 	c.Assert(model.Name, gc.Equals, "test-model")
 	// Make sure that the environment created does actually have the correct
 	// owner, and that owner is actually allowed to use the environment.
-	newState, release, err := s.StatePool.Get(model.UUID)
+	newState, cb, err := s.StatePool.Get(model.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer cb.Release()
 
 	newModel, err := newState.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1093,9 +1093,9 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	m, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, release, err := s.StatePool.Get(m.UUID)
+	st, cb, err := s.StatePool.Get(m.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer cb.Release()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1129,9 +1129,9 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	m, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, release, err := s.StatePool.Get(m.UUID)
+	st, cb, err := s.StatePool.Get(m.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer cb.Release()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1165,9 +1165,9 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	m, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, release, err := s.StatePool.Get(m.UUID)
+	st, cb, err := s.StatePool.Get(m.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer cb.Release()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

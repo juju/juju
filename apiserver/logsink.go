@@ -124,7 +124,7 @@ func newAgentLogWriteCloserFunc(
 }
 
 func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
-	st, releaseState, entity, err := ctxt.stateForRequestAuthenticatedAgent(req)
+	st, cb, entity, err := ctxt.stateForRequestAuthenticatedAgent(req)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -138,7 +138,7 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	// address this caveat appropriately.
 	ver, err := logsink.JujuClientVersionFromRequest(req)
 	if err != nil {
-		releaseState()
+		cb.Release()
 		return errors.Trace(err)
 	}
 	s.version = ver
@@ -146,7 +146,7 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	s.filePrefix = st.ModelUUID() + ":"
 	s.dblogger = s.dbloggers.get(st)
 	s.releaser = func() {
-		if removed := releaseState(); removed {
+		if removed := cb.Release(); removed {
 			s.dbloggers.remove(st)
 		}
 	}

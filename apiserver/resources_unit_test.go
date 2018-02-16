@@ -62,8 +62,8 @@ func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *gc.C) {
 func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
 	failure, expectedBody := apiFailure("boom", "")
 	handler := &apiserver.UnitResourcesHandler{
-		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.StatePoolReleaser, error) {
-			return nil, nil, failure
+		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolItemCallbacks, error) {
+			return nil, state.PoolItemCallbacks{}, failure
 		},
 	}
 
@@ -86,9 +86,9 @@ func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *gc.C) {
 	failure, expectedBody := apiFailure("boom", "")
 	s.stub.SetErrors(failure)
 	handler := &apiserver.UnitResourcesHandler{
-		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.StatePoolReleaser, error) {
+		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolItemCallbacks, error) {
 			s.stub.AddCall("NewOpener", kinds)
-			return opener, s.closer, nil
+			return opener, state.PoolItemCallbacks{Release: s.closer}, nil
 		},
 	}
 
@@ -113,9 +113,9 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
 		ReturnOpenResource: opened,
 	}
 	handler := &apiserver.UnitResourcesHandler{
-		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.StatePoolReleaser, error) {
+		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolItemCallbacks, error) {
 			s.stub.AddCall("NewOpener", kinds)
-			return opener, s.closer, nil
+			return opener, state.PoolItemCallbacks{Release: s.closer}, nil
 		},
 	}
 

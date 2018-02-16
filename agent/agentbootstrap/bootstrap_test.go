@@ -257,9 +257,9 @@ LXC_BRIDGE="ignored"`[1:])
 	// controller model.
 	statePool := state.NewStatePool(st)
 	defer statePool.Close()
-	hostedModelSt, release, err := statePool.Get(hostedModelUUID)
+	hostedModelSt, cb, err := statePool.Get(hostedModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer cb.Release()
 	gotModelConstraints, err = hostedModelSt.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
@@ -331,7 +331,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"Provider",
 		"Version",
 	)
-	// Those attritbutes are configured during initialization, after "Open".
+	// Those attributes are configured during initialization, after "Open".
 	expectedCalledCfg, err := hostedCfg.Apply(map[string]interface{}{"container-networking-method": ""})
 	c.Assert(err, jc.ErrorIsNil)
 	envProvider.CheckCall(c, 2, "Open", environs.OpenParams{

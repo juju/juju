@@ -167,7 +167,7 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 		return result, errors.Trace(err)
 	}
 	for _, modelUUID := range modelUUIDs {
-		st, release, err := s.statePool.Get(modelUUID)
+		st, cb, err := s.statePool.Get(modelUUID)
 		if err != nil {
 			// This model could have been removed.
 			if errors.IsNotFound(err) {
@@ -175,7 +175,7 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 			}
 			return result, errors.Trace(err)
 		}
-		defer release()
+		defer cb.Release()
 
 		model, err := st.Model()
 		if err != nil {
@@ -232,7 +232,7 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	}
 
 	for uuid, blocks := range modelBlocks {
-		model, release, err := s.statePool.GetModel(uuid)
+		model, cb, err := s.statePool.GetModel(uuid)
 		if err != nil {
 			logger.Debugf("unable to retrieve model %s: %v", uuid, err)
 			continue
@@ -243,7 +243,7 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 			OwnerTag: model.Owner().String(),
 			Blocks:   blocks,
 		})
-		release()
+		cb.Release()
 	}
 
 	// Sort the resulting sequence by environment name, then owner.
@@ -298,7 +298,7 @@ func (s *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, 
 		if modelUUID == s.state.ControllerModelUUID() {
 			continue
 		}
-		st, release, err := s.statePool.Get(modelUUID)
+		st, cb, err := s.statePool.Get(modelUUID)
 		if err != nil {
 			// This model could have been removed.
 			if errors.IsNotFound(err) {
@@ -306,7 +306,7 @@ func (s *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, 
 			}
 			return result, errors.Trace(err)
 		}
-		defer release()
+		defer cb.Release()
 		model, err := st.Model()
 		if err != nil {
 			return result, errors.Trace(err)
@@ -429,11 +429,11 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		return "", errors.NotFoundf("model")
 	}
 
-	hostedState, release, err := c.statePool.Get(modelTag.Id())
+	hostedState, cb, err := c.statePool.Get(modelTag.Id())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer release()
+	defer cb.Release()
 
 	// Construct target info.
 	specTarget := spec.TargetInfo

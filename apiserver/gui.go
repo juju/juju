@@ -403,11 +403,11 @@ func modelInfoFromPath(path string, st *state.State, pool *state.StatePool) (uui
 		return "", "", ""
 	}
 	for _, modelUUID := range modelUUIDs {
-		model, release, err := pool.GetModel(modelUUID)
+		model, cb, err := pool.GetModel(modelUUID)
 		if err != nil {
 			return "", "", ""
 		}
-		defer release()
+		defer cb.Release()
 		if model.Name() == modelName {
 			return modelUUID, user, modelName
 		}
@@ -499,11 +499,11 @@ func (h *guiArchiveHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 // handleGet returns information on Juju GUI archives in the controller.
 func (h *guiArchiveHandler) handleGet(w http.ResponseWriter, req *http.Request) error {
 	// Open the GUI archive storage.
-	st, releaser, err := h.ctxt.stateForRequestUnauthenticated(req)
+	st, cb, err := h.ctxt.stateForRequestUnauthenticated(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
-	defer releaser()
+	defer cb.Release()
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open GUI storage")
@@ -567,11 +567,11 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 	}
 
 	// Open the GUI archive storage.
-	st, releaser, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	st, cb, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
-	defer releaser()
+	defer cb.Release()
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open GUI storage")
@@ -643,11 +643,11 @@ func (h *guiVersionHandler) handlePut(w http.ResponseWriter, req *http.Request) 
 	}
 
 	// Authenticate the request and retrieve the Juju state.
-	st, releaser, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	st, cb, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
-	defer releaser()
+	defer cb.Release()
 
 	var selected params.GUIVersionRequest
 	decoder := json.NewDecoder(req.Body)

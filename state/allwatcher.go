@@ -1348,7 +1348,7 @@ func (b *allModelWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 }
 
 func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(modelUUID string, all *multiwatcherStore) error {
-	st, releaser, err := b.stPool.Get(modelUUID)
+	st, cb, err := b.stPool.Get(modelUUID)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// This can occur if the model has been destroyed since
@@ -1360,7 +1360,7 @@ func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(modelUUID s
 		}
 		return errors.Trace(err)
 	}
-	defer releaser()
+	defer cb.Release()
 
 	err = loadAllWatcherEntities(st, b.collectionByName, all)
 	if err != nil {
@@ -1384,7 +1384,7 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 
 	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
 
-	st, releaser, err := b.getState(modelUUID)
+	st, cb, err := b.getState(modelUUID)
 	if err != nil {
 		if exists, modelErr := b.st.ModelExists(modelUUID); exists && modelErr == nil {
 			// The entity's model is gone so remove the entity
@@ -1394,7 +1394,7 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 		}
 		return errors.Trace(err) // prioritise getState error
 	}
-	defer releaser()
+	defer cb.Release()
 
 	col, closer := st.db().GetCollection(c.name)
 	defer closer()
@@ -1424,12 +1424,12 @@ func (b *allModelWatcherStateBacking) idForChange(change watcher.Change) (string
 	return modelUUID, id, nil
 }
 
-func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, StatePoolReleaser, error) {
-	st, releaser, err := b.stPool.Get(modelUUID)
+func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, PoolItemCallbacks, error) {
+	st, cb, err := b.stPool.Get(modelUUID)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, cb, errors.Trace(err)
 	}
-	return st, releaser, nil
+	return st, cb, nil
 }
 
 // Release implements the Backing interface.

@@ -64,13 +64,13 @@ func validateModelUUID(args validateArgs) (string, error) {
 		return "", errors.Trace(common.UnknownModelError(args.modelUUID))
 	}
 
-	_, release, err := args.statePool.GetModel(args.modelUUID)
+	_, cb, err := args.statePool.GetModel(args.modelUUID)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", errors.Wrap(err, common.UnknownModelError(args.modelUUID))
 		}
 		return "", errors.Trace(err)
 	}
-	release()
+	cb.Release()
 	return args.modelUUID, nil
 }

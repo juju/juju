@@ -31,11 +31,11 @@ type httpContext struct {
 }
 
 func (ctxt *httpContext) authRequest(req *http.Request) (apiserverhttp.AuthInfo, error) {
-	_, release, entity, err := ctxt.stateForRequestAuthenticated(req)
+	_, cb, entity, err := ctxt.stateForRequestAuthenticated(req)
 	if err != nil {
 		return apiserverhttp.AuthInfo{}, errors.Trace(err)
 	}
-	defer release()
+	defer cb.Release()
 
 	info := apiserverhttp.AuthInfo{
 		Tag:        entity.Tag(),
@@ -47,7 +47,11 @@ func (ctxt *httpContext) authRequest(req *http.Request) (apiserverhttp.AuthInfo,
 // stateForRequestUnauthenticated returns a state instance appropriate for
 // using for the model implicit in the given request
 // without checking any authentication information.
-func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state.State, state.StatePoolReleaser, error) {
+func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (
+	*state.State,
+	state.PoolItemCallbacks,
+	error,
+) {
 	modelUUID, err := validateModelUUID(validateArgs{
 		statePool:           ctxt.srv.statePool,
 		modelUUID:           r.URL.Query().Get(":modeluuid"),
@@ -55,46 +59,45 @@ func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state
 		controllerModelOnly: ctxt.controllerModelOnly,
 	})
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, state.PoolItemCallbacks{}, errors.Trace(err)
 	}
-	st, releaser, err := ctxt.srv.statePool.Get(modelUUID)
+	st, cb, err := ctxt.srv.statePool.Get(modelUUID)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, cb, errors.Trace(err)
 	}
-	return st, releaser, nil
+	return st, cb, nil
 }
 
 // stateForRequestAuthenticated returns a state instance appropriate for
 // using for the model implicit in the given request.
 // It also returns the authenticated entity.
 func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
-	resultSt *state.State,
-	resultReleaser state.StatePoolReleaser,
-	resultEntity state.Entity,
+	_ *state.State,
+	_ state.PoolItemCallbacks,
+	_ state.Entity,
 	err error,
 ) {
-	st, releaser, err := ctxt.stateForRequestUnauthenticated(r)
+	st, cb, err := ctxt.stateForRequestUnauthenticated(r)
 	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, cb, nil, errors.Trace(err)
 	}
 	defer func() {
 		// Here err is the named return arg.
-		// Don't user the named releaser return arg, because it will be nil.
 		if err != nil {
-			releaser()
+			cb.Release()
 		}
 	}()
 
 	req, err := ctxt.loginRequest(r)
 	if err != nil {
-		return nil, nil, nil, errors.NewUnauthorized(err, "")
+		return nil, cb, nil, errors.NewUnauthorized(err, "")
 	}
 
 	var authTag names.Tag
 	if req.AuthTag != "" {
 		tag, err := names.ParseTag(req.AuthTag)
 		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, cb, nil, errors.Trace(err)
 		}
 		authTag = tag
 	}
@@ -103,7 +106,7 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 	entity, _, err := checkCreds(st, req, authTag, true, authenticator)
 	if err != nil {
 		if common.IsDischargeRequiredError(err) {
-			return nil, nil, nil, errors.Trace(err)
+			return nil, cb, nil, errors.Trace(err)
 		}
 
 		// Handle the special case of a worker on a controller machine
@@ -113,21 +116,15 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 				ctxt.srv.statePool.SystemState(), req, machineTag, authenticator,
 			)
 			if err != nil {
-				return nil, nil, nil, errors.NewUnauthorized(err, "")
+				return nil, cb, nil, errors.NewUnauthorized(err, "")
 			}
-			return st, releaser, entity, nil
+			return st, cb, entity, nil
 		}
 
-		// Any other error at this point should be treated as
-		// "unauthorized".
-		return nil, nil, nil, errors.Trace(errors.NewUnauthorized(err, ""))
+		// Any other error at this point should be treated as "unauthorized".
+		return nil, cb, nil, errors.Trace(errors.NewUnauthorized(err, ""))
 	}
-	return st, releaser, entity, nil
-}
-
-func isMachineTag(tag string) bool {
-	kind, err := names.TagKind(tag)
-	return err == nil && kind == names.MachineTagKind
+	return st, cb, entity, nil
 }
 
 // checkPermissions verifies that given tag passes authentication check.
@@ -150,23 +147,23 @@ func checkPermissions(tag names.Tag, acceptFunc common.GetAuthFunc) (bool, error
 func (ctxt *httpContext) stateForMigration(
 	r *http.Request,
 	requiredMode state.MigrationMode,
-) (st *state.State, returnReleaser state.StatePoolReleaser, err error) {
+) (st *state.State, _ state.PoolItemCallbacks, err error) {
 	var user state.Entity
-	st, releaser, user, err := ctxt.stateAndEntityForRequestAuthenticatedUser(r)
+	st, callbacks, user, err := ctxt.stateAndEntityForRequestAuthenticatedUser(r)
 	if err != nil {
-		return nil, nil, err
+		return nil, callbacks, err
 	}
-	defer releaser()
+	defer callbacks.Release()
 
 	if !st.IsController() {
-		return nil, nil, errors.BadRequestf("model is not controller model")
+		return nil, callbacks, errors.BadRequestf("model is not controller model")
 	}
 	admin, err := st.IsControllerAdmin(user.Tag().(names.UserTag))
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, callbacks, errors.Trace(err)
 	}
 	if !admin {
-		return nil, nil, errors.Unauthorizedf("not a controller admin")
+		return nil, callbacks, errors.Unauthorizedf("not a controller admin")
 	}
 
 	modelUUID, err := validateModelUUID(validateArgs{
@@ -175,70 +172,83 @@ func (ctxt *httpContext) stateForMigration(
 		strict:    true,
 	})
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, callbacks, errors.Trace(err)
 	}
-	migrationSt, migrationReleaser, err := ctxt.srv.statePool.Get(modelUUID)
+	migrationSt, migrationCallbacks, err := ctxt.srv.statePool.Get(modelUUID)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, callbacks, errors.Trace(err)
 	}
 	defer func() {
 		// Here err is the named return arg.
-		// Don't user the named releaser return arg, because it will be nil.
 		if err != nil {
-			migrationReleaser()
+			migrationCallbacks.Release()
 		}
 	}()
 	model, err := migrationSt.Model()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, migrationCallbacks, errors.Trace(err)
 	}
 	if model.MigrationMode() != requiredMode {
-		return nil, nil, errors.BadRequestf(
+		return nil, migrationCallbacks, errors.BadRequestf(
 			"model migration mode is %q instead of %q", model.MigrationMode(), requiredMode)
 	}
-	return migrationSt, migrationReleaser, nil
+	return migrationSt, migrationCallbacks, nil
 }
 
-func (ctxt *httpContext) stateForMigrationImporting(r *http.Request) (*state.State, state.StatePoolReleaser, error) {
+func (ctxt *httpContext) stateForMigrationImporting(r *http.Request) (*state.State, state.PoolItemCallbacks, error) {
 	return ctxt.stateForMigration(r, state.MigrationModeImporting)
 }
 
 // stateForRequestAuthenticatedUser is like stateAndEntityForRequestAuthenticatedUser
 // but doesn't return the entity.
-func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*state.State, state.StatePoolReleaser, error) {
-	st, releaser, _, err := ctxt.stateAndEntityForRequestAuthenticatedUser(r)
-	return st, releaser, err
+func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (
+	*state.State,
+	state.PoolItemCallbacks,
+	error,
+) {
+	st, cb, _, err := ctxt.stateAndEntityForRequestAuthenticatedUser(r)
+	return st, cb, err
 }
 
 // stateAndEntityForRequestAuthenticatedUser is like stateForRequestAuthenticated
 // except that it also verifies that the authenticated entity is a user.
-func (ctxt *httpContext) stateAndEntityForRequestAuthenticatedUser(r *http.Request) (*state.State, state.StatePoolReleaser, state.Entity, error) {
+func (ctxt *httpContext) stateAndEntityForRequestAuthenticatedUser(r *http.Request) (
+	*state.State,
+	state.PoolItemCallbacks,
+	state.Entity,
+	error,
+) {
 	return ctxt.stateForRequestAuthenticatedTag(r, names.UserTagKind)
 }
 
 // stateForRequestAuthenticatedAgent is like stateForRequestAuthenticated
 // except that it also verifies that the authenticated entity is an agent.
-func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (*state.State, state.StatePoolReleaser, state.Entity, error) {
+func (ctxt *httpContext) stateForRequestAuthenticatedAgent(
+	r *http.Request,
+) (*state.State, state.PoolItemCallbacks, state.Entity, error) {
 	return ctxt.stateForRequestAuthenticatedTag(r, names.MachineTagKind, names.UnitTagKind)
 }
 
 // stateForRequestAuthenticatedTag checks that the request is
 // correctly authenticated, and that the authenticated entity making
 // the request is of one of the specified kinds.
-func (ctxt *httpContext) stateForRequestAuthenticatedTag(r *http.Request, kinds ...string) (*state.State, state.StatePoolReleaser, state.Entity, error) {
+func (ctxt *httpContext) stateForRequestAuthenticatedTag(
+	r *http.Request,
+	kinds ...string,
+) (*state.State, state.PoolItemCallbacks, state.Entity, error) {
 	funcs := make([]common.GetAuthFunc, len(kinds))
 	for i, kind := range kinds {
 		funcs[i] = common.AuthFuncForTagKind(kind)
 	}
-	st, releaser, entity, err := ctxt.stateForRequestAuthenticated(r)
+	st, cb, entity, err := ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, cb, nil, errors.Trace(err)
 	}
 	if ok, err := checkPermissions(entity.Tag(), common.AuthAny(funcs...)); !ok {
-		releaser()
-		return nil, nil, nil, err
+		cb.Release()
+		return nil, cb, nil, err
 	}
-	return st, releaser, entity, nil
+	return st, cb, entity, nil
 }
 
 // loginRequest forms a LoginRequest from the information

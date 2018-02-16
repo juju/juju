@@ -55,7 +55,7 @@ func (t *toolsReadCloser) Close() error {
 // toolsHandler handles tool upload through HTTPS in the API server.
 type toolsUploadHandler struct {
 	ctxt          httpContext
-	stateAuthFunc func(*http.Request) (*state.State, state.StatePoolReleaser, error)
+	stateAuthFunc func(*http.Request) (*state.State, state.PoolItemCallbacks, error)
 }
 
 // toolsHandler handles tool download through HTTPS in the API server.
@@ -64,14 +64,14 @@ type toolsDownloadHandler struct {
 }
 
 func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	st, releaser, err := h.ctxt.stateForRequestUnauthenticated(r)
+	st, cb, err := h.ctxt.stateForRequestUnauthenticated(r)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
 		}
 		return
 	}
-	defer releaser()
+	defer cb.Release()
 
 	switch r.Method {
 	case "GET":
@@ -97,14 +97,14 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
-	st, releaser, err := h.stateAuthFunc(r)
+	st, cb, err := h.stateAuthFunc(r)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
 		}
 		return
 	}
-	defer releaser()
+	defer cb.Release()
 
 	switch r.Method {
 	case "POST":

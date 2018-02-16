@@ -34,22 +34,22 @@ type statePoolShim struct {
 }
 
 func (pool statePoolShim) Get(modelUUID string) (Backend, func(), error) {
-	st, release, err := pool.StatePool.Get(modelUUID)
+	st, cb, err := pool.StatePool.Get(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	return &stateShim{
 		st:      st,
 		Backend: commoncrossmodel.GetBackend(st),
-	}, func() { release() }, nil
+	}, func() { cb.Release() }, nil
 }
 
 func (pool statePoolShim) GetModel(modelUUID string) (Model, func(), error) {
-	m, release, err := pool.StatePool.GetModel(modelUUID)
+	m, cb, err := pool.StatePool.GetModel(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return &modelShim{m}, func() { release() }, nil
+	return &modelShim{m}, func() { cb.Release() }, nil
 }
 
 // Backend provides selected methods off the state.State struct.
