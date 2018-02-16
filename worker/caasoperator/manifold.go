@@ -148,8 +148,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				DataDir:             agentConfig.DataDir(),
 				Downloader:          downloader,
 				StatusSetter:        client,
-				APIAddressGetter:    client,
-				ProxySettingsGetter: client,
 				LifeGetter:          client,
 				UnitGetter:          client,
 				StartUniterFunc:     uniter.StartUniter,

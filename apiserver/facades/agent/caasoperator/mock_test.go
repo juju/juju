@@ -6,13 +6,10 @@ package caasoperator_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
@@ -74,19 +71,6 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	}
 }
 
-func (st *mockState) APIHostPortsForAgents() ([][]network.HostPort, error) {
-	st.MethodCall(st, "APIHostPortsForAgents")
-	if err := st.NextErr(); err != nil {
-		return nil, err
-	}
-	hps := [][]network.HostPort{
-		network.NewHostPorts(1234, "0.1.2.3"),
-		network.NewHostPorts(1234, "0.1.2.4"),
-		network.NewHostPorts(1234, "0.1.2.5"),
-	}
-	return hps, nil
-}
-
 type mockModel struct {
 	testing.Stub
 }
@@ -98,19 +82,6 @@ func (m *mockModel) SetContainerSpec(tag names.Tag, spec string) error {
 
 func (st *mockModel) Name() string {
 	return "some-model"
-}
-
-func (m *mockModel) Config() (*config.Config, error) {
-	m.MethodCall(m, "Config")
-	if err := m.NextErr(); err != nil {
-		return nil, err
-	}
-	return config.New(config.UseDefaults, map[string]interface{}{
-		"name":       "some-model",
-		"type":       "kubernetes",
-		"uuid":       utils.MustNewUUID().String(),
-		"http-proxy": "http.proxy",
-	})
 }
 
 type mockApplication struct {

@@ -17,15 +17,12 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
-	agenttools "github.com/juju/juju/agent/tools"
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/status"
 	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/caasoperator/commands"
-	"github.com/juju/juju/worker/caasoperator/runner/context"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/uniter"
 )
@@ -39,7 +36,7 @@ var logger = loggo.GetLogger("juju.worker.caasoperator")
 type caasOperator struct {
 	catacomb catacomb.Catacomb
 	config   Config
-	paths    context.Paths
+	paths    Paths
 	runner   *worker.Runner
 }
 
@@ -80,14 +77,6 @@ type Config struct {
 	// StatusSetter is an interface used for setting the
 	// application status.
 	StatusSetter StatusSetter
-
-	// APIAddressGetter is an interface for getting the
-	// controller API addresses.
-	APIAddressGetter APIAddressGetter
-
-	// ProxySettingsGetter is an interface for getting the
-	// model proxy settings.
-	ProxySettingsGetter ProxySettingsGetter
 
 	// LifeGetter is an interface for getting the Life of an entity.
 	LifeGetter LifeGetter
@@ -144,12 +133,6 @@ func (config Config) Validate() error {
 	}
 	if config.StatusSetter == nil {
 		return errors.NotValidf("missing StatusSetter")
-	}
-	if config.APIAddressGetter == nil {
-		return errors.NotValidf("missing APIAddressGetter")
-	}
-	if config.ProxySettingsGetter == nil {
-		return errors.NotValidf("missing ProxySettingsGetter")
 	}
 	return nil
 }
@@ -291,15 +274,6 @@ func (op *caasOperator) loop() (err error) {
 }
 
 func (op *caasOperator) init() (err error) {
-	agentBinaryDir := op.paths.GetToolsDir()
-	logger.Debugf("creating caas operator symlinks in %v", agentBinaryDir)
-	if err := agenttools.EnsureSymlinks(
-		agentBinaryDir,
-		agentBinaryDir,
-		commands.CommandNames(),
-	); err != nil {
-		return err
-	}
 	if err := op.ensureCharm(); err != nil {
 		return errors.Trace(err)
 	}

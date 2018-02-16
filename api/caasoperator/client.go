@@ -5,7 +5,6 @@ package caasoperator
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -126,40 +125,6 @@ func (c *Client) SetContainerSpec(entityName string, spec string) error {
 		return errors.Trace(err)
 	}
 	return result.OneError()
-}
-
-// APIAddresses returns the list of addresses used to connect to the API.
-func (c *Client) APIAddresses() ([]string, error) {
-	var result params.StringsResult
-	err := c.facade.FacadeCall("APIAddresses", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := result.Error; err != nil {
-		return nil, err
-	}
-	return result.Result, nil
-}
-
-// ProxySettings returns the proxy settings for the model.
-func (c *Client) ProxySettings() (proxy.Settings, error) {
-	var results params.ProxyConfig
-	err := c.facade.FacadeCall("ProxyConfig", nil, &results)
-	if err != nil {
-		return proxy.Settings{}, err
-	}
-	proxySettings := proxySettingsParamToProxySettings(results)
-	return proxySettings, nil
-}
-
-func proxySettingsParamToProxySettings(cfg params.ProxyConfig) proxy.Settings {
-	return proxy.Settings{
-		Http:    cfg.HTTP,
-		Https:   cfg.HTTPS,
-		Ftp:     cfg.FTP,
-		NoProxy: cfg.NoProxy,
-	}
 }
 
 func applicationTag(application string) (names.ApplicationTag, error) {

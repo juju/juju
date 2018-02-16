@@ -5,14 +5,12 @@ package caasoperator
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
 )
@@ -63,57 +61,6 @@ func NewFacade(
 // ModelName returns the name of the model.
 func (f *Facade) ModelName() (params.StringResult, error) {
 	return params.StringResult{Result: f.model.Name()}, nil
-}
-
-// APIAddresses returns the API addresses of the controller.
-func (f *Facade) APIAddresses() (params.StringsResult, error) {
-	addrs, err := apiAddresses(f.state)
-	if err != nil {
-		return params.StringsResult{}, err
-	}
-	return params.StringsResult{
-		Result: addrs,
-	}, nil
-}
-
-func apiAddresses(getter CAASOperatorState) ([]string, error) {
-	apiHostPorts, err := getter.APIHostPortsForAgents()
-	if err != nil {
-		return nil, err
-	}
-	var addrs = make([]string, 0, len(apiHostPorts))
-	for _, hostPorts := range apiHostPorts {
-		ordered := network.PrioritizeInternalHostPorts(hostPorts, false)
-		for _, addr := range ordered {
-			if addr != "" {
-				addrs = append(addrs, addr)
-			}
-		}
-	}
-	return addrs, nil
-}
-
-// ProxyConfig returns the proxy config for the current model.
-func (f *Facade) ProxyConfig() (params.ProxyConfig, error) {
-	var result params.ProxyConfig
-	cfg, err := f.model.Config()
-	if err != nil {
-		return result, err
-	}
-
-	proxySettings := cfg.ProxySettings()
-	result = proxyUtilsSettingsToProxySettingsParam(proxySettings)
-	return result, nil
-
-}
-
-func proxyUtilsSettingsToProxySettingsParam(settings proxy.Settings) params.ProxyConfig {
-	return params.ProxyConfig{
-		HTTP:    settings.Http,
-		HTTPS:   settings.Https,
-		FTP:     settings.Ftp,
-		NoProxy: settings.FullNoProxy(),
-	}
 }
 
 // SetStatus sets the status of each given entity.
