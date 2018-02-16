@@ -452,7 +452,44 @@ func (k *kubernetesClient) EnsureUnit(appName, unitName string, spec *caas.Conta
 				labelUnit:        podName}},
 		Spec: unitSpec.Pod,
 	}
+	for _, fileSet := range spec.Files {
+		cfgName := unitConfigMapName(unitName, fileSet.Name)
+		if err := k.ensureConfigMap(filesetConfigMap(unitName, fileSet.Name, &fileSet)); err != nil {
+			return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
+		}
+		volumeSource := v1.VolumeSource{
+			ConfigMap: &v1.ConfigMapVolumeSource{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: cfgName,
+				},
+			},
+		}
+		pod.Spec.Volumes = []v1.Volume{{
+			Name:         cfgName,
+			VolumeSource: volumeSource,
+		}}
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, v1.VolumeMount{
+			Name:      cfgName,
+			MountPath: fileSet.MountPath,
+		})
+	}
 	return k.ensurePod(&pod)
+}
+
+// filesetConfigMap returns a *v1.ConfigMap for a pod
+// of the specified unit, with the specified files.
+func filesetConfigMap(unitName, fileSetName string, files *caas.FileSet) *v1.ConfigMap {
+	configMapName := unitConfigMapName(unitName, fileSetName)
+	result := &v1.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name: configMapName,
+		},
+		Data: map[string]string{},
+	}
+	for name, data := range files.Files {
+		result.Data[name] = data
+	}
+	return result
 }
 
 // DeleteUnit deletes a unit pod with the given unit name.
@@ -652,6 +689,10 @@ func operatorPodName(appName string) string {
 
 func operatorConfigMapName(appName string) string {
 	return operatorPodName(appName) + "-config"
+}
+
+func unitConfigMapName(unitName, fileSetName string) string {
+	return fmt.Sprintf("%v-%v-config", unitPodName(unitName), fileSetName)
 }
 
 func unitPodName(unitName string) string {

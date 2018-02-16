@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -1925,16 +1926,6 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		return params.NetworkInfoResults{}, err
 	}
 
-	machineID, err := unit.AssignedMachineId()
-	if err != nil {
-		return params.NetworkInfoResults{}, err
-	}
-
-	machine, err := u.st.Machine(machineID)
-	if err != nil {
-		return params.NetworkInfoResults{}, err
-	}
-
 	result := params.NetworkInfoResults{
 		Results: make(map[string]params.NetworkInfoResult),
 	}
@@ -1983,7 +1974,37 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		bindingsToIngressAddresses[endpoint.Name] = ingress
 	}
 
-	networkInfos := machine.GetNetworkInfoForSpaces(spaces)
+	var networkInfos map[string]state.MachineNetworkInfoResult
+	if unit.ShouldBeAssigned() {
+		machineID, err := unit.AssignedMachineId()
+		if err != nil {
+			return params.NetworkInfoResults{}, err
+		}
+		machine, err := u.st.Machine(machineID)
+		if err != nil {
+			return params.NetworkInfoResults{}, err
+		}
+		networkInfos = machine.GetNetworkInfoForSpaces(spaces)
+	} else {
+		// For CAAS units, we build up a minimal result struct
+		// based on the default space and unit private address,
+		// ie the address of the container.
+		addr, err := unit.PrivateAddress()
+		if err != nil {
+			return params.NetworkInfoResults{}, err
+		}
+		networkInfos = make(map[string]state.MachineNetworkInfoResult)
+		networkInfos[environs.DefaultSpaceName] = state.MachineNetworkInfoResult{
+			NetworkInfos: []network.NetworkInfo{
+				{
+					Addresses: []network.InterfaceAddress{{
+						Address: addr.Value,
+					}},
+				},
+			},
+		}
+	}
+
 	for binding, space := range bindingsToSpace {
 		// The binding address information based on link layer devices.
 		info := networkingcommon.MachineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
@@ -2352,7 +2373,7 @@ func (u *UniterAPI) SetContainerSpec(args params.SetContainerSpecParams) (params
 			continue
 		}
 		if _, err := caas.ParseContainerSpec(arg.Value); err != nil {
-			results.Results[i].Error = common.ServerError(errors.New("invalid container spec"))
+			results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid container spec"))
 			continue
 		}
 		cm, err := u.m.CAASModel()

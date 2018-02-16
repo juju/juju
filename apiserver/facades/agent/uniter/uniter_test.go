@@ -3029,7 +3029,8 @@ func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASMode
 	c.Assert(err, jc.ErrorIsNil)
 
 	f := factory.NewFactory(st)
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		SetCharmURL: true,
@@ -4039,4 +4040,58 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, jc.DeepEquals, expectedResult)
+}
+
+func (s *uniterSuite) TestNetworkInfoCAASModel(c *gc.C) {
+	_, cm, wp, wpUnit := s.setupCAASModel(c)
+
+	st := cm.State()
+	f := factory.NewFactory(st)
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+	eps, err := st.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := st.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	wpRelUnit, err := rel.Unit(wpUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = wpRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var updateUnits state.UpdateUnitsOperation
+	updateUnits.Updates = []*state.UpdateUnitOperation{wpUnit.UpdateOperation(state.UnitUpdateProperties{
+		Address: "192.168.1.2",
+		Ports:   []string{"443"},
+	})}
+	err = wp.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relId := rel.Id()
+	args := params.NetworkInfoParams{
+		Unit:       wpUnit.Tag().String(),
+		Bindings:   []string{"db"},
+		RelationId: &relId,
+	}
+
+	expectedResult := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				Addresses: []params.InterfaceAddress{
+					{Address: "192.168.1.2"},
+				},
+			},
+		},
+		EgressSubnets:    []string{"192.168.1.2/32"},
+		IngressAddresses: []string{"192.168.1.2"},
+	}
+
+	uniterAPI, err := uniter.NewUniterAPI(
+		st,
+		s.resources,
+		s.authorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results["db"], jc.DeepEquals, expectedResult)
 }
