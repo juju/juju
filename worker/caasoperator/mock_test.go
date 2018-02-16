@@ -20,9 +20,6 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasoperator"
-	"github.com/juju/juju/worker/caasoperator/hook"
-	"github.com/juju/juju/worker/caasoperator/runner"
-	"github.com/juju/juju/worker/caasoperator/runner/context"
 )
 
 var (
@@ -147,38 +144,6 @@ func (d *fakeDownloader) Download(req downloader.Request) (string, error) {
 		return "", err
 	}
 	return d.path, nil
-}
-
-func newRunnerFactoryFunc(observer *hookObserver) runner.NewRunnerFactoryFunc {
-	return func(context.Paths, context.ContextFactory) (runner.Factory, error) {
-		return &mockRunnerFactory{observer: observer}, nil
-	}
-}
-
-type mockRunnerFactory struct {
-	runner.Factory
-	observer *hookObserver
-}
-
-func (m *mockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, error) {
-	return &mockHookRunner{observer: m.observer}, nil
-}
-
-type mockHookRunner struct {
-	runner.Runner
-	observer *hookObserver
-}
-
-func (m *mockHookRunner) Context() runner.Context {
-	return &context.HookContext{}
-}
-
-func (m *mockHookRunner) RunHook(name string) error {
-	if m.observer == nil {
-		return nil
-	}
-	m.observer.recordHookCompleted(name)
-	return nil
 }
 
 type mockCharmDirGuard struct {

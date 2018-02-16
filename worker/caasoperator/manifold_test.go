@@ -153,8 +153,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ContainerSpecSetter: &s.client,
 		Downloader:          &s.charmDownloader,
 		StatusSetter:        &s.client,
-		APIAddressGetter:    &s.client,
-		ProxySettingsGetter: &s.client,
 		UnitGetter:          &s.client,
 		LifeGetter:          &s.client,
 		UniterParams: &uniter.UniterParams{
