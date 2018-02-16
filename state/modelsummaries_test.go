@@ -212,8 +212,8 @@ func (s *ModelSummariesSuite) TestContainsConfigInformation(c *gc.C) {
 	// We don't guarantee the order of the summaries, but the data for each model should match the same
 	// information you would get if you instantiate the model directly
 	summaryA := summaries[0]
-	model, closer, err := s.StatePool.GetModel(summaryA.UUID)
-	defer closer()
+	model, ph, err := s.StatePool.GetModel(summaryA.UUID)
+	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)
 	conf, err := model.Config()
 	c.Assert(err, jc.ErrorIsNil)
@@ -234,8 +234,8 @@ func (s *ModelSummariesSuite) TestContainsProviderType(c *gc.C) {
 	c.Check(summaries, gc.HasLen, 2)
 	// We don't guarantee the order of the summaries, but both should have the same ProviderType
 	summaryA := summaries[0]
-	model, closer, err := s.StatePool.GetModel(summaryA.UUID)
-	defer closer()
+	model, ph, err := s.StatePool.GetModel(summaryA.UUID)
+	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)
 	conf, err := model.Config()
 	c.Assert(err, jc.ErrorIsNil)
@@ -254,12 +254,12 @@ func (s *ModelSummariesSuite) TestContainsModelStatus(c *gc.C) {
 			Message: "human message",
 		},
 	}
-	shared, releaser, err := s.StatePool.GetModel(modelNameToUUID["shared"])
-	defer releaser()
+	shared, ph, err := s.StatePool.GetModel(modelNameToUUID["shared"])
+	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)
 	err = shared.SetStatus(expectedStatus["shared"])
-	user1, releaser, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
-	defer releaser()
+	user1, ph, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
+	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)
 	err = user1.SetStatus(expectedStatus["user1model"])
 	c.Assert(err, jc.ErrorIsNil)
@@ -280,8 +280,8 @@ func (s *ModelSummariesSuite) TestContainsModelStatus(c *gc.C) {
 
 func (s *ModelSummariesSuite) TestContainsAccessInformation(c *gc.C) {
 	modelNameToUUID := s.Setup4Models(c)
-	shared, releaser, err := s.StatePool.GetModel(modelNameToUUID["shared"])
-	defer releaser()
+	shared, ph, err := s.StatePool.GetModel(modelNameToUUID["shared"])
+	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)
 	err = shared.UpdateLastModelConnection(names.NewUserTag("auser"))
 	s.Clock.Advance(time.Hour)
@@ -292,8 +292,8 @@ func (s *ModelSummariesSuite) TestContainsAccessInformation(c *gc.C) {
 	s.Clock.Advance(time.Hour) // give a different time for user2 accessing the shared model
 	err = shared.UpdateLastModelConnection(names.NewUserTag("user2read"))
 	c.Assert(err, jc.ErrorIsNil)
-	user1, releaser, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
-	defer releaser()
+	user1, ph, err := s.StatePool.GetModel(modelNameToUUID["user1model"])
+	defer ph.Release()
 	c.Assert(err, jc.ErrorIsNil)
 	s.Clock.Advance(time.Hour)
 	timeUser1 := s.Clock.Now().Round(time.Second).UTC()
@@ -322,8 +322,8 @@ func (s *ModelSummariesSuite) TestContainsAccessInformation(c *gc.C) {
 
 func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	modelNameToUUID := s.Setup4Models(c)
-	shared, releaser, err := s.StatePool.Get(modelNameToUUID["shared"])
-	defer releaser()
+	shared, err := s.StatePool.Get(modelNameToUUID["shared"])
+	defer shared.Release()
 	c.Assert(err, jc.ErrorIsNil)
 	onecore := uint64(1)
 	twocores := uint64(2)
@@ -404,9 +404,9 @@ func (s *ModelSummariesSuite) TestModelsWithNoSettings(c *gc.C) {
 	modelNameToUUID := s.Setup4Models(c)
 	m2uuid := modelNameToUUID["user2model"]
 	// Mark the model as dying, and move to start tearing it down
-	model, releaser, err := s.StatePool.GetModel(m2uuid)
+	model, ph, err := s.StatePool.GetModel(m2uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	defer releaser()
+	defer ph.Release()
 	err = model.SetStatus(status.StatusInfo{
 		Status:  status.Available,
 		Message: "running",

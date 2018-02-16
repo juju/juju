@@ -98,12 +98,12 @@ type stateShim struct {
 	model *state.Model
 }
 
-func (st stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
-	return st.model.UpdateModelConfig(u, r, a...)
+func (s stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
+	return s.model.UpdateModelConfig(u, r, a...)
 }
 
-func (st stateShim) ModelConfigValues() (config.ConfigValues, error) {
-	return st.model.ModelConfigValues()
+func (s stateShim) ModelConfigValues() (config.ConfigValues, error) {
+	return s.model.ModelConfigValues()
 }
 
 func (s *stateShim) Annotations(entity state.GlobalEntity) (map[string]string, error) {
@@ -136,11 +136,11 @@ type poolShim struct {
 }
 
 func (p *poolShim) GetModel(uuid string) (*state.Model, func(), error) {
-	model, release, err := p.pool.GetModel(uuid)
+	model, ph, err := p.pool.GetModel(uuid)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return model, func() { release() }, nil
+	return model, func() { ph.Release() }, nil
 }
 
 func (s stateShim) ModelConfig() (*config.Config, error) {
@@ -156,6 +156,6 @@ func (s stateShim) ModelConfig() (*config.Config, error) {
 	return cfg, nil
 }
 
-func (st stateShim) ModelTag() names.ModelTag {
-	return names.NewModelTag(st.State.ModelUUID())
+func (s stateShim) ModelTag() names.ModelTag {
+	return names.NewModelTag(s.State.ModelUUID())
 }

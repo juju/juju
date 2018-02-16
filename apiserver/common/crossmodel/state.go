@@ -22,18 +22,18 @@ type statePoolShim struct {
 }
 
 func (p *statePoolShim) Get(modelUUID string) (Backend, func(), error) {
-	st, releaser, err := p.StatePool.Get(modelUUID)
+	st, err := p.StatePool.Get(modelUUID)
 	if err != nil {
 		return nil, func() {}, err
 	}
 	closer := func() {
-		releaser()
+		st.Release()
 	}
 	model, err := st.Model()
 	if err != nil {
 		return stateShim{}, closer, err
 	}
-	return stateShim{st, model}, closer, err
+	return stateShim{st.State, model}, closer, err
 }
 
 func GetStatePool(pool *state.StatePool) StatePool {

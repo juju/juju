@@ -20,13 +20,13 @@ import (
 // the controller.
 //
 // See ControllerAPIv4.DestroyController for more details.
-func (s *ControllerAPIv3) DestroyController(args params.DestroyControllerArgs) error {
+func (c *ControllerAPIv3) DestroyController(args params.DestroyControllerArgs) error {
 	if args.DestroyStorage != nil {
 		return errors.New("destroy-storage unexpected on the v3 API")
 	}
 	destroyStorage := true
 	args.DestroyStorage = &destroyStorage
-	return destroyController(s.state, s.statePool, s.authorizer, args)
+	return destroyController(c.state, c.statePool, c.authorizer, args)
 }
 
 // DestroyController destroys the controller.
@@ -35,8 +35,8 @@ func (s *ControllerAPIv3) DestroyController(args params.DestroyControllerArgs) e
 // attempt to do so. Otherwise, if the controller has any non-empty,
 // non-Dead hosted models, then an error with the code
 // params.CodeHasHostedModels will be transmitted.
-func (s *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
-	return destroyController(s.state, s.statePool, s.authorizer, args)
+func (c *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
+	return destroyController(c.state, c.statePool, c.authorizer, args)
 }
 
 func destroyController(

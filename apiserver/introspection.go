@@ -6,7 +6,7 @@ package apiserver
 import (
 	"net/http"
 
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -32,11 +32,11 @@ func (h introspectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h introspectionHandler) checkAuth(r *http.Request) error {
-	st, releaser, entity, err := h.ctx.stateAndEntityForRequestAuthenticatedUser(r)
+	st, entity, err := h.ctx.stateAndEntityForRequestAuthenticatedUser(r)
 	if err != nil {
 		return err
 	}
-	defer releaser()
+	defer st.Release()
 
 	// Users with "superuser" access on the controller,
 	// or "read" access on the controller model, can

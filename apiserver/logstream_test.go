@@ -21,6 +21,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -254,17 +255,17 @@ type stubSource struct {
 	ReturnNewTailer state.LogTailer
 }
 
-func (s *stubSource) newSource(req *http.Request) (logStreamSource, state.StatePoolReleaser, error) {
+func (s *stubSource) newSource(req *http.Request) (logStreamSource, state.PoolHelper, error) {
 	s.stub.AddCall("newSource", req)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	closer := func() bool {
+	ph := apiservertesting.StubPoolHelper{StubRelease: func() bool {
 		s.stub.AddCall("close")
 		return false
-	}
-	return s, closer, nil
+	}}
+	return s, ph, nil
 }
 
 func (s *stubSource) getStart(sink string) (time.Time, error) {

@@ -34,22 +34,22 @@ type statePoolShim struct {
 }
 
 func (pool statePoolShim) Get(modelUUID string) (Backend, func(), error) {
-	st, release, err := pool.StatePool.Get(modelUUID)
+	st, err := pool.StatePool.Get(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	return &stateShim{
-		st:      st,
-		Backend: commoncrossmodel.GetBackend(st),
-	}, func() { release() }, nil
+		st:      st.State,
+		Backend: commoncrossmodel.GetBackend(st.State),
+	}, func() { st.Release() }, nil
 }
 
 func (pool statePoolShim) GetModel(modelUUID string) (Model, func(), error) {
-	m, release, err := pool.StatePool.GetModel(modelUUID)
+	m, ph, err := pool.StatePool.GetModel(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return &modelShim{m}, func() { release() }, nil
+	return &modelShim{m}, func() { ph.Release() }, nil
 }
 
 // Backend provides selected methods off the state.State struct.
@@ -133,14 +133,6 @@ var GetApplicationOffers = func(backend interface{}) crossmodel.ApplicationOffer
 	return nil
 }
 
-type applicationShim struct {
-	*state.Application
-}
-
-func (a *applicationShim) Charm() (ch commoncrossmodel.Charm, force bool, err error) {
-	return a.Application.Charm()
-}
-
 type Subnet interface {
 	CIDR() string
 	VLANTag() int
@@ -219,8 +211,4 @@ func (s *stateShim) User(tag names.UserTag) (User, error) {
 
 type User interface {
 	DisplayName() string
-}
-
-type userShim struct {
-	*state.User
 }

@@ -30,16 +30,16 @@ type messageWriter interface {
 // logStreamEndpointHandler takes requests to stream logs from the DB.
 type logStreamEndpointHandler struct {
 	stopCh    <-chan struct{}
-	newSource func(*http.Request) (logStreamSource, state.StatePoolReleaser, error)
+	newSource func(*http.Request) (logStreamSource, state.PoolHelper, error)
 }
 
 func newLogStreamEndpointHandler(ctxt httpContext) *logStreamEndpointHandler {
-	newSource := func(req *http.Request) (logStreamSource, state.StatePoolReleaser, error) {
-		st, releaser, _, err := ctxt.stateForRequestAuthenticatedAgent(req)
+	newSource := func(req *http.Request) (logStreamSource, state.PoolHelper, error) {
+		st, _, err := ctxt.stateForRequestAuthenticatedAgent(req)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		return &logStreamState{st}, releaser, nil
+		return &logStreamState{st}, st, nil
 	}
 	return &logStreamEndpointHandler{
 		stopCh:    ctxt.stop(),
@@ -76,13 +76,13 @@ func (h *logStreamEndpointHandler) newLogStreamRequestHandler(conn messageWriter
 	// Validate before authenticate because the authentication is
 	// dependent on the state connection that is determined during the
 	// validation.
-	source, releaser, err := h.newSource(req)
+	source, ph, err := h.newSource(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer func() {
 		if err != nil {
-			releaser()
+			ph.Release()
 		}
 	}()
 
@@ -99,10 +99,10 @@ func (h *logStreamEndpointHandler) newLogStreamRequestHandler(conn messageWriter
 	}
 
 	reqHandler := &logStreamRequestHandler{
-		conn:     conn,
-		req:      req,
-		tailer:   tailer,
-		releaser: releaser,
+		conn:       conn,
+		req:        req,
+		tailer:     tailer,
+		poolHelper: ph,
 	}
 	return reqHandler, nil
 }
@@ -182,10 +182,10 @@ func (st logStreamState) newTailer(args state.LogTailerParams) (state.LogTailer,
 }
 
 type logStreamRequestHandler struct {
-	conn     messageWriter
-	req      *http.Request
-	tailer   state.LogTailer
-	releaser state.StatePoolReleaser
+	conn       messageWriter
+	req        *http.Request
+	tailer     state.LogTailer
+	poolHelper state.PoolHelper
 }
 
 func (h *logStreamRequestHandler) serveWebsocket(stop <-chan struct{}) {
@@ -215,7 +215,7 @@ func (h *logStreamRequestHandler) serveWebsocket(stop <-chan struct{}) {
 
 func (h *logStreamRequestHandler) close() {
 	h.tailer.Stop()
-	h.releaser()
+	h.poolHelper.Release()
 }
 
 func (h *logStreamRequestHandler) sendRecords(rec []*state.LogRecord) error {

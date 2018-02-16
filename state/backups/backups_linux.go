@@ -273,13 +273,16 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	machines := []machineModel{}
+	var machines []machineModel
 	for _, modelUUID := range modelUUIDs {
-		st, release, err := pool.Get(modelUUID)
+		st, err := pool.Get(modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		defer release()
+		defer func() {
+			st.Release()
+			pool.Remove(modelUUID)
+		}()
 
 		model, err := st.Model()
 		if err != nil {
@@ -300,7 +303,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	}
 
 	// Mark restoreInfo as Finished so upon restart of the apiserver
-	// the client can reconnect and determine if we where succesful.
+	// the client can reconnect and determine if we where successful.
 	info := st.RestoreInfo()
 	// In mongo 3.2, even though the backup is made with --oplog, there
 	// are stale transactions in this collection.

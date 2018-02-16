@@ -76,7 +76,7 @@ func (h *CharmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type charmsHandler struct {
 	ctxt          httpContext
 	dataDir       string
-	stateAuthFunc func(*http.Request) (*state.State, state.StatePoolReleaser, error)
+	stateAuthFunc func(*http.Request) (*state.PooledState, error)
 }
 
 // bundleContentSenderFunc functions are responsible for sending a
@@ -92,14 +92,14 @@ func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error 
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
 
-	st, releaser, err := h.stateAuthFunc(r)
+	st, err := h.stateAuthFunc(r)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer releaser()
+	defer st.Release()
 
 	// Add a charm to the store provider.
-	charmURL, err := h.processPost(r, st)
+	charmURL, err := h.processPost(r, st.State)
 	if err != nil {
 		return errors.NewBadRequest(err, "")
 	}
@@ -111,18 +111,18 @@ func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
 
-	st, releaser, _, err := h.ctxt.stateForRequestAuthenticated(r)
+	st, _, err := h.ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer releaser()
+	defer st.Release()
 
 	// Retrieve or list charm files.
 	// Requires "url" (charm URL) and an optional "file" (the path to the
 	// charm file) to be included in the query. Optionally also receives an
 	// "icon" query for returning the charm icon or a default one in case the
 	// charm has no icon.
-	charmArchivePath, fileArg, serveIcon, err := h.processGet(r, st)
+	charmArchivePath, fileArg, serveIcon, err := h.processGet(r, st.State)
 	if err != nil {
 		// An error occurred retrieving the charm bundle.
 		if errors.IsNotFound(err) {

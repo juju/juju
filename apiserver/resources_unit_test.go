@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -62,7 +63,7 @@ func (s *UnitResourcesHandlerSuite) TestWrongMethod(c *gc.C) {
 func (s *UnitResourcesHandlerSuite) TestOpenerCreationError(c *gc.C) {
 	failure, expectedBody := apiFailure("boom", "")
 	handler := &apiserver.UnitResourcesHandler{
-		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.StatePoolReleaser, error) {
+		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolHelper, error) {
 			return nil, nil, failure
 		},
 	}
@@ -86,9 +87,9 @@ func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *gc.C) {
 	failure, expectedBody := apiFailure("boom", "")
 	s.stub.SetErrors(failure)
 	handler := &apiserver.UnitResourcesHandler{
-		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.StatePoolReleaser, error) {
+		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolHelper, error) {
 			s.stub.AddCall("NewOpener", kinds)
-			return opener, s.closer, nil
+			return opener, apiservertesting.StubPoolHelper{StubRelease: s.closer}, nil
 		},
 	}
 
@@ -113,9 +114,9 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
 		ReturnOpenResource: opened,
 	}
 	handler := &apiserver.UnitResourcesHandler{
-		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.StatePoolReleaser, error) {
+		NewOpener: func(_ *http.Request, kinds ...string) (resource.Opener, state.PoolHelper, error) {
 			s.stub.AddCall("NewOpener", kinds)
-			return opener, s.closer, nil
+			return opener, apiservertesting.StubPoolHelper{StubRelease: s.closer}, nil
 		},
 	}
 

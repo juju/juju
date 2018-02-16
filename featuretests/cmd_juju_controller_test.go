@@ -143,9 +143,9 @@ current-model: controller
 
 func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	modelInfo := s.createModelAdminUser(c, "new-model", false)
-	st, release, err := s.StatePool.Get(modelInfo.UUID)
+	st, err := s.StatePool.Get(modelInfo.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer st.Release()
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.Destroy(state.DestroyModelParams{})

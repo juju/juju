@@ -15,18 +15,18 @@ import (
 // Pool describes an interface for retrieving State instances from a
 // collection.
 type Pool interface {
-	Get(string) (*state.State, state.StatePoolReleaser, error)
+	Get(string) (*state.PooledState, error)
 }
 
 // MakeCloudSpecGetter returns a function which returns a CloudSpec
 // for a given model, using the given Pool.
 func MakeCloudSpecGetter(pool Pool) func(names.ModelTag) (environs.CloudSpec, error) {
 	return func(tag names.ModelTag) (environs.CloudSpec, error) {
-		st, release, err := pool.Get(tag.Id())
+		st, err := pool.Get(tag.Id())
 		if err != nil {
 			return environs.CloudSpec{}, errors.Trace(err)
 		}
-		defer release()
+		defer st.Release()
 
 		m, err := st.Model()
 		if err != nil {
@@ -35,7 +35,9 @@ func MakeCloudSpecGetter(pool Pool) func(names.ModelTag) (environs.CloudSpec, er
 		// TODO - CAAS(externalreality): Once cloud methods are migrated
 		// to model EnvironConfigGetter will no longer need to contain
 		// both state and model but only model.
-		return stateenvirons.EnvironConfigGetter{st, m}.CloudSpec()
+		// TODO (manadart 2018-02-15): This potentially frees the state from
+		// the pool. Release is called, but the state reference survives.
+		return stateenvirons.EnvironConfigGetter{st.State, m}.CloudSpec()
 	}
 }
 

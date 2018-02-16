@@ -127,17 +127,12 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		modelState := api.state
-		if tag != api.model.ModelTag() {
-			var release func() bool
-			modelState, release, err = api.pool.Get(tag.Id())
-			if err != nil {
-				err = errors.Annotatef(err, "failed to access state for %s", tag)
-				result.Results[i].Error = common.ServerError(err)
-				continue
-			}
-			defer release()
+		modelState, release, err := api.getModelState(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
 		}
+		defer release()
 
 		err = modelState.CleanupOldMetrics()
 		if err != nil {
@@ -227,17 +222,13 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		modelState := api.state
-		if tag != api.model.ModelTag() {
-			var release func() bool
-			modelState, release, err = api.pool.Get(tag.Id())
-			if err != nil {
-				err = errors.Annotatef(err, "failed to access state for %s", tag)
-				result.Results[i].Error = common.ServerError(err)
-				continue
-			}
-			defer release()
+		modelState, release, err := api.getModelState(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
 		}
+		defer release()
+
 		txVendorMetrics, err := transmitVendorMetrics(api.model)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
@@ -257,6 +248,17 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		}
 	}
 	return result, nil
+}
+
+func (api *MetricsManagerAPI) getModelState(tag names.Tag) (*state.State, func() bool, error) {
+	if tag == api.model.ModelTag() {
+		return api.state, func() bool { return false }, nil
+	}
+	st, err := api.pool.Get(tag.Id())
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "failed to access state for %s", tag)
+	}
+	return st.State, st.Release, nil
 }
 
 func transmitVendorMetrics(m *state.Model) (bool, error) {

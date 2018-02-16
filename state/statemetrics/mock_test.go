@@ -14,6 +14,22 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+type poolHelperStub struct{}
+
+func (s poolHelperStub) Release() bool     { return false }
+func (s poolHelperStub) Annotate(_ string) {}
+
+type mockPooledState struct {
+	mockState
+	release func() bool
+}
+
+func (ps mockPooledState) Release() bool {
+	return ps.release()
+}
+
+func (ps mockPooledState) Annotate(_ string) {}
+
 type mockStatePool struct {
 	testing.Stub
 	system *mockState
@@ -24,31 +40,35 @@ func (p *mockStatePool) SystemState() statemetrics.State {
 	return p.system
 }
 
-func (p *mockStatePool) Get(modelUUID string) (statemetrics.State, state.StatePoolReleaser, error) {
+func (p *mockStatePool) Get(modelUUID string) (statemetrics.PooledState, error) {
 	p.MethodCall(p, "Get", modelUUID)
 	if err := p.NextErr(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	for _, m := range p.models {
 		if m.tag.Id() == modelUUID {
-			st := &mockState{
+			st := mockState{
 				model:      m,
 				modelUUIDs: p.modelUUIDs(),
 			}
-			return st, st.release, nil
+			ps := &mockPooledState{
+				mockState: st,
+				release:   st.release,
+			}
+			return ps, nil
 		}
 	}
 	panic("model not found")
 }
 
-func (p *mockStatePool) GetModel(modelUUID string) (statemetrics.Model, state.StatePoolReleaser, error) {
+func (p *mockStatePool) GetModel(modelUUID string) (statemetrics.Model, state.PoolHelper, error) {
 	p.MethodCall(p, "GetModel", modelUUID)
 	if err := p.NextErr(); err != nil {
 		return nil, nil, err
 	}
 	for _, m := range p.models {
 		if m.tag.Id() == modelUUID {
-			return m, func() bool { return true }, nil
+			return m, poolHelperStub{}, nil
 		}
 	}
 	panic("model not found")

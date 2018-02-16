@@ -126,11 +126,11 @@ type poolShim struct {
 }
 
 func (p *poolShim) GetModel(uuid string) (PrecheckModel, func(), error) {
-	model, release, err := p.pool.GetModel(uuid)
+	model, ph, err := p.pool.GetModel(uuid)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return model, func() { release() }, nil
+	return model, func() { ph.Release() }, nil
 }
 
 // precheckAppShim implements PrecheckApplication.

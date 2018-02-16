@@ -40,7 +40,7 @@ func newMigrationLogWriteCloserFunc(ctxt httpContext, dbloggers *dbloggers) logs
 func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	// Require MigrationModeNone because logtransfer happens after the
 	// model proper is completely imported.
-	st, releaseState, err := ctxt.stateForMigration(req, state.MigrationModeNone)
+	st, err := ctxt.stateForMigration(req, state.MigrationModeNone)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -53,15 +53,15 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 	// conversion of log messages from an old client.
 	_, err = logsink.JujuClientVersionFromRequest(req)
 	if err != nil {
-		releaseState()
+		st.Release()
 		return errors.Trace(err)
 	}
 
-	s.dblogger = s.dbloggers.get(st)
-	s.tracker = newLogTracker(st)
+	s.dblogger = s.dbloggers.get(st.State)
+	s.tracker = newLogTracker(st.State)
 	s.releaser = func() {
-		if removed := releaseState(); removed {
-			s.dbloggers.remove(st)
+		if removed := st.Release(); removed {
+			s.dbloggers.remove(st.State)
 		}
 	}
 	return nil

@@ -197,7 +197,7 @@ func (w *stateWorker) processModelLifeChange(
 		pool.Remove(modelUUID)
 	}
 
-	model, release, err := pool.GetModel(modelUUID)
+	model, hp, err := pool.GetModel(modelUUID)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Model has been removed from state.
@@ -207,7 +207,7 @@ func (w *stateWorker) processModelLifeChange(
 		}
 		return errors.Trace(err)
 	}
-	defer release()
+	defer hp.Release()
 
 	if model.Life() == state.Dead {
 		// Model is Dead, and will soon be removed from state.
@@ -267,12 +267,14 @@ func newModelStateWorker(
 }
 
 func (w *modelStateWorker) loop() error {
-	st, release, err := w.pool.Get(w.modelUUID)
+	st, err := w.pool.Get(w.modelUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer release()
-	defer w.pool.Remove(w.modelUUID)
+	defer func() {
+		st.Release()
+		w.pool.Remove(w.modelUUID)
+	}()
 
 	for {
 		select {

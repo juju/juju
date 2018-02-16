@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
@@ -511,10 +511,10 @@ type migrationSuite struct {
 var _ = gc.Suite(&migrationSuite{})
 
 func (s *migrationSuite) startSync(c *gc.C, st *state.State) {
-	backingSt, releaser, err := s.BackingStatePool.Get(st.ModelUUID())
+	backingSt, err := s.BackingStatePool.Get(st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	backingSt.StartSync()
-	releaser()
+	backingSt.Release()
 }
 
 func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
