@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/environschema.v1"
@@ -177,9 +178,15 @@ const (
 	// FanConfig defines the configuration for FAN network running in the model.
 	FanConfig = "fan-config"
 
-	// CloudInitUserDataKey is the key to specify cloud-init yaml the user wants to add
-	// into the cloud-config data produced by Juju when provisioning machines.
+	// CloudInitUserDataKey is the key to specify cloud-init yaml the user
+	// wants to add into the cloud-config data produced by Juju when
+	// provisioning machines.
 	CloudInitUserDataKey = "cloudinit-userdata"
+
+	// ContainerInheritProperiesKey is the key to specify a list of properties
+	// to be copied from a machine to a container during provisioning.  The
+	// list will be comma separated.
+	ContainerInheritProperiesKey = "container-inherit-properties"
 
 	//
 	// Deprecated Settings Attributes
@@ -374,20 +381,21 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	"default-series":           series.LatestLts(),
-	ProvisionerHarvestModeKey:  HarvestDestroyed.String(),
-	ResourceTagsKey:            "",
-	"logging-config":           "",
-	AutomaticallyRetryHooks:    true,
-	"enable-os-refresh-update": true,
-	"enable-os-upgrade":        true,
-	"development":              false,
-	"test-mode":                false,
-	TransmitVendorMetricsKey:   true,
-	UpdateStatusHookInterval:   DefaultUpdateStatusHookInterval,
-	EgressSubnets:              "",
-	FanConfig:                  "",
-	CloudInitUserDataKey:       "",
+	"default-series":             series.LatestLts(),
+	ProvisionerHarvestModeKey:    HarvestDestroyed.String(),
+	ResourceTagsKey:              "",
+	"logging-config":             "",
+	AutomaticallyRetryHooks:      true,
+	"enable-os-refresh-update":   true,
+	"enable-os-upgrade":          true,
+	"development":                false,
+	"test-mode":                  false,
+	TransmitVendorMetricsKey:     true,
+	UpdateStatusHookInterval:     DefaultUpdateStatusHookInterval,
+	EgressSubnets:                "",
+	FanConfig:                    "",
+	CloudInitUserDataKey:         "",
+	ContainerInheritProperiesKey: "",
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -631,6 +639,20 @@ func Validate(cfg, old *Config) error {
 		// error if bootcmd is specified
 		if _, ok := userDataMap["bootcmd"]; ok {
 			return errors.New("cloudinit-userdata: bootcmd not allowed")
+		}
+	}
+
+	if raw, ok := cfg.defined[ContainerInheritProperiesKey].(string); ok && raw != "" {
+		rawProperties := strings.Split(raw, ",")
+		propertySet := set.NewStrings()
+		for _, prop := range rawProperties {
+			propertySet.Add(strings.TrimSpace(prop))
+		}
+		whiteListSet := set.NewStrings("apt-primary", "apt-sources", "apt-security", "ca-certs")
+		diffSet := propertySet.Difference(whiteListSet)
+
+		if !diffSet.IsEmpty() {
+			return fmt.Errorf("container-inherit-properties: %s not allowed", strings.Join(diffSet.SortedValues(), ", "))
 		}
 	}
 
@@ -1160,6 +1182,12 @@ func (c *Config) CloudInitUserData() map[string]interface{} {
 	return conformingUserDataMap
 }
 
+// ContainerInheritProperies returns a copy of the raw user data keys
+// that were specified by the user.
+func (c *Config) ContainerInheritProperies() string {
+	return c.asString(ContainerInheritProperiesKey)
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -1275,6 +1303,7 @@ var alwaysOptional = schema.Defaults{
 	EgressSubnets:                schema.Omit,
 	FanConfig:                    schema.Omit,
 	CloudInitUserDataKey:         schema.Omit,
+	ContainerInheritProperiesKey: schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1702,6 +1731,11 @@ data of the store. (default false)`,
 	},
 	CloudInitUserDataKey: {
 		Description: "Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	ContainerInheritProperiesKey: {
+		Description: "List of properties to be copied from the host machine to new containers created in this model (comma-separated)",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

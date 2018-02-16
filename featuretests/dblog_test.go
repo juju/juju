@@ -118,7 +118,7 @@ type debugLogDbSuite struct {
 var _ = gc.Suite(&debugLogDbSuite{})
 
 func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
-	// Restart mongod with a the replicaset enabled.
+	// Restart mongod with the replicaset enabled.
 	mongod := jujutesting.MgoServer
 	mongod.Params = []string{"--replSet", "juju"}
 	mongod.Restart()
@@ -137,7 +137,7 @@ func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
 
 func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
 	// Restart mongod without the replicaset enabled so as not to
-	// affect other test that reply on this mongod instance in this
+	// affect other tests that rely on this mongod instance in this
 	// package.
 	mongod := jujutesting.MgoServer
 	mongod.Params = []string{}

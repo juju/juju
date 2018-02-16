@@ -669,13 +669,14 @@ type UpdateBehavior struct {
 // ContainerConfig contains information from the model config that is
 // needed for container cloud-init.
 type ContainerConfig struct {
-	ProviderType            string                 `json:"provider-type"`
-	AuthorizedKeys          string                 `json:"authorized-keys"`
-	SSLHostnameVerification bool                   `json:"ssl-hostname-verification"`
-	Proxy                   proxy.Settings         `json:"proxy"`
-	AptProxy                proxy.Settings         `json:"apt-proxy"`
-	AptMirror               string                 `json:"apt-mirror"`
-	CloudInitUserData       map[string]interface{} `json:"cloudinit-userdata,omitempty"`
+	ProviderType               string                 `json:"provider-type"`
+	AuthorizedKeys             string                 `json:"authorized-keys"`
+	SSLHostnameVerification    bool                   `json:"ssl-hostname-verification"`
+	Proxy                      proxy.Settings         `json:"proxy"`
+	AptProxy                   proxy.Settings         `json:"apt-proxy"`
+	AptMirror                  string                 `json:"apt-mirror"`
+	CloudInitUserData          map[string]interface{} `json:"cloudinit-userdata,omitempty"`
+	ContainerInheritProperties string                 `json:"container-inherit-properties,omitempty"`
 	*UpdateBehavior
 }
 

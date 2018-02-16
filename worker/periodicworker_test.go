@@ -91,28 +91,28 @@ func (s *periodicWorkerSuite) TestWaitWithJitter(c *gc.C) {
 		c.Fatalf("The doWork function should have been called by now")
 	}
 
-	tPeriod.CheckCalls(c, []jtesting.StubCall{{
-		FuncName: "nextPeriod",
-		Args:     []interface{}{testing.ShortWait, float64(0.2)},
-	}})
-	tPeriod.ResetCalls()
-
 	select {
 	case <-funcHasRun:
 	case <-time.After(testing.LongWait):
 		c.Fatalf("The doWork function should have been called by now")
 	}
-	tPeriod.CheckCalls(c, []jtesting.StubCall{{
-		FuncName: "nextPeriod",
-		Args:     []interface{}{testing.ShortWait, float64(0.2)},
-	}})
 	w.Kill()
 	c.Assert(w.Wait(), gc.Equals, nil)
 
+	// We expect to see 2 calls to nextPeriod, corresponding to 2 calls to doWork. We then expect to see no more calls
+	// to nextPeriod because we have Kill()ed the worker.
+	tPeriod.CheckCalls(c, []jtesting.StubCall{{
+		FuncName: "nextPeriod",
+		Args:     []interface{}{testing.ShortWait, float64(0.2)},
+	}, {
+		FuncName: "nextPeriod",
+		Args:     []interface{}{testing.ShortWait, float64(0.2)},
+	}})
 	select {
 	case <-funcHasRun:
 		c.Fatalf("After the kill we don't expect anymore calls to the function")
-	case <-time.After(defaultFireOnceWait):
+	case <-time.After(testing.ShortWait * 2):
+		// We don't have to wait very long, just longer than timeout and Jitter would cause
 	}
 }
 
