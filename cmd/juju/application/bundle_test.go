@@ -1956,6 +1956,20 @@ func (s *ProcessBundleOverlaySuite) TestRemoveApplication(c *gc.C) {
 	c.Assert(s.bundleData.Relations, gc.HasLen, 0)
 }
 
+func (s *ProcessBundleOverlaySuite) TestRemoveUnknownApplication(c *gc.C) {
+	config := `
+        applications:
+            unknown:
+    `
+	filename := s.writeFile(c, config)
+	err := processBundleOverlay(s.bundleData, filename)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertApplications(c, "django", "memcached")
+	c.Assert(s.bundleData.Relations, jc.DeepEquals, [][]string{
+		{"django", "memcached"},
+	})
+}
+
 func (s *ProcessBundleOverlaySuite) TestIncludes(c *gc.C) {
 	config := `
         applications:

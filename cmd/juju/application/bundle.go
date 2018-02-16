@@ -1172,15 +1172,15 @@ func processSingleBundleOverlay(data *charm.BundleData, bundleOverlayFile string
 	// actually exist in the bundle data.
 	for appName, bc := range config.Applications {
 		app, found := data.Applications[appName]
-		if !found {
-			// Add it in.
-			data.Applications[appName] = bc
-			continue
-		}
 		// If bc is nil, that means to remove it from data.
 		if bc == nil {
 			delete(data.Applications, appName)
 			data.Relations = removeRelations(data.Relations, appName)
+			continue
+		}
+		if !found {
+			// Add it in.
+			data.Applications[appName] = bc
 			continue
 		}
 
