@@ -4,6 +4,10 @@
 package featuretests
 
 import (
+	"os"
+	"path/filepath"
+	"time"
+
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -90,6 +94,39 @@ func (s *CAASOperatorSuite) newBufferedLogWriter() *logsender.BufferedLogWriter 
 	logger := logsender.NewBufferedLogWriter(1024)
 	s.AddCleanup(func(*gc.C) { logger.Close() })
 	return logger
+}
+
+func waitForApplicationActive(c *gc.C, dataDir, appTag string) {
+	timeout := time.After(coretesting.LongWait)
+	agentCharmDir := filepath.Join(dataDir, "agents", appTag, "charm")
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("no activity detected")
+		case <-time.After(coretesting.ShortWait):
+			if _, err := os.Stat(agentCharmDir); err == nil {
+				return
+			}
+		}
+	}
+}
+
+func (s *CAASOperatorSuite) TestRunStop(c *gc.C) {
+	app, config, _ := s.primeAgent(c)
+	a := s.newAgent(c, app)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	waitForApplicationActive(c, config.DataDir(), app.Tag().String())
+}
+
+func (s *CAASOperatorSuite) TestOpenStateFails(c *gc.C) {
+	app, config, _ := s.primeAgent(c)
+	a := s.newAgent(c, app)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	waitForApplicationActive(c, config.DataDir(), app.Tag().String())
+
+	s.AssertCannotOpenState(c, config.Tag(), config.DataDir())
 }
 
 type CAASOperatorManifoldsFunc func(config caasoperator.ManifoldsConfig) dependency.Manifolds
