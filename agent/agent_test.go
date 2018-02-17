@@ -433,42 +433,32 @@ func (*suite) TestAPIInfoMissingAddress(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (*suite) TestAPIInfoPutsLocalhostFirstWhenServingInfoPresent(c *gc.C) {
+func (*suite) TestAPIInfoServesLocalhostOnlyWhenServingInfoPresent(c *gc.C) {
 	attrParams := attributeParams
+	attrParams.APIAddresses = []string{"localhost:1235", "localhost:1236"}
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
-	c.Check(apiinfo.Addrs[0], gc.Equals, "localhost:47")
-}
-
-func (*suite) TestAPIInfoMovesLocalhostFirstWhenServingInfoPresent(c *gc.C) {
-	attrParams := attributeParams
-	attrParams.APIAddresses = []string{"localhost:1235", "localhost:47"}
-	servingInfo := stateServingInfo()
-	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	apiinfo, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses))
-	c.Check(apiinfo.Addrs[0], gc.Equals, "localhost:47")
+	c.Check(apiinfo.Addrs, gc.DeepEquals, []string{"localhost:47"})
 }
 
 func (*suite) TestMongoInfo(c *gc.C) {
 	attrParams := attributeParams
+	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88"}
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	mongoInfo, ok := conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69"})
+	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "foo.example:69", "bar.example:69"})
 	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
 }
 
 func (*suite) TestPromotedMongoInfo(c *gc.C) {
 	attrParams := attributeParams
+	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88"}
 	conf, err := agent.NewAgentConfig(attrParams)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -483,7 +473,7 @@ func (*suite) TestPromotedMongoInfo(c *gc.C) {
 
 	mongoInfo, ok = conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69"})
+	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "foo.example:69", "bar.example:69"})
 	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
 }
 

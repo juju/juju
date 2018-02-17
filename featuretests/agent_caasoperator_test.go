@@ -4,10 +4,6 @@
 package featuretests
 
 import (
-	"os"
-	"path/filepath"
-	"time"
-
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -24,7 +20,6 @@ import (
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/worker/caasoperator/commands"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/logsender"
 )
@@ -95,43 +90,6 @@ func (s *CAASOperatorSuite) newBufferedLogWriter() *logsender.BufferedLogWriter 
 	logger := logsender.NewBufferedLogWriter(1024)
 	s.AddCleanup(func(*gc.C) { logger.Close() })
 	return logger
-}
-
-func waitForApplicationActive(c *gc.C, dataDir string) {
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case <-timeout:
-			c.Fatalf("no activity detected")
-		case <-time.After(coretesting.ShortWait):
-			agentBinaryDir := filepath.Join(dataDir, "tools")
-			link := filepath.Join(agentBinaryDir, commands.CommandNames()[0])
-			if _, err := os.Lstat(link); err == nil {
-				target, err := os.Readlink(link)
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(target, gc.Equals, filepath.Join(agentBinaryDir, "jujud"))
-				return
-			}
-		}
-	}
-}
-
-func (s *CAASOperatorSuite) TestRunStop(c *gc.C) {
-	app, config, _ := s.primeAgent(c)
-	a := s.newAgent(c, app)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	waitForApplicationActive(c, config.DataDir())
-}
-
-func (s *CAASOperatorSuite) TestOpenStateFails(c *gc.C) {
-	app, config, _ := s.primeAgent(c)
-	a := s.newAgent(c, app)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	waitForApplicationActive(c, config.DataDir())
-
-	s.AssertCannotOpenState(c, config.Tag(), config.DataDir())
 }
 
 type CAASOperatorManifoldsFunc func(config caasoperator.ManifoldsConfig) dependency.Manifolds
