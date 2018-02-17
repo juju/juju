@@ -795,19 +795,15 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 	}
 	servingInfo, isController := c.StateServingInfo()
 	addrs := c.apiDetails.addresses
+	// For controller we return only localhost - we should not connect
+	// to other controllers if we can talk locally.
 	if isController {
 		port := servingInfo.APIPort
 		// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4
 		// loopback, and when/if this changes localhost should resolve
 		// to IPv6 loopback in any case (lp:1644009). Review.
 		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
-		newAddrs := []string{localAPIAddr}
-		for _, addr := range addrs {
-			if addr != localAPIAddr {
-				newAddrs = append(newAddrs, addr)
-			}
-		}
-		addrs = newAddrs
+		addrs = []string{localAPIAddr}
 	}
 	return &api.Info{
 		Addrs:    addrs,
@@ -825,13 +821,27 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	if !ok {
 		return nil, false
 	}
+	// We return localhost first and then all addresses of known API
+	// endpoints - this lets us connect to other Mongo instances and start
+	// state even if our own Mongo has not started yet (see lp:1749383 #1).
 	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
 	// and when/if this changes localhost should resolve to IPv6 loopback
 	// in any case (lp:1644009). Review.
-	addr := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
+	local := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
+	addrs := []string{local}
+
+	for _, addr := range c.apiDetails.addresses {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, false
+		}
+		if host := net.JoinHostPort(host, strconv.Itoa(ssi.StatePort)); host != local {
+			addrs = append(addrs, host)
+		}
+	}
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{addr},
+			Addrs:  addrs,
 			CACert: c.caCert,
 		},
 		Password: c.statePassword,
