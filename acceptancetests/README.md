@@ -96,7 +96,8 @@ This example isolates the juju interactions so your system configuration is not 
 export PATH=/home/user/src/Go/bin:$PATH
 export JUJU_DATA=/tmp/testing-controller
 # The test will still need JUJU_HOME to find it's environment.yaml and credentials.yaml
-export JUJU_HOME=~/cloud-city/
+#  example as per above.
+export JUJU_HOME=~/tmp/test-run
 mkdir -p $JUJU_DATA
 
 juju bootstrap lxd/localhost testing-feature-x
@@ -112,7 +113,7 @@ juju bootstrap lxd/localhost testing-feature-x
   
 ### Keeping an environment after a run
 
-Normally a test script will teardown any bootstrapped controllers, if you wish to investigate the environment after a run use ```--keep-env``.
+Normally a test script will teardown any bootstrapped controllers, if you wish to investigate the environment after a run use ```--keep-env```.  
 Using the ```--keep-env``` option will skip any teardown of an environment at the end of a test.
 
 ### Use of environments.yaml<a name="envs"></a>
