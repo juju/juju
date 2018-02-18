@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -234,22 +233,15 @@ func (s *WorkerSuite) TestTransportTimeout(c *gc.C) {
 	config.Timeout = time.Nanosecond
 	worker := s.newWorker(c, config)
 
-	rv := func() error {
-		_, err := s.requestVote(worker)
-		return err
-	}
-
-	// With the nanosecond dial timeout (see above) this should always break
-	// out first time, but it remains as a fail-safe.
-	deadline := time.After(coretesting.LongWait)
-	var err error
-	for err = rv(); err == nil || !strings.Contains(err.Error(), "dial failed"); err = rv() {
-		select {
-		case <-deadline:
-			c.Fatal("failed to achieve dial timeout")
-		default:
-		}
-	}
+	// Instead of using the test server, set up a simple listener with no
+	// handling. This will always cause a connection timeout.
+	noAcceptListener, err := net.Listen("tcp", ":0")
+	c.Assert(err, jc.ErrorIsNil)
+	var resp raft.RequestVoteResponse
+	req := &raft.RequestVoteRequest{}
+	serverID := raft.ServerID("machine-123")
+	serverAddress := raft.ServerAddress(noAcceptListener.Addr().String())
+	_, err = resp, worker.RequestVote(serverID, serverAddress, req, &resp)
 
 	c.Assert(err, gc.ErrorMatches, "dial failed:.*timed out.*")
 	c.Assert(errors.Cause(err), gc.Implements, new(net.Error))
