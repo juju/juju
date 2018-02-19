@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/resourcetesting"
@@ -62,13 +63,16 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string) (apiserver.ResourcesBackend, state.StatePoolReleaser, names.Tag, error) {
+func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string) (
+	apiserver.ResourcesBackend, state.PoolHelper, names.Tag, error,
+) {
 	if s.stateAuthErr != nil {
 		return nil, nil, nil, errors.Trace(s.stateAuthErr)
 	}
-	closer := func() bool { return false }
+
+	ph := apiservertesting.StubPoolHelper{StubRelease: func() bool { return false }}
 	tag := names.NewUserTag(s.username)
-	return s.backend, closer, tag, nil
+	return s.backend, ph, tag, nil
 }
 
 func (s *ResourcesHandlerSuite) TestStateAuthFailure(c *gc.C) {

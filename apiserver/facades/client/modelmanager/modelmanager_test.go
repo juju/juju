@@ -548,17 +548,17 @@ func (s *modelManagerSuite) TestUnsetModelDefaults(c *gc.C) {
 	want := config.ModelDefaultAttributes{
 		"attr": config.AttributeDefaultValues{
 			Regions: []config.RegionDefaultValue{
-				config.RegionDefaultValue{
-					Name:  "dummy",
-					Value: "val++"},
-			}},
+				{Name: "dummy", Value: "val++"},
+			},
+		},
 		"attr2": config.AttributeDefaultValues{
 			Default:    "val2",
 			Controller: "val3",
 			Regions: []config.RegionDefaultValue{
-				config.RegionDefaultValue{
-					Name:  "left",
-					Value: "spam"}}}}
+				{Name: "left", Value: "spam"},
+			},
+		},
+	}
 	c.Assert(s.st.cfgDefaults, jc.DeepEquals, want)
 }
 
@@ -619,9 +619,8 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
 			Keys: []string{"attr2"}}}})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(got, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			params.ErrorResult{
-				Error: nil}}})
+		Results: []params.ErrorResult{{Error: nil}},
+	})
 
 	// Make sure it didn't change.
 	s.setAPIUser(c, names.NewUserTag("admin"))
@@ -929,9 +928,9 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 	c.Assert(model.Name, gc.Equals, "test-model")
 	// Make sure that the environment created does actually have the correct
 	// owner, and that owner is actually allowed to use the environment.
-	newState, release, err := s.StatePool.Get(model.UUID)
+	newState, err := s.StatePool.Get(model.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer newState.Release()
 
 	newModel, err := newState.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1093,9 +1092,9 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	m, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, release, err := s.StatePool.Get(m.UUID)
+	st, err := s.StatePool.Get(m.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer st.Release()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1129,9 +1128,9 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	m, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, release, err := s.StatePool.Get(m.UUID)
+	st, err := s.StatePool.Get(m.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer st.Release()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1165,9 +1164,9 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	m, err := s.modelmanager.CreateModel(createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, release, err := s.StatePool.Get(m.UUID)
+	st, err := s.StatePool.Get(m.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer st.Release()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

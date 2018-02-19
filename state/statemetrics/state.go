@@ -11,13 +11,6 @@ import (
 	"github.com/juju/juju/status"
 )
 
-// StatePool represents a pool of State objects.
-type StatePool interface {
-	SystemState() State
-	Get(modelUUID string) (State, state.StatePoolReleaser, error)
-	GetModel(modelUUID string) (Model, state.StatePoolReleaser, error)
-}
-
 // State represents the global state managed by the Juju controller.
 type State interface {
 	AllMachines() ([]Machine, error)
@@ -25,6 +18,20 @@ type State interface {
 	AllUsers() ([]User, error)
 	ControllerTag() names.ControllerTag
 	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
+}
+
+// PooledState is a wrapper for State that includes methods to negotiate with
+// the pool that supplied it.
+type PooledState interface {
+	state.PoolHelper
+	State
+}
+
+// StatePool represents a pool of State objects.
+type StatePool interface {
+	SystemState() State
+	Get(modelUUID string) (PooledState, error)
+	GetModel(modelUUID string) (Model, state.PoolHelper, error)
 }
 
 // Machine represents a machine in a Juju model.
@@ -48,42 +55,54 @@ type User interface {
 	UserTag() names.UserTag
 }
 
+type statePoolShim struct {
+	pool *state.StatePool
+}
+
 // NewStatePool takes a *state.StatePool, and returns
 // a StatePool value backed by it.
 func NewStatePool(pool *state.StatePool) StatePool {
 	return statePoolShim{pool}
 }
 
-type statePoolShim struct {
-	pool *state.StatePool
+type stateShim struct {
+	*state.State
+}
+
+type pooledStateShim struct {
+	*state.PooledState
 }
 
 func (p statePoolShim) SystemState() State {
 	return stateShim{p.pool.SystemState()}
 }
 
-func (p statePoolShim) Get(modelUUID string) (State, state.StatePoolReleaser, error) {
-	st, releaser, err := p.pool.Get(modelUUID)
+func (p statePoolShim) Get(modelUUID string) (PooledState, error) {
+	st, err := p.pool.Get(modelUUID)
+	if err != nil {
+		return nil, err
+	}
+	return pooledStateShim{st}, nil
+}
+
+func (p statePoolShim) GetModel(modelUUID string) (Model, state.PoolHelper, error) {
+	model, ph, err := p.pool.GetModel(modelUUID)
 	if err != nil {
 		return nil, nil, err
 	}
-	return stateShim{st}, releaser, nil
-}
-
-func (p statePoolShim) GetModel(modelUUID string) (Model, state.StatePoolReleaser, error) {
-	model, releaser, err := p.pool.GetModel(modelUUID)
-	if err != nil {
-		return nil, nil, err
-	}
-	return model, releaser, nil
-}
-
-type stateShim struct {
-	*state.State
+	return model, ph, err
 }
 
 func (s stateShim) AllMachines() ([]Machine, error) {
-	machines, err := s.State.AllMachines()
+	return allMachines(s.State)
+}
+
+func (s pooledStateShim) AllMachines() ([]Machine, error) {
+	return allMachines(s.State)
+}
+
+func allMachines(st *state.State) ([]Machine, error) {
+	machines, err := st.AllMachines()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -97,7 +116,15 @@ func (s stateShim) AllMachines() ([]Machine, error) {
 }
 
 func (s stateShim) AllUsers() ([]User, error) {
-	users, err := s.State.AllUsers(true)
+	return allUsers(s.State)
+}
+
+func (s pooledStateShim) AllUsers() ([]User, error) {
+	return allUsers(s.State)
+}
+
+func allUsers(st *state.State) ([]User, error) {
+	users, err := st.AllUsers(true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

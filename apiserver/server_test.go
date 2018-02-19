@@ -444,7 +444,7 @@ func (s *macaroonServerWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from ".*": third party refused discharge: cannot discharge: discharger cannot decode caveat id: public key mismatch`)
 }
 
-func noCheck(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
+func noCheck(_ *http.Request, _, _ string) ([]checkers.Caveat, error) {
 	return nil, nil
 }
 
@@ -557,9 +557,9 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the model's in the pool but not referenced.
-	st, releaser, err := s.StatePool.Get(otherState.ModelUUID())
+	st, err := s.StatePool.Get(otherState.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
-	releaser()
+	st.Release()
 
 	// Make a request for the model API to check it releases
 	// state back into the pool once the connection is closed.
@@ -573,7 +573,7 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.State.StartSync()
-	assertStateBecomesClosed(c, st)
+	assertStateBecomesClosed(c, st.State)
 }
 
 func assertChange(c *gc.C, w state.StringsWatcher) {

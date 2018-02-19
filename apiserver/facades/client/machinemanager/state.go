@@ -71,11 +71,11 @@ type poolShim struct {
 }
 
 func (p *poolShim) GetModel(uuid string) (Model, func(), error) {
-	m, release, err := p.pool.GetModel(uuid)
+	m, ph, err := p.pool.GetModel(uuid)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return m, func() { release() }, nil
+	return m, func() { ph.Release() }, nil
 }
 
 type machineShim struct {

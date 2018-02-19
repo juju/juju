@@ -126,8 +126,8 @@ func NewControllerAPI(
 	}, nil
 }
 
-func (s *ControllerAPI) checkHasAdmin() error {
-	isAdmin, err := s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
+func (c *ControllerAPI) checkHasAdmin() error {
+	isAdmin, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -140,8 +140,8 @@ func (s *ControllerAPI) checkHasAdmin() error {
 // ModelStatus is a legacy method call to ensure that we preserve
 // backward compatibility.
 // TODO (anastasiamac 2017-10-26) This should be made obsolete/removed.
-func (s *ControllerAPIv3) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	results, err := s.ModelStatusAPI.ModelStatus(req)
+func (c *ControllerAPIv3) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+	results, err := c.ModelStatusAPI.ModelStatus(req)
 	if err != nil {
 		return params.ModelStatusResults{}, err
 	}
@@ -156,18 +156,18 @@ func (s *ControllerAPIv3) ModelStatus(req params.Entities) (params.ModelStatusRe
 
 // AllModels allows controller administrators to get the list of all the
 // models in the controller.
-func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
+func (c *ControllerAPI) AllModels() (params.UserModelList, error) {
 	result := params.UserModelList{}
-	if err := s.checkHasAdmin(); err != nil {
+	if err := c.checkHasAdmin(); err != nil {
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := s.state.AllModelUUIDs()
+	modelUUIDs, err := c.state.AllModelUUIDs()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 	for _, modelUUID := range modelUUIDs {
-		st, release, err := s.statePool.Get(modelUUID)
+		st, err := c.statePool.Get(modelUUID)
 		if err != nil {
 			// This model could have been removed.
 			if errors.IsNotFound(err) {
@@ -175,7 +175,7 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 			}
 			return result, errors.Trace(err)
 		}
-		defer release()
+		defer st.Release()
 
 		model, err := st.Model()
 		if err != nil {
@@ -190,7 +190,7 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 			},
 		}
 
-		lastConn, err := model.LastModelConnection(s.apiUser)
+		lastConn, err := model.LastModelConnection(c.apiUser)
 		if err != nil {
 			if !state.IsNeverConnectedError(err) {
 				return result, errors.Trace(err)
@@ -209,12 +209,12 @@ func (s *ControllerAPI) AllModels() (params.UserModelList, error) {
 // which have a block in place.  The resulting slice is sorted by environment
 // name, then owner. Callers must be controller administrators to retrieve the
 // list.
-func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
+func (c *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	results := params.ModelBlockInfoList{}
-	if err := s.checkHasAdmin(); err != nil {
+	if err := c.checkHasAdmin(); err != nil {
 		return results, errors.Trace(err)
 	}
-	blocks, err := s.state.AllBlocksForController()
+	blocks, err := c.state.AllBlocksForController()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -232,7 +232,7 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	}
 
 	for uuid, blocks := range modelBlocks {
-		model, release, err := s.statePool.GetModel(uuid)
+		model, ph, err := c.statePool.GetModel(uuid)
 		if err != nil {
 			logger.Debugf("unable to retrieve model %s: %v", uuid, err)
 			continue
@@ -243,25 +243,24 @@ func (s *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 			OwnerTag: model.Owner().String(),
 			Blocks:   blocks,
 		})
-		release()
+		ph.Release()
 	}
 
 	// Sort the resulting sequence by environment name, then owner.
 	sort.Sort(orderedBlockInfo(results.Models))
-
 	return results, nil
 }
 
 // ModelConfig returns the environment config for the controller
 // environment.  For information on the current environment, use
 // client.ModelGet
-func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
+func (c *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	if err := s.checkHasAdmin(); err != nil {
+	if err := c.checkHasAdmin(); err != nil {
 		return result, errors.Trace(err)
 	}
 
-	controllerState := s.statePool.SystemState()
+	controllerState := c.statePool.SystemState()
 	controllerModel, err := controllerState.Model()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -283,22 +282,22 @@ func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 // HostedModelConfigs returns all the information that the client needs in
 // order to connect directly with the host model's provider and destroy it
 // directly.
-func (s *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, error) {
+func (c *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, error) {
 	result := params.HostedModelConfigsResults{}
-	if err := s.checkHasAdmin(); err != nil {
+	if err := c.checkHasAdmin(); err != nil {
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := s.state.AllModelUUIDs()
+	modelUUIDs, err := c.state.AllModelUUIDs()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
 	for _, modelUUID := range modelUUIDs {
-		if modelUUID == s.state.ControllerModelUUID() {
+		if modelUUID == c.state.ControllerModelUUID() {
 			continue
 		}
-		st, release, err := s.statePool.Get(modelUUID)
+		st, err := c.statePool.Get(modelUUID)
 		if err != nil {
 			// This model could have been removed.
 			if errors.IsNotFound(err) {
@@ -306,7 +305,7 @@ func (s *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, 
 			}
 			return result, errors.Trace(err)
 		}
-		defer release()
+		defer st.Release()
 		model, err := st.Model()
 		if err != nil {
 			return result, errors.Trace(err)
@@ -322,7 +321,7 @@ func (s *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, 
 		} else {
 			config.Config = modelConf.AllAttrs()
 		}
-		cloudSpec := s.GetCloudSpec(model.ModelTag())
+		cloudSpec := c.GetCloudSpec(model.ModelTag())
 		if config.Error == nil {
 			config.CloudSpec = cloudSpec.Result
 			config.Error = cloudSpec.Error
@@ -334,15 +333,15 @@ func (s *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, 
 }
 
 // RemoveBlocks removes all the blocks in the controller.
-func (s *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
-	if err := s.checkHasAdmin(); err != nil {
+func (c *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
+	if err := c.checkHasAdmin(); err != nil {
 		return errors.Trace(err)
 	}
 
 	if !args.All {
 		return errors.New("not supported")
 	}
-	return errors.Trace(s.state.RemoveAllBlocksForController())
+	return errors.Trace(c.state.RemoveAllBlocksForController())
 }
 
 // WatchAllModels starts watching events for all models in the
@@ -429,11 +428,11 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		return "", errors.NotFoundf("model")
 	}
 
-	hostedState, release, err := c.statePool.Get(modelTag.Id())
+	hostedState, err := c.statePool.Get(modelTag.Id())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer release()
+	defer hostedState.Release()
 
 	// Construct target info.
 	specTarget := spec.TargetInfo
@@ -461,7 +460,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	}
 
 	// Check if the migration is likely to succeed.
-	if err := runMigrationPrechecks(hostedState, c.statePool.SystemState(), &targetInfo); err != nil {
+	if err := runMigrationPrechecks(hostedState.State, c.statePool.SystemState(), &targetInfo); err != nil {
 		return "", errors.Trace(err)
 	}
 

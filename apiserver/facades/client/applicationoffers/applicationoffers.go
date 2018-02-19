@@ -67,16 +67,16 @@ func createOffersAPI(
 // NewOffersAPI returns a new application offers OffersAPI facade.
 func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 	environFromModel := func(modelUUID string) (environs.Environ, error) {
-		st, releaser, err := ctx.StatePool().Get(modelUUID)
+		st, err := ctx.StatePool().Get(modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		defer releaser()
+		defer st.Release()
 		model, err := st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		g := stateenvirons.EnvironConfigGetter{st, model}
+		g := stateenvirons.EnvironConfigGetter{st.State, model}
 		env, err := environs.GetEnviron(g, environs.New)
 		if err != nil {
 			return nil, errors.Trace(err)

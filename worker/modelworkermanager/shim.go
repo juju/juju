@@ -14,9 +14,9 @@ type StatePoolModelGetter struct {
 
 // Model is part of the ModelGetter interface.
 func (g StatePoolModelGetter) Model(modelUUID string) (Model, func(), error) {
-	model, release, err := g.StatePool.GetModel(modelUUID)
+	model, ph, err := g.StatePool.GetModel(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return model, func() { release() }, nil
+	return model, func() { ph.Release() }, nil
 }

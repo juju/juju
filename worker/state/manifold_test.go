@@ -225,9 +225,9 @@ func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
 
 	// Get a reference to the state pool entry, so we can
 	// prevent it from being fully removed from the pool.
-	_, release, err := pool.Get(newSt.ModelUUID())
+	st, err := pool.Get(newSt.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
-	defer release()
+	defer st.Release()
 
 	// Progress the model to Dead.
 	err = model.Destroy(state.DestroyModelParams{})
@@ -238,13 +238,13 @@ func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
 	s.State.StartSync()
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		_, release, err := pool.Get(newSt.ModelUUID())
+		st, err := pool.Get(newSt.ModelUUID())
 		if errors.IsNotFound(err) {
 			c.Assert(err, gc.ErrorMatches, "model .* has been removed")
 			return
 		}
 		c.Assert(err, jc.ErrorIsNil)
-		release()
+		st.Release()
 	}
 	c.Fatal("timed out waiting for model state to be removed from pool")
 }

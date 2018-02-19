@@ -39,12 +39,12 @@ type pubsubHandler struct {
 func (h *pubsubHandler) authenticate(req *http.Request) error {
 	// We authenticate against the controller state instance that is held
 	// by Server.
-	_, releaser, entity, err := h.ctxt.stateForRequestAuthenticated(req)
+	st, entity, err := h.ctxt.stateForRequestAuthenticated(req)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	// We don't actually use the state for anything except authentication.
-	defer releaser()
+	defer st.Release()
 
 	switch machine := entity.(type) {
 	case *state.Machine:

@@ -21,6 +21,98 @@ import (
 
 var errPoolClosed = errors.New("pool closed")
 
+// PoolHelper describes methods for working with a pool-supplied state.
+type PoolHelper interface {
+	Release() bool
+	Annotate(string)
+}
+
+// PooledState is a wrapper for a State reference, indicating that it is
+// managed by a pool.
+type PooledState struct {
+	*State
+
+	pool          *StatePool
+	modelUUID     string
+	isSystemState bool
+	released      bool
+	itemKey       uint64
+}
+
+var _ PoolHelper = (*PooledState)(nil)
+
+func newPooledState(st *State, pool *StatePool, modelUUID string, isSystemState bool) *PooledState {
+	return &PooledState{
+		State:         st,
+		pool:          pool,
+		modelUUID:     modelUUID,
+		isSystemState: isSystemState,
+		released:      false,
+	}
+}
+
+// Release indicates that the pooled state is no longer required
+// and can be removed from the pool if there are no other references
+// to it.
+// The return indicates whether the released state was actually removed
+// from the pool - items marked for removal are only removed when released
+// by all other reference holders.
+func (ps *PooledState) Release() bool {
+	if ps.isSystemState || ps.released {
+		return false
+	}
+
+	removed, err := ps.pool.release(ps.modelUUID, ps.itemKey)
+	if err != nil {
+		logger.Errorf("releasing state back to pool: %s", err.Error())
+	}
+	ps.released = true
+	return removed
+}
+
+// Annotate writes the supplied context information back to the pool item.
+// The information is stored against the unique ID for the referer,
+// indicated by the itemKey member.
+func (ps *PooledState) Annotate(context string) {
+	// TODO...
+}
+
+// PoolItem tracks the usage of a State instance unique to a model.
+// It associates context information about state usage for each reference
+// holder by associating it with a unique key.
+// It tracks whether the state has been marked for removal from the pool.
+type PoolItem struct {
+	state            *State
+	modelUUID        string
+	referenceSources map[uint64]string
+	remove           bool
+}
+
+func (i *PoolItem) refCount() int {
+	return len(i.referenceSources)
+}
+
+// StatePool is a cache of State instances for multiple
+// models. Clients should call Release when they have finished with any
+// state.
+type StatePool struct {
+	systemState *State
+	// mu protects pool
+	mu   sync.Mutex
+	pool map[string]*PoolItem
+	// sourceKey is used to provide a unique number as a key for the
+	// referencesSources structure in the pool.
+	sourceKey uint64
+
+	// hub is used to pass the transaction changes from the TxnWatcher
+	// to the various HubWatchers that are used in each state object created
+	// by the state pool.
+	hub *pubsub.SimpleHub
+
+	// watcherRunner makes sure the TxnWatcher stays running.
+	watcherRunner *worker.Runner
+}
+
 // NewStatePool returns a new StatePool instance. It takes a State
 // connected to the system (controller model).
 func NewStatePool(systemState *State) *StatePool {
@@ -56,51 +148,12 @@ func NewStatePool(systemState *State) *StatePool {
 	return pool
 }
 
-// PoolItem holds a State and tracks how many requests are using it
-// and whether it's been marked for removal.
-type PoolItem struct {
-	state            *State
-	remove           bool
-	referenceSources map[uint64]string
-}
-
-func (i *PoolItem) refCount() int {
-	return len(i.referenceSources)
-}
-
-// StatePool is a cache of State instances for multiple
-// models. Clients should call Release when they have finished with any
-// state.
-type StatePool struct {
-	systemState *State
-	// mu protects pool
-	mu   sync.Mutex
-	pool map[string]*PoolItem
-	// sourceKey is used to provide a unique number as a key for the
-	// referencesSources structure in the pool.
-	sourceKey uint64
-
-	// hub is used to pass the transaction changes from the TxnWatcher
-	// to the various HubWatchers that are used in each state object created
-	// by the state pool.
-	hub *pubsub.SimpleHub
-
-	// watcherRunner makes sure the TxnWatcher stays running.
-	watcherRunner *worker.Runner
-}
-
-// StatePoolReleaser is the type of a function returned by StatePool.Get,
-// for releasing the State back into the pool. The boolean result indicates
-// whether or not releasing the State also caused it to be removed from
-// the pool (because its Remove method was previously called).
-type StatePoolReleaser func() bool
-
-// Get returns a State for a given model from the pool, creating one
-// if required. If the State has been marked for removal because there
-// are outstanding uses, an error will be returned.
-func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
+// Get returns a PooledState for a given model, creating a new State instance
+// if required.
+// If the State has been marked for removal, an error is returned.
+func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
 	if modelUUID == p.systemState.ModelUUID() {
-		return p.systemState, func() bool { return false }, nil
+		return newPooledState(p.systemState, p, modelUUID, true), nil
 	}
 
 	p.mu.Lock()
@@ -108,46 +161,38 @@ func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
 
 	item, ok := p.pool[modelUUID]
 	if ok && item.remove {
-		// We don't want to allow increasing the refcount of a model
-		// that's been removed.
-		return nil, nil, errors.NewNotFound(nil, fmt.Sprintf("model %v has been removed", modelUUID))
+		// Disallow further usage of a pool item marked for removal.
+		return nil, errors.NewNotFound(nil, fmt.Sprintf("model %v has been removed", modelUUID))
 	}
 
 	p.sourceKey++
 	key := p.sourceKey
-	// released is here to be captured by the closure for the releaser.
-	// This is to ensure that the releaser function can only be called once.
-	released := false
 
-	releaser := func() bool {
-		if released {
-			return false
-		}
-		removed, err := p.release(modelUUID, key)
-		if err != nil {
-			logger.Errorf("releasing state back to pool: %s", err.Error())
-		}
-		released = true
-		return removed
-	}
 	source := string(debug.Stack())
 
+	// Already have a state in the pool for this model; use it.
 	if ok {
 		item.referenceSources[key] = source
-		return item.state, releaser, nil
+		ps := newPooledState(item.state, p, modelUUID, false)
+		ps.itemKey = key
+		return ps, nil
 	}
 
+	// We need a new state and pool item.
 	st, err := p.openState(modelUUID)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	p.pool[modelUUID] = &PoolItem{
-		state: st,
+		modelUUID: modelUUID,
+		state:     st,
 		referenceSources: map[uint64]string{
 			key: source,
 		},
 	}
-	return st, releaser, nil
+	ps := newPooledState(st, p, modelUUID, false)
+	ps.itemKey = key
+	return ps, nil
 }
 
 func (p *StatePool) openState(modelUUID string) (*State, error) {
@@ -168,19 +213,19 @@ func (p *StatePool) openState(modelUUID string) (*State, error) {
 }
 
 // GetModel is a convenience method for getting a Model for a State.
-func (p *StatePool) GetModel(modelUUID string) (*Model, StatePoolReleaser, error) {
-	st, release, err := p.Get(modelUUID)
+func (p *StatePool) GetModel(modelUUID string) (*Model, PoolHelper, error) {
+	ps, err := p.Get(modelUUID)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, ps, errors.Trace(err)
 	}
 
-	model, err := st.Model()
+	model, err := ps.Model()
 	if err != nil {
-		release()
-		return nil, nil, errors.Trace(err)
+		ps.Release()
+		return nil, ps, errors.Trace(err)
 	}
 
-	return model, release, nil
+	return model, ps, nil
 }
 
 // release indicates that the client has finished using the State. If the
@@ -190,7 +235,7 @@ func (p *StatePool) GetModel(modelUUID string) (*Model, StatePoolReleaser, error
 // not the state was closed and removed.
 func (p *StatePool) release(modelUUID string, key uint64) (bool, error) {
 	if modelUUID == p.systemState.ModelUUID() {
-		// We don't maintain a refcount for the controller.
+		// We do not monitor usage of the controller's state.
 		return false, nil
 	}
 
@@ -205,7 +250,7 @@ func (p *StatePool) release(modelUUID string, key uint64) (bool, error) {
 		return false, errors.Errorf("state pool refcount for model %v is already 0", modelUUID)
 	}
 	delete(item.referenceSources, key)
-	return p.maybeRemoveItem(modelUUID, item)
+	return p.maybeRemoveItem(item)
 }
 
 // Remove takes the state out of the pool and closes it, or marks it
@@ -214,7 +259,7 @@ func (p *StatePool) release(modelUUID string, key uint64) (bool, error) {
 // not the state was removed.
 func (p *StatePool) Remove(modelUUID string) (bool, error) {
 	if modelUUID == p.systemState.ModelUUID() {
-		// We don't manage the controller state.
+		// We do not monitor usage of the controller's state.
 		return false, nil
 	}
 
@@ -228,12 +273,12 @@ func (p *StatePool) Remove(modelUUID string) (bool, error) {
 		return false, nil
 	}
 	item.remove = true
-	return p.maybeRemoveItem(modelUUID, item)
+	return p.maybeRemoveItem(item)
 }
 
-func (p *StatePool) maybeRemoveItem(modelUUID string, item *PoolItem) (bool, error) {
+func (p *StatePool) maybeRemoveItem(item *PoolItem) (bool, error) {
 	if item.remove && item.refCount() == 0 {
-		delete(p.pool, modelUUID)
+		delete(p.pool, item.modelUUID)
 		return true, item.state.Close()
 	}
 	return false, nil

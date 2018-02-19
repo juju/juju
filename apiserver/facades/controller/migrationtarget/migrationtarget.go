@@ -111,11 +111,11 @@ func (api *API) getModel(modelTag string) (*state.Model, func(), error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	model, release, err := api.pool.GetModel(tag.Id())
+	model, ph, err := api.pool.GetModel(tag.Id())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return model, func() { release() }, nil
+	return model, func() { ph.Release() }, nil
 }
 
 func (api *API) getImportingModel(args params.ModelArgs) (*state.Model, func(), error) {
@@ -139,11 +139,11 @@ func (api *API) Abort(args params.ModelArgs) error {
 	}
 	defer releaseModel()
 
-	st, releaseSt, err := api.pool.Get(model.UUID())
+	st, err := api.pool.Get(model.UUID())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer releaseSt()
+	defer st.Release()
 	return st.RemoveImportingModelDocs()
 }
 
@@ -209,12 +209,12 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	st, release, err := api.pool.Get(tag.Id())
+	st, err := api.pool.Get(tag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer release()
-	env, err := api.getEnviron(st)
+	defer st.Release()
+	env, err := api.getEnviron(st.State)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -229,11 +229,11 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	st, release, err := api.pool.Get(tag.Id())
+	st, err := api.pool.Get(tag.Id())
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	defer release()
+	defer st.Release()
 
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -259,7 +259,7 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 		machinesByInstance[string(instanceId)] = machine.Id()
 	}
 
-	env, err := api.getEnviron(st)
+	env, err := api.getEnviron(st.State)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -294,8 +294,8 @@ func errorResult(format string, args ...interface{}) params.ErrorResult {
 }
 
 // CACert returns the certificate used to validate the state connection.
-func (a *API) CACert() (params.BytesResult, error) {
-	cfg, err := a.state.ControllerConfig()
+func (api *API) CACert() (params.BytesResult, error) {
+	cfg, err := api.state.ControllerConfig()
 	if err != nil {
 		return params.BytesResult{}, errors.Trace(err)
 	}

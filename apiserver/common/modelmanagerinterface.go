@@ -141,7 +141,7 @@ func (st modelManagerStateShim) ControllerTag() names.ControllerTag {
 
 // GetBackend implements ModelManagerBackend.
 func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBackend, func() bool, error) {
-	otherState, release, err := st.pool.Get(modelUUID)
+	otherState, err := st.pool.Get(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -149,16 +149,16 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 	if err != nil {
 		return nil, nil, err
 	}
-	return modelManagerStateShim{otherState, otherModel, st.pool}, release, nil
+	return modelManagerStateShim{otherState.State, otherModel, st.pool}, otherState.Release, nil
 }
 
 // GetModel implements ModelManagerBackend.
 func (st modelManagerStateShim) GetModel(modelUUID string) (Model, func() bool, error) {
-	model, release, err := st.pool.GetModel(modelUUID)
+	model, hp, err := st.pool.GetModel(modelUUID)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return modelShim{model}, release, nil
+	return modelShim{model}, hp.Release, nil
 }
 
 // Model implements ModelManagerBackend.
