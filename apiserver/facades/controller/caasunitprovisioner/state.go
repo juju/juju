@@ -78,7 +78,7 @@ type Unit interface {
 	Name() string
 	Life() state.Life
 	UnitTag() names.UnitTag
-	ProviderId() string
+	ContainerInfo() (state.CloudContainer, error)
 	AgentStatus() (status.StatusInfo, error)
 	UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation
 	DestroyOperation() *state.DestroyUnitOperation

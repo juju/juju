@@ -461,6 +461,10 @@ func allCollections() collectionSchema {
 		// for applications and units.
 		containerSpecsC: {},
 
+		// cloudContainersC holds the CAAS container (pod) information,
+		// for units, eg address, ports.
+		cloudContainersC: {},
+
 		// ----------------------
 
 		// Raw-access collections
@@ -490,6 +494,7 @@ const (
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
 	cloudsC                  = "clouds"
+	cloudContainersC         = "containers"
 	cloudCredentialsC        = "cloudCredentials"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"

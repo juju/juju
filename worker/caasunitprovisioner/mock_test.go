@@ -52,9 +52,10 @@ func (m *mockServiceBroker) DeleteService(appName string) error {
 
 type mockContainerBroker struct {
 	testing.Stub
-	ensured      chan<- struct{}
-	unitDeleted  chan<- struct{}
-	unitsWatcher *watchertest.MockNotifyWatcher
+	ensured            chan<- struct{}
+	unitDeleted        chan<- struct{}
+	unitsWatcher       *watchertest.MockNotifyWatcher
+	reportedUnitStatus status.Status
 }
 
 func (m *mockContainerBroker) EnsureUnit(appName, unitName string, spec *caas.ContainerSpec) error {
@@ -80,7 +81,7 @@ func (m *mockContainerBroker) Units(appName string) ([]caas.Unit, error) {
 		{
 			Id:      "u1",
 			Address: "10.0.0.1",
-			Status:  status.StatusInfo{Status: status.Allocating},
+			Status:  status.StatusInfo{Status: m.reportedUnitStatus},
 		},
 	}, m.NextErr()
 }

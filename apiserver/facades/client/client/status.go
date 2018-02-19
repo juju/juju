@@ -1110,11 +1110,15 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 	if leader := context.leaders[unit.ApplicationName()]; leader == unit.Name() {
 		result.Leader = true
 	}
-	result.ProviderId = unit.ProviderId()
-	containerInfo := unit.ContainerInfo()
-	result.Address = containerInfo.Address
-	if len(result.OpenedPorts) == 0 {
-		result.OpenedPorts = containerInfo.Ports
+	containerInfo, err := unit.ContainerInfo()
+	if err != nil && !errors.IsNotFound(err) {
+		logger.Debugf("error fetching container info: %v", err)
+	} else if err == nil {
+		result.ProviderId = containerInfo.ProviderId()
+		result.Address = containerInfo.Address()
+		if len(result.OpenedPorts) == 0 {
+			result.OpenedPorts = containerInfo.Ports()
+		}
 	}
 	return result
 }

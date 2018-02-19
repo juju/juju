@@ -4,6 +4,8 @@
 package caasunitprovisioner
 
 import (
+	"reflect"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -102,6 +105,10 @@ func (aw *applicationWorker) loop() error {
 	aliveUnits := make(set.Strings)
 	var aliveUnitsChan chan []string
 
+	// Cache the last reported status information
+	// so we only report true changes.
+	lastReportedStatus := make(map[string]status.StatusInfo)
+
 	for {
 		select {
 		case <-aw.catacomb.Dying():
@@ -176,14 +183,26 @@ func (aw *applicationWorker) loop() error {
 				if u.Dying && aw.brokerManagedUnits {
 					continue
 				}
+				unitStatus := u.Status
+				lastStatus, ok := lastReportedStatus[u.UnitTag]
+				lastReportedStatus[u.UnitTag] = unitStatus
+				if ok {
+					// If we've seen the same status value previously,
+					// report as unknown as this value is ignored.
+					if reflect.DeepEqual(lastStatus, unitStatus) {
+						unitStatus = status.StatusInfo{
+							Status: status.Unknown,
+						}
+					}
+				}
 				args.Units[i] = params.ApplicationUnitParams{
 					ProviderId: u.Id,
 					UnitTag:    u.UnitTag,
 					Address:    u.Address,
 					Ports:      u.Ports,
-					Status:     u.Status.Status.String(),
-					Info:       u.Status.Message,
-					Data:       u.Status.Data,
+					Status:     unitStatus.Status.String(),
+					Info:       unitStatus.Message,
+					Data:       unitStatus.Data,
 				}
 			}
 			if err := aw.unitUpdater.UpdateUnits(args); err != nil {

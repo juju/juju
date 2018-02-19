@@ -1900,6 +1900,13 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	})
 }
 
+func (s *ApplicationSuite) TestAddUnitWithProviderIdNonCAASModel(c *gc.C) {
+	u, err := s.mysql.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id")})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = u.ContainerInfo()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *ApplicationSuite) TestReadUnit(c *gc.C) {
 	_, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3308,28 +3315,45 @@ func (s *ApplicationSuite) TestDestroyApplicationRemovesConfig(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
+type CAASApplicationSuite struct {
+	ConnSuite
+	app *state.Application
+}
+
+var _ = gc.Suite(&CAASApplicationSuite{})
+
+func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CAAS)
+	s.ConnSuite.SetUpTest(c)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
 		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
-	defer st.Close()
+	s.AddCleanup(func(_ *gc.C) { st.Close() })
+
 	f := factory.NewFactory(st)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+}
 
-	existingUnit, err := app.AddUnit(state.AddUnitParams{ProviderId: "unit-uuid"})
+func strPtr(s string) *string {
+	return &s
+}
+
+func (s *CAASApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+
+	existingUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("unit-uuid")})
 	c.Assert(err, jc.ErrorIsNil)
-	removedUnit, err := app.AddUnit(state.AddUnitParams{ProviderId: "removed-unit-uuid"})
+	removedUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("removed-unit-uuid")})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var updateUnits state.UpdateUnitsOperation
 	updateUnits.Deletes = []*state.DestroyUnitOperation{removedUnit.DestroyOperation()}
-	updateUnits.Adds = []*state.AddUnitOperation{app.AddOperation(state.UnitUpdateProperties{
-		ProviderId: "new-unit-uuid",
-		Address:    "192.168.1.1",
-		Ports:      []string{"80"},
+	updateUnits.Adds = []*state.AddUnitOperation{s.app.AddOperation(state.UnitUpdateProperties{
+		ProviderId: strPtr("new-unit-uuid"),
+		Address:    strPtr("192.168.1.1"),
+		Ports:      &[]string{"80"},
 		AgentStatus: &status.StatusInfo{
 			Status:  status.Running,
 			Message: "new running",
@@ -3340,9 +3364,9 @@ func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 		},
 	})}
 	updateUnits.Updates = []*state.UpdateUnitOperation{existingUnit.UpdateOperation(state.UnitUpdateProperties{
-		ProviderId: "unit-uuid",
-		Address:    "192.168.1.2",
-		Ports:      []string{"443"},
+		ProviderId: strPtr("unit-uuid"),
+		Address:    strPtr("192.168.1.2"),
+		Ports:      &[]string{"443"},
 		AgentStatus: &status.StatusInfo{
 			Status:  status.Running,
 			Message: "existing running",
@@ -3352,30 +3376,30 @@ func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 			Message: "existing active",
 		},
 	})}
-	err = app.UpdateUnits(&updateUnits)
+	err = s.app.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	units, err := app.AllUnits()
+	units, err := s.app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 2)
 
 	unitsById := make(map[string]*state.Unit)
+	containerInfoById := make(map[string]state.CloudContainer)
 	for _, u := range units {
-		if u.ProviderId() == "" {
-			c.Fail()
-		}
-		if u.ShouldBeAssigned() {
-			c.Fail()
-		}
-		unitsById[u.ProviderId()] = u
+		c.Assert(u.ShouldBeAssigned(), jc.IsFalse)
+		containerInfo, err := u.ContainerInfo()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(containerInfo.ProviderId(), gc.Not(gc.Equals), "")
+		unitsById[containerInfo.ProviderId()] = u
+		containerInfoById[containerInfo.ProviderId()] = containerInfo
 	}
 	u, ok := unitsById["unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(u.Name(), gc.Equals, existingUnit.Name())
-	c.Assert(u.ContainerInfo(), jc.DeepEquals, state.ContainerInfo{
-		Address: "192.168.1.2",
-		Ports:   []string{"443"},
-	})
+	info, ok := containerInfoById["unit-uuid"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(u.Name(), gc.Equals, existingUnit.Name())
+	c.Check(info.Address(), gc.Equals, "192.168.1.2")
+	c.Check(info.Ports(), jc.DeepEquals, []string{"443"})
 	statusInfo, err := u.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Running)
@@ -3399,12 +3423,11 @@ func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 	c.Assert(statusInfo.Message, gc.Equals, "existing active")
 
 	u, ok = unitsById["new-unit-uuid"]
+	info, ok = containerInfoById["new-unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(u.Name(), gc.Equals, "wordpress/2")
-	c.Assert(u.ContainerInfo(), jc.DeepEquals, state.ContainerInfo{
-		Address: "192.168.1.1",
-		Ports:   []string{"80"},
-	})
+	c.Assert(info.Address(), gc.Equals, "192.168.1.1")
+	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 	addr, err := u.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, jc.DeepEquals, network.Address{
@@ -3438,10 +3461,12 @@ func (s *ApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *ApplicationSuite) TestAddUnitWithProviderId(c *gc.C) {
-	u, err := s.mysql.AddUnit(state.AddUnitParams{ProviderId: "provider-id"})
+func (s *CAASApplicationSuite) TestAddUnitWithProviderId(c *gc.C) {
+	u, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id")})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u.ProviderId(), gc.Equals, "provider-id")
+	info, err := u.ContainerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.ProviderId(), gc.Equals, "provider-id")
 }
 
 func (s *ApplicationSuite) TestApplicationSetAgentPresence(c *gc.C) {

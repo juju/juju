@@ -198,6 +198,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// TODO(caas)
 		containerSpecsC,
+		cloudContainersC,
 	)
 
 	envCollections := set.NewStrings()
@@ -396,9 +397,6 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 		"Series",
 		"CharmURL",
 		"TxnRevno",
-		// TODO(caas)
-		"ProviderId",
-		"ContainerInfo",
 	)
 	migrated := set.NewStrings(
 		"Name",

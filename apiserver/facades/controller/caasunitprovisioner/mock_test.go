@@ -125,11 +125,20 @@ func (m *mockApplication) AddOperation(props state.UnitUpdateProperties) *state.
 	return addOp
 }
 
+type mockContainerInfo struct {
+	state.CloudContainer
+	providerId string
+}
+
+func (m *mockContainerInfo) ProviderId() string {
+	return m.providerId
+}
+
 type mockUnit struct {
 	testing.Stub
-	name       string
-	life       state.Life
-	providerId string
+	name          string
+	life          state.Life
+	containerInfo *mockContainerInfo
 }
 
 func (*mockUnit) Tag() names.Tag {
@@ -149,8 +158,11 @@ func (m *mockUnit) Name() string {
 	return m.name
 }
 
-func (m *mockUnit) ProviderId() string {
-	return m.providerId
+func (m *mockUnit) ContainerInfo() (state.CloudContainer, error) {
+	if m.containerInfo == nil {
+		return nil, errors.NotFoundf("container info")
+	}
+	return m.containerInfo, nil
 }
 
 func (m *mockUnit) AgentStatus() (status.StatusInfo, error) {

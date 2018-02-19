@@ -4058,9 +4058,10 @@ func (s *uniterSuite) TestNetworkInfoCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var updateUnits state.UpdateUnitsOperation
+	addr := "192.168.1.2"
 	updateUnits.Updates = []*state.UpdateUnitOperation{wpUnit.UpdateOperation(state.UnitUpdateProperties{
-		Address: "192.168.1.2",
-		Ports:   []string{"443"},
+		Address: &addr,
+		Ports:   &[]string{"443"},
 	})}
 	err = wp.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)

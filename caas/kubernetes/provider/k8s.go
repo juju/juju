@@ -398,13 +398,14 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 				ports = append(ports, fmt.Sprintf("%v/%v", p.ContainerPort, p.Protocol))
 			}
 		}
+		terminated := p.DeletionTimestamp != nil
 		unitInfo := caas.Unit{
 			Id:      string(p.UID),
 			Address: p.Status.PodIP,
 			Ports:   ports,
-			Dying:   p.DeletionTimestamp != nil,
+			Dying:   terminated,
 			Status: status.StatusInfo{
-				Status:  k.jujuStatus(p.Status.Phase),
+				Status:  k.jujuStatus(p.Status.Phase, terminated),
 				Message: p.Status.Message,
 				Since:   &now,
 			},
@@ -423,7 +424,10 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 	return result, nil
 }
 
-func (k *kubernetesClient) jujuStatus(podPhase v1.PodPhase) status.Status {
+func (k *kubernetesClient) jujuStatus(podPhase v1.PodPhase, terminated bool) status.Status {
+	if terminated {
+		return status.Terminated
+	}
 	switch podPhase {
 	case v1.PodRunning:
 		return status.Running
