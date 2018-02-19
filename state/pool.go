@@ -19,15 +19,54 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// This is the default time to wait after calling remove for a model's
+// pooled state before it is forcibly removed.
+const defaultRemoveTimeout = 5 * time.Minute
+
 var errPoolClosed = errors.New("pool closed")
 
-// NewStatePool returns a new StatePool instance. It takes a State
-// connected to the system (controller model).
+// StatePool is a cache of State instances for multiple
+// models. Clients should call Release when they have finished with any
+// state.
+type StatePool struct {
+	systemState *State
+	// mu protects pool
+	mu   sync.Mutex
+	pool map[string]*PoolItem
+	// sourceKey is used to provide a unique number as a key for the
+	// referencesSources structure in the pool.
+	sourceKey uint64
+
+	// hub is used to pass the transaction changes from the TxnWatcher
+	// to the various HubWatchers that are used in each state object created
+	// by the state pool.
+	hub *pubsub.SimpleHub
+
+	// watcherRunner makes sure the TxnWatcher stays running.
+	watcherRunner *worker.Runner
+
+	// forceRemoveTimeout is the time after which calling Remove with a return
+	// value of false, will forcibly remove a model's PoolItem.
+	forceRemoveTimeout time.Duration
+}
+
+// NewStatePool builds and returns a new StatePool instance.
+// The input State should be connected to the system (controller model).
 func NewStatePool(systemState *State) *StatePool {
+	return NewStatePoolWithTimeout(systemState, defaultRemoveTimeout)
+}
+
+// NewStatePool builds and returns a new StatePool instance from the input
+// state and duration.
+// The input State should be connected to the system (controller model).
+// The timeout is the maximum time to wait after requesting pool item removal,
+// before forcibly removing it.
+func NewStatePoolWithTimeout(systemState *State, timeout time.Duration) *StatePool {
 	pool := &StatePool{
-		systemState: systemState,
-		pool:        make(map[string]*PoolItem),
-		hub:         pubsub.NewSimpleHub(nil),
+		systemState:        systemState,
+		pool:               make(map[string]*PoolItem),
+		hub:                pubsub.NewSimpleHub(nil),
+		forceRemoveTimeout: timeout,
 	}
 	// If systemState is nil, this is clearly a test, and a poorly
 	// isolated one. However now is not the time to fix all those broken
@@ -68,27 +107,6 @@ func (i *PoolItem) refCount() int {
 	return len(i.referenceSources)
 }
 
-// StatePool is a cache of State instances for multiple
-// models. Clients should call Release when they have finished with any
-// state.
-type StatePool struct {
-	systemState *State
-	// mu protects pool
-	mu   sync.Mutex
-	pool map[string]*PoolItem
-	// sourceKey is used to provide a unique number as a key for the
-	// referencesSources structure in the pool.
-	sourceKey uint64
-
-	// hub is used to pass the transaction changes from the TxnWatcher
-	// to the various HubWatchers that are used in each state object created
-	// by the state pool.
-	hub *pubsub.SimpleHub
-
-	// watcherRunner makes sure the TxnWatcher stays running.
-	watcherRunner *worker.Runner
-}
-
 // StatePoolReleaser is the type of a function returned by StatePool.Get,
 // for releasing the State back into the pool. The boolean result indicates
 // whether or not releasing the State also caused it to be removed from
@@ -115,10 +133,10 @@ func (p *StatePool) Get(modelUUID string) (*State, StatePoolReleaser, error) {
 
 	p.sourceKey++
 	key := p.sourceKey
+
 	// released is here to be captured by the closure for the releaser.
 	// This is to ensure that the releaser function can only be called once.
 	released := false
-
 	releaser := func() bool {
 		if released {
 			return false
@@ -228,15 +246,55 @@ func (p *StatePool) Remove(modelUUID string) (bool, error) {
 		return false, nil
 	}
 	item.remove = true
-	return p.maybeRemoveItem(modelUUID, item)
+	removed, err := p.maybeRemoveItem(modelUUID, item)
+
+	// If the item was not removed, set a deadline to forcibly remove it.
+	if !removed && err == nil {
+		go p.beginForceRemoveCountdown(modelUUID)
+	}
+
+	return removed, err
 }
 
 func (p *StatePool) maybeRemoveItem(modelUUID string, item *PoolItem) (bool, error) {
 	if item.remove && item.refCount() == 0 {
-		delete(p.pool, modelUUID)
-		return true, item.state.Close()
+		return true, p.removeItem(modelUUID, item)
 	}
 	return false, nil
+}
+
+// beginForceRemoveCountdown waits for the set duration then ensures
+// (by force if required) that the item corresponding with the input model is
+// removed from the pool.
+// Call it from a Goroutine.
+func (p *StatePool) beginForceRemoveCountdown(modelUUID string) {
+	time.Sleep(p.forceRemoveTimeout)
+
+	// It may have been legitimately removed meantime,
+	// so check that it is still there.
+	// If it is, log a report of its references and force removal.
+	if item, ok := p.pool[modelUUID]; ok {
+		buf := &bytes.Buffer{}
+		inspectPoolItem(modelUUID, item, buf)
+		logger.Debugf("forcing removal of pool item: %s", buf)
+
+		if err := p.forceRemoveItem(modelUUID, item); err != nil {
+			logger.Errorf("removing pool item: %s", err.Error())
+		}
+	}
+}
+
+// forceRemoveItem is used to call removeItem "out of band".
+// As such it negotiates the state pool mutex.
+func (p *StatePool) forceRemoveItem(modelUUID string, item *PoolItem) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.removeItem(modelUUID, item)
+}
+
+func (p *StatePool) removeItem(modelUUID string, item *PoolItem) error {
+	delete(p.pool, modelUUID)
+	return item.state.Close()
 }
 
 // SystemState returns the State passed in to NewStatePool.
@@ -278,24 +336,32 @@ func (p *StatePool) IntrospectionReport() string {
 	defer p.mu.Unlock()
 
 	removeCount := 0
-	buff := &bytes.Buffer{}
+	buf := &bytes.Buffer{}
 
 	for uuid, item := range p.pool {
-		if item.remove {
+		if inspectPoolItem(uuid, item, buf) {
 			removeCount++
 		}
-		fmt.Fprintf(buff, "\nModel: %s\n", uuid)
-		fmt.Fprintf(buff, "  Marked for removal: %v\n", item.remove)
-		fmt.Fprintf(buff, "  Reference count: %v\n", item.refCount())
-		index := 0
-		for _, ref := range item.referenceSources {
-			index++
-			fmt.Fprintf(buff, "    [%d]\n%s\n", index, ref)
-		}
 	}
-
 	return fmt.Sprintf(""+
 		"Model count: %d models\n"+
 		"Marked for removal: %d models\n"+
-		"\n%s", len(p.pool), removeCount, buff)
+		"\n%s", len(p.pool), removeCount, buf)
+}
+
+// inspectPoolItem generates a report for the state of a single PoolItem and
+// writes it to the supplied buffer.
+// The return indicates whether the item was marked for removal.
+func inspectPoolItem(modelUUID string, item *PoolItem, buf *bytes.Buffer) bool {
+	fmt.Fprintf(buf, "\nModel: %s\n", modelUUID)
+	fmt.Fprintf(buf, "  Marked for removal: %v\n", item.remove)
+	fmt.Fprintf(buf, "  Reference count: %v\n", item.refCount())
+
+	index := 0
+	for _, ref := range item.referenceSources {
+		index++
+		fmt.Fprintf(buf, "    [%d]\n%s\n", index, ref)
+	}
+
+	return item.remove
 }
