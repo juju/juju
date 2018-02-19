@@ -67,7 +67,7 @@ See also:
     show-cloud
 `
 
-// Info returns information about this commmand - it's part of
+// Info returns information about this command - it's part of
 // cmd.Command.
 func (c *configCommand) Info() *cmd.Info {
 	return &cmd.Info{
