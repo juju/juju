@@ -39,6 +39,8 @@ type PooledState struct {
 	itemKey       uint64
 }
 
+var _ PoolHelper = (*PooledState)(nil)
+
 func newPooledState(st *State, pool *StatePool, modelUUID string, isSystemState bool) *PooledState {
 	return &PooledState{
 		State:         st,
