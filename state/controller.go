@@ -8,10 +8,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	names "gopkg.in/juju/names.v2"
-	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 
 	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/network"
 )
 
 const (
@@ -91,7 +92,7 @@ func (st *State) ControllerConfig() (jujucontroller.Config, error) {
 // so revert to their defaults). Only a subset of keys can be changed
 // after bootstrapping.
 func (st *State) UpdateControllerConfig(updateAttrs map[string]interface{}, removeAttrs []string) error {
-	if err := checkControllerConfigNames(updateAttrs, removeAttrs); err != nil {
+	if err := st.checkValidControllerConfig(updateAttrs, removeAttrs); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -119,10 +120,16 @@ func (st *State) UpdateControllerConfig(updateAttrs map[string]interface{}, remo
 	return errors.Trace(settings.write(ops))
 }
 
-func checkControllerConfigNames(updateAttrs map[string]interface{}, removeAttrs []string) error {
+func (st *State) checkValidControllerConfig(updateAttrs map[string]interface{}, removeAttrs []string) error {
 	for k := range updateAttrs {
 		if err := checkUpdateControllerConfig(k); err != nil {
 			return errors.Trace(err)
+		}
+
+		if k == jujucontroller.JujuHASpace || k == jujucontroller.JujuManagementSpace {
+			if err := st.checkSpaceIsValid(updateAttrs[k].(string)); err != nil {
+				return errors.Annotatef(err, "invalid config value for %q", k)
+			}
 		}
 	}
 	for _, r := range removeAttrs {
@@ -140,5 +147,28 @@ func checkUpdateControllerConfig(name string) error {
 	if !jujucontroller.AllowedUpdateConfigAttributes.Contains(name) {
 		return errors.Errorf("can't change %q after bootstrap", name)
 	}
+	return nil
+}
+
+// checkSpaceIsValid checks if each controller machine has addresses in the
+// the input space. If not, an error is returned.
+func (st *State) checkSpaceIsValid(configSpace string) error {
+	info, err := st.ControllerInfo()
+	if err != nil {
+		return errors.Annotate(err, "cannot get controller info")
+	}
+
+	spaceName := network.SpaceName(configSpace)
+	for _, id := range info.MachineIds {
+		m, err := st.Machine(id)
+		if err != nil {
+			return errors.Annotate(err, "cannot get machine")
+		}
+
+		if _, ok := network.SelectAddressesBySpaceNames(m.MachineAddresses(), spaceName); !ok {
+			return errors.Errorf("machine %q has no addresses in space", id)
+		}
+	}
+
 	return nil
 }
