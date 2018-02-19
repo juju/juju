@@ -20,6 +20,7 @@ from jujupy.utility import (
     ensure_deleted,
     ensure_dir,
     get_timeout_path,
+    get_unit_ipaddress,
     is_ipv6_address,
     print_now,
     qualified_model_name,
@@ -36,6 +37,7 @@ __all__ = [
     'ensure_deleted',
     'ensure_dir',
     'get_timeout_path',
+    'get_unit_ipaddress',
     'qualified_model_name',
     'quote',
     'scoped_environ',
@@ -382,11 +384,6 @@ def run_command(command, dry_run=False, verbose=False):
         output = subprocess.check_output(command)
         if verbose:
             print_now(output)
-
-
-def get_unit_ipaddress(client, unit_name):
-    status = client.get_status()
-    return status.get_unit(unit_name)['public-address']
 
 
 def log_and_wrap_exception(logger, exc):
