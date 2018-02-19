@@ -47,8 +47,8 @@ var ClassifyMachine = classifyMachine
 // GetCopyAvailabilityZoneMachines returns a copy of p.(*provisionerTask).availabilityZoneMachines
 func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachine {
 	task := p.(*provisionerTask)
-	task.azMachinesMutex.RLock()
-	defer task.azMachinesMutex.RUnlock()
+	task.machinesMutex.RLock()
+	defer task.machinesMutex.RUnlock()
 	// sort to make comparisions in the tests easier.
 	sort.Sort(byPopulationThenNames(task.availabilityZoneMachines))
 	retvalues := make([]AvailabilityZoneMachine, len(task.availabilityZoneMachines))
