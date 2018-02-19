@@ -860,3 +860,27 @@ func (s *AddressSuite) TestResolvableHostnames(c *gc.C) {
 
 	c.Assert(scopedAddrsExpected, jc.DeepEquals, network.ResolvableHostnames(scopedAddrs))
 }
+
+func (s *AddressSuite) TestSelectAddressesBySpaceNamesFiltered(c *gc.C) {
+	sp := "thaSpace"
+	addrsSpace := []network.Address{network.NewAddressOnSpace(sp, "192.168.5.5")}
+	addrsNoSpace := []network.Address{network.NewAddress("127.0.0.1")}
+
+	filtered, ok := network.SelectAddressesBySpaceNames(append(addrsSpace, addrsNoSpace...), network.SpaceName(sp))
+	c.Check(ok, jc.IsTrue)
+	c.Check(filtered, jc.DeepEquals, addrsSpace)
+}
+
+func (s *AddressSuite) TestSelectAddressesBySpaceNoSpaceFalse(c *gc.C) {
+	addrs := []network.Address{network.NewAddress("127.0.0.1")}
+	filtered, ok := network.SelectAddressesBySpaceNames(addrs)
+	c.Check(ok, jc.IsFalse)
+	c.Check(filtered, jc.DeepEquals, addrs)
+}
+
+func (s *AddressSuite) TestSelectAddressesBySpaceNoneFound(c *gc.C) {
+	addrs := []network.Address{network.NewAddress("127.0.0.1")}
+	filtered, ok := network.SelectAddressesBySpaceNames(addrs, "noneSpace")
+	c.Check(ok, jc.IsFalse)
+	c.Check(filtered, jc.DeepEquals, addrs)
+}

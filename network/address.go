@@ -275,22 +275,28 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 	return false
 }
 
-// SelectAddressBySpaceNames picks the first address from the given slice that has
-// the given space name associated.
-func SelectAddressBySpaceNames(addresses []Address, spaceNames ...SpaceName) (Address, bool) {
+// SelectAddressesBySpaceNames filters the input slice of Addresses down to
+// those in the input space name.
+func SelectAddressesBySpaceNames(addresses []Address, spaceNames ...SpaceName) ([]Address, bool) {
+	if len(spaceNames) == 0 {
+		logger.Errorf("addresses not filtered - no spaces given.")
+		return addresses, false
+	}
+
+	var selectedAddresses []Address
 	for _, addr := range addresses {
 		if spaceNameList(spaceNames).IndexOf(addr.SpaceName) >= 0 {
-			logger.Debugf("selected %q as first address in space %q", addr.Value, addr.SpaceName)
-			return addr, true
+			logger.Debugf("selected %q as a address in space %q", addr.Value, addr.SpaceName)
+			selectedAddresses = append(selectedAddresses, addr)
 		}
 	}
 
-	if len(spaceNames) == 0 {
-		logger.Errorf("no spaces to select addresses from")
-	} else {
-		logger.Errorf("no addresses found in spaces %s", spaceNames)
+	if len(selectedAddresses) > 0 {
+		return selectedAddresses, true
 	}
-	return Address{}, false
+
+	logger.Errorf("no addresses found in spaces %s", spaceNames)
+	return addresses, false
 }
 
 // SelectHostPortsBySpaceNames filters the input slice of HostPorts down to
@@ -349,28 +355,11 @@ func SelectMongoHostPortsBySpaceNames(hostPorts []HostPort, spaces []SpaceName) 
 	return HostPortsToStrings(filteredHostPorts), ok
 }
 
-// HostPortsHasIPv4Address returns true if the passed slice of HostPort
-// contains an IPv4 address that is not just a machine-local address.
-func HostPortsHasIPv4Address(hostPorts []HostPort) bool {
-	for _, hp := range hostPorts {
-		logger.Tracef("found Address of Value %q, Type %q and Scope %q",
-			hp.Address.Value, hp.Address.Type, hp.Address.Scope)
-		if hp.Address.Type == "ipv4" &&
-			hp.Address.Scope != ScopeMachineLocal {
-			return true
-		}
-	}
-	return false
-}
-
-func SelectMongoHostPortsByScope(hostPorts []HostPort, machineLocal bool) []string {
+func SelectHostPortsByScope(hostPorts []HostPort, machineLocal bool) []string {
 	// Fallback to using the legacy and error-prone approach using scope
 	// selection instead.
 	internalHP := SelectInternalHostPort(hostPorts, machineLocal)
-	logger.Debugf(
-		"selected %q as controller host:port, using scope selection",
-		internalHP,
-	)
+	logger.Debugf("selected %q as host:port, using scope selection", internalHP)
 	return []string{internalHP}
 }
 
