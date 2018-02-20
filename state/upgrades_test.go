@@ -2112,7 +2112,7 @@ func (s *upgradesSuite) TestAddRelationStatus(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestCopyMongoSpaceToHASpaceConfigWhenValid(c *gc.C) {
-	c.Assert(getHASpaceConfig(s.state.db(), c), gc.Equals, "")
+	c.Assert(getHASpaceConfig(s.state, c), gc.Equals, "")
 
 	sn := network.SpaceName("mongo-space")
 	ms, err := s.state.SetOrGetMongoSpaceName(sn)
@@ -2122,11 +2122,11 @@ func (s *upgradesSuite) TestCopyMongoSpaceToHASpaceConfigWhenValid(c *gc.C) {
 	err = CopyMongoSpaceToHASpaceConfig(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(getHASpaceConfig(s.state.db(), c), gc.Equals, "mongo-space")
+	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "mongo-space")
 }
 
 func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenNotValid(c *gc.C) {
-	c.Assert(getHASpaceConfig(s.state.db(), c), gc.Equals, "")
+	c.Assert(getHASpaceConfig(s.state, c), gc.Equals, "")
 
 	sn := network.SpaceName("mongo-space")
 	ms, err := s.state.SetOrGetMongoSpaceName(sn)
@@ -2138,15 +2138,11 @@ func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenNotValid(c *gc.C)
 	err = CopyMongoSpaceToHASpaceConfig(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(getHASpaceConfig(s.state.db(), c), gc.Equals, "")
+	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "")
 }
 
-func getHASpaceConfig(db Database, c *gc.C) string {
-	settings, err := readSettings(db, controllersC, controllerSettingsGlobalKey)
+func getHASpaceConfig(st *State, c *gc.C) string {
+	config, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	haSpace, ok := settings.Get(controller.JujuHASpace)
-	if !ok {
-		return ""
-	}
-	return haSpace.(string)
+	return config.JujuHASpace()
 }
