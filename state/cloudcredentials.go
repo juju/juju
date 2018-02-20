@@ -17,6 +17,12 @@ import (
 	"github.com/juju/juju/cloud"
 )
 
+// Credential contains information about the credential as stored on
+// the controller.
+type Credential struct {
+	cloudCredentialDoc
+}
+
 // cloudCredentialDoc records information about a user's cloud credentials.
 type cloudCredentialDoc struct {
 	DocID      string            `bson:"_id"`
@@ -28,21 +34,29 @@ type cloudCredentialDoc struct {
 	Attributes map[string]string `bson:"attributes,omitempty"`
 }
 
-// CloudCredential returns the cloud credential for the given tag.
-func (st *State) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
+func (st *State) credentialDoc(tag names.CloudCredentialTag) (cloudCredentialDoc, error) {
 	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
 	defer cleanup()
 
 	var doc cloudCredentialDoc
 	err := coll.FindId(cloudCredentialDocID(tag)).One(&doc)
 	if err == mgo.ErrNotFound {
-		return cloud.Credential{}, errors.NotFoundf(
+		return doc, errors.NotFoundf(
 			"cloud credential %q", tag.Id(),
 		)
 	} else if err != nil {
-		return cloud.Credential{}, errors.Annotatef(
+		return doc, errors.Annotatef(
 			err, "getting cloud credential %q", tag.Id(),
 		)
+	}
+	return doc, nil
+}
+
+// CloudCredential returns the cloud credential for the given tag.
+func (st *State) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
+	doc, err := st.credentialDoc(tag)
+	if err != nil {
+		return cloud.Credential{}, errors.Trace(err)
 	}
 	return doc.toCredential(), nil
 }
@@ -250,4 +264,45 @@ func (st *State) WatchCredential(cred names.CloudCredentialTag) NotifyWatcher {
 		return id == cloudCredentialDocID(cred)
 	}
 	return newNotifyCollWatcher(st, cloudCredentialsC, filter)
+}
+
+// StoredCredential returns the cloud credential for the given tag
+// as it is stored on the controller, including *all* attributes, even secrets.
+func (st *State) StoredCredential(tag names.CloudCredentialTag) (Credential, error) {
+	doc, err := st.credentialDoc(tag)
+	if err != nil {
+		return Credential{}, errors.Trace(err)
+	}
+	return Credential{doc}, nil
+}
+
+// AllCloudCredentials returns all cloud credentials stored on the controller
+// for a given user.
+func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
+	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
+	defer cleanup()
+
+	// There are 2 ways of getting a credential for a user:
+	// 1. user name stored in the credential tag (aka doc id);
+	// 2. look up using Owner field.
+	// We use Owner field below as credential tag or doc ID may be changed
+	// in the future to be a real Primary Key that has nothing to do with
+	// the data it identifies, i.e. no business meaning.
+	clause := bson.D{{"owner", user.Id()}}
+
+	var docs []cloudCredentialDoc
+	err := coll.Find(clause).Sort("cloud").All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting cloud credentials for %q", user.Id())
+	}
+
+	if len(docs) == 0 {
+		return nil, errors.NotFoundf("cloud credentials for %q", user.Id())
+	}
+
+	credentials := make([]Credential, len(docs))
+	for i, doc := range docs {
+		credentials[i] = Credential{doc}
+	}
+	return credentials, nil
 }

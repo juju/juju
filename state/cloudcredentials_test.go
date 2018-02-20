@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -212,4 +214,60 @@ func (s *CloudCredentialsSuite) TestWatchCredentialIgnoresOther(c *gc.C) {
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+func (s *CloudCredentialsSuite) createCloudCredential(c *gc.C, cloudName, userName, credentialName string) (names.CloudCredentialTag, state.Credential) {
+	authType := cloud.AccessKeyAuthType
+	attributes := map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	}
+
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      cloudName,
+		Type:      "low",
+		AuthTypes: cloud.AuthTypes{authType, cloud.UserPassAuthType},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cred := cloud.NewCredential(authType, attributes)
+
+	// Cloud credential tag to use when looking up this credential.
+	tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", cloudName, userName, credentialName))
+	err = s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Credential data as stored in state.
+	expected := state.Credential{}
+	expected.DocID = fmt.Sprintf("%s#%s#%s", cloudName, userName, credentialName)
+	expected.Owner = userName
+	expected.Cloud = cloudName
+	expected.Name = credentialName
+	expected.AuthType = string(authType)
+	expected.Attributes = attributes
+
+	return tag, expected
+}
+
+func (s *CloudCredentialsSuite) TestStoredCredential(c *gc.C) {
+	tag, expected := s.createCloudCredential(c, "stratus", "bob", "foobar")
+
+	out, err := s.State.StoredCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, jc.DeepEquals, expected)
+}
+
+func (s *CloudCredentialsSuite) TestAllCloudCredentialsNotFound(c *gc.C) {
+	out, err := s.State.AllCloudCredentials(names.NewUserTag("bob"))
+	c.Assert(err, gc.ErrorMatches, "cloud credentials for \"bob\" not found")
+	c.Assert(out, gc.IsNil)
+}
+
+func (s *CloudCredentialsSuite) TestAllCloudCredentials(c *gc.C) {
+	_, one := s.createCloudCredential(c, "cirrus", "bob", "foobar")
+	_, two := s.createCloudCredential(c, "stratus", "bob", "foobar")
+
+	out, err := s.State.AllCloudCredentials(names.NewUserTag("bob"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, jc.DeepEquals, []state.Credential{one, two})
 }
