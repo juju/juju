@@ -60,8 +60,13 @@ type Metadata struct {
 // Storage provides methods for storing and retrieving cloud image metadata.
 type Storage interface {
 	// SaveMetadata adds cloud images metadata into state if it's new or
-	// updates metadata if it already exists.
+	// updates metadata if it already exists. The records will expire
+	// after a set time.
 	SaveMetadata([]Metadata) error
+
+	// SaveMetadataNoExpiry adds cloud images metadata into state if it's new or
+	// updates metadata if it already exists. The records will not expire.
+	SaveMetadataNoExpiry([]Metadata) error
 
 	// DeleteMetadata deletes cloud image metadata from state.
 	DeleteMetadata(imageId string) error

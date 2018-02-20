@@ -1383,3 +1383,16 @@ func MoveOldAuditLog(st *State) error {
 	}
 	return errors.Trace(session.Run(renameCommand, nil))
 }
+
+// DeleteCloudImageMetadata deletes any non-custom cloud
+// image metadata records from the cloudimagemetadata collection.
+func DeleteCloudImageMetadata(st *State) error {
+	coll, closer := st.db().GetRawCollection(cloudimagemetadataC)
+	defer closer()
+
+	bulk := coll.Bulk()
+	bulk.Unordered()
+	bulk.RemoveAll(bson.D{{"source", bson.D{{"$ne", "custom"}}}})
+	_, err := bulk.Run()
+	return errors.Annotate(err, "deleting cloud image metadata records")
+}

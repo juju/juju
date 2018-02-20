@@ -15,7 +15,11 @@ type cloudImageMetadataSuite struct{}
 var _ = gc.Suite(&cloudImageMetadataSuite{})
 
 func (s *cloudImageMetadataSuite) TestCloudImageMetadataDocFields(c *gc.C) {
-	ignored := set.NewStrings("Id")
+	ignored := set.NewStrings(
+		"Id",
+		// TODO(wallyworld) - add to migration
+		"ExpireAt",
+	)
 	migrated := set.NewStrings(
 		"Stream",
 		"Region",
