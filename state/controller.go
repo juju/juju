@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
@@ -13,7 +14,6 @@ import (
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
-	"strings"
 )
 
 const (
