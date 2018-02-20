@@ -142,7 +142,7 @@ type provisionerTask struct {
 	instances map[instance.Id]instance.Instance
 	// machine id -> machine
 	machines                 map[string]*apiprovisioner.Machine
-	azMachinesMutex          sync.RWMutex
+	machinesMutex            sync.RWMutex
 	availabilityZoneMachines []*AvailabilityZoneMachine
 }
 
@@ -231,7 +231,9 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 			logger.Errorf("cannot reset instance status of machine %q: %v", machine.Id(), err)
 			continue
 		}
+		task.machinesMutex.Lock()
 		task.machines[machine.Tag().String()] = machine
+		task.machinesMutex.Unlock()
 		pending = append(pending, machine)
 	}
 	return task.startMachines(pending)
@@ -299,7 +301,9 @@ func (task *provisionerTask) processMachines(ids []string) error {
 			logger.Errorf("failed to remove dead machine %q", machine)
 		}
 		task.removeMachineFromAZMap(machine)
+		task.machinesMutex.Lock()
 		delete(task.machines, machine.Id())
+		task.machinesMutex.Unlock()
 	}
 
 	// Any machines that require maintenance get pinged
@@ -340,6 +344,8 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	if err != nil {
 		return errors.Annotatef(err, "failed to get machines %v", ids)
 	}
+	task.machinesMutex.Lock()
+	defer task.machinesMutex.Unlock()
 	for i, result := range machines {
 		switch {
 		case result.Err == nil:
@@ -357,6 +363,8 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 // pendingOrDead looks up machines with ids and returns those that do not
 // have an instance id assigned yet, and also those that are dead.
 func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dead, maintain []*apiprovisioner.Machine, err error) {
+	task.machinesMutex.RLock()
+	defer task.machinesMutex.RUnlock()
 	for _, id := range ids {
 		machine, found := task.machines[id]
 		if !found {
@@ -458,6 +466,8 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 		instances[k] = v
 	}
 
+	task.machinesMutex.RLock()
+	defer task.machinesMutex.RUnlock()
 	for _, m := range task.machines {
 		instId, err := m.InstanceId()
 		switch {
@@ -731,8 +741,8 @@ type AvailabilityZoneMachine struct {
 // running in that zone.  If the provider does not implement the ZonedEnviron
 // interface, return nil.
 func (task *provisionerTask) populateAvailabilityZoneMachines() error {
-	task.azMachinesMutex.Lock()
-	defer task.azMachinesMutex.Unlock()
+	task.machinesMutex.Lock()
+	defer task.machinesMutex.Unlock()
 
 	if len(task.availabilityZoneMachines) > 0 {
 		return nil
@@ -806,8 +816,8 @@ func (task *provisionerTask) populateDistributionGroupZoneMap(machineIds []strin
 // DistributionGroup.  Machines are not placed in a zone they are excluded from.
 // If availability zones are implemented and one isn't found, return NotFound error.
 func (task *provisionerTask) machineAvailabilityZoneDistribution(machineId string, distributionGroupMachineIds []string) (string, error) {
-	task.azMachinesMutex.Lock()
-	defer task.azMachinesMutex.Unlock()
+	task.machinesMutex.Lock()
+	defer task.machinesMutex.Unlock()
 
 	if len(task.availabilityZoneMachines) == 0 {
 		return "", nil
@@ -999,8 +1009,8 @@ func (task *provisionerTask) populateExcludedMachines(machineId string, startIns
 	if len(derivedZones) == 0 {
 		return nil
 	}
-	task.azMachinesMutex.Lock()
-	defer task.azMachinesMutex.Unlock()
+	task.machinesMutex.RLock()
+	defer task.machinesMutex.RUnlock()
 	useZones := set.NewStrings(derivedZones...)
 	for _, zoneMachines := range task.availabilityZoneMachines {
 		if !useZones.Contains(zoneMachines.ZoneName) {
@@ -1155,8 +1165,8 @@ func (task *provisionerTask) markMachineFailedInAZ(machine *apiprovisioner.Machi
 	if zone == "" {
 		return false, errors.New("no zone provided")
 	}
-	task.azMachinesMutex.Lock()
-	defer task.azMachinesMutex.Unlock()
+	task.machinesMutex.Lock()
+	defer task.machinesMutex.Unlock()
 	azRemaining := false
 	for _, zoneMachines := range task.availabilityZoneMachines {
 		if zone == zoneMachines.ZoneName {
@@ -1175,16 +1185,16 @@ func (task *provisionerTask) markMachineFailedInAZ(machine *apiprovisioner.Machi
 }
 
 func (task *provisionerTask) clearMachineAZFailures(machine *apiprovisioner.Machine) {
-	task.azMachinesMutex.Lock()
-	defer task.azMachinesMutex.Unlock()
+	task.machinesMutex.Lock()
+	defer task.machinesMutex.Unlock()
 	for _, zoneMachines := range task.availabilityZoneMachines {
 		zoneMachines.FailedMachineIds.Remove(machine.Id())
 	}
 }
 
 func (task *provisionerTask) addMachinetoAZMap(machine *apiprovisioner.Machine, zoneName string) {
-	task.azMachinesMutex.Lock()
-	defer task.azMachinesMutex.Unlock()
+	task.machinesMutex.Lock()
+	defer task.machinesMutex.Unlock()
 	for _, zoneMachines := range task.availabilityZoneMachines {
 		if zoneName == zoneMachines.ZoneName {
 			zoneMachines.MachineIds.Add(machine.Id())
@@ -1199,8 +1209,8 @@ func (task *provisionerTask) addMachinetoAZMap(machine *apiprovisioner.Machine, 
 // provisioning.
 func (task *provisionerTask) removeMachineFromAZMap(machine *apiprovisioner.Machine) {
 	machineId := set.NewStrings(machine.Id())
-	task.azMachinesMutex.Lock()
-	defer task.azMachinesMutex.Unlock()
+	task.machinesMutex.Lock()
+	defer task.machinesMutex.Unlock()
 	for _, zoneMachines := range task.availabilityZoneMachines {
 		zoneMachines.MachineIds = zoneMachines.MachineIds.Difference(machineId)
 		zoneMachines.FailedMachineIds = zoneMachines.FailedMachineIds.Difference(machineId)
