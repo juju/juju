@@ -276,7 +276,7 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 }
 
 // SelectAddressesBySpaceNames filters the input slice of Addresses down to
-// those in the input space name.
+// those in the input space names.
 func SelectAddressesBySpaceNames(addresses []Address, spaceNames ...SpaceName) ([]Address, bool) {
 	if len(spaceNames) == 0 {
 		logger.Errorf("addresses not filtered - no spaces given.")
@@ -286,7 +286,7 @@ func SelectAddressesBySpaceNames(addresses []Address, spaceNames ...SpaceName) (
 	var selectedAddresses []Address
 	for _, addr := range addresses {
 		if spaceNameList(spaceNames).IndexOf(addr.SpaceName) >= 0 {
-			logger.Debugf("selected %q as a address in space %q", addr.Value, addr.SpaceName)
+			logger.Debugf("selected %q as an address in space %q", addr.Value, addr.SpaceName)
 			selectedAddresses = append(selectedAddresses, addr)
 		}
 	}
@@ -300,7 +300,7 @@ func SelectAddressesBySpaceNames(addresses []Address, spaceNames ...SpaceName) (
 }
 
 // SelectHostPortsBySpaceNames filters the input slice of HostPorts down to
-// those in the input space name.
+// those in the input space names.
 func SelectHostPortsBySpaceNames(hps []HostPort, spaceNames ...SpaceName) ([]HostPort, bool) {
 	if len(spaceNames) == 0 {
 		logger.Errorf("host ports not filtered - no spaces given.")

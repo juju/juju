@@ -152,5 +152,6 @@ func (s *ControllerSuite) TestUpdateControllerConfigChecksSpace(c *gc.C) {
 	err = s.State.UpdateControllerConfig(map[string]interface{}{
 		controller.JujuManagementSpace: "mgmt-space",
 	}, nil)
-	c.Assert(err, gc.ErrorMatches, `invalid config value for "juju-mgmt-space": machine "0" has no addresses in space`)
+	c.Assert(err, gc.ErrorMatches,
+		`invalid config value for "juju-mgmt-space": machines with no addresses in space "mgmt-space": "0"`)
 }

@@ -13,6 +13,7 @@ import (
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
+	"strings"
 )
 
 const (
@@ -127,7 +128,7 @@ func (st *State) checkValidControllerConfig(updateAttrs map[string]interface{}, 
 		}
 
 		if k == jujucontroller.JujuHASpace || k == jujucontroller.JujuManagementSpace {
-			if err := st.checkSpaceIsValid(updateAttrs[k].(string)); err != nil {
+			if err := st.checkSpaceIsAvailableToAllControllers(updateAttrs[k].(string)); err != nil {
 				return errors.Annotatef(err, "invalid config value for %q", k)
 			}
 		}
@@ -150,25 +151,29 @@ func checkUpdateControllerConfig(name string) error {
 	return nil
 }
 
-// checkSpaceIsValid checks if each controller machine has addresses in the
-// the input space. If not, an error is returned.
-func (st *State) checkSpaceIsValid(configSpace string) error {
+// checkSpaceIsAvailableToAllControllers checks if each controller machine has
+// at least one address in the input space. If not, an error is returned.
+func (st *State) checkSpaceIsAvailableToAllControllers(configSpace string) error {
 	info, err := st.ControllerInfo()
 	if err != nil {
 		return errors.Annotate(err, "cannot get controller info")
 	}
 
+	var missing []string
 	spaceName := network.SpaceName(configSpace)
 	for _, id := range info.MachineIds {
 		m, err := st.Machine(id)
 		if err != nil {
 			return errors.Annotate(err, "cannot get machine")
 		}
-
 		if _, ok := network.SelectAddressesBySpaceNames(m.MachineAddresses(), spaceName); !ok {
-			return errors.Errorf("machine %q has no addresses in space", id)
+			missing = append(missing, id)
 		}
 	}
 
+	if len(missing) > 0 {
+		mStr := strings.Trim(fmt.Sprintf("%q", missing), "[]")
+		return errors.Errorf("machines with no addresses in space %q: %s", configSpace, mStr)
+	}
 	return nil
 }
