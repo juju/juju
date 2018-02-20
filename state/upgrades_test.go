@@ -2141,6 +2141,44 @@ func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenNotValid(c *gc.C)
 	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "")
 }
 
+func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenEmpty(c *gc.C) {
+	c.Assert(getHASpaceConfig(s.state, c), gc.Equals, "")
+
+	sn := network.SpaceName("")
+	ms, err := s.state.SetOrGetMongoSpaceName(sn)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.Equals, sn)
+
+	info, err := s.state.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceState, gc.Equals, MongoSpaceValid)
+
+	err = CopyMongoSpaceToHASpaceConfig(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "")
+}
+
+func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenAlreadySet(c *gc.C) {
+	settings, err := readSettings(s.state.db(), controllersC, controllerSettingsGlobalKey)
+	c.Assert(err, jc.ErrorIsNil)
+	settings.Set(controller.JujuHASpace, "already-set")
+
+	sn := network.SpaceName("new-value")
+	ms, err := s.state.SetOrGetMongoSpaceName(sn)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.Equals, sn)
+
+	info, err := s.state.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.MongoSpaceState, gc.Equals, MongoSpaceValid)
+
+	err = CopyMongoSpaceToHASpaceConfig(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "already-set")
+}
+
 func getHASpaceConfig(st *State, c *gc.C) string {
 	config, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
