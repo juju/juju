@@ -52,7 +52,7 @@ func almostSeconds(seconds int) time.Duration {
 	return (time.Second * time.Duration(seconds)) - time.Nanosecond
 }
 
-// almostSeconds returns a duration longer than the supplied number of
+// justAfterSeconds returns a duration longer than the supplied number of
 // seconds by one nanosecond.
 func justAfterSeconds(seconds int) time.Duration {
 	if seconds < 1 {
