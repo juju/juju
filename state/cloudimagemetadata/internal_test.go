@@ -15,11 +15,7 @@ type cloudImageMetadataSuite struct{}
 var _ = gc.Suite(&cloudImageMetadataSuite{})
 
 func (s *cloudImageMetadataSuite) TestCloudImageMetadataDocFields(c *gc.C) {
-	ignored := set.NewStrings(
-		"Id",
-		// TODO(wallyworld) - add to migration
-		"ExpireAt",
-	)
+	ignored := set.NewStrings("Id")
 	migrated := set.NewStrings(
 		"Stream",
 		"Region",
@@ -33,6 +29,7 @@ func (s *cloudImageMetadataSuite) TestCloudImageMetadataDocFields(c *gc.C) {
 		"Priority",
 		"ImageId",
 		"DateCreated",
+		"ExpireAt",
 	)
 	fields := migrated.Union(ignored)
 	expected := testing.GetExportedFields(imagesMetadataDoc{})
