@@ -16,8 +16,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
@@ -133,8 +133,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	var auditUpdater auditconfigupdater.Output
-	if err := context.Get(config.AuditConfigUpdaterName, &auditUpdater); err != nil {
+	var getAuditConfig func() auditlog.Config
+	if err := context.Get(config.AuditConfigUpdaterName, &getAuditConfig); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -147,8 +147,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	w, err := config.NewWorker(Config{
 		AgentConfig:                       agent.CurrentConfig(),
-		AuditConfig:                       auditUpdater.Config(),
-		AuditConfigChanged:                auditUpdater.Changes(),
 		Clock:                             clock,
 		StatePool:                         statePool,
 		PrometheusRegisterer:              config.PrometheusRegisterer,
@@ -157,6 +155,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		UpgradeComplete:                   upgradeLock.IsUnlocked,
 		Hub:                               config.Hub,
 		GetCertificate:                    getCertificate,
+		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,
 	})
 	if err != nil {

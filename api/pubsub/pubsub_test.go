@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -228,6 +229,7 @@ func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.Structure
 	srv, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
 		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
+		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
 		Tag:             names.NewMachineTag("0"),
 		LogDir:          c.MkDir(),
 		Hub:             hub,

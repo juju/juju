@@ -4,8 +4,6 @@
 package auditconfigupdater_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,7 +15,6 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -31,7 +28,6 @@ type manifoldSuite struct {
 	context      dependency.Context
 	agent        *mockAgent
 	stateTracker stubStateTracker
-	changes      chan<- auditlog.Config
 
 	stub testing.Stub
 }
@@ -80,16 +76,15 @@ func (s *manifoldSuite) newWorker(
 	source auditconfigupdater.ConfigSource,
 	initial auditlog.Config,
 	factory auditconfigupdater.AuditLogFactory,
-	changes chan<- auditlog.Config,
 ) (worker.Worker, error) {
-	s.stub.MethodCall(s, "NewWorker", source, initial, factory, changes)
+	s.stub.MethodCall(s, "NewWorker", source, initial, factory)
 	err := s.stub.NextErr()
 	if err != nil {
 		return nil, err
 	}
-	w := worker.NewRunner(worker.RunnerParams{})
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
-	return w, nil
+	w := fakeWorker{config: initial}
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, &w) })
+	return &w, nil
 }
 
 var expectedInputs = []string{"agent", "state"}
@@ -116,7 +111,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	s.stub.CheckCallNames(c, "NewWorker")
 
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 4)
+	c.Assert(args, gc.HasLen, 3)
 	c.Assert(args[0], gc.Equals, s.State)
 
 	auditConfig := args[1].(auditlog.Config)
@@ -133,7 +128,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		MaxBackups:     10,
 	})
 
-	c.Assert(args[3], gc.NotNil)
+	c.Assert(args[2], gc.NotNil)
 }
 
 func (s *manifoldSuite) TestStartWithAuditingDisabled(c *gc.C) {
@@ -148,44 +143,31 @@ func (s *manifoldSuite) TestStartWithAuditingDisabled(c *gc.C) {
 	s.stub.CheckCallNames(c, "NewWorker")
 
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 4)
+	c.Assert(args, gc.HasLen, 3)
 	c.Assert(args[0], gc.Equals, s.State)
 
 	auditConfig := args[1].(auditlog.Config)
 	c.Assert(auditConfig.Target, gc.IsNil)
 }
 
-func (s *manifoldSuite) TestOutputs(c *gc.C) {
+func (s *manifoldSuite) TestOutput(c *gc.C) {
 	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	var output auditconfigupdater.Output
-	err = s.manifold.Output(w, &output)
+	var getConfig func() auditlog.Config
+	err = s.manifold.Output(w, &getConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "NewWorker")
 
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 4)
+	c.Assert(args, gc.HasLen, 3)
 	c.Assert(args[0], gc.Equals, s.State)
 
 	auditConfig := args[1].(auditlog.Config)
 
-	c.Assert(auditConfig, gc.DeepEquals, output.Config())
-
-	inputChan := args[3].(chan<- auditlog.Config)
-	outputChan := output.Changes()
-	auditConfig.ExcludeMethods.Add("New.One")
-
-	inputChan <- auditConfig
-
-	select {
-	case result := <-outputChan:
-		c.Assert(result.ExcludeMethods, gc.DeepEquals, set.NewStrings("This.Method", "New.One"))
-	case <-time.After(coretesting.ShortWait):
-		c.Fail()
-	}
+	c.Assert(auditConfig, gc.DeepEquals, getConfig())
 }
 
 func (s *manifoldSuite) TestStopWorkerClosesState(c *gc.C) {
@@ -239,4 +221,19 @@ func (s *stubStateTracker) Use() (*state.StatePool, error) {
 func (s *stubStateTracker) Done() error {
 	s.MethodCall(s, "Done")
 	return s.NextErr()
+}
+
+type fakeWorker struct {
+	config auditlog.Config
+}
+
+func (w *fakeWorker) Kill() {
+}
+
+func (w *fakeWorker) Wait() error {
+	return nil
+}
+
+func (w *fakeWorker) CurrentConfig() auditlog.Config {
+	return w.config
 }

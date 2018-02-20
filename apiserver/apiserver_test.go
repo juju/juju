@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -48,6 +49,7 @@ func (s *apiserverBaseSuite) sampleConfig(c *gc.C) apiserver.ServerConfig {
 	return apiserver.ServerConfig{
 		Clock:           clock.WallClock,
 		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
+		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
 		Tag:             machineTag,
 		LogDir:          c.MkDir(),
 		Hub:             centralhub.New(machineTag),

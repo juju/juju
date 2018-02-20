@@ -4,13 +4,14 @@
 package auditconfigupdater_test
 
 import (
+	"reflect"
 	"sync"
-	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1"
 
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
@@ -32,7 +33,6 @@ var ding = struct{}{}
 
 func (s *updaterSuite) TestWorker(c *gc.C) {
 	configChanged := make(chan struct{}, 1)
-	output := make(chan auditlog.Config)
 	initial := auditlog.Config{
 		Enabled: false,
 	}
@@ -48,19 +48,16 @@ func (s *updaterSuite) TestWorker(c *gc.C) {
 		return &fakeTarget
 	}
 
-	w, err := auditconfigupdater.New(&source, initial, factory, output)
+	w, err := auditconfigupdater.New(&source, initial, factory)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	source.setConfig(makeControllerConfig(true, false))
 	configChanged <- ding
 
-	var newConfig auditlog.Config
-	select {
-	case <-time.After(jujutesting.LongWait):
-		c.Fatalf("took too long to send change")
-	case newConfig = <-output:
-	}
+	newConfig := waitForConfig(c, w, func(cfg auditlog.Config) bool {
+		return cfg.Enabled
+	})
 
 	c.Assert(newConfig.Enabled, gc.Equals, true)
 	c.Assert(newConfig.CaptureAPIArgs, gc.Equals, false)
@@ -69,66 +66,19 @@ func (s *updaterSuite) TestWorker(c *gc.C) {
 	c.Assert(calls, gc.HasLen, 1)
 }
 
-func (s *updaterSuite) TestIgnoresIrrelevantChange(c *gc.C) {
-	configChanged := make(chan struct{}, 1)
-	output := make(chan auditlog.Config)
-	initial := auditlog.Config{
-		Enabled: false,
+func waitForConfig(c *gc.C, w worker.Worker, predicate func(auditlog.Config) bool) auditlog.Config {
+	for a := jujutesting.LongAttempt.Start(); a.Next(); {
+		config := getWorkerConfig(c, w)
+		if predicate(config) {
+			return config
+		}
 	}
-	source := configSource{
-		watcher: watchertest.NewNotifyWatcher(configChanged),
-		cfg:     makeControllerConfig(false, false),
-	}
-
-	fakeTarget := apitesting.FakeAuditLog{}
-	var calls []auditlog.Config
-	factory := func(cfg auditlog.Config) auditlog.AuditLog {
-		calls = append(calls, cfg)
-		return &fakeTarget
-	}
-
-	w, err := auditconfigupdater.New(&source, initial, factory, output)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	// No change.
-	configChanged <- ding
-
-	select {
-	case <-time.After(jujutesting.ShortWait):
-	case <-output:
-		c.Fatalf("irrelevant change shouldn't have triggered audit config change")
-	}
-
-	source.setConfig(makeControllerConfig(true, false))
-	configChanged <- ding
-
-	var newConfig auditlog.Config
-	select {
-	case <-time.After(jujutesting.LongWait):
-		c.Fatalf("change ignored")
-	case newConfig = <-output:
-	}
-
-	c.Assert(newConfig.Enabled, gc.Equals, true)
-	c.Assert(newConfig.CaptureAPIArgs, gc.Equals, false)
-	c.Assert(newConfig.ExcludeMethods, gc.DeepEquals, set.NewStrings())
-	c.Assert(newConfig.Target, gc.Equals, auditlog.AuditLog(&fakeTarget))
-	c.Assert(calls, gc.HasLen, 1)
-
-	// No change.
-	configChanged <- ding
-
-	select {
-	case <-time.After(jujutesting.ShortWait):
-	case <-output:
-		c.Fatalf("subsequent change shouldn't have triggered audit config change")
-	}
+	c.Fatalf("timed out waiting for matching config")
+	return auditlog.Config{}
 }
 
 func (s *updaterSuite) TestKeepsLogFileWhenAuditingDisabled(c *gc.C) {
 	configChanged := make(chan struct{}, 1)
-	output := make(chan auditlog.Config)
 	initial := auditlog.Config{
 		Enabled: true,
 		Target:  &apitesting.FakeAuditLog{},
@@ -140,19 +90,16 @@ func (s *updaterSuite) TestKeepsLogFileWhenAuditingDisabled(c *gc.C) {
 
 	// Passing a nil factory means we can be sure it didn't try to
 	// create a new logfile.
-	w, err := auditconfigupdater.New(&source, initial, nil, output)
+	w, err := auditconfigupdater.New(&source, initial, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	source.setConfig(makeControllerConfig(false, false))
 	configChanged <- ding
 
-	var newConfig auditlog.Config
-	select {
-	case <-time.After(jujutesting.LongWait):
-		c.Fatalf("change ignored")
-	case newConfig = <-output:
-	}
+	newConfig := waitForConfig(c, w, func(cfg auditlog.Config) bool {
+		return !cfg.Enabled
+	})
 
 	c.Assert(newConfig.Enabled, gc.Equals, false)
 	c.Assert(newConfig.Target, gc.Equals, initial.Target)
@@ -160,7 +107,6 @@ func (s *updaterSuite) TestKeepsLogFileWhenAuditingDisabled(c *gc.C) {
 
 func (s *updaterSuite) TestKeepsLogFileWhenEnabled(c *gc.C) {
 	configChanged := make(chan struct{}, 1)
-	output := make(chan auditlog.Config)
 	initial := auditlog.Config{
 		Enabled: false,
 		Target:  &apitesting.FakeAuditLog{},
@@ -172,19 +118,16 @@ func (s *updaterSuite) TestKeepsLogFileWhenEnabled(c *gc.C) {
 
 	// Passing a nil factory means we can be sure it didn't try to
 	// create a new logfile.
-	w, err := auditconfigupdater.New(&source, initial, nil, output)
+	w, err := auditconfigupdater.New(&source, initial, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	source.setConfig(makeControllerConfig(true, false))
 	configChanged <- ding
 
-	var newConfig auditlog.Config
-	select {
-	case <-time.After(jujutesting.LongWait):
-		c.Fatalf("change ignored")
-	case newConfig = <-output:
-	}
+	newConfig := waitForConfig(c, w, func(cfg auditlog.Config) bool {
+		return cfg.Enabled
+	})
 
 	c.Assert(newConfig.Enabled, gc.Equals, true)
 	c.Assert(newConfig.Target, gc.Equals, initial.Target)
@@ -192,7 +135,6 @@ func (s *updaterSuite) TestKeepsLogFileWhenEnabled(c *gc.C) {
 
 func (s *updaterSuite) TestChangingExcludeMethod(c *gc.C) {
 	configChanged := make(chan struct{}, 1)
-	output := make(chan auditlog.Config)
 	initial := auditlog.Config{
 		Enabled:        true,
 		ExcludeMethods: set.NewStrings("Pink.Floyd"),
@@ -203,37 +145,27 @@ func (s *updaterSuite) TestChangingExcludeMethod(c *gc.C) {
 		cfg:     makeControllerConfig(true, false, "Pink.Floyd"),
 	}
 
-	w, err := auditconfigupdater.New(&source, initial, nil, output)
+	w, err := auditconfigupdater.New(&source, initial, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	source.setConfig(makeControllerConfig(true, false, "Pink.Floyd", "Led.Zeppelin"))
 	configChanged <- ding
 
-	var newConfig auditlog.Config
-	select {
-	case <-time.After(jujutesting.LongWait):
-		c.Fatalf("change ignored")
-	case newConfig = <-output:
-	}
-
-	c.Assert(newConfig.ExcludeMethods, gc.DeepEquals, set.NewStrings("Pink.Floyd", "Led.Zeppelin"))
+	waitForConfig(c, w, func(cfg auditlog.Config) bool {
+		return reflect.DeepEqual(cfg.ExcludeMethods, set.NewStrings("Pink.Floyd", "Led.Zeppelin"))
+	})
 
 	source.setConfig(makeControllerConfig(true, false, "Led.Zeppelin"))
 	configChanged <- ding
 
-	select {
-	case <-time.After(jujutesting.LongWait):
-		c.Fatalf("change ignored")
-	case newConfig = <-output:
-	}
-
-	c.Assert(newConfig.ExcludeMethods, gc.DeepEquals, set.NewStrings("Led.Zeppelin"))
+	waitForConfig(c, w, func(cfg auditlog.Config) bool {
+		return reflect.DeepEqual(cfg.ExcludeMethods, set.NewStrings("Led.Zeppelin"))
+	})
 }
 
 func (s *updaterSuite) TestChangingCaptureArgs(c *gc.C) {
 	configChanged := make(chan struct{}, 1)
-	output := make(chan auditlog.Config)
 	initial := auditlog.Config{
 		Enabled:        true,
 		CaptureAPIArgs: false,
@@ -244,45 +176,16 @@ func (s *updaterSuite) TestChangingCaptureArgs(c *gc.C) {
 		cfg:     makeControllerConfig(true, false, "Pink.Floyd"),
 	}
 
-	w, err := auditconfigupdater.New(&source, initial, nil, output)
+	w, err := auditconfigupdater.New(&source, initial, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	source.setConfig(makeControllerConfig(true, true))
 	configChanged <- ding
 
-	var newConfig auditlog.Config
-	select {
-	case <-time.After(jujutesting.LongWait):
-		c.Fatalf("change ignored")
-	case newConfig = <-output:
-	}
-
-	c.Assert(newConfig.CaptureAPIArgs, gc.Equals, true)
-}
-
-func (s *updaterSuite) TestCanBeAbortedCleanly(c *gc.C) {
-	configChanged := make(chan struct{}, 1)
-	output := make(chan auditlog.Config)
-	initial := auditlog.Config{
-		Enabled:        true,
-		CaptureAPIArgs: false,
-		Target:         &apitesting.FakeAuditLog{},
-	}
-	source := configSource{
-		watcher: watchertest.NewNotifyWatcher(configChanged),
-		cfg:     makeControllerConfig(true, false, "Pink.Floyd"),
-	}
-
-	w, err := auditconfigupdater.New(&source, initial, nil, output)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	source.setConfig(makeControllerConfig(true, true))
-	configChanged <- ding
-
-	// Don't read from the output channel. The worker should still
-	// shut down cleanly.
+	waitForConfig(c, w, func(cfg auditlog.Config) bool {
+		return cfg.CaptureAPIArgs
+	})
 }
 
 func makeControllerConfig(auditEnabled bool, captureArgs bool, methods ...interface{}) controller.Config {
@@ -293,6 +196,16 @@ func makeControllerConfig(auditEnabled bool, captureArgs bool, methods ...interf
 		"audit-log-exclude-methods": methods,
 	}
 	return result
+}
+
+func getWorkerConfig(c *gc.C, w worker.Worker) auditlog.Config {
+	getter, ok := w.(interface {
+		CurrentConfig() auditlog.Config
+	})
+	if !ok {
+		c.Fatalf("worker %T doesn't expose CurrentConfig()", w)
+	}
+	return getter.CurrentConfig()
 }
 
 type configSource struct {

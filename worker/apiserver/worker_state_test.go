@@ -47,15 +47,16 @@ func (s *WorkerStateSuite) SetUpTest(c *gc.C) {
 	s.workerFixture.SetUpTest(c)
 	s.StateSuite.SetUpTest(c)
 	s.config.StatePool = s.StatePool
-	s.config.AuditConfig = auditlog.Config{
-		Enabled:        true,
-		CaptureAPIArgs: true,
-		MaxSizeMB:      200,
-		MaxBackups:     5,
-		ExcludeMethods: set.NewStrings("Exclude.This"),
-		Target:         &apitesting.FakeAuditLog{},
+	s.config.GetAuditConfig = func() auditlog.Config {
+		return auditlog.Config{
+			Enabled:        true,
+			CaptureAPIArgs: true,
+			MaxSizeMB:      200,
+			MaxBackups:     5,
+			ExcludeMethods: set.NewStrings("Exclude.This"),
+			Target:         &apitesting.FakeAuditLog{},
+		}
 	}
-	s.config.AuditConfigChanged = make(chan auditlog.Config)
 }
 
 func (s *WorkerStateSuite) TearDownTest(c *gc.C) {
@@ -101,19 +102,13 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 	c.Assert(config.NewObserver, gc.NotNil)
 	config.NewObserver = nil
 
-	c.Assert(config.AuditConfig.Target, gc.NotNil)
-	// Set the target to Nil because we don't want to compare it
-	config.AuditConfig.Target = nil
+	c.Assert(config.GetAuditConfig, gc.NotNil)
+	// Set the audit config getter to Nil because we don't want to
+	// compare it.
+	config.GetAuditConfig = nil
 
 	rateLimitConfig := coreapiserver.DefaultRateLimitConfig()
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
-	auditConfig := auditlog.Config{
-		Enabled:        true,
-		CaptureAPIArgs: true,
-		MaxSizeMB:      200,
-		MaxBackups:     5,
-		ExcludeMethods: set.NewStrings("Exclude.This"),
-	}
 
 	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
 		Clock:                s.clock,
@@ -127,7 +122,5 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		RateLimitConfig:      rateLimitConfig,
 		LogSinkConfig:        &logSinkConfig,
 		PrometheusRegisterer: &s.prometheusRegisterer,
-		AuditConfig:          auditConfig,
-		AuditConfigChanged:   s.config.AuditConfigChanged,
 	})
 }

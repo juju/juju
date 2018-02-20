@@ -83,7 +83,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"restore-status":      s.RestoreStatus,
 		"state":               &s.state,
 		"upgrade":             &s.upgradeGate,
-		"auditconfig-updater": &s.auditConfig,
+		"auditconfig-updater": s.auditConfig.get,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -141,6 +141,10 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.GetCertificate, gc.NotNil)
 	c.Assert(config.GetCertificate(), gc.Equals, &s.certWatcher.cert)
 	config.GetCertificate = nil
+
+	c.Assert(config.GetAuditConfig, gc.NotNil)
+	c.Assert(config.GetAuditConfig(), gc.DeepEquals, s.auditConfig.config)
+	config.GetAuditConfig = nil
 
 	c.Assert(config.UpgradeComplete, gc.NotNil)
 	config.UpgradeComplete()
@@ -280,16 +284,10 @@ func (w *stubGateWaiter) IsUnlocked() bool {
 
 type stubAuditConfig struct {
 	testing.Stub
-	config  auditlog.Config
-	changes <-chan auditlog.Config
+	config auditlog.Config
 }
 
-func (c *stubAuditConfig) Config() auditlog.Config {
-	c.MethodCall(c, "Config")
+func (c *stubAuditConfig) get() auditlog.Config {
+	c.MethodCall(c, "get")
 	return c.config
-}
-
-func (c *stubAuditConfig) Changes() <-chan auditlog.Config {
-	c.MethodCall(c, "Changes")
-	return c.changes
 }

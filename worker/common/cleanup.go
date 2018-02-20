@@ -11,19 +11,23 @@ import (
 // NewCleanupWorker returns a worker that ensures a cleanup function
 // is run after the underlying worker is finished.
 func NewCleanupWorker(w worker.Worker, cleanup func()) worker.Worker {
-	return &cleanupWorker{
+	return &CleanupWorker{
 		Worker:  w,
 		cleanup: cleanup,
 	}
 }
 
-type cleanupWorker struct {
+// CleanupWorker wraps another worker to ensure a func is run when it
+// is finished. (Public for manifolds that need access to the
+// wrapped worker for output.)
+type CleanupWorker struct {
 	worker.Worker
 	cleanupOnce sync.Once
 	cleanup     func()
 }
 
-func (w *cleanupWorker) Wait() error {
+// Wait ensures the cleanup func is run after the worker finishes.
+func (w *CleanupWorker) Wait() error {
 	err := w.Worker.Wait()
 	w.cleanupOnce.Do(w.cleanup)
 	return err

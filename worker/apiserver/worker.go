@@ -27,8 +27,6 @@ var logger = loggo.GetLogger("juju.worker.apiserver")
 // Config is the configuration required for running an API server worker.
 type Config struct {
 	AgentConfig                       agent.Config
-	AuditConfig                       auditlog.Config
-	AuditConfigChanged                <-chan auditlog.Config
 	Clock                             clock.Clock
 	Hub                               *pubsub.StructuredHub
 	StatePool                         *state.StatePool
@@ -37,6 +35,7 @@ type Config struct {
 	RestoreStatus                     func() state.RestoreStatus
 	UpgradeComplete                   func() bool
 	GetCertificate                    func() *tls.Certificate
+	GetAuditConfig                    func() auditlog.Config
 	NewServer                         NewServerFunc
 }
 
@@ -133,8 +132,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          config.PrometheusRegisterer,
-		AuditConfig:                   config.AuditConfig,
-		AuditConfigChanged:            config.AuditConfigChanged,
+		GetAuditConfig:                config.GetAuditConfig,
 	}
 
 	listener, err := net.Listen("tcp", listenAddr)

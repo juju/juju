@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/auditlog"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/centralhub"
@@ -572,6 +573,7 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 	srv, err := apiserver.NewServer(s.StatePool, listener, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
 		GetCertificate:  func() *tls.Certificate { return jtesting.ServerTLSCert },
+		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
 		Tag:             machineTag,
 		Hub:             centralhub.New(machineTag),
 		DataDir:         c.MkDir(),

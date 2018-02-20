@@ -19,7 +19,7 @@ import (
 type ManifoldConfig struct {
 	AgentName string
 	StateName string
-	NewWorker func(ConfigSource, auditlog.Config, AuditLogFactory, chan<- auditlog.Config) (worker.Worker, error)
+	NewWorker func(ConfigSource, auditlog.Config, AuditLogFactory) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
@@ -39,48 +39,28 @@ func (config ManifoldConfig) Validate() error {
 // Manifold returns a dependency.Manifold to run an
 // auditconfigupdater.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	md := &manifoldData{
-		cfg:     config,
-		changes: make(chan auditlog.Config, 1),
-	}
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
 			config.StateName,
 		},
-		Start:  md.start,
-		Output: md.getOutput,
+		Start:  config.start,
+		Output: output,
 	}
 }
 
-// Output defines what values the auditconfigupdater provides to workers that
-// depend on it.
-type Output interface {
-	Config() auditlog.Config
-	Changes() <-chan auditlog.Config
-}
-
-// manifoldData holds values needed for running the manifold and
-// providing outputs. It would have been called manifoldState if state
-// wasn't severely overused.
-type manifoldData struct {
-	cfg         ManifoldConfig
-	auditConfig auditlog.Config
-	changes     chan auditlog.Config
-}
-
-func (md *manifoldData) start(context dependency.Context) (_ worker.Worker, err error) {
-	if err := md.cfg.Validate(); err != nil {
+func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker, err error) {
+	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var agent jujuagent.Agent
-	if err := context.Get(md.cfg.AgentName, &agent); err != nil {
+	if err := context.Get(config.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var stTracker workerstate.StateTracker
-	if err := context.Get(md.cfg.StateName, &stTracker); err != nil {
+	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
 	statePool, err := stTracker.Use()
@@ -100,41 +80,39 @@ func (md *manifoldData) start(context dependency.Context) (_ worker.Worker, err 
 	logFactory := func(cfg auditlog.Config) auditlog.AuditLog {
 		return auditlog.NewLogFile(logDir, cfg.MaxSizeMB, cfg.MaxBackups)
 	}
-	md.auditConfig, err = initialConfig(st)
+	auditConfig, err := initialConfig(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if md.auditConfig.Enabled {
-		md.auditConfig.Target = logFactory(md.auditConfig)
+	if auditConfig.Enabled {
+		auditConfig.Target = logFactory(auditConfig)
 	}
 
-	w, err := md.cfg.NewWorker(st, md.auditConfig, logFactory, md.changes)
+	w, err := config.NewWorker(st, auditConfig, logFactory)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
 }
 
-func (md *manifoldData) getOutput(_ worker.Worker, out interface{}) error {
-	// We don't need anything from the worker, all the outputs are
-	// generated at start time.
-	switch target := out.(type) {
-	case *Output:
-		*target = md
-	default:
-		return errors.Errorf("out should be *auditconfigupdater.Output; got %T", out)
+type withCurrentConfig interface {
+	CurrentConfig() auditlog.Config
+}
+
+func output(in worker.Worker, out interface{}) error {
+	if w, ok := in.(*common.CleanupWorker); ok {
+		in = w.Worker
 	}
+	w, ok := in.(withCurrentConfig)
+	if !ok {
+		return errors.Errorf("expected worker implementing CurrentConfig(), got %T", in)
+	}
+	target, ok := out.(*func() auditlog.Config)
+	if !ok {
+		return errors.Errorf("out should be *func() auditlog.Config; got %T", out)
+	}
+	*target = w.CurrentConfig
 	return nil
-}
-
-// Config implements Output.
-func (md *manifoldData) Config() auditlog.Config {
-	return md.auditConfig
-}
-
-// Changes implements Output.
-func (md *manifoldData) Changes() <-chan auditlog.Config {
-	return md.changes
 }
 
 func initialConfig(source ConfigSource) (auditlog.Config, error) {
