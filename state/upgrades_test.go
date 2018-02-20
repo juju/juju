@@ -19,7 +19,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
@@ -2152,4 +2154,44 @@ func (s *upgradesSuite) TestDeleteCloudImageMetadata(c *gc.C) {
 	coll, closer := s.state.db().GetRawCollection(cloudimagemetadataC)
 	defer closer()
 	s.assertUpgradedData(c, DeleteCloudImageMetadata, expectUpgradedData{coll, expected})
+}
+
+func (s *upgradesSuite) TestCopyMongoSpaceToHASpaceConfigWhenValid(c *gc.C) {
+	c.Assert(getHASpaceConfig(s.state.db(), c), gc.Equals, "")
+
+	sn := network.SpaceName("mongo-space")
+	ms, err := s.state.SetOrGetMongoSpaceName(sn)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.Equals, sn)
+
+	err = CopyMongoSpaceToHASpaceConfig(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(getHASpaceConfig(s.state.db(), c), gc.Equals, "mongo-space")
+}
+
+func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenNotValid(c *gc.C) {
+	c.Assert(getHASpaceConfig(s.state.db(), c), gc.Equals, "")
+
+	sn := network.SpaceName("mongo-space")
+	ms, err := s.state.SetOrGetMongoSpaceName(sn)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.Equals, sn)
+	err = s.state.setMongoSpaceState(MongoSpaceInvalid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = CopyMongoSpaceToHASpaceConfig(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(getHASpaceConfig(s.state.db(), c), gc.Equals, "")
+}
+
+func getHASpaceConfig(db Database, c *gc.C) string {
+	settings, err := readSettings(db, controllersC, controllerSettingsGlobalKey)
+	c.Assert(err, jc.ErrorIsNil)
+	haSpace, ok := settings.Get(controller.JujuHASpace)
+	if !ok {
+		return ""
+	}
+	return haSpace.(string)
 }

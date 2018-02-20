@@ -13,5 +13,12 @@ func stateStepsFor24() []Step {
 				return context.State().MoveOldAuditLog()
 			},
 		},
+		&upgradeStep{
+			description: "copy controller info Mongo space to controller config HA space if valid",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().CopyMongoSpaceToHASpaceConfig()
+			},
+		},
 	}
 }

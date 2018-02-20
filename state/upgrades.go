@@ -1401,3 +1401,24 @@ func DeleteCloudImageMetadata(st *State) error {
 	_, err := bulk.Run()
 	return errors.Annotate(err, "deleting cloud image metadata records")
 }
+
+// CopyMongoSpaceToHASpaceConfig copies the Mongo space name from
+// ControllerInfo to the HA space name in ControllerConfig.
+func CopyMongoSpaceToHASpaceConfig(st *State) error {
+	info, err := st.ControllerInfo()
+	if err != nil {
+		return errors.Annotate(err, "cannot get controller info")
+	}
+	if info.MongoSpaceState != MongoSpaceValid {
+		return nil
+	}
+
+	settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
+	if err != nil {
+		return errors.Annotate(err, "cannot get controller config")
+	}
+
+	settings.Set(controller.JujuHASpace, info.MongoSpaceName)
+	_, err = settings.Write()
+	return errors.Annotate(err, "writing controller info")
+}
