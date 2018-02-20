@@ -1404,12 +1404,16 @@ func DeleteCloudImageMetadata(st *State) error {
 
 // CopyMongoSpaceToHASpaceConfig copies the Mongo space name from
 // ControllerInfo to the HA space name in ControllerConfig.
+// This only happens if the Mongo space state is valid, it is not empty,
+// and if the is no value already set for the HA space name.
 func CopyMongoSpaceToHASpaceConfig(st *State) error {
 	info, err := st.ControllerInfo()
 	if err != nil {
 		return errors.Annotate(err, "cannot get controller info")
 	}
-	if info.MongoSpaceState != MongoSpaceValid {
+
+	ms := info.MongoSpaceName
+	if info.MongoSpaceState != MongoSpaceValid || ms == "" {
 		return nil
 	}
 
@@ -1418,7 +1422,11 @@ func CopyMongoSpaceToHASpaceConfig(st *State) error {
 		return errors.Annotate(err, "cannot get controller config")
 	}
 
-	settings.Set(controller.JujuHASpace, info.MongoSpaceName)
+	if _, ok := settings.Get(controller.JujuHASpace); ok {
+		return nil
+	}
+
+	settings.Set(controller.JujuHASpace, ms)
 	_, err = settings.Write()
 	return errors.Annotate(err, "writing controller info")
 }
