@@ -404,7 +404,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 	c.Assert(exported.Series(), gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
-	c.Assert(exported.Settings(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(exported.CharmConfig(), jc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
 	c.Assert(exported.LeadershipSettings(), jc.DeepEquals, map[string]interface{}{

@@ -687,7 +687,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Exposed:              application.doc.Exposed,
 		MinUnits:             application.doc.MinUnits,
 		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
-		Settings:             applicationSettingsDoc.Settings,
+		CharmConfig:          applicationSettingsDoc.Settings,
 		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   application.doc.MetricCredentials,
