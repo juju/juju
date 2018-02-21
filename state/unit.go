@@ -76,13 +76,6 @@ type port struct {
 	Number   int    `bson:"number"`
 }
 
-// ContainerInfo holds attributes about the containing
-// hosting a unit in a CAAS model.
-type ContainerInfo struct {
-	Address string   `bson:"address"`
-	Ports   []string `bson:"ports"`
-}
-
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
@@ -101,11 +94,6 @@ type unitDoc struct {
 	Life                   Life
 	TxnRevno               int64 `bson:"txn-revno"`
 	PasswordHash           string
-
-	// TODO(caas) - move to separate collection
-	// ProviderId is used by CAAS models.
-	ProviderId    string        `bson:"provider-id"`
-	ContainerInfo ContainerInfo `bson:"container-info"`
 }
 
 // Unit represents the state of a service unit.
@@ -127,16 +115,14 @@ func newUnit(st *State, modelType ModelType, udoc *unitDoc) *Unit {
 	return unit
 }
 
-// ProviderId returns the unit's id as set by the provider.
-// This is only used for CAAS models.
-func (u *Unit) ProviderId() string {
-	return u.doc.ProviderId
-}
-
 // ContainerInfo returns information about the containing hosting this unit.
 // This is only used for CAAS models.
-func (u *Unit) ContainerInfo() ContainerInfo {
-	return u.doc.ContainerInfo
+func (u *Unit) ContainerInfo() (CloudContainer, error) {
+	doc, err := u.cloudContainer()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &cloudContainer{*doc}, nil
 }
 
 // ShouldBeAssigned returns whether the unit should be assigned to a machine.
@@ -339,37 +325,47 @@ type UpdateUnitOperation struct {
 
 // Build is part of the ModelOperation interface.
 func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
-	// TODO(caas) - we don't yet model containers for units so do not update address or port
-
 	op.setStatusDocs = make(map[string]statusDoc)
-	var ops []txn.Op
 
-	if op.unit.ProviderId() != "" &&
-		op.props.ProviderId != "" &&
-		op.unit.ProviderId() != op.props.ProviderId {
+	containerInfo, err := op.unit.cloudContainer()
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if containerInfo == nil {
+		containerInfo = &cloudContainerDoc{
+			Id: op.unit.globalKey(),
+		}
+	}
+	existingContainerInfo := *containerInfo
+
+	var newProviderId string
+	if op.props.ProviderId != nil {
+		newProviderId = *op.props.ProviderId
+	}
+	if containerInfo.ProviderId != "" &&
+		newProviderId != "" &&
+		containerInfo.ProviderId != newProviderId {
 		logger.Debugf("unit %q has provider id %q which changed to %q",
-			op.unit.Name(), op.unit.ProviderId(), op.props.ProviderId)
+			op.unit.Name(), containerInfo.ProviderId, newProviderId)
 	}
-	containerInfo := ContainerInfo{
-		Address: op.props.Address,
-		Ports:   op.props.Ports,
+
+	if op.props.ProviderId != nil {
+		containerInfo.ProviderId = newProviderId
 	}
-	var updates bson.D
-	asserts := isAliveDoc
-	if op.unit.ProviderId() != op.props.ProviderId {
-		updates = append(updates, bson.DocElem{"provider-id", op.props.ProviderId})
-		asserts = append(asserts, bson.DocElem{"provider-id", op.unit.ProviderId()})
+	if op.props.Address != nil {
+		containerInfo.Address = *op.props.Address
 	}
-	if !reflect.DeepEqual(containerInfo, op.unit.ContainerInfo()) {
-		updates = append(updates, bson.DocElem{"container-info", containerInfo})
+	if op.props.Ports != nil {
+		containerInfo.Ports = *op.props.Ports
 	}
-	if len(updates) > 0 {
-		ops = []txn.Op{{
-			C:      unitsC,
-			Id:     op.unit.doc.DocID,
-			Assert: asserts,
-			Update: bson.D{{"$set", updates}},
-		}}
+	// Currently, we only update container attributes but that might change.
+	var ops []txn.Op
+	if !reflect.DeepEqual(*containerInfo, existingContainerInfo) {
+		containerOps, err := op.unit.saveContainerOps(*containerInfo)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, containerOps...)
 	}
 
 	updateStatus := func(key string, status *status.StatusInfo) error {
@@ -939,7 +935,14 @@ func (u *Unit) PrivateAddress() (network.Address, error) {
 // containerAddress returns the address of the container (pod)
 // in which the unit workload is running.
 func (u *Unit) containerAddress() (network.Address, error) {
-	addr := u.doc.ContainerInfo.Address
+	containerInfo, err := u.cloudContainer()
+	if errors.IsNotFound(err) {
+		return network.Address{}, network.NoAddressError("container")
+	}
+	if err != nil {
+		return network.Address{}, errors.Trace(err)
+	}
+	addr := containerInfo.Address
 	if addr == "" {
 		return network.Address{}, network.NoAddressError("container")
 	}
@@ -2692,6 +2695,7 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 
 type addUnitOpsArgs struct {
 	unitDoc            *unitDoc
+	containerDoc       *cloudContainerDoc
 	agentStatusDoc     statusDoc
 	workloadStatusDoc  *statusDoc
 	workloadVersionDoc *statusDoc
@@ -2717,6 +2721,14 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	}
 	if args.workloadVersionDoc != nil {
 		prereqOps = append(prereqOps, createStatusOp(st, globalWorkloadVersionKey(name), *args.workloadVersionDoc))
+	}
+	if args.containerDoc != nil {
+		prereqOps = append(prereqOps, txn.Op{
+			C:      cloudContainersC,
+			Id:     args.containerDoc.Id,
+			Insert: args.containerDoc,
+			Assert: txn.DocMissing,
+		})
 	}
 	prereqOps = append(prereqOps,
 		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),

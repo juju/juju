@@ -111,8 +111,9 @@ var statusColors = map[status.Status]*ansiterm.Context{
 	status.Detaching:   WarningHighlight,
 	status.Detached:    WarningHighlight,
 	// bad
-	status.Blocked: ErrorHighlight,
-	status.Down:    ErrorHighlight,
-	status.Error:   ErrorHighlight,
-	status.Failed:  ErrorHighlight,
+	status.Blocked:    ErrorHighlight,
+	status.Down:       ErrorHighlight,
+	status.Error:      ErrorHighlight,
+	status.Failed:     ErrorHighlight,
+	status.Terminated: ErrorHighlight,
 }

@@ -261,9 +261,9 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 		}
 	}
 
-	stateUnitExistsInCloud := func(u Unit) bool {
+	stateUnitExistsInCloud := func(tag names.UnitTag, providerId string) bool {
 		// Tags take precedence over provider ids.
-		if aliveCloudUnitTags.Contains(u.UnitTag().String()) {
+		if aliveCloudUnitTags.Contains(tag.String()) {
 			return true
 		}
 		// If any units have been created with tags, we only
@@ -272,7 +272,10 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 		if len(aliveCloudUnitTags) > 0 {
 			return false
 		}
-		_, ok := aliveCloudUnitsById[u.ProviderId()]
+		if providerId == "" {
+			return false
+		}
+		_, ok := aliveCloudUnitsById[providerId]
 		return ok
 	}
 	cloudUnitExistsInState := func(u params.ApplicationUnitParams) bool {
@@ -292,27 +295,35 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 	// Loop over any existing state units and record those which do not yet have
 	// provider ids, and those which have been removed or updated.
 	for _, u := range existingStateUnits {
+		var providerId string
+		info, err := u.ContainerInfo()
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if err == nil {
+			providerId = info.ProviderId()
+		}
+
 		unitAlive := u.Life() == state.Alive
-		stateUnitInCloud := stateUnitExistsInCloud(u)
+		stateUnitInCloud := stateUnitExistsInCloud(u.UnitTag(), providerId)
 		if stateUnitInCloud {
-			stateUnitsById[u.ProviderId()] = u
+			stateUnitsById[providerId] = u
 			stateUnitsByTag[u.UnitTag().String()] = u
 		}
-		if u.ProviderId() == "" && unitAlive {
+		if providerId == "" && unitAlive {
 			logger.Debugf("unit %q is not associated with any pod", u.Name())
 			unassociatedUnits = append(unassociatedUnits, u)
 		} else {
 			if !unitAlive {
-				delete(aliveCloudUnitsById, u.ProviderId())
+				delete(aliveCloudUnitsById, providerId)
 				aliveCloudUnitTags.Remove(u.UnitTag().String())
 				continue
 			}
 			if stateUnitInCloud {
-				logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), u.ProviderId())
+				logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), providerId)
 			} else {
-				// TODO(caas) - the cloud watcher can mistakenly report pods as missing
-				//logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), u.ProviderId())
-				//removedUnits = append(removedUnits, u)
+				logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), providerId)
+				removedUnits = append(removedUnits, u)
 			}
 		}
 	}
@@ -342,8 +353,28 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 	var unitUpdate state.UpdateUnitsOperation
 
 	for _, u := range removedUnits {
-		logger.Infof("removing unit %v from state because it no longer exists in the cloud", u.Name())
-		unitUpdate.Deletes = append(unitUpdate.Deletes, u.DestroyOperation())
+		// TODO(caas) - the cloud watcher can mistakenly report pods as missing
+		// TODO(Caas) - for a deployment controller, we do want to remove the unit
+		//logger.Infof("removing unit %v from state because it no longer exists in the cloud", u.Name())
+		//unitUpdate.Deletes = append(unitUpdate.Deletes, u.DestroyOperation())
+
+		// We'll set the status as Terminated. This will either be transient, as will
+		// occur when a pod is restarted external to Juju, or permanent if the pod has
+		// been deleted external to Juju. In the latter case, juju remove-unit will be
+		// need to clean things up on the Juju side.
+		unitStatus := &status.StatusInfo{
+			Status:  status.Terminated,
+			Message: "unit stopped by the cloud",
+		}
+		// And we'll reset the provider id - the pod may be restarted and we'll
+		// record the new id next time.
+		resetId := ""
+		updateProps := state.UnitUpdateProperties{
+			ProviderId: &resetId,
+			UnitStatus: unitStatus,
+		}
+		unitUpdate.Updates = append(unitUpdate.Updates,
+			u.UpdateOperation(updateProps))
 	}
 
 	// updateStatus constructs the unit and agent status values based on the pod status.
@@ -399,10 +430,11 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 		if err != nil {
 			return errors.Trace(err)
 		}
+		params := unitParams
 		updateProps := state.UnitUpdateProperties{
-			ProviderId:  unitParams.ProviderId,
-			Address:     unitParams.Address,
-			Ports:       unitParams.Ports,
+			ProviderId:  &params.ProviderId,
+			Address:     &params.Address,
+			Ports:       &params.Ports,
 			AgentStatus: agentStatus,
 			UnitStatus:  unitStatus,
 		}
@@ -420,10 +452,11 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 		if err != nil {
 			return errors.Trace(err)
 		}
+		params := unitParams
 		updateProps := state.UnitUpdateProperties{
-			ProviderId:  unitParams.ProviderId,
-			Address:     unitParams.Address,
-			Ports:       unitParams.Ports,
+			ProviderId:  &params.ProviderId,
+			Address:     &params.Address,
+			Ports:       &params.Ports,
 			AgentStatus: agentStatus,
 			UnitStatus:  unitStatus,
 		}

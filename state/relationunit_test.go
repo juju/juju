@@ -1048,7 +1048,9 @@ func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	// Add a container address.
 	unitUpdate := state.UpdateUnitsOperation{
 		Updates: []*state.UpdateUnitOperation{
-			prr.pu0.UpdateOperation(state.UnitUpdateProperties{ProviderId: "id", Address: "1.2.3.4"})},
+			prr.pu0.UpdateOperation(state.UnitUpdateProperties{
+				ProviderId: strPtr("id"),
+				Address:    strPtr("1.2.3.4")})},
 	}
 	err = mysql.UpdateUnits(&unitUpdate)
 	c.Assert(err, jc.ErrorIsNil)

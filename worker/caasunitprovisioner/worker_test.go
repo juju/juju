@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/status"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -688,7 +689,21 @@ func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
 	}
 	defer workertest.CleanKill(c, w)
 
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.containerBroker.Calls()) > 0 {
+			break
+		}
+	}
+	s.containerBroker.CheckCallNames(c, "WatchUnits")
+
+	s.assertUnitChange(c, status.Allocating, status.Allocating)
+	s.assertUnitChange(c, status.Allocating, status.Unknown)
+}
+
+func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expected status.Status) {
 	s.containerBroker.ResetCalls()
+	s.unitUpdater.ResetCalls()
+	s.containerBroker.reportedUnitStatus = reported
 
 	select {
 	case s.caasUnitsChanges <- struct{}{}:
@@ -697,12 +712,12 @@ func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
 	}
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if len(s.containerBroker.Calls()) > 1 {
+		if len(s.containerBroker.Calls()) > 0 {
 			break
 		}
 	}
-	s.containerBroker.CheckCallNames(c, "WatchUnits", "Units")
-	c.Assert(s.containerBroker.Calls()[1].Args, jc.DeepEquals, []interface{}{"gitlab"})
+	s.containerBroker.CheckCallNames(c, "Units")
+	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if len(s.unitUpdater.Calls()) > 0 {
@@ -714,7 +729,7 @@ func (s *WorkerSuite) TestUnitsChange(c *gc.C) {
 		params.UpdateApplicationUnits{
 			ApplicationTag: names.NewApplicationTag("gitlab").String(),
 			Units: []params.ApplicationUnitParams{
-				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: "allocating"},
+				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: expected.String()},
 			},
 		},
 	})

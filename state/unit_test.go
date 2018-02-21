@@ -1935,32 +1935,111 @@ type CAASUnitSuite struct {
 	ConnSuite
 	charm       *state.Charm
 	application *state.Application
-	unit        *state.Unit
 }
 
 var _ = gc.Suite(&CAASUnitSuite{})
 
-func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
+func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CAAS)
+	s.ConnSuite.SetUpTest(c)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
 		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
-	defer st.Close()
+	s.AddCleanup(func(_ *gc.C) { st.Close() })
+
 	f := factory.NewFactory(st)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	s.application = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+}
 
+func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 	var err error
 	c.Assert(err, jc.ErrorIsNil)
-	s.unit, err = app.AddUnit(state.AddUnitParams{})
+	unit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.unit.Series(), gc.Equals, "quantal")
-	c.Assert(s.unit.ShouldBeAssigned(), jc.IsFalse)
+	c.Assert(unit.Series(), gc.Equals, "quantal")
+	c.Assert(unit.ShouldBeAssigned(), jc.IsFalse)
 
 	// A unit that has not set any status is removed directly.
-	err = s.unit.Destroy()
+	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.unit.Life(), gc.Equals, state.Dying)
-	assertRemoved(c, s.unit)
+	c.Assert(unit.Life(), gc.Equals, state.Dying)
+	assertRemoved(c, unit)
+}
+
+func (s *CAASUnitSuite) TestUpdateCAASUnitProviderId(c *gc.C) {
+	existingUnit, err := s.application.AddUnit(state.AddUnitParams{
+		ProviderId: strPtr("unit-uuid"),
+		Address:    strPtr("192.168.1.1"),
+		Ports:      &[]string{"80"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	var updateUnits state.UpdateUnitsOperation
+	updateUnits.Updates = []*state.UpdateUnitOperation{
+		existingUnit.UpdateOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("another-uuid"),
+		})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	info, err := existingUnit.ContainerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.ProviderId(), gc.Equals, "another-uuid")
+	c.Assert(info.Address(), gc.Equals, "192.168.1.1")
+	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
+}
+
+func (s *CAASUnitSuite) TestUpdateCAASUnitAddress(c *gc.C) {
+	existingUnit, err := s.application.AddUnit(state.AddUnitParams{
+		ProviderId: strPtr("unit-uuid"),
+		Address:    strPtr("192.168.1.1"),
+		Ports:      &[]string{"80"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	var updateUnits state.UpdateUnitsOperation
+	updateUnits.Updates = []*state.UpdateUnitOperation{
+		existingUnit.UpdateOperation(state.UnitUpdateProperties{
+			Address: strPtr("192.168.1.2"),
+		})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	info, err := existingUnit.ContainerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.ProviderId(), gc.Equals, "unit-uuid")
+	c.Assert(info.Address(), gc.Equals, "192.168.1.2")
+	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
+}
+
+func (s *CAASUnitSuite) TestUpdateCAASUnitPorts(c *gc.C) {
+	existingUnit, err := s.application.AddUnit(state.AddUnitParams{
+		ProviderId: strPtr("unit-uuid"),
+		Address:    strPtr("192.168.1.1"),
+		Ports:      &[]string{"80"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	var updateUnits state.UpdateUnitsOperation
+	updateUnits.Updates = []*state.UpdateUnitOperation{
+		existingUnit.UpdateOperation(state.UnitUpdateProperties{
+			Ports: &[]string{"443"},
+		})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	info, err := existingUnit.ContainerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.ProviderId(), gc.Equals, "unit-uuid")
+	c.Assert(info.Address(), gc.Equals, "192.168.1.1")
+	c.Assert(info.Ports(), jc.DeepEquals, []string{"443"})
+}
+
+func (s *CAASUnitSuite) TestRemoveUnitDeletesContainerInfo(c *gc.C) {
+	existingUnit, err := s.application.AddUnit(state.AddUnitParams{
+		ProviderId: strPtr("unit-uuid"),
+		Address:    strPtr("192.168.1.1"),
+		Ports:      &[]string{"80"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = existingUnit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = existingUnit.ContainerInfo()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

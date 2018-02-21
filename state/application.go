@@ -1273,10 +1273,10 @@ type applicationAddUnitOpsArgs struct {
 	storageCons   map[string]StorageConstraints
 	attachStorage []names.StorageTag
 
-	// These attributes are relevant to CAAS models.
-	providerId string
-	address    string
-	ports      []string
+	// These optional attributes are relevant to CAAS models.
+	providerId *string
+	address    *string
+	ports      *[]string
 }
 
 // addApplicationUnitOps is just like addUnitOps but explicitly takes a
@@ -1320,18 +1320,11 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	udoc := &unitDoc{
 		DocID:                  docID,
 		Name:                   name,
-		ProviderId:             args.providerId,
 		Application:            a.doc.Name,
 		Series:                 a.doc.Series,
 		Life:                   Alive,
 		Principal:              args.principalName,
 		StorageAttachmentCount: numStorageAttachments,
-	}
-	if args.address != "" || args.ports != nil {
-		udoc.ContainerInfo = ContainerInfo{
-			Address: args.address,
-			Ports:   args.ports,
-		}
 	}
 	now := a.st.clock().Now()
 	agentStatusDoc := statusDoc{
@@ -1361,9 +1354,27 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		}
 		meterStatus = &meterStatusDoc{Code: MeterNotSet.String()}
 	}
+	var containerDoc *cloudContainerDoc
+	if model.Type() == ModelTypeCAAS {
+		if args.providerId != nil || args.address != nil || args.ports != nil {
+			containerDoc = &cloudContainerDoc{
+				Id: globalKey,
+			}
+			if args.providerId != nil {
+				containerDoc.ProviderId = *args.providerId
+			}
+			if args.address != nil {
+				containerDoc.Address = *args.address
+			}
+			if args.ports != nil {
+				containerDoc.Ports = *args.ports
+			}
+		}
+	}
 
 	ops, err := addUnitOps(a.st, addUnitOpsArgs{
 		unitDoc:            udoc,
+		containerDoc:       containerDoc,
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  unitStatusDoc,
 		workloadVersionDoc: workloadVersionDoc,
@@ -1566,13 +1577,13 @@ type AddUnitParams struct {
 	// These attributes are relevant to CAAS models.
 
 	// ProviderId identifies the unit for a given provider.
-	ProviderId string
+	ProviderId *string
 
 	// Address is the container address.
-	Address string
+	Address *string
 
 	// Ports are the open ports on the container.
-	Ports []string
+	Ports *[]string
 }
 
 // AddUnit adds a new principal unit to the application.
@@ -1649,6 +1660,8 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 			return nil, err
 		}
 		ops = append(ops, storageInstanceOps...)
+	} else {
+		ops = append(ops, u.removeCloudContainerOps()...)
 	}
 
 	if u.doc.CharmURL != nil {
@@ -2267,9 +2280,9 @@ func (a *Application) PasswordValid(password string) bool {
 // UnitUpdateProperties holds information used to update
 // the state model for the unit.
 type UnitUpdateProperties struct {
-	ProviderId  string
-	Address     string
-	Ports       []string
+	ProviderId  *string
+	Address     *string
+	Ports       *[]string
 	AgentStatus *status.StatusInfo
 	UnitStatus  *status.StatusInfo
 }
