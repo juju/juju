@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
@@ -26,12 +27,15 @@ controllers:
     models:
       admin/admin:
         uuid: ghi
+        type: iaas
   kontroll:
     models:
       admin/admin:
         uuid: abc
+        type: iaas
       admin/my-model:
         uuid: def
+        type: iaas
     current-model: admin/my-model
 `
 
@@ -65,9 +69,9 @@ var testControllerModels = map[string]*jujuclient.ControllerModels{
 	},
 }
 
-var kontrollAdminModelDetails = jujuclient.ModelDetails{"abc"}
-var kontrollMyModelModelDetails = jujuclient.ModelDetails{"def"}
-var ctrlAdminModelDetails = jujuclient.ModelDetails{"ghi"}
+var kontrollAdminModelDetails = jujuclient.ModelDetails{ModelUUID: "abc", ModelType: model.IAAS}
+var kontrollMyModelModelDetails = jujuclient.ModelDetails{ModelUUID: "def", ModelType: model.IAAS}
+var ctrlAdminModelDetails = jujuclient.ModelDetails{ModelUUID: "ghi", ModelType: model.IAAS}
 
 func (s *ModelsFileSuite) TestWriteFile(c *gc.C) {
 	writeTestModelsFile(c)

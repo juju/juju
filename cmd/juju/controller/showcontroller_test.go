@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/permission"
@@ -335,8 +336,8 @@ func (s *ShowControllerSuite) TestShowControllerRefreshesStoreModels(c *gc.C) {
 	c.Assert(store.Models["mallards"], gc.DeepEquals, &jujuclient.ControllerModels{
 		CurrentModel: "admin/my-model",
 		Models: map[string]jujuclient.ModelDetails{
-			"model0":   jujuclient.ModelDetails{ModelUUID: "abc"},
-			"my-model": jujuclient.ModelDetails{ModelUUID: "def"},
+			"model0":   {ModelUUID: "abc", ModelType: model.IAAS},
+			"my-model": {ModelUUID: "def", ModelType: model.IAAS},
 		},
 	})
 	_, err := s.runShowController(c, "mallards")
@@ -344,8 +345,8 @@ func (s *ShowControllerSuite) TestShowControllerRefreshesStoreModels(c *gc.C) {
 	c.Assert(store.Models["mallards"], gc.DeepEquals, &jujuclient.ControllerModels{
 		CurrentModel: "admin/my-model",
 		Models: map[string]jujuclient.ModelDetails{
-			"admin/controller": jujuclient.ModelDetails{ModelUUID: "abc"},
-			"admin/my-model":   jujuclient.ModelDetails{ModelUUID: "def"},
+			"admin/controller": {ModelUUID: "abc", ModelType: model.IAAS},
+			"admin/my-model":   {ModelUUID: "def", ModelType: model.IAAS},
 		},
 	})
 }
@@ -392,12 +393,12 @@ func (c *fakeController) ModelStatus(models ...names.ModelTag) (result []base.Mo
 
 func (c *fakeController) AllModels() (result []base.UserModel, _ error) {
 	models := map[string][]base.UserModel{
-		"aws-test": []base.UserModel{
-			base.UserModel{Name: "controller", UUID: "ghi", Owner: "admin"},
+		"aws-test": {
+			{Name: "controller", UUID: "ghi", Owner: "admin", Type: model.IAAS},
 		},
-		"mallards": []base.UserModel{
-			base.UserModel{Name: "controller", UUID: "abc", Owner: "admin"},
-			base.UserModel{Name: "my-model", UUID: "def", Owner: "admin"},
+		"mallards": {
+			{Name: "controller", UUID: "abc", Owner: "admin", Type: model.IAAS},
+			{Name: "my-model", UUID: "def", Owner: "admin", Type: model.IAAS},
 		},
 	}
 	all, exists := models[c.controllerName]

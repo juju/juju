@@ -501,6 +501,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 		CloudRegion:   model.CloudRegion(),
 		ProviderType:  conf.Type(),
 		Name:          conf.Name(),
+		Type:          string(model.Type()),
 		UUID:          model.UUID(),
 		OwnerTag:      model.Owner().String(),
 		Life:          params.Life(model.Life().String()),

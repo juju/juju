@@ -99,7 +99,7 @@ func (c *modelsCommand) getModelInfo(
 		}
 		model.ControllerName = c.runVars.controllerName
 		info = append(info, model)
-		modelsToStore[model.Name] = jujuclient.ModelDetails{model.UUID}
+		modelsToStore[model.Name] = jujuclient.ModelDetails{ModelUUID: model.UUID, ModelType: model.Type}
 
 		if len(model.Machines) != 0 {
 			c.runVars.hasMachinesCount = true

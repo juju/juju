@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
 )
@@ -50,16 +51,21 @@ func (c *Client) AllModels() ([]base.UserModel, error) {
 		return nil, errors.Trace(err)
 	}
 	result := make([]base.UserModel, len(models.UserModels))
-	for i, model := range models.UserModels {
-		owner, err := names.ParseUserTag(model.OwnerTag)
+	for i, usermodel := range models.UserModels {
+		owner, err := names.ParseUserTag(usermodel.OwnerTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", model.OwnerTag, i)
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", usermodel.OwnerTag, i)
+		}
+		modelType := model.ModelType(usermodel.Type)
+		if modelType == "" {
+			modelType = model.IAAS
 		}
 		result[i] = base.UserModel{
-			Name:           model.Name,
-			UUID:           model.UUID,
+			Name:           usermodel.Name,
+			UUID:           usermodel.UUID,
+			Type:           modelType,
 			Owner:          owner.Id(),
-			LastConnection: model.LastConnection,
+			LastConnection: usermodel.LastConnection,
 		}
 	}
 	return result, nil

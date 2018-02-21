@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 )
 
 // ControllerDetails holds the details needed to connect to a controller.
@@ -68,6 +69,9 @@ type ControllerDetails struct {
 type ModelDetails struct {
 	// ModelUUID is the unique ID for the model.
 	ModelUUID string `yaml:"uuid"`
+
+	// ModelType is the type of model.
+	ModelType model.ModelType `yaml:"type"`
 }
 
 // AccountDetails holds details of an account.

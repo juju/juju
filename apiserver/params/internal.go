@@ -136,6 +136,7 @@ type ModelCreateArgs struct {
 type Model struct {
 	Name     string `json:"name"`
 	UUID     string `json:"uuid"`
+	Type     string `json:"type"`
 	OwnerTag string `json:"owner-tag"`
 }
 

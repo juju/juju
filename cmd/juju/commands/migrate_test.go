@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -77,14 +78,17 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 		models: []base.UserModel{{
 			Name:  "model",
 			UUID:  modelUUID,
+			Type:  model.IAAS,
 			Owner: "sourceuser",
 		}, {
 			Name:  "production",
 			UUID:  "prod-1-uuid",
+			Type:  model.IAAS,
 			Owner: "alpha",
 		}, {
 			Name:  "production",
 			UUID:  "prod-2-uuid",
+			Type:  model.IAAS,
 			Owner: "sourceuser",
 		}},
 	}

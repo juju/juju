@@ -21,6 +21,9 @@ func ValidateModelDetails(details ModelDetails) error {
 	if details.ModelUUID == "" {
 		return errors.NotValidf("missing uuid, model details")
 	}
+	if details.ModelType == "" {
+		return errors.NotValidf("missing type, model details")
+	}
 	return nil
 }
 

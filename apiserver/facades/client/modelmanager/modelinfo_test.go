@@ -161,6 +161,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
 		Name:               "testenv",
 		UUID:               s.st.model.cfg.UUID(),
+		Type:               string(s.st.model.Type()),
 		ControllerUUID:     "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		OwnerTag:           "user-bob",
 		ProviderType:       "someprovider",
@@ -217,6 +218,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"UUID", nil},
 		{"Owner", nil},
 		{"Name", nil},
+		{"Type", nil},
 		{"UUID", nil},
 		{"ControllerUUID", nil},
 		{"Life", nil},
@@ -237,6 +239,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("bob")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("charlotte")}},
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("mary")}},
+		{"Type", nil},
 	})
 }
 
@@ -1042,6 +1045,7 @@ func (m *mockModel) getModelDetails() state.ModelSummary {
 	return state.ModelSummary{
 		Name:               m.Name(),
 		UUID:               m.UUID(),
+		Type:               m.Type(),
 		Life:               m.Life(),
 		Owner:              m.Owner().Id(),
 		ControllerUUID:     m.ControllerUUID(),

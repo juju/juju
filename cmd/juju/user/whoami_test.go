@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/user"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
@@ -64,7 +65,7 @@ User:        admin
 		Models: map[string]*jujuclient.ControllerModels{
 			"controller": {
 				Models: map[string]jujuclient.ModelDetails{
-					"admin/model": {"model-uuid"},
+					"admin/model": {ModelUUID: "model-uuid", ModelType: model.IAAS},
 				},
 			},
 		},
@@ -91,7 +92,7 @@ Run juju login if you want to login.
 		Models: map[string]*jujuclient.ControllerModels{
 			"controller": {
 				Models: map[string]jujuclient.ModelDetails{
-					"admin/model": {"model-uuid"},
+					"admin/model": {ModelUUID: "model-uuid", ModelType: model.IAAS},
 				},
 				CurrentModel: "admin/model",
 			},
@@ -109,7 +110,7 @@ func (s *WhoAmITestSuite) assertWhoAmIForUser(c *gc.C, user, format string) {
 		Models: map[string]*jujuclient.ControllerModels{
 			"controller": {
 				Models: map[string]jujuclient.ModelDetails{
-					"admin/model": {"model-uuid"},
+					"admin/model": {ModelUUID: "model-uuid", ModelType: model.IAAS},
 				},
 				CurrentModel: "admin/model",
 			},

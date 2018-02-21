@@ -280,7 +280,7 @@ func (m *ModelManagerAPI) newCAASModelConfig(
 
 	attrs := map[string]interface{}{
 		config.NameKey:         args.Name,
-		config.TypeKey:         "CAAS",
+		config.TypeKey:         cloudSpec.Type,
 		config.UUIDKey:         uuid.String(),
 		config.AgentVersionKey: jujuversion.Current.String(),
 	}
@@ -708,6 +708,7 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 		summary := &params.ModelSummary{
 			Name:           mi.Name,
 			UUID:           mi.UUID,
+			Type:           string(mi.Type),
 			OwnerTag:       names.NewUserTag(mi.Owner).String(),
 			ControllerUUID: mi.ControllerUUID,
 			Life:           params.Life(mi.Life.String()),
@@ -799,6 +800,7 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 			Model: params.Model{
 				Name:     mi.Name,
 				UUID:     mi.UUID,
+				Type:     string(mi.Type),
 				OwnerTag: ownerTag.String(),
 			},
 			LastConnection: &mi.LastConnection,
@@ -910,6 +912,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	owner := model.Owner()
 	info := params.ModelInfo{
 		Name:           model.Name(),
+		Type:           string(model.Type()),
 		UUID:           model.UUID(),
 		ControllerUUID: model.ControllerUUID(),
 		OwnerTag:       owner.String(),

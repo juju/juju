@@ -125,6 +125,7 @@ type ModelMigrationStatus struct {
 // ModelInfo holds information about the Juju model.
 type ModelInfo struct {
 	Name               string `json:"name"`
+	Type               string `json:"type"`
 	UUID               string `json:"uuid"`
 	ControllerUUID     string `json:"controller-uuid"`
 	ProviderType       string `json:"provider-type,omitempty"`
@@ -167,6 +168,7 @@ type ModelInfo struct {
 type ModelSummary struct {
 	Name               string `json:"name"`
 	UUID               string `json:"uuid"`
+	Type               string `json:"type"`
 	ControllerUUID     string `json:"controller-uuid"`
 	ProviderType       string `json:"provider-type,omitempty"`
 	DefaultSeries      string `json:"default-series,omitempty"`

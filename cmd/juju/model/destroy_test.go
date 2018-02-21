@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/modelcmd"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -108,8 +109,8 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{ControllerUUID: "test1-uuid"}
 	s.store.Models["test1"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			"admin/test1": {"test1-uuid"},
-			"admin/test2": {"test2-uuid"},
+			"admin/test1": {ModelUUID: "test1-uuid", ModelType: coremodel.IAAS},
+			"admin/test2": {ModelUUID: "test2-uuid", ModelType: coremodel.IAAS},
 		},
 	}
 	s.store.Accounts["test1"] = jujuclient.AccountDetails{
@@ -312,8 +313,8 @@ func (s *DestroySuite) TestDestroyDestroyStorageFlagUnspecifiedOldControllerNoSt
 func (s *DestroySuite) resetModel(c *gc.C) {
 	s.store.Models["test1"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			"admin/test1": {"test1-uuid"},
-			"admin/test2": {"test2-uuid"},
+			"admin/test1": {ModelUUID: "test1-uuid", ModelType: coremodel.IAAS},
+			"admin/test2": {ModelUUID: "test2-uuid", ModelType: coremodel.IAAS},
 		},
 	}
 }

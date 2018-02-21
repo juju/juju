@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/ec2"
@@ -49,6 +50,7 @@ func (s *AddModelSuite) SetUpTest(c *gc.C) {
 	s.fakeAddModelAPI = &fakeAddClient{
 		model: base.ModelInfo{
 			Name:         "test",
+			Type:         model.IAAS,
 			UUID:         "fake-model-uuid",
 			Owner:        "ignored-for-now",
 			AgentVersion: &agentVersion,
@@ -187,7 +189,8 @@ func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
 	// means we'll replace any stale details from an previously existing
 	// model with the same name.
 	err := s.store.UpdateModel("test-master", "bob/test", jujuclient.ModelDetails{
-		"stale-uuid",
+		ModelUUID: "stale-uuid",
+		ModelType: model.IAAS,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -196,7 +199,8 @@ func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
 
 	details, err := s.store.ModelByName("test-master", "bob/test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
+	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{
+		ModelUUID: "fake-model-uuid", ModelType: model.IAAS})
 }
 
 func (s *AddModelSuite) TestAddModelUnauthorizedMentionsJujuGrant(c *gc.C) {
@@ -555,9 +559,9 @@ func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelName, gc.Equals, "bob/test")
 
-	model, err := s.store.ModelByName(controllerName, modelName)
+	m, err := s.store.ModelByName(controllerName, modelName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
+	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{ModelUUID: "fake-model-uuid", ModelType: model.IAAS})
 }
 
 func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
@@ -574,9 +578,9 @@ func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
 	// New model should not be selected by should still exist in the
 	// store.
 	checkNoModelSelected()
-	model, err := s.store.ModelByName(controllerName, "bob/test")
+	m, err := s.store.ModelByName(controllerName, "bob/test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
+	c.Assert(m, jc.DeepEquals, &jujuclient.ModelDetails{ModelUUID: "fake-model-uuid", ModelType: model.IAAS})
 }
 
 func (s *AddModelSuite) TestNoEnvCacheOtherUser(c *gc.C) {

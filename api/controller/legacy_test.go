@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
@@ -56,13 +57,14 @@ func (s *legacySuite) TestAllModels(c *gc.C) {
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
-	envs, err := sysManager.AllModels()
+	models, err := sysManager.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envs, gc.HasLen, 3)
+	c.Assert(models, gc.HasLen, 3)
 
 	var obtained []string
-	for _, env := range envs {
-		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
+	for _, m := range models {
+		c.Assert(m.Type, gc.Equals, model.IAAS)
+		obtained = append(obtained, fmt.Sprintf("%s/%s", m.Owner, m.Name))
 	}
 	expected := []string{
 		"admin/controller",

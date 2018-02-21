@@ -197,46 +197,42 @@ func (s *addCAASSuite) runCommand(c *gc.C, cmd cmd.Command, args ...string) (*cm
 
 func (s *addCAASSuite) TestAddExtraArg(c *gc.C) {
 	cmd := s.makeCommand(c, true, true)
-	_, err := s.runCommand(c, cmd, "kubernetes", "caasname", "extra")
+	_, err := s.runCommand(c, cmd, "k8sname", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *addCAASSuite) TestAddKnownTypeNoData(c *gc.C) {
 	cmd := s.makeCommand(c, true, true)
-	_, err := s.runCommand(c, cmd, "kubernetes", "caasname")
-	c.Assert(err, gc.ErrorMatches, `No CAAS cluster definitions found in config`)
-}
-func (s *addCAASSuite) TestAddUnknownType(c *gc.C) {
-	cmd := s.makeCommand(c, false, true)
-	_, err := s.runCommand(c, cmd, "ducttape", "caasname")
-	c.Assert(err, gc.ErrorMatches, `unsupported cloud type 'ducttape'`)
+	_, err := s.runCommand(c, cmd, "k8sname")
+	c.Assert(err, gc.ErrorMatches, `No k8s cluster definitions found in config`)
 }
 
 func (s *addCAASSuite) TestAddNameClash(c *gc.C) {
 	cmd := s.makeCommand(c, true, false)
-	_, err := s.runCommand(c, cmd, "kubernetes", "mrcloud")
+	_, err := s.runCommand(c, cmd, "mrcloud")
 	c.Assert(err, gc.ErrorMatches, `"mrcloud" is the name of a public cloud`)
 }
 
 func (s *addCAASSuite) TestMissingName(c *gc.C) {
 	cmd := s.makeCommand(c, true, true)
-	_, err := s.runCommand(c, cmd, "kubernetes")
-	c.Assert(err, gc.ErrorMatches, `missing CAAS name.`)
+	_, err := s.runCommand(c, cmd)
+	c.Assert(err, gc.ErrorMatches, `missing k8s name.`)
 }
 
 func (s *addCAASSuite) TestMissingArgs(c *gc.C) {
 	cmd := s.makeCommand(c, true, true)
 	_, err := s.runCommand(c, cmd)
-	c.Assert(err, gc.ErrorMatches, `missing CAAS type and CAAS name.`)
+	c.Assert(err, gc.ErrorMatches, `missing k8s name.`)
 }
 
 func (s *addCAASSuite) TestCorrect(c *gc.C) {
 	cmd := s.makeCommand(c, true, false)
-	_, err := s.runCommand(c, cmd, "kubernetes", "myk8s")
+	_, err := s.runCommand(c, cmd, "myk8s")
 	c.Assert(err, jc.ErrorIsNil)
 	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
-			"mrcloud": cloud.Cloud{Name: "mrcloud",
+			"mrcloud": {
+				Name:             "mrcloud",
 				Type:             "kubernetes",
 				Description:      "",
 				AuthTypes:        cloud.AuthTypes(nil),
@@ -247,7 +243,7 @@ func (s *addCAASSuite) TestCorrect(c *gc.C) {
 				Config:           map[string]interface{}(nil),
 				RegionConfig:     cloud.RegionConfig(nil)},
 
-			"myk8s": cloud.Cloud{
+			"myk8s": {
 				Name:             "myk8s",
 				Type:             "kubernetes",
 				Description:      "",

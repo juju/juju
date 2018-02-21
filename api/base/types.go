@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/version"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
@@ -18,6 +19,7 @@ import (
 type UserModel struct {
 	Name           string
 	UUID           string
+	Type           model.ModelType
 	Owner          string
 	LastConnection *time.Time
 }
@@ -51,6 +53,7 @@ type Machine struct {
 type ModelInfo struct {
 	Name            string
 	UUID            string
+	Type            model.ModelType
 	ControllerUUID  string
 	ProviderType    string
 	DefaultSeries   string
@@ -101,6 +104,7 @@ type Filesystem struct {
 type UserModelSummary struct {
 	Name               string
 	UUID               string
+	Type               model.ModelType
 	ControllerUUID     string
 	ProviderType       string
 	DefaultSeries      string

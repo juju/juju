@@ -40,6 +40,7 @@ type MachineModelInfo struct {
 type ModelSummary struct {
 	Name           string
 	UUID           string
+	Type           ModelType
 	Owner          string
 	ControllerUUID string
 	Life           Life
@@ -108,6 +109,7 @@ func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserT
 		p.summaries[i] = ModelSummary{
 			Name:               doc.Name,
 			UUID:               doc.UUID,
+			Type:               doc.Type,
 			Life:               doc.Life,
 			Owner:              doc.Owner,
 			ControllerUUID:     doc.ControllerUUID,

@@ -120,6 +120,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	expected := []string{"controller", "no-access", "owned", "user"}
 	var obtained []string
 	for _, userModel := range response.UserModels {
+		c.Assert(userModel.Type, gc.Equals, "iaas")
 		obtained = append(obtained, userModel.Name)
 		stateModel, ph, err := s.StatePool.GetModel(userModel.UUID)
 		c.Assert(err, jc.ErrorIsNil)

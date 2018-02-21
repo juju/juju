@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju"
@@ -508,7 +509,7 @@ func newClientStore(c *gc.C, controllerName string) *jujuclient.MemStore {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = store.UpdateModel(controllerName, "admin/admin", jujuclient.ModelDetails{
-		fakeUUID,
+		ModelUUID: fakeUUID, ModelType: model.IAAS,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

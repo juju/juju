@@ -53,7 +53,7 @@ func (s *modelInfoSuite) assertExpectedModelInfo(c *gc.C, expectedInfo params.Mo
 func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	results := params.ModelInfoResults{
 		Results: []params.ModelInfoResult{{
-			Result: &params.ModelInfo{Name: "name", UUID: "etc."},
+			Result: &params.ModelInfo{Name: "name", UUID: "etc.", Type: "foo"},
 		}, {
 			Error: &params.Error{Message: "woop"},
 		}},
@@ -64,7 +64,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 func (s *modelInfoSuite) TestModelInfoWithAgentVersion(c *gc.C) {
 	results := params.ModelInfoResults{
 		Results: []params.ModelInfoResult{{
-			Result: &params.ModelInfo{Name: "name", UUID: "etc.", AgentVersion: &version.Current},
+			Result: &params.ModelInfo{Name: "name", UUID: "etc.", Type: "foo", AgentVersion: &version.Current},
 		}},
 	}
 	s.assertExpectedModelInfo(c, results)

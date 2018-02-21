@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -345,6 +346,15 @@ func (s *store) UpdateModel(controllerName, modelName string, details ModelDetai
 			oldDetails, ok := models.Models[modelName]
 			if ok && details == oldDetails {
 				return false, nil
+			}
+			if ok && oldDetails.ModelType == "" && details.ModelType != model.IAAS ||
+				oldDetails.ModelType != "" && oldDetails.ModelType != details.ModelType {
+				oldModelType := oldDetails.ModelType
+				if oldModelType == "" {
+					oldModelType = model.IAAS
+				}
+				return false, errors.Errorf(
+					"model type was %q, cannot change to %q", oldModelType, details.ModelType)
 			}
 			models.Models[modelName] = details
 			return true, nil

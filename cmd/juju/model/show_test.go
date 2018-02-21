@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
@@ -54,6 +55,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		info: params.ModelInfo{
 			Name:           "mymodel",
 			UUID:           testing.ModelTag.Id(),
+			Type:           "iaas",
 			ControllerUUID: "1ca2293b-fdb9-4299-97d6-55583bb39364",
 			OwnerTag:       "user-admin",
 			CloudTag:       "cloud-some-cloud",
@@ -78,6 +80,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 			"name":            "admin/mymodel",
 			"short-name":      "mymodel",
 			"model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			"model-type":      "iaas",
 			"controller-uuid": "1ca2293b-fdb9-4299-97d6-55583bb39364",
 			"controller-name": "testing",
 			"owner":           "admin",
@@ -113,7 +116,8 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		User: "admin",
 	}
 	err := s.store.UpdateModel("testing", "admin/mymodel", jujuclient.ModelDetails{
-		testing.ModelTag.Id(),
+		ModelUUID: testing.ModelTag.Id(),
+		ModelType: coremodel.IAAS,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
@@ -183,13 +187,14 @@ func (s *ShowCommandSuite) TestUnrecognizedArg(c *gc.C) {
 
 func (s *ShowCommandSuite) TestShowBasicIncompleteModelsYaml(c *gc.C) {
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: createBasicModelInfo()},
+		{Result: createBasicModelInfo()},
 	}
 	s.expectedDisplay = `
 basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   owner: owner
@@ -202,12 +207,13 @@ basic-model:
 
 func (s *ShowCommandSuite) TestShowBasicIncompleteModelsJson(c *gc.C) {
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: createBasicModelInfo()},
+		{Result: createBasicModelInfo()},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
+		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"owner\":\"owner\"," +
@@ -219,13 +225,14 @@ func (s *ShowCommandSuite) TestShowBasicIncompleteModelsJson(c *gc.C) {
 
 func (s *ShowCommandSuite) TestShowBasicWithStatusIncompleteModelsYaml(c *gc.C) {
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: createBasicModelInfoWithStatus()},
+		{Result: createBasicModelInfoWithStatus()},
 	}
 	s.expectedDisplay = `
 basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   owner: owner
@@ -240,12 +247,13 @@ basic-model:
 
 func (s *ShowCommandSuite) TestShowBasicWithStatusIncompleteModelsJson(c *gc.C) {
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: createBasicModelInfoWithStatus()},
+		{Result: createBasicModelInfoWithStatus()},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
+		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"owner\":\"owner\"," +
@@ -261,13 +269,14 @@ func (s *ShowCommandSuite) TestShowBasicWithMigrationIncompleteModelsYaml(c *gc.
 	basicAndMigrationStatusInfo := createBasicModelInfo()
 	addMigrationStatusStatus(basicAndMigrationStatusInfo)
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicAndMigrationStatusInfo},
+		{Result: basicAndMigrationStatusInfo},
 	}
 	s.expectedDisplay = `
 basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   owner: owner
@@ -285,12 +294,13 @@ func (s *ShowCommandSuite) TestShowBasicWithMigrationIncompleteModelsJson(c *gc.
 	basicAndMigrationStatusInfo := createBasicModelInfo()
 	addMigrationStatusStatus(basicAndMigrationStatusInfo)
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicAndMigrationStatusInfo},
+		{Result: basicAndMigrationStatusInfo},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
+		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"owner\":\"owner\"," +
@@ -305,13 +315,14 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusAndMigrationIncompleteModelsYa
 	basicAndStatusAndMigrationInfo := createBasicModelInfoWithStatus()
 	addMigrationStatusStatus(basicAndStatusAndMigrationInfo)
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicAndStatusAndMigrationInfo},
+		{Result: basicAndStatusAndMigrationInfo},
 	}
 	s.expectedDisplay = `
 basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   owner: owner
@@ -330,12 +341,13 @@ func (s *ShowCommandSuite) TestShowBasicWithStatusAndMigrationIncompleteModelsJs
 	basicAndStatusAndMigrationInfo := createBasicModelInfoWithStatus()
 	addMigrationStatusStatus(basicAndStatusAndMigrationInfo)
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicAndStatusAndMigrationInfo},
+		{Result: basicAndStatusAndMigrationInfo},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
+		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"owner\":\"owner\"," +
@@ -351,13 +363,14 @@ func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsYaml(c *gc.C
 	basicAndProviderTypeInfo := createBasicModelInfo()
 	basicAndProviderTypeInfo.ProviderType = "aws"
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicAndProviderTypeInfo},
+		{Result: basicAndProviderTypeInfo},
 	}
 	s.expectedDisplay = `
 basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   owner: owner
@@ -373,12 +386,13 @@ func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsJson(c *gc.C
 	basicAndProviderTypeInfo := createBasicModelInfo()
 	basicAndProviderTypeInfo.ProviderType = "aws"
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicAndProviderTypeInfo},
+		{Result: basicAndProviderTypeInfo},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
+		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"owner\":\"owner\"," +
@@ -392,16 +406,17 @@ func (s *ShowCommandSuite) TestShowBasicWithProviderIncompleteModelsJson(c *gc.C
 func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsYaml(c *gc.C) {
 	basicAndUsersInfo := createBasicModelInfo()
 	basicAndUsersInfo.Users = []params.ModelUserInfo{
-		params.ModelUserInfo{"admin", "display name", nil, params.UserAccessPermission("admin")},
+		{"admin", "display name", nil, params.UserAccessPermission("admin")},
 	}
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicAndUsersInfo},
+		{Result: basicAndUsersInfo},
 	}
 	s.expectedDisplay = `
 basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   owner: owner
@@ -420,16 +435,17 @@ basic-model:
 func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsJson(c *gc.C) {
 	basicAndUsersInfo := createBasicModelInfo()
 	basicAndUsersInfo.Users = []params.ModelUserInfo{
-		params.ModelUserInfo{"admin", "display name", nil, params.UserAccessPermission("admin")},
+		{"admin", "display name", nil, params.UserAccessPermission("admin")},
 	}
 
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicAndUsersInfo},
+		{Result: basicAndUsersInfo},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
+		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"owner\":\"owner\"," +
@@ -443,17 +459,17 @@ func (s *ShowCommandSuite) TestShowBasicWithUsersIncompleteModelsJson(c *gc.C) {
 func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsYaml(c *gc.C) {
 	basicAndMachinesInfo := createBasicModelInfo()
 	basicAndMachinesInfo.Machines = []params.ModelMachineInfo{
-		params.ModelMachineInfo{Id: "2"},
-		params.ModelMachineInfo{Id: "12"},
+		{Id: "2"}, {Id: "12"},
 	}
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicAndMachinesInfo},
+		{Result: basicAndMachinesInfo},
 	}
 	s.expectedDisplay = `
 basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   owner: owner
@@ -472,16 +488,16 @@ basic-model:
 func (s *ShowCommandSuite) TestShowBasicWithMachinesIncompleteModelsJson(c *gc.C) {
 	basicAndMachinesInfo := createBasicModelInfo()
 	basicAndMachinesInfo.Machines = []params.ModelMachineInfo{
-		params.ModelMachineInfo{Id: "2"},
-		params.ModelMachineInfo{Id: "12"},
+		{Id: "2"}, {Id: "12"},
 	}
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicAndMachinesInfo},
+		{Result: basicAndMachinesInfo},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
+		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"owner\":\"owner\"," +
@@ -499,13 +515,14 @@ func (s *ShowCommandSuite) TestShowBasicWithSLAIncompleteModelsYaml(c *gc.C) {
 		Level: "level",
 	}
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicAndSLAInfo},
+		{Result: basicAndSLAInfo},
 	}
 	s.expectedDisplay = `
 basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   owner: owner
@@ -525,12 +542,13 @@ func (s *ShowCommandSuite) TestShowBasicWithSLAIncompleteModelsJson(c *gc.C) {
 		Level: "level",
 	}
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicAndSLAInfo},
+		{Result: basicAndSLAInfo},
 	}
 	s.expectedDisplay = "{\"basic-model\":" +
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
+		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"owner\":\"owner\"," +
@@ -547,6 +565,7 @@ func (s *ShowCommandSuite) TestShowModelWithAgentVersionInJson(c *gc.C) {
 		"{\"name\":\"owner/basic-model\"," +
 		"\"short-name\":\"basic-model\"," +
 		"\"model-uuid\":\"deadbeef-0bad-400d-8000-4b1d0d06f00d\"," +
+		"\"model-type\":\"iaas\"," +
 		"\"controller-uuid\":\"deadbeef-1bad-500d-9000-4b1d0d06f00d\"," +
 		"\"controller-name\":\"testing\"," +
 		"\"owner\":\"owner\"," +
@@ -563,6 +582,7 @@ basic-model:
   name: owner/basic-model
   short-name: basic-model
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: testing
   owner: owner
@@ -582,7 +602,7 @@ func (s *ShowCommandSuite) assertShowModelWithAgent(c *gc.C, format string) {
 	basicTestInfo := createBasicModelInfo()
 	basicTestInfo.AgentVersion = &agentVersion
 	s.fake.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: basicTestInfo},
+		{Result: basicTestInfo},
 	}
 	s.assertShowOutput(c, format)
 }
@@ -602,6 +622,7 @@ func createBasicModelInfo() *params.ModelInfo {
 		Name:           "basic-model",
 		UUID:           testing.ModelTag.Id(),
 		ControllerUUID: testing.ControllerTag.Id(),
+		Type:           "iaas",
 		OwnerTag:       names.NewUserTag("owner").String(),
 		Life:           params.Dead,
 		CloudTag:       names.NewCloudTag("altostratus").String(),
@@ -641,7 +662,7 @@ func (s *showSLACommandSuite) SetUpTest(c *gc.C) {
 	slaOutput["sla-owner"] = "user"
 }
 
-func noOpRefresh(jujuclient.ClientStore, string) error {
+func noOpRefresh(_ jujuclient.ClientStore, _ string) error {
 	return nil
 }
 

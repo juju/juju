@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
@@ -40,8 +41,8 @@ func (s *BaseCommandSuite) SetUpTest(c *gc.C) {
 	}
 	s.store.Models["foo"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			"admin/badmodel":  {"deadbeef"},
-			"admin/goodmodel": {"deadbeef2"},
+			"admin/badmodel":  {ModelUUID: "deadbeef", ModelType: model.IAAS},
+			"admin/goodmodel": {ModelUUID: "deadbeef2", ModelType: model.IAAS},
 		},
 		CurrentModel: "admin/badmodel",
 	}
@@ -66,7 +67,8 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent 
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(msg, gc.Equals, `model "admin/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.`)
 	c.Assert(s.store.Models["foo"].Models, gc.HasLen, 1)
-	c.Assert(s.store.Models["foo"].Models["admin/goodmodel"], gc.DeepEquals, jujuclient.ModelDetails{"deadbeef2"})
+	c.Assert(s.store.Models["foo"].Models["admin/goodmodel"], gc.DeepEquals,
+		jujuclient.ModelDetails{ModelUUID: "deadbeef2", ModelType: model.IAAS})
 	c.Assert(s.store.Models["foo"].CurrentModel, gc.Equals, expectedCurrent)
 }
 

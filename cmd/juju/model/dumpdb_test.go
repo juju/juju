@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -33,7 +34,8 @@ func (s *DumpDBCommandSuite) SetUpTest(c *gc.C) {
 		User: "admin",
 	}
 	err := s.store.UpdateModel("testing", "admin/mymodel", jujuclient.ModelDetails{
-		testing.ModelTag.Id(),
+		ModelUUID: testing.ModelTag.Id(),
+		ModelType: coremodel.IAAS,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"

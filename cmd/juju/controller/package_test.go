@@ -82,13 +82,16 @@ controllers:
     models:
       controller:
         uuid: ghi
+        type: iaas
     current-model: admin/controller
   mallards:
     models:
       model0:
         uuid: abc
+        type: iaas
       my-model:
         uuid: def
+        type: iaas
     current-model: admin/my-model
 `
 

@@ -186,6 +186,7 @@ func (c *ControllerAPI) AllModels() (params.UserModelList, error) {
 			Model: params.Model{
 				Name:     model.Name(),
 				UUID:     model.UUID(),
+				Type:     string(model.Type()),
 				OwnerTag: model.Owner().String(),
 			},
 		}

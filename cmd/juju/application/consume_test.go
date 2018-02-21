@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -40,8 +41,8 @@ func (s *ConsumeSuite) SetUpTest(c *gc.C) {
 	s.store.Models[controllerName] = &jujuclient.ControllerModels{
 		CurrentModel: "fred/test",
 		Models: map[string]jujuclient.ModelDetails{
-			"bob/test": {"test-uuid"},
-			"bob/prod": {"prod-uuid"},
+			"bob/test": {ModelUUID: "test-uuid", ModelType: model.IAAS},
+			"bob/prod": {ModelUUID: "prod-uuid", ModelType: model.IAAS},
 		},
 	}
 	s.store.Accounts[controllerName] = jujuclient.AccountDetails{

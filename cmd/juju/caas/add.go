@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.caas")
+var logger = loggo.GetLogger("juju.cmd.juju.k8s")
 
 type CloudMetadataStore interface {
 	ParseCloudMetadataFile(path string) (map[string]cloud.Cloud, error)
@@ -40,15 +40,12 @@ type CloudAPI interface {
 }
 
 var usageAddCAASSummary = `
-Adds a CAAS endpoint and credential to Juju from among known types.`[1:]
+Adds a k8s endpoint and credential to Juju.`[1:]
 
 var usageAddCAASDetails = `
 
 Examples:
-    juju add-caas myk8s kubernetes
-
-See also:
-    caas`
+    juju add-k8s myk8scloud`
 
 // AddCAASCommand is the command that allows you to add a caas and credential
 type AddCAASCommand struct {
@@ -99,8 +96,8 @@ func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, fileCredent
 // Info returns help information about the command.
 func (c *AddCAASCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add-caas",
-		Args:    "<caas type> <caas name>",
+		Name:    "add-k8s",
+		Args:    "<k8s name>",
 		Purpose: usageAddCAASSummary,
 		Doc:     usageAddCAASDetails,
 	}
@@ -114,14 +111,11 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init populates the command with the args from the command line.
 func (c *AddCAASCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
-		return errors.Errorf("missing CAAS type and CAAS name.")
+		return errors.Errorf("missing k8s name.")
 	}
-	if len(args) == 1 {
-		return errors.Errorf("missing CAAS name.")
-	}
-	c.caasType = args[0]
-	c.caasName = args[1]
-	return cmd.CheckEmpty(args[2:])
+	c.caasType = "kubernetes"
+	c.caasName = args[0]
+	return cmd.CheckEmpty(args[1:])
 }
 
 func (c *AddCAASCommand) newAPIRoot() (api.Connection, error) {
@@ -153,7 +147,7 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	if len(caasConfig.Contexts) == 0 {
-		return errors.Errorf("No CAAS cluster definitions found in config")
+		return errors.Errorf("No k8s cluster definitions found in config")
 	}
 	defaultContext := caasConfig.Contexts[caasConfig.CurrentContext]
 
