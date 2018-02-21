@@ -2208,6 +2208,8 @@ func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenAlreadySet(c *gc.
 	settings, err := readSettings(s.state.db(), controllersC, controllerSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	settings.Set(controller.JujuHASpace, "already-set")
+	_, err = settings.Write()
+	c.Assert(err, jc.ErrorIsNil)
 
 	sn := network.SpaceName("new-value")
 	ms, err := s.state.SetOrGetMongoSpaceName(sn)
