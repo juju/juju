@@ -337,18 +337,11 @@ func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, b
 	return internalAddress, ok
 }
 
-// SelectMongoHostPortsBySpaceNames returns the most suitable HostPort (as string) to
-// use as a Juju Controller (API/state server) endpoint given the list of
-// hostPorts. It first tries to find the first HostPort bound to the
-// spaces provided, then, if that fails, uses the older selection method based on scope.
-// When machineLocal is true and an address can't be selected by space both
-// ScopeCloudLocal and ScopeMachineLocal addresses are considered during the
-// selection, otherwise just ScopeCloudLocal are.
-func SelectMongoHostPortsBySpaceNames(hostPorts []HostPort, spaces []SpaceName) ([]string, bool) {
-	filteredHostPorts, ok := SelectHostPortsBySpaceNames(hostPorts, spaces...)
-	return HostPortsToStrings(filteredHostPorts), ok
-}
-
+// SelectHostPortsByScope looks through the HostPorts supplied and tries to
+// find one that is cloud-local. If necessary, passing machineLocal=true will
+// allow it to accept machine local addresses as well as cloud-local addresses,
+// but this is generally not recommended. (Once you are in HA you need
+// addresses that can be reached from another machine.)
 func SelectHostPortsByScope(hostPorts []HostPort, machineLocal bool) []string {
 	// Fallback to using the legacy and error-prone approach using scope
 	// selection instead.

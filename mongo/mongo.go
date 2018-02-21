@@ -292,15 +292,27 @@ func SelectPeerHostPort(hostPorts []network.HostPort) string {
 // SelectPeerHostPortBySpace returns the HostPort to use as the mongo replica set peer
 // by selecting it from the given hostPorts.
 func SelectPeerHostPortBySpace(hostPorts []network.HostPort, space network.SpaceName) string {
-	// ScopeMachineLocal addresses are OK if we can't pick by space.
-	suitableHostPorts, foundHostPortsInSpaces :=
-		network.SelectMongoHostPortsBySpaceNames(hostPorts, []network.SpaceName{space})
+	filteredHostPorts, foundHostPortsInSpaces :=
+		network.SelectHostPortsBySpaceNames(hostPorts, space)
 
+	var suitableAddr string
 	if !foundHostPortsInSpaces {
 		logger.Debugf("Failed to select hostPort by space - trying by scope from %+v", hostPorts)
-		suitableHostPorts = network.SelectHostPortsByScope(hostPorts, true)
+		// ScopeMachineLocal addresses are OK if we can't pick by space.
+		// XXX(jam): 2018-02-21 This doesn't seem right.
+		// peergrouper.MachineTracker.SelectMongoHostPort is the only place that calls this function.
+		// It first tries this iff we have a space name.
+		// It then falls back to calling SelectPeerHostPort which has an
+		// explicit "ScopeMachineLocal is never suitable for mongo peers".
+		// So why would it be necessary for a system that has a space declared,
+		// but can't find an address in that space to fall back to a local-only
+		// address.
+		suitableAddrs := network.SelectHostPortsByScope(hostPorts, true)
+		suitableAddr = suitableAddrs[0]
+	} else {
+		suitableAddr = filteredHostPorts[0].NetAddr()
 	}
-	return suitableHostPorts[0]
+	return suitableAddr
 }
 
 // GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
