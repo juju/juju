@@ -94,7 +94,6 @@ var (
 	// the intestinal fortitude to untangle this package. Be that
 	// person! Juju Needs You.
 	useMultipleCPUs    = utils.UseMultipleCPUs
-	newMetadataUpdater = imagemetadataworker.NewWorker
 	reportOpenedState  = func(*state.State) {}
 
 	caasModelManifolds = model.CAASManifolds
