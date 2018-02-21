@@ -6,6 +6,7 @@ package peergrouper
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/juju/replicaset"
 
@@ -35,18 +36,19 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machineTra
 	}
 	changed := false
 	members, extra, maxId := info.membersMap()
-	line := fmt.Sprintf("calculating desired peer group\ndesired voting members: (maxId: %d)", maxId)
+	lines := make([]string, 0)
+	lines = append(lines, fmt.Sprintf("calculated desired peer group\ndesired voting members: (maxId: %d)", maxId))
 	for tracker, replMem := range members {
-		line = fmt.Sprintf("%s\n   %#v: rs_id=%d, rs_addr=%s", line, tracker, replMem.Id, replMem.Address)
+		lines = append(lines, fmt.Sprintf("\n   %#v: rs_id=%d, rs_addr=%s", tracker, replMem.Id, replMem.Address))
 	}
 	if len(extra) > 0 {
-		line = line + "\nother members:"
+		lines = append(lines, "\nother members:")
 		for _, replMem := range extra {
 			vote := (replMem.Votes != nil && *replMem.Votes > 0)
-			line = fmt.Sprintf("%s\n   rs_id=%d, rs_addr=%s, tags=%v, vote=%t", line, replMem.Id, replMem.Address, replMem.Tags, vote)
+			lines = append(lines, fmt.Sprintf("\n   rs_id=%d, rs_addr=%s, tags=%v, vote=%t", replMem.Id, replMem.Address, replMem.Tags, vote))
 		}
 	}
-	logger.Debugf(line)
+	logger.Debugf(strings.Join(lines, ""))
 
 	// We may find extra peer group members if the machines
 	// have been removed or their controller status removed.

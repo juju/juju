@@ -150,7 +150,7 @@ func (s *workerSuite) dotestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	st := NewFakeState()
 	InitState(c, st, 3, ipVersion)
 	memberWatcher := st.session.members.Watch()
-	mustNext(c, memberWatcher)
+	mustNext(c, memberWatcher, "init")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 	logger.Infof("starting worker")
@@ -187,14 +187,14 @@ func (s *workerSuite) dotestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	}()
 
 	// Wait for the worker to set the initial members.
-	mustNext(c, memberWatcher)
+	mustNext(c, memberWatcher, "initial members")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", ipVersion))
 
 	// Update the status of the new members
 	// and check that they become voting.
 	c.Logf("\nupdating new member status")
 	st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
-	mustNext(c, memberWatcher)
+	mustNext(c, memberWatcher, "new member status")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", ipVersion))
 
 	c.Logf("\nadding another machine")
@@ -202,8 +202,7 @@ func (s *workerSuite) dotestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	m13.setStateHostPort(fmt.Sprintf(ipVersion.formatHostPort, 13, mongoPort))
 	st.setControllers("10", "11", "12", "13")
 
-	c.Logf("\nwaiting for new member to be added")
-	mustNext(c, memberWatcher)
+	mustNext(c, memberWatcher, "waiting for new member to be added")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
 
 	// Remove vote from an existing member; and give it to the new
@@ -216,8 +215,7 @@ func (s *workerSuite) dotestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 
 	// Check that the new machine gets the vote and the
 	// old machine loses it.
-	c.Logf("\nwaiting for vote switch")
-	mustNext(c, memberWatcher)
+	mustNext(c, memberWatcher, "waiting for vote switch")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipVersion))
 
 	c.Logf("\nremoving old machine")
@@ -226,8 +224,7 @@ func (s *workerSuite) dotestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	st.setControllers("11", "12", "13")
 
 	// Check that it's removed from the members.
-	c.Logf("\nwaiting for removal")
-	mustNext(c, memberWatcher)
+	mustNext(c, memberWatcher, "waiting for removal")
 	assertMembers(c, memberWatcher.Value(), mkMembers("1v 2v 3v", ipVersion))
 
 }
@@ -273,7 +270,7 @@ func (s *workerSuite) dotestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	st.errors.setErrorFor("Machine.SetHasVote * false", errors.New("frood"))
 
 	memberWatcher := st.session.members.Watch()
-	mustNext(c, memberWatcher)
+	mustNext(c, memberWatcher, "waiting for SetHasVote failure")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
 
 	w, err := newNoPublishWorker(st, s.clock, &noOpHub{})
@@ -284,7 +281,7 @@ func (s *workerSuite) dotestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	}()
 
 	// Wait for the worker to set the initial members.
-	mustNext(c, memberWatcher)
+	mustNext(c, memberWatcher, "initial members")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipVersion))
 
 	// The worker should encounter an error setting the
@@ -344,21 +341,21 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 		InitState(c, st, 3, ipVersion)
 
 		memberWatcher := st.session.members.Watch()
-		mustNext(c, memberWatcher)
+		mustNext(c, memberWatcher, "init")
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
 		s.newNoPublishWorker(c, st)
 
 		// Wait for the worker to set the initial members.
-		mustNext(c, memberWatcher)
+		mustNext(c, memberWatcher, "initial members")
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", ipVersion))
 
 		// Change an address and wait for it to be changed in the
 		// members.
 		st.machine("11").setStateHostPort(ipVersion.extraHostPort)
 
-		mustNext(c, memberWatcher)
+		mustNext(c, memberWatcher, "waiting for new address")
 		expectMembers := mkMembers("0v 1 2", ipVersion)
 		expectMembers[1].Address = ipVersion.extraHostPort
 		assertMembers(c, memberWatcher.Value(), expectMembers)
@@ -773,21 +770,21 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 }
 
 // mustNext waits for w's value to be set and returns it.
-func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}) {
+func mustNext(c *gc.C, w *voyeur.Watcher, context string) (val interface{}) {
 	type voyeurResult struct {
 		ok  bool
 		val interface{}
 	}
 	done := make(chan voyeurResult)
 	go func() {
-		c.Logf("mustNext %p", w)
+		c.Logf("mustNext %v", context)
 		ok := w.Next()
 		val = w.Value()
 		if ok {
 			members := val.([]replicaset.Member)
 			val = "\n" + prettyReplicaSetMembers(members)
 		}
-		c.Logf("mustNext done %p, ok: %v, val: %v", w, ok, val)
+		c.Logf("mustNext %v done, ok: %v, val: %v", context, ok, val)
 		done <- voyeurResult{ok, val}
 	}()
 	select {
@@ -795,7 +792,7 @@ func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}) {
 		c.Assert(result.ok, jc.IsTrue)
 		return result.val
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for value to be set")
+		c.Fatalf("timed out waiting for value to be set %v", context)
 	}
 	panic("unreachable")
 }
