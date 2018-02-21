@@ -199,6 +199,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// TODO(caas)
 		containerSpecsC,
 		cloudContainersC,
+		cloudServicesC,
 	)
 
 	envCollections := set.NewStrings()

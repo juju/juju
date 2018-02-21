@@ -463,9 +463,13 @@ func allCollections() collectionSchema {
 		// for applications and units.
 		containerSpecsC: {},
 
-		// cloudContainersC holds the CAAS container (pod) information,
+		// cloudContainersC holds the CAAS container (pod) information
 		// for units, eg address, ports.
 		cloudContainersC: {},
+
+		// cloudServicesC holds the CAAS service information
+		// eg addresses.
+		cloudServicesC: {},
 
 		// ----------------------
 
@@ -496,7 +500,8 @@ const (
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
 	cloudsC                  = "clouds"
-	cloudContainersC         = "containers"
+	cloudContainersC         = "cloudcontainers"
+	cloudServicesC           = "cloudservices"
 	cloudCredentialsC        = "cloudCredentials"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"

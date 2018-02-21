@@ -3317,7 +3317,8 @@ func (s *ApplicationSuite) TestDestroyApplicationRemovesConfig(c *gc.C) {
 
 type CAASApplicationSuite struct {
 	ConnSuite
-	app *state.Application
+	app    *state.Application
+	caasSt *state.State
 }
 
 var _ = gc.Suite(&CAASApplicationSuite{})
@@ -3325,13 +3326,13 @@ var _ = gc.Suite(&CAASApplicationSuite{})
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.SetInitialFeatureFlags(feature.CAAS)
 	s.ConnSuite.SetUpTest(c)
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	s.caasSt = s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
 		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
-	s.AddCleanup(func(_ *gc.C) { st.Close() })
+	s.AddCleanup(func(_ *gc.C) { s.caasSt.Close() })
 
-	f := factory.NewFactory(st)
+	f := factory.NewFactory(s.caasSt)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
 }
@@ -3341,8 +3342,6 @@ func strPtr(s string) *string {
 }
 
 func (s *CAASApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
-
 	existingUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("unit-uuid")})
 	c.Assert(err, jc.ErrorIsNil)
 	removedUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("removed-unit-uuid")})
@@ -3467,6 +3466,26 @@ func (s *CAASApplicationSuite) TestAddUnitWithProviderId(c *gc.C) {
 	info, err := u.ContainerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.ProviderId(), gc.Equals, "provider-id")
+}
+
+func (s *CAASApplicationSuite) TestServiceInfo(c *gc.C) {
+	err := s.app.UpdateCloudService("id", []network.Address{{Value: "10.0.0.1"}})
+	c.Assert(err, jc.ErrorIsNil)
+	app, err := s.caasSt.Application(s.app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	info, err := app.ServiceInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.ProviderId(), gc.Equals, "id")
+	c.Assert(info.Addresses(), jc.DeepEquals, []network.Address{{Value: "10.0.0.1"}})
+}
+
+func (s *CAASApplicationSuite) TestRemoveUnitDeletesServiceInfo(c *gc.C) {
+	err := s.app.UpdateCloudService("id", []network.Address{{Value: "10.0.0.1"}})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.app.ServiceInfo()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ApplicationSuite) TestApplicationSetAgentPresence(c *gc.C) {
