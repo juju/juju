@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // StateBackend provides an interface for upgrading the global state database.
@@ -35,6 +34,7 @@ type StateBackend interface {
 	MigrateLeasesToGlobalTime() error
 	AddRelationStatus() error
 	MoveOldAuditLog() error
+	DeleteCloudImageMetadata() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -137,18 +137,6 @@ func (s stateBackend) MoveOldAuditLog() error {
 	return state.MoveOldAuditLog(s.st)
 }
 
-type modelShim struct {
-	st *state.State
-	m  *state.Model
-}
-
-func (m *modelShim) Config() (*config.Config, error) {
-	return m.m.Config()
-}
-
-func (m *modelShim) CloudSpec() (environs.CloudSpec, error) {
-	cloudName := m.m.Cloud()
-	regionName := m.m.CloudRegion()
-	credentialTag, _ := m.m.CloudCredential()
-	return stateenvirons.CloudSpec(m.st, cloudName, regionName, credentialTag)
+func (s stateBackend) DeleteCloudImageMetadata() error {
+	return state.DeleteCloudImageMetadata(s.st)
 }

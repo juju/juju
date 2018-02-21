@@ -37,7 +37,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/imagemetadata"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/model"
@@ -1021,31 +1020,6 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for block devices to be recorded")
-}
-
-func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForHostUnits(c *gc.C) {
-	s.checkMetadataWorkerNotRun(c, state.JobHostUnits, "can host units")
-}
-
-func (s *MachineSuite) TestMachineAgentDoesNotRunMetadataWorkerForNonSimpleStreamDependentProviders(c *gc.C) {
-	s.checkMetadataWorkerNotRun(c, state.JobManageModel, "has provider which doesn't depend on simple streams")
-}
-
-func (s *MachineSuite) checkMetadataWorkerNotRun(c *gc.C, job state.MachineJob, suffix string) {
-	// Patch out the worker func before starting the agent.
-	started := newSignal()
-	newWorker := func(cl *imagemetadata.Client) worker.Worker {
-		started.trigger()
-		return jworker.NewNoOpWorker()
-	}
-	s.PatchValue(&newMetadataUpdater, newWorker)
-
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, job)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	started.assertNotTriggered(c, startWorkerWait, "metadata update worker started")
 }
 
 func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {

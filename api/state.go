@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
-	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/api/reboot"
@@ -324,9 +323,4 @@ func (st *state) Cleaner() *cleaner.API {
 // set.
 func (st *state) ServerVersion() (version.Number, bool) {
 	return st.serverVersion, st.serverVersion != version.Zero
-}
-
-// MetadataUpdater returns access to the imageMetadata API
-func (st *state) MetadataUpdater() *imagemetadata.Client {
-	return imagemetadata.NewClient(st)
 }

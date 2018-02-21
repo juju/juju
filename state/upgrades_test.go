@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -2107,4 +2108,48 @@ func (s *upgradesSuite) TestMoveOldAuditLogRename(c *gc.C) {
 	names, err := db.CollectionNames()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(set.NewStrings(names...).Contains("audit.log"), jc.IsFalse)
+}
+
+func (s *upgradesSuite) TestDeleteCloudImageMetadata(c *gc.C) {
+	stor := cloudimagemetadata.NewStorage(cloudimagemetadataC, &environMongo{s.state})
+	attrs1 := cloudimagemetadata.MetadataAttributes{
+		Stream:  "stream",
+		Region:  "region-test",
+		Version: "14.04",
+		Series:  "trusty",
+		Arch:    "arch",
+		Source:  "custom",
+	}
+	attrs2 := cloudimagemetadata.MetadataAttributes{
+		Stream:  "chalk",
+		Region:  "nether",
+		Version: "12.04",
+		Series:  "precise",
+		Arch:    "amd64",
+		Source:  "test",
+	}
+	now := time.Now().UnixNano()
+	added := []cloudimagemetadata.Metadata{
+		{attrs1, 0, "1", now},
+		{attrs2, 0, "2", now},
+	}
+	err := stor.SaveMetadataNoExpiry(added)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := []bson.M{{
+		"_id":               "stream:region-test:trusty:arch:::custom",
+		"date_created":      now,
+		"image_id":          "1",
+		"priority":          0,
+		"stream":            "stream",
+		"region":            "region-test",
+		"series":            "trusty",
+		"arch":              "arch",
+		"root_storage_size": int64(0),
+		"source":            "custom",
+	}}
+
+	coll, closer := s.state.db().GetRawCollection(cloudimagemetadataC)
+	defer closer()
+	s.assertUpgradedData(c, DeleteCloudImageMetadata, expectUpgradedData{coll, expected})
 }
