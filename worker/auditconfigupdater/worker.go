@@ -4,22 +4,16 @@
 package auditconfigupdater
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/watcher/legacy"
+	"github.com/juju/juju/worker/catacomb"
 )
-
-type updater struct {
-	source     ConfigSource
-	current    auditlog.Config
-	logFactory AuditLogFactory
-	changes    chan<- auditlog.Config
-}
 
 // ConfigSource lets us get notifications of changes to controller
 // configuration, and then get the changed config. (Primary
@@ -33,48 +27,68 @@ type ConfigSource interface {
 // config.
 type AuditLogFactory func(auditlog.Config) auditlog.AuditLog
 
-// New returns a worker that will publish changed audit log config to
-// the channel passed in.
-func New(source ConfigSource, initial auditlog.Config, logFactory AuditLogFactory, changes chan<- auditlog.Config) (worker.Worker, error) {
-	// This uses legacy.NewNotifyWorker because it needs to run
-	// against State - it feeds audit config changes to the API
-	// server, so it can't make requests via the API
-	// server. (legacy.NewNotifyWorker exists because the
-	// state.NotifyWorker and watcher.NotifyWorker interfaces are
-	// incompatible, Changes returns different types.)
-	return legacy.NewNotifyWorker(&updater{
+// New returns a worker that will keep an up-to-date audit log config.
+func New(source ConfigSource, initial auditlog.Config, logFactory AuditLogFactory) (worker.Worker, error) {
+	u := &updater{
 		source:     source,
 		current:    initial,
 		logFactory: logFactory,
-		changes:    changes,
-	}), nil
-}
-
-// Setup implements watcher.NotifyHandler.
-func (u *updater) SetUp() (state.NotifyWatcher, error) {
-	return u.source.WatchControllerConfig(), nil
-}
-
-// Handle implements watcher.NotifyHandler.
-func (u *updater) Handle(abort <-chan struct{}) error {
-	cConfig, err := u.source.ControllerConfig()
+	}
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &u.catacomb,
+		Work: u.loop,
+	})
 	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return u, nil
+}
+
+type updater struct {
+	mu         sync.Mutex
+	catacomb   catacomb.Catacomb
+	source     ConfigSource
+	current    auditlog.Config
+	logFactory AuditLogFactory
+}
+
+// Kill is part of the worker.Worker interface.
+func (u *updater) Kill() {
+	u.catacomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (u *updater) Wait() error {
+	return u.catacomb.Wait()
+}
+
+func (u *updater) loop() error {
+	watcher := u.source.WatchControllerConfig()
+	if err := u.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
-	newConfig := u.auditConfigFrom(cConfig)
-	if changed(u.current, newConfig) {
-		u.current = newConfig
-		u.changes <- newConfig
+	for {
+		select {
+		case <-u.catacomb.Dying():
+			return u.catacomb.ErrDying()
+		case _, ok := <-watcher.Changes():
+			if !ok {
+				return errors.Errorf("watcher channel closed")
+			}
+			newConfig, err := u.newConfig()
+			if err != nil {
+				return errors.Annotatef(err, "getting new config")
+			}
+			u.update(newConfig)
+		}
 	}
-	return nil
 }
 
-// TearDown implements watcher.NotifyHandler.
-func (u *updater) TearDown() error {
-	return nil
-}
-
-func (u *updater) auditConfigFrom(cfg controller.Config) auditlog.Config {
+func (u *updater) newConfig() (auditlog.Config, error) {
+	cfg, err := u.source.ControllerConfig()
+	if err != nil {
+		return auditlog.Config{}, errors.Trace(err)
+	}
 	result := auditlog.Config{
 		Enabled:        cfg.AuditingEnabled(),
 		CaptureAPIArgs: cfg.AuditLogCaptureArgs(),
@@ -90,15 +104,18 @@ func (u *updater) auditConfigFrom(cfg controller.Config) auditlog.Config {
 		// because enabled is false.
 		result.Target = u.current.Target
 	}
-	return result
+	return result, nil
 }
 
-func changed(old, new auditlog.Config) bool {
-	return old.Enabled != new.Enabled ||
-		old.CaptureAPIArgs != new.CaptureAPIArgs ||
-		setsDiffer(old.ExcludeMethods, new.ExcludeMethods)
+func (u *updater) update(newConfig auditlog.Config) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.current = newConfig
 }
 
-func setsDiffer(a, b set.Strings) bool {
-	return !a.Difference(b).IsEmpty() || !b.Difference(a).IsEmpty()
+// CurrentConfig returns the updater's up-to-date audit config.
+func (u *updater) CurrentConfig() auditlog.Config {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return u.current
 }

@@ -626,7 +626,7 @@ func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL:     "https://0.1.2.3/no-autocert-here",
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-		AuditConfig:     auditlog.Config{Enabled: false},
+		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{Enabled: false} },
 		UpgradeComplete: func() bool { return true },
 		RestoreStatus: func() state.RestoreStatus {
 			return state.RestoreNotActive

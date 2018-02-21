@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
@@ -25,12 +26,13 @@ import (
 // ManifoldConfig holds the information necessary to run an apiserver
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName         string
-	CertWatcherName   string
-	ClockName         string
-	RestoreStatusName string
-	StateName         string
-	UpgradeGateName   string
+	AgentName              string
+	CertWatcherName        string
+	ClockName              string
+	RestoreStatusName      string
+	StateName              string
+	UpgradeGateName        string
+	AuditConfigUpdaterName string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -59,6 +61,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.UpgradeGateName == "" {
 		return errors.NotValidf("empty UpgradeGateName")
 	}
+	if config.AuditConfigUpdaterName == "" {
+		return errors.NotValidf("empty AuditConfigUpdaterName")
+	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
@@ -86,6 +91,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.RestoreStatusName,
 			config.StateName,
 			config.UpgradeGateName,
+			config.AuditConfigUpdaterName,
 		},
 		Start:  config.start,
 		Output: manifoldOutput,
@@ -122,13 +128,20 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
-	statePool, err := stTracker.Use()
-	if err != nil {
+	var upgradeLock gate.Waiter
+	if err := context.Get(config.UpgradeGateName, &upgradeLock); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var upgradeLock gate.Waiter
-	if err := context.Get(config.UpgradeGateName, &upgradeLock); err != nil {
+	var getAuditConfig func() auditlog.Config
+	if err := context.Get(config.AuditConfigUpdaterName, &getAuditConfig); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Get the state pool after grabbing dependencies so we don't need
+	// to remember to call Done on it if they're not running yet.
+	statePool, err := stTracker.Use()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -142,6 +155,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		UpgradeComplete:                   upgradeLock.IsUnlocked,
 		Hub:                               config.Hub,
 		GetCertificate:                    getCertificate,
+		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,
 	})
 	if err != nil {

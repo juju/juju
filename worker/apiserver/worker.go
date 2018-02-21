@@ -35,6 +35,7 @@ type Config struct {
 	RestoreStatus                     func() state.RestoreStatus
 	UpgradeComplete                   func() bool
 	GetCertificate                    func() *tls.Certificate
+	GetAuditConfig                    func() auditlog.Config
 	NewServer                         NewServerFunc
 }
 
@@ -104,7 +105,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot fetch the controller config")
 	}
 
-	logDir := config.AgentConfig.LogDir()
 	observerFactory, err := newObserverFn(
 		config.AgentConfig,
 		controllerConfig,
@@ -115,13 +115,11 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
 	}
 
-	auditConfig := getAuditLogConfig(controllerConfig, logDir)
-
 	serverConfig := apiserver.ServerConfig{
 		Clock:                         config.Clock,
 		Tag:                           config.AgentConfig.Tag(),
 		DataDir:                       config.AgentConfig.DataDir(),
-		LogDir:                        logDir,
+		LogDir:                        config.AgentConfig.LogDir(),
 		Hub:                           config.Hub,
 		GetCertificate:                config.GetCertificate,
 		RestoreStatus:                 config.RestoreStatus,
@@ -134,11 +132,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		PrometheusRegisterer:          config.PrometheusRegisterer,
-		AuditConfig:                   auditConfig,
-	}
-	if auditConfig.Enabled {
-		auditConfig.Target = auditlog.NewLogFile(
-			logDir, auditConfig.MaxSizeMB, auditConfig.MaxBackups)
+		GetAuditConfig:                config.GetAuditConfig,
 	}
 
 	listener, err := net.Listen("tcp", listenAddr)

@@ -54,6 +54,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -841,6 +842,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			estate.apiServer, err = apiserver.NewServer(statePool, estate.apiListener, apiserver.ServerConfig{
 				Clock:          clock.WallClock,
 				GetCertificate: func() *tls.Certificate { return testing.ServerTLSCert },
+				GetAuditConfig: func() auditlog.Config { return auditlog.Config{} },
 				Tag:            machineTag,
 				DataDir:        DataDir,
 				LogDir:         LogDir,

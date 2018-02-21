@@ -604,7 +604,6 @@ func (s *MachineSuite) TestManageModelServesAPI(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
-	c.Skip("currently broken for 2.4 as the model audit api isn't wired up")
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Password: password,

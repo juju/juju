@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
@@ -219,6 +220,7 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	srv, err := apiserver.NewServer(s.StatePool, lis, apiserver.ServerConfig{
 		Clock:           clock.WallClock,
 		GetCertificate:  func() *tls.Certificate { return testing.ServerTLSCert },
+		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
 		Tag:             names.NewMachineTag("0"),
 		Hub:             pubsub.NewStructuredHub(nil),
 		DataDir:         c.MkDir(),

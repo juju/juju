@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/apiservercertwatcher"
+	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/certupdater"
@@ -650,6 +651,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeGateName:                   upgradeStepsGateName,
 			RestoreStatusName:                 restoreWatcherName,
 			CertWatcherName:                   certificateWatcherName,
+			AuditConfigUpdaterName:            auditConfigUpdaterName,
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 			Hub:       config.CentralHub,
@@ -681,6 +683,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:                stateName,
 			NewWorker:                certupdater.NewCertificateUpdater,
 			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
+		})),
+
+		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
+			AgentName: agentName,
+			StateName: stateName,
+			NewWorker: auditconfigupdater.New,
 		})),
 	}
 }
@@ -773,4 +781,5 @@ const (
 	peergrouperName               = "peer-grouper"
 	restoreWatcherName            = "restore-watcher"
 	certificateUpdaterName        = "certificate-updater"
+	auditConfigUpdaterName        = "audit-config-updater"
 )
