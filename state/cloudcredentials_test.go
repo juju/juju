@@ -288,6 +288,9 @@ func (s *CloudCredentialsSuite) TestAllCloudCredentials(c *gc.C) {
 	_, one := s.createCloudCredential(c, "cirrus", "bob", "foobar")
 	_, two := s.createCloudCredential(c, "stratus", "bob", "foobar")
 
+	// Added to make sure it is not returned.
+	s.createCloudCredential(c, "cumulus", "mary", "foobar")
+
 	out, err := s.State.AllCloudCredentials(names.NewUserTag("bob"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, []state.Credential{one, two})
