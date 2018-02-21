@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/romulus/budget"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -38,13 +39,13 @@ func (s *budgetSuite) SetUpTest(c *gc.C) {
 		Models: map[string]*jujuclient.ControllerModels{
 			"controller": {
 				Models: map[string]jujuclient.ModelDetails{
-					"admin/model": {"model-uuid"},
+					"admin/model": {ModelUUID: "model-uuid", ModelType: model.IAAS},
 				},
 				CurrentModel: "admin/model",
 			},
 			"anothercontroller": {
 				Models: map[string]jujuclient.ModelDetails{
-					"admin/somemodel": {"another-model-uuid"},
+					"admin/somemodel": {ModelUUID: "another-model-uuid", ModelType: model.IAAS},
 				},
 				CurrentModel: "admin/somemodel",
 			},

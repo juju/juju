@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
@@ -106,6 +107,11 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 		Life:            string(modelInfo.Life),
 		AgentVersion:    modelInfo.AgentVersion,
 	}
+	modelType := modelInfo.Type
+	if modelType == "" {
+		modelType = model.IAAS.String()
+	}
+	result.Type = model.ModelType(modelType)
 	result.Status = base.Status{
 		Status: modelInfo.Status.Status,
 		Info:   modelInfo.Status.Info,
@@ -164,16 +170,21 @@ func (c *Client) ListModels(user string) ([]base.UserModel, error) {
 		return nil, errors.Trace(err)
 	}
 	result := make([]base.UserModel, len(models.UserModels))
-	for i, model := range models.UserModels {
-		owner, err := names.ParseUserTag(model.OwnerTag)
+	for i, usermodel := range models.UserModels {
+		owner, err := names.ParseUserTag(usermodel.OwnerTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", model.OwnerTag, i)
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", usermodel.OwnerTag, i)
+		}
+		modelType := model.ModelType(usermodel.Type)
+		if modelType == "" {
+			modelType = model.IAAS
 		}
 		result[i] = base.UserModel{
-			Name:           model.Name,
-			UUID:           model.UUID,
+			Name:           usermodel.Name,
+			UUID:           usermodel.UUID,
+			Type:           modelType,
 			Owner:          owner.Id(),
-			LastConnection: model.LastConnection,
+			LastConnection: usermodel.LastConnection,
 		}
 	}
 	return result, nil
@@ -197,9 +208,14 @@ func (c *Client) ListModelSummaries(user string, all bool) ([]base.UserModelSumm
 			continue
 		}
 		summary := r.Result
+		modelType := model.ModelType(summary.Type)
+		if modelType == "" {
+			modelType = model.IAAS
+		}
 		summaries[i] = base.UserModelSummary{
 			Name:               summary.Name,
 			UUID:               summary.UUID,
+			Type:               modelType,
 			ControllerUUID:     summary.ControllerUUID,
 			ProviderType:       summary.ProviderType,
 			DefaultSeries:      summary.DefaultSeries,

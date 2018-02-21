@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -185,7 +186,7 @@ func (c *modelsCommand) getModelSummaries(ctx *cmd.Context, client ModelManagerA
 		}
 		model.ControllerName = c.runVars.controllerName
 		summaries = append(summaries, model)
-		modelsToStore[model.Name] = jujuclient.ModelDetails{model.UUID}
+		modelsToStore[model.Name] = jujuclient.ModelDetails{ModelUUID: model.UUID, ModelType: model.Type}
 	}
 	found := len(summaries) > 0
 
@@ -224,8 +225,9 @@ type ModelSummary struct {
 	Name string `json:"name" yaml:"name"`
 
 	// ShortName is un-qualified model name.
-	ShortName string `json:"short-name" yaml:"short-name"`
-	UUID      string `json:"model-uuid" yaml:"model-uuid"`
+	ShortName string          `json:"short-name" yaml:"short-name"`
+	UUID      string          `json:"model-uuid" yaml:"model-uuid"`
+	Type      model.ModelType `json:"model-type" yaml:"model-type"`
 
 	ControllerUUID     string                  `json:"controller-uuid" yaml:"controller-uuid"`
 	ControllerName     string                  `json:"controller-name" yaml:"controller-name"`
@@ -252,6 +254,7 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 		ShortName:      apiSummary.Name,
 		Name:           jujuclient.JoinOwnerModelName(names.NewUserTag(apiSummary.Owner), apiSummary.Name),
 		UUID:           apiSummary.UUID,
+		Type:           apiSummary.Type,
 		ControllerUUID: apiSummary.ControllerUUID,
 		Owner:          apiSummary.Owner,
 		Life:           apiSummary.Life,

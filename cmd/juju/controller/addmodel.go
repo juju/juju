@@ -242,7 +242,8 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 
 	if modelOwner == accountDetails.User {
 		if err := store.UpdateModel(controllerName, c.Name, jujuclient.ModelDetails{
-			model.UUID,
+			ModelUUID: model.UUID,
+			ModelType: model.Type,
 		}); err != nil {
 			return errors.Trace(err)
 		}

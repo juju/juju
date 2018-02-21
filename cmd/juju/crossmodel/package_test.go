@@ -8,6 +8,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	jujutesting "github.com/juju/juju/testing"
 )
@@ -32,9 +33,9 @@ func (s *BaseCrossModelSuite) SetUpTest(c *gc.C) {
 	s.store.Models[controllerName] = &jujuclient.ControllerModels{
 		CurrentModel: "fred/test",
 		Models: map[string]jujuclient.ModelDetails{
-			"bob/test":  {"test-uuid"},
-			"bob/prod":  {"prod-uuid"},
-			"fred/test": {"fred-uuid"},
+			"bob/test":  {ModelUUID: "test-uuid", ModelType: model.IAAS},
+			"bob/prod":  {ModelUUID: "prod-uuid", ModelType: model.IAAS},
+			"fred/test": {ModelUUID: "fred-uuid", ModelType: model.IAAS},
 		},
 	}
 	s.store.Accounts[controllerName] = jujuclient.AccountDetails{

@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/status"
 )
@@ -23,6 +24,7 @@ type ModelInfo struct {
 	// ShortName is un-qualified model name.
 	ShortName      string                      `json:"short-name" yaml:"short-name"`
 	UUID           string                      `json:"model-uuid" yaml:"model-uuid"`
+	Type           model.ModelType             `json:"model-type" yaml:"model-type"`
 	ControllerUUID string                      `json:"controller-uuid" yaml:"controller-uuid"`
 	ControllerName string                      `json:"controller-name" yaml:"controller-name"`
 	Owner          string                      `json:"owner" yaml:"owner"`
@@ -93,6 +95,7 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 	modelInfo := ModelInfo{
 		ShortName:      info.Name,
 		Name:           jujuclient.JoinOwnerModelName(ownerTag, info.Name),
+		Type:           model.ModelType(info.Type),
 		UUID:           info.UUID,
 		ControllerUUID: info.ControllerUUID,
 		Owner:          ownerTag.Id(),

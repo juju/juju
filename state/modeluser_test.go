@@ -434,6 +434,22 @@ func (s *ModelUserSuite) TestModelUUIDsForUserMultiple(c *gc.C) {
 	c.Assert(models, jc.SameContents, expected)
 }
 
+func (s *ModelUserSuite) TestModelBasicInfoForUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
+	model := s.newModelWithUser(c, user.UserTag())
+
+	models, err := s.State.ModelBasicInfoForUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(models, jc.DeepEquals, []state.ModelAccessInfo{
+		{
+			Name:  model.Name(),
+			Type:  model.Type(),
+			UUID:  model.UUID(),
+			Owner: "test-admin",
+		},
+	})
+}
+
 func (s *ModelUserSuite) TestIsControllerAdmin(c *gc.C) {
 	isAdmin, err := s.State.IsControllerAdmin(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)

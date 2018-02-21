@@ -286,7 +286,7 @@ func (c *CommandBase) doRefreshModels(store jujuclient.ClientStore, controllerNa
 func (c *CommandBase) SetControllerModels(store jujuclient.ClientStore, controllerName string, models []base.UserModel) error {
 	modelsToStore := make(map[string]jujuclient.ModelDetails, len(models))
 	for _, model := range models {
-		modelDetails := jujuclient.ModelDetails{model.UUID}
+		modelDetails := jujuclient.ModelDetails{ModelUUID: model.UUID, ModelType: model.Type}
 		owner := names.NewUserTag(model.Owner)
 		modelName := jujuclient.JoinOwnerModelName(owner, model.Name)
 		modelsToStore[modelName] = modelDetails

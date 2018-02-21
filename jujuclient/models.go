@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -41,7 +42,28 @@ func ReadModelsFile(file string) (map[string]*ControllerModels, error) {
 	if err := migrateLocalModelUsers(models); err != nil {
 		return nil, err
 	}
+	if err := addModelType(models); err != nil {
+		return nil, err
+	}
 	return models, nil
+}
+
+// addModelType adds missing model type data if necessary.
+func addModelType(models map[string]*ControllerModels) error {
+	changes := false
+	for _, cm := range models {
+		for name, m := range cm.Models {
+			if m.ModelType == "" {
+				changes = true
+				m.ModelType = model.IAAS
+				cm.Models[name] = m
+			}
+		}
+	}
+	if changes {
+		return WriteModelsFile(models)
+	}
+	return nil
 }
 
 // migrateLocalModelUsers strips any @local domains from any qualified model names.

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -103,6 +104,7 @@ func (s *RegisterSuite) TestRegisterOneModel(c *gc.C) {
 			Name:  "theoneandonly",
 			Owner: "carol",
 			UUID:  mockControllerUUID,
+			Type:  model.IAAS,
 		}}, nil
 	}
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
@@ -131,10 +133,12 @@ func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
 			Name:  "model1",
 			Owner: "bob",
 			UUID:  mockControllerUUID,
+			Type:  model.IAAS,
 		}, {
 			Name:  "model2",
 			Owner: "bob",
 			UUID:  "eeeeeeee-12e9-11e4-8a70-b2227cce2b55",
+			Type:  model.IAAS,
 		}}, nil
 	}
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
@@ -302,6 +306,7 @@ func (s *RegisterSuite) TestControllerUUIDExists(c *gc.C) {
 			Name:  "model-name",
 			Owner: "bob",
 			UUID:  mockControllerUUID,
+			Type:  model.IAAS,
 		}}, nil
 	}
 
@@ -341,6 +346,7 @@ func (s *RegisterSuite) TestProposedControllerNameExists(c *gc.C) {
 			Name:  "model-name",
 			Owner: "bob",
 			UUID:  mockControllerUUID,
+			Type:  model.IAAS,
 		}}, nil
 	}
 

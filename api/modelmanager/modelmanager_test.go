@@ -11,13 +11,14 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
@@ -57,6 +58,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 
 		out := result.(*params.ModelInfo)
 		out.Name = "dowhatimean"
+		out.Type = "iaas"
 		out.UUID = "youyoueyedee"
 		out.ControllerUUID = "youyoueyedeetoo"
 		out.ProviderType = "C-123"
@@ -81,6 +83,7 @@ func (s *modelmanagerSuite) TestCreateModel(c *gc.C) {
 
 	c.Assert(newModel, jc.DeepEquals, base.ModelInfo{
 		Name:           "dowhatimean",
+		Type:           model.IAAS,
 		UUID:           "youyoueyedee",
 		ControllerUUID: "youyoueyedeetoo",
 		ProviderType:   "C-123",
@@ -120,6 +123,7 @@ func (s *modelmanagerSuite) TestListModels(c *gc.C) {
 				Model: params.Model{
 					Name:     "yo",
 					UUID:     "wei",
+					Type:     "caas",
 					OwnerTag: "user-user@remote",
 				},
 				LastConnection: &lastConnection,
@@ -127,6 +131,7 @@ func (s *modelmanagerSuite) TestListModels(c *gc.C) {
 				Model: params.Model{
 					Name:     "sup",
 					UUID:     "hazzagarn",
+					Type:     "iaas",
 					OwnerTag: "user-phyllis@thrace",
 				},
 			}}
@@ -140,11 +145,13 @@ func (s *modelmanagerSuite) TestListModels(c *gc.C) {
 	c.Assert(models, jc.DeepEquals, []base.UserModel{{
 		Name:           "yo",
 		UUID:           "wei",
+		Type:           model.CAAS,
 		Owner:          "user@remote",
 		LastConnection: &lastConnection,
 	}, {
 		Name:  "sup",
 		UUID:  "hazzagarn",
+		Type:  model.IAAS,
 		Owner: "phyllis@thrace",
 	}})
 }
@@ -409,6 +416,7 @@ func createModelSummary() *params.ModelSummary {
 	return &params.ModelSummary{
 		Name:               "name",
 		UUID:               "uuid",
+		Type:               "iaas",
 		ControllerUUID:     "controllerUUID",
 		ProviderType:       "aws",
 		DefaultSeries:      "xenial",
@@ -441,8 +449,8 @@ func (s *modelmanagerSuite) TestListModelSummaries(c *gc.C) {
 
 			out := result.(*params.ModelSummaryResults)
 			out.Results = []params.ModelSummaryResult{
-				params.ModelSummaryResult{Result: testModelInfo},
-				params.ModelSummaryResult{Error: common.ServerError(errors.New("model error"))},
+				{Result: testModelInfo},
+				{Error: common.ServerError(errors.New("model error"))},
 			}
 			return nil
 		},
@@ -455,6 +463,7 @@ func (s *modelmanagerSuite) TestListModelSummaries(c *gc.C) {
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results[0], jc.DeepEquals, base.UserModelSummary{Name: testModelInfo.Name,
 		UUID:            testModelInfo.UUID,
+		Type:            model.IAAS,
 		ControllerUUID:  testModelInfo.ControllerUUID,
 		ProviderType:    testModelInfo.ProviderType,
 		DefaultSeries:   testModelInfo.DefaultSeries,
@@ -488,9 +497,9 @@ func (s *modelmanagerSuite) TestListModelSummariesParsingErrors(c *gc.C) {
 		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
 			out := result.(*params.ModelSummaryResults)
 			out.Results = []params.ModelSummaryResult{
-				params.ModelSummaryResult{Result: badOwnerInfo},
-				params.ModelSummaryResult{Result: badCloudInfo},
-				params.ModelSummaryResult{Result: badCredentialsInfo},
+				{Result: badOwnerInfo},
+				{Result: badCloudInfo},
+				{Result: badCredentialsInfo},
 			}
 			return nil
 		},

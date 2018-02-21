@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -115,7 +116,7 @@ func (s *SetModelsSuite) TestSetModelsAddUpdateDeleteCombination(c *gc.C) {
 		"admin/update-model": detailsToUpdate,
 	}
 	after := map[string]jujuclient.ModelDetails{
-		"admin/new-model":    jujuclient.ModelDetails{"test.model.uuid"},
+		"admin/new-model":    {ModelUUID: "test.model.uuid", ModelType: model.IAAS},
 		"admin/update-model": detailsToUpdate,
 	}
 
@@ -148,7 +149,7 @@ func (s *SetModelsSuite) TestSetModelsControllerIsolated(c *gc.C) {
 	err := s.store.AddController("another-kontroller", s.controller)
 	c.Assert(err, jc.ErrorIsNil)
 	otherModels := map[string]jujuclient.ModelDetails{
-		"admin/foreign-model": jujuclient.ModelDetails{"test.foreign.model.uuid"},
+		"admin/foreign-model": {ModelUUID: "test.foreign.model.uuid", ModelType: model.IAAS},
 	}
 	err = s.store.SetModels("another-kontroller", otherModels)
 	c.Assert(err, jc.ErrorIsNil)
@@ -168,7 +169,7 @@ func (s *SetModelsSuite) assertSetModels(c *gc.C, models map[string]jujuclient.M
 }
 
 func (s *SetModelsSuite) assertUpdateModel(c *gc.C, modelName, modelUUID string) jujuclient.ModelDetails {
-	modelDetails := jujuclient.ModelDetails{modelUUID}
+	modelDetails := jujuclient.ModelDetails{ModelUUID: modelUUID, ModelType: model.IAAS}
 	err := s.store.UpdateModel(s.controllerName, modelName, modelDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	return modelDetails

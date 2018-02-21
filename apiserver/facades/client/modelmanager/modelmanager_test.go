@@ -452,7 +452,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":          "foo",
-		"type":          "CAAS",
+		"type":          "kubernetes",
 		"uuid":          uuid,
 		"agent-version": jujuversion.Current.String(),
 	})
@@ -917,6 +917,7 @@ func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.OwnerTag, gc.Equals, owner.String())
 	c.Assert(model.Name, gc.Equals, "test-model")
+	c.Assert(model.Type, gc.Equals, "iaas")
 }
 
 func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) {
@@ -927,6 +928,7 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.OwnerTag, gc.Equals, owner.String())
 	c.Assert(model.Name, gc.Equals, "test-model")
+	c.Assert(model.Type, gc.Equals, "iaas")
 	// Make sure that the environment created does actually have the correct
 	// owner, and that owner is actually allowed to use the environment.
 	newState, err := s.StatePool.Get(model.UUID)

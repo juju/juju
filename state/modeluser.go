@@ -267,6 +267,7 @@ type ModelAccessInfo struct {
 	Name           string `bson:"name"`
 	UUID           string `bson:"_id"`
 	Owner          string `bson:"owner"`
+	Type           ModelType
 	LastConnection time.Time
 }
 
@@ -307,9 +308,14 @@ func (st *State) ModelBasicInfoForUser(user names.UserTag) ([]ModelAccessInfo, e
 	if err := iter.Close(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	for i := range accessInfo {
 		uuid := accessInfo[i].UUID
 		accessInfo[i].LastConnection = lastConns[uuid]
+		accessInfo[i].Type = model.Type()
 	}
 	return accessInfo, nil
 }

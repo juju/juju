@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
@@ -39,8 +40,8 @@ func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	originallyInStore := &jujuclient.ControllerModels{
 		CurrentModel: "admin/my-model",
 		Models: map[string]jujuclient.ModelDetails{
-			"model0":   jujuclient.ModelDetails{ModelUUID: "abc"},
-			"my-model": jujuclient.ModelDetails{ModelUUID: "def"},
+			"model0":   {ModelUUID: "abc", ModelType: model.IAAS},
+			"my-model": {ModelUUID: "def", ModelType: model.IAAS},
 		},
 	}
 	c.Assert(store.Models["mallards"], gc.DeepEquals, originallyInStore)
@@ -65,8 +66,8 @@ func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
 	originallyInStore := &jujuclient.ControllerModels{
 		CurrentModel: "admin/my-model",
 		Models: map[string]jujuclient.ModelDetails{
-			"model0":   jujuclient.ModelDetails{ModelUUID: "abc"},
-			"my-model": jujuclient.ModelDetails{ModelUUID: "def"},
+			"model0":   {ModelUUID: "abc", ModelType: model.IAAS},
+			"my-model": {ModelUUID: "def", ModelType: model.IAAS},
 		},
 	}
 	c.Assert(store.Models["mallards"], gc.DeepEquals, originallyInStore)
@@ -86,8 +87,8 @@ mark-test-prodstack  -           admin  (unknown)  prodstack                -   
 	c.Assert(store.Models["mallards"], gc.DeepEquals, &jujuclient.ControllerModels{
 		CurrentModel: "admin/my-model",
 		Models: map[string]jujuclient.ModelDetails{
-			"admin/controller": jujuclient.ModelDetails{ModelUUID: "abc"},
-			"admin/my-model":   jujuclient.ModelDetails{ModelUUID: "def"},
+			"admin/controller": {ModelUUID: "abc", ModelType: model.IAAS},
+			"admin/my-model":   {ModelUUID: "def", ModelType: model.IAAS},
 		},
 	})
 }

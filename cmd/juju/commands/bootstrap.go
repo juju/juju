@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -488,7 +489,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err := store.UpdateModel(
 		c.controllerName,
 		c.hostedModelName,
-		jujuclient.ModelDetails{hostedModelUUID.String()},
+		jujuclient.ModelDetails{ModelUUID: hostedModelUUID.String(), ModelType: model.IAAS},
 	); err != nil {
 		return errors.Trace(err)
 	}

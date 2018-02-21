@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -106,6 +107,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foundModel, jc.DeepEquals, &jujuclient.ModelDetails{
 		ModelUUID: cfg.UUID(),
+		ModelType: model.IAAS,
 	})
 }
 

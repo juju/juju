@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -514,6 +515,9 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	modelName, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelName, gc.Equals, "admin/default")
+	m, err := s.store.ModelByName(currentController, modelName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.ModelType, gc.Equals, model.IAAS)
 }
 
 func (s *BootstrapSuite) TestNoSwitch(c *gc.C) {
@@ -946,7 +950,7 @@ type controllerModelAccountParams struct {
 
 func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, context *controllerModelAccountParams) {
 	controller := context.controller
-	model := context.model
+	bootstrapModel := context.model
 	user := context.user
 	controllerUUID := "a-uuid"
 	if context.controllerUUID != "" {
@@ -964,11 +968,12 @@ func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, context *contr
 		Password: "secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.UpdateModel(controller, model, jujuclient.ModelDetails{
+	err = s.store.UpdateModel(controller, bootstrapModel, jujuclient.ModelDetails{
 		ModelUUID: "model-uuid",
+		ModelType: model.IAAS,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel(controller, model)
+	err = s.store.SetCurrentModel(controller, bootstrapModel)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

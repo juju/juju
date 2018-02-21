@@ -120,6 +120,7 @@ func (s *LoginCommandSuite) TestLoginWithOneAvailableModel(c *gc.C) {
 			Name:  "foo",
 			UUID:  "some-uuid",
 			Owner: "bob",
+			Type:  "iaas",
 		}}, nil
 	})
 	err := s.store.RemoveAccount("testing")
@@ -139,10 +140,12 @@ func (s *LoginCommandSuite) TestLoginWithSeveralAvailableModels(c *gc.C) {
 			Name:  "foo",
 			UUID:  "some-uuid",
 			Owner: "bob",
+			Type:  "iaas",
 		}, {
 			Name:  "bar",
 			UUID:  "some-uuid",
 			Owner: "alice",
+			Type:  "iaas",
 		}}, nil
 	})
 	err := s.store.RemoveAccount("testing")

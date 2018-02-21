@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/core/crossmodel"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -52,11 +53,11 @@ func (s *grantRevokeSuite) SetUpTest(c *gc.C) {
 	s.store.Models = map[string]*jujuclient.ControllerModels{
 		controllerName: {
 			Models: map[string]jujuclient.ModelDetails{
-				"bob/foo":    {fooModelUUID},
-				"bob/bar":    {barModelUUID},
-				"bob/baz":    {bazModelUUID},
-				"bob/model1": {model1ModelUUID},
-				"bob/model2": {model2ModelUUID},
+				"bob/foo":    {ModelUUID: fooModelUUID, ModelType: coremodel.IAAS},
+				"bob/bar":    {ModelUUID: barModelUUID, ModelType: coremodel.IAAS},
+				"bob/baz":    {ModelUUID: bazModelUUID, ModelType: coremodel.IAAS},
+				"bob/model1": {ModelUUID: model1ModelUUID, ModelType: coremodel.IAAS},
+				"bob/model2": {ModelUUID: model2ModelUUID, ModelType: coremodel.IAAS},
 			},
 		},
 	}
