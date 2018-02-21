@@ -34,40 +34,33 @@ type cloudCredentialDoc struct {
 	Attributes map[string]string `bson:"attributes,omitempty"`
 }
 
-func (st *State) credentialDoc(tag names.CloudCredentialTag) (cloudCredentialDoc, error) {
+// CloudCredential returns the cloud credential for the given tag.
+func (st *State) CloudCredential(tag names.CloudCredentialTag) (Credential, error) {
 	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
 	defer cleanup()
 
 	var doc cloudCredentialDoc
 	err := coll.FindId(cloudCredentialDocID(tag)).One(&doc)
 	if err == mgo.ErrNotFound {
-		return doc, errors.NotFoundf(
+		return Credential{}, errors.NotFoundf(
 			"cloud credential %q", tag.Id(),
 		)
 	} else if err != nil {
-		return doc, errors.Annotatef(
+		return Credential{}, errors.Annotatef(
 			err, "getting cloud credential %q", tag.Id(),
 		)
 	}
-	return doc, nil
-}
+	return Credential{doc}, nil
 
-// CloudCredential returns the cloud credential for the given tag.
-func (st *State) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
-	doc, err := st.credentialDoc(tag)
-	if err != nil {
-		return cloud.Credential{}, errors.Trace(err)
-	}
-	return doc.toCredential(), nil
 }
 
 // CloudCredentials returns the user's cloud credentials for a given cloud,
 // keyed by credential name.
-func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
+func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[string]Credential, error) {
 	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
 	defer cleanup()
 
-	credentials := make(map[string]cloud.Credential)
+	credentials := make(map[string]Credential)
 	iter := coll.Find(bson.D{
 		{"owner", user.Id()},
 		{"cloud", cloudName},
@@ -80,7 +73,7 @@ func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[str
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		credentials[tag.Id()] = doc.toCredential()
+		credentials[tag.Id()] = Credential{doc}
 	}
 	if err := iter.Close(); err != nil {
 		return nil, errors.Annotatef(
@@ -196,13 +189,6 @@ func (c cloudCredentialDoc) cloudCredentialTag() (names.CloudCredentialTag, erro
 	return names.NewCloudCredentialTag(id), nil
 }
 
-func (c cloudCredentialDoc) toCredential() cloud.Credential {
-	out := cloud.NewCredential(cloud.AuthType(c.AuthType), c.Attributes)
-	out.Revoked = c.Revoked
-	out.Label = c.Name
-	return out
-}
-
 // validateCloudCredentials checks that the supplied cloud credentials are
 // valid for use with the controller's cloud, and returns a set of txn.Ops
 // to assert the same in a transaction. The map keys are the cloud credential
@@ -264,16 +250,6 @@ func (st *State) WatchCredential(cred names.CloudCredentialTag) NotifyWatcher {
 		return id == cloudCredentialDocID(cred)
 	}
 	return newNotifyCollWatcher(st, cloudCredentialsC, filter)
-}
-
-// StoredCredential returns the cloud credential for the given tag
-// as it is stored on the controller, including *all* attributes, even secrets.
-func (st *State) StoredCredential(tag names.CloudCredentialTag) (Credential, error) {
-	doc, err := st.credentialDoc(tag)
-	if err != nil {
-		return Credential{}, errors.Trace(err)
-	}
-	return Credential{doc}, nil
 }
 
 // AllCloudCredentials returns all cloud credentials stored on the controller

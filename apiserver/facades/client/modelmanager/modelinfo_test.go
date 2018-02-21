@@ -551,7 +551,7 @@ type mockState struct {
 	model           *mockModel
 	controllerModel *mockModel
 	users           []permission.UserAccess
-	cred            cloud.Credential
+	cred            state.Credential
 	machines        []common.Machine
 	cfgDefaults     config.ModelDefaultAttributes
 	blockMsg        string
@@ -710,7 +710,7 @@ func (st *mockState) Cloud(name string) (cloud.Cloud, error) {
 	return st.cloud, st.NextErr()
 }
 
-func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
+func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
 	st.MethodCall(st, "CloudCredential", tag)
 	return st.cred, st.NextErr()
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -87,8 +88,26 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 		},
 	)
 	userpassCredential.Label = userPassCredentialTag.Name()
+	expectedUserpassCredential := statetesting.CloudCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"username": "alice",
+			"password": "hunter2",
+		},
+	)
+	expectedUserpassCredential.DocID = "dummy#initialize-admin#some-credential"
+	expectedUserpassCredential.Owner = "initialize-admin"
+	expectedUserpassCredential.Cloud = "dummy"
+	expectedUserpassCredential.Name = "some-credential"
+
 	emptyCredential := cloud.NewEmptyCredential()
 	emptyCredential.Label = emptyCredentialTag.Name()
+	expectedEmptyCredential := statetesting.CloudCredential(cloud.EmptyAuthType, nil)
+	expectedEmptyCredential.DocID = "dummy#initialize-admin#empty-credential"
+	expectedEmptyCredential.Owner = "initialize-admin"
+	expectedEmptyCredential.Cloud = "dummy"
+	expectedEmptyCredential.Name = "empty-credential"
+
 	cloudCredentialsIn := map[names.CloudCredentialTag]cloud.Credential{
 		userPassCredentialTag: userpassCredential,
 		emptyCredentialTag:    emptyCredential,
@@ -183,11 +202,10 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(credentialTag, gc.Equals, userPassCredentialTag)
 	cloudCredentials, err := s.State.CloudCredentials(model.Owner(), "dummy")
 	c.Assert(err, jc.ErrorIsNil)
-	expectedCred := make(map[string]cloud.Credential, len(cloudCredentialsIn))
-	for tag, cred := range cloudCredentialsIn {
-		expectedCred[tag.Id()] = cred
-	}
-	c.Assert(cloudCredentials, jc.DeepEquals, expectedCred)
+	c.Assert(cloudCredentials, jc.DeepEquals, map[string]state.Credential{
+		"dummy/initialize-admin/some-credential":  expectedUserpassCredential,
+		"dummy/initialize-admin/empty-credential": expectedEmptyCredential,
+	})
 }
 
 func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {

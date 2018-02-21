@@ -48,7 +48,12 @@ func CloudSpec(
 		if err != nil {
 			return environs.CloudSpec{}, errors.Trace(err)
 		}
-		credential = &credentialValue
+		cloudCredential := cloud.CredentialFromProperties(credentialValue.Name,
+			cloud.AuthType(credentialValue.AuthType),
+			credentialValue.Attributes,
+			credentialValue.Revoked,
+		)
+		credential = &cloudCredential
 	}
 
 	return environs.MakeCloudSpec(modelCloud, regionName, credential)

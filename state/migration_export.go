@@ -116,8 +116,8 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 			Owner:      credsTag.Owner(),
 			Cloud:      credsTag.Cloud(),
 			Name:       credsTag.Name(),
-			AuthType:   string(creds.AuthType()),
-			Attributes: creds.Attributes(),
+			AuthType:   creds.AuthType,
+			Attributes: creds.Attributes,
 		})
 	}
 	modelKey := dbModel.globalKey()

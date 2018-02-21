@@ -38,13 +38,17 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialNew(c *gc.C) {
 	err = s.State.UpdateCloudCredential(tag, cred)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The retrieved credentials have labels although cloud.NewCredential
-	// doesn't have them, so add it to the expected value.
-	cred.Label = "foobar"
-
 	out, err := s.State.CloudCredential(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.DeepEquals, cred)
+
+	expected := statetesting.CloudCredential(cloud.AccessKeyAuthType,
+		map[string]string{"bar": "bar val", "foo": "foo val"},
+	)
+	expected.DocID = "stratus#bob#foobar"
+	expected.Owner = "bob"
+	expected.Cloud = "stratus"
+	expected.Name = "foobar"
+	c.Assert(out, jc.DeepEquals, expected)
 }
 
 func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {
@@ -71,13 +75,20 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {
 	err = s.State.UpdateCloudCredential(tag, cred)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The retrieved credentials have labels although cloud.NewCredential
-	// doesn't have them, so add it to the expected value.
-	cred.Label = "foobar"
-
 	out, err := s.State.CloudCredential(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.DeepEquals, cred)
+
+	expected := statetesting.CloudCredential(cloud.UserPassAuthType, map[string]string{
+		"user":     "bob's nephew",
+		"password": "simple",
+	})
+	expected.DocID = "stratus#bob#foobar"
+	expected.Owner = "bob"
+	expected.Cloud = "stratus"
+	expected.Name = "foobar"
+	expected.Revoked = true
+
+	c.Assert(out, jc.DeepEquals, expected)
 }
 
 func (s *CloudCredentialsSuite) TestUpdateCloudCredentialInvalidAuthType(c *gc.C) {
@@ -129,12 +140,30 @@ func (s *CloudCredentialsSuite) TestCloudCredentials(c *gc.C) {
 	cred1.Label = "bobcred1"
 	cred2.Label = "bobcred2"
 
+	expected1 := statetesting.CloudCredential(cloud.AccessKeyAuthType, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	expected1.DocID = "stratus#bob#bobcred1"
+	expected1.Owner = "bob"
+	expected1.Cloud = "stratus"
+	expected1.Name = "bobcred1"
+
+	expected2 := statetesting.CloudCredential(cloud.AccessKeyAuthType, map[string]string{
+		"baz": "baz val",
+		"qux": "qux val",
+	})
+	expected2.DocID = "stratus#bob#bobcred2"
+	expected2.Owner = "bob"
+	expected2.Cloud = "stratus"
+	expected2.Name = "bobcred2"
+
 	for _, userName := range []string{"bob", "bob"} {
 		creds, err := s.State.CloudCredentials(names.NewUserTag(userName), "stratus")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(creds, jc.DeepEquals, map[string]cloud.Credential{
-			tag1.Id(): cred1,
-			tag3.Id(): cred2,
+		c.Assert(creds, jc.DeepEquals, map[string]state.Credential{
+			tag1.Id(): expected1,
+			tag3.Id(): expected2,
 		})
 	}
 }
@@ -247,14 +276,6 @@ func (s *CloudCredentialsSuite) createCloudCredential(c *gc.C, cloudName, userNa
 	expected.Attributes = attributes
 
 	return tag, expected
-}
-
-func (s *CloudCredentialsSuite) TestStoredCredential(c *gc.C) {
-	tag, expected := s.createCloudCredential(c, "stratus", "bob", "foobar")
-
-	out, err := s.State.StoredCredential(tag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.DeepEquals, expected)
 }
 
 func (s *CloudCredentialsSuite) TestAllCloudCredentialsNotFound(c *gc.C) {

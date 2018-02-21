@@ -12,7 +12,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cloud"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
@@ -33,7 +32,7 @@ type PrecheckBackend interface {
 	AllApplications() ([]PrecheckApplication, error)
 	AllRelations() ([]PrecheckRelation, error)
 	ControllerBackend() (PrecheckBackend, error)
-	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
+	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
 	ListPendingResources(string) ([]resource.Resource, error)
 }
 

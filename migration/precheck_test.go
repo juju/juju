@@ -11,7 +11,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cloud"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/resource"
@@ -734,7 +733,7 @@ type fakeBackend struct {
 	relations  []migration.PrecheckRelation
 	allRelsErr error
 
-	credentials    cloud.Credential
+	credentials    state.Credential
 	credentialsErr error
 
 	pendingResources    []resource.Resource
@@ -767,7 +766,7 @@ func (b *fakeBackend) IsMigrationActive(string) (bool, error) {
 	return b.migrationActive, b.migrationActiveErr
 }
 
-func (b *fakeBackend) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
+func (b *fakeBackend) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
 	return b.credentials, b.credentialsErr
 }
 
