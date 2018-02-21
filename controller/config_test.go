@@ -4,7 +4,6 @@
 package controller_test
 
 import (
-	"sort"
 	stdtesting "testing"
 	"time"
 
@@ -360,7 +359,6 @@ func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	got := *cfg.AsSpaceConstraints(&[]string{constraintSpace})
-	sort.Strings(got)
 	c.Check(got, gc.DeepEquals, []string{constraintSpace, haSpace, managementSpace})
 }
 
