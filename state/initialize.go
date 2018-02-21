@@ -92,11 +92,16 @@ func (p InitializeParams) Validate() error {
 	if _, err := validateCloudRegion(p.Cloud, p.ControllerModelArgs.CloudRegion); err != nil {
 		return errors.Annotate(err, "validating controller model cloud region")
 	}
-	if _, err := validateCloudCredentials(p.Cloud, p.CloudCredentials); err != nil {
+
+	credentials := make(map[names.CloudCredentialTag]Credential, len(p.CloudCredentials))
+	for tag, cred := range p.CloudCredentials {
+		credentials[tag] = convertCloudCredentialToState(tag, cred)
+	}
+	if _, err := validateCloudCredentials(p.Cloud, credentials); err != nil {
 		return errors.Annotate(err, "validating cloud credentials")
 	}
-	creds := make(map[string]cloud.Credential, len(p.CloudCredentials))
-	for tag, cred := range p.CloudCredentials {
+	creds := make(map[string]Credential, len(credentials))
+	for tag, cred := range credentials {
 		creds[tag.Id()] = cred
 	}
 	if _, err := validateCloudCredential(
@@ -107,6 +112,18 @@ func (p InitializeParams) Validate() error {
 		return errors.Annotate(err, "validating controller model cloud credential")
 	}
 	return nil
+}
+
+func convertCloudCredentialToState(tag names.CloudCredentialTag, cloudCredential cloud.Credential) Credential {
+	credential := Credential{}
+	credential.AuthType = string(cloudCredential.AuthType())
+	credential.Attributes = cloudCredential.Attributes()
+	credential.Name = tag.Name()
+	credential.Revoked = cloudCredential.Revoked
+	credential.Owner = tag.Owner().Id()
+	credential.Cloud = tag.Cloud().Id()
+	credential.DocID = cloudCredentialDocID(tag)
+	return credential
 }
 
 // InitDatabaseFunc defines a function used to

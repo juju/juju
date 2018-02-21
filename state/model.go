@@ -356,18 +356,11 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	// specified, that the cloud supports the "empty" authentication
 	// type.
 	owner := args.Owner
-	storedCredentials, err := st.CloudCredentials(owner, args.CloudName)
+	cloudCredentials, err := st.CloudCredentials(owner, args.CloudName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	cloudCredentials := make(map[string]jujucloud.Credential, len(storedCredentials))
-	for name, cred := range storedCredentials {
-		cloudCredentials[name] = jujucloud.NewNamedCredential(cred.Name,
-			jujucloud.AuthType(cred.AuthType),
-			cred.Attributes,
-			cred.Revoked)
-	}
 	assertCloudCredentialOp, err := validateCloudCredential(
 		controllerCloud, cloudCredentials, args.CloudCredential,
 	)
@@ -494,7 +487,7 @@ func validateCloudRegion(cloud jujucloud.Cloud, regionName string) (txn.Op, erro
 // will be asserted.
 func validateCloudCredential(
 	cloud jujucloud.Cloud,
-	cloudCredentials map[string]jujucloud.Credential,
+	cloudCredentials map[string]Credential,
 	cloudCredential names.CloudCredentialTag,
 ) (txn.Op, error) {
 	if cloudCredential != (names.CloudCredentialTag{}) {

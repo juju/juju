@@ -86,7 +86,9 @@ func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[str
 
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
 func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error {
-	credentials := map[names.CloudCredentialTag]cloud.Credential{tag: credential}
+	credentials := map[names.CloudCredentialTag]Credential{
+		tag: convertCloudCredentialToState(tag, credential),
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		cloudName := tag.Cloud().Id()
 		cloud, err := st.Cloud(cloudName)
@@ -203,7 +205,7 @@ func (c cloudCredentialDoc) cloudCredentialTag() (names.CloudCredentialTag, erro
 // perhaps all this code is unnecessary.
 func validateCloudCredentials(
 	cloud cloud.Cloud,
-	credentials map[names.CloudCredentialTag]cloud.Credential,
+	credentials map[names.CloudCredentialTag]Credential,
 ) ([]txn.Op, error) {
 	requiredAuthTypes := make(set.Strings)
 	for tag, credential := range credentials {
@@ -215,7 +217,7 @@ func validateCloudCredentials(
 		}
 		var found bool
 		for _, authType := range cloud.AuthTypes {
-			if credential.AuthType() == authType {
+			if credential.AuthType == string(authType) {
 				found = true
 				break
 			}
@@ -223,10 +225,10 @@ func validateCloudCredentials(
 		if !found {
 			return nil, errors.NewNotValid(nil, fmt.Sprintf(
 				"credential %q with auth-type %q is not supported (expected one of %q)",
-				tag.Id(), credential.AuthType(), cloud.AuthTypes,
+				tag.Id(), credential.AuthType, cloud.AuthTypes,
 			))
 		}
-		requiredAuthTypes.Add(string(credential.AuthType()))
+		requiredAuthTypes.Add(string(credential.AuthType))
 	}
 	ops := make([]txn.Op, len(requiredAuthTypes))
 	for i, authType := range requiredAuthTypes.SortedValues() {
