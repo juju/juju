@@ -498,6 +498,20 @@ type ApplicationUnitParams struct {
 	Data       map[string]interface{} `json:"data"`
 }
 
+// UpdateApplicationServiceArgs holds the parameters for
+// updating application services.
+type UpdateApplicationServiceArgs struct {
+	Args []ApplicationServiceParams `json:"args"`
+}
+
+// ApplicationServiceParams holds parameters used to update
+// an application's service definition for the cloud.
+type ApplicationServiceParams struct {
+	ApplicationTag string    `json:"application-tag"`
+	ProviderId     string    `json:"provider-id"`
+	Addresses      []Address `json:"addresses"`
+}
+
 // DestroyApplicationUnits holds parameters for the deprecated
 // Application.DestroyUnits call.
 type DestroyApplicationUnits struct {
