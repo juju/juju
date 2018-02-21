@@ -252,7 +252,6 @@ func (s *workerSuite) dotestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	mustNext(c, memberWatcher, "waiting for SetHasVote failure")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
 
-
 	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
 	defer workertest.DirtyKill(c, w)
 
