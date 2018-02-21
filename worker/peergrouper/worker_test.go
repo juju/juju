@@ -162,6 +162,7 @@ func (s *workerSuite) dotestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	// using the standard testing clock wait / advance method does not
 	// work. So we use the real clock to advance the test clock for this
 	// test.
+	// Every 5ms we advance the testing clock by pollInterval (1min)
 	done := make(chan struct{})
 	clockAdvancerFinished := make(chan struct{})
 	defer func() {

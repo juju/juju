@@ -340,12 +340,6 @@ func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, b
 // selection, otherwise just ScopeCloudLocal are.
 func SelectMongoHostPortsBySpaces(hostPorts []HostPort, spaces []SpaceName) ([]string, bool) {
 	filteredHostPorts, ok := SelectHostsPortBySpaces(hostPorts, spaces...)
-	if ok {
-		logger.Debugf(
-			"selected %q as controller host:port, using spaces %q",
-			filteredHostPorts, spaces,
-		)
-	}
 	return HostPortsToStrings(filteredHostPorts), ok
 }
 
@@ -367,10 +361,6 @@ func SelectMongoHostPortsByScope(hostPorts []HostPort, machineLocal bool) []stri
 	// Fallback to using the legacy and error-prone approach using scope
 	// selection instead.
 	internalHP := SelectInternalHostPort(hostPorts, machineLocal)
-	logger.Debugf(
-		"selected %q as controller host:port, using scope selection",
-		internalHP,
-	)
 	return []string{internalHP}
 }
 

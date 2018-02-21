@@ -35,14 +35,18 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machineTra
 	}
 	changed := false
 	members, extra, maxId := info.membersMap()
-	logger.Debugf("calculating desired peer group")
-	line := "members: ..."
+	line := fmt.Sprintf("calculating desired peer group\ndesired voting members: (maxId: %d)", maxId)
 	for tracker, replMem := range members {
 		line = fmt.Sprintf("%s\n   %#v: rs_id=%d, rs_addr=%s", line, tracker, replMem.Id, replMem.Address)
 	}
+	if len(extra) > 0 {
+		line = line + "\nother members:"
+		for _, replMem := range extra {
+			vote := (replMem.Votes != nil && *replMem.Votes > 0)
+			line = fmt.Sprintf("%s\n   rs_id=%d, rs_addr=%s, tags=%v, vote=%t", line, replMem.Id, replMem.Address, replMem.Tags, vote)
+		}
+	}
 	logger.Debugf(line)
-	logger.Debugf("extra: %#v", extra)
-	logger.Debugf("maxId: %v", maxId)
 
 	// We may find extra peer group members if the machines
 	// have been removed or their controller status removed.
@@ -53,8 +57,6 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machineTra
 	// TODO There are some other possibilities
 	// for what to do in that case.
 	// 1) leave them untouched, but deal
-	// with others as usual "i didn't see that bit"
-	// 2) leave them untouched, deal with others,
 	// but make sure the extras aren't eligible to
 	// be primary.
 	// 3) remove them "get rid of bad rubbish"
@@ -220,23 +222,26 @@ func addNewMembers(
 	mongoSpace network.SpaceName,
 ) {
 	for _, m := range toKeep {
-		hasAddress := m.SelectMongoHostPort(mongoSpace) != ""
-		if members[m] == nil && hasAddress {
-			// This machine was not previously in the members list,
-			// so add it (as non-voting). We maintain the
-			// id manually to make it easier for tests.
-			maxId++
-			member := &replicaset.Member{
-				Tags: map[string]string{
-					jujuMachineKey: m.Id(),
-				},
-				Id: maxId,
-			}
-			members[m] = member
-			setVoting(m, false)
-		} else if !hasAddress {
-			logger.Debugf("ignoring machine %q with no address", m.Id())
+		if members[m] != nil {
+			continue
 		}
+		hasAddress := m.SelectMongoHostPort(mongoSpace) != ""
+		if !hasAddress {
+			logger.Debugf("ignoring machine %q with no address", m.Id())
+			continue
+		}
+		// This machine was not previously in the members list,
+		// so add it (as non-voting). We maintain the
+		// id manually to make it easier for tests.
+		maxId++
+		member := &replicaset.Member{
+			Tags: map[string]string{
+				jujuMachineKey: m.Id(),
+			},
+			Id: maxId,
+		}
+		members[m] = member
+		setVoting(m, false)
 	}
 }
 
