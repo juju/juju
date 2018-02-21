@@ -93,8 +93,8 @@ var (
 	// be expressed as explicit dependencies, but nobody has yet had
 	// the intestinal fortitude to untangle this package. Be that
 	// person! Juju Needs You.
-	useMultipleCPUs    = utils.UseMultipleCPUs
-	reportOpenedState  = func(*state.State) {}
+	useMultipleCPUs   = utils.UseMultipleCPUs
+	reportOpenedState = func(*state.State) {}
 
 	caasModelManifolds = model.CAASManifolds
 	iaasModelManifolds = model.IAASManifolds
