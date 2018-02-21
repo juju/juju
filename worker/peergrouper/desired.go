@@ -60,10 +60,12 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machineTra
 	// TODO There are some other possibilities
 	// for what to do in that case.
 	// 1) leave them untouched, but deal
-	// with others as usual "i didn't see that bit".
-	// Make sure the extras aren't eligible to be primary.
-	// 2) remove them "get rid of bad rubbish"
-	// 3) do nothing "nothing to see here"
+	// with others as usual "i didn't see that bit"
+	// 2) leave them untouched, deal with others,
+	// but make sure the extras aren't eligible to
+	// be primary.
+	// 3) remove them "get rid of bad rubbish"
+	// 4) do nothing "nothing to see here"
 	for _, member := range extra {
 		if member.Votes == nil || *member.Votes > 0 {
 			return nil, nil, fmt.Errorf("voting non-machine member %#v found in peer group", member)
