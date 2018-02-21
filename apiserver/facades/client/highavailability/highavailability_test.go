@@ -225,8 +225,8 @@ func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
 		controllerCons,
-		constraints.MustParse("spaces=random-space,ha-space"),
-		constraints.MustParse("spaces=random-space,ha-space"),
+		constraints.MustParse("spaces=ha-space,random-space"),
+		constraints.MustParse("spaces=ha-space,random-space"),
 	}
 	for i, m := range machines {
 		cons, err := m.Constraints()
