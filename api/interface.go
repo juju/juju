@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
-	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/unitassigner"
@@ -302,6 +301,5 @@ type Connection interface {
 	InstancePoller() *instancepoller.API
 	CharmRevisionUpdater() *charmrevisionupdater.State
 	Cleaner() *cleaner.API
-	MetadataUpdater() *imagemetadata.Client
 	UnitAssigner() unitassigner.API
 }

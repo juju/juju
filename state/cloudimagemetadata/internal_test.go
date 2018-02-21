@@ -29,6 +29,7 @@ func (s *cloudImageMetadataSuite) TestCloudImageMetadataDocFields(c *gc.C) {
 		"Priority",
 		"ImageId",
 		"DateCreated",
+		"ExpireAt",
 	)
 	fields := migrated.Union(ignored)
 	expected := testing.GetExportedFields(imagesMetadataDoc{})

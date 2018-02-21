@@ -1068,31 +1068,54 @@ func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
 		RootStorageSize: &storageSize,
 		Source:          "test",
 	}
-	metadata := []cloudimagemetadata.Metadata{{attrs, 2, "1", 2}}
+	attrsCustom := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region-custom",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		RootStorageSize: &storageSize,
+		Source:          "custom",
+	}
+	metadata := []cloudimagemetadata.Metadata{
+		{attrs, 2, "1", 2},
+		{attrsCustom, 3, "2", 3},
+	}
 
 	err := s.State.CloudImageMetadataStorage.SaveMetadata(metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, newSt := s.importModel(c)
+	_, newSt := s.importModel(c, func(map[string]interface{}) {
+		// Image metadata collection is global so we need to delete it
+		// to properly test import.
+		all, err := s.State.CloudImageMetadataStorage.AllCloudImageMetadata()
+		c.Assert(err, jc.ErrorIsNil)
+		for _, m := range all {
+			err := s.State.CloudImageMetadataStorage.DeleteMetadata(m.ImageId)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	})
 	defer func() {
 		c.Assert(newSt.Close(), jc.ErrorIsNil)
 	}()
 
-	images, err := s.State.CloudImageMetadataStorage.AllCloudImageMetadata()
+	images, err := newSt.CloudImageMetadataStorage.AllCloudImageMetadata()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(images, gc.HasLen, 1)
 	image := images[0]
 	c.Check(image.Stream, gc.Equals, "stream")
-	c.Check(image.Region, gc.Equals, "region-test")
+	c.Check(image.Region, gc.Equals, "region-custom")
 	c.Check(image.Version, gc.Equals, "14.04")
 	c.Check(image.Arch, gc.Equals, "arch")
 	c.Check(image.VirtType, gc.Equals, "virtType-test")
 	c.Check(image.RootStorageType, gc.Equals, "rootStorageType-test")
 	c.Check(*image.RootStorageSize, gc.Equals, uint64(3))
-	c.Check(image.Source, gc.Equals, "test")
-	c.Check(image.Priority, gc.Equals, 2)
-	c.Check(image.ImageId, gc.Equals, "1")
-	c.Check(image.DateCreated, gc.Equals, int64(2))
+	c.Check(image.Source, gc.Equals, "custom")
+	c.Check(image.Priority, gc.Equals, 3)
+	c.Check(image.ImageId, gc.Equals, "2")
+	c.Check(image.DateCreated, gc.Equals, int64(3))
 }
 
 func (s *MigrationImportSuite) TestAction(c *gc.C) {

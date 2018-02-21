@@ -4,6 +4,7 @@
 package state
 
 import (
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state/bakerystorage"
@@ -423,7 +424,8 @@ func allCollections() collectionSchema {
 
 		// This collection holds information about cloud image metadata.
 		cloudimagemetadataC: {
-			global: true,
+			global:  true,
+			indexes: cloudimagemetadata.MongoIndexes(),
 		},
 
 		// Cross model relations collections.
