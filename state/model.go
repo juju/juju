@@ -363,7 +363,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 
 	cloudCredentials := make(map[string]jujucloud.Credential, len(storedCredentials))
 	for name, cred := range storedCredentials {
-		cloudCredentials[name] = jujucloud.CredentialFromProperties(cred.Name,
+		cloudCredentials[name] = jujucloud.NewNamedCredential(cred.Name,
 			jujucloud.AuthType(cred.AuthType),
 			cred.Attributes,
 			cred.Revoked)

@@ -87,9 +87,8 @@ func NewCredential(authType AuthType, attributes map[string]string) Credential {
 	return Credential{authType: authType, attributes: copyStringMap(attributes)}
 }
 
-// CredentialFromProperties returns an immutable, Credential with the supplied
-// name, auth-type, attributes and revoke flag.
-func CredentialFromProperties(name string, authType AuthType, attributes map[string]string, revoked bool) Credential {
+// NewNamedCredential returns an immutable Credential with the supplied properties.
+func NewNamedCredential(name string, authType AuthType, attributes map[string]string, revoked bool) Credential {
 	return Credential{
 		Label:      name,
 		authType:   authType,

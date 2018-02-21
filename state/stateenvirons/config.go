@@ -48,7 +48,7 @@ func CloudSpec(
 		if err != nil {
 			return environs.CloudSpec{}, errors.Trace(err)
 		}
-		cloudCredential := cloud.CredentialFromProperties(credentialValue.Name,
+		cloudCredential := cloud.NewNamedCredential(credentialValue.Name,
 			cloud.AuthType(credentialValue.AuthType),
 			credentialValue.Attributes,
 			credentialValue.Revoked,
