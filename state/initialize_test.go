@@ -102,7 +102,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	emptyCredential := cloud.NewEmptyCredential()
 	emptyCredential.Label = emptyCredentialTag.Name()
-	expectedEmptyCredential := statetesting.CloudCredential(cloud.EmptyAuthType, nil)
+	expectedEmptyCredential := statetesting.NewEmptyCredential()
 	expectedEmptyCredential.DocID = "dummy#initialize-admin#empty-credential"
 	expectedEmptyCredential.Owner = "initialize-admin"
 	expectedEmptyCredential.Cloud = "dummy"

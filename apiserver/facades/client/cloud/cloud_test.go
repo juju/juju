@@ -43,7 +43,7 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 		},
 		creds: map[string]state.Credential{
-			names.NewCloudCredentialTag("meep/bruce/one").Id(): statetesting.CloudCredential(cloud.EmptyAuthType, nil),
+			names.NewCloudCredentialTag("meep/bruce/one").Id(): statetesting.NewEmptyCredential(),
 			names.NewCloudCredentialTag("meep/bruce/two").Id(): statetesting.CloudCredential(cloud.UserPassAuthType, map[string]string{
 				"username": "admin",
 				"password": "adm1n",

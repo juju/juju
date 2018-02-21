@@ -149,7 +149,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 						Value: "spam"}}},
 			},
 		},
-		cred: statetesting.CloudCredential(cloud.EmptyAuthType, nil),
+		cred: statetesting.NewEmptyCredential(),
 		cfgDefaults: config.ModelDefaultAttributes{
 			"attr": config.AttributeDefaultValues{
 				Default:    "",
@@ -169,7 +169,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.ctlrSt = &mockState{
 		model:           controllerModel,
 		controllerModel: controllerModel,
-		cred:            statetesting.CloudCredential(cloud.EmptyAuthType, nil),
+		cred:            statetesting.NewEmptyCredential(),
 		cloud:           dummyCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
 			names.NewCloudTag("some-cloud"): dummyCloud,
@@ -199,7 +199,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				access:   permission.AdminAccess,
 			}},
 		},
-		cred:        statetesting.CloudCredential(cloud.EmptyAuthType, nil),
+		cred:        statetesting.NewEmptyCredential(),
 		modelConfig: coretesting.ModelConfig(c),
 	}
 

@@ -15,3 +15,11 @@ func CloudCredential(authType cloud.AuthType, attrs map[string]string) state.Cre
 	c.Attributes = attrs
 	return c
 }
+
+// NewEmptyCredential is a convenience method to create an empty state.Credential
+// with a cloud.EmptyAuthType as auth type to be used in unit tests.
+func NewEmptyCredential() state.Credential {
+	c := state.Credential{}
+	c.AuthType = string(cloud.EmptyAuthType)
+	return c
+}
