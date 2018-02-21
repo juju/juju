@@ -290,8 +290,7 @@ func SelectPeerHostPort(hostPorts []network.HostPort) string {
 	// ScopeMachineLocal addresses are never suitable for mongo peers,
 	// as each controller runs on a separate machine.
 	const allowMachineLocal = false
-
-	return network.SelectMongoHostPortsByScope(hostPorts, allowMachineLocal)[0]
+	return network.SelectHostPortsByScope(hostPorts, allowMachineLocal)[0]
 }
 
 // SelectPeerHostPortBySpace returns the HostPort to use as the mongo replica set peer
@@ -304,7 +303,7 @@ func SelectPeerHostPortBySpace(hostPorts []network.HostPort, space network.Space
 
 	if !foundHostPortsInSpaces {
 		logger.Debugf("Failed to select hostPort by space - trying by scope from %+v", hostPorts)
-		suitableHostPorts = network.SelectMongoHostPortsByScope(hostPorts, true)
+		suitableHostPorts = network.SelectHostPortsByScope(hostPorts, true)
 	}
 	return suitableHostPorts[0]
 }

@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -104,7 +105,7 @@ func (s *ControllerSuite) TestUpdateControllerConfigRemoveYieldsDefaults(c *gc.C
 	c.Assert(newCfg.AuditLogCaptureArgs(), gc.Equals, false)
 }
 
-func (s *ControllerSuite) TestUpdateControllerConfigRejectsNonAuditUpdates(c *gc.C) {
+func (s *ControllerSuite) TestUpdateControllerConfigRejectsDisallowedUpdates(c *gc.C) {
 	// Sanity check.
 	c.Assert(controller.AllowedUpdateConfigAttributes.Contains(controller.APIPort), jc.IsFalse)
 
@@ -141,4 +142,16 @@ func (s *ControllerSuite) TestUpdatingUnknownName(c *gc.C) {
 func (s *ControllerSuite) TestRemovingUnknownName(c *gc.C) {
 	err := s.State.UpdateControllerConfig(nil, []string{"dr-worm"})
 	c.Assert(err, gc.ErrorMatches, `unknown controller config setting "dr-worm"`)
+}
+
+func (s *ControllerSuite) TestUpdateControllerConfigChecksSpace(c *gc.C) {
+	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.SetMachineAddresses(network.NewAddress("192.168.9.9")), jc.ErrorIsNil)
+
+	err = s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.JujuManagementSpace: "mgmt-space",
+	}, nil)
+	c.Assert(err, gc.ErrorMatches,
+		`invalid config value for "juju-mgmt-space": machines with no addresses in space "mgmt-space": "0"`)
 }

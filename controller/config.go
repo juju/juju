@@ -199,6 +199,8 @@ var (
 		AuditingEnabled,
 		AuditLogCaptureArgs,
 		AuditLogExcludeMethods,
+		JujuHASpace,
+		JujuManagementSpace,
 	)
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
