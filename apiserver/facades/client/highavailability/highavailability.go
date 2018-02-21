@@ -33,6 +33,9 @@ type HighAvailabilityAPI struct {
 	state      *state.State
 	resources  facade.Resources
 	authorizer facade.Authorizer
+
+	// machineID is the ID of the machine where the API server is running.
+	machineID string
 }
 
 var _ HighAvailability = (*HighAvailabilityAPI)(nil)
@@ -43,11 +46,29 @@ func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authori
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
+	machineID, err := extractResourceValue(resources, "machineID")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &HighAvailabilityAPI{
 		state:      st,
 		resources:  resources,
 		authorizer: authorizer,
+		machineID:  machineID,
 	}, nil
+}
+
+func extractResourceValue(resources facade.Resources, key string) (string, error) {
+	res := resources.Get(key)
+	strRes, ok := res.(common.StringResource)
+	if !ok {
+		if res == nil {
+			strRes = ""
+		} else {
+			return "", errors.Errorf("invalid %s resource: %v", key, res)
+		}
+	}
+	return strRes.String(), nil
 }
 
 // EnableHA adds controller machines as necessary to ensure the
@@ -70,7 +91,7 @@ func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.C
 		return results, errors.New("only one controller spec is supported")
 	}
 
-	result, err := enableHASingle(api.state, args.Specs[0])
+	result, err := api.enableHASingle(api.state, args.Specs[0])
 	results.Results = make([]params.ControllersChangeResult, 1)
 	results.Results[0].Result = result
 	results.Results[0].Error = common.ServerError(err)
@@ -98,7 +119,7 @@ func controllersChanges(change state.ControllersChanges) params.ControllersChang
 	}
 }
 
-func enableHASingle(st *state.State, spec params.ControllersSpec) (params.ControllersChanges, error) {
+func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.ControllersSpec) (params.ControllersChanges, error) {
 	if !st.IsController() {
 		return params.ControllersChanges{}, errors.New("unsupported with hosted models")
 	}
@@ -164,7 +185,7 @@ func enableHASingle(st *state.State, spec params.ControllersSpec) (params.Contro
 		}
 	}
 
-	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, series, spec.Placement)
+	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, series, spec.Placement, api.machineID)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}
