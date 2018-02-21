@@ -52,7 +52,6 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -73,7 +72,6 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/logsender/logsendermetrics"
@@ -96,7 +94,6 @@ var (
 	// the intestinal fortitude to untangle this package. Be that
 	// person! Juju Needs You.
 	useMultipleCPUs    = utils.UseMultipleCPUs
-	newMetadataUpdater = imagemetadataworker.NewWorker
 	reportOpenedState  = func(*state.State) {}
 
 	caasModelManifolds = model.CAASManifolds
@@ -677,24 +674,6 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	}
 
 	if isModelManager {
-
-		// Published image metadata for some providers are in simple streams.
-		// Providers that do not depend on simple streams do not need this worker.
-		apiSt, err := apiagent.NewState(apiConn)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting API facade")
-		}
-		env, err := environs.GetEnviron(apiSt, newEnvirons)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting environ")
-		}
-		if _, ok := env.(simplestreams.HasRegion); ok {
-			// Start worker that stores published image metadata in state.
-			runner.StartWorker("imagemetadata", func() (worker.Worker, error) {
-				return newMetadataUpdater(apiConn.MetadataUpdater()), nil
-			})
-		}
-
 		// We don't have instance info set and the network config for the
 		// bootstrap machine only, so update it now. All the other machines will
 		// have instance info including network config set at provisioning time.

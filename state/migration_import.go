@@ -1411,10 +1411,20 @@ func (i *importer) sshHostKeys() error {
 func (i *importer) cloudimagemetadata() error {
 	i.logger.Debugf("importing cloudimagemetadata")
 	images := i.model.CloudImageMetadata()
-	metadatas := make([]cloudimagemetadata.Metadata, len(images))
-	for index, image := range images {
-		metadatas[index] = cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
+	var metadatas []cloudimagemetadata.Metadata
+	for _, image := range images {
+		// We only want to import custom (user defined metadata).
+		// Everything else *now* expires after a set time anyway and
+		// coming from Juju < 2.3.4 would result in non-expiring metadata.
+		if image.Source() != "custom" {
+			continue
+		}
+		var rootStoragePtr *uint64
+		if rootStorageSize, ok := image.RootStorageSize(); ok {
+			rootStoragePtr = &rootStorageSize
+		}
+		metadatas = append(metadatas, cloudimagemetadata.Metadata{
+			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Source:          image.Source(),
 				Stream:          image.Stream(),
 				Region:          image.Region(),
@@ -1422,12 +1432,13 @@ func (i *importer) cloudimagemetadata() error {
 				Series:          image.Series(),
 				Arch:            image.Arch(),
 				RootStorageType: image.RootStorageType(),
+				RootStorageSize: rootStoragePtr,
 				VirtType:        image.VirtType(),
 			},
-			image.Priority(),
-			image.ImageId(),
-			image.DateCreated(),
-		}
+			Priority:    image.Priority(),
+			ImageId:     image.ImageId(),
+			DateCreated: image.DateCreated(),
+		})
 	}
 	err := i.st.CloudImageMetadataStorage.SaveMetadata(metadatas)
 	if err != nil {

@@ -35,6 +35,7 @@ type StateBackend interface {
 	MigrateLeasesToGlobalTime() error
 	MoveOldAuditLog() error
 	AddRelationStatus() error
+	DeleteCloudImageMetadata() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -151,4 +152,8 @@ func (m *modelShim) CloudSpec() (environs.CloudSpec, error) {
 	regionName := m.m.CloudRegion()
 	credentialTag, _ := m.m.CloudCredential()
 	return stateenvirons.CloudSpec(m.st, cloudName, regionName, credentialTag)
+}
+
+func (s stateBackend) DeleteCloudImageMetadata() error {
+	return state.DeleteCloudImageMetadata(s.st)
 }
