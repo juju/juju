@@ -501,12 +501,12 @@ type ApplicationUnitParams struct {
 // UpdateApplicationServiceArgs holds the parameters for
 // updating application services.
 type UpdateApplicationServiceArgs struct {
-	Args []ApplicationServiceParams `json:"args"`
+	Args []UpdateApplicationServiceArg `json:"args"`
 }
 
-// ApplicationServiceParams holds parameters used to update
+// UpdateApplicationServiceArg holds parameters used to update
 // an application's service definition for the cloud.
-type ApplicationServiceParams struct {
+type UpdateApplicationServiceArg struct {
 	ApplicationTag string    `json:"application-tag"`
 	ProviderId     string    `json:"provider-id"`
 	Addresses      []Address `json:"addresses"`

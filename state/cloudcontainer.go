@@ -92,7 +92,8 @@ func (u *Unit) saveContainerOps(doc cloudContainerDoc) ([]txn.Op, error) {
 	if existing.ProviderId != "" {
 		asserts = bson.D{providerValueAssert}
 	} else {
-		asserts = bson.D{{"$or", []bson.D{{providerValueAssert}, {{"$exists", false}}}}}
+		asserts = bson.D{{"$or",
+			[]bson.D{{providerValueAssert}, {{"provider-id", bson.D{{"$exists", false}}}}}}}
 	}
 	return []txn.Op{{
 		C:      cloudContainersC,

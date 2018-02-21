@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
@@ -43,6 +44,11 @@ func (m *mockServiceBroker) EnsureService(appName string, unitSpec *caas.Contain
 	m.MethodCall(m, "EnsureService", appName, unitSpec, numUnits, config)
 	m.ensured <- struct{}{}
 	return m.NextErr()
+}
+
+func (m *mockServiceBroker) Service(appName string) (*caas.Service, error) {
+	m.MethodCall(m, "Service", appName)
+	return &caas.Service{Id: "id", Addresses: []network.Address{{Value: "10.0.0.1"}}}, m.NextErr()
 }
 
 func (m *mockServiceBroker) DeleteService(appName string) error {
@@ -102,6 +108,17 @@ func (m *mockApplicationGetter) WatchApplications() (watcher.StringsWatcher, err
 func (a *mockApplicationGetter) ApplicationConfig(appName string) (application.ConfigAttributes, error) {
 	a.MethodCall(a, "ApplicationConfig", appName)
 	return application.ConfigAttributes{"juju-external-hostname": "exthost"}, a.NextErr()
+}
+
+type mockApplicationUpdater struct {
+	testing.Stub
+	updated chan<- struct{}
+}
+
+func (m *mockApplicationUpdater) UpdateApplicationService(arg params.UpdateApplicationServiceArg) error {
+	m.MethodCall(m, "UpdateApplicationService", arg)
+	m.updated <- struct{}{}
+	return m.NextErr()
 }
 
 type mockContainerSpecGetter struct {

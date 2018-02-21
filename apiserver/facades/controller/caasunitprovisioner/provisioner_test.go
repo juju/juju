@@ -301,7 +301,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithTags(c *gc.C) {
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {
 	results, err := s.facade.UpdateApplicationsService(params.UpdateApplicationServiceArgs{
-		Args: []params.ApplicationServiceParams{
+		Args: []params.UpdateApplicationServiceArg{
 			{ApplicationTag: "application-gitlab", ProviderId: "id", Addresses: []params.Address{{Value: "10.0.0.1"}}},
 			{ApplicationTag: "unit-gitlab-0"},
 		},

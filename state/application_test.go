@@ -3469,14 +3469,29 @@ func (s *CAASApplicationSuite) TestAddUnitWithProviderId(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestServiceInfo(c *gc.C) {
-	err := s.app.UpdateCloudService("id", []network.Address{{Value: "10.0.0.1"}})
-	c.Assert(err, jc.ErrorIsNil)
-	app, err := s.caasSt.Application(s.app.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	info, err := app.ServiceInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.ProviderId(), gc.Equals, "id")
-	c.Assert(info.Addresses(), jc.DeepEquals, []network.Address{{Value: "10.0.0.1"}})
+	for i := 0; i < 2; i++ {
+		err := s.app.UpdateCloudService("id", []network.Address{{Value: "10.0.0.1"}})
+		c.Assert(err, jc.ErrorIsNil)
+		app, err := s.caasSt.Application(s.app.Name())
+		c.Assert(err, jc.ErrorIsNil)
+		info, err := app.ServiceInfo()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(info.ProviderId(), gc.Equals, "id")
+		c.Assert(info.Addresses(), jc.DeepEquals, []network.Address{{Value: "10.0.0.1"}})
+	}
+}
+
+func (s *CAASApplicationSuite) TestServiceInfoEmptyProviderId(c *gc.C) {
+	for i := 0; i < 2; i++ {
+		err := s.app.UpdateCloudService("", []network.Address{{Value: "10.0.0.1"}})
+		c.Assert(err, jc.ErrorIsNil)
+		app, err := s.caasSt.Application(s.app.Name())
+		c.Assert(err, jc.ErrorIsNil)
+		info, err := app.ServiceInfo()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(info.ProviderId(), gc.Equals, "")
+		c.Assert(info.Addresses(), jc.DeepEquals, []network.Address{{Value: "10.0.0.1"}})
+	}
 }
 
 func (s *CAASApplicationSuite) TestRemoveUnitDeletesServiceInfo(c *gc.C) {

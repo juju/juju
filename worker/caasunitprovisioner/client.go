@@ -15,6 +15,7 @@ import (
 // to the CAASUnitProvisioner worker.
 type Client interface {
 	ApplicationGetter
+	ApplicationUpdater
 	ContainerSpecGetter
 	LifeGetter
 	UnitGetter
@@ -28,6 +29,12 @@ type Client interface {
 type ApplicationGetter interface {
 	WatchApplications() (watcher.StringsWatcher, error)
 	ApplicationConfig(string) (application.ConfigAttributes, error)
+}
+
+// ApplicationUpdater provides an interface for updating
+// Juju applications from changes in the cloud.
+type ApplicationUpdater interface {
+	UpdateApplicationService(arg params.UpdateApplicationServiceArg) error
 }
 
 // ContainerSpecGetter provides an interface for

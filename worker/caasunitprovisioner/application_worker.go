@@ -27,6 +27,7 @@ type applicationWorker struct {
 	containerSpecGetter ContainerSpecGetter
 	lifeGetter          LifeGetter
 	applicationGetter   ApplicationGetter
+	applicationUpdater  ApplicationUpdater
 	unitGetter          UnitGetter
 	unitUpdater         UnitUpdater
 
@@ -41,6 +42,7 @@ func newApplicationWorker(
 	containerSpecGetter ContainerSpecGetter,
 	lifeGetter LifeGetter,
 	applicationGetter ApplicationGetter,
+	applicationUpdater ApplicationUpdater,
 	unitGetter UnitGetter,
 	unitUpdater UnitUpdater,
 ) (worker.Worker, error) {
@@ -52,6 +54,7 @@ func newApplicationWorker(
 		containerSpecGetter: containerSpecGetter,
 		lifeGetter:          lifeGetter,
 		applicationGetter:   applicationGetter,
+		applicationUpdater:  applicationUpdater,
 		unitGetter:          unitGetter,
 		unitUpdater:         unitUpdater,
 		aliveUnitsChan:      make(chan []string),
@@ -96,6 +99,7 @@ func (aw *applicationWorker) loop() error {
 		aw.serviceBroker,
 		aw.containerSpecGetter,
 		aw.applicationGetter,
+		aw.applicationUpdater,
 		aw.aliveUnitsChan)
 	if err != nil {
 		return errors.Trace(err)

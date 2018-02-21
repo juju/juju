@@ -18,5 +18,6 @@ type ContainerBroker interface {
 
 type ServiceBroker interface {
 	EnsureService(appName string, unitSpec *caas.ContainerSpec, numUnits int, config application.ConfigAttributes) error
+	Service(appName string) (*caas.Service, error)
 	DeleteService(appName string) error
 }

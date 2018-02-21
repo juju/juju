@@ -29,6 +29,7 @@ type WorkerSuite struct {
 
 	config              caasunitprovisioner.Config
 	applicationGetter   mockApplicationGetter
+	applicationUpdater  mockApplicationUpdater
 	serviceBroker       mockServiceBroker
 	containerBroker     mockContainerBroker
 	containerSpecGetter mockContainerSpecGetter
@@ -41,6 +42,7 @@ type WorkerSuite struct {
 	caasUnitsChanges     chan struct{}
 	containerSpecChanges chan struct{}
 	serviceEnsured       chan struct{}
+	serviceUpdated       chan struct{}
 	unitEnsured          chan struct{}
 	unitDeleted          chan struct{}
 	clock                *testing.Clock
@@ -83,6 +85,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.caasUnitsChanges = make(chan struct{})
 	s.containerSpecChanges = make(chan struct{}, 1)
 	s.serviceEnsured = make(chan struct{})
+	s.serviceUpdated = make(chan struct{})
 	s.unitEnsured = make(chan struct{})
 	s.unitDeleted = make(chan struct{})
 
@@ -90,6 +93,9 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		watcher: watchertest.NewMockStringsWatcher(s.applicationChanges),
 	}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.applicationGetter.watcher) })
+	s.applicationUpdater = mockApplicationUpdater{
+		updated: s.serviceUpdated,
+	}
 
 	s.containerSpecGetter = mockContainerSpecGetter{
 		watcher: watchertest.NewMockNotifyWatcher(s.containerSpecChanges),
@@ -116,6 +122,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 
 	s.config = caasunitprovisioner.Config{
 		ApplicationGetter:   &s.applicationGetter,
+		ApplicationUpdater:  &s.applicationUpdater,
 		ServiceBroker:       &s.serviceBroker,
 		ContainerBroker:     &s.containerBroker,
 		ContainerSpecGetter: &s.containerSpecGetter,
@@ -137,6 +144,10 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.ApplicationGetter = nil
 	}, `missing ApplicationGetter not valid`)
+
+	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
+		config.ApplicationUpdater = nil
+	}, `missing ApplicationUpdater not valid`)
 
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.ServiceBroker = nil
@@ -212,6 +223,11 @@ func (s *WorkerSuite) setupNewBrokerManagedUnitScenario(c *gc.C) worker.Worker {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for service to be ensured")
 	}
+	select {
+	case <-s.serviceUpdated:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be updated")
+	}
 	return w
 }
 
@@ -260,6 +276,11 @@ func (s *WorkerSuite) setupNewJujuManagedUnitScenario(c *gc.C) worker.Worker {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for unit to be ensured")
 	}
+	select {
+	case <-s.serviceUpdated:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be updated")
+	}
 	return w
 }
 
@@ -278,9 +299,11 @@ func (s *WorkerSuite) TestNewJujuManagedUnit(c *gc.C) {
 	s.lifeGetter.CheckCallNames(c, "Life", "Life", "Life")
 	s.containerBroker.CheckCallNames(c, "WatchUnits", "EnsureUnit")
 	s.containerBroker.CheckCall(c, 1, "EnsureUnit", "gitlab", "gitlab/0", &parsedSpec)
-	s.serviceBroker.CheckCallNames(c, "EnsureService")
+	s.serviceBroker.CheckCallNames(c, "EnsureService", "Service")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", &parsedSpec, 0, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+	s.serviceBroker.CheckCall(c, 1, "Service", "gitlab")
+	s.applicationUpdater.CheckCallNames(c, "UpdateApplicationService")
 
 	s.serviceBroker.ResetCalls()
 	// Add another unit.
@@ -426,9 +449,10 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 	s.lifeGetter.CheckCallNames(c, "Life", "Life")
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
-	s.serviceBroker.CheckCallNames(c, "EnsureService")
+	s.serviceBroker.CheckCallNames(c, "EnsureService", "Service")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+	s.serviceBroker.CheckCall(c, 1, "Service", "gitlab")
 
 	s.serviceBroker.ResetCalls()
 	// Add another unit.

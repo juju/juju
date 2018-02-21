@@ -129,6 +129,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config, jc.DeepEquals, caasunitprovisioner.Config{
 		BrokerManagedUnits:  false,
 		ApplicationGetter:   &s.client,
+		ApplicationUpdater:  &s.client,
 		ServiceBroker:       &s.broker,
 		ContainerBroker:     &s.broker,
 		ContainerSpecGetter: &s.client,

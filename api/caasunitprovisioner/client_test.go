@@ -293,7 +293,7 @@ func (s *unitprovisionerSuite) TestUpdateApplicationService(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "UpdateApplicationsService")
 		c.Assert(a, jc.DeepEquals, params.UpdateApplicationServiceArgs{
-			Args: []params.ApplicationServiceParams{
+			Args: []params.UpdateApplicationServiceArg{
 				{
 					ApplicationTag: "application-app",
 					ProviderId:     "id",
@@ -307,7 +307,7 @@ func (s *unitprovisionerSuite) TestUpdateApplicationService(c *gc.C) {
 		}
 		return nil
 	})
-	err := client.UpdateApplicationService(params.ApplicationServiceParams{
+	err := client.UpdateApplicationService(params.UpdateApplicationServiceArg{
 		ApplicationTag: names.NewApplicationTag("app").String(),
 		ProviderId:     "id",
 		Addresses:      []params.Address{{Value: "10.0.0.1"}},
@@ -326,7 +326,7 @@ func (s *unitprovisionerSuite) TestUpdateApplicationServiceCount(c *gc.C) {
 		}
 		return nil
 	})
-	err := client.UpdateApplicationService(params.ApplicationServiceParams{
+	err := client.UpdateApplicationService(params.UpdateApplicationServiceArg{
 		ApplicationTag: names.NewApplicationTag("app").String(),
 		ProviderId:     "id",
 		Addresses:      []params.Address{{Value: "10.0.0.1"}},
