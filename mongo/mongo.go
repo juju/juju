@@ -270,8 +270,6 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 // address by selecting it from the given addresses. If no addresses are
 // available an empty string is returned.
 func SelectPeerAddress(addrs []network.Address) string {
-	logger.Debugf("selecting mongo peer address from %+v", addrs)
-
 	// ScopeMachineLocal addresses are never suitable for mongo peers,
 	// as each controller runs on a separate machine.
 	const allowMachineLocal = false
@@ -285,8 +283,6 @@ func SelectPeerAddress(addrs []network.Address) string {
 // SelectPeerHostPort returns the HostPort to use as the mongo replica set peer
 // by selecting it from the given hostPorts.
 func SelectPeerHostPort(hostPorts []network.HostPort) string {
-	logger.Debugf("selecting mongo peer hostPort by scope from %+v", hostPorts)
-
 	// ScopeMachineLocal addresses are never suitable for mongo peers,
 	// as each controller runs on a separate machine.
 	const allowMachineLocal = false
@@ -297,7 +293,6 @@ func SelectPeerHostPort(hostPorts []network.HostPort) string {
 // SelectPeerHostPortBySpace returns the HostPort to use as the mongo replica set peer
 // by selecting it from the given hostPorts.
 func SelectPeerHostPortBySpace(hostPorts []network.HostPort, space network.SpaceName) string {
-	logger.Debugf("selecting mongo peer hostPort in space %s from %+v", space, hostPorts)
 	// ScopeMachineLocal addresses are OK if we can't pick by space.
 	suitableHostPorts, foundHostPortsInSpaces := network.SelectMongoHostPortsBySpaces(hostPorts, []network.SpaceName{space})
 
