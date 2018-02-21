@@ -59,6 +59,8 @@ func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machineTra
 	// TODO There are some other possibilities
 	// for what to do in that case.
 	// 1) leave them untouched, but deal
+	// with others as usual "i didn't see that bit"
+	// 2) leave them untouched, deal with others,
 	// but make sure the extras aren't eligible to
 	// be primary.
 	// 3) remove them "get rid of bad rubbish"
