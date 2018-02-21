@@ -589,9 +589,7 @@ func (s *BootstrapSuite) TestBootstrapAllSpacesAsConstraintsMerged(c *gc.C) {
 		"--constraints", "spaces=ha-space,random-space",
 	)
 
-	// Order is unimportant
 	got := *(bootstrap.args.BootstrapConstraints.Spaces)
-	sort.Strings(got)
 	c.Check(got, gc.DeepEquals, []string{"ha-space", "management-space", "random-space"})
 }
 

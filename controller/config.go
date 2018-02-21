@@ -600,7 +600,7 @@ func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 	if spaces == nil && len(newSpaces) == 0 {
 		return nil
 	}
-	ns := newSpaces.Values()
+	ns := newSpaces.SortedValues()
 	return &ns
 }
 
