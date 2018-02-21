@@ -36,6 +36,7 @@ type StateBackend interface {
 	MoveOldAuditLog() error
 	AddRelationStatus() error
 	DeleteCloudImageMetadata() error
+	CopyMongoSpaceToHASpaceConfig() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -136,6 +137,10 @@ func (s stateBackend) MoveOldAuditLog() error {
 
 func (s stateBackend) AddRelationStatus() error {
 	return state.AddRelationStatus(s.st)
+}
+
+func (s stateBackend) CopyMongoSpaceToHASpaceConfig() error {
+	return state.CopyMongoSpaceToHASpaceConfig(s.st)
 }
 
 type modelShim struct {

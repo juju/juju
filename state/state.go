@@ -2208,7 +2208,6 @@ func (st *State) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (netwo
 // up the current Mongo state. Either way, it always returns what is in the
 // database by the end of the call.
 func (st *State) SetMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
-
 	if mongoSpaceState != MongoSpaceUnknown &&
 		mongoSpaceState != MongoSpaceValid &&
 		mongoSpaceState != MongoSpaceInvalid &&
