@@ -16,7 +16,6 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
@@ -234,12 +233,7 @@ func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 }
 
 func (st *fakeState) Space(name string) (Space, error) {
-	foo := []networkingcommon.BackingSpace{
-		&apiservertesting.FakeSpace{SpaceName: "Space" + name},
-		&apiservertesting.FakeSpace{SpaceName: "Space" + name},
-		&apiservertesting.FakeSpace{SpaceName: "Space" + name},
-	}
-	return foo[0].(Space), nil
+	return &apiservertesting.FakeSpace{SpaceName: "Space" + name}, nil
 }
 
 func (st *fakeState) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (network.SpaceName, error) {

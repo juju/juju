@@ -92,9 +92,13 @@ func (m *machineTracker) SelectMongoHostPort(port int, space network.SpaceName) 
 	m.mu.Unlock()
 
 	if space != "" {
-		return mongo.SelectPeerHostPortBySpace(hostPorts, space)
+		addr := mongo.SelectPeerHostPortBySpace(hostPorts, space)
+		logger.Debugf("machine %q selected address %q by space %q from %v", m.id, addr, space, hostPorts)
+		return addr
 	}
-	return mongo.SelectPeerHostPort(hostPorts)
+	addr := mongo.SelectPeerHostPort(hostPorts)
+	logger.Debugf("machine %q selected address %q by scope from %v", m.id, addr, hostPorts)
+	return addr
 }
 
 func (m *machineTracker) String() string {

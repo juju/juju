@@ -115,161 +115,197 @@ func ExpectedAPIHostPorts(n int, ipVersion TestIPVersion) [][]network.HostPort {
 	return servers
 }
 
-func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
-	logger.SetLogLevel(loggo.TRACE)
-	loggo.GetLogger("juju.mongo").SetLogLevel(loggo.INFO)
-	loggo.GetLogger("juju.network").SetLogLevel(loggo.INFO)
-	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		c.Logf("\n\nTestSetsAndUpdatesMembers: %s", ipVersion.version)
-		st := NewFakeState()
-		InitState(c, st, 3, ipVersion)
-		memberWatcher := st.session.members.Watch()
-		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
-
-		logger.Infof("starting worker")
-		w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
-		defer workertest.CleanKill(c, w)
-
-		// Wait for the worker to set the initial members.
-		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", ipVersion))
-
-		// Update the status of the new members
-		// and check that they become voting.
-		c.Logf("\nupdating new member status")
-		st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
-		s.clock.WaitAdvance(pollInterval, coretesting.ShortWait, 1)
-		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", ipVersion))
-
-		c.Logf("\nadding another machine")
-		m13 := st.addMachine("13", false)
-		m13.setAddresses(network.NewAddress(fmt.Sprintf(ipVersion.formatHost, 13)))
-		st.setControllers("10", "11", "12", "13")
-
-		c.Logf("\nwaiting for new member to be added")
-		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
-
-		// Remove vote from an existing member; and give it to the new
-		// machine. Also set the status of the new machine to healthy.
-		c.Logf("\nremoving vote from machine 10 and adding it to machine 13")
-		st.machine("10").setWantsVote(false)
-		st.machine("13").setWantsVote(true)
-
-		st.session.setStatus(mkStatuses("0p 1s 2s 3s", ipVersion))
-
-		// Check that the new machine gets the vote and the
-		// old machine loses it.
-		c.Logf("\nwaiting for vote switch")
-		mustNext(c, memberWatcher)
-		s.clock.WaitAdvance(pollInterval, coretesting.ShortWait, 1)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipVersion))
-
-		c.Logf("\nremoving old machine")
-		// Remove the old machine.
-		st.removeMachine("10")
-		st.setControllers("11", "12", "13")
-
-		// Check that it's removed from the members.
-		c.Logf("\nwaiting for removal")
-		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("1v 2v 3v", ipVersion))
-	})
+func (s *workerSuite) TestSetsAndUpdatesMembersIPv4(c *gc.C) {
+	s.dotestSetAndUpdateMembers(c, testIPv4)
 }
 
-func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
-	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st := NewFakeState()
+func (s *workerSuite) TestSetsAndUpdatesMembersIPv6(c *gc.C) {
+	s.dotestSetAndUpdateMembers(c, testIPv6)
+}
 
-		// Simulate a state where we have four controllers,
-		// one has gone down, and we're replacing it:
-		// 0 - hasvote true, wantsvote false, down
-		// 1 - hasvote true, wantsvote true
-		// 2 - hasvote true, wantsvote true
-		// 3 - hasvote false, wantsvote true
-		//
-		// When it starts, the worker should move the vote from
-		// 0 to 3. We'll arrange things so that it will succeed in
-		// setting the membership but fail setting the HasVote
-		// to false.
-		InitState(c, st, 4, ipVersion)
-		st.machine("10").SetHasVote(true)
-		st.machine("11").SetHasVote(true)
-		st.machine("12").SetHasVote(true)
-		st.machine("13").SetHasVote(false)
+func (s *workerSuite) dotestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion) {
+	c.Logf("\n\nTestSetsAndUpdatesMembers: %s", ipVersion.version)
+	st := NewFakeState()
+	InitState(c, st, 3, ipVersion)
+	memberWatcher := st.session.members.Watch()
+	mustNext(c, memberWatcher, "init")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
-		st.machine("10").setWantsVote(false)
-		st.machine("11").setWantsVote(true)
-		st.machine("12").setWantsVote(true)
-		st.machine("13").setWantsVote(true)
+	logger.Infof("starting worker")
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	defer workertest.CleanKill(c, w)
 
-		st.session.Set(mkMembers("0v 1v 2v 3", ipVersion))
-		st.session.setStatus(mkStatuses("0H 1p 2s 3s", ipVersion))
-
-		// Make the worker fail to set HasVote to false
-		// after changing the replica set membership.
-		st.errors.setErrorFor("Machine.SetHasVote * false", errors.New("frood"))
-
-		memberWatcher := st.session.members.Watch()
-		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
-
-		w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
-		defer workertest.DirtyKill(c, w)
-
-		// Wait for the worker to set the initial members.
-		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipVersion))
-
-		// The worker should encounter an error setting the
-		// has-vote status to false and exit.
-		err := workertest.CheckKilled(c, w)
-		c.Assert(err, gc.ErrorMatches, `cannot set HasVote removed: cannot set voting status of "[0-9]+" to false: frood`)
-
-		// Start the worker again - although the membership should
-		// not change, the HasVote status should be updated correctly.
-		st.errors.resetErrors()
-		w = s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
-		defer workertest.CleanKill(c, w)
-
-		// Watch all the machines for changes, so we can check
-		// their has-vote status without polling.
-		changed := make(chan struct{}, 1)
-		for i := 10; i < 14; i++ {
-			watcher := st.machine(fmt.Sprint(i)).val.Watch()
-			defer watcher.Close()
-			go func() {
-				for watcher.Next() {
-					select {
-					case changed <- struct{}{}:
-					default:
-					}
-				}
-			}()
+	// Due to the inherit complexity of the multiple goroutines running
+	// and listen do different watchers, there is no way to manually
+	// advance the testing clock in a controlled manner as the clock.After
+	// calls can be replaced in response to other watcher events. Hence
+	// using the standard testing clock wait / advance method does not
+	// work. So we use the real clock to advance the test clock for this
+	// test.
+	// Every 5ms we advance the testing clock by pollInterval (1min)
+	done := make(chan struct{})
+	clockAdvancerFinished := make(chan struct{})
+	defer func() {
+		close(done)
+		select {
+		case <-clockAdvancerFinished:
+			return
+		case <-time.After(coretesting.LongWait):
+			c.Error("advancing goroutine didn't finish")
 		}
-		timeout := time.After(coretesting.LongWait)
-	loop:
+	}()
+	go func() {
+		defer close(clockAdvancerFinished)
 		for {
 			select {
-			case <-changed:
-				correct := true
-				for i := 10; i < 14; i++ {
-					hasVote := st.machine(fmt.Sprint(i)).HasVote()
-					expectHasVote := i != 10
-					if hasVote != expectHasVote {
-						correct = false
-					}
-				}
-				if correct {
-					break loop
-				}
-			case <-timeout:
-				c.Fatalf("timed out waiting for vote to be set")
+			case <-time.After(5 * time.Millisecond):
+				s.clock.Advance(pollInterval)
+			case <-done:
+				return
 			}
 		}
-	})
+	}()
+
+	// Wait for the worker to set the initial members.
+	mustNext(c, memberWatcher, "initial members")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", ipVersion))
+
+	// Update the status of the new members
+	// and check that they become voting.
+	c.Logf("\nupdating new member status")
+	st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
+	mustNext(c, memberWatcher, "new member status")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", ipVersion))
+
+	c.Logf("\nadding another machine")
+	m13 := st.addMachine("13", false)
+	m13.setAddresses(network.NewAddress(fmt.Sprintf(ipVersion.formatHost, 13)))
+	st.setControllers("10", "11", "12", "13")
+
+	mustNext(c, memberWatcher, "waiting for new member to be added")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
+
+	// Remove vote from an existing member; and give it to the new
+	// machine. Also set the status of the new machine to healthy.
+	c.Logf("\nremoving vote from machine 10 and adding it to machine 13")
+	st.machine("10").setWantsVote(false)
+	st.machine("13").setWantsVote(true)
+
+	st.session.setStatus(mkStatuses("0p 1s 2s 3s", ipVersion))
+
+	// Check that the new machine gets the vote and the
+	// old machine loses it.
+	mustNext(c, memberWatcher, "waiting for vote switch")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipVersion))
+
+	c.Logf("\nremoving old machine")
+	// Remove the old machine.
+	st.removeMachine("10")
+	st.setControllers("11", "12", "13")
+
+	// Check that it's removed from the members.
+	mustNext(c, memberWatcher, "waiting for removal")
+	assertMembers(c, memberWatcher.Value(), mkMembers("1v 2v 3v", ipVersion))
+}
+
+func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFailsIPv4(c *gc.C) {
+	s.dotestHasVoteMaintainsEvenWhenReplicaSetFails(c, testIPv4)
+}
+
+func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFailsIPv6(c *gc.C) {
+	s.dotestHasVoteMaintainsEvenWhenReplicaSetFails(c, testIPv6)
+}
+
+func (s *workerSuite) dotestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipVersion TestIPVersion) {
+	st := NewFakeState()
+
+	// Simulate a state where we have four controllers,
+	// one has gone down, and we're replacing it:
+	// 0 - hasvote true, wantsvote false, down
+	// 1 - hasvote true, wantsvote true
+	// 2 - hasvote true, wantsvote true
+	// 3 - hasvote false, wantsvote true
+	//
+	// When it starts, the worker should move the vote from
+	// 0 to 3. We'll arrange things so that it will succeed in
+	// setting the membership but fail setting the HasVote
+	// to false.
+	InitState(c, st, 4, ipVersion)
+	st.machine("10").SetHasVote(true)
+	st.machine("11").SetHasVote(true)
+	st.machine("12").SetHasVote(true)
+	st.machine("13").SetHasVote(false)
+
+	st.machine("10").setWantsVote(false)
+	st.machine("11").setWantsVote(true)
+	st.machine("12").setWantsVote(true)
+	st.machine("13").setWantsVote(true)
+
+	st.session.Set(mkMembers("0v 1v 2v 3", ipVersion))
+	st.session.setStatus(mkStatuses("0H 1p 2s 3s", ipVersion))
+
+	// Make the worker fail to set HasVote to false
+	// after changing the replica set membership.
+	st.errors.setErrorFor("Machine.SetHasVote * false", errors.New("frood"))
+
+	memberWatcher := st.session.members.Watch()
+	mustNext(c, memberWatcher, "waiting for SetHasVote failure")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
+
+
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	defer workertest.DirtyKill(c, w)
+
+	// Wait for the worker to set the initial members.
+	mustNext(c, memberWatcher, "initial members")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipVersion))
+
+	// The worker should encounter an error setting the
+	// has-vote status to false and exit.
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, gc.ErrorMatches, `cannot set HasVote removed: cannot set voting status of "[0-9]+" to false: frood`)
+
+	// Start the worker again - although the membership should
+	// not change, the HasVote status should be updated correctly.
+	st.errors.resetErrors()
+	w = s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	defer workertest.CleanKill(c, w)
+
+	// Watch all the machines for changes, so we can check
+	// their has-vote status without polling.
+	changed := make(chan struct{}, 1)
+	for i := 10; i < 14; i++ {
+		watcher := st.machine(fmt.Sprint(i)).val.Watch()
+		defer watcher.Close()
+		go func() {
+			for watcher.Next() {
+				select {
+				case changed <- struct{}{}:
+				default:
+				}
+			}
+		}()
+	}
+	timeout := time.After(coretesting.LongWait)
+loop:
+	for {
+		select {
+		case <-changed:
+			correct := true
+			for i := 10; i < 14; i++ {
+				hasVote := st.machine(fmt.Sprint(i)).HasVote()
+				expectHasVote := i != 10
+				if hasVote != expectHasVote {
+					correct = false
+				}
+			}
+			if correct {
+				break loop
+			}
+		case <-timeout:
+			c.Fatalf("timed out waiting for vote to be set")
+		}
+	}
 }
 
 func (s *workerSuite) TestAddressChange(c *gc.C) {
@@ -278,7 +314,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 		InitState(c, st, 3, ipVersion)
 
 		memberWatcher := st.session.members.Watch()
-		mustNext(c, memberWatcher)
+		mustNext(c, memberWatcher, "init")
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
@@ -286,14 +322,14 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 		defer workertest.CleanKill(c, w)
 
 		// Wait for the worker to set the initial members.
-		mustNext(c, memberWatcher)
+		mustNext(c, memberWatcher, "initial members")
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", ipVersion))
 
 		// Change an address and wait for it to be changed in the
 		// members.
 		st.machine("11").setAddresses(network.NewAddress(ipVersion.extraHost))
 
-		mustNext(c, memberWatcher)
+		mustNext(c, memberWatcher, "waiting for new address")
 		expectMembers := mkMembers("0v 1 2", ipVersion)
 		expectMembers[1].Address = net.JoinHostPort(ipVersion.extraHost, fmt.Sprint(mongoPort))
 		assertMembers(c, memberWatcher.Value(), expectMembers)
@@ -697,21 +733,21 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 }
 
 // mustNext waits for w's value to be set and returns it.
-func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}) {
+func mustNext(c *gc.C, w *voyeur.Watcher, context string) (val interface{}) {
 	type voyeurResult struct {
 		ok  bool
 		val interface{}
 	}
 	done := make(chan voyeurResult)
 	go func() {
-		c.Logf("mustNext %p", w)
+		c.Logf("mustNext %v", context)
 		ok := w.Next()
 		val = w.Value()
 		if ok {
 			members := val.([]replicaset.Member)
 			val = "\n" + prettyReplicaSetMembers(members)
 		}
-		c.Logf("mustNext done %p, ok: %v, val: %v", w, ok, val)
+		c.Logf("mustNext %v done, ok: %v, val: %v", context, ok, val)
 		done <- voyeurResult{ok, val}
 	}()
 	select {
@@ -719,7 +755,7 @@ func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}) {
 		c.Assert(result.ok, jc.IsTrue)
 		return result.val
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for value to be set")
+		c.Fatalf("timed out waiting for value to be set %v", context)
 	}
 	panic("unreachable")
 }
