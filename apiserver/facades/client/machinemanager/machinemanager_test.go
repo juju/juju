@@ -346,8 +346,8 @@ func (st *mockState) Model() (machinemanager.Model, error) {
 	return &mockModel{}, nil
 }
 
-func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
-	return cloud.Credential{}, nil
+func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
+	return state.Credential{}, nil
 }
 
 func (st *mockState) Cloud(string) (cloud.Cloud, error) {

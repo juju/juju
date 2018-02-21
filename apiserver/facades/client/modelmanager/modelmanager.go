@@ -395,7 +395,13 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		if err != nil {
 			return result, errors.Annotate(err, "getting credential")
 		}
-		credential = &credentialValue
+		cloudCredential := jujucloud.NewNamedCredential(
+			credentialValue.Name,
+			jujucloud.AuthType(credentialValue.AuthType),
+			credentialValue.Attributes,
+			credentialValue.Revoked,
+		)
+		credential = &cloudCredential
 	}
 
 	cloudSpec, err := environs.MakeCloudSpec(cloud, cloudRegionName, credential)

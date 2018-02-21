@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/state"
 )
 
 type instanceTypesSuite struct{}
@@ -90,8 +91,8 @@ func (*mockBackend) ModelConfig() (*config.Config, error) {
 	return nil, nil
 }
 
-func (b *mockBackend) CloudCredential(tag names.CloudCredentialTag) (jujucloud.Credential, error) {
-	return jujucloud.Credential{}, nil
+func (b *mockBackend) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
+	return state.Credential{}, nil
 }
 
 type mockEnviron struct {

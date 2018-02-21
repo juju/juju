@@ -15,6 +15,8 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	_ "github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type cloudSuite struct {
@@ -40,9 +42,9 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 		},
-		creds: map[string]cloud.Credential{
-			names.NewCloudCredentialTag("meep/bruce/one").Id(): cloud.NewEmptyCredential(),
-			names.NewCloudCredentialTag("meep/bruce/two").Id(): cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		creds: map[string]state.Credential{
+			names.NewCloudCredentialTag("meep/bruce/one").Id(): statetesting.NewEmptyCredential(),
+			names.NewCloudCredentialTag("meep/bruce/two").Id(): statetesting.CloudCredential(cloud.UserPassAuthType, map[string]string{
 				"username": "admin",
 				"password": "adm1n",
 			}),
@@ -331,7 +333,7 @@ func (s *cloudSuite) TestAddCredentialInV2(c *gc.C) {
 type mockBackend struct {
 	gitjujutesting.Stub
 	cloud cloud.Cloud
-	creds map[string]cloud.Credential
+	creds map[string]state.Credential
 }
 
 func (st *mockBackend) ControllerTag() names.ControllerTag {
@@ -358,7 +360,7 @@ func (st *mockBackend) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	}, st.NextErr()
 }
 
-func (st *mockBackend) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
+func (st *mockBackend) CloudCredentials(user names.UserTag, cloudName string) (map[string]state.Credential, error) {
 	st.MethodCall(st, "CloudCredentials", user, cloudName)
 	return st.creds, st.NextErr()
 }

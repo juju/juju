@@ -357,10 +357,10 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 			continue
 		}
 
-		attrs := cred.Attributes()
+		attrs := cred.Attributes
 		var redacted []string
 		// Mask out the secrets.
-		if s, ok := schemas[cred.AuthType()]; ok {
+		if s, ok := schemas[cloud.AuthType(cred.AuthType)]; ok {
 			for _, attr := range s {
 				if attr.Hidden {
 					delete(attrs, attr.Name)
@@ -369,7 +369,7 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 			}
 		}
 		results.Results[i].Result = &params.CloudCredential{
-			AuthType:   string(cred.AuthType()),
+			AuthType:   cred.AuthType,
 			Attributes: attrs,
 			Redacted:   redacted,
 		}

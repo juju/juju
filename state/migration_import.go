@@ -111,11 +111,11 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 			return nil, nil, errors.Trace(err)
 		} else {
 			// ensure existing creds match
-			if string(existingCreds.AuthType()) != creds.AuthType() {
-				return nil, nil, errors.Errorf("credential auth type mismatch: %q != %q", existingCreds.AuthType(), creds.AuthType())
+			if existingCreds.AuthType != creds.AuthType() {
+				return nil, nil, errors.Errorf("credential auth type mismatch: %q != %q", existingCreds.AuthType, creds.AuthType())
 			}
-			if !reflect.DeepEqual(existingCreds.Attributes(), creds.Attributes()) {
-				return nil, nil, errors.Errorf("credential attribute mismatch: %v != %v", existingCreds.Attributes(), creds.Attributes())
+			if !reflect.DeepEqual(existingCreds.Attributes, creds.Attributes()) {
+				return nil, nil, errors.Errorf("credential attribute mismatch: %v != %v", existingCreds.Attributes, creds.Attributes())
 			}
 			if existingCreds.Revoked {
 				return nil, nil, errors.Errorf("credential %q is revoked", credID)

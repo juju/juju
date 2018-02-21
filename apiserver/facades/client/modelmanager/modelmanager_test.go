@@ -33,6 +33,7 @@ import (
 	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -148,7 +149,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 						Value: "spam"}}},
 			},
 		},
-		cred: cloud.NewEmptyCredential(),
+		cred: statetesting.NewEmptyCredential(),
 		cfgDefaults: config.ModelDefaultAttributes{
 			"attr": config.AttributeDefaultValues{
 				Default:    "",
@@ -168,7 +169,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.ctlrSt = &mockState{
 		model:           controllerModel,
 		controllerModel: controllerModel,
-		cred:            cloud.NewEmptyCredential(),
+		cred:            statetesting.NewEmptyCredential(),
 		cloud:           dummyCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
 			names.NewCloudTag("some-cloud"): dummyCloud,
@@ -198,7 +199,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				access:   permission.AdminAccess,
 			}},
 		},
-		cred:        cloud.NewEmptyCredential(),
+		cred:        statetesting.NewEmptyCredential(),
 		modelConfig: coretesting.ModelConfig(c),
 	}
 
