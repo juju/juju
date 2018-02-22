@@ -118,6 +118,10 @@ type ApplicationStatus struct {
 	MeterStatuses   map[string]MeterStatus `json:"meter-statuses"`
 	Status          DetailedStatus         `json:"status"`
 	WorkloadVersion string                 `json:"workload-version"`
+
+	// The following are for CAAS models.
+	ProviderId    string `json:"provider-id,omitempty"`
+	PublicAddress string `json:"public-address"`
 }
 
 // RemoteApplicationStatus holds status info about a remote application.
@@ -165,7 +169,6 @@ type UnitStatus struct {
 	Leader        bool                  `json:"leader,omitempty"`
 
 	// The following are for CAAS models.
-
 	ProviderId string `json:"provider-id,omitempty"`
 	Address    string `json:"address,omitempty"`
 }

@@ -965,6 +965,15 @@ func (context *statusContext) processApplication(application *state.Application)
 			}
 			processedStatus.WorkloadVersion = fmt.Sprintf("%v", spec.ImageName)
 		}
+		serviceInfo, err := application.ServiceInfo()
+		if err == nil {
+			processedStatus.ProviderId = serviceInfo.ProviderId()
+			if len(serviceInfo.Addresses()) > 0 {
+				processedStatus.PublicAddress = serviceInfo.Addresses()[0].Value
+			}
+		} else {
+			logger.Debugf("no service details for %v: %v", application.Name(), err)
+		}
 	}
 
 	return processedStatus
@@ -1069,14 +1078,24 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, applica
 
 func (context *statusContext) processUnit(unit *state.Unit, applicationCharm string) params.UnitStatus {
 	var result params.UnitStatus
-	addr, err := unit.PublicAddress()
-	if err != nil {
-		// Usually this indicates that no addresses have been set on the
-		// machine yet.
-		addr = network.Address{}
-		logger.Debugf("error fetching public address: %v", err)
+	if unit.ShouldBeAssigned() {
+		addr, err := unit.PublicAddress()
+		if err != nil {
+			// Usually this indicates that no addresses have been set on the
+			// machine yet.
+			addr = network.Address{}
+			logger.Debugf("error fetching public address: %v", err)
+		}
+		result.PublicAddress = addr.Value
+	} else {
+		// For CAAS units we want to provide the container address.
+		container, err := unit.ContainerInfo()
+		if err == nil {
+			result.Address = container.Address()
+		} else {
+			logger.Debugf("error fetching container address: %v", err)
+		}
 	}
-	result.PublicAddress = addr.Value
 	unitPorts, _ := unit.OpenedPorts()
 	for _, port := range unitPorts {
 		result.OpenedPorts = append(result.OpenedPorts, port.String())

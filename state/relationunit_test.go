@@ -1045,14 +1045,10 @@ func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(ingress, gc.HasLen, 0)
 	c.Assert(egress, gc.HasLen, 0)
 
-	// Add a container address.
-	unitUpdate := state.UpdateUnitsOperation{
-		Updates: []*state.UpdateUnitOperation{
-			prr.pu0.UpdateOperation(state.UnitUpdateProperties{
-				ProviderId: strPtr("id"),
-				Address:    strPtr("1.2.3.4")})},
-	}
-	err = mysql.UpdateUnits(&unitUpdate)
+	// Add a service address.
+	err = mysql.UpdateCloudService("", []network.Address{
+		{Value: "1.2.3.4", Scope: network.ScopeCloudLocal},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)

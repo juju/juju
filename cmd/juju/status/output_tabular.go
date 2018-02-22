@@ -107,7 +107,11 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	units := make(map[string]unitStatus)
-	outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
+	if fs.Model.Type == caasModelType {
+		outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Address", "Notes")
+	} else {
+		outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
+	}
 	tw.SetColumnAlignRight(3)
 	tw.SetColumnAlignRight(6)
 	for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
@@ -137,12 +141,14 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		} else {
 			w.Print(scale)
 		}
-		p(app.CharmName,
+		w.Print(app.CharmName,
 			app.CharmOrigin,
 			app.CharmRev,
-			app.OS,
-			notes)
-
+			app.OS)
+		if fs.Model.Type == caasModelType {
+			w.Print(app.Address)
+		}
+		p(notes)
 		for un, u := range app.Units {
 			units[un] = u
 			if u.MeterStatus != nil {

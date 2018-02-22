@@ -4181,6 +4181,7 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 		},
 		Applications: map[string]applicationStatus{
 			"foo": {
+				Address: "54.32.1.2",
 				Units: map[string]unitStatus{
 					"foo/0": {
 						JujuStatusInfo: statusInfoContents{
@@ -4211,8 +4212,8 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
-foo                     1/2                  0      
+App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Notes
+foo                     1/2                  0      54.32.1.2  
 
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  active    allocating                    
