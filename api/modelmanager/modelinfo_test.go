@@ -61,6 +61,18 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.assertExpectedModelInfo(c, results)
 }
 
+func (s *modelInfoSuite) TestModelInfoOldController(c *gc.C) {
+	results := params.ModelInfoResults{
+		Results: []params.ModelInfoResult{{
+			Result: &params.ModelInfo{Name: "name", UUID: "etc."},
+		}, {
+			Error: &params.Error{Message: "woop"},
+		}},
+	}
+	s.assertExpectedModelInfo(c, results)
+	c.Assert(results.Results[0].Result.Type, gc.Equals, "iaas")
+}
+
 func (s *modelInfoSuite) TestModelInfoWithAgentVersion(c *gc.C) {
 	results := params.ModelInfoResults{
 		Results: []params.ModelInfoResult{{

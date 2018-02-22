@@ -292,6 +292,14 @@ func (c *Client) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, err
 	if len(results.Results) != len(tags) {
 		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
 	}
+	for i := range results.Results {
+		if results.Results[i].Error != nil {
+			continue
+		}
+		if results.Results[i].Result.Type == "" {
+			results.Results[i].Result.Type = model.IAAS.String()
+		}
+	}
 	return results.Results, nil
 }
 
