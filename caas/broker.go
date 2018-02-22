@@ -6,6 +6,7 @@ package caas
 import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -21,6 +22,9 @@ type Broker interface {
 
 	// EnsureService creates or updates a service for pods with the given spec.
 	EnsureService(appName string, spec *ContainerSpec, numUnits int, config application.ConfigAttributes) error
+
+	// Service returns the service for the specified application.
+	Service(appName string) (*Service, error)
 
 	// DeleteService deletes the specified service.
 	DeleteService(appName string) error
@@ -43,6 +47,12 @@ type Broker interface {
 
 	// Units returns all units of the specified application.
 	Units(appName string) ([]Unit, error)
+}
+
+// Service represents information about the status of a caas service entity.
+type Service struct {
+	Id        string
+	Addresses []network.Address
 }
 
 // Unit represents information about the status of a "pod".

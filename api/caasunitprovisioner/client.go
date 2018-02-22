@@ -200,3 +200,18 @@ func (c *Client) UpdateUnits(arg params.UpdateApplicationUnits) error {
 	}
 	return result.OneError()
 }
+
+// UpdateApplicationService updates the state model to reflect the state of the application's
+// service as reported by the cloud.
+func (c *Client) UpdateApplicationService(arg params.UpdateApplicationServiceArg) error {
+	var result params.ErrorResults
+	args := params.UpdateApplicationServiceArgs{Args: []params.UpdateApplicationServiceArg{arg}}
+	err := c.facade.FacadeCall("UpdateApplicationsService", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(result.Results) != len(args.Args) {
+		return errors.Errorf("expected %d result(s), got %d", len(args.Args), len(result.Results))
+	}
+	return result.OneError()
+}

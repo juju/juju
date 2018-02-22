@@ -1989,6 +1989,26 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitProviderId(c *gc.C) {
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 }
 
+func (s *CAASUnitSuite) TestAddCAASUnitProviderId(c *gc.C) {
+	existingUnit, err := s.application.AddUnit(state.AddUnitParams{
+		Address: strPtr("192.168.1.1"),
+		Ports:   &[]string{"80"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	var updateUnits state.UpdateUnitsOperation
+	updateUnits.Updates = []*state.UpdateUnitOperation{
+		existingUnit.UpdateOperation(state.UnitUpdateProperties{
+			ProviderId: strPtr("another-uuid"),
+		})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	info, err := existingUnit.ContainerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.ProviderId(), gc.Equals, "another-uuid")
+	c.Assert(info.Address(), gc.Equals, "192.168.1.1")
+	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
+}
+
 func (s *CAASUnitSuite) TestUpdateCAASUnitAddress(c *gc.C) {
 	existingUnit, err := s.application.AddUnit(state.AddUnitParams{
 		ProviderId: strPtr("unit-uuid"),

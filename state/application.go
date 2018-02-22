@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
 )
@@ -357,6 +358,7 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 	// so it's safe to do this additonal cleanup.
 	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)
 
+	ops = append(ops, a.removeCloudServiceOps()...)
 	globalKey := a.globalKey()
 	ops = append(ops,
 		removeEndpointBindingsOp(globalKey),
@@ -2476,4 +2478,28 @@ func (a *Application) SetAgentPresence() (*presence.Pinger, error) {
 	// Make sure this Agent status is written to the database before returning.
 	recorder.Sync()
 	return p, nil
+}
+
+// UpdateCloudService updates the cloud service details for the application.
+func (a *Application) UpdateCloudService(providerId string, addreses []network.Address) error {
+	doc := cloudServiceDoc{
+		Id:         a.globalKey(),
+		ProviderId: providerId,
+		Addresses:  fromNetworkAddresses(addreses, OriginProvider),
+	}
+	ops, err := a.saveServiceOps(doc)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return a.st.db().RunTransaction(ops)
+}
+
+// ServiceInfo returns information about this application's cloud service.
+// This is only used for CAAS models.
+func (a *Application) ServiceInfo() (CloudService, error) {
+	doc, err := a.cloudService()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &cloudService{*doc}, nil
 }

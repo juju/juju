@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
@@ -106,6 +107,46 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		return k.ensurePod(pod)
 	}
 	return nil
+}
+
+// Service returns the service for the specified application.
+func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
+	services := k.CoreV1().Services(namespace)
+	servicesList, err := services.List(v1.ListOptions{
+		LabelSelector: applicationSelector(appName),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(servicesList.Items) == 0 {
+		return nil, errors.NotFoundf("service for %q", appName)
+	}
+	service := servicesList.Items[0]
+	result := caas.Service{
+		Id: string(service.UID),
+	}
+	if service.Spec.ClusterIP != "" {
+		result.Addresses = append(result.Addresses, network.Address{
+			Value: service.Spec.ClusterIP,
+			Type:  network.DeriveAddressType(service.Spec.ClusterIP),
+			Scope: network.ScopeCloudLocal,
+		})
+	}
+	if service.Spec.LoadBalancerIP != "" {
+		result.Addresses = append(result.Addresses, network.Address{
+			Value: service.Spec.LoadBalancerIP,
+			Type:  network.DeriveAddressType(service.Spec.LoadBalancerIP),
+			Scope: network.ScopePublic,
+		})
+	}
+	for _, addr := range service.Spec.ExternalIPs {
+		result.Addresses = append(result.Addresses, network.Address{
+			Value: addr,
+			Type:  network.DeriveAddressType(addr),
+			Scope: network.ScopePublic,
+		})
+	}
+	return &result, nil
 }
 
 // DeleteService deletes the specified service.

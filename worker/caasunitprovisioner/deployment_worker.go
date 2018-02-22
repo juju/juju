@@ -5,8 +5,10 @@ package caasunitprovisioner
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
@@ -20,6 +22,7 @@ type deploymentWorker struct {
 	brokerManagedUnits  bool
 	broker              ServiceBroker
 	applicationGetter   ApplicationGetter
+	applicationUpdater  ApplicationUpdater
 	containerSpecGetter ContainerSpecGetter
 
 	aliveUnitsChan <-chan []string
@@ -31,6 +34,7 @@ func newDeploymentWorker(
 	broker ServiceBroker,
 	containerSpecGetter ContainerSpecGetter,
 	applicationGetter ApplicationGetter,
+	applicationUpdater ApplicationUpdater,
 	aliveUnitsChan <-chan []string,
 ) (worker.Worker, error) {
 	w := &deploymentWorker{
@@ -39,6 +43,7 @@ func newDeploymentWorker(
 		broker:              broker,
 		containerSpecGetter: containerSpecGetter,
 		applicationGetter:   applicationGetter,
+		applicationUpdater:  applicationUpdater,
 		aliveUnitsChan:      aliveUnitsChan,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -72,6 +77,7 @@ func (w *deploymentWorker) loop() error {
 	)
 
 	gotSpecNotify := false
+	serviceUpdated := false
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -151,6 +157,22 @@ func (w *deploymentWorker) loop() error {
 			logger.Debugf("created/updated deployment for %s for %d units", w.application, numUnits)
 		} else {
 			logger.Debugf("created/updated service for %s", w.application)
+		}
+		if !serviceUpdated {
+			// TODO(caas) - add a service watcher
+			service, err := w.broker.Service(w.application)
+			if err != nil {
+				return errors.Annotate(err, "cannot get new service details")
+			}
+			err = w.applicationUpdater.UpdateApplicationService(params.UpdateApplicationServiceArg{
+				ApplicationTag: names.NewApplicationTag(w.application).String(),
+				ProviderId:     service.Id,
+				Addresses:      params.FromNetworkAddresses(service.Addresses...),
+			})
+			if err != nil {
+				return errors.Trace(err)
+			}
+			serviceUpdated = true
 		}
 	}
 }

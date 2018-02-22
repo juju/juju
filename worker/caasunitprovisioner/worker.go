@@ -20,8 +20,9 @@ type Config struct {
 	// required number of units are running, rather than Juju having to do it.
 	BrokerManagedUnits bool
 
-	ApplicationGetter ApplicationGetter
-	ServiceBroker     ServiceBroker
+	ApplicationGetter  ApplicationGetter
+	ApplicationUpdater ApplicationUpdater
+	ServiceBroker      ServiceBroker
 
 	ContainerBroker     ContainerBroker
 	ContainerSpecGetter ContainerSpecGetter
@@ -34,6 +35,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.ApplicationGetter == nil {
 		return errors.NotValidf("missing ApplicationGetter")
+	}
+	if config.ApplicationUpdater == nil {
+		return errors.NotValidf("missing ApplicationUpdater")
 	}
 	if config.ServiceBroker == nil {
 		return errors.NotValidf("missing ServiceBroker")
@@ -130,6 +134,7 @@ func (p *provisioner) loop() error {
 					p.config.ContainerSpecGetter,
 					p.config.LifeGetter,
 					p.config.ApplicationGetter,
+					p.config.ApplicationUpdater,
 					p.config.UnitGetter,
 					p.config.UnitUpdater,
 				)

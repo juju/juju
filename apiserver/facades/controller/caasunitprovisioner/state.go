@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 )
@@ -36,6 +37,7 @@ type Application interface {
 	AllUnits() (units []Unit, err error)
 	AddOperation(state.UnitUpdateProperties) *state.AddUnitOperation
 	UpdateUnits(*state.UpdateUnitsOperation) error
+	UpdateCloudService(providerId string, addreses []network.Address) error
 }
 
 type stateShim struct {

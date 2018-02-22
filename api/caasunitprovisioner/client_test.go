@@ -284,3 +284,52 @@ func (s *unitprovisionerSuite) TestUpdateUnitsCount(c *gc.C) {
 	})
 	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }
+
+func (s *unitprovisionerSuite) TestUpdateApplicationService(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		called = true
+		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "UpdateApplicationsService")
+		c.Assert(a, jc.DeepEquals, params.UpdateApplicationServiceArgs{
+			Args: []params.UpdateApplicationServiceArg{
+				{
+					ApplicationTag: "application-app",
+					ProviderId:     "id",
+					Addresses:      []params.Address{{Value: "10.0.0.1"}},
+				},
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		}
+		return nil
+	})
+	err := client.UpdateApplicationService(params.UpdateApplicationServiceArg{
+		ApplicationTag: names.NewApplicationTag("app").String(),
+		ProviderId:     "id",
+		Addresses:      []params.Address{{Value: "10.0.0.1"}},
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(called, jc.IsTrue)
+}
+
+func (s *unitprovisionerSuite) TestUpdateApplicationServiceCount(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{
+				{Error: &params.Error{Message: "FAIL"}},
+				{Error: &params.Error{Message: "FAIL"}},
+			},
+		}
+		return nil
+	})
+	err := client.UpdateApplicationService(params.UpdateApplicationServiceArg{
+		ApplicationTag: names.NewApplicationTag("app").String(),
+		ProviderId:     "id",
+		Addresses:      []params.Address{{Value: "10.0.0.1"}},
+	})
+	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
+}

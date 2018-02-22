@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
@@ -85,9 +86,11 @@ type mockApplication struct {
 	life         state.Life
 	unitsWatcher *statetesting.MockStringsWatcher
 
-	tag   names.Tag
-	units []caasunitprovisioner.Unit
-	ops   *state.UpdateUnitsOperation
+	tag        names.Tag
+	units      []caasunitprovisioner.Unit
+	ops        *state.UpdateUnitsOperation
+	providerId string
+	addresses  []network.Address
 }
 
 func (*mockApplication) Tag() names.Tag {
@@ -115,6 +118,12 @@ func (m *mockApplication) AllUnits() (units []caasunitprovisioner.Unit, err erro
 
 func (m *mockApplication) UpdateUnits(ops *state.UpdateUnitsOperation) error {
 	m.ops = ops
+	return nil
+}
+
+func (m *mockApplication) UpdateCloudService(providerId string, addreses []network.Address) error {
+	m.providerId = providerId
+	m.addresses = addreses
 	return nil
 }
 

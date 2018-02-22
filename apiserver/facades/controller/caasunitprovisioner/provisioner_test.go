@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
@@ -296,4 +297,21 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithTags(c *gc.C) {
 		ProviderId: strPtr(""),
 		UnitStatus: &status.StatusInfo{Status: status.Terminated, Message: "unit stopped by the cloud"},
 	})
+}
+
+func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {
+	results, err := s.facade.UpdateApplicationsService(params.UpdateApplicationServiceArgs{
+		Args: []params.UpdateApplicationServiceArg{
+			{ApplicationTag: "application-gitlab", ProviderId: "id", Addresses: []params.Address{{Value: "10.0.0.1"}}},
+			{ApplicationTag: "unit-gitlab-0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: `"unit-gitlab-0" is not a valid application tag`,
+	})
+	c.Assert(s.st.application.providerId, gc.Equals, "id")
+	c.Assert(s.st.application.addresses, jc.DeepEquals, []network.Address{{Value: "10.0.0.1"}})
 }

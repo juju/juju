@@ -474,3 +474,30 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 	}
 	return app.UpdateUnits(&unitUpdate)
 }
+
+// UpdateApplicationsService updates the Juju data model to reflect the given
+// service details of the specified application.
+func (a *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceArgs) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	if len(args.Args) == 0 {
+		return result, nil
+	}
+	for i, appUpdate := range args.Args {
+		appTag, err := names.ParseApplicationTag(appUpdate.ApplicationTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		app, err := a.state.Application(appTag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := app.UpdateCloudService(appUpdate.ProviderId, params.NetworkAddresses(appUpdate.Addresses...)); err != nil {
+			result.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return result, nil
+}
