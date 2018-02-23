@@ -19,7 +19,8 @@ func getDirPerm() os.FileMode {
 }
 
 var (
-	DirPerm = getDirPerm()
+	DirPerm        = getDirPerm()
+	MaybeReadTools = maybeReadTools
 )
 
 const (

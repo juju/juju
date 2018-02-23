@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -250,6 +251,33 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64", "1.2.4-quantal-amd64", "testagent"})
 	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"quantal", "amd64", agenttools.ToolsFile})
+}
+
+func (t *ToolsSuite) TestMaybeReadTools(c *gc.C) {
+	files := []*testing.TarFile{
+		testing.NewTarFile("jujud", agenttools.DirPerm, "jujuc executable"),
+	}
+	data, checksum := testing.TarGz(files...)
+	testTools := &coretest.Tools{
+		URL:     "http://foo/bar1",
+		Version: version.MustParseBinary("1.2.3-trusty-amd64"),
+		Size:    int64(len(data)),
+		SHA256:  checksum,
+	}
+	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
+	c.Assert(err, jc.ErrorIsNil)
+	t.PatchValue(&series.MustHostSeries, func() string { return "xenial" })
+	gotTools, err := agenttools.MaybeReadTools(t.dataDir, version.MustParseBinary("1.2.3-xenial-amd64"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*gotTools, gc.Equals, *testTools)
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-trusty-amd64", "1.2.3-xenial-amd64"})
+}
+
+func (t *ToolsSuite) TestMaybeReadToolsFail(c *gc.C) {
+	t.PatchValue(&series.MustHostSeries, func() string { return "xenial" })
+	gotTools, err := agenttools.MaybeReadTools(t.dataDir, version.MustParseBinary("1.2.3-trusty-amd64"))
+	c.Assert(err, gc.ErrorMatches, "agent binaries of current or other series.*")
+	c.Assert(gotTools, gc.IsNil)
 }
 
 func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {

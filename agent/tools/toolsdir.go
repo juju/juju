@@ -16,6 +16,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/fs"
+	utilsSeries "github.com/juju/utils/series"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
 
@@ -200,10 +202,11 @@ func ReadGUIArchive(dataDir string) (*coretools.GUIArchive, error) {
 // under dataDir so it points to the previously unpacked
 // version vers. It returns the new tools read.
 func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*coretools.Tools, error) {
-	tools, err := ReadTools(dataDir, vers)
+	tools, err := maybeReadTools(dataDir, vers)
 	if err != nil {
 		return nil, err
 	}
+
 	// build absolute path to toolsDir. Windows implementation of symlink
 	// will check for the existance of the source file and error if it does
 	// not exists. This is a limitation of junction points (symlinks) on NTFS
@@ -215,4 +218,38 @@ func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*c
 		return nil, fmt.Errorf("cannot replace tools directory: %s", err)
 	}
 	return tools, nil
+}
+
+// maybeReadTools will return tools based on the dataDir and current juju version.
+// If no agent is found based on the current host series, search for agent binaries
+// for different series and the same version/arch.
+//
+// TODO: (hml) 2018-02-22
+// Added for lp:bug1749201 - once agent binaries without the series in the name are
+// available, ReadTools() can move back to ChangeAgentTools()
+func maybeReadTools(dataDir string, currentVers version.Binary) (*coretools.Tools, error) {
+	tools, err := ReadTools(dataDir, currentVers)
+	if err == nil {
+		return tools, err
+	}
+	logger.Tracef("%s not found (%s)", SharedToolsDir(dataDir, currentVers), err)
+
+	hostOS := utilsSeries.MustOSFromSeries(utilsSeries.MustHostSeries())
+	potentialSeries := utilsSeries.OSSupportedSeries(hostOS)
+
+	potentialVers := currentVers
+	for _, series := range potentialSeries {
+		potentialVers.Series = series
+		_, err := ReadTools(dataDir, potentialVers)
+		if err == nil {
+			logger.Tracef("%s found", SharedToolsDir(dataDir, potentialVers))
+			err = fs.Copy(SharedToolsDir(dataDir, potentialVers), SharedToolsDir(dataDir, currentVers))
+			if err != nil {
+				return nil, err
+			}
+			return ReadTools(dataDir, potentialVers)
+		}
+	}
+
+	return nil, errors.Annotate(err, "agent binaries of current or other series")
 }

@@ -36,6 +36,7 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
@@ -890,6 +891,26 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	for _, link := range jujudSymlinks {
 		_, err := os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf(link))
+	}
+
+	s.waitStopped(c, state.JobManageModel, a, done)
+}
+
+func (s *MachineSuite) TestEnsureMachineAgentDir(c *gc.C) {
+	stm, _, _ := s.primeAgent(c, state.JobManageModel)
+	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
+	a := s.newAgent(c, stm)
+	defer a.Stop()
+	_, done := s.waitForOpenState(c, a)
+
+	for _, host := range []string{"trusty", series.MustHostSeries()} {
+		dir := agenttools.SharedToolsDir(s.DataDir(), version.Binary{
+			Number: jujuversion.Current,
+			Arch:   arch.HostArch(),
+			Series: host,
+		})
+		_, err := os.Stat(dir)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	s.waitStopped(c, state.JobManageModel, a, done)

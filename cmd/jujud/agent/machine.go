@@ -20,6 +20,7 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
 	utilscert "github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
@@ -486,6 +487,10 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	createEngine := a.makeEngineCreator(agentConfig.UpgradedToVersion())
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
+
+	if err := a.ensureMachineAgentDir(agentConfig.DataDir()); err != nil {
+		return err
+	}
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
 		return err
 	}
@@ -1646,6 +1651,16 @@ func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 		}
 	}
 	return nil
+}
+
+func (a *MachineAgent) ensureMachineAgentDir(dataDir string) error {
+	currentVersion := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.MustHostSeries(),
+	}
+	_, err := tools.ChangeAgentTools(dataDir, a.Tag().String(), currentVersion)
+	return err
 }
 
 func (a *MachineAgent) createSymlink(target, link string) error {
