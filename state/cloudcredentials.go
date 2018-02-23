@@ -286,6 +286,8 @@ func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
 	return credentials, nil
 }
 
+// CredentialOwnerModelAccess storescloud credntial model information for the credential owner
+// or an error retrieving it.
 type CredentialOwnerModelAccess struct {
 	ModelName   string
 	OwnerAccess permission.Access
@@ -312,9 +314,10 @@ func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([
 		results[i] = CredentialOwnerModelAccess{ModelName: model.Name}
 		ownerAccess, err := st.UserAccess(tag.Owner(), names.NewModelTag(model.UUID))
 		if err != nil {
-			if !errors.IsNotFound(err) {
-				results[i].Error = errors.Trace(err)
+			if errors.IsNotFound(err) {
+				results[i].OwnerAccess = permission.NoAccess
 			}
+			results[i].Error = errors.Trace(err)
 			continue
 		}
 		results[i].OwnerAccess = ownerAccess.Access

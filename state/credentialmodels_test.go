@@ -30,14 +30,14 @@ var _ = gc.Suite(&CredentialModelsSuite{})
 func (s *CredentialModelsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
-	// Cloud name is always "dummy" as deep within the testing infrastructure,
-	// we create a testing controller on a cloud "dummy".
-	// Test cloud "dummy" only allows credentials with an empty auth type.
 	s.credentialTag = s.createCloudCredential(c, "foobar")
 	s.addModel(c, "abcmodel", s.credentialTag)
 }
 
 func (s *CredentialModelsSuite) createCloudCredential(c *gc.C, credentialName string) names.CloudCredentialTag {
+	// Cloud name is always "dummy" as deep within the testing infrastructure,
+	// we create a testing controller on a cloud "dummy".
+	// Test cloud "dummy" only allows credentials with an empty auth type.
 	tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", "dummy", s.Owner.Id(), credentialName))
 	err := s.State.UpdateCloudCredential(tag, cloud.NewEmptyCredential())
 	c.Assert(err, jc.ErrorIsNil)
