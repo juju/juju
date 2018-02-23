@@ -84,3 +84,21 @@ func (s *machineTrackerSuite) TestSelectMongoAddressReturnsErrNoSpaceMultipleClo
 	c.Check(err, gc.ErrorMatches, `machine "3" has more than one non-local address and juju-ha-space is not set`)
 	c.Check(addr, gc.Equals, "")
 }
+
+func (s *machineTrackerSuite) TestSelectMongoAddressReturnsEmptyWhenNoAddressFound(c *gc.C) {
+	spaceName := network.SpaceName("")
+
+	m := &machineTracker{
+		id: "3",
+		addresses: []network.Address{
+			{
+				Value: "localhost",
+				Scope: network.ScopeMachineLocal,
+			},
+		},
+	}
+
+	addr, err := m.SelectMongoAddress(666, spaceName)
+	c.Assert(err, gc.IsNil)
+	c.Check(addr, gc.Equals, "")
+}
