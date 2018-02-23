@@ -208,10 +208,12 @@ func (api *BaseAPI) getOfferAdminDetails(backend Backend, app crossmodel.Applica
 			Since:  relStatus.Since,
 		}
 		relIngress, err := backend.IngressNetworks(oc.RelationKey())
-		if err != nil {
+		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
-		connDetails.IngressSubnets = relIngress.CIDRS()
+		if err == nil {
+			connDetails.IngressSubnets = relIngress.CIDRS()
+		}
 		offer.Connections = append(offer.Connections, connDetails)
 	}
 

@@ -200,7 +200,7 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	s.applicationOffers.CheckCallNames(c, addOffersBackendCall)
 }
 
-func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
+func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error, expectedCIDRS []string) {
 	s.setupOffers(c, "test", false)
 	s.mockState.users["mary"] = &mockUser{"mary"}
 	s.mockState.CreateOfferAccess(
@@ -253,7 +253,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 					Endpoint:       "db",
 					Username:       "fred",
 					Status:         params.EntityStatus{Status: "joined"},
-					IngressSubnets: []string{"192.168.1.0/32", "10.0.0.0/8"},
+					IngressSubnets: expectedCIDRS,
 				}},
 			},
 		},
@@ -273,11 +273,17 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error) {
 
 func (s *applicationOffersSuite) TestList(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
-	s.assertList(c, nil)
+	s.assertList(c, nil, []string{"192.168.1.0/32", "10.0.0.0/8"})
+}
+
+func (s *applicationOffersSuite) TestListNoRelationNetworks(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin")
+	s.mockState.relationNetworks = nil
+	s.assertList(c, nil, nil)
 }
 
 func (s *applicationOffersSuite) TestListPermission(c *gc.C) {
-	s.assertList(c, common.ErrPerm)
+	s.assertList(c, common.ErrPerm, nil)
 }
 
 func (s *applicationOffersSuite) TestListError(c *gc.C) {

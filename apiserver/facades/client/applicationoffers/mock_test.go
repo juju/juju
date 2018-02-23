@@ -332,6 +332,7 @@ type mockState struct {
 	relations         map[string]crossmodel.Relation
 	connections       []applicationoffers.OfferConnection
 	accessPerms       map[offerAccess]permission.Access
+	relationNetworks  state.RelationNetworks
 }
 
 func (m *mockState) GetAddressAndCertGetter() common.AddressAndCertGetter {
@@ -431,7 +432,10 @@ func (m *mockRelationNetworks) CIDRS() []string {
 }
 
 func (m *mockState) IngressNetworks(relationKey string) (state.RelationNetworks, error) {
-	return &mockRelationNetworks{}, nil
+	if m.relationNetworks == nil {
+		return nil, errors.NotFoundf("ingress networks")
+	}
+	return m.relationNetworks, nil
 }
 
 func (m *mockState) GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error) {
