@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -84,21 +83,40 @@ func (m *machineTracker) Addresses() []network.Address {
 	return out
 }
 
-// SelectMongoHostPort returns the best hostport for the machine for
-// MongoDB use, perhaps using the space provided.
-func (m *machineTracker) SelectMongoHostPort(port int, space network.SpaceName) string {
+// SelectMongoAddress returns the best address on the machine for
+// MongoDB peer use, using the input space if non-empty.
+// If no space is provided, and there is more than one non-machine-local
+// address on the machine, then an error is returned.
+// We require an HA space configuration to be set in this case.
+func (m *machineTracker) SelectMongoAddress(port int, space network.SpaceName) (string, error) {
 	m.mu.Lock()
 	hostPorts := network.AddressesWithPort(m.addresses, port)
 	m.mu.Unlock()
 
 	if space != "" {
-		addr := mongo.SelectPeerHostPortBySpace(hostPorts, space)
-		logger.Debugf("machine %q selected address %q by space %q from %v", m.id, addr, space, hostPorts)
-		return addr
+		addrs, ok := network.SelectHostPortsBySpaceNames(hostPorts, space)
+		if ok {
+			addr := addrs[0].NetAddr()
+			logger.Debugf("machine %q selected address %q by space %q from %v", m.id, addr, space, hostPorts)
+			return addr, nil
+		}
+		// If we end up here, then there are no addresses available in the
+		// specified space. This should not happen, because the configured
+		// space is used as a constraint when first enabling HA.
+		logger.Debugf("Failed to select hostPort by space - trying by scope from %+v", hostPorts)
 	}
-	addr := mongo.SelectPeerHostPort(hostPorts)
+
+	// Fall back to selecting an address that is *NOT* ScopeLocalMachine.
+	addrs := network.SelectInternalHostPorts(hostPorts, false)
+	if len(addrs) == 0 {
+		return "", nil
+	} else if len(addrs) > 1 {
+		return "", fmt.Errorf("machine %q has more than one non-local address and juju-ha-space is not set", m.id)
+	}
+
+	addr := addrs[0]
 	logger.Debugf("machine %q selected address %q by scope from %v", m.id, addr, hostPorts)
-	return addr
+	return addr, nil
 }
 
 func (m *machineTracker) String() string {
