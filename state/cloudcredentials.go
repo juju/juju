@@ -15,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/permission"
 )
 
 // Credential contains information about the credential as stored on
@@ -283,4 +284,40 @@ func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
 		credentials[i] = Credential{doc}
 	}
 	return credentials, nil
+}
+
+type CredentialOwnerModelAccess struct {
+	ModelName   string
+	OwnerAccess permission.Access
+	Error       error
+}
+
+// CredentialModelsAndOwnerAccess returns all models that use given cloud credential as well as
+// what access the credential owner has on these models.
+func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]CredentialOwnerModelAccess, error) {
+	coll, cleanup := st.db().GetCollection(modelsC)
+	defer cleanup()
+
+	var docs []modelDoc
+	err := coll.Find(bson.D{{"cloud-credential", tag.Id()}}).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting models that use cloud credential %q", tag.Id())
+	}
+	if len(docs) == 0 {
+		return nil, errors.NotFoundf("models that use cloud credentials %q", tag.Id())
+	}
+
+	results := make([]CredentialOwnerModelAccess, len(docs))
+	for i, model := range docs {
+		results[i] = CredentialOwnerModelAccess{ModelName: model.Name}
+		ownerAccess, err := st.UserAccess(tag.Owner(), names.NewModelTag(model.UUID))
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				results[i].Error = errors.Trace(err)
+			}
+			continue
+		}
+		results[i].OwnerAccess = ownerAccess.Access
+	}
+	return results, nil
 }
