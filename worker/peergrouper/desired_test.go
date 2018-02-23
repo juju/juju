@@ -239,6 +239,73 @@ func (s *desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 	})
 }
 
+func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsErrorWhenVoterFound(c *gc.C) {
+	v := 1
+	has, err := checkExtraMembers([]replicaset.Member{{Votes: &v}})
+	c.Check(has, jc.IsFalse)
+	c.Check(err, gc.ErrorMatches, "voting non-machine member .+ found in peer group")
+}
+
+func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsTrueWhenCheckMade(c *gc.C) {
+	v := 0
+	has, err := checkExtraMembers([]replicaset.Member{{Votes: &v}})
+	c.Check(has, jc.IsTrue)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *desiredPeerGroupSuite) TestGetMongoAddressesReturnsCorrectAddressForEachMachine(c *gc.C) {
+	spaceName := network.SpaceName("ha-space")
+
+	m1 := &machineTracker{
+		addresses: []network.Address{
+			{
+				Value:     "192.168.5.5",
+				Scope:     network.ScopeCloudLocal,
+				SpaceName: spaceName,
+			},
+			{
+				Value: "localhost",
+				Scope: network.ScopeMachineLocal,
+			},
+		},
+	}
+	m2 := &machineTracker{
+		addresses: []network.Address{
+			{
+				Value: "192.168.5.6",
+				Scope: network.ScopeCloudLocal,
+			},
+			{
+				Value: "localhost",
+				Scope: network.ScopeMachineLocal,
+			},
+		},
+	}
+	m3 := &machineTracker{
+		addresses: []network.Address{
+			{
+				Value: "localhost",
+				Scope: network.ScopeMachineLocal,
+			},
+		},
+	}
+	info := &peerGroupInfo{
+		machineTrackers: map[string]*machineTracker{
+			"1": m1,
+			"2": m2,
+			"3": m3,
+		},
+		haSpace:   spaceName,
+		mongoPort: 666,
+	}
+
+	addrs, err := getMongoAddresses(info)
+	c.Assert(err, gc.IsNil)
+	c.Check(addrs[m1], gc.Equals, "192.168.5.5:666")
+	c.Check(addrs[m2], gc.Equals, "192.168.5.6:666")
+	c.Check(addrs[m3], gc.Equals, "")
+}
+
 func countVotes(members []replicaset.Member) int {
 	tot := 0
 	for _, m := range members {
