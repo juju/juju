@@ -337,18 +337,6 @@ func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, b
 	return internalAddress, ok
 }
 
-// SelectHostPortsByScope looks through the HostPorts supplied and tries to
-// find one that is cloud-local. If necessary, passing machineLocal=true will
-// allow it to accept machine local addresses as well as cloud-local addresses,
-// but this is generally not recommended. (Once you are in HA you need
-// addresses that can be reached from another machine.)
-func SelectHostPortsByScope(hostPorts []HostPort, machineLocal bool) []string {
-	// Fallback to using the legacy and error-prone approach using scope
-	// selection instead.
-	internalHP := SelectInternalHostPort(hostPorts, machineLocal)
-	return []string{internalHP}
-}
-
 // SelectPublicAddress picks one address from a slice that would be
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable addresses, then ok is false (and an empty address is
