@@ -57,6 +57,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		accessPerms:       make(map[offerAccess]permission.Access),
 		spaces:            make(map[string]applicationoffers.Space),
 		relations:         make(map[string]crossmodel.Relation),
+		relationNetworks:  &mockRelationNetworks{},
 	}
 	s.mockStatePool = &mockStatePool{map[string]applicationoffers.Backend{s.mockState.modelUUID: s.mockState}}
 }
