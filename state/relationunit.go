@@ -567,16 +567,18 @@ func NetworksForRelation(
 
 			}
 		} else {
-			addr, err := unit.PrivateAddress()
-			if err != nil && !network.IsNoAddressError(err) {
-				return "", nil, nil, errors.Trace(err)
-			}
-			if err == nil {
-				ingress = []string{addr.Value}
-			} else {
+			// Be be consistent with IAAS behaviour above, we'll return all
+			// addresses, including any container address.
+			addr, err := unit.AllAddresses()
+			if err != nil {
 				logger.Warningf(
-					"no container address for unit %q in relation %q",
+					"no service address for unit %q in relation %q",
 					unit.Name(), rel)
+			} else {
+				network.SortAddresses(addr)
+				for _, a := range addr {
+					ingress = append(ingress, a.Value)
+				}
 			}
 		}
 	}

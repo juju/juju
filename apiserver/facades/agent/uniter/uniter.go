@@ -1974,7 +1974,11 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		bindingsToIngressAddresses[endpoint.Name] = ingress
 	}
 
-	var networkInfos map[string]state.MachineNetworkInfoResult
+	var (
+		networkInfos            map[string]state.MachineNetworkInfoResult
+		defaultIngressAddresses []string
+	)
+
 	if unit.ShouldBeAssigned() {
 		machineID, err := unit.AssignedMachineId()
 		if err != nil {
@@ -1987,21 +1991,28 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		networkInfos = machine.GetNetworkInfoForSpaces(spaces)
 	} else {
 		// For CAAS units, we build up a minimal result struct
-		// based on the default space and unit private address,
-		// ie the address of the container.
-		addr, err := unit.PrivateAddress()
+		// based on the default space and unit public/private addresses,
+		// ie the addresses of the CAAS service.
+		addr, err := unit.AllAddresses()
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
+		network.SortAddresses(addr)
+
+		// We record the interface addresses as the machine local ones - these
+		// are used later as the binding addresses.
+		// For CAAS models, we need to default ingress addresses to all available
+		// addresses so record those in the default ingress address slice.
+		var interfaceAddr []network.InterfaceAddress
+		for _, a := range addr {
+			if a.Scope == network.ScopeMachineLocal {
+				interfaceAddr = append(interfaceAddr, network.InterfaceAddress{Address: a.Value})
+			}
+			defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
+		}
 		networkInfos = make(map[string]state.MachineNetworkInfoResult)
 		networkInfos[environs.DefaultSpaceName] = state.MachineNetworkInfoResult{
-			NetworkInfos: []network.NetworkInfo{
-				{
-					Addresses: []network.InterfaceAddress{{
-						Address: addr.Value,
-					}},
-				},
-			},
+			NetworkInfos: []network.NetworkInfo{{Addresses: interfaceAddr}},
 		}
 	}
 
@@ -2014,7 +2025,12 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		info.IngressAddresses = bindingsToIngressAddresses[binding]
 
 		// If there is no ingress address explicitly defined for a given binding,
-		// set the ingress addresses to the binding addresses.
+		// set the ingress addresses to either any defaults set above, or the binding addresses.
+		if len(info.IngressAddresses) == 0 {
+			for _, addr := range defaultIngressAddresses {
+				info.IngressAddresses = append(info.IngressAddresses, addr)
+			}
+		}
 		if len(info.IngressAddresses) == 0 {
 			for _, nwInfo := range info.Info {
 				for _, addr := range nwInfo.Addresses {
@@ -2022,6 +2038,14 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 				}
 			}
 		}
+
+		// If there is no egress subnet explicitly defined for a given binding,
+		// default to the first ingress address. This matches the behaviour when
+		// there's a relation in place.
+		if len(info.EgressSubnets) == 0 && len(info.IngressAddresses) > 0 {
+			info.EgressSubnets = network.FormatAsCIDR([]string{info.IngressAddresses[0]})
+		}
+
 		result.Results[binding] = info
 	}
 

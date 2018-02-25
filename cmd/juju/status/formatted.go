@@ -96,6 +96,8 @@ type applicationStatus struct {
 	CharmName     string                `json:"charm-name" yaml:"charm-name"`
 	CharmRev      int                   `json:"charm-rev" yaml:"charm-rev"`
 	CanUpgradeTo  string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
+	ProviderId    string                `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
+	Address       string                `json:"address,omitempty" yaml:"address,omitempty"`
 	Exposed       bool                  `json:"exposed" yaml:"exposed"`
 	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
 	StatusInfo    statusInfoContents    `json:"application-status,omitempty" yaml:"application-status"`

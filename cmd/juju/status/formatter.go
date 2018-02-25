@@ -200,6 +200,8 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		CharmRev:      charmRev,
 		Exposed:       application.Exposed,
 		Life:          application.Life,
+		ProviderId:    application.ProviderId,
+		Address:       application.PublicAddress,
 		Relations:     application.Relations,
 		CanUpgradeTo:  application.CanUpgradeTo,
 		SubordinateTo: application.SubordinateTo,

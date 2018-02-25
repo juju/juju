@@ -911,6 +911,9 @@ func (u *Unit) noAssignedMachineOp() txn.Op {
 
 // PublicAddress returns the public address of the unit.
 func (u *Unit) PublicAddress() (network.Address, error) {
+	if !u.ShouldBeAssigned() {
+		return u.scopedAddress("public")
+	}
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Tracef("%v", err)
@@ -922,7 +925,7 @@ func (u *Unit) PublicAddress() (network.Address, error) {
 // PrivateAddress returns the private address of the unit.
 func (u *Unit) PrivateAddress() (network.Address, error) {
 	if !u.ShouldBeAssigned() {
-		return u.containerAddress()
+		return u.scopedAddress("private")
 	}
 	m, err := u.machine()
 	if err != nil {
@@ -932,8 +935,52 @@ func (u *Unit) PrivateAddress() (network.Address, error) {
 	return m.PrivateAddress()
 }
 
-// containerAddress returns the address of the container (pod)
-// in which the unit workload is running.
+func (u *Unit) scopedAddress(scope string) (network.Address, error) {
+	addr, err := u.serviceAddress(scope)
+	if err == nil {
+		return addr, nil
+	}
+	if network.IsNoAddressError(err) {
+		return u.containerAddress()
+	}
+	return network.Address{}, errors.Trace(err)
+}
+
+// AllAddresses returns the public and private addresses
+// plus the container address of the unit (if known).
+// Only relevant for CAAS models - will return an empty
+// slice for IAAS models.
+func (u *Unit) AllAddresses() ([]network.Address, error) {
+	if u.ShouldBeAssigned() {
+		return nil, nil
+	}
+	// First the addresses of the service.
+	app, err := u.Application()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	serviceInfo, err := app.ServiceInfo()
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	addresses := serviceInfo.Addresses()
+
+	// Second the address of the container.
+	addr, err := u.containerAddress()
+	if network.IsNoAddressError(err) {
+		return addresses, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	addresses = append(addresses, addr)
+	return addresses, nil
+}
+
+// containerAddress returns the address of the pod's container.
 func (u *Unit) containerAddress() (network.Address, error) {
 	containerInfo, err := u.cloudContainer()
 	if errors.IsNotFound(err) {
@@ -951,6 +998,44 @@ func (u *Unit) containerAddress() (network.Address, error) {
 		Scope: network.ScopeMachineLocal,
 		Type:  network.DeriveAddressType(addr),
 	}, nil
+}
+
+// serviceAddress returns the address of the service
+// managing the pods in which the unit workload is running.
+func (u *Unit) serviceAddress(scope string) (network.Address, error) {
+	addresses, err := u.AllAddresses()
+	if err != nil {
+		return network.Address{}, errors.Trace(err)
+	}
+	if len(addresses) == 0 {
+		return network.Address{}, network.NoAddressError(scope)
+	}
+
+	getStrictPublicAddr := func(addresses []network.Address) (network.Address, bool) {
+		addr, ok := network.SelectPublicAddress(addresses)
+		ok = ok && addr.Scope == network.ScopePublic
+		return addr, ok
+	}
+
+	getInternalAddr := func(addresses []network.Address) (network.Address, bool) {
+		return network.SelectInternalAddress(addresses, false)
+	}
+
+	var addrMatch func([]network.Address) (network.Address, bool)
+	switch scope {
+	case "public":
+		addrMatch = getStrictPublicAddr
+	case "private":
+		addrMatch = getInternalAddr
+	default:
+		return network.Address{}, errors.NotValidf("address scope %q", scope)
+	}
+
+	addr, found := addrMatch(addresses)
+	if !found {
+		return network.Address{}, network.NoAddressError(scope)
+	}
+	return addr, nil
 }
 
 // AvailabilityZone returns the name of the availability zone into which

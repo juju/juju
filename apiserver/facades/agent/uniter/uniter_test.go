@@ -3761,7 +3761,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
-		EgressSubnets:    []string{},
+		EgressSubnets:    []string{"10.0.0.10/32"},
 		IngressAddresses: []string{"10.0.0.10", "10.0.0.11"},
 	}
 	// For the "admin-api" extra-binding we expect to see only interfaces from
@@ -3784,7 +3784,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
-		EgressSubnets:    []string{},
+		EgressSubnets:    []string{"8.8.8.10/32"},
 		IngressAddresses: []string{"8.8.8.10", "8.8.4.10", "8.8.4.11"},
 	}
 
@@ -3800,7 +3800,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 				},
 			},
 		},
-		EgressSubnets:    []string{},
+		EgressSubnets:    []string{"100.64.0.10/32"},
 		IngressAddresses: []string{"100.64.0.10"},
 	}
 
@@ -3869,7 +3869,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 				},
 			},
 		},
-		EgressSubnets:    []string{},
+		EgressSubnets:    []string{"192.168.1.20/32"},
 		IngressAddresses: []string{"192.168.1.20"},
 	}
 
@@ -4042,7 +4042,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 	c.Check(result, jc.DeepEquals, expectedResult)
 }
 
-func (s *uniterSuite) TestNetworkInfoCAASModel(c *gc.C) {
+func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	_, cm, wp, wpUnit := s.setupCAASModel(c)
 
 	st := cm.State()
@@ -4058,12 +4058,18 @@ func (s *uniterSuite) TestNetworkInfoCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var updateUnits state.UpdateUnitsOperation
-	addr := "192.168.1.2"
+	addr := "10.0.0.1"
 	updateUnits.Updates = []*state.UpdateUnitOperation{wpUnit.UpdateOperation(state.UnitUpdateProperties{
 		Address: &addr,
 		Ports:   &[]string{"443"},
 	})}
 	err = wp.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = wp.UpdateCloudService("", []network.Address{
+		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal},
+		{Value: "54.32.1.2", Scope: network.ScopePublic},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	relId := rel.Id()
@@ -4077,12 +4083,63 @@ func (s *uniterSuite) TestNetworkInfoCAASModel(c *gc.C) {
 		Info: []params.NetworkInfo{
 			{
 				Addresses: []params.InterfaceAddress{
-					{Address: "192.168.1.2"},
+					{Address: "10.0.0.1"},
 				},
 			},
 		},
-		EgressSubnets:    []string{"192.168.1.2/32"},
-		IngressAddresses: []string{"192.168.1.2"},
+		EgressSubnets:    []string{"54.32.1.2/32"},
+		IngressAddresses: []string{"54.32.1.2", "192.168.1.2", "10.0.0.1"},
+	}
+
+	uniterAPI, err := uniter.NewUniterAPI(
+		st,
+		s.resources,
+		s.authorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Results["db"], jc.DeepEquals, expectedResult)
+}
+
+func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
+	_, cm, wp, wpUnit := s.setupCAASModel(c)
+
+	st := cm.State()
+	f := factory.NewFactory(st)
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+
+	var updateUnits state.UpdateUnitsOperation
+	addr := "10.0.0.1"
+	updateUnits.Updates = []*state.UpdateUnitOperation{wpUnit.UpdateOperation(state.UnitUpdateProperties{
+		Address: &addr,
+		Ports:   &[]string{"443"},
+	})}
+	err := wp.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = wp.UpdateCloudService("", []network.Address{
+		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal},
+		{Value: "54.32.1.2", Scope: network.ScopePublic},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.NetworkInfoParams{
+		Unit:     wpUnit.Tag().String(),
+		Bindings: []string{"db"},
+	}
+
+	expectedResult := params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				Addresses: []params.InterfaceAddress{
+					{Address: "10.0.0.1"},
+				},
+			},
+		},
+		EgressSubnets:    []string{"54.32.1.2/32"},
+		IngressAddresses: []string{"54.32.1.2", "192.168.1.2", "10.0.0.1"},
 	}
 
 	uniterAPI, err := uniter.NewUniterAPI(

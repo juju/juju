@@ -218,6 +218,13 @@ func (s *UnitSuite) TestPublicAddressSubordinate(c *gc.C) {
 	c.Assert(address.Value, gc.Equals, "public.address.example.com")
 }
 
+func (s *UnitSuite) TestAllAddresses(c *gc.C) {
+	// Only used for CAAS units.
+	all, err := s.unit.AllAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 0)
+}
+
 func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2062,4 +2069,75 @@ func (s *CAASUnitSuite) TestRemoveUnitDeletesContainerInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = existingUnit.ContainerInfo()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CAASUnitSuite) TestPrivateAddress(c *gc.C) {
+	existingUnit, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.UpdateCloudService("", []network.Address{
+		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal, Type: network.IPv4Address},
+		{Value: "54.32.1.2", Scope: network.ScopePublic, Type: network.IPv4Address},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := existingUnit.PrivateAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr, jc.DeepEquals, network.Address{
+		Value: "192.168.1.2",
+		Scope: network.ScopeCloudLocal,
+		Type:  network.IPv4Address,
+	})
+}
+
+func (s *CAASUnitSuite) TestPublicAddress(c *gc.C) {
+	existingUnit, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.UpdateCloudService("", []network.Address{
+		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal, Type: network.IPv4Address},
+		{Value: "54.32.1.2", Scope: network.ScopePublic, Type: network.IPv4Address},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := existingUnit.PublicAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr, jc.DeepEquals, network.Address{
+		Value: "54.32.1.2",
+		Scope: network.ScopePublic,
+		Type:  network.IPv4Address,
+	})
+}
+
+func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
+	existingUnit, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.application.UpdateCloudService("", []network.Address{
+		{Value: "192.168.1.2", Scope: network.ScopeCloudLocal, Type: network.IPv4Address},
+		{Value: "54.32.1.2", Scope: network.ScopePublic, Type: network.IPv4Address},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var updateUnits state.UpdateUnitsOperation
+	local := "10.0.0.1"
+	updateUnits.Updates = []*state.UpdateUnitOperation{existingUnit.UpdateOperation(state.UnitUpdateProperties{
+		Address: &local,
+		Ports:   &[]string{"443"},
+	})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr, err := existingUnit.AllAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addr, jc.DeepEquals, []network.Address{{
+		Value: "192.168.1.2",
+		Scope: network.ScopeCloudLocal,
+		Type:  network.IPv4Address,
+	}, {
+		Value: "54.32.1.2",
+		Scope: network.ScopePublic,
+		Type:  network.IPv4Address,
+	}, {
+		Value: "10.0.0.1",
+		Scope: network.ScopeMachineLocal,
+		Type:  network.IPv4Address,
+	}})
 }
