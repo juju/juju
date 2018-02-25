@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -127,6 +128,12 @@ func (s *suite) TestPrunesOldLogs(c *gc.C) {
 func (s *suite) TestPrunesLogsBySize(c *gc.C) {
 	s.setupState(c, "999h", "2M")
 	startingLogCount := 25000
+	// On some of the architectures, the logs collection is much
+	// smaller than amd64, so we need more logs to get the right size.
+	switch arch.HostArch() {
+	case arch.S390X, arch.PPC64EL, arch.ARM64:
+		startingLogCount *= 2
+	}
 	s.addLogs(c, time.Now(), "stuff", startingLogCount)
 
 	s.startWorker(c)

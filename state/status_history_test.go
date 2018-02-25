@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -31,25 +32,39 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
-	state.PrimeUnitStatusHistory(c, clock, unit, status.Active, 20000, 1000, nil)
 
-	history, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
+	initialHistory := 20000
+	filter := status.StatusHistoryFilter{Size: 25000}
+	expectMax := 10000
+	// On some of the architectures, the status history collection is much
+	// smaller than amd64, so we need more entries to get the right size.
+	switch arch.HostArch() {
+	case arch.S390X, arch.PPC64EL, arch.ARM64:
+		initialHistory = 40000
+		filter = status.StatusHistoryFilter{Size: 50000}
+		expectMax = 20000
+	}
+
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+	state.PrimeUnitStatusHistory(c, clock, unit, status.Active, initialHistory, 1000, nil)
+
+	history, err := unit.StatusHistory(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("%d\n", len(history))
-	c.Assert(history, gc.HasLen, 20001)
+	c.Assert(history, gc.HasLen, initialHistory+1)
 
+	// Prune down to 1MB.
 	err = state.PruneStatusHistory(s.State, 0, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	history, err = unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
+	history, err = unit.StatusHistory(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	historyLen := len(history)
 	// When writing this test, the size was 6670 for about 0,00015 MB per entry
 	// but that is a size that can most likely change so I wont risk a flaky test
 	// here, enough to say that if this size suddenly is no longer less than
 	// half its good reason for suspicion.
-	c.Assert(historyLen, jc.LessThan, 10000)
+	c.Assert(historyLen, jc.LessThan, expectMax)
 }
 
 func (s *StatusHistorySuite) TestPruneStatusBySizeOnlyForController(c *gc.C) {
