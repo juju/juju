@@ -53,12 +53,13 @@ var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIO
 
 // Server holds the server side of the API.
 type Server struct {
-	tomb      tomb.Tomb
-	clock     clock.Clock
-	pingClock clock.Clock
-	wg        sync.WaitGroup
-	statePool *state.StatePool
-	lis       net.Listener
+	tomb             tomb.Tomb
+	clock            clock.Clock
+	pingClock        clock.Clock
+	wg               sync.WaitGroup
+	statePool        *state.StatePool
+	lis              net.Listener
+	challengeHandler http.Handler
 
 	// Tag of the machine where the API server is running.
 	tag names.Tag
@@ -287,7 +288,7 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 
 	httpCtxt := httpContext{srv: srv}
 	srv.mux = apiserverhttp.NewMux(apiserverhttp.WithAuth(httpCtxt.authRequest))
-	srv.tlsConfig = srv.newTLSConfig(cfg)
+	srv.tlsConfig, srv.challengeHandler = srv.newTLSConfig(cfg)
 	srv.lis = newThrottlingListener(
 		tls.NewListener(lis, srv.tlsConfig), cfg.RateLimitConfig, clock.WallClock)
 
@@ -344,7 +345,9 @@ func (a *metricAdaptor) ConnectionPauseTime() time.Duration {
 	return a.srv.lis.(*throttlingListener).pauseTime()
 }
 
-func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
+// newTLSConfig creates and returns the TLS configuration for the server and
+// optionally a handler that is used to handle Let's Encrypt HTTP challenges.
+func (srv *Server) newTLSConfig(cfg ServerConfig) (*tls.Config, http.Handler) {
 	tlsConfig := utils.SecureTLSConfig()
 	if cfg.AutocertDNSName == "" {
 		// No official DNS name, no certificate.
@@ -352,14 +355,13 @@ func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
 			cert, _ := srv.localCertificate(clientHello.ServerName)
 			return cert, nil
 		}
-		return tlsConfig
+		return tlsConfig, nil
 	}
 	m := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
 		Cache:      srv.statePool.SystemState().AutocertCache(),
 		HostPolicy: autocert.HostWhitelist(cfg.AutocertDNSName),
 	}
-	go http.ListenAndServe(":http", m.HTTPHandler(nil))
 	if cfg.AutocertURL != "" {
 		m.Client = &acme.Client{
 			DirectoryURL: cfg.AutocertURL,
@@ -381,7 +383,7 @@ func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
 		logger.Errorf("cannot get autocert certificate for %q: %v", clientHello.ServerName, err)
 		return cert, nil
 	}
-	return tlsConfig
+	return tlsConfig, m.HTTPHandler(nil)
 }
 
 // TotalConnections returns the total number of connections ever made.
@@ -446,11 +448,20 @@ func (w *loggoWrapper) Write(content []byte) (int, error) {
 func (srv *Server) loop() error {
 	logger.Infof("listening on %q", srv.lis.Addr())
 
-	defer func() {
-		addr := srv.lis.Addr().String() // Addr not valid after close
-		err := srv.lis.Close()
-		logger.Infof("closed listening socket %q with final error: %v", addr, err)
+	var challengeLis net.Listener
+	if srv.challengeHandler != nil {
+		var err error
+		challengeLis, err = net.Listen("tcp", ":http")
+		if err != nil {
+			logger.Errorf("cannot listen on port 80: %s", err)
+		}
+	}
 
+	defer func() {
+		closeListener(srv.lis)
+		if challengeLis != nil {
+			closeListener(challengeLis)
+		}
 		srv.wg.Wait() // wait for any outstanding requests to complete.
 		srv.dbloggers.dispose()
 		srv.logSinkWriter.Close()
@@ -483,6 +494,14 @@ func (srv *Server) loop() error {
 		logger.Debugf("API http server exited, final error was: %v", err)
 	}()
 
+	if challengeLis != nil {
+		go func() {
+			logger.Debugf("Starting Let's Encrypt challenge handler on address %q", challengeLis.Addr())
+			err := http.Serve(challengeLis, srv.challengeHandler)
+			logger.Debugf("challenge server exited, final error was: %v", err)
+		}()
+	}
+
 	for {
 		select {
 		case <-srv.tomb.Dying():
@@ -492,6 +511,12 @@ func (srv *Server) loop() error {
 			srv.loginAuthCtxt.localUserInteractions.Expire(now)
 		}
 	}
+}
+
+func closeListener(lis net.Listener) {
+	addr := lis.Addr().String() // Addr is not valid after Close is called.
+	err := lis.Close()
+	logger.Infof("closed listening socket %q with final error: %v", addr, err)
 }
 
 func (srv *Server) endpoints() []apihttp.Endpoint {
