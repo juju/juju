@@ -52,8 +52,6 @@ func StateToParamsUserAccessPermission(descriptionAccess permission.Access) (par
 		return params.ModelWriteAccess, nil
 	case permission.AdminAccess:
 		return params.ModelAdminAccess, nil
-	case permission.NoAccess:
-		return params.ModelNoAccess, nil
 	}
 
 	return "", errors.NotValidf("model access permission %q", descriptionAccess)

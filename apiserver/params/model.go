@@ -362,7 +362,6 @@ const (
 	ModelAdminAccess UserAccessPermission = "admin"
 	ModelReadAccess  UserAccessPermission = "read"
 	ModelWriteAccess UserAccessPermission = "write"
-	ModelNoAccess    UserAccessPermission = "no-access"
 )
 
 // DestroyModelsParams holds the arguments for destroying models.

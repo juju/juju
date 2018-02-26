@@ -460,11 +460,7 @@ func (api *CloudAPIV2) CredentialContents(args params.CloudCredentialArgs) (para
 		}
 		info.Models = make([]params.ModelAccess, len(models))
 		for i, m := range models {
-			ownerAccess, err := common.StateToParamsUserAccessPermission(m.OwnerAccess)
-			if err != nil {
-				return params.CredentialContentResult{Error: common.ServerError(err)}
-			}
-			info.Models[i] = params.ModelAccess{m.ModelName, ownerAccess}
+			info.Models[i] = params.ModelAccess{m.ModelName, string(m.OwnerAccess)}
 		}
 
 		return params.CredentialContentResult{Result: &info}

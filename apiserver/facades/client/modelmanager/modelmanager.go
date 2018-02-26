@@ -744,11 +744,6 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 		if err == nil {
 			summary.UserAccess = access
 		}
-		// Model owner is one of the model admins.
-		if access == params.ModelNoAccess && names.NewUserTag(mi.Owner) == userTag {
-			summary.UserAccess = params.ModelAdminAccess
-		}
-
 		if mi.Migration != nil {
 			migration := mi.Migration
 			startTime := migration.StartTime()
@@ -984,11 +979,6 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 				// nor administrator, nor the model user, so
 				// has no business knowing about the model user.
 				continue
-			}
-
-			// Model owner is one of the model admins.
-			if user.Access == permission.NoAccess && model.Owner() == user.UserTag {
-				user.Access = permission.AdminAccess
 			}
 
 			userInfo, err := common.ModelUserInfo(user, model)

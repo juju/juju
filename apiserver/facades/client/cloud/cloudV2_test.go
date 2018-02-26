@@ -112,8 +112,8 @@ func (s *cloudSuiteV2) TestCredentialContentsAllNoSecrets(c *gc.C) {
 					},
 				},
 				Models: []params.ModelAccess{
-					{Model: "abcmodel", Access: params.ModelAdminAccess},
-					{Model: "xyzmodel", Access: params.ModelReadAccess},
+					{Model: "abcmodel", Access: "admin"},
+					{Model: "xyzmodel", Access: "read"},
 				},
 			},
 		},
@@ -128,7 +128,7 @@ func (s *cloudSuiteV2) TestCredentialContentsAllNoSecrets(c *gc.C) {
 					},
 				},
 				Models: []params.ModelAccess{
-					{Model: "whynotmodel", Access: params.ModelNoAccess},
+					{Model: "whynotmodel"}, // no acccess
 				},
 			},
 		},
@@ -179,7 +179,7 @@ func (s *cloudSuiteV2) TestCredentialContentsNamedWithSecrets(c *gc.C) {
 					},
 				},
 				Models: []params.ModelAccess{
-					{Model: "whynotmodel", Access: params.ModelNoAccess},
+					{Model: "whynotmodel"}, // no access
 				},
 			},
 		},

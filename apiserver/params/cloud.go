@@ -154,8 +154,8 @@ type CredentialContent struct {
 
 // ModelAccess contains information about user model access.
 type ModelAccess struct {
-	Model  string               `json:"model,omitempty"`
-	Access UserAccessPermission `json:"access,omitempty"`
+	Model  string `json:"model,omitempty"`
+	Access string `json:"access,omitempty"`
 }
 
 // ControllerCredentialInfo contains everything Juju stores on the controller
