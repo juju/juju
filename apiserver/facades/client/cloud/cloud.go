@@ -6,7 +6,10 @@
 package cloud
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -14,7 +17,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
 
 type CloudV1 interface {
@@ -32,12 +37,20 @@ type CloudV2 interface {
 	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
 }
 
+type CloudV3 interface {
+	CredentialContents(credentialArgs params.CredentialContentRequestParam) (params.CredentialContentResults, error)
+}
+
 type CloudAPI struct {
 	backend                Backend
 	ctlrBackend            Backend
 	authorizer             facade.Authorizer
 	apiUser                names.UserTag
 	getCredentialsAuthFunc common.GetAuthFunc
+}
+
+type CloudAPIV3 struct {
+	CloudAPIV2
 }
 
 type CloudAPIV2 struct {
@@ -47,6 +60,7 @@ type CloudAPIV2 struct {
 var (
 	_ CloudV1 = (*CloudAPI)(nil)
 	_ CloudV2 = (*CloudAPIV2)(nil)
+	_ CloudV3 = (*CloudAPIV3)(nil)
 )
 
 // NewFacade provides the required signature for facade registration.
@@ -62,6 +76,12 @@ func NewFacadeV2(context facade.Context) (*CloudAPIV2, error) {
 	return NewCloudAPIV2(st, ctlrSt, context.Auth())
 }
 
+func NewFacadeV3(context facade.Context) (*CloudAPIV3, error) {
+	st := NewStateBackend(context.State())
+	ctlrSt := NewStateBackend(context.StatePool().SystemState())
+	return NewCloudAPIV3(st, ctlrSt, context.Auth())
+}
+
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
 func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*CloudAPI, error) {
@@ -69,8 +89,8 @@ func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*C
 		return nil, common.ErrPerm
 	}
 
+	authUser, _ := authorizer.GetAuthTag().(names.UserTag)
 	getUserAuthFunc := func() (common.AuthFunc, error) {
-		authUser, _ := authorizer.GetAuthTag().(names.UserTag)
 		isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
@@ -88,6 +108,7 @@ func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*C
 		ctlrBackend:            ctlrBackend,
 		authorizer:             authorizer,
 		getCredentialsAuthFunc: getUserAuthFunc,
+		apiUser:                authUser,
 	}, nil
 }
 
@@ -98,6 +119,16 @@ func NewCloudAPIV2(backend, ctlrBackend Backend, authorizer facade.Authorizer) (
 	}
 	return &CloudAPIV2{
 		CloudAPI: *cloudAPI,
+	}, nil
+}
+
+func NewCloudAPIV3(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*CloudAPIV3, error) {
+	cloudAPI, err := NewCloudAPIV2(backend, ctlrBackend, authorizer)
+	if err != nil {
+		return nil, err
+	}
+	return &CloudAPIV3{
+		CloudAPIV2: *cloudAPI,
 	}, nil
 }
 
@@ -199,7 +230,11 @@ func (api *CloudAPI) UserCredentials(args params.UserClouds) (params.StringsResu
 // for a cloud that the controller does not manage (this is required
 // for CAAS models)
 func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
-
+	// TODO (anastasiamac 2018-02-16) This is needed as facade v2 has CAAS-specific calls
+	// but we need to bump facade version and make v3 available.
+	if !featureflag.Enabled(feature.CAAS) {
+		return params.ErrorResults{}, errors.NotSupportedf("AddCredentials call")
+	}
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
@@ -379,9 +414,125 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 
 // AddCloud adds a new cloud, different from the one managed by the controller.
 func (api *CloudAPIV2) AddCloud(cloudArgs params.AddCloudArgs) error {
+	// TODO (anastasiamac 2018-02-16) This is needed as facade v2 has CAAS-specific calls
+	// but we need to bump facade version and make v3 available.
+	if !featureflag.Enabled(feature.CAAS) {
+		return errors.NotSupportedf("AddCloud call")
+	}
 	err := api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud))
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// CredentialContents returns the specified cloud credentials,
+// including the secrets if requested.
+// If no specific credential name/cloud was passed in, all credentials for this user
+// are returned.
+// Only credential owner can see its contents as well as what models use it.
+// Controller admin has no special superpowers here and is treated the same as all other users.
+func (api *CloudAPIV3) CredentialContents(args params.CredentialContentRequestParam) (params.CredentialContentResults, error) {
+	// Helper to look up and cache credential schemas for clouds.
+	schemaCache := make(map[string]map[cloud.AuthType]cloud.CredentialSchema)
+	credentialSchemas := func(cloudName string) (map[cloud.AuthType]cloud.CredentialSchema, error) {
+		if s, ok := schemaCache[cloudName]; ok {
+			return s, nil
+		}
+		cloud, err := api.backend.Cloud(cloudName)
+		if err != nil {
+			return nil, err
+		}
+		provider, err := environs.Provider(cloud.Type)
+		if err != nil {
+			return nil, err
+		}
+		schema := provider.CredentialSchemas()
+		schemaCache[cloudName] = schema
+		return schema, nil
+	}
+
+	// Helper to parse state.Credential into an expected result item.
+	stateIntoParam := func(credential state.Credential, includeSecrets bool) params.CredentialContentResult {
+		schemas, err := credentialSchemas(credential.Cloud)
+		if err != nil {
+			return params.CredentialContentResult{Error: common.ServerError(err)}
+		}
+		secrets := map[string]string{}
+		attrs := map[string]string{}
+		// Filter out the secrets.
+		if s, ok := schemas[cloud.AuthType(credential.AuthType)]; ok {
+			for _, attr := range s {
+				if value, exists := credential.Attributes[attr.Name]; exists {
+					if attr.Hidden {
+						secrets[attr.Name] = credential.Attributes[attr.Name]
+						continue
+					}
+					attrs[attr.Name] = value
+				}
+			}
+		}
+		info := params.ControllerCredentialInfo{
+			Content: params.CredentialContent{
+				Name:       credential.Name,
+				AuthType:   credential.AuthType,
+				Attributes: attrs,
+				Cloud:      credential.Cloud,
+			},
+		}
+		if includeSecrets {
+			info.Content.Secrets = secrets
+		}
+
+		// get models
+		tag, err := credential.CloudCredentialTag()
+		if err != nil {
+			return params.CredentialContentResult{Error: common.ServerError(err)}
+		}
+
+		models, err := api.backend.CredentialModelsAndOwnerAccess(tag)
+		if err != nil && !errors.IsNotFound(err) {
+			return params.CredentialContentResult{Error: common.ServerError(err)}
+		}
+		info.Models = make([]params.ModelAccess, len(models))
+		for i, m := range models {
+			info.Models[i] = params.ModelAccess{m.ModelName, string(m.OwnerAccess)}
+		}
+
+		return params.CredentialContentResult{Result: &info}
+	}
+
+	var result []params.CredentialContentResult
+	if len(args.Credentials) == 0 {
+		credentials, err := api.backend.AllCloudCredentials(api.apiUser)
+		if err != nil {
+			return params.CredentialContentResults{}, errors.Trace(err)
+		}
+		result = make([]params.CredentialContentResult, len(credentials))
+		for i, credential := range credentials {
+			result[i] = stateIntoParam(credential, args.IncludeSecrets)
+		}
+	} else {
+		// Helper to construct credential tag from cloud and name.
+		credId := func(cloudName, credentialName string) string {
+			return fmt.Sprintf("%s/%s/%s",
+				cloudName, api.apiUser.Id(), credentialName,
+			)
+		}
+
+		result = make([]params.CredentialContentResult, len(args.Credentials))
+		for i, given := range args.Credentials {
+			id := credId(given.CloudName, given.CredentialName)
+			tag := names.NewCloudCredentialTag(id)
+			credential, err := api.backend.CloudCredential(tag)
+			if err != nil {
+				result[i] = params.CredentialContentResult{
+					Error: common.ServerError(err),
+				}
+				continue
+			}
+			result[i] = stateIntoParam(credential, args.IncludeSecrets)
+		}
+	}
+	return params.CredentialContentResults{result}, nil
 }

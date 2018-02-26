@@ -380,6 +380,16 @@ func (st *mockBackend) AddCloud(cloud cloud.Cloud) error {
 	return st.NextErr()
 }
 
+func (st *mockBackend) AllCloudCredentials(user names.UserTag) ([]state.Credential, error) {
+	st.MethodCall(st, "AllCloudCredentials", user)
+	return nil, errors.NewNotImplemented(nil, "This mock is used for v2 and earlier, so AllCloudCredentials")
+}
+
+func (st *mockBackend) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]state.CredentialOwnerModelAccess, error) {
+	st.MethodCall(st, "CredentialModelsAndOwnerAccess", tag)
+	return nil, errors.NewNotImplemented(nil, "This mock is used for v2 and earlier, so CredentialModelsAndOwnerAccess")
+}
+
 type mockModel struct {
 	cloud              string
 	cloudRegion        string
