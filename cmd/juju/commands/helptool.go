@@ -135,7 +135,7 @@ func (c *helpToolCommand) Run(ctx *cmd.Context) error {
 }
 
 var helpToolDoc = fmt.Sprintf(`
-Juju charms can access a series of built-in helpers called 'hook-tools'. 
+Juju charms can access a series of built-in helpers called 'hook-tools'.
 These are useful for the charm to be able to inspect its running environment.
 Currently available charm hook tools are:
 
@@ -145,7 +145,7 @@ Examples:
     For help on a specific tool, supply the name of that tool, for example:
 
         juju hook-tool unit-get
-        
+
 `, listHookTools())
 
 func listHookTools() string {
@@ -158,6 +158,8 @@ func listHookTools() string {
 	longest := 0
 	for _, name := range names {
 		if c, err := jujuc.NewCommand(dummyHookContext{}, name); err == nil {
+			// On Windows name has a '.exe' suffix, while Info().Name does not
+			name := c.Info().Name
 			if len(name) > longest {
 				longest = len(name)
 			}

@@ -1413,7 +1413,11 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 
 	tmpFile, err := ioutil.TempFile("", "juju-bootstrap-test")
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() { err := os.Remove(tmpFile.Name()); c.Assert(err, jc.ErrorIsNil) }()
+	defer func() {
+		tmpFile.Close()
+		err := os.Remove(tmpFile.Name())
+		c.Assert(err, jc.ErrorIsNil)
+	}()
 
 	contents := []byte("{something: special}\n")
 	err = ioutil.WriteFile(tmpFile.Name(), contents, 0644)
@@ -1435,8 +1439,8 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 	// that the state of the credential under test before finalization is
 	// indeed the file path itself and that the state of the credential
 	// after finalization is the contents of that file.
-	c.Assert(unfinalizedCredential.Attributes()["file"], gc.Matches, tmpFile.Name())
-	c.Assert(finalizedCredential.Attributes()["file"], gc.Matches, string(contents))
+	c.Assert(unfinalizedCredential.Attributes()["file"], gc.Equals, tmpFile.Name())
+	c.Assert(finalizedCredential.Attributes()["file"], gc.Equals, string(contents))
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegionsInvalid(c *gc.C) {
