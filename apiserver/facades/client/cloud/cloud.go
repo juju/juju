@@ -6,6 +6,8 @@
 package cloud
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
 
 type CloudV1 interface {
@@ -30,6 +33,7 @@ type CloudV1 interface {
 type CloudV2 interface {
 	AddCloud(cloudArgs params.AddCloudArgs) error
 	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
+	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
 }
 
 type CloudAPI struct {
@@ -69,8 +73,8 @@ func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*C
 		return nil, common.ErrPerm
 	}
 
+	authUser, _ := authorizer.GetAuthTag().(names.UserTag)
 	getUserAuthFunc := func() (common.AuthFunc, error) {
-		authUser, _ := authorizer.GetAuthTag().(names.UserTag)
 		isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, err
@@ -88,6 +92,7 @@ func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*C
 		ctlrBackend:            ctlrBackend,
 		authorizer:             authorizer,
 		getCredentialsAuthFunc: getUserAuthFunc,
+		apiUser:                authUser,
 	}, nil
 }
 
@@ -198,8 +203,7 @@ func (api *CloudAPI) UserCredentials(args params.UserClouds) (params.StringsResu
 // In contrast to UpdateCredentials() below, the new credentials can be
 // for a cloud that the controller does not manage (this is required
 // for CAAS models)
-func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
-
+func (api *CloudAPIV2) AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
@@ -384,4 +388,115 @@ func (api *CloudAPIV2) AddCloud(cloudArgs params.AddCloudArgs) error {
 		return err
 	}
 	return nil
+}
+
+// CredentialContents returns the specified cloud credentials,
+// including the secrets if requested.
+// If no specific credential name/cloud was passed in, all credentials for this user
+// are returned.
+// Only credential owner can see its contents as well as what models use it.
+// Controller admin has no special superpowers here and is treated the same as all other users.
+func (api *CloudAPIV2) CredentialContents(args params.CloudCredentialArgs) (params.CredentialContentResults, error) {
+	// Helper to look up and cache credential schemas for clouds.
+	schemaCache := make(map[string]map[cloud.AuthType]cloud.CredentialSchema)
+	credentialSchemas := func(cloudName string) (map[cloud.AuthType]cloud.CredentialSchema, error) {
+		if s, ok := schemaCache[cloudName]; ok {
+			return s, nil
+		}
+		cloud, err := api.backend.Cloud(cloudName)
+		if err != nil {
+			return nil, err
+		}
+		provider, err := environs.Provider(cloud.Type)
+		if err != nil {
+			return nil, err
+		}
+		schema := provider.CredentialSchemas()
+		schemaCache[cloudName] = schema
+		return schema, nil
+	}
+
+	// Helper to parse state.Credential into an expected result item.
+	stateIntoParam := func(credential state.Credential, includeSecrets bool) params.CredentialContentResult {
+		schemas, err := credentialSchemas(credential.Cloud)
+		if err != nil {
+			return params.CredentialContentResult{Error: common.ServerError(err)}
+		}
+		secrets := map[string]string{}
+		attrs := map[string]string{}
+		// Filter out the secrets.
+		if s, ok := schemas[cloud.AuthType(credential.AuthType)]; ok {
+			for _, attr := range s {
+				if value, exists := credential.Attributes[attr.Name]; exists {
+					if attr.Hidden {
+						secrets[attr.Name] = credential.Attributes[attr.Name]
+						continue
+					}
+					attrs[attr.Name] = value
+				}
+			}
+		}
+		info := params.ControllerCredentialInfo{
+			Content: params.CredentialContent{
+				Name:       credential.Name,
+				AuthType:   credential.AuthType,
+				Attributes: attrs,
+				Cloud:      credential.Cloud,
+			},
+		}
+		if includeSecrets {
+			info.Content.Secrets = secrets
+		}
+
+		// get models
+		tag, err := credential.CloudCredentialTag()
+		if err != nil {
+			return params.CredentialContentResult{Error: common.ServerError(err)}
+		}
+
+		models, err := api.backend.CredentialModelsAndOwnerAccess(tag)
+		if err != nil && !errors.IsNotFound(err) {
+			return params.CredentialContentResult{Error: common.ServerError(err)}
+		}
+		info.Models = make([]params.ModelAccess, len(models))
+		for i, m := range models {
+			info.Models[i] = params.ModelAccess{m.ModelName, string(m.OwnerAccess)}
+		}
+
+		return params.CredentialContentResult{Result: &info}
+	}
+
+	var result []params.CredentialContentResult
+	if len(args.Credentials) == 0 {
+		credentials, err := api.backend.AllCloudCredentials(api.apiUser)
+		if err != nil {
+			return params.CredentialContentResults{}, errors.Trace(err)
+		}
+		result = make([]params.CredentialContentResult, len(credentials))
+		for i, credential := range credentials {
+			result[i] = stateIntoParam(credential, args.IncludeSecrets)
+		}
+	} else {
+		// Helper to construct credential tag from cloud and name.
+		credId := func(cloudName, credentialName string) string {
+			return fmt.Sprintf("%s/%s/%s",
+				cloudName, api.apiUser.Id(), credentialName,
+			)
+		}
+
+		result = make([]params.CredentialContentResult, len(args.Credentials))
+		for i, given := range args.Credentials {
+			id := credId(given.CloudName, given.CredentialName)
+			tag := names.NewCloudCredentialTag(id)
+			credential, err := api.backend.CloudCredential(tag)
+			if err != nil {
+				result[i] = params.CredentialContentResult{
+					Error: common.ServerError(err),
+				}
+				continue
+			}
+			result[i] = stateIntoParam(credential, args.IncludeSecrets)
+		}
+	}
+	return params.CredentialContentResults{result}, nil
 }

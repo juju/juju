@@ -114,3 +114,68 @@ type CloudSpecResult struct {
 type CloudSpecResults struct {
 	Results []CloudSpecResult `json:"results,omitempty"`
 }
+
+// CloudCredentialArg defines a credential in terms of its cloud and name.
+// It is used to request detailed content for the credential stored on the controller.
+type CloudCredentialArg struct {
+	CloudName      string `json:"cloud-name"`
+	CredentialName string `json:"credential-name"`
+}
+
+// IsEmpty returns whether a cloud credential argument is empty.
+func (p CloudCredentialArg) IsEmpty() bool {
+	return p.CloudName == "" && p.CredentialName == ""
+}
+
+// CloudCredentialArgs defines an input required to make a valid call
+// to get credentials content stored on the controller.
+type CloudCredentialArgs struct {
+	Credentials    []CloudCredentialArg `json:"credentials,omitempty"`
+	IncludeSecrets bool                 `json:"include-secrets"`
+}
+
+// CloudCredential contains a cloud credential content.
+type CredentialContent struct {
+	// Name is the short name of the credential.
+	Name string `json:"name"`
+
+	// Cloud is the cloud name to which this credential belongs.
+	Cloud string `json:"cloud"`
+
+	// AuthType is the authentication type.
+	AuthType string `json:"auth-type"`
+
+	// Attributes contains non-secret credential values.
+	Attributes map[string]string `json:"attrs,omitempty"`
+
+	// Secrets contains secret credential values.
+	Secrets map[string]string `json:"secrets,omitempty"`
+}
+
+// ModelAccess contains information about user model access.
+type ModelAccess struct {
+	Model  string `json:"model,omitempty"`
+	Access string `json:"access,omitempty"`
+}
+
+// ControllerCredentialInfo contains everything Juju stores on the controller
+// about the credential - its contents as well as what models use it and
+// what access currently logged in user, a credential owner, has to these models.
+type ControllerCredentialInfo struct {
+	// Content has comprehensive credential content.
+	Content CredentialContent `json:"content,omitempty"`
+
+	// Models contains models that are using ths credential.
+	Models []ModelAccess `json:"models,omitempty"`
+}
+
+// CredentialContentResult contains comprehensive information about stored credential or an error.
+type CredentialContentResult struct {
+	Result *ControllerCredentialInfo `json:"result,omitempty"`
+	Error  *Error                    `json:"error,omitempty"`
+}
+
+// CredentialContentResults contains a set of CredentialContentResults.
+type CredentialContentResults struct {
+	Results []CredentialContentResult `json:"results,omitempty"`
+}

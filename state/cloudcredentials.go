@@ -24,6 +24,11 @@ type Credential struct {
 	cloudCredentialDoc
 }
 
+// CloudCredentialTag returns cloud credential tag.
+func (c Credential) CloudCredentialTag() (names.CloudCredentialTag, error) {
+	return c.cloudCredentialDoc.cloudCredentialTag()
+}
+
 // cloudCredentialDoc records information about a user's cloud credentials.
 type cloudCredentialDoc struct {
 	DocID      string            `bson:"_id"`
@@ -315,7 +320,14 @@ func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([
 		ownerAccess, err := st.UserAccess(tag.Owner(), names.NewModelTag(model.UUID))
 		if err != nil {
 			if errors.IsNotFound(err) {
+				// Model owner is one of the model admins.
+				modelOwnerTag, _ := names.ParseUserTag(model.Owner)
+				if modelOwnerTag == tag.Owner() {
+					results[i].OwnerAccess = permission.AdminAccess
+					continue
+				}
 				results[i].OwnerAccess = permission.NoAccess
+				continue
 			}
 			results[i].Error = errors.Trace(err)
 			continue
