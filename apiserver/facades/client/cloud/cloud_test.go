@@ -25,16 +25,12 @@ type cloudSuite struct {
 	ctlrBackend *mockBackend
 	authorizer  *apiservertesting.FakeAuthorizer
 	api         *cloudfacade.CloudAPI
-	apiv2       *cloudfacade.CloudAPIV2
 }
 
 var _ = gc.Suite(&cloudSuite{})
 
 func (s *cloudSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.authorizer = &apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("admin"),
-	}
 	s.backend = &mockBackend{
 		cloud: cloud.Cloud{
 			Name:      "dummy",
@@ -58,11 +54,15 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 		},
 	}
+	s.setTestAPIForUser(c, names.NewUserTag("admin"))
+}
 
+func (s *cloudSuite) setTestAPIForUser(c *gc.C, user names.UserTag) {
+	s.authorizer = &apiservertesting.FakeAuthorizer{
+		Tag: user,
+	}
 	var err error
 	s.api, err = cloudfacade.NewCloudAPI(s.backend, s.ctlrBackend, s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
-	s.apiv2, err = cloudfacade.NewCloudAPIV2(s.backend, s.ctlrBackend, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -109,7 +109,7 @@ func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
 }
 
 func (s *cloudSuite) TestUserCredentials(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("bruce")
+	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
 	results, err := s.api.UserCredentials(params.UserClouds{UserClouds: []params.UserCloud{{
 		UserTag:  "machine-0",
 		CloudTag: "cloud-meep",
@@ -139,7 +139,7 @@ func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 }
 
 func (s *cloudSuite) TestUserCredentialsAdminAccess(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin")
+	s.setTestAPIForUser(c, names.NewUserTag("admin"))
 	results, err := s.api.UserCredentials(params.UserClouds{UserClouds: []params.UserCloud{{
 		UserTag:  "user-julia",
 		CloudTag: "cloud-meep",
@@ -153,7 +153,7 @@ func (s *cloudSuite) TestUserCredentialsAdminAccess(c *gc.C) {
 
 func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	s.backend.SetErrors(nil, errors.NotFoundf("cloud"))
-	s.authorizer.Tag = names.NewUserTag("bruce")
+	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
 	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag: "machine-0",
 	}, {
@@ -196,7 +196,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 }
 
 func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin")
+	s.setTestAPIForUser(c, names.NewUserTag("admin"))
 	results, err := s.api.UpdateCredentials(params.TaggedCredentials{Credentials: []params.TaggedCredential{{
 		Tag: "cloudcred-meep_julia_three",
 		Credential: params.CloudCredential{
@@ -212,7 +212,7 @@ func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 }
 
 func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("bruce")
+	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
 	results, err := s.api.RevokeCredentials(params.Entities{Entities: []params.Entity{{
 		Tag: "machine-0",
 	}, {
@@ -238,7 +238,6 @@ func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
 }
 
 func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin")
 	results, err := s.api.RevokeCredentials(params.Entities{Entities: []params.Entity{{
 		Tag: "cloudcred-meep_julia_three",
 	}}})
@@ -250,7 +249,7 @@ func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
 }
 
 func (s *cloudSuite) TestCredential(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("bruce")
+	s.setTestAPIForUser(c, names.NewUserTag("bruce"))
 	results, err := s.api.Credential(params.Entities{Entities: []params.Entity{{
 		Tag: "machine-0",
 	}, {
@@ -278,7 +277,6 @@ func (s *cloudSuite) TestCredential(c *gc.C) {
 }
 
 func (s *cloudSuite) TestCredentialAdminAccess(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin")
 	results, err := s.api.Credential(params.Entities{Entities: []params.Entity{{
 		Tag: "cloudcred-meep_bruce_two",
 	}}})
@@ -286,47 +284,6 @@ func (s *cloudSuite) TestCredentialAdminAccess(c *gc.C) {
 	s.backend.CheckCallNames(c, "ControllerTag", "CloudCredentials", "Cloud")
 	c.Assert(results.Results, gc.HasLen, 1)
 	// admin can access others' credentials
-	c.Assert(results.Results[0].Error, gc.IsNil)
-}
-
-func (s *cloudSuite) TestAddCloudInV2(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin")
-	paramsCloud := params.AddCloudArgs{
-		Name: "newcloudname",
-		Cloud: params.Cloud{
-			Type:      "fake",
-			AuthTypes: []string{"empty", "userpass"},
-			Endpoint:  "fake-endpoint",
-			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
-		}}
-	err := s.apiv2.AddCloud(paramsCloud)
-	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "AddCloud")
-	s.backend.CheckCall(c, 0, "AddCloud", cloud.Cloud{
-		Name:      "newcloudname",
-		Type:      "fake",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
-		Endpoint:  "fake-endpoint",
-		Regions:   []cloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
-	})
-}
-
-func (s *cloudSuite) TestAddCredentialInV2(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin")
-	paramsCreds := params.TaggedCredentials{Credentials: []params.TaggedCredential{{
-		Tag: "cloudcred-fake_fake_fake",
-		Credential: params.CloudCredential{
-			AuthType:   "userpass",
-			Attributes: map[string]string{},
-		}},
-	}}
-	results, err := s.apiv2.AddCredentials(paramsCreds)
-	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "UpdateCloudCredential")
-	s.backend.CheckCall(c, 1, "UpdateCloudCredential",
-		names.NewCloudCredentialTag("fake/fake/fake"),
-		cloud.NewCredential(cloud.UserPassAuthType, map[string]string{}))
-	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
@@ -377,17 +334,17 @@ func (st *mockBackend) RemoveCloudCredential(tag names.CloudCredentialTag) error
 
 func (st *mockBackend) AddCloud(cloud cloud.Cloud) error {
 	st.MethodCall(st, "AddCloud", cloud)
-	return st.NextErr()
+	return errors.NewNotImplemented(nil, "This mock is used for v1, so AddCloud")
 }
 
 func (st *mockBackend) AllCloudCredentials(user names.UserTag) ([]state.Credential, error) {
 	st.MethodCall(st, "AllCloudCredentials", user)
-	return nil, errors.NewNotImplemented(nil, "This mock is used for v2 and earlier, so AllCloudCredentials")
+	return nil, errors.NewNotImplemented(nil, "This mock is used for v1, so AllCloudCredentials")
 }
 
 func (st *mockBackend) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]state.CredentialOwnerModelAccess, error) {
 	st.MethodCall(st, "CredentialModelsAndOwnerAccess", tag)
-	return nil, errors.NewNotImplemented(nil, "This mock is used for v2 and earlier, so CredentialModelsAndOwnerAccess")
+	return nil, errors.NewNotImplemented(nil, "This mock is used for v1, so CredentialModelsAndOwnerAccess")
 }
 
 type mockModel struct {

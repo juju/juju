@@ -115,22 +115,23 @@ type CloudSpecResults struct {
 	Results []CloudSpecResult `json:"results,omitempty"`
 }
 
-// CloudCredentialRequestParam defines a credential in terms of its cloud and name.
+// CloudCredentialArg defines a credential in terms of its cloud and name.
 // It is used to request detailed content for the credential stored on the controller.
-type CloudCredentialRequestParam struct {
+type CloudCredentialArg struct {
 	CloudName      string `json:"cloud-name"`
 	CredentialName string `json:"credential-name"`
 }
 
-func (p CloudCredentialRequestParam) IsEmpty() bool {
+// IsEmpty returns whether a cloud credential argument is empty.
+func (p CloudCredentialArg) IsEmpty() bool {
 	return p.CloudName == "" && p.CredentialName == ""
 }
 
-// CredentialContentRequestParam defines an input required to make a valid call
+// CloudCredentialArgs defines an input required to make a valid call
 // to get credentials content stored on the controller.
-type CredentialContentRequestParam struct {
-	Credentials    []CloudCredentialRequestParam `json:"credentials,omitempty"`
-	IncludeSecrets bool                          `json:"include-secrets"`
+type CloudCredentialArgs struct {
+	Credentials    []CloudCredentialArg `json:"credentials,omitempty"`
+	IncludeSecrets bool                 `json:"include-secrets"`
 }
 
 // CloudCredential contains a cloud credential content.
@@ -153,8 +154,8 @@ type CredentialContent struct {
 
 // ModelAccess contains information about user model access.
 type ModelAccess struct {
-	Model  string `json:"model,omitempty"`
-	Access string `json:"access,omitempty"`
+	Model  string               `json:"model,omitempty"`
+	Access UserAccessPermission `json:"access,omitempty"`
 }
 
 // ControllerCredentialInfo contains everything Juju stores on the controller
