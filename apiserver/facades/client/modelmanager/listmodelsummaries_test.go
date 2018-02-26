@@ -99,6 +99,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 					Status:             params.EntityStatus{},
 					Counts:             []params.ModelEntityCount{},
 					SLA:                &params.ModelSLAInfo{"essential", "admin"},
+					UserAccess:         params.ModelNoAccess,
 				},
 			},
 		},
