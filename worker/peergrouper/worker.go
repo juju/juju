@@ -30,8 +30,6 @@ type State interface {
 	ControllerConfig() (controller.Config, error)
 	ControllerInfo() (*state.ControllerInfo, error)
 	Machine(id string) (Machine, error)
-	SetOrGetMongoSpaceName(spaceName network.SpaceName) (network.SpaceName, error)
-	SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error
 	Space(id string) (Space, error)
 	WatchControllerInfo() state.NotifyWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
@@ -401,124 +399,6 @@ func (w *pgWorker) publishAPIServerDetails(
 	w.config.Hub.Publish(apiserver.DetailsTopic, details)
 }
 
-// peerGroupInfo collates current session information about the
-// mongo peer group with information from state machines.
-func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
-	info := &peerGroupInfo{
-		mongoPort: w.config.MongoPort,
-	}
-
-	sts, err := w.config.MongoSession.CurrentStatus()
-	if err != nil {
-		return nil, fmt.Errorf("cannot get replica set status: %v", err)
-	}
-	info.statuses = sts.Members
-
-	info.members, err = w.config.MongoSession.CurrentMembers()
-	if err != nil {
-		return nil, fmt.Errorf("cannot get replica set members: %v", err)
-	}
-	info.machineTrackers = w.machineTrackers
-
-	spaceName, err := w.getMongoSpace(machineAddresses(info.machineTrackers))
-	if err != nil {
-		return nil, err
-	}
-	info.mongoSpace = spaceName
-
-	return info, nil
-}
-
-func machineAddresses(machines map[string]*machineTracker) [][]network.Address {
-	addresses := make([][]network.Address, 0, len(machines))
-	for _, m := range machines {
-		addresses = append(addresses, m.Addresses())
-	}
-	return addresses
-}
-
-const unsetSpace = network.SpaceName("")
-
-var errSpaceNotSuperset = errors.New("could not find a space containing all peer group machines")
-
-// getMongoSpace updates info with the space that Mongo servers should exist in.
-func (w *pgWorker) getMongoSpace(addrs [][]network.Address) (network.SpaceName, error) {
-	stateInfo, err := w.config.State.ControllerInfo()
-	if err != nil {
-		return unsetSpace, errors.Annotate(err, "cannot get state server info")
-	}
-
-	switch stateInfo.MongoSpaceState {
-	case state.MongoSpaceUnknown:
-		if !w.config.SupportsSpaces {
-			err := w.config.State.SetMongoSpaceState(state.MongoSpaceUnsupported)
-			if err != nil {
-				return unsetSpace, errors.Annotate(err, "cannot set Mongo space state")
-			}
-			return unsetSpace, nil
-		}
-
-		// Check to see if a HA space was set in the controller config.
-		space := unsetSpace
-		space, err = w.tryGetMongoSpaceFromConfig()
-		if err != nil {
-			return space, errors.Annotate(err, "getting Mongo space from config")
-		}
-
-		// If not, try to determine a space automatically.
-		if space == unsetSpace {
-			if space, err = w.tryFindMongoSpace(addrs); err != nil {
-				if err == errSpaceNotSuperset {
-					logger.Warningf(err.Error())
-					err = nil
-				}
-				return space, errors.Trace(err)
-			}
-		}
-
-		if space, err = w.config.State.SetOrGetMongoSpaceName(space); err != nil {
-			err = errors.Annotate(err, "error setting/getting Mongo space")
-		}
-		return space, err
-
-	case state.MongoSpaceValid:
-		space, err := w.config.State.Space(stateInfo.MongoSpaceName)
-		if err != nil {
-			return unsetSpace, errors.Annotate(err, "looking up space")
-		}
-		return network.SpaceName(space.Name()), nil
-	}
-
-	return unsetSpace, nil
-}
-
-// trySetMongoSpaceFromConfig checks whether a value was supplied for
-// juju-ha-space in the controllers config.
-// If so, an attempt is made to use that value as the Mongo space name.
-func (w *pgWorker) tryGetMongoSpaceFromConfig() (network.SpaceName, error) {
-	config, err := w.config.State.ControllerConfig()
-	if err != nil {
-		return unsetSpace, err
-	}
-	return network.SpaceName(config.JujuHASpace()), nil
-}
-
-// tryAutoSetMongoSpace attempts to determine the largest space containing all
-// of the input addresses.
-// If there is no such space, set the space state to be invalid.
-func (w *pgWorker) tryFindMongoSpace(addrs [][]network.Address) (network.SpaceName, error) {
-	spaceStats := generateSpaceStats(addrs)
-	if !spaceStats.LargestSpaceContainsAll {
-		err := w.config.State.SetMongoSpaceState(state.MongoSpaceInvalid)
-		if err != nil {
-			return unsetSpace, errors.Annotate(err, "cannot set Mongo space state")
-		}
-		return unsetSpace, errSpaceNotSuperset
-	}
-
-	return spaceStats.LargestSpace, nil
-}
-
 // replicaSetError holds an error returned as a result
 // of calling replicaset.Set. As this is expected to fail
 // in the normal course of things, it needs special treatment.
@@ -619,8 +499,45 @@ func (w *pgWorker) updateReplicaSet() (map[string]replicaset.Member, error) {
 	return machineMembers, nil
 }
 
-// setHasVote sets the HasVote status of all the given
-// machines to hasVote.
+// peerGroupInfo collates current session information about the
+// mongo peer group with information from state machines.
+func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
+	info := &peerGroupInfo{
+		mongoPort: w.config.MongoPort,
+	}
+
+	sts, err := w.config.MongoSession.CurrentStatus()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get replica set status: %v", err)
+	}
+	info.statuses = sts.Members
+
+	info.members, err = w.config.MongoSession.CurrentMembers()
+	if err != nil {
+		return nil, fmt.Errorf("cannot get replica set members: %v", err)
+	}
+	info.machineTrackers = w.machineTrackers
+
+	spaceName, err := w.getHASpaceFromConfig()
+	if err != nil {
+		return nil, err
+	}
+	info.haSpace = spaceName
+
+	return info, nil
+}
+
+// getHASpaceFromConfig returns a SpaceName from the controller config for
+// HA space. If unset, the empty space ("") will be returned.
+func (w *pgWorker) getHASpaceFromConfig() (network.SpaceName, error) {
+	config, err := w.config.State.ControllerConfig()
+	if err != nil {
+		return network.SpaceName(""), err
+	}
+	return network.SpaceName(config.JujuHASpace()), nil
+}
+
+// setHasVote sets the HasVote status of all the given machines to hasVote.
 func setHasVote(ms []*machineTracker, hasVote bool) error {
 	if len(ms) == 0 {
 		return nil
@@ -632,36 +549,4 @@ func setHasVote(ms []*machineTracker, hasVote bool) error {
 		}
 	}
 	return nil
-}
-
-// SpaceStats holds information useful when choosing which space to pick an
-// address from.
-type spaceStats struct {
-	SpaceRefCount           map[network.SpaceName]int
-	LargestSpace            network.SpaceName
-	LargestSpaceSize        int
-	LargestSpaceContainsAll bool
-}
-
-// generateSpaceStats takes a list of machine addresses and returns information
-// about what spaces are referenced by those machines.
-func generateSpaceStats(addresses [][]network.Address) spaceStats {
-	var stats spaceStats
-	stats.SpaceRefCount = make(map[network.SpaceName]int)
-
-	for i := range addresses {
-		for _, addr := range addresses[i] {
-			v := stats.SpaceRefCount[addr.SpaceName]
-			v++
-			stats.SpaceRefCount[addr.SpaceName] = v
-
-			if v > stats.LargestSpaceSize {
-				stats.LargestSpace = addr.SpaceName
-				stats.LargestSpaceSize = v
-			}
-		}
-	}
-
-	stats.LargestSpaceContainsAll = stats.LargestSpaceSize == len(addresses)
-	return stats
 }
