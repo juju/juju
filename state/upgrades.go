@@ -438,7 +438,7 @@ func updateLegacyLXDCredentialsOps(st *State, cred cloud.Credential) ([]txn.Op, 
 	defer iter.Close()
 	var doc cloudCredentialDoc
 	for iter.Next(&doc) {
-		cloudCredentialTag, err := doc.CloudCredentialTag()
+		cloudCredentialTag, err := doc.cloudCredentialTag()
 		if err != nil {
 			upgradesLogger.Debugf("%v", err)
 			continue

@@ -24,6 +24,11 @@ type Credential struct {
 	cloudCredentialDoc
 }
 
+// CloudCredentialTag returns cloud credential tag.
+func (c Credential) CloudCredentialTag() (names.CloudCredentialTag, error) {
+	return c.cloudCredentialDoc.cloudCredentialTag()
+}
+
 // cloudCredentialDoc records information about a user's cloud credentials.
 type cloudCredentialDoc struct {
 	DocID      string            `bson:"_id"`
@@ -70,7 +75,7 @@ func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[str
 
 	var doc cloudCredentialDoc
 	for iter.Next(&doc) {
-		tag, err := doc.CloudCredentialTag()
+		tag, err := doc.cloudCredentialTag()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -183,7 +188,7 @@ func cloudCredentialDocID(tag names.CloudCredentialTag) string {
 	return fmt.Sprintf("%s#%s#%s", tag.Cloud().Id(), tag.Owner().Id(), tag.Name())
 }
 
-func (c cloudCredentialDoc) CloudCredentialTag() (names.CloudCredentialTag, error) {
+func (c cloudCredentialDoc) cloudCredentialTag() (names.CloudCredentialTag, error) {
 	ownerTag := names.NewUserTag(c.Owner)
 	id := fmt.Sprintf("%s/%s/%s", c.Cloud, ownerTag.Id(), c.Name)
 	if !names.IsValidCloudCredential(id) {
