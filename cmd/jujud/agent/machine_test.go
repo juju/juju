@@ -5,6 +5,7 @@ package agent
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -739,8 +740,24 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 		Arch:   arch.HostArch(),
 		Series: series.MustHostSeries(),
 	}
+
+	files := []*coretesting.TarFile{
+		coretesting.NewTarFile("jujud", agenttools.GetDirPerm(), "jujuc executable"),
+	}
+	data, checksum := coretesting.TarGz(files...)
+	testTools := &tools.Tools{
+		URL:     "http://foo/bar1",
+		Version: vers,
+		Size:    int64(len(data)),
+		SHA256:  checksum,
+	}
+
 	vers.Minor++
+
 	m, _, _ := s.primeAgentVersion(c, vers, job)
+	err := agenttools.UnpackTools(s.DataDir(), testTools, bytes.NewReader(data))
+	c.Assert(err, jc.ErrorIsNil)
+
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()

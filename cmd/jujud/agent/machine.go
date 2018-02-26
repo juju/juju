@@ -487,7 +487,6 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	createEngine := a.makeEngineCreator(agentConfig.UpgradedToVersion())
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
-
 	if err := a.ensureMachineAgentDir(agentConfig.DataDir()); err != nil {
 		return err
 	}
@@ -1660,7 +1659,7 @@ func (a *MachineAgent) ensureMachineAgentDir(dataDir string) error {
 		Series: series.MustHostSeries(),
 	}
 	_, err := tools.ChangeAgentTools(dataDir, a.Tag().String(), currentVersion)
-	return err
+	return errors.Trace(err)
 }
 
 func (a *MachineAgent) createSymlink(target, link string) error {

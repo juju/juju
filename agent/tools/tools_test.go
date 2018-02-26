@@ -269,6 +269,7 @@ func (t *ToolsSuite) TestMaybeReadTools(c *gc.C) {
 	t.PatchValue(&series.MustHostSeries, func() string { return "xenial" })
 	gotTools, err := agenttools.MaybeReadTools(t.dataDir, version.MustParseBinary("1.2.3-xenial-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
+	testTools.Version = version.MustParseBinary("1.2.3-xenial-amd64")
 	c.Assert(*gotTools, gc.Equals, *testTools)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-trusty-amd64", "1.2.3-xenial-amd64"})
 }
@@ -276,7 +277,7 @@ func (t *ToolsSuite) TestMaybeReadTools(c *gc.C) {
 func (t *ToolsSuite) TestMaybeReadToolsFail(c *gc.C) {
 	t.PatchValue(&series.MustHostSeries, func() string { return "xenial" })
 	gotTools, err := agenttools.MaybeReadTools(t.dataDir, version.MustParseBinary("1.2.3-trusty-amd64"))
-	c.Assert(err, gc.ErrorMatches, "agent binaries of current or other series.*")
+	c.Assert(err, gc.ErrorMatches, "cannot read agent binaries of current or other series.*")
 	c.Assert(gotTools, gc.IsNil)
 }
 
