@@ -27,7 +27,7 @@ Summary:
 Show help on a Juju charm hook tool.
 
 Details:
-Juju charms can access a series of built-in helpers called 'hook-tools'. 
+Juju charms can access a series of built-in helpers called 'hook-tools'.
 These are useful for the charm to be able to inspect its running environment.
 Currently available charm hook tools are:
 
