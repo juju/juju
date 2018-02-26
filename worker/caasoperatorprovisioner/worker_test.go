@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -112,17 +113,36 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C) {
 			break
 		}
 	}
-	s.provisionerFacade.stub.CheckCallNames(c, "SetPasswords")
-	passwords := s.provisionerFacade.stub.Calls()[0].Args[0].([]apicaasprovisioner.ApplicationPassword)
+	s.provisionerFacade.stub.CheckCallNames(c, "Life", "SetPasswords")
+	c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], gc.Equals, "myapp")
+	passwords := s.provisionerFacade.stub.Calls()[1].Args[0].([]apicaasprovisioner.ApplicationPassword)
 
 	c.Assert(passwords, gc.HasLen, 1)
 	c.Assert(passwords[0].Name, gc.Equals, "myapp")
 	c.Assert(passwords[0].Password, gc.Not(gc.Equals), "")
 }
 
-func (s *CAASProvisionerSuite) TestOperatorCreated(c *gc.C) {
+func (s *CAASProvisionerSuite) TestNewApplicationCreatesOperator(c *gc.C) {
 	w := s.assertWorker(c)
 	defer workertest.CleanKill(c, w)
 
 	s.assertOperatorCreated(c)
+}
+
+func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
+	w := s.assertWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.assertOperatorCreated(c)
+	s.caasClient.ResetCalls()
+	s.provisionerFacade.stub.SetErrors(errors.NotFoundf("myapp"))
+	s.provisionerFacade.applicationsWatcher.changes <- []string{"myapp"}
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.caasClient.Calls()) > 0 {
+			break
+		}
+	}
+	s.caasClient.CheckCallNames(c, "DeleteOperator")
+	c.Assert(s.caasClient.Calls()[0].Args[0], gc.Equals, "myapp")
 }

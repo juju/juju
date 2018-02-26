@@ -59,6 +59,7 @@ func (m *mockServiceBroker) DeleteService(appName string) error {
 type mockContainerBroker struct {
 	testing.Stub
 	ensured            chan<- struct{}
+	serviceDeleted     chan<- struct{}
 	unitDeleted        chan<- struct{}
 	unitsWatcher       *watchertest.MockNotifyWatcher
 	reportedUnitStatus status.Status
@@ -73,6 +74,17 @@ func (m *mockContainerBroker) EnsureUnit(appName, unitName string, spec *caas.Co
 func (m *mockContainerBroker) DeleteUnit(unitName string) error {
 	m.MethodCall(m, "DeleteUnit", unitName)
 	m.unitDeleted <- struct{}{}
+	return m.NextErr()
+}
+
+func (m *mockContainerBroker) DeleteService(appName string) error {
+	m.MethodCall(m, "DeleteService", appName)
+	m.serviceDeleted <- struct{}{}
+	return m.NextErr()
+}
+
+func (m *mockContainerBroker) UnexposeService(appName string) error {
+	m.MethodCall(m, "UnexposeService", appName)
 	return m.NextErr()
 }
 
@@ -94,7 +106,8 @@ func (m *mockContainerBroker) Units(appName string) ([]caas.Unit, error) {
 
 type mockApplicationGetter struct {
 	testing.Stub
-	watcher *watchertest.MockStringsWatcher
+	watcher          *watchertest.MockStringsWatcher
+	jujuManagedUnits bool
 }
 
 func (m *mockApplicationGetter) WatchApplications() (watcher.StringsWatcher, error) {
@@ -107,7 +120,10 @@ func (m *mockApplicationGetter) WatchApplications() (watcher.StringsWatcher, err
 
 func (a *mockApplicationGetter) ApplicationConfig(appName string) (application.ConfigAttributes, error) {
 	a.MethodCall(a, "ApplicationConfig", appName)
-	return application.ConfigAttributes{"juju-external-hostname": "exthost"}, a.NextErr()
+	return application.ConfigAttributes{
+		"juju-external-hostname": "exthost",
+		"juju-managed-units":     a.jujuManagedUnits,
+	}, a.NextErr()
 }
 
 type mockApplicationUpdater struct {

@@ -214,7 +214,8 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 		c.Fatal("timed out sending applications change")
 	}
 
-	workertest.CheckKilled(c, s.applicationGetter.appWatcher)
+	err = workertest.CheckKilled(c, s.applicationGetter.appWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {

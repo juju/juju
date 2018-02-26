@@ -8,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -16,10 +17,6 @@ var logger = loggo.GetLogger("juju.workers.caasunitprovisioner")
 
 // Config holds configuration for the CAAS unit provisioner worker.
 type Config struct {
-	// BrokerManagedUnits is true if the CAAS substrate ensures the
-	// required number of units are running, rather than Juju having to do it.
-	BrokerManagedUnits bool
-
 	ApplicationGetter  ApplicationGetter
 	ApplicationUpdater ApplicationUpdater
 	ServiceBroker      ServiceBroker
@@ -76,6 +73,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 type provisioner struct {
 	catacomb catacomb.Catacomb
 	config   Config
+
+	appRemoved chan struct{}
 }
 
 // Kill is part of the worker.Worker interface.
@@ -97,6 +96,9 @@ func (p *provisioner) loop() error {
 		return errors.Trace(err)
 	}
 
+	// The channel is unbuffered to that we block until
+	// requests are processed.
+	p.appRemoved = make(chan struct{})
 	appWorkers := make(map[string]worker.Worker)
 	for {
 		select {
@@ -109,10 +111,22 @@ func (p *provisioner) loop() error {
 			for _, appId := range apps {
 				appLife, err := p.config.LifeGetter.Life(appId)
 				if errors.IsNotFound(err) {
+					// Once an application is deleted, remove the k8s service and ingress resources.
+					if err := p.config.ContainerBroker.UnexposeService(appId); err != nil {
+						return errors.Trace(err)
+					}
+					if err := p.config.ContainerBroker.DeleteService(appId); err != nil {
+						return errors.Trace(err)
+					}
 					w, ok := appWorkers[appId]
 					if ok {
+						// Before stopping the application worker, inform it that
+						// the app is gone so it has a chance to clean up.
+						// The worker will act on the removed prior to processing the
+						// Stop() request.
+						p.appRemoved <- struct{}{}
 						if err := worker.Stop(w); err != nil {
-							return errors.Trace(err)
+							logger.Errorf("stopping application worker for %v: %v", appId, err)
 						}
 						delete(appWorkers, appId)
 					}
@@ -126,9 +140,15 @@ func (p *provisioner) loop() error {
 					// not yet watching it and it's dead.
 					continue
 				}
+				cfg, err := p.config.ApplicationGetter.ApplicationConfig(appId)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				jujuManagedUnits := cfg.GetBool(caas.JujuManagedUnits, false)
 				w, err := newApplicationWorker(
 					appId,
-					p.config.BrokerManagedUnits,
+					p.appRemoved,
+					jujuManagedUnits,
 					p.config.ServiceBroker,
 					p.config.ContainerBroker,
 					p.config.ContainerSpecGetter,

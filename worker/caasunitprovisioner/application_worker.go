@@ -14,15 +14,16 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
 
 type applicationWorker struct {
-	catacomb           catacomb.Catacomb
-	application        string
-	brokerManagedUnits bool
-	serviceBroker      ServiceBroker
-	containerBroker    ContainerBroker
+	catacomb         catacomb.Catacomb
+	application      string
+	jujuManagedUnits bool
+	serviceBroker    ServiceBroker
+	containerBroker  ContainerBroker
 
 	containerSpecGetter ContainerSpecGetter
 	lifeGetter          LifeGetter
@@ -32,11 +33,13 @@ type applicationWorker struct {
 	unitUpdater         UnitUpdater
 
 	aliveUnitsChan chan []string
+	appRemoved     chan struct{}
 }
 
 func newApplicationWorker(
 	application string,
-	brokerManagedUnits bool,
+	appRemoved chan struct{},
+	jujuManagedUnits bool,
 	serviceBroker ServiceBroker,
 	containerBroker ContainerBroker,
 	containerSpecGetter ContainerSpecGetter,
@@ -48,7 +51,7 @@ func newApplicationWorker(
 ) (worker.Worker, error) {
 	w := &applicationWorker{
 		application:         application,
-		brokerManagedUnits:  brokerManagedUnits,
+		jujuManagedUnits:    jujuManagedUnits,
 		serviceBroker:       serviceBroker,
 		containerBroker:     containerBroker,
 		containerSpecGetter: containerSpecGetter,
@@ -58,6 +61,7 @@ func newApplicationWorker(
 		unitGetter:          unitGetter,
 		unitUpdater:         unitUpdater,
 		aliveUnitsChan:      make(chan []string),
+		appRemoved:          appRemoved,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -85,17 +89,9 @@ func (aw *applicationWorker) loop() error {
 	}
 	aw.catacomb.Add(jujuUnitsWatcher)
 
-	brokerUnitsWatcher, err := aw.containerBroker.WatchUnits(aw.application)
-	if err != nil {
-		return errors.Annotatef(err, "failed to start unit watcher for %q", aw.application)
-	}
-	if err := aw.catacomb.Add(brokerUnitsWatcher); err != nil {
-		return errors.Trace(err)
-	}
-
 	deploymentWorker, err := newDeploymentWorker(
 		aw.application,
-		aw.brokerManagedUnits,
+		aw.jujuManagedUnits,
 		aw.serviceBroker,
 		aw.containerSpecGetter,
 		aw.applicationGetter,
@@ -107,16 +103,100 @@ func (aw *applicationWorker) loop() error {
 	aw.catacomb.Add(deploymentWorker)
 	unitWorkers := make(map[string]worker.Worker)
 	aliveUnits := make(set.Strings)
-	var aliveUnitsChan chan []string
+	var (
+		aliveUnitsChan     chan []string
+		brokerUnitsWatcher watcher.NotifyWatcher
+	)
+	// The caas watcher can just die from underneath us hence it needs to be
+	// restarted all the time. So we don't abuse the catacomb by adding new
+	// workers unbounded, use use a defer to stop the running worker.
+	defer func() {
+		if brokerUnitsWatcher != nil {
+			worker.Stop(brokerUnitsWatcher)
+		}
+	}()
 
 	// Cache the last reported status information
 	// so we only report true changes.
 	lastReportedStatus := make(map[string]status.StatusInfo)
 
 	for {
+		// The caas watcher can just die from underneath us so recreate if needed.
+		if brokerUnitsWatcher == nil {
+			brokerUnitsWatcher, err = aw.containerBroker.WatchUnits(aw.application)
+			if err != nil {
+				return errors.Annotatef(err, "failed to start unit watcher for %q", aw.application)
+			}
+		}
 		select {
+		// We must handle any processing due to application being removed prior
+		// to shutdown so that we don't leave stuff running in the cloud.
+		case <-aw.appRemoved:
+			if !aw.jujuManagedUnits {
+				continue
+			}
+			// Application has been removed, ensure all units are stopped
+			// before this worker is killed.
+			for unitId, w := range unitWorkers {
+				if err := aw.containerBroker.DeleteUnit(unitId); err != nil {
+					logger.Errorf("error deleting unit %v of removed application: %v", unitId, err)
+				}
+				worker.Stop(w)
+			}
 		case <-aw.catacomb.Dying():
 			return aw.catacomb.ErrDying()
+		case aliveUnitsChan <- aliveUnits.Values():
+			aliveUnitsChan = nil
+		case _, ok := <-brokerUnitsWatcher.Changes():
+			logger.Debugf("units changed: %#v", ok)
+			if !ok {
+				logger.Warningf("%v", brokerUnitsWatcher.Wait())
+				worker.Stop(brokerUnitsWatcher)
+				brokerUnitsWatcher = nil
+				continue
+			}
+			units, err := aw.containerBroker.Units(aw.application)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			logger.Debugf("units for %v: %+v", aw.application, units)
+			args := params.UpdateApplicationUnits{
+				ApplicationTag: names.NewApplicationTag(aw.application).String(),
+			}
+			for _, u := range units {
+				// For pods managed by the substrate, any marked as dying
+				// are treated as non-existing.
+				if u.Dying && !aw.jujuManagedUnits {
+					continue
+				}
+				unitStatus := u.Status
+				lastStatus, ok := lastReportedStatus[u.Id]
+				lastReportedStatus[u.Id] = unitStatus
+				if ok {
+					// If we've seen the same status value previously,
+					// report as unknown as this value is ignored.
+					if reflect.DeepEqual(lastStatus, unitStatus) {
+						unitStatus = status.StatusInfo{
+							Status: status.Unknown,
+						}
+					}
+				}
+				args.Units = append(args.Units, params.ApplicationUnitParams{
+					ProviderId: u.Id,
+					UnitTag:    u.UnitTag,
+					Address:    u.Address,
+					Ports:      u.Ports,
+					Status:     unitStatus.Status.String(),
+					Info:       unitStatus.Message,
+					Data:       unitStatus.Data,
+				})
+			}
+			if err := aw.unitUpdater.UpdateUnits(args); err != nil {
+				// We can ignore not found errors as the worker will get stopped anyway.
+				if !errors.IsNotFound(err) {
+					return errors.Trace(err)
+				}
+			}
 		case units, ok := <-jujuUnitsWatcher.Changes():
 			if !ok {
 				return errors.New("watcher closed channel")
@@ -132,16 +212,14 @@ func (aw *applicationWorker) loop() error {
 					w, ok := unitWorkers[unitId]
 					if ok {
 						if err := worker.Stop(w); err != nil {
-							return errors.Trace(err)
+							logger.Errorf("stopping unit worker for %v: %v", unitId, err)
 						}
 						delete(unitWorkers, unitId)
 					}
 				} else {
 					aliveUnits.Add(unitId)
 				}
-				if !aw.brokerManagedUnits {
-					// Juju managed units....
-
+				if aw.jujuManagedUnits {
 					// Remove any deleted unit.
 					if !aliveUnits.Contains(unitId) {
 						if err := aw.containerBroker.DeleteUnit(unitId); err != nil {
@@ -164,53 +242,6 @@ func (aw *applicationWorker) loop() error {
 					unitWorkers[unitId] = w
 					aw.catacomb.Add(w)
 				}
-			}
-		case aliveUnitsChan <- aliveUnits.Values():
-			aliveUnitsChan = nil
-		case _, ok := <-brokerUnitsWatcher.Changes():
-			logger.Debugf("units changed: %#v", ok)
-			if !ok {
-				return brokerUnitsWatcher.Wait()
-			}
-			units, err := aw.containerBroker.Units(aw.application)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			logger.Debugf("units for %v: %+v", aw.application, units)
-			args := params.UpdateApplicationUnits{
-				ApplicationTag: names.NewApplicationTag(aw.application).String(),
-				Units:          make([]params.ApplicationUnitParams, len(units)),
-			}
-			for i, u := range units {
-				// For pods managed by the substrate, any marked as dying
-				// are treated as non-existing.
-				if u.Dying && aw.brokerManagedUnits {
-					continue
-				}
-				unitStatus := u.Status
-				lastStatus, ok := lastReportedStatus[u.UnitTag]
-				lastReportedStatus[u.UnitTag] = unitStatus
-				if ok {
-					// If we've seen the same status value previously,
-					// report as unknown as this value is ignored.
-					if reflect.DeepEqual(lastStatus, unitStatus) {
-						unitStatus = status.StatusInfo{
-							Status: status.Unknown,
-						}
-					}
-				}
-				args.Units[i] = params.ApplicationUnitParams{
-					ProviderId: u.Id,
-					UnitTag:    u.UnitTag,
-					Address:    u.Address,
-					Ports:      u.Ports,
-					Status:     unitStatus.Status.String(),
-					Info:       unitStatus.Message,
-					Data:       unitStatus.Data,
-				}
-			}
-			if err := aw.unitUpdater.UpdateUnits(args); err != nil {
-				return errors.Trace(err)
 			}
 		}
 	}

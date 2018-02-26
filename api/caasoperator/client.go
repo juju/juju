@@ -195,8 +195,10 @@ func (c *Client) Life(entityName string) (life.Value, error) {
 	return life.Value(results.Results[0].Life), nil
 }
 
+// maybeNotFound returns an error satisfying errors.IsNotFound
+// if the supplied error has a CodeNotFound error.
 func maybeNotFound(err *params.Error) error {
-	if !params.IsCodeNotFound(err) {
+	if err == nil || !params.IsCodeNotFound(err) {
 		return err
 	}
 	return errors.NewNotFound(err, "")

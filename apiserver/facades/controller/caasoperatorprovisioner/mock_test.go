@@ -51,6 +51,10 @@ func (m *mockApplication) SetPassword(password string) error {
 	return nil
 }
 
+func (a *mockApplication) Life() state.Life {
+	return state.Alive
+}
+
 type mockWatcher struct {
 	testing.Stub
 	tomb.Tomb

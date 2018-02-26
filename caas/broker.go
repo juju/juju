@@ -20,6 +20,9 @@ type Broker interface {
 	// a charm for the specified application.
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
 
+	// DeleteOperator deletes the specified operator.
+	DeleteOperator(appName string) error
+
 	// EnsureService creates or updates a service for pods with the given spec.
 	EnsureService(appName string, spec *ContainerSpec, numUnits int, config application.ConfigAttributes) error
 

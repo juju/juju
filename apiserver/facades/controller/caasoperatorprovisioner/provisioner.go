@@ -4,6 +4,8 @@
 package caasoperatorprovisioner
 
 import (
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -12,6 +14,7 @@ import (
 
 type API struct {
 	*common.PasswordChanger
+	*common.LifeGetter
 
 	auth      facade.Authorizer
 	resources facade.Resources
@@ -37,7 +40,8 @@ func NewCAASOperatorProvisionerAPI(
 		return nil, common.ErrPerm
 	}
 	return &API{
-		PasswordChanger: common.NewPasswordChanger(st, common.AuthAlways()),
+		PasswordChanger: common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		LifeGetter:      common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		auth:            authorizer,
 		resources:       resources,
 		state:           st,

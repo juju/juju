@@ -109,6 +109,13 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	return nil
 }
 
+// DeleteOperator deletes the specified operator.
+func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
+	logger.Debugf("deleting %s operator", appName)
+	podName := operatorPodName(appName)
+	return k.deletePod(podName)
+}
+
 // Service returns the service for the specified application.
 func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
 	services := k.CoreV1().Services(namespace)
@@ -623,7 +630,7 @@ func (k *kubernetesClient) deletePod(podName string) error {
 			return errors.Trace(err)
 		},
 		Delay:       5 * time.Second,
-		MaxDuration: time.Minute,
+		MaxDuration: 2 * time.Minute,
 	}
 	return retry.Call(retryArgs)
 }

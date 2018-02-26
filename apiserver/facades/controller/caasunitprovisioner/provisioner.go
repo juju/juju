@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
@@ -216,81 +217,107 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := a.updateUnitsFromCloud(app, appUpdate.Units); err != nil {
+
+		// Get the app config so we know how to handle the update.
+		// It depends on whether Juju or the cloud manage the units.
+		appConfig, err := app.ApplicationConfig()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if appConfig.GetBool(caas.JujuManagedUnits, caas.JujuDefaultJujuManagedUnits) {
+			err = a.updateJujuManagedUnitsFromCloud(app, appUpdate.Units)
+		} else {
+			err = a.updateUnitsFromCloud(app, appUpdate.Units)
+		}
+		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}
 	return result, nil
 }
 
+// updateStatus constructs the unit and agent status values based on the pod status.
+func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
+	agentStatus *status.StatusInfo,
+	unitStatus *status.StatusInfo,
+	_ error,
+) {
+	switch status.Status(params.Status) {
+	case status.Unknown:
+		// The container runtime can spam us with unimportant
+		// status updates, so ignore any irrelevant ones.
+		return nil, nil, nil
+	case status.Allocating:
+		// The container runtime has decided to restart the pod.
+		agentStatus = &status.StatusInfo{
+			Status:  status.Allocating,
+			Message: params.Info,
+		}
+		unitStatus = &status.StatusInfo{
+			Status:  status.Waiting,
+			Message: status.MessageWaitForContainer,
+		}
+	case status.Running:
+		// A pod has finished starting so the workload is now active.
+		agentStatus = &status.StatusInfo{
+			Status: status.Idle,
+		}
+		unitStatus = &status.StatusInfo{
+			Status:  status.Active,
+			Message: params.Info,
+		}
+	case status.Error:
+		agentStatus = &status.StatusInfo{
+			Status:  status.Error,
+			Message: params.Info,
+			Data:    params.Data,
+		}
+	}
+	return agentStatus, unitStatus, nil
+}
+
 // updateUnitsFromCloud takes a slice of unit information provided by an external
 // source (typically a cloud update event) and merges that with the existing unit
 // data model in state. The passed in units are the complete set for the cloud, so
 // any existing units in state with provider ids which aren't in the set will be removed.
-func (a *Facade) updateUnitsFromCloud(app Application, units []params.ApplicationUnitParams) error {
+// This method is used when the cloud manages the units rather than Juju.
+func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.ApplicationUnitParams) error {
 	// Set up the initial data structures.
 	existingStateUnits, err := app.AllUnits()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var (
-		// unassociatedUnits are those which do not yet
-		// have a provider id assigned.
-		unassociatedUnits []Unit
-
-		// removedUnits are those that exist in state but are not
-		// represented in the unit params passed in.
-		removedUnits []Unit
-
-		addedCloudUnits    []params.ApplicationUnitParams
-		existingCloudUnits []params.ApplicationUnitParams
-	)
 	stateUnitsById := make(map[string]Unit)
-	stateUnitsByTag := make(map[string]Unit)
-	aliveCloudUnitsById := make(map[string]params.ApplicationUnitParams)
-	aliveCloudUnitTags := make(set.Strings)
+	cloudUnitsById := make(map[string]params.ApplicationUnitParams)
 
 	// Record all unit provider ids known to exist in the cloud.
-	// We initially assume the corresponding Juju unit is alive
-	// and will remove dying/dead ones below.
-	for _, u := range units {
-		aliveCloudUnitsById[u.ProviderId] = u
-		if u.UnitTag != "" {
-			aliveCloudUnitTags.Add(u.UnitTag)
-		}
+	for _, u := range unitUpdates {
+		cloudUnitsById[u.ProviderId] = u
 	}
 
-	stateUnitExistsInCloud := func(tag names.UnitTag, providerId string) bool {
-		// Tags take precedence over provider ids.
-		if aliveCloudUnitTags.Contains(tag.String()) {
-			return true
-		}
-		// If any units have been created with tags, we only
-		// support the case where they all have tags
-		// (ie managed by Juju).
-		if len(aliveCloudUnitTags) > 0 {
-			return false
-		}
+	stateUnitExistsInCloud := func(providerId string) bool {
 		if providerId == "" {
 			return false
 		}
-		_, ok := aliveCloudUnitsById[providerId]
+		_, ok := cloudUnitsById[providerId]
 		return ok
 	}
-	cloudUnitExistsInState := func(u params.ApplicationUnitParams) bool {
-		// Tags take precedence over provider ids.
-		if _, ok := stateUnitsByTag[u.UnitTag]; ok {
-			return true
-		}
-		// If the cloud unit has a tag it was created by Juju
-		// and we don't check provider id.
-		if u.UnitTag != "" {
-			return false
-		}
-		_, ok := stateUnitsById[u.ProviderId]
-		return ok
+
+	unitInfo := &updateStateUnitParams{
+		stateUnitsInCloud: make(map[string]Unit),
+		deletedRemoved:    true,
 	}
+	var (
+		// aliveStateIds holds the provider ids of alive units in state.
+		aliveStateIds = make(set.Strings)
+
+		// extraStateIds holds the provider ids of units in state which
+		// no longer exist in the cloud.
+		extraStateIds = make(set.Strings)
+	)
 
 	// Loop over any existing state units and record those which do not yet have
 	// provider ids, and those which have been removed or updated.
@@ -305,59 +332,189 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 		}
 
 		unitAlive := u.Life() == state.Alive
-		stateUnitInCloud := stateUnitExistsInCloud(u.UnitTag(), providerId)
-		if stateUnitInCloud {
-			stateUnitsById[providerId] = u
-			stateUnitsByTag[u.UnitTag().String()] = u
+		if !unitAlive {
+			continue
 		}
-		if providerId == "" && unitAlive {
+
+		if providerId == "" {
 			logger.Debugf("unit %q is not associated with any pod", u.Name())
-			unassociatedUnits = append(unassociatedUnits, u)
+			unitInfo.unassociatedUnits = append(unitInfo.unassociatedUnits, u)
+			continue
+		}
+		stateUnitsById[providerId] = u
+		stateUnitInCloud := stateUnitExistsInCloud(providerId)
+		aliveStateIds.Add(providerId)
+
+		if stateUnitInCloud {
+			logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), providerId)
+			unitInfo.stateUnitsInCloud[u.UnitTag().String()] = u
 		} else {
-			if !unitAlive {
-				delete(aliveCloudUnitsById, providerId)
-				aliveCloudUnitTags.Remove(u.UnitTag().String())
-				continue
-			}
-			if stateUnitInCloud {
-				logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), providerId)
-			} else {
-				logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), providerId)
-				removedUnits = append(removedUnits, u)
-			}
+			extraStateIds.Add(providerId)
 		}
 	}
 
 	// Do it in sorted order so it's deterministic for tests.
 	var ids []string
-	for id := range aliveCloudUnitsById {
+	for id := range cloudUnitsById {
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
 
+	// Sort extra ids also to guarantee order.
+	var extraIds []string
+	for id := range extraStateIds {
+		extraIds = append(extraIds, id)
+	}
+	sort.Strings(extraIds)
+	extraIdIndex := 0
+
 	for _, id := range ids {
-		u := aliveCloudUnitsById[id]
-		if cloudUnitExistsInState(u) {
-			existingCloudUnits = append(existingCloudUnits, u)
+		u := cloudUnitsById[id]
+		if aliveStateIds.Contains(id) {
+			u.UnitTag = stateUnitsById[id].UnitTag().String()
+			unitInfo.existingCloudUnits = append(unitInfo.existingCloudUnits, u)
+			continue
+		}
+		// If there are units in state which used to be be associated with a pod
+		// but are now not, we give those state units a pod which is not
+		// associated with any unit. The pod may have been added new due to a scale
+		// out operation, or the pod's state unit was deleted but the cloud removed
+		// a different pod in response and so we need to re-associated this still
+		// alive pod with the orphaned unit.
+		if !extraStateIds.IsEmpty() {
+			extraId := extraIds[extraIdIndex]
+			extraIdIndex += 1
+			extraStateIds.Remove(extraId)
+			u.ProviderId = id
+			unit := stateUnitsById[extraId]
+			u.UnitTag = unit.UnitTag().String()
+			unitInfo.existingCloudUnits = append(unitInfo.existingCloudUnits, u)
+			unitInfo.stateUnitsInCloud[u.UnitTag] = unit
+			continue
+		}
+
+		// A new pod was added to the cloud but does not yet have a unit in state.
+		unitInfo.addedCloudUnits = append(unitInfo.addedCloudUnits, u)
+	}
+
+	// If there are any extra provider ids left over after allocating all the cloud pods,
+	// then consider those state units as terminated.
+	for _, providerId := range extraStateIds.Values() {
+		u := stateUnitsById[providerId]
+		logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), providerId)
+		unitInfo.removedUnits = append(unitInfo.removedUnits, u)
+	}
+
+	return a.updateStateUnits(app, unitInfo)
+}
+
+// updateUnitsFromCloud takes a slice of unit information provided by an external
+// source (typically a cloud update event) and merges that with the existing unit
+// data model in state. The passed in units are the complete set for the cloud, so
+// any existing units in state with provider ids which aren't in the set will be
+// marked as terminated. This method is used when the Juju manages the units.
+func (a *Facade) updateJujuManagedUnitsFromCloud(app Application, unitUpdates []params.ApplicationUnitParams) error {
+	// Set up the initial data structures.
+	existingStateUnits, err := app.AllUnits()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	aliveCloudUnits := make(map[string]params.ApplicationUnitParams)
+
+	// Record all unit details known to exist in the cloud.
+	// We initially assume the corresponding Juju unit is alive
+	// and will remove dying/dead ones below.
+	for _, u := range unitUpdates {
+		if u.UnitTag == "" {
+			logger.Warningf("ignoring cloud unit %v without a Juju unit tag", u.ProviderId)
+			continue
+		}
+		aliveCloudUnits[u.UnitTag] = u
+	}
+
+	unitInfo := &updateStateUnitParams{
+		stateUnitsInCloud: make(map[string]Unit),
+	}
+
+	// Loop over any existing state units and record those which
+	// have been removed or updated.
+	for _, u := range existingStateUnits {
+		var providerId string
+		info, err := u.ContainerInfo()
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		if err == nil {
+			providerId = info.ProviderId()
+		}
+
+		unitAlive := u.Life() == state.Alive
+		if !unitAlive {
+			delete(aliveCloudUnits, u.UnitTag().String())
+			continue
+		}
+
+		_, stateUnitInCloud := aliveCloudUnits[u.UnitTag().String()]
+		if stateUnitInCloud {
+			unitInfo.stateUnitsInCloud[u.UnitTag().String()] = u
+		}
+		if providerId == "" {
+			logger.Debugf("unit %q is not associated with any pod", u.Name())
+			continue
+		}
+		if stateUnitInCloud {
+			logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), providerId)
 		} else {
-			if u.UnitTag == "" {
-				addedCloudUnits = append(addedCloudUnits, u)
-			} else {
-				logger.Warningf("ignoring orphaned cloud unit: %v", u.UnitTag)
-			}
+			logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), providerId)
+			unitInfo.removedUnits = append(unitInfo.removedUnits, u)
 		}
 	}
+
+	// Do it in sorted order so it's deterministic for tests.
+	var tags []string
+	for tag := range aliveCloudUnits {
+		tags = append(tags, tag)
+	}
+	sort.Strings(tags)
+
+	for _, tag := range tags {
+		u := aliveCloudUnits[tag]
+		if _, ok := unitInfo.stateUnitsInCloud[tag]; ok {
+			unitInfo.existingCloudUnits = append(unitInfo.existingCloudUnits, u)
+		} else {
+			logger.Warningf("ignoring pod %v added outside of Juju", u.ProviderId)
+			continue
+		}
+	}
+	return a.updateStateUnits(app, unitInfo)
+}
+
+type updateStateUnitParams struct {
+	stateUnitsInCloud  map[string]Unit
+	addedCloudUnits    []params.ApplicationUnitParams
+	existingCloudUnits []params.ApplicationUnitParams
+	removedUnits       []Unit
+	unassociatedUnits  []Unit
+	deletedRemoved     bool
+}
+
+func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitParams) error {
+
+	logger.Tracef("added cloud units: %+v", unitInfo.addedCloudUnits)
+	logger.Tracef("existing cloud units: %+v", unitInfo.existingCloudUnits)
+	logger.Tracef("removed units: %+v", unitInfo.removedUnits)
+	logger.Tracef("unassociated units: %+v", unitInfo.unassociatedUnits)
 
 	// Now we have the added, removed, updated units all sorted,
 	// generate the state update operations.
 	var unitUpdate state.UpdateUnitsOperation
 
-	for _, u := range removedUnits {
-		// TODO(caas) - the cloud watcher can mistakenly report pods as missing
-		// TODO(Caas) - for a deployment controller, we do want to remove the unit
-		//logger.Infof("removing unit %v from state because it no longer exists in the cloud", u.Name())
-		//unitUpdate.Deletes = append(unitUpdate.Deletes, u.DestroyOperation())
-
+	for _, u := range unitInfo.removedUnits {
+		if unitInfo.deletedRemoved {
+			unitUpdate.Deletes = append(unitUpdate.Deletes, u.DestroyOperation())
+			continue
+		}
 		// We'll set the status as Terminated. This will either be transient, as will
 		// occur when a pod is restarted external to Juju, or permanent if the pod has
 		// been deleted external to Juju. In the latter case, juju remove-unit will be
@@ -377,56 +534,13 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 			u.UpdateOperation(updateProps))
 	}
 
-	// updateStatus constructs the unit and agent status values based on the pod status.
-	updateStatus := func(params params.ApplicationUnitParams) (
-		agentStatus *status.StatusInfo,
-		unitStatus *status.StatusInfo,
-		_ error,
-	) {
-		switch status.Status(params.Status) {
-		case status.Unknown:
-			// The container runtime can spam us with unimportant
-			// status updates, so ignore any irrelevant ones.
-			return nil, nil, nil
-		case status.Allocating:
-			// The container runtime has decided to restart the pod.
-			agentStatus = &status.StatusInfo{
-				Status:  status.Allocating,
-				Message: params.Info,
-			}
-			unitStatus = &status.StatusInfo{
-				Status:  status.Waiting,
-				Message: status.MessageWaitForContainer,
-			}
-		case status.Running:
-			// A pod has finished starting so the workload is now active.
-			agentStatus = &status.StatusInfo{
-				Status: status.Idle,
-			}
-			unitStatus = &status.StatusInfo{
-				Status:  status.Active,
-				Message: params.Info,
-			}
-		case status.Error:
-			agentStatus = &status.StatusInfo{
-				Status:  status.Error,
-				Message: params.Info,
-				Data:    params.Data,
-			}
-		}
-		return agentStatus, unitStatus, nil
-	}
-
-	for _, unitParams := range existingCloudUnits {
-		u, ok := stateUnitsByTag[unitParams.UnitTag]
+	for _, unitParams := range unitInfo.existingCloudUnits {
+		u, ok := unitInfo.stateUnitsInCloud[unitParams.UnitTag]
 		if !ok {
-			u, ok = stateUnitsById[unitParams.ProviderId]
-		}
-		if !ok {
-			logger.Warningf("missing unit parameters %+v", unitParams)
+			logger.Warningf("unexpected unit parameters %+v not in state", unitParams)
 			continue
 		}
-		agentStatus, unitStatus, err := updateStatus(unitParams)
+		agentStatus, unitStatus, err := a.updateStatus(unitParams)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -447,8 +561,8 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 	// exist but which do not yet have provider ids (recording the provider
 	// id as well), or add a brand new unit.
 	idx := 0
-	for _, unitParams := range addedCloudUnits {
-		agentStatus, unitStatus, err := updateStatus(unitParams)
+	for _, unitParams := range unitInfo.addedCloudUnits {
+		agentStatus, unitStatus, err := a.updateStatus(unitParams)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -461,8 +575,8 @@ func (a *Facade) updateUnitsFromCloud(app Application, units []params.Applicatio
 			UnitStatus:  unitStatus,
 		}
 
-		if idx < len(unassociatedUnits) {
-			u := unassociatedUnits[idx]
+		if idx < len(unitInfo.unassociatedUnits) {
+			u := unitInfo.unassociatedUnits[idx]
 			unitUpdate.Updates = append(unitUpdate.Updates,
 				u.UpdateOperation(updateProps))
 			idx += 1

@@ -179,8 +179,10 @@ func (c *Client) Life(entityName string) (life.Value, error) {
 	return life.Value(results.Results[0].Life), nil
 }
 
+// maybeNotFound returns an error satisfying errors.IsNotFound
+// if the supplied error has a CodeNotFound error.
 func maybeNotFound(err *params.Error) error {
-	if !params.IsCodeNotFound(err) {
+	if err == nil || !params.IsCodeNotFound(err) {
 		return err
 	}
 	return errors.NewNotFound(err, "")
@@ -198,7 +200,10 @@ func (c *Client) UpdateUnits(arg params.UpdateApplicationUnits) error {
 	if len(result.Results) != len(args.Args) {
 		return errors.Errorf("expected %d result(s), got %d", len(args.Args), len(result.Results))
 	}
-	return result.OneError()
+	if result.Results[0].Error == nil {
+		return nil
+	}
+	return maybeNotFound(result.Results[0].Error)
 }
 
 // UpdateApplicationService updates the state model to reflect the state of the application's
@@ -206,12 +211,14 @@ func (c *Client) UpdateUnits(arg params.UpdateApplicationUnits) error {
 func (c *Client) UpdateApplicationService(arg params.UpdateApplicationServiceArg) error {
 	var result params.ErrorResults
 	args := params.UpdateApplicationServiceArgs{Args: []params.UpdateApplicationServiceArg{arg}}
-	err := c.facade.FacadeCall("UpdateApplicationsService", args, &result)
-	if err != nil {
+	if err := c.facade.FacadeCall("UpdateApplicationsService", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if len(result.Results) != len(args.Args) {
 		return errors.Errorf("expected %d result(s), got %d", len(args.Args), len(result.Results))
 	}
-	return result.OneError()
+	if result.Results[0].Error == nil {
+		return nil
+	}
+	return maybeNotFound(result.Results[0].Error)
 }

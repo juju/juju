@@ -10,6 +10,12 @@ import (
 )
 
 const (
+	// JujuManagedUnits specifies whether Juju or the CAAS substrate manages unit lifecycle.
+	JujuManagedUnits = "juju-managed-units"
+
+	// JujuDefaultJujuManagedUnits is the default value for juju-managed-units.
+	JujuDefaultJujuManagedUnits = false
+
 	// JujuExternalHostNameKey specifies the hostname of a CAAS application.
 	JujuExternalHostNameKey = "juju-external-hostname"
 
@@ -21,6 +27,11 @@ const (
 )
 
 var configFields = environschema.Fields{
+	JujuManagedUnits: {
+		Description: "whether Juju manages unit lifecycle or the CAAS substrate",
+		Type:        environschema.Tbool,
+		Group:       environschema.EnvironGroup,
+	},
 	JujuExternalHostNameKey: {
 		Description: "the external hostname of an exposed application",
 		Type:        environschema.Tstring,
@@ -58,7 +69,10 @@ func configSchema(extra environschema.Fields) (environschema.Fields, error) {
 
 // ConfigDefaults returns the default values for a CAAS application config.
 func ConfigDefaults(providerDefaults schema.Defaults) schema.Defaults {
-	defaults := schema.Defaults{JujuApplicationPath: JujuDefaultApplicationPath}
+	defaults := schema.Defaults{
+		JujuApplicationPath: JujuDefaultApplicationPath,
+		JujuManagedUnits:    JujuDefaultJujuManagedUnits,
+	}
 	for key, value := range providerDefaults {
 		defaults[key] = value
 	}

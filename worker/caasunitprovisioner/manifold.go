@@ -58,9 +58,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ApplicationGetter:  client,
 		ApplicationUpdater: client,
 
-		// TODO(caas) - get this based on the CAAS substrate
-		BrokerManagedUnits: false,
-
 		ServiceBroker:   broker,
 		ContainerBroker: broker,
 

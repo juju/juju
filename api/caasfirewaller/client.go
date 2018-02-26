@@ -130,8 +130,10 @@ func (c *Client) IsExposed(appName string) (bool, error) {
 	return results.Results[0].Result, nil
 }
 
+// maybeNotFound returns an error satisfying errors.IsNotFound
+// if the supplied error has a CodeNotFound error.
 func maybeNotFound(err *params.Error) error {
-	if !params.IsCodeNotFound(err) {
+	if err == nil || !params.IsCodeNotFound(err) {
 		return err
 	}
 	return errors.NewNotFound(err, "")
