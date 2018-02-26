@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/network"
@@ -85,6 +86,18 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapOpensAPIPort(c *gc.C) {
+	config := testing.FakeControllerConfig()
+	s.checkAPIPorts(c, config, []int{config.APIPort()})
+}
+
+func (s *environSuite) TestBootstrapOpensAPIPortsWithAutocert(c *gc.C) {
+	config := testing.FakeControllerConfig()
+	config["api-port"] = 443
+	config["autocert-dns-name"] = "example.com"
+	s.checkAPIPorts(c, config, []int{443, 80})
+}
+
+func (s *environSuite) checkAPIPorts(c *gc.C, config controller.Config, expectedPorts []int) {
 	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
 		return nil
 	}
@@ -92,18 +105,21 @@ func (s *environSuite) TestBootstrapOpensAPIPort(c *gc.C) {
 
 	ctx := envtesting.BootstrapContext(c)
 	params := environs.BootstrapParams{
-		ControllerConfig: testing.FakeControllerConfig(),
+		ControllerConfig: config,
 	}
 	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
-	apiPort := params.ControllerConfig.APIPort()
 
 	called, calls := s.FakeConn.WasCalled("OpenPorts")
 	c.Check(called, gc.Equals, true)
-	c.Check(calls, gc.HasLen, 1)
-	c.Check(calls[0].FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
-	expectRules := []network.IngressRule{network.MustNewIngressRule("tcp", apiPort, apiPort)}
-	c.Check(calls[0].Rules, jc.DeepEquals, expectRules)
+	c.Check(calls, gc.HasLen, len(expectedPorts))
+	for i, call := range calls {
+		port := expectedPorts[i]
+		c.Check(call.FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
+		c.Check(call.Rules, jc.DeepEquals, []network.IngressRule{
+			network.MustNewIngressRule("tcp", port, port),
+		})
+	}
 }
 
 func (s *environSuite) TestBootstrapCommon(c *gc.C) {

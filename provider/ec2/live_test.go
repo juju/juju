@@ -289,6 +289,38 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	c.Assert(instIds, jc.SameContents, idsFromInsts(allInsts))
 }
 
+func (t *LiveTests) TestInstanceGroupsWithAutocert(c *gc.C) {
+	// Prepare the controller configuration.
+	t.PrepareOnce(c)
+	params := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+	}
+	err := testing.FillInStartInstanceParams(t.Env, "42", true, &params)
+	c.Assert(err, jc.ErrorIsNil)
+	config := params.InstanceConfig.Controller.Config
+	config["api-port"] = 443
+	config["autocert-dns-name"] = "example.com"
+
+	// Bootstrap the controller.
+	result, err := t.Env.StartInstance(params)
+	c.Assert(err, jc.ErrorIsNil)
+	inst := result.Instance
+	defer t.Env.StopInstances(inst.Id())
+
+	// Get security permissions.
+	groups := amzec2.SecurityGroupNames(ec2.JujuGroupName(t.Env))
+	ec2conn := ec2.EnvironEC2(t.Env)
+	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(groupsResp.Groups, gc.HasLen, 1)
+	perms := groupsResp.Groups[0].IPPerms
+
+	// Check that the expected ports are accessible.
+	checkPortAllowed(c, perms, 22)
+	checkPortAllowed(c, perms, 80)
+	checkPortAllowed(c, perms, 443)
+}
+
 func checkPortAllowed(c *gc.C, perms []amzec2.IPPerm, port int) {
 	for _, perm := range perms {
 		if perm.FromPort == port {

@@ -359,6 +359,7 @@ func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
 		Cache:      srv.statePool.SystemState().AutocertCache(),
 		HostPolicy: autocert.HostWhitelist(cfg.AutocertDNSName),
 	}
+	go http.ListenAndServe(":http", m.HTTPHandler(nil))
 	if cfg.AutocertURL != "" {
 		m.Client = &acme.Client{
 			DirectoryURL: cfg.AutocertURL,

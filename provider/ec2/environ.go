@@ -480,14 +480,18 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		)
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
-	var apiPort int
+	apiPorts := make([]int, 0, 2)
 	if args.InstanceConfig.Controller != nil {
-		apiPort = args.InstanceConfig.Controller.Config.APIPort()
+		apiPorts = append(apiPorts, args.InstanceConfig.Controller.Config.APIPort())
+		if args.InstanceConfig.Controller.Config.AutocertDNSName() != "" {
+			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
+			apiPorts = append(apiPorts, 80)
+		}
 	} else {
-		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+		apiPorts = append(apiPorts, args.InstanceConfig.APIInfo.Ports()[0])
 	}
 	callback(status.Allocating, "Setting up groups", nil)
-	groups, err := e.setUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
+	groups, err := e.setUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPorts)
 	if err != nil {
 		return nil, common.ZoneIndependentError(
 			errors.Annotate(err, "cannot set up groups"),
@@ -1678,34 +1682,36 @@ func (e *environ) jujuGroupName() string {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(controllerUUID, machineId string, apiPort int) ([]ec2.SecurityGroup, error) {
-
-	// Ensure there's a global group for Juju-related traffic.
-	jujuGroup, err := e.ensureGroup(controllerUUID, e.jujuGroupName(),
-		[]ec2.IPPerm{{
-			Protocol:  "tcp",
-			FromPort:  22,
-			ToPort:    22,
-			SourceIPs: []string{"0.0.0.0/0"},
-		}, {
+func (e *environ) setUpGroups(controllerUUID, machineId string, apiPorts []int) ([]ec2.SecurityGroup, error) {
+	perms := []ec2.IPPerm{{
+		Protocol:  "tcp",
+		FromPort:  22,
+		ToPort:    22,
+		SourceIPs: []string{"0.0.0.0/0"},
+	}}
+	for _, apiPort := range apiPorts {
+		perms = append(perms, ec2.IPPerm{
 			Protocol:  "tcp",
 			FromPort:  apiPort,
 			ToPort:    apiPort,
 			SourceIPs: []string{"0.0.0.0/0"},
-		}, {
-			Protocol: "tcp",
-			FromPort: 0,
-			ToPort:   65535,
-		}, {
-			Protocol: "udp",
-			FromPort: 0,
-			ToPort:   65535,
-		}, {
-			Protocol: "icmp",
-			FromPort: -1,
-			ToPort:   -1,
-		}},
-	)
+		})
+	}
+	perms = append(perms, ec2.IPPerm{
+		Protocol: "tcp",
+		FromPort: 0,
+		ToPort:   65535,
+	}, ec2.IPPerm{
+		Protocol: "udp",
+		FromPort: 0,
+		ToPort:   65535,
+	}, ec2.IPPerm{
+		Protocol: "icmp",
+		FromPort: -1,
+		ToPort:   -1,
+	})
+	// Ensure there's a global group for Juju-related traffic.
+	jujuGroup, err := e.ensureGroup(controllerUUID, e.jujuGroupName(), perms)
 	if err != nil {
 		return nil, err
 	}

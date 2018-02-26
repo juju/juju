@@ -215,6 +215,13 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 	if err := env.gce.OpenPorts(env.globalFirewallName(), rule); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if params.ControllerConfig.AutocertDNSName() != "" {
+		// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
+		rule = network.NewOpenIngressRule("tcp", 80, 80)
+		if err := env.gce.OpenPorts(env.globalFirewallName(), rule); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	return bootstrap(ctx, env, params)
 }
 

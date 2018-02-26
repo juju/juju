@@ -748,6 +748,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 const numExpectedStartInstanceRequests = 4
 
 type assertStartInstanceRequestsParams struct {
+	autocert            bool
 	availabilitySetName string
 	imageReference      *compute.ImageReference
 	vmExtension         *compute.VirtualMachineExtensionProperties
@@ -777,20 +778,51 @@ func (s *environSuite) assertStartInstanceRequests(
 			Priority:                 to.Int32Ptr(100),
 			Direction:                network.SecurityRuleDirectionInbound,
 		},
-	}, {
-		Name: to.StringPtr("JujuAPIInbound"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("Allow API connections to controller machines"),
-			Protocol:                 network.SecurityRuleProtocolTCP,
-			SourceAddressPrefix:      to.StringPtr("*"),
-			SourcePortRange:          to.StringPtr("*"),
-			DestinationAddressPrefix: to.StringPtr("192.168.16.0/20"),
-			DestinationPortRange:     to.StringPtr("17777"),
-			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(101),
-			Direction:                network.SecurityRuleDirectionInbound,
-		},
 	}}
+	if args.autocert {
+		securityRules = append(securityRules, network.SecurityRule{
+			Name: to.StringPtr("JujuAPIInbound443"),
+			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
+				Description:              to.StringPtr("Allow API connections to controller machines"),
+				Protocol:                 network.SecurityRuleProtocolTCP,
+				SourceAddressPrefix:      to.StringPtr("*"),
+				SourcePortRange:          to.StringPtr("*"),
+				DestinationAddressPrefix: to.StringPtr("192.168.16.0/20"),
+				DestinationPortRange:     to.StringPtr("443"),
+				Access:                   network.SecurityRuleAccessAllow,
+				Priority:                 to.Int32Ptr(101),
+				Direction:                network.SecurityRuleDirectionInbound,
+			},
+		}, network.SecurityRule{
+			Name: to.StringPtr("JujuAPIInbound80"),
+			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
+				Description:              to.StringPtr("Allow API connections to controller machines"),
+				Protocol:                 network.SecurityRuleProtocolTCP,
+				SourceAddressPrefix:      to.StringPtr("*"),
+				SourcePortRange:          to.StringPtr("*"),
+				DestinationAddressPrefix: to.StringPtr("192.168.16.0/20"),
+				DestinationPortRange:     to.StringPtr("80"),
+				Access:                   network.SecurityRuleAccessAllow,
+				Priority:                 to.Int32Ptr(102),
+				Direction:                network.SecurityRuleDirectionInbound,
+			},
+		})
+	} else {
+		securityRules = append(securityRules, network.SecurityRule{
+			Name: to.StringPtr("JujuAPIInbound17777"),
+			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
+				Description:              to.StringPtr("Allow API connections to controller machines"),
+				Protocol:                 network.SecurityRuleProtocolTCP,
+				SourceAddressPrefix:      to.StringPtr("*"),
+				SourcePortRange:          to.StringPtr("*"),
+				DestinationAddressPrefix: to.StringPtr("192.168.16.0/20"),
+				DestinationPortRange:     to.StringPtr("17777"),
+				Access:                   network.SecurityRuleAccessAllow,
+				Priority:                 to.Int32Ptr(101),
+				Direction:                network.SecurityRuleDirectionInbound,
+			},
+		})
+	}
 	subnets := []network.Subnet{{
 		Name: to.StringPtr("juju-internal-subnet"),
 		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
@@ -1149,6 +1181,42 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 		diskSizeGB:          32,
 		osProfile:           &s.linuxOsProfile,
 		needsProviderInit:   true,
+		instanceType:        "Standard_D1",
+	})
+}
+
+func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
+	defer envtesting.DisableFinishBootstrap()()
+
+	ctx := envtesting.BootstrapContext(c)
+	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
+
+	s.sender = s.initResourceGroupSenders()
+	s.sender = append(s.sender, s.startInstanceSenders(true)...)
+	s.requests = nil
+	config := testing.FakeControllerConfig()
+	config["api-port"] = 443
+	config["autocert-dns-name"] = "example.com"
+	result, err := env.Bootstrap(
+		ctx, environs.BootstrapParams{
+			ControllerConfig:     config,
+			AvailableTools:       makeToolsList("quantal"),
+			BootstrapSeries:      "quantal",
+			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Arch, gc.Equals, "amd64")
+	c.Assert(result.Series, gc.Equals, "quantal")
+
+	c.Assert(len(s.requests), gc.Equals, numExpectedStartInstanceRequests)
+	s.vmTags[tags.JujuIsController] = to.StringPtr("true")
+	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
+		autocert:            true,
+		availabilitySetName: "juju-controller",
+		imageReference:      &quantalImageReference,
+		diskSizeGB:          32,
+		osProfile:           &s.linuxOsProfile,
 		instanceType:        "Standard_D1",
 	})
 }
