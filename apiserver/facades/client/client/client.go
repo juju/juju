@@ -524,6 +524,10 @@ func modelInfo(st *state.State, user permission.UserAccess) (params.ModelUserInf
 	if err != nil {
 		return params.ModelUserInfo{}, errors.Trace(err)
 	}
+	// Model owner is one of the model admins.
+	if user.Access == permission.NoAccess && model.Owner() == user.UserTag {
+		user.Access = permission.AdminAccess
+	}
 	return common.ModelUserInfo(user, model)
 }
 
