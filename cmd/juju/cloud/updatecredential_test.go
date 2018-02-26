@@ -112,7 +112,11 @@ func (s *updateCredentialSuite) TestUpdate(c *gc.C) {
 func (s *updateCredentialSuite) TestUpdateCredentialWithFilePath(c *gc.C) {
 	tmpFile, err := ioutil.TempFile("", "juju-bootstrap-test")
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() { err := os.Remove(tmpFile.Name()); c.Assert(err, jc.ErrorIsNil) }()
+	defer func() {
+		tmpFile.Close()
+		err := os.Remove(tmpFile.Name())
+		c.Assert(err, jc.ErrorIsNil)
+	}()
 
 	store := &jujuclient.MemStore{
 		Controllers: map[string]jujuclient.ControllerDetails{
