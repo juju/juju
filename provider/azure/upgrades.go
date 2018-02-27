@@ -65,7 +65,7 @@ func (step commonDeploymentUpgradeStep) Run() error {
 	rules := make([]network.SecurityRule, 0, len(allRules))
 	for _, rule := range allRules {
 		name := to.String(rule.Name)
-		if name == to.String(sshSecurityRule.Name) || strings.HasPrefix(name, apiSecurityRulePrefix) {
+		if name == sshSecurityRuleName || strings.HasPrefix(name, apiSecurityRulePrefix) {
 			continue
 		}
 		rules = append(rules, rule)

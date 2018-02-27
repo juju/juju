@@ -780,6 +780,9 @@ func (s *environSuite) assertStartInstanceRequests(
 		},
 	}}
 	if args.autocert {
+		// Since a DNS name has been provided, Let's Encrypt is enabled.
+		// Therefore ports 443 (for the API server) and 80 (for the HTTP
+		// challenge) are accessible.
 		securityRules = append(securityRules, network.SecurityRule{
 			Name: to.StringPtr("JujuAPIInbound443"),
 			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
@@ -808,15 +811,16 @@ func (s *environSuite) assertStartInstanceRequests(
 			},
 		})
 	} else {
+		port := fmt.Sprint(testing.FakeControllerConfig()["api-port"])
 		securityRules = append(securityRules, network.SecurityRule{
-			Name: to.StringPtr("JujuAPIInbound17777"),
+			Name: to.StringPtr("JujuAPIInbound" + port),
 			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
 				Description:              to.StringPtr("Allow API connections to controller machines"),
 				Protocol:                 network.SecurityRuleProtocolTCP,
 				SourceAddressPrefix:      to.StringPtr("*"),
 				SourcePortRange:          to.StringPtr("*"),
 				DestinationAddressPrefix: to.StringPtr("192.168.16.0/20"),
-				DestinationPortRange:     to.StringPtr("17777"),
+				DestinationPortRange:     to.StringPtr(port),
 				Access:                   network.SecurityRuleAccessAllow,
 				Priority:                 to.Int32Ptr(101),
 				Direction:                network.SecurityRuleDirectionInbound,
