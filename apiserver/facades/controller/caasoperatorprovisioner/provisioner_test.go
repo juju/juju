@@ -75,6 +75,7 @@ func (s *CAASProvisionerSuite) TestSetPasswords(c *gc.C) {
 		Changes: []params.EntityPassword{
 			{Tag: "application-app", Password: "xxx-12345678901234567890"},
 			{Tag: "application-another", Password: "yyy-12345678901234567890"},
+			{Tag: "machine-0", Password: "zzz-12345678901234567890"},
 		},
 	}
 	results, err := s.api.SetPasswords(args)
@@ -83,7 +84,31 @@ func (s *CAASProvisionerSuite) TestSetPasswords(c *gc.C) {
 		Results: []params.ErrorResult{
 			{nil},
 			{&params.Error{Message: "entity application-another not found", Code: "not found"}},
+			{&params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 	c.Assert(s.st.app.password, gc.Equals, "xxx-12345678901234567890")
+}
+
+func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
+	s.st.app = &mockApplication{
+		tag: names.NewApplicationTag("app"),
+	}
+	results, err := s.api.Life(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-app"},
+			{Tag: "machine-0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.LifeResults{
+		Results: []params.LifeResult{{
+			Life: params.Alive,
+		}, {
+			Error: &params.Error{
+				Code:    "unauthorized access",
+				Message: "permission denied",
+			},
+		}},
+	})
 }

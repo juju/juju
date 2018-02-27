@@ -19,7 +19,7 @@ import (
 type deploymentWorker struct {
 	catacomb            catacomb.Catacomb
 	application         string
-	brokerManagedUnits  bool
+	jujuManagedUnits    bool
 	broker              ServiceBroker
 	applicationGetter   ApplicationGetter
 	applicationUpdater  ApplicationUpdater
@@ -30,7 +30,7 @@ type deploymentWorker struct {
 
 func newDeploymentWorker(
 	application string,
-	brokerManagedUnits bool,
+	jujuManagedUnits bool,
 	broker ServiceBroker,
 	containerSpecGetter ContainerSpecGetter,
 	applicationGetter ApplicationGetter,
@@ -39,7 +39,7 @@ func newDeploymentWorker(
 ) (worker.Worker, error) {
 	w := &deploymentWorker{
 		application:         application,
-		brokerManagedUnits:  brokerManagedUnits,
+		jujuManagedUnits:    jujuManagedUnits,
 		broker:              broker,
 		containerSpecGetter: containerSpecGetter,
 		applicationGetter:   applicationGetter,
@@ -103,9 +103,6 @@ func (w *deploymentWorker) loop() error {
 				worker.Stop(cw)
 				specChan = nil
 			}
-			if err := w.broker.DeleteService(w.application); err != nil {
-				return errors.Trace(err)
-			}
 			continue
 		}
 
@@ -128,7 +125,7 @@ func (w *deploymentWorker) loop() error {
 			continue
 		}
 		// For Juju managed units, we only need to create the service once.
-		skipService := currentAliveCount != 0 && !w.brokerManagedUnits
+		skipService := currentAliveCount != 0 && w.jujuManagedUnits
 
 		currentAliveCount = numUnits
 		currentSpec = specStr
@@ -146,17 +143,17 @@ func (w *deploymentWorker) loop() error {
 		}
 		// When Juju manages the units, we don't ask the
 		// substrate to create any itself.
-		if !w.brokerManagedUnits {
+		if w.jujuManagedUnits {
 			numUnits = 0
 		}
 		err = w.broker.EnsureService(w.application, spec, numUnits, appConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if w.brokerManagedUnits {
-			logger.Debugf("created/updated deployment for %s for %d units", w.application, numUnits)
-		} else {
+		if w.jujuManagedUnits {
 			logger.Debugf("created/updated service for %s", w.application)
+		} else {
+			logger.Debugf("created/updated deployment for %s for %d units", w.application, numUnits)
 		}
 		if !serviceUpdated {
 			// TODO(caas) - add a service watcher

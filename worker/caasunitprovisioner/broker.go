@@ -14,6 +14,8 @@ type ContainerBroker interface {
 	DeleteUnit(unitName string) error
 	WatchUnits(appName string) (watcher.NotifyWatcher, error)
 	Units(appName string) ([]caas.Unit, error)
+	DeleteService(appName string) error
+	UnexposeService(appName string) error
 }
 
 type ServiceBroker interface {

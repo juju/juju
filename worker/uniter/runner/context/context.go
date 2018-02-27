@@ -491,7 +491,9 @@ func (ctx *HookContext) SetContainerSpec(specYaml string, application bool) erro
 			return errors.Annotatef(err, "cannot determine leadership")
 		}
 		if !isLeader {
-			return ErrIsNotLeader
+			// TODO(caas) - race - initial unit is sometimes not recognised as the leader
+			logger.Warningf("%v is not the leader but is setting application container spec", entityName)
+			//return ErrIsNotLeader
 		}
 		entityName = ctx.unit.ApplicationName()
 	}

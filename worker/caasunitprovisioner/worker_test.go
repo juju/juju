@@ -41,6 +41,7 @@ type WorkerSuite struct {
 	jujuUnitChanges      chan []string
 	caasUnitsChanges     chan struct{}
 	containerSpecChanges chan struct{}
+	serviceDeleted       chan struct{}
 	serviceEnsured       chan struct{}
 	serviceUpdated       chan struct{}
 	unitEnsured          chan struct{}
@@ -84,6 +85,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.jujuUnitChanges = make(chan []string)
 	s.caasUnitsChanges = make(chan struct{})
 	s.containerSpecChanges = make(chan struct{}, 1)
+	s.serviceDeleted = make(chan struct{})
 	s.serviceEnsured = make(chan struct{})
 	s.serviceUpdated = make(chan struct{})
 	s.unitEnsured = make(chan struct{})
@@ -92,7 +94,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.applicationGetter = mockApplicationGetter{
 		watcher: watchertest.NewMockStringsWatcher(s.applicationChanges),
 	}
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.applicationGetter.watcher) })
 	s.applicationUpdater = mockApplicationUpdater{
 		updated: s.serviceUpdated,
 	}
@@ -101,18 +102,17 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		watcher: watchertest.NewMockNotifyWatcher(s.containerSpecChanges),
 	}
 	s.containerSpecGetter.setSpec(containerSpec)
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.containerSpecGetter.watcher) })
 
 	s.unitGetter = mockUnitGetter{
 		watcher: watchertest.NewMockStringsWatcher(s.jujuUnitChanges),
 	}
 	s.unitUpdater = mockUnitUpdater{}
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.unitGetter.watcher) })
 
 	s.containerBroker = mockContainerBroker{
-		ensured:      s.unitEnsured,
-		unitDeleted:  s.unitDeleted,
-		unitsWatcher: watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
+		serviceDeleted: s.serviceDeleted,
+		ensured:        s.unitEnsured,
+		unitDeleted:    s.unitDeleted,
+		unitsWatcher:   watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
 	}
 	s.lifeGetter = mockLifeGetter{}
 	s.lifeGetter.setLife(life.Alive)
@@ -188,7 +188,7 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *WorkerSuite) setupNewBrokerManagedUnitScenario(c *gc.C) worker.Worker {
-	s.config.BrokerManagedUnits = true
+	s.applicationGetter.jujuManagedUnits = false
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -232,7 +232,7 @@ func (s *WorkerSuite) setupNewBrokerManagedUnitScenario(c *gc.C) worker.Worker {
 }
 
 func (s *WorkerSuite) setupNewJujuManagedUnitScenario(c *gc.C) worker.Worker {
-	s.config.BrokerManagedUnits = false
+	s.applicationGetter.jujuManagedUnits = true
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -288,7 +288,7 @@ func (s *WorkerSuite) TestNewJujuManagedUnit(c *gc.C) {
 	w := s.setupNewJujuManagedUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
-	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig")
+	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig", "ApplicationConfig")
 	s.unitGetter.CheckCallNames(c, "WatchUnits")
 	s.unitGetter.CheckCall(c, 0, "WatchUnits", "gitlab")
 	s.containerSpecGetter.CheckCallNames(c, "WatchContainerSpec", "WatchContainerSpec", "ContainerSpec", "ContainerSpec")
@@ -301,7 +301,7 @@ func (s *WorkerSuite) TestNewJujuManagedUnit(c *gc.C) {
 	s.containerBroker.CheckCall(c, 1, "EnsureUnit", "gitlab", "gitlab/0", &parsedSpec)
 	s.serviceBroker.CheckCallNames(c, "EnsureService", "Service")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 0, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", &parsedSpec, 0, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": true})
 	s.serviceBroker.CheckCall(c, 1, "Service", "gitlab")
 	s.applicationUpdater.CheckCallNames(c, "UpdateApplicationService")
 
@@ -387,9 +387,38 @@ func (s *WorkerSuite) TestNewJujuManagedUnitAllRemoved(c *gc.C) {
 		c.Fatal("service/unit ensured unexpectedly")
 	case <-time.After(coretesting.ShortWait):
 	}
+}
 
-	s.serviceBroker.CheckCallNames(c, "DeleteService")
-	s.serviceBroker.CheckCall(c, 0, "DeleteService", "gitlab")
+func (s *WorkerSuite) TestJujuManagedUnitApplicationDeadRemovesService(c *gc.C) {
+	w := s.setupNewJujuManagedUnitScenario(c)
+	defer workertest.CleanKill(c, w)
+
+	s.serviceBroker.ResetCalls()
+	s.containerBroker.ResetCalls()
+
+	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending application change")
+	}
+
+	select {
+	case <-s.serviceDeleted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be deleted")
+	}
+
+	select {
+	case <-s.unitDeleted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for unit to be deleted")
+	}
+
+	s.containerBroker.CheckCallNames(c, "UnexposeService", "DeleteService", "DeleteUnit")
+	s.containerBroker.CheckCall(c, 0, "UnexposeService", "gitlab")
+	s.containerBroker.CheckCall(c, 1, "DeleteService", "gitlab")
+	s.containerBroker.CheckCall(c, 2, "DeleteUnit", "gitlab/0")
 }
 
 func (s *WorkerSuite) TestNewJujuManagedUnitSpecChange(c *gc.C) {
@@ -441,7 +470,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 	w := s.setupNewBrokerManagedUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
-	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig")
+	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig", "ApplicationConfig")
 	s.containerSpecGetter.CheckCallNames(c, "WatchContainerSpec", "ContainerSpec", "ContainerSpec")
 	s.containerSpecGetter.CheckCall(c, 0, "WatchContainerSpec", "gitlab/0")
 	s.containerSpecGetter.CheckCall(c, 1, "ContainerSpec", "gitlab/0") // not found
@@ -451,7 +480,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
 	s.serviceBroker.CheckCallNames(c, "EnsureService", "Service")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
 	s.serviceBroker.CheckCall(c, 1, "Service", "gitlab")
 
 	s.serviceBroker.ResetCalls()
@@ -470,7 +499,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", &parsedSpec, 2, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
 
 	s.serviceBroker.ResetCalls()
 	// Delete a unit.
@@ -489,7 +518,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
 }
 
 func (s *WorkerSuite) TestNewBrokerManagedUnitSpecChange(c *gc.C) {
@@ -531,7 +560,7 @@ image-name: gitlab/latest
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &anotherParsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", &anotherParsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
 }
 
 func (s *WorkerSuite) TestNewBrokerManagedUnitAllRemoved(c *gc.C) {
@@ -566,9 +595,31 @@ func (s *WorkerSuite) TestNewBrokerManagedUnitAllRemoved(c *gc.C) {
 		c.Fatal("service/unit ensured unexpectedly")
 	case <-time.After(coretesting.ShortWait):
 	}
+}
 
-	s.serviceBroker.CheckCallNames(c, "DeleteService")
-	s.serviceBroker.CheckCall(c, 0, "DeleteService", "gitlab")
+func (s *WorkerSuite) TestBrokerManagedUnitApplicationDeadRemovesService(c *gc.C) {
+	w := s.setupNewBrokerManagedUnitScenario(c)
+	defer workertest.CleanKill(c, w)
+
+	s.serviceBroker.ResetCalls()
+	s.containerBroker.ResetCalls()
+
+	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
+	select {
+	case s.applicationChanges <- []string{"gitlab"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending application change")
+	}
+
+	select {
+	case <-s.serviceDeleted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be deleted")
+	}
+
+	s.containerBroker.CheckCallNames(c, "UnexposeService", "DeleteService")
+	s.containerBroker.CheckCall(c, 0, "UnexposeService", "gitlab")
+	s.containerBroker.CheckCall(c, 1, "DeleteService", "gitlab")
 }
 
 func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
@@ -594,6 +645,7 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestWatchUnitDead(c *gc.C) {
+	s.applicationGetter.jujuManagedUnits = true
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -641,10 +693,17 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 		c.Fatal("timed out sending applications change")
 	}
 
+	select {
+	case <-s.serviceDeleted:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for service to be deleted")
+	}
+
 	workertest.CheckKilled(c, s.unitGetter.watcher)
 }
 
 func (s *WorkerSuite) TestRemoveUnitStopsWatchingContainerSpec(c *gc.C) {
+	s.applicationGetter.jujuManagedUnits = true
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)

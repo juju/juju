@@ -14,6 +14,7 @@ import (
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/life"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
@@ -24,6 +25,7 @@ type mockProvisionerFacade struct {
 	stub *testing.Stub
 	caasoperatorprovisioner.CAASProvisionerFacade
 	applicationsWatcher *mockStringsWatcher
+	life                life.Value
 }
 
 func newMockProvisionerFacade(stub *testing.Stub) *mockProvisionerFacade {
@@ -41,6 +43,16 @@ func (m *mockProvisionerFacade) WatchApplications() (watcher.StringsWatcher, err
 		return nil, err
 	}
 	return m.applicationsWatcher, nil
+}
+
+func (m *mockProvisionerFacade) Life(entityName string) (life.Value, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "Life", entityName)
+	if err := m.stub.NextErr(); err != nil {
+		return "", err
+	}
+	return m.life, nil
 }
 
 func (m *mockProvisionerFacade) SetPasswords(passwords []apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error) {
@@ -88,6 +100,11 @@ type mockBroker struct {
 
 func (m *mockBroker) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
 	m.MethodCall(m, "EnsureOperator", appName, agentPath, config)
+	return m.NextErr()
+}
+
+func (m *mockBroker) DeleteOperator(appName string) error {
+	m.MethodCall(m, "DeleteOperator", appName)
 	return m.NextErr()
 }
 

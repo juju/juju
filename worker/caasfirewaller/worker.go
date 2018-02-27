@@ -87,7 +87,7 @@ func (p *firewaller) loop() error {
 					w, ok := appWorkers[appId]
 					if ok {
 						if err := worker.Stop(w); err != nil {
-							return errors.Trace(err)
+							logger.Errorf("error stopping caas firewaller: %v", err)
 						}
 						delete(appWorkers, appId)
 					}

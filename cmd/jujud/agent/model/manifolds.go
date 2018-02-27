@@ -6,7 +6,6 @@ package model
 import (
 	"time"
 
-	"github.com/juju/juju/worker/caasfirewaller"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/names.v2"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/applicationscaler"
 	"github.com/juju/juju/worker/caasbroker"
+	"github.com/juju/juju/worker/caasfirewaller"
 	"github.com/juju/juju/worker/caasmodelupgrader"
 	"github.com/juju/juju/worker/caasoperatorprovisioner"
 	"github.com/juju/juju/worker/caasunitprovisioner"

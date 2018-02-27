@@ -83,8 +83,9 @@ func (m *mockModel) WatchContainerSpec(tag names.Tag) (state.NotifyWatcher, erro
 
 type mockApplication struct {
 	testing.Stub
-	life         state.Life
-	unitsWatcher *statetesting.MockStringsWatcher
+	life             state.Life
+	unitsWatcher     *statetesting.MockStringsWatcher
+	jujuManagedUnits bool
 
 	tag        names.Tag
 	units      []caasunitprovisioner.Unit
@@ -109,7 +110,7 @@ func (a *mockApplication) WatchUnits() state.StringsWatcher {
 
 func (a *mockApplication) ApplicationConfig() (application.ConfigAttributes, error) {
 	a.MethodCall(a, "ApplicationConfig")
-	return application.ConfigAttributes{"foo": "bar"}, a.NextErr()
+	return application.ConfigAttributes{"foo": "bar", "juju-managed-units": a.jujuManagedUnits}, a.NextErr()
 }
 
 func (m *mockApplication) AllUnits() (units []caasunitprovisioner.Unit, err error) {

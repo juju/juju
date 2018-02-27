@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/watcher"
 )
 
@@ -64,4 +65,36 @@ func (c *Client) SetPasswords(appPasswords []ApplicationPassword) (params.ErrorR
 		return params.ErrorResults{}, errors.Errorf("expected %d result(s), got %d", len(args.Changes), len(result.Results))
 	}
 	return result, nil
+}
+
+// maybeNotFound returns an error satisfying errors.IsNotFound
+// if the supplied error has a CodeNotFound error.
+func maybeNotFound(err *params.Error) error {
+	if err == nil || !params.IsCodeNotFound(err) {
+		return err
+	}
+	return errors.NewNotFound(err, "")
+}
+
+// Life returns the lifecycle state for the specified CAAS application
+// or unit in the current model.
+func (c *Client) Life(appName string) (life.Value, error) {
+	if !names.IsValidApplication(appName) {
+		return "", errors.NotValidf("application name %q", appName)
+	}
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewApplicationTag(appName).String()}},
+	}
+
+	var results params.LifeResults
+	if err := c.facade.FacadeCall("Life", args, &results); err != nil {
+		return "", err
+	}
+	if n := len(results.Results); n != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", n)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return "", maybeNotFound(err)
+	}
+	return life.Value(results.Results[0].Life), nil
 }

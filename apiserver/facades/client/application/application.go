@@ -1082,6 +1082,7 @@ func (api *APIv5) DestroyApplication(args params.DestroyApplicationsParams) (par
 			)
 			if api.backend.ModelType() != state.ModelTypeIAAS {
 				// Non-IAAS model; no need to deal with storage below.
+				arg.DestroyStorage = false
 				continue
 			}
 			storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())

@@ -4,6 +4,8 @@
 package caasoperatorprovisioner
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -14,6 +16,7 @@ import (
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
@@ -25,6 +28,7 @@ var logger = loggo.GetLogger("juju.workers.caasprovisioner")
 type CAASProvisionerFacade interface {
 	WatchApplications() (watcher.StringsWatcher, error)
 	SetPasswords([]apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error)
+	Life(string) (life.Value, error)
 }
 
 // Config defines the operation of a Worker.
@@ -91,11 +95,18 @@ func (p *provisioner) loop() error {
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
-			// TODO(caas) - cleanup when an application is deleted
-
 			var appPasswords []apicaasprovisioner.ApplicationPassword
 			for _, app := range apps {
-				password, err := p.handleApplicationChange(app)
+				appLife, err := p.provisionerFacade.Life(app)
+				if errors.IsNotFound(err) || appLife == life.Dead {
+					logger.Debugf("deleting operator for %q", app)
+					if err := p.broker.DeleteOperator(app); err != nil {
+						return errors.Annotatef(err, "failed to stop operator for %q", app)
+					}
+					continue
+				}
+
+				password, err := p.handleApplicationAdded(app)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -108,17 +119,22 @@ func (p *provisioner) loop() error {
 			if err != nil {
 				return errors.Annotate(err, "failed to set application api passwords")
 			}
-			if err := errorResults.Combine(); err != nil {
+			var errorStrings []string
+			for _, r := range errorResults.Results {
+				if r.Error != nil && !params.IsCodeNotFound(r.Error) {
+					errorStrings = append(errorStrings, r.Error.Error())
+				}
+			}
+			if errorStrings != nil {
+				err := errors.New(strings.Join(errorStrings, "\n"))
 				return errors.Annotate(err, "failed to set application api passwords")
 			}
 		}
 	}
 }
 
-func (p *provisioner) handleApplicationChange(app string) (string, error) {
-	// TODO(caas) - cleanup when an application is deleted
-	// For now, assume all changes are for new apps being created.
-	logger.Debugf("Received change notification for app: %s", app)
+func (p *provisioner) handleApplicationAdded(app string) (string, error) {
+	logger.Debugf("Application created: %s", app)
 
 	password, err := utils.RandomPassword()
 	if err != nil {

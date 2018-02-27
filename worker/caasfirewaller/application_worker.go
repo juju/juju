@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -18,6 +17,9 @@ type applicationWorker struct {
 	serviceExposer    ServiceExposer
 
 	lifeGetter LifeGetter
+
+	initial           bool
+	previouslyExposed bool
 }
 
 func newApplicationWorker(
@@ -31,6 +33,7 @@ func newApplicationWorker(
 		applicationGetter: applicationGetter,
 		serviceExposer:    applicationExposer,
 		lifeGetter:        lifeGetter,
+		initial:           true,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -51,54 +54,57 @@ func (w *applicationWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (aw *applicationWorker) loop() error {
-	appWatcher, err := aw.applicationGetter.WatchApplication(aw.application)
-	if err != nil {
-		if params.IsCodeNotFound(err) {
-			return nil
+func (w *applicationWorker) loop() (err error) {
+	defer func() {
+		// If the application has been deleted, we can return nil.
+		if errors.IsNotFound(err) {
+			logger.Debugf("caas firewaller application %v has been removed", w.application)
+			err = nil
 		}
-		return errors.Trace(err)
-	}
-	if err := aw.catacomb.Add(appWatcher); err != nil {
+	}()
+	appWatcher, err := w.applicationGetter.WatchApplication(w.application)
+	if err := w.catacomb.Add(appWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
-	var previouslyExposed bool
-	initial := true
 	for {
 		select {
-		case <-aw.catacomb.Dying():
-			return aw.catacomb.ErrDying()
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
 		case _, ok := <-appWatcher.Changes():
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-			exposed, err := aw.applicationGetter.IsExposed(aw.application)
-			if err != nil {
-				if !params.IsCodeNotFound(err) {
-					return errors.Trace(err)
-				}
-				return nil
-			}
-			if !initial && exposed == previouslyExposed {
-				continue
-			}
-
-			initial = false
-			previouslyExposed = exposed
-			if exposed {
-				appConfig, err := aw.applicationGetter.ApplicationConfig(aw.application)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if err := aw.serviceExposer.ExposeService(aw.application, appConfig); err != nil {
-					return errors.Trace(err)
-				}
-				continue
-			}
-			if err := aw.serviceExposer.UnexposeService(aw.application); err != nil {
+			if err := w.processApplicationChange(); err != nil {
 				return errors.Trace(err)
 			}
 		}
 	}
+}
+
+func (w *applicationWorker) processApplicationChange() (err error) {
+	exposed, err := w.applicationGetter.IsExposed(w.application)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !w.initial && exposed == w.previouslyExposed {
+		return nil
+	}
+
+	w.initial = false
+	w.previouslyExposed = exposed
+	if exposed {
+		appConfig, err := w.applicationGetter.ApplicationConfig(w.application)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := w.serviceExposer.ExposeService(w.application, appConfig); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+	if err := w.serviceExposer.UnexposeService(w.application); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
