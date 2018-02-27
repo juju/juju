@@ -44,7 +44,7 @@ func (s *ShowCredentialSuite) TestShowCredentialAPIVersion(c *gc.C) {
 	cmd := cloud.NewShowCredentialCommandForTest(s.api)
 	ctx, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Controller does not support credential content lookup\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "credential content lookup is not supported by this version of Juju\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
 	s.api.CheckCallNames(c, "BestAPIVersion", "Close")
 }

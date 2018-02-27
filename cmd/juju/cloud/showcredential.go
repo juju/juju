@@ -83,7 +83,7 @@ func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {
 	defer client.Close()
 
 	if client.BestAPIVersion() < 2 {
-		ctxt.Infof("Controller does not support credential content lookup")
+		ctxt.Infof("credential content lookup is not supported by this version of Juju")
 		return nil
 	}
 	contents, err := client.CredentialContents(c.CloudName, c.CredentialName, c.ShowSecrets)
