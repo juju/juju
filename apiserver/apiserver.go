@@ -53,12 +53,16 @@ var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIO
 
 // Server holds the server side of the API.
 type Server struct {
-	tomb             tomb.Tomb
-	clock            clock.Clock
-	pingClock        clock.Clock
-	wg               sync.WaitGroup
-	statePool        *state.StatePool
-	lis              net.Listener
+	tomb      tomb.Tomb
+	clock     clock.Clock
+	pingClock clock.Clock
+	wg        sync.WaitGroup
+	statePool *state.StatePool
+	lis       net.Listener
+
+	// challengeLis holds the listener that listens for autocert challenges
+	// on port 80 (only set when autocert is enabled)
+	challengeLis     net.Listener
 	challengeHandler http.Handler
 
 	// Tag of the machine where the API server is running.
@@ -275,7 +279,6 @@ func NewServer(stPool *state.StatePool, cfg ServerConfig) (*Server, error) {
 
 	srv, err := newServer(stPool, lis, cfg)
 	if err != nil {
-		lis.Close()
 		return nil, errors.Trace(err)
 	}
 	return srv, nil
@@ -316,12 +319,28 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
 		},
 	}
+	defer func() {
+		if err == nil {
+			return
+		}
+		srv.lis.Close()
+		if srv.challengeLis != nil {
+			srv.challengeLis.Close()
+		}
+	}()
 
 	httpCtxt := httpContext{srv: srv}
 	srv.mux = apiserverhttp.NewMux(apiserverhttp.WithAuth(httpCtxt.authRequest))
 	srv.tlsConfig, srv.challengeHandler = srv.newTLSConfig(cfg)
 	srv.lis = newThrottlingListener(
 		tls.NewListener(lis, srv.tlsConfig), cfg.RateLimitConfig, clock.WallClock)
+
+	if srv.challengeHandler != nil {
+		srv.challengeLis, err = net.Listen("tcp", ":80")
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot listen for autocert challenges")
+		}
+	}
 
 	// The auth context for authenticating logins.
 	srv.loginAuthCtxt, err = newAuthContext(stPool.SystemState())
@@ -349,6 +368,7 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 		}
 	}
 
+	logger.Infof("listening on %q", srv.lis.Addr())
 	go func() {
 		defer srv.tomb.Done()
 		srv.tomb.Kill(srv.loop())
@@ -482,23 +502,15 @@ func (w *loggoWrapper) Write(content []byte) (int, error) {
 
 // loop is the main loop for the server.
 func (srv *Server) loop() error {
-	logger.Infof("listening on %q", srv.lis.Addr())
-
-	var challengeLis net.Listener
-	if srv.challengeHandler != nil {
-		var err error
-		challengeLis, err = net.Listen("tcp", ":80")
-		if err != nil {
-			return errors.Annotate(err, "cannot listen for autocert challenges")
-		}
-	}
 
 	defer func() {
 		closeListener(srv.lis)
-		if challengeLis != nil {
+		if srv.challengeLis != nil {
 			// Closing the challenge handler is not syncronous, but all
-			// operations are atomic when storing the certs.
-			closeListener(challengeLis)
+			// operations are atomic when storing the certs so it shouldn't
+			// matter too much if one is carrying on after the server
+			// is stopped.
+			closeListener(srv.challengeLis)
 		}
 		srv.wg.Wait() // wait for any outstanding requests to complete.
 		srv.dbloggers.dispose()
@@ -529,14 +541,14 @@ func (srv *Server) loop() error {
 		// Normally logging an error at debug level would be grounds for a beating,
 		// however in this case the error is *expected* to be non nil, and does not
 		// affect the operation of the apiserver, but for completeness log it anyway.
-		logger.Debugf("API http server exited, final error was: %v", err)
+		logger.Debugf("API HTTP server exited, final error was: %v", err)
 	}()
 
-	if challengeLis != nil {
+	if srv.challengeLis != nil {
 		go func() {
-			logger.Debugf("Starting Let's Encrypt challenge handler on address %q", challengeLis.Addr())
-			err := http.Serve(challengeLis, srv.challengeHandler)
-			logger.Debugf("challenge server exited, final error was: %v", err)
+			logger.Debugf("Starting autocert challenge handler on address %q", srv.challengeLis.Addr())
+			err := http.Serve(srv.challengeLis, srv.challengeHandler)
+			logger.Debugf("autocert challenge server exited, final error was: %v", err)
 		}()
 	}
 
