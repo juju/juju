@@ -162,7 +162,7 @@ func (s *listCredentialsSuite) TestListCredentialsYAMLWithSecrets(c *gc.C) {
 	}
 	out := s.listCredentials(c, "--format", "yaml", "--show-secrets")
 	c.Assert(out, gc.Equals, `
-credentials:
+local-credentials:
   aws:
     default-credential: down
     default-region: ap-southeast-2
@@ -214,7 +214,7 @@ func (s *listCredentialsSuite) TestListCredentialsYAMLNoSecrets(c *gc.C) {
 	}
 	out := s.listCredentials(c, "--format", "yaml")
 	c.Assert(out, gc.Equals, `
-credentials:
+local-credentials:
   aws:
     default-credential: down
     default-region: ap-southeast-2
@@ -245,7 +245,7 @@ credentials:
 func (s *listCredentialsSuite) TestListCredentialsYAMLFiltered(c *gc.C) {
 	out := s.listCredentials(c, "--format", "yaml", "azure")
 	c.Assert(out, gc.Equals, `
-credentials:
+local-credentials:
   azure:
     azhja:
       auth-type: userpass
@@ -258,21 +258,21 @@ credentials:
 func (s *listCredentialsSuite) TestListCredentialsJSONWithSecrets(c *gc.C) {
 	out := s.listCredentials(c, "--format", "json", "--show-secrets")
 	c.Assert(out, gc.Equals, `
-{"credentials":{"aws":{"default-credential":"down","default-region":"ap-southeast-2","cloud-credentials":{"bob":{"auth-type":"access-key","details":{"access-key":"key","secret-key":"secret"}},"down":{"auth-type":"userpass","details":{"password":"password","username":"user"}}}},"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","application-password":"app-secret","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}},"google":{"cloud-credentials":{"default":{"auth-type":"oauth2","details":{"client-email":"email","client-id":"id","private-key":"key"}}}},"mycloud":{"cloud-credentials":{"me":{"auth-type":"access-key","details":{"access-key":"key","secret-key":"secret"}}}}}}
+{"local-credentials":{"aws":{"default-credential":"down","default-region":"ap-southeast-2","cloud-credentials":{"bob":{"auth-type":"access-key","details":{"access-key":"key","secret-key":"secret"}},"down":{"auth-type":"userpass","details":{"password":"password","username":"user"}}}},"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","application-password":"app-secret","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}},"google":{"cloud-credentials":{"default":{"auth-type":"oauth2","details":{"client-email":"email","client-id":"id","private-key":"key"}}}},"mycloud":{"cloud-credentials":{"me":{"auth-type":"access-key","details":{"access-key":"key","secret-key":"secret"}}}}}}
 `[1:])
 }
 
 func (s *listCredentialsSuite) TestListCredentialsJSONNoSecrets(c *gc.C) {
 	out := s.listCredentials(c, "--format", "json")
 	c.Assert(out, gc.Equals, `
-{"credentials":{"aws":{"default-credential":"down","default-region":"ap-southeast-2","cloud-credentials":{"bob":{"auth-type":"access-key","details":{"access-key":"key"}},"down":{"auth-type":"userpass","details":{"username":"user"}}}},"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}},"google":{"cloud-credentials":{"default":{"auth-type":"oauth2","details":{"client-email":"email","client-id":"id"}}}},"mycloud":{"cloud-credentials":{"me":{"auth-type":"access-key","details":{"access-key":"key"}}}}}}
+{"local-credentials":{"aws":{"default-credential":"down","default-region":"ap-southeast-2","cloud-credentials":{"bob":{"auth-type":"access-key","details":{"access-key":"key"}},"down":{"auth-type":"userpass","details":{"username":"user"}}}},"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}},"google":{"cloud-credentials":{"default":{"auth-type":"oauth2","details":{"client-email":"email","client-id":"id"}}}},"mycloud":{"cloud-credentials":{"me":{"auth-type":"access-key","details":{"access-key":"key"}}}}}}
 `[1:])
 }
 
 func (s *listCredentialsSuite) TestListCredentialsJSONFiltered(c *gc.C) {
 	out := s.listCredentials(c, "--format", "json", "azure")
 	c.Assert(out, gc.Equals, `
-{"credentials":{"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}}}}
+{"local-credentials":{"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}}}}
 `[1:])
 }
 
@@ -293,10 +293,10 @@ func (s *listCredentialsSuite) TestListCredentialsEmpty(c *gc.C) {
 	c.Assert(out, gc.Equals, "Cloud  Credentialsaws    bob")
 
 	out = strings.Replace(s.listCredentials(c, "--format", "yaml"), "\n", "", -1)
-	c.Assert(out, gc.Equals, "credentials:  aws:    bob:      auth-type: oauth2")
+	c.Assert(out, gc.Equals, "local-credentials:  aws:    bob:      auth-type: oauth2")
 
 	out = strings.Replace(s.listCredentials(c, "--format", "json"), "\n", "", -1)
-	c.Assert(out, gc.Equals, `{"credentials":{"aws":{"cloud-credentials":{"bob":{"auth-type":"oauth2"}}}}}`)
+	c.Assert(out, gc.Equals, `{"local-credentials":{"aws":{"cloud-credentials":{"bob":{"auth-type":"oauth2"}}}}}`)
 }
 
 func (s *listCredentialsSuite) TestListCredentialsNone(c *gc.C) {
@@ -311,13 +311,13 @@ func (s *listCredentialsSuite) TestListCredentialsNone(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	out = strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
-	c.Assert(out, gc.Equals, "credentials: {}")
+	c.Assert(out, gc.Equals, "local-credentials: {}")
 
 	ctx, err = cmdtesting.RunCommand(c, listCmd, "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	out = strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
-	c.Assert(out, gc.Equals, `{"credentials":{}}`)
+	c.Assert(out, gc.Equals, `{"local-credentials":{}}`)
 }
 
 func (s *listCredentialsSuite) listCredentials(c *gc.C, args ...string) string {

@@ -145,11 +145,8 @@ type CredentialContent struct {
 	// AuthType is the authentication type.
 	AuthType string `json:"auth-type"`
 
-	// Attributes contains non-secret credential values.
+	// Attributes contains credential values.
 	Attributes map[string]string `json:"attrs,omitempty"`
-
-	// Secrets contains secret credential values.
-	Secrets map[string]string `json:"secrets,omitempty"`
 }
 
 // ModelAccess contains information about user model access.

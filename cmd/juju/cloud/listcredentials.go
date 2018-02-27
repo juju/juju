@@ -44,7 +44,8 @@ A credential for 'controller' model is determined at bootstrap time and
 will be stored on the controller. It is considered to be controller default.
 
 Recall that when a controller is created a 'default' model is also 
-created. This model will use the controller default credential.
+created. This model will use the controller default credential. To see all your
+credentials on the controller use "juju show-credentials" command.
 
 When adding a new model, Juju will reuse the controller default credential.
 To add a model that uses a different credential, specify a locally
@@ -63,7 +64,9 @@ See also:
     add-credential
     remove-credential
     set-default-credential
-    autoload-credentials`
+    autoload-credentials
+    show-credentials
+`
 
 type listCredentialsCommand struct {
 	cmd.CommandBase
@@ -105,7 +108,7 @@ type Credential struct {
 }
 
 type credentialsMap struct {
-	Credentials map[string]CloudCredential `yaml:"credentials" json:"credentials"`
+	Credentials map[string]CloudCredential `yaml:"local-credentials" json:"local-credentials"`
 }
 
 // NewListCredentialsCommand returns a command to list cloud credentials.

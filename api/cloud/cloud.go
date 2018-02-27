@@ -136,7 +136,7 @@ func (c *Client) RevokeCredential(tag names.CloudCredentialTag) error {
 	return results.OneError()
 }
 
-// Credentials return a slice of credential values for the specified tags.
+// Credentials returns a slice of credential values for the specified tags.
 // Secrets are excluded from the credential attributes.
 func (c *Client) Credentials(tags ...names.CloudCredentialTag) ([]params.CloudCredentialResult, error) {
 	if len(tags) == 0 {
@@ -178,6 +178,7 @@ func (c *Client) AddCredential(tag string, credential jujucloud.Credential) erro
 	return results.OneError()
 }
 
+// AddCloud adds a new cloud to current controller.
 func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
 	if bestVer := c.BestAPIVersion(); bestVer < 2 {
 		return errors.NotImplementedf("AddCloud() (need v2+, have v%d)", bestVer)
@@ -188,4 +189,38 @@ func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// CredentialContents returns contents of the credential values for the specified
+// cloud and credential name. Secrets will be included if requested.
+func (c *Client) CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {
+	if bestVer := c.BestAPIVersion(); bestVer < 2 {
+		return nil, errors.NotImplementedf("CredentialContents() (need v2+, have v%d)", bestVer)
+	}
+	oneCredential := params.CloudCredentialArg{}
+	if cloud == "" && credential == "" {
+		// this is valid and means we want all.
+	} else if cloud == "" {
+		return nil, errors.New("cloud name must be supplied")
+	} else if credential == "" {
+		return nil, errors.New("credential name must be supplied")
+	} else {
+		oneCredential.CloudName = cloud
+		oneCredential.CredentialName = credential
+	}
+	var out params.CredentialContentResults
+	in := params.CloudCredentialArgs{
+		IncludeSecrets: withSecrets,
+	}
+	if !oneCredential.IsEmpty() {
+		in.Credentials = []params.CloudCredentialArg{oneCredential}
+	}
+	err := c.facade.FacadeCall("CredentialContents", in, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !oneCredential.IsEmpty() && len(out.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result for credential %q on cloud %q, got %d", cloud, credential, len(out.Results))
+	}
+	return out.Results, nil
 }
