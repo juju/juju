@@ -422,14 +422,12 @@ func (api *CloudAPIV2) CredentialContents(args params.CloudCredentialArgs) (para
 		if err != nil {
 			return params.CredentialContentResult{Error: common.ServerError(err)}
 		}
-		secrets := map[string]string{}
 		attrs := map[string]string{}
 		// Filter out the secrets.
 		if s, ok := schemas[cloud.AuthType(credential.AuthType)]; ok {
 			for _, attr := range s {
 				if value, exists := credential.Attributes[attr.Name]; exists {
-					if attr.Hidden {
-						secrets[attr.Name] = credential.Attributes[attr.Name]
+					if attr.Hidden && !includeSecrets {
 						continue
 					}
 					attrs[attr.Name] = value
@@ -443,9 +441,6 @@ func (api *CloudAPIV2) CredentialContents(args params.CloudCredentialArgs) (para
 				Attributes: attrs,
 				Cloud:      credential.Cloud,
 			},
-		}
-		if includeSecrets {
-			info.Content.Secrets = secrets
 		}
 
 		// get models

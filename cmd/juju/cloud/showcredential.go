@@ -116,16 +116,21 @@ func (c *showCredentialCommand) NewCredentialAPI() (CredentialContentAPI, error)
 }
 
 type CredentialContent struct {
-	AuthType string `yaml:"auth-type" json:"auth-type"`
-	Cloud    string `yaml:"cloud" json:"cloud"`
+	AuthType   string            `yaml:"auth-type"`
+	Attributes map[string]string `yaml:",inline"`
+}
 
-	// Attributes contains non-secret credential values.
-	Attributes map[string]string `yaml:"attributes,omitempty" json:"attributes,omitempty"`
+type CredentialDetails struct {
+	Content CredentialContent `yaml:"content"`
+	Models  map[string]string `yaml:"models"`
+}
 
-	// Secrets contains secret credential values.
-	Secrets map[string]string `yaml:"secrets,omitempty" json:"secrets,omitempty"`
+type NamedCredentials map[string]CredentialDetails
 
-	Models map[string]string `yaml:"models,omitempty" json:"models,omitempty"`
+type CloudCredentials map[string]NamedCredentials
+
+type ControllerCredentials struct {
+	All CloudCredentials `yaml:"controller-credentials"`
 }
 
 func (c *showCredentialCommand) parseContents(ctxt *cmd.Context, in []params.CredentialContentResult) error {
@@ -133,37 +138,45 @@ func (c *showCredentialCommand) parseContents(ctxt *cmd.Context, in []params.Cre
 		ctxt.Infof("No credential to display")
 		return nil
 	}
-	out := map[string]CredentialContent{}
+
+	out := CloudCredentials{}
 	for _, result := range in {
 		if result.Error != nil {
 			ctxt.Infof("%v", result.Error)
 			continue
 		}
+
 		info := result.Result
-		credential := CredentialContent{
-			AuthType:   info.Content.AuthType,
-			Cloud:      info.Content.Cloud,
-			Attributes: info.Content.Attributes,
-			Secrets:    info.Content.Secrets,
+		_, ok := out[info.Content.Cloud]
+		if !ok {
+			out[info.Content.Cloud] = NamedCredentials{}
+			//cloudGroup = out[info.Content.Cloud]
 		}
-		credential.Models = make(map[string]string, len(info.Models))
+
+		models := make(map[string]string, len(info.Models))
 		for _, m := range info.Models {
 			ownerAccess := m.Access
 			if ownerAccess == "" {
-				ownerAccess = "-"
+				ownerAccess = "no access"
 			}
-			credential.Models[m.Model] = ownerAccess
+			models[m.Model] = ownerAccess
 		}
-		out[info.Content.Name] = credential
+		out[info.Content.Cloud][info.Content.Name] = CredentialDetails{
+			Content: CredentialContent{
+				AuthType:   info.Content.AuthType,
+				Attributes: info.Content.Attributes,
+			},
+			Models: models,
+		}
 	}
-	return c.out.Write(ctxt, out)
+	return c.out.Write(ctxt, ControllerCredentials{out})
 }
 
 var showCredentialDoc = `
-This command display information about credential(s) stored on the controller
+This command displays information about credential(s) stored on the controller
 for this user.
 
-To see the contents of a credential, supply its cloud and name as arguments.
+To see the contents of a specific credential, supply its cloud and name.
 To see all credentials stored for you, supply no arguments.
 
 To see secrets, content attributes marked as hidden, use --show-secrets option.

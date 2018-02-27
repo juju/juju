@@ -421,11 +421,12 @@ func (s *cloudSuite) TestCredentialContentsAll(c *gc.C) {
 		{
 			Result: &params.ControllerCredentialInfo{
 				Content: params.CredentialContent{
-					Cloud:      "cloud-name",
-					Name:       "credential-name",
-					AuthType:   "userpass",
-					Attributes: map[string]string{"username": "fred"},
-					Secrets:    map[string]string{"password": "sekret"},
+					Cloud:    "cloud-name",
+					Name:     "credential-name",
+					AuthType: "userpass",
+					Attributes: map[string]string{
+						"username": "fred",
+						"password": "sekret"},
 				},
 				Models: []params.ModelAccess{
 					{Model: "abcmodel", Access: "admin"},

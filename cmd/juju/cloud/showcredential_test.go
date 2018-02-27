@@ -74,11 +74,12 @@ func (s *ShowCredentialSuite) TestShowCredentialOne(c *gc.C) {
 		{
 			Result: &params.ControllerCredentialInfo{
 				Content: params.CredentialContent{
-					Cloud:      "cloud-name",
-					Name:       "credential-name",
-					AuthType:   "userpass",
-					Attributes: map[string]string{"username": "fred"},
-					Secrets:    map[string]string{"password": "sekret"},
+					Cloud:    "aws",
+					Name:     "credential-name",
+					AuthType: "userpass",
+					Attributes: map[string]string{
+						"username": "fred",
+						"password": "sekret"},
 				},
 				Models: []params.ModelAccess{
 					{Model: "abcmodel", Access: "admin"},
@@ -89,23 +90,24 @@ func (s *ShowCredentialSuite) TestShowCredentialOne(c *gc.C) {
 		},
 	}
 	cmd := cloud.NewShowCredentialCommandForTest(s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd)
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--show-secrets")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, ``)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-credential-name:
-  auth-type: userpass
-  cloud: cloud-name
-  attributes:
-    username: fred
-  secrets:
-    password: sekret
-  models:
-    abcmodel: admin
-    no-access-model: '-'
-    xyzmodel: read
+controller-credentials:
+  aws:
+    credential-name:
+      content:
+        auth-type: userpass
+        password: sekret
+        username: fred
+      models:
+        abcmodel: admin
+        no-access-model: no access
+        xyzmodel: read
 `[1:])
 	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
+	c.Assert(s.api.inclsecrets, jc.IsTrue)
 }
 
 func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
@@ -117,7 +119,6 @@ func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
 					Name:       "one",
 					AuthType:   "userpass",
 					Attributes: map[string]string{"username": "fred"},
-					// Don't have secrets here.
 				},
 				// Don't have models here.
 			},
@@ -132,16 +133,28 @@ func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
 					Attributes: map[string]string{
 						"username":  "fred",
 						"something": "visible-attr",
-					},
-					Secrets: map[string]string{
-						"password": "sekret",
-						"hidden":   "very-very-sekret",
+						"password":  "sekret",
+						"hidden":    "very-very-sekret",
 					},
 				},
 				Models: []params.ModelAccess{
 					{Model: "abcmodel", Access: "admin"},
 					{Model: "xyzmodel", Access: "read"},
 					{Model: "no-access-model"},
+				},
+			},
+		}, {
+			Result: &params.ControllerCredentialInfo{
+				Content: params.CredentialContent{
+					Cloud:    "diff-cloud",
+					Name:     "three",
+					AuthType: "oauth1",
+					Attributes: map[string]string{
+						"something": "visible-attr",
+					},
+				},
+				Models: []params.ModelAccess{
+					{Model: "klmmodel", Access: "write"},
 				},
 			},
 		},
@@ -151,36 +164,45 @@ func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "boom\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-one:
-  auth-type: userpass
-  cloud: cloud-name
-  attributes:
-    username: fred
-two:
-  auth-type: userpass
-  cloud: cloud-name
-  attributes:
-    something: visible-attr
-    username: fred
-  secrets:
-    hidden: very-very-sekret
-    password: sekret
-  models:
-    abcmodel: admin
-    no-access-model: '-'
-    xyzmodel: read
+controller-credentials:
+  cloud-name:
+    one:
+      content:
+        auth-type: userpass
+        username: fred
+      models: {}
+    two:
+      content:
+        auth-type: userpass
+        hidden: very-very-sekret
+        password: sekret
+        something: visible-attr
+        username: fred
+      models:
+        abcmodel: admin
+        no-access-model: no access
+        xyzmodel: read
+  diff-cloud:
+    three:
+      content:
+        auth-type: oauth1
+        something: visible-attr
+      models:
+        klmmodel: write
 `[1:])
 	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
 }
 
 type fakeCredentialContentAPI struct {
 	testing.Stub
-	v        int
-	contents []params.CredentialContentResult
+	v           int
+	contents    []params.CredentialContentResult
+	inclsecrets bool
 }
 
 func (f *fakeCredentialContentAPI) CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {
 	f.AddCall("CredentialContents", cloud, credential, withSecrets)
+	f.inclsecrets = withSecrets
 	return f.contents, f.NextErr()
 }
 

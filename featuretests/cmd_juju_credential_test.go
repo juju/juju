@@ -75,13 +75,14 @@ func (s *CmdCredentialSuite) TestShowCredentialCommandAll(c *gc.C) {
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-cred:
-  auth-type: userpass
-  cloud: dummy
-  attributes:
-    username: dummy
-  models:
-    controller: admin
+controller-credentials:
+  dummy:
+    cred:
+      content:
+        auth-type: userpass
+        username: dummy
+      models:
+        controller: admin
 `[1:])
 }
 
@@ -90,14 +91,14 @@ func (s *CmdCredentialSuite) TestShowCredentialCommandWithName(c *gc.C) {
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-cred:
-  auth-type: userpass
-  cloud: dummy
-  attributes:
-    username: dummy
-  secrets:
-    password: secret
-  models:
-    controller: admin
+controller-credentials:
+  dummy:
+    cred:
+      content:
+        auth-type: userpass
+        password: secret
+        username: dummy
+      models:
+        controller: admin
 `[1:])
 }

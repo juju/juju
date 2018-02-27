@@ -173,8 +173,6 @@ func (s *cloudSuiteV2) TestCredentialContentsNamedWithSecrets(c *gc.C) {
 					AuthType: "access-key",
 					Attributes: map[string]string{
 						"access-key": "BLAHB3445635BLAH",
-					},
-					Secrets: map[string]string{
 						"secret-key": "fffajdnjsdnnjd667gvd",
 					},
 				},
