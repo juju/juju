@@ -108,7 +108,7 @@ type Credential struct {
 }
 
 type credentialsMap struct {
-	Credentials map[string]CloudCredential `yaml:"credentials" json:"credentials"`
+	Credentials map[string]CloudCredential `yaml:"local-credentials" json:"local-credentials"`
 }
 
 // NewListCredentialsCommand returns a command to list cloud credentials.
