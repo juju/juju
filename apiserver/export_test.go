@@ -21,13 +21,14 @@ import (
 )
 
 var (
-	NewPingTimeout        = newPingTimeout
-	MaxClientPingInterval = maxClientPingInterval
-	NewBackups            = &newBackups
-	BZMimeType            = bzMimeType
-	JSMimeType            = jsMimeType
-	GUIURLPathPrefix      = guiURLPathPrefix
-	SpritePath            = spritePath
+	NewPingTimeout                 = newPingTimeout
+	MaxClientPingInterval          = maxClientPingInterval
+	NewBackups                     = &newBackups
+	BZMimeType                     = bzMimeType
+	JSMimeType                     = jsMimeType
+	GUIURLPathPrefix               = guiURLPathPrefix
+	SpritePath                     = spritePath
+	EnableAutocertChallengeHandler = &enableAutocertChallengeHandler
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {

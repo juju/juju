@@ -17,7 +17,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -275,26 +274,25 @@ func (s *serverSuite) assertAlive(c *gc.C, entity presence.Agent, expectAlive bo
 }
 
 func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Conn, error) {
+	// TODO(rogpeppe) merge this with the very similar dialWebsocketFromURL function.
 	url := fmt.Sprintf("wss://%s%s", addr, path)
-	requestHeader := http.Header{"Origin": {"http://localhost/"}}
-
-	pool := x509.NewCertPool()
-	xcert, err := cert.ParseCert(coretesting.CACert)
-	c.Assert(err, jc.ErrorIsNil)
-	pool.AddCert(xcert)
+	header := make(http.Header)
+	header.Set("Origin", "http://localhost/")
+	caCerts := x509.NewCertPool()
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
 	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.RootCAs = caCerts
+	tlsConfig.ServerName = "anything"
 	if tlsVersion > 0 {
 		// This is for testing only. Please don't muck with the maxtlsversion in
 		// production.
 		tlsConfig.MaxVersion = tlsVersion
 	}
-	tlsConfig.RootCAs = pool
 
 	dialer := &websocket.Dialer{
-		Proxy:           http.ProxyFromEnvironment,
 		TLSClientConfig: tlsConfig,
 	}
-	conn, _, err := dialer.Dial(url, requestHeader)
+	conn, _, err := dialer.Dial(url, header)
 	return conn, err
 }
 
@@ -312,7 +310,6 @@ func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
 	// for the correct location, but other paths should fail.
-	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	_, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 

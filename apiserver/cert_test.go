@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cert"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -65,6 +66,8 @@ func (s *certSuite) TestUpdateCert(c *gc.C) {
 }
 
 func (s *certSuite) TestAutocertFailure(c *gc.C) {
+	s.PatchValue(apiserver.EnableAutocertChallengeHandler, false)
+
 	// We don't have a fake autocert server, but we can at least
 	// smoke test that the autocert path is followed when we try
 	// to connect to a DNS name - the AutocertURL configured
@@ -97,6 +100,8 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 }
 
 func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
+	s.PatchValue(apiserver.EnableAutocertChallengeHandler, false)
+
 	config := s.sampleConfig(c)
 	config.AutocertDNSName = "somewhere.example"
 
@@ -125,6 +130,7 @@ func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 }
 
 func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
+	s.PatchValue(apiserver.EnableAutocertChallengeHandler, false)
 	config := s.sampleConfig(c)
 	c.Assert(config.AutocertDNSName, gc.Equals, "") // sanity check
 	srv := s.newServer(c, config)
