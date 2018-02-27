@@ -191,7 +191,7 @@ func (r *remoteServer) nextMessage() *params.PubSubMessage {
 	return val.(*params.PubSubMessage)
 }
 
-func (r *remoteServer) connect() MessageWriter {
+func (r *remoteServer) connect() bool {
 	stop := make(chan struct{})
 	r.mutex.Lock()
 	r.stopConnecting = stop
@@ -220,9 +220,10 @@ func (r *remoteServer) connect() MessageWriter {
 
 	r.mutex.Lock()
 	r.stopConnecting = nil
-	r.mutex.Unlock()
+	defer r.mutex.Unlock()
 
 	if connection != nil {
+		r.connection = connection
 		r.logger.Infof("forwarding connected %s -> %s", r.origin, r.target)
 		_, err := r.hub.Publish(
 			forwarder.ConnectedTopic,
@@ -231,8 +232,9 @@ func (r *remoteServer) connect() MessageWriter {
 		if err != nil {
 			r.logger.Errorf("%v", err)
 		}
+		return true
 	}
-	return connection
+	return false
 }
 
 func (r *remoteServer) loop() error {
@@ -246,10 +248,7 @@ func (r *remoteServer) loop() error {
 	for {
 		if r.connection == nil {
 			// If we don't have a current connection, try to get one.
-			if connection := r.connect(); connection != nil {
-				r.mutex.Lock()
-				r.connection = connection
-				r.mutex.Unlock()
+			if r.connect() {
 				delay = nil
 			} else {
 				// Skip through the select to try to reconnect.
