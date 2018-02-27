@@ -108,6 +108,25 @@ type Server struct {
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
+	// ListenAddr is the address on which the server will listen.
+	ListenAddr string
+
+	// Listener, if not nil, is used instead of ListenAddr for listening on
+	// the API address. The API server closes it on shutdown.
+	//
+	// It is provided for testing purposes so that the API address can be
+	// determined before the server is started. This should not be used for
+	// new code, and is only provided for provider/dummy so that
+	// JujuConnSuite can use the standard bootstrap.Bootstrap logic which
+	// needs the API port to be passed into the controller configuration
+	// before all the parameters that will be passed into
+	// environs.Provider.Bootstrap have been determined (and hence before we
+	// can start the API server).
+	//
+	// TODO (rogpeppe) eliminate the need for this by changing JujuConnSuite so
+	// that it does not need to call Bootstrap.
+	Listener net.Listener
+
 	Clock     clock.Clock
 	PingClock clock.Clock
 	Tag       names.Tag
@@ -179,6 +198,9 @@ type ServerConfig struct {
 
 // Validate validates the API server configuration.
 func (c ServerConfig) Validate() error {
+	if c.ListenAddr == "" && c.Listener == nil {
+		return errors.NotValidf("missing ListenAddr")
+	}
 	if c.Hub == nil {
 		return errors.NotValidf("missing Hub")
 	}
@@ -227,7 +249,7 @@ func (c ServerConfig) pingClock() clock.Clock {
 //
 // The Server will close the listener when it exits, even if returns
 // an error.
-func NewServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (*Server, error) {
+func NewServer(stPool *state.StatePool, cfg ServerConfig) (*Server, error) {
 	if cfg.LogSinkConfig == nil {
 		logSinkConfig := DefaultLogSinkConfig()
 		cfg.LogSinkConfig = &logSinkConfig
@@ -241,9 +263,18 @@ func NewServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (*Se
 	// server needs to run before mongo upgrades have happened and
 	// any state manipulation may be be relying on features of the
 	// database added by upgrades. Here be dragons.
+
+	lis := cfg.Listener
+	if lis == nil {
+		var err error
+		lis, err = net.Listen("tcp", cfg.ListenAddr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	srv, err := newServer(stPool, lis, cfg)
 	if err != nil {
-		// There is no running server around to close the listener.
 		lis.Close()
 		return nil, errors.Trace(err)
 	}
@@ -451,15 +482,17 @@ func (srv *Server) loop() error {
 	var challengeLis net.Listener
 	if srv.challengeHandler != nil {
 		var err error
-		challengeLis, err = net.Listen("tcp", ":http")
+		challengeLis, err = net.Listen("tcp", ":80")
 		if err != nil {
-			logger.Errorf("cannot listen on port 80: %s", err)
+			return errors.Annotate(err, "cannot listen for autocert challenges")
 		}
 	}
 
 	defer func() {
 		closeListener(srv.lis)
 		if challengeLis != nil {
+			// Closing the challenge handler is not syncronous, but all
+			// operations are atomic when storing the certs.
 			closeListener(challengeLis)
 		}
 		srv.wg.Wait() // wait for any outstanding requests to complete.

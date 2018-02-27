@@ -4,8 +4,6 @@
 package apiserver_test
 
 import (
-	"net"
-
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
@@ -81,11 +79,10 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		return
 	}
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 3)
+	c.Assert(args, gc.HasLen, 2)
 	c.Assert(args[0], gc.FitsTypeOf, &state.StatePool{})
-	c.Assert(args[1], gc.Implements, new(net.Listener))
-	c.Assert(args[2], gc.FitsTypeOf, coreapiserver.ServerConfig{})
-	config := args[2].(coreapiserver.ServerConfig)
+	c.Assert(args[1], gc.FitsTypeOf, coreapiserver.ServerConfig{})
+	config := args[1].(coreapiserver.ServerConfig)
 
 	c.Assert(config.RegisterIntrospectionHandlers, gc.NotNil)
 	config.RegisterIntrospectionHandlers = nil
@@ -111,6 +108,7 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
 
 	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
+		ListenAddr:           ":0",
 		Clock:                s.clock,
 		Tag:                  s.agentConfig.Tag(),
 		DataDir:              s.agentConfig.DataDir(),

@@ -566,11 +566,9 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 	// Start an API server with a (non-working) autocert hostname,
 	// so we can check that the PublicDNSName in the result goes
 	// all the way through the layers.
-	// Note that NewServer closes the listener when it stops.
-	listener, err := net.Listen("tcp", "localhost:0")
-	c.Assert(err, gc.IsNil)
 	machineTag := names.NewMachineTag("0")
-	srv, err := apiserver.NewServer(s.StatePool, listener, apiserver.ServerConfig{
+	srv, err := apiserver.NewServer(s.StatePool, apiserver.ServerConfig{
+		ListenAddr:      "localhost:0",
 		Clock:           clock.WallClock,
 		GetCertificate:  func() *tls.Certificate { return jtesting.ServerTLSCert },
 		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },

@@ -5,7 +5,6 @@ package apiserver_test
 
 import (
 	"crypto/tls"
-	"net"
 	"net/http"
 	"time"
 
@@ -62,12 +61,8 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *workerFixture) newServer(
-	statePool *state.StatePool,
-	listener net.Listener,
-	config coreapiserver.ServerConfig,
-) (worker.Worker, error) {
-	s.stub.MethodCall(s, "NewServer", statePool, listener, config)
+func (s *workerFixture) newServer(statePool *state.StatePool, config coreapiserver.ServerConfig) (worker.Worker, error) {
+	s.stub.MethodCall(s, "NewServer", statePool, config)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
