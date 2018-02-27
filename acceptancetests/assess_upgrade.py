@@ -15,10 +15,6 @@ from __future__ import print_function
 import argparse
 import logging
 import sys
-from subprocess import (
-    CalledProcessError,
-)
-
 
 from collections import (
     namedtuple,
@@ -40,18 +36,14 @@ from jujupy.stream_server import (
     agent_tgz_from_juju_binary,
     )
 from jujupy.wait_condition import (
-    ModelCheckFailed,
     WaitModelVersion,
-    wait_for_model_check,
+    wait_until_model_upgrades,
 )
 from jujupy.workloads import (
     deploy_mediawiki_with_db,
-    assert_media_wiki_is_responding
+    assert_mediawiki_is_responding
     )
 
-from utility import (
-    JujuAssertionError
-)
 
 __metaclass__ = type
 
@@ -67,10 +59,10 @@ def assess_upgrade_from_stable_to_develop(args, stable_bsm, devel_client):
     with temp_dir() as base_dir:
         stream_server = StreamServer(base_dir)
         setup_agent_metadata(
-            stream_server, args.stable_agent,
+            stream_server, args.stable_juju_agent,
             stable_client, base_dir, 'proposed')
         setup_agent_metadata(
-            stream_server, args.devel_agent,
+            stream_server, args.devel_juju_agent,
             devel_client, base_dir, 'proposed')
         with stream_server.server() as url:
             stable_client.env.update_config({
@@ -81,9 +73,9 @@ def assess_upgrade_from_stable_to_develop(args, stable_bsm, devel_client):
                 assert_stable_model_is_correct(stable_client)
 
                 deploy_mediawiki_with_db(stable_client)
-                assert_media_wiki_is_responding(stable_client)
+                assert_mediawiki_is_responding(stable_client)
                 upgrade_stable_to_devel_version(devel_client)
-                assert_media_wiki_is_responding(devel_client)
+                assert_mediawiki_is_responding(devel_client)
 
 
 def upgrade_stable_to_devel_version(client):
@@ -95,26 +87,6 @@ def upgrade_stable_to_devel_version(client):
     client.juju('upgrade-juju', ())
     assert_model_is_version(client, devel_version)
     wait_until_model_upgrades(client)
-
-
-def wait_until_model_upgrades(client, timeout=300):
-    # Poll using a command that will fail until the upgrade is complete.
-    def model_upgrade_status_check(client):
-        try:
-            log.info('Attempting API connection, failure is not fatal.')
-            client.list_models()
-            client.juju('list-users', (), include_e=False)
-            return True
-        except CalledProcessError:
-            # Upgrade will still be in progress and thus refuse the api call.
-            return False
-    try:
-        wait_for_model_check(client, model_upgrade_status_check, timeout)
-    except ModelCheckFailed:
-        raise JujuAssertionError(
-            'Upgrade for model {} failed to complete within the alloted '
-            'timeout ({} seconds)'.format(
-                client.model_name, timeout))
 
 
 def assert_stable_model_is_correct(stable_client):
@@ -170,11 +142,11 @@ def parse_args(argv):
         '--stable-juju-bin',
         help='Path to juju binary to be used as the stable version of juju.')
     parser.add_argument(
-        '--stable-agent',
+        '--stable-juju-agent',
         help='Path to agent to use when bootstrapping with stable binary'
     )
     parser.add_argument(
-        '--devel-agent',
+        '--devel-juju-agent',
         help='Path to agent to use when bootstrapping with stable binary'
     )
     return parser.parse_args(argv)

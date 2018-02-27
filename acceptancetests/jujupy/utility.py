@@ -128,7 +128,7 @@ def split_address_port(address_port):
     return address, port
 
 
-def get_unit_ipaddress(client, unit_name):
+def get_unit_public_ip(client, unit_name):
     status = client.get_status()
     return status.get_unit(unit_name)['public-address']
 

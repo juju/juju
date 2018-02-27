@@ -23,7 +23,7 @@ from jujucharm import local_charm_path
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    get_unit_ipaddress,
+    get_unit_public_ip,
     JujuAssertionError,
     temp_dir,
 )
@@ -190,7 +190,7 @@ def deploy_rsyslog(client):
 def setup_tls_rsyslog(client, app_name):
     unit_machine = '{}/0'.format(app_name)
 
-    ip_address = get_unit_ipaddress(client, unit_machine)
+    ip_address = get_unit_public_ip(client, unit_machine)
 
     client.juju(
         'ssh',

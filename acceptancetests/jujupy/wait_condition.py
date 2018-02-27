@@ -13,8 +13,10 @@
 # You should have received a copy of the Lesser GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 from datetime import datetime
 from time import sleep
+from subprocess import CalledProcessError
 
 from jujupy.exceptions import (
     VersionsNotUpdated,
@@ -27,6 +29,8 @@ from utility import (
     until_timeout,
 )
 
+
+log = logging.getLogger(__name__)
 
 __metaclass__ = type
 
@@ -51,6 +55,25 @@ def wait_for_model_check(client, model_check, timeout):
                     return
                 sleep(1)
     raise ModelCheckFailed()
+
+
+def wait_until_model_upgrades(client, timeout=300):
+    # Poll using a command that will fail until the upgrade is complete.
+    def model_upgrade_status_check(client):
+        try:
+            log.info('Attempting API connection, failure is not fatal.')
+            client.juju('list-users', (), include_e=False)
+            return True
+        except CalledProcessError:
+            # Upgrade will still be in progress and thus refuse the api call.
+            return False
+    try:
+        wait_for_model_check(client, model_upgrade_status_check, timeout)
+    except ModelCheckFailed:
+        raise AssertionError(
+            'Upgrade for model {} failed to complete within the alloted '
+            'timeout ({} seconds)'.format(
+                client.model_name, timeout))
 
 
 class BaseCondition:

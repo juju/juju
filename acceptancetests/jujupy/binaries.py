@@ -61,9 +61,9 @@ def get_stable_juju(args, stable_juju_bin=None):
             raise RuntimeError(
                 'Provided stable juju path is not valid: {}'.format(e))
     known_juju_paths = (
+        '{}/bin/juju'.format(os.environ.get('GOPATH')),
         '/snap/bin/juju',
-        '/usr/bin/juju',
-        '{}/bin/juju'.format(os.environ.get('GOPATH')))
+        '/usr/bin/juju')
 
     for path in known_juju_paths:
         try:

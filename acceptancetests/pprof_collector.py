@@ -7,7 +7,7 @@ import logging
 import os
 import requests
 
-from utility import get_unit_ipaddress
+from utility import get_unit_public_ip
 
 __metaclass__ = type
 
@@ -105,7 +105,7 @@ def install_introspection_charm(client, machine_id):
     client.wait_for_workloads()
     client.juju('expose', 'juju-introspection')
 
-    return get_unit_ipaddress(client, 'juju-introspection/0')
+    return get_unit_public_ip(client, 'juju-introspection/0')
 
 
 def _get_introspection_charm_url():

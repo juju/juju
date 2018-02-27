@@ -27,7 +27,7 @@ from jujupy.wait_condition import (
     AllApplicationWorkloads,
     )
 from jujupy.utility import (
-    get_unit_ipaddress,
+    get_unit_public_ip,
     temp_dir,
 )
 
@@ -54,13 +54,13 @@ def deploy_mediawiki_with_db(client):
     client.wait_for_started()
 
 
-def assert_media_wiki_is_responding(client):
-    log.debug('Assert media wiki is responding.')
+def assert_mediawiki_is_responding(client):
+    log.debug('Assert mediawiki is responding.')
     status = client.get_status()
     [wiki_unit_name] = [
         k for k, v in status.get_applications()['mediawiki']['units'].items()
         if v.get('leader', False)]
-    wiki_ip = get_unit_ipaddress(client, wiki_unit_name)
+    wiki_ip = get_unit_public_ip(client, wiki_unit_name)
     resp = requests.get('http://{}'.format(wiki_ip))
     if not resp.ok:
         raise AssertionError('Mediawiki not responding; {}: {}'.format(
@@ -132,7 +132,7 @@ def assert_deployed_charm_is_responding(client, expected_output=None):
     # Set default value if needed.
     if expected_output is None:
         expected_output = 'simple-server.'
-    ipaddress = get_unit_ipaddress(client, 'simple-resource-http/0')
+    ipaddress = get_unit_public_ip(client, 'simple-resource-http/0')
     if expected_output != get_server_response(ipaddress):
         raise AssertionError('Server charm is not responding as expected.')
 
