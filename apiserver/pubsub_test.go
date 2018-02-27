@@ -52,11 +52,10 @@ func (s *pubsubSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.server.Stop() })
 
 	// A net.TCPAddr cannot be directly stringified into a valid hostname.
-	address := fmt.Sprintf("localhost:%d", s.server.Addr().Port)
 	path := fmt.Sprintf("/model/%s/pubsub", s.State.ModelUUID())
 	pubsubURL := &url.URL{
 		Scheme: "wss",
-		Host:   address,
+		Host:   s.server.Addr().String(),
 		Path:   path,
 	}
 	s.pubsubURL = pubsubURL.String()

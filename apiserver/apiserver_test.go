@@ -5,8 +5,6 @@ package apiserver_test
 
 import (
 	"crypto/tls"
-	"fmt"
-	"net"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -47,6 +45,7 @@ func (s *apiserverBaseSuite) SetUpTest(c *gc.C) {
 func (s *apiserverBaseSuite) sampleConfig(c *gc.C) apiserver.ServerConfig {
 	machineTag := names.NewMachineTag("0")
 	return apiserver.ServerConfig{
+		ListenAddr:      "localhost:0",
 		Clock:           clock.WallClock,
 		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
 		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
@@ -64,9 +63,7 @@ func (s *apiserverBaseSuite) sampleConfig(c *gc.C) apiserver.ServerConfig {
 }
 
 func (s *apiserverBaseSuite) newServerNoCleanup(c *gc.C, config apiserver.ServerConfig) *apiserver.Server {
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(s.StatePool, listener, config)
+	srv, err := apiserver.NewServer(s.StatePool, config)
 	c.Assert(err, jc.ErrorIsNil)
 	return srv
 }
@@ -90,9 +87,8 @@ func (s *apiserverBaseSuite) newServerDirtyKill(c *gc.C, config apiserver.Server
 // APIInfo returns an info struct that has the server's address and ca-cert
 // populated.
 func (s *apiserverBaseSuite) APIInfo(server *apiserver.Server) *api.Info {
-	address := fmt.Sprintf("localhost:%d", server.Addr().Port)
 	return &api.Info{
-		Addrs:  []string{address},
+		Addrs:  []string{server.Addr().String()},
 		CACert: coretesting.CACert,
 	}
 }

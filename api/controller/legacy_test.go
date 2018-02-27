@@ -6,7 +6,6 @@ package controller_test
 import (
 	"crypto/tls"
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/juju/pubsub"
@@ -215,11 +214,8 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 }
 
 func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
-
-	lis, err := net.Listen("tcp", "localhost:0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	srv, err := apiserver.NewServer(s.StatePool, lis, apiserver.ServerConfig{
+	srv, err := apiserver.NewServer(s.StatePool, apiserver.ServerConfig{
+		ListenAddr:      "localhost:0",
 		Clock:           clock.WallClock,
 		GetCertificate:  func() *tls.Certificate { return testing.ServerTLSCert },
 		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
@@ -237,7 +233,7 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 
 	// Connect to the API server we've just started.
 	apiInfo := s.APIInfo(c)
-	apiInfo.Addrs = []string{lis.Addr().String()}
+	apiInfo.Addrs = []string{srv.Addr().String()}
 	apiInfo.ModelTag = names.ModelTag{}
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	sysManager := controller.NewClient(apiState)

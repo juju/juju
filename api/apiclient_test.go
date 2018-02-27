@@ -586,7 +586,7 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(srv)
 	apiInfo := s.APIInfo(c)
-	apiInfo.Addrs = []string{listener.Addr().String()}
+	apiInfo.Addrs = []string{srv.Addr().String()}
 	conn, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(conn.PublicDNSName(), gc.Equals, "somewhere.example.com")

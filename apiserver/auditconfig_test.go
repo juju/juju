@@ -4,9 +4,6 @@
 package apiserver_test
 
 import (
-	"net"
-
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -45,11 +42,7 @@ func (s *auditConfigSuite) TestNewServerValidatesConfig(c *gc.C) {
 	config := s.sampleConfig(c)
 	config.GetAuditConfig = nil
 
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	defer listener.Close()
-
-	srv, err := apiserver.NewServer(s.StatePool, listener, config)
+	srv, err := apiserver.NewServer(s.StatePool, config)
 	c.Assert(err, gc.ErrorMatches, "missing GetAuditConfig not valid")
 	c.Assert(srv, gc.IsNil)
 }

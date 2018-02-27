@@ -417,6 +417,11 @@ func (srv *Server) newTLSConfig(cfg ServerConfig) (*tls.Config, http.Handler) {
 	return tlsConfig, m.HTTPHandler(nil)
 }
 
+// Addr returns the address that the server is listening on.
+func (srv *Server) Addr() net.Addr {
+	return srv.lis.Addr()
+}
+
 // TotalConnections returns the total number of connections ever made.
 func (srv *Server) TotalConnections() int64 {
 	return atomic.LoadInt64(&srv.totalConn)

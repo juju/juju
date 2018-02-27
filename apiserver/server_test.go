@@ -618,6 +618,7 @@ func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
 	fakeOrigin := names.NewMachineTag("0")
 	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
+		ListenAddr:      "localhost:0",
 		Clock:           clock.WallClock,
 		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
 		Tag:             names.NewMachineTag("0"),
@@ -657,12 +658,10 @@ func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.Structure
 func newServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server) {
 	// Note that we can't listen on localhost here because TestAPIServerCanListenOnBothIPv4AndIPv6 assumes
 	// that we listen on IPv6 too, and listening on localhost does not do that.
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(statePool, listener, cfg)
+	srv, err := apiserver.NewServer(statePool, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return &api.Info{
-		Addrs:  []string{fmt.Sprintf("localhost:%d", srv.Addr().Port)},
+		Addrs:  []string{srv.Addr().String()},
 		CACert: coretesting.CACert,
 	}, srv
 }
