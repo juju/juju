@@ -81,3 +81,10 @@ func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api cre
 	c.SetClientStore(testStore)
 	return modelcmd.WrapController(c)
 }
+
+func NewShowCredentialCommandForTest(api CredentialContentAPI) cmd.Command {
+	cmd := &showCredentialCommand{newAPIFunc: func() (CredentialContentAPI, error) {
+		return api, nil
+	}}
+	return modelcmd.WrapBase(cmd)
+}

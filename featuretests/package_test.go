@@ -39,7 +39,7 @@ func init() {
 	gc.Suite(&BakeryStorageSuite{})
 	gc.Suite(&blockSuite{})
 	gc.Suite(&cmdControllerSuite{})
-	gc.Suite(&cmdCredentialSuite{})
+	gc.Suite(&CmdCredentialSuite{})
 	gc.Suite(&cmdJujuSuite{})
 	gc.Suite(&cmdJujuSuiteNoCAAS{})
 	gc.Suite(&cmdLoginSuite{})

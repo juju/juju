@@ -528,6 +528,8 @@ var commandNames = []string{
 	"show-backup",
 	"show-cloud",
 	"show-controller",
+	"show-credential",
+	"show-credentials",
 	"show-machine",
 	"show-model",
 	"show-offer",
@@ -565,7 +567,7 @@ var commandNames = []string{
 
 // devFeatures are feature flags that impact registration of commands.
 var devFeatures = []string{
-	// Currently no feature flags.
+// Currently no feature flags.
 }
 
 // These are the commands that are behind the `devFeatures`.

@@ -457,6 +457,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewAddCredentialCommand())
 	r.Register(cloud.NewRemoveCredentialCommand())
 	r.Register(cloud.NewUpdateCredentialCommand())
+	r.Register(cloud.NewShowCredentialCommand())
 
 	// CAAS commands
 	if featureflag.Enabled(feature.CAAS) {
