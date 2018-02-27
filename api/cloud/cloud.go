@@ -136,7 +136,7 @@ func (c *Client) RevokeCredential(tag names.CloudCredentialTag) error {
 	return results.OneError()
 }
 
-// Credentials return a slice of credential values for the specified tags.
+// Credentials returns a slice of credential values for the specified tags.
 // Secrets are excluded from the credential attributes.
 func (c *Client) Credentials(tags ...names.CloudCredentialTag) ([]params.CloudCredentialResult, error) {
 	if len(tags) == 0 {
@@ -178,6 +178,7 @@ func (c *Client) AddCredential(tag string, credential jujucloud.Credential) erro
 	return results.OneError()
 }
 
+// AddCloud adds a new cloud to current controller.
 func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
 	if bestVer := c.BestAPIVersion(); bestVer < 2 {
 		return errors.NotImplementedf("AddCloud() (need v2+, have v%d)", bestVer)
@@ -190,7 +191,7 @@ func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
 	return nil
 }
 
-// CredentialContents return contents of the credential values for the specified
+// CredentialContents returns contents of the credential values for the specified
 // cloud and credential name. Secrets will be included if requested.
 func (c *Client) CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {
 	if bestVer := c.BestAPIVersion(); bestVer < 2 {
