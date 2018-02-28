@@ -270,6 +270,12 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 	}
 	resp, err := c.secretKeyLogin(registrationParams.controllerAddrs, req, controllerName)
 	if err != nil {
+		// If we got here and got an error, the registration token supplied
+		// will be expired.
+		// Log the error as it will be useful for debugging, but give user a
+		// suggestion for the way forward instead of error details.
+		logger.Infof("while validating secret key: %v", err)
+		err = errors.Errorf("Provided registration token may have been expired.\nA controller administrator must reset your user to issue a new token.\nSee %q for more information.", "juju help change-user-password")
 		return errRet(errors.Trace(err))
 	}
 

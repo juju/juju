@@ -202,11 +202,16 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	timeout := time.After(testing.LongWait)
 	envsh := filepath.Join(debugDir, "env.sh")
 	for {
-		if _, err := os.Stat(envsh); err == nil {
-			break
+		// Wait for env.sh to show up, and have some content. If it exists and
+		// is size 0, we managed to see it at exactly the time it is being
+		// written.
+		if st, err := os.Stat(envsh); err == nil {
+			if st.Size() != 0 {
+				break
+			}
 		}
 		select {
-		case <-time.After(testing.ShortWait):
+		case <-time.After(time.Millisecond):
 		case <-timeout:
 			c.Fatal("timed out waiting for env.sh to be written")
 		}
