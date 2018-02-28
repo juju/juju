@@ -67,7 +67,7 @@ type Server struct {
 	lis       net.Listener
 
 	// challengeLis holds the listener that listens for autocert challenges
-	// on port 80 (only set when autocert is enabled)
+	// on port 80 (only set when autocert is enabled).
 	challengeLis     net.Listener
 	challengeHandler http.Handler
 
