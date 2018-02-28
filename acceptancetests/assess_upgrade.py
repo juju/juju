@@ -84,11 +84,11 @@ def assess_upgrade_from_stable_to_develop(args, stable_bsm, devel_client):
 def upgrade_stable_to_devel_version(client):
     devel_version = get_stripped_version_number(client.version)
     client.get_controller_client().juju(
-        'upgrade-juju', ('-m', 'controller', '--agent-version', devel_version))
+        'upgrade-juju', ('-m', 'controller'))
     assert_model_is_version(client.get_controller_client(), devel_version)
     wait_until_model_upgrades(client)
 
-    client.juju('upgrade-juju', ('--agent-version', devel_version))
+    client.juju('upgrade-juju', ())
     assert_model_is_version(client, devel_version)
     wait_until_model_upgrades(client)
 
