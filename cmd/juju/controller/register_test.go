@@ -407,7 +407,11 @@ Enter a name for this controller: »foo
 	defer prompter.CheckDone()
 	s.apiOpenError = errors.New("open failed")
 	err := s.run(c, prompter, registrationData)
-	c.Assert(err, gc.ErrorMatches, `open failed`)
+	c.Assert(c.GetTestLog(), gc.Matches, "(.|\n)*open failed(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, `
+Provided registration token may have been expired.
+A controller administrator must reset your user to issue a new token.
+See "juju help change-user-password" for more information.`[1:])
 }
 
 func (s *RegisterSuite) TestRegisterServerError(c *gc.C) {
@@ -434,7 +438,11 @@ Enter a name for this controller: »foo
 		SecretKey: mockSecretKey,
 	})
 	err = s.run(c, prompter, registrationData)
-	c.Assert(err, gc.ErrorMatches, "xyz")
+	c.Assert(c.GetTestLog(), gc.Matches, "(.|\n)* xyz(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, `
+Provided registration token may have been expired.
+A controller administrator must reset your user to issue a new token.
+See "juju help change-user-password" for more information.`[1:])
 
 	// Check that the controller hasn't been added.
 	_, err = s.store.ControllerByName("controller-name")
