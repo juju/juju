@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -47,6 +48,8 @@ type logsinkSuite struct {
 	written chan params.LogRecord
 
 	logs loggo.TestWriter
+
+	lastStack []byte
 }
 
 var _ = gc.Suite(&logsinkSuite{})
@@ -56,12 +59,19 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 	s.abort = make(chan struct{})
 	s.written = make(chan params.LogRecord, 1)
 	s.stub.ResetCalls()
+	s.lastStack = nil
+
+	recordStack := func() {
+		s.lastStack = debug.Stack()
+	}
+
 	s.srv = httptest.NewServer(logsink.NewHTTPHandler(
 		func(req *http.Request) (logsink.LogWriteCloser, error) {
 			s.stub.AddCall("Open")
 			return &mockLogWriteCloser{
 				&s.stub,
 				s.written,
+				recordStack,
 			}, s.stub.NextErr()
 		},
 		s.abort,
@@ -108,6 +118,10 @@ func (s *logsinkSuite) TestSuccess(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 	}
 	s.stub.CheckCallNames(c, "Open", "WriteLog")
+
+	if s.lastStack != nil {
+		c.Logf("last Close call stack: \n%s", string(s.lastStack))
+	}
 
 	err = conn.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -178,6 +192,7 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 			return &mockLogWriteCloser{
 				&s.stub,
 				s.written,
+				nil,
 			}, s.stub.NextErr()
 		},
 		s.abort,
@@ -235,11 +250,15 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 
 type mockLogWriteCloser struct {
 	*testing.Stub
-	written chan<- params.LogRecord
+	written  chan<- params.LogRecord
+	callback func()
 }
 
 func (m *mockLogWriteCloser) Close() error {
 	m.MethodCall(m, "Close")
+	if m.callback != nil {
+		m.callback()
+	}
 	return m.NextErr()
 }
 
