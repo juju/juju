@@ -94,7 +94,13 @@ func (s *auditConfigSuite) TestInvalidConfigLogsAndDiscards(c *gc.C) {
 		ExcludeMethods: set.NewStrings("ModelManager.ListModels"),
 	}
 	var logWriter loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("auditconfig-tests", &logWriter), jc.ErrorIsNil)
+	// Due to the timing around the apiserver starting, sometimes
+	// we get a message like:
+	// DEBUG Starting API http server on address "[::]:42943"
+	// happening after the audit log warning. By wrapping the test writer
+	// in a min level writer, anything less than warning is discarded.
+	writer := loggo.NewMinimumLevelWriter(&logWriter, loggo.WARNING)
+	c.Assert(loggo.RegisterWriter("auditconfig-tests", writer), jc.ErrorIsNil)
 	defer func() {
 		logWriter.Clear()
 	}()
