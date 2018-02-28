@@ -157,6 +157,19 @@ func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
 	}})
 }
 
+func (s *certSuite) TestClientPublicDNSName(c *gc.C) {
+	s.PatchValue(apiserver.EnableAutocertChallengeHandler, false)
+	config := s.sampleConfig(c)
+	config.AutocertDNSName = "somewhere.example"
+	srv := s.newServer(c, config)
+	apiInfo := s.APIInfo(srv)
+	apiInfo.Tag = s.Owner
+	apiInfo.Password = ownerPassword
+	conn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(conn.PublicDNSName(), gc.Equals, "somewhere.example")
+}
+
 func gatherLog(f func()) []loggo.Entry {
 	var tw loggo.TestWriter
 	err := loggo.RegisterWriter("test", &tw)
