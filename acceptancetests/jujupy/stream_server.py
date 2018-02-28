@@ -55,6 +55,17 @@ class _JujuStreamData:
         os.makedirs(self._agent_path)
 
     def add_product(self, content_id, version, arch, series, agent_tgz_path):
+        """Add a new product to generate stream data for.
+
+        :param content_id: String ID (e.g.'proposed', 'release')
+        :param version: Juju version string for product (i.e. '2.3.3')
+        :param arch: Architecture string of this product (e.g. 's390x','amd64')
+        :param series: Series string that appears in item_name
+          (e.g. 'xenial', 'centos')
+        :param agent_tgz_path: String full path to agent tarball file to use.
+          This file is copied into the JujuStreamData working dir to be served
+          up at a later date.
+        """
         shutil.copy(agent_tgz_path, self._agent_path)
         product_dict = _generate_product_json(
             content_id, version, arch, series, agent_tgz_path)
@@ -68,7 +79,7 @@ class _JujuStreamData:
             write_juju_streams
         )
         from simplestreams.generate_simplestreams import items2content_trees
-        # The following has been cribbed from simlestreams.json2streams.
+        # The following has been cribbed from simplestreams.json2streams.
         # Doing so saves the need to create json files to then shell out to
         # read those files into memory to generate the resulting json files.
         items = (dict_to_item(item.copy()) for item in self.products)
@@ -89,7 +100,7 @@ class StreamServer:
     def add_product(self, content_id, version, arch, series, agent_tgz_path):
         """Add a new product to generate stream data for.
 
-        :param content_id: String ID (e.g.'proposed', 'release')
+        :param content_id: String ID (e.g.'proposed', 'released')
         :param version: Juju version string for product (i.e. '2.3.3')
         :param arch: Architecture string of this product (e.g. 's390x','amd64')
         :param series: Series string that appears in item_name
@@ -101,8 +112,10 @@ class StreamServer:
         self.stream_data.add_product(
             content_id, version, arch, series, agent_tgz_path)
         # Re-generate when adding a product allows updating the server while
-        # running, can be noisy logs.
-        # self.stream_data.generate_stream_data()
+        # running.
+        # Can be noisey in the logs, if a lot of products need to be added can
+        # use StreamServer.stream_data.add_product() directly.
+        self.stream_data.generate_stream_data()
 
     @contextmanager
     def server(self):
@@ -142,22 +155,15 @@ def agent_tgz_from_juju_binary(juju_bin_path, tmp_dir, series=None):
       Allows one to overwrite the series of the juju client.
     :returns: String path to generated
     """
-    _series_lookup = dict(
-        artful='ubuntu',
-        bionic='ubuntu',
-        trusty='ubuntu',
-        xenial='ubuntu',
-        win2012='win2012',
-        win2012hv='win2012',
-        win2012hvr2='win2012',
-        win2012r2='win2012',
-        win2016='win2012',
-        win2016nano='win2012',
-        win7='win2012',
-        win81='win2012',
-        win8='win2012',
-        win10='win2012',
-    )
+    def _series_lookup(series):
+        # Handle the inconsistencies with agent series names.
+        if series is None:
+            return None
+        if series.startswith('centos'):
+            return series
+        if series.startswith('win'):
+            return 'win2012'
+        return 'ubuntu'
 
     bin_dir = os.path.dirname(juju_bin_path)
     try:
@@ -171,7 +177,7 @@ def agent_tgz_from_juju_binary(juju_bin_path, tmp_dir, series=None):
         version_output = subprocess.check_output(
             [jujud_path, 'version']).rstrip('\n')
         version, bin_series, arch = version_output.split('-')
-        bin_agent_series = _series_lookup.get(series, series)
+        bin_agent_series = _series_lookup(bin_series)
     except subprocess.CalledProcessError as e:
         raise RuntimeError(
             'Unable to query jujud for version details: {}'.format(e))
@@ -222,16 +228,14 @@ def _generate_product_json(content_id, version, arch, series, agent_tgz_path):
     )
 
 
-_series_lookup = dict(
-    trusty=14.04,
-    xenial=16.04,
-    artful=17.10,
-    bionic=18.04,
-)
-
-
 def _get_series_details(series):
     # Ubuntu agents use series and a code (i.e. trusty:14.04), others don't.
+    _series_lookup = dict(
+        trusty=14.04,
+        xenial=16.04,
+        artful=17.10,
+        bionic=18.04,
+    )
     try:
         series_code = _series_lookup[series]
     except KeyError:

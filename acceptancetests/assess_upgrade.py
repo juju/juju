@@ -24,6 +24,9 @@ from utility import (
     configure_logging,
     temp_dir,
     )
+from textwrap import (
+    dedent,
+)
 from jujupy.binaries import (
     get_stable_juju
     )
@@ -60,14 +63,14 @@ def assess_upgrade_from_stable_to_develop(args, stable_bsm, devel_client):
         stream_server = StreamServer(base_dir)
         setup_agent_metadata(
             stream_server, args.stable_juju_agent,
-            stable_client, base_dir, 'proposed')
+            stable_client, base_dir, 'released')
         setup_agent_metadata(
             stream_server, args.devel_juju_agent,
-            devel_client, base_dir, 'proposed')
+            devel_client, base_dir, 'released')
         with stream_server.server() as url:
             stable_client.env.update_config({
                 'agent-metadata-url': url,
-                'agent-stream': 'proposed'
+                'agent-stream': 'released'
             })
             with stable_bsm.booted_context(False):
                 assert_stable_model_is_correct(stable_client)
@@ -80,11 +83,12 @@ def assess_upgrade_from_stable_to_develop(args, stable_bsm, devel_client):
 
 def upgrade_stable_to_devel_version(client):
     devel_version = get_stripped_version_number(client.version)
-    client.get_controller_client().juju('upgrade-juju', ('-m', 'controller'))
+    client.get_controller_client().juju(
+        'upgrade-juju', ('-m', 'controller', '--agent-version', devel_version))
     assert_model_is_version(client.get_controller_client(), devel_version)
     wait_until_model_upgrades(client)
 
-    client.juju('upgrade-juju', ())
+    client.juju('upgrade-juju', ('--agent-version', devel_version))
     assert_model_is_version(client, devel_version)
     wait_until_model_upgrades(client)
 
@@ -136,7 +140,10 @@ def get_version_parts(version_string):
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(
-        description='Test juju upgrades for controllers and models')
+        description=dedent("""\
+        Test juju upgrades for controllers and models.
+        Uses `juju_bin` as the development version of juju to upgrade to."""),
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     add_basic_testing_arguments(parser, existing=False)
     parser.add_argument(
         '--stable-juju-bin',
