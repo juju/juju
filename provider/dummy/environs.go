@@ -850,7 +850,9 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				Hub:            centralhub.New(machineTag),
 				NewObserver:    func() observer.Observer { return &fakeobserver.Instance{} },
 				// Should never be used but prevent external access just in case.
-				AutocertURL: "https://0.1.2.3/no-autocert-here",
+				AutocertURL:                     "https://0.1.2.3/no-autocert-here",
+				AutocertDNSName:                 icfg.Controller.Config.AutocertDNSName(),
+				DisableAutocertChallengeHandler: true,
 				RegisterIntrospectionHandlers: func(f func(path string, h http.Handler)) {
 					f("navel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						io.WriteString(w, "gazing")

@@ -51,12 +51,6 @@ var logger = loggo.GetLogger("juju.apiserver")
 
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
-// enableAutocertChallengeHandler holds whether the autocert listener
-// may be started on port 80. It is defined so that tests can test some
-// of the autocert logic without failing because there's no way to listen
-// on port 80.
-var enableAutocertChallengeHandler = true
-
 // Server holds the server side of the API.
 type Server struct {
 	tomb      tomb.Tomb
@@ -171,6 +165,12 @@ type ServerConfig struct {
 	// TLS certificates will be obtained. By default,
 	// acme.LetsEncryptURL will be used.
 	AutocertURL string
+
+	// DisableAutocertChallengeHandler holds whether the autocert listener
+	// on port 80 is disabled. It is defined so that tests can test some of
+	// the autocert logic without failing because there's no way to listen
+	// on port 80.
+	DisableAutocertChallengeHandler bool
 
 	// AllowModelAccess holds whether users will be allowed to
 	// access models that they have access rights to even when
@@ -341,7 +341,7 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 	srv.lis = newThrottlingListener(
 		tls.NewListener(lis, srv.tlsConfig), cfg.RateLimitConfig, clock.WallClock)
 
-	if srv.challengeHandler != nil && enableAutocertChallengeHandler {
+	if srv.challengeHandler != nil && !cfg.DisableAutocertChallengeHandler {
 		srv.challengeLis, err = net.Listen("tcp", ":80")
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot listen for autocert challenges")

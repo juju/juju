@@ -113,7 +113,7 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Make 2 URLs to try - the old and the new.
-	addr := guiAddr(ctx, conn)
+	addr := guiAddr(conn)
 	rawURL := fmt.Sprintf("https://%s/gui/%s/", addr, details.ModelUUID)
 	qualifiedModelName, err := store.QualifiedModelName(controllerName, modelName)
 	if err != nil {
@@ -155,14 +155,8 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 }
 
 // guiAddr returns an address where the GUI is available.
-func guiAddr(ctx *cmd.Context, conn api.Connection) string {
-	client := controller.NewClient(conn)
-	config, err := client.ControllerConfig()
-	if err != nil {
-		ctx.Warningf("cannot get controller config: %s", err)
-		return conn.Addr()
-	}
-	if dnsName := config.AutocertDNSName(); dnsName != "" {
+func guiAddr(conn api.Connection) string {
+	if dnsName := conn.PublicDNSName(); dnsName != "" {
 		return dnsName
 	}
 	return conn.Addr()

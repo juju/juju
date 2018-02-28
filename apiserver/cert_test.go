@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cert"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -66,8 +65,6 @@ func (s *certSuite) TestUpdateCert(c *gc.C) {
 }
 
 func (s *certSuite) TestAutocertFailure(c *gc.C) {
-	s.PatchValue(apiserver.EnableAutocertChallengeHandler, false)
-
 	// We don't have a fake autocert server, but we can at least
 	// smoke test that the autocert path is followed when we try
 	// to connect to a DNS name - the AutocertURL configured
@@ -75,6 +72,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 
 	config := s.sampleConfig(c)
 	config.AutocertDNSName = "somewhere.example"
+	config.DisableAutocertChallengeHandler = true
 
 	srv := s.newServer(c, config)
 	apiInfo := s.APIInfo(srv)
@@ -100,10 +98,9 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 }
 
 func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
-	s.PatchValue(apiserver.EnableAutocertChallengeHandler, false)
-
 	config := s.sampleConfig(c)
 	config.AutocertDNSName = "somewhere.example"
+	config.DisableAutocertChallengeHandler = true
 
 	srv := s.newServer(c, config)
 	apiInfo := s.APIInfo(srv)
@@ -130,8 +127,8 @@ func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 }
 
 func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
-	s.PatchValue(apiserver.EnableAutocertChallengeHandler, false)
 	config := s.sampleConfig(c)
+	config.DisableAutocertChallengeHandler = true
 	c.Assert(config.AutocertDNSName, gc.Equals, "") // sanity check
 	srv := s.newServer(c, config)
 	apiInfo := s.APIInfo(srv)
@@ -155,19 +152,6 @@ func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
 		loggo.ERROR,
 		`.*cannot get autocert certificate.*`,
 	}})
-}
-
-func (s *certSuite) TestClientPublicDNSName(c *gc.C) {
-	s.PatchValue(apiserver.EnableAutocertChallengeHandler, false)
-	config := s.sampleConfig(c)
-	config.AutocertDNSName = "somewhere.example"
-	srv := s.newServer(c, config)
-	apiInfo := s.APIInfo(srv)
-	apiInfo.Tag = s.Owner
-	apiInfo.Password = ownerPassword
-	conn, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
-	c.Assert(conn.PublicDNSName(), gc.Equals, "somewhere.example")
 }
 
 func gatherLog(f func()) []loggo.Entry {
