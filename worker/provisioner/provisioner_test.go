@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -1502,6 +1503,9 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	task := s.newProvisionerTask(c, config.HarvestAll, e, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
 	defer workertest.CleanKill(c, task)
 
+	logger := loggo.GetLogger("juju.provisioner")
+	logger.SetLogLevel(loggo.TRACE)
+
 	// Provision some machines, some will be started first time,
 	// another will require retries.
 	m1, err := s.addMachine()
@@ -1532,8 +1536,9 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 					Data:    map[string]interface{}{"transient": true},
 					Since:   &now,
 				}
+				logger.Infof("setting instance status provisioning error as transient for m3")
 				err := m3.SetInstanceStatus(sInfo)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Check(err, jc.ErrorIsNil)
 			}
 		}
 	}()
