@@ -6,13 +6,15 @@ package jujuc
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/core/application"
 )
 
 // GoalStateCommand implements the config-get command.
 type GoalStateCommand struct {
 	cmd.CommandBase
 	ctx Context
-	Key string // The key to show. If empty, show all.
 	out cmd.Output
 }
 
@@ -38,18 +40,57 @@ func (c *GoalStateCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *GoalStateCommand) Init(args []string) error {
-	if args == nil {
-		return nil
-	}
-	c.Key = args[0]
-
-	return cmd.CheckEmpty(args[1:])
+	return cmd.CheckEmpty(args[:])
 }
 
 func (c *GoalStateCommand) Run(ctx *cmd.Context) error {
-	state, err := c.ctx.GoalState()
+	goalState, err := c.ctx.GoalState()
 	if err != nil {
 		return err
 	}
-	return c.out.Write(ctx, state)
+
+	goalStateFormated := formatGoalState(*goalState)
+	return c.out.Write(ctx, goalStateFormated)
+}
+
+// goalStateStatusContents is used to format application.GoalState.Since
+// using strings
+type goalStateStatusContents struct {
+	Status string `json:"status" yaml:"status"`
+	Since  string `json:"since,omitempty" yaml:"since,omitempty"`
+}
+
+// UnitsGoalState keeps the collection of units and their GoalStateStau
+type unitsGoalStateContents map[string]goalStateStatusContents
+
+// GoalState is responsible to organize the Units and Relations with a specific
+// unit, and transmit this information from the facade to the worker.
+type formattedGoalState struct {
+	Units     unitsGoalStateContents            `json:"units" yaml:"units"`
+	Relations map[string]unitsGoalStateContents `json:"relations" yaml:"relations"`
+}
+
+// transformGoalState move information from application GoalState struct to
+// application GoalState struct
+func formatGoalState(gs application.GoalState) formattedGoalState {
+	result := formattedGoalState{}
+
+	copyUnits := func(units application.UnitsGoalState) unitsGoalStateContents {
+		copiedUnits := unitsGoalStateContents{}
+		for name, gs := range units {
+			copiedUnits[name] = goalStateStatusContents{
+				Status: gs.Status,
+				Since:  common.FormatTime(gs.Since, true),
+			}
+		}
+		return copiedUnits
+	}
+
+	result.Units = copyUnits(gs.Units)
+	result.Relations = make(map[string]unitsGoalStateContents, len(gs.Relations))
+	for relation, units := range gs.Relations {
+		result.Relations[relation] = copyUnits(units)
+	}
+
+	return result
 }
