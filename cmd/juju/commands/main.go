@@ -462,6 +462,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// CAAS commands
 	if featureflag.Enabled(feature.CAAS) {
 		r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))
+
+		// Manage Application Credential Access
+		r.Register(application.NewTrustCommand())
 	}
 
 	// Juju GUI commands.

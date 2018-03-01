@@ -14,6 +14,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/charmrepo.v2/csclient"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/api/application"
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/modelconfig"
+	app "github.com/juju/juju/apiserver/facades/client/application"
 	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
@@ -35,6 +37,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -317,6 +320,11 @@ type DeployCommand struct {
 	// NewAPIRoot stores a function which returns a new API root.
 	NewAPIRoot func() (DeployAPI, error)
 
+	// Trust signifies that the charm should be deployed with access to
+	// trusted credentials. That is, hooks run by the charm can access
+	// cloud credentials and other trusted access credentials.
+	Trust bool
+
 	machineMap string
 	flagSet    *gnuflag.FlagSet
 }
@@ -523,17 +531,26 @@ func (c *DeployCommand) Info() *cmd.Info {
 }
 
 var (
-	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
-	// whether we are deploying a charm or a bundle.
-	charmOnlyFlags = []string{
-		"bind", "config", "constraints", "force", "n", "num-units",
-		"series", "to", "resource", "attach-storage",
-	}
 	// TODO(thumper): support dry-run for apps as well as bundles.
 	bundleOnlyFlags = []string{
 		"overlay", "dry-run", "map-machines",
 	}
 )
+
+// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
+// whether we are deploying a charm or a bundle.
+func charmOnlyFlags() []string {
+	charmOnlyFlags := []string{
+		"bind", "config", "constraints", "force", "n", "num-units",
+		"series", "to", "resource", "attach-storage",
+	}
+
+	if featureflag.Enabled(feature.CAAS) {
+		charmOnlyFlags = append(charmOnlyFlags, "trust")
+	}
+
+	return charmOnlyFlags
+}
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ConfigOptions.SetPreserveStringValue(true)
@@ -544,6 +561,11 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
 	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
+
+	if featureflag.Enabled(feature.CAAS) {
+		f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
+	}
+
 	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
@@ -767,6 +789,11 @@ func (c *DeployCommand) deployCharm(
 		appConfig[k] = v.(string)
 	}
 
+	// Expand the trust flag into the appConfig
+	if c.Trust {
+		appConfig[app.TrustConfigOptionName] = strconv.FormatBool(c.Trust)
+	}
+
 	// Application facade V5 expects charm config to either all be in YAML
 	// or config map. If config map is specified, that overrides YAML.
 	// So we need to combine the two here to have only one.
@@ -949,7 +976,7 @@ func findDeployerFIFO(maybeDeployers ...func() (deployFn, error)) (deployFn, err
 type deployFn func(*cmd.Context, DeployAPI) error
 
 func (c *DeployCommand) validateBundleFlags() error {
-	if flags := getFlags(c.flagSet, charmOnlyFlags); len(flags) > 0 {
+	if flags := getFlags(c.flagSet, charmOnlyFlags()); len(flags) > 0 {
 		return errors.Errorf("flags provided but not supported when deploying a bundle: %s", strings.Join(flags, ", "))
 	}
 	return nil

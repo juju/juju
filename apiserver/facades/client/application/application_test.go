@@ -531,6 +531,74 @@ func (s *applicationSuite) TestApplicationDeploymentLeavesResourcesOnSuccess(c *
 	c.Assert(res.Resources, gc.HasLen, 1)
 }
 
+func (s *applicationSuite) TestApplicationDeploymentWithTrust(c *gc.C) {
+	// This test should fail if the configuration parsing does not
+	// understand the "trust" configuration parameter
+	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
+		URL: curl.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	var cons constraints.Value
+	config := map[string]string{"trust": "true"}
+	args := params.ApplicationDeploy{
+		ApplicationName: "application",
+		CharmURL:        curl.String(),
+		NumUnits:        1,
+		Config:          config,
+		Placement: []*instance.Placement{
+			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "valid"},
+		},
+	}
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+
+	app := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
+
+	appConfig, err := app.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	trust := appConfig.GetBool("trust", false)
+	c.Assert(trust, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
+	// This test should fail if the trust configuration setting defaults to
+	// anything other than "false" when no configuration parameter for trust
+	// is set at deployment.
+	curl, ch := s.UploadCharm(c, "precise/dummy-42", "dummy")
+	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
+		URL: curl.String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	var cons constraints.Value
+	args := params.ApplicationDeploy{
+		ApplicationName: "application",
+		CharmURL:        curl.String(),
+		NumUnits:        1,
+		Placement: []*instance.Placement{
+			{"deadbeef-0bad-400d-8000-4b1d0d06f00d", "valid"},
+		},
+	}
+	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+		Applications: []params.ApplicationDeploy{args}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{Error: nil}},
+	})
+
+	app := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
+	appConfig, err := app.ApplicationConfig()
+	trust := appConfig.GetBool(application.TrustConfigOptionName, true)
+	c.Assert(trust, jc.IsFalse)
+}
+
 func (s *applicationSuite) testClientApplicationsDeployWithBindings(c *gc.C, endpointBindings, expected map[string]string) {
 	curl, _ := s.UploadCharm(c, "utopic/riak-42", "riak")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{

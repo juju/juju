@@ -1081,6 +1081,9 @@ func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
 	schema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	schema, defaults, err = application.AddTrustSchemaAndDefaults(schema, defaults)
+	c.Assert(err, jc.ErrorIsNil)
+
 	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes{
 		"juju-external-hostname": "value",
 	}, []string(nil), schema, defaults)
@@ -1135,6 +1138,9 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 	schema, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+	schema, defaults, err = application.AddTrustSchemaAndDefaults(schema, defaults)
+	c.Assert(err, jc.ErrorIsNil)
+
 	app.CheckCall(c, 0, "UpdateApplicationConfig", coreapplication.ConfigAttributes(nil),
 		[]string{"juju-external-hostname"}, schema, defaults)
 	app.CheckCall(c, 1, "UpdateCharmConfig", charm.Settings{"stringVal": nil})
