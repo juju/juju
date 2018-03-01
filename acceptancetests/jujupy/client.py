@@ -680,7 +680,7 @@ class ModelClient:
         """Create a new juju client.
 
         Required Arguments
-        :param env: Object representing a model in a data directory.
+        :param env: JujuData object representing a model in a data directory.
         :param version: Version of juju the client wraps.
         :param full_path: Full path to juju binary.
 

@@ -9,14 +9,15 @@ from distutils.version import (
     StrictVersion
     )
 import logging
-import os
 import sys
 
 from assess_model_migration import (
     _new_log_dir,
     assert_model_migrated_successfully,
-    deploy_simple_server_to_new_model,
     migrate_model_to_controller,
+    )
+from jujupy.binaries import (
+    get_stable_juju
     )
 from jujupy.client import (
     get_stripped_version_number,
@@ -24,9 +25,11 @@ from jujupy.client import (
 from jujupy.wait_condition import (
     BaseCondition,
 )
+from jujupy.workloads import (
+    deploy_simple_server_to_new_model,
+    )
 from deploy_stack import (
     BootstrapManager,
-    client_from_config,
     get_random_string,
     )
 from utility import (
@@ -104,53 +107,6 @@ def get_new_devel_bootstrap_manager(args, devel_bsm):
     new_devel_bsm.temp_env_name = new_controller_name
     new_devel_bsm.log_dir = _new_log_dir(devel_bsm.log_dir, 'another')
     return new_devel_bsm
-
-
-def get_stable_juju(args, stable_juju_bin=None):
-    """Get the installed stable version of juju.
-
-    We need a stable version of juju to boostrap and migrate from to the newer
-    development version of juju.
-
-    If no juju path is provided try some well known paths in an attempt to find
-    a system installed juju that will suffice.
-    Note. this function does not check if the found juju is a suitable version
-    for this test, just that the binary exists and is executable.
-
-    :param stable_juju_bin: Path to the juju binary to be used and considered
-      stable
-    :raises RuntimeError: If there is no valid installation of juju available.
-    :return: BootstrapManager object for the stable juju.
-    """
-    if stable_juju_bin is not None:
-        try:
-            client = client_from_config(
-                args.env,
-                stable_juju_bin,
-                debug=args.debug)
-            log.info('Using {} for stable juju'.format(stable_juju_bin))
-            return BootstrapManager.from_client(args, client)
-        except OSError as e:
-            raise RuntimeError(
-                'Provided stable juju path is not valid: {}'.format(e))
-    known_juju_paths = (
-        '/snap/bin/juju',
-        '/usr/bin/juju',
-        '{}/bin/juju'.format(os.environ.get('GOPATH')))
-
-    for path in known_juju_paths:
-        try:
-            client = client_from_config(
-                args.env,
-                path,
-                debug=args.debug)
-            log.info('Using {} for stable juju'.format(path))
-            return BootstrapManager.from_client(args, client)
-        except OSError:
-            log.debug('Attempt at using {} failed.'.format(path))
-            pass
-
-    raise RuntimeError('Unable to get a stable system juju binary.')
 
 
 def assert_stable_juju_suitable_for_testing(stable_bsm, devel_bsm):
