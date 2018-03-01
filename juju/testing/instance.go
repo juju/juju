@@ -70,7 +70,7 @@ func AssertStartControllerInstance(
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID}
-	err := fillinStartInstanceParams(env, machineId, true, &params)
+	err := FillInStartInstanceParams(env, machineId, true, &params)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := env.StartInstance(params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,13 +138,15 @@ func StartInstanceWithParams(
 ) (
 	*environs.StartInstanceResult, error,
 ) {
-	if err := fillinStartInstanceParams(env, machineId, false, &params); err != nil {
+	if err := FillInStartInstanceParams(env, machineId, false, &params); err != nil {
 		return nil, err
 	}
 	return env.StartInstance(params)
 }
 
-func fillinStartInstanceParams(env environs.Environ, machineId string, isController bool, params *environs.StartInstanceParams) error {
+// FillInStartInstanceParams prepares the instance parameters for starting
+// the instance.
+func FillInStartInstanceParams(env environs.Environ, machineId string, isController bool, params *environs.StartInstanceParams) error {
 	if params.ControllerUUID == "" {
 		return errors.New("missing controller UUID in start instance parameters")
 	}

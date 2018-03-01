@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"crypto/tls"
-	"net"
 	"net/http"
 	"strconv"
 
@@ -41,7 +40,7 @@ type Config struct {
 
 // NewServerFunc is the type of function that will be used
 // by the worker to create a new API server.
-type NewServerFunc func(*state.StatePool, net.Listener, apiserver.ServerConfig) (worker.Worker, error)
+type NewServerFunc func(*state.StatePool, apiserver.ServerConfig) (worker.Worker, error)
 
 // Validate validates the API server configuration.
 func (config Config) Validate() error {
@@ -88,7 +87,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if !ok {
 		return nil, errors.New("missing state serving info")
 	}
-	listenAddr := net.JoinHostPort("", strconv.Itoa(servingInfo.APIPort))
 
 	rateLimitConfig, err := getRateLimitConfig(config.AgentConfig)
 	if err != nil {
@@ -116,6 +114,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	serverConfig := apiserver.ServerConfig{
+		ListenAddr:                    ":" + strconv.Itoa(servingInfo.APIPort),
 		Clock:                         config.Clock,
 		Tag:                           config.AgentConfig.Tag(),
 		DataDir:                       config.AgentConfig.DataDir(),
@@ -135,24 +134,13 @@ func NewWorker(config Config) (worker.Worker, error) {
 		GetAuditConfig:                config.GetAuditConfig,
 	}
 
-	listener, err := net.Listen("tcp", listenAddr)
+	server, err := config.NewServer(config.StatePool, serverConfig)
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	server, err := config.NewServer(config.StatePool, listener, serverConfig)
-	if err != nil {
-		if err := listener.Close(); err != nil {
-			logger.Warningf("failed to close listener: %s", err)
-		}
 		return nil, errors.Trace(err)
 	}
 	return server, nil
 }
 
-func newServerShim(
-	statePool *state.StatePool,
-	listener net.Listener,
-	config apiserver.ServerConfig,
-) (worker.Worker, error) {
-	return apiserver.NewServer(statePool, listener, config)
+func newServerShim(statePool *state.StatePool, config apiserver.ServerConfig) (worker.Worker, error) {
+	return apiserver.NewServer(statePool, config)
 }

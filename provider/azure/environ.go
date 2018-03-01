@@ -288,9 +288,8 @@ func (env *azureEnviron) createCommonResourceDeployment(
 	rules []network.SecurityRule,
 	commonResources ...armtemplates.Resource,
 ) error {
-	const apiPort = -1
 	commonResources = append(commonResources, networkTemplateResources(
-		env.location, tags, apiPort, rules,
+		env.location, tags, nil, rules,
 	)...)
 
 	// We perform this deployment asynchronously, to avoid blocking
@@ -560,19 +559,22 @@ func (env *azureEnviron) createVirtualMachine(
 	instanceConfig *instancecfg.InstanceConfig,
 	storageAccountType string,
 ) error {
-
-	deploymentsClient := resources.DeploymentsClient{env.resources}
-
-	var apiPort int
+	deploymentsClient := resources.DeploymentsClient{
+		ManagementClient: env.resources,
+	}
+	apiPorts := make([]int, 0, 2)
 	if instanceConfig.Controller != nil {
-		apiPortValue := instanceConfig.Controller.Config.APIPort()
-		apiPort = apiPortValue
-	} else {
-		apiPorts := instanceConfig.APIInfo.Ports()
-		if len(apiPorts) != 1 {
-			return errors.Errorf("expected one API port, found %v", apiPorts)
+		apiPorts = append(apiPorts, instanceConfig.Controller.Config.APIPort())
+		if instanceConfig.Controller.Config.AutocertDNSName() != "" {
+			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
+			apiPorts = append(apiPorts, 80)
 		}
-		apiPort = apiPorts[0]
+	} else {
+		ports := instanceConfig.APIInfo.Ports()
+		if len(ports) != 1 {
+			return errors.Errorf("expected one API port, found %v", ports)
+		}
+		apiPorts = append(apiPorts, ports[0])
 	}
 
 	var nicDependsOn, vmDependsOn []string
@@ -582,7 +584,7 @@ func (env *azureEnviron) createVirtualMachine(
 		// We're starting the bootstrap machine, so we will create the
 		// common resources in the same deployment.
 		resources = append(resources,
-			networkTemplateResources(env.location, envTags, apiPort, nil)...,
+			networkTemplateResources(env.location, envTags, apiPorts, nil)...,
 		)
 		nicDependsOn = append(nicDependsOn, fmt.Sprintf(
 			`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`,

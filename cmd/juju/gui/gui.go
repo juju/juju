@@ -99,7 +99,9 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 
 	store, ok := c.ClientStore().(modelcmd.QualifyingClientStore)
 	if !ok {
-		store = modelcmd.QualifyingClientStore{c.ClientStore()}
+		store = modelcmd.QualifyingClientStore{
+			ClientStore: c.ClientStore(),
+		}
 	}
 	controllerName, err := c.ControllerName()
 	if err != nil {
@@ -111,14 +113,15 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Make 2 URLs to try - the old and the new.
-	rawURL := fmt.Sprintf("https://%s/gui/%s/", conn.Addr(), details.ModelUUID)
+	addr := guiAddr(conn)
+	rawURL := fmt.Sprintf("https://%s/gui/%s/", addr, details.ModelUUID)
 	qualifiedModelName, err := store.QualifiedModelName(controllerName, modelName)
 	if err != nil {
 		return errors.Annotate(err, "cannot construct model name")
 	}
 	// Do not include any possible "@external" fragment in the path.
 	qualifiedModelName = strings.Replace(qualifiedModelName, "@external/", "/", 1)
-	newRawURL := fmt.Sprintf("https://%s/gui/u/%s", conn.Addr(), qualifiedModelName)
+	newRawURL := fmt.Sprintf("https://%s/gui/u/%s", addr, qualifiedModelName)
 
 	// Check that the Juju GUI is available.
 	var guiURL string
@@ -149,6 +152,14 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// guiAddr returns an address where the GUI is available.
+func guiAddr(conn api.Connection) string {
+	if dnsName := conn.PublicDNSName(); dnsName != "" {
+		return dnsName
+	}
+	return conn.Addr()
 }
 
 // checkAvailable ensures the Juju GUI is available on the controller at

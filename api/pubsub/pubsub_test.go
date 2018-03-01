@@ -6,9 +6,7 @@ package pubsub_test
 import (
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"io"
-	"net"
 	"net/url"
 	"time"
 
@@ -138,7 +136,6 @@ type PubSubIntegrationSuite struct {
 	machineTag names.Tag
 	password   string
 	nonce      string
-	address    string
 	hub        *pubsub.StructuredHub
 	server     *apiserver.Server
 }
@@ -159,13 +156,13 @@ func (s *PubSubIntegrationSuite) SetUpTest(c *gc.C) {
 
 	statePool := state.NewStatePool(s.State)
 	s.AddCleanup(func(*gc.C) { statePool.Close() })
-	s.server, s.address = newServerWithHub(c, statePool, s.hub)
+	s.server = newServerWithHub(c, statePool, s.hub)
 	s.AddCleanup(func(*gc.C) { s.server.Stop() })
 }
 
 func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
 	info := &api.Info{
-		Addrs:    []string{s.address},
+		Addrs:    []string{s.server.Addr().String()},
 		CACert:   coretesting.CACert,
 		ModelTag: s.IAASModel.ModelTag(),
 		Tag:      s.machineTag,
@@ -223,10 +220,9 @@ func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 	c.Assert(messages, jc.DeepEquals, []map[string]interface{}{first, second})
 }
 
-func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.StructuredHub) (*apiserver.Server, string) {
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(statePool, listener, apiserver.ServerConfig{
+func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.StructuredHub) *apiserver.Server {
+	srv, err := apiserver.NewServer(statePool, apiserver.ServerConfig{
+		ListenAddr:      "localhost:0",
 		Clock:           clock.WallClock,
 		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
 		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
@@ -239,7 +235,5 @@ func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.Structure
 		RestoreStatus:   func() state.RestoreStatus { return state.RestoreNotActive },
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	port := listener.Addr().(*net.TCPAddr).Port
-	address := fmt.Sprintf("localhost:%d", port)
-	return srv, address
+	return srv
 }

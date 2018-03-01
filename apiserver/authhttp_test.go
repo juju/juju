@@ -97,6 +97,7 @@ func (s *authHTTPSuite) baseURL(c *gc.C) *url.URL {
 }
 
 func dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket.Conn {
+	// TODO(rogpeppe) merge this with the very similar dialWebsocket function.
 	if header == nil {
 		header = http.Header{}
 	}
@@ -106,10 +107,8 @@ func dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket
 	tlsConfig := utils.SecureTLSConfig()
 	tlsConfig.RootCAs = caCerts
 	tlsConfig.ServerName = "anything"
-	c.Logf("dialing %v", server)
 
 	dialer := &websocket.Dialer{
-		Proxy:           http.ProxyFromEnvironment,
 		TLSClientConfig: tlsConfig,
 	}
 	conn, _, err := dialer.Dial(server, header)

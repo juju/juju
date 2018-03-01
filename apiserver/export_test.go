@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"net"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -177,11 +176,6 @@ func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
 func TestingAboutToRestoreRoot() rpc.Root {
 	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, aboutToRestoreMethodsOnly)
-}
-
-// Addr returns the address that the server is listening on.
-func (srv *Server) Addr() *net.TCPAddr {
-	return srv.lis.Addr().(*net.TCPAddr) // cannot fail
 }
 
 // PatchGetMigrationBackend overrides the getMigrationBackend function

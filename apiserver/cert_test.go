@@ -72,6 +72,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 
 	config := s.sampleConfig(c)
 	config.AutocertDNSName = "somewhere.example"
+	config.DisableAutocertChallengeHandler = true
 
 	srv := s.newServer(c, config)
 	apiInfo := s.APIInfo(srv)
@@ -99,6 +100,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 	config := s.sampleConfig(c)
 	config.AutocertDNSName = "somewhere.example"
+	config.DisableAutocertChallengeHandler = true
 
 	srv := s.newServer(c, config)
 	apiInfo := s.APIInfo(srv)
@@ -126,6 +128,7 @@ func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 
 func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
 	config := s.sampleConfig(c)
+	config.DisableAutocertChallengeHandler = true
 	c.Assert(config.AutocertDNSName, gc.Equals, "") // sanity check
 	srv := s.newServer(c, config)
 	apiInfo := s.APIInfo(srv)

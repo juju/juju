@@ -17,7 +17,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -63,15 +62,12 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
-	// A net.TCPAddr cannot be directly stringified into a valid hostname.
-	address := fmt.Sprintf("localhost:%d", srv.Addr().Port)
-
 	// Note we can't use openAs because we're not connecting to
 	apiInfo := &api.Info{
 		Tag:      machine.Tag(),
 		Password: password,
 		Nonce:    "fake_nonce",
-		Addrs:    []string{address},
+		Addrs:    []string{srv.Addr().String()},
 		CACert:   coretesting.CACert,
 		ModelTag: s.IAASModel.ModelTag(),
 	}
@@ -100,12 +96,18 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	err := s.State.SetAPIHostPorts(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Don't listen on "localhost:0" because that will only listen on either
+	// IPv4 or IPv6 but we want to listen on both.
+	cfg := defaultServerConfig(c)
+	cfg.ListenAddr = ":0"
+
 	// Start our own instance of the server listening on
 	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
-	_, srv := newServer(c, s.StatePool)
+	srv, err := apiserver.NewServer(s.StatePool, cfg)
+	c.Assert(err, jc.ErrorIsNil)
 	defer assertStop(c, srv)
 
-	port := srv.Addr().Port
+	port := srv.Addr().(*net.TCPAddr).Port
 	portString := fmt.Sprintf("%d", port)
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -272,26 +274,25 @@ func (s *serverSuite) assertAlive(c *gc.C, entity presence.Agent, expectAlive bo
 }
 
 func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Conn, error) {
+	// TODO(rogpeppe) merge this with the very similar dialWebsocketFromURL function.
 	url := fmt.Sprintf("wss://%s%s", addr, path)
-	requestHeader := http.Header{"Origin": {"http://localhost/"}}
-
-	pool := x509.NewCertPool()
-	xcert, err := cert.ParseCert(coretesting.CACert)
-	c.Assert(err, jc.ErrorIsNil)
-	pool.AddCert(xcert)
+	header := make(http.Header)
+	header.Set("Origin", "http://localhost/")
+	caCerts := x509.NewCertPool()
+	c.Assert(caCerts.AppendCertsFromPEM([]byte(coretesting.CACert)), jc.IsTrue)
 	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.RootCAs = caCerts
+	tlsConfig.ServerName = "anything"
 	if tlsVersion > 0 {
 		// This is for testing only. Please don't muck with the maxtlsversion in
 		// production.
 		tlsConfig.MaxVersion = tlsVersion
 	}
-	tlsConfig.RootCAs = pool
 
 	dialer := &websocket.Dialer{
-		Proxy:           http.ProxyFromEnvironment,
 		TLSClientConfig: tlsConfig,
 	}
-	conn, _, err := dialer.Dial(url, requestHeader)
+	conn, _, err := dialer.Dial(url, header)
 	return conn, err
 }
 
@@ -300,11 +301,8 @@ func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
 	_, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
-	// We have to use 'localhost' because that is what the TLS cert says.
-	addr := fmt.Sprintf("localhost:%d", srv.Addr().Port)
-
 	// Specify an unsupported TLS version
-	conn, err := dialWebsocket(c, addr, "/", tls.VersionSSL30)
+	conn, err := dialWebsocket(c, srv.Addr().String(), "/", tls.VersionSSL30)
 	c.Assert(err, gc.ErrorMatches, ".*protocol version not supported")
 	c.Assert(conn, gc.IsNil)
 }
@@ -312,12 +310,10 @@ func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
 	// for the correct location, but other paths should fail.
-	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	_, srv := newServer(c, s.StatePool)
 	defer assertStop(c, srv)
 
-	// We have to use 'localhost' because that is what the TLS cert says.
-	addr := fmt.Sprintf("localhost:%d", srv.Addr().Port)
+	addr := srv.Addr().String()
 
 	// '/api' should be fine
 	conn, err := dialWebsocket(c, addr, "/api", 0)
@@ -563,8 +559,7 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 
 	// Make a request for the model API to check it releases
 	// state back into the pool once the connection is closed.
-	addr := fmt.Sprintf("localhost:%d", server.Addr().Port)
-	conn, err := dialWebsocket(c, addr, fmt.Sprintf("/model/%s/api", st.ModelUUID()), 0)
+	conn, err := dialWebsocket(c, server.Addr().String(), fmt.Sprintf("/model/%s/api", st.ModelUUID()), 0)
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 
@@ -618,6 +613,7 @@ func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
 	fakeOrigin := names.NewMachineTag("0")
 	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
+		ListenAddr:      "localhost:0",
 		Clock:           clock.WallClock,
 		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
 		Tag:             names.NewMachineTag("0"),
@@ -655,14 +651,10 @@ func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.Structure
 // server configuration may be specified (see defaultServerConfig
 // for a suitable starting point).
 func newServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server) {
-	// Note that we can't listen on localhost here because TestAPIServerCanListenOnBothIPv4AndIPv6 assumes
-	// that we listen on IPv6 too, and listening on localhost does not do that.
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(statePool, listener, cfg)
+	srv, err := apiserver.NewServer(statePool, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return &api.Info{
-		Addrs:  []string{fmt.Sprintf("localhost:%d", srv.Addr().Port)},
+		Addrs:  []string{srv.Addr().String()},
 		CACert: coretesting.CACert,
 	}, srv
 }

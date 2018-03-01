@@ -566,29 +566,28 @@ func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
 	// Start an API server with a (non-working) autocert hostname,
 	// so we can check that the PublicDNSName in the result goes
 	// all the way through the layers.
-	// Note that NewServer closes the listener when it stops.
-	listener, err := net.Listen("tcp", "localhost:0")
-	c.Assert(err, gc.IsNil)
 	machineTag := names.NewMachineTag("0")
-	srv, err := apiserver.NewServer(s.StatePool, listener, apiserver.ServerConfig{
-		Clock:           clock.WallClock,
-		GetCertificate:  func() *tls.Certificate { return jtesting.ServerTLSCert },
-		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
-		Tag:             machineTag,
-		Hub:             centralhub.New(machineTag),
-		DataDir:         c.MkDir(),
-		LogDir:          c.MkDir(),
-		AutocertDNSName: "somewhere.example.com",
-		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL:     "https://0.1.2.3/no-autocert-here",
-		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-		UpgradeComplete: func() bool { return true },
-		RestoreStatus:   func() state.RestoreStatus { return state.RestoreNotActive },
+	srv, err := apiserver.NewServer(s.StatePool, apiserver.ServerConfig{
+		ListenAddr:                      "localhost:0",
+		Clock:                           clock.WallClock,
+		GetCertificate:                  func() *tls.Certificate { return jtesting.ServerTLSCert },
+		GetAuditConfig:                  func() auditlog.Config { return auditlog.Config{} },
+		Tag:                             machineTag,
+		Hub:                             centralhub.New(machineTag),
+		DataDir:                         c.MkDir(),
+		LogDir:                          c.MkDir(),
+		AutocertDNSName:                 "somewhere.example.com",
+		DisableAutocertChallengeHandler: true,
+		NewObserver:                     func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL:                     "https://0.1.2.3/no-autocert-here",
+		RateLimitConfig:                 apiserver.DefaultRateLimitConfig(),
+		UpgradeComplete:                 func() bool { return true },
+		RestoreStatus:                   func() state.RestoreStatus { return state.RestoreNotActive },
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(srv)
 	apiInfo := s.APIInfo(c)
-	apiInfo.Addrs = []string{listener.Addr().String()}
+	apiInfo.Addrs = []string{srv.Addr().String()}
 	conn, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(conn.PublicDNSName(), gc.Equals, "somewhere.example.com")

@@ -60,6 +60,11 @@ type Server struct {
 	statePool *state.StatePool
 	lis       net.Listener
 
+	// challengeLis holds the listener that listens for autocert challenges
+	// on port 80 (only set when autocert is enabled).
+	challengeLis     net.Listener
+	challengeHandler http.Handler
+
 	// Tag of the machine where the API server is running.
 	tag names.Tag
 
@@ -107,6 +112,25 @@ type Server struct {
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
+	// ListenAddr is the address on which the server will listen.
+	ListenAddr string
+
+	// Listener, if not nil, is used instead of ListenAddr for listening on
+	// the API address. The API server closes it on shutdown.
+	//
+	// It is provided for testing purposes so that the API address can be
+	// determined before the server is started. This should not be used for
+	// new code, and is only provided for provider/dummy so that
+	// JujuConnSuite can use the standard bootstrap.Bootstrap logic which
+	// needs the API port to be passed into the controller configuration
+	// before all the parameters that will be passed into
+	// environs.Provider.Bootstrap have been determined (and hence before we
+	// can start the API server).
+	//
+	// TODO (rogpeppe) eliminate the need for this by changing JujuConnSuite so
+	// that it does not need to call Bootstrap.
+	Listener net.Listener
+
 	Clock     clock.Clock
 	PingClock clock.Clock
 	Tag       names.Tag
@@ -141,6 +165,12 @@ type ServerConfig struct {
 	// TLS certificates will be obtained. By default,
 	// acme.LetsEncryptURL will be used.
 	AutocertURL string
+
+	// DisableAutocertChallengeHandler holds whether the autocert listener
+	// on port 80 is disabled. It is defined so that tests can test some of
+	// the autocert logic without failing because there's no way to listen
+	// on port 80.
+	DisableAutocertChallengeHandler bool
 
 	// AllowModelAccess holds whether users will be allowed to
 	// access models that they have access rights to even when
@@ -178,6 +208,9 @@ type ServerConfig struct {
 
 // Validate validates the API server configuration.
 func (c ServerConfig) Validate() error {
+	if c.ListenAddr == "" && c.Listener == nil {
+		return errors.NotValidf("missing ListenAddr")
+	}
 	if c.Hub == nil {
 		return errors.NotValidf("missing Hub")
 	}
@@ -226,7 +259,7 @@ func (c ServerConfig) pingClock() clock.Clock {
 //
 // The Server will close the listener when it exits, even if returns
 // an error.
-func NewServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (*Server, error) {
+func NewServer(stPool *state.StatePool, cfg ServerConfig) (*Server, error) {
 	if cfg.LogSinkConfig == nil {
 		logSinkConfig := DefaultLogSinkConfig()
 		cfg.LogSinkConfig = &logSinkConfig
@@ -240,10 +273,18 @@ func NewServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (*Se
 	// server needs to run before mongo upgrades have happened and
 	// any state manipulation may be be relying on features of the
 	// database added by upgrades. Here be dragons.
+
+	lis := cfg.Listener
+	if lis == nil {
+		var err error
+		lis, err = net.Listen("tcp", cfg.ListenAddr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	srv, err := newServer(stPool, lis, cfg)
 	if err != nil {
-		// There is no running server around to close the listener.
-		lis.Close()
 		return nil, errors.Trace(err)
 	}
 	return srv, nil
@@ -284,12 +325,28 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
 		},
 	}
+	defer func() {
+		if err == nil {
+			return
+		}
+		srv.lis.Close()
+		if srv.challengeLis != nil {
+			srv.challengeLis.Close()
+		}
+	}()
 
 	httpCtxt := httpContext{srv: srv}
 	srv.mux = apiserverhttp.NewMux(apiserverhttp.WithAuth(httpCtxt.authRequest))
-	srv.tlsConfig = srv.newTLSConfig(cfg)
+	srv.tlsConfig, srv.challengeHandler = srv.newTLSConfig(cfg)
 	srv.lis = newThrottlingListener(
 		tls.NewListener(lis, srv.tlsConfig), cfg.RateLimitConfig, clock.WallClock)
+
+	if srv.challengeHandler != nil && !cfg.DisableAutocertChallengeHandler {
+		srv.challengeLis, err = net.Listen("tcp", ":80")
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot listen for autocert challenges")
+		}
+	}
 
 	// The auth context for authenticating logins.
 	srv.loginAuthCtxt, err = newAuthContext(stPool.SystemState())
@@ -317,6 +374,7 @@ func newServer(stPool *state.StatePool, lis net.Listener, cfg ServerConfig) (_ *
 		}
 	}
 
+	logger.Infof("listening on %q", srv.lis.Addr())
 	go func() {
 		defer srv.tomb.Done()
 		srv.tomb.Kill(srv.loop())
@@ -344,7 +402,9 @@ func (a *metricAdaptor) ConnectionPauseTime() time.Duration {
 	return a.srv.lis.(*throttlingListener).pauseTime()
 }
 
-func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
+// newTLSConfig creates and returns the TLS configuration for the server and
+// optionally a handler that is used to handle Let's Encrypt HTTP challenges.
+func (srv *Server) newTLSConfig(cfg ServerConfig) (*tls.Config, http.Handler) {
 	tlsConfig := utils.SecureTLSConfig()
 	if cfg.AutocertDNSName == "" {
 		// No official DNS name, no certificate.
@@ -352,7 +412,7 @@ func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
 			cert, _ := srv.localCertificate(clientHello.ServerName)
 			return cert, nil
 		}
-		return tlsConfig
+		return tlsConfig, nil
 	}
 	m := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
@@ -380,7 +440,12 @@ func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
 		logger.Errorf("cannot get autocert certificate for %q: %v", clientHello.ServerName, err)
 		return cert, nil
 	}
-	return tlsConfig
+	return tlsConfig, m.HTTPHandler(nil)
+}
+
+// Addr returns the address that the server is listening on.
+func (srv *Server) Addr() net.Addr {
+	return srv.lis.Addr()
 }
 
 // TotalConnections returns the total number of connections ever made.
@@ -443,13 +508,16 @@ func (w *loggoWrapper) Write(content []byte) (int, error) {
 
 // loop is the main loop for the server.
 func (srv *Server) loop() error {
-	logger.Infof("listening on %q", srv.lis.Addr())
 
 	defer func() {
-		addr := srv.lis.Addr().String() // Addr not valid after close
-		err := srv.lis.Close()
-		logger.Infof("closed listening socket %q with final error: %v", addr, err)
-
+		closeListener(srv.lis)
+		if srv.challengeLis != nil {
+			// Closing the challenge handler is not syncronous, but all
+			// operations are atomic when storing the certs so it shouldn't
+			// matter too much if one is carrying on after the server
+			// is stopped.
+			closeListener(srv.challengeLis)
+		}
 		srv.wg.Wait() // wait for any outstanding requests to complete.
 		srv.dbloggers.dispose()
 		srv.logSinkWriter.Close()
@@ -479,8 +547,16 @@ func (srv *Server) loop() error {
 		// Normally logging an error at debug level would be grounds for a beating,
 		// however in this case the error is *expected* to be non nil, and does not
 		// affect the operation of the apiserver, but for completeness log it anyway.
-		logger.Debugf("API http server exited, final error was: %v", err)
+		logger.Debugf("API HTTP server exited, final error was: %v", err)
 	}()
+
+	if srv.challengeLis != nil {
+		go func() {
+			logger.Debugf("Starting autocert challenge handler on address %q", srv.challengeLis.Addr())
+			err := http.Serve(srv.challengeLis, srv.challengeHandler)
+			logger.Debugf("autocert challenge server exited, final error was: %v", err)
+		}()
+	}
 
 	for {
 		select {
@@ -491,6 +567,12 @@ func (srv *Server) loop() error {
 			srv.loginAuthCtxt.localUserInteractions.Expire(now)
 		}
 	}
+}
+
+func closeListener(lis net.Listener) {
+	addr := lis.Addr().String() // Addr is not valid after Close is called.
+	err := lis.Close()
+	logger.Infof("closed listening socket %q with final error: %v", addr, err)
 }
 
 func (srv *Server) endpoints() []apihttp.Endpoint {

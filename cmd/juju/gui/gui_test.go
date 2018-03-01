@@ -22,14 +22,12 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
-type guiSuite struct {
+type baseGUISuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&guiSuite{})
-
 // run executes the gui command passing the given args.
-func (s *guiSuite) run(c *gc.C, args ...string) (string, error) {
+func (s *baseGUISuite) run(c *gc.C, args ...string) (string, error) {
 	ctx, err := cmdtesting.RunCommand(c, gui.NewGUICommandForTest(
 		func(connection api.Connection) ([]params.GUIArchiveVersion, error) {
 			return []params.GUIArchiveVersion{
@@ -45,7 +43,7 @@ func (s *guiSuite) run(c *gc.C, args ...string) (string, error) {
 	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }
 
-func (s *guiSuite) patchClient(f func(*httprequest.Client, string) error) {
+func (s *baseGUISuite) patchClient(f func(*httprequest.Client, string) error) {
 	if f == nil {
 		f = func(*httprequest.Client, string) error {
 			return nil
@@ -54,7 +52,7 @@ func (s *guiSuite) patchClient(f func(*httprequest.Client, string) error) {
 	s.PatchValue(gui.ClientGet, f)
 }
 
-func (s *guiSuite) patchBrowser(f func(*url.URL) error) {
+func (s *baseGUISuite) patchBrowser(f func(*url.URL) error) {
 	if f == nil {
 		f = func(*url.URL) error {
 			return nil
@@ -62,6 +60,12 @@ func (s *guiSuite) patchBrowser(f func(*url.URL) error) {
 	}
 	s.PatchValue(gui.WebbrowserOpen, f)
 }
+
+type guiSuite struct {
+	baseGUISuite
+}
+
+var _ = gc.Suite(&guiSuite{})
 
 func (s *guiSuite) guiURL(c *gc.C) string {
 	info := s.APIInfo(c)
@@ -174,4 +178,29 @@ func (s *guiSuite) TestGUIErrorUnavailable(c *gc.C) {
 	out, err := s.run(c, "--browser")
 	c.Assert(err, gc.ErrorMatches, "Juju GUI is not available: bad wolf")
 	c.Assert(out, gc.Equals, "")
+}
+
+type guiDNSSuite struct {
+	baseGUISuite
+}
+
+var _ = gc.Suite(&guiDNSSuite{
+	baseGUISuite: baseGUISuite{
+		JujuConnSuite: jujutesting.JujuConnSuite{
+			ControllerConfigAttrs: map[string]interface{}{
+				"api-port":          443,
+				"autocert-dns-name": "example.com",
+			},
+		},
+	},
+})
+
+func (s *guiDNSSuite) TestGUISuccess(c *gc.C) {
+	s.patchClient(nil)
+	// There is no need to patch the browser open function here.
+	out, err := s.run(c, "--hide-credential")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.Equals, `
+GUI 4.5.6 for model "controller" is enabled at:
+  https://example.com/gui/u/admin/controller`[1:])
 }

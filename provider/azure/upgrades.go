@@ -4,6 +4,8 @@
 package azure
 
 import (
+	"strings"
+
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -51,21 +53,22 @@ func (step commonDeploymentUpgradeStep) Run() error {
 	// We will add these, excluding the SSH/API rules, to the
 	// network security group template created in the deployment
 	// below.
-	nsgClient := network.SecurityGroupsClient{env.network}
+	nsgClient := network.SecurityGroupsClient{
+		ManagementClient: env.network,
+	}
 	allRules, err := networkSecurityRules(nsgClient, env.resourceGroup)
 	if errors.IsNotFound(err) {
 		allRules = nil
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	var rules []network.SecurityRule
+	rules := make([]network.SecurityRule, 0, len(allRules))
 	for _, rule := range allRules {
-		switch to.String(rule.Name) {
-		case to.String(sshSecurityRule.Name):
-		case to.String(apiSecurityRule.Name):
-		default:
-			rules = append(rules, rule)
+		name := to.String(rule.Name)
+		if name == sshSecurityRuleName || strings.HasPrefix(name, apiSecurityRulePrefix) {
+			continue
 		}
+		rules = append(rules, rule)
 	}
 
 	env.mu.Lock()

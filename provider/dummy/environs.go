@@ -839,7 +839,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 
 			statePool := state.NewStatePool(st)
 			machineTag := names.NewMachineTag("0")
-			estate.apiServer, err = apiserver.NewServer(statePool, estate.apiListener, apiserver.ServerConfig{
+			estate.apiServer, err = apiserver.NewServer(statePool, apiserver.ServerConfig{
+				Listener:       estate.apiListener,
 				Clock:          clock.WallClock,
 				GetCertificate: func() *tls.Certificate { return testing.ServerTLSCert },
 				GetAuditConfig: func() auditlog.Config { return auditlog.Config{} },
@@ -849,7 +850,9 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				Hub:            centralhub.New(machineTag),
 				NewObserver:    func() observer.Observer { return &fakeobserver.Instance{} },
 				// Should never be used but prevent external access just in case.
-				AutocertURL: "https://0.1.2.3/no-autocert-here",
+				AutocertURL:                     "https://0.1.2.3/no-autocert-here",
+				AutocertDNSName:                 icfg.Controller.Config.AutocertDNSName(),
+				DisableAutocertChallengeHandler: true,
 				RegisterIntrospectionHandlers: func(f func(path string, h http.Handler)) {
 					f("navel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						io.WriteString(w, "gazing")

@@ -73,37 +73,38 @@ const (
 	securityRuleInternalAPIInbound
 )
 
-var (
-	sshSecurityRule = network.SecurityRule{
-		Name: to.StringPtr("SSHInbound"),
+const (
+	apiSecurityRulePrefix = "JujuAPIInbound"
+	sshSecurityRuleName   = "SSHInbound"
+)
+
+// newSecurityRule returns a security rule with the given parameters.
+func newSecurityRule(p newSecurityRuleParams) network.SecurityRule {
+	return network.SecurityRule{
+		Name: to.StringPtr(p.name),
 		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("Allow SSH access to all machines"),
+			Description:              to.StringPtr(p.description),
 			Protocol:                 network.SecurityRuleProtocolTCP,
 			SourceAddressPrefix:      to.StringPtr("*"),
 			SourcePortRange:          to.StringPtr("*"),
-			DestinationAddressPrefix: to.StringPtr("*"),
-			DestinationPortRange:     to.StringPtr("22"),
+			DestinationAddressPrefix: to.StringPtr(p.destPrefix),
+			DestinationPortRange:     to.StringPtr(fmt.Sprint(p.port)),
 			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(securityRuleInternalSSHInbound),
+			Priority:                 to.Int32Ptr(int32(p.priority)),
 			Direction:                network.SecurityRuleDirectionInbound,
 		},
 	}
+}
 
-	apiSecurityRule = network.SecurityRule{
-		Name: to.StringPtr("JujuAPIInbound"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			Description:              to.StringPtr("Allow API connections to controller machines"),
-			Protocol:                 network.SecurityRuleProtocolTCP,
-			SourceAddressPrefix:      to.StringPtr("*"),
-			SourcePortRange:          to.StringPtr("*"),
-			DestinationAddressPrefix: to.StringPtr(controllerSubnetPrefix),
-			// DestinationPortRange is set by createInternalNetworkSecurityGroup.
-			Access:    network.SecurityRuleAccessAllow,
-			Priority:  to.Int32Ptr(securityRuleInternalAPIInbound),
-			Direction: network.SecurityRuleDirectionInbound,
-		},
-	}
-)
+// newSecurityRuleParams holds parameters for calling newSecurityRule, like the
+// rule name, description, the destination address prefix, port and priority.
+type newSecurityRuleParams struct {
+	name        string
+	description string
+	destPrefix  string
+	port        int
+	priority    int
+}
 
 // networkTemplateResources returns resource definitions for creating network
 // resources shared by all machines in a model.
@@ -113,23 +114,33 @@ var (
 func networkTemplateResources(
 	location string,
 	envTags map[string]string,
-	apiPort int,
+	apiPorts []int,
 	extraRules []network.SecurityRule,
 ) []armtemplates.Resource {
 	// Create a network security group for the environment. There is only
 	// one NSG per environment (there's a limit of 100 per subscription),
 	// in which we manage rules for each exposed machine.
-	securityRules := []network.SecurityRule{sshSecurityRule}
-	if apiPort != -1 {
-		apiSecurityRule := apiSecurityRule
-		properties := *apiSecurityRule.SecurityRulePropertiesFormat
-		properties.DestinationPortRange = to.StringPtr(fmt.Sprint(apiPort))
-		apiSecurityRule.SecurityRulePropertiesFormat = &properties
-		securityRules = append(securityRules, apiSecurityRule)
+	securityRules := []network.SecurityRule{newSecurityRule(newSecurityRuleParams{
+		name:        sshSecurityRuleName,
+		description: "Allow SSH access to all machines",
+		destPrefix:  "*",
+		port:        22,
+		priority:    securityRuleInternalSSHInbound,
+	})}
+	for i, apiPort := range apiPorts {
+		securityRules = append(securityRules, newSecurityRule(newSecurityRuleParams{
+			// Two rules cannot have the same name.
+			name:        fmt.Sprintf("%s%d", apiSecurityRulePrefix, apiPort),
+			description: "Allow API connections to controller machines",
+			destPrefix:  controllerSubnetPrefix,
+			port:        apiPort,
+			// Two rules cannot have the same priority and direction.
+			priority: securityRuleInternalAPIInbound + i,
+		}))
 	}
 	securityRules = append(securityRules, extraRules...)
 
-	nsgId := fmt.Sprintf(
+	nsgID := fmt.Sprintf(
 		`[resourceId('Microsoft.Network/networkSecurityGroups', '%s')]`,
 		internalSecurityGroupName,
 	)
@@ -138,17 +149,17 @@ func networkTemplateResources(
 		SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
 			AddressPrefix: to.StringPtr(internalSubnetPrefix),
 			NetworkSecurityGroup: &network.SecurityGroup{
-				ID: to.StringPtr(nsgId),
+				ID: to.StringPtr(nsgID),
 			},
 		},
 	}}
-	if apiPort != -1 {
+	if len(apiPorts) > 0 {
 		subnets = append(subnets, network.Subnet{
 			Name: to.StringPtr(controllerSubnetName),
 			SubnetPropertiesFormat: &network.SubnetPropertiesFormat{
 				AddressPrefix: to.StringPtr(controllerSubnetPrefix),
 				NetworkSecurityGroup: &network.SecurityGroup{
-					ID: to.StringPtr(nsgId),
+					ID: to.StringPtr(nsgID),
 				},
 			},
 		})
@@ -174,7 +185,7 @@ func networkTemplateResources(
 			AddressSpace: &network.AddressSpace{&addressPrefixes},
 			Subnets:      &subnets,
 		},
-		DependsOn: []string{nsgId},
+		DependsOn: []string{nsgID},
 	}}
 
 	return resources
