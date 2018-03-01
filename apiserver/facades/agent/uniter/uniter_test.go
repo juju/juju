@@ -4153,3 +4153,16 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results["db"], jc.DeepEquals, expectedResult)
 }
+
+// TODO (agprado): Next PR diferenciate between Unit and App
+func (s *uniterSuite) TestGoalStates(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-wordpress-0"},
+	}}
+	results := "Hello World I'll be a yaml"
+
+	result, err := s.uniter.GoalStates(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, results)
+}
+

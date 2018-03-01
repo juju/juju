@@ -39,6 +39,7 @@ Currently available charm hook tools are:
     close-port               ensure a port or range is always closed
     config-get               print application configuration
     container-spec-set       set container spec information
+    goal-state               print the status of the charm's peers and related units
     is-leader                print application leadership status
     juju-log                 write a message to the juju log
     juju-reboot              Reboot the host machine
@@ -77,6 +78,7 @@ var expectedCommands = []string{
 	"close-port",
 	"config-get",
 	"container-spec-set",
+	"goal-state",
 	"is-leader",
 	"juju-log",
 	"juju-reboot",

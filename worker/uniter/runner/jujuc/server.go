@@ -64,6 +64,7 @@ var baseCommands = map[string]creator{
 	"network-get" + cmdSuffix:             NewNetworkGetCommand,
 	"application-version-set" + cmdSuffix: NewApplicationVersionSetCommand,
 	"container-spec-set" + cmdSuffix:      NewContainerspecSetCommand,
+	"goal-state" + cmdSuffix:              NewGoalStateCommand,
 }
 
 var storageCommands = map[string]creator{

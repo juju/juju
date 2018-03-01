@@ -25,6 +25,11 @@ type RestrictedContext struct{}
 // ConfigSettings implements hooks.Context.
 func (*RestrictedContext) ConfigSettings() (charm.Settings, error) { return nil, ErrRestrictedContext }
 
+// GoalState implements hooks.Context.
+func (*RestrictedContext) GoalState() (string, error) {
+	return "", ErrRestrictedContext
+}
+
 // UnitStatus implements hooks.Context.
 func (*RestrictedContext) UnitStatus() (*StatusInfo, error) {
 	return nil, ErrRestrictedContext
