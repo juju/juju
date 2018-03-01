@@ -173,7 +173,7 @@ func (s *ConfigCommandSuite) TestAllValuesTabular(c *gc.C) {
 
 func (s *ConfigCommandSuite) TestSetAgentVersion(c *gc.C) {
 	_, err := s.run(c, "agent-version=2.0.0")
-	c.Assert(err, gc.ErrorMatches, `"agent-version"" must be set via "upgrade-juju"`)
+	c.Assert(err, gc.ErrorMatches, `"agent-version"" must be set via "upgrade-model"`)
 }
 
 func (s *ConfigCommandSuite) TestSetAndReset(c *gc.C) {

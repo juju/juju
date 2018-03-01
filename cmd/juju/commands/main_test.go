@@ -558,6 +558,7 @@ var commandNames = []string{
 	"upgrade-charm",
 	"upgrade-gui",
 	"upgrade-juju",
+	"upgrade-model",
 	"upload-backup",
 	"users",
 	"version",

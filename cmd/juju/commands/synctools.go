@@ -66,7 +66,7 @@ Examples:
     juju sync-agent-binaries --debug --source=/home/ubuntu/sync-agent-binaries
 
 See also:
-    upgrade-juju
+    upgrade-model
 
 `
 

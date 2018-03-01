@@ -47,5 +47,5 @@ Commands that can be disabled are grouped based on logical operations as follows
     sync-agents
     unexpose
     upgrade-charm
-    upgrade-juju
+    upgrade-model
 	`

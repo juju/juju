@@ -562,7 +562,7 @@ func (c *defaultsCommand) setDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 	values := make(attributes)
 	for k, v := range attrs {
 		if k == config.AgentVersionKey {
-			return errors.Errorf(`"agent-version" must be set via "upgrade-juju"`)
+			return errors.Errorf(`"agent-version" must be set via "upgrade-model"`)
 		}
 		values[k] = v
 		keys = append(keys, k)
