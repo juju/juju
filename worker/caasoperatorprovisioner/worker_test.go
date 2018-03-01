@@ -82,6 +82,7 @@ func (s *CAASProvisionerSuite) TestWorkerStarts(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C) {
+	s.provisionerFacade.life = "alive"
 	s.provisionerFacade.applicationsWatcher.changes <- []string{"myapp"}
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
@@ -136,6 +137,7 @@ func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
 	s.assertOperatorCreated(c)
 	s.caasClient.ResetCalls()
 	s.provisionerFacade.stub.SetErrors(errors.NotFoundf("myapp"))
+	s.provisionerFacade.life = "dead"
 	s.provisionerFacade.applicationsWatcher.changes <- []string{"myapp"}
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {

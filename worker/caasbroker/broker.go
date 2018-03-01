@@ -8,16 +8,18 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.caas")
 
-// ConfigObserver exposes a model configuration and a watch constructor
+// ConfigAPI exposes a model configuration and a watch constructor
 // that allows clients to be informed of changes to the configuration.
-type ConfigObserver interface {
+type ConfigAPI interface {
 	CloudSpec() (environs.CloudSpec, error)
+	Model() (*model.Model, error)
 }
 
 // Config describes the dependencies of a Tracker.
@@ -25,14 +27,14 @@ type ConfigObserver interface {
 // It's arguable that it should be called TrackerConfig, because of the heavy
 // use of model config in this package.
 type Config struct {
-	Observer               ConfigObserver
+	ConfigAPI              ConfigAPI
 	NewContainerBrokerFunc caas.NewContainerBrokerFunc
 }
 
 // Validate returns an error if the config cannot be used to start a Tracker.
 func (config Config) Validate() error {
-	if config.Observer == nil {
-		return errors.NotValidf("nil Observer")
+	if config.ConfigAPI == nil {
+		return errors.NotValidf("nil ConfigAPI")
 	}
 	if config.NewContainerBrokerFunc == nil {
 		return errors.NotValidf("nil NewContainerBrokerFunc")
@@ -57,11 +59,15 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudSpec, err := config.Observer.CloudSpec()
+	cloudSpec, err := config.ConfigAPI.CloudSpec()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get cloud information")
 	}
-	broker, err := config.NewContainerBrokerFunc(cloudSpec)
+	model, err := config.ConfigAPI.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	broker, err := config.NewContainerBrokerFunc(cloudSpec, model.Name)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create caas broker")
 	}

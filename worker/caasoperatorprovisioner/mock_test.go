@@ -62,7 +62,9 @@ func (m *mockProvisionerFacade) SetPasswords(passwords []apicaasprovisioner.Appl
 	if err := m.stub.NextErr(); err != nil {
 		return params.ErrorResults{}, err
 	}
-	return params.ErrorResults{}, nil
+	return params.ErrorResults{
+		Results: make([]params.ErrorResult, len(passwords)),
+	}, nil
 }
 
 type mockAgentConfig struct {
