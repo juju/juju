@@ -603,7 +603,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			expectedCmdOutput: `best version:
     2.1.3.1
 upgrade to this version by running
-    juju upgrade-juju --build-agent
+    juju upgrade-model --build-agent
 `,
 		},
 		{
@@ -615,7 +615,7 @@ upgrade to this version by running
 			expectedCmdOutput: `best version:
     2.1.3
 upgrade to this version by running
-    juju upgrade-juju
+    juju upgrade-model
 `,
 		},
 		{
@@ -627,7 +627,7 @@ upgrade to this version by running
 			expectedCmdOutput: `best version:
     2.1.3
 upgrade to this version by running
-    juju upgrade-juju
+    juju upgrade-model
 `,
 		},
 	}
@@ -847,7 +847,7 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 		"\n"+
 		"Please wait for the upgrade to complete or if there was a problem with\n"+
 		"the last upgrade that has been resolved, consider running the\n"+
-		"upgrade-juju command with the --reset-previous-upgrade flag.",
+		"upgrade-model command with the --reset-previous-upgrade flag.",
 	)
 }
 

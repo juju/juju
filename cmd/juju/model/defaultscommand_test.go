@@ -48,7 +48,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		// Test set
 		description: "test cannot set agent-version",
 		args:        []string{"agent-version=2.0.0"},
-		errorMatch:  `"agent-version" must be set via "upgrade-juju"`,
+		errorMatch:  `"agent-version" must be set via "upgrade-model"`,
 	}, {
 		description: "test set multiple keys",
 		args:        []string{"foo=bar", "baz=eggs"},

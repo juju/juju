@@ -66,7 +66,7 @@ func (s *cmdUpgradeSuite) TestControllerAdminCanUpgradeHostedModel(c *gc.C) {
 	// Upgrade hosted model.
 	v, _ := version.Parse(newVersion)
 	s.PatchValue(&coreversion.Current, v)
-	ctx = s.run(c, "upgrade-juju", "-m", fmt.Sprintf("%v/%v", s.hostedModelUser, s.hostedModel))
+	ctx = s.run(c, "upgrade-model", "-m", fmt.Sprintf("%v/%v", s.hostedModelUser, s.hostedModel))
 	expectedUpgradeMsg := fmt.Sprintf("started upgrade to %v", newVersion)
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, expectedUpgradeMsg)
 	s.assertHostModelAgentVersion(c, newVersion)

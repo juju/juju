@@ -56,8 +56,8 @@ used to allow the upgrade to proceed.
 Backups are recommended prior to upgrading.
 
 Examples:
-    juju upgrade-juju --dry-run
-    juju upgrade-juju --agent-version 2.0.1
+    juju upgrade-model --dry-run
+    juju upgrade-model --agent-version 2.0.1
     
 See also: 
     sync-agent-binaries`
@@ -92,9 +92,10 @@ type upgradeJujuCommand struct {
 
 func (c *upgradeJujuCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "upgrade-juju",
+		Name:    "upgrade-model",
 		Purpose: usageUpgradeJujuSummary,
 		Doc:     usageUpgradeJujuDetails,
+		Aliases: []string{"upgrade-juju"},
 	}
 }
 
@@ -140,19 +141,19 @@ var (
 
 // canUpgradeRunningVersion determines if the version of the running
 // environment can be upgraded using this version of the
-// upgrade-juju command.  Only versions with a minor version
+// upgrade-model command.  Only versions with a minor version
 // of 0 are expected to be able to upgrade environments running
 // the previous major version.
 //
 // This check is needed because we do not guarantee API
 // compatibility across major versions.  For example, a 3.3.0
-// version of the upgrade-juju command may not know how to upgrade
+// version of the upgrade-model command may not know how to upgrade
 // an environment running juju 4.0.0.
 //
 // The exception is that a N.0.* client must be able to upgrade
 // an environment one major version prior (N-1.*.*) so that
 // it can be used to upgrade the environment to N.0.*.  For
-// example, the 2.0.1 upgrade-juju command must be able to upgrade
+// example, the 2.0.1 upgrade-model command must be able to upgrade
 // environments running 1.* since it must be able to upgrade
 // environments from 1.25.4 -> 2.0.*.
 func canUpgradeRunningVersion(runningAgentVer version.Number) bool {
@@ -275,7 +276,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	// This logic seems to be overly complicated and it checks the same condition multiple times.
 	switch {
 	case !canUpgradeRunningVersion(agentVersion):
-		// This version of upgrade-juju cannot upgrade the running
+		// This version of upgrade-model cannot upgrade the running
 		// environment version (can't guarantee API compatibility).
 		return errors.Errorf("cannot upgrade a %s model with a %s client",
 			agentVersion, jujuversion.Current)
@@ -367,9 +368,9 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	if c.DryRun {
 		if c.BuildAgent {
-			fmt.Fprint(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-juju --build-agent\n")
+			fmt.Fprint(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-model --build-agent\n")
 		} else {
-			fmt.Fprintf(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-juju\n")
+			fmt.Fprintf(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-model\n")
 		}
 	} else {
 		if c.ResetPrevious {
@@ -389,7 +390,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 				return errors.Errorf("%s\n\n"+
 					"Please wait for the upgrade to complete or if there was a problem with\n"+
 					"the last upgrade that has been resolved, consider running the\n"+
-					"upgrade-juju command with the --reset-previous-upgrade flag.", err,
+					"upgrade-model command with the --reset-previous-upgrade flag.", err,
 				)
 			} else {
 				return block.ProcessBlockedError(err, block.BlockChange)
