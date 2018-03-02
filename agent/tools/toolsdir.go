@@ -236,6 +236,9 @@ func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*c
 	return tools, nil
 }
 
+// For testing
+var hostSeries = utilsseries.HostSeries
+
 // maybeReadTools will return tools based on the dataDir and current juju version.
 // If no agent is found based on the current host series, search for agent binaries
 // for different series and the same version/arch.
@@ -254,27 +257,37 @@ func maybeReadTools(dataDir string, currentVers version.Binary) (tools *coretool
 	}
 	logger.Tracef("%s not found (%s)", SharedToolsDir(dataDir, currentVers), err)
 
-	hostOS := utilsseries.MustOSFromSeries(utilsseries.MustHostSeries())
+	hostSeries, err := hostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	hostOS, err := utilsseries.GetOSFromSeries(hostSeries)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	potentialSeries := utilsseries.OSSupportedSeries(hostOS)
-
 	potentialVers := currentVers
 	for _, series := range potentialSeries {
 		potentialVers.Series = series
 		tools, err := ReadTools(dataDir, potentialVers)
-		if err == nil {
-			logger.Tracef("%s found", SharedToolsDir(dataDir, potentialVers))
-			if err = fs.Copy(SharedToolsDir(dataDir, potentialVers), SharedToolsDir(dataDir, currentVers)); err != nil {
-				return nil, errors.Trace(err)
-			}
-			// Only changing the version in the copied downloaded-tools.txt, not the
-			// URL (which also contains the version string).
-			tools.Version = currentVers
-			if err = writeToolsMetadataData(SharedToolsDir(dataDir, currentVers), tools); err != nil {
-				return nil, errors.Trace(err)
-			}
-			return ReadTools(dataDir, currentVers)
+		if err != nil {
+			logger.Tracef("%s not found (%s)", SharedToolsDir(dataDir, potentialVers), err)
+			continue
 		}
-		logger.Tracef("%s not found (%s)", SharedToolsDir(dataDir, potentialVers), err)
+		logger.Tracef("%s found", SharedToolsDir(dataDir, potentialVers))
+		if err = fs.Copy(SharedToolsDir(dataDir, potentialVers), SharedToolsDir(dataDir, currentVers)); err != nil {
+			return nil, errors.Trace(err)
+		}
+		// Only changing the version in the copied downloaded-tools.txt, not the
+		// URL (which also contains the version string).
+		tools.Version = currentVers
+		if err = writeToolsMetadataData(SharedToolsDir(dataDir, currentVers), tools); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ReadTools(dataDir, currentVers)
+	}
+	if err == nil {
+		err = errors.NotFoundf("tools for %s", currentVers)
 	}
 	return nil, errors.Trace(err)
 }

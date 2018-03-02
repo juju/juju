@@ -915,12 +915,12 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 
 func (s *MachineSuite) TestEnsureMachineAgentDir(c *gc.C) {
 	stm, _, _ := s.primeAgent(c, state.JobManageModel)
-	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "quantal" })
 	a := s.newAgent(c, stm)
 	defer a.Stop()
 	_, done := s.waitForOpenState(c, a)
 
-	for _, host := range []string{"trusty", series.MustHostSeries()} {
+	for _, host := range []string{"quantal", series.MustHostSeries()} {
 		dir := agenttools.SharedToolsDir(s.DataDir(), version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),

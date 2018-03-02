@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -266,16 +265,17 @@ func (t *ToolsSuite) TestMaybeReadTools(c *gc.C) {
 	}
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
-	t.PatchValue(&series.MustHostSeries, func() string { return "xenial" })
+	t.PatchValue(&agenttools.HostSeries, func() (string, error) { return "xenial", nil })
 	gotTools, err := agenttools.MaybeReadTools(t.dataDir, version.MustParseBinary("1.2.3-xenial-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotTools, gc.NotNil)
 	testTools.Version = version.MustParseBinary("1.2.3-xenial-amd64")
-	c.Assert(*gotTools, gc.Equals, *testTools)
+	c.Assert(*gotTools, gc.DeepEquals, *testTools)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-trusty-amd64", "1.2.3-xenial-amd64"})
 }
 
 func (t *ToolsSuite) TestMaybeReadToolsFail(c *gc.C) {
-	t.PatchValue(&series.MustHostSeries, func() string { return "xenial" })
+	t.PatchValue(&agenttools.HostSeries, func() (string, error) { return "xenial", nil })
 	gotTools, err := agenttools.MaybeReadTools(t.dataDir, version.MustParseBinary("1.2.3-trusty-amd64"))
 	c.Assert(err, gc.ErrorMatches, "cannot read agent binaries of current or other series.*")
 	c.Assert(gotTools, gc.IsNil)

@@ -6,6 +6,7 @@ package tools
 var (
 	DirPerm        = GetDirPerm()
 	MaybeReadTools = maybeReadTools
+	HostSeries     = hostSeries
 )
 
 const (
