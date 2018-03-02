@@ -33,6 +33,7 @@ from jujupy.binaries import (
 from jujupy.client import (
     ModelClient,
     get_stripped_version_number,
+    get_version_string_parts,
 )
 from jujupy.stream_server import (
     StreamServer,
@@ -84,11 +85,11 @@ def assess_upgrade_from_stable_to_develop(args, stable_bsm, devel_client):
 def upgrade_stable_to_devel_version(client):
     devel_version = get_stripped_version_number(client.version)
     client.get_controller_client().juju(
-        'upgrade-juju', ('-m', 'controller'))
+        'upgrade-juju', ('-m', 'controller', '--debug'))
     assert_model_is_version(client.get_controller_client(), devel_version)
     wait_until_model_upgrades(client)
 
-    client.juju('upgrade-juju', ())
+    client.juju('upgrade-juju', ('--debug'))
     assert_model_is_version(client, devel_version)
     wait_until_model_upgrades(client)
 
@@ -133,7 +134,7 @@ def setup_agent_metadata(stream_server, agent, client, tmp_dir, stream):
 
 
 def get_version_parts(version_string):
-    parts = version_string.split('-')
+    parts = get_version_string_parts(version_string)
     return VersionParts(parts[0], parts[1], parts[2])
 
 

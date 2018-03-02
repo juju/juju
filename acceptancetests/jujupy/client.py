@@ -522,13 +522,16 @@ def describe_substrate(env):
 
 
 def get_stripped_version_number(version_string):
+    return get_version_string_parts(version_string)[0]
+
+
+def get_version_string_parts(version_string):
     # strip the series and arch from the built version.
     version_parts = version_string.split('-')
     if len(version_parts) == 4:
-        version_number = '-'.join(version_parts[0:2])
+        return '-'.join(version_parts[0:2]), version_parts[2], version_parts[3]
     else:
-        version_number = version_parts[0]
-    return version_number
+        return version_parts[0], version_parts[1], version_parts[2]
 
 
 class ModelClient:
