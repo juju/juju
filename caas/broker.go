@@ -12,10 +12,17 @@ import (
 )
 
 // NewContainerBrokerFunc returns a Container Broker.
-type NewContainerBrokerFunc func(environs.CloudSpec) (Broker, error)
+type NewContainerBrokerFunc func(spec environs.CloudSpec, namespace string) (Broker, error)
 
 // Broker instances interact with the CAAS substrate.
 type Broker interface {
+
+	// EnsureNamespace ensures this broker's namespace is created.
+	EnsureNamespace() error
+
+	// DeleteNamespace deletes this broker's namespace.
+	DeleteNamespace() error
+
 	// EnsureOperator creates or updates an operator pod for running
 	// a charm for the specified application.
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error

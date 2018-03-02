@@ -38,9 +38,6 @@ import (
 var logger = loggo.GetLogger("juju.kubernetes.provider")
 
 const (
-	// TODO(caas) should be using a juju specific namespace
-	namespace = "default"
-
 	labelOperator    = "juju-operator"
 	labelVersion     = "juju-version"
 	labelApplication = "juju-application"
@@ -51,10 +48,14 @@ const (
 
 type kubernetesClient struct {
 	*kubernetes.Clientset
+
+	// namespace is the k8s namespace to use when
+	// creating k8s resources.
+	namespace string
 }
 
 // NewK8sProvider returns a kubernetes client for the specified cloud.
-func NewK8sProvider(cloudSpec environs.CloudSpec) (caas.Broker, error) {
+func NewK8sProvider(cloudSpec environs.CloudSpec, namespace string) (caas.Broker, error) {
 	config, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -63,7 +64,7 @@ func NewK8sProvider(cloudSpec environs.CloudSpec) (caas.Broker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &kubernetesClient{client}, nil
+	return &kubernetesClient{Clientset: client, namespace: namespace}, nil
 }
 
 func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
@@ -89,10 +90,43 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 	}, nil
 }
 
+// EnsureNamespace ensures this broker's namespace is created.
+func (k *kubernetesClient) EnsureNamespace() error {
+	ns := &v1.Namespace{ObjectMeta: v1.ObjectMeta{Name: k.namespace}}
+	namespaces := k.CoreV1().Namespaces()
+	_, err := namespaces.Update(ns)
+	if k8serrors.IsNotFound(err) {
+		_, err = namespaces.Create(ns)
+	}
+	return errors.Trace(err)
+}
+
+// DeleteNamespace deletes this broker's namespace.
+func (k *kubernetesClient) DeleteNamespace() error {
+	orphanDependents := false
+	namespaces := k.CoreV1().Namespaces()
+	err := namespaces.Delete(k.namespace, &v1.DeleteOptions{
+		OrphanDependents: &orphanDependents,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(err)
+}
+
 // EnsureOperator creates or updates an operator pod with the given application
 // name, agent path, and operator config.
 func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
 	logger.Debugf("creating/updating %s operator", appName)
+
+	// TODO(caas) - this is a stop gap until we implement a CAAS model manager worker
+	// First up, ensure the namespace eis there if not already created.
+	if err := k.EnsureNamespace(); err != nil {
+		return errors.Annotatef(err, "ensuring operator namespace %v", k.namespace)
+	}
 
 	// TODO(caas) use secrets for storing agent password?
 	if err := k.ensureConfigMap(operatorConfigMap(appName, config)); err != nil {
@@ -113,12 +147,44 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	logger.Debugf("deleting %s operator", appName)
 	podName := operatorPodName(appName)
-	return k.deletePod(podName)
+	if err := k.deletePod(podName); err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(caas) - this is a stop gap until we implement a CAAS model manager worker
+	// If there are no more resources left running, we can delete the namespace.
+	// When an application is deleted, the operator is the last to go so we use that
+	// as an opportunity to see if there's anything left running.
+	deployments := k.ExtensionsV1beta1().Deployments(k.namespace)
+	deploymentsList, err := deployments.List(v1.ListOptions{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(deploymentsList.Items) > 0 {
+		return nil
+	}
+
+	pods := k.CoreV1().Pods(k.namespace)
+	podsList, err := pods.List(v1.ListOptions{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	allTerminating := len(podsList.Items) == 0
+	for _, pod := range podsList.Items {
+		allTerminating = allTerminating && pod.DeletionTimestamp != nil
+		if !allTerminating {
+			break
+		}
+	}
+	if allTerminating {
+		err = k.DeleteNamespace()
+	}
+	return err
 }
 
 // Service returns the service for the specified application.
 func (k *kubernetesClient) Service(appName string) (*caas.Service, error) {
-	services := k.CoreV1().Services(namespace)
+	services := k.CoreV1().Services(k.namespace)
 	servicesList, err := services.List(v1.ListOptions{
 		LabelSelector: applicationSelector(appName),
 	})
@@ -245,7 +311,7 @@ func (k *kubernetesClient) configureDeployment(appName string, unitSpec *unitSpe
 }
 
 func (k *kubernetesClient) ensureDeployment(spec *v1beta1.Deployment) error {
-	deployments := k.ExtensionsV1beta1().Deployments(namespace)
+	deployments := k.ExtensionsV1beta1().Deployments(k.namespace)
 	_, err := deployments.Update(spec)
 	if k8serrors.IsNotFound(err) {
 		_, err = deployments.Create(spec)
@@ -255,7 +321,7 @@ func (k *kubernetesClient) ensureDeployment(spec *v1beta1.Deployment) error {
 
 func (k *kubernetesClient) deleteDeployment(appName string) error {
 	orphanDependents := false
-	deployments := k.ExtensionsV1beta1().Deployments(namespace)
+	deployments := k.ExtensionsV1beta1().Deployments(k.namespace)
 	err := deployments.Delete(deploymentName(appName), &v1.DeleteOptions{OrphanDependents: &orphanDependents})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -302,7 +368,7 @@ func (k *kubernetesClient) configureService(appName string, containerPorts []v1.
 }
 
 func (k *kubernetesClient) ensureService(spec *v1.Service) error {
-	services := k.CoreV1().Services(namespace)
+	services := k.CoreV1().Services(k.namespace)
 	// Set any immutable fields if the service already exists.
 	existing, err := services.Get(spec.Name)
 	if err == nil {
@@ -318,7 +384,7 @@ func (k *kubernetesClient) ensureService(spec *v1.Service) error {
 
 func (k *kubernetesClient) deleteService(appName string) error {
 	orphanDependents := false
-	services := k.CoreV1().Services(namespace)
+	services := k.CoreV1().Services(k.namespace)
 	err := services.Delete(deploymentName(appName), &v1.DeleteOptions{OrphanDependents: &orphanDependents})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -346,7 +412,7 @@ func (k *kubernetesClient) ExposeService(appName string, config application.Conf
 		httpPath = "/" + httpPath
 	}
 
-	svc, err := k.CoreV1().Services(namespace).Get(deploymentName(appName))
+	svc, err := k.CoreV1().Services(k.namespace).Get(deploymentName(appName))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -388,7 +454,7 @@ func (k *kubernetesClient) UnexposeService(appName string) error {
 }
 
 func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) error {
-	ingress := k.ExtensionsV1beta1().Ingresses(namespace)
+	ingress := k.ExtensionsV1beta1().Ingresses(k.namespace)
 	_, err := ingress.Update(spec)
 	if k8serrors.IsNotFound(err) {
 		_, err = ingress.Create(spec)
@@ -398,7 +464,7 @@ func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) error {
 
 func (k *kubernetesClient) deleteIngress(appName string) error {
 	orphanDependents := false
-	ingress := k.ExtensionsV1beta1().Ingresses(namespace)
+	ingress := k.ExtensionsV1beta1().Ingresses(k.namespace)
 	err := ingress.Delete(deploymentName(appName), &v1.DeleteOptions{OrphanDependents: &orphanDependents})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -417,7 +483,7 @@ func applicationSelector(appName string) string {
 // WatchUnits returns a watcher which notifies when there
 // are changes to units of the specified application.
 func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
-	pods := k.CoreV1().Pods(namespace)
+	pods := k.CoreV1().Pods(k.namespace)
 	w, err := pods.Watch(v1.ListOptions{
 		LabelSelector: applicationSelector(appName),
 		Watch:         true,
@@ -430,7 +496,7 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 
 // Units returns all units of the specified application.
 func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
-	pods := k.CoreV1().Pods(namespace)
+	pods := k.CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
 		LabelSelector: applicationSelector(appName),
 	})
@@ -552,7 +618,7 @@ func (k *kubernetesClient) DeleteUnit(unitName string) error {
 }
 
 func (k *kubernetesClient) ensureConfigMap(configMap *v1.ConfigMap) error {
-	configMaps := k.CoreV1().ConfigMaps(namespace)
+	configMaps := k.CoreV1().ConfigMaps(k.namespace)
 	_, err := configMaps.Update(configMap)
 	if k8serrors.IsNotFound(err) {
 		_, err = configMaps.Create(configMap)
@@ -563,7 +629,7 @@ func (k *kubernetesClient) ensureConfigMap(configMap *v1.ConfigMap) error {
 // maybeUpdatePodImage updates the pod image for the selector so long as its Juju version
 // label matches the given version.
 func (k *kubernetesClient) maybeUpdatePodImage(selector, jujuVersion, image string) error {
-	pods := k.CoreV1().Pods(namespace)
+	pods := k.CoreV1().Pods(k.namespace)
 	podList, err := pods.List(v1.ListOptions{
 		LabelSelector: selector,
 	})
@@ -588,7 +654,7 @@ func (k *kubernetesClient) maybeUpdatePodImage(selector, jujuVersion, image stri
 func (k *kubernetesClient) ensurePod(pod *v1.Pod) error {
 	// Kubernetes doesn't support updating a pod except under specific
 	// circumstances so we need to delete and create.
-	pods := k.CoreV1().Pods(namespace)
+	pods := k.CoreV1().Pods(k.namespace)
 	if err := k.deletePod(pod.Name); err != nil {
 		return errors.Trace(err)
 	}
@@ -598,7 +664,7 @@ func (k *kubernetesClient) ensurePod(pod *v1.Pod) error {
 
 func (k *kubernetesClient) deletePod(podName string) error {
 	orphanDependents := false
-	pods := k.CoreV1().Pods(namespace)
+	pods := k.CoreV1().Pods(k.namespace)
 	err := pods.Delete(podName, &v1.DeleteOptions{
 		OrphanDependents: &orphanDependents,
 	})

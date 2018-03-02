@@ -3,6 +3,8 @@
 
 package model
 
+import "gopkg.in/juju/names.v2"
+
 // ModelType indicates a model type.
 type ModelType string
 
@@ -17,4 +19,12 @@ const (
 // String returns m as a string.
 func (m ModelType) String() string {
 	return string(m)
+}
+
+// Model represents information about a model.
+type Model struct {
+	Name  string
+	Type  ModelType
+	UUID  string
+	Owner names.UserTag
 }

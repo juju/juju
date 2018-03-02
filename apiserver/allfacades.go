@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/agent" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/agent/caasagent"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
@@ -154,6 +155,7 @@ func AllFacades() *facade.Registry {
 		reg("Application", 6, application.NewFacadeV6)
 		reg("CAASFirewaller", 1, caasfirewaller.NewStateFacade)
 		reg("CAASOperator", 1, caasoperator.NewStateFacade)
+		reg("CAASAgent", 1, caasagent.NewStateFacade)
 		reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
 		reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
 	}

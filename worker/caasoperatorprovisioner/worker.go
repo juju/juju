@@ -105,24 +105,31 @@ func (p *provisioner) loop() error {
 					}
 					continue
 				}
+				if appLife != life.Alive {
+					continue
+				}
 
-				password, err := p.handleApplicationAdded(app)
+				password, err := utils.RandomPassword()
 				if err != nil {
 					return errors.Trace(err)
 				}
-				if password == "" {
-					continue
-				}
 				appPasswords = append(appPasswords, apicaasprovisioner.ApplicationPassword{Name: app, Password: password})
+			}
+			if len(appPasswords) == 0 {
+				continue
 			}
 			errorResults, err := p.provisionerFacade.SetPasswords(appPasswords)
 			if err != nil {
 				return errors.Annotate(err, "failed to set application api passwords")
 			}
 			var errorStrings []string
-			for _, r := range errorResults.Results {
-				if r.Error != nil && !params.IsCodeNotFound(r.Error) {
+			for i, r := range errorResults.Results {
+				if r.Error != nil {
 					errorStrings = append(errorStrings, r.Error.Error())
+					continue
+				}
+				if err := p.createOperator(appPasswords[i].Name, appPasswords[i].Password); err != nil {
+					return errors.Trace(err)
 				}
 			}
 			if errorStrings != nil {
@@ -133,21 +140,16 @@ func (p *provisioner) loop() error {
 	}
 }
 
-func (p *provisioner) handleApplicationAdded(app string) (string, error) {
-	logger.Debugf("Application created: %s", app)
-
-	password, err := utils.RandomPassword()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
+func (p *provisioner) createOperator(app, password string) error {
+	logger.Debugf("creating operator for %q", app)
 	config, err := p.newOperatorConfig(app, password)
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), config); err != nil {
-		return "", errors.Annotatef(err, "failed to start operator for %q", app)
+		return errors.Annotatef(err, "failed to start operator for %q", app)
 	}
-	return password, nil
+	return nil
 }
 
 func (p *provisioner) newOperatorConfig(appName string, password string) (*caas.OperatorConfig, error) {

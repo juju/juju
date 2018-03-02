@@ -5,6 +5,7 @@ package caasbroker_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -25,13 +26,13 @@ func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
 	config := caasbroker.Config{}
 	s.testValidate(c, config, func(err error) {
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
-		c.Check(err, gc.ErrorMatches, "nil Observer not valid")
+		c.Check(err, gc.ErrorMatches, "nil ConfigAPI not valid")
 	})
 }
 
 func (s *TrackerSuite) TestValidateNewBrokerFunc(c *gc.C) {
 	config := caasbroker.Config{
-		Observer: &runContext{},
+		ConfigAPI: &runContext{},
 	}
 	s.testValidate(c, config, func(err error) {
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -56,7 +57,7 @@ func (s *TrackerSuite) TestCloudSpecFails(c *gc.C) {
 	}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
-			Observer:               context,
+			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
 		})
 		c.Check(err, gc.ErrorMatches, "cannot get cloud information: no yuo")
@@ -69,7 +70,7 @@ func (s *TrackerSuite) TestSuccess(c *gc.C) {
 	fix := &fixture{}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
-			Observer:               context,
+			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -80,23 +81,27 @@ func (s *TrackerSuite) TestSuccess(c *gc.C) {
 	})
 }
 
-func (s *TrackerSuite) TestCloudSpec(c *gc.C) {
+func (s *TrackerSuite) TestInitialise(c *gc.C) {
 	cloudSpec := environs.CloudSpec{
 		Name:   "foo",
 		Type:   "bar",
 		Region: "baz",
 	}
-	fix := &fixture{cloud: cloudSpec}
+	caasmodel := model.Model{
+		Name: "modelname",
+	}
+	fix := &fixture{cloud: cloudSpec, model: caasmodel}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
-			Observer: context,
-			NewContainerBrokerFunc: func(spec environs.CloudSpec) (caas.Broker, error) {
+			ConfigAPI: context,
+			NewContainerBrokerFunc: func(spec environs.CloudSpec, namespace string) (caas.Broker, error) {
 				c.Assert(spec, jc.DeepEquals, cloudSpec)
+				c.Assert(namespace, jc.DeepEquals, "modelname")
 				return nil, errors.NotValidf("cloud spec")
 			},
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create caas broker: cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "CloudSpec")
+		context.CheckCallNames(c, "CloudSpec", "Model")
 	})
 }
