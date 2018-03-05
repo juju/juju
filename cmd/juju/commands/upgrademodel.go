@@ -590,6 +590,7 @@ func (context *upgradeContext) maybeChoosePackagedAgent() (err error) {
 		nextVersion := context.agent
 		nextVersion.Minor += 1
 		nextVersion.Patch = 0
+		nextVersion.Tag = " "
 
 		newestNextStable, found := context.tools.NewestCompatible(nextVersion)
 		if found {
