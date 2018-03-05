@@ -262,7 +262,7 @@ func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	// The worker should encounter an error setting the
 	// has-vote status to false and exit.
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, `cannot set HasVote removed: cannot set voting status of "[0-9]+" to false: frood`)
+	c.Assert(err, gc.ErrorMatches, `removing non-voters: cannot set voting status of "[0-9]+" to false: frood`)
 
 	// Start the worker again - although the membership should
 	// not change, the HasVote status should be updated correctly.
@@ -345,14 +345,14 @@ var fatalErrorsTests = []struct {
 	expectErr:  "cannot get controller info: sample",
 }, {
 	errPattern:   "Machine.SetHasVote 11 true",
-	expectErr:    `cannot set HasVote added: cannot set voting status of "11" to true: sample`,
+	expectErr:    `adding new voters: cannot set voting status of "11" to true: sample`,
 	advanceCount: 2,
 }, {
 	errPattern: "Session.CurrentStatus",
-	expectErr:  "cannot get peergrouper info: cannot get replica set status: sample",
+	expectErr:  "creating peer group info: cannot get replica set status: sample",
 }, {
 	errPattern: "Session.CurrentMembers",
-	expectErr:  "cannot get peergrouper info: cannot get replica set members: sample",
+	expectErr:  "creating peer group info: cannot get replica set members: sample",
 }, {
 	errPattern: "State.Machine *",
 	expectErr:  `cannot get machine "10": sample`,
@@ -446,7 +446,8 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 			c.Fatalf("timed out waiting for publish")
 		}
 
-		// Change one of the servers' API addresses and check that it's published.
+		// Change one of the server API addresses and check that it is
+		// published.
 		newMachine10Addresses := network.NewAddresses(ipVersion.extraHost)
 		st.machine("10").setAddresses(newMachine10Addresses...)
 		select {
@@ -563,8 +564,8 @@ func (s *workerSuite) TestReturnsErrorWhenNoHASpaceAndMachinesWithMultiLocalAddr
 		}
 
 		err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}).Wait()
-		errMsg := `cannot compute desired peer group: machine "11" has more than one non-local address and juju-ha-space is not set`
-		c.Assert(err, gc.ErrorMatches, errMsg)
+		errMsg := `computing desired peer group: machine "1[12]" has more than one non-local address and juju-ha-space is not set`
+		c.Check(err, gc.ErrorMatches, errMsg)
 	})
 }
 
@@ -652,7 +653,7 @@ func mustNext(c *gc.C, w *voyeur.Watcher, context string) (val interface{}) {
 		val = w.Value()
 		if ok {
 			members := val.([]replicaset.Member)
-			val = "\n" + prettyReplicaSetMembers(members)
+			val = "\n" + prettyReplicaSetMembersSlice(members)
 		}
 		c.Logf("mustNext %v done, ok: %v, val: %v", context, ok, val)
 		done <- voyeurResult{ok, val}

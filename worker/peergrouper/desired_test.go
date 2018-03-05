@@ -43,17 +43,10 @@ type desiredPeerGroupTest struct {
 func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 	return []desiredPeerGroupTest{
 		{
-			// Note that this should never happen - mongo
-			// should always be bootstrapped with at least a single
-			// member in its member-set.
-			about:     "no members - error",
-			expectErr: "current member set is empty",
-		}, {
-			about:    "one machine, two more proposed members",
-			machines: mkMachines("10v 11v 12v", ipVersion),
-			statuses: mkStatuses("0p", ipVersion),
-			members:  mkMembers("0v", ipVersion),
-
+			about:         "one machine, two more proposed members",
+			machines:      mkMachines("10v 11v 12v", ipVersion),
+			statuses:      mkStatuses("0p", ipVersion),
+			members:       mkMembers("0v", ipVersion),
 			expectMembers: mkMembers("0v 1 2", ipVersion),
 			expectVoting:  []bool{true, false, false},
 		}, {
@@ -183,31 +176,33 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			members:       mkMembers("1v 2v 3v", ipVersion),
 			expectVoting:  []bool{true, true, true},
 			expectMembers: nil,
-		}}
+		},
+	}
 }
 
 func (s *desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		for i, test := range desiredPeerGroupTests(ipVersion) {
-			c.Logf("\ntest %d: %s", i, test.about)
+		for ti, test := range desiredPeerGroupTests(ipVersion) {
+			c.Logf("\ntest %d: %s", ti, test.about)
 			trackerMap := make(map[string]*machineTracker)
 			for _, m := range test.machines {
 				c.Assert(trackerMap[m.Id()], gc.IsNil)
 				trackerMap[m.Id()] = m
 			}
-			info := &peerGroupInfo{
-				mongoPort:       mongoPort,
-				machineTrackers: trackerMap,
-				statuses:        test.statuses,
-				members:         test.members,
-			}
-			members, voting, err := desiredPeerGroup(info)
+			info, err := newPeerGroupInfo(trackerMap, test.statuses, test.members, mongoPort, network.SpaceName(""))
+			newPeers, voting, err := desiredPeerGroup(info)
 			if test.expectErr != "" {
 				c.Assert(err, gc.ErrorMatches, test.expectErr)
-				c.Assert(members, gc.IsNil)
+				c.Assert(newPeers, gc.IsNil)
 				continue
 			}
 			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(info, gc.NotNil)
+
+			members := make([]replicaset.Member, 0, len(newPeers))
+			for _, m := range newPeers {
+				members = append(members, *m)
+			}
 
 			sort.Sort(membersById(members))
 			c.Assert(members, jc.DeepEquals, test.expectMembers)
@@ -215,7 +210,7 @@ func (s *desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 				continue
 			}
 			for i, m := range test.machines {
-				vote, votePresent := voting[m]
+				vote, votePresent := voting[m.Id()]
 				c.Check(votePresent, jc.IsTrue)
 				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.Id()))
 			}
@@ -223,14 +218,16 @@ func (s *desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 			// all circumstances.
 			c.Assert(countVotes(members)%2, gc.Equals, 1)
 
-			// Make sure that when the members are set as
-			// required, that there's no further change
-			// if desiredPeerGroup is called again.
-			info.members = members
-			members, voting, err = desiredPeerGroup(info)
-			c.Assert(members, gc.IsNil)
+			// Make sure that when the members are set as required, that there
+			// is no further change if desiredPeerGroup is called again.
+			info, err = newPeerGroupInfo(trackerMap, test.statuses, members, mongoPort, network.SpaceName(""))
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(info, gc.NotNil)
+
+			newPeers, voting, err = desiredPeerGroup(info)
+			c.Assert(err, gc.IsNil)
 			for i, m := range test.machines {
-				vote, votePresent := voting[m]
+				vote, votePresent := voting[m.Id()]
 				c.Check(votePresent, jc.IsTrue)
 				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.Id()))
 			}
@@ -239,10 +236,15 @@ func (s *desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 	})
 }
 
+func (s *desiredPeerGroupSuite) TestNewPeerGroupInfoErrWhenNoMembers(c *gc.C) {
+	_, err := newPeerGroupInfo(nil, nil, nil, 666, network.SpaceName(""))
+	c.Check(err, gc.ErrorMatches, "current member set is empty")
+}
+
 func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsErrorWhenVoterFound(c *gc.C) {
 	v := 1
 	has, err := checkExtraMembers([]replicaset.Member{{Votes: &v}})
-	c.Check(has, jc.IsFalse)
+	c.Check(has, jc.IsTrue)
 	c.Check(err, gc.ErrorMatches, "voting non-machine member .+ found in peer group")
 }
 
@@ -250,6 +252,12 @@ func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsTrueWhenCheckMade(c 
 	v := 0
 	has, err := checkExtraMembers([]replicaset.Member{{Votes: &v}})
 	c.Check(has, jc.IsTrue)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsFalseWhenEmpty(c *gc.C) {
+	has, err := checkExtraMembers([]replicaset.Member{})
+	c.Check(has, jc.IsFalse)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -290,7 +298,7 @@ func (s *desiredPeerGroupSuite) TestGetMongoAddressesReturnsCorrectAddressForEac
 		},
 	}
 	info := &peerGroupInfo{
-		machineTrackers: map[string]*machineTracker{
+		machines: map[string]*machineTracker{
 			"1": m1,
 			"2": m2,
 			"3": m3,
@@ -301,9 +309,10 @@ func (s *desiredPeerGroupSuite) TestGetMongoAddressesReturnsCorrectAddressForEac
 
 	addrs, err := getMongoAddresses(info)
 	c.Assert(err, gc.IsNil)
-	c.Check(addrs[m1], gc.Equals, "192.168.5.5:666")
-	c.Check(addrs[m2], gc.Equals, "192.168.5.6:666")
-	c.Check(addrs[m3], gc.Equals, "")
+	c.Assert(len(addrs), gc.Equals, 3)
+	c.Check(addrs["1"], gc.Equals, "192.168.5.5:666")
+	c.Check(addrs["2"], gc.Equals, "192.168.5.6:666")
+	c.Check(addrs["3"], gc.Equals, "")
 }
 
 func countVotes(members []replicaset.Member) int {
@@ -352,10 +361,10 @@ func memberTag(id string) map[string]string {
 	return map[string]string{jujuMachineKey: id}
 }
 
-// mkMembers returns a slice of *replicaset.Member
-// based on the given description.
-// Each member in the description is white-space separated
-// and holds the decimal replica-set id optionally followed by the characters:
+// mkMembers returns a slice of replicaset.Member based on the given
+// description.
+// Each member in the description is white-space separated and holds the decimal
+// replica-set id optionally followed by the characters:
 //	- 'v' if the member is voting.
 // 	- 'T' if the member has no associated machine tags.
 // Unless the T flag is specified, the machine tag
@@ -390,11 +399,10 @@ var stateFlags = map[rune]replicaset.MemberState{
 	's': replicaset.SecondaryState,
 }
 
-// mkStatuses returns a slice of *replicaset.Member
-// based on the given description.
-// Each member in the description is white-space separated
-// and holds the decimal replica-set id optionally followed by the
-// characters:
+// mkStatuses returns a slice of replicaset.MemberStatus based on the given
+// description.
+// Each member in the description is white-space separated  and holds the
+// decimal replica-set id optionally followed by the characters:
 // 	- 'H' if the instance is not healthy.
 //	- 'p' if the instance is in PrimaryState
 //	- 's' if the instance is in SecondaryState
