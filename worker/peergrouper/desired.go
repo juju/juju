@@ -20,10 +20,18 @@ const jujuMachineKey = "juju-machine-id"
 // peerGroupInfo holds information used in attempting to determine a Mongo
 // peer group.
 type peerGroupInfo struct {
-	// Keyed on machine ID.
-	machines   map[string]*machineTracker
+	// Maps below are keyed on machine ID.
+
+	// Trackers for known controller machines sourced from the peergrouper
+	// worker.
+	machines map[string]*machineTracker
+
+	// Replica-set members sourced from the Mongo session that are recognised by
+	// their association with known machines.
 	recognised map[string]replicaset.Member
-	statuses   map[string]replicaset.MemberStatus
+
+	// Replica-set member statuses sourced from the Mongo session.
+	statuses map[string]replicaset.MemberStatus
 
 	extra       []replicaset.Member
 	maxMemberId int
@@ -86,12 +94,12 @@ func newPeerGroupInfo(
 // group information.
 func (info *peerGroupInfo) getLogMessage() string {
 	lines := []string{
-		fmt.Sprintf("calculated desired peer group\ndesired voting members: (maxId: %d)", info.maxMemberId),
+		fmt.Sprintf("calculating desired peer group\ndesired voting members: (maxId: %d)", info.maxMemberId),
 	}
 
 	template := "\n   %#v: rs_id=%d, rs_addr=%s"
 	for id, rm := range info.recognised {
-		lines = append(lines, fmt.Sprintf(template, info.machines[id], id, rm.Address))
+		lines = append(lines, fmt.Sprintf(template, info.machines[id], rm.Id, rm.Address))
 	}
 
 	if len(info.extra) > 0 {
@@ -252,9 +260,9 @@ func possiblePeerGroupChanges(
 	// behaviour when testing.
 	// Earlier entries will be dealt with preferentially, so we could
 	// potentially sort by some other metric in each case.
-	sort.Sort(sort.StringSlice(toRemoveVote))
-	sort.Sort(sort.StringSlice(toAddVote))
-	sort.Sort(sort.StringSlice(toKeep))
+	sort.Strings(toRemoveVote)
+	sort.Strings(toAddVote)
+	sort.Strings(toKeep)
 	return toRemoveVote, toAddVote, toKeep
 }
 

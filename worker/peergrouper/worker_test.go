@@ -494,6 +494,52 @@ func (s *workerSuite) TestControllersArePublishedOverHub(c *gc.C) {
 	}
 }
 
+func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
+	st := NewFakeState()
+	var ids []string
+	for i := 10; i < 13; i++ {
+		id := fmt.Sprint(i)
+		m := st.addMachine(id, true)
+		m.SetHasVote(true)
+		m.setAddresses(network.NewAddress(fmt.Sprintf(testIPv4.formatHost, i)))
+		ids = append(ids, id)
+		c.Assert(m.Addresses(), gc.HasLen, 1)
+	}
+	st.setControllers(ids...)
+	st.session.Set(mkMembers("0v 1 2", testIPv4))
+	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
+	st.check = checkInvariants
+	st.controllerConfig = controller.Config{}
+
+	hub := pubsub.NewStructuredHub(nil)
+	event := make(chan apiserver.Details)
+	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
+		c.Check(err, jc.ErrorIsNil)
+		event <- data
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.hub = hub
+
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	defer workertest.CleanKill(c, w)
+
+	expected := apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"10": {ID: "10", Addresses: []string{"0.1.2.10:5678"}, InternalAddress: "0.1.2.10:5678"},
+			"11": {ID: "11", Addresses: []string{"0.1.2.11:5678"}, InternalAddress: "0.1.2.11:5678"},
+			"12": {ID: "12", Addresses: []string{"0.1.2.12:5678"}, InternalAddress: "0.1.2.12:5678"},
+		},
+		LocalOnly: true,
+	}
+
+	select {
+	case obtained := <-event:
+		c.Assert(obtained, jc.DeepEquals, expected)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for event")
+	}
+}
+
 func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, addSpaces bool) (
 	*fakeState, []string, []network.Address,
 ) {

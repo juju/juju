@@ -482,18 +482,10 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 		return nil, errors.Annotate(err, "removing non-voters")
 	}
 
-	// Return the members from the calculated peer-group that were in the
-	// original known replica-set members.
-	for i := range members {
-		rec := false
-		for j := range info.recognised {
-			if i == j {
-				rec = true
-				break
-			}
-		}
-		if !rec {
-			delete(members, i)
+	// Return the members from the calculated peer-group that are voters.
+	for id := range members {
+		if !voting[id] {
+			delete(members, id)
 		}
 	}
 	return members, nil
@@ -515,17 +507,17 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 		return nil, errors.Annotate(err, "cannot get replica set status")
 	}
 
-	mbr, err := w.config.MongoSession.CurrentMembers()
+	members, err := w.config.MongoSession.CurrentMembers()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get replica set members")
 	}
 
-	sp, err := w.getHASpaceFromConfig()
+	haSpace, err := w.getHASpaceFromConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	return newPeerGroupInfo(w.machineTrackers, sts.Members, mbr, w.config.MongoPort, sp)
+	return newPeerGroupInfo(w.machineTrackers, sts.Members, members, w.config.MongoPort, haSpace)
 }
 
 // getHASpaceFromConfig returns a SpaceName from the controller config for

@@ -189,7 +189,10 @@ func (s *desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 				c.Assert(trackerMap[m.Id()], gc.IsNil)
 				trackerMap[m.Id()] = m
 			}
+
 			info, err := newPeerGroupInfo(trackerMap, test.statuses, test.members, mongoPort, network.SpaceName(""))
+			c.Assert(err, jc.ErrorIsNil)
+
 			newPeers, voting, err := desiredPeerGroup(info)
 			if test.expectErr != "" {
 				c.Assert(err, gc.ErrorMatches, test.expectErr)

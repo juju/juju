@@ -27,6 +27,11 @@ func (s *machineTrackerSuite) TestSelectMongoAddressReturnsCorrectAddressWithSpa
 				SpaceName: spaceName,
 			},
 			{
+				Value:     "192.168.10.5",
+				Scope:     network.ScopeCloudLocal,
+				SpaceName: network.SpaceName("another-space"),
+			},
+			{
 				Value: "localhost",
 				Scope: network.ScopeMachineLocal,
 			},
