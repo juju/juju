@@ -173,7 +173,7 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	// Update the status of the new members
 	// and check that they become voting.
 	c.Logf("\nupdating new member status")
-	st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
+	st.session.setStatus(mkStatuses("0s 1p 2s", ipVersion))
 	mustNext(c, memberWatcher, "new member status")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", ipVersion))
 
@@ -189,9 +189,12 @@ func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 	// machine. Also set the status of the new machine to healthy.
 	c.Logf("\nremoving vote from machine 10 and adding it to machine 13")
 	st.machine("10").setWantsVote(false)
+	mustNext(c, memberWatcher, "waiting for vote switch")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2 3", ipVersion))
+
 	st.machine("13").setWantsVote(true)
 
-	st.session.setStatus(mkStatuses("0p 1s 2s 3s", ipVersion))
+	st.session.setStatus(mkStatuses("0s 1p 2s 3s", ipVersion))
 
 	// Check that the new machine gets the vote and the
 	// old machine loses it.
