@@ -1009,8 +1009,8 @@ func (task *provisionerTask) populateExcludedMachines(machineId string, startIns
 	if len(derivedZones) == 0 {
 		return nil
 	}
-	task.machinesMutex.RLock()
-	defer task.machinesMutex.RUnlock()
+	task.machinesMutex.Lock()
+	defer task.machinesMutex.Unlock()
 	useZones := set.NewStrings(derivedZones...)
 	for _, zoneMachines := range task.availabilityZoneMachines {
 		if !useZones.Contains(zoneMachines.ZoneName) {
