@@ -128,11 +128,18 @@ func (info *peerGroupInfo) initNewReplicaSet() map[string]*replicaset.Member {
 	return rs
 }
 
-// desiredPeerGroup returns the mongo peer group according to the given
-// servers and a map with an element for each machine in info.machines
-// specifying whether that machine has been configured as voting. It will
-// return a nil member list and error if the current group is already
-// correct, though the voting map will be still be returned in that case.
+// desiredPeerGroup returns a new Mongo peer-group calculated from the input
+// peerGroupInfo.
+// Returned are the new members indexed by machine ID, and a map indicating
+// which machines are set as voters in the new new peer-group.
+// If the new peer-group is does not differ from that indicated by the input
+// peerGroupInfo, a nil member map is returned along with the correct voters
+// map.
+// An error is returned if:
+//   1) There are members unrecognised by machine association,
+//      and any of these are set as voters.
+//   2) There is no HA space configured and any machines have multiple
+//      cloud-local addresses.
 func desiredPeerGroup(info *peerGroupInfo) (map[string]*replicaset.Member, map[string]bool, error) {
 	logger.Debugf(info.getLogMessage())
 
