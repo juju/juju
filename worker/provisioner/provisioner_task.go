@@ -1009,8 +1009,8 @@ func (task *provisionerTask) populateExcludedMachines(machineId string, startIns
 	if len(derivedZones) == 0 {
 		return nil
 	}
-	task.machinesMutex.RLock()
-	defer task.machinesMutex.RUnlock()
+	task.machinesMutex.Lock()
+	defer task.machinesMutex.Unlock()
 	useZones := set.NewStrings(derivedZones...)
 	for _, zoneMachines := range task.availabilityZoneMachines {
 		if !useZones.Contains(zoneMachines.ZoneName) {
@@ -1208,12 +1208,12 @@ func (task *provisionerTask) addMachinetoAZMap(machine *apiprovisioner.Machine, 
 // It is assumed this is called when the machines are being deleted from state, or failed
 // provisioning.
 func (task *provisionerTask) removeMachineFromAZMap(machine *apiprovisioner.Machine) {
-	machineId := set.NewStrings(machine.Id())
+	machineId := machine.Id()
 	task.machinesMutex.Lock()
 	defer task.machinesMutex.Unlock()
 	for _, zoneMachines := range task.availabilityZoneMachines {
-		zoneMachines.MachineIds = zoneMachines.MachineIds.Difference(machineId)
-		zoneMachines.FailedMachineIds = zoneMachines.FailedMachineIds.Difference(machineId)
+		zoneMachines.MachineIds.Remove(machineId)
+		zoneMachines.FailedMachineIds.Remove(machineId)
 	}
 }
 
