@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path"
 	"reflect"
+	"strconv"
 	"sync"
 
 	"github.com/juju/errors"
@@ -429,10 +430,10 @@ func (session *fakeMongoSession) setStatus(members []replicaset.MemberStatus) {
 // Set implements mongoSession.Set
 func (session *fakeMongoSession) Set(members []replicaset.Member) error {
 	if err := session.errors.errorFor("Session.Set"); err != nil {
-		logger.Infof("NOT setting replicaset members to \n%s", prettyReplicaSetMembers(members))
+		logger.Infof("NOT setting replicaset members to \n%s", prettyReplicaSetMembersSlice(members))
 		return err
 	}
-	logger.Infof("setting replicaset members to \n%s", prettyReplicaSetMembers(members))
+	logger.Infof("setting replicaset members to \n%s", prettyReplicaSetMembersSlice(members))
 	session.members.Set(deepCopy(members))
 	if session.InstantlyReady {
 		statuses := make([]replicaset.MemberStatus, len(members))
@@ -451,6 +452,17 @@ func (session *fakeMongoSession) Set(members []replicaset.Member) error {
 	}
 	session.checker.checkInvariants()
 	return nil
+}
+
+// prettyReplicaSetMembersSlice wraps prettyReplicaSetMembers for testing
+// purposes only.
+func prettyReplicaSetMembersSlice(members []replicaset.Member) string {
+	vrm := make(map[string]*replicaset.Member, len(members))
+	for i := range members {
+		m := members[i]
+		vrm[strconv.Itoa(i)] = &m
+	}
+	return prettyReplicaSetMembers(vrm)
 }
 
 // deepCopy makes a deep copy of any type by marshalling
