@@ -534,7 +534,8 @@ def get_version_string_parts(version_string):
         try:
             return version_parts[0], version_parts[1], version_parts[2]
         except IndexError:
-            # Possible version_string was only version (i.e. 2.0.0), namely tests.
+            # Possible version_string was only version (i.e. 2.0.0),
+            #  namely tests.
             return version_parts
 
 

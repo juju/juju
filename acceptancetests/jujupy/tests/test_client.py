@@ -50,6 +50,8 @@ from jujupy.client import (
     GroupReporter,
     get_cache_path,
     get_machine_dns_name,
+    get_stripped_version_number,
+    get_version_string_parts,
     juju_home_path,
     JujuData,
     Machine,
@@ -91,6 +93,33 @@ from jujupy.utility import (
 
 
 __metaclass__ = type
+
+
+class TestVersionStringHelpers(TestCase):
+
+    def test_parts_handles_non_tagged_releases(self):
+        self.assertEqual(
+            ('2.0.5', 'alpha', 'arch'),
+            get_version_string_parts('2.0.5-alpha-arch')
+        )
+
+    def test_parts_handles_tagged_releases(self):
+        self.assertEqual(
+            ('2.0-beta1', 'alpha', 'arch'),
+            get_version_string_parts('2.0-beta1-alpha-arch')
+        )
+
+    def test_stripped_version_handles_only_version(self):
+        self.assertEqual(
+            'a',
+            get_stripped_version_number('a')
+        )
+
+    def test_stripped_version_returns_only_version(self):
+        self.assertEqual(
+            'a',
+            get_stripped_version_number('a-b-c')
+        )
 
 
 class TestErroredUnit(TestCase):
