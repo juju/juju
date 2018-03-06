@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -474,6 +475,11 @@ var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
 func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
 	s.charmStoreSuite.SetUpSuite(c)
 	s.PatchValue(&watcher.Period, 10*time.Millisecond)
+}
+
+func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
+	s.charmStoreSuite.SetUpTest(c)
+	logger.SetLogLevel(loggo.TRACE)
 }
 
 func (s *BundleDeployCharmStoreSuite) Client() *csclient.Client {
@@ -1274,6 +1280,46 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleUnitPlacedInApplication(c 
 		"wordpress/0": "0",
 		"wordpress/1": "1",
 		"wordpress/2": "2",
+	})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundlePeerContainer(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+	testcharms.UploadCharm(c, s.client, "xenial/wordpress-0", "wordpress")
+
+	stdOut, _, err := s.DeployBundleYAMLWithOutput(c, `
+        applications:
+            wordpress:
+                charm: wordpress
+                num_units: 2
+                to: ["lxd:new"]
+            django:
+                charm: cs:xenial/django-42
+                num_units: 2
+                to: ["lxd:wordpress"]
+    `)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(stdOut, gc.Equals, ""+
+		"Executing changes:\n"+
+		"- upload charm cs:xenial/django-42 for series xenial\n"+
+		"- deploy application django on xenial using cs:xenial/django-42\n"+
+		"- upload charm cs:xenial/wordpress-0 for series xenial\n"+
+		"- deploy application wordpress on xenial using cs:xenial/wordpress-0\n"+
+		"- add lxd container 0/lxd/0 on new machine 0\n"+
+		"- add lxd container 1/lxd/0 on new machine 1\n"+
+		"- add unit wordpress/0 to 0/lxd/0\n"+
+		"- add unit wordpress/1 to 1/lxd/0\n"+
+		"- add lxd container 0/lxd/1 on new machine 0\n"+
+		"- add lxd container 1/lxd/1 on new machine 1\n"+
+		"- add unit django/0 to 0/lxd/1 to satisfy [lxd:wordpress]\n"+
+		"- add unit django/1 to 1/lxd/1 to satisfy [lxd:wordpress]",
+	)
+
+	s.assertUnitsCreated(c, map[string]string{
+		"django/0":    "0/lxd/1",
+		"django/1":    "1/lxd/1",
+		"wordpress/0": "0/lxd/0",
+		"wordpress/1": "1/lxd/0",
 	})
 }
 
