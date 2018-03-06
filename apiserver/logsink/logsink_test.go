@@ -50,6 +50,7 @@ type logsinkSuite struct {
 	logs loggo.TestWriter
 
 	lastStack []byte
+	stackMu   sync.Mutex
 }
 
 var _ = gc.Suite(&logsinkSuite{})
@@ -62,6 +63,8 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 	s.lastStack = nil
 
 	recordStack := func() {
+		s.stackMu.Lock()
+		defer s.stackMu.Unlock()
 		s.lastStack = debug.Stack()
 	}
 
@@ -119,9 +122,11 @@ func (s *logsinkSuite) TestSuccess(c *gc.C) {
 	}
 	s.stub.CheckCallNames(c, "Open", "WriteLog")
 
+	s.stackMu.Lock()
 	if s.lastStack != nil {
 		c.Logf("last Close call stack: \n%s", string(s.lastStack))
 	}
+	s.stackMu.Unlock()
 
 	err = conn.Close()
 	c.Assert(err, jc.ErrorIsNil)

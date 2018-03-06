@@ -6,6 +6,7 @@ package logsink
 import (
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	gorillaws "github.com/gorilla/websocket"
@@ -73,6 +74,7 @@ type logSinkHandler struct {
 	newLogWriteCloser NewLogWriteCloserFunc
 	abort             <-chan struct{}
 	ratelimit         *RateLimitConfig
+	mu                sync.Mutex
 }
 
 // Since the logsink only receives messages, it is possible for the other end
@@ -209,6 +211,8 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn, endpointVersion int
 				// Try to tell the other end we are closing. If the other end
 				// has already disconnected from us, this will fail, but we don't
 				// care that much.
+				h.mu.Lock()
+				defer h.mu.Unlock()
 				socket.WriteMessage(gorillaws.CloseMessage, []byte{})
 				return
 			}
@@ -250,6 +254,8 @@ func (h *logSinkHandler) sendError(ws *websocket.Conn, req *http.Request, err er
 	if err != nil && featureflag.Enabled(feature.DeveloperMode) {
 		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
 	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	if sendErr := ws.SendInitialErrorV0(err); sendErr != nil {
 		logger.Errorf("closing websocket, %v", err)
 		ws.Close()

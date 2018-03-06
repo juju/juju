@@ -41,6 +41,7 @@ type UserDataSuite struct {
 
 	fakeInterfaces []network.InterfaceInfo
 
+	expectedSampleConfigHeader   string
 	expectedSampleConfigTemplate string
 	expectedSampleConfigWriting  string
 	expectedSampleUserData       string
@@ -133,9 +134,10 @@ func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	}
 	c.Assert(s.pythonVersions, gc.Not(gc.HasLen), 0)
 
-	s.expectedSampleConfigWriting = `#cloud-config
+	s.expectedSampleConfigHeader = `#cloud-config
 bootcmd:
-- install -D -m 644 /dev/null '%[1]s.templ'
+`
+	s.expectedSampleConfigWriting = `- install -D -m 644 /dev/null '%[1]s.templ'
 - |-
   printf '%%s\n' '
   auto lo {ethaa_bb_cc_dd_ee_f0} {ethaa_bb_cc_dd_ee_f1} {ethaa_bb_cc_dd_ee_f3} {ethaa_bb_cc_dd_ee_f5}
@@ -204,7 +206,9 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
 - |2
 
   if [ ! -f /sbin/ifup ]; then
-      echo "No /sbin/ifup, assuming that it's a netplan system."
+      echo "No /sbin/ifup, applying netplan configuration."
+      netplan generate
+      netplan apply
       exit 0
   fi
   ifdown -a
@@ -324,9 +328,7 @@ network:
   ' > '%[1]s'
 `[1:]
 
-	s.expectedFallbackConfig = `#cloud-config
-bootcmd:
-- install -D -m 644 /dev/null '%[1]s.templ'
+	s.expectedFallbackConfig = `- install -D -m 644 /dev/null '%[1]s.templ'
 - |-
   printf '%%s\n' '
   auto lo {eth}
@@ -431,9 +433,10 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
 
-	expected := fmt.Sprintf(s.expectedSampleConfigWriting, s.systemNetworkInterfacesFile)
-	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile, s.systemNetworkInterfacesFile)
+	expected := s.expectedSampleConfigHeader
 	expected += fmt.Sprintf(s.expectedFullNetplanYaml, s.jujuNetplanFile)
+	expected += fmt.Sprintf(s.expectedSampleConfigWriting, s.systemNetworkInterfacesFile)
+	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile, s.systemNetworkInterfacesFile)
 	assertUserData(c, cloudConf, expected)
 }
 
@@ -442,9 +445,10 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksFallbackConfig(c *gc.C
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
-	expected := fmt.Sprintf(s.expectedFallbackConfig, s.systemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
-	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile)
+	expected := s.expectedSampleConfigHeader
 	expected += fmt.Sprintf(s.expectedBaseNetplanYaml, s.jujuNetplanFile)
+	expected += fmt.Sprintf(s.expectedFallbackConfig, s.systemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
+	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile)
 	assertUserData(c, cloudConf, expected)
 }
 
