@@ -348,10 +348,10 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		cloudConfig.AddBootTextFile(jujuNetplanFile, netPlan, 0644)
 		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".templ", eni, 0644)
 		cloudConfig.AddBootTextFile(systemNetworkInterfacesFile+".py", NetworkInterfacesScript, 0744)
 		cloudConfig.AddBootCmd(populateNetworkInterfaces(systemNetworkInterfacesFile))
-		cloudConfig.AddBootTextFile(jujuNetplanFile, netPlan, 0644)
 	}
 
 	return cloudConfig, nil
@@ -392,7 +392,9 @@ func CloudInitUserData(
 func populateNetworkInterfaces(networkFile string) string {
 	s := `
 if [ ! -f /sbin/ifup ]; then
-    echo "No /sbin/ifup, assuming that it's a netplan system."
+    echo "No /sbin/ifup, applying netplan configuration."
+    netplan generate
+    netplan apply
     exit 0
 fi
 ifdown -a
