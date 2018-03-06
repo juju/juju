@@ -4,13 +4,13 @@
 package filesystemwatcher
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/utils/set"
 )
 
 // Watchers provides methods for watching filesystems. The watches aggregate
