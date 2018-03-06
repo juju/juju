@@ -4,8 +4,6 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -73,7 +71,7 @@ func newCleanupOp(kind cleanupKind, prefix string, args ...interface{}) txn.Op {
 		}
 	}
 	doc := &cleanupDoc{
-		DocID:  fmt.Sprint(bson.NewObjectId()),
+		DocID:  bson.NewObjectId().Hex(),
 		Kind:   kind,
 		Prefix: prefix,
 		Args:   cleanupArgs,

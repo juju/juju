@@ -784,6 +784,24 @@ func (s *CleanupSuite) TestNothingToCleanup(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 }
 
+func (s *CleanupSuite) TestCleanupIDSanity(c *gc.C) {
+	// Cleanup IDs shouldn't be ObjectIdHex("blah")
+	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
+	err := app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	coll := s.Session.DB("juju").C("cleanups")
+	var ids []struct {
+		ID string `bson:"_id"`
+	}
+	err = coll.Find(nil).All(&ids)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, item := range ids {
+		c.Assert(item.ID, gc.Not(gc.Matches), `.*ObjectIdHex\(.*`)
+	}
+	s.assertCleanupRuns(c)
+}
+
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {
 	err := s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
