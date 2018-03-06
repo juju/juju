@@ -10,9 +10,7 @@ import json
 import logging
 import os
 import subprocess
-import sys
 from unittest import (
-    skipIf,
     TestCase,
     )
 
@@ -159,7 +157,7 @@ class DeployStackTestCase(FakeHomeTestCase):
         self.assertEqual('bar', env.get_option('name'))
         self.assertEqual('wacky', env.get_option('default-series'))
         self.assertEqual('baz', env.get_option('bootstrap-host'))
-        self.assertEqual('url', env.get_option('tools-metadata-url'))
+        self.assertEqual('url', env.get_option('agent-metadata-url'))
         self.assertEqual('devel', env.get_option('agent-stream'))
         self.assertNotIn('region', env._config)
 
@@ -1083,7 +1081,6 @@ class TestTestUpgrade(FakeHomeTestCase):
         env = JujuData('foo', {'type': 'foo'})
         old_client = ModelClient(env, None, '/foo/juju')
         with self.upgrade_mocks() as (co_mock, cc_mock):
-            # import ipdb; ipdb.set_trace()
             assess_upgrade(old_client, '/bar/juju')
         new_client = ModelClient(env, None, '/bar/juju')
         # Needs to upgrade the controller first.
@@ -1159,7 +1156,7 @@ class TestMakeControllerStrategy(TestCase):
         self.assertEqual('sso-password', strategy.password)
 
 
-class TestExistingController(FakeHomeTestCase):
+class TestExistingController(TestCase):
 
     def get_controller(self):
         client = fake_juju_client()
@@ -1356,7 +1353,9 @@ class TestBootstrapManager(FakeHomeTestCase):
             deadline=deadline, to=None, existing='existing')
         with patch('deploy_stack.client_for_existing') as fc_mock:
             with patch.dict('os.environ', {'JUJU_DATA': 'foo'}):
-                bs_manager = BootstrapManager.from_existing_controller(args)
+                with patch('deploy_stack.os.path.isdir'):
+                    bs_manager = BootstrapManager._for_existing_controller(
+                        args)
         fc_mock.assert_called_once_with(
             'bar', 'foo', controller_name='existing', model_name='baz')
         self.assertEqual('baz', bs_manager.temp_env_name)
@@ -2186,7 +2185,6 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
             deadline=None,
             controller_host=None,
             use_charmstore=False,
-            existing=None
         ))
 
     def test_upload_tools(self):
