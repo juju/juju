@@ -572,7 +572,7 @@ class TestModelClient(ClientTest):
         with patch_juju_call(client) as mock:
             client.destroy_model()
         mock.assert_called_with(
-            'destroy-model', ('foo:foo', '-y'),
+            'destroy-model', ('foo:foo', '-y', '--destroy-storage'),
             include_e=False, timeout=600)
 
     def test_destroy_model_azure(self):
@@ -581,7 +581,7 @@ class TestModelClient(ClientTest):
         with patch_juju_call(client) as mock:
             client.destroy_model()
         mock.assert_called_with(
-            'destroy-model', ('foo:foo', '-y'),
+            'destroy-model', ('foo:foo', '-y', '--destroy-storage'),
             include_e=False, timeout=2700)
 
     def test_destroy_model_gce(self):
@@ -590,7 +590,7 @@ class TestModelClient(ClientTest):
         with patch_juju_call(client) as mock:
             client.destroy_model()
         mock.assert_called_with(
-            'destroy-model', ('foo:foo', '-y'),
+            'destroy-model', ('foo:foo', '-y', '--destroy-storage'),
             include_e=False, timeout=1200)
 
     def test_kill_controller(self):
@@ -809,7 +809,8 @@ class TestModelClient(ClientTest):
                        lambda x: iter([None, None])):
                 with self.assertRaisesRegexp(
                         Exception, 'Timed out waiting for juju status'):
-                    client.get_status()
+                        with patch('jujupy.client.time.sleep'):
+                            client.get_status()
 
     def test_get_status_raises_on_timeout_2(self):
         env = JujuData('foo')
@@ -819,7 +820,8 @@ class TestModelClient(ClientTest):
             with patch.object(client, 'get_juju_output',
                               side_effect=StopIteration):
                 with self.assertRaises(StopIteration):
-                    client.get_status(500)
+                    with patch('jujupy.client.time.sleep'):
+                        client.get_status(500)
         mock_ut.assert_called_with(500)
 
     def test_show_model_uses_provided_model_name(self):
@@ -1094,7 +1096,8 @@ class TestModelClient(ClientTest):
         with patch.object(client, 'get_juju_output', return_value=status_txt):
             with patch('jujupy.client.until_timeout',
                        side_effect=until_timeout_stub) as ut_mock:
-                result = list(client.status_until(30, 70))
+                    with patch('jujupy.client.time.sleep'):
+                        result = list(client.status_until(30, 70))
         self.assertEqual(
             [r.status for r in result], [status_yaml] * 3)
         # until_timeout is called by status as well as status_until.
@@ -1280,7 +1283,8 @@ class TestModelClient(ClientTest):
                     with self.assertRaisesRegexp(
                             StatusNotMet,
                             'Timed out waiting for agents to start in lxd'):
-                        client.wait_for_started()
+                        with patch('jujupy.client.time.sleep'):
+                            client.wait_for_started()
                 self.assertEqual(writes, ['pending: 0', ' .', '\n'])
 
     def test_wait_for_started_start(self):
@@ -1295,7 +1299,8 @@ class TestModelClient(ClientTest):
                     with self.assertRaisesRegexp(
                             StatusNotMet,
                             'Timed out waiting for agents to start in lxd'):
-                        client.wait_for_started(start=now - timedelta(1200))
+                        with patch('jujupy.client.time.sleep'):
+                            client.wait_for_started(start=now - timedelta(1200))
                 self.assertEqual(writes, ['pending: jenkins/0', '\n'])
 
     def make_ha_status(self, voting='has-vote'):
@@ -1379,7 +1384,8 @@ class TestModelClient(ClientTest):
         with self.status_does_not_check() as client:
             with self.client_status_errors(client, errors) as errors_mock:
                 with self.assertRaises(StatusNotMet):
-                    client._wait_for_status(Mock(), translate, timeout=0)
+                    with patch('jujupy.client.time.sleep'):
+                        client._wait_for_status(Mock(), translate, timeout=0)
         errors_mock.assert_has_calls(
             [call(ignore_recoverable=True), call(ignore_recoverable=False)])
 
@@ -1391,7 +1397,8 @@ class TestModelClient(ClientTest):
         with self.status_does_not_check() as client:
             with self.client_status_errors(client, errors) as errors_mock:
                 with self.assertRaises(MachineError):
-                    client._wait_for_status(Mock(), translate, timeout=0)
+                    with patch('jujupy.client.time.sleep'):
+                        client._wait_for_status(Mock(), translate, timeout=0)
         errors_mock.assert_called_once_with(ignore_recoverable=True)
 
     def test__wait_for_status_delays_recoverable(self):
@@ -1403,7 +1410,8 @@ class TestModelClient(ClientTest):
         with self.status_does_not_check() as client:
             with self.client_status_errors(client, errors) as errors_mock:
                 with self.assertRaises(UnitError):
-                    client._wait_for_status(Mock(), translate, timeout=0)
+                    with patch('jujupy.client.time.sleep'):
+                        client._wait_for_status(Mock(), translate, timeout=0)
         self.assertEqual(2, errors_mock.call_count)
         errors_mock.assert_has_calls(
             [call(ignore_recoverable=True), call(ignore_recoverable=False)])
@@ -1418,7 +1426,8 @@ class TestModelClient(ClientTest):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
                         'Timed out waiting for agents to start in lxd'):
-                    client.wait_for_started(0)
+                    with patch('jujupy.client.time.sleep'):
+                        client.wait_for_started(0)
             self.assertEqual(writes, ['pending: 0', '\n'])
         self.assertEqual(
             self.log_stream.getvalue(), 'ERROR %s\n' % value.decode('ascii'))
@@ -1453,8 +1462,9 @@ class TestModelClient(ClientTest):
                     with patch(
                             'jujupy.client.GroupReporter.finish'
                             ) as finish_mock:
-                        client.wait_for_subordinate_units(
-                            'jenkins', 'sub1', start=now - timedelta(1200))
+                        with patch('jujupy.client.time.sleep'):
+                            client.wait_for_subordinate_units(
+                                'jenkins', 'sub1', start=now - timedelta(1200))
         self.assertEqual([], update_mock.call_args_list)
         finish_mock.assert_called_once_with()
 
@@ -1491,8 +1501,9 @@ class TestModelClient(ClientTest):
                     with patch(
                             'jujupy.client.GroupReporter.finish'
                             ) as finish_mock:
-                        client.wait_for_subordinate_units(
-                            'jenkins', 'sub1', start=now - timedelta(1200))
+                        with patch('jujupy.client.time.sleep'):
+                            client.wait_for_subordinate_units(
+                                'jenkins', 'sub1', start=now - timedelta(1200))
         self.assertEqual([], update_mock.call_args_list)
         finish_mock.assert_called_once_with()
 
@@ -1522,8 +1533,9 @@ class TestModelClient(ClientTest):
                     with patch(
                             'jujupy.client.GroupReporter.finish'
                             ) as finish_mock:
-                        client.wait_for_subordinate_units(
-                            'ubuntu', 'sub', start=now - timedelta(1200))
+                        with patch('jujupy.client.time.sleep'):
+                            client.wait_for_subordinate_units(
+                                'ubuntu', 'sub', start=now - timedelta(1200))
         self.assertEqual([], update_mock.call_args_list)
         finish_mock.assert_called_once_with()
 
@@ -1547,8 +1559,9 @@ class TestModelClient(ClientTest):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
                         'Timed out waiting for agents to start in lxd'):
-                    client.wait_for_subordinate_units(
-                        'jenkins', 'sub1', start=now - timedelta(1200))
+                    with patch('jujupy.client.time.sleep'):
+                        client.wait_for_subordinate_units(
+                            'jenkins', 'sub1', start=now - timedelta(1200))
 
     def test_wait_for_subordinate_units_no_subordinate(self):
         value = dedent("""\
@@ -1568,8 +1581,9 @@ class TestModelClient(ClientTest):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
                         'Timed out waiting for agents to start in lxd'):
-                    client.wait_for_subordinate_units(
-                        'jenkins', 'sub1', start=now - timedelta(1200))
+                    with patch('jujupy.client.time.sleep'):
+                        client.wait_for_subordinate_units(
+                            'jenkins', 'sub1', start=now - timedelta(1200))
 
     def test_wait_for_workload(self):
         initial_status = Status.from_text("""\
@@ -1595,7 +1609,8 @@ class TestModelClient(ClientTest):
                               side_effect=[initial_status, final_status]):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
-                    client.wait_for_workloads()
+                    with patch('jujupy.client.time.sleep'):
+                        client.wait_for_workloads()
         self.assertEqual(writes, ['waiting: jenkins/0', '\n'])
 
     def test_wait_for_workload_all_unknown(self):
@@ -1618,7 +1633,8 @@ class TestModelClient(ClientTest):
                               return_value=status):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
-                    client.wait_for_workloads(timeout=1)
+                    with patch('jujupy.client.time.sleep'):
+                        client.wait_for_workloads(timeout=1)
         self.assertEqual(writes, [])
 
     def test_wait_for_workload_no_workload_status(self):
@@ -1636,7 +1652,8 @@ class TestModelClient(ClientTest):
                               return_value=status):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
-                    client.wait_for_workloads(timeout=1)
+                    with patch('jujupy.client.time.sleep'):
+                        client.wait_for_workloads(timeout=1)
         self.assertEqual(writes, [])
 
     def test_list_models(self):
@@ -2018,7 +2035,8 @@ class TestModelClient(ClientTest):
                     with self.assertRaisesRegexp(
                             Exception,
                             'Timed out waiting for voting to be enabled.'):
-                        client.wait_for_ha()
+                        with patch('jujupy.client.time.sleep'):
+                            client.wait_for_ha()
         dots = len(writes) - 3
         expected = ['no-vote: 0, 1, 2', ' .'] + (['.'] * dots) + ['\n']
         self.assertEqual(writes, expected)
@@ -2037,10 +2055,11 @@ class TestModelClient(ClientTest):
                    lambda x, start=None: range(0)):
             with patch.object(client, 'get_status', return_value=status
                               ) as get_status_mock:
-                with self.assertRaisesRegexp(
-                        StatusNotMet,
-                        'Timed out waiting for voting to be enabled.'):
-                    client.wait_for_ha()
+                with patch('jujupy.client.time.sleep'):
+                    with self.assertRaisesRegexp(
+                            StatusNotMet,
+                            'Timed out waiting for voting to be enabled.'):
+                        client.wait_for_ha()
         get_status_mock.assert_called_once_with()
 
     def test_wait_for_ha_timeout_with_status_error(self):
@@ -2057,7 +2076,8 @@ class TestModelClient(ClientTest):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
                         ErroredUnit, '1 is in state error: foo'):
-                    client.wait_for_ha()
+                    with patch('jujupy.client.time.sleep'):
+                        client.wait_for_ha()
 
     def test_wait_for_ha_suppresses_deadline(self):
         with self.only_status_checks(self.make_controller_client(),
@@ -2100,7 +2120,8 @@ class TestModelClient(ClientTest):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
                         'Timed out waiting for applications to start.'):
-                    client.wait_for_deploy_started()
+                    with patch('jujupy.client.time.sleep'):
+                        client.wait_for_deploy_started()
 
     def make_deployed_status(self):
         return {
@@ -2144,7 +2165,8 @@ class TestModelClient(ClientTest):
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
                             StatusNotMet, 'Some versions did not update'):
-                        client.wait_for_version('1.17.2')
+                            with patch('jujupy.client.time.sleep'):
+                                client.wait_for_version('1.17.2')
         self.assertEqual(writes, ['1.17.1: jenkins/0', ' .', '\n'])
 
     def test_wait_for_version_handles_connection_error(self):
@@ -2190,7 +2212,8 @@ class TestModelClient(ClientTest):
         }).encode('ascii')
         client = ModelClient(JujuData('lxd'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
-            client.wait_for(WaitMachineNotPresent('1'), quiet=True)
+            with patch('jujupy.client.time.sleep'):
+                client.wait_for(WaitMachineNotPresent('1'), quiet=True)
 
     def test_wait_just_machine_0_timeout(self):
         value = yaml.safe_dump({
@@ -2206,7 +2229,8 @@ class TestModelClient(ClientTest):
             self.assertRaisesRegexp(
                 Exception,
                 'Timed out waiting for machine removal 1'):
-            client.wait_for(WaitMachineNotPresent('1'), quiet=True)
+            with patch('jujupy.client.time.sleep'):
+                client.wait_for(WaitMachineNotPresent('1'), quiet=True)
 
     class NeverSatisfied:
 
@@ -2230,7 +2254,8 @@ class TestModelClient(ClientTest):
         with self.assertRaises(never_satisfied.NeverSatisfiedException):
             with patch.object(client, 'status_until', return_value=iter(
                     [Status({'machines': {}}, '')])) as mock_su:
-                client.wait_for(never_satisfied, quiet=True)
+                with patch('jujupy.client.time.sleep'):
+                    client.wait_for(never_satisfied, quiet=True)
         mock_su.assert_called_once_with(1234)
 
     def test_wait_for_emits_output(self):
@@ -2246,7 +2271,8 @@ class TestModelClient(ClientTest):
         writes = []
         with patch.object(GroupReporter, '_write', autospec=True,
                           side_effect=lambda _, s: writes.append(s)):
-            client.wait_for(mock_wait)
+            with patch('jujupy.client.time.sleep'):
+                client.wait_for(mock_wait)
         self.assertEqual('still-present: 0 ..\n', ''.join(writes))
 
     def test_wait_for_quiet(self):
@@ -2262,7 +2288,8 @@ class TestModelClient(ClientTest):
         writes = []
         with patch.object(GroupReporter, '_write', autospec=True,
                           side_effect=lambda _, s: writes.append(s)):
-            client.wait_for(mock_wait, quiet=True)
+            with patch('jujupy.client.time.sleep'):
+                client.wait_for(mock_wait, quiet=True)
         self.assertEqual('', ''.join(writes))
 
     def test_wait_bad_status(self):
@@ -2276,7 +2303,8 @@ class TestModelClient(ClientTest):
         with self.assertRaises(MachineError):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status])):
-                client.wait_for(never_satisfied, quiet=True)
+                with patch('jujupy.client.time.sleep'):
+                    client.wait_for(never_satisfied, quiet=True)
 
     def test_wait_bad_status_recoverable_recovered(self):
         client = fake_juju_client()
@@ -2293,7 +2321,8 @@ class TestModelClient(ClientTest):
         with self.assertRaises(never_satisfied.NeverSatisfiedException):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status, good_status])):
-                client.wait_for(never_satisfied, quiet=True)
+                with patch('jujupy.client.time.sleep'):
+                    client.wait_for(never_satisfied, quiet=True)
 
     def test_wait_bad_status_recoverable_timed_out(self):
         client = fake_juju_client()
@@ -2309,15 +2338,17 @@ class TestModelClient(ClientTest):
         with self.assertRaises(AppError):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status])):
-                client.wait_for(never_satisfied, quiet=True)
+                with patch('jujupy.client.time.sleep'):
+                    client.wait_for(never_satisfied, quiet=True)
 
     def test_wait_empty_list(self):
         client = fake_juju_client()
         client.bootstrap()
         with patch.object(client, 'status_until', side_effect=StatusTimeout):
-            self.assertEqual(client.wait_for(
-                ConditionList([]), quiet=True).status,
-                client.get_status().status)
+            with patch('jujupy.client.time.sleep'):
+                self.assertEqual(client.wait_for(
+                    ConditionList([]), quiet=True).status,
+                    client.get_status().status)
 
     def test_set_model_constraints(self):
         client = ModelClient(JujuData('bar', {}), None, '/foo')
@@ -2795,9 +2826,10 @@ class TestModelClient(ClientTest):
         ret = "status: pending\nfoo: bar"
         with patch.object(ModelClient,
                           'get_juju_output', return_value=ret):
-            with self.assertRaisesRegexp(Exception,
-                                         "timed out waiting for action"):
-                client.action_fetch("123")
+            with self.assertRaisesRegexp(
+                Exception,
+                "Timed out waiting for action to complete during fetch with status: pending."):
+                    client.action_fetch("123")
 
     def test_action_do_fetch(self):
         client = ModelClient(JujuData(None, {'type': 'lxd'}),
@@ -2939,7 +2971,8 @@ class TestModelClient(ClientTest):
         with patch('jujupy.client.until_timeout', return_value=range(0)):
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for juju get'):
-                client.get_service_config('foo')
+                with patch('jujupy.client.time.sleep'):
+                    client.get_service_config('foo')
 
     def test_upgrade_mongo(self):
         client = ModelClient(JujuData('bar', {}), None, '/foo')

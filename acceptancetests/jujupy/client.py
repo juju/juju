@@ -531,7 +531,11 @@ def get_version_string_parts(version_string):
     if len(version_parts) == 4:
         return '-'.join(version_parts[0:2]), version_parts[2], version_parts[3]
     else:
-        return version_parts[0], version_parts[1], version_parts[2]
+        try:
+            return version_parts[0], version_parts[1], version_parts[2]
+        except IndexError:
+            # Possible version_string was only version (i.e. 2.0.0), namely tests.
+            return version_parts
 
 
 class ModelClient:
