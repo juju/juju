@@ -346,8 +346,9 @@ func (h *bundleHandler) handleChanges() error {
 	}
 
 	// Deploy the bundle.
-	for _, change := range h.changes {
+	for i, change := range h.changes {
 		fmt.Fprintf(h.ctx.Stdout, "- %s\n", change.Description())
+		logger.Tracef("%d: change %s", i, pretty.Sprint(change))
 		switch change := change.(type) {
 		case *bundlechanges.AddCharmChange:
 			err = h.addCharm(change)
@@ -615,7 +616,6 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 		Series:      p.Series,
 		Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	}
-	logger.Debugf("machineParams: %s", pretty.Sprint(machineParams))
 	if ct := p.ContainerType; ct != "" {
 		// TODO(thumper): move the warning and translation into the bundle reading code.
 
@@ -635,10 +635,12 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 		machineParams.ContainerType = containerType
 		if p.ParentId != "" {
 			logger.Debugf("p.ParentId: %q", p.ParentId)
-			machineParams.ParentId, err = h.resolveMachine(p.ParentId)
+			id, err := h.resolveMachine(p.ParentId)
 			if err != nil {
 				return errors.Annotatef(err, "cannot retrieve parent placement for %s", deployedApps())
 			}
+			// Never create nested containers for deployment.
+			machineParams.ParentId = h.topLevelMachine(id)
 		}
 	}
 	logger.Debugf("machineParams: %s", pretty.Sprint(machineParams))
@@ -980,6 +982,14 @@ func (h *bundleHandler) resolveMachine(placeholder string) (string, error) {
 		}
 	}
 	return h.unitStatus[machineOrUnit], nil
+}
+
+func (h *bundleHandler) topLevelMachine(id string) string {
+	if !names.IsContainerMachine(id) {
+		return id
+	}
+	tag := names.NewMachineTag(id)
+	return tag.Parent().Id()
 }
 
 // resolveRelation returns the relation name resolving the included application
