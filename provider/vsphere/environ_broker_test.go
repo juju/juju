@@ -121,6 +121,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	createVMArgs.UpdateProgress = nil
 	createVMArgs.Clock = nil
 	createVMArgs.ReadOVA = nil
+	createVMArgs.NetworkDevices = []vsphereclient.NetworkDevice{}
 	c.Assert(createVMArgs, jc.DeepEquals, vsphereclient.CreateVirtualMachineParams{
 		Name:                   "juju-f75cba-0",
 		Folder:                 `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
@@ -161,8 +162,9 @@ func (s *environBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 
 	call := s.client.Calls()[1]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
-	c.Assert(createVMArgs.PrimaryNetwork, gc.Equals, "foo")
-	c.Assert(createVMArgs.ExternalNetwork, gc.Equals, "bar")
+	c.Assert(createVMArgs.NetworkDevices, gc.HasLen, 2)
+	c.Assert(createVMArgs.NetworkDevices[0].Network, gc.Equals, "foo")
+	c.Assert(createVMArgs.NetworkDevices[1].Network, gc.Equals, "bar")
 }
 
 func (s *environBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
