@@ -89,6 +89,7 @@ func (env *sessionEnviron) StartInstance(args environs.StartInstanceParams) (*en
 	}
 
 	logger.Infof("started instance %q", vm.Name)
+	logger.Tracef("instance data %+v", vm)
 	inst := newInstance(vm, env.environ)
 	result := environs.StartInstanceResult{
 		Instance: inst,
@@ -182,6 +183,12 @@ func (env *sessionEnviron) newRawInstance(
 		return img.URL, resp.Body, nil
 	}
 
+	networkDevices := []vsphereclient.NetworkDevice{{Network: env.ecfg.primaryNetwork()}}
+
+	if externalNetwork != "" {
+		networkDevices = append(networkDevices, vsphereclient.NetworkDevice{Network: externalNetwork})
+	}
+
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name: vmName,
 		Folder: path.Join(
@@ -195,8 +202,7 @@ func (env *sessionEnviron) newRawInstance(
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
-		PrimaryNetwork:         env.ecfg.primaryNetwork(),
-		ExternalNetwork:        externalNetwork,
+		NetworkDevices:         networkDevices,
 		Datastore:              env.ecfg.datastore(),
 		UpdateProgress:         updateProgress,
 		UpdateProgressInterval: updateProgressInterval,
