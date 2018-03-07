@@ -18,6 +18,8 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
+	"github.com/juju/juju/apiserver/params"
+	jujucloud "github.com/juju/juju/cloud"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
@@ -25,6 +27,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -530,6 +533,28 @@ func (m *mockBackend) ModelTag() names.ModelTag {
 
 func (m *mockBackend) ModelType() state.ModelType {
 	return m.modelType
+}
+
+func (m *mockBackend) ModelCloudCredential() names.CloudCredentialTag {
+	return names.NewCloudCredentialTag("dummy/admin/user")
+}
+
+func (m *mockBackend) GetCloudCredential() params.CloudCredentialResult {
+	return params.CloudCredentialResult{}
+}
+
+func (m *mockBackend) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
+	return statetesting.CloudCredentialWithName("dummy", jujucloud.UserPassAuthType,
+		map[string]string{"username": "user", "password": "secret sauce"},
+	), nil
+}
+
+func (m *mockBackend) Cloud(cloudName string) (jujucloud.Cloud, error) {
+	return jujucloud.Cloud{
+		Name:      cloudName,
+		Type:      cloudName,
+		AuthTypes: []jujucloud.AuthType{jujucloud.UserPassAuthType},
+	}, nil
 }
 
 type mockBlockChecker struct {

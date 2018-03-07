@@ -26,6 +26,7 @@ import (
 // with the same names.
 type Backend interface {
 	storagecommon.StorageInterface
+	state.CloudAccessor
 
 	AllModelUUIDs() ([]string, error)
 	Application(string) (Application, error)
@@ -157,6 +158,9 @@ type stateShim struct {
 	*state.IAASModel
 	*state.CAASModel
 
+	// This needs to be a member rather than a method on the local Model
+	// interface, because CloudCredential is only available on the Model
+	// *inside* IAASModel and CAASModel and is not implemented by them.
 	cloudCredential names.CloudCredentialTag
 }
 

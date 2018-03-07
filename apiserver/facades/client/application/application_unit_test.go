@@ -1192,3 +1192,27 @@ func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	app.CheckCallNames(c, "ApplicationConfig", "SetExposed")
 }
+
+func (s *ApplicationSuite) TestGetCloudCredentialsWhenTrusted(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("user")
+	apiV5, err := application.NewAPIV5(
+		&s.backend,
+		s.authorizer,
+		&s.blockChecker,
+		func(application.Charm) *state.Charm {
+			return &state.Charm{}
+		},
+		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
+			return nil, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	api := &application.APIv7{&application.APIv6{apiV5}}
+	credResult := api.GetCloudCredential()
+	c.Assert(credResult.Error, gc.IsNil)
+
+	content := credResult.Result.Content
+	c.Check(content.Cloud, gc.Equals, "dummy")
+	c.Check(content.Attributes["username"], gc.Equals, "user")
+	c.Check(content.Attributes["password"], gc.Equals, "secret sauce")
+}
