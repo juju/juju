@@ -26,6 +26,7 @@ import (
 // with the same names.
 type Backend interface {
 	storagecommon.StorageInterface
+	state.CloudAccessor
 
 	AllModelUUIDs() ([]string, error)
 	Application(string) (Application, error)
@@ -39,6 +40,7 @@ type Backend interface {
 	Relation(int) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	Machine(string) (Machine, error)
+	ModelCloudCredential() names.CloudCredentialTag
 	ModelTag() names.ModelTag
 	ModelType() state.ModelType
 	Unit(string) (Unit, error)
@@ -155,6 +157,11 @@ type stateShim struct {
 	*state.State
 	*state.IAASModel
 	*state.CAASModel
+
+	// This needs to be a member rather than a method on the local Model
+	// interface, because CloudCredential is only available on the Model
+	// *inside* IAASModel and CAASModel and is not implemented by them.
+	cloudCredential names.CloudCredentialTag
 }
 
 type ExternalController state.ExternalController
@@ -169,6 +176,10 @@ func (s stateShim) model() Model {
 		return s.IAASModel
 	}
 	return s.CAASModel
+}
+
+func (s stateShim) ModelCloudCredential() names.CloudCredentialTag {
+	return s.cloudCredential
 }
 
 func (s stateShim) ModelTag() names.ModelTag {
@@ -195,6 +206,8 @@ func NewStateBackend(st *state.State) (Backend, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "could not convert state into either IAAS or CAASModel")
 	}
+
+	result.cloudCredential, _ = m.CloudCredential()
 
 	return result, nil
 }

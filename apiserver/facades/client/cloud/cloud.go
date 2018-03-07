@@ -397,50 +397,13 @@ func (api *CloudAPIV2) AddCloud(cloudArgs params.AddCloudArgs) error {
 // Only credential owner can see its contents as well as what models use it.
 // Controller admin has no special superpowers here and is treated the same as all other users.
 func (api *CloudAPIV2) CredentialContents(args params.CloudCredentialArgs) (params.CredentialContentResults, error) {
-	// Helper to look up and cache credential schemas for clouds.
-	schemaCache := make(map[string]map[cloud.AuthType]cloud.CredentialSchema)
-	credentialSchemas := func(cloudName string) (map[cloud.AuthType]cloud.CredentialSchema, error) {
-		if s, ok := schemaCache[cloudName]; ok {
-			return s, nil
-		}
-		cloud, err := api.backend.Cloud(cloudName)
-		if err != nil {
-			return nil, err
-		}
-		provider, err := environs.Provider(cloud.Type)
-		if err != nil {
-			return nil, err
-		}
-		schema := provider.CredentialSchemas()
-		schemaCache[cloudName] = schema
-		return schema, nil
-	}
+	credentialSchemas := common.CachingCredentialSchemaGetter(api.backend)
 
 	// Helper to parse state.Credential into an expected result item.
 	stateIntoParam := func(credential state.Credential, includeSecrets bool) params.CredentialContentResult {
-		schemas, err := credentialSchemas(credential.Cloud)
+		info, err := common.CredentialInfoFromStateCredential(credential, includeSecrets, credentialSchemas)
 		if err != nil {
 			return params.CredentialContentResult{Error: common.ServerError(err)}
-		}
-		attrs := map[string]string{}
-		// Filter out the secrets.
-		if s, ok := schemas[cloud.AuthType(credential.AuthType)]; ok {
-			for _, attr := range s {
-				if value, exists := credential.Attributes[attr.Name]; exists {
-					if attr.Hidden && !includeSecrets {
-						continue
-					}
-					attrs[attr.Name] = value
-				}
-			}
-		}
-		info := params.ControllerCredentialInfo{
-			Content: params.CredentialContent{
-				Name:       credential.Name,
-				AuthType:   credential.AuthType,
-				Attributes: attrs,
-				Cloud:      credential.Cloud,
-			},
 		}
 
 		// get models

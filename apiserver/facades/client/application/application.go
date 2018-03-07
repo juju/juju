@@ -1665,3 +1665,27 @@ func (api *APIv6) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	}
 	return nil
 }
+
+func (api *APIv6) GetCloudCredential() params.CredentialContentResult {
+	// TODO (2018-03-06 manadart): Authorise.
+
+	// Get the tag for the credential that this model is using.
+	tag := api.backend.ModelCloudCredential()
+	if tag.String() == "" {
+		return params.CredentialContentResult{}
+	}
+
+	// Request the credential for the key indicated by the credential tag.
+	cred, err := api.backend.CloudCredential(tag)
+	if err != nil {
+		return params.CredentialContentResult{Error: common.ServerError(err)}
+	}
+
+	// Massage the return from state into an API payload.
+	getSchema := common.CachingCredentialSchemaGetter(api.backend)
+	info, err := common.CredentialInfoFromStateCredential(cred, true, getSchema)
+	if err != nil {
+		return params.CredentialContentResult{Error: common.ServerError(err)}
+	}
+	return params.CredentialContentResult{Result: &info}
+}
