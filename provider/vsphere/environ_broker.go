@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	"github.com/juju/juju/status"
@@ -138,18 +139,41 @@ func (env *sessionEnviron) newRawInstance(
 	// Make sure the hostname is resolvable by adding it to /etc/hosts.
 	cloudcfg.ManageEtcHosts(true)
 
-	// If an "external network" is specified, add the boot commands
-	// necessary to configure it.
-	externalNetwork := env.ecfg.externalNetwork()
-	if externalNetwork != "" {
-		apiPort := 0
-		if args.InstanceConfig.Controller != nil {
-			apiPort = args.InstanceConfig.Controller.Config.APIPort()
-		}
-		commands := common.ConfigureExternalIpAddressCommands(apiPort)
-		cloudcfg.AddBootCmd(commands...)
+	internalMac, err := vsphereclient.GenerateMAC()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
+	interfaces := []network.InterfaceInfo{{
+		InterfaceName: "eth0",
+		MACAddress:    internalMac,
+		InterfaceType: network.EthernetInterface,
+		ConfigType:    network.ConfigDHCP,
+	}}
+	networkDevices := []vsphereclient.NetworkDevice{{MAC: internalMac, Network: env.ecfg.primaryNetwork()}}
+
+	// TODO(wpk) We need to add a firewall -AND- make sure that if it's a controller we
+	// have API port open.
+	externalNetwork := env.ecfg.externalNetwork()
+	if externalNetwork != "" {
+		externalMac, err := vsphereclient.GenerateMAC()
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		interfaces = append(interfaces, network.InterfaceInfo{
+			InterfaceName: "eth1",
+			MACAddress:    externalMac,
+			InterfaceType: network.EthernetInterface,
+			ConfigType:    network.ConfigDHCP,
+		})
+		networkDevices = append(networkDevices, vsphereclient.NetworkDevice{MAC: externalMac, Network: externalNetwork})
+	}
+	// TODO(wpk) There's no (known) way to tell cloud-init to disable network (using cloudinit.CloudInitNetworkConfigDisabled)
+	// so the network might be double-configured. That should be ok as long as we're using DHCP.
+	err = cloudcfg.AddNetworkConfig(interfaces)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, VsphereRenderer{})
 	if err != nil {
 		return nil, nil, common.ZoneIndependentError(
@@ -181,12 +205,6 @@ func (env *sessionEnviron) newRawInstance(
 			return "", nil, errors.Trace(err)
 		}
 		return img.URL, resp.Body, nil
-	}
-
-	networkDevices := []vsphereclient.NetworkDevice{{Network: env.ecfg.primaryNetwork()}}
-
-	if externalNetwork != "" {
-		networkDevices = append(networkDevices, vsphereclient.NetworkDevice{Network: externalNetwork})
 	}
 
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
