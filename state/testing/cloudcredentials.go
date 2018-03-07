@@ -9,6 +9,13 @@ import (
 )
 
 // CloudCredential is a convenience method to create state.Credential to be used in unit tests.
+func CloudCredentialWithName(cloud string, authType cloud.AuthType, attrs map[string]string) state.Credential {
+	c := CloudCredential(authType, attrs)
+	c.Cloud = cloud
+	return c
+}
+
+// CloudCredential is a convenience method to create state.Credential to be used in unit tests.
 func CloudCredential(authType cloud.AuthType, attrs map[string]string) state.Credential {
 	c := state.Credential{}
 	c.AuthType = string(authType)
