@@ -58,7 +58,7 @@
         <vssd:ElementName>Virtual Hardware Family</vssd:ElementName>
         <vssd:InstanceID>0</vssd:InstanceID>
         <vssd:VirtualSystemIdentifier>ubuntu-xenial-16.04-cloudimg-20170815</vssd:VirtualSystemIdentifier>
-        <vssd:VirtualSystemType>vmx-10</vssd:VirtualSystemType>
+        <vssd:VirtualSystemType>vmx-10 vmx-11 vmx-13</vssd:VirtualSystemType>
       </System>
       <Item>
         <rasd:AllocationUnits>hertz * 10^6</rasd:AllocationUnits>
