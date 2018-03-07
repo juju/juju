@@ -1523,7 +1523,9 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// keep setting the transient flag to retry until the
 	// instance has started.
 	thatsAllFolks := make(chan struct{})
+	hackyGoroutineDone := make(chan struct{})
 	go func() {
+		defer close(hackyGoroutineDone)
 		for {
 			select {
 			case <-thatsAllFolks:
@@ -1544,6 +1546,12 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	}()
 	s.checkStartInstance(c, m3)
 	close(thatsAllFolks)
+
+	select {
+	case <-hackyGoroutineDone:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("status setting goroutine didn't stop")
+	}
 
 	// Machine 4 is never provisioned.
 	statusInfo, err := m4.InstanceStatus()
