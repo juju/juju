@@ -157,6 +157,11 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemsVolumeAttachmentDead(c
 	delete(s.backend.volumeAttachments, "2")
 	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2"}
 
+	// In order to not start the watcher until it has finished processing
+	// the previous event, we send another empty list through the channel
+	// which does nothing.
+	s.backend.modelVolumeAttachmentsW.C <- []string{}
+
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
 	wc.AssertChangeInSingleEvent()
 	wc.AssertNoChange()
@@ -229,6 +234,11 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsVolumeAttach
 	s.backend.volumeAttachments["1"].life = state.Dead
 	delete(s.backend.volumeAttachments, "2")
 	s.backend.modelVolumeAttachmentsW.C <- []string{"0:1", "0:2"}
+
+	// In order to not start the watcher until it has finished processing
+	// the previous event, we send another empty list through the channel
+	// which does nothing.
+	s.backend.modelVolumeAttachmentsW.C <- []string{}
 
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
 	wc.AssertChangeInSingleEvent()
