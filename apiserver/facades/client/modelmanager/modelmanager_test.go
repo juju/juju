@@ -5,7 +5,6 @@ package modelmanager_test
 
 import (
 	"regexp"
-	"runtime"
 	"time"
 
 	"github.com/juju/errors"
@@ -851,10 +850,7 @@ type modelManagerStateSuite struct {
 var _ = gc.Suite(&modelManagerStateSuite{})
 
 func (s *modelManagerStateSuite) SetUpSuite(c *gc.C) {
-	// TODO(anastasiamac 2016-07-19): Fix this on windows
-	if runtime.GOOS != "linux" {
-		c.Skip("bug 1603585: Skipping this on windows for now")
-	}
+	coretesting.SkipUnlessControllerOS(c)
 	s.JujuConnSuite.SetUpSuite(c)
 }
 
