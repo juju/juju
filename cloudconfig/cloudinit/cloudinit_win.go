@@ -7,6 +7,8 @@ package cloudinit
 import (
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/proxy"
+
+	"github.com/juju/juju/network"
 )
 
 // windowsCloudConfig is the cloudconfig type specific to Windows machines.
@@ -119,4 +121,9 @@ func (cfg *windowsCloudConfig) addRequiredPackages() {
 
 // updateProxySettings is defined on the AdvancedPackagingConfig interface.
 func (cfg *windowsCloudConfig) updateProxySettings(proxy.Settings) {
+}
+
+// AddNetworkConfig is defined on the NetworkingConfig interface.
+func (cfg *windowsCloudConfig) AddNetworkConfig(interfaces []network.InterfaceInfo) error {
+	return nil
 }
