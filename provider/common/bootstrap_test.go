@@ -52,6 +52,7 @@ type cleaner interface {
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
+	coretesting.SkipUnlessControllerOS(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, host, checkHostScript string, opts *ssh.Options) error {
@@ -668,7 +669,6 @@ func (ac *addressesChange) Addresses() ([]network.Address, error) {
 }
 
 func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
-	coretesting.SkipIfWindowsBug(c, "lp:1604961")
 	ctx := cmdtesting.Context(c)
 	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "", &addressesChange{addrs: [][]string{
 		nil,

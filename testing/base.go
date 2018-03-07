@@ -108,6 +108,14 @@ func SkipIfWindowsBug(c *gc.C, bugID string) {
 	}
 }
 
+// SkipUnlessControllerOS skips the test if the current OS is not a supported
+// controller OS.
+func SkipUnlessControllerOS(c *gc.C) {
+	if jujuos.HostOS() != jujuos.Ubuntu {
+		c.Skip("Test disabled for non-controller OS")
+	}
+}
+
 // SkipFlaky skips the test if there is an open bug for intermittent test failures
 func SkipFlaky(c *gc.C, bugID string) {
 	c.Skip(fmt.Sprintf("Test disabled until flakiness is fixed - see bug %s", bugID))
