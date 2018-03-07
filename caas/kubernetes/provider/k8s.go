@@ -264,7 +264,7 @@ func (k *kubernetesClient) EnsureService(
 	// a deployment controller set to create that number of units is required.
 	if numUnits > 0 {
 		numPods := int32(numUnits)
-		if err := k.configureDeployment(appName, unitSpec, &numPods); err != nil {
+		if err := k.configureDeployment(appName, unitSpec, spec.Files, &numPods); err != nil {
 			return errors.Annotate(err, "creating or updating deployment controller")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
@@ -285,8 +285,40 @@ func (k *kubernetesClient) EnsureService(
 	return nil
 }
 
-func (k *kubernetesClient) configureDeployment(appName string, unitSpec *unitSpec, replicas *int32) error {
+type configMapNameFunc func(fileSetName string) string
+
+func (k *kubernetesClient) configurePodFiles(podSpec *v1.PodSpec, files []caas.FileSet, cfgMapName configMapNameFunc) error {
+	for _, fileSet := range files {
+		cfgName := cfgMapName(fileSet.Name)
+		vol := v1.Volume{Name: cfgName}
+		if err := k.ensureConfigMap(filesetConfigMap(cfgName, &fileSet)); err != nil {
+			return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
+		}
+		vol.ConfigMap = &v1.ConfigMapVolumeSource{
+			LocalObjectReference: v1.LocalObjectReference{
+				Name: cfgName,
+			},
+		}
+		podSpec.Volumes = []v1.Volume{vol}
+		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, v1.VolumeMount{
+			Name:      cfgName,
+			MountPath: fileSet.MountPath,
+		})
+	}
+	return nil
+}
+
+func (k *kubernetesClient) configureDeployment(appName string, unitSpec *unitSpec, files []caas.FileSet, replicas *int32) error {
 	logger.Debugf("creating/updating deployment for %s", appName)
+
+	// Add the specified file to the pod spec.
+	cfgName := func(fileSetName string) string {
+		return applicationConfigMapName(appName, fileSetName)
+	}
+	podSpec := unitSpec.Pod
+	if err := k.configurePodFiles(&podSpec, files, cfgName); err != nil {
+		return errors.Trace(err)
+	}
 
 	namePrefix := resourceNamePrefix(appName)
 	deployment := &v1beta1.Deployment{
@@ -303,7 +335,7 @@ func (k *kubernetesClient) configureDeployment(appName string, unitSpec *unitSpe
 					GenerateName: namePrefix,
 					Labels:       map[string]string{labelApplication: appName},
 				},
-				Spec: unitSpec.Pod,
+				Spec: podSpec,
 			},
 		},
 	}
@@ -570,34 +602,20 @@ func (k *kubernetesClient) EnsureUnit(appName, unitName string, spec *caas.Conta
 				labelUnit:        podName}},
 		Spec: unitSpec.Pod,
 	}
-	for _, fileSet := range spec.Files {
-		cfgName := unitConfigMapName(unitName, fileSet.Name)
-		if err := k.ensureConfigMap(filesetConfigMap(unitName, fileSet.Name, &fileSet)); err != nil {
-			return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
-		}
-		volumeSource := v1.VolumeSource{
-			ConfigMap: &v1.ConfigMapVolumeSource{
-				LocalObjectReference: v1.LocalObjectReference{
-					Name: cfgName,
-				},
-			},
-		}
-		pod.Spec.Volumes = []v1.Volume{{
-			Name:         cfgName,
-			VolumeSource: volumeSource,
-		}}
-		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, v1.VolumeMount{
-			Name:      cfgName,
-			MountPath: fileSet.MountPath,
-		})
+
+	// Add the specified file to the pod spec.
+	cfgName := func(fileSetName string) string {
+		return unitConfigMapName(unitName, fileSetName)
+	}
+	if err := k.configurePodFiles(&pod.Spec, spec.Files, cfgName); err != nil {
+		return errors.Trace(err)
 	}
 	return k.ensurePod(&pod)
 }
 
 // filesetConfigMap returns a *v1.ConfigMap for a pod
 // of the specified unit, with the specified files.
-func filesetConfigMap(unitName, fileSetName string, files *caas.FileSet) *v1.ConfigMap {
-	configMapName := unitConfigMapName(unitName, fileSetName)
+func filesetConfigMap(configMapName string, files *caas.FileSet) *v1.ConfigMap {
 	result := &v1.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name: configMapName,
@@ -807,6 +825,10 @@ func operatorPodName(appName string) string {
 
 func operatorConfigMapName(appName string) string {
 	return operatorPodName(appName) + "-config"
+}
+
+func applicationConfigMapName(appName, fileSetName string) string {
+	return fmt.Sprintf("%v-%v-config", deploymentName(appName), fileSetName)
 }
 
 func unitConfigMapName(unitName, fileSetName string) string {
