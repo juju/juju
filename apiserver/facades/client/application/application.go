@@ -46,11 +46,6 @@ type APIv4 struct {
 	*APIv5
 }
 
-// APIv7 provides the Application API facade for version 7.
-type APIv7 struct {
-	*APIv6
-}
-
 // APIv6 provides the Application API facade for version 6.
 type APIv6 struct {
 	*APIv5
@@ -83,16 +78,6 @@ func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
 		return nil, errors.Trace(err)
 	}
 	return &APIv4{api}, nil
-}
-
-// NewFacadeV7 provides the signature required for facade registration
-// for versions 7.
-func NewFacadeV7(ctx facade.Context) (*APIv7, error) {
-	apiV6, err := NewFacadeV6(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv7{apiV6}, nil
 }
 
 // NewFacadeV6 provides the signature required for facade registration
@@ -1681,7 +1666,7 @@ func (api *APIv6) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	return nil
 }
 
-func (api *APIv7) GetCloudCredential() params.CredentialContentResult {
+func (api *APIv6) GetCloudCredential() params.CredentialContentResult {
 	// TODO (2018-03-06 manadart): Authorise.
 
 	// Get the tag for the credential that this model is using.

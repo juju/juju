@@ -1207,7 +1207,7 @@ func (s *ApplicationSuite) TestGetCloudCredentialsWhenTrusted(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	api := &application.APIv7{&application.APIv6{apiV5}}
+	api := &application.APIv6{apiV5}
 	credResult := api.GetCloudCredential()
 	c.Assert(credResult.Error, gc.IsNil)
 
