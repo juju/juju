@@ -38,7 +38,7 @@ func (s *ContainerspecSetSuite) TestContainerSpecSetInit(c *gc.C) {
 	for i, t := range containerSpecSetInitTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
-		com, err := jujuc.NewCommand(hctx, "container-spec-set")
+		com, err := jujuc.NewCommand(hctx, "pod-spec-set")
 		c.Assert(err, jc.ErrorIsNil)
 		cmdtesting.TestInit(c, com, t.args, t.err)
 	}
@@ -46,28 +46,24 @@ func (s *ContainerspecSetSuite) TestContainerSpecSetInit(c *gc.C) {
 
 func (s *ContainerspecSetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "container-spec-set")
+	com, err := jujuc.NewCommand(hctx, "pod-spec-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	expectedHelp := "" +
-		"Usage: container-spec-set [options] --file <container spec file> [--application]\n" +
+		"Usage: pod-spec-set [options] --file <pod spec file>\n" +
 		"\n" +
 		"Summary:\n" +
-		"set container spec information\n" +
+		"set pod spec information\n" +
 		"\n" +
 		"Options:\n" +
-		"--application  (= false)\n" +
-		"    set the spec for the application to which the unit belongs if the unit is the leader\n" +
 		"--file  (= -)\n" +
-		"    file containing container spec\n" +
+		"    file containing pod spec\n" +
 		"\n" +
 		"Details:\n" +
-		"Sets configuration data to use for a container.\n" +
-		"By default, the spec applies to all units for the\n" +
-		"application. However, if a unit name is specified,\n" +
-		"the spec is used for just that unit.\n"
+		"Sets configuration data to use for a pod.\n" +
+		"The spec applies to all units for the application.\n"
 
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
@@ -75,7 +71,7 @@ func (s *ContainerspecSetSuite) TestHelp(c *gc.C) {
 
 func (s *ContainerspecSetSuite) TestContainerSpecSetNoData(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "container-spec-set")
+	com, err := jujuc.NewCommand(hctx, "pod-spec-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 
@@ -83,7 +79,7 @@ func (s *ContainerspecSetSuite) TestContainerSpecSetNoData(c *gc.C) {
 	c.Check(code, gc.Equals, 1)
 	c.Assert(bufferString(
 		ctx.Stderr), gc.Matches,
-		".*no container spec specified: pipe container spec to command, or specify a file with --file\n")
+		".*no pod spec specified: pipe pod spec to command, or specify a file with --file\n")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 }
 
@@ -98,18 +94,17 @@ func (s *ContainerspecSetSuite) TestContainerSpecSetStdIn(c *gc.C) {
 func (s *ContainerspecSetSuite) assertContainerSpecSet(c *gc.C, filename string) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, args, ctx := s.initCommand(c, hctx, containerSpecYaml, filename)
-	code := cmd.Main(com, ctx, append(args, "--application"))
+	code := cmd.Main(com, ctx, args)
 	c.Check(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 	c.Assert(hctx.info.ContainerSpec, gc.Equals, containerSpecYaml)
-	c.Assert(hctx.info.Application, jc.IsTrue)
 }
 
 func (s *ContainerspecSetSuite) initCommand(
 	c *gc.C, hctx jujuc.Context, yaml string, filename string,
 ) (cmd.Command, []string, *cmd.Context) {
-	com, err := jujuc.NewCommand(hctx, "container-spec-set")
+	com, err := jujuc.NewCommand(hctx, "pod-spec-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 
