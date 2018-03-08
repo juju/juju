@@ -35,6 +35,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujufactory "github.com/juju/juju/testing/factory"
+	"gopkg.in/juju/environschema.v1"
 )
 
 // uniterSuite implements common testing suite for all API
@@ -129,6 +130,17 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.uniter = uniterAPI
+
+	// Update the application config for wordpress so that it is authorised to
+	// retrieve its cloud spec.
+	conf := map[string]interface{}{"trust": true}
+	fields := map[string]environschema.Attr{
+		"trust": {Type: environschema.Tbool},
+	}
+	s.wordpress.UpdateApplicationConfig(conf, nil, fields, map[string]interface{}{"trust": false})
+	newConf, err := s.wordpress.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newConf.GetBool("trust", false), jc.IsTrue)
 }
 
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
@@ -4166,3 +4178,34 @@ func (s *uniterSuite) TestGoalStates(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, results)
 }
 
+func (s *uniterSuite) TestGetCloudSpecDeniesAccessWhenNotTrusted(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: names.NewApplicationTag("mysql").String()},
+	}}
+	result, err := s.uniter.CloudSpec(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.CloudSpecResults{
+		Results: []params.CloudSpecResult{
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: names.NewApplicationTag("wordpress").String()},
+	}}
+	ret, err := s.uniter.CloudSpec(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ret.Results, gc.HasLen, 1)
+
+	result := ret.Results[0]
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result.Name, gc.Equals, "dummy")
+
+	exp := map[string]string{
+		"username": "dummy",
+		"password": "secret",
+	}
+	c.Assert(result.Result.Credential.Attributes, gc.DeepEquals, exp)
+}
