@@ -829,8 +829,8 @@ type EntityString struct {
 	Value string `json:"value"`
 }
 
-// SetContainerSpecParams holds the arguments for setting the container
-// spec for a set of entities.
-type SetContainerSpecParams struct {
-	Entities []EntityString `json:"entities"`
+// SetPodSpecParams holds the arguments for setting the pod
+// spec for a set of applications.
+type SetPodSpecParams struct {
+	Specs []EntityString `json:"specs"`
 }

@@ -112,19 +112,15 @@ func (s *operatorSuite) TestCharmInvalidApplicationName(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 
-func (s *operatorSuite) TestSetContainerSpec(c *gc.C) {
-	s.testSetContainerSpec(c, names.NewApplicationTag("gitlab"))
-	s.testSetContainerSpec(c, names.NewUnitTag("gitlab/0"))
-}
-
-func (s *operatorSuite) testSetContainerSpec(c *gc.C, tag names.Tag) {
+func (s *operatorSuite) TestSetPodSpec(c *gc.C) {
+	tag := names.NewApplicationTag("gitlab")
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASOperator")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "SetContainerSpec")
-		c.Check(arg, jc.DeepEquals, params.SetContainerSpecParams{
-			Entities: []params.EntityString{{
+		c.Check(request, gc.Equals, "SetPodSpec")
+		c.Check(arg, jc.DeepEquals, params.SetPodSpecParams{
+			Specs: []params.EntityString{{
 				Tag:   tag.String(),
 				Value: "spec",
 			}},
@@ -137,16 +133,16 @@ func (s *operatorSuite) testSetContainerSpec(c *gc.C, tag names.Tag) {
 	})
 
 	client := caasoperator.NewClient(apiCaller)
-	err := client.SetContainerSpec(tag.Id(), "spec")
+	err := client.SetPodSpec(tag.Id(), "spec")
 	c.Assert(err, gc.ErrorMatches, "bletch")
 }
 
-func (s *operatorSuite) TestSetContainerSpecInvalidEntityame(c *gc.C) {
+func (s *operatorSuite) TestSetPodSpecInvalidEntityame(c *gc.C) {
 	client := caasoperator.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
-	err := client.SetContainerSpec("", "spec")
-	c.Assert(err, gc.ErrorMatches, `application or unit name "" not valid`)
+	err := client.SetPodSpec("", "spec")
+	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 
 func (s *operatorSuite) TestModelName(c *gc.C) {

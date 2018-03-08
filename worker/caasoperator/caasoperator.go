@@ -60,10 +60,9 @@ type Config struct {
 	// for time-related operations.
 	Clock clock.Clock
 
-	// ContainerSpecSetter provides an interface for
-	// setting the container spec for the application
-	// or unit thereof.
-	ContainerSpecSetter ContainerSpecSetter
+	// PodSpecSetter provides an interface for
+	// setting the pod spec for the application.
+	PodSpecSetter PodSpecSetter
 
 	// DataDir holds the path to the Juju "data directory",
 	// i.e. "/var/lib/juju" (by default). The CAAS operator
@@ -122,8 +121,8 @@ func (config Config) Validate() error {
 	if config.Clock == nil {
 		return errors.NotValidf("missing Clock")
 	}
-	if config.ContainerSpecSetter == nil {
-		return errors.NotValidf("missing ContainerSpecSetter")
+	if config.PodSpecSetter == nil {
+		return errors.NotValidf("missing PodSpecSetter")
 	}
 	if config.DataDir == "" {
 		return errors.NotValidf("missing DataDir")

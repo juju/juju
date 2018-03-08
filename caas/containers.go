@@ -33,24 +33,36 @@ type ContainerSpec struct {
 	Files     []FileSet         `yaml:"files,omitempty"`
 }
 
-// ParseContainerSpec parses a YAML string into a ContainerSpec struct.
-func ParseContainerSpec(in string) (*ContainerSpec, error) {
-	var spec ContainerSpec
+// PodSpec defines the data values used to configure
+// a pod on the CAAS substrate.
+type PodSpec struct {
+	Containers          []ContainerSpec `yaml:"containers"`
+	OmitServiceFrontend bool            `yaml:"omit-service-frontend"`
+}
+
+// ParsePodSpec parses a YAML string into a PodSpec struct.
+func ParsePodSpec(in string) (*PodSpec, error) {
+	var spec PodSpec
 	if err := yaml.Unmarshal([]byte(in), &spec); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if spec.Name == "" {
-		return nil, errors.New("spec name is missing")
+	if len(spec.Containers) == 0 {
+		return nil, errors.New("require at least one pod spec")
 	}
-	if spec.ImageName == "" {
-		return nil, errors.New("spec image name is missing")
-	}
-	for _, fs := range spec.Files {
-		if fs.Name == "" {
-			return nil, errors.New("file set name is missing")
+	for _, container := range spec.Containers {
+		if container.Name == "" {
+			return nil, errors.New("spec name is missing")
 		}
-		if fs.MountPath == "" {
-			return nil, errors.Errorf("mount path is missing for file set %q", fs.Name)
+		if container.ImageName == "" {
+			return nil, errors.New("spec image name is missing")
+		}
+		for _, fs := range container.Files {
+			if fs.Name == "" {
+				return nil, errors.New("file set name is missing")
+			}
+			if fs.MountPath == "" {
+				return nil, errors.Errorf("mount path is missing for file set %q", fs.Name)
+			}
 		}
 	}
 	return &spec, nil

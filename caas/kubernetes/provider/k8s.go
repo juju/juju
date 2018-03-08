@@ -234,7 +234,7 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 
 // EnsureService creates or updates a service for pods with the given spec.
 func (k *kubernetesClient) EnsureService(
-	appName string, spec *caas.ContainerSpec, numUnits int, config application.ConfigAttributes,
+	appName string, spec *caas.PodSpec, numUnits int, config application.ConfigAttributes,
 ) (err error) {
 	logger.Debugf("creating/updating application %s", appName)
 
@@ -242,7 +242,7 @@ func (k *kubernetesClient) EnsureService(
 		return errors.Errorf("number of units must be >= 0")
 	}
 	if spec == nil {
-		return errors.Errorf("missing container spec")
+		return errors.Errorf("missing pod spec")
 	}
 
 	var cleanups []func()
@@ -264,7 +264,7 @@ func (k *kubernetesClient) EnsureService(
 	// a deployment controller set to create that number of units is required.
 	if numUnits > 0 {
 		numPods := int32(numUnits)
-		if err := k.configureDeployment(appName, unitSpec, spec.Files, &numPods); err != nil {
+		if err := k.configureDeployment(appName, unitSpec, spec.Containers, &numPods); err != nil {
 			return errors.Annotate(err, "creating or updating deployment controller")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
@@ -279,36 +279,40 @@ func (k *kubernetesClient) EnsureService(
 			ports = append(ports, p)
 		}
 	}
-	if err := k.configureService(appName, ports, config); err != nil {
-		return errors.Annotatef(err, "creating or updating service for %v", appName)
+	if !spec.OmitServiceFrontend {
+		if err := k.configureService(appName, ports, config); err != nil {
+			return errors.Annotatef(err, "creating or updating service for %v", appName)
+		}
 	}
 	return nil
 }
 
 type configMapNameFunc func(fileSetName string) string
 
-func (k *kubernetesClient) configurePodFiles(podSpec *v1.PodSpec, files []caas.FileSet, cfgMapName configMapNameFunc) error {
-	for _, fileSet := range files {
-		cfgName := cfgMapName(fileSet.Name)
-		vol := v1.Volume{Name: cfgName}
-		if err := k.ensureConfigMap(filesetConfigMap(cfgName, &fileSet)); err != nil {
-			return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
+func (k *kubernetesClient) configurePodFiles(podSpec *v1.PodSpec, containers []caas.ContainerSpec, cfgMapName configMapNameFunc) error {
+	for i, container := range containers {
+		for _, fileSet := range container.Files {
+			cfgName := cfgMapName(fileSet.Name)
+			vol := v1.Volume{Name: cfgName}
+			if err := k.ensureConfigMap(filesetConfigMap(cfgName, &fileSet)); err != nil {
+				return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
+			}
+			vol.ConfigMap = &v1.ConfigMapVolumeSource{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: cfgName,
+				},
+			}
+			podSpec.Volumes = []v1.Volume{vol}
+			podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, v1.VolumeMount{
+				Name:      cfgName,
+				MountPath: fileSet.MountPath,
+			})
 		}
-		vol.ConfigMap = &v1.ConfigMapVolumeSource{
-			LocalObjectReference: v1.LocalObjectReference{
-				Name: cfgName,
-			},
-		}
-		podSpec.Volumes = []v1.Volume{vol}
-		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, v1.VolumeMount{
-			Name:      cfgName,
-			MountPath: fileSet.MountPath,
-		})
 	}
 	return nil
 }
 
-func (k *kubernetesClient) configureDeployment(appName string, unitSpec *unitSpec, files []caas.FileSet, replicas *int32) error {
+func (k *kubernetesClient) configureDeployment(appName string, unitSpec *unitSpec, containers []caas.ContainerSpec, replicas *int32) error {
 	logger.Debugf("creating/updating deployment for %s", appName)
 
 	// Add the specified file to the pod spec.
@@ -316,7 +320,7 @@ func (k *kubernetesClient) configureDeployment(appName string, unitSpec *unitSpe
 		return applicationConfigMapName(appName, fileSetName)
 	}
 	podSpec := unitSpec.Pod
-	if err := k.configurePodFiles(&podSpec, files, cfgName); err != nil {
+	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -587,7 +591,7 @@ func (k *kubernetesClient) jujuStatus(podPhase v1.PodPhase, terminated bool) sta
 }
 
 // EnsureUnit creates or updates a unit pod with the given unit name and spec.
-func (k *kubernetesClient) EnsureUnit(appName, unitName string, spec *caas.ContainerSpec) error {
+func (k *kubernetesClient) EnsureUnit(appName, unitName string, spec *caas.PodSpec) error {
 	logger.Debugf("creating/updating unit %s", unitName)
 	unitSpec, err := makeUnitSpec(spec)
 	if err != nil {
@@ -607,7 +611,7 @@ func (k *kubernetesClient) EnsureUnit(appName, unitName string, spec *caas.Conta
 	cfgName := func(fileSetName string) string {
 		return unitConfigMapName(unitName, fileSetName)
 	}
-	if err := k.configurePodFiles(&pod.Spec, spec.Files, cfgName); err != nil {
+	if err := k.configurePodFiles(&pod.Spec, spec.Containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
 	return k.ensurePod(&pod)
@@ -785,6 +789,7 @@ type unitSpec struct {
 var defaultPodTemplate = `
 pod:
   containers:
+  {{- range .Containers }}
   - name: {{.Name}}
     image: {{.ImageName}}
     {{if .Ports}}
@@ -801,12 +806,13 @@ pod:
           value: {{$v}}
     {{- end}}
     {{end}}
+  {{- end}}
 `[1:]
 
-func makeUnitSpec(containerSpec *caas.ContainerSpec) (*unitSpec, error) {
+func makeUnitSpec(podSpec *caas.PodSpec) (*unitSpec, error) {
 	tmpl := template.Must(template.New("").Parse(defaultPodTemplate))
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, containerSpec); err != nil {
+	if err := tmpl.Execute(&buf, podSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
 	unitSpecString := buf.String()

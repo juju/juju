@@ -25,8 +25,8 @@ type CAASUnitProvisionerState interface {
 // Model provides the subset of CAAS model state required
 // by the CAAS operator facade.
 type Model interface {
-	ContainerSpec(names.Tag) (string, error)
-	WatchContainerSpec(names.Tag) (state.NotifyWatcher, error)
+	PodSpec(tag names.ApplicationTag) (string, error)
+	WatchPodSpec(tag names.ApplicationTag) (state.NotifyWatcher, error)
 }
 
 // Application provides the subset of application state

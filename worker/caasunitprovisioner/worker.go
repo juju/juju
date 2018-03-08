@@ -21,11 +21,11 @@ type Config struct {
 	ApplicationUpdater ApplicationUpdater
 	ServiceBroker      ServiceBroker
 
-	ContainerBroker     ContainerBroker
-	ContainerSpecGetter ContainerSpecGetter
-	LifeGetter          LifeGetter
-	UnitGetter          UnitGetter
-	UnitUpdater         UnitUpdater
+	ContainerBroker ContainerBroker
+	PodSpecGetter   PodSpecGetter
+	LifeGetter      LifeGetter
+	UnitGetter      UnitGetter
+	UnitUpdater     UnitUpdater
 }
 
 // Validate validates the worker configuration.
@@ -42,8 +42,8 @@ func (config Config) Validate() error {
 	if config.ContainerBroker == nil {
 		return errors.NotValidf("missing ContainerBroker")
 	}
-	if config.ContainerSpecGetter == nil {
-		return errors.NotValidf("missing ContainerSpecGetter")
+	if config.PodSpecGetter == nil {
+		return errors.NotValidf("missing PodSpecGetter")
 	}
 	if config.LifeGetter == nil {
 		return errors.NotValidf("missing LifeGetter")
@@ -151,7 +151,7 @@ func (p *provisioner) loop() error {
 					jujuManagedUnits,
 					p.config.ServiceBroker,
 					p.config.ContainerBroker,
-					p.config.ContainerSpecGetter,
+					p.config.PodSpecGetter,
 					p.config.LifeGetter,
 					p.config.ApplicationGetter,
 					p.config.ApplicationUpdater,

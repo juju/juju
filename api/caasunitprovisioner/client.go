@@ -35,13 +35,6 @@ func applicationTag(application string) (names.ApplicationTag, error) {
 	return names.NewApplicationTag(application), nil
 }
 
-func unitTag(unit string) (names.UnitTag, error) {
-	if !names.IsValidUnit(unit) {
-		return names.UnitTag{}, errors.NotValidf("unit name %q", unit)
-	}
-	return names.NewUnitTag(unit), nil
-}
-
 func entities(tags ...names.Tag) params.Entities {
 	entities := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
@@ -106,18 +99,18 @@ func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) 
 	return w, nil
 }
 
-// WatchContainerSpec returns a NotifyWatcher that notifies of
-// changes to the container spec of the specified CAAS units in
+// WatchPodSpec returns a NotifyWatcher that notifies of
+// changes to the pod spec of the specified CAAS application in
 // the current model.
-func (c *Client) WatchContainerSpec(unit string) (watcher.NotifyWatcher, error) {
-	unitTag, err := unitTag(unit)
+func (c *Client) WatchPodSpec(application string) (watcher.NotifyWatcher, error) {
+	appTag, err := applicationTag(application)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	args := entities(unitTag)
+	args := entities(appTag)
 
 	var results params.NotifyWatchResults
-	if err := c.facade.FacadeCall("WatchContainerSpec", args, &results); err != nil {
+	if err := c.facade.FacadeCall("WatchPodSpec", args, &results); err != nil {
 		return nil, err
 	}
 	if n := len(results.Results); n != 1 {
@@ -130,17 +123,17 @@ func (c *Client) WatchContainerSpec(unit string) (watcher.NotifyWatcher, error) 
 	return w, nil
 }
 
-// ContainerSpec returns the container spec for the specified CAAS
-// unit in the current model.
-func (c *Client) ContainerSpec(unit string) (string, error) {
-	unitTag, err := unitTag(unit)
+// PodSpec returns the pod spec for the specified CAAS
+// application in the current model.
+func (c *Client) PodSpec(unit string) (string, error) {
+	appTag, err := applicationTag(unit)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	args := entities(unitTag)
+	args := entities(appTag)
 
 	var results params.StringResults
-	if err := c.facade.FacadeCall("ContainerSpec", args, &results); err != nil {
+	if err := c.facade.FacadeCall("PodSpec", args, &results); err != nil {
 		return "", err
 	}
 	if n := len(results.Results); n != 1 {

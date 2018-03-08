@@ -94,8 +94,8 @@ func (a *Application) ApplicationTag() names.ApplicationTag {
 
 // applicationGlobalKey returns the global database key for the application
 // with the given name.
-func applicationGlobalKey(svcName string) string {
-	return "a#" + svcName
+func applicationGlobalKey(appName string) string {
+	return "a#" + appName
 }
 
 // globalKey returns the global database key for the application.
@@ -368,7 +368,7 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 		removeStatusOp(a.st, globalKey),
 		removeSettingsOp(settingsC, a.applicationConfigKey()),
 		removeModelApplicationRefOp(a.st, name),
-		removeContainerSpecOp(a.Tag()),
+		removePodSpecOp(a.ApplicationTag()),
 	)
 	return ops, nil
 }
@@ -1640,7 +1640,6 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
 		removeConstraintsOp(u.globalAgentKey()),
-		removeContainerSpecOp(u.Tag()),
 		annotationRemoveOp(a.st, u.globalKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	}

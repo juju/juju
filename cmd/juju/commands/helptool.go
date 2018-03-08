@@ -27,7 +27,7 @@ func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
 func (dummyHookContext) UnitName() string {
 	return ""
 }
-func (dummyHookContext) SetContainerSpec(specYaml string, application bool) error {
+func (dummyHookContext) SetPodSpec(specYaml string) error {
 	return nil
 }
 func (dummyHookContext) PublicAddress() (string, error) {
@@ -175,4 +175,3 @@ func listHookTools() string {
 	}
 	return all
 }
-

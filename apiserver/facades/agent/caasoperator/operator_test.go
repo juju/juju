@@ -171,40 +171,44 @@ func (s *CAASOperatorSuite) TestLife(c *gc.C) {
 	})
 }
 
-func (s *CAASOperatorSuite) TestSetContainerSpec(c *gc.C) {
+func (s *CAASOperatorSuite) TestSetPodSpec(c *gc.C) {
 	validSpecStr := `
-name: gitlab
-image-name: gitlab/latest
+containers:
+  - name: gitlab
+    image-name: gitlab/latest
 `[1:]
 
-	args := params.SetContainerSpecParams{
-		Entities: []params.EntityString{
+	args := params.SetPodSpecParams{
+		Specs: []params.EntityString{
 			{Tag: "application-gitlab", Value: validSpecStr},
-			{Tag: "unit-gitlab-0", Value: validSpecStr},
-			{Tag: "unit-gitlab-1", Value: "bad spec"},
-			{Tag: "unit-gitlab-2", Value: validSpecStr},
+			{Tag: "application-gitlab", Value: validSpecStr},
+			{Tag: "application-gitlab", Value: "bad spec"},
+			{Tag: "unit-gitlab-0"},
 			{Tag: "application-other"},
 			{Tag: "unit-other-0"},
 			{Tag: "machine-0"},
 		},
 	}
 
-	s.st.model.SetErrors(nil, nil, errors.New("bloop"))
+	s.st.model.SetErrors(nil, errors.New("bloop"))
 
-	results, err := s.facade.SetContainerSpec(args)
+	results, err := s.facade.SetPodSpec(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: nil,
 		}, {
-			Error: nil,
-		}, {
 			Error: &params.Error{
-				Message: "invalid container spec",
+				Message: "bloop",
 			},
 		}, {
 			Error: &params.Error{
-				Message: "bloop",
+				Message: "invalid pod spec",
+			},
+		}, {
+			Error: &params.Error{
+				Code:    "unauthorized access",
+				Message: "permission denied",
 			},
 		}, {
 			Error: &params.Error{
@@ -225,10 +229,8 @@ image-name: gitlab/latest
 	})
 
 	s.st.CheckCallNames(c, "Model")
-	s.st.model.CheckCallNames(c, "SetContainerSpec", "SetContainerSpec", "SetContainerSpec")
-	s.st.model.CheckCall(c, 0, "SetContainerSpec", names.NewApplicationTag("gitlab"), validSpecStr)
-	s.st.model.CheckCall(c, 1, "SetContainerSpec", names.NewUnitTag("gitlab/0"), validSpecStr)
-	s.st.model.CheckCall(c, 2, "SetContainerSpec", names.NewUnitTag("gitlab/2"), validSpecStr)
+	s.st.model.CheckCallNames(c, "SetPodSpec", "SetPodSpec")
+	s.st.model.CheckCall(c, 0, "SetPodSpec", names.NewApplicationTag("gitlab"), validSpecStr)
 }
 
 func (s *CAASOperatorSuite) TestModelName(c *gc.C) {

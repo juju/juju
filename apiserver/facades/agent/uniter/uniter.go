@@ -2396,17 +2396,17 @@ func (u *UniterAPIV6) NetworkInfo(args params.NetworkInfoParams) (params.Network
 	return networkInfoResultsToV6(v6Results), nil
 }
 
-// Mask the SetContainerSpec method from the v7 API. The API reflection code
+// Mask the SetPodSpec method from the v7 API. The API reflection code
 // in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
 // this removes the method as far as the RPC machinery is concerned.
 
-// SetContainerSpec isn't on the v7 API.
-func (u *UniterAPIV7) SetContainerSpec(_, _ struct{}) {}
+// SetPodSpec isn't on the v7 API.
+func (u *UniterAPIV7) SetPodSpec(_, _ struct{}) {}
 
-// SetContainerSpec sets the container specs for a set of entities.
-func (u *UniterAPI) SetContainerSpec(args params.SetContainerSpecParams) (params.ErrorResults, error) {
+// SetPodSpec sets the pod specs for a set of applications.
+func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
+		Results: make([]params.ErrorResult, len(args.Specs)),
 	}
 	authTag := u.auth.GetAuthTag()
 	canAccess := func(tag names.Tag) bool {
@@ -2419,19 +2419,10 @@ func (u *UniterAPI) SetContainerSpec(args params.SetContainerSpecParams) (params
 				return tag == authTag
 			}
 		}
-		if tag, ok := tag.(names.UnitTag); ok {
-			switch authTag.(type) {
-			case names.ApplicationTag:
-				appName, err := names.UnitApplication(tag.Id())
-				return err == nil && appName == authTag.Id()
-			case names.UnitTag:
-				return tag == authTag
-			}
-		}
 		return false
 	}
-	for i, arg := range args.Entities {
-		tag, err := names.ParseTag(arg.Tag)
+	for i, arg := range args.Specs {
+		tag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -2440,8 +2431,8 @@ func (u *UniterAPI) SetContainerSpec(args params.SetContainerSpecParams) (params
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := caas.ParseContainerSpec(arg.Value); err != nil {
-			results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid container spec"))
+		if _, err := caas.ParsePodSpec(arg.Value); err != nil {
+			results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid pod spec"))
 			continue
 		}
 		cm, err := u.m.CAASModel()
@@ -2450,7 +2441,7 @@ func (u *UniterAPI) SetContainerSpec(args params.SetContainerSpecParams) (params
 			continue
 		}
 		results.Results[i].Error = common.ServerError(
-			cm.SetContainerSpec(tag, arg.Value),
+			cm.SetPodSpec(tag, arg.Value),
 		)
 	}
 	return results, nil

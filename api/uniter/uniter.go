@@ -457,25 +457,20 @@ func (c *State) GoalState() (string, error) {
 	return result.Results[0].Result, nil
 }
 
-// SetContainerSpec sets the container spec of the specified application or unit.
-func (c *State) SetContainerSpec(entityName string, spec string) error {
-	var tag names.Tag
-	switch {
-	case names.IsValidApplication(entityName):
-		tag = names.NewApplicationTag(entityName)
-	case names.IsValidUnit(entityName):
-		tag = names.NewUnitTag(entityName)
-	default:
-		return errors.NotValidf("application or unit name %q", entityName)
+// SetPodSpec sets the pod spec of the specified application.
+func (c *State) SetPodSpec(appName string, spec string) error {
+	if !names.IsValidApplication(appName) {
+		return errors.NotValidf("application name %q", appName)
 	}
+	tag := names.NewApplicationTag(appName)
 	var result params.ErrorResults
-	args := params.SetContainerSpecParams{
-		Entities: []params.EntityString{{
+	args := params.SetPodSpecParams{
+		Specs: []params.EntityString{{
 			Tag:   tag.String(),
 			Value: spec,
 		}},
 	}
-	if err := c.facade.FacadeCall("SetContainerSpec", args, &result); err != nil {
+	if err := c.facade.FacadeCall("SetPodSpec", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	return result.OneError()

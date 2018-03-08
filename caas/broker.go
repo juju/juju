@@ -65,7 +65,7 @@ type Broker interface {
 	DeleteOperator(appName string) error
 
 	// EnsureService creates or updates a service for pods with the given spec.
-	EnsureService(appName string, spec *ContainerSpec, numUnits int, config application.ConfigAttributes) error
+	EnsureService(appName string, spec *PodSpec, numUnits int, config application.ConfigAttributes) error
 
 	// Service returns the service for the specified application.
 	Service(appName string) (*Service, error)
@@ -80,7 +80,7 @@ type Broker interface {
 	UnexposeService(appName string) error
 
 	// EnsureUnit creates or updates a pod with the given spec.
-	EnsureUnit(appName, unitName string, spec *ContainerSpec) error
+	EnsureUnit(appName, unitName string, spec *PodSpec) error
 
 	// DeleteUnit deletes a unit pod with the given unit name.
 	DeleteUnit(unitName string) error

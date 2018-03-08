@@ -16,7 +16,7 @@ import (
 type Client interface {
 	ApplicationGetter
 	ApplicationUpdater
-	ContainerSpecGetter
+	PodSpecGetter
 	LifeGetter
 	UnitGetter
 	UnitUpdater
@@ -37,12 +37,11 @@ type ApplicationUpdater interface {
 	UpdateApplicationService(arg params.UpdateApplicationServiceArg) error
 }
 
-// ContainerSpecGetter provides an interface for
-// watching and getting the container spec for a
-// unit.
-type ContainerSpecGetter interface {
-	ContainerSpec(entityName string) (string, error)
-	WatchContainerSpec(entityName string) (watcher.NotifyWatcher, error)
+// PodSpecGetter provides an interface for
+// watching and getting the pod spec for an application.
+type PodSpecGetter interface {
+	PodSpec(appName string) (string, error)
+	WatchPodSpec(appName string) (watcher.NotifyWatcher, error)
 }
 
 // LifeGetter provides an interface for getting the

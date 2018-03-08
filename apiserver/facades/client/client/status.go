@@ -954,16 +954,17 @@ func (context *statusContext) processApplication(application *state.Application)
 		if err != nil {
 			return params.ApplicationStatus{Err: common.ServerError(err)}
 		}
-		specStr, err := caasModel.ContainerSpec(application.Tag())
+		specStr, err := caasModel.PodSpec(application.ApplicationTag())
 		if err != nil && !errors.IsNotFound(err) {
 			return params.ApplicationStatus{Err: common.ServerError(err)}
 		}
 		if specStr != "" {
-			spec, err := caas.ParseContainerSpec(specStr)
+			spec, err := caas.ParsePodSpec(specStr)
 			if err != nil {
 				return params.ApplicationStatus{Err: common.ServerError(err)}
 			}
-			processedStatus.WorkloadVersion = fmt.Sprintf("%v", spec.ImageName)
+			// Container zero is the primary.
+			processedStatus.WorkloadVersion = fmt.Sprintf("%v", spec.Containers[0].ImageName)
 		}
 		serviceInfo, err := application.ServiceInfo()
 		if err == nil {

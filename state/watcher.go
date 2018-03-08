@@ -3156,32 +3156,12 @@ func (w *externalControllersWatcher) loop() error {
 	}
 }
 
-// WatchContainerSpec returns a watcher observing changes that affect the
-// container spec for an application or unit.
-func (m *CAASModel) WatchContainerSpec(entity names.Tag) (NotifyWatcher, error) {
-	var docKeys []docKey
-	switch kind := entity.Kind(); kind {
-	case names.ApplicationTagKind:
-		docKeys = []docKey{{
-			containerSpecsC,
-			m.st.docID(entity.String()),
-		}}
-	case names.UnitTagKind:
-		appName, err := names.UnitApplication(entity.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		docKeys = []docKey{{
-			containerSpecsC,
-			m.st.docID(entity.String()),
-		}, {
-			containerSpecsC,
-			m.st.docID(names.NewApplicationTag(appName).String()),
-		}}
-	default:
-		return nil, errors.NotSupportedf(
-			"watching container spec for %s entity", kind,
-		)
-	}
+// WatchPodSpec returns a watcher observing changes that affect the
+// pod spec for an application or unit.
+func (m *CAASModel) WatchPodSpec(appTag names.ApplicationTag) (NotifyWatcher, error) {
+	docKeys := []docKey{{
+		podSpecsC,
+		m.st.docID(applicationGlobalKey(appTag.Id())),
+	}}
 	return newDocWatcher(m.st, docKeys), nil
 }
