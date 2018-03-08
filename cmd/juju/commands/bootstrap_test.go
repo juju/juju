@@ -76,9 +76,11 @@ func init() {
 		panic(err)
 	}
 	environs.RegisterProvider("no-cloud-region-detection", noCloudRegionDetectionProvider{})
-	environs.RegisterProvider("no-cloud-regions", noCloudRegionsProvider{dummyProvider})
+	environs.RegisterProvider("no-cloud-regions", noCloudRegionsProvider{
+		dummyProvider.(environs.CloudEnvironProvider)})
 	environs.RegisterProvider("no-credentials", noCredentialsProvider{})
-	environs.RegisterProvider("many-credentials", manyCredentialsProvider{dummyProvider})
+	environs.RegisterProvider("many-credentials", manyCredentialsProvider{
+		dummyProvider.(environs.CloudEnvironProvider)})
 }
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
@@ -1446,7 +1448,11 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 
 	unfinalizedCredential := cloud.NewEmptyCredential()
 	finalizedCredential := cloud.NewEmptyCredential()
-	fp := fileCredentialProvider{dummyProvider, tmpFile.Name(), &unfinalizedCredential, &finalizedCredential}
+	fp := fileCredentialProvider{
+		dummyProvider.(environs.CloudEnvironProvider),
+		tmpFile.Name(),
+		&unfinalizedCredential,
+		&finalizedCredential}
 	environs.RegisterProvider("file-credentials", fp)
 
 	resetJujuXDGDataHome(c)
@@ -2045,11 +2051,11 @@ func (fake *fakeBootstrapFuncs) CloudFinalizer(environs.EnvironProvider) (enviro
 }
 
 type noCloudRegionDetectionProvider struct {
-	environs.EnvironProvider
+	environs.CloudEnvironProvider
 }
 
 type noCloudRegionsProvider struct {
-	environs.EnvironProvider
+	environs.CloudEnvironProvider
 }
 
 func (noCloudRegionsProvider) DetectRegions() ([]cloud.Region, error) {
@@ -2061,7 +2067,7 @@ func (noCloudRegionsProvider) CredentialSchemas() map[cloud.AuthType]cloud.Crede
 }
 
 type noCredentialsProvider struct {
-	environs.EnvironProvider
+	environs.CloudEnvironProvider
 }
 
 func (noCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
@@ -2077,7 +2083,7 @@ func (noCredentialsProvider) CredentialSchemas() map[cloud.AuthType]cloud.Creden
 }
 
 type manyCredentialsProvider struct {
-	environs.EnvironProvider
+	environs.CloudEnvironProvider
 }
 
 func (manyCredentialsProvider) DetectRegions() ([]cloud.Region, error) {
@@ -2100,7 +2106,7 @@ func (manyCredentialsProvider) CredentialSchemas() map[cloud.AuthType]cloud.Cred
 type cloudDetectorFunc func() ([]cloud.Cloud, error)
 
 type fileCredentialProvider struct {
-	environs.EnvironProvider
+	environs.CloudEnvironProvider
 	testFileName          string
 	unFinalizedCredential *cloud.Credential
 	finalizedCredential   *cloud.Credential

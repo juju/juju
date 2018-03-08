@@ -23,7 +23,7 @@ type ProviderFixture struct {
 	testing.IsolationSuite
 	dialStub testing.Stub
 	client   *mockClient
-	provider environs.EnvironProvider
+	provider environs.CloudEnvironProvider
 }
 
 func (s *ProviderFixture) SetUpTest(c *gc.C) {

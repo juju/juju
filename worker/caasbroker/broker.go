@@ -8,8 +8,8 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/worker/catacomb"
 )
 
@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.worker.caas")
 // that allows clients to be informed of changes to the configuration.
 type ConfigAPI interface {
 	CloudSpec() (environs.CloudSpec, error)
-	Model() (*model.Model, error)
+	ModelConfig() (*config.Config, error)
 }
 
 // Config describes the dependencies of a Tracker.
@@ -63,11 +63,14 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get cloud information")
 	}
-	model, err := config.ConfigAPI.Model()
+	cfg, err := config.ConfigAPI.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	broker, err := config.NewContainerBrokerFunc(cloudSpec, model.Name)
+	broker, err := config.NewContainerBrokerFunc(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: cfg,
+	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create caas broker")
 	}

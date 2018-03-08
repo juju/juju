@@ -8,7 +8,7 @@ import (
 	"github.com/juju/juju/provider/openstack"
 )
 
-func NewProvider(innerProvider environs.EnvironProvider) environs.EnvironProvider {
+func NewProvider(innerProvider environs.CloudEnvironProvider) environs.EnvironProvider {
 	return &environProvider{innerProvider}
 }
 
@@ -17,7 +17,7 @@ func NewEnviron(innerEnviron environs.Environ) environs.Environ {
 }
 
 func OpenstackProvider(p environs.EnvironProvider) *openstack.EnvironProvider {
-	return p.(*environProvider).EnvironProvider.(*openstack.EnvironProvider)
+	return p.(*environProvider).CloudEnvironProvider.(*openstack.EnvironProvider)
 }
 
 var Bootstrap = &bootstrap

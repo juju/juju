@@ -833,7 +833,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := provider.Open(environs.OpenParams{
+	env, err := environs.Open(provider, environs.OpenParams{
 		Cloud:  dummy.SampleCloudSpec(),
 		Config: cfg,
 	})
