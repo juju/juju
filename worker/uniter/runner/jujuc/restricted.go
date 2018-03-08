@@ -35,8 +35,8 @@ func (*RestrictedContext) UnitStatus() (*StatusInfo, error) {
 	return nil, ErrRestrictedContext
 }
 
-// SetContainerSpec implements hooks.Context.
-func (c *RestrictedContext) SetContainerSpec(specYaml string, application bool) error {
+// SetPodSpec implements hooks.Context.
+func (c *RestrictedContext) SetPodSpec(specYaml string) error {
 	return ErrRestrictedContext
 }
 

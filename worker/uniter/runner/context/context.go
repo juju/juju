@@ -495,21 +495,19 @@ func (ctx *HookContext) GoalState() (string, error) {
 	return ctx.goalState, nil
 }
 
-func (ctx *HookContext) SetContainerSpec(specYaml string, application bool) error {
+func (ctx *HookContext) SetPodSpec(specYaml string) error {
 	entityName := ctx.unitName
-	if application {
-		isLeader, err := ctx.IsLeader()
-		if err != nil {
-			return errors.Annotatef(err, "cannot determine leadership")
-		}
-		if !isLeader {
-			// TODO(caas) - race - initial unit is sometimes not recognised as the leader
-			logger.Warningf("%v is not the leader but is setting application container spec", entityName)
-			//return ErrIsNotLeader
-		}
-		entityName = ctx.unit.ApplicationName()
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine leadership")
 	}
-	return ctx.state.SetContainerSpec(entityName, specYaml)
+	if !isLeader {
+		// TODO(caas) - race - initial unit is sometimes not recognised as the leader
+		logger.Warningf("%v is not the leader but is setting application pod spec", entityName)
+		//return ErrIsNotLeader
+	}
+	entityName = ctx.unit.ApplicationName()
+	return ctx.state.SetPodSpec(entityName, specYaml)
 }
 
 // ActionName returns the name of the action.

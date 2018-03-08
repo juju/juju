@@ -38,7 +38,6 @@ Currently available charm hook tools are:
     application-version-set  specify which version of the application is deployed
     close-port               ensure a port or range is always closed
     config-get               print application configuration
-    container-spec-set       set container spec information
     goal-state               print the status of the charm's peers and related units
     is-leader                print application leadership status
     juju-log                 write a message to the juju log
@@ -48,6 +47,7 @@ Currently available charm hook tools are:
     network-get              get network config
     open-port                register a port or range to open
     opened-ports             lists all ports or ranges opened by the unit
+    pod-spec-set             set pod spec information
     relation-get             get relation settings
     relation-ids             list all relation ids with the given relation name
     relation-list            list relation units
@@ -77,7 +77,6 @@ var expectedCommands = []string{
 	"application-version-set",
 	"close-port",
 	"config-get",
-	"container-spec-set",
 	"goal-state",
 	"is-leader",
 	"juju-log",
@@ -90,6 +89,7 @@ var expectedCommands = []string{
 	"payload-register",
 	"payload-status-set",
 	"payload-unregister",
+	"pod-spec-set",
 	"relation-get",
 	"relation-ids",
 	"relation-list",

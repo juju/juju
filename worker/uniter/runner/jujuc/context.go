@@ -97,8 +97,8 @@ type ContextUnit interface {
 	// GoalState returns the goal state for the current unit.
 	GoalState() (string, error)
 
-	// SetContainerSpec updates the yaml spec used to create a container.
-	SetContainerSpec(specYaml string, application bool) error
+	// SetPodSpec updates the yaml spec used to create a pod.
+	SetPodSpec(specYaml string) error
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.
