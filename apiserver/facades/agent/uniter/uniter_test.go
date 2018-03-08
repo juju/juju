@@ -130,17 +130,6 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.uniter = uniterAPI
-
-	// Update the application config for wordpress so that it is authorised to
-	// retrieve its cloud spec.
-	conf := map[string]interface{}{"trust": true}
-	fields := map[string]environschema.Attr{
-		"trust": {Type: environschema.Tbool},
-	}
-	s.wordpress.UpdateApplicationConfig(conf, nil, fields, map[string]interface{}{"trust": false})
-	newConf, err := s.wordpress.ApplicationConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newConf.GetBool("trust", false), jc.IsTrue)
 }
 
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
@@ -4171,27 +4160,46 @@ func (s *uniterSuite) TestGoalStates(c *gc.C) {
 }
 
 func (s *uniterSuite) TestGetCloudSpecDeniesAccessWhenNotTrusted(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: names.NewApplicationTag("mysql").String()},
-	}}
-	result, err := s.uniter.CloudSpec(args)
+	result, err := s.uniter.CloudSpec()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.CloudSpecResults{
-		Results: []params.CloudSpecResult{
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
+	c.Assert(result, gc.DeepEquals, params.CloudSpecResult{Error: apiservertesting.ErrUnauthorized})
 }
 
-func (s *uniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: names.NewApplicationTag("wordpress").String()},
-	}}
-	ret, err := s.uniter.CloudSpec(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ret.Results, gc.HasLen, 1)
+const appConfigTrustKey = "trust"
 
-	result := ret.Results[0]
+type cloudSpecUniterSuite struct {
+	base uniterSuite
+}
+
+var _ = gc.Suite(&cloudSpecUniterSuite{})
+
+func (s *cloudSpecUniterSuite) SetUpSuite(c *gc.C) {
+	s.base.SetUpSuite(c)
+}
+
+func (s *cloudSpecUniterSuite) TearDownSuite(c *gc.C) {
+	s.base.TearDownSuite(c)
+}
+
+func (s *cloudSpecUniterSuite) SetUpTest(c *gc.C) {
+	s.base.SetUpTest(c)
+
+	// Update the application config for wordpress so that it is authorised to
+	// retrieve its cloud spec.
+	conf := map[string]interface{}{appConfigTrustKey: true}
+	fields := map[string]environschema.Attr{appConfigTrustKey: {Type: environschema.Tbool}}
+	defaults := map[string]interface{}{appConfigTrustKey: false}
+	err := s.base.wordpress.UpdateApplicationConfig(conf, nil, fields, defaults)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newConf, err := s.base.wordpress.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newConf.GetBool(appConfigTrustKey, false), jc.IsTrue)
+}
+
+func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
+	result, err := s.base.uniter.CloudSpec()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result.Name, gc.Equals, "dummy")
 
