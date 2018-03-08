@@ -204,7 +204,7 @@ func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  lxdCloudSpec(),
 		Config: s.Config,
 	})

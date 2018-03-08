@@ -199,21 +199,30 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 			hasErrors = true
 			continue
 		}
-		env, err := environs.New(environs.OpenParams{
-			Cloud:  model.CloudSpec,
-			Config: cfg,
-		})
+		p, err := environs.Provider(model.CloudSpec.Type)
 		if err != nil {
 			logger.Errorf(err.Error())
 			hasErrors = true
 			continue
 		}
-		if err := env.Destroy(); err != nil {
-			logger.Errorf(err.Error())
-			hasErrors = true
-		} else {
-			ctx.Infof("  done")
+		// TODO(caas) - only cloud providers support Destroy()
+		if cloudProvider, ok := p.(environs.CloudEnvironProvider); ok {
+			env, err := environs.Open(cloudProvider, environs.OpenParams{
+				Cloud:  model.CloudSpec,
+				Config: cfg,
+			})
+			if err != nil {
+				logger.Errorf(err.Error())
+				hasErrors = true
+				continue
+			}
+			if err := env.Destroy(); err != nil {
+				logger.Errorf(err.Error())
+				hasErrors = true
+				continue
+			}
 		}
+		ctx.Infof("  done")
 	}
 	if hasErrors {
 		logger.Errorf("there were problems destroying some models, manual intervention may be necessary to ensure resources are released")

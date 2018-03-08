@@ -18,7 +18,16 @@ func New(args OpenParams) (Environ, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.Open(args)
+	return Open(p, args)
+}
+
+// Open creates an Environ instance and errors if the provider is not for a cloud.
+func Open(p EnvironProvider, args OpenParams) (Environ, error) {
+	if envProvider, ok := p.(CloudEnvironProvider); !ok {
+		return nil, errors.NotValidf("cloud environ provider %T", p)
+	} else {
+		return envProvider.Open(args)
+	}
 }
 
 // Destroy destroys the controller and, if successful,

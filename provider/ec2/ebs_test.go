@@ -69,7 +69,7 @@ func (s *ebsSuite) ebsProvider(c *gc.C) storage.Provider {
 			"secret-key": "x",
 		},
 	)
-	env, err := provider.Open(environs.OpenParams{
+	env, err := environs.Open(provider, environs.OpenParams{
 		Cloud: environs.CloudSpec{
 			Type:       "ec2",
 			Name:       "ec2test",

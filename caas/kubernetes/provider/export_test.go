@@ -3,7 +3,11 @@
 
 package provider
 
-import "k8s.io/client-go/pkg/api/v1"
+import (
+	"k8s.io/client-go/pkg/api/v1"
+
+	"github.com/juju/juju/caas"
+)
 
 var (
 	MakeUnitSpec = makeUnitSpec
@@ -11,4 +15,8 @@ var (
 
 func PodSpec(u *unitSpec) v1.PodSpec {
 	return u.Pod
+}
+
+func NewProvider() caas.ContainerEnvironProvider {
+	return kubernetesEnvironProvider{}
 }

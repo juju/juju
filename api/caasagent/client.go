@@ -5,18 +5,17 @@ package caasagent
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/model"
 )
 
 // Client provides access to an agent's view of state.
 type Client struct {
 	facade base.FacadeCaller
 	*cloudspec.CloudSpecAPI
+	*common.ModelWatcher
 }
 
 // NewClient returns a version of an api client that provides functionality
@@ -30,24 +29,6 @@ func NewClient(caller base.APICaller) (*Client, error) {
 	return &Client{
 		facade:       facadeCaller,
 		CloudSpecAPI: cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
-	}, nil
-}
-
-// Model returns details of the api's model.
-func (st *Client) Model() (*model.Model, error) {
-	var result params.Model
-	err := st.facade.FacadeCall("Model", nil, &result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	owner, err := names.ParseUserTag(result.OwnerTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &model.Model{
-		Name:  result.Name,
-		Type:  model.ModelType(result.Type),
-		UUID:  result.UUID,
-		Owner: owner,
+		ModelWatcher: common.NewModelWatcher(facadeCaller),
 	}, nil
 }

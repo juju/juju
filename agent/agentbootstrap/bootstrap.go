@@ -197,7 +197,7 @@ func InitializeState(
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting environ provider")
 	}
-	hostedModelEnv, err := provider.Open(environs.OpenParams{
+	hostedModelEnv, err := environs.Open(provider, environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: hostedModelConfig,
 	})

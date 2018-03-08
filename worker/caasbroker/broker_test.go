@@ -5,8 +5,8 @@ package caasbroker_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/model"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
@@ -66,8 +66,20 @@ func (s *TrackerSuite) TestCloudSpecFails(c *gc.C) {
 	})
 }
 
+func (s *TrackerSuite) validFixture() *fixture {
+	cloudSpec := environs.CloudSpec{
+		Name:   "foo",
+		Type:   "bar",
+		Region: "baz",
+	}
+	cfg := coretesting.FakeConfig()
+	cfg["type"] = "kubernetes"
+	cfg["uuid"] = utils.MustNewUUID().String()
+	return &fixture{cloud: cloudSpec, config: cfg}
+}
+
 func (s *TrackerSuite) TestSuccess(c *gc.C) {
-	fix := &fixture{}
+	fix := s.validFixture()
 	fix.Run(c, func(context *runContext) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
 			ConfigAPI:              context,
@@ -82,21 +94,13 @@ func (s *TrackerSuite) TestSuccess(c *gc.C) {
 }
 
 func (s *TrackerSuite) TestInitialise(c *gc.C) {
-	cloudSpec := environs.CloudSpec{
-		Name:   "foo",
-		Type:   "bar",
-		Region: "baz",
-	}
-	caasmodel := model.Model{
-		Name: "modelname",
-	}
-	fix := &fixture{cloud: cloudSpec, model: caasmodel}
+	fix := s.validFixture()
 	fix.Run(c, func(context *runContext) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
 			ConfigAPI: context,
-			NewContainerBrokerFunc: func(spec environs.CloudSpec, namespace string) (caas.Broker, error) {
-				c.Assert(spec, jc.DeepEquals, cloudSpec)
-				c.Assert(namespace, jc.DeepEquals, "modelname")
+			NewContainerBrokerFunc: func(args environs.OpenParams) (caas.Broker, error) {
+				c.Assert(args.Cloud, jc.DeepEquals, fix.cloud)
+				c.Assert(args.Config.Name(), jc.DeepEquals, "testenv")
 				return nil, errors.NotValidf("cloud spec")
 			},
 		})

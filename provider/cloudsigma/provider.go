@@ -46,7 +46,7 @@ type environProvider struct {
 var providerInstance = environProvider{}
 
 // check the provider implements environs.EnvironProvider interface
-var _ environs.EnvironProvider = (*environProvider)(nil)
+var _ environs.CloudEnvironProvider = (*environProvider)(nil)
 
 func init() {
 	// This will only happen in binaries that actually import this provider

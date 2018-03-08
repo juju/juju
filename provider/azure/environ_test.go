@@ -251,7 +251,7 @@ func openEnviron(
 	// Opening the environment should not incur network communication,
 	// so we don't set s.sender until after opening.
 	cfg := makeTestModelConfig(c, attrs...)
-	env, err := provider.Open(environs.OpenParams{
+	env, err := environs.Open(provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
 	})
@@ -283,7 +283,7 @@ func prepareForBootstrap(
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := provider.Open(environs.OpenParams{
+	env, err := environs.Open(provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
 	})
