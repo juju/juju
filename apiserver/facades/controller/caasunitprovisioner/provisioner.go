@@ -108,9 +108,9 @@ func (f *Facade) watchUnits(tagString string) (string, []string, error) {
 	return "", nil, watcher.EnsureErr(w)
 }
 
-// WatchContainerSpec starts a NotifyWatcher to watch changes to the
-// container spec for specified units in this model.
-func (f *Facade) WatchContainerSpec(args params.Entities) (params.NotifyWatchResults, error) {
+// WatchPodSpec starts a NotifyWatcher to watch changes to the
+// pod spec for specified units in this model.
+func (f *Facade) WatchPodSpec(args params.Entities) (params.NotifyWatchResults, error) {
 	model, err := f.state.Model()
 	if err != nil {
 		return params.NotifyWatchResults{}, errors.Trace(err)
@@ -119,7 +119,7 @@ func (f *Facade) WatchContainerSpec(args params.Entities) (params.NotifyWatchRes
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		id, err := f.watchContainerSpec(model, arg.Tag)
+		id, err := f.watchPodSpec(model, arg.Tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -129,12 +129,12 @@ func (f *Facade) WatchContainerSpec(args params.Entities) (params.NotifyWatchRes
 	return results, nil
 }
 
-func (f *Facade) watchContainerSpec(model Model, tagString string) (string, error) {
-	tag, err := names.ParseUnitTag(tagString)
+func (f *Facade) watchPodSpec(model Model, tagString string) (string, error) {
+	tag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	w, err := model.WatchContainerSpec(tag)
+	w, err := model.WatchPodSpec(tag)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -144,8 +144,8 @@ func (f *Facade) watchContainerSpec(model Model, tagString string) (string, erro
 	return "", watcher.EnsureErr(w)
 }
 
-// ContainerSpec returns the container spec for specified units in this model.
-func (f *Facade) ContainerSpec(args params.Entities) (params.StringResults, error) {
+// PodSpec returns the pod spec for specified units in this model.
+func (f *Facade) PodSpec(args params.Entities) (params.StringResults, error) {
 	model, err := f.state.Model()
 	if err != nil {
 		return params.StringResults{}, errors.Trace(err)
@@ -154,7 +154,7 @@ func (f *Facade) ContainerSpec(args params.Entities) (params.StringResults, erro
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		spec, err := f.containerSpec(model, arg.Tag)
+		spec, err := f.podSpec(model, arg.Tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -164,12 +164,12 @@ func (f *Facade) ContainerSpec(args params.Entities) (params.StringResults, erro
 	return results, nil
 }
 
-func (f *Facade) containerSpec(model Model, tagString string) (string, error) {
-	tag, err := names.ParseUnitTag(tagString)
+func (f *Facade) podSpec(model Model, tagString string) (string, error) {
+	tag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return model.ContainerSpec(tag)
+	return model.PodSpec(tag)
 }
 
 // ApplicationsConfig returns the config for the specified applications.

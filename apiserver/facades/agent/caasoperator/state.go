@@ -22,7 +22,7 @@ type CAASOperatorState interface {
 // Model provides the subset of CAAS model state required
 // by the CAAS operator facade.
 type Model interface {
-	SetContainerSpec(names.Tag, string) error
+	SetPodSpec(names.ApplicationTag, string) error
 	Name() string
 }
 

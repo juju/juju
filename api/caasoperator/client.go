@@ -103,25 +103,20 @@ func (c *Client) Charm(application string) (_ *charm.URL, sha256 string, _ error
 	return curl, result.SHA256, nil
 }
 
-// SetContainerSpec sets the container spec of the specified application or unit.
-func (c *Client) SetContainerSpec(entityName string, spec string) error {
-	var tag names.Tag
-	switch {
-	case names.IsValidApplication(entityName):
-		tag = names.NewApplicationTag(entityName)
-	case names.IsValidUnit(entityName):
-		tag = names.NewUnitTag(entityName)
-	default:
-		return errors.NotValidf("application or unit name %q", entityName)
+// SetPodSpec sets the pod spec of the specified application.
+func (c *Client) SetPodSpec(appName string, spec string) error {
+	tag, err := applicationTag(appName)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	var result params.ErrorResults
-	args := params.SetContainerSpecParams{
-		Entities: []params.EntityString{{
+	args := params.SetPodSpecParams{
+		Specs: []params.EntityString{{
 			Tag:   tag.String(),
 			Value: spec,
 		}},
 	}
-	if err := c.facade.FacadeCall("SetContainerSpec", args, &result); err != nil {
+	if err := c.facade.FacadeCall("SetPodSpec", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	return result.OneError()

@@ -197,7 +197,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		firewallRulesC,
 
 		// TODO(caas)
-		containerSpecsC,
+		podSpecsC,
 		cloudContainersC,
 		cloudServicesC,
 	)

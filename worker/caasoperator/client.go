@@ -18,7 +18,7 @@ type Client interface {
 	CharmGetter
 	UnitGetter
 	LifeGetter
-	ContainerSpecSetter
+	PodSpecSetter
 	StatusSetter
 	ModelName() (string, error)
 }
@@ -44,11 +44,10 @@ type LifeGetter interface {
 	Life(string) (life.Value, error)
 }
 
-// ContainerSpecSetter provides an interface for
-// setting the container spec for the application
-// or unit thereof.
-type ContainerSpecSetter interface {
-	SetContainerSpec(entityName, spec string) error
+// PodSpecSetter provides an interface for
+// setting the pod spec for the application.
+type PodSpecSetter interface {
+	SetPodSpec(appName, spec string) error
 }
 
 // StatusSetter provides an interface for setting

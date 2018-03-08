@@ -132,40 +132,27 @@ func (f *Facade) Charm(args params.Entities) (params.ApplicationCharmResults, er
 	return results, nil
 }
 
-// SetContainerSpec sets the container specs for a set of entities.
-func (f *Facade) SetContainerSpec(args params.SetContainerSpecParams) (params.ErrorResults, error) {
+// SetPodSpec sets the container specs for a set of applications.
+func (f *Facade) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
+		Results: make([]params.ErrorResult, len(args.Specs)),
 	}
-	authTag := f.auth.GetAuthTag()
-	canAccess := func(tag names.Tag) bool {
-		if tag == authTag {
-			return true
-		}
-		if tag, ok := tag.(names.UnitTag); ok {
-			appName, err := names.UnitApplication(tag.Id())
-			if err == nil && appName == authTag.Id() {
-				return true
-			}
-		}
-		return false
-	}
-	for i, arg := range args.Entities {
-		tag, err := names.ParseTag(arg.Tag)
+	for i, arg := range args.Specs {
+		tag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		if !canAccess(tag) {
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := caas.ParseContainerSpec(arg.Value); err != nil {
-			results.Results[i].Error = common.ServerError(errors.New("invalid container spec"))
+		if !f.auth.AuthOwner(tag) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if _, err := caas.ParsePodSpec(arg.Value); err != nil {
+			results.Results[i].Error = common.ServerError(errors.New("invalid pod spec"))
 			continue
 		}
 		results.Results[i].Error = common.ServerError(
-			f.model.SetContainerSpec(tag, arg.Value),
+			f.model.SetPodSpec(tag, arg.Value),
 		)
 	}
 	return results, nil
