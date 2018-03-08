@@ -73,7 +73,7 @@ func (m *mockModel) PodSpec(tag names.ApplicationTag) (string, error) {
 	return "spec(" + tag.Id() + ")", nil
 }
 
-func (m *mockModel) WatchPodSpec(tag names.Tag) (state.NotifyWatcher, error) {
+func (m *mockModel) WatchPodSpec(tag names.ApplicationTag) (state.NotifyWatcher, error) {
 	m.MethodCall(m, "WatchPodSpec", tag)
 	if err := m.NextErr(); err != nil {
 		return nil, err
