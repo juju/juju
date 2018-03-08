@@ -15,15 +15,15 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type containerSpecSuite struct {
+type podSpecSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&containerSpecSuite{})
+var _ = gc.Suite(&podSpecSuite{})
 
-func (s *containerSpecSuite) TestSetContainerSpec(c *gc.C) {
-	expected := params.SetContainerSpecParams{
-		Entities: []params.EntityString{{
+func (s *podSpecSuite) TestSetPodSpec(c *gc.C) {
+	expected := params.SetPodSpecParams{
+		Specs: []params.EntityString{{
 			Tag:   "application-mysql",
 			Value: "spec",
 		}},
@@ -33,7 +33,7 @@ func (s *containerSpecSuite) TestSetContainerSpec(c *gc.C) {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(version, gc.Equals, expectedAPIVersion)
 		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "SetContainerSpec")
+		c.Assert(request, gc.Equals, "SetPodSpec")
 		c.Assert(arg, gc.DeepEquals, expected)
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
@@ -44,20 +44,20 @@ func (s *containerSpecSuite) TestSetContainerSpec(c *gc.C) {
 		return nil
 	})
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	err := st.SetContainerSpec("mysql", "spec")
+	err := st.SetPodSpec("mysql", "spec")
 	c.Assert(err, gc.ErrorMatches, "yoink")
 }
 
-func (s *containerSpecSuite) TestSetContainerSpecInvalidEntityame(c *gc.C) {
+func (s *podSpecSuite) TestSetPodSpecInvalidApplicationName(c *gc.C) {
 	st := uniter.NewState(nil, names.NewUnitTag("mysql/0"))
-	err := st.SetContainerSpec("", "spec")
-	c.Assert(err, gc.ErrorMatches, `application or unit name "" not valid`)
+	err := st.SetPodSpec("", "spec")
+	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 
-func (s *containerSpecSuite) TestSetContainerSpecError(c *gc.C) {
-	expected := params.SetContainerSpecParams{
-		Entities: []params.EntityString{{
-			Tag:   "unit-mysql-0",
+func (s *podSpecSuite) TestSetPodSpecError(c *gc.C) {
+	expected := params.SetPodSpecParams{
+		Specs: []params.EntityString{{
+			Tag:   "application-mysql",
 			Value: "spec",
 		}},
 	}
@@ -68,7 +68,7 @@ func (s *containerSpecSuite) TestSetContainerSpecError(c *gc.C) {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(version, gc.Equals, expectedAPIVersion)
 		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "SetContainerSpec")
+		c.Assert(request, gc.Equals, "SetPodSpec")
 		c.Assert(arg, gc.DeepEquals, expected)
 		called = true
 
@@ -77,7 +77,7 @@ func (s *containerSpecSuite) TestSetContainerSpecError(c *gc.C) {
 	})
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	err := st.SetContainerSpec("mysql/0", "spec")
+	err := st.SetPodSpec("mysql", "spec")
 	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
 }

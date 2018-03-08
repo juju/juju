@@ -75,8 +75,8 @@ type mockModel struct {
 	testing.Stub
 }
 
-func (m *mockModel) SetContainerSpec(tag names.Tag, spec string) error {
-	m.MethodCall(m, "SetContainerSpec", tag, spec)
+func (m *mockModel) SetPodSpec(tag names.ApplicationTag, spec string) error {
+	m.MethodCall(m, "SetPodSpec", tag, spec)
 	return m.NextErr()
 }
 
