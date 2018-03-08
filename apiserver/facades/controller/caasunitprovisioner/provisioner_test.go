@@ -25,10 +25,10 @@ var _ = gc.Suite(&CAASProvisionerSuite{})
 type CAASProvisionerSuite struct {
 	coretesting.BaseSuite
 
-	st                   *mockState
-	applicationsChanges  chan []string
-	containerSpecChanges chan struct{}
-	unitsChanges         chan []string
+	st                  *mockState
+	applicationsChanges chan []string
+	podSpecChanges      chan struct{}
+	unitsChanges        chan []string
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
@@ -39,7 +39,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.applicationsChanges = make(chan []string, 1)
-	s.containerSpecChanges = make(chan struct{}, 1)
+	s.podSpecChanges = make(chan struct{}, 1)
 	s.unitsChanges = make(chan []string, 1)
 	s.st = &mockState{
 		application: mockApplication{
@@ -49,7 +49,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 		},
 		applicationsWatcher: statetesting.NewMockStringsWatcher(s.applicationsChanges),
 		model: mockModel{
-			containerSpecWatcher: statetesting.NewMockNotifyWatcher(s.containerSpecChanges),
+			podSpecWatcher: statetesting.NewMockNotifyWatcher(s.podSpecChanges),
 		},
 		unit: mockUnit{
 			life: state.Dying,
@@ -57,7 +57,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.application.unitsWatcher) })
-	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.model.containerSpecWatcher) })
+	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.model.podSpecWatcher) })
 
 	s.resources = common.NewResources()
 	s.authorizer = &apiservertesting.FakeAuthorizer{
@@ -91,25 +91,25 @@ func (s *CAASProvisionerSuite) TestWatchApplications(c *gc.C) {
 	c.Assert(resource, gc.Equals, s.st.applicationsWatcher)
 }
 
-func (s *CAASProvisionerSuite) TestWatchContainerSpec(c *gc.C) {
-	s.containerSpecChanges <- struct{}{}
+func (s *CAASProvisionerSuite) TestWatchPodSpec(c *gc.C) {
+	s.podSpecChanges <- struct{}{}
 
-	results, err := s.facade.WatchContainerSpec(params.Entities{
+	results, err := s.facade.WatchPodSpec(params.Entities{
 		Entities: []params.Entity{
-			{Tag: "unit-gitlab-0"},
 			{Tag: "application-gitlab"},
+			{Tag: "unit-gitlab-0"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
-		Message: `"application-gitlab" is not a valid unit tag`,
+		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 
 	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "1")
 	resource := s.resources.Get("1")
-	c.Assert(resource, gc.Equals, s.st.model.containerSpecWatcher)
+	c.Assert(resource, gc.Equals, s.st.model.podSpecWatcher)
 }
 
 func (s *CAASProvisionerSuite) TestWatchUnits(c *gc.C) {
@@ -134,20 +134,20 @@ func (s *CAASProvisionerSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(resource, gc.Equals, s.st.application.unitsWatcher)
 }
 
-func (s *CAASProvisionerSuite) TestContainerSpec(c *gc.C) {
-	results, err := s.facade.ContainerSpec(params.Entities{
+func (s *CAASProvisionerSuite) TestPodSpec(c *gc.C) {
+	results, err := s.facade.PodSpec(params.Entities{
 		Entities: []params.Entity{
-			{Tag: "unit-gitlab-0"},
 			{Tag: "application-gitlab"},
+			{Tag: "unit-gitlab-0"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{
-			Result: "spec(gitlab/0)",
+			Result: "spec(gitlab)",
 		}, {
 			Error: &params.Error{
-				Message: `"application-gitlab" is not a valid unit tag`,
+				Message: `"unit-gitlab-0" is not a valid application tag`,
 			},
 		}},
 	})

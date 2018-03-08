@@ -23,7 +23,7 @@ func (s *slaSuiteV4) SetUpTest(c *gc.C) {
 	s.PatchValue(&uniter.NewState, uniter.NewStateV4)
 }
 
-func (s *slaSuiteV4) TestSetContainerSpecApplication(c *gc.C) {
+func (s *slaSuiteV4) TestSetPodSpecApplication(c *gc.C) {
 	c.Skip("this API not present in V4")
 }
 
