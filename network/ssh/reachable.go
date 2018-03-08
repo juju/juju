@@ -99,6 +99,7 @@ func (h *hostKeyChecker) hostKeyCallback(hostname string, remote net.Addr, key s
 		// first, still exit.
 		select {
 		case h.Accepted <- h.HostPort:
+			// We have accepted a host, we won't need to call Finished.
 			h.Finished = nil
 			return hostKeyAccepted
 		case <-h.Stop:
@@ -193,7 +194,7 @@ type reachableChecker struct {
 // and error will be returned.
 func (r *reachableChecker) FindHost(hostPorts []network.HostPort, publicKeys []string) (network.HostPort, error) {
 	uniqueHPs := network.UniqueHostPorts(hostPorts)
-	successful := make(chan network.HostPort, 1)
+	successful := make(chan network.HostPort)
 	stop := make(chan struct{})
 	// We use a channel instead of a sync.WaitGroup so that we can return as
 	// soon as we get one connected. We'll signal the rest to stop via the
@@ -213,6 +214,7 @@ func (r *reachableChecker) FindHost(hostPorts []network.HostPort, publicKeys []s
 		go checker.Check()
 	}
 
+	timeout := time.After(r.timeout)
 	for finishedCount := 0; finishedCount < len(uniqueHPs); {
 		select {
 		case result := <-successful:
@@ -221,7 +223,7 @@ func (r *reachableChecker) FindHost(hostPorts []network.HostPort, publicKeys []s
 			return result, nil
 		case <-finished:
 			finishedCount++
-		case <-time.After(r.timeout):
+		case <-timeout:
 			break
 		}
 	}
