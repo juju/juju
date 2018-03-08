@@ -27,15 +27,15 @@ import (
 type WorkerSuite struct {
 	testing.IsolationSuite
 
-	config              caasunitprovisioner.Config
-	applicationGetter   mockApplicationGetter
-	applicationUpdater  mockApplicationUpdater
-	serviceBroker       mockServiceBroker
-	containerBroker     mockContainerBroker
-	containerSpecGetter mockContainerSpecGetter
-	lifeGetter          mockLifeGetter
-	unitGetter          mockUnitGetter
-	unitUpdater         mockUnitUpdater
+	config             caasunitprovisioner.Config
+	applicationGetter  mockApplicationGetter
+	applicationUpdater mockApplicationUpdater
+	serviceBroker      mockServiceBroker
+	containerBroker    mockContainerBroker
+	podSpecGetter      mockPodSpecGetter
+	lifeGetter         mockLifeGetter
+	unitGetter         mockUnitGetter
+	unitUpdater        mockUnitUpdater
 
 	applicationChanges   chan []string
 	jujuUnitChanges      chan []string
@@ -53,29 +53,31 @@ var _ = gc.Suite(&WorkerSuite{})
 
 var (
 	containerSpec = `
-name: gitlab
-image-name: gitlab/latest
-ports:
-- container-port: 80
-  protocol: TCP
-- container-port: 443
-config:
-  attr: foo=bar; fred=blogs
-  foo: bar
+containers:
+  - name: gitlab
+    image-name: gitlab/latest
+    ports:
+    - container-port: 80
+      protocol: TCP
+    - container-port: 443
+    config:
+      attr: foo=bar; fred=blogs
+      foo: bar
 `[1:]
 
-	parsedSpec = caas.ContainerSpec{
-		Name:      "gitlab",
-		ImageName: "gitlab/latest",
-		Ports: []caas.ContainerPort{
-			{ContainerPort: 80, Protocol: "TCP"},
-			{ContainerPort: 443},
-		},
-		Config: map[string]string{
-			"attr": "foo=bar; fred=blogs",
-			"foo":  "bar",
-		},
-	}
+	parsedSpec = caas.PodSpec{
+		Containers: []caas.ContainerSpec{{
+			Name:      "gitlab",
+			ImageName: "gitlab/latest",
+			Ports: []caas.ContainerPort{
+				{ContainerPort: 80, Protocol: "TCP"},
+				{ContainerPort: 443},
+			},
+			Config: map[string]string{
+				"attr": "foo=bar; fred=blogs",
+				"foo":  "bar",
+			},
+		}}}
 )
 
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
@@ -98,10 +100,10 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		updated: s.serviceUpdated,
 	}
 
-	s.containerSpecGetter = mockContainerSpecGetter{
+	s.podSpecGetter = mockPodSpecGetter{
 		watcher: watchertest.NewMockNotifyWatcher(s.containerSpecChanges),
 	}
-	s.containerSpecGetter.setSpec(containerSpec)
+	s.podSpecGetter.setSpec(containerSpec)
 
 	s.unitGetter = mockUnitGetter{
 		watcher: watchertest.NewMockStringsWatcher(s.jujuUnitChanges),
@@ -121,14 +123,14 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.config = caasunitprovisioner.Config{
-		ApplicationGetter:   &s.applicationGetter,
-		ApplicationUpdater:  &s.applicationUpdater,
-		ServiceBroker:       &s.serviceBroker,
-		ContainerBroker:     &s.containerBroker,
-		ContainerSpecGetter: &s.containerSpecGetter,
-		LifeGetter:          &s.lifeGetter,
-		UnitGetter:          &s.unitGetter,
-		UnitUpdater:         &s.unitUpdater,
+		ApplicationGetter:  &s.applicationGetter,
+		ApplicationUpdater: &s.applicationUpdater,
+		ServiceBroker:      &s.serviceBroker,
+		ContainerBroker:    &s.containerBroker,
+		PodSpecGetter:      &s.podSpecGetter,
+		LifeGetter:         &s.lifeGetter,
+		UnitGetter:         &s.unitGetter,
+		UnitUpdater:        &s.unitUpdater,
 	}
 }
 
@@ -136,7 +138,7 @@ func (s *WorkerSuite) sendContainerSpecChange(c *gc.C) {
 	select {
 	case s.containerSpecChanges <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending container spec change")
+		c.Fatal("timed out sending pod spec change")
 	}
 }
 
@@ -158,8 +160,8 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	}, `missing ContainerBroker not valid`)
 
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
-		config.ContainerSpecGetter = nil
-	}, `missing ContainerSpecGetter not valid`)
+		config.PodSpecGetter = nil
+	}, `missing PodSpecGetter not valid`)
 
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.LifeGetter = nil
@@ -192,7 +194,7 @@ func (s *WorkerSuite) setupNewBrokerManagedUnitScenario(c *gc.C) worker.Worker {
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.containerSpecGetter.SetErrors(nil, errors.NotFoundf("spec"))
+	s.podSpecGetter.SetErrors(nil, errors.NotFoundf("spec"))
 
 	select {
 	case s.applicationChanges <- []string{"gitlab"}:
@@ -207,7 +209,7 @@ func (s *WorkerSuite) setupNewBrokerManagedUnitScenario(c *gc.C) worker.Worker {
 	}
 
 	// We seed a "not found" error above to indicate that
-	// there is not yet a container spec; the broker should
+	// there is not yet a pod spec; the broker should
 	// not be invoked.
 	s.sendContainerSpecChange(c)
 	select {
@@ -217,7 +219,7 @@ func (s *WorkerSuite) setupNewBrokerManagedUnitScenario(c *gc.C) worker.Worker {
 	}
 
 	s.sendContainerSpecChange(c)
-	s.containerSpecGetter.assertSpecRetrieved(c)
+	s.podSpecGetter.assertSpecRetrieved(c)
 	select {
 	case <-s.serviceEnsured:
 	case <-time.After(coretesting.LongWait):
@@ -261,10 +263,10 @@ func (s *WorkerSuite) setupNewJujuManagedUnitScenario(c *gc.C) worker.Worker {
 
 	// Send for deployment worker.
 	s.sendContainerSpecChange(c)
-	s.containerSpecGetter.assertSpecRetrieved(c)
+	s.podSpecGetter.assertSpecRetrieved(c)
 	// Send for unit worker.
 	s.sendContainerSpecChange(c)
-	s.containerSpecGetter.assertSpecRetrieved(c)
+	s.podSpecGetter.assertSpecRetrieved(c)
 
 	select {
 	case <-s.serviceEnsured:
@@ -291,11 +293,11 @@ func (s *WorkerSuite) TestNewJujuManagedUnit(c *gc.C) {
 	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig", "ApplicationConfig")
 	s.unitGetter.CheckCallNames(c, "WatchUnits")
 	s.unitGetter.CheckCall(c, 0, "WatchUnits", "gitlab")
-	s.containerSpecGetter.CheckCallNames(c, "WatchContainerSpec", "WatchContainerSpec", "ContainerSpec", "ContainerSpec")
-	s.containerSpecGetter.CheckCall(c, 0, "WatchContainerSpec", "gitlab/0")
-	s.containerSpecGetter.CheckCall(c, 1, "WatchContainerSpec", "gitlab/0")
-	s.containerSpecGetter.CheckCall(c, 2, "ContainerSpec", "gitlab/0")
-	s.containerSpecGetter.CheckCall(c, 3, "ContainerSpec", "gitlab/0")
+	s.podSpecGetter.CheckCallNames(c, "WatchPodSpec", "WatchPodSpec", "PodSpec", "PodSpec")
+	s.podSpecGetter.CheckCall(c, 0, "WatchPodSpec", "gitlab")
+	s.podSpecGetter.CheckCall(c, 1, "WatchPodSpec", "gitlab")
+	s.podSpecGetter.CheckCall(c, 2, "PodSpec", "gitlab")
+	s.podSpecGetter.CheckCall(c, 3, "PodSpec", "gitlab")
 	s.lifeGetter.CheckCallNames(c, "Life", "Life", "Life")
 	s.containerBroker.CheckCallNames(c, "WatchUnits", "EnsureUnit")
 	s.containerBroker.CheckCall(c, 1, "EnsureUnit", "gitlab", "gitlab/0", &parsedSpec)
@@ -421,7 +423,7 @@ func (s *WorkerSuite) TestJujuManagedUnitApplicationDeadRemovesService(c *gc.C) 
 	s.containerBroker.CheckCall(c, 2, "DeleteUnit", "gitlab/0")
 }
 
-func (s *WorkerSuite) TestNewJujuManagedUnitSpecChange(c *gc.C) {
+func (s *WorkerSuite) TestNewJujuManagedPodSpecChange(c *gc.C) {
 	w := s.setupNewJujuManagedUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
@@ -429,7 +431,7 @@ func (s *WorkerSuite) TestNewJujuManagedUnitSpecChange(c *gc.C) {
 
 	// Same spec, nothing happens.
 	s.sendContainerSpecChange(c)
-	s.containerSpecGetter.assertSpecRetrieved(c)
+	s.podSpecGetter.assertSpecRetrieved(c)
 	select {
 	case <-s.unitEnsured:
 		c.Fatal("unit ensured unexpectedly")
@@ -438,22 +440,24 @@ func (s *WorkerSuite) TestNewJujuManagedUnitSpecChange(c *gc.C) {
 
 	var (
 		anotherSpec = `
-name: gitlab
-image-name: gitlab/latest
+containers:
+  - name: gitlab
+    image-name: gitlab/latest
 `[1:]
 
-		anotherParsedSpec = caas.ContainerSpec{
-			Name:      "gitlab",
-			ImageName: "gitlab/latest",
-		}
+		anotherParsedSpec = caas.PodSpec{
+			Containers: []caas.ContainerSpec{{
+				Name:      "gitlab",
+				ImageName: "gitlab/latest",
+			}}}
 	)
 
-	s.containerSpecGetter.setSpec(anotherSpec)
+	s.podSpecGetter.setSpec(anotherSpec)
 	// Send for deployment worker.
 	s.sendContainerSpecChange(c)
 	// Send for unit worker.
 	s.sendContainerSpecChange(c)
-	s.containerSpecGetter.assertSpecRetrieved(c)
+	s.podSpecGetter.assertSpecRetrieved(c)
 
 	select {
 	case <-s.unitEnsured:
@@ -471,10 +475,10 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig", "ApplicationConfig")
-	s.containerSpecGetter.CheckCallNames(c, "WatchContainerSpec", "ContainerSpec", "ContainerSpec")
-	s.containerSpecGetter.CheckCall(c, 0, "WatchContainerSpec", "gitlab/0")
-	s.containerSpecGetter.CheckCall(c, 1, "ContainerSpec", "gitlab/0") // not found
-	s.containerSpecGetter.CheckCall(c, 2, "ContainerSpec", "gitlab/0")
+	s.podSpecGetter.CheckCallNames(c, "WatchPodSpec", "PodSpec", "PodSpec")
+	s.podSpecGetter.CheckCall(c, 0, "WatchPodSpec", "gitlab")
+	s.podSpecGetter.CheckCall(c, 1, "PodSpec", "gitlab") // not found
+	s.podSpecGetter.CheckCall(c, 2, "PodSpec", "gitlab")
 	s.lifeGetter.CheckCallNames(c, "Life", "Life")
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
@@ -521,7 +525,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
 }
 
-func (s *WorkerSuite) TestNewBrokerManagedUnitSpecChange(c *gc.C) {
+func (s *WorkerSuite) TestNewBrokerManagedPodSpecChange(c *gc.C) {
 	w := s.setupNewBrokerManagedUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
@@ -529,7 +533,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnitSpecChange(c *gc.C) {
 
 	// Same spec, nothing happens.
 	s.sendContainerSpecChange(c)
-	s.containerSpecGetter.assertSpecRetrieved(c)
+	s.podSpecGetter.assertSpecRetrieved(c)
 	select {
 	case <-s.serviceEnsured:
 		c.Fatal("service/unit ensured unexpectedly")
@@ -538,19 +542,21 @@ func (s *WorkerSuite) TestNewBrokerManagedUnitSpecChange(c *gc.C) {
 
 	var (
 		anotherSpec = `
-name: gitlab
-image-name: gitlab/latest
+containers:
+  - name: gitlab
+    image-name: gitlab/latest
 `[1:]
 
-		anotherParsedSpec = caas.ContainerSpec{
-			Name:      "gitlab",
-			ImageName: "gitlab/latest",
-		}
+		anotherParsedSpec = caas.PodSpec{
+			Containers: []caas.ContainerSpec{{
+				Name:      "gitlab",
+				ImageName: "gitlab/latest",
+			}}}
 	)
 
-	s.containerSpecGetter.setSpec(anotherSpec)
+	s.podSpecGetter.setSpec(anotherSpec)
 	s.sendContainerSpecChange(c)
-	s.containerSpecGetter.assertSpecRetrieved(c)
+	s.podSpecGetter.assertSpecRetrieved(c)
 
 	select {
 	case <-s.serviceEnsured:
@@ -672,7 +678,7 @@ func (s *WorkerSuite) TestWatchUnitDead(c *gc.C) {
 	}
 
 	workertest.CleanKill(c, w)
-	s.containerSpecGetter.CheckNoCalls(c)
+	s.podSpecGetter.CheckNoCalls(c)
 }
 
 func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
@@ -732,7 +738,7 @@ func (s *WorkerSuite) TestRemoveUnitStopsWatchingContainerSpec(c *gc.C) {
 		c.Fatal("timed out waiting for unit to be deleted")
 	}
 
-	workertest.CheckKilled(c, s.containerSpecGetter.watcher)
+	workertest.CheckKilled(c, s.podSpecGetter.watcher)
 }
 
 func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
@@ -752,8 +758,8 @@ func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {
 		c.Fatal("timed out sending units change")
 	}
 
-	s.containerSpecGetter.watcher.KillErr(errors.New("splat"))
-	workertest.CheckKilled(c, s.containerSpecGetter.watcher)
+	s.podSpecGetter.watcher.KillErr(errors.New("splat"))
+	workertest.CheckKilled(c, s.podSpecGetter.watcher)
 	workertest.CheckKilled(c, s.unitGetter.watcher)
 	workertest.CheckKilled(c, s.applicationGetter.watcher)
 	err = workertest.CheckKilled(c, w)

@@ -25,12 +25,12 @@ type applicationWorker struct {
 	serviceBroker    ServiceBroker
 	containerBroker  ContainerBroker
 
-	containerSpecGetter ContainerSpecGetter
-	lifeGetter          LifeGetter
-	applicationGetter   ApplicationGetter
-	applicationUpdater  ApplicationUpdater
-	unitGetter          UnitGetter
-	unitUpdater         UnitUpdater
+	podSpecGetter      PodSpecGetter
+	lifeGetter         LifeGetter
+	applicationGetter  ApplicationGetter
+	applicationUpdater ApplicationUpdater
+	unitGetter         UnitGetter
+	unitUpdater        UnitUpdater
 
 	aliveUnitsChan chan []string
 	appRemoved     chan struct{}
@@ -42,7 +42,7 @@ func newApplicationWorker(
 	jujuManagedUnits bool,
 	serviceBroker ServiceBroker,
 	containerBroker ContainerBroker,
-	containerSpecGetter ContainerSpecGetter,
+	podSpecGetter PodSpecGetter,
 	lifeGetter LifeGetter,
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
@@ -50,18 +50,18 @@ func newApplicationWorker(
 	unitUpdater UnitUpdater,
 ) (worker.Worker, error) {
 	w := &applicationWorker{
-		application:         application,
-		jujuManagedUnits:    jujuManagedUnits,
-		serviceBroker:       serviceBroker,
-		containerBroker:     containerBroker,
-		containerSpecGetter: containerSpecGetter,
-		lifeGetter:          lifeGetter,
-		applicationGetter:   applicationGetter,
-		applicationUpdater:  applicationUpdater,
-		unitGetter:          unitGetter,
-		unitUpdater:         unitUpdater,
-		aliveUnitsChan:      make(chan []string),
-		appRemoved:          appRemoved,
+		application:        application,
+		jujuManagedUnits:   jujuManagedUnits,
+		serviceBroker:      serviceBroker,
+		containerBroker:    containerBroker,
+		podSpecGetter:      podSpecGetter,
+		lifeGetter:         lifeGetter,
+		applicationGetter:  applicationGetter,
+		applicationUpdater: applicationUpdater,
+		unitGetter:         unitGetter,
+		unitUpdater:        unitUpdater,
+		aliveUnitsChan:     make(chan []string),
+		appRemoved:         appRemoved,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -93,7 +93,7 @@ func (aw *applicationWorker) loop() error {
 		aw.application,
 		aw.jujuManagedUnits,
 		aw.serviceBroker,
-		aw.containerSpecGetter,
+		aw.podSpecGetter,
 		aw.applicationGetter,
 		aw.applicationUpdater,
 		aw.aliveUnitsChan)
@@ -235,7 +235,7 @@ func (aw *applicationWorker) loop() error {
 						continue
 					}
 					w, err := newUnitWorker(
-						aw.application, unitId, aw.containerBroker, aw.containerSpecGetter, aw.lifeGetter)
+						aw.application, unitId, aw.containerBroker, aw.podSpecGetter, aw.lifeGetter)
 					if err != nil {
 						return errors.Trace(err)
 					}
