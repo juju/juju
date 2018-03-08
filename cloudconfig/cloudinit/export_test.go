@@ -8,4 +8,5 @@ var (
 	NetworkInterfacesFile       = &networkInterfacesFile
 	SystemNetworkInterfacesFile = &systemNetworkInterfacesFile
 	JujuNetplanFile             = &jujuNetplanFile
+	JujuFirewallerFile          = &jujuFirewallerFile
 )

@@ -24,6 +24,7 @@ var (
 	systemNetworkInterfacesFile = "/etc/network/interfaces"
 	networkInterfacesFile       = systemNetworkInterfacesFile + "-juju"
 	jujuNetplanFile             = "/etc/netplan/99-juju.yaml"
+	jujuFirewallerFile          = "/etc/network/juju-setup-firewall.py"
 )
 
 // GenerateENITemplate renders an e/n/i template config for one or more network
@@ -309,6 +310,16 @@ func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces []network.InterfaceInf
 		cfg.AddBootTextFile(systemNetworkInterfacesFile+".templ", eni, 0644)
 		cfg.AddBootTextFile(systemNetworkInterfacesFile+".py", NetworkInterfacesScript, 0744)
 		cfg.AddBootCmd(populateNetworkInterfaces(systemNetworkInterfacesFile))
+		var firewalledDevicesMacs []string
+		for _, device := range interfaces {
+			if device.Firewalled {
+				firewalledDevicesMacs = append(firewalledDevicesMacs, device.MACAddress)
+			}
+		}
+		if len(firewalledDevicesMacs) > 0 {
+		        cfg.AddBootTextFile(jujuFirewallerFile, FirewallerScript, 0744)
+			cfg.AddBootCmd(firewallerLauncher(jujuFirewallerFile, firewalledDevicesMacs))
+		}
 	}
 	return nil
 }
@@ -320,18 +331,74 @@ if [ ! -f /sbin/ifup ]; then
     echo "No /sbin/ifup, applying netplan configuration."
     netplan generate
     netplan apply
-    exit 0
-fi
-ifdown -a
-sleep 1.5
-if [ -f /usr/bin/python ]; then
-    python %[1]s.py --interfaces-file %[1]s
 else
-    python3 %[1]s.py --interfaces-file %[1]s
+    ifdown -a
+    sleep 1.5
+    if [ -f /usr/bin/python ]; then
+        python %[1]s.py --interfaces-file %[1]s
+    else
+        python3 %[1]s.py --interfaces-file %[1]s
+    fi
+    ifup -a
 fi
-ifup -a
 `
 	return fmt.Sprintf(s, networkFile)
+}
+
+const FirewallerScript = `from __future__ import print_function, unicode_literals
+import subprocess, re, argparse, os, time, sys
+from string import Formatter
+
+IP_LINE = re.compile(r"^\d+: (.*?):")
+IP_HWADDR = re.compile(r".*link/ether ((\w{2}|:){11})")
+COMMAND = "ip -oneline link"
+
+# Python3 vs Python2
+try:
+    strdecode = str.decode
+except AttributeError:
+    strdecode = str
+
+def ip_parse(ip_output):
+    """parses the output of the ip command
+    and returns a hwaddr->nic-name dict"""
+    devices = dict()
+    print("Parsing ip command output %s" % ip_output)
+    for ip_line in ip_output:
+        ip_line_str = strdecode(ip_line, "utf-8")
+        match = IP_LINE.match(ip_line_str)
+        if match is None:
+            continue
+        nic_name = match.group(1).split('@')[0]
+        match = IP_HWADDR.match(ip_line_str)
+        if match is None:
+            continue
+        nic_hwaddr = match.group(1)
+        devices[nic_hwaddr] = nic_name
+    print("Found the following devices: %s" % str(devices))
+    return devices
+
+def main():
+    ip_output = ip_parse(subprocess.check_output(COMMAND.split()).splitlines())
+    for device in sys.argv[1:]:
+        name = ip_output.get(device)
+        if name is not None:
+            print(subprocess.check_output(["iptables", "-I", "INPUT", "-m", "state", "--state", "NEW", "-j", "DROP", "-m", "comment", "--comment", "created by juju", "-i", name]))
+
+if __name__ == "__main__":
+    main()
+`
+
+func firewallerLauncher(scriptFilename string, interfacesMacs []string) string {
+	s := `
+sleep 1.5
+if [ -f /usr/bin/python ]; then
+    python %[1]s %[2]s
+else
+    python3 %[1]s %[2]s
+fi
+`
+	return fmt.Sprintf(s, scriptFilename, strings.Join(interfacesMacs, " "))
 }
 
 const NetworkInterfacesScript = `from __future__ import print_function, unicode_literals

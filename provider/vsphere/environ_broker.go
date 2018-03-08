@@ -145,6 +145,9 @@ func (env *sessionEnviron) newRawInstance(
 	}
 
 	interfaces := []network.InterfaceInfo{{
+		// This is just an opaque identifier that will be used for netplan,
+		// it can be virtually anything as long as it's unique, the device
+		// will be matched using MAC anyways.
 		InterfaceName: "eth0",
 		MACAddress:    internalMac,
 		InterfaceType: network.EthernetInterface,
@@ -152,8 +155,6 @@ func (env *sessionEnviron) newRawInstance(
 	}}
 	networkDevices := []vsphereclient.NetworkDevice{{MAC: internalMac, Network: env.ecfg.primaryNetwork()}}
 
-	// TODO(wpk) We need to add a firewall -AND- make sure that if it's a controller we
-	// have API port open.
 	externalNetwork := env.ecfg.externalNetwork()
 	if externalNetwork != "" {
 		externalMac, err := vsphereclient.GenerateMAC()
@@ -165,6 +166,7 @@ func (env *sessionEnviron) newRawInstance(
 			MACAddress:    externalMac,
 			InterfaceType: network.EthernetInterface,
 			ConfigType:    network.ConfigDHCP,
+			Firewalled:    true,
 		})
 		networkDevices = append(networkDevices, vsphereclient.NetworkDevice{MAC: externalMac, Network: externalNetwork})
 	}

@@ -36,6 +36,7 @@ type NetworkUbuntuSuite struct {
 	networkInterfacesPythonFile string
 	systemNetworkInterfacesFile string
 	jujuNetplanFile             string
+	jujuFirewallerFile          string
 
 	fakeInterfaces []network.InterfaceInfo
 
@@ -50,11 +51,20 @@ type NetworkUbuntuSuite struct {
 	expectedFullNetplan          string
 	expectedBaseNetplan          string
 	expectedFallbackUserData     string
+	expectedFirewallerData       string
 	tempFolder                   string
 	pythonVersions               []string
 }
 
 var _ = gc.Suite(&NetworkUbuntuSuite{})
+
+func yamlize(input string) string {
+	rv := strings.Replace(input, "\n", "\n  ", -1)
+	rv = strings.Replace(rv, "\n  \n", "\n\n", -1)
+	rv = strings.Replace(rv, "%", "%%", -1)
+	rv = strings.Replace(rv, "'", "'\"'\"'", -1)
+	return rv
+}
 
 func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
@@ -68,6 +78,7 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 	netplanFolder := c.MkDir()
 	s.systemNetworkInterfacesFile = filepath.Join(networkFolder, "system-interfaces")
 	s.networkInterfacesPythonFile = filepath.Join(networkFolder, "system-interfaces.py")
+	s.jujuFirewallerFile = filepath.Join(networkFolder, "juju-firewaller.py")
 	s.jujuNetplanFile = filepath.Join(netplanFolder, "79-juju.yaml")
 
 	s.fakeInterfaces = []network.InterfaceInfo{{
@@ -193,10 +204,8 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
   gateway 2001:db8::dead:f00
 `
 
-	networkInterfacesScriptYamled := strings.Replace(cloudinit.NetworkInterfacesScript, "\n", "\n  ", -1)
-	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "\n  \n", "\n\n", -1)
-	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "%", "%%", -1)
-	networkInterfacesScriptYamled = strings.Replace(networkInterfacesScriptYamled, "'", "'\"'\"'", -1)
+	networkInterfacesScriptYamled := yamlize(cloudinit.NetworkInterfacesScript)
+	firewallerScriptYamled := yamlize(cloudinit.FirewallerScript)
 
 	s.expectedSampleUserData = `- install -D -m 744 /dev/null '%[2]s'
 - |-
@@ -207,16 +216,16 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
       echo "No /sbin/ifup, applying netplan configuration."
       netplan generate
       netplan apply
-      exit 0
-  fi
-  ifdown -a
-  sleep 1.5
-  if [ -f /usr/bin/python ]; then
-      python %[2]s --interfaces-file %[1]s
   else
-      python3 %[2]s --interfaces-file %[1]s
+      ifdown -a
+      sleep 1.5
+      if [ -f /usr/bin/python ]; then
+          python %[1]s.py --interfaces-file %[1]s
+      else
+          python3 %[1]s.py --interfaces-file %[1]s
+      fi
+      ifup -a
   fi
-  ifup -a
 `[1:]
 	s.expectedFullNetplanYaml = `
 - install -D -m 644 /dev/null '%[1]s'
@@ -385,10 +394,22 @@ runcmd:
       echo "did not find %[1]s, not reconfiguring networking"
   fi
 `[1:]
+	s.expectedFirewallerData = `- install -D -m 744 /dev/null '%[1]s'
+- |-
+  printf '%%s\n' '` + firewallerScriptYamled + `' > '%[1]s'
+- |2
 
+  sleep 1.5
+  if [ -f /usr/bin/python ]; then
+      python %[1]s aa:bb:cc:dd:ee:f0
+  else
+      python3 %[1]s aa:bb:cc:dd:ee:f0
+  fi
+`
 	s.PatchValue(cloudinit.NetworkInterfacesFile, s.systemNetworkInterfacesFile)
 	s.PatchValue(cloudinit.SystemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
 	s.PatchValue(cloudinit.JujuNetplanFile, s.jujuNetplanFile)
+	s.PatchValue(cloudinit.JujuFirewallerFile, s.jujuFirewallerFile)
 }
 
 func (s *NetworkUbuntuSuite) TestGenerateENIConfig(c *gc.C) {
@@ -452,6 +473,23 @@ func (s *NetworkUbuntuSuite) TestAddNetworkConfigFallbackConfig(c *gc.C) {
 	expected += fmt.Sprintf(s.expectedBaseNetplanYaml, s.jujuNetplanFile)
 	expected += fmt.Sprintf(s.expectedFallbackConfig, s.systemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
 	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile)
+	assertUserData(c, cloudConf, expected)
+}
+
+func (s *NetworkUbuntuSuite) TestAddNetworkWithFirewall(c *gc.C) {
+	netConfig := container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
+	cloudConf, err := cloudinit.New("xenial")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloudConf, gc.NotNil)
+	netConfig.Interfaces[0].Firewalled = true
+	err = cloudConf.AddNetworkConfig(netConfig.Interfaces)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := s.expectedSampleConfigHeader
+	expected += fmt.Sprintf(s.expectedFullNetplanYaml, s.jujuNetplanFile)
+	expected += fmt.Sprintf(s.expectedSampleConfigWriting, s.systemNetworkInterfacesFile)
+	expected += fmt.Sprintf(s.expectedSampleUserData, s.systemNetworkInterfacesFile, s.networkInterfacesPythonFile, s.systemNetworkInterfacesFile)
+	expected += fmt.Sprintf(s.expectedFirewallerData, s.jujuFirewallerFile)
 	assertUserData(c, cloudConf, expected)
 }
 

@@ -224,6 +224,11 @@ type InterfaceInfo struct {
 	// machine, e.g. not to configure it.
 	Disabled bool
 
+	// Firewalled is true when the interface needs to be firewalled from
+	// the outside world using internal machines firewall (with e.g. iptables),
+	// with exceptions opened with firewaller.
+	Firewalled bool
+
 	// NoAutoStart is true when the interface should not be configured
 	// to start automatically on boot. By default and for
 	// backwards-compatibility, interfaces are configured to
