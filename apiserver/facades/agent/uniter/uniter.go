@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
@@ -51,6 +52,8 @@ type UniterAPI struct {
 	accessUnit        common.GetAuthFunc
 	accessApplication common.GetAuthFunc
 	accessMachine     common.GetAuthFunc
+	accessCloudSpec   common.GetAuthFunc
+	cloudSpec         cloudspec.CloudSpecAPI
 	*StorageAPI
 }
 
@@ -156,6 +159,40 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
 		}
 	}
+	accessCloudSpec := func() (common.AuthFunc, error) {
+		switch tag := authorizer.GetAuthTag().(type) {
+		case names.ApplicationTag:
+			app, err := st.Application(tag.String())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			config, err := app.ApplicationConfig()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return func(tag names.Tag) bool {
+				return tag == app.Tag() && config.GetBool("trust", false)
+			}, nil
+		case names.UnitTag:
+			entity, err := st.Unit(tag.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			app, err := st.Application(entity.ApplicationName())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			config, err := app.ApplicationConfig()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return func(tag names.Tag) bool {
+				return tag == app.Tag() && config.GetBool("trust", false)
+			}, nil
+		default:
+			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
+		}
+	}
 
 	m, err := st.Model()
 	if err != nil {
@@ -183,6 +220,11 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
+	cloudSpec := cloudspec.NewCloudSpec(
+		cloudspec.MakeCloudSpecGetterForModel(st),
+		common.AuthFuncForTag(m.ModelTag()),
+	)
+
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
 		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
@@ -203,6 +245,8 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		accessUnit:        accessUnit,
 		accessApplication: accessApplication,
 		accessMachine:     accessMachine,
+		accessCloudSpec:   accessCloudSpec,
+		cloudSpec:         cloudSpec,
 		StorageAPI:        storageAPI,
 	}, nil
 }
@@ -2436,4 +2480,31 @@ func (u *UniterAPI) GoalStates(args params.Entities) (string, error) {
 		result.Results[0].Result = "Hello World I'll be a yaml"
 	}
 	return result.Results[0].Result, nil
+}
+
+// GetCloudSpec returns the cloud spec used by the model in which the input
+// application resides.
+// A check is made beforehand to ensure that the requesting application has
+// been granted the appropriate trust.
+func (u *UniterAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, error) {
+	canAccess, err := u.accessCloudSpec()
+	if err != nil {
+		return params.CloudSpecResults{}, err
+	}
+
+	result := params.CloudSpecResults{Results: make([]params.CloudSpecResult, len(args.Entities))}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		result.Results[i] = u.cloudSpec.GetCloudSpec(u.m.Tag().(names.ModelTag))
+	}
+
+	return result, nil
 }
