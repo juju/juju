@@ -946,39 +946,6 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonC
 	started.assertNotTriggered(c, startWorkerWait, "certificate was updated")
 }
 
-func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
-	coretesting.SkipFlaky(c, "lp:1466514")
-	// Set up the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-	a.ReadConfig(names.NewMachineTag(m.Id()).String())
-
-	// Set up check that certificate has been updated.
-	updated := make(chan struct{})
-	go func() {
-		for {
-			stateInfo, _ := a.CurrentConfig().StateServingInfo()
-			srvCert, err := cert.ParseCert(stateInfo.Cert)
-			if !c.Check(err, jc.ErrorIsNil) {
-				break
-			}
-			sanIPs := make([]string, len(srvCert.IPAddresses))
-			for i, ip := range srvCert.IPAddresses {
-				sanIPs[i] = ip.String()
-			}
-			if len(sanIPs) == 1 && sanIPs[0] == "0.1.2.3" {
-				close(updated)
-				break
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-	}()
-
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	s.assertChannelActive(c, updated, "certificate to be updated")
-}
-
 func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	a := s.newAgent(c, m)
