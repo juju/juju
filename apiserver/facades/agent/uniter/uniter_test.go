@@ -3059,7 +3059,7 @@ func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 	u, cm, app, _ := s.setupCAASModel(c)
 	err := u.SetPodSpec(app.Name(), podSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	spec, err := cm.ContainerSpec(app.Tag())
+	spec, err := cm.PodSpec(app.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec, gc.Equals, podSpec)
 }
