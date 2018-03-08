@@ -13,27 +13,27 @@ import (
 )
 
 type unitWorker struct {
-	catacomb            catacomb.Catacomb
-	application         string
-	unit                string
-	broker              ContainerBroker
-	containerSpecGetter ContainerSpecGetter
-	lifeGetter          LifeGetter
+	catacomb      catacomb.Catacomb
+	application   string
+	unit          string
+	broker        ContainerBroker
+	podSpecGetter PodSpecGetter
+	lifeGetter    LifeGetter
 }
 
 func newUnitWorker(
 	application string,
 	unit string,
 	broker ContainerBroker,
-	containerSpecGetter ContainerSpecGetter,
+	podSpecGetter PodSpecGetter,
 	lifeGetter LifeGetter,
 ) (worker.Worker, error) {
 	w := &unitWorker{
-		application:         application,
-		unit:                unit,
-		broker:              broker,
-		containerSpecGetter: containerSpecGetter,
-		lifeGetter:          lifeGetter,
+		application:   application,
+		unit:          unit,
+		broker:        broker,
+		podSpecGetter: podSpecGetter,
+		lifeGetter:    lifeGetter,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -55,7 +55,7 @@ func (w *unitWorker) Wait() error {
 }
 
 func (w *unitWorker) loop() error {
-	cw, err := w.containerSpecGetter.WatchContainerSpec(w.unit)
+	cw, err := w.podSpecGetter.WatchPodSpec(w.application)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -83,11 +83,11 @@ func (w *unitWorker) loop() error {
 			if err != nil || unitLife != life.Alive {
 				continue
 			}
-			specStr, err := w.containerSpecGetter.ContainerSpec(w.unit)
+			specStr, err := w.podSpecGetter.PodSpec(w.application)
 			if errors.IsNotFound(err) {
-				// No container spec defined for this unit yet;
+				// No pod spec defined for this unit yet;
 				// wait for one to be set.
-				logger.Debugf("no container spec defined for %v", w.unit)
+				logger.Debugf("no pod spec defined for %v", w.application)
 				continue
 			}
 			if err != nil {
@@ -98,9 +98,9 @@ func (w *unitWorker) loop() error {
 			}
 			currentSpec = specStr
 
-			spec, err := caas.ParseContainerSpec(specStr)
+			spec, err := caas.ParsePodSpec(specStr)
 			if err != nil {
-				return errors.Annotate(err, "cannot parse container spec")
+				return errors.Annotate(err, "cannot parse pod spec")
 			}
 			if err := w.broker.EnsureUnit(w.application, w.unit, spec); err != nil {
 				return errors.Trace(err)

@@ -80,8 +80,8 @@ func (c *fakeClient) Charm(application string) (*charm.URL, string, error) {
 	return gitlabCharmURL, fakeCharmSHA256, nil
 }
 
-func (c *fakeClient) SetContainerSpec(entityName, spec string) error {
-	c.MethodCall(c, "SetContainerSpec", entityName, spec)
+func (c *fakeClient) SetPodSpec(entityName, spec string) error {
+	c.MethodCall(c, "SetPodSpec", entityName, spec)
 	return c.NextErr()
 }
 
