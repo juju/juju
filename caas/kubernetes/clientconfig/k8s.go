@@ -135,8 +135,8 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 			if user.Password == "" {
 				logger.Warningf("empty password")
 			}
-			attrs["Username"] = user.Username
-			attrs["Password"] = user.Password
+			attrs["username"] = user.Username
+			attrs["password"] = user.Password
 			if hasCert {
 				authType = cloud.UserPassWithCertAuthType
 			} else {

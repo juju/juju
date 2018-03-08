@@ -151,19 +151,19 @@ func (s *k8sConfigSuite) assertSingleConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
-		map[string]string{"Username": "theuser", "Password": "thepassword"})
+		map[string]string{"username": "theuser", "password": "thepassword"})
 	cred.Label = `kubernetes credential "the-user"`
 	c.Assert(cfg, jc.DeepEquals,
 		&clientconfig.ClientConfig{
 
 			Type: "kubernetes",
 			Contexts: map[string]clientconfig.Context{
-				"the-context": clientconfig.Context{
+				"the-context": {
 					CloudName:      "the-cluster",
 					CredentialName: "the-user"}},
 			CurrentContext: "the-context",
 			Clouds: map[string]clientconfig.CloudConfig{
-				"the-cluster": clientconfig.CloudConfig{
+				"the-cluster": {
 					Endpoint:   "https://1.1.1.1:8888",
 					Attributes: map[string]interface{}{"CAData": "A"}}},
 			Credentials: map[string]cloud.Credential{
@@ -179,7 +179,7 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	firstCred := cloud.NewCredential(
 		cloud.UserPassAuthType,
-		map[string]string{"Username": "defaultuser", "Password": "defaultpassword"})
+		map[string]string{"username": "defaultuser", "password": "defaultpassword"})
 	firstCred.Label = `kubernetes credential "default-user"`
 	secondCred := cloud.NewCredential(
 		cloud.CertificateAuthType,
@@ -195,26 +195,26 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 	fourthCred.Label = `kubernetes credential "fourth-user"`
 	fifthCred := cloud.NewCredential(
 		cloud.UserPassWithCertAuthType,
-		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "Username": "fifth-user", "Password": "userpasscertpass"})
+		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "username": "fifth-user", "password": "userpasscertpass"})
 	fifthCred.Label = `kubernetes credential "fifth-user"`
 	c.Assert(cfg, jc.DeepEquals,
 		&clientconfig.ClientConfig{
 
 			Type: "kubernetes",
 			Contexts: map[string]clientconfig.Context{
-				"default-context": clientconfig.Context{
+				"default-context": {
 					CloudName:      "default-cluster",
 					CredentialName: "default-user"},
-				"the-context": clientconfig.Context{
+				"the-context": {
 					CloudName:      "the-cluster",
 					CredentialName: "the-user"},
 			},
 			CurrentContext: "default-context",
 			Clouds: map[string]clientconfig.CloudConfig{
-				"default-cluster": clientconfig.CloudConfig{
+				"default-cluster": {
 					Endpoint:   "https://10.10.10.10:1010",
 					Attributes: map[string]interface{}{"CAData": ""}},
-				"the-cluster": clientconfig.CloudConfig{
+				"the-cluster": {
 					Endpoint:   "https://1.1.1.1:8888",
 					Attributes: map[string]interface{}{"CAData": "A"}}},
 			Credentials: map[string]cloud.Credential{

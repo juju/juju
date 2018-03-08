@@ -54,8 +54,8 @@ type kubernetesClient struct {
 	namespace string
 }
 
-// NewK8sProvider returns a kubernetes client for the specified cloud.
-func NewK8sProvider(cloudSpec environs.CloudSpec, namespace string) (caas.Broker, error) {
+// NewK8sBroker returns a kubernetes client for the specified k8s cluster.
+func NewK8sBroker(cloudSpec environs.CloudSpec, namespace string) (caas.Broker, error) {
 	config, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -80,8 +80,8 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 	credentialAttrs := cloudSpec.Credential.Attributes()
 	return &rest.Config{
 		Host:     cloudSpec.Endpoint,
-		Username: credentialAttrs["Username"],
-		Password: credentialAttrs["Password"],
+		Username: credentialAttrs[CredAttrUsername],
+		Password: credentialAttrs[CredAttrPassword],
 		TLSClientConfig: rest.TLSClientConfig{
 			CertData: []byte(credentialAttrs["ClientCertificateData"]),
 			KeyData:  []byte(credentialAttrs["ClientKeyData"]),

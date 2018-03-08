@@ -46,8 +46,8 @@ func fakeCloudSpec() environs.CloudSpec {
 
 func fakeCredential() cloud.Credential {
 	return cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
-		"Username": "user1",
-		"Password": "password1",
+		"username": "user1",
+		"password": "password1",
 	})
 }
 

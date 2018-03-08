@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	CredAttrUserName = "Username"
-	CredAttrPassword = "Password"
+	CredAttrUsername = "username"
+	CredAttrPassword = "password"
 )
 
 type environProviderCredentials struct{}
@@ -23,7 +23,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: {
 			{
-				CredAttrUserName, cloud.CredentialAttr{Description: "The username to authenticate with."},
+				CredAttrUsername, cloud.CredentialAttr{Description: "The username to authenticate with."},
 			}, {
 				CredAttrPassword, cloud.CredentialAttr{
 					Description: "The password for the specified username.",

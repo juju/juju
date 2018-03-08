@@ -37,13 +37,13 @@ func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 
 func (s *credentialsSuite) TestCredentialsValid(c *gc.C) {
 	envtesting.AssertProviderCredentialsValid(c, s.provider, "userpass", map[string]string{
-		"Username": "fred",
-		"Password": "secret",
+		"username": "fred",
+		"password": "secret",
 	})
 }
 
 func (s *credentialsSuite) TestHiddenAttributes(c *gc.C) {
-	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "userpass", "Password")
+	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "userpass", "password")
 }
 
 var singleConfigYAML = `
@@ -80,8 +80,8 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 	c.Assert(creds.DefaultRegion, gc.Equals, "")
 	expected := cloud.NewCredential(
 		cloud.UserPassAuthType, map[string]string{
-			"Username": "theuser",
-			"Password": "thepassword",
+			"username": "theuser",
+			"password": "thepassword",
 		},
 	)
 	expected.Label = `kubernetes credential "the-user"`

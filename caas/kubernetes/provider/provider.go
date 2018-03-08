@@ -32,7 +32,7 @@ func (kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, er
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	broker, err := NewK8sProvider(args.Cloud, args.Config.Name())
+	broker, err := NewK8sBroker(args.Cloud, args.Config.Name())
 	if err != nil {
 		return nil, err
 	}
