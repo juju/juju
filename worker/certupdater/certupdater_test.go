@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	jujucert "github.com/juju/juju/cert"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -35,6 +36,7 @@ var _ = gc.Suite(&CertUpdaterSuite{})
 
 func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.PatchValue(&jujucert.NewLeafKeyBits, 512)
 
 	s.stateServingInfo = params.StateServingInfo{
 		Cert:         coretesting.ServerCert,
@@ -137,7 +139,6 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
-	coretesting.SkipFlaky(c, "lp:1466514")
 	var srvCert *x509.Certificate
 	updated := make(chan struct{})
 	setter := func(info params.StateServingInfo) error {
