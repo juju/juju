@@ -149,6 +149,10 @@ func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
 func (s *k8sConfigSuite) assertSingleConfig(c *gc.C) {
 	cfg, err := clientconfig.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
+	cred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{"Username": "theuser", "Password": "thepassword"})
+	cred.Label = `kubernetes credential "the-user"`
 	c.Assert(cfg, jc.DeepEquals,
 		&clientconfig.ClientConfig{
 
@@ -163,9 +167,8 @@ func (s *k8sConfigSuite) assertSingleConfig(c *gc.C) {
 					Endpoint:   "https://1.1.1.1:8888",
 					Attributes: map[string]interface{}{"CAData": "A"}}},
 			Credentials: map[string]cloud.Credential{
-				"the-user": cloud.NewCredential(
-					cloud.UserPassAuthType,
-					map[string]string{"Username": "theuser", "Password": "thepassword"})},
+				"the-user": cred,
+			},
 		})
 }
 
@@ -174,6 +177,26 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 
 	cfg, err := clientconfig.K8SClientConfig()
 	c.Assert(err, jc.ErrorIsNil)
+	firstCred := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{"Username": "defaultuser", "Password": "defaultpassword"})
+	firstCred.Label = `kubernetes credential "default-user"`
+	secondCred := cloud.NewCredential(
+		cloud.CertificateAuthType,
+		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B"})
+	secondCred.Label = `kubernetes credential "the-user"`
+	thirdCred := cloud.NewCredential(
+		cloud.OAuth2AuthType,
+		map[string]string{"Token": "atoken"})
+	thirdCred.Label = `kubernetes credential "third-user"`
+	fourthCred := cloud.NewCredential(
+		cloud.OAuth2WithCertAuthType,
+		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "Token": "tokenwithcerttoken"})
+	fourthCred.Label = `kubernetes credential "fourth-user"`
+	fifthCred := cloud.NewCredential(
+		cloud.UserPassWithCertAuthType,
+		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "Username": "fifth-user", "Password": "userpasscertpass"})
+	fifthCred.Label = `kubernetes credential "fifth-user"`
 	c.Assert(cfg, jc.DeepEquals,
 		&clientconfig.ClientConfig{
 
@@ -195,21 +218,11 @@ func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
 					Endpoint:   "https://1.1.1.1:8888",
 					Attributes: map[string]interface{}{"CAData": "A"}}},
 			Credentials: map[string]cloud.Credential{
-				"default-user": cloud.NewCredential(
-					cloud.UserPassAuthType,
-					map[string]string{"Username": "defaultuser", "Password": "defaultpassword"}),
-				"the-user": cloud.NewCredential(
-					cloud.CertificateAuthType,
-					map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B"}),
-				"third-user": cloud.NewCredential(
-					cloud.OAuth2AuthType,
-					map[string]string{"Token": "atoken"}),
-				"fourth-user": cloud.NewCredential(
-					cloud.OAuth2WithCertAuthType,
-					map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "Token": "tokenwithcerttoken"}),
-				"fifth-user": cloud.NewCredential(
-					cloud.UserPassWithCertAuthType,
-					map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "Username": "fifth-user", "Password": "userpasscertpass"}),
+				"default-user": firstCred,
+				"the-user":     secondCred,
+				"third-user":   thirdCred,
+				"fourth-user":  fourthCred,
+				"fifth-user":   fifthCred,
 			},
 		})
 }

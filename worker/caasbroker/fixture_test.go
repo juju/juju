@@ -10,21 +10,21 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 )
 
 type fixture struct {
 	watcherErr   error
 	observerErrs []error
 	cloud        environs.CloudSpec
-	model        model.Model
+	config       map[string]interface{}
 }
 
 func (fix *fixture) Run(c *gc.C, test func(*runContext)) {
 	context := &runContext{
-		cloud: fix.cloud,
-		model: fix.model,
+		cloud:  fix.cloud,
+		config: fix.config,
 	}
 	context.stub.SetErrors(fix.observerErrs...)
 	test(context)
@@ -34,7 +34,6 @@ type runContext struct {
 	mu     sync.Mutex
 	stub   testing.Stub
 	cloud  environs.CloudSpec
-	model  model.Model
 	config map[string]interface{}
 }
 
@@ -48,14 +47,14 @@ func (context *runContext) CloudSpec() (environs.CloudSpec, error) {
 	return context.cloud, nil
 }
 
-func (context *runContext) Model() (*model.Model, error) {
+func (context *runContext) ModelConfig() (*config.Config, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.stub.AddCall("Model")
 	if err := context.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	return &context.model, nil
+	return config.New(config.UseDefaults, context.config)
 }
 
 func (context *runContext) CheckCallNames(c *gc.C, names ...string) {
@@ -72,6 +71,6 @@ type mockBroker struct {
 	mu        sync.Mutex
 }
 
-func newMockBroker(spec environs.CloudSpec, namespace string) (caas.Broker, error) {
-	return &mockBroker{spec: spec, namespace: namespace}, nil
+func newMockBroker(args environs.OpenParams) (caas.Broker, error) {
+	return &mockBroker{spec: args.Cloud, namespace: args.Config.Name()}, nil
 }
