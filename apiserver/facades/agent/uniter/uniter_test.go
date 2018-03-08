@@ -37,6 +37,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujufactory "github.com/juju/juju/testing/factory"
+	"gopkg.in/juju/environschema.v1"
 )
 
 // uniterSuiteBase implements common testing suite for all API versions.
@@ -129,6 +130,17 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.uniter = uniterAPI
+
+	// Update the application config for wordpress so that it is authorised to
+	// retrieve its cloud spec.
+	conf := map[string]interface{}{"trust": true}
+	fields := map[string]environschema.Attr{
+		"trust": {Type: environschema.Tbool},
+	}
+	s.wordpress.UpdateApplicationConfig(conf, nil, fields, map[string]interface{}{"trust": false})
+	newConf, err := s.wordpress.ApplicationConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newConf.GetBool("trust", false), jc.IsTrue)
 }
 
 func (s *uniterSuiteBase) addRelation(c *gc.C, first, second string) *state.Relation {
