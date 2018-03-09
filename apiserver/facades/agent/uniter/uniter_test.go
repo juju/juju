@@ -37,7 +37,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujufactory "github.com/juju/juju/testing/factory"
-	"gopkg.in/juju/environschema.v1"
 )
 
 // uniterSuiteBase implements common testing suite for all API versions.
