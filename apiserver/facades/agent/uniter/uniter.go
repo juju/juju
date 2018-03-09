@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/leadership"
@@ -189,7 +190,7 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 			return nil, errors.Trace(err)
 		}
 		return func() bool {
-			return config.GetBool("trust", false)
+			return config.GetBool(application.TrustConfigOptionName, false)
 		}, nil
 	}
 

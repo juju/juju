@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
@@ -4146,8 +4147,6 @@ func (s *uniterSuite) TestGetCloudSpecDeniesAccessWhenNotTrusted(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.CloudSpecResult{Error: apiservertesting.ErrUnauthorized})
 }
 
-const appConfigTrustKey = "trust"
-
 type cloudSpecUniterSuite struct {
 	uniterSuiteBase
 }
@@ -4159,15 +4158,15 @@ func (s *cloudSpecUniterSuite) SetUpTest(c *gc.C) {
 
 	// Update the application config for wordpress so that it is authorised to
 	// retrieve its cloud spec.
-	conf := map[string]interface{}{appConfigTrustKey: true}
-	fields := map[string]environschema.Attr{appConfigTrustKey: {Type: environschema.Tbool}}
-	defaults := map[string]interface{}{appConfigTrustKey: false}
+	conf := map[string]interface{}{application.TrustConfigOptionName: true}
+	fields := map[string]environschema.Attr{application.TrustConfigOptionName: {Type: environschema.Tbool}}
+	defaults := map[string]interface{}{application.TrustConfigOptionName: false}
 	err := s.wordpress.UpdateApplicationConfig(conf, nil, fields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newConf, err := s.wordpress.ApplicationConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newConf.GetBool(appConfigTrustKey, false), jc.IsTrue)
+	c.Assert(newConf.GetBool(application.TrustConfigOptionName, false), jc.IsTrue)
 }
 
 func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
