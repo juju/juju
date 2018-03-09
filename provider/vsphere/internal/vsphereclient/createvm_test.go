@@ -409,8 +409,7 @@ func (s *clientSuite) TestGenerateMAC(c *gc.C) {
 	for i := 0; i < 100; i++ {
 		mac, err := GenerateMAC()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("Test #%d: %s", i, mac)
-		c.Check(VerifyMAC(mac), gc.Equals, true)
+		c.Check(VerifyMAC(mac), jc.IsTrue, gc.Commentf("GenerateMAC() created an invalid MAC address: %v", mac))
 	}
 }
 

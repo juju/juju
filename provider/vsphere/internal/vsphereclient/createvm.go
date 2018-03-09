@@ -170,7 +170,8 @@ func (c *Client) CreateVirtualMachine(
 	// import the VMDK, which exists in the datastore as a not-a-disk
 	// file type.
 	args.UpdateProgress("creating import spec")
-	importSpec, err := c.createImportSpec(ctx, args, datastore, vmdkDatastorePath)
+	macMapping := make(map[string]string)
+	importSpec, err := c.createImportSpec(ctx, args, datastore, vmdkDatastorePath, macMapping)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating import spec")
 	}
@@ -206,6 +207,7 @@ func (c *Client) CreateVirtualMachine(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	args.UpdateProgress("VM cloned")
 	defer func() {
 		if resultErr == nil {
 			return
@@ -217,7 +219,9 @@ func (c *Client) CreateVirtualMachine(
 	if _, err := c.detachDisk(ctx, tempVM, taskWaiter); err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	if err := c.setVMNicsMacs(ctx, vm, macMapping); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if args.Constraints.RootDisk != nil {
 		// The user specified a root disk, so extend the VM's
 		// disk before powering the VM on.
@@ -249,6 +253,28 @@ func (c *Client) CreateVirtualMachine(
 		return nil, errors.Trace(err)
 	}
 	return &res, nil
+}
+
+func (c *Client) setVMNicsMacs(ctx context.Context, vm *object.VirtualMachine, oldMacsToNew map[string]string) error {
+	var mo mo.VirtualMachine
+	if err := c.client.RetrieveOne(ctx, vm.Reference(), []string{"config.hardware"}, &mo); err != nil {
+		return errors.Trace(err)
+	}
+	for _, dev := range mo.Config.Hardware.Device {
+		baseDev, ok := dev.(types.BaseVirtualEthernetCard)
+		if !ok {
+			continue
+		}
+		card := baseDev.GetVirtualEthernetCard()
+		if newMac, ok := oldMacsToNew[card.MacAddress]; ok {
+			card.MacAddress = newMac
+			if err := vm.EditDevice(ctx, dev); err != nil {
+				return errors.Trace(err)
+			}
+		} 
+		// else : Should we issue an error or just ignore it?
+	}
+	return nil
 }
 
 func (c *Client) extendVMRootDisk(
@@ -290,6 +316,7 @@ func (c *Client) createImportSpec(
 	args CreateVirtualMachineParams,
 	datastore *object.Datastore,
 	vmdkDatastorePath string,
+	macMapping map[string]string,
 ) (*types.VirtualMachineImportSpec, error) {
 	cisp := types.OvfCreateImportSpecParams{
 		EntityName: args.Name,
@@ -351,13 +378,19 @@ func (c *Client) createImportSpec(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		device, err := c.addNetworkDevice(ctx, s, networkReference, networkDevice.MAC, dvportgroupConfig)
-
+		var tmpMac string
+		if networkDevice.MAC != "" {
+			tmpMac, err = GenerateMAC()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			macMapping[tmpMac] = networkDevice.MAC
+		}
+		device, err := c.addNetworkDevice(ctx, s, networkReference, tmpMac, dvportgroupConfig)
 		if err != nil {
 			return nil, errors.Annotatef(err, "adding network device %d - network %s", i, network)
 		}
-		c.logger.Debugf("network device: %+v", device)
+		c.logger.Debugf("network device: %+v ", device)
 	}
 	return importSpec, nil
 }
@@ -486,8 +519,9 @@ func (c *Client) addNetworkDevice(
 	return &networkDevice, nil
 }
 
-// generateMAC generates a random hardware address that meets VMWare
+// GenerateMAC generates a random hardware address that meets VMWare
 // requirements for MAC address: 00:50:56:XX:YY:ZZ where XX is between 00 and 3f.
+// https://pubs.vmware.com/vsphere-4-esx-vcenter/index.jsp?topic=/com.vmware.vsphere.server_configclassic.doc_41/esx_server_config/advanced_networking/c_setting_up_mac_addresses.html
 func GenerateMAC() (string, error) {
 	c, err := rand.Int(rand.Reader, big.NewInt(4194303))
 	if err != nil {
