@@ -24,6 +24,7 @@ import (
 
 const (
 	dirPerm        = 0755
+	filePerm       = 0644
 	guiArchiveFile = "downloaded-gui.txt"
 	toolsFile      = "downloaded-tools.txt"
 )
@@ -116,12 +117,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 			return errors.Annotatef(err, "tar extract %q failed", name)
 		}
 	}
-	toolsMetadataData, err := json.Marshal(tools)
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(path.Join(dir, toolsFile), []byte(toolsMetadataData), 0644)
-	if err != nil {
+	if err = WriteToolsMetadataData(dir, tools); err != nil {
 		return err
 	}
 
@@ -215,4 +211,13 @@ func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*c
 		return nil, fmt.Errorf("cannot replace tools directory: %s", err)
 	}
 	return tools, nil
+}
+
+// WriteToolsMetadataData writes the tools metadata file to the given directory.
+func WriteToolsMetadataData(dir string, tools *coretools.Tools) error {
+	toolsMetadataData, err := json.Marshal(tools)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path.Join(dir, toolsFile), []byte(toolsMetadataData), filePerm)
 }

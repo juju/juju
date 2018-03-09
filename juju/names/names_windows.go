@@ -5,11 +5,12 @@
 package names
 
 const (
-	Juju           = "juju.exe"
-	Jujud          = "jujud.exe"
-	JujudVersions  = "jujud-versions.yaml"
-	Jujuc          = "jujuc.exe"
-	JujuRun        = "juju-run.exe"
-	JujuDumpLogs   = "juju-dumplogs.exe"
-	JujuIntrospect = "juju-introspect.exe"
+	Juju             = "juju.exe"
+	Jujud            = "jujud.exe"
+	JujudVersions    = "jujud-versions.yaml"
+	Jujuc            = "jujuc.exe"
+	JujuRun          = "juju-run.exe"
+	JujuDumpLogs     = "juju-dumplogs.exe"
+	JujuIntrospect   = "juju-introspect.exe"
+	JujuUpdateSeries = "juju-updateseries.exe"
 )

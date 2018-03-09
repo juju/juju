@@ -24,6 +24,7 @@ import (
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/cmd/jujud/introspect"
+	"github.com/juju/juju/cmd/jujud/updateseries"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
@@ -230,6 +231,8 @@ func Main(args []string) int {
 		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
 	case names.JujuIntrospect:
 		code = cmd.Main(&introspect.IntrospectCommand{}, ctx, args[1:])
+	case names.JujuUpdateSeries:
+		code = cmd.Main(&updateseries.UpdateSeriesCommand{}, ctx, args[1:])
 	default:
 		code, err = jujuCMain(commandName, ctx, args)
 	}
