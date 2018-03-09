@@ -127,13 +127,13 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config := args[0].(caasunitprovisioner.Config)
 
 	c.Assert(config, jc.DeepEquals, caasunitprovisioner.Config{
-		ApplicationGetter:   &s.client,
-		ApplicationUpdater:  &s.client,
-		ServiceBroker:       &s.broker,
-		ContainerBroker:     &s.broker,
-		ContainerSpecGetter: &s.client,
-		LifeGetter:          &s.client,
-		UnitGetter:          &s.client,
-		UnitUpdater:         &s.client,
+		ApplicationGetter:  &s.client,
+		ApplicationUpdater: &s.client,
+		ServiceBroker:      &s.broker,
+		ContainerBroker:    &s.broker,
+		PodSpecGetter:      &s.client,
+		LifeGetter:         &s.client,
+		UnitGetter:         &s.client,
+		UnitUpdater:        &s.client,
 	})
 }

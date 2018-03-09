@@ -2993,16 +2993,17 @@ func (s *uniterSuite) TestRefreshNoArgs(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.UnitRefreshResults{Results: []params.UnitRefreshResult{}})
 }
 
-var containerSpec = `
-name: gitlab
-image-name: gitlab/latest
-ports:
-- container-port: 80
-  protocol: TCP
-- container-port: 443
-config:
-  attr: foo=bar; fred=blogs
-  foo: bar
+var podSpec = `
+containers:
+  - name: gitlab
+    image-name: gitlab/latest
+    ports:
+    - container-port: 80
+      protocol: TCP
+    - container-port: 443
+    config:
+      attr: foo=bar; fred=blogs
+      foo: bar
 `[1:]
 
 func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASModel, *state.Application, *state.Unit) {
@@ -3054,22 +3055,13 @@ func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASMode
 	return u, cm, app, unit
 }
 
-func (s *uniterSuite) TestSetContainerSpecApplication(c *gc.C) {
+func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 	u, cm, app, _ := s.setupCAASModel(c)
-	err := u.SetContainerSpec(app.Name(), containerSpec)
+	err := u.SetPodSpec(app.Name(), podSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	spec, err := cm.ContainerSpec(app.Tag())
+	spec, err := cm.PodSpec(app.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, gc.Equals, containerSpec)
-}
-
-func (s *uniterSuite) TestSetContainerSpecUnit(c *gc.C) {
-	u, cm, _, unit := s.setupCAASModel(c)
-	err := u.SetContainerSpec(unit.Name(), containerSpec)
-	c.Assert(err, jc.ErrorIsNil)
-	spec, err := cm.ContainerSpec(unit.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, gc.Equals, containerSpec)
+	c.Assert(spec, gc.Equals, podSpec)
 }
 
 type unitMetricBatchesSuite struct {
@@ -4165,4 +4157,3 @@ func (s *uniterSuite) TestGoalStates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, results)
 }
-

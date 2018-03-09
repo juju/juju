@@ -63,7 +63,7 @@ var baseCommands = map[string]creator{
 	"status-set" + cmdSuffix:              NewStatusSetCommand,
 	"network-get" + cmdSuffix:             NewNetworkGetCommand,
 	"application-version-set" + cmdSuffix: NewApplicationVersionSetCommand,
-	"container-spec-set" + cmdSuffix:      NewContainerspecSetCommand,
+	"pod-spec-set" + cmdSuffix:            NewPodSpecSetCommand,
 	"goal-state" + cmdSuffix:              NewGoalStateCommand,
 }
 

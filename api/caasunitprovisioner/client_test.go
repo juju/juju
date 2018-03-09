@@ -27,15 +27,15 @@ func newClient(f basetesting.APICallerFunc) *caasunitprovisioner.Client {
 	return caasunitprovisioner.NewClient(basetesting.BestVersionCaller{f, 1})
 }
 
-func (s *unitprovisionerSuite) TestContainerSpec(c *gc.C) {
+func (s *unitprovisionerSuite) TestPodSpec(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ContainerSpec")
+		c.Check(request, gc.Equals, "PodSpec")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
-				Tag: "unit-gitlab-0",
+				Tag: "application-gitlab",
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
@@ -48,12 +48,12 @@ func (s *unitprovisionerSuite) TestContainerSpec(c *gc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	spec, err := client.ContainerSpec("gitlab/0")
+	spec, err := client.PodSpec("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec, gc.Equals, "foo")
 }
 
-func (s *unitprovisionerSuite) TestContainerSpecError(c *gc.C) {
+func (s *unitprovisionerSuite) TestPodSpecError(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.StringResults)) = params.StringResults{
 			Results: []params.StringResult{{Error: &params.Error{
@@ -65,17 +65,17 @@ func (s *unitprovisionerSuite) TestContainerSpecError(c *gc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	_, err := client.ContainerSpec("gitlab/0")
+	_, err := client.PodSpec("gitlab")
 	c.Assert(err, gc.ErrorMatches, "bletch")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *unitprovisionerSuite) TestContainerSpecInvalidEntityame(c *gc.C) {
+func (s *unitprovisionerSuite) TestPodSpecInvalidApplicationName(c *gc.C) {
 	client := caasunitprovisioner.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
-	_, err := client.ContainerSpec("gitlab")
-	c.Assert(err, gc.ErrorMatches, `unit name "gitlab" not valid`)
+	_, err := client.PodSpec("gitlab/0")
+	c.Assert(err, gc.ErrorMatches, `application name "gitlab/0" not valid`)
 }
 
 func (s *unitprovisionerSuite) TestLife(c *gc.C) {
@@ -179,15 +179,15 @@ func (s *unitprovisionerSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *unitprovisionerSuite) TestWatchContainerSpec(c *gc.C) {
+func (s *unitprovisionerSuite) TestWatchPodSpec(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchContainerSpec")
+		c.Check(request, gc.Equals, "WatchPodSpec")
 		c.Assert(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
-				Tag: "unit-gitlab-0",
+				Tag: "application-gitlab",
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
@@ -200,7 +200,7 @@ func (s *unitprovisionerSuite) TestWatchContainerSpec(c *gc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	watcher, err := client.WatchContainerSpec("gitlab/0")
+	watcher, err := client.WatchPodSpec("gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

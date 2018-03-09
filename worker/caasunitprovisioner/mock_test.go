@@ -40,7 +40,7 @@ type mockServiceBroker struct {
 	ensured chan<- struct{}
 }
 
-func (m *mockServiceBroker) EnsureService(appName string, unitSpec *caas.ContainerSpec, numUnits int, config application.ConfigAttributes) error {
+func (m *mockServiceBroker) EnsureService(appName string, unitSpec *caas.PodSpec, numUnits int, config application.ConfigAttributes) error {
 	m.MethodCall(m, "EnsureService", appName, unitSpec, numUnits, config)
 	m.ensured <- struct{}{}
 	return m.NextErr()
@@ -65,7 +65,7 @@ type mockContainerBroker struct {
 	reportedUnitStatus status.Status
 }
 
-func (m *mockContainerBroker) EnsureUnit(appName, unitName string, spec *caas.ContainerSpec) error {
+func (m *mockContainerBroker) EnsureUnit(appName, unitName string, spec *caas.PodSpec) error {
 	m.MethodCall(m, "EnsureUnit", appName, unitName, spec)
 	m.ensured <- struct{}{}
 	return m.NextErr()
@@ -137,28 +137,28 @@ func (m *mockApplicationUpdater) UpdateApplicationService(arg params.UpdateAppli
 	return m.NextErr()
 }
 
-type mockContainerSpecGetter struct {
+type mockPodSpecGetter struct {
 	testing.Stub
 	spec          string
 	watcher       *watchertest.MockNotifyWatcher
 	specRetrieved chan struct{}
 }
 
-func (m *mockContainerSpecGetter) setSpec(spec string) {
+func (m *mockPodSpecGetter) setSpec(spec string) {
 	m.spec = spec
 	m.specRetrieved = make(chan struct{}, 2)
 }
 
-func (m *mockContainerSpecGetter) assertSpecRetrieved(c *gc.C) {
+func (m *mockPodSpecGetter) assertSpecRetrieved(c *gc.C) {
 	select {
 	case <-m.specRetrieved:
 	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for container spec to be retrieved")
+		c.Fatal("timed out waiting for pod spec to be retrieved")
 	}
 }
 
-func (m *mockContainerSpecGetter) ContainerSpec(entityName string) (string, error) {
-	m.MethodCall(m, "ContainerSpec", entityName)
+func (m *mockPodSpecGetter) PodSpec(appName string) (string, error) {
+	m.MethodCall(m, "PodSpec", appName)
 	if err := m.NextErr(); err != nil {
 		return "", err
 	}
@@ -170,8 +170,8 @@ func (m *mockContainerSpecGetter) ContainerSpec(entityName string) (string, erro
 	return spec, nil
 }
 
-func (m *mockContainerSpecGetter) WatchContainerSpec(entityName string) (watcher.NotifyWatcher, error) {
-	m.MethodCall(m, "WatchContainerSpec", entityName)
+func (m *mockPodSpecGetter) WatchPodSpec(appName string) (watcher.NotifyWatcher, error) {
+	m.MethodCall(m, "WatchPodSpec", appName)
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}

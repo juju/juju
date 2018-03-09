@@ -14,7 +14,6 @@ type Unit struct {
 	ConfigSettings charm.Settings
 	GoalState      string
 	ContainerSpec  string
-	Application    bool
 }
 
 // ContextUnit is a test double for jujuc.ContextUnit.
@@ -50,12 +49,11 @@ func (c *ContextUnit) GoalState() (string, error) {
 	return c.info.GoalState, nil
 }
 
-func (c *ContextUnit) SetContainerSpec(specYaml string, application bool) error {
-	c.stub.AddCall("SetContainerSpec", specYaml, application)
+func (c *ContextUnit) SetPodSpec(specYaml string) error {
+	c.stub.AddCall("SetPodSpec", specYaml)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
-	c.info.Application = application
 	c.info.ContainerSpec = specYaml
 	return nil
 }

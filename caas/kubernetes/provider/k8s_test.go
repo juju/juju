@@ -20,12 +20,18 @@ type K8sSuite struct {
 var _ = gc.Suite(&K8sSuite{})
 
 func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
-	containerSpec := caas.ContainerSpec{
-		Name:      "test",
-		Ports:     []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-		ImageName: "juju/image",
-	}
-	spec, err := provider.MakeUnitSpec(&containerSpec)
+	podSpec := caas.PodSpec{
+		Containers: []caas.ContainerSpec{{
+			Name:      "test",
+			Ports:     []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			ImageName: "juju/image",
+		}, {
+			Name:      "test2",
+			Ports:     []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
+			ImageName: "juju/image2",
+		},
+		}}
+	spec, err := provider.MakeUnitSpec(&podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, v1.PodSpec{
 		Containers: []v1.Container{
@@ -33,21 +39,31 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 				Name:  "test",
 				Image: "juju/image",
 				Ports: []v1.ContainerPort{{ContainerPort: int32(80), Protocol: v1.ProtocolTCP}},
+			}, {
+				Name:  "test2",
+				Image: "juju/image2",
+				Ports: []v1.ContainerPort{{ContainerPort: int32(8080), Protocol: v1.ProtocolTCP}},
 			},
 		},
 	})
 }
 
 func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
-	containerSpec := caas.ContainerSpec{
-		Name:      "test",
-		Ports:     []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-		ImageName: "juju/image",
-		Config: map[string]string{
-			"foo": "bar",
+	podSpec := caas.PodSpec{
+		Containers: []caas.ContainerSpec{{
+			Name:      "test",
+			Ports:     []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			ImageName: "juju/image",
+			Config: map[string]string{
+				"foo": "bar",
+			},
+		}, {
+			Name:      "test2",
+			Ports:     []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
+			ImageName: "juju/image2",
 		},
-	}
-	spec, err := provider.MakeUnitSpec(&containerSpec)
+		}}
+	spec, err := provider.MakeUnitSpec(&podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, v1.PodSpec{
 		Containers: []v1.Container{
@@ -58,6 +74,10 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 				Env: []v1.EnvVar{
 					{Name: "foo", Value: "bar"},
 				},
+			}, {
+				Name:  "test2",
+				Image: "juju/image2",
+				Ports: []v1.ContainerPort{{ContainerPort: int32(8080), Protocol: v1.ProtocolTCP}},
 			},
 		},
 	})

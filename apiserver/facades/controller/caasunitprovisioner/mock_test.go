@@ -62,23 +62,23 @@ func (st *mockState) Model() (caasunitprovisioner.Model, error) {
 
 type mockModel struct {
 	testing.Stub
-	containerSpecWatcher *statetesting.MockNotifyWatcher
+	podSpecWatcher *statetesting.MockNotifyWatcher
 }
 
-func (m *mockModel) ContainerSpec(tag names.Tag) (string, error) {
-	m.MethodCall(m, "ContainerSpec", tag)
+func (m *mockModel) PodSpec(tag names.ApplicationTag) (string, error) {
+	m.MethodCall(m, "PodSpec", tag)
 	if err := m.NextErr(); err != nil {
 		return "", err
 	}
 	return "spec(" + tag.Id() + ")", nil
 }
 
-func (m *mockModel) WatchContainerSpec(tag names.Tag) (state.NotifyWatcher, error) {
-	m.MethodCall(m, "WatchContainerSpec", tag)
+func (m *mockModel) WatchPodSpec(tag names.ApplicationTag) (state.NotifyWatcher, error) {
+	m.MethodCall(m, "WatchPodSpec", tag)
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
-	return m.containerSpecWatcher, nil
+	return m.podSpecWatcher, nil
 }
 
 type mockApplication struct {
