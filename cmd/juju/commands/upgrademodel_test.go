@@ -130,6 +130,12 @@ var upgradeJujuTests = []struct {
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.0.5",
 }, {
+	about:          "latest current release with tag",
+	tools:          []string{"2.2.0-quantal-amd64", "2.2.5-quantal-i386", "2.3.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
+	currentVersion: "2.0.0-quantal-amd64",
+	agentVersion:   "2.0.0",
+	expectVersion:  "2.1-dev1",
+}, {
 	about:          "latest current release matching CLI, major version, no matching major agent binaries",
 	tools:          []string{"2.8.2-quantal-amd64"},
 	currentVersion: "3.0.2-quantal-amd64",
@@ -141,12 +147,6 @@ var upgradeJujuTests = []struct {
 	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
 	expectErr:      "no compatible agent binaries available",
-}, {
-	about:          "no next supported available",
-	tools:          []string{"2.2.0-quantal-amd64", "2.2.5-quantal-i386", "2.3.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
-	currentVersion: "2.0.0-quantal-amd64",
-	agentVersion:   "2.0.0",
-	expectErr:      "no more recent supported versions available",
 }, {
 	about:          "latest supported stable, when client is dev, explicit upload",
 	tools:          []string{"2.1-dev1-quantal-amd64", "2.1.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
