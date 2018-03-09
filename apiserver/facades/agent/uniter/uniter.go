@@ -52,9 +52,13 @@ type UniterAPI struct {
 	accessUnit        common.GetAuthFunc
 	accessApplication common.GetAuthFunc
 	accessMachine     common.GetAuthFunc
-	accessCloudSpec   common.GetAuthFunc
-	cloudSpec         cloudspec.CloudSpecAPI
 	*StorageAPI
+
+	// A cloud spec can only be accessed for the model of the unit or
+	// application that is authorised for this API facade.
+	// We do not need to use an AuthFunc, because we do not need to pass a tag.
+	accessCloudSpec func() (func() bool, error)
+	cloudSpec       cloudspec.CloudSpecAPI
 }
 
 // UniterAPIV7 adds CMR support to NetworkInfo.
@@ -159,7 +163,7 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
 		}
 	}
-	accessCloudSpec := func() (common.AuthFunc, error) {
+	accessCloudSpec := func() (func() bool, error) {
 		var appName string
 		var err error
 
@@ -184,7 +188,7 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return func(_ names.Tag) bool {
+		return func() bool {
 			return config.GetBool("trust", false)
 		}, nil
 	}
@@ -2477,17 +2481,16 @@ func (u *UniterAPI) GoalStates(args params.Entities) (string, error) {
 	return result.Results[0].Result, nil
 }
 
-// GetCloudSpec returns the cloud spec used by the model in which the input
-// application resides.
-// A check is made beforehand to ensure that the requesting application has
-// been granted the appropriate trust.
+// GetCloudSpec returns the cloud spec used by the model in which the
+// authenticated unit or application resides.
+// A check is made beforehand to ensure that the request is made by an entity
+// that has been granted the appropriate trust.
 func (u *UniterAPI) CloudSpec() (params.CloudSpecResult, error) {
 	canAccess, err := u.accessCloudSpec()
 	if err != nil {
 		return params.CloudSpecResult{}, err
 	}
-
-	if !canAccess(nil) {
+	if !canAccess() {
 		return params.CloudSpecResult{Error: common.ServerError(common.ErrPerm)}, nil
 	}
 
