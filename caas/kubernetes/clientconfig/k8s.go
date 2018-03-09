@@ -1,6 +1,7 @@
 package clientconfig
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -134,8 +135,8 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 			if user.Password == "" {
 				logger.Warningf("empty password")
 			}
-			attrs["Username"] = user.Username
-			attrs["Password"] = user.Password
+			attrs["username"] = user.Username
+			attrs["password"] = user.Password
 			if hasCert {
 				authType = cloud.UserPassWithCertAuthType
 			} else {
@@ -147,7 +148,9 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 			logger.Warningf("unsupported configuration for AuthInfo '%s'", name)
 		}
 
-		rv[name] = cloud.NewCredential(authType, attrs)
+		cred := cloud.NewCredential(authType, attrs)
+		cred.Label = fmt.Sprintf("kubernetes credential %q", name)
+		rv[name] = cred
 	}
 	return rv, nil
 }

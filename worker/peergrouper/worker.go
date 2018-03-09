@@ -30,8 +30,6 @@ type State interface {
 	ControllerConfig() (controller.Config, error)
 	ControllerInfo() (*state.ControllerInfo, error)
 	Machine(id string) (Machine, error)
-	SetOrGetMongoSpaceName(spaceName network.SpaceName) (network.SpaceName, error)
-	SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error
 	Space(id string) (Space, error)
 	WatchControllerInfo() state.NotifyWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
@@ -194,6 +192,7 @@ func (w *pgWorker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-controllerChanges:
+			// A controller machine was added or removed.
 			logger.Tracef("<-controllerChanges")
 			changed, err := w.updateControllerMachines()
 			if err != nil {
@@ -202,14 +201,13 @@ func (w *pgWorker) loop() error {
 			if !changed {
 				continue
 			}
-			// A controller machine was added or removed.
 			logger.Tracef("controller added or removed, update replica now")
 		case <-w.machineChanges:
-			logger.Tracef("<-w.machineChanges")
 			// One of the controller machines changed.
+			logger.Tracef("<-w.machineChanges")
 		case <-updateChan:
-			logger.Tracef("<-updateChan")
 			// Scheduled update.
+			logger.Tracef("<-updateChan")
 		}
 
 		servers := w.apiServerHostPorts()
@@ -238,9 +236,8 @@ func (w *pgWorker) loop() error {
 			updateChan = w.config.Clock.After(retryInterval)
 			retryInterval = scaleRetry(retryInterval)
 		} else {
-			// Update the replica set members occasionally
-			// to keep them up to date with the current
-			// replica set member statuses.
+			// Update the replica set members occasionally to keep them up to
+			// date with the current replica-set member statuses.
 			updateChan = w.config.Clock.After(pollInterval)
 			retryInterval = initialRetryInterval
 		}
@@ -374,7 +371,7 @@ func (w *pgWorker) apiServerHostPorts() map[string][]network.HostPort {
 
 func (w *pgWorker) publishAPIServerDetails(
 	servers map[string][]network.HostPort,
-	members map[string]replicaset.Member,
+	members map[string]*replicaset.Member,
 ) {
 	details := apiserver.Details{
 		Servers:   make(map[string]apiserver.APIServer),
@@ -382,12 +379,11 @@ func (w *pgWorker) publishAPIServerDetails(
 	}
 	for id, hostPorts := range servers {
 		var internalAddress string
-		mongoAddress, _, err := net.SplitHostPort(members[id].Address)
-		if err == nil {
-			internalAddress = net.JoinHostPort(
-				mongoAddress,
-				strconv.Itoa(w.config.APIPort),
-			)
+		if members[id] != nil {
+			mongoAddress, _, err := net.SplitHostPort(members[id].Address)
+			if err == nil {
+				internalAddress = net.JoinHostPort(mongoAddress, strconv.Itoa(w.config.APIPort))
+			}
 		}
 		server := apiserver.APIServer{
 			ID:              id,
@@ -401,124 +397,6 @@ func (w *pgWorker) publishAPIServerDetails(
 	w.config.Hub.Publish(apiserver.DetailsTopic, details)
 }
 
-// peerGroupInfo collates current session information about the
-// mongo peer group with information from state machines.
-func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
-	info := &peerGroupInfo{
-		mongoPort: w.config.MongoPort,
-	}
-
-	sts, err := w.config.MongoSession.CurrentStatus()
-	if err != nil {
-		return nil, fmt.Errorf("cannot get replica set status: %v", err)
-	}
-	info.statuses = sts.Members
-
-	info.members, err = w.config.MongoSession.CurrentMembers()
-	if err != nil {
-		return nil, fmt.Errorf("cannot get replica set members: %v", err)
-	}
-	info.machineTrackers = w.machineTrackers
-
-	spaceName, err := w.getMongoSpace(machineAddresses(info.machineTrackers))
-	if err != nil {
-		return nil, err
-	}
-	info.mongoSpace = spaceName
-
-	return info, nil
-}
-
-func machineAddresses(machines map[string]*machineTracker) [][]network.Address {
-	addresses := make([][]network.Address, 0, len(machines))
-	for _, m := range machines {
-		addresses = append(addresses, m.Addresses())
-	}
-	return addresses
-}
-
-const unsetSpace = network.SpaceName("")
-
-var errSpaceNotSuperset = errors.New("could not find a space containing all peer group machines")
-
-// getMongoSpace updates info with the space that Mongo servers should exist in.
-func (w *pgWorker) getMongoSpace(addrs [][]network.Address) (network.SpaceName, error) {
-	stateInfo, err := w.config.State.ControllerInfo()
-	if err != nil {
-		return unsetSpace, errors.Annotate(err, "cannot get state server info")
-	}
-
-	switch stateInfo.MongoSpaceState {
-	case state.MongoSpaceUnknown:
-		if !w.config.SupportsSpaces {
-			err := w.config.State.SetMongoSpaceState(state.MongoSpaceUnsupported)
-			if err != nil {
-				return unsetSpace, errors.Annotate(err, "cannot set Mongo space state")
-			}
-			return unsetSpace, nil
-		}
-
-		// Check to see if a HA space was set in the controller config.
-		space := unsetSpace
-		space, err = w.tryGetMongoSpaceFromConfig()
-		if err != nil {
-			return space, errors.Annotate(err, "getting Mongo space from config")
-		}
-
-		// If not, try to determine a space automatically.
-		if space == unsetSpace {
-			if space, err = w.tryFindMongoSpace(addrs); err != nil {
-				if err == errSpaceNotSuperset {
-					logger.Warningf(err.Error())
-					err = nil
-				}
-				return space, errors.Trace(err)
-			}
-		}
-
-		if space, err = w.config.State.SetOrGetMongoSpaceName(space); err != nil {
-			err = errors.Annotate(err, "error setting/getting Mongo space")
-		}
-		return space, err
-
-	case state.MongoSpaceValid:
-		space, err := w.config.State.Space(stateInfo.MongoSpaceName)
-		if err != nil {
-			return unsetSpace, errors.Annotate(err, "looking up space")
-		}
-		return network.SpaceName(space.Name()), nil
-	}
-
-	return unsetSpace, nil
-}
-
-// trySetMongoSpaceFromConfig checks whether a value was supplied for
-// juju-ha-space in the controllers config.
-// If so, an attempt is made to use that value as the Mongo space name.
-func (w *pgWorker) tryGetMongoSpaceFromConfig() (network.SpaceName, error) {
-	config, err := w.config.State.ControllerConfig()
-	if err != nil {
-		return unsetSpace, err
-	}
-	return network.SpaceName(config.JujuHASpace()), nil
-}
-
-// tryAutoSetMongoSpace attempts to determine the largest space containing all
-// of the input addresses.
-// If there is no such space, set the space state to be invalid.
-func (w *pgWorker) tryFindMongoSpace(addrs [][]network.Address) (network.SpaceName, error) {
-	spaceStats := generateSpaceStats(addrs)
-	if !spaceStats.LargestSpaceContainsAll {
-		err := w.config.State.SetMongoSpaceState(state.MongoSpaceInvalid)
-		if err != nil {
-			return unsetSpace, errors.Annotate(err, "cannot set Mongo space state")
-		}
-		return unsetSpace, errSpaceNotSuperset
-	}
-
-	return spaceStats.LargestSpace, nil
-}
-
 // replicaSetError holds an error returned as a result
 // of calling replicaset.Set. As this is expected to fail
 // in the normal course of things, it needs special treatment.
@@ -526,37 +404,25 @@ type replicaSetError struct {
 	error
 }
 
-func prettyReplicaSetMembers(members []replicaset.Member) string {
-	var result []string
-	for _, member := range members {
-		vote := true
-		if member.Votes != nil && *member.Votes == 0 {
-			vote = false
-		}
-		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, Vote: %v", member.Id, member.Tags, vote))
-	}
-	return strings.Join(result, "\n")
-}
-
 // updateReplicaSet sets the current replica set members, and applies the
 // given voting status to machines in the state. A mapping of machine ID
 // to replicaset.Member structures is returned.
-func (w *pgWorker) updateReplicaSet() (map[string]replicaset.Member, error) {
+func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	info, err := w.peerGroupInfo()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot get peergrouper info")
+		return nil, errors.Annotate(err, "creating peer group info")
 	}
 	members, voting, err := desiredPeerGroup(info)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot compute desired peer group")
+		return nil, errors.Annotate(err, "computing desired peer group")
 	}
 	if logger.IsDebugEnabled() {
 		if members != nil {
 			logger.Debugf("desired peer group members: \n%s", prettyReplicaSetMembers(members))
 		} else {
 			var output []string
-			for m, v := range voting {
-				output = append(output, fmt.Sprintf("  %s: %v", m.id, v))
+			for id, v := range voting {
+				output = append(output, fmt.Sprintf("  %s: %v", id, v))
 			}
 			logger.Debugf("no change in desired peer group, voting: \n%s", strings.Join(output, "\n"))
 		}
@@ -585,7 +451,8 @@ func (w *pgWorker) updateReplicaSet() (map[string]replicaset.Member, error) {
 	// Note that we potentially update the HasVote status of the machines even
 	// if the members have not changed.
 	var added, removed []*machineTracker
-	for m, hasVote := range voting {
+	for id, hasVote := range voting {
+		m := info.machines[id]
 		switch {
 		case hasVote && !m.stm.HasVote():
 			added = append(added, m)
@@ -594,10 +461,14 @@ func (w *pgWorker) updateReplicaSet() (map[string]replicaset.Member, error) {
 		}
 	}
 	if err := setHasVote(added, true); err != nil {
-		return nil, errors.Annotate(err, "cannot set HasVote added")
+		return nil, errors.Annotate(err, "adding new voters")
 	}
 	if members != nil {
-		if err := w.config.MongoSession.Set(members); err != nil {
+		ms := make([]replicaset.Member, 0, len(members))
+		for _, m := range members {
+			ms = append(ms, *m)
+		}
+		if err := w.config.MongoSession.Set(ms); err != nil {
 			// We've failed to set the replica set, so revert back
 			// to the previous settings.
 			if err1 := setHasVote(added, false); err1 != nil {
@@ -608,19 +479,58 @@ func (w *pgWorker) updateReplicaSet() (map[string]replicaset.Member, error) {
 		logger.Infof("successfully updated replica set")
 	}
 	if err := setHasVote(removed, false); err != nil {
-		return nil, errors.Annotate(err, "cannot set HasVote removed")
+		return nil, errors.Annotate(err, "removing non-voters")
 	}
 
-	mm, _, _ := info.membersMap()
-	machineMembers := make(map[string]replicaset.Member)
-	for m, member := range mm {
-		machineMembers[m.Id()] = *member
+	// Return the members from the calculated peer-group that are voters.
+	for id := range members {
+		if !voting[id] {
+			delete(members, id)
+		}
 	}
-	return machineMembers, nil
+	return members, nil
 }
 
-// setHasVote sets the HasVote status of all the given
-// machines to hasVote.
+func prettyReplicaSetMembers(members map[string]*replicaset.Member) string {
+	var result []string
+	for _, m := range members {
+		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, Vote: %v", m.Id, m.Tags, isVotingMember(m)))
+	}
+	return strings.Join(result, "\n")
+}
+
+// peerGroupInfo collates current session information about the
+// mongo peer group with information from state machines.
+func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
+	sts, err := w.config.MongoSession.CurrentStatus()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get replica set status")
+	}
+
+	members, err := w.config.MongoSession.CurrentMembers()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get replica set members")
+	}
+
+	haSpace, err := w.getHASpaceFromConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return newPeerGroupInfo(w.machineTrackers, sts.Members, members, w.config.MongoPort, haSpace)
+}
+
+// getHASpaceFromConfig returns a SpaceName from the controller config for
+// HA space. If unset, the empty space ("") will be returned.
+func (w *pgWorker) getHASpaceFromConfig() (network.SpaceName, error) {
+	config, err := w.config.State.ControllerConfig()
+	if err != nil {
+		return network.SpaceName(""), err
+	}
+	return network.SpaceName(config.JujuHASpace()), nil
+}
+
+// setHasVote sets the HasVote status of all the given machines to hasVote.
 func setHasVote(ms []*machineTracker, hasVote bool) error {
 	if len(ms) == 0 {
 		return nil
@@ -632,36 +542,4 @@ func setHasVote(ms []*machineTracker, hasVote bool) error {
 		}
 	}
 	return nil
-}
-
-// SpaceStats holds information useful when choosing which space to pick an
-// address from.
-type spaceStats struct {
-	SpaceRefCount           map[network.SpaceName]int
-	LargestSpace            network.SpaceName
-	LargestSpaceSize        int
-	LargestSpaceContainsAll bool
-}
-
-// generateSpaceStats takes a list of machine addresses and returns information
-// about what spaces are referenced by those machines.
-func generateSpaceStats(addresses [][]network.Address) spaceStats {
-	var stats spaceStats
-	stats.SpaceRefCount = make(map[network.SpaceName]int)
-
-	for i := range addresses {
-		for _, addr := range addresses[i] {
-			v := stats.SpaceRefCount[addr.SpaceName]
-			v++
-			stats.SpaceRefCount[addr.SpaceName] = v
-
-			if v > stats.LargestSpaceSize {
-				stats.LargestSpace = addr.SpaceName
-				stats.LargestSpaceSize = v
-			}
-		}
-	}
-
-	stats.LargestSpaceContainsAll = stats.LargestSpaceSize == len(addresses)
-	return stats
 }

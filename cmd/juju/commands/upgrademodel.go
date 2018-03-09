@@ -590,6 +590,9 @@ func (context *upgradeContext) maybeChoosePackagedAgent() (err error) {
 		nextVersion := context.agent
 		nextVersion.Minor += 1
 		nextVersion.Patch = 0
+		// Set Tag to space so it will be considered lexicographically earlier
+		// than any tagged version.
+		nextVersion.Tag = " "
 
 		newestNextStable, found := context.tools.NewestCompatible(nextVersion)
 		if found {

@@ -700,35 +700,6 @@ func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
 	c.Assert(address, gc.Equals, "10.0.0.1")
 }
 
-func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
-
-	hostPorts := []network.HostPort{{
-		Address: network.Address{
-			Value: "127.0.0.1",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeMachineLocal,
-		},
-		Port: controller.DefaultStatePort,
-	}, {
-		Address: network.Address{
-			Value: "10.0.0.1",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		},
-		Port: controller.DefaultStatePort,
-	}, {
-		Address: network.Address{
-			Value: "8.8.8.8",
-			Type:  network.IPv4Address,
-			Scope: network.ScopePublic,
-		},
-		Port: controller.DefaultStatePort,
-	}}
-
-	address := mongo.SelectPeerHostPort(hostPorts)
-	c.Assert(address, gc.Equals, "10.0.0.1:"+strconv.Itoa(controller.DefaultStatePort))
-}
-
 func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
 	secret, err := mongo.GenerateSharedSecret()
 	c.Assert(err, jc.ErrorIsNil)

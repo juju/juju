@@ -19,7 +19,8 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// A EnvironProvider represents a computing and storage provider.
+// A EnvironProvider represents a computing and storage provider
+// for either a traditional cloud or a container substrate like k8s.
 type EnvironProvider interface {
 	config.Validator
 	ProviderCredentials
@@ -31,7 +32,7 @@ type EnvironProvider interface {
 	Version() int
 
 	// CloudSchema returns the schema used to validate input for add-cloud.  If
-	// a provider does not suppport custom clouds, CloudSchema should return
+	// a provider does not support custom clouds, CloudSchema should return
 	// nil.
 	CloudSchema() *jsonschema.Schema
 
@@ -44,7 +45,12 @@ type EnvironProvider interface {
 	// "uuid" attribute of the base configuration. This is called for the
 	// controller model during bootstrap, and also for new hosted models.
 	PrepareConfig(PrepareConfigParams) (*config.Config, error)
+}
 
+// A EnvironProvider represents a computing and storage provider
+// for a traditional cloud like AWS or Openstack.
+type CloudEnvironProvider interface {
+	EnvironProvider
 	// Open opens the environment and returns it. The configuration must
 	// have passed through PrepareConfig at some point in its lifecycle.
 	//

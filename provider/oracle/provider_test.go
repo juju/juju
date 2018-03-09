@@ -78,7 +78,7 @@ func (e *environProviderSuite) TestOpen(c *gc.C) {
 			"password":        "some-firendly-password",
 		},
 	)
-	_, err := provider.Open(environs.OpenParams{
+	_, err := environs.Open(provider, environs.OpenParams{
 		Cloud: environs.CloudSpec{
 			Type:       "oracle",
 			Name:       "oracle",

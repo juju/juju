@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -1502,6 +1503,9 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	task := s.newProvisionerTask(c, config.HarvestAll, e, s.provisioner, &mockDistributionGroupFinder{}, mockToolsFinder{})
 	defer workertest.CleanKill(c, task)
 
+	logger := loggo.GetLogger("juju.provisioner")
+	logger.SetLogLevel(loggo.TRACE)
+
 	// Provision some machines, some will be started first time,
 	// another will require retries.
 	m1, err := s.addMachine()
@@ -1519,7 +1523,9 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// keep setting the transient flag to retry until the
 	// instance has started.
 	thatsAllFolks := make(chan struct{})
+	hackyGoroutineDone := make(chan struct{})
 	go func() {
+		defer close(hackyGoroutineDone)
 		for {
 			select {
 			case <-thatsAllFolks:
@@ -1532,13 +1538,20 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 					Data:    map[string]interface{}{"transient": true},
 					Since:   &now,
 				}
+				logger.Infof("setting instance status provisioning error as transient for m3")
 				err := m3.SetInstanceStatus(sInfo)
-				c.Assert(err, jc.ErrorIsNil)
+				c.Check(err, jc.ErrorIsNil)
 			}
 		}
 	}()
 	s.checkStartInstance(c, m3)
 	close(thatsAllFolks)
+
+	select {
+	case <-hackyGoroutineDone:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("status setting goroutine didn't stop")
+	}
 
 	// Machine 4 is never provisioned.
 	statusInfo, err := m4.InstanceStatus()
@@ -1858,7 +1871,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesClearAZFailures(c *gc.C) {
 	machine, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	s.checkStartInstance(c, machine)
-	count := e.retryCount[machine.Id()]
+	count := e.getRetryCount(machine.Id())
 	c.Assert(count, gc.Equals, 3)
 	machineAZ, err := machine.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1894,8 +1907,8 @@ func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {
 	mSucceed := machines[2:]
 
 	s.checkStartInstances(c, mSucceed)
-	c.Assert(e.retryCount[mSucceed[0].Id()], gc.Equals, 1)
-	c.Assert(e.retryCount[mSucceed[2].Id()], gc.Equals, 1)
+	c.Assert(e.getRetryCount(mSucceed[0].Id()), gc.Equals, 1)
+	c.Assert(e.getRetryCount(mSucceed[2].Id()), gc.Equals, 1)
 
 	// This synchronisation addresses a potential race condition.
 	// It can happen that upon successful return from checkStartInstances
@@ -1903,7 +1916,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesDerivedAZ(c *gc.C) {
 	// retried the specified number of times; so we wait.
 	id := mFail[1].Id()
 	timeout := time.After(coretesting.LongWait)
-	for e.retryCount[id] < 3 {
+	for e.getRetryCount(id) < 3 {
 		select {
 		case <-timeout:
 			c.Fatalf("Failed provision of %q did not retry 3 times", id)
@@ -1988,6 +2001,13 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs
 		b.retryCount[id] = retries + 1
 	}
 	return nil, returnError
+}
+
+func (b *mockBroker) getRetryCount(id string) int {
+	b.mu.Lock()
+	retries := b.retryCount[id]
+	b.mu.Unlock()
+	return retries
 }
 
 // ZonedEnviron necessary for provisionerTask.populateAvailabilityZoneMachines where

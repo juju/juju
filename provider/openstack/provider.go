@@ -63,8 +63,8 @@ type EnvironProvider struct {
 }
 
 var (
-	_ environs.EnvironProvider = (*EnvironProvider)(nil)
-	_ environs.ProviderSchema  = (*EnvironProvider)(nil)
+	_ environs.CloudEnvironProvider = (*EnvironProvider)(nil)
+	_ environs.ProviderSchema       = (*EnvironProvider)(nil)
 )
 
 var providerInstance *EnvironProvider = &EnvironProvider{

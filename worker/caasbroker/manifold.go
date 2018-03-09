@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/caasagent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/worker/dependency"
 )
@@ -32,13 +32,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
-			// TODO(caas) introduce a caasbroker API
-			apiSt, err := agent.NewState(apiCaller)
+			api, err := caasagent.NewClient(apiCaller)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			w, err := NewTracker(Config{
-				Observer:               apiSt,
+				ConfigAPI:              api,
 				NewContainerBrokerFunc: config.NewContainerBrokerFunc,
 			})
 			if err != nil {

@@ -46,7 +46,7 @@ func (s *ProviderSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ProviderSuite) TestOpen(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -59,7 +59,7 @@ func (s *ProviderSuite) TestOpenUnknownRegion(c *gc.C) {
 	// anything in the client. That means that when new regions are
 	// added to AWS, we'll be able to support them.
 	s.spec.Region = "foobar"
-	_, err := s.provider.Open(environs.OpenParams{
+	_, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -74,7 +74,7 @@ func (s *ProviderSuite) TestOpenKnownRegionInvalidEndpoint(c *gc.C) {
 	})
 	s.spec.Endpoint = "https://us-east-1.aws.amazon.com/v1.2/"
 
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -96,7 +96,7 @@ func (s *ProviderSuite) TestOpenKnownRegionValidEndpoint(c *gc.C) {
 	})
 	s.spec.Endpoint = "https://ec2.us-east-1.amazonaws.com"
 
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -118,7 +118,7 @@ func (s *ProviderSuite) TestOpenUnsupportedCredential(c *gc.C) {
 }
 
 func (s *ProviderSuite) testOpenError(c *gc.C, spec environs.CloudSpec, expect string) {
-	_, err := s.provider.Open(environs.OpenParams{
+	_, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: coretesting.ModelConfig(c),
 	})

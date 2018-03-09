@@ -14,15 +14,15 @@ import (
 	"github.com/juju/replicaset"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
+	//"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/apiserver"
-	"github.com/juju/juju/state"
+	//"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -116,14 +116,14 @@ func ExpectedAPIHostPorts(n int, ipVersion TestIPVersion) [][]network.HostPort {
 }
 
 func (s *workerSuite) TestSetsAndUpdatesMembersIPv4(c *gc.C) {
-	s.dotestSetAndUpdateMembers(c, testIPv4)
+	s.doTestSetAndUpdateMembers(c, testIPv4)
 }
 
 func (s *workerSuite) TestSetsAndUpdatesMembersIPv6(c *gc.C) {
-	s.dotestSetAndUpdateMembers(c, testIPv6)
+	s.doTestSetAndUpdateMembers(c, testIPv6)
 }
 
-func (s *workerSuite) dotestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion) {
+func (s *workerSuite) doTestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion) {
 	c.Logf("\n\nTestSetsAndUpdatesMembers: %s", ipVersion.version)
 	st := NewFakeState()
 	InitState(c, st, 3, ipVersion)
@@ -209,14 +209,14 @@ func (s *workerSuite) dotestSetAndUpdateMembers(c *gc.C, ipVersion TestIPVersion
 }
 
 func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFailsIPv4(c *gc.C) {
-	s.dotestHasVoteMaintainsEvenWhenReplicaSetFails(c, testIPv4)
+	s.doTestHasVoteMaintainsEvenWhenReplicaSetFails(c, testIPv4)
 }
 
 func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFailsIPv6(c *gc.C) {
-	s.dotestHasVoteMaintainsEvenWhenReplicaSetFails(c, testIPv6)
+	s.doTestHasVoteMaintainsEvenWhenReplicaSetFails(c, testIPv6)
 }
 
-func (s *workerSuite) dotestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipVersion TestIPVersion) {
+func (s *workerSuite) doTestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipVersion TestIPVersion) {
 	st := NewFakeState()
 
 	// Simulate a state where we have four controllers,
@@ -262,7 +262,7 @@ func (s *workerSuite) dotestHasVoteMaintainsEvenWhenReplicaSetFails(c *gc.C, ipV
 	// The worker should encounter an error setting the
 	// has-vote status to false and exit.
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, `cannot set HasVote removed: cannot set voting status of "[0-9]+" to false: frood`)
+	c.Assert(err, gc.ErrorMatches, `removing non-voters: cannot set voting status of "[0-9]+" to false: frood`)
 
 	// Start the worker again - although the membership should
 	// not change, the HasVote status should be updated correctly.
@@ -345,14 +345,14 @@ var fatalErrorsTests = []struct {
 	expectErr:  "cannot get controller info: sample",
 }, {
 	errPattern:   "Machine.SetHasVote 11 true",
-	expectErr:    `cannot set HasVote added: cannot set voting status of "11" to true: sample`,
+	expectErr:    `adding new voters: cannot set voting status of "11" to true: sample`,
 	advanceCount: 2,
 }, {
 	errPattern: "Session.CurrentStatus",
-	expectErr:  "cannot get peergrouper info: cannot get replica set status: sample",
+	expectErr:  "creating peer group info: cannot get replica set status: sample",
 }, {
 	errPattern: "Session.CurrentMembers",
-	expectErr:  "cannot get peergrouper info: cannot get replica set members: sample",
+	expectErr:  "creating peer group info: cannot get replica set members: sample",
 }, {
 	errPattern: "State.Machine *",
 	expectErr:  `cannot get machine "10": sample`,
@@ -446,7 +446,8 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 			c.Fatalf("timed out waiting for publish")
 		}
 
-		// Change one of the servers' API addresses and check that it's published.
+		// Change one of the server API addresses and check that it is
+		// published.
 		newMachine10Addresses := network.NewAddresses(ipVersion.extraHost)
 		st.machine("10").setAddresses(newMachine10Addresses...)
 		select {
@@ -493,7 +494,55 @@ func (s *workerSuite) TestControllersArePublishedOverHub(c *gc.C) {
 	}
 }
 
-func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, noSpaces bool) (*fakeState, []string, []network.Address) {
+func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
+	st := NewFakeState()
+	var ids []string
+	for i := 10; i < 13; i++ {
+		id := fmt.Sprint(i)
+		m := st.addMachine(id, true)
+		m.SetHasVote(true)
+		m.setAddresses(network.NewAddress(fmt.Sprintf(testIPv4.formatHost, i)))
+		ids = append(ids, id)
+		c.Assert(m.Addresses(), gc.HasLen, 1)
+	}
+	st.setControllers(ids...)
+	st.session.Set(mkMembers("0v 1 2", testIPv4))
+	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
+	st.check = checkInvariants
+	st.controllerConfig = controller.Config{}
+
+	hub := pubsub.NewStructuredHub(nil)
+	event := make(chan apiserver.Details)
+	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
+		c.Check(err, jc.ErrorIsNil)
+		event <- data
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.hub = hub
+
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	defer workertest.CleanKill(c, w)
+
+	expected := apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"10": {ID: "10", Addresses: []string{"0.1.2.10:5678"}, InternalAddress: "0.1.2.10:5678"},
+			"11": {ID: "11", Addresses: []string{"0.1.2.11:5678"}, InternalAddress: "0.1.2.11:5678"},
+			"12": {ID: "12", Addresses: []string{"0.1.2.12:5678"}, InternalAddress: "0.1.2.12:5678"},
+		},
+		LocalOnly: true,
+	}
+
+	select {
+	case obtained := <-event:
+		c.Assert(obtained, jc.DeepEquals, expected)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for event")
+	}
+}
+
+func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, addSpaces bool) (
+	*fakeState, []string, []network.Address,
+) {
 	st := NewFakeState()
 	InitState(c, st, 3, ipVersion)
 
@@ -502,10 +551,13 @@ func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, noSpaces bool) 
 		fmt.Sprintf(ipVersion.formatHost, 2),
 		fmt.Sprintf(ipVersion.formatHost, 3),
 	)
-	if !noSpaces {
+	if addSpaces {
 		addrs[0].SpaceName = "one"
 		addrs[1].SpaceName = "two"
 		addrs[2].SpaceName = "three"
+	}
+	for i := range addrs {
+		addrs[i].Scope = network.ScopeCloudLocal
 	}
 
 	machines := []string{"10", "11", "12"}
@@ -519,33 +571,10 @@ func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, noSpaces bool) 
 	return st, machines, addrs
 }
 
-func startWorkerSupportingSpaces(c *gc.C, st *fakeState, ipVersion TestIPVersion) worker.Worker {
-	w, err := New(Config{
-		State:              st,
-		MongoSession:       st.session,
-		APIHostPortsSetter: nopAPIHostPortsSetter{},
-		Clock:              clock.WallClock,
-		SupportsSpaces:     true,
-		MongoPort:          mongoPort,
-		APIPort:            apiPort,
-		Hub:                nopHub{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return w
-}
-
-func runWorkerUntilMongoStateIs(c *gc.C, st *fakeState, w worker.Worker, mss state.MongoSpaceStates) {
-	changes := st.controllers.Watch()
-	changes.Next()
-	for st.getMongoSpaceState() != mss {
-		changes.Next()
-	}
-	workertest.CleanKill(c, w)
-}
-
-func (s *workerSuite) TestMongoFindAndUseSpace(c *gc.C) {
+func (s *workerSuite) TestUsesConfiguredHASpace(c *gc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, false)
+		st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, true)
+		st.setHASpace("one")
 
 		for i, machine := range machines {
 			// machine 10 gets an address in space one
@@ -554,11 +583,7 @@ func (s *workerSuite) TestMongoFindAndUseSpace(c *gc.C) {
 			st.machine(machine).setAddresses(addrs[:i+1]...)
 		}
 
-		w := startWorkerSupportingSpaces(c, st, ipVersion)
-		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
-
-		// Only space one has all three servers in it
-		c.Assert(st.getMongoSpaceName(), gc.Equals, "one")
+		s.runUntilPublish(c, st, "")
 
 		// All machines have the same address in this test for simplicity. The
 		// space three address is 0.0.0.3 giving us the host port of 0.0.0.3:4711
@@ -573,53 +598,7 @@ func (s *workerSuite) TestMongoFindAndUseSpace(c *gc.C) {
 	})
 }
 
-func (s *workerSuite) TestMongoErrorNoCommonSpace(c *gc.C) {
-	c.Skip("dimitern: test disabled as it needs refactoring")
-	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, false)
-
-		for i, machine := range machines {
-			// machine 10 gets an address in space one
-			// machine 11 gets an address in space two
-			// machine 12 gets an address in space three
-			st.machine(machine).setAddresses(addrs[i])
-		}
-
-		w := startWorkerSupportingSpaces(c, st, ipVersion)
-		done := make(chan error)
-		go func() {
-			done <- w.Wait()
-		}()
-		select {
-		case err := <-done:
-			c.Assert(err, gc.ErrorMatches, ".*couldn't find a space containing all peer group machines")
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting for worker to exit")
-		}
-
-		// Each machine is in a unique space, so the Mongo space should be empty
-		c.Assert(st.getMongoSpaceName(), gc.Equals, "")
-		c.Assert(st.getMongoSpaceState(), gc.Equals, state.MongoSpaceInvalid)
-	})
-}
-
-func (s *workerSuite) TestMongoNoSpaces(c *gc.C) {
-	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, true)
-
-		for i, machine := range machines {
-			st.machine(machine).setAddresses(addrs[i])
-		}
-
-		w := startWorkerSupportingSpaces(c, st, ipVersion)
-		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
-
-		// Only space one has all three servers in it
-		c.Assert(st.getMongoSpaceName(), gc.Equals, "")
-	})
-}
-
-func (s *workerSuite) TestMongoSpaceNotOverwritten(c *gc.C) {
+func (s *workerSuite) TestReturnsErrorWhenNoHASpaceAndMachinesWithMultiLocalAddr(c *gc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
 		st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, false)
 
@@ -630,65 +609,41 @@ func (s *workerSuite) TestMongoSpaceNotOverwritten(c *gc.C) {
 			st.machine(machine).setAddresses(addrs[:i+1]...)
 		}
 
-		w := startWorkerSupportingSpaces(c, st, ipVersion)
-		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
-
-		// Only space one has all three servers in it
-		c.Assert(st.getMongoSpaceName(), gc.Equals, "one")
-
-		// Set st.mongoSpaceName to something different
-		st.SetMongoSpaceState(state.MongoSpaceUnknown)
-		st.SetOrGetMongoSpaceName("testing")
-		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
-
-		c.Assert(st.getMongoSpaceName(), gc.Equals, "testing")
-		c.Assert(st.getMongoSpaceState(), gc.Equals, state.MongoSpaceValid)
+		err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}).Wait()
+		errMsg := `computing desired peer group: machine "1[12]" has more than one non-local address and juju-ha-space is not set`
+		c.Check(err, gc.ErrorMatches, errMsg)
 	})
 }
 
-func (s *workerSuite) TestMongoSpaceSetFromConfig(c *gc.C) {
-	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, false)
-		st.setHASpace("controller-ha-space")
-
-		// As in the prior test, this would auto-determine the Mongo space to
-		// be "one", had we no controller config set for HA space.
-		for i, machine := range machines {
-			st.machine(machine).setAddresses(addrs[:i+1]...)
-		}
-
-		w := startWorkerSupportingSpaces(c, st, ipVersion)
-		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
-
-		// Only space one has all three servers in it
-		c.Assert(st.getMongoSpaceName(), gc.Equals, "controller-ha-space")
+// runUntilPublish runs a worker until addresses are published over the pub/sub
+// hub. Note that the replica-set is updated earlier than the publish,
+// so this sync can be used to check for those changes.
+// If errMsg is not empty, it is used to check for a matching error.
+func (s *workerSuite) runUntilPublish(c *gc.C, st *fakeState, errMsg string) {
+	hub := pubsub.NewStructuredHub(nil)
+	event := make(chan apiserver.Details)
+	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
+		c.Check(err, jc.ErrorIsNil)
+		event <- data
 	})
-}
+	c.Assert(err, jc.ErrorIsNil)
+	s.hub = hub
 
-func (s *workerSuite) TestMongoSpaceNotCalculatedWhenSpacesNotSupported(c *gc.C) {
-	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, false)
-
-		for i, machine := range machines {
-			// machine 10 gets an address in space one
-			// machine 11 gets addresses in spaces one and two
-			// machine 12 gets addresses in spaces one, two and three
-			st.machine(machine).setAddresses(addrs[:i+1]...)
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	defer func() {
+		if errMsg == "" {
+			workertest.CleanKill(c, w)
+		} else {
+			err := workertest.CheckKill(c, w)
+			c.Assert(err, gc.ErrorMatches, errMsg)
 		}
+	}()
 
-		// Set some garbage up to check that it isn't overwritten
-		st.SetOrGetMongoSpaceName("garbage")
-		st.SetMongoSpaceState(state.MongoSpaceUnknown)
-
-		// Start a worker that doesn't support spaces
-		w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
-		defer workertest.CleanKill(c, w)
-		runWorkerUntilMongoStateIs(c, st, w.(*pgWorker), state.MongoSpaceUnsupported)
-
-		// Only space one has all three servers in it
-		c.Assert(st.getMongoSpaceName(), gc.Equals, "garbage")
-		c.Assert(st.getMongoSpaceState(), gc.Equals, state.MongoSpaceUnsupported)
-	})
+	select {
+	case <-event:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for event")
+	}
 }
 
 func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
@@ -744,7 +699,7 @@ func mustNext(c *gc.C, w *voyeur.Watcher, context string) (val interface{}) {
 		val = w.Value()
 		if ok {
 			members := val.([]replicaset.Member)
-			val = "\n" + prettyReplicaSetMembers(members)
+			val = "\n" + prettyReplicaSetMembersSlice(members)
 		}
 		c.Logf("mustNext %v done, ok: %v, val: %v", context, ok, val)
 		done <- voyeurResult{ok, val}

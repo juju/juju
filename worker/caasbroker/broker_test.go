@@ -6,6 +6,7 @@ package caasbroker_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
@@ -25,13 +26,13 @@ func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
 	config := caasbroker.Config{}
 	s.testValidate(c, config, func(err error) {
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
-		c.Check(err, gc.ErrorMatches, "nil Observer not valid")
+		c.Check(err, gc.ErrorMatches, "nil ConfigAPI not valid")
 	})
 }
 
 func (s *TrackerSuite) TestValidateNewBrokerFunc(c *gc.C) {
 	config := caasbroker.Config{
-		Observer: &runContext{},
+		ConfigAPI: &runContext{},
 	}
 	s.testValidate(c, config, func(err error) {
 		c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -56,7 +57,7 @@ func (s *TrackerSuite) TestCloudSpecFails(c *gc.C) {
 	}
 	fix.Run(c, func(context *runContext) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
-			Observer:               context,
+			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
 		})
 		c.Check(err, gc.ErrorMatches, "cannot get cloud information: no yuo")
@@ -65,11 +66,23 @@ func (s *TrackerSuite) TestCloudSpecFails(c *gc.C) {
 	})
 }
 
+func (s *TrackerSuite) validFixture() *fixture {
+	cloudSpec := environs.CloudSpec{
+		Name:   "foo",
+		Type:   "bar",
+		Region: "baz",
+	}
+	cfg := coretesting.FakeConfig()
+	cfg["type"] = "kubernetes"
+	cfg["uuid"] = utils.MustNewUUID().String()
+	return &fixture{cloud: cloudSpec, config: cfg}
+}
+
 func (s *TrackerSuite) TestSuccess(c *gc.C) {
-	fix := &fixture{}
+	fix := s.validFixture()
 	fix.Run(c, func(context *runContext) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
-			Observer:               context,
+			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -80,23 +93,19 @@ func (s *TrackerSuite) TestSuccess(c *gc.C) {
 	})
 }
 
-func (s *TrackerSuite) TestCloudSpec(c *gc.C) {
-	cloudSpec := environs.CloudSpec{
-		Name:   "foo",
-		Type:   "bar",
-		Region: "baz",
-	}
-	fix := &fixture{cloud: cloudSpec}
+func (s *TrackerSuite) TestInitialise(c *gc.C) {
+	fix := s.validFixture()
 	fix.Run(c, func(context *runContext) {
 		tracker, err := caasbroker.NewTracker(caasbroker.Config{
-			Observer: context,
-			NewContainerBrokerFunc: func(spec environs.CloudSpec) (caas.Broker, error) {
-				c.Assert(spec, jc.DeepEquals, cloudSpec)
+			ConfigAPI: context,
+			NewContainerBrokerFunc: func(args environs.OpenParams) (caas.Broker, error) {
+				c.Assert(args.Cloud, jc.DeepEquals, fix.cloud)
+				c.Assert(args.Config.Name(), jc.DeepEquals, "testenv")
 				return nil, errors.NotValidf("cloud spec")
 			},
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create caas broker: cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
-		context.CheckCallNames(c, "CloudSpec")
+		context.CheckCallNames(c, "CloudSpec", "Model")
 	})
 }

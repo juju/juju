@@ -43,7 +43,7 @@ import (
 	apimachiner "github.com/juju/juju/api/machiner"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
@@ -615,10 +615,8 @@ func (a *MachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 var (
-	newEnvirons = environs.New
-
-	// TODO(caas) - don't hard code a kubernetes provider
-	newCAASBroker = provider.NewK8sProvider
+	newEnvirons   = environs.New
+	newCAASBroker = caas.New
 )
 
 // startAPIWorkers is called to start workers which rely on the

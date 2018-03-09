@@ -31,6 +31,9 @@ import tarfile
 
 from contextlib import contextmanager
 
+from jujupy.client import (
+    get_version_string_parts
+)
 
 __metaclass__ = type
 
@@ -176,7 +179,7 @@ def agent_tgz_from_juju_binary(juju_bin_path, tmp_dir, series=None):
     try:
         version_output = subprocess.check_output(
             [jujud_path, 'version']).rstrip('\n')
-        version, bin_series, arch = version_output.split('-')
+        version, bin_series, arch = get_version_string_parts(version_output)
         bin_agent_series = _series_lookup(bin_series)
     except subprocess.CalledProcessError as e:
         raise RuntimeError(
