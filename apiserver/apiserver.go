@@ -533,7 +533,14 @@ func (srv *Server) loop() error {
 	// TODO(axw) graceful HTTP server shutdown. Then we'll shutdown the
 	// server, rather than closing the listener.
 
+	// In order to make sure there isn't a race between the wait group Wait in
+	// the defer at the top of this function, with the adding to the wait
+	// group for the http handler functions, we ensure that ther is a counter
+	// added for the starting of the server, and this gets removed when the
+	// socket is closed causing the Server function to exit.
+	srv.wg.Add(1)
 	go func() {
+		defer srv.wg.Done()
 		logger.Debugf("Starting API http server on address %q", srv.lis.Addr())
 		httpSrv := &http.Server{
 			Handler:   srv.mux,
@@ -572,7 +579,11 @@ func (srv *Server) loop() error {
 func closeListener(lis net.Listener) {
 	addr := lis.Addr().String() // Addr is not valid after Close is called.
 	err := lis.Close()
-	logger.Infof("closed listening socket %q with final error: %v", addr, err)
+	if err != nil {
+		logger.Infof("closed listening socket %q with final error: %v", addr, err)
+	} else {
+		logger.Infof("closed listening socket %q without error", addr)
+	}
 }
 
 func (srv *Server) endpoints() []apihttp.Endpoint {
