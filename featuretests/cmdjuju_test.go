@@ -111,6 +111,13 @@ func (s *cmdJujuSuite) TestApplicationUnset(c *gc.C) {
 
 func (s *cmdJujuSuite) TestApplicationGetIAASModel(c *gc.C) {
 	expected := `application: dummy-application
+application-config:
+  trust:
+    default: false
+    description: Does this application have access to trusted credentials
+    source: default
+    type: bool
+    value: false
 charm: dummy
 settings:
   outlook:
@@ -142,6 +149,9 @@ settings:
 	c.Assert(cmdtesting.Stdout(context), jc.DeepEquals, expected)
 }
 
+// [TODO](externalreality): this tests has become more generic. It now tests for
+// ALL application configuration rather than just CAAS configuration. It should
+// be renamed.
 func (s *cmdJujuSuite) TestApplicationGetCAASModel(c *gc.C) {
 	expected := `application: dummy-application
 application-config:
@@ -216,6 +226,12 @@ application-config:
     source: default
     type: string
     value: ClusterIP
+  trust:
+    default: false
+    description: Does this application have access to trusted credentials
+    source: default
+    type: bool
+    value: false
 charm: dummy
 settings:
   outlook:

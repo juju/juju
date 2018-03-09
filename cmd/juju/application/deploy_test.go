@@ -578,7 +578,7 @@ func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 	flagSet.VisitAll(func(flag *gnuflag.Flag) {
 		allFlags = append(allFlags, flag.Name)
 	})
-	declaredFlags := append(charmAndBundleFlags, charmOnlyFlags...)
+	declaredFlags := append(charmAndBundleFlags, charmOnlyFlags()...)
 	declaredFlags = append(declaredFlags, bundleOnlyFlags...)
 	declaredFlags = append(declaredFlags, "B", "no-browser-login")
 	sort.Strings(declaredFlags)

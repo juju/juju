@@ -211,12 +211,15 @@ func (api *APIv5) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, e
 
 func applicationConfigSchema(modelType state.ModelType) (environschema.Fields, schema.Defaults, error) {
 	if modelType != state.ModelTypeCAAS {
-		return environschema.Fields{}, schema.Defaults{}, nil
+		return trustFields, trustDefaults, nil
 	}
 	// TODO(caas) - get the schema from the provider
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
 	schema, err := caas.ConfigSchema(k8s.ConfigSchema())
-	return schema, defaults, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return AddTrustSchemaAndDefaults(schema, defaults)
 }
 
 func splitApplicationAndCharmConfig(modelType state.ModelType, inConfig map[string]string) (
@@ -302,15 +305,13 @@ func deployApplication(
 	}
 
 	var applicationConfig *application.Config
-	if len(appConfigAttrs) > 0 {
-		schema, defaults, err := applicationConfigSchema(backend.ModelType())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		applicationConfig, err = application.NewConfig(appConfigAttrs, schema, defaults)
-		if err != nil {
-			return errors.Trace(err)
-		}
+	schema, defaults, err := applicationConfigSchema(backend.ModelType())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	applicationConfig, err = application.NewConfig(appConfigAttrs, schema, defaults)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	var settings = make(charm.Settings)

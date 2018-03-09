@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 
 	apiapplication "github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/common"
@@ -112,8 +113,15 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmoketest(c *gc.C) {
 				"value":       "My Title",
 			},
 		},
-		ApplicationConfig: map[string]interface{}{},
-		Series:            "quantal",
+		ApplicationConfig: map[string]interface{}{
+			"trust": map[string]interface{}{
+				"default":     false,
+				"description": "Does this application have access to trusted credentials",
+				"source":      "default",
+				"type":        environschema.Tbool,
+				"value":       false,
+			}},
+		Series: "quantal",
 	})
 }
 
@@ -131,6 +139,10 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 	schemaFields, err := caas.ConfigSchema(k8s.ConfigSchema())
 	c.Assert(err, jc.ErrorIsNil)
 	defaults := caas.ConfigDefaults(k8s.ConfigDefaults())
+
+	schemaFields, defaults, err = application.AddTrustSchemaAndDefaults(schemaFields, defaults)
+	c.Assert(err, jc.ErrorIsNil)
+
 	appConfig, err := coreapplication.NewConfig(map[string]interface{}{"juju-external-hostname": "ext"}, schemaFields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.UpdateApplicationConfig(appConfig.Attributes(), nil, schemaFields, defaults)

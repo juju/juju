@@ -568,7 +568,7 @@ var commandNames = []string{
 
 // devFeatures are feature flags that impact registration of commands.
 var devFeatures = []string{
-// Currently no feature flags.
+	// Currently no feature flags.
 }
 
 // These are the commands that are behind the `devFeatures`.
