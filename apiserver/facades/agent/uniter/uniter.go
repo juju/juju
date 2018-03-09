@@ -16,10 +16,12 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/leadership"
@@ -52,6 +54,12 @@ type UniterAPI struct {
 	accessApplication common.GetAuthFunc
 	accessMachine     common.GetAuthFunc
 	*StorageAPI
+
+	// A cloud spec can only be accessed for the model of the unit or
+	// application that is authorised for this API facade.
+	// We do not need to use an AuthFunc, because we do not need to pass a tag.
+	accessCloudSpec func() (func() bool, error)
+	cloudSpec       cloudspec.CloudSpecAPI
 }
 
 // UniterAPIV7 adds CMR support to NetworkInfo.
@@ -156,6 +164,35 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
 		}
 	}
+	accessCloudSpec := func() (func() bool, error) {
+		var appName string
+		var err error
+
+		switch tag := authorizer.GetAuthTag().(type) {
+		case names.ApplicationTag:
+			appName = tag.String()
+		case names.UnitTag:
+			entity, err := st.Unit(tag.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			appName = entity.ApplicationName()
+		default:
+			return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
+		}
+
+		app, err := st.Application(appName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		config, err := app.ApplicationConfig()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return func() bool {
+			return config.GetBool(application.TrustConfigOptionName, false)
+		}, nil
+	}
 
 	m, err := st.Model()
 	if err != nil {
@@ -183,6 +220,11 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
+	cloudSpec := cloudspec.NewCloudSpec(
+		cloudspec.MakeCloudSpecGetterForModel(st),
+		common.AuthFuncForTag(m.ModelTag()),
+	)
+
 	return &UniterAPI{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrApplication),
 		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
@@ -203,6 +245,8 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		accessUnit:        accessUnit,
 		accessApplication: accessApplication,
 		accessMachine:     accessMachine,
+		accessCloudSpec:   accessCloudSpec,
+		cloudSpec:         cloudSpec,
 		StorageAPI:        storageAPI,
 	}, nil
 }
@@ -2427,4 +2471,20 @@ func (u *UniterAPI) GoalStates(args params.Entities) (string, error) {
 		result.Results[0].Result = "Hello World I'll be a yaml"
 	}
 	return result.Results[0].Result, nil
+}
+
+// GetCloudSpec returns the cloud spec used by the model in which the
+// authenticated unit or application resides.
+// A check is made beforehand to ensure that the request is made by an entity
+// that has been granted the appropriate trust.
+func (u *UniterAPI) CloudSpec() (params.CloudSpecResult, error) {
+	canAccess, err := u.accessCloudSpec()
+	if err != nil {
+		return params.CloudSpecResult{}, err
+	}
+	if !canAccess() {
+		return params.CloudSpecResult{Error: common.ServerError(common.ErrPerm)}, nil
+	}
+
+	return u.cloudSpec.GetCloudSpec(u.m.Tag().(names.ModelTag)), nil
 }
