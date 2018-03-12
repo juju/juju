@@ -1524,6 +1524,17 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// instance has started.
 	thatsAllFolks := make(chan struct{})
 	hackyGoroutineDone := make(chan struct{})
+	defer func(){
+		if thatsAllFolks != nil {
+			close(thatsAllFolks)
+			thatsAllFolks = nil
+		}
+		select {
+		case <-hackyGoroutineDone:
+		case <-time.After(coretesting.LongWait):
+			c.Errorf("SetInstanceStatus goroutine failed to stop")
+		}
+	}()
 	go func() {
 		defer close(hackyGoroutineDone)
 		for {
@@ -1546,6 +1557,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	}()
 	s.checkStartInstance(c, m3)
 	close(thatsAllFolks)
+	thatsAllFolks = nil
 
 	select {
 	case <-hackyGoroutineDone:
