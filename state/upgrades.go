@@ -1430,3 +1430,45 @@ func CopyMongoSpaceToHASpaceConfig(st *State) error {
 	_, err = settings.Write()
 	return errors.Annotate(err, "writing controller info")
 }
+
+// CreateMissingApplicationConfig ensures that all models have an application config in the db.
+func CreateMissingApplicationConfig(st *State) error {
+	settingsColl, settingsCloser := st.db().GetRawCollection(settingsC)
+	defer settingsCloser()
+
+	var applicationConfigIDs []struct {
+		ID string `bson:"_id"`
+	}
+	settingsColl.Find(nil).All(&applicationConfigIDs)
+
+	allIDs := set.NewStrings()
+	for _, id := range applicationConfigIDs {
+		allIDs.Add(id.ID)
+	}
+
+	appsColl, appsCloser := st.db().GetRawCollection(applicationsC)
+	defer appsCloser()
+
+	var applicationIDs []struct {
+		Name      string `bson:"name"`
+		ModelUUID string `bson:"model-uuid"`
+	}
+	appsColl.Find(nil).All(&applicationIDs)
+
+	var newAppConfigs []txn.Op
+	emptySettings := make(map[string]interface{})
+	// var emptySettings map[string]interface{}
+	for _, app := range applicationIDs {
+		appConfID := fmt.Sprintf("%s:a#%s#application", app.ModelUUID, app.Name)
+		if !allIDs.Contains(appConfID) {
+			newOp := createSettingsOp(settingsC, appConfID, emptySettings)
+			newOp.Insert.(*settingsDoc).ModelUUID = app.ModelUUID
+			newAppConfigs = append(newAppConfigs, newOp)
+		}
+	}
+	err := st.db().RunRawTransaction(newAppConfigs)
+	if err != nil {
+		return errors.Annotate(err, "writing application configs")
+	}
+	return nil
+}
