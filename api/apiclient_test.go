@@ -911,10 +911,10 @@ func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *gc.C) {
 	err := clk.WaitAdvance(0, 0, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// unblock the login by receiving from "unblocked", and then the
+	// unblock the login by sending to "unblocked", and then the
 	// api.Open should return the result of the login.
 	select {
-	case <-unblocked:
+	case unblocked <- struct{}{}:
 	case <-time.After(jtesting.LongWait):
 		c.Fatalf("timed out waiting for login to be unblocked")
 	}
@@ -1304,7 +1304,7 @@ func (a *loginTimeoutAPIAdmin) Login(req params.LoginRequest) (params.LoginResul
 		return params.LoginResult{}, errors.New("timed out waiting to be unblocked")
 	}
 	select {
-	case unblocked <- struct{}{}:
+	case <-unblocked:
 	case <-time.After(jtesting.LongWait):
 		return params.LoginResult{}, errors.New("timed out sending on unblocked channel")
 	}
