@@ -54,8 +54,8 @@ func (s *cmdMetricsCommandSuite) TestUnits(c *gc.C) {
 	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	newTime1 := time.Now().Round(time.Second)
 	newTime2 := newTime1.Add(time.Second)
-	metricA := state.Metric{"pings", "5", newTime1}
-	metricB := state.Metric{"pings", "10.5", newTime2}
+	metricA := state.Metric{Key: "pings", Value: "5", Time: newTime1}
+	metricB := state.Metric{Key: "pings", Value: "10.5", Time: newTime2}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit2, Metrics: []state.Metric{metricA, metricB}})
 	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered/1")
@@ -88,8 +88,8 @@ func (s *cmdMetricsCommandSuite) TestAll(c *gc.C) {
 	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	newTime1 := time.Now().Round(time.Second)
 	newTime2 := newTime1.Add(time.Second)
-	metricA := state.Metric{"pings", "5", newTime1}
-	metricB := state.Metric{"pings", "10.5", newTime2}
+	metricA := state.Metric{Key: "pings", Value: "5", Time: newTime1}
+	metricB := state.Metric{Key: "pings", Value: "10.5", Time: newTime2}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit2, Metrics: []state.Metric{metricA, metricB}})
 	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "--all")
@@ -116,8 +116,8 @@ func (s *cmdMetricsCommandSuite) TestFormatJSON(c *gc.C) {
 	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	newTime1 := time.Now().Round(time.Second)
 	newTime2 := newTime1.Add(time.Second)
-	metricA := state.Metric{"pings", "5", newTime1}
-	metricB := state.Metric{"pings", "10.5", newTime2}
+	metricA := state.Metric{Key: "pings", Value: "5", Time: newTime1}
+	metricB := state.Metric{Key: "pings", Value: "10.5", Time: newTime2}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit2, Metrics: []state.Metric{metricA, metricB}})
 	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered/1", "--format", "json")
@@ -138,8 +138,8 @@ func (s *cmdMetricsCommandSuite) TestFormatYAML(c *gc.C) {
 	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	newTime1 := time.Now().Round(time.Second)
 	newTime2 := newTime1.Add(time.Second)
-	metricA := state.Metric{"pings", "5", newTime1}
-	metricB := state.Metric{"pings", "10.5", newTime2}
+	metricA := state.Metric{Key: "pings", Value: "5", Time: newTime1}
+	metricB := state.Metric{Key: "pings", Value: "10.5", Time: newTime2}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit2, Metrics: []state.Metric{metricA, metricB}})
 	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered/1", "--format", "yaml")

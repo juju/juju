@@ -602,7 +602,12 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params.Time = &now
 	}
 	if params.Metrics == nil {
-		params.Metrics = []state.Metric{{"pings", strconv.Itoa(uniqueInteger()), *params.Time}}
+		params.Metrics = []state.Metric{{
+			Key:    "pings",
+			Value:  strconv.Itoa(uniqueInteger()),
+			Time:   *params.Time,
+			Labels: map[string]string{"foo": "bar"},
+		}}
 	}
 
 	chURL, ok := params.Unit.CharmURL()

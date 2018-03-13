@@ -175,8 +175,8 @@ func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
 	t1 := t0.Add(time.Second)
-	metricA := state.Metric{"pings", "5", t0}
-	metricB := state.Metric{"pings", "10.5", t1}
+	metricA := state.Metric{Key: "pings", Value: "5", Time: t0}
+	metricB := state.Metric{Key: "pings", Value: "10.5", Time: t1}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA, metricB}})
 	args := params.Entities{Entities: []params.Entity{
@@ -206,9 +206,9 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
 	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
 	t1 := t0.Add(time.Second)
-	metricA := state.Metric{"pings", "5", t1}
-	metricB := state.Metric{"pings", "10.5", t0}
-	metricC := state.Metric{"juju-units", "8", t1}
+	metricA := state.Metric{Key: "pings", Value: "5", Time: t1}
+	metricB := state.Metric{Key: "pings", Value: "10.5", Time: t0}
+	metricC := state.Metric{Key: "juju-units", Value: "8", Time: t1}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB, metricC}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB, metricC}})
 	args := params.Entities{}
@@ -247,9 +247,9 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWhenNotAllMetricsInEac
 	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
 	t1 := t0.Add(time.Second)
-	metricA := state.Metric{"pings", "5", t1}
-	metricB := state.Metric{"pings", "10.5", t0}
-	metricC := state.Metric{"juju-units", "8", t1}
+	metricA := state.Metric{Key: "pings", Value: "5", Time: t1}
+	metricB := state.Metric{Key: "pings", Value: "10.5", Time: t0}
+	metricC := state.Metric{Key: "juju-units", Value: "8", Time: t1}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB, metricC}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB}})
 	args := params.Entities{}
@@ -283,9 +283,9 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWithMultipleBatchesPer
 	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
 	t1 := t0.Add(time.Second)
-	metricA := state.Metric{"pings", "5", t1}
-	metricB := state.Metric{"pings", "10.5", t0}
-	metricC := state.Metric{"juju-units", "8", t1}
+	metricA := state.Metric{Key: "pings", Value: "5", Time: t1}
+	metricB := state.Metric{Key: "pings", Value: "10.5", Time: t0}
+	metricC := state.Metric{Key: "juju-units", Value: "8", Time: t1}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricC}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB}})

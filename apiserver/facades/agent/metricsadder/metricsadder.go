@@ -56,9 +56,10 @@ func (api *MetricsAdderAPI) AddMetricBatches(args params.MetricBatchParams) (par
 		metrics := make([]state.Metric, len(batch.Batch.Metrics))
 		for j, metric := range batch.Batch.Metrics {
 			metrics[j] = state.Metric{
-				Key:   metric.Key,
-				Value: metric.Value,
-				Time:  metric.Time,
+				Key:    metric.Key,
+				Value:  metric.Value,
+				Time:   metric.Time,
+				Labels: metric.Labels,
 			}
 		}
 		_, err = api.state.AddMetrics(

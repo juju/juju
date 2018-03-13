@@ -81,7 +81,7 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonController(c *gc
 func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	newTime := time.Now()
-	metric := state.Metric{"pings", "5", newTime}
+	metric := state.Metric{Key: "pings", Value: "5", Time: newTime}
 	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, DeleteTime: &oldTime, Metrics: []state.Metric{metric}})
 	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, DeleteTime: &newTime, Metrics: []state.Metric{metric}})
 	args := params.Entities{Entities: []params.Entity{
@@ -125,7 +125,7 @@ func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
 	var sender testing.MockSender
 	metricsmanager.PatchSender(&sender)
 	now := time.Now()
-	metric := state.Metric{"pings", "5", now}
+	metric := state.Metric{Key: "pings", Value: "5", Time: now}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now, Metrics: []state.Metric{metric}})
 	unsent := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: []state.Metric{metric}})
 	args := params.Entities{Entities: []params.Entity{
@@ -169,7 +169,7 @@ func (s *metricsManagerSuite) TestMeterStatusOnConsecutiveErrors(c *gc.C) {
 	var sender testing.ErrorSender
 	sender.Err = errors.New("an error")
 	now := time.Now()
-	metric := state.Metric{"pings", "5", now}
+	metric := state.Metric{Key: "pings", Value: "5", Time: now}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: []state.Metric{metric}})
 	metricsmanager.PatchSender(&sender)
 	args := params.Entities{Entities: []params.Entity{
@@ -189,7 +189,7 @@ func (s *metricsManagerSuite) TestMeterStatusOnConsecutiveErrors(c *gc.C) {
 func (s *metricsManagerSuite) TestMeterStatusSuccessfulSend(c *gc.C) {
 	var sender testing.MockSender
 	pastTime := s.clock.Now().Add(-time.Second)
-	metric := state.Metric{"pings", "5", pastTime}
+	metric := state.Metric{Key: "pings", Value: "5", Time: pastTime}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &pastTime, Metrics: []state.Metric{metric}})
 	metricsmanager.PatchSender(&sender)
 	args := params.Entities{Entities: []params.Entity{
@@ -235,7 +235,11 @@ func (s *metricsManagerSuite) TestAddJujuMachineMetrics(c *gc.C) {
 	c.Assert(metrics[0].Metrics(), gc.HasLen, 5)
 	c.Assert(metrics[0].SLACredentials(), gc.DeepEquals, []byte("sla"))
 	t := metrics[0].Metrics()[0].Time
-	c.Assert(metrics[0].Metrics(), jc.SameContents, []state.Metric{{
+	c.Assert(metrics[0].UniqueMetrics(), jc.DeepEquals, []state.Metric{{
+		Key:   "juju-centos-machines",
+		Value: "1",
+		Time:  t,
+	}, {
 		Key:   "juju-machines",
 		Value: "7",
 		Time:  t,
@@ -244,16 +248,12 @@ func (s *metricsManagerSuite) TestAddJujuMachineMetrics(c *gc.C) {
 		Value: "3",
 		Time:  t,
 	}, {
-		Key:   "juju-windows-machines",
-		Value: "2",
-		Time:  t,
-	}, {
-		Key:   "juju-centos-machines",
-		Value: "1",
-		Time:  t,
-	}, {
 		Key:   "juju-unknown-machines",
 		Value: "1",
+		Time:  t,
+	}, {
+		Key:   "juju-windows-machines",
+		Value: "2",
 		Time:  t,
 	}})
 }

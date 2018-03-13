@@ -6,6 +6,7 @@ package state
 import (
 	"encoding/json"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -48,9 +49,10 @@ type metricBatchDoc struct {
 
 // Metric represents a single Metric.
 type Metric struct {
-	Key   string    `bson:"key"`
-	Value string    `bson:"value"`
-	Time  time.Time `bson:"time"`
+	Key    string            `bson:"key"`
+	Value  string            `bson:"value"`
+	Time   time.Time         `bson:"time"`
+	Labels map[string]string `bson:"labels,omitempty"`
 }
 
 type byTime []Metric
@@ -59,6 +61,14 @@ func (t byTime) Len() int      { return len(t) }
 func (t byTime) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
 func (t byTime) Less(i, j int) bool {
 	return t[i].Time.Before(t[j].Time)
+}
+
+type byKey []Metric
+
+func (t byKey) Len() int      { return len(t) }
+func (t byKey) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
+func (t byKey) Less(i, j int) bool {
+	return strings.Compare(t[i].Key, t[j].Key) < 0
 }
 
 // validate checks that the MetricBatch contains valid metrics.
@@ -428,6 +438,7 @@ func (m *MetricBatch) UniqueMetrics() []Metric {
 		results[i] = m
 		i++
 	}
+	sort.Sort(byKey(results))
 	return results
 }
 

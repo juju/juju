@@ -29,10 +29,14 @@ func (s *AddMetricSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
-Usage: add-metric key1=value1 [key2=value2 ...]
+Usage: add-metric [options] key1=value1 [key2=value2 ...]
 
 Summary:
 add metrics
+
+Options:
+-l, --labels (= "")
+    labels to be associated with metric values
 `[1:])
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
@@ -54,7 +58,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			0,
 			"",
 			"",
-			[]jujuc.Metric{{"key", "50", time.Now()}},
+			[]jujuc.Metric{{Key: "key", Value: "50", Time: time.Now()}},
 		}, {
 			"no parameters error",
 			[]string{"add-metric"},
@@ -69,7 +73,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"ERROR expected \"key=value\", got \"key\"\n",
+			"ERROR invalid metrics: expected \"key=value\", got \"key\"\n",
 			nil,
 		}, {
 			"invalid argument format",
@@ -77,7 +81,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"ERROR expected \"key=value\", got \"=key\"\n",
+			"ERROR invalid metrics: expected \"key=value\", got \"=key\"\n",
 			nil,
 		}, {
 			"invalid argument format, whitespace key",
@@ -85,7 +89,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"ERROR expected \"key=value\", got \"=value\"\n",
+			"ERROR invalid metrics: expected \"key=value\", got \"=value\"\n",
 			nil,
 		}, {
 			"invalid argument format, whitespace key and value",
@@ -93,7 +97,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"ERROR expected \"key=value\", got \"=\"\n",
+			"ERROR invalid metrics: expected \"key=value\", got \"=\"\n",
 			nil,
 		}, {
 			"invalid argument format, whitespace value",
@@ -101,7 +105,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"ERROR expected \"key=value\", got \"key=\"\n",
+			"ERROR invalid metrics: expected \"key=value\", got \"key=\"\n",
 			nil,
 		}, {
 			"multiple metrics",
@@ -110,14 +114,22 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			0,
 			"",
 			"",
-			[]jujuc.Metric{{"key", "60", time.Now()}, {"key2", "50.4", time.Now()}},
+			[]jujuc.Metric{{
+				Key:   "key",
+				Value: "60",
+				Time:  time.Now(),
+			}, {
+				Key:   "key2",
+				Value: "50.4",
+				Time:  time.Now(),
+			}},
 		}, {
 			"multiple metrics, matching keys",
 			[]string{"add-metric", "key=60", "key=50.4"},
 			true,
 			2,
 			"",
-			"ERROR key \"key\" specified more than once\n",
+			"ERROR invalid metrics: key \"key\" specified more than once\n",
 			nil,
 		}, {
 			"newline in metric value",
@@ -126,7 +138,13 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			0,
 			"",
 			"",
-			[]jujuc.Metric{{"key", "60", time.Now()}, {"key2", "30", time.Now()}, {"key3", "15", time.Now()}},
+			[]jujuc.Metric{{
+				Key: "key", Value: "60", Time: time.Now(),
+			}, {
+				Key: "key2", Value: "30", Time: time.Now(),
+			}, {
+				Key: "key3", Value: "15", Time: time.Now(),
+			}},
 		}, {
 			"can't add metrics",
 			[]string{"add-metric", "key=60", "key2=50.4"},
@@ -143,6 +161,93 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			"",
 			"ERROR juju-key uses a reserved prefix\n",
 			nil,
+		}, {
+			"invalid label format",
+			[]string{"add-metric", "--labels", "foo", "key=1"},
+			true,
+			2,
+			"",
+			"ERROR invalid labels: expected \"key=value\", got \"foo\"\n",
+			nil,
+		}, {
+			"invalid label format",
+			[]string{"add-metric", "--labels", "=bar", "key=1"},
+			true,
+			2,
+			"",
+			"ERROR invalid labels: expected \"key=value\", got \"=bar\"\n",
+			nil,
+		}, {
+			"invalid label format, whitespace key",
+			[]string{"add-metric", "--labels", " =bar", "key=1"},
+			true,
+			2,
+			"",
+			"ERROR invalid labels: expected \"key=value\", got \"=bar\"\n",
+			nil,
+		}, {
+			"invalid label format, whitespace key and value",
+			[]string{"add-metric", "--labels", " \t =  \n", "key=1"},
+			true,
+			2,
+			"",
+			"ERROR invalid labels: expected \"key=value\", got \"=\"\n",
+			nil,
+		}, {
+			"invalid label format, whitespace value",
+			[]string{"add-metric", "--labels", " foo =  ", "key=1"},
+			true,
+			2,
+			"",
+			"ERROR invalid labels: expected \"key=value\", got \"foo=\"\n",
+			nil,
+		}, {
+			"add single metric with label",
+			[]string{"add-metric", "--labels", "foo=bar", "key=50"},
+			true,
+			0,
+			"",
+			"",
+			[]jujuc.Metric{{
+				Key: "key", Value: "50", Time: time.Now(),
+				Labels: map[string]string{"foo": "bar"},
+			}},
+		}, {
+			"add single metric with labels",
+			[]string{"add-metric", "--labels", "foo=bar,baz=quux", "key=510"},
+			true,
+			0,
+			"",
+			"",
+			[]jujuc.Metric{{
+				Key: "key", Value: "510", Time: time.Now(),
+				Labels: map[string]string{"foo": "bar", "baz": "quux"},
+			}},
+		}, {
+			"add single metric with labels, whitespace",
+			[]string{"add-metric", "--labels", " foo = bar, baz = quux ", "key=510"},
+			true,
+			0,
+			"",
+			"",
+			[]jujuc.Metric{{
+				Key: "key", Value: "510", Time: time.Now(),
+				Labels: map[string]string{"foo": "bar", "baz": "quux"},
+			}},
+		}, {
+			"add multiple metrics with labels",
+			[]string{"add-metric", "--labels", "foo=bar,baz=quux", "a=1", "b=2"},
+			true,
+			0,
+			"",
+			"",
+			[]jujuc.Metric{{
+				Key: "a", Value: "1", Time: time.Now(),
+				Labels: map[string]string{"foo": "bar", "baz": "quux"},
+			}, {
+				Key: "b", Value: "2", Time: time.Now(),
+				Labels: map[string]string{"foo": "bar", "baz": "quux"},
+			}},
 		}}
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
@@ -156,6 +261,9 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		c.Check(bufferString(ctx.Stdout), gc.Equals, t.stdout)
 		c.Check(bufferString(ctx.Stderr), gc.Equals, t.stderr)
 		c.Check(hctx.metrics, gc.HasLen, len(t.expect))
+		if len(hctx.metrics) != len(t.expect) {
+			continue
+		}
 
 		sort.Sort(SortedMetrics(hctx.metrics))
 		sort.Sort(SortedMetrics(t.expect))
@@ -163,6 +271,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		for i, expected := range t.expect {
 			c.Check(expected.Key, gc.Equals, hctx.metrics[i].Key)
 			c.Check(expected.Value, gc.Equals, hctx.metrics[i].Value)
+			c.Check(expected.Labels, gc.DeepEquals, hctx.metrics[i].Labels)
 		}
 	}
 }

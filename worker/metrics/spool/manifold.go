@@ -23,9 +23,9 @@ import (
 
 // MetricRecorder records metrics to a spool directory.
 type MetricRecorder interface {
-	// AddMetric records a metric with the specified key, value and create time
-	// to a spool directory.
-	AddMetric(key, value string, created time.Time) error
+	// AddMetric records a metric with the specified key, value, create time
+	// and labels to a spool directory.
+	AddMetric(key, value string, created time.Time, labels map[string]string) error
 	// Close implements io.Closer.
 	Close() error
 	// IsDeclaredMetrics returns true if the metric recorder

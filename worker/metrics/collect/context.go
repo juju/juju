@@ -53,7 +53,12 @@ func (ctx *hookContext) Flush(process string, ctxErr error) (err error) {
 
 // AddMetric implements runner.Context.
 func (ctx *hookContext) AddMetric(key string, value string, created time.Time) error {
-	return ctx.recorder.AddMetric(key, value, created)
+	return ctx.recorder.AddMetric(key, value, created, nil)
+}
+
+// AddMetricLabels implements runner.Context.
+func (ctx *hookContext) AddMetricLabels(key string, value string, created time.Time, labels map[string]string) error {
+	return ctx.recorder.AddMetric(key, value, created, labels)
 }
 
 // addJujuUnitsMetric adds the juju-units built in metric if it
@@ -61,7 +66,7 @@ func (ctx *hookContext) AddMetric(key string, value string, created time.Time) e
 func (ctx *hookContext) addJujuUnitsMetric() error {
 	if ctx.recorder.IsDeclaredMetric("juju-units") {
 		// TODO(fwereade): 2016-03-17 lp:1558657
-		err := ctx.recorder.AddMetric("juju-units", "1", time.Now().UTC())
+		err := ctx.recorder.AddMetric("juju-units", "1", time.Now().UTC(), nil)
 		if err != nil {
 			return errors.Trace(err)
 		}
