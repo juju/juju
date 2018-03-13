@@ -29,10 +29,6 @@ func (s *cloudNativeUniterSuite) setApplicationTrust(c *gc.C, trusted bool) {
 	defaults := map[string]interface{}{application.TrustConfigOptionName: false}
 	err := s.wordpressApplication.UpdateApplicationConfig(conf, nil, fields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
-
-	newConf, err := s.wordpressApplication.ApplicationConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newConf.GetBool(application.TrustConfigOptionName, false), gc.Equals, trusted)
 }
 
 func (s *cloudNativeUniterSuite) TestCloudSpecErrorWhenUnauthorized(c *gc.C) {
