@@ -1522,24 +1522,24 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// mockBroker will fail to start machine-3 several times;
 	// keep setting the transient flag to retry until the
 	// instance has started.
-	thatsAllFolks := make(chan struct{})
-	hackyGoroutineDone := make(chan struct{})
-	defer func(){
-		if thatsAllFolks != nil {
-			close(thatsAllFolks)
-			thatsAllFolks = nil
+	runSetStatusGoroutine := make(chan struct{})
+	setStatusGoroutineDone := make(chan struct{})
+	defer func() {
+		if runSetStatusGoroutine != nil {
+			close(runSetStatusGoroutine)
+			runSetStatusGoroutine = nil
 		}
 		select {
-		case <-hackyGoroutineDone:
+		case <-setStatusGoroutineDone:
 		case <-time.After(coretesting.LongWait):
 			c.Errorf("SetInstanceStatus goroutine failed to stop")
 		}
 	}()
 	go func() {
-		defer close(hackyGoroutineDone)
+		defer close(setStatusGoroutineDone)
 		for {
 			select {
-			case <-thatsAllFolks:
+			case <-runSetStatusGoroutine:
 				return
 			case <-time.After(coretesting.ShortWait):
 				now := time.Now()
@@ -1556,11 +1556,11 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 		}
 	}()
 	s.checkStartInstance(c, m3)
-	close(thatsAllFolks)
-	thatsAllFolks = nil
+	close(runSetStatusGoroutine)
+	runSetStatusGoroutine = nil
 
 	select {
-	case <-hackyGoroutineDone:
+	case <-setStatusGoroutineDone:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("status setting goroutine didn't stop")
 	}
