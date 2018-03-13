@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Canonical Ltd.
+	// Copyright 2015-2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package vsphereclient
@@ -477,6 +477,7 @@ func (c *Client) detachDisk(
 				Device:    dev,
 			},
 		}
+		c.logger.Debugf("Found VMDK %q", vmdkDatastorePath)
 		break
 	}
 	if len(spec.DeviceChange) != 1 {

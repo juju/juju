@@ -160,25 +160,21 @@ func (c *Client) CreateVirtualMachine(
 	// doesn't already exist.
 	resourcePool := object.NewResourcePool(c.client.Client, *args.ComputeResource.ResourcePool)
 	taskWaiter := &taskWaiter{args.Clock, args.UpdateProgress, args.UpdateProgressInterval}
-	vmdkDatastorePath, releaseVMDK, err := c.ensureVMDK(ctx, args, datastore, datacenter, taskWaiter)
+	vmdkDatastorePath, err := c.prepareVMDK(ctx, args, datastore, datacenter, taskWaiter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer releaseVMDK()
 
 	// Import the VApp, creating a temporary VM. This is necessary to
 	// import the VMDK, which exists in the datastore as a not-a-disk
 	// file type.
 	args.UpdateProgress("creating import spec")
-	macMapping := make(map[string]string)
-	importSpec, err := c.createImportSpec(ctx, args, datastore, vmdkDatastorePath, macMapping)
+	importSpec, err := c.createImportSpec(ctx, args, datastore, vmdkDatastorePath)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating import spec")
 	}
-	importSpec.ConfigSpec.Name += ".tmp"
-
 	args.UpdateProgress(fmt.Sprintf("creating VM %q", args.Name))
-	c.logger.Debugf("creating temporary VM in folder %s", vmFolder)
+	c.logger.Debugf("creating VM in folder %s", vmFolder)
 	c.logger.Tracef("import spec: %s", pretty.Sprint(importSpec))
 	lease, err := resourcePool.ImportVApp(ctx, importSpec, vmFolder, nil)
 	if err != nil {
@@ -191,23 +187,7 @@ func (c *Client) CreateVirtualMachine(
 	if err := lease.Complete(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
-	tempVM := object.NewVirtualMachine(c.client.Client, info.Entity)
-	defer func() {
-		if err := c.destroyVM(ctx, tempVM, taskWaiter); err != nil {
-			c.logger.Warningf("failed to delete temporary VM: %s", err)
-		}
-	}()
-
-	// Clone the temporary VM to import the VMDK, as mentioned above.
-	// After cloning the temporary VM, we must detach the original
-	// VMDK from the temporary VM to avoid deleting it when destroying
-	// the VM.
-	c.logger.Debugf("cloning VM")
-	vm, err := c.cloneVM(ctx, tempVM, args.Name, vmFolder, taskWaiter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	args.UpdateProgress("VM cloned")
+	vm := object.NewVirtualMachine(c.client.Client, info.Entity)
 	defer func() {
 		if resultErr == nil {
 			return
@@ -216,12 +196,6 @@ func (c *Client) CreateVirtualMachine(
 			c.logger.Warningf("failed to delete VM: %s", err)
 		}
 	}()
-	if _, err := c.detachDisk(ctx, tempVM, taskWaiter); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := c.setVMNicsMacs(ctx, vm, macMapping); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if args.Constraints.RootDisk != nil {
 		// The user specified a root disk, so extend the VM's
 		// disk before powering the VM on.
@@ -255,28 +229,6 @@ func (c *Client) CreateVirtualMachine(
 	return &res, nil
 }
 
-func (c *Client) setVMNicsMacs(ctx context.Context, vm *object.VirtualMachine, oldMacsToNew map[string]string) error {
-	var mo mo.VirtualMachine
-	if err := c.client.RetrieveOne(ctx, vm.Reference(), []string{"config.hardware"}, &mo); err != nil {
-		return errors.Trace(err)
-	}
-	for _, dev := range mo.Config.Hardware.Device {
-		baseDev, ok := dev.(types.BaseVirtualEthernetCard)
-		if !ok {
-			continue
-		}
-		card := baseDev.GetVirtualEthernetCard()
-		if newMac, ok := oldMacsToNew[card.MacAddress]; ok {
-			card.MacAddress = newMac
-			if err := vm.EditDevice(ctx, dev); err != nil {
-				return errors.Trace(err)
-			}
-		} 
-		// else : Should we issue an error or just ignore it?
-	}
-	return nil
-}
-
 func (c *Client) extendVMRootDisk(
 	ctx context.Context,
 	vm *object.VirtualMachine,
@@ -294,6 +246,7 @@ func (c *Client) extendVMRootDisk(
 			continue
 		}
 		newCapacityInKB := int64(sizeMB) * 1024
+		c.logger.Debugf("capacity capacity %+v %+v %+v", dev.CapacityInKB, newCapacityInKB, dev)
 		if dev.CapacityInKB >= newCapacityInKB {
 			// The root disk is already bigger than the
 			// user-specified size, so leave it alone.
@@ -316,7 +269,6 @@ func (c *Client) createImportSpec(
 	args CreateVirtualMachineParams,
 	datastore *object.Datastore,
 	vmdkDatastorePath string,
-	macMapping map[string]string,
 ) (*types.VirtualMachineImportSpec, error) {
 	cisp := types.OvfCreateImportSpecParams{
 		EntityName: args.Name,
@@ -352,7 +304,7 @@ func (c *Client) createImportSpec(
 			Reservation: &cpuPower,
 		}
 	}
-	if err := c.addRootDisk(s, args, datastore, vmdkDatastorePath); err != nil {
+	if err := c.addRootDisk(s, datastore, vmdkDatastorePath); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -378,15 +330,7 @@ func (c *Client) createImportSpec(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		var tmpMac string
-		if networkDevice.MAC != "" {
-			tmpMac, err = GenerateMAC()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			macMapping[tmpMac] = networkDevice.MAC
-		}
-		device, err := c.addNetworkDevice(ctx, s, networkReference, tmpMac, dvportgroupConfig)
+		device, err := c.addNetworkDevice(ctx, s, networkReference, networkDevice.MAC, dvportgroupConfig)
 		if err != nil {
 			return nil, errors.Annotatef(err, "adding network device %d - network %s", i, network)
 		}
@@ -397,7 +341,6 @@ func (c *Client) createImportSpec(
 
 func (c *Client) addRootDisk(
 	s *types.VirtualMachineConfigSpec,
-	args CreateVirtualMachineParams,
 	diskDatastore *object.Datastore,
 	vmdkDatastorePath string,
 ) error {
