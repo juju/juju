@@ -187,6 +187,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc) (_ api.Connection, err er
 		default:
 			return
 		}
+		logger.Errorf("while trying to connect, got %v, treating as an unrecoverable error", err)
 		err = ErrConnectImpossible
 	}()
 
