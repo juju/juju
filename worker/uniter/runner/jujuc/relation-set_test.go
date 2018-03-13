@@ -144,7 +144,7 @@ func (t relationSetInitTest) check(c *gc.C, com cmd.Command, err error) {
 
 var relationSetInitTests = []relationSetInitTest{
 	{
-	// compatibility: 0 args is valid.
+		// compatibility: 0 args is valid.
 	}, {
 		ctxrelid: -1,
 		err:      `no relation id specified`,

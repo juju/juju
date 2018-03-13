@@ -59,7 +59,7 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 		errorString string
 	}{
 		{
-		// no args is fine
+			// no args is fine
 		}, {
 			args: []string{"foobar"},
 			user: "foobar",
