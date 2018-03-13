@@ -335,8 +335,8 @@ func (c *Client) createImportSpec(
 	if args.Constraints.HasCpuPower() {
 		cpuPower := int64(*args.Constraints.CpuPower)
 		s.CpuAllocation = &types.ResourceAllocationInfo{
-			Limit:       cpuPower,
-			Reservation: cpuPower,
+			Limit:       &cpuPower,
+			Reservation: &cpuPower,
 		}
 	}
 	if err := c.addRootDisk(s, args, datastore, vmdkDatastorePath); err != nil {
