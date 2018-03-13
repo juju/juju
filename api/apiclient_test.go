@@ -790,6 +790,16 @@ func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *gc.C) {
 		})
 		done <- err
 	}()
+	// Wait for Login to be entered before we advance the clock. Note that we don't actually unblock the request,
+	// we just ensure that the other side has gotten to the point where it wants to be blocked. Otherwise we might
+	// advance the clock before we even get the api.Dial to finish or before TLS handshaking finishes.
+	unblocked := make(chan struct{})
+	defer close(unblocked)
+	select {
+	case unblock <- unblocked:
+	case <-time.After(jtesting.LongWait):
+		c.Fatalf("timed out waiting for Login to be called")
+	}
 	err := clk.WaitAdvance(5*time.Second, time.Second, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
@@ -901,10 +911,10 @@ func (s *apiclientSuite) TestOpenDialTimeoutDoesNotAffectLogin(c *gc.C) {
 	err := clk.WaitAdvance(0, 0, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// unblock the login by receiving from "unblocked", and then the
+	// unblock the login by sending to "unblocked", and then the
 	// api.Open should return the result of the login.
 	select {
-	case <-unblocked:
+	case unblocked <- struct{}{}:
 	case <-time.After(jtesting.LongWait):
 		c.Fatalf("timed out waiting for login to be unblocked")
 	}
@@ -1294,7 +1304,7 @@ func (a *loginTimeoutAPIAdmin) Login(req params.LoginRequest) (params.LoginResul
 		return params.LoginResult{}, errors.New("timed out waiting to be unblocked")
 	}
 	select {
-	case unblocked <- struct{}{}:
+	case <-unblocked:
 	case <-time.After(jtesting.LongWait):
 		return params.LoginResult{}, errors.New("timed out sending on unblocked channel")
 	}
