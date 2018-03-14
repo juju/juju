@@ -4,6 +4,7 @@
 package highavailability_test
 
 import (
+	"fmt"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
@@ -11,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
-	"fmt"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/client/highavailability"
@@ -187,22 +187,24 @@ func (s *clientSuite) TestEnableHASeries(c *gc.C) {
 	c.Assert(machines[4].Series(), gc.Equals, "non-default")
 }
 
-func (s *clientSuite) TestEnableHAErrorForNoAddresses(c *gc.C) {
+func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Series(), gc.Equals, "quantal")
 
-	enableHAResult, err := s.enableHA(c, 3, emptyCons, defaultSeries, nil)
+	err = machines[0].SetMachineAddresses(
+		network.NewScopedAddress("cloud-local2.internal", network.ScopeCloudLocal),
+		network.NewScopedAddress("cloud-local22.internal", network.ScopeCloudLocal),
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
 
-	_, err = s.enableHA(c, 5, emptyCons, defaultSeries, nil)
+	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches,
-		`juju-ha-space is not set and a unique cloud-local address was not found for machines: \[1 2\]`)
+		"juju-ha-space is not set and a unique cloud-local address was not found for machines: 0")
 }
 
-func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
+func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
@@ -224,7 +226,7 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 
 	_, err = s.enableHA(c, 5, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches,
-		`juju-ha-space is not set and a unique cloud-local address was not found for machines: \[2\]`)
+		"juju-ha-space is not set and a unique cloud-local address was not found for machines: 2")
 }
 
 func (s *clientSuite) TestEnableHAConstraints(c *gc.C) {

@@ -378,23 +378,22 @@ func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, boo
 	return addresses[index], true
 }
 
-// SelectInternalAddresses picks one address from a slice that can be used as
-// an endpoint for juju internal communication. If there are no suitable
-// addresses, then ok is false (and a nil slice is returned).
-// If any suitable addresses are found then ok is true.
-func SelectInternalAddresses(addresses []Address, machineLocal bool) ([]Address, bool) {
+// SelectInternalAddresses picks the best addresses from a slice that can be
+// used as an endpoint for juju internal communication.
+// I nil slice is returned if there are no suitable addresses identified.
+func SelectInternalAddresses(addresses []Address, machineLocal bool) []Address {
 	indexes := bestAddressIndexes(len(addresses), func(i int) Address {
 		return addresses[i]
 	}, internalAddressMatcher(machineLocal))
 	if len(indexes) == 0 {
-		return nil, false
+		return nil
 	}
 
 	out := make([]Address, 0, len(indexes))
 	for _, index := range indexes {
 		out = append(out, addresses[index])
 	}
-	return out, true
+	return out
 }
 
 // SelectInternalHostPort picks one HostPort from a slice that can be

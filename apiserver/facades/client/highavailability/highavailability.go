@@ -6,6 +6,7 @@ package highavailability
 import (
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -165,6 +166,8 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 // validateCurrentControllers checks for a scenario where there is no HA space
 // in controller configuration and more than one machine-local address on any
 // of the controller machines. An error is returned if it is detected.
+// When HA space is set, there are other code paths that ensure controllers
+// have at least one address in the space.
 func validateCurrentControllers(st *state.State, cfg controller.Config, machineIds []string) error {
 	if cfg.JujuHASpace() != "" {
 		return nil
@@ -183,7 +186,9 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 	}
 	if len(badIds) > 0 {
 		return errors.Errorf(
-			"juju-ha-space is not set and a unique cloud-local address was not found for machines: %v", badIds)
+			"juju-ha-space is not set and a unique cloud-local address was not found for machines: %s",
+			strings.Join(badIds, ", "),
+		)
 	}
 	return nil
 }

@@ -538,69 +538,57 @@ func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
 }
 
 type selectInternalAddressesTest struct {
-	about           string
-	addresses       []network.Address
-	machineLocal    bool
-	expectedIndices []int
-	expectedOk      bool
-}
-
-// expected returns the expected address for the test.
-func (t selectInternalAddressesTest) expected() ([]network.Address, bool) {
-	if t.expectedIndices == nil {
-		return nil, t.expectedOk
-	}
-	expected := make([]network.Address, len(t.expectedIndices))
-	for i, idx := range t.expectedIndices {
-		expected[i] = t.addresses[idx]
-	}
-	return expected, t.expectedOk
+	about        string
+	addresses    []network.Address
+	machineLocal bool
+	expected     []network.Address
 }
 
 var selectInternalAddressesTests = []selectInternalAddressesTest{
 	{
-		"machine-local addresses are selected when machineLocal is true",
-		[]network.Address{
+		about: "machine/cloud-local addresses are selected when machineLocal is true",
+		addresses: []network.Address{
 			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
-			network.NewScopedAddress("cloud-local.internal", network.ScopeCloudLocal),
+			network.NewScopedAddress("10.0.0.9", network.ScopeCloudLocal),
 			network.NewScopedAddress("fc00::1", network.ScopePublic),
 		},
-		true,
-		[]int{0},
-		true,
+		machineLocal: true,
+		expected: []network.Address{
+			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewScopedAddress("10.0.0.9", network.ScopeCloudLocal),
+		},
 	},
 	{
-		"cloud-local addresses are selected when machineLocal is false",
-		[]network.Address{
+		about: "cloud-local addresses are selected when machineLocal is false",
+		addresses: []network.Address{
 			network.NewScopedAddress("169.254.1.1", network.ScopeLinkLocal),
 			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
 			network.NewScopedAddress("cloud-local.internal", network.ScopeCloudLocal),
 			network.NewScopedAddress("cloud-local2.internal", network.ScopeCloudLocal),
 			network.NewScopedAddress("fc00::1", network.ScopePublic),
 		},
-		false,
-		[]int{2, 3},
-		true,
+		machineLocal: false,
+		expected: []network.Address{
+			network.NewScopedAddress("cloud-local.internal", network.ScopeCloudLocal),
+			network.NewScopedAddress("cloud-local2.internal", network.ScopeCloudLocal),
+		},
 	},
 	{
-		"ok is false when no cloud-local addresses are found",
-		[]network.Address{
+		about: "ok is false when no cloud-local addresses are found",
+		addresses: []network.Address{
 			network.NewScopedAddress("169.254.1.1", network.ScopeLinkLocal),
 			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
 		},
-		false,
-		nil,
-		false,
+		machineLocal: false,
+		expected:     nil,
 	},
 }
 
 func (s *AddressSuite) TestSelectInternalAddresses(c *gc.C) {
 	for i, t := range selectInternalAddressesTests {
 		c.Logf("test %d: %s", i, t.about)
-		expectAddr, expectOK := t.expected()
-		actualAddr, actualOK := network.SelectInternalAddresses(t.addresses, t.machineLocal)
-		c.Check(actualOK, gc.Equals, expectOK)
-		c.Check(actualAddr, gc.DeepEquals, expectAddr)
+		actualAddr := network.SelectInternalAddresses(t.addresses, t.machineLocal)
+		c.Check(actualAddr, gc.DeepEquals, t.expected)
 	}
 }
 
