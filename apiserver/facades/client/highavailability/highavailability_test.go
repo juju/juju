@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
+	"fmt"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/client/highavailability"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -67,6 +69,11 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobManageModel},
 		Constraints: controllerCons,
+		Addresses: []network.Address{
+			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewScopedAddress("cloud-local0.internal", network.ScopeCloudLocal),
+			network.NewScopedAddress("fc00::0", network.ScopePublic),
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -90,6 +97,17 @@ func (s *clientSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 	err = m.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
 	return pinger
+}
+
+func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
+	m, err := s.State.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetMachineAddresses(
+		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+		network.NewScopedAddress(fmt.Sprintf("cloud-local%s.internal", machineId), network.ScopeCloudLocal),
+		network.NewScopedAddress(fmt.Sprintf("fc0%s::1", machineId), network.ScopePublic),
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) enableHA(
@@ -148,6 +166,8 @@ func (s *clientSuite) TestEnableHASeries(c *gc.C) {
 
 	s.setAgentPresence(c, "1")
 	s.setAgentPresence(c, "2")
+	s.setMachineAddresses(c, "1")
+	s.setMachineAddresses(c, "2")
 
 	enableHAResult, err = s.enableHA(c, 5, emptyCons, "non-default", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,6 +185,46 @@ func (s *clientSuite) TestEnableHASeries(c *gc.C) {
 	c.Assert(machines[2].Series(), gc.Equals, "quantal")
 	c.Assert(machines[3].Series(), gc.Equals, "non-default")
 	c.Assert(machines[4].Series(), gc.Equals, "non-default")
+}
+
+func (s *clientSuite) TestEnableHAErrorForNoAddresses(c *gc.C) {
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(machines[0].Series(), gc.Equals, "quantal")
+
+	enableHAResult, err := s.enableHA(c, 3, emptyCons, defaultSeries, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
+
+	_, err = s.enableHA(c, 5, emptyCons, defaultSeries, nil)
+	c.Assert(err, gc.ErrorMatches,
+		`juju-ha-space is not set and a unique cloud-local address was not found for machines: \[1 2\]`)
+}
+
+func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(machines[0].Series(), gc.Equals, "quantal")
+
+	enableHAResult, err := s.enableHA(c, 3, emptyCons, defaultSeries, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
+
+	s.setMachineAddresses(c, "1")
+
+	m, err := s.State.Machine("2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetMachineAddresses(
+		network.NewScopedAddress("cloud-local2.internal", network.ScopeCloudLocal),
+		network.NewScopedAddress("cloud-local22.internal", network.ScopeCloudLocal),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.enableHA(c, 5, emptyCons, defaultSeries, nil)
+	c.Assert(err, gc.ErrorMatches,
+		`juju-ha-space is not set and a unique cloud-local address was not found for machines: \[2\]`)
 }
 
 func (s *clientSuite) TestEnableHAConstraints(c *gc.C) {
@@ -330,6 +390,8 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 3)
 
 	s.setAgentPresence(c, "1")
+	s.setMachineAddresses(c, "1")
+	s.setMachineAddresses(c, "2")
 
 	// Now, we keep agent 1 alive, but not agent 2, calling
 	// EnableHA(0) again will cause us to start another machine
@@ -359,6 +421,12 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	s.setAgentPresence(c, "1")
 	s.setAgentPresence(c, "2")
 	s.setAgentPresence(c, "3")
+
+	s.setMachineAddresses(c, "1")
+	s.setMachineAddresses(c, "2")
+	s.setMachineAddresses(c, "3")
+	s.setMachineAddresses(c, "4")
+
 	// Keeping all alive but one, will bring up 1 more server to preserve 5
 	enableHAResult, err = s.enableHA(c, 0, emptyCons, defaultSeries, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -383,6 +451,9 @@ func (s *clientSuite) TestEnableHAErrors(c *gc.C) {
 	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+
+	s.setMachineAddresses(c, "1")
+	s.setMachineAddresses(c, "2")
 
 	_, err = s.enableHA(c, 1, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches, "failed to create new controller machines: cannot reduce controller count")

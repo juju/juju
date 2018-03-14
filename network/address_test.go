@@ -537,6 +537,73 @@ func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
 	}
 }
 
+type selectInternalAddressesTest struct {
+	about           string
+	addresses       []network.Address
+	machineLocal    bool
+	expectedIndices []int
+	expectedOk      bool
+}
+
+// expected returns the expected address for the test.
+func (t selectInternalAddressesTest) expected() ([]network.Address, bool) {
+	if t.expectedIndices == nil {
+		return nil, t.expectedOk
+	}
+	expected := make([]network.Address, len(t.expectedIndices))
+	for i, idx := range t.expectedIndices {
+		expected[i] = t.addresses[idx]
+	}
+	return expected, t.expectedOk
+}
+
+var selectInternalAddressesTests = []selectInternalAddressesTest{
+	{
+		"machine-local addresses are selected when machineLocal is true",
+		[]network.Address{
+			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewScopedAddress("cloud-local.internal", network.ScopeCloudLocal),
+			network.NewScopedAddress("fc00::1", network.ScopePublic),
+		},
+		true,
+		[]int{0},
+		true,
+	},
+	{
+		"cloud-local addresses are selected when machineLocal is false",
+		[]network.Address{
+			network.NewScopedAddress("169.254.1.1", network.ScopeLinkLocal),
+			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewScopedAddress("cloud-local.internal", network.ScopeCloudLocal),
+			network.NewScopedAddress("cloud-local2.internal", network.ScopeCloudLocal),
+			network.NewScopedAddress("fc00::1", network.ScopePublic),
+		},
+		false,
+		[]int{2, 3},
+		true,
+	},
+	{
+		"ok is false when no cloud-local addresses are found",
+		[]network.Address{
+			network.NewScopedAddress("169.254.1.1", network.ScopeLinkLocal),
+			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+		},
+		false,
+		nil,
+		false,
+	},
+}
+
+func (s *AddressSuite) TestSelectInternalAddresses(c *gc.C) {
+	for i, t := range selectInternalAddressesTests {
+		c.Logf("test %d: %s", i, t.about)
+		expectAddr, expectOK := t.expected()
+		actualAddr, actualOK := network.SelectInternalAddresses(t.addresses, t.machineLocal)
+		c.Check(actualOK, gc.Equals, expectOK)
+		c.Check(actualAddr, gc.DeepEquals, expectAddr)
+	}
+}
+
 type selectInternalHostPortsTest struct {
 	about     string
 	addresses []network.HostPort

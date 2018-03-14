@@ -15,7 +15,9 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -98,28 +100,9 @@ func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.C
 	return results, nil
 }
 
-// Convert machine ids to tags.
-func machineIdsToTags(ids ...string) []string {
-	var result []string
-	for _, id := range ids {
-		result = append(result, names.NewMachineTag(id).String())
-	}
-	return result
-}
-
-// Generate a ControllersChanges structure.
-func controllersChanges(change state.ControllersChanges) params.ControllersChanges {
-	return params.ControllersChanges{
-		Added:      machineIdsToTags(change.Added...),
-		Maintained: machineIdsToTags(change.Maintained...),
-		Removed:    machineIdsToTags(change.Removed...),
-		Promoted:   machineIdsToTags(change.Promoted...),
-		Demoted:    machineIdsToTags(change.Demoted...),
-		Converted:  machineIdsToTags(change.Converted...),
-	}
-}
-
-func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.ControllersSpec) (params.ControllersChanges, error) {
+func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.ControllersSpec) (
+	params.ControllersChanges, error,
+) {
 	if !st.IsController() {
 		return params.ControllersChanges{}, errors.New("unsupported with hosted models")
 	}
@@ -129,33 +112,32 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 
-	series := spec.Series
-	if series == "" {
-		ssi, err := st.ControllerInfo()
-		if err != nil {
-			return params.ControllersChanges{}, err
-		}
+	cInfo, err := st.ControllerInfo()
+	if err != nil {
+		return params.ControllersChanges{}, err
+	}
 
+	if spec.Series == "" {
 		// We should always have at least one voting machine
 		// If we *really* wanted we could just pick whatever series is
 		// in the majority, but really, if we always copy the value of
 		// the first one, then they'll stay in sync.
-		if len(ssi.VotingMachineIds) == 0 {
+		if len(cInfo.VotingMachineIds) == 0 {
 			// Better than a panic()?
 			return params.ControllersChanges{}, errors.Errorf("internal error, failed to find any voting machines")
 		}
-		templateMachine, err := st.Machine(ssi.VotingMachineIds[0])
+		templateMachine, err := st.Machine(cInfo.VotingMachineIds[0])
 		if err != nil {
 			return params.ControllersChanges{}, err
 		}
-		series = templateMachine.Series()
+		spec.Series = templateMachine.Series()
 	}
 
 	// If there were no supplied constraints, use the original bootstrap
 	// constraints.
 	if constraints.IsEmpty(&spec.Constraints) {
 		var err error
-		spec.Constraints, err = getBootstrapConstraints(st)
+		spec.Constraints, err = getBootstrapConstraints(st, cInfo.MachineIds)
 		if err != nil {
 			return params.ControllersChanges{}, errors.Trace(err)
 		}
@@ -167,27 +149,52 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	if err != nil {
 		return params.ControllersChanges{}, errors.Annotate(err, "retrieving controller config")
 	}
+	if err = validateCurrentControllers(st, cfg, cInfo.MachineIds); err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
 	spec.Constraints.Spaces = cfg.AsSpaceConstraints(spec.Constraints.Spaces)
 
-	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, series, spec.Placement, api.machineID)
+	// Might be nicer to pass the spec itself to this method.
+	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, spec.Series, spec.Placement, api.machineID)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}
 	return controllersChanges(changes), nil
 }
 
-// getBootstrapConstraints attempts to return the constraints for the initial
-// bootstrapped controller.
-func getBootstrapConstraints(st *state.State) (constraints.Value, error) {
-	controllerInfo, err := st.ControllerInfo()
-	if err != nil {
-		return constraints.Value{}, err
+// validateCurrentControllers checks for a scenario where there is no HA space
+// in controller configuration and more than one machine-local address on any
+// of the controller machines. An error is returned if it is detected.
+func validateCurrentControllers(st *state.State, cfg controller.Config, machineIds []string) error {
+	if cfg.JujuHASpace() != "" {
+		return nil
 	}
 
+	var badIds []string
+	for _, id := range machineIds {
+		controller, err := st.Machine(id)
+		if err != nil {
+			return errors.Annotatef(err, "reading controller id %v", id)
+		}
+		internal, ok := network.SelectInternalAddresses(controller.Addresses(), false)
+		if !ok || len(internal) > 1 {
+			badIds = append(badIds, id)
+		}
+	}
+	if len(badIds) > 0 {
+		return errors.Errorf(
+			"juju-ha-space is not set and a unique cloud-local address was not found for machines: %v", badIds)
+	}
+	return nil
+}
+
+// getBootstrapConstraints attempts to return the constraints for the initial
+// bootstrapped controller.
+func getBootstrapConstraints(st *state.State, machineIds []string) (constraints.Value, error) {
 	// Sort the controller IDs from low to high and take the first.
 	// This will typically give the initial bootstrap machine.
 	var controllerIds []int
-	for _, id := range controllerInfo.MachineIds {
+	for _, id := range machineIds {
 		idNum, err := strconv.Atoi(id)
 		if err != nil {
 			logger.Warningf("ignoring non numeric controller id %v", id)
@@ -211,9 +218,33 @@ func getBootstrapConstraints(st *state.State) (constraints.Value, error) {
 	return cons, errors.Annotatef(err, "reading constraints for controller id %v", controllerId)
 }
 
+// controllersChanges generates a new params instance from the state instance.
+func controllersChanges(change state.ControllersChanges) params.ControllersChanges {
+	return params.ControllersChanges{
+		Added:      machineIdsToTags(change.Added...),
+		Maintained: machineIdsToTags(change.Maintained...),
+		Removed:    machineIdsToTags(change.Removed...),
+		Promoted:   machineIdsToTags(change.Promoted...),
+		Demoted:    machineIdsToTags(change.Demoted...),
+		Converted:  machineIdsToTags(change.Converted...),
+	}
+}
+
+// machineIdsToTags returns a slice of machine tag strings created from the
+// input machine IDs.
+func machineIdsToTags(ids ...string) []string {
+	var result []string
+	for _, id := range ids {
+		result = append(result, names.NewMachineTag(id).String())
+	}
+	return result
+}
+
 // StopHAReplicationForUpgrade will prompt the HA cluster to enter upgrade
 // mongo mode.
-func (api *HighAvailabilityAPI) StopHAReplicationForUpgrade(args params.UpgradeMongoParams) (params.MongoUpgradeResults, error) {
+func (api *HighAvailabilityAPI) StopHAReplicationForUpgrade(args params.UpgradeMongoParams) (
+	params.MongoUpgradeResults, error,
+) {
 	ha, err := api.state.SetUpgradeMongoMode(mongo.Version{
 		Major:         args.Target.Major,
 		Minor:         args.Target.Minor,
