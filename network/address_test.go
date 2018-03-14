@@ -574,7 +574,7 @@ var selectInternalAddressesTests = []selectInternalAddressesTest{
 		},
 	},
 	{
-		about: "ok is false when no cloud-local addresses are found",
+		about: "nil is returned when no cloud-local addresses are found",
 		addresses: []network.Address{
 			network.NewScopedAddress("169.254.1.1", network.ScopeLinkLocal),
 			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
