@@ -60,7 +60,9 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 	s.abort = make(chan struct{})
 	s.written = make(chan params.LogRecord, 1)
 	s.stub.ResetCalls()
+	s.stackMu.Lock()
 	s.lastStack = nil
+	s.stackMu.Unlock()
 
 	recordStack := func() {
 		s.stackMu.Lock()
