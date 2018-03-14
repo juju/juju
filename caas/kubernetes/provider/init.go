@@ -10,5 +10,5 @@ const (
 )
 
 func init() {
-	environs.RegisterProvider(providerType, kubernetesEnvironProvider{})
+	environs.RegisterProvider(providerType, providerInstance)
 }

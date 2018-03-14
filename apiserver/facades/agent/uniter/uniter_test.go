@@ -3002,11 +3002,11 @@ func (s *uniterSuite) TestRefreshNoArgs(c *gc.C) {
 var podSpec = `
 containers:
   - name: gitlab
-    image-name: gitlab/latest
+    image: gitlab/latest
     ports:
-    - container-port: 80
+    - containerPort: 80
       protocol: TCP
-    - container-port: 443
+    - containerPort: 443
     config:
       attr: foo=bar; fred=blogs
       foo: bar
@@ -3022,6 +3022,7 @@ func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASMode
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
 		"name": "caas-model",
+		"type": "kubernetes",
 		"uuid": utils.MustNewUUID().String(),
 	})
 	m, st, err := s.State.NewModel(state.ModelArgs{

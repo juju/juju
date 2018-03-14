@@ -55,11 +55,11 @@ var (
 	containerSpec = `
 containers:
   - name: gitlab
-    image-name: gitlab/latest
+    image: gitlab/latest
     ports:
-    - container-port: 80
+    - containerPort: 80
       protocol: TCP
-    - container-port: 443
+    - containerPort: 443
     config:
       attr: foo=bar; fred=blogs
       foo: bar
@@ -67,8 +67,8 @@ containers:
 
 	parsedSpec = caas.PodSpec{
 		Containers: []caas.ContainerSpec{{
-			Name:      "gitlab",
-			ImageName: "gitlab/latest",
+			Name:  "gitlab",
+			Image: "gitlab/latest",
 			Ports: []caas.ContainerPort{
 				{ContainerPort: 80, Protocol: "TCP"},
 				{ContainerPort: 443},
@@ -76,8 +76,8 @@ containers:
 			Config: map[string]string{
 				"attr": "foo=bar; fred=blogs",
 				"foo":  "bar",
-			},
-		}}}
+			}},
+		}}
 )
 
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
@@ -115,11 +115,13 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		ensured:        s.unitEnsured,
 		unitDeleted:    s.unitDeleted,
 		unitsWatcher:   watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
+		podSpec:        &parsedSpec,
 	}
 	s.lifeGetter = mockLifeGetter{}
 	s.lifeGetter.setLife(life.Alive)
 	s.serviceBroker = mockServiceBroker{
 		ensured: s.serviceEnsured,
+		podSpec: &parsedSpec,
 	}
 
 	s.config = caasunitprovisioner.Config{
@@ -447,11 +449,12 @@ containers:
 
 		anotherParsedSpec = caas.PodSpec{
 			Containers: []caas.ContainerSpec{{
-				Name:      "gitlab",
-				ImageName: "gitlab/latest",
+				Name:  "gitlab",
+				Image: "gitlab/latest",
 			}}}
 	)
 
+	s.containerBroker.podSpec = &anotherParsedSpec
 	s.podSpecGetter.setSpec(anotherSpec)
 	// Send for deployment worker.
 	s.sendContainerSpecChange(c)
@@ -549,10 +552,12 @@ containers:
 
 		anotherParsedSpec = caas.PodSpec{
 			Containers: []caas.ContainerSpec{{
-				Name:      "gitlab",
-				ImageName: "gitlab/latest",
+				Name:  "gitlab",
+				Image: "gitlab/latest",
 			}}}
 	)
+
+	s.serviceBroker.podSpec = &anotherParsedSpec
 
 	s.podSpecGetter.setSpec(anotherSpec)
 	s.sendContainerSpecChange(c)

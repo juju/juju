@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 )
@@ -24,6 +25,7 @@ type CAASOperatorState interface {
 type Model interface {
 	SetPodSpec(names.ApplicationTag, string) error
 	Name() string
+	ModelConfig() (*config.Config, error)
 }
 
 // Application provides the subset of application state

@@ -2418,6 +2418,20 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 		}
 		return false
 	}
+
+	cfg, err := u.m.ModelConfig()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	provider, err := environs.Provider(cfg.Type())
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	cassProvider, ok := provider.(caas.ContainerEnvironProvider)
+	if !ok {
+		return params.ErrorResults{}, errors.NotValidf("container environ provider %T", provider)
+	}
+
 	for i, arg := range args.Specs {
 		tag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
@@ -2428,7 +2442,7 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := caas.ParsePodSpec(arg.Value); err != nil {
+		if _, err := cassProvider.ParsePodSpec(arg.Value); err != nil {
 			results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid pod spec"))
 			continue
 		}
