@@ -6,6 +6,8 @@ package jujuctesting
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
+
+	"github.com/juju/juju/apiserver/params"
 )
 
 // Unit holds the values for the hook context.
@@ -14,6 +16,7 @@ type Unit struct {
 	ConfigSettings charm.Settings
 	GoalState      string
 	ContainerSpec  string
+	CloudSpec      params.CloudSpec
 }
 
 // ContextUnit is a test double for jujuc.ContextUnit.
@@ -56,4 +59,13 @@ func (c *ContextUnit) SetPodSpec(specYaml string) error {
 	}
 	c.info.ContainerSpec = specYaml
 	return nil
+}
+
+func (c *ContextUnit) CloudSpec() (*params.CloudSpec, error) {
+	c.stub.AddCall("CloudSpec")
+	if err := c.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	c.info.CloudSpec = params.CloudSpec{}
+	return &c.info.CloudSpec, nil
 }
