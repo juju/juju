@@ -56,7 +56,8 @@ func (s *uniterSuite) setUpTest(c *gc.C, addController bool) {
 
 	// Create a machine, a application and add a unit so we can log in as
 	// its agent.
-	s.wordpressMachine, s.wordpressApplication, s.wordpressCharm, s.wordpressUnit = s.addMachineBoundAppCharmAndUnit(c, "wordpress", bindings)
+	s.wordpressMachine, s.wordpressApplication, s.wordpressCharm, s.wordpressUnit =
+		s.addMachineBoundAppCharmAndUnit(c, "wordpress", bindings)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpressUnit.SetPassword(password)
@@ -69,7 +70,9 @@ func (s *uniterSuite) setUpTest(c *gc.C, addController bool) {
 	c.Assert(s.uniter, gc.NotNil)
 }
 
-func (s *uniterSuite) addMachineBoundAppCharmAndUnit(c *gc.C, appName string, bindings map[string]string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
+func (s *uniterSuite) addMachineBoundAppCharmAndUnit(
+	c *gc.C, appName string, bindings map[string]string,
+) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	charm := s.AddTestingCharm(c, appName)
@@ -90,7 +93,8 @@ func (s *uniterSuite) addMachineBoundAppCharmAndUnit(c *gc.C, appName string, bi
 	return machine, app, charm, unit
 }
 
-func (s *uniterSuite) addMachineAppCharmAndUnit(c *gc.C, appName string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
+func (s *uniterSuite) addMachineAppCharmAndUnit(c *gc.C, appName string,
+) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
 	return s.addMachineBoundAppCharmAndUnit(c, appName, nil)
 }
 
@@ -102,7 +106,8 @@ func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation
 	return rel
 }
 
-func (s *uniterSuite) addRelatedApplication(c *gc.C, firstApp, relatedApp string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
+func (s *uniterSuite) addRelatedApplication(c *gc.C, firstApp, relatedApp string, unit *state.Unit,
+) (*state.Relation, *state.Application, *state.Unit) {
 	relatedApplication := s.AddTestingApplication(c, relatedApp, s.AddTestingCharm(c, relatedApp))
 	rel := s.addRelation(c, firstApp, relatedApp)
 	relUnit, err := rel.Unit(unit)
@@ -126,13 +131,4 @@ func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScop
 	ok, err := relUnit.InScope()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ok, gc.Equals, inScope)
-}
-
-func (s *uniterSuite) TestSLALevel(c *gc.C) {
-	err := s.State.SetSLA("essential", "bob", []byte("creds"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	level, err := s.uniter.SLALevel()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(level, gc.Equals, "essential")
 }

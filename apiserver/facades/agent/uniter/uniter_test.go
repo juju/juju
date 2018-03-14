@@ -4163,10 +4163,6 @@ func (s *cloudSpecUniterSuite) SetUpTest(c *gc.C) {
 	defaults := map[string]interface{}{application.TrustConfigOptionName: false}
 	err := s.wordpress.UpdateApplicationConfig(conf, nil, fields, defaults)
 	c.Assert(err, jc.ErrorIsNil)
-
-	newConf, err := s.wordpress.ApplicationConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newConf.GetBool(application.TrustConfigOptionName, false), jc.IsTrue)
 }
 
 func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {

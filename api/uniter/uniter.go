@@ -435,16 +435,16 @@ func (st *State) SLALevel() (string, error) {
 
 // GoalState returns a GoalStateResult struct with the charm's
 // peers and related units information.
-func (c *State) GoalState() (string, error) {
+func (st *State) GoalState() (string, error) {
 	var result params.StringResults
 
 	args := params.Entities{
 		Entities: []params.Entity{
-			{Tag: c.unitTag.String()},
+			{Tag: st.unitTag.String()},
 		},
 	}
 
-	err := c.facade.FacadeCall("GoalStates", args, &result)
+	err := st.facade.FacadeCall("GoalStates", args, &result)
 	if err != nil {
 		return "", err
 	}
@@ -458,7 +458,7 @@ func (c *State) GoalState() (string, error) {
 }
 
 // SetPodSpec sets the pod spec of the specified application.
-func (c *State) SetPodSpec(appName string, spec string) error {
+func (st *State) SetPodSpec(appName string, spec string) error {
 	if !names.IsValidApplication(appName) {
 		return errors.NotValidf("application name %q", appName)
 	}
@@ -470,8 +470,25 @@ func (c *State) SetPodSpec(appName string, spec string) error {
 			Value: spec,
 		}},
 	}
-	if err := c.facade.FacadeCall("SetPodSpec", args, &result); err != nil {
+	if err := st.facade.FacadeCall("SetPodSpec", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	return result.OneError()
+}
+
+// CloudSpec returns the cloud spec for the model that calling unit or
+// application resides in.
+// If the application has not been authorised to access its cloud spec,
+// then an authorisation error will be returned.
+func (st *State) CloudSpec() (*params.CloudSpec, error) {
+	var result params.CloudSpecResult
+
+	err := st.facade.FacadeCall("CloudSpec", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+	return result.Result, nil
 }
