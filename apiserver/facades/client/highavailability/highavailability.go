@@ -179,8 +179,8 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 		if err != nil {
 			return errors.Annotatef(err, "reading controller id %v", id)
 		}
-		internal, ok := network.SelectInternalAddresses(controller.Addresses(), false)
-		if !ok || len(internal) > 1 {
+		internal := network.SelectInternalAddresses(controller.Addresses(), false)
+		if len(internal) != 1 {
 			badIds = append(badIds, id)
 		}
 	}
