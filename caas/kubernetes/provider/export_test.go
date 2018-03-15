@@ -11,6 +11,7 @@ import (
 
 var (
 	MakeUnitSpec = makeUnitSpec
+	OperatorPod  = operatorPod
 )
 
 func PodSpec(u *unitSpec) v1.PodSpec {
