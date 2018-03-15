@@ -32,7 +32,7 @@ func (s *steps24Suite) TestCopyMongoSpaceToHASpaceConfig(c *gc.C) {
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 
-func (s *steps24Suite) TestCreateMissingApplicatoinConfig(c *gc.C) {
+func (s *steps24Suite) TestCreateMissingApplicationConfig(c *gc.C) {
 	step := findStateStep(c, v24, "create empty application settings for all applications")
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})

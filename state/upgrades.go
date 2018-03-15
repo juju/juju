@@ -1439,7 +1439,8 @@ func CreateMissingApplicationConfig(st *State) error {
 	var applicationConfigIDs []struct {
 		ID string `bson:"_id"`
 	}
-	settingsColl.Find(nil).All(&applicationConfigIDs)
+	settingsColl.Find(bson.M{
+		"_id": bson.M{"$regex": bson.RegEx{"#application$", ""}}}).All(&applicationConfigIDs)
 
 	allIDs := set.NewStrings()
 	for _, id := range applicationConfigIDs {
@@ -1449,24 +1450,25 @@ func CreateMissingApplicationConfig(st *State) error {
 	appsColl, appsCloser := st.db().GetRawCollection(applicationsC)
 	defer appsCloser()
 
-	var applicationIDs []struct {
+	var applicationNames []struct {
 		Name      string `bson:"name"`
 		ModelUUID string `bson:"model-uuid"`
 	}
-	appsColl.Find(nil).All(&applicationIDs)
+	appsColl.Find(nil).All(&applicationNames)
 
-	var newAppConfigs []txn.Op
+	var newAppConfigOps []txn.Op
 	emptySettings := make(map[string]interface{})
-	// var emptySettings map[string]interface{}
-	for _, app := range applicationIDs {
-		appConfID := fmt.Sprintf("%s:a#%s#application", app.ModelUUID, app.Name)
+	for _, app := range applicationNames {
+		appConfID := fmt.Sprintf("%s:%s", app.ModelUUID, applicationConfigKey(app.Name))
 		if !allIDs.Contains(appConfID) {
 			newOp := createSettingsOp(settingsC, appConfID, emptySettings)
+			// createSettingsOp assumes you're using a model-specific state, which will auto-inject the ModelUUID
+			// since we're doing this globally, cast it to the underlying type and add it.
 			newOp.Insert.(*settingsDoc).ModelUUID = app.ModelUUID
-			newAppConfigs = append(newAppConfigs, newOp)
+			newAppConfigOps = append(newAppConfigOps, newOp)
 		}
 	}
-	err := st.db().RunRawTransaction(newAppConfigs)
+	err := st.db().RunRawTransaction(newAppConfigOps)
 	if err != nil {
 		return errors.Annotate(err, "writing application configs")
 	}

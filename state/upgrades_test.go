@@ -2297,7 +2297,7 @@ func (s *upgradesSuite) TestCreateMissingApplicationConfig(c *gc.C) {
 	}}
 
 	sort.Slice(expected, func(i, j int) bool {
-		return string(expected[i]["_id"].(string)) < string(expected[j]["_id"].(string))
+		return expected[i]["_id"].(string) < expected[j]["_id"].(string)
 	})
 
 	s.assertUpgradedData(c, CreateMissingApplicationConfig,
