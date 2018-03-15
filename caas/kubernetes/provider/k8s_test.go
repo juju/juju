@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"fmt"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"k8s.io/client-go/pkg/api/v1"
@@ -11,6 +13,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type K8sSuite struct {
@@ -81,4 +84,15 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
+	pod := provider.OperatorPod("gitlab", "/var/lib/juju")
+	vers := version.Current
+	vers.Build = 0
+	c.Assert(pod.Name, gc.Equals, "juju-operator-gitlab")
+	c.Assert(pod.Spec.Containers, gc.HasLen, 1)
+	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, fmt.Sprintf("jujusolutions/caas-jujud-operator:%s", vers.String()))
+	c.Assert(pod.Spec.Containers[0].VolumeMounts, gc.HasLen, 1)
+	c.Assert(pod.Spec.Containers[0].VolumeMounts[0].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/agent.conf")
 }

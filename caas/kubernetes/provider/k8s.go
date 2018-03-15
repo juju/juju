@@ -731,6 +731,9 @@ func operatorPod(appName, agentPath string) *v1.Pod {
 	configVolName := configMapName + "-volume"
 
 	appTag := names.NewApplicationTag(appName)
+	vers := version.Current
+	vers.Build = 0
+	operatorImage := fmt.Sprintf("jujusolutions/caas-jujud-operator:%s", vers.String())
 	return &v1.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   podName,
@@ -740,7 +743,7 @@ func operatorPod(appName, agentPath string) *v1.Pod {
 			Containers: []v1.Container{{
 				Name:            "juju-operator",
 				ImagePullPolicy: v1.PullIfNotPresent,
-				Image:           "jujusolutions/caas-jujud-operator:latest",
+				Image:           operatorImage,
 				Env: []v1.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
 				},
