@@ -15,6 +15,12 @@ type CredentialGetSuite struct {
 
 var _ = gc.Suite(&CredentialGetSuite{})
 
+// [TODO](externalreality): Many jujuc commands can be run through a processor
+// much like the one below. This sort of thing should not have to be written
+// more than once except for in special cases. A structure containing all of the
+// relevant jujuc commands along with their supported format options would cut
+// down on a great deal of test fluff. The juju/cmd test are a good example of how
+// this might be done.
 func runCredentialGetCommand(s *CredentialGetSuite, c *gc.C, args []string) (*cmd.Context, int) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, cmdString("credential-get"))
@@ -24,7 +30,7 @@ func runCredentialGetCommand(s *CredentialGetSuite, c *gc.C, args []string) (*cm
 	return ctx, code
 }
 
-func (s *CredentialGetSuite) TestHelp(c *gc.C) {
+func (s *CredentialGetSuite) TestCommandRun(c *gc.C) {
 	_, exitCode := runCredentialGetCommand(s, c, []string{})
 	exitSuccess := 0
 	c.Assert(exitCode, gc.Equals, exitSuccess)
