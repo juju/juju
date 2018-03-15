@@ -24,7 +24,7 @@ func NewCredentialGetCommand(ctx Context) (cmd.Command, error) {
 // Info is part of the cmd.Command interface.
 func (c *CredentialGetCommand) Info() *cmd.Info {
 	doc := `
-credential-get returns the cloud specification specific to the unit's model.
+credential-get returns the cloud specification used by the unit's model.
 `
 	return &cmd.Info{
 		Name:    "credential-get",
