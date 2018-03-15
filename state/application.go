@@ -1333,28 +1333,24 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Status:  status.Allocating,
 		Updated: now.UnixNano(),
 	}
-	var (
-		unitStatusDoc      *statusDoc
-		workloadVersionDoc *statusDoc
-		meterStatus        *meterStatusDoc
-	)
 
 	model, err := a.st.Model()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
-	unitStatusDoc = &statusDoc{
+	unitStatusDoc := &statusDoc{
 		Status:     status.Waiting,
 		StatusInfo: status.MessageWaitForContainer,
 		Updated:    now.UnixNano(),
 	}
+	meterStatus := &meterStatusDoc{Code: MeterNotSet.String()}
+
+	workloadVersionDoc := &statusDoc{
+		Status:  status.Unknown,
+		Updated: now.UnixNano(),
+	}
 	if model.Type() != ModelTypeCAAS {
 		unitStatusDoc.StatusInfo = status.MessageWaitForMachine
-		workloadVersionDoc = &statusDoc{
-			Status:  status.Unknown,
-			Updated: now.UnixNano(),
-		}
-		meterStatus = &meterStatusDoc{Code: MeterNotSet.String()}
 	}
 	var containerDoc *cloudContainerDoc
 	if model.Type() == ModelTypeCAAS {

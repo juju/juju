@@ -2798,15 +2798,6 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	// TODO: consider the constraints op
 	// TODO: consider storageOps
 	var prereqOps []txn.Op
-	if args.workloadStatusDoc != nil {
-		prereqOps = append(prereqOps, createStatusOp(st, unitGlobalKey(name), *args.workloadStatusDoc))
-	}
-	if args.meterStatusDoc != nil {
-		prereqOps = append(prereqOps, createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc))
-	}
-	if args.workloadVersionDoc != nil {
-		prereqOps = append(prereqOps, createStatusOp(st, globalWorkloadVersionKey(name), *args.workloadVersionDoc))
-	}
 	if args.containerDoc != nil {
 		prereqOps = append(prereqOps, txn.Op{
 			C:      cloudContainersC,
@@ -2817,6 +2808,9 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	}
 	prereqOps = append(prereqOps,
 		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
+		createStatusOp(st, unitGlobalKey(name), *args.workloadStatusDoc),
+		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
+		createStatusOp(st, globalWorkloadVersionKey(name), *args.workloadVersionDoc),
 	)
 
 	// Freshly-created units will not have a charm URL set; migrated
