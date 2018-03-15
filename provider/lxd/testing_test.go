@@ -183,7 +183,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 
 	cons := constraints.Value{
-	// nothing
+		// nothing
 	}
 
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "")
