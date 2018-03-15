@@ -4,7 +4,6 @@
 package highavailability_test
 
 import (
-	"fmt"
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
