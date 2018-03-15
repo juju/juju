@@ -1384,6 +1384,7 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 	}, {
 		about:    "invalid charm name",
 		url:      "cs:",
+		// go-1.9 replaces 'cs:' with 'cs://', but not go-1.10
 		parseErr: `cannot parse URL "cs:(\/\/)?": name "" not valid`,
 	}, {
 		about:      "local charm",

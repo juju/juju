@@ -108,8 +108,8 @@ rebuild-dependencies.tsv: godeps
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
-	@echo Installing go-1.9 snap
-	@sudo snap install go --channel=1.9/stable --classic
+	@echo Installing go-1.10 snap
+	@sudo snap install go --channel=1.10/stable --classic
 	@echo Adding juju PPA for mongodb
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
