@@ -99,7 +99,7 @@ func InitState(c *gc.C, st *fakeState, numMachines int, ipVersion TestIPVersion)
 	st.session.Set(mkMembers("0v", ipVersion))
 	st.session.setStatus(mkStatuses("0p", ipVersion))
 	st.check = checkInvariants
-	st.controllerConfig = controller.Config{}
+	st.controllerConfig.Set(controller.Config{})
 }
 
 // ExpectedAPIHostPorts returns the expected addresses
@@ -512,7 +512,7 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	st.session.Set(mkMembers("0v 1 2", testIPv4))
 	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
 	st.check = checkInvariants
-	st.controllerConfig = controller.Config{}
+	st.controllerConfig.Set(controller.Config{})
 
 	hub := pubsub.NewStructuredHub(nil)
 	event := make(chan apiserver.Details)

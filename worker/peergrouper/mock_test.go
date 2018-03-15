@@ -36,9 +36,9 @@ type fakeState struct {
 	machines         map[string]*fakeMachine
 	controllers      voyeur.Value // of *state.ControllerInfo
 	statuses         voyeur.Value // of statuses collection
+	controllerConfig voyeur.Value // of controller.Config
 	session          *fakeMongoSession
 	check            func(st *fakeState) error
-	controllerConfig controller.Config
 }
 
 var (
@@ -233,37 +233,12 @@ func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 	return WatchStrings(&st.statuses)
 }
 
+func (st *fakeState) WatchControllerConfig() state.NotifyWatcher {
+	return WatchValue(&st.controllerConfig)
+}
+
 func (st *fakeState) Space(name string) (Space, error) {
 	return &apiservertesting.FakeSpace{SpaceName: "Space" + name}, nil
-}
-
-func (st *fakeState) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
-	inf, _ := st.ControllerInfo()
-	strMongoSpaceName := string(mongoSpaceName)
-
-	if inf.MongoSpaceState == state.MongoSpaceUnknown {
-		inf.MongoSpaceName = strMongoSpaceName
-		inf.MongoSpaceState = state.MongoSpaceValid
-		st.controllers.Set(inf)
-	}
-	return network.SpaceName(inf.MongoSpaceName), nil
-}
-
-func (st *fakeState) SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error {
-	inf, _ := st.ControllerInfo()
-	inf.MongoSpaceState = mongoSpaceState
-	st.controllers.Set(inf)
-	return nil
-}
-
-func (st *fakeState) getMongoSpaceName() string {
-	inf, _ := st.ControllerInfo()
-	return inf.MongoSpaceName
-}
-
-func (st *fakeState) getMongoSpaceState() state.MongoSpaceStates {
-	inf, _ := st.ControllerInfo()
-	return inf.MongoSpaceState
 }
 
 func (st *fakeState) ModelConfig() (*config.Config, error) {
@@ -273,11 +248,11 @@ func (st *fakeState) ModelConfig() (*config.Config, error) {
 }
 
 func (st *fakeState) ControllerConfig() (controller.Config, error) {
-	return st.controllerConfig, nil
+	return st.controllerConfig.Get().(controller.Config), nil
 }
 
 func (st *fakeState) setHASpace(spaceName string) {
-	st.controllerConfig[controller.JujuHASpace] = spaceName
+	st.controllerConfig.Get().(controller.Config)[controller.JujuHASpace] = spaceName
 }
 
 type fakeMachine struct {
