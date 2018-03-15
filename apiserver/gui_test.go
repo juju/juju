@@ -1020,7 +1020,10 @@ func (s *guiVersionSuite) TestGUIVersionPut(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
 			c.Assert(jsonResp.Error.Message, gc.Matches, test.expectedError)
 		} else {
-			body = assertResponse(c, resp, test.expectedStatus, "text/plain; charset=utf-8")
+			// we have no body content.
+			// In go-1.9 the response writer still set the content-type to 'text/plain'
+			// In go-1.10 it doesn't set any content-type, so we allow either
+			body = assertResponse(c, resp, test.expectedStatus, "text/plain; charset=utf-8", "")
 			c.Assert(body, gc.HasLen, 0)
 			vers, err := s.State.GUIVersion()
 			c.Assert(err, jc.ErrorIsNil)

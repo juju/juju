@@ -274,13 +274,27 @@ func (s *authHTTPSuite) uploadRequest(c *gc.C, uri string, contentType, path str
 	})
 }
 
-func assertResponse(c *gc.C, resp *http.Response, expHTTPStatus int, expContentType string) []byte {
+func assertResponse(c *gc.C, resp *http.Response, expHTTPStatus int, expContentTypes ...string) []byte {
 	body, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(resp.StatusCode, gc.Equals, expHTTPStatus, gc.Commentf("body: %s", body))
-	ctype := resp.Header.Get("Content-Type")
-	c.Assert(ctype, gc.Equals, expContentType)
+	if len(expContentTypes) > 0 {
+		ctype := resp.Header.Get("Content-Type")
+		if len(expContentTypes) == 1 {
+			c.Check(ctype, gc.Equals, expContentTypes[0])
+		} else {
+			found := false
+			for _, exptype := range expContentTypes {
+				if ctype == exptype {
+					found = true
+					break
+				}
+			}
+			c.Check(found, jc.IsTrue,
+				gc.Commentf("expected a content type of one of %v, got %q", expContentTypes, ctype))
+		}
+	}
 	return body
 }
 

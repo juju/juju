@@ -315,7 +315,7 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubNetworkingEnvironName, apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 
 	args := params.AddSubnetsParams{Subnets: []params.AddSubnetParams{{
-	// nothing set; early exit: no calls
+		// nothing set; early exit: no calls
 	}, {
 		// neither tag nor id set: the rest is ignored; same as above
 		SpaceTag: "any",
