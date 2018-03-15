@@ -44,7 +44,7 @@ type logsinkSuite struct {
 	mu      sync.Mutex
 	opened  int
 	closed  int
-	stub    testing.Stub
+	stub    *testing.Stub
 	written chan params.LogRecord
 
 	logs loggo.TestWriter
@@ -59,8 +59,10 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.abort = make(chan struct{})
 	s.written = make(chan params.LogRecord, 1)
-	s.stub.ResetCalls()
+	s.stub = &testing.Stub{}
+	s.stackMu.Lock()
 	s.lastStack = nil
+	s.stackMu.Unlock()
 
 	recordStack := func() {
 		s.stackMu.Lock()
@@ -72,7 +74,7 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 		func(req *http.Request) (logsink.LogWriteCloser, error) {
 			s.stub.AddCall("Open")
 			return &mockLogWriteCloser{
-				&s.stub,
+				s.stub,
 				s.written,
 				recordStack,
 			}, s.stub.NextErr()
@@ -195,7 +197,7 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 		func(req *http.Request) (logsink.LogWriteCloser, error) {
 			s.stub.AddCall("Open")
 			return &mockLogWriteCloser{
-				&s.stub,
+				s.stub,
 				s.written,
 				nil,
 			}, s.stub.NextErr()
@@ -207,6 +209,7 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 			Clock:  testClock,
 		},
 	))
+	defer s.srv.Close()
 
 	conn := s.dialWebsocket(c)
 	websockettest.AssertJSONInitialErrorNil(c, conn)
