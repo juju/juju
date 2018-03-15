@@ -208,7 +208,7 @@ func getBootstrapConstraints(st *state.State, machineIds []string) (constraints.
 		controllerIds = append(controllerIds, idNum)
 	}
 	if len(controllerIds) == 0 {
-		errors.Errorf("internal error, failed to find any controllers")
+		return constraints.Value{}, errors.Errorf("internal error; failed to find any controllers")
 	}
 	sort.Ints(controllerIds)
 	controllerId := controllerIds[0]

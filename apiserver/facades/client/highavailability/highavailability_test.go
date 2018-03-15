@@ -347,6 +347,7 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: machine1Cons,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.setAgentPresence(c, "1")
 
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
@@ -389,6 +390,7 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 
 	s.setAgentPresence(c, "1")
@@ -419,6 +421,7 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 5)
 	s.setAgentPresence(c, "1")
 	s.setAgentPresence(c, "2")
