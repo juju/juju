@@ -175,7 +175,7 @@ func (s *CAASOperatorSuite) TestSetPodSpec(c *gc.C) {
 	validSpecStr := `
 containers:
   - name: gitlab
-    image-name: gitlab/latest
+    image: gitlab/latest
 `[1:]
 
 	args := params.SetPodSpecParams{

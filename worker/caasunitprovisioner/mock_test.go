@@ -37,7 +37,17 @@ type fakeClient struct {
 
 type mockServiceBroker struct {
 	testing.Stub
+	caas.ContainerEnvironProvider
 	ensured chan<- struct{}
+	podSpec *caas.PodSpec
+}
+
+func (m *mockServiceBroker) Provider() caas.ContainerEnvironProvider {
+	return m
+}
+
+func (m *mockServiceBroker) ParsePodSpec(in string) (*caas.PodSpec, error) {
+	return m.podSpec, nil
 }
 
 func (m *mockServiceBroker) EnsureService(appName string, unitSpec *caas.PodSpec, numUnits int, config application.ConfigAttributes) error {
@@ -58,11 +68,21 @@ func (m *mockServiceBroker) DeleteService(appName string) error {
 
 type mockContainerBroker struct {
 	testing.Stub
+	caas.ContainerEnvironProvider
 	ensured            chan<- struct{}
 	serviceDeleted     chan<- struct{}
 	unitDeleted        chan<- struct{}
 	unitsWatcher       *watchertest.MockNotifyWatcher
 	reportedUnitStatus status.Status
+	podSpec            *caas.PodSpec
+}
+
+func (m *mockContainerBroker) Provider() caas.ContainerEnvironProvider {
+	return m
+}
+
+func (m *mockContainerBroker) ParsePodSpec(in string) (*caas.PodSpec, error) {
+	return m.podSpec, nil
 }
 
 func (m *mockContainerBroker) EnsureUnit(appName, unitName string, spec *caas.PodSpec) error {

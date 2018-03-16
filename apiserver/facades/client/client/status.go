@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -171,7 +172,17 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 
 	var noStatus params.FullStatus
 	var context statusContext
-	var err error
+
+	m, err := c.api.stateAccessor.Model()
+	if err != nil {
+		return noStatus, errors.Annotate(err, "cannot get model")
+	}
+	cfg, err := m.Config()
+	if err != nil {
+		return noStatus, errors.Annotate(err, "cannot obtain current model config")
+	}
+	context.providerType = cfg.Type()
+
 	if context.model, err = c.api.stateAccessor.Model(); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch model")
 	}
@@ -374,8 +385,9 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 }
 
 type statusContext struct {
-	model  *state.Model
-	status *state.ModelStatus
+	providerType string
+	model        *state.Model
+	status       *state.ModelStatus
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
 	machines map[string][]*state.Machine
@@ -959,12 +971,21 @@ func (context *statusContext) processApplication(application *state.Application)
 			return params.ApplicationStatus{Err: common.ServerError(err)}
 		}
 		if specStr != "" {
-			spec, err := caas.ParsePodSpec(specStr)
+			provider, err := environs.Provider(context.providerType)
+			if err != nil {
+				return params.ApplicationStatus{Err: common.ServerError(err)}
+			}
+			caasProvider, ok := provider.(caas.ContainerEnvironProvider)
+			if !ok {
+				err := errors.NotValidf("container environ provider %T", provider)
+				return params.ApplicationStatus{Err: common.ServerError(err)}
+			}
+			spec, err := caasProvider.ParsePodSpec(specStr)
 			if err != nil {
 				return params.ApplicationStatus{Err: common.ServerError(err)}
 			}
 			// Container zero is the primary.
-			processedStatus.WorkloadVersion = fmt.Sprintf("%v", spec.Containers[0].ImageName)
+			processedStatus.WorkloadVersion = fmt.Sprintf("%v", spec.Containers[0].Image)
 		}
 		serviceInfo, err := application.ServiceInfo()
 		if err == nil {

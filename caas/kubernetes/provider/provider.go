@@ -20,6 +20,7 @@ type kubernetesEnvironProvider struct {
 }
 
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
+var providerInstance = kubernetesEnvironProvider{}
 
 // Version is part of the EnvironProvider interface.
 func (kubernetesEnvironProvider) Version() int {
@@ -37,6 +38,15 @@ func (kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, er
 		return nil, err
 	}
 	return broker, nil
+}
+
+// ParsePodSpec is part of the ContainerEnvironProvider interface.
+func (kubernetesEnvironProvider) ParsePodSpec(in string) (*caas.PodSpec, error) {
+	spec, err := parseK8sPodSpec(in)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return spec, spec.Validate()
 }
 
 // CloudSchema returns the schema for adding new clouds of this type.
