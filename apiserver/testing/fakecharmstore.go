@@ -14,9 +14,11 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/charmrepo.v2/csclient"
-	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/juju/charmstore.v5"
+	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
+	bakeryV2 "gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/testcharms"
@@ -53,7 +55,7 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 		AuthUsername:     "test-user",
 		AuthPassword:     "test-password",
 		IdentityLocation: s.discharger.Location(),
-		PublicKeyLocator: s.discharger,
+		PublicKeyLocator: v1ToV2Locator{s.discharger},
 	}
 	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
 	c.Assert(err, jc.ErrorIsNil)
@@ -82,4 +84,18 @@ func (s *CharmStoreSuite) UploadCharm(c *gc.C, url, name string) (*charm.URL, ch
 
 func (s *CharmStoreSuite) UploadCharmMultiSeries(c *gc.C, url, name string) (*charm.URL, charm.Charm) {
 	return testcharms.UploadCharmMultiSeries(c, s.Client, url, name)
+}
+
+type v1ToV2Locator struct {
+	v1Loc bakery.PublicKeyLocator
+}
+
+func (v2Loc v1ToV2Locator) PublicKeyForLocation(loc string) (*bakeryV2.PublicKey, error) {
+	key, err := v2Loc.v1Loc.PublicKeyForLocation(loc)
+	if err != nil {
+		return nil, err
+	}
+	return &bakeryV2.PublicKey{
+		Key: bakeryV2.Key(key.Key),
+	}, nil
 }

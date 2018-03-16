@@ -19,7 +19,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/charmrepo.v2/csclient"
-	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/juju/charmstore.v5"
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/component/all"

@@ -13,7 +13,12 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/idmclient/ussologin"
 	"gopkg.in/juju/environschema.v1/form"
+	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	bakeryV2 "gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	httpbakeryV2 "gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	macaroon "gopkg.in/macaroon.v1"
+	macaroonV2 "gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/jujuclient"
 )
@@ -67,7 +72,8 @@ func newAPIContext(ctxt *cmd.Context, opts *AuthOpts, store jujuclient.CookieSto
 			In:  ctxt.Stdin,
 			Out: ctxt.Stdout,
 		}
-		visitors = append(visitors, ussologin.NewVisitor("juju", filler, jujuclient.NewTokenStore()))
+		newVisitor := ussologin.NewVisitor("juju", filler, jujuclient.NewTokenStore())
+		visitors = append(visitors, v2ToV1Visitor{v2Visitor: newVisitor})
 	} else {
 		visitors = append(visitors, httpbakery.WebBrowserVisitor)
 	}
@@ -128,4 +134,74 @@ func (j *domainCookieJar) Cookies(u *url.URL) []*http.Cookie {
 		Name:  domainCookieName,
 		Value: j.domain,
 	})
+}
+
+type v2ToV1Visitor struct {
+	v2Visitor httpbakeryV2.Visitor
+}
+
+// VisitWebPage implements httpbakery.WebPageVisitor by making a call to a httpbakeryV2.WebPageVisitor.
+func (v v2ToV1Visitor) VisitWebPage(client *httpbakery.Client, methodURLs map[string]*url.URL) error {
+	key := v1ToV2Key(client.Key)
+	var acquirer httpbakeryV2.DischargeAcquirer
+	if client.DischargeAcquirer != nil {
+		acquirer = v1ToV2DischargeAcquirer{client.DischargeAcquirer}
+	}
+	var visitor httpbakeryV2.Visitor
+	if client.WebPageVisitor != nil {
+		visitor = v1ToV2Visitor{
+			visitor: client.WebPageVisitor,
+			client:  client,
+		}
+	}
+	clientV2 := &httpbakeryV2.Client{
+		Client:            client.Client,
+		WebPageVisitor:    visitor,
+		VisitWebPage:      client.VisitWebPage,
+		Key:               key,
+		DischargeAcquirer: acquirer,
+	}
+	return v.v2Visitor.VisitWebPage(clientV2, methodURLs)
+}
+
+type v1ToV2Visitor struct {
+	visitor httpbakery.Visitor
+	client  *httpbakery.Client
+}
+
+func (v v1ToV2Visitor) VisitWebPage(client *httpbakeryV2.Client, methodURLs map[string]*url.URL) error {
+	return v.visitor.VisitWebPage(v.client, methodURLs)
+}
+
+func v1ToV2Key(key *bakery.KeyPair) *bakeryV2.KeyPair {
+	if key == nil {
+		return nil
+	}
+	var keyV2 bakeryV2.KeyPair
+	copy(keyV2.Public.Key[:], key.Public.Key[:])
+	copy(keyV2.Private.Key[:], key.Private.Key[:])
+	return &keyV2
+}
+
+type v1ToV2DischargeAcquirer struct {
+	acquirer httpbakery.DischargeAcquirer
+}
+
+func (a v1ToV2DischargeAcquirer) AcquireDischarge(cavV2 macaroonV2.Caveat) (*macaroonV2.Macaroon, error) {
+	m, err := a.acquirer.AcquireDischarge("", macaroon.Caveat{
+		Id:       string(cavV2.Id),
+		Location: cavV2.Location,
+	})
+	if err != nil {
+		return nil, err
+	}
+	data, err := m.MarshalBinary()
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot marshal v1 macaroon")
+	}
+	var mV2 macaroonV2.Macaroon
+	if err := mV2.UnmarshalBinary(data); err != nil {
+		return nil, errors.Annotatef(err, "cannot unmarshal v1 macaroon into v2")
+	}
+	return &mV2, nil
 }

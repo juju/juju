@@ -13,7 +13,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/charmrepo.v2/csclient"
-	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/juju/charmstore.v5"
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	jujucharmstore "github.com/juju/juju/charmstore"

@@ -24,7 +24,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/charmrepo.v2/csclient"
 	csclientparams "gopkg.in/juju/charmrepo.v2/csclient/params"
-	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/juju/charmstore.v5"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
