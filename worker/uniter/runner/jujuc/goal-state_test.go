@@ -150,4 +150,3 @@ func (s *GoalStateSuite) TestUnknownArg(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cmdtesting.TestInit(c, com, []string{"multiple", "keys"}, `unrecognized args: \["keys"\]`)
 }
-
