@@ -30,9 +30,9 @@ type State interface {
 	ControllerConfig() (controller.Config, error)
 	ControllerInfo() (*state.ControllerInfo, error)
 	Machine(id string) (Machine, error)
-	Space(id string) (Space, error)
 	WatchControllerInfo() state.NotifyWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
+	WatchControllerConfig() state.NotifyWatcher
 }
 
 type Space interface {
@@ -183,6 +183,11 @@ func (w *pgWorker) loop() error {
 		return errors.Trace(err)
 	}
 
+	configChanges, err := w.watchForConfigChanges()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var updateChan <-chan time.Time
 	retryInterval := initialRetryInterval
 
@@ -205,6 +210,9 @@ func (w *pgWorker) loop() error {
 		case <-w.machineChanges:
 			// One of the controller machines changed.
 			logger.Tracef("<-w.machineChanges")
+		case <-configChanges:
+			// Controller config has changed.
+			logger.Tracef("<-w.configChanges")
 		case <-updateChan:
 			// Scheduled update.
 			logger.Tracef("<-updateChan")
@@ -252,9 +260,9 @@ func scaleRetry(value time.Duration) time.Duration {
 	return value
 }
 
-// watchForControllerChanges starts two watchers pertaining to changes
-// to the controllers, returning a channel which will receive events
-// if either watcher fires.
+// watchForControllerChanges starts two watchers for changes to controller
+// info and status.
+// It returns a channel which will receive events if any of the watchers fires.
 func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
 	controllerInfoWatcher := w.config.State.WatchControllerInfo()
 	if err := w.catacomb.Add(controllerInfoWatcher); err != nil {
@@ -275,6 +283,33 @@ func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
 			case <-controllerInfoWatcher.Changes():
 				out <- struct{}{}
 			case <-controllerStatusWatcher.Changes():
+				out <- struct{}{}
+			}
+		}
+	}()
+	return out, nil
+}
+
+// watchForConfigChanges starts a watcher for changes to controller config.
+// It returns a channel which will receive events if the watcher fires.
+// This is separate from watchForControllerChanges because of the worker loop
+// logic. If controller machines have not changed, then further processing
+// does not occur, whereas we want to re-publish API addresses and check
+// for replica-set changes if either the management or HA space configs have
+// changed.
+func (w *pgWorker) watchForConfigChanges() (<-chan struct{}, error) {
+	controllerConfigWatcher := w.config.State.WatchControllerConfig()
+	if err := w.catacomb.Add(controllerConfigWatcher); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	out := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-w.catacomb.Dying():
+				return
+			case <-controllerConfigWatcher.Changes():
 				out <- struct{}{}
 			}
 		}

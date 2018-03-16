@@ -17,7 +17,6 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -31,14 +30,19 @@ import (
 // that we don't want to directly depend on in unit tests.
 
 type fakeState struct {
-	mu               sync.Mutex
-	errors           errorPatterns
-	machines         map[string]*fakeMachine
-	controllers      voyeur.Value // of *state.ControllerInfo
-	statuses         voyeur.Value // of statuses collection
-	controllerConfig voyeur.Value // of controller.Config
-	session          *fakeMongoSession
-	check            func(st *fakeState) error
+	mu          sync.Mutex
+	errors      errorPatterns
+	machines    map[string]*fakeMachine
+	controllers voyeur.Value // of *state.ControllerInfo
+	statuses    voyeur.Value // of statuses collection
+	session     *fakeMongoSession
+	check       func(st *fakeState) error
+
+	// For composing some scenarios, we want to be able to set config
+	// values without triggering events. So we store the actual value and
+	// update the voyeur value selectively.
+	controllerConfig controller.Config
+	configSentinel   voyeur.Value
 }
 
 var (
@@ -109,10 +113,10 @@ func (e *errorPatterns) resetErrors() {
 
 func NewFakeState() *fakeState {
 	st := &fakeState{
-		machines: make(map[string]*fakeMachine),
+		machines:         make(map[string]*fakeMachine),
+		controllerConfig: controller.Config{},
 	}
 	st.session = newFakeMongoSession(st, &st.errors)
-	st.controllers.Set(&state.ControllerInfo{})
 	return st
 }
 
@@ -234,11 +238,7 @@ func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 }
 
 func (st *fakeState) WatchControllerConfig() state.NotifyWatcher {
-	return WatchValue(&st.controllerConfig)
-}
-
-func (st *fakeState) Space(name string) (Space, error) {
-	return &apiservertesting.FakeSpace{SpaceName: "Space" + name}, nil
+	return WatchValue(&st.configSentinel)
 }
 
 func (st *fakeState) ModelConfig() (*config.Config, error) {
@@ -248,11 +248,33 @@ func (st *fakeState) ModelConfig() (*config.Config, error) {
 }
 
 func (st *fakeState) ControllerConfig() (controller.Config, error) {
-	return st.controllerConfig.Get().(controller.Config), nil
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	if err := st.errors.errorFor("State.ControllerConfig"); err != nil {
+		return nil, err
+	}
+	return st.controllerConfig, nil
 }
 
-func (st *fakeState) setHASpace(spaceName string) {
-	st.controllerConfig.Get().(controller.Config)[controller.JujuHASpace] = spaceName
+func (st *fakeState) setHASpace(spaceName string, notify bool) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	st.controllerConfig[controller.JujuHASpace] = spaceName
+
+	if !notify {
+		return
+	}
+
+	cfg := st.configSentinel.Get()
+	if cfg == nil {
+		st.configSentinel.Set(1)
+	} else {
+		i := st.configSentinel.Get().(int)
+		i++
+		st.configSentinel.Set(i)
+	}
 }
 
 type fakeMachine struct {
@@ -374,8 +396,6 @@ func newFakeMongoSession(checker invariantChecker, errors *errorPatterns) *fakeM
 	s := new(fakeMongoSession)
 	s.checker = checker
 	s.errors = errors
-	s.members.Set([]replicaset.Member(nil))
-	s.status.Set(&replicaset.Status{})
 	return s
 }
 
@@ -466,6 +486,16 @@ type notifier struct {
 	changes chan struct{}
 }
 
+func (n *notifier) loop() {
+	defer n.tomb.Done()
+	for n.w.Next() {
+		select {
+		case n.changes <- struct{}{}:
+		case <-n.tomb.Dying():
+		}
+	}
+}
+
 // WatchValue returns a NotifyWatcher that triggers
 // when the given value changes. Its Wait and Err methods
 // never return a non-nil error.
@@ -476,16 +506,6 @@ func WatchValue(val *voyeur.Value) state.NotifyWatcher {
 	}
 	go n.loop()
 	return n
-}
-
-func (n *notifier) loop() {
-	defer n.tomb.Done()
-	for n.w.Next() {
-		select {
-		case n.changes <- struct{}{}:
-		case <-n.tomb.Dying():
-		}
-	}
 }
 
 // Changes returns a channel that sends a value when the value changes.

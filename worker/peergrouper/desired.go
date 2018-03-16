@@ -156,10 +156,10 @@ func desiredPeerGroup(info *peerGroupInfo) (map[string]*replicaset.Member, map[s
 	logger.Debugf(info.getLogMessage())
 
 	peerChanges := peerGroupChanges{
-		isChanged:                   false,
-		machineVoting:               map[string]bool{},
-		addrs:                       map[string]string{},
-		members:                     map[string]*replicaset.Member{},
+		isChanged:     false,
+		machineVoting: map[string]bool{},
+		addrs:         map[string]string{},
+		members:       map[string]*replicaset.Member{},
 	}
 
 	// We may find extra peer group members if the machines have been removed
@@ -327,10 +327,12 @@ func (p *peerGroupChanges) possiblePeerGroupChanges(info *peerGroupInfo) {
 				logger.Debugf("machine %q is a potential voter", id)
 				p.toAddVote = append(p.toAddVote, id)
 			} else if member != nil {
-				logger.Debugf("machine %q exists but is not ready (status: %v, healthy: %v)", id, status.State, status.Healthy)
+				logger.Debugf("machine %q exists but is not ready (status: %v, healthy: %v)",
+					id, status.State, status.Healthy)
 				p.toKeepNonVoting = append(p.toKeepNonVoting, id)
 			} else {
-				logger.Debugf("machine %q doesn't exists and is not ready (status: %v, healthy: %v)", id, status.State, status.Healthy)
+				logger.Debugf("machine %q doesn't exists and is not ready (status: %v, healthy: %v)",
+					id, status.State, status.Healthy)
 				p.toKeepCreateNonVotingMember = append(p.toKeepCreateNonVotingMember, id)
 			}
 		case !wantsVote && isVoting:
@@ -358,7 +360,6 @@ func setMemberVoting(member *replicaset.Member, voting bool) {
 
 // adjustVotes removes and adds votes to the members via setVoting.
 func (p *peerGroupChanges) adjustVotes() {
-
 	setVoting := func(memberIds []string, voting bool) {
 		for _, id := range memberIds {
 			setMemberVoting(p.members[id], voting)
@@ -429,17 +430,9 @@ func (p *peerGroupChanges) updateAddresses() {
 			p.isChanged = true
 		}
 	}
-	//return p.isChanged
 }
 
 func isReady(status replicaset.MemberStatus) bool {
 	return status.Healthy && (status.State == replicaset.PrimaryState ||
 		status.State == replicaset.SecondaryState)
-}
-
-func min(i, j int) int {
-	if i < j {
-		return i
-	}
-	return j
 }
