@@ -33,8 +33,8 @@ func (c *GoalStateCommand) Info() *cmd.Info {
 
 func (c *GoalStateCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-									"yaml":  cmd.FormatYaml,
-									"json":  cmd.FormatJson,})
+		"yaml": cmd.FormatYaml,
+		"json": cmd.FormatJson})
 }
 
 func (c *GoalStateCommand) Init(args []string) error {

@@ -1072,7 +1072,7 @@ type ResumeReplicationParams struct {
 type MeterStatusParam struct {
 	Tag  string `json:"tag"`
 	Code string `json:"code"`
-	Info string `json:"info, omitempty"`
+	Info string `json:"info,omitempty"`
 }
 
 // MeterStatusParams holds parameters for making SetMeterStatus calls.
