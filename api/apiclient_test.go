@@ -451,11 +451,7 @@ func (s *apiclientSuite) TestFailImmediatelyOnCertErrorAndNumericHostname(c *gc.
 			Addrs:  []string{"0.1.2.3:1234"},
 			CACert: jtesting.CACert,
 		},
-<<<<<<< HEAD
-=======
-		// go 1.9 says "is not authorized to sign for this name"
-		// go 1.10 says "is not authorized to sign for this domain"
->>>>>>> upstream/2.3
+		// go 1.9+ says "is not authorized to sign for this name"
 		expectOpenError: `unable to connect to API: x509: a root or intermediate certificate is not authorized to sign.*`,
 		expectDials: []dialAttempt{{
 			// The first dial attempt should use the private CA cert.
