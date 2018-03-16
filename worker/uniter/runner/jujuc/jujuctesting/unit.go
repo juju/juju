@@ -6,13 +6,15 @@ package jujuctesting
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
+
+	"github.com/juju/juju/core/application"
 )
 
 // Unit holds the values for the hook context.
 type Unit struct {
 	Name           string
 	ConfigSettings charm.Settings
-	GoalState      string
+	GoalState      application.GoalState
 	ContainerSpec  string
 }
 
@@ -41,12 +43,12 @@ func (c *ContextUnit) ConfigSettings() (charm.Settings, error) {
 }
 
 // GoalState implements jujuc.ContextUnit.
-func (c *ContextUnit) GoalState() (string, error) {
+func (c *ContextUnit) GoalState() (*application.GoalState, error) {
 	c.stub.AddCall("GoalState")
 	if err := c.stub.NextErr(); err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return c.info.GoalState, nil
+	return &c.info.GoalState, nil
 }
 
 func (c *ContextUnit) SetPodSpec(specYaml string) error {

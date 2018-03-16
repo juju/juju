@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -95,7 +96,7 @@ type ContextUnit interface {
 	ConfigSettings() (charm.Settings, error)
 
 	// GoalState returns the goal state for the current unit.
-	GoalState() (string, error)
+	GoalState() (*application.GoalState, error)
 
 	// SetPodSpec updates the yaml spec used to create a pod.
 	SetPodSpec(specYaml string) error

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/network"
@@ -433,10 +434,12 @@ func (st *State) SLALevel() (string, error) {
 	return result.Result, nil
 }
 
-// GoalState returns a GoalStateResult struct with the charm's
+// GoalState returns a GoalState struct with the charm's
 // peers and related units information.
-func (st *State) GoalState() (string, error) {
-	var result params.StringResults
+func (st *State) GoalState() (application.GoalState, error) {
+	var result params.GoalStateResults
+
+	gs := application.GoalState{}
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -446,15 +449,42 @@ func (st *State) GoalState() (string, error) {
 
 	err := st.facade.FacadeCall("GoalStates", args, &result)
 	if err != nil {
-		return "", err
+		return gs, err
 	}
 	if len(result.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(result.Results))
+		return gs, errors.Errorf("expected 1 result, got %d", len(result.Results))
 	}
 	if err := result.Results[0].Error; err != nil {
-		return "", err
+		return gs, err
 	}
-	return result.Results[0].Result, nil
+	gs = goalStateFromParams(result.Results[0].Result)
+	return gs, nil
+}
+
+func goalStateFromParams(paramsGoalState *params.GoalState) application.GoalState {
+	goalState := application.GoalState{}
+
+	copyUnits := func(units params.UnitsGoalState) application.UnitsGoalState {
+		copiedUnits := application.UnitsGoalState{}
+		for name, gs := range units {
+			copiedUnits[name] = application.GoalStateStatus{
+				Status: gs.Status,
+				Since:  gs.Since,
+			}
+		}
+		return copiedUnits
+	}
+
+	goalState.Units = copyUnits(paramsGoalState.Units)
+
+	if paramsGoalState.Relations != nil {
+		goalState.Relations = make(map[string]application.UnitsGoalState)
+		for relation, relationUnits := range paramsGoalState.Relations {
+			goalState.Relations[relation] = copyUnits(relationUnits)
+		}
+	}
+
+	return goalState
 }
 
 // SetPodSpec sets the pod spec of the specified application.

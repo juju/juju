@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/version"
@@ -126,7 +127,7 @@ type HookContext struct {
 	configSettings charm.Settings
 
 	// goalState holds the goal state struct
-	goalState string
+	goalState application.GoalState
 
 	// id identifies the context.
 	id string
@@ -486,13 +487,14 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
-func (ctx *HookContext) GoalState() (string, error) {
+func (ctx *HookContext) GoalState() (*application.GoalState, error) {
 	var err error
 	ctx.goalState, err = ctx.state.GoalState()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return ctx.goalState, nil
+
+	return &ctx.goalState, nil
 }
 
 func (ctx *HookContext) SetPodSpec(specYaml string) error {
