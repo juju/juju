@@ -35,6 +35,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	bakeryV2 "gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
@@ -606,6 +607,20 @@ func setupConfigFile(c *gc.C, dir string) string {
 	return path
 }
 
+type v1ToV2Locator struct {
+	v1Loc bakery.PublicKeyLocator
+}
+
+func (v2Loc v1ToV2Locator) PublicKeyForLocation(loc string) (*bakeryV2.PublicKey, error) {
+	key, err := v2Loc.v1Loc.PublicKeyForLocation(loc)
+	if err != nil {
+		return nil, err
+	}
+	return &bakeryV2.PublicKey{
+		Key: bakeryV2.Key(key.Key),
+	}, nil
+}
+
 type DeployCharmStoreSuite struct {
 	charmStoreSuite
 }
@@ -806,7 +821,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		AuthUsername:     "test-user",
 		AuthPassword:     "test-password",
 		IdentityLocation: s.discharger.Location(),
-		PublicKeyLocator: keyring,
+		PublicKeyLocator: v1ToV2Locator{keyring},
 		TermsLocation:    s.termsDischarger.Location(),
 	}
 	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
