@@ -24,16 +24,16 @@ func (*ValidateSuite) TestNilFacade(c *gc.C) {
 	checkInvalid(c, config, "nil Facade not valid")
 }
 
-func (*ValidateSuite) TestNilEnviron(c *gc.C) {
+func (*ValidateSuite) TestNilDestroyer(c *gc.C) {
 	config := validConfig()
-	config.Environ = nil
-	checkInvalid(c, config, "nil Environ not valid")
+	config.Destroyer = nil
+	checkInvalid(c, config, "nil Destroyer not valid")
 }
 
 func validConfig() undertaker.Config {
 	return undertaker.Config{
-		Facade:  &fakeFacade{},
-		Environ: &fakeEnviron{},
+		Facade:    &fakeFacade{},
+		Destroyer: &fakeEnviron{},
 	}
 }
 

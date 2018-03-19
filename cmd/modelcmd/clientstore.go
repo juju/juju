@@ -43,20 +43,20 @@ func (s QualifyingClientStore) QualifiedModelName(controllerName, modelName stri
 
 // Implements jujuclient.ModelGetter.
 func (s QualifyingClientStore) ModelByName(controllerName, modelName string) (*jujuclient.ModelDetails, error) {
-	modelName, err := s.QualifiedModelName(controllerName, modelName)
+	qualifiedModelName, err := s.QualifiedModelName(controllerName, modelName)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting model %q", modelName)
 	}
-	return s.ClientStore.ModelByName(controllerName, modelName)
+	return s.ClientStore.ModelByName(controllerName, qualifiedModelName)
 }
 
 // Implements jujuclient.ModelUpdater.
 func (s QualifyingClientStore) UpdateModel(controllerName, modelName string, details jujuclient.ModelDetails) error {
-	modelName, err := s.QualifiedModelName(controllerName, modelName)
+	qualifiedModelName, err := s.QualifiedModelName(controllerName, modelName)
 	if err != nil {
 		return errors.Annotatef(err, "updating model %q", modelName)
 	}
-	return s.ClientStore.UpdateModel(controllerName, modelName, details)
+	return s.ClientStore.UpdateModel(controllerName, qualifiedModelName, details)
 }
 
 // Implements jujuclient.ModelUpdater.
@@ -74,18 +74,18 @@ func (s QualifyingClientStore) SetModels(controllerName string, models map[strin
 
 // Implements jujuclient.ModelUpdater.
 func (s QualifyingClientStore) SetCurrentModel(controllerName, modelName string) error {
-	modelName, err := s.QualifiedModelName(controllerName, modelName)
+	qualifiedModelName, err := s.QualifiedModelName(controllerName, modelName)
 	if err != nil {
 		return errors.Annotatef(err, "setting current model to %q", modelName)
 	}
-	return s.ClientStore.SetCurrentModel(controllerName, modelName)
+	return s.ClientStore.SetCurrentModel(controllerName, qualifiedModelName)
 }
 
 // Implements jujuclient.ModelRemover.
 func (s QualifyingClientStore) RemoveModel(controllerName, modelName string) error {
-	modelName, err := s.QualifiedModelName(controllerName, modelName)
+	qualifiedModelName, err := s.QualifiedModelName(controllerName, modelName)
 	if err != nil {
 		return errors.Annotatef(err, "removing model %q", modelName)
 	}
-	return s.ClientStore.RemoveModel(controllerName, modelName)
+	return s.ClientStore.RemoveModel(controllerName, qualifiedModelName)
 }

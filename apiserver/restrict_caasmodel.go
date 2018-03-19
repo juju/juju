@@ -38,6 +38,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"Singular",
 	"StatusHistory",
 	"StringsWatcher",
+	"Undertaker",
 	"Uniter",
 )
 

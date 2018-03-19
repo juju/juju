@@ -56,11 +56,11 @@ type Broker interface {
 	// Provider returns the ContainerEnvironProvider that created this Broker.
 	Provider() ContainerEnvironProvider
 
+	// Destroy terminates all containers and other resources in this broker's namespace.
+	Destroy() error
+
 	// EnsureNamespace ensures this broker's namespace is created.
 	EnsureNamespace() error
-
-	// DeleteNamespace deletes this broker's namespace.
-	DeleteNamespace() error
 
 	// EnsureOperator creates or updates an operator pod for running
 	// a charm for the specified application.

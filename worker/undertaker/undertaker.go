@@ -28,8 +28,8 @@ type Facade interface {
 // Config holds the resources and configuration necessary to run an
 // undertaker worker.
 type Config struct {
-	Facade  Facade
-	Environ environs.Environ
+	Facade    Facade
+	Destroyer environs.CloudDestroyer
 }
 
 // Validate returns an error if the config cannot be expected to drive
@@ -38,8 +38,8 @@ func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
 	}
-	if config.Environ == nil {
-		return errors.NotValidf("nil Environ")
+	if config.Destroyer == nil {
+		return errors.NotValidf("nil Destroyer")
 	}
 	return nil
 }
@@ -131,7 +131,7 @@ func (u *Undertaker) run() error {
 	); err != nil {
 		return errors.Trace(err)
 	}
-	if err := u.config.Environ.Destroy(); err != nil {
+	if err := u.config.Destroyer.Destroy(); err != nil {
 		return errors.Trace(err)
 	}
 
