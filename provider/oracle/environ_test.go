@@ -24,6 +24,7 @@ import (
 )
 
 type environSuite struct {
+	gitjujutesting.IsolationSuite
 	env *oracle.OracleEnviron
 }
 

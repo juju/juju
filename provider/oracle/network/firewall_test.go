@@ -20,7 +20,9 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type firewallSuite struct{}
+type firewallSuite struct{
+	gitjujutesting.IsolationSuite
+}
 
 var _ = gc.Suite(&firewallSuite{})
 var clk = gitjujutesting.NewClock(time.Time{})

@@ -4,6 +4,7 @@
 package oracle_test
 
 import (
+	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -12,7 +13,9 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type networkingSuite struct{}
+type networkingSuite struct {
+	gitjujutesting.IsolationSuite
+}
 
 var _ = gc.Suite(&networkingSuite{})
 
