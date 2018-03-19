@@ -6,6 +6,8 @@ package peergrouper
 import (
 	"fmt"
 	"net"
+	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -101,6 +103,10 @@ type pgWorker struct {
 	// machineTrackers holds the workers which track the machines we
 	// are currently watching (all the controller machines).
 	machineTrackers map[string]*machineTracker
+
+	// serverDetails holds the last server information broadcast via pub/sub.
+	// It is used to detect changes since the last publish.
+	serverDetails apiserver.Details
 }
 
 // Config holds the configuration for a peergrouper worker.
@@ -235,7 +241,7 @@ func (w *pgWorker) loop() error {
 
 		var failed bool
 		if err := w.config.APIHostPortsSetter.SetAPIHostPorts(apiHostPorts); err != nil {
-			logger.Errorf("cannot publish API server addresses: %v", err)
+			logger.Errorf("cannot write API server addresses: %v", err)
 			failed = true
 		}
 
@@ -401,6 +407,9 @@ func (w *pgWorker) apiServerHostPorts() map[string][]network.HostPort {
 	return servers
 }
 
+// publishAPIServerDetails publishes the details corresponding to the latest
+// known controller/replica-set topology if it has changed from the last known
+// state.
 func (w *pgWorker) publishAPIServerDetails(
 	servers map[string][]network.HostPort,
 	members map[string]*replicaset.Member,
@@ -424,9 +433,14 @@ func (w *pgWorker) publishAPIServerDetails(
 		for _, hp := range network.FilterUnusableHostPorts(hostPorts) {
 			server.Addresses = append(server.Addresses, hp.String())
 		}
+		sort.Strings(server.Addresses)
 		details.Servers[server.ID] = server
 	}
-	w.config.Hub.Publish(apiserver.DetailsTopic, details)
+
+	if !reflect.DeepEqual(w.serverDetails, details) {
+		w.config.Hub.Publish(apiserver.DetailsTopic, details)
+		w.serverDetails = details
+	}
 }
 
 // replicaSetError holds an error returned as a result

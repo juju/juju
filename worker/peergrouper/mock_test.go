@@ -30,19 +30,14 @@ import (
 // that we don't want to directly depend on in unit tests.
 
 type fakeState struct {
-	mu          sync.Mutex
-	errors      errorPatterns
-	machines    map[string]*fakeMachine
-	controllers voyeur.Value // of *state.ControllerInfo
-	statuses    voyeur.Value // of statuses collection
-	session     *fakeMongoSession
-	check       func(st *fakeState) error
-
-	// For composing some scenarios, we want to be able to set config
-	// values without triggering events. So we store the actual value and
-	// update the voyeur value selectively.
-	controllerConfig controller.Config
-	configSentinel   voyeur.Value
+	mu               sync.Mutex
+	errors           errorPatterns
+	machines         map[string]*fakeMachine
+	controllers      voyeur.Value // of *state.ControllerInfo
+	statuses         voyeur.Value // of statuses collection
+	controllerConfig voyeur.Value // of controller.Config
+	session          *fakeMongoSession
+	check            func(st *fakeState) error
 }
 
 var (
@@ -113,10 +108,10 @@ func (e *errorPatterns) resetErrors() {
 
 func NewFakeState() *fakeState {
 	st := &fakeState{
-		machines:         make(map[string]*fakeMachine),
-		controllerConfig: controller.Config{},
+		machines: make(map[string]*fakeMachine),
 	}
 	st.session = newFakeMongoSession(st, &st.errors)
+	st.controllerConfig.Set(controller.Config{})
 	return st
 }
 
@@ -238,7 +233,7 @@ func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 }
 
 func (st *fakeState) WatchControllerConfig() state.NotifyWatcher {
-	return WatchValue(&st.configSentinel)
+	return WatchValue(&st.controllerConfig)
 }
 
 func (st *fakeState) ModelConfig() (*config.Config, error) {
@@ -254,27 +249,16 @@ func (st *fakeState) ControllerConfig() (controller.Config, error) {
 	if err := st.errors.errorFor("State.ControllerConfig"); err != nil {
 		return nil, err
 	}
-	return st.controllerConfig, nil
+	return deepCopy(st.controllerConfig.Get()).(controller.Config), nil
 }
 
-func (st *fakeState) setHASpace(spaceName string, notify bool) {
+func (st *fakeState) setHASpace(spaceName string) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 
-	st.controllerConfig[controller.JujuHASpace] = spaceName
-
-	if !notify {
-		return
-	}
-
-	cfg := st.configSentinel.Get()
-	if cfg == nil {
-		st.configSentinel.Set(1)
-	} else {
-		i := st.configSentinel.Get().(int)
-		i++
-		st.configSentinel.Set(i)
-	}
+	cfg := st.controllerConfig.Get().(controller.Config)
+	cfg[controller.JujuHASpace] = spaceName
+	st.controllerConfig.Set(cfg)
 }
 
 type fakeMachine struct {
