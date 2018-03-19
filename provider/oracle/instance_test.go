@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/juju/go-oracle-cloud/response"
+	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -20,6 +21,7 @@ import (
 )
 
 type instanceSuite struct {
+	gitjujutesting.IsolationSuite
 	env   *oracle.OracleEnviron
 	mutex *sync.Mutex
 }
