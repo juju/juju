@@ -4,6 +4,8 @@
 package caasunitprovisioner
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
@@ -74,7 +76,10 @@ type provisioner struct {
 	catacomb catacomb.Catacomb
 	config   Config
 
-	appRemoved chan struct{}
+	// appWorkers holds the worker created to manage each application.
+	// It's defined here so that we can access it in tests.
+	appWorkers map[string]*applicationWorker
+	mu         sync.Mutex
 }
 
 // Kill is part of the worker.Worker interface.
@@ -87,6 +92,36 @@ func (p *provisioner) Wait() error {
 	return p.catacomb.Wait()
 }
 
+// These helper methods protect the appWorkers map so we can access for testing.
+
+func (p *provisioner) saveApplicationWorker(appName string, aw *applicationWorker) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.appWorkers == nil {
+		p.appWorkers = make(map[string]*applicationWorker)
+	}
+	p.appWorkers[appName] = aw
+}
+
+func (p *provisioner) deleteApplicationWorker(appName string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	delete(p.appWorkers, appName)
+}
+
+func (p *provisioner) getApplicationWorker(appName string) (*applicationWorker, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if len(p.appWorkers) == 0 {
+		return nil, false
+	}
+	aw, ok := p.appWorkers[appName]
+	return aw, ok
+}
+
 func (p *provisioner) loop() error {
 	w, err := p.config.ApplicationGetter.WatchApplications()
 	if err != nil {
@@ -96,10 +131,6 @@ func (p *provisioner) loop() error {
 		return errors.Trace(err)
 	}
 
-	// The channel is unbuffered to that we block until
-	// requests are processed.
-	p.appRemoved = make(chan struct{})
-	appWorkers := make(map[string]worker.Worker)
 	for {
 		select {
 		case <-p.catacomb.Dying():
@@ -118,24 +149,33 @@ func (p *provisioner) loop() error {
 					if err := p.config.ContainerBroker.DeleteService(appId); err != nil {
 						return errors.Trace(err)
 					}
-					w, ok := appWorkers[appId]
+					w, ok := p.getApplicationWorker(appId)
 					if ok {
 						// Before stopping the application worker, inform it that
 						// the app is gone so it has a chance to clean up.
-						// The worker will act on the removed prior to processing the
+						// The worker will act on the removal prior to processing the
 						// Stop() request.
-						p.appRemoved <- struct{}{}
+						// We have to use a channel send here, rather than just closing the select, otherwise we
+						// effectively send the Stop() at the same time as the appRemoved signal.
+						// By sending a message, we block until it at least starts that routine
+						select {
+						case w.appRemoved <- struct{}{}:
+						case <-w.catacomb.Dying():
+							// If the catacomb is already dying, there is no guarantee that w.appRemoved will ever be
+							// seen. But we can still at least close the channel
+							close(w.appRemoved)
+						}
 						if err := worker.Stop(w); err != nil {
 							logger.Errorf("stopping application worker for %v: %v", appId, err)
 						}
-						delete(appWorkers, appId)
+						p.deleteApplicationWorker(appId)
 					}
 					continue
 				}
 				if err != nil {
 					return errors.Trace(err)
 				}
-				if _, ok := appWorkers[appId]; ok || appLife == life.Dead {
+				if _, ok := p.getApplicationWorker(appId); ok || appLife == life.Dead {
 					// Already watching the application. or we're
 					// not yet watching it and it's dead.
 					continue
@@ -147,7 +187,7 @@ func (p *provisioner) loop() error {
 				jujuManagedUnits := cfg.GetBool(caas.JujuManagedUnits, false)
 				w, err := newApplicationWorker(
 					appId,
-					p.appRemoved,
+					make(chan struct{}),
 					jujuManagedUnits,
 					p.config.ServiceBroker,
 					p.config.ContainerBroker,
@@ -161,7 +201,7 @@ func (p *provisioner) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				appWorkers[appId] = w
+				p.saveApplicationWorker(appId, w)
 				p.catacomb.Add(w)
 			}
 		}

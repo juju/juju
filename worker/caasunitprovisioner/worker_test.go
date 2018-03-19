@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/status"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasunitprovisioner"
@@ -697,6 +698,24 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 		c.Fatal("timed out sending applications change")
 	}
 
+	// Check that the gitlab worker is running or not;
+	// given it time to startup.
+	shortAttempt := &utils.AttemptStrategy{
+		Total: coretesting.LongWait,
+		Delay: 10 * time.Millisecond,
+	}
+	running := false
+	for a := shortAttempt.Start(); a.Next(); {
+		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
+		if running {
+			break
+		}
+	}
+	c.Assert(running, jc.IsTrue)
+
+	// Add an additional app worker so we can check that the correct one is accessed.
+	caasunitprovisioner.NewAppWorker(w, "mysql")
+
 	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
 	select {
 	case s.applicationChanges <- []string{"gitlab"}:
@@ -710,6 +729,19 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 		c.Fatal("timed out waiting for service to be deleted")
 	}
 
+	// The mysql worker should still be running.
+	_, ok := caasunitprovisioner.AppWorker(w, "mysql")
+	c.Assert(ok, jc.IsTrue)
+
+	// Check that the gitlab worker is running or not;
+	// given it time to shutdown.
+	for a := shortAttempt.Start(); a.Next(); {
+		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
+		if !running {
+			break
+		}
+	}
+	c.Assert(running, jc.IsFalse)
 	workertest.CheckKilled(c, s.unitGetter.watcher)
 }
 
