@@ -48,7 +48,7 @@ func newApplicationWorker(
 	applicationUpdater ApplicationUpdater,
 	unitGetter UnitGetter,
 	unitUpdater UnitUpdater,
-) (worker.Worker, error) {
+) (*applicationWorker, error) {
 	w := &applicationWorker{
 		application:        application,
 		jujuManagedUnits:   jujuManagedUnits,
@@ -73,13 +73,13 @@ func newApplicationWorker(
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *applicationWorker) Kill() {
-	w.catacomb.Kill(nil)
+func (aw *applicationWorker) Kill() {
+	aw.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *applicationWorker) Wait() error {
-	return w.catacomb.Wait()
+func (aw *applicationWorker) Wait() error {
+	return aw.catacomb.Wait()
 }
 
 func (aw *applicationWorker) loop() error {
