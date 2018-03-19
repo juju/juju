@@ -5,6 +5,7 @@ package oracle_test
 
 import (
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -15,7 +16,9 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type storageProviderSuite struct{}
+type storageProviderSuite struct {
+	gitjujutesting.IsolationSuite
+}
 
 var _ = gc.Suite(&storageProviderSuite{})
 
