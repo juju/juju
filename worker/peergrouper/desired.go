@@ -312,7 +312,7 @@ func (p *peerGroupChanges) possiblePeerGroupChanges(info *peerGroupInfo) {
 		machineIds = append(machineIds, id)
 	}
 	sort.Strings(machineIds)
-	logger.Debugf("assessing possible peer group changes:")
+	logger.Debugf("assessing possible peer group changes:")1
 	for _, id := range machineIds {
 		m := info.machines[id]
 		member := p.members[id]
@@ -331,7 +331,7 @@ func (p *peerGroupChanges) possiblePeerGroupChanges(info *peerGroupInfo) {
 					id, status.State, status.Healthy)
 				p.toKeepNonVoting = append(p.toKeepNonVoting, id)
 			} else {
-				logger.Debugf("machine %q doesn't exists and is not ready (status: %v, healthy: %v)",
+				logger.Debugf("machine %q does not exist and is not ready (status: %v, healthy: %v)",
 					id, status.State, status.Healthy)
 				p.toKeepCreateNonVotingMember = append(p.toKeepCreateNonVotingMember, id)
 			}
