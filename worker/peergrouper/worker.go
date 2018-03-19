@@ -213,6 +213,15 @@ func (w *pgWorker) loop() error {
 		case <-configChanges:
 			// Controller config has changed.
 			logger.Tracef("<-w.configChanges")
+
+			// If a config change wakes up the loop before the topology has
+			// been represented in the worker's machine trackers, ignore it;
+			// errors will occur when trying to determine peer group changes.
+			// Continuing is OK because subsequent invocations of the loop will
+			// pick up the most recent config from state anyway.
+			if len(w.machineTrackers) == 0 {
+				continue
+			}
 		case <-updateChan:
 			// Scheduled update.
 			logger.Tracef("<-updateChan")
@@ -302,19 +311,7 @@ func (w *pgWorker) watchForConfigChanges() (<-chan struct{}, error) {
 	if err := w.catacomb.Add(controllerConfigWatcher); err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	out := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-w.catacomb.Dying():
-				return
-			case <-controllerConfigWatcher.Changes():
-				out <- struct{}{}
-			}
-		}
-	}()
-	return out, nil
+	return controllerConfigWatcher.Changes(), nil
 }
 
 // updateControllerMachines updates the peergrouper's current list of
