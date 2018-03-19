@@ -144,7 +144,7 @@ func (s *ControllerSuite) TestRemovingUnknownName(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown controller config setting "dr-worm"`)
 }
 
-func (s *ControllerSuite) TestUpdateControllerConfigChecksSpace(c *gc.C) {
+func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.SetMachineAddresses(network.NewAddress("192.168.9.9")), jc.ErrorIsNil)
@@ -154,4 +154,15 @@ func (s *ControllerSuite) TestUpdateControllerConfigChecksSpace(c *gc.C) {
 	}, nil)
 	c.Assert(err, gc.ErrorMatches,
 		`invalid config value for "juju-mgmt-space": machines with no addresses in space "mgmt-space": "0"`)
+}
+
+func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c *gc.C) {
+	m, err := s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.SetMachineAddresses(network.NewAddressOnSpace("mgmt-space", "192.168.9.9")), jc.ErrorIsNil)
+
+	err = s.State.UpdateControllerConfig(map[string]interface{}{
+		controller.JujuManagementSpace: "mgmt-space",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }

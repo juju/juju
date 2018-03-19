@@ -166,7 +166,7 @@ func (st *State) checkSpaceIsAvailableToAllControllers(configSpace string) error
 		if err != nil {
 			return errors.Annotate(err, "cannot get machine")
 		}
-		if _, ok := network.SelectAddressesBySpaceNames(m.MachineAddresses(), spaceName); !ok {
+		if _, ok := network.SelectAddressesBySpaceNames(m.Addresses(), spaceName); !ok {
 			missing = append(missing, id)
 		}
 	}
