@@ -312,7 +312,7 @@ func (p *peerGroupChanges) possiblePeerGroupChanges(info *peerGroupInfo) {
 		machineIds = append(machineIds, id)
 	}
 	sort.Strings(machineIds)
-	logger.Debugf("assessing possible peer group changes:")1
+	logger.Debugf("assessing possible peer group changes:")
 	for _, id := range machineIds {
 		m := info.machines[id]
 		member := p.members[id]
