@@ -3921,3 +3921,36 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 		},
 	})
 }
+
+func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
+	s.addRelationAndAssertInScope(c)
+
+	args := params.NetworkInfoParams{
+		Unit:     s.base.wordpressUnit.Tag().String(),
+		Bindings: []string{"db"},
+	}
+
+	expectedResult := params.NetworkInfoResultsV6{
+		Results: map[string]params.NetworkInfoResultV6{
+			"db": params.NetworkInfoResultV6{
+				Info: []params.NetworkInfo{
+					params.NetworkInfo{
+						MACAddress:    "00:11:22:33:10:50",
+						InterfaceName: "eth0.100",
+						Addresses:     []params.InterfaceAddress{params.InterfaceAddress{Address: "10.0.0.10", CIDR: "10.0.0.0/24"}}},
+					params.NetworkInfo{
+						MACAddress:    "00:11:22:33:10:51",
+						InterfaceName: "eth1.100",
+						Addresses:     []params.InterfaceAddress{params.InterfaceAddress{Address: "10.0.0.11", CIDR: "10.0.0.0/24"}}},
+				},
+			}},
+	}
+
+	apiV6, err := uniter.NewUniterAPIV6(s.base.State, s.base.resources, s.base.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := apiV6.NetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(result, jc.DeepEquals, expectedResult)
+}
