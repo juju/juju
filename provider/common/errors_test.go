@@ -32,3 +32,18 @@ github.com/juju/juju/provider/common/errors_test.go:.*: foo
 github.com/juju/juju/provider/common/errors_test.go:.*: bar
 github.com/juju/juju/provider/common/errors_test.go:.*: bar: foo`[1:])
 }
+
+func (s *ErrorsSuite) TestNewInvalidCredential(c *gc.C) {
+	err1 := errors.New("foo")
+	err2 := errors.Annotate(err1, "bar")
+	err := common.CredentialNotValid(err2)
+
+	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	c.Assert(err, gc.ErrorMatches, "bar: foo")
+
+	stack := errors.ErrorStack(err)
+	c.Assert(stack, gc.Matches, `
+github.com/juju/juju/provider/common/errors_test.go:.*: foo
+github.com/juju/juju/provider/common/errors_test.go:.*: bar
+github.com/juju/juju/provider/common/errors_test.go:.*: bar: foo`[1:])
+}
