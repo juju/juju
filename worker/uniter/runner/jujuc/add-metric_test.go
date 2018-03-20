@@ -248,6 +248,22 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 				Key: "b", Value: "2", Time: time.Now(),
 				Labels: map[string]string{"foo": "bar", "baz": "quux"},
 			}},
+		}, {
+			"can't add metrics with labels",
+			[]string{"add-metric", "--labels", "foo=bar", "key=60", "key2=50.4"},
+			false,
+			1,
+			"",
+			"ERROR cannot record metric: metrics disabled\n",
+			nil,
+		}, {
+			"cannot add builtin metric with labels",
+			[]string{"add-metric", "--labels", "foo=bar", "juju-key=50"},
+			true,
+			1,
+			"",
+			"ERROR juju-key uses a reserved prefix\n",
+			nil,
 		}}
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
