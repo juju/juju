@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// jujuMachineKey is the key for the tag where we save the member's juju machine id.
+// jujuMachineKey is the key for the tag where we save a member's machine id.
 const jujuMachineKey = "juju-machine-id"
 
 // peerGroupInfo holds information used in attempting to determine a Mongo
@@ -201,63 +201,6 @@ func desiredPeerGroup(info *peerGroupInfo) (map[string]*replicaset.Member, map[s
 	}
 	return peerChanges.members, peerChanges.machineVoting, nil
 }
-func (p *peerGroupChanges) getMachinesVoting() {
-	//p.machineVoting = make(map[string]bool)
-	for id, m := range p.members {
-		p.machineVoting[id] = isVotingMember(m)
-	}
-}
-
-// reviewPeerGroupChanges adds some extra logic after creating possiblePeerGroupChanges to safely add
-// or remove machines keeping the correct odd number of voters peer structure, and preventing the
-// primary peer demoting.
-func (p *peerGroupChanges) reviewPeerGroupChanges(info *peerGroupInfo) {
-
-	currVoters := 0
-	for _, m := range p.members {
-		if isVotingMember(m) {
-			currVoters += 1
-		}
-	}
-	keptVoters := currVoters - len(p.toRemoveVote)
-	if (keptVoters+len(p.toAddVote))%2 == 1 {
-		logger.Debugf("number of voters is odd")
-		// if this is true we will create an odd number of voters
-		return
-	}
-	if len(p.toAddVote) > 0 {
-		logger.Debugf("number of voters is even, trim last member from toAddVote")
-		p.toAddVote = p.toAddVote[:len(p.toAddVote)-1]
-		return
-	}
-	// we must remove an extra peer
-	// make sure we don't pick the primary to be removed.
-	if keptVoters == 0 {
-		// we are asking to remove all voters, a clear 'odd' number of voters
-		// to preserve is to just keep the current primary.
-		logger.Debugf("remove all voters, preserve primary voter")
-		var tempToRemove []string
-		for _, id := range p.toRemoveVote {
-			isPrimary := isPrimaryMember(info, id)
-			if !isPrimary {
-				tempToRemove = append(tempToRemove, id)
-			}
-		}
-		p.toRemoveVote = tempToRemove
-	} else {
-		for i, id := range p.toKeepVoting {
-			if !isPrimaryMember(info, id) {
-				p.toRemoveVote = append(p.toRemoveVote, id)
-				if i == len(p.toKeepVoting)-1 {
-					p.toKeepVoting = p.toKeepVoting[:i]
-				} else {
-					p.toKeepVoting = append(p.toKeepVoting[:i], p.toKeepVoting[i+1:]...)
-				}
-				break
-			}
-		}
-	}
-}
 
 // checkExtraMembers checks to see if any of the input members, identified as
 // not being associated with machines, is set as a voter in the peer group.
@@ -273,15 +216,6 @@ func (p *peerGroupChanges) checkExtraMembers(extra []replicaset.Member) error {
 		p.isChanged = true
 	}
 	return nil
-}
-
-func isVotingMember(m *replicaset.Member) bool {
-	v := m.Votes
-	return v == nil || *v > 0
-}
-
-func isPrimaryMember(info *peerGroupInfo, id string) bool {
-	return info.statuses[id].State == replicaset.PrimaryState
 }
 
 // getMongoAddresses gets an address suitable for Mongo peer group
@@ -346,6 +280,71 @@ func (p *peerGroupChanges) possiblePeerGroupChanges(info *peerGroupInfo) {
 	logger.Debugf("assessed")
 }
 
+func isReady(status replicaset.MemberStatus) bool {
+	return status.Healthy && (status.State == replicaset.PrimaryState ||
+		status.State == replicaset.SecondaryState)
+}
+
+// reviewPeerGroupChanges adds some extra logic after creating
+// possiblePeerGroupChanges to safely add or remove machines, keeping the
+// correct odd number of voters peer structure, and preventing the primary from
+// demotion.
+func (p *peerGroupChanges) reviewPeerGroupChanges(info *peerGroupInfo) {
+	currVoters := 0
+	for _, m := range p.members {
+		if isVotingMember(m) {
+			currVoters += 1
+		}
+	}
+	keptVoters := currVoters - len(p.toRemoveVote)
+	if (keptVoters+len(p.toAddVote))%2 == 1 {
+		logger.Debugf("number of voters is odd")
+		// if this is true we will create an odd number of voters
+		return
+	}
+	if len(p.toAddVote) > 0 {
+		logger.Debugf("number of voters is even, trim last member from toAddVote")
+		p.toAddVote = p.toAddVote[:len(p.toAddVote)-1]
+		return
+	}
+	// we must remove an extra peer
+	// make sure we don't pick the primary to be removed.
+	if keptVoters == 0 {
+		// we are asking to remove all voters, a clear 'odd' number of voters
+		// to preserve is to just keep the current primary.
+		logger.Debugf("remove all voters, preserve primary voter")
+		var tempToRemove []string
+		for _, id := range p.toRemoveVote {
+			isPrimary := isPrimaryMember(info, id)
+			if !isPrimary {
+				tempToRemove = append(tempToRemove, id)
+			}
+		}
+		p.toRemoveVote = tempToRemove
+	} else {
+		for i, id := range p.toKeepVoting {
+			if !isPrimaryMember(info, id) {
+				p.toRemoveVote = append(p.toRemoveVote, id)
+				if i == len(p.toKeepVoting)-1 {
+					p.toKeepVoting = p.toKeepVoting[:i]
+				} else {
+					p.toKeepVoting = append(p.toKeepVoting[:i], p.toKeepVoting[i+1:]...)
+				}
+				break
+			}
+		}
+	}
+}
+
+func isVotingMember(m *replicaset.Member) bool {
+	v := m.Votes
+	return v == nil || *v > 0
+}
+
+func isPrimaryMember(info *peerGroupInfo, id string) bool {
+	return info.statuses[id].State == replicaset.PrimaryState
+}
+
 func setMemberVoting(member *replicaset.Member, voting bool) {
 	if voting {
 		member.Votes = nil
@@ -377,8 +376,8 @@ func (p *peerGroupChanges) adjustVotes() {
 	setVoting(p.toKeepCreateNonVotingMember, false)
 }
 
-// createMembers from a list of member id's, instantiate a new replicaset member and
-// add it to members map with the given id.
+// createMembers from a list of member IDs, instantiate a new replica-set
+// member and add it to members map with the given ID.
 func (p *peerGroupChanges) createNonVotingMember(
 	maxId *int,
 ) {
@@ -411,6 +410,13 @@ func (p *peerGroupChanges) createNonVotingMember(
 	}
 }
 
+func (p *peerGroupChanges) getMachinesVoting() {
+	//p.machineVoting = make(map[string]bool)
+	for id, m := range p.members {
+		p.machineVoting[id] = isVotingMember(m)
+	}
+}
+
 // updateAddresses updates the member addresses in the new replica-set with
 // those determined by getMongoAddresses, where they differ.
 // The return indicates whether any changes were made.
@@ -430,9 +436,4 @@ func (p *peerGroupChanges) updateAddresses() {
 			p.isChanged = true
 		}
 	}
-}
-
-func isReady(status replicaset.MemberStatus) bool {
-	return status.Healthy && (status.State == replicaset.PrimaryState ||
-		status.State == replicaset.SecondaryState)
 }
