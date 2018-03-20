@@ -9,16 +9,17 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/lxc/lxd/client"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/tools/lxdclient"
+	"github.com/lxc/lxd/shared/api"
 )
 
 type lxdInstance struct {
 	id     string
-	client *lxdclient.Client
+	server lxd.ContainerServer
 }
 
 var _ instance.Instance = (*lxdInstance)(nil)
@@ -39,26 +40,26 @@ func (lxd *lxdInstance) Addresses() ([]network.Address, error) {
 // Status implements instance.Instance.Status.
 func (lxd *lxdInstance) Status() instance.InstanceStatus {
 	jujuStatus := status.Pending
-	instStatus, err := lxd.client.Status(lxd.id)
+	instStatus, _, err := lxd.server.GetContainerState(lxd.id)
 	if err != nil {
 		return instance.InstanceStatus{
 			Status:  status.Empty,
 			Message: fmt.Sprintf("could not get status: %v", err),
 		}
 	}
-	switch instStatus {
-	case lxdclient.StatusStarting, lxdclient.StatusStarted:
+	switch instStatus.StatusCode {
+	case api.Starting, api.Started:
 		jujuStatus = status.Allocating
-	case lxdclient.StatusRunning:
+	case api.Running:
 		jujuStatus = status.Running
-	case lxdclient.StatusFreezing, lxdclient.StatusFrozen, lxdclient.StatusThawed, lxdclient.StatusStopping, lxdclient.StatusStopped:
+	case api.Freezing, api.Frozen, api.Thawed, api.Stopping, api.Stopped:
 		jujuStatus = status.Empty
 	default:
 		jujuStatus = status.Empty
 	}
 	return instance.InstanceStatus{
 		Status:  jujuStatus,
-		Message: instStatus,
+		Message: instStatus.Status,
 	}
 }
 

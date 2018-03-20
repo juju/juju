@@ -608,7 +608,7 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 		}
 	} else {
 		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId) {
-			return errors.New("API entity tag must match started machine")
+			return fmt.Errorf("API entity tag must match started machine %q %q", cfg.APIInfo.Tag, names.NewMachineTag(cfg.MachineId))
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {
 			return errors.New("missing API hosts")

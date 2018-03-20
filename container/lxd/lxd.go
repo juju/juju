@@ -1,16 +1,23 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
 	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/arch"
+	jujuarch "github.com/juju/utils/arch"
+	jujuos "github.com/juju/utils/os"
+	jujuseries "github.com/juju/utils/series"
+	lxd "github.com/lxc/lxd/client"
+	lxdshared "github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -20,7 +27,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 var (
@@ -28,6 +34,10 @@ var (
 )
 
 const lxdDefaultProfileName = "default"
+const UserDataKey = "user.user-data"
+const NetworkConfigKey = "user.network-config"
+const JujuModelKey = "user.juju-model"
+const AutoStartKey = "boot.autostart"
 
 // XXX: should we allow managing containers on other hosts? this is
 // functionality LXD gives us and from discussion juju would use eventually for
@@ -36,8 +46,7 @@ const lxdDefaultProfileName = "default"
 type containerManager struct {
 	modelUUID string
 	namespace instance.Namespace
-	// A cached client.
-	client *lxdclient.Client
+	server    lxd.ContainerServer
 	// a host machine's availability zone
 	availabilityZone string
 }
@@ -45,17 +54,48 @@ type containerManager struct {
 // containerManager implements container.Manager.
 var _ container.Manager = (*containerManager)(nil)
 
-func ConnectLocal() (*lxdclient.Client, error) {
-	cfg := lxdclient.Config{
-		Remote: lxdclient.Local,
-	}
+/* The "releases" stream for images. This consists of blessed releases by the
+ * Canonical team.
+ */
+var CloudImagesRemote = RemoteServer{
+	Name:     "cloud-images.ubuntu.com",
+	Host:     "https://cloud-images.ubuntu.com/releases",
+	Protocol: SimplestreamsProtocol,
+}
 
-	cfg, err := cfg.WithDefaults()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+/* The "daily" stream. This consists of images that are built from the daily
+ * package builds. These images have not been independently tested, but in
+ * theory "should" be good, since they're build from packages from the released
+ * archive.
+ */
+var CloudImagesDailyRemote = RemoteServer{
+	Name:     "cloud-images.ubuntu.com",
+	Host:     "https://cloud-images.ubuntu.com/daily",
+	Protocol: SimplestreamsProtocol,
+}
 
-	client, err := lxdclient.Connect(cfg, false)
+var generateCertificate = func() ([]byte, []byte, error) { return lxdshared.GenerateMemCert(true) }
+var DefaultImageSources = []RemoteServer{CloudImagesRemote, CloudImagesDailyRemote}
+
+type Protocol string
+
+const (
+	LXDProtocol           Protocol = "lxd"
+	SimplestreamsProtocol Protocol = "simplestreams"
+)
+
+type RemoteServer struct {
+	Name     string
+	Host     string
+	Protocol Protocol
+	lxd.ConnectionArgs
+}
+
+var ConnectLocal = connectLocal
+
+func connectLocal() (lxd.ContainerServer, error) {
+	client, err := lxd.ConnectLXDUnix(lxdSocketPath(), &lxd.ConnectionArgs{})
+
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -95,6 +135,66 @@ func (manager *containerManager) Namespace() instance.Namespace {
 	return manager.namespace
 }
 
+func (manager *containerManager) GetImageWithServer(
+	series, arch string,
+	sources []RemoteServer) (lxd.ImageServer, *api.Image, string, error) {
+	// First we check if we have the image locally.
+	lastErr := fmt.Errorf("Image not found")
+	imageName := seriesLocalAlias(series, arch)
+	var target string
+	entry, _, err := manager.server.GetImageAlias(imageName)
+	if entry != nil {
+		// We already have an image with the given alias,
+		// so just use that.
+		target = entry.Target
+		image, _, err := manager.server.GetImage(target)
+		if err != nil {
+			logger.Debugf("Found image locally - %q %q", image, target)
+			return manager.server.(lxd.ImageServer), image, target, nil
+		}
+	}
+
+	// We don't have an image locally with the juju-specific alias,
+	// so look in each of the provided remote sources for any of
+	// the expected aliases. We don't need to copy this image as
+	// it will be cached by LXD.
+	aliases, err := seriesRemoteAliases(series, arch)
+	if err != nil {
+		return nil, nil, "", errors.Trace(err)
+	}
+	for _, remote := range sources {
+		source, err := manager.connectToSource(remote)
+		if err != nil {
+			logger.Infof("failed to connect to %q: %s", remote.Host, err)
+			lastErr = err
+			continue
+		}
+		for _, alias := range aliases {
+			if result, _, err := source.GetImageAlias(alias); err == nil && result.Target != "" {
+				target = result.Target
+				break
+			}
+		}
+		if target != "" {
+			image, _, err := source.GetImage(target)
+			if err == nil {
+				logger.Debugf("Found image remotely - %q %q %q", source, image, target)
+				return source, image, target, nil
+			} else {
+				lastErr = err
+			}
+		}
+	}
+	return nil, nil, "", lastErr
+}
+
+func (manager *containerManager) DestroyContainer(id instance.Id) error {
+	if err := manager.stopInstance(string(id)); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(manager.removeInstance(string(id)))
+}
+
 func (manager *containerManager) CreateContainer(
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
@@ -102,67 +202,211 @@ func (manager *containerManager) CreateContainer(
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
-) (inst instance.Instance, hc *instance.HardwareCharacteristics, err error) {
+) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	callback(status.Provisioning, "Creating container", nil)
+	name, err := manager.createInstance(instanceConfig, cons, series, networkConfig, storageConfig, callback)
+	if err != nil {
+		callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
+		return nil, nil, errors.Trace(err)
+	}
 
-	defer func() {
-		if err != nil {
-			callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
+	callback(status.Provisioning, "Container created, starting", nil)
+	err = manager.startInstance(name)
+	if err != nil {
+		if err := manager.removeInstance(name); err != nil {
+			logger.Errorf("Cannot remove failed instance: %s", err)
 		}
-	}()
+		callback(status.ProvisioningError, fmt.Sprintf("Starting container: %v", err), nil)
+		return nil, nil, err
+	}
 
-	if manager.client == nil {
-		manager.client, err = ConnectLocal()
+	callback(status.Running, "Container started", nil)
+	return &lxdInstance{name, manager.server}, &instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}, nil
+}
+
+func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
+	result = []instance.Instance{}
+	if manager.server == nil {
+		manager.server, err = ConnectLocal()
 		if err != nil {
-			err = errors.Annotatef(err, "failed to connect to local LXD")
 			return
 		}
 	}
+	lxdInstances, err := manager.server.GetContainers()
 
-	// It is only possible to provision LXD containers
-	// of the same architecture as the host.
-	hostArch := arch.HostArch()
+	if err != nil {
+		return
+	}
 
-	hc = &instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}
+	for _, i := range lxdInstances {
+		if strings.HasPrefix(i.Name, manager.namespace.Prefix()) {
+			result = append(result, &lxdInstance{i.Name, manager.server})
+		}
+	}
 
-	imageName, err := manager.client.EnsureImageExists(
+	return result, nil
+}
+
+func (manager *containerManager) IsInitialized() bool {
+	if manager.server != nil {
+		return true
+	}
+
+	// NewClient does a roundtrip to the server to make sure it understands
+	// the versions, so all we need to do is connect above and we're done.
+	var err error
+	manager.server, err = ConnectLocal()
+	return err == nil
+}
+
+func lxdSocketPath() string {
+	// LXD socket is different depending on installation method
+	// We prefer upstream's preference of snap installed LXD
+	debianSocket := filepath.FromSlash("/var/lib/lxd")
+	snapSocket := filepath.FromSlash("/var/snap/lxd/common/lxd")
+	path := os.Getenv("LXD_DIR")
+	if path != "" {
+		logger.Debugf("Using environment LXD_DIR as socket path: %q", path)
+	} else {
+		if _, err := os.Stat(snapSocket); err == nil {
+			logger.Debugf("Using LXD snap socket: %q", snapSocket)
+			path = snapSocket
+		} else {
+			logger.Debugf("LXD snap socket not found, falling back to debian socket: %q", debianSocket)
+			path = debianSocket
+		}
+	}
+	return filepath.Join(path, "unix.socket")
+}
+
+// seriesLocalAlias returns the alias to assign to images for the
+// specified series. The alias is juju-specific, to support the
+// user supplying a customised image (e.g. CentOS with cloud-init).
+func seriesLocalAlias(series, arch string) string {
+	return fmt.Sprintf("juju/%s/%s", series, arch)
+}
+
+// seriesRemoteAliases returns the aliases to look for in remotes.
+func seriesRemoteAliases(series, arch string) ([]string, error) {
+	seriesOS, err := jujuseries.GetOSFromSeries(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	switch seriesOS {
+	case jujuos.Ubuntu:
+		return []string{path.Join(series, arch)}, nil
+	case jujuos.CentOS:
+		if series == "centos7" && arch == jujuarch.AMD64 {
+			return []string{"centos/7/amd64"}, nil
+		}
+	case jujuos.OpenSUSE:
+		if series == "opensuseleap" && arch == jujuarch.AMD64 {
+			return []string{"opensuse/42.2/amd64"}, nil
+		}
+	}
+	return nil, errors.NotSupportedf("series %q", series)
+}
+
+// connectToSource connects to remote ImageServer using specified protocol.
+func (manager *containerManager) connectToSource(remote RemoteServer) (lxd.ImageServer, error) {
+	switch remote.Protocol {
+	case LXDProtocol:
+		return lxd.ConnectPublicLXD(remote.Host, &remote.ConnectionArgs)
+	case SimplestreamsProtocol:
+		return lxd.ConnectSimpleStreams(remote.Host, &remote.ConnectionArgs)
+	}
+	return nil, fmt.Errorf("Wrong protocol %s", remote.Protocol)
+}
+
+// startInstance starts previously created instance.
+func (manager *containerManager) startInstance(name string) error {
+	req := api.ContainerStatePut{
+		Action:  "start",
+		Timeout: -1,
+	}
+	op, err := manager.server.UpdateContainerState(name, req, "")
+	if err != nil {
+		return err
+	}
+	err = op.Wait()
+	return err
+}
+
+// stopInstance stops instance if it's not stopped.
+func (manager *containerManager) stopInstance(name string) error {
+	state, etag, err := manager.server.GetContainerState(name)
+	if err != nil {
+		return err
+	}
+
+	if state.StatusCode == api.Stopped {
+		return nil
+	}
+
+	req := api.ContainerStatePut{
+		Action:  "stop",
+		Timeout: -1,
+	}
+	op, err := manager.server.UpdateContainerState(name, req, etag)
+	if err != nil {
+		return err
+	}
+	err = op.Wait()
+	return err
+}
+
+// createInstance creates a stopped instance from given config. It finds the proper image, either
+// locally or remotely, and then creates a container using it.
+func (manager *containerManager) createInstance(
+	instanceConfig *instancecfg.InstanceConfig,
+	cons constraints.Value,
+	series string,
+	networkConfig *container.NetworkConfig,
+	storageConfig *container.StorageConfig,
+	callback environs.StatusCallbackFunc,
+) (string, error) {
+	var err error
+	if manager.server == nil {
+		manager.server, err = ConnectLocal()
+		if err != nil {
+			return "", errors.Annotatef(err, "failed to connect to local LXD")
+		}
+	}
+
+	imageServer, image, imageName, err := manager.GetImageWithServer(
 		series,
-		hostArch,
-		lxdclient.DefaultImageSources,
-		func(progress string) {
-			callback(status.Provisioning, progress, nil)
-		},
+		jujuarch.HostArch(),
+		DefaultImageSources,
 	)
 	if err != nil {
-		err = errors.Annotatef(err, "failed to ensure LXD image")
-		return
+		return "", errors.Annotatef(err, "failed to ensure LXD image")
 	}
 
 	name, err := manager.namespace.Hostname(instanceConfig.MachineId)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
-	// Do not pass networkConfig, as we want to directly inject our own ENI
-	// rather than using cloud-init.
+	// CloudInitUserData creates our own ENI/netplan, we need to disable cloud-init networking
+	// to make it work.
 	userData, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
 	if err != nil {
-		return
+		return "", errors.Trace(err)
 	}
 
 	metadata := map[string]string{
-		lxdclient.UserdataKey:      string(userData),
-		lxdclient.NetworkconfigKey: containerinit.CloudInitNetworkConfigDisabled,
+		UserDataKey:      string(userData),
+		NetworkConfigKey: containerinit.CloudInitNetworkConfigDisabled,
 		// An extra piece of info to let people figure out where this
 		// thing came from.
-		"user.juju-model": manager.modelUUID,
-
+		JujuModelKey: manager.modelUUID,
 		// Make sure these come back up on host reboot.
-		"boot.autostart": "true",
+		AutoStartKey: "true",
 	}
 
 	nics, err := networkDevices(networkConfig)
 	if err != nil {
-		return
+		return "", errors.Trace(err)
 	}
 
 	// TODO(macgreagoir) This might be dead code. Do we always get
@@ -176,78 +420,62 @@ func (manager *containerManager) CreateContainer(
 		logger.Infof("instance %q configured with %v network devices", name, nics)
 	}
 
-	spec := lxdclient.InstanceSpec{
-		Name:     name,
-		Image:    imageName,
-		Metadata: metadata,
-		Devices:  nics,
-		Profiles: profiles,
+	spec := api.ContainersPost{
+		Name: name,
+		ContainerPut: api.ContainerPut{
+			Profiles: profiles,
+			Devices:  nics,
+			Config:   metadata,
+		},
 	}
 
-	logger.Infof("starting instance %q (image %q)...", spec.Name, spec.Image)
-	callback(status.Provisioning, "Starting container", nil)
-	_, err = manager.client.AddInstance(spec)
+	logger.Infof("starting instance %q (image %q)...", spec.Name, imageName)
+	callback(status.Provisioning, "Creating container", nil)
+	op, err := manager.server.CreateContainerFromImage(imageServer, *image, spec)
 	if err != nil {
-		return
+		logger.Errorf("CreateContainer failed with %s", err)
+		return "", errors.Trace(err)
 	}
 
-	callback(status.Running, "Container started", nil)
-	inst = &lxdInstance{name, manager.client}
-	return
-}
-
-func (manager *containerManager) DestroyContainer(id instance.Id) error {
-	if manager.client == nil {
-		var err error
-		manager.client, err = ConnectLocal()
-		if err != nil {
-			return err
-		}
-	}
-	return errors.Trace(manager.client.RemoveInstances(manager.namespace.Prefix(), string(id)))
-}
-
-func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
-	result = []instance.Instance{}
-	if manager.client == nil {
-		manager.client, err = ConnectLocal()
-		if err != nil {
+	progress := func(op api.Operation) {
+		if op.Metadata == nil {
 			return
 		}
+		for _, key := range []string{"fs_progress", "download_progress"} {
+			value, ok := op.Metadata[key]
+			if ok {
+				callback(status.Provisioning, fmt.Sprintf("Retrieving image: %s", value.(string)), nil)
+				return
+			}
+		}
 	}
-
-	lxdInstances, err := manager.client.Instances(manager.namespace.Prefix())
+	_, err = op.AddHandler(progress)
 	if err != nil {
-		return
+		return "", errors.Trace(err)
 	}
 
-	for _, i := range lxdInstances {
-		result = append(result, &lxdInstance{i.Name, manager.client})
+	op.Wait()
+	opInfo, err := op.GetTarget()
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-
-	return
-}
-
-func (manager *containerManager) IsInitialized() bool {
-	if manager.client != nil {
-		return true
+	if opInfo.StatusCode != api.Success {
+		return "", fmt.Errorf("LXD error: %s", opInfo.Err)
 	}
-
-	// NewClient does a roundtrip to the server to make sure it understands
-	// the versions, so all we need to do is connect above and we're done.
-	var err error
-	manager.client, err = ConnectLocal()
-	return err == nil
+	return name, nil
 }
 
-// HasLXDSupport returns false when this juju binary was not built with LXD
-// support (i.e. it was built on a golang version < 1.2
-func HasLXDSupport() bool {
-	return true
+func (manager *containerManager) removeInstance(name string) error {
+	op, err := manager.server.DeleteContainer(name)
+	if err != nil {
+		return err
+	}
+	err = op.Wait()
+	return err
 }
 
-func nicDevice(deviceName, parentDevice, hwAddr string, mtu int) (lxdclient.Device, error) {
-	device := make(lxdclient.Device)
+func nicDevice(deviceName, parentDevice, hwAddr string, mtu int) (map[string]string, error) {
+	device := make(map[string]string)
 
 	device["type"] = "nic"
 	device["nictype"] = "bridged"
@@ -273,8 +501,8 @@ func nicDevice(deviceName, parentDevice, hwAddr string, mtu int) (lxdclient.Devi
 	return device, nil
 }
 
-func networkDevices(networkConfig *container.NetworkConfig) (lxdclient.Devices, error) {
-	nics := make(lxdclient.Devices)
+func networkDevices(networkConfig *container.NetworkConfig) (map[string]map[string]string, error) {
+	nics := make(map[string]map[string]string)
 
 	if len(networkConfig.Interfaces) > 0 {
 		for _, v := range networkConfig.Interfaces {
