@@ -25,6 +25,16 @@ func (m *Metrics) AddMetric(key, value string, created time.Time) {
 	})
 }
 
+// AddMetricLabels adds a Metric with labels for the provided data.
+func (m *Metrics) AddMetricLabels(key, value string, created time.Time, labels map[string]string) {
+	m.Metrics = append(m.Metrics, jujuc.Metric{
+		Key:    key,
+		Value:  value,
+		Time:   created,
+		Labels: labels,
+	})
+}
+
 // ContextMetrics is a test double for jujuc.ContextMetrics.
 type ContextMetrics struct {
 	contextBase
@@ -39,5 +49,16 @@ func (c *ContextMetrics) AddMetric(key, value string, created time.Time) error {
 	}
 
 	c.info.AddMetric(key, value, created)
+	return nil
+}
+
+// AddMetricLabels implements jujuc.ContextMetrics.
+func (c *ContextMetrics) AddMetricLabels(key, value string, created time.Time, labels map[string]string) error {
+	c.stub.AddCall("AddMetricLabels", key, value, created, labels)
+	if err := c.stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	c.info.AddMetricLabels(key, value, created, labels)
 	return nil
 }

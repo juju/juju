@@ -184,9 +184,10 @@ func ToWire(mb *state.MetricBatch) *wireformat.MetricBatch {
 	metrics := make([]wireformat.Metric, len(mb.Metrics()))
 	for i, m := range mb.Metrics() {
 		metrics[i] = wireformat.Metric{
-			Key:   m.Key,
-			Value: m.Value,
-			Time:  m.Time.UTC(),
+			Key:    m.Key,
+			Value:  m.Value,
+			Time:   m.Time.UTC(),
+			Labels: m.Labels,
 		}
 	}
 	return &wireformat.MetricBatch{

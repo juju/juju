@@ -590,6 +590,11 @@ func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 	return errors.New("metrics not allowed in this context")
 }
 
+// AddMetricLabels adds metrics with labels to the hook context.
+func (ctx *HookContext) AddMetricLabels(key, value string, created time.Time, labels map[string]string) error {
+	return errors.New("metrics not allowed in this context")
+}
+
 // ActionData returns the context's internal action data. It's meant to be
 // transitory; it exists to allow uniter and runner code to keep working as
 // it did; it should be considered deprecated, and not used by new clients.

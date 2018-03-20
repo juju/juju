@@ -97,7 +97,11 @@ func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *metricsAdderSuite) TestAddMetricsBatch(c *gc.C) {
-	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
+	metrics := []params.Metric{{
+		Key: "pings", Value: "5", Time: time.Now().UTC(),
+	}, {
+		Key: "pongs", Value: "6", Time: time.Now().UTC(), Labels: map[string]string{"foo": "bar"},
+	}}
 	uuid := utils.MustNewUUID().String()
 
 	result, err := s.adder.AddMetricBatches(params.MetricBatchParams{
@@ -123,9 +127,13 @@ func (s *metricsAdderSuite) TestAddMetricsBatch(c *gc.C) {
 	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.URL().String())
 	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
 	storedMetrics := batch.Metrics()
-	c.Assert(storedMetrics, gc.HasLen, 1)
+	c.Assert(storedMetrics, gc.HasLen, 2)
 	c.Assert(storedMetrics[0].Key, gc.Equals, metrics[0].Key)
 	c.Assert(storedMetrics[0].Value, gc.Equals, metrics[0].Value)
+	c.Assert(storedMetrics[0].Labels, gc.DeepEquals, metrics[0].Labels)
+	c.Assert(storedMetrics[1].Key, gc.Equals, metrics[1].Key)
+	c.Assert(storedMetrics[1].Value, gc.Equals, metrics[1].Value)
+	c.Assert(storedMetrics[1].Labels, gc.DeepEquals, metrics[1].Labels)
 }
 
 func (s *metricsAdderSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {

@@ -1914,9 +1914,10 @@ func (u *UniterAPI) AddMetricBatches(args params.MetricBatchParams) (params.Erro
 		metrics := make([]state.Metric, len(batch.Batch.Metrics))
 		for j, metric := range batch.Batch.Metrics {
 			metrics[j] = state.Metric{
-				Key:   metric.Key,
-				Value: metric.Value,
-				Time:  metric.Time,
+				Key:    metric.Key,
+				Value:  metric.Value,
+				Time:   metric.Time,
+				Labels: metric.Labels,
 			}
 		}
 		_, err = u.st.AddMetrics(state.BatchParam{

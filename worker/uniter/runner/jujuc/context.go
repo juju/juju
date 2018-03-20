@@ -181,6 +181,8 @@ type ContextLeadership interface {
 type ContextMetrics interface {
 	// AddMetric records a metric to return after hook execution.
 	AddMetric(string, string, time.Time) error
+	// AddMetricLabels records a metric with tags to return after hook execution.
+	AddMetricLabels(string, string, time.Time, map[string]string) error
 }
 
 // ContextStorage is the part of a hook context related to storage

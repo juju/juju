@@ -64,6 +64,9 @@ func (s *MetricSenderSuite) TestToWire(c *gc.C) {
 			Key:   m.Key,
 			Value: m.Value,
 			Time:  m.Time.UTC(),
+			Labels: map[string]string{
+				"foo": "bar",
+			},
 		},
 	}
 	expected := &wireformat.MetricBatch{

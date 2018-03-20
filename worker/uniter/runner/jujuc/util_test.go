@@ -85,6 +85,19 @@ func (c *Context) AddMetric(key, value string, created time.Time) error {
 	return c.Context.AddMetric(key, value, created)
 }
 
+func (c *Context) AddMetricLabels(key, value string, created time.Time, labels map[string]string) error {
+	if !c.canAddMetrics {
+		return fmt.Errorf("metrics disabled")
+	}
+	c.metrics = append(c.metrics, jujuc.Metric{
+		Key:    key,
+		Value:  value,
+		Time:   created,
+		Labels: labels,
+	})
+	return c.Context.AddMetricLabels(key, value, created, labels)
+}
+
 func (c *Context) RequestReboot(priority jujuc.RebootPriority) error {
 	c.rebootPriority = priority
 	if c.shouldError {

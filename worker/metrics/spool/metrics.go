@@ -100,7 +100,12 @@ type MetricBatch struct {
 func APIMetricBatch(batch MetricBatch) params.MetricBatchParam {
 	metrics := make([]params.Metric, len(batch.Metrics))
 	for i, metric := range batch.Metrics {
-		metrics[i] = params.Metric{Key: metric.Key, Value: metric.Value, Time: metric.Time}
+		metrics[i] = params.Metric{
+			Key:    metric.Key,
+			Value:  metric.Value,
+			Time:   metric.Time,
+			Labels: metric.Labels,
+		}
 	}
 	return params.MetricBatchParam{
 		Tag: batch.UnitTag,
@@ -191,7 +196,8 @@ func (m *JSONMetricRecorder) Close() error {
 }
 
 // AddMetric implements the MetricsRecorder interface.
-func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) (err error) {
+func (m *JSONMetricRecorder) AddMetric(
+	key, value string, created time.Time, labels map[string]string) (err error) {
 	defer func() {
 		if err != nil {
 			err = &errMetricsData{err}
@@ -203,7 +209,12 @@ func (m *JSONMetricRecorder) AddMetric(key, value string, created time.Time) (er
 	}
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	return errors.Trace(m.enc.Encode(jujuc.Metric{Key: key, Value: value, Time: created}))
+	return errors.Trace(m.enc.Encode(jujuc.Metric{
+		Key:    key,
+		Value:  value,
+		Time:   created,
+		Labels: labels,
+	}))
 }
 
 func (m *JSONMetricRecorder) validateMetric(key, value string) error {

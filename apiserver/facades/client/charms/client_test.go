@@ -232,6 +232,9 @@ func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
 			"pings": params.CharmMetric{
 				Type:        "gauge",
 				Description: "Description of the metric."},
+			"pongs": params.CharmMetric{
+				Type:        "gauge",
+				Description: "Description of the metric."},
 			"juju-units": params.CharmMetric{
 				Type:        "",
 				Description: ""}}}
