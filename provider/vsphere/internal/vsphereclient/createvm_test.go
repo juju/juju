@@ -24,7 +24,7 @@ import (
 
 func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	var statusUpdates []string
-	statusUpdatesCh := make(chan string, 3)
+	statusUpdatesCh := make(chan string, 4)
 	dequeueStatusUpdates := func() {
 		for {
 			select {
@@ -62,6 +62,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		"uploading juju-vmdks/ctrl/xenial/04d3415158bcc24a91334eda408cf102fcf45c56a805135493e00156cd7b6391.vmdk.tmp: 100.00% (0B/s)",
 		"creating import spec",
 		`creating VM "vm-0"`,
+		"VM cloned",
 		"powering on",
 	})
 
@@ -409,8 +410,7 @@ func (s *clientSuite) TestGenerateMAC(c *gc.C) {
 	for i := 0; i < 100; i++ {
 		mac, err := GenerateMAC()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("Test #%d: %s", i, mac)
-		c.Check(VerifyMAC(mac), gc.Equals, true)
+		c.Check(VerifyMAC(mac), jc.IsTrue, gc.Commentf("GenerateMAC() created an invalid MAC address: %v", mac))
 	}
 }
 

@@ -206,6 +206,7 @@ func (c *Client) CreateVirtualMachine(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	args.UpdateProgress("VM cloned")
 	defer func() {
 		if resultErr == nil {
 			return
@@ -217,7 +218,6 @@ func (c *Client) CreateVirtualMachine(
 	if _, err := c.detachDisk(ctx, tempVM, taskWaiter); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	if args.Constraints.RootDisk != nil {
 		// The user specified a root disk, so extend the VM's
 		// disk before powering the VM on.
@@ -351,9 +351,7 @@ func (c *Client) createImportSpec(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
 		device, err := c.addNetworkDevice(ctx, s, networkReference, networkDevice.MAC, dvportgroupConfig)
-
 		if err != nil {
 			return nil, errors.Annotatef(err, "adding network device %d - network %s", i, network)
 		}
@@ -486,8 +484,9 @@ func (c *Client) addNetworkDevice(
 	return &networkDevice, nil
 }
 
-// generateMAC generates a random hardware address that meets VMWare
+// GenerateMAC generates a random hardware address that meets VMWare
 // requirements for MAC address: 00:50:56:XX:YY:ZZ where XX is between 00 and 3f.
+// https://pubs.vmware.com/vsphere-4-esx-vcenter/index.jsp?topic=/com.vmware.vsphere.server_configclassic.doc_41/esx_server_config/advanced_networking/c_setting_up_mac_addresses.html
 func GenerateMAC() (string, error) {
 	c, err := rand.Int(rand.Reader, big.NewInt(4194303))
 	if err != nil {

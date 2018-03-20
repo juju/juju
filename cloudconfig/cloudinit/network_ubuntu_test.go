@@ -209,13 +209,14 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
       netplan apply
       exit 0
   fi
+  if [ -f /usr/bin/python ]; then
+      python %[2]s --interfaces-file %[1]s.tmp
+  else
+      python3 %[2]s --interfaces-file %[1]s.tmp
+  fi
   ifdown -a
   sleep 1.5
-  if [ -f /usr/bin/python ]; then
-      python %[2]s --interfaces-file %[1]s
-  else
-      python3 %[2]s --interfaces-file %[1]s
-  fi
+  mv %[1]s.tmp %[1]s
   ifup -a
 `[1:]
 	s.expectedFullNetplanYaml = `
