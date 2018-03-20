@@ -14,17 +14,16 @@ import (
 	"github.com/juju/replicaset"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	//"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/apiserver"
-	//"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/workertest"
+	"sort"
+	"strconv"
 )
 
 type TestIPVersion struct {
@@ -82,9 +81,8 @@ func DoTestForIPv4AndIPv6(c *gc.C, s testSuite, t func(ipVersion TestIPVersion))
 	t(testIPv6)
 }
 
-// InitState initializes the fake state with a single
-// replicaset member and numMachines machines
-// primed to vote.
+// InitState initializes the fake state with a single replica-set member and
+// numMachines machines primed to vote.
 func InitState(c *gc.C, st *fakeState, numMachines int, ipVersion TestIPVersion) {
 	var ids []string
 	for i := 10; i < 10+numMachines; i++ {
@@ -94,12 +92,11 @@ func InitState(c *gc.C, st *fakeState, numMachines int, ipVersion TestIPVersion)
 		ids = append(ids, id)
 		c.Assert(m.Addresses(), gc.HasLen, 1)
 	}
-	st.machine("10").SetHasVote(true)
 	st.setControllers(ids...)
 	st.session.Set(mkMembers("0v", ipVersion))
 	st.session.setStatus(mkStatuses("0p", ipVersion))
+	st.machine("10").SetHasVote(true)
 	st.check = checkInvariants
-	st.controllerConfig = controller.Config{}
 }
 
 // ExpectedAPIHostPorts returns the expected addresses
@@ -449,6 +446,13 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 			c.Fatalf("timed out waiting for publish")
 		}
 
+		// If a config change wakes up the loop *after* the controller topology
+		// is published, then we will get another call to setAPIHostPorts.
+		select {
+		case <-publishCh:
+		case <-time.After(coretesting.ShortWait):
+		}
+
 		// Change one of the server API addresses and check that it is
 		// published.
 		newMachine10Addresses := network.NewAddresses(ipVersion.extraHost)
@@ -512,7 +516,6 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	st.session.Set(mkMembers("0v 1 2", testIPv4))
 	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
 	st.check = checkInvariants
-	st.controllerConfig = controller.Config{}
 
 	hub := pubsub.NewStructuredHub(nil)
 	event := make(chan apiserver.Details)
@@ -543,9 +546,7 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	}
 }
 
-func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, addSpaces bool) (
-	*fakeState, []string, []network.Address,
-) {
+func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion) *fakeState {
 	st := NewFakeState()
 	InitState(c, st, 3, ipVersion)
 
@@ -554,67 +555,43 @@ func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, addSpaces bool)
 		fmt.Sprintf(ipVersion.formatHost, 2),
 		fmt.Sprintf(ipVersion.formatHost, 3),
 	)
-	if addSpaces {
-		addrs[0].SpaceName = "one"
-		addrs[1].SpaceName = "two"
-		addrs[2].SpaceName = "three"
-	}
 	for i := range addrs {
 		addrs[i].Scope = network.ScopeCloudLocal
 	}
 
-	machines := []string{"10", "11", "12"}
-	for _, machine := range machines {
-		st.machine(machine).SetHasVote(true)
-		st.machine(machine).setWantsVote(true)
+	spaces := []string{"one", "two", "three"}
+	machines := []int{10, 11, 12}
+	for _, id := range machines {
+		machine := st.machine(strconv.Itoa(id))
+		machine.SetHasVote(true)
+		machine.setWantsVote(true)
+
+		// Each machine gets 3 addresses in 3 different spaces.
+		// Space "one" address on machine 10 ends with "10"
+		// Space "two" address ends with "11"
+		// Space "three" address ends with "12"
+		// Space "one" address on machine 20 ends with "20"
+		// Space "two" address ends with "21"
+		// ...
+		addrs := make([]network.Address, 3)
+		for i, name := range spaces {
+			addr := network.NewAddressOnSpace(name, fmt.Sprintf(ipVersion.formatHost, i*10+id))
+			addr.Scope = network.ScopeCloudLocal
+			addrs[i] = addr
+		}
+		machine.setAddresses(addrs...)
 	}
 
 	st.session.Set(mkMembers("0v 1v 2v", ipVersion))
-
-	return st, machines, addrs
+	return st
 }
 
 func (s *workerSuite) TestUsesConfiguredHASpace(c *gc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, true)
+		st := haSpaceTestCommonSetup(c, ipVersion)
 		st.setHASpace("one")
-
-		for i, machine := range machines {
-			// machine 10 gets an address in space one
-			// machine 11 gets addresses in spaces one and two
-			// machine 12 gets addresses in spaces one, two and three
-			st.machine(machine).setAddresses(addrs[:i+1]...)
-		}
-
 		s.runUntilPublish(c, st, "")
-
-		// All machines have the same address in this test for simplicity. The
-		// space three address is 0.0.0.3 giving us the host port of 0.0.0.3:4711
-		members := st.session.members.Get().([]replicaset.Member)
-		c.Assert(members, gc.HasLen, 3)
-		for i := 0; i < 3; i++ {
-			c.Assert(members[i].Address, gc.Equals, net.JoinHostPort(
-				fmt.Sprintf(ipVersion.formatHost, 1),
-				fmt.Sprint(mongoPort),
-			))
-		}
-	})
-}
-
-func (s *workerSuite) TestReturnsErrorWhenNoHASpaceAndMachinesWithMultiLocalAddr(c *gc.C) {
-	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, false)
-
-		for i, machine := range machines {
-			// machine 10 gets an address in space one
-			// machine 11 gets addresses in spaces one and two
-			// machine 12 gets addresses in spaces one, two and three
-			st.machine(machine).setAddresses(addrs[:i+1]...)
-		}
-
-		err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}).Wait()
-		errMsg := `computing desired peer group: machine "1[12]" has more than one non-local address and juju-ha-space is not set`
-		c.Check(err, gc.ErrorMatches, errMsg)
+		assertMemberAddresses(c, st, ipVersion.formatHost, 1)
 	})
 }
 
@@ -649,44 +626,125 @@ func (s *workerSuite) runUntilPublish(c *gc.C, st *fakeState, errMsg string) {
 	}
 }
 
-func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
-	logger.SetLogLevel(loggo.TRACE)
-	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		publishCh := make(chan [][]network.HostPort, 100)
+func (s *workerSuite) TestDetectsAndUsesHASpaceChangeIPv4(c *gc.C) {
+	s.doTestDetectsAndUsesHASpaceChange(c, testIPv4)
+}
 
-		count := 0
-		publish := func(apiServers [][]network.HostPort) error {
-			c.Logf("** publish call: count=%d", count)
-			publishCh <- apiServers
-			count++
-			if count <= 3 {
-				return fmt.Errorf("publish error")
-			}
-			return nil
-		}
-		st := NewFakeState()
-		InitState(c, st, 3, ipVersion)
+func (s *workerSuite) TestDetectsAndUsesHASpaceChangeIPv6(c *gc.C) {
+	s.doTestDetectsAndUsesHASpaceChange(c, testIPv6)
+}
 
-		w := s.newWorker(c, st, st.session, SetAPIHostPortsFunc(publish))
-		defer workertest.CleanKill(c, w)
+func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *gc.C, ipVersion TestIPVersion) {
+	st := haSpaceTestCommonSetup(c, ipVersion)
+	st.setHASpace("one")
 
-		retryInterval := initialRetryInterval
-		for i := 0; i < 4; i++ {
-			s.clock.WaitAdvance(retryInterval, coretesting.ShortWait, 1)
-			retryInterval = scaleRetry(retryInterval)
-			select {
-			case servers := <-publishCh:
-				AssertAPIHostPorts(c, servers, ExpectedAPIHostPorts(3, ipVersion))
-			case <-time.After(coretesting.LongWait):
-				c.Fatalf("timed out waiting for publish #%d", i)
-			}
-		}
-		select {
-		case <-publishCh:
-			c.Errorf("unexpected publish event")
-		case <-time.After(coretesting.ShortWait):
-		}
+	// Set up a hub and channel on which to receive notifications.
+	hub := pubsub.NewStructuredHub(nil)
+	event := make(chan apiserver.Details)
+	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
+		c.Check(err, jc.ErrorIsNil)
+		event <- data
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.hub = hub
+
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case <-event:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for event")
+	}
+	assertMemberAddresses(c, st, ipVersion.formatHost, 1)
+
+	// Changing the space does not change the API server details, so the
+	// change will not be broadcast via the hub.
+	// We watch the members collection, which *will* change.
+	memberWatcher := st.session.members.Watch()
+	mustNext(c, memberWatcher, "initial watch")
+
+	// HA space config change should invoke the worker.
+	// Replica set addresses should change to the new space.
+	st.setHASpace("three")
+	mustNext(c, memberWatcher, "waiting for members to be updated for space change")
+	assertMemberAddresses(c, st, ipVersion.formatHost, 3)
+}
+
+func assertMemberAddresses(c *gc.C, st *fakeState, addrTemplate string, addrDesignator int) {
+	members, _ := st.session.CurrentMembers()
+	obtained := make([]string, 3)
+	for i, m := range members {
+		obtained[i] = m.Address
+	}
+	sort.Strings(obtained)
+
+	expected := make([]string, 3)
+	for i := 0; i < 3; i++ {
+		expected[i] = net.JoinHostPort(fmt.Sprintf(addrTemplate, 10*addrDesignator+i), fmt.Sprint(mongoPort))
+	}
+
+	c.Check(obtained, gc.DeepEquals, expected)
+}
+
+func (s *workerSuite) TestReturnsErrorWhenNoHASpaceAndMachinesWithMultiLocalAddr(c *gc.C) {
+	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
+		st := haSpaceTestCommonSetup(c, ipVersion)
+		err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}).Wait()
+		errMsg := `computing desired peer group: machine "1[012]" has more than one non-local address and juju-ha-space is not set`
+		c.Check(err, gc.ErrorMatches, errMsg)
+	})
+}
+
+func (s *workerSuite) TestWorkerRetriesOnSetAPIHostPortsErrorIPv4(c *gc.C) {
+	s.doTestWorkerRetriesOnSetAPIHostPortsError(c, testIPv4)
+}
+
+func (s *workerSuite) TestWorkerRetriesOnSetAPIHostPortsErrorIPv6(c *gc.C) {
+	s.doTestWorkerRetriesOnSetAPIHostPortsError(c, testIPv6)
+}
+
+func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersion TestIPVersion) {
+	logger.SetLogLevel(loggo.TRACE)
+
+	publishCh := make(chan [][]network.HostPort, 10)
+	failedOnce := false
+	publish := func(apiServers [][]network.HostPort) error {
+		if !failedOnce {
+			failedOnce = true
+			return fmt.Errorf("publish error")
+		}
+		publishCh <- apiServers
+		return nil
+	}
+	st := NewFakeState()
+	InitState(c, st, 3, ipVersion)
+
+	w := s.newWorker(c, st, st.session, SetAPIHostPortsFunc(publish))
+	defer workertest.CleanKill(c, w)
+
+	retryInterval := initialRetryInterval
+	serversPublished := false
+	for i := 0; i < 2; i++ {
+		s.clock.WaitAdvance(retryInterval, coretesting.ShortWait, 1)
+		retryInterval = scaleRetry(retryInterval)
+		select {
+		case servers := <-publishCh:
+			AssertAPIHostPorts(c, servers, ExpectedAPIHostPorts(3, ipVersion))
+			serversPublished = true
+			break
+		default:
+		}
+	}
+	if !serversPublished {
+		c.Fatal("APIHostPorts were not published")
+	}
+
+	select {
+	case <-publishCh:
+		c.Errorf("unexpected publish event")
+	case <-time.After(coretesting.ShortWait):
+	}
 }
 
 // mustNext waits for w's value to be set and returns it.
