@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -151,7 +152,7 @@ func (manager *containerManager) CreateContainer(
 
 	metadata := map[string]string{
 		lxdclient.UserdataKey:      string(userData),
-		lxdclient.NetworkconfigKey: containerinit.CloudInitNetworkConfigDisabled,
+		lxdclient.NetworkconfigKey: cloudinit.CloudInitNetworkConfigDisabled,
 		// An extra piece of info to let people figure out where this
 		// thing came from.
 		"user.juju-model": manager.modelUUID,

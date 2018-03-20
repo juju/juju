@@ -16,6 +16,8 @@ import (
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
+
+	"github.com/juju/juju/network"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.
@@ -55,6 +57,7 @@ type CloudConfig interface {
 	RenderConfig
 	AdvancedPackagingConfig
 	HostnameConfig
+	NetworkingConfig
 }
 
 // SystemUpdateConfig is the interface for managing all system update options.
@@ -395,6 +398,12 @@ type UsersConfig interface {
 type HostnameConfig interface {
 	// ManageEtcHosts enables or disables management of /etc/hosts.
 	ManageEtcHosts(manage bool)
+}
+
+// NetworkingConfig is the interface for managing configuration of network
+type NetworkingConfig interface {
+	// AddNetworkConfig adds network config from interfaces to the container.
+	AddNetworkConfig(interfaces []network.InterfaceInfo) error
 }
 
 // New returns a new Config with no options set.

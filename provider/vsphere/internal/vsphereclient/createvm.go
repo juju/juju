@@ -5,9 +5,13 @@ package vsphereclient
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
+	"math/big"
 	"path"
+	"strconv"
+	"strings"
 	"time"
 
 	humanize "github.com/dustin/go-humanize"
@@ -23,6 +27,19 @@ import (
 )
 
 //go:generate go run ../../../../generate/filetoconst/filetoconst.go UbuntuOVF ubuntu.ovf ovf_ubuntu.go 2017 vsphereclient
+
+// NetworkDevice defines a single network device attached to a newly created VM.
+type NetworkDevice struct {
+	// Network is the name of the network the device should be connected to.
+	// If empty it will be connected to the default "VM Network" network.
+	Network string
+	// MAC is the hardware address of the network device. It has to be
+	// in the form of
+	MAC string
+}
+
+// That's a default network that's defined in OVF.
+const defaultNetwork = "VM Network"
 
 // CreateVirtualMachineParams contains the parameters required for creating
 // a new virtual machine.
@@ -70,14 +87,8 @@ type CreateVirtualMachineParams struct {
 	// Constraints contains the resource constraints for the virtual machine.
 	Constraints constraints.Value
 
-	// PrimaryNetwork, if set, is the name of the primary network to which
-	// the VM should be connected. If this is empty, the default will be
-	// used.
-	PrimaryNetwork string
-
-	// ExternalNetwork, if set, is the name of an additional "external"
-	// network to which the VM should be connected.
-	ExternalNetwork string
+	// Networks contain a list of network devices the VM should have.
+	NetworkDevices []NetworkDevice
 
 	// UpdateProgress is a function that should be called before/during
 	// long-running operations to provide a progress reporting.
@@ -149,11 +160,10 @@ func (c *Client) CreateVirtualMachine(
 	// doesn't already exist.
 	resourcePool := object.NewResourcePool(c.client.Client, *args.ComputeResource.ResourcePool)
 	taskWaiter := &taskWaiter{args.Clock, args.UpdateProgress, args.UpdateProgressInterval}
-	vmdkDatastorePath, releaseVMDK, err := c.ensureVMDK(ctx, args, datastore, datacenter, taskWaiter)
+	vmdkDatastorePath, err := c.prepareVMDK(ctx, args, datastore, datacenter, taskWaiter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer releaseVMDK()
 
 	// Import the VApp, creating a temporary VM. This is necessary to
 	// import the VMDK, which exists in the datastore as a not-a-disk
@@ -163,10 +173,8 @@ func (c *Client) CreateVirtualMachine(
 	if err != nil {
 		return nil, errors.Annotate(err, "creating import spec")
 	}
-	importSpec.ConfigSpec.Name += ".tmp"
-
 	args.UpdateProgress(fmt.Sprintf("creating VM %q", args.Name))
-	c.logger.Debugf("creating temporary VM in folder %s", vmFolder)
+	c.logger.Debugf("creating VM in folder %s", vmFolder)
 	c.logger.Tracef("import spec: %s", pretty.Sprint(importSpec))
 	lease, err := resourcePool.ImportVApp(ctx, importSpec, vmFolder, nil)
 	if err != nil {
@@ -179,22 +187,7 @@ func (c *Client) CreateVirtualMachine(
 	if err := lease.Complete(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
-	tempVM := object.NewVirtualMachine(c.client.Client, info.Entity)
-	defer func() {
-		if err := c.destroyVM(ctx, tempVM, taskWaiter); err != nil {
-			c.logger.Warningf("failed to delete temporary VM: %s", err)
-		}
-	}()
-
-	// Clone the temporary VM to import the VMDK, as mentioned above.
-	// After cloning the temporary VM, we must detach the original
-	// VMDK from the temporary VM to avoid deleting it when destroying
-	// the VM.
-	c.logger.Debugf("cloning VM")
-	vm, err := c.cloneVM(ctx, tempVM, args.Name, vmFolder, taskWaiter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	vm := object.NewVirtualMachine(c.client.Client, info.Entity)
 	defer func() {
 		if resultErr == nil {
 			return
@@ -203,10 +196,6 @@ func (c *Client) CreateVirtualMachine(
 			c.logger.Warningf("failed to delete VM: %s", err)
 		}
 	}()
-	if _, err := c.detachDisk(ctx, tempVM, taskWaiter); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	if args.Constraints.RootDisk != nil {
 		// The user specified a root disk, so extend the VM's
 		// disk before powering the VM on.
@@ -257,6 +246,7 @@ func (c *Client) extendVMRootDisk(
 			continue
 		}
 		newCapacityInKB := int64(sizeMB) * 1024
+		c.logger.Debugf("capacity capacity %+v %+v %+v", dev.CapacityInKB, newCapacityInKB, dev)
 		if dev.CapacityInKB >= newCapacityInKB {
 			// The root disk is already bigger than the
 			// user-specified size, so leave it alone.
@@ -288,31 +278,6 @@ func (c *Client) createImportSpec(
 		},
 	}
 
-	var networks []mo.Network
-	var dvportgroupConfig map[types.ManagedObjectReference]types.DVPortgroupConfigInfo
-	if args.PrimaryNetwork != "" || args.ExternalNetwork != "" {
-		// Fetch the networks available to the compute resource.
-		var err error
-		networks, dvportgroupConfig, err = c.computeResourceNetworks(ctx, args.ComputeResource)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if args.PrimaryNetwork != "" {
-			// The user has specified a network to use. The Ubuntu
-			// OVFs define a network called "VM Network"; map that
-			// to whatever the user specified.
-			network, err := findNetwork(networks, args.PrimaryNetwork)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			cisp.NetworkMapping = []types.OvfNetworkMapping{{
-				Name:    "VM Network",
-				Network: network.Reference(),
-			}}
-			c.logger.Debugf("VM configured to use network %q: %+v", args.PrimaryNetwork, network)
-		}
-	}
-
 	ovfManager := ovf.NewManager(c.client.Client)
 	resourcePool := object.NewReference(c.client.Client, *args.ComputeResource.ResourcePool)
 
@@ -339,7 +304,7 @@ func (c *Client) createImportSpec(
 			Reservation: &cpuPower,
 		}
 	}
-	if err := c.addRootDisk(s, args, datastore, vmdkDatastorePath); err != nil {
+	if err := c.addRootDisk(s, datastore, vmdkDatastorePath); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -350,23 +315,32 @@ func (c *Client) createImportSpec(
 		s.ExtraConfig = append(s.ExtraConfig, &types.OptionValue{Key: k, Value: v})
 	}
 
-	if args.ExternalNetwork != "" {
-		externalNetwork, err := findNetwork(networks, args.ExternalNetwork)
+	networks, dvportgroupConfig, err := c.computeResourceNetworks(ctx, args.ComputeResource)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for i, networkDevice := range args.NetworkDevices {
+		network := networkDevice.Network
+		if network == "" {
+			network = defaultNetwork
+		}
+
+		networkReference, err := findNetwork(networks, network)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		device, err := c.addNetworkDevice(ctx, s, externalNetwork, dvportgroupConfig)
+		device, err := c.addNetworkDevice(ctx, s, networkReference, networkDevice.MAC, dvportgroupConfig)
 		if err != nil {
-			return nil, errors.Annotate(err, "adding external network device")
+			return nil, errors.Annotatef(err, "adding network device %d - network %s", i, network)
 		}
-		c.logger.Debugf("external network device: %+v", device)
+		c.logger.Debugf("network device: %+v ", device)
 	}
 	return importSpec, nil
 }
 
 func (c *Client) addRootDisk(
 	s *types.VirtualMachineConfigSpec,
-	args CreateVirtualMachineParams,
 	diskDatastore *object.Datastore,
 	vmdkDatastorePath string,
 ) error {
@@ -436,6 +410,7 @@ func (c *Client) addNetworkDevice(
 	ctx context.Context,
 	spec *types.VirtualMachineConfigSpec,
 	network *mo.Network,
+	mac string,
 	dvportgroupConfig map[types.ManagedObjectReference]types.DVPortgroupConfigInfo,
 ) (*types.VirtualVmxnet3, error) {
 	var networkBacking types.BaseVirtualDeviceBackingInfo
@@ -469,6 +444,13 @@ func (c *Client) addNetworkDevice(
 	wakeOnLan := true
 	networkDevice.WakeOnLanEnabled = &wakeOnLan
 	networkDevice.Backing = networkBacking
+	if mac != "" {
+		if !VerifyMAC(mac) {
+			return nil, fmt.Errorf("Invalid MAC address: %q", mac)
+		}
+		networkDevice.AddressType = "Manual"
+		networkDevice.MacAddress = mac
+	}
 	networkDevice.Connectable = &types.VirtualDeviceConnectInfo{
 		StartConnected:    true,
 		AllowGuestControl: true,
@@ -478,6 +460,40 @@ func (c *Client) addNetworkDevice(
 		Device:    &networkDevice,
 	})
 	return &networkDevice, nil
+}
+
+// GenerateMAC generates a random hardware address that meets VMWare
+// requirements for MAC address: 00:50:56:XX:YY:ZZ where XX is between 00 and 3f.
+// https://pubs.vmware.com/vsphere-4-esx-vcenter/index.jsp?topic=/com.vmware.vsphere.server_configclassic.doc_41/esx_server_config/advanced_networking/c_setting_up_mac_addresses.html
+func GenerateMAC() (string, error) {
+	c, err := rand.Int(rand.Reader, big.NewInt(4194303))
+	if err != nil {
+		return "", err
+	}
+	r := c.Uint64()
+	return fmt.Sprintf("00:50:56:%.2x:%.2x:%.2x", (r>>16)&0xff, (r>>8)&0xff, r&0xff), nil
+}
+
+// VerifyMAC verifies that the MAC is valid for VMWare.
+func VerifyMAC(mac string) bool {
+	parts := strings.Split(mac, ":")
+	if len(parts) != 6 {
+		return false
+	}
+	if parts[0] != "00" || parts[1] != "50" || parts[2] != "56" {
+		return false
+	}
+	for i, part := range parts[3:] {
+		v, err := strconv.ParseUint(part, 16, 8)
+		if err != nil {
+			return false
+		}
+		if i == 0 && v > 0x3f {
+			// 4th byte must be <= 0x3f
+			return false
+		}
+	}
+	return true
 }
 
 func findNetwork(networks []mo.Network, name string) (*mo.Network, error) {

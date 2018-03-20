@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -175,7 +176,7 @@ func (manager *containerManager) CreateContainer(
 	startParams.Series = series
 	startParams.Network = networkConfig
 	startParams.UserDataFile = userDataFilename
-	startParams.NetworkConfigData = containerinit.CloudInitNetworkConfigDisabled
+	startParams.NetworkConfigData = cloudinit.CloudInitNetworkConfigDisabled
 	startParams.StatusCallback = callback
 
 	// If the Simplestream requested is anything but released, update
