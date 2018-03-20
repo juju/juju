@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	charm "gopkg.in/juju/charm.v6"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -332,6 +334,7 @@ type expectUpgradedData struct {
 func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*State) error, expect ...expectUpgradedData) {
 	// Two rounds to check idempotency.
 	for i := 0; i < 2; i++ {
+		c.Logf("Run: %d", i)
 		err := upgrade(s.state)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -2230,4 +2233,73 @@ func getHASpaceConfig(st *State, c *gc.C) string {
 	config, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	return config.JujuHASpace()
+}
+
+func (s *upgradesSuite) TestCreateMissingApplicationConfig(c *gc.C) {
+	// Setup models w/ applications that have setting configurations as if we've updated from <2.4-beta1 -> 2.4-beta1
+	// At least 2x models, one that was created before the update and one after (i.e. 1 missing the config and another that has that in place.)
+	// Ensure an update adds any missing applicationConfig entries.
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
+	defer settingsCloser()
+
+	model1 := s.makeModel(c, "model-old", coretesting.Attrs{})
+	defer model1.Close()
+	model2 := s.makeModel(c, "model-new", coretesting.Attrs{})
+	defer model2.Close()
+
+	chDir := testcharms.Repo.CharmDir("dummy")
+	chInfo := CharmInfo{
+		Charm:       chDir,
+		ID:          charm.MustParseURL(fmt.Sprintf("cs:xenial/%s-%d", chDir.Meta().Name, chDir.Revision())),
+		StoragePath: "dummy-1",
+		SHA256:      "dummy-1-sha256",
+	}
+	ch, err := s.state.AddCharm(chInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	app1, err := model1.AddApplication(AddApplicationArgs{Name: "dummy", Charm: ch})
+	c.Assert(err, jc.ErrorIsNil)
+	// This one will be left alone to model a 2.4-beta1 created app.
+	_, err = model1.AddApplication(AddApplicationArgs{Name: "dummy2", Charm: ch})
+	c.Assert(err, jc.ErrorIsNil)
+	app2, err := model2.AddApplication(AddApplicationArgs{Name: "dummy", Charm: ch})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remove any application config that has been added (to model a pre-2.4-beta1 collection)
+	err = settingsColl.Remove(bson.M{
+		"_id": fmt.Sprintf("%s:%s", model1.ModelUUID(), app1.applicationConfigKey()),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = settingsColl.Remove(bson.M{
+		"_id": fmt.Sprintf("%s:%s", model2.ModelUUID(), app2.applicationConfigKey()),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remove everything except the remaining application config.
+	_, err = settingsColl.RemoveAll(bson.M{
+		"_id": bson.M{"$not": bson.RegEx{"#application$", ""}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := []bson.M{{
+		"_id":        fmt.Sprintf("%s:a#dummy#application", model1.ModelUUID()),
+		"model-uuid": model1.ModelUUID(),
+		"settings":   bson.M{},
+	}, {
+		"_id":        fmt.Sprintf("%s:a#dummy2#application", model1.ModelUUID()),
+		"model-uuid": model1.ModelUUID(),
+		"settings":   bson.M{},
+	}, {
+		"_id":        fmt.Sprintf("%s:a#dummy#application", model2.ModelUUID()),
+		"model-uuid": model2.ModelUUID(),
+		"settings":   bson.M{},
+	}}
+
+	sort.Slice(expected, func(i, j int) bool {
+		return expected[i]["_id"].(string) < expected[j]["_id"].(string)
+	})
+
+	s.assertUpgradedData(c, CreateMissingApplicationConfig,
+		expectUpgradedData{settingsColl, expected})
 }

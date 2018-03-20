@@ -4,9 +4,13 @@
 package jujuctesting
 
 import (
+	"time"
+
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+
+	"github.com/juju/juju/core/application"
 )
 
 // ContextSuite is the base suite for testing jujuc.Context-related code.
@@ -23,6 +27,13 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 // NewInfo builds a ContextInfo with basic default data.
 func (s *ContextSuite) NewInfo() *ContextInfo {
 	var info ContextInfo
+
+	timestamp := time.Date(2200, time.November, 05, 15, 29, 12, 30, time.UTC)
+	gsStatus := application.GoalStateStatus{
+		Status: "active",
+		Since:  &timestamp,
+	}
+
 	info.Unit.Name = s.Unit
 	info.ConfigSettings = charm.Settings{
 		"empty":               nil,
@@ -31,10 +42,22 @@ func (s *ContextSuite) NewInfo() *ContextInfo {
 		"title":               "My Title",
 		"username":            "admin001",
 	}
-	info.GoalState        = "test-goal-state"
+	info.GoalState = application.GoalState{
+		Units: application.UnitsGoalState{
+			"mysql/0": gsStatus,
+		},
+		Relations: map[string]application.UnitsGoalState{
+			"db": application.UnitsGoalState{
+				"mysql/0": gsStatus,
+			},
+			"server": application.UnitsGoalState{
+				"wordpress/0": gsStatus,
+			},
+		},
+	}
 	info.AvailabilityZone = "us-east-1a"
-	info.PublicAddress    = "gimli.minecraft.testing.invalid"
-	info.PrivateAddress   = "192.168.0.99"
+	info.PublicAddress = "gimli.minecraft.testing.invalid"
+	info.PrivateAddress = "192.168.0.99"
 	return &info
 }
 

@@ -8,6 +8,7 @@ package openstack
 import (
 	"fmt"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -842,21 +843,25 @@ func identityClientVersion(authURL string) (int, error) {
 		// User explicitely did not provide any version, it is empty.
 		return -1, nil
 	}
-	// The last part of the path should be the version #.
+	// The last part of the path should be the version #, prefixed with a 'v' or 'V'
 	// Example: https://keystone.foo:443/v3/
-	versionNumStr := strings.TrimPrefix(strings.ToLower(url.Path), "/v")
-	versionNumStr = strings.TrimSuffix(versionNumStr, "/")
-	if versionNumStr == url.Path || versionNumStr == "" {
-		// If nothing was trimmed, version specification was malformed.
-		// If nothing was left after trim, version number is not provided and,
-		// hence, version specification was malformed.
+	// Example: https://sharedhost.foo:443/identity/v3/
+	urlpath := strings.ToLower(url.Path)
+	urlpath, tail := path.Split(urlpath)
+	if len(tail) == 0 && len(urlpath) > 2 {
+		// trailing /, remove it and split again
+		urlpath, tail = path.Split(strings.TrimRight(urlpath, "/"))
+	}
+	versionNumStr := strings.TrimPrefix(tail, "v")
+	logger.Tracef("authURL: %s", authURL)
+	major, _, err := version.ParseMajorMinor(versionNumStr)
+	if len(tail) < 2 || tail[0] != 'v' || err != nil {
+		// There must be a '/v' in the URL path.
 		// At this stage only '/Vxxx' and '/vxxx' are valid where xxx is major.minor version.
 		// Return 0 as this is the lowest invalid number according to openstack codebase:
 		// -1 is reserved and has special handling; 1, 2, 3, etc are valid identity client versions.
 		return 0, errors.NotValidf("version part of identity url %s", authURL)
 	}
-	logger.Tracef("authURL: %s", authURL)
-	major, _, err := version.ParseMajorMinor(versionNumStr)
 	return major, err
 }
 

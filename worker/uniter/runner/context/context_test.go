@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -225,6 +226,49 @@ func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
 	settings, err = ctx.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
+}
+
+func (s *InterfaceSuite) TestGoalState(c *gc.C) {
+
+	timestamp := time.Date(2200, time.November, 5, 0, 0, 0, 0, time.UTC)
+	mockUnitSince := func(inUnits application.UnitsGoalState) application.UnitsGoalState {
+		outUnits := application.UnitsGoalState{}
+		for name, gsStatus := range inUnits {
+			c.Assert(gsStatus.Since, gc.NotNil)
+			outUnits[name] = application.GoalStateStatus{
+				Status: gsStatus.Status,
+				Since:  &timestamp,
+			}
+		}
+		return outUnits
+	}
+
+	gsStatus := application.GoalStateStatus{
+		Status: "waiting",
+		Since:  &timestamp,
+	}
+	goalStateCheck := application.GoalState{
+		Units: application.UnitsGoalState{
+			"u/0": gsStatus,
+		},
+		Relations: map[string]application.UnitsGoalState{
+			"db": application.UnitsGoalState{
+				"u/0": gsStatus,
+			},
+		},
+	}
+
+	ctx := s.GetContext(c, -1, "")
+	goalState, err := ctx.GoalState()
+
+	// Mock status Since string
+	goalState.Units = mockUnitSince(goalState.Units)
+	for relationsNames, relationUnits := range goalState.Relations {
+		goalState.Relations[relationsNames] = mockUnitSince(relationUnits)
+	}
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(goalState, gc.DeepEquals, &goalStateCheck)
 }
 
 // TestNonActionCallsToActionMethodsFail does exactly what its name says:

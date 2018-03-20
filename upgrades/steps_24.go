@@ -20,5 +20,12 @@ func stateStepsFor24() []Step {
 				return context.State().CopyMongoSpaceToHASpaceConfig()
 			},
 		},
+		&upgradeStep{
+			description: "create empty application settings for all applications",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().CreateMissingApplicationConfig()
+			},
+		},
 	}
 }

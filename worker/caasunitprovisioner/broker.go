@@ -10,6 +10,7 @@ import (
 )
 
 type ContainerBroker interface {
+	Provider() caas.ContainerEnvironProvider
 	EnsureUnit(appName, unitName string, spec *caas.PodSpec) error
 	DeleteUnit(unitName string) error
 	WatchUnits(appName string) (watcher.NotifyWatcher, error)
@@ -19,6 +20,7 @@ type ContainerBroker interface {
 }
 
 type ServiceBroker interface {
+	Provider() caas.ContainerEnvironProvider
 	EnsureService(appName string, unitSpec *caas.PodSpec, numUnits int, config application.ConfigAttributes) error
 	Service(appName string) (*caas.Service, error)
 	DeleteService(appName string) error

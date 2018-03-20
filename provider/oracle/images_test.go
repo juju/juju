@@ -6,6 +6,7 @@ package oracle_test
 import (
 	"errors"
 
+	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
@@ -14,7 +15,9 @@ import (
 	oracletesting "github.com/juju/juju/provider/oracle/testing"
 )
 
-type imageSuite struct{}
+type imageSuite struct {
+	gitjujutesting.IsolationSuite
+}
 
 var _ = gc.Suite(&imageSuite{})
 

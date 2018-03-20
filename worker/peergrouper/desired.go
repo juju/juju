@@ -156,10 +156,10 @@ func desiredPeerGroup(info *peerGroupInfo) (map[string]*replicaset.Member, map[s
 	logger.Debugf(info.getLogMessage())
 
 	peerChanges := peerGroupChanges{
-		isChanged:                   false,
-		machineVoting:               map[string]bool{},
-		addrs:                       map[string]string{},
-		members:                     map[string]*replicaset.Member{},
+		isChanged:     false,
+		machineVoting: map[string]bool{},
+		addrs:         map[string]string{},
+		members:       map[string]*replicaset.Member{},
 	}
 
 	// We may find extra peer group members if the machines have been removed

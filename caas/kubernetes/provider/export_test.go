@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	MakeUnitSpec = makeUnitSpec
-	OperatorPod  = operatorPod
+	MakeUnitSpec    = makeUnitSpec
+	ParseK8sPodSpec = parseK8sPodSpec
+	OperatorPod     = operatorPod
 )
 
 func PodSpec(u *unitSpec) v1.PodSpec {

@@ -834,3 +834,29 @@ type EntityString struct {
 type SetPodSpecParams struct {
 	Specs []EntityString `json:"specs"`
 }
+
+// GoalStateResults holds the results of GoalStates API call
+type GoalStateResults struct {
+	Results []GoalStateResult `json:"results"`
+}
+
+// GoalStateResult the result of GoalStates per entity.
+type GoalStateResult struct {
+	Result *GoalState `json:"result"`
+	Error  *Error     `json:"error"`
+}
+
+// GoalStateStatus goal-state at unit level
+type GoalStateStatus struct {
+	Status string     `json:"status"`
+	Since  *time.Time `json:"since"`
+}
+
+// UnitsGoalState collection of GoalStatesStatus with unit name
+type UnitsGoalState map[string]GoalStateStatus
+
+// GoalState goal-state at application level, stores Units and Units-Relations
+type GoalState struct {
+	Units     UnitsGoalState            `json:"units"`
+	Relations map[string]UnitsGoalState `json:"relations"`
+}

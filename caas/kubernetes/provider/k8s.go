@@ -90,6 +90,11 @@ func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 	}, nil
 }
 
+// Provider is part of the Broker interface.
+func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
+	return providerInstance
+}
+
 // EnsureNamespace ensures this broker's namespace is created.
 func (k *kubernetesClient) EnsureNamespace() error {
 	ns := &v1.Namespace{ObjectMeta: v1.ObjectMeta{Name: k.namespace}}
@@ -794,11 +799,12 @@ pod:
   containers:
   {{- range .Containers }}
   - name: {{.Name}}
-    image: {{.ImageName}}
+    image: {{.Image}}
     {{if .Ports}}
     ports:
     {{- range .Ports }}
         - containerPort: {{.ContainerPort}}
+          {{if .Name}}name: {{.Name}}{{end}}
           {{if .Protocol}}protocol: {{.Protocol}}{{end}}
     {{- end}}
     {{end}}
@@ -813,6 +819,7 @@ pod:
 `[1:]
 
 func makeUnitSpec(podSpec *caas.PodSpec) (*unitSpec, error) {
+	// Fill out the easy bits using a template.
 	tmpl := template.Must(template.New("").Parse(defaultPodTemplate))
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, podSpec); err != nil {
@@ -824,6 +831,24 @@ func makeUnitSpec(podSpec *caas.PodSpec) (*unitSpec, error) {
 	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(unitSpecString), len(unitSpecString))
 	if err := decoder.Decode(&unitSpec); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	// Now fill in the hard bits progamatically.
+	for i, c := range podSpec.Containers {
+		if c.ProviderContainer == nil {
+			continue
+		}
+		spec, ok := c.ProviderContainer.(*K8sContainerSpec)
+		if !ok {
+			return nil, errors.Errorf("unexpected kubernetes container spec type %T", c.ProviderContainer)
+		}
+		unitSpec.Pod.Containers[i].ImagePullPolicy = spec.ImagePullPolicy
+		if spec.LivenessProbe != nil {
+			unitSpec.Pod.Containers[i].LivenessProbe = spec.LivenessProbe
+		}
+		if spec.ReadinessProbe != nil {
+			unitSpec.Pod.Containers[i].ReadinessProbe = spec.ReadinessProbe
+		}
 	}
 	return &unitSpec, nil
 }
