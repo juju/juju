@@ -226,6 +226,7 @@ func (w *pgWorker) loop() error {
 			// Continuing is OK because subsequent invocations of the loop will
 			// pick up the most recent config from state anyway.
 			if len(w.machineTrackers) == 0 {
+				logger.Tracef("no controller information, ignoring config change")
 				continue
 			}
 		case <-updateChan:

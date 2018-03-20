@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/pubsub/apiserver"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/workertest"
+	"sort"
+	"strconv"
 )
 
 type TestIPVersion struct {
@@ -537,9 +539,7 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	}
 }
 
-func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, addSpaces bool) (
-	*fakeState, []string, []network.Address,
-) {
+func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion) *fakeState {
 	st := NewFakeState()
 	InitState(c, st, 3, ipVersion)
 
@@ -548,37 +548,41 @@ func mongoSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, addSpaces bool)
 		fmt.Sprintf(ipVersion.formatHost, 2),
 		fmt.Sprintf(ipVersion.formatHost, 3),
 	)
-	if addSpaces {
-		addrs[0].SpaceName = "one"
-		addrs[1].SpaceName = "two"
-		addrs[2].SpaceName = "three"
-	}
 	for i := range addrs {
 		addrs[i].Scope = network.ScopeCloudLocal
 	}
 
-	machines := []string{"10", "11", "12"}
-	for _, machine := range machines {
-		st.machine(machine).SetHasVote(true)
-		st.machine(machine).setWantsVote(true)
+	spaces := []string{"one", "two", "three"}
+	machines := []int{10, 11, 12}
+	for _, id := range machines {
+		machine := st.machine(strconv.Itoa(id))
+		machine.SetHasVote(true)
+		machine.setWantsVote(true)
+
+		// Each machine gets 3 addresses in 3 different spaces.
+		// Space "one" address on machine 10 ends with "10"
+		// Space "two" address ends with "11"
+		// Space "three" address ends with "12"
+		// Space "one" address on machine 20 ends with "20"
+		// Space "two" address ends with "21"
+		// ...
+		addrs := make([]network.Address, 3)
+		for i, name := range spaces {
+			addr := network.NewAddressOnSpace(name, fmt.Sprintf(ipVersion.formatHost, i*10+id))
+			addr.Scope = network.ScopeCloudLocal
+			addrs[i] = addr
+		}
+		machine.setAddresses(addrs...)
 	}
 
 	st.session.Set(mkMembers("0v 1v 2v", ipVersion))
-	return st, machines, addrs
+	return st
 }
 
 func (s *workerSuite) TestUsesConfiguredHASpace(c *gc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, true)
+		st := haSpaceTestCommonSetup(c, ipVersion)
 		st.setHASpace("one")
-
-		for i, machine := range machines {
-			// machine 10 gets an address in space one
-			// machine 11 gets addresses in spaces one and two
-			// machine 12 gets addresses in spaces one, two and three
-			st.machine(machine).setAddresses(addrs[:i+1]...)
-		}
-
 		s.runUntilPublish(c, st, "")
 		assertMemberAddresses(c, st, ipVersion.formatHost, 1)
 	})
@@ -615,21 +619,16 @@ func (s *workerSuite) runUntilPublish(c *gc.C, st *fakeState, errMsg string) {
 	}
 }
 
-func (s *workerSuite) doTestDetectsAndUsesHASpaceChangePv4(c *gc.C) {
+func (s *workerSuite) TestDetectsAndUsesHASpaceChangeIPv4(c *gc.C) {
 	s.doTestDetectsAndUsesHASpaceChange(c, testIPv4)
 }
 
-func (s *workerSuite) doTestDetectsAndUsesHASpaceChangePv6(c *gc.C) {
+func (s *workerSuite) TestDetectsAndUsesHASpaceChangeIPv6(c *gc.C) {
 	s.doTestDetectsAndUsesHASpaceChange(c, testIPv6)
 }
 
 func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *gc.C, ipVersion TestIPVersion) {
-	st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, true)
-
-	// All the machines have an address in each of the three spaces
-	for _, machine := range machines {
-		st.machine(machine).setAddresses(addrs...)
-	}
+	st := haSpaceTestCommonSetup(c, ipVersion)
 	st.setHASpace("one")
 
 	// Set up a hub and channel on which to receive notifications.
@@ -665,30 +664,27 @@ func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *gc.C, ipVersion TestI
 	assertMemberAddresses(c, st, ipVersion.formatHost, 3)
 }
 
-// All machines have the same address in this test for simplicity.
-// The space three address is 0.0.0.3 giving us the host port of 0.0.0.3:4711.
 func assertMemberAddresses(c *gc.C, st *fakeState, addrTemplate string, addrDesignator int) {
 	members, _ := st.session.CurrentMembers()
-	c.Assert(members, gc.HasLen, 3)
-	for i := 0; i < 3; i++ {
-		c.Assert(members[i].Address, gc.Equals,
-			net.JoinHostPort(fmt.Sprintf(addrTemplate, addrDesignator), fmt.Sprint(mongoPort)))
+	obtained := make([]string, 3)
+	for i, m := range members {
+		obtained[i] = m.Address
 	}
+	sort.Strings(obtained)
+
+	expected := make([]string, 3)
+	for i := 0; i < 3; i++ {
+		expected[i] = net.JoinHostPort(fmt.Sprintf(addrTemplate, 10*addrDesignator+i), fmt.Sprint(mongoPort))
+	}
+
+	c.Check(obtained, gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) TestReturnsErrorWhenNoHASpaceAndMachinesWithMultiLocalAddr(c *gc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st, machines, addrs := mongoSpaceTestCommonSetup(c, ipVersion, false)
-
-		for i, machine := range machines {
-			// machine 10 gets an address in space one
-			// machine 11 gets addresses in spaces one and two
-			// machine 12 gets addresses in spaces one, two and three
-			st.machine(machine).setAddresses(addrs[:i+1]...)
-		}
-
+		st := haSpaceTestCommonSetup(c, ipVersion)
 		err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}).Wait()
-		errMsg := `computing desired peer group: machine "1[12]" has more than one non-local address and juju-ha-space is not set`
+		errMsg := `computing desired peer group: machine "1[012]" has more than one non-local address and juju-ha-space is not set`
 		c.Check(err, gc.ErrorMatches, errMsg)
 	})
 }
@@ -704,7 +700,7 @@ func (s *workerSuite) TestWorkerRetriesOnSetAPIHostPortsErrorIPv6(c *gc.C) {
 func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersion TestIPVersion) {
 	logger.SetLogLevel(loggo.TRACE)
 
-	publishCh := make(chan [][]network.HostPort, 100)
+	publishCh := make(chan [][]network.HostPort, 10)
 	failedOnce := false
 	publish := func(apiServers [][]network.HostPort) error {
 		if !failedOnce {
@@ -722,7 +718,7 @@ func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersi
 
 	retryInterval := initialRetryInterval
 	serversPublished := false
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		s.clock.WaitAdvance(retryInterval, coretesting.ShortWait, 1)
 		retryInterval = scaleRetry(retryInterval)
 		select {
