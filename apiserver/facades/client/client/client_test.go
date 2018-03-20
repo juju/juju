@@ -1378,8 +1378,8 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 		url:        "cs:no-such",
 		resolveErr: `cannot resolve URL "cs:no-such": charm or bundle not found`,
 	}, {
-		about:    "invalid charm name",
-		url:      "cs:",
+		about: "invalid charm name",
+		url:   "cs:",
 		// go-1.9 replaces 'cs:' with 'cs://', but not go-1.10
 		parseErr: `cannot parse URL "cs:/*": name "" not valid`,
 	}, {
