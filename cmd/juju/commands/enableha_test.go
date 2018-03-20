@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -58,8 +59,9 @@ func (f *fakeHAClient) Close() error {
 	return nil
 }
 
-func (f *fakeHAClient) EnableHA(numControllers int, cons constraints.Value, placement []string) (params.ControllersChanges, error) {
-
+func (f *fakeHAClient) EnableHA(numControllers int, cons constraints.Value, placement []string) (
+	params.ControllersChanges, error,
+) {
 	f.numControllers = numControllers
 	f.cons = cons
 	f.placement = placement
@@ -234,13 +236,20 @@ func (s *EnableHASuite) TestEnableHADefaultsTo0(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestEnableHAEndToEnd(c *gc.C) {
-	s.Factory.MakeMachine(c, &factory.MachineParams{
+	m := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
+	err := m.SetMachineAddresses(
+		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+		network.NewScopedAddress("cloud-local0.internal", network.ScopeCloudLocal),
+		network.NewScopedAddress("fc00::1", network.ScopePublic),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	ctx, err := cmdtesting.RunCommand(c, newEnableHACommand(), "-n", "3")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Machine 0 is demoted because it hasn't reported its presence
+	// Machine 0 is demoted because it has not reported its presence.
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
 		"adding machines: 1, 2, 3\n"+
 			"demoting machines: 0\n\n")
@@ -261,8 +270,8 @@ converting machines: 1, 2
 }
 
 func (s *EnableHASuite) TestEnableHADisallowsSeries(c *gc.C) {
-	// We don't allow --series as an argument. This test ensures it is not
-	// inadvertantly added back.
+	// We do not allow --series as an argument. This test ensures it is not
+	// inadvertently added back.
 	ctx, err := s.runEnableHA(c, "-n", "0", "--series", "xenian")
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --series")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")

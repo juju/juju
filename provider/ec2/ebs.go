@@ -42,12 +42,19 @@ const (
 	// Specifies whether the volume should be encrypted.
 	EBS_Encrypted = "encrypted"
 
-	volumeTypeMagnetic        = "magnetic"         // standard
-	volumeTypeSSD             = "ssd"              // gp2
-	volumeTypeProvisionedIops = "provisioned-iops" // io1
-	volumeTypeStandard        = "standard"
-	volumeTypeGP2             = "gp2"
-	volumeTypeIO1             = "io1"
+	// Volume Aliases
+	volumeAliasMagnetic        = "magnetic"         // standard
+	volumeAliasOptimizedHDD    = "optimized-hdd"    // sc1
+	volumeAliasColdStorage     = "cold-storage"     // sc1
+	volumeAliasSSD             = "ssd"              // gp2
+	volumeAliasProvisionedIops = "provisioned-iops" // io1
+
+	// Volume types
+	volumeTypeStandard = "standard"
+	volumeTypeGP2      = "gp2"
+	volumeTypeIO1      = "io1"
+	volumeTypeST1      = "st1"
+	volumeTypeSC1      = "sc1"
 
 	rootDiskDeviceName = "/dev/sda1"
 
@@ -110,6 +117,18 @@ const (
 	// volumes. We take the minimum of volumeSize*maxProvisionedIopsSizeRatio and
 	// maxProvisionedIops.
 	maxProvisionedIops = 20000
+
+	// minSt1VolumeSizeGiB is the minimum volume size for st1 volume instances.
+	minSt1VolumeSizeGiB = 500
+
+	// maxSt1VolumeSizeGiB is the maximum volume size for st1 volume instances.
+	maxSt1VolumeSizeGiB = 16 * 1024
+
+	// minSc1VolumeSizeGiB is the minimum volume size for sc1 volume instances.
+	minSc1VolumeSizeGiB = 500
+
+	// maxSc1VolumeSizeGiB is the maximum volume size for sc1 volume instances.
+	maxSc1VolumeSizeGiB = 16 * 1024
 )
 
 const (
@@ -146,12 +165,16 @@ var _ storage.Provider = (*ebsProvider)(nil)
 
 var ebsConfigFields = schema.Fields{
 	EBS_VolumeType: schema.OneOf(
-		schema.Const(volumeTypeMagnetic),
-		schema.Const(volumeTypeSSD),
-		schema.Const(volumeTypeProvisionedIops),
+		schema.Const(volumeAliasMagnetic),
+		schema.Const(volumeAliasOptimizedHDD),
+		schema.Const(volumeAliasColdStorage),
+		schema.Const(volumeAliasSSD),
+		schema.Const(volumeAliasProvisionedIops),
 		schema.Const(volumeTypeStandard),
 		schema.Const(volumeTypeGP2),
 		schema.Const(volumeTypeIO1),
+		schema.Const(volumeTypeST1),
+		schema.Const(volumeTypeSC1),
 	),
 	EBS_IOPS:      schema.ForceInt(),
 	EBS_Encrypted: schema.Bool(),
@@ -160,7 +183,7 @@ var ebsConfigFields = schema.Fields{
 var ebsConfigChecker = schema.FieldMap(
 	ebsConfigFields,
 	schema.Defaults{
-		EBS_VolumeType: volumeTypeMagnetic,
+		EBS_VolumeType: volumeAliasSSD,
 		EBS_IOPS:       schema.Omit,
 		EBS_Encrypted:  false,
 	},
@@ -186,11 +209,15 @@ func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
 		encrypted:  coerced[EBS_Encrypted].(bool),
 	}
 	switch ebsConfig.volumeType {
-	case volumeTypeMagnetic:
+	case volumeAliasMagnetic:
 		ebsConfig.volumeType = volumeTypeStandard
-	case volumeTypeSSD:
+	case volumeAliasColdStorage:
+		ebsConfig.volumeType = volumeTypeSC1
+	case volumeAliasOptimizedHDD:
+		ebsConfig.volumeType = volumeTypeST1
+	case volumeAliasSSD:
 		ebsConfig.volumeType = volumeTypeGP2
-	case volumeTypeProvisionedIops:
+	case volumeAliasProvisionedIops:
 		ebsConfig.volumeType = volumeTypeIO1
 	}
 	if ebsConfig.iops > 0 && ebsConfig.volumeType != volumeTypeIO1 {
@@ -230,7 +257,7 @@ func (*ebsProvider) Releasable() bool {
 // DefaultPools is defined on the Provider interface.
 func (e *ebsProvider) DefaultPools() []*storage.Config {
 	ssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, map[string]interface{}{
-		EBS_VolumeType: volumeTypeSSD,
+		EBS_VolumeType: volumeAliasSSD,
 	})
 	return []*storage.Config{ssdPool}
 }
@@ -637,6 +664,12 @@ func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 	case volumeTypeIO1:
 		minVolumeSize = minProvisionedIopsVolumeSizeGiB
 		maxVolumeSize = maxProvisionedIopsVolumeSizeGiB
+	case volumeTypeST1:
+		minVolumeSize = minSt1VolumeSizeGiB
+		maxVolumeSize = maxSt1VolumeSizeGiB
+	case volumeTypeSC1:
+		minVolumeSize = minSc1VolumeSizeGiB
+		maxVolumeSize = maxSc1VolumeSizeGiB
 	}
 	if vol.VolumeSize < minVolumeSize {
 		return errors.Errorf(

@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/network"
 )
 
@@ -26,8 +27,8 @@ type RestrictedContext struct{}
 func (*RestrictedContext) ConfigSettings() (charm.Settings, error) { return nil, ErrRestrictedContext }
 
 // GoalState implements hooks.Context.
-func (*RestrictedContext) GoalState() (string, error) {
-	return "", ErrRestrictedContext
+func (*RestrictedContext) GoalState() (*application.GoalState, error) {
+	return &application.GoalState{}, ErrRestrictedContext
 }
 
 // UnitStatus implements hooks.Context.

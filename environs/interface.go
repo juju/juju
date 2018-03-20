@@ -228,6 +228,18 @@ type ConfigGetter interface {
 	Config() *config.Config
 }
 
+// CloudDestroyer provides the API to cleanup cloud resources.
+type CloudDestroyer interface {
+	// Destroy shuts down all known machines and destroys the
+	// rest of the environment. Note that on some providers,
+	// very recently started instances may not be destroyed
+	// because they are not yet visible.
+	//
+	// When Destroy has been called, any Environ referring to the
+	// same remote environment may become invalid.
+	Destroy() error
+}
+
 // An Environ represents a Juju environment.
 //
 // Due to the limitations of some providers (for example ec2), the
@@ -247,6 +259,9 @@ type Environ interface {
 	// StorageProviders returned from Environ.StorageProvider will
 	// be scoped specifically to that Environ.
 	storage.ProviderRegistry
+
+	// CloudDestroyer provides the API to cleanup cloud resources.
+	CloudDestroyer
 
 	// PrepareForBootstrap prepares an environment for bootstrapping.
 	//
@@ -324,15 +339,6 @@ type Environ interface {
 	// If it can be determined that the environment has not been bootstrapped,
 	// then ErrNotBootstrapped should be returned instead.
 	ControllerInstances(controllerUUID string) ([]instance.Id, error)
-
-	// Destroy shuts down all known machines and destroys the
-	// rest of the environment. Note that on some providers,
-	// very recently started instances may not be destroyed
-	// because they are not yet visible.
-	//
-	// When Destroy has been called, any Environ referring to the
-	// same remote environment may become invalid.
-	Destroy() error
 
 	// DestroyController is similar to Destroy() in that it destroys
 	// the model, which in this case will be the controller model.

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/caasagent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -55,10 +56,13 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 	if !ok {
 		return errors.Errorf("expected *broker.Tracker, got %T", in)
 	}
-	outBroker, ok := out.(*caas.Broker)
-	if !ok {
-		return errors.Errorf("expected *caas.Broker, got %T", out)
+	switch result := out.(type) {
+	case *caas.Broker:
+		*result = inTracker.Broker()
+	case *environs.CloudDestroyer:
+		*result = inTracker.Broker()
+	default:
+		return errors.Errorf("expected *caas.Broker or *environs.CloudDestroyer, got %T", out)
 	}
-	*outBroker = inTracker.Broker()
 	return nil
 }

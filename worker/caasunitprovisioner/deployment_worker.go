@@ -9,7 +9,6 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -135,7 +134,7 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		spec, err := caas.ParsePodSpec(specStr)
+		spec, err := w.broker.Provider().ParsePodSpec(specStr)
 		if err != nil {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}

@@ -199,11 +199,8 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		return nil, errors.Trace(err)
 	}
 
-	// // Only IAAS models support storage and meter status (for now).
-	var (
-		storageAPI *StorageAPI
-		msAPI      *meterstatus.MeterStatusAPI
-	)
+	// // Only IAAS models support storage (for now).
+	var storageAPI *StorageAPI
 	if m.Type() == state.ModelTypeIAAS {
 		ss, err := getStorageState(st)
 		if err != nil {
@@ -213,10 +210,10 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		if err != nil {
 			return nil, err
 		}
-		msAPI, err = meterstatus.NewMeterStatusAPI(st, resources, authorizer)
-		if err != nil {
-			return nil, errors.Annotate(err, "could not create meter status API handler")
-		}
+	}
+	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Annotate(err, "could not create meter status API handler")
 	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
@@ -2421,6 +2418,20 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 		}
 		return false
 	}
+
+	cfg, err := u.m.ModelConfig()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	provider, err := environs.Provider(cfg.Type())
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	cassProvider, ok := provider.(caas.ContainerEnvironProvider)
+	if !ok {
+		return params.ErrorResults{}, errors.NotValidf("container environ provider %T", provider)
+	}
+
 	for i, arg := range args.Specs {
 		tag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
@@ -2431,7 +2442,7 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := caas.ParsePodSpec(arg.Value); err != nil {
+		if _, err := cassProvider.ParsePodSpec(arg.Value); err != nil {
 			results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid pod spec"))
 			continue
 		}
@@ -2447,33 +2458,7 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 	return results, nil
 }
 
-// GoalStates returns information of charm units and relations.
-func (u *UniterAPI) GoalStates(args params.Entities) (string, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return "", err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		if !canAccess(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		// TODO (agprado): get units and relations information from
-
-		result.Results[0].Result = "Hello World I'll be a yaml"
-	}
-	return result.Results[0].Result, nil
-}
-
-// GetCloudSpec returns the cloud spec used by the model in which the
+// CloudSpec returns the cloud spec used by the model in which the
 // authenticated unit or application resides.
 // A check is made beforehand to ensure that the request is made by an entity
 // that has been granted the appropriate trust.
@@ -2487,4 +2472,125 @@ func (u *UniterAPI) CloudSpec() (params.CloudSpecResult, error) {
 	}
 
 	return u.cloudSpec.GetCloudSpec(u.m.Tag().(names.ModelTag)), nil
+}
+
+// GoalStates returns information of charm units and relations.
+func (u *UniterAPI) GoalStates(args params.Entities) (params.GoalStateResults, error) {
+	result := params.GoalStateResults{
+		Results: make([]params.GoalStateResult, len(args.Entities)),
+	}
+
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.GoalStateResults{}, err
+	}
+
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		application, err := unit.Application()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+		} else {
+			result.Results[i].Result, err = u.goalStateResult(application)
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+			}
+		}
+	}
+	return result, nil
+}
+
+// goalStateResult creates the structure with an application units and unit relations.
+func (u *UniterAPI) goalStateResult(application *state.Application) (*params.GoalState, error) {
+	gs := params.GoalState{}
+
+	var err error
+	gs.Units, err = u.goalStateUnits(application)
+	if err != nil {
+		return nil, err
+	}
+	allRelations, err := application.Relations()
+	if err != nil {
+		return nil, err
+	}
+	if allRelations != nil {
+		gs.Relations, err = u.goalStateRelations(allRelations)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &gs, nil
+}
+
+// goalStateRelations creates the structure with all the relations between endpoints in an application.
+func (u *UniterAPI) goalStateRelations(allRelations []*state.Relation) (map[string]params.UnitsGoalState, error) {
+
+	result := map[string]params.UnitsGoalState{}
+
+	for _, r := range allRelations {
+
+		endPoints := r.Endpoints()
+		for _, e := range endPoints {
+			if e.Relation.Role == "peer" {
+				continue
+			}
+			application, err := u.st.Application(e.ApplicationName)
+			if err != nil {
+				return nil, err
+			}
+			units, err := u.goalStateUnits(application)
+			if err != nil {
+				return nil, err
+			}
+			if len(units) == 0 {
+				continue
+			}
+			if result[e.Name] == nil {
+				result[e.Name] = params.UnitsGoalState{}
+			}
+			relation := result[e.Name]
+			for unitName, unitGS := range units {
+				relation[unitName] = unitGS
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// goalStateUnits loops through all application units, and stores the
+// application GoalStateStatus in UnitsGoalState.
+func (u *UniterAPI) goalStateUnits(application *state.Application) (params.UnitsGoalState, error) {
+
+	allUnits, err := application.AllUnits()
+	if err != nil {
+		return nil, err
+	}
+
+	unitsGoalState := params.UnitsGoalState{}
+	for _, u := range allUnits {
+		unit := params.GoalStateStatus{}
+		statusInfo, err := u.Status()
+		if err != nil {
+			return nil, errors.Errorf("Unit Status not accessible %q", err)
+		}
+		unit.Status = statusInfo.Status.String()
+		unit.Since = statusInfo.Since
+		unitsGoalState[u.Name()] = unit
+	}
+
+	return unitsGoalState, nil
 }

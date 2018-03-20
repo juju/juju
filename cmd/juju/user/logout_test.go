@@ -40,7 +40,7 @@ func (s *LogoutCommandSuite) TestInit(c *gc.C) {
 		errorString string
 	}{
 		{
-		// no args is fine
+			// no args is fine
 		}, {
 			args:        []string{"foobar"},
 			errorString: `unrecognized args: \["foobar"\]`,

@@ -108,8 +108,8 @@ rebuild-dependencies.tsv: godeps
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
 install-dependencies:
-	@echo Installing go-1.9 snap
-	@sudo snap install go --channel=1.9/stable --classic
+	@echo Installing go-1.10 snap
+	@sudo snap install go --channel=1.10/stable --classic
 	@echo Adding juju PPA for mongodb
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
@@ -142,6 +142,7 @@ check-deps:
 DOCKER_USERNAME?=jujusolutions
 JUJUD_STAGING_DIR=/tmp/jujud-operator
 JUJUD_BIN_DIR=${GOPATH}/bin
+OPERATOR_IMAGE_TAG = $(shell jujud version | cut -d- -f1,2)
 
 operator-image: install caas/jujud-operator-dockerfile caas/jujud-operator-requirements.txt
 	rm -rf ${JUJUD_STAGING_DIR}
@@ -149,7 +150,7 @@ operator-image: install caas/jujud-operator-dockerfile caas/jujud-operator-requi
 	cp ${JUJUD_BIN_DIR}/jujud ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
-	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${DOCKER_USERNAME}/caas-jujud-operator ${JUJUD_STAGING_DIR}
+	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${DOCKER_USERNAME}/caas-jujud-operator:${OPERATOR_IMAGE_TAG} ${JUJUD_STAGING_DIR}
 
 push-operator-image: operator-image
 	docker push ${DOCKER_USERNAME}/caas-jujud-operator

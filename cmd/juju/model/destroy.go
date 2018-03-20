@@ -24,6 +24,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 )
 
 const (
@@ -50,7 +51,6 @@ type destroyCommand struct {
 	// sleepFunc is used when calling the timed function to get model status updates.
 	sleepFunc func(time.Duration)
 
-	envName        string
 	assumeYes      bool
 	destroyStorage bool
 	releaseStorage bool
@@ -80,9 +80,15 @@ Examples:
 See also:
     destroy-controller
 `
-var destroyEnvMsg = `
+var destroyIAASModelMsg = `
 WARNING! This command will destroy the %q model.
 This includes all machines, applications, data and other resources.
+
+Continue [y/N]? `[1:]
+
+var destroyCAASModelMsg = `
+WARNING! This command will destroy the %q model.
+This includes all containers, applications, data and other resources.
 
 Continue [y/N]? `[1:]
 
@@ -107,7 +113,7 @@ func (c *destroyCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "destroy-model",
 		Args:    "[<controller name>:]<model name>",
-		Purpose: "Terminate all machines and resources for a non-controller model.",
+		Purpose: "Terminate all machines/containers and resources for a non-controller model.",
 		Doc:     destroyDoc,
 	}
 }
@@ -191,7 +197,15 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if !c.assumeYes {
-		fmt.Fprintf(ctx.Stdout, destroyEnvMsg, modelName)
+		modelType, err := c.ModelType()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		msg := destroyIAASModelMsg
+		if modelType == model.CAAS {
+			msg = destroyCAASModelMsg
+		}
+		fmt.Fprintf(ctx.Stdout, msg, modelName)
 
 		if err := jujucmd.UserConfirmYes(ctx); err != nil {
 			return errors.Annotate(err, "model destruction")

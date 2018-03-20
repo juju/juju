@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/status"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasunitprovisioner"
@@ -55,11 +56,11 @@ var (
 	containerSpec = `
 containers:
   - name: gitlab
-    image-name: gitlab/latest
+    image: gitlab/latest
     ports:
-    - container-port: 80
+    - containerPort: 80
       protocol: TCP
-    - container-port: 443
+    - containerPort: 443
     config:
       attr: foo=bar; fred=blogs
       foo: bar
@@ -67,8 +68,8 @@ containers:
 
 	parsedSpec = caas.PodSpec{
 		Containers: []caas.ContainerSpec{{
-			Name:      "gitlab",
-			ImageName: "gitlab/latest",
+			Name:  "gitlab",
+			Image: "gitlab/latest",
 			Ports: []caas.ContainerPort{
 				{ContainerPort: 80, Protocol: "TCP"},
 				{ContainerPort: 443},
@@ -76,8 +77,8 @@ containers:
 			Config: map[string]string{
 				"attr": "foo=bar; fred=blogs",
 				"foo":  "bar",
-			},
-		}}}
+			}},
+		}}
 )
 
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
@@ -115,11 +116,13 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		ensured:        s.unitEnsured,
 		unitDeleted:    s.unitDeleted,
 		unitsWatcher:   watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
+		podSpec:        &parsedSpec,
 	}
 	s.lifeGetter = mockLifeGetter{}
 	s.lifeGetter.setLife(life.Alive)
 	s.serviceBroker = mockServiceBroker{
 		ensured: s.serviceEnsured,
+		podSpec: &parsedSpec,
 	}
 
 	s.config = caasunitprovisioner.Config{
@@ -447,11 +450,12 @@ containers:
 
 		anotherParsedSpec = caas.PodSpec{
 			Containers: []caas.ContainerSpec{{
-				Name:      "gitlab",
-				ImageName: "gitlab/latest",
+				Name:  "gitlab",
+				Image: "gitlab/latest",
 			}}}
 	)
 
+	s.containerBroker.podSpec = &anotherParsedSpec
 	s.podSpecGetter.setSpec(anotherSpec)
 	// Send for deployment worker.
 	s.sendContainerSpecChange(c)
@@ -549,10 +553,12 @@ containers:
 
 		anotherParsedSpec = caas.PodSpec{
 			Containers: []caas.ContainerSpec{{
-				Name:      "gitlab",
-				ImageName: "gitlab/latest",
+				Name:  "gitlab",
+				Image: "gitlab/latest",
 			}}}
 	)
+
+	s.serviceBroker.podSpec = &anotherParsedSpec
 
 	s.podSpecGetter.setSpec(anotherSpec)
 	s.sendContainerSpecChange(c)
@@ -692,6 +698,24 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 		c.Fatal("timed out sending applications change")
 	}
 
+	// Check that the gitlab worker is running or not;
+	// given it time to startup.
+	shortAttempt := &utils.AttemptStrategy{
+		Total: coretesting.LongWait,
+		Delay: 10 * time.Millisecond,
+	}
+	running := false
+	for a := shortAttempt.Start(); a.Next(); {
+		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
+		if running {
+			break
+		}
+	}
+	c.Assert(running, jc.IsTrue)
+
+	// Add an additional app worker so we can check that the correct one is accessed.
+	caasunitprovisioner.NewAppWorker(w, "mysql")
+
 	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
 	select {
 	case s.applicationChanges <- []string{"gitlab"}:
@@ -705,6 +729,19 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 		c.Fatal("timed out waiting for service to be deleted")
 	}
 
+	// The mysql worker should still be running.
+	_, ok := caasunitprovisioner.AppWorker(w, "mysql")
+	c.Assert(ok, jc.IsTrue)
+
+	// Check that the gitlab worker is running or not;
+	// given it time to shutdown.
+	for a := shortAttempt.Start(); a.Next(); {
+		_, running = caasunitprovisioner.AppWorker(w, "gitlab")
+		if !running {
+			break
+		}
+	}
+	c.Assert(running, jc.IsFalse)
 	workertest.CheckKilled(c, s.unitGetter.watcher)
 }
 

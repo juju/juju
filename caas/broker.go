@@ -24,6 +24,9 @@ type ContainerEnvironProvider interface {
 	// Open should not perform any expensive operations, such as querying
 	// the cloud API, as it will be called frequently.
 	Open(args environs.OpenParams) (Broker, error)
+
+	// ParsePodSpec unmarshalls the given YAML pod spec.
+	ParsePodSpec(in string) (*PodSpec, error)
 }
 
 // New returns a new broker based on the provided configuration.
@@ -50,12 +53,14 @@ type NewContainerBrokerFunc func(args environs.OpenParams) (Broker, error)
 
 // Broker instances interact with the CAAS substrate.
 type Broker interface {
+	// Provider returns the ContainerEnvironProvider that created this Broker.
+	Provider() ContainerEnvironProvider
+
+	// Destroy terminates all containers and other resources in this broker's namespace.
+	Destroy() error
 
 	// EnsureNamespace ensures this broker's namespace is created.
 	EnsureNamespace() error
-
-	// DeleteNamespace deletes this broker's namespace.
-	DeleteNamespace() error
 
 	// EnsureOperator creates or updates an operator pod for running
 	// a charm for the specified application.

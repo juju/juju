@@ -10,9 +10,12 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
+	_ "github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type mockState struct {
@@ -82,6 +85,12 @@ func (m *mockModel) SetPodSpec(tag names.ApplicationTag, spec string) error {
 
 func (st *mockModel) Name() string {
 	return "some-model"
+}
+
+func (st *mockModel) ModelConfig() (*config.Config, error) {
+	cfg := coretesting.FakeConfig()
+	attr := cfg.Merge(coretesting.Attrs{"type": "kubernetes"})
+	return config.New(config.NoDefaults, attr)
 }
 
 type mockApplication struct {

@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -98,7 +97,7 @@ func (w *unitWorker) loop() error {
 			}
 			currentSpec = specStr
 
-			spec, err := caas.ParsePodSpec(specStr)
+			spec, err := w.broker.Provider().ParsePodSpec(specStr)
 			if err != nil {
 				return errors.Annotate(err, "cannot parse pod spec")
 			}

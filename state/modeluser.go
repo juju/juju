@@ -264,10 +264,10 @@ func (st *State) modelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.
 }
 
 type ModelAccessInfo struct {
-	Name           string `bson:"name"`
-	UUID           string `bson:"_id"`
-	Owner          string `bson:"owner"`
-	Type           ModelType
+	Name           string    `bson:"name"`
+	UUID           string    `bson:"_id"`
+	Owner          string    `bson:"owner"`
+	Type           ModelType `bson:"type"`
 	LastConnection time.Time
 }
 
@@ -283,7 +283,7 @@ func (st *State) ModelBasicInfoForUser(user names.UserTag) ([]ModelAccessInfo, e
 		return nil, errors.Trace(err)
 	}
 	defer closer1()
-	modelQuery.Select(bson.M{"_id": 1, "name": 1, "owner": 1})
+	modelQuery.Select(bson.M{"_id": 1, "name": 1, "owner": 1, "type": 1})
 	var accessInfo []ModelAccessInfo
 	if err := modelQuery.All(&accessInfo); err != nil {
 		return nil, errors.Trace(err)
@@ -308,14 +308,9 @@ func (st *State) ModelBasicInfoForUser(user names.UserTag) ([]ModelAccessInfo, e
 	if err := iter.Close(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	for i := range accessInfo {
 		uuid := accessInfo[i].UUID
 		accessInfo[i].LastConnection = lastConns[uuid]
-		accessInfo[i].Type = model.Type()
 	}
 	return accessInfo, nil
 }

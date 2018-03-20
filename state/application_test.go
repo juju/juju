@@ -1873,13 +1873,18 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
 	c.Assert(state.GetUnitModelUUID(unitZero), gc.Equals, st.ModelUUID())
 
-	// CAAS units have no workload version, nor meter status.
-	vers, err := unitZero.WorkloadVersion()
+	err = unitZero.SetWorkloadVersion("3.combined")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, gc.Equals, "")
+	version, err := unitZero.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, "3.combined")
+
+	err = unitZero.SetMeterStatus(state.MeterGreen.String(), "all good")
+	c.Assert(err, jc.ErrorIsNil)
 	ms, err := unitZero.GetMeterStatus()
-	c.Assert(err, gc.NotNil)
-	c.Assert(ms.Code, gc.Equals, state.MeterNotAvailable)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms.Code, gc.Equals, state.MeterGreen)
+	c.Assert(ms.Info, gc.Equals, "all good")
 
 	// But they do have status.
 	us, err := unitZero.Status()

@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"fmt"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"k8s.io/client-go/pkg/api/v1"
@@ -11,6 +13,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type K8sSuite struct {
@@ -22,23 +25,43 @@ var _ = gc.Suite(&K8sSuite{})
 func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 	podSpec := caas.PodSpec{
 		Containers: []caas.ContainerSpec{{
-			Name:      "test",
-			Ports:     []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-			ImageName: "juju/image",
+			Name:  "test",
+			Ports: []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			Image: "juju/image",
+			ProviderContainer: &provider.K8sContainerSpec{
+				ImagePullPolicy: v1.PullAlways,
+				ReadinessProbe: &v1.Probe{
+					InitialDelaySeconds: 10,
+					Handler:             v1.Handler{HTTPGet: &v1.HTTPGetAction{Path: "/ready"}},
+				},
+				LivenessProbe: &v1.Probe{
+					SuccessThreshold: 20,
+					Handler:          v1.Handler{HTTPGet: &v1.HTTPGetAction{Path: "/liveready"}},
+				},
+			},
 		}, {
-			Name:      "test2",
-			Ports:     []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
-			ImageName: "juju/image2",
-		},
-		}}
+			Name:  "test2",
+			Ports: []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
+			Image: "juju/image2",
+		}},
+	}
 	spec, err := provider.MakeUnitSpec(&podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, v1.PodSpec{
 		Containers: []v1.Container{
 			{
-				Name:  "test",
-				Image: "juju/image",
-				Ports: []v1.ContainerPort{{ContainerPort: int32(80), Protocol: v1.ProtocolTCP}},
+				Name:            "test",
+				Image:           "juju/image",
+				Ports:           []v1.ContainerPort{{ContainerPort: int32(80), Protocol: v1.ProtocolTCP}},
+				ImagePullPolicy: v1.PullAlways,
+				ReadinessProbe: &v1.Probe{
+					InitialDelaySeconds: 10,
+					Handler:             v1.Handler{HTTPGet: &v1.HTTPGetAction{Path: "/ready"}},
+				},
+				LivenessProbe: &v1.Probe{
+					SuccessThreshold: 20,
+					Handler:          v1.Handler{HTTPGet: &v1.HTTPGetAction{Path: "/liveready"}},
+				},
 			}, {
 				Name:  "test2",
 				Image: "juju/image2",
@@ -51,18 +74,17 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 	podSpec := caas.PodSpec{
 		Containers: []caas.ContainerSpec{{
-			Name:      "test",
-			Ports:     []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-			ImageName: "juju/image",
+			Name:  "test",
+			Ports: []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			Image: "juju/image",
 			Config: map[string]string{
 				"foo": "bar",
 			},
 		}, {
-			Name:      "test2",
-			Ports:     []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
-			ImageName: "juju/image2",
-		},
-		}}
+			Name:  "test2",
+			Ports: []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
+			Image: "juju/image2",
+		}}}
 	spec, err := provider.MakeUnitSpec(&podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, v1.PodSpec{
@@ -81,4 +103,15 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
+	pod := provider.OperatorPod("gitlab", "/var/lib/juju")
+	vers := version.Current
+	vers.Build = 0
+	c.Assert(pod.Name, gc.Equals, "juju-operator-gitlab")
+	c.Assert(pod.Spec.Containers, gc.HasLen, 1)
+	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, fmt.Sprintf("jujusolutions/caas-jujud-operator:%s", vers.String()))
+	c.Assert(pod.Spec.Containers[0].VolumeMounts, gc.HasLen, 1)
+	c.Assert(pod.Spec.Containers[0].VolumeMounts[0].MountPath, gc.Equals, "/var/lib/juju/agents/application-gitlab/agent.conf")
 }
