@@ -5,6 +5,7 @@ package state
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -78,7 +79,19 @@ func (t byKey) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
 
 // Less implements sort.Interface.
 func (t byKey) Less(i, j int) bool {
-	return strings.Compare(t[i].Key, t[j].Key) < 0
+	if t[i].Key == t[j].Key {
+		return labelsKey(t[i].Labels) < labelsKey(t[j].Labels)
+	}
+	return t[i].Key < t[j].Key
+}
+
+func labelsKey(m map[string]string) string {
+	var result []string
+	for k, v := range m {
+		result = append(result, fmt.Sprintf("%s=%s", k, v))
+	}
+	sort.Strings(result)
+	return strings.Join(result, ",")
 }
 
 // validate checks that the MetricBatch contains valid metrics.
@@ -440,7 +453,7 @@ func (m *MetricBatch) UniqueMetrics() []Metric {
 	sort.Sort(byTime(metrics))
 	uniq := map[string]Metric{}
 	for _, m := range metrics {
-		uniq[m.Key] = m
+		uniq[fmt.Sprintf("%s-%s", m.Key, labelsKey(m.Labels))] = m
 	}
 	results := make([]Metric, len(uniq))
 	i := 0

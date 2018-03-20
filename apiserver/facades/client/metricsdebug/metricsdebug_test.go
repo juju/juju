@@ -216,12 +216,7 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 4)
-	c.Assert(result.Results[0].Metrics, jc.SameContents, []params.MetricResult{{
-		Key:   "pings",
-		Value: "5",
-		Time:  t1,
-		Unit:  "metered/0",
-	}, {
+	c.Assert(result.Results[0].Metrics, gc.DeepEquals, []params.MetricResult{{
 		Key:   "juju-units",
 		Value: "8",
 		Time:  t1,
@@ -229,11 +224,16 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
 	}, {
 		Key:   "pings",
 		Value: "5",
+		Time:  t1,
+		Unit:  "metered/0",
+	}, {
+		Key:   "juju-units",
+		Value: "8",
 		Time:  t1,
 		Unit:  "metered/1",
 	}, {
-		Key:   "juju-units",
-		Value: "8",
+		Key:   "pings",
+		Value: "5",
 		Time:  t1,
 		Unit:  "metered/1",
 	}},
@@ -257,14 +257,14 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWhenNotAllMetricsInEac
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 3)
-	c.Assert(result.Results[0].Metrics, jc.SameContents, []params.MetricResult{{
-		Key:   "pings",
-		Value: "5",
+	c.Assert(result.Results[0].Metrics, gc.DeepEquals, []params.MetricResult{{
+		Key:   "juju-units",
+		Value: "8",
 		Time:  t1,
 		Unit:  "metered/0",
 	}, {
-		Key:   "juju-units",
-		Value: "8",
+		Key:   "pings",
+		Value: "5",
 		Time:  t1,
 		Unit:  "metered/0",
 	}, {
@@ -294,14 +294,14 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWithMultipleBatchesPer
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 3)
-	c.Assert(result.Results[0].Metrics, jc.SameContents, []params.MetricResult{{
-		Key:   "pings",
-		Value: "5",
+	c.Assert(result.Results[0].Metrics, jc.DeepEquals, []params.MetricResult{{
+		Key:   "juju-units",
+		Value: "8",
 		Time:  t1,
 		Unit:  "metered/0",
 	}, {
-		Key:   "juju-units",
-		Value: "8",
+		Key:   "pings",
+		Value: "5",
 		Time:  t1,
 		Unit:  "metered/0",
 	}, {
