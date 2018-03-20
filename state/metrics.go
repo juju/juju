@@ -57,16 +57,26 @@ type Metric struct {
 
 type byTime []Metric
 
-func (t byTime) Len() int      { return len(t) }
+// Len implements sort.Interface.
+func (t byTime) Len() int { return len(t) }
+
+// Swap implements sort.Interface.
 func (t byTime) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
+
+// Less implements sort.Interface.
 func (t byTime) Less(i, j int) bool {
 	return t[i].Time.Before(t[j].Time)
 }
 
 type byKey []Metric
 
-func (t byKey) Len() int      { return len(t) }
+// Len implements sort.Interface.
+func (t byKey) Len() int { return len(t) }
+
+// Swap implements sort.Interface.
 func (t byKey) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
+
+// Less implements sort.Interface.
 func (t byKey) Less(i, j int) bool {
 	return strings.Compare(t[i].Key, t[j].Key) < 0
 }
