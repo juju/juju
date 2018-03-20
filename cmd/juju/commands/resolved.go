@@ -22,6 +22,7 @@ type resolvedCommand struct {
 	modelcmd.ModelCommandBase
 	UnitName string
 	NoRetry  bool
+	all      bool
 }
 
 func (c *resolvedCommand) Info() *cmd.Info {
@@ -35,6 +36,7 @@ func (c *resolvedCommand) Info() *cmd.Info {
 
 func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.all, "all", false, "Re-execute all failed hooks")
 	f.BoolVar(&c.NoRetry, "no-retry", false, "Do not re-execute failed hooks on the unit")
 }
 
@@ -57,5 +59,5 @@ func (c *resolvedCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.Resolved(c.UnitName, c.NoRetry), block.BlockChange)
+	return block.ProcessBlockedError(client.Resolved(c.UnitName, c.NoRetry, c.all), block.BlockChange)
 }

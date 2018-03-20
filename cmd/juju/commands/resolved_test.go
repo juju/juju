@@ -87,22 +87,31 @@ var resolvedTests = []struct {
 	}, {
 		args: []string{"multi-series/4", "roflcopter"},
 		err:  `unrecognized args: \["roflcopter"\]`,
+	}, {
+		args: []string{"multi-series/5", "--all"},
+		unit: "multi-series/5",
+		mode: state.ResolvedRetryHooks,
+	}, {
+		args: []string{"multi-series/5", "--all"},
+		err:  `cannot set resolved mode for unit "multi-series/5": already resolved`,
+		unit: "multi-series/5",
+		mode: state.ResolvedRetryHooks,
 	},
 }
 
 func (s *ResolvedSuite) TestResolved(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, "-n", "5", ch, "multi-series")
+	err := runDeploy(c, "-n", "6", ch, "multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// lp:1558657
 	now := time.Now()
-	for _, name := range []string{"multi-series/2", "multi-series/3", "multi-series/4"} {
+	for _, name := range []string{"multi-series/2", "multi-series/3", "multi-series/4", "multi-series/5"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
 		sInfo := status.StatusInfo{
 			Status:  status.Error,
-			Message: "lol borken",
+			Message: "lol broken",
 			Since:   &now,
 		}
 		err = u.SetAgentStatus(sInfo)
@@ -127,12 +136,12 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 
 func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, "-n", "5", ch, "multi-series")
+	err := runDeploy(c, "-n", "6", ch, "multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// lp:1558657
 	now := time.Now()
-	for _, name := range []string{"multi-series/2", "multi-series/3", "multi-series/4"} {
+	for _, name := range []string{"multi-series/2", "multi-series/3", "multi-series/4", "multi-series/5"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
 		sInfo := status.StatusInfo{
