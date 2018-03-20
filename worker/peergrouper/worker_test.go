@@ -446,6 +446,13 @@ func (s *workerSuite) TestControllersArePublished(c *gc.C) {
 			c.Fatalf("timed out waiting for publish")
 		}
 
+		// If a config change wakes up the loop *after* the controller topology
+		// is published, then we will get another call to setAPIHostPorts.
+		select {
+		case <-publishCh:
+		case <-time.After(coretesting.ShortWait):
+		}
+
 		// Change one of the server API addresses and check that it is
 		// published.
 		newMachine10Addresses := network.NewAddresses(ipVersion.extraHost)
