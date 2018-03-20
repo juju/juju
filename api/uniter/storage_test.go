@@ -87,9 +87,8 @@ func (s *storageSuite) TestStorageAttachmentResultCountMismatch(c *gc.C) {
 		return nil
 	})
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	c.Assert(func() {
-		st.UnitStorageAttachments(names.NewUnitTag("mysql/0"))
-	}, gc.PanicMatches, "expected 1 result, got 2")
+	_, err := st.UnitStorageAttachments(names.NewUnitTag("mysql/0"))
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
 func (s *storageSuite) TestAPIErrors(c *gc.C) {
