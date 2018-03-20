@@ -14,11 +14,11 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v1/bakerytest"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -227,12 +227,12 @@ func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]stri
 	return nil, s.NextErr()
 }
 
-func (s *mockBakeryService) NewMacaroon(id string, key []byte, caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
-	s.MethodCall(s, "NewMacaroon", id, key, caveats)
+func (s *mockBakeryService) NewMacaroon(caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
+	s.MethodCall(s, "NewMacaroon", caveats)
 	return &macaroon.Macaroon{}, s.NextErr()
 }
 
-func (s *mockBakeryService) ExpireStorageAt(t time.Time) (authentication.ExpirableStorageBakeryService, error) {
+func (s *mockBakeryService) ExpireStorageAt(t time.Duration) (authentication.ExpirableStorageBakeryService, error) {
 	s.MethodCall(s, "ExpireStorageAt", t)
 	return s, s.NextErr()
 }
@@ -305,7 +305,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 			Locator: discharger,
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		mac, err := svc.NewMacaroon("", nil, nil)
+		mac, err := svc.NewMacaroon(nil)
 		c.Assert(err, jc.ErrorIsNil)
 		authenticator := &authentication.ExternalMacaroonAuthenticator{
 			Service:          svc,

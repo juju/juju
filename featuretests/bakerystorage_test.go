@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
@@ -46,7 +46,7 @@ func (s *BakeryStorageSuite) initService(c *gc.C, enableExpiry bool) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if enableExpiry {
-		store = store.ExpireAt(time.Now())
+		store = store.ExpireAfter(time.Since(time.Now()))
 	}
 	s.store = store
 
@@ -66,7 +66,7 @@ func (s *BakeryStorageSuite) ensureIndexes(c *gc.C) {
 }
 
 func (s *BakeryStorageSuite) TestCheckNewMacaroon(c *gc.C) {
-	mac, err := s.service.NewMacaroon("", nil, nil)
+	mac, err := s.service.NewMacaroon(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.service.CheckAny([]macaroon.Slice{{mac}}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -77,7 +77,7 @@ func (s *BakeryStorageSuite) TestExpiryTime(c *gc.C) {
 	// items immediately.
 	s.initService(c, true)
 
-	mac, err := s.service.NewMacaroon("", nil, nil)
+	mac, err := s.service.NewMacaroon(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The background thread that removes records runs every 60s.

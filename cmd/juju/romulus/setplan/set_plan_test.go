@@ -15,9 +15,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/cmd/juju/romulus/setplan"
 	jjjtesting "github.com/juju/juju/juju/testing"
@@ -163,15 +163,14 @@ func (m *mockapi) Authorize(modelUUID, charmURL, applicationName, plan string, v
 	}
 	m.AddCall("Authorize", modelUUID, charmURL, applicationName)
 	macaroon, err := m.service.NewMacaroon(
-		"",
-		nil,
+
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("environment", modelUUID),
 			checkers.DeclaredCaveat("charm", charmURL),
 			checkers.DeclaredCaveat("service", applicationName),
 			checkers.DeclaredCaveat("plan", plan),
-		},
-	)
+		})
+
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

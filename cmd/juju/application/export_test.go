@@ -5,8 +5,8 @@ package application
 
 import (
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charmrepo.v2/csclient"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"

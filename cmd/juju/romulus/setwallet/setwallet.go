@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	api "github.com/juju/romulus/api/budget"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )

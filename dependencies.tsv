@@ -107,7 +107,6 @@ gopkg.in/juju/charm.v6	git	96786fc3f8695207515eb6be307ff37901a7254f	2018-01-19T2
 gopkg.in/juju/charmrepo.v2	git	653bbd81990d2d7d48e0fb931a3b0f52c694572f	2017-11-14T18:40:45Z
 gopkg.in/juju/charmstore.v5	git	0d59319d1dba8418eaa72667f3ef447561aaefee	2018-02-26T10:50:37Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z
-gopkg.in/juju/jujusvg.v2	git	d82160011935ef79fc7aca84aba2c6f74700fe75	2016-06-09T10:52:15Z
 gopkg.in/juju/jujusvg.v3	git	6f7342099e20c84f560bd9fc8afe96ff7486613e	2017-11-14T17:07:01Z
 gopkg.in/juju/names.v2	git	54f00845ae470a362430a966fe17f35f8784ac92	2017-11-13T11:20:47Z
 gopkg.in/juju/worker.v1	git	6965b9d826717287bb002e02d1fd4d079978083e	2017-03-08T00:24:58Z
@@ -119,7 +118,6 @@ gopkg.in/mgo.v2	git	f2b6f6c918c452ad107eec89615f074e3bd80e33	2016-08-18T01:52:18
 gopkg.in/natefinch/lumberjack.v2	git	df99d62fd42d8b3752c8a42c6723555372c02a03	2017-05-31T18:08:50Z
 gopkg.in/natefinch/npipe.v2	git	c1b8fa8bdccecb0b8db834ee0b92fdbcfa606dd6	2016-06-21T03:49:01Z
 gopkg.in/retry.v1	git	01631078ef2fdce601e38cfe5f527fab24c9a6d2	2017-05-31T09:12:38Z
-gopkg.in/tomb.v2	git	14b3d72120e8d10ea6e6b7f87f7175734b1faab8	2014-06-26T14:46:23
 gopkg.in/tomb.v1	git	dd632973f1e7218eb1089048e0798ec9ae7dceb8	2014-10-24T13:56:13Z
 gopkg.in/yaml.v2	git	1be3d31502d6eabc0dd7ce5b0daab022e14a5538	2017-07-12T05:45:46Z
 k8s.io/client-go	git	e121606b0d09b2e1c467183ee46217fa85a6b672	2017-02-13T17:46:50Z

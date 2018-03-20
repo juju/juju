@@ -12,8 +12,8 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -93,9 +93,9 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 		}},
 	}
 
-	mac0, err := macaroon.New([]byte("secret0"), "id0", "location0")
+	mac0, err := macaroon.New([]byte("secret0"), []byte("id0"), "location0")
 	c.Assert(err, jc.ErrorIsNil)
-	mac1, err := macaroon.New([]byte("secret1"), "id1", "location1")
+	mac1, err := macaroon.New([]byte("secret1"), []byte("id1"), "location1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	jar, err := s.store.CookieJar("target")

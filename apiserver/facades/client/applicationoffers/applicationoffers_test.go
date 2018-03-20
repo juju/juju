@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -1127,7 +1127,7 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 		CACert:        testing.CACert,
 	})
 	c.Assert(results.Results[0].Macaroon.Id(), gc.Equals, "")
-	cav := s.bakery.caveats[results.Results[0].Macaroon.Id()]
+	cav := s.bakery.caveats[string(results.Results[0].Macaroon.Id())]
 	c.Check(cav, gc.HasLen, 4)
 	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), jc.IsTrue)
 	c.Check(cav[1].Condition, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")

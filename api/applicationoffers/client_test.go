@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/applicationoffers"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -596,7 +596,7 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 	controllerInfo := &params.ExternalControllerInfo{
 		Addrs: []string{"1.2.3.4"},
 	}
-	mac, err := macaroon.New(nil, "id", "loc")
+	mac, err := macaroon.New(nil, []byte("id"), "loc")
 	c.Assert(err, jc.ErrorIsNil)
 	var called bool
 	apiCaller := basetesting.APICallerFunc(

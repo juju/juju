@@ -18,7 +18,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"

@@ -26,17 +26,16 @@ import (
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v2"
-	"gopkg.in/juju/charmrepo.v2/csclient"
-	csclientparams "gopkg.in/juju/charmrepo.v2/csclient/params"
+	"gopkg.in/juju/charmrepo.v3"
+	"gopkg.in/juju/charmrepo.v3/csclient"
+	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmstore.v5"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v1/bakerytest"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	bakeryV2 "gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
@@ -607,20 +606,6 @@ func setupConfigFile(c *gc.C, dir string) string {
 	return path
 }
 
-type v1ToV2Locator struct {
-	v1Loc bakery.PublicKeyLocator
-}
-
-func (v2Loc v1ToV2Locator) PublicKeyForLocation(loc string) (*bakeryV2.PublicKey, error) {
-	key, err := v2Loc.v1Loc.PublicKeyForLocation(loc)
-	if err != nil {
-		return nil, err
-	}
-	return &bakeryV2.PublicKey{
-		Key: bakeryV2.Key(key.Key),
-	}, nil
-}
-
 type DeployCharmStoreSuite struct {
 	charmStoreSuite
 }
@@ -821,7 +806,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		AuthUsername:     "test-user",
 		AuthPassword:     "test-password",
 		IdentityLocation: s.discharger.Location(),
-		PublicKeyLocator: v1ToV2Locator{keyring},
+		PublicKeyLocator: keyring,
 		TermsLocation:    s.termsDischarger.Location(),
 	}
 	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/romulus/api/budget"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelconfig"

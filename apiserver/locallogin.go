@@ -10,10 +10,10 @@ import (
 	"github.com/juju/httprequest"
 	"github.com/julienschmidt/httprouter"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	macaroon "gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	macaroon "gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/params"
@@ -154,9 +154,9 @@ func (h *localLoginHandlers) serveWait(p httprequest.Params) (interface{}, error
 	return httpbakery.WaitResponse{macaroon}, nil
 }
 
-func (h *localLoginHandlers) checkThirdPartyCaveat(req *http.Request, cavId, cav string) ([]checkers.Caveat, error) {
+func (h *localLoginHandlers) checkThirdPartyCaveat(req *http.Request, cavInfo *bakery.ThirdPartyCaveatInfo) ([]checkers.Caveat, error) {
 	ctx := &macaroonAuthContext{authContext: h.authCtxt, req: req}
-	return ctx.CheckThirdPartyCaveat(cavId, cav)
+	return ctx.CheckThirdPartyCaveat(cavInfo)
 }
 
 type macaroonAuthContext struct {
@@ -165,8 +165,8 @@ type macaroonAuthContext struct {
 }
 
 // CheckThirdPartyCaveat is part of the bakery.ThirdPartyChecker interface.
-func (ctx *macaroonAuthContext) CheckThirdPartyCaveat(cavId, cav string) ([]checkers.Caveat, error) {
-	tag, err := ctx.CheckLocalLoginCaveat(cav)
+func (ctx *macaroonAuthContext) CheckThirdPartyCaveat(cavInfo *bakery.ThirdPartyCaveatInfo) ([]checkers.Caveat, error) {
+	tag, err := ctx.CheckLocalLoginCaveat(cavInfo.Condition)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -174,7 +174,7 @@ func (ctx *macaroonAuthContext) CheckThirdPartyCaveat(cavId, cav string) ([]chec
 	if err != nil {
 		if _, ok := errors.Cause(err).(*bakery.VerificationError); ok {
 			waitId, err := ctx.localUserInteractions.Start(
-				cavId,
+				cavInfo.CaveatId,
 				ctx.clock.Now().Add(authentication.LocalLoginInteractionTimeout),
 			)
 			if err != nil {

@@ -15,7 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/firewaller"

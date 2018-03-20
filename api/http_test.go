@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -243,7 +243,7 @@ func (s *httpSuite) TestAuthHTTPRequest(c *gc.C) {
 	c.Assert(pass, gc.Equals, "password")
 	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
 
-	mac, err := macaroon.New(nil, "id", "loc")
+	mac, err := macaroon.New(nil, []byte("id"), "loc")
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Macaroons = []macaroon.Slice{{mac}}
 	req = s.authHTTPRequest(c, apiInfo)

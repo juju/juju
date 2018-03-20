@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/remoterelations"
@@ -412,7 +412,7 @@ func (s *remoteRelationsSuite) TestControllerAPIInfoForModel(c *gc.C) {
 
 func (s *remoteRelationsSuite) TestSaveMacaroon(c *gc.C) {
 	rel := names.NewRelationTag("mysql:db wordpress:db")
-	mac, err := macaroon.New(nil, "", "")
+	mac, err := macaroon.New(nil, nil, "")
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "RemoteRelations")

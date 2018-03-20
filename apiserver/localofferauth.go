@@ -7,7 +7,8 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/state"
@@ -54,9 +55,9 @@ func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error)
 	return authCtx, nil
 }
 
-func (h *localOfferAuthHandler) checkThirdPartyCaveat(req *http.Request, cavId, cav string) ([]checkers.Caveat, error) {
+func (h *localOfferAuthHandler) checkThirdPartyCaveat(req *http.Request, cavInfo *bakery.ThirdPartyCaveatInfo) ([]checkers.Caveat, error) {
 	ctx := &macaroonOfferAuthContext{h.authCtx, req}
-	return ctx.CheckThirdPartyCaveat(cavId, cav)
+	return ctx.CheckThirdPartyCaveat(cavInfo)
 }
 
 type macaroonOfferAuthContext struct {
@@ -65,9 +66,9 @@ type macaroonOfferAuthContext struct {
 }
 
 // CheckThirdPartyCaveat is part of the bakery.ThirdPartyChecker interface.
-func (ctx *macaroonOfferAuthContext) CheckThirdPartyCaveat(cavId, cav string) ([]checkers.Caveat, error) {
-	logger.Debugf("check third party caveat %v: %v", cavId, cav)
-	details, err := ctx.CheckOfferAccessCaveat(cav)
+func (ctx *macaroonOfferAuthContext) CheckThirdPartyCaveat(cavInfo *bakery.ThirdPartyCaveatInfo) ([]checkers.Caveat, error) {
+	logger.Debugf("check third party caveat %#v", cavInfo)
+	details, err := ctx.CheckOfferAccessCaveat(cavInfo.Condition)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

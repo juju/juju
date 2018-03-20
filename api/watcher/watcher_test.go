@@ -4,7 +4,6 @@
 package watcher_test
 
 import (
-	"fmt"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -12,9 +11,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/crossmodelrelations"
@@ -296,7 +295,7 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 		Store:    store,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := bakery.NewMacaroon(fmt.Sprintf("%v %v", s.IAASModel.ModelTag(), rel.Tag()), nil,
+	mac, err := bakery.NewMacaroon(
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.State.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", rel.String()),
@@ -429,7 +428,7 @@ func (s *watcherSuite) setupOfferStatusWatch(
 		Store:    store,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := bakery.NewMacaroon(fmt.Sprintf("%v %v", s.IAASModel.ModelTag(), offer.OfferName), nil,
+	mac, err := bakery.NewMacaroon(
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.State.ModelUUID()),
 			checkers.DeclaredCaveat("offer-uuid", offer.OfferUUID),

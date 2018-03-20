@@ -11,10 +11,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -90,10 +90,11 @@ func CreateLocalLoginMacaroon(
 	// We create the macaroon with a random ID and random root key, which
 	// enables multiple clients to login as the same user and obtain separate
 	// macaroons without having them use the same root key.
-	return service.NewMacaroon("", nil, []checkers.Caveat{
+	return service.NewMacaroon([]checkers.Caveat{
 		{Condition: "is-authenticated-user " + tag.Id()},
 		checkers.TimeBeforeCaveat(clock.Now().Add(LocalLoginInteractionTimeout)),
 	})
+
 }
 
 // CheckLocalLoginCaveat parses and checks that the given caveat string is
@@ -164,12 +165,12 @@ func (u *UserAuthenticator) authenticateMacaroons(
 		// The root keys for these macaroons are stored in MongoDB.
 		// Expire the documents after after a set amount of time.
 		expiryTime := u.Clock.Now().Add(localLoginExpiryTime)
-		service, err := u.Service.ExpireStorageAt(expiryTime)
+		service, err := u.Service.ExpireStorageAt(u.Clock.Now().Sub(expiryTime))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		m, err := service.NewMacaroon("", nil, []checkers.Caveat{
+		m, err := service.NewMacaroon([]checkers.Caveat{
 			checkers.NeedDeclaredCaveat(
 				checkers.Caveat{
 					Location:  u.LocalUserIdentityLocation,
@@ -179,6 +180,7 @@ func (u *UserAuthenticator) authenticateMacaroons(
 			),
 			checkers.TimeBeforeCaveat(expiryTime),
 		})
+
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot create macaroon")
 		}
@@ -294,7 +296,7 @@ func addMacaroonTimeBeforeCaveat(svc BakeryService, m *macaroon.Macaroon, t time
 type BakeryService interface {
 	AddCaveat(*macaroon.Macaroon, checkers.Caveat) error
 	CheckAny([]macaroon.Slice, map[string]string, checkers.Checker) (map[string]string, error)
-	NewMacaroon(string, []byte, []checkers.Caveat) (*macaroon.Macaroon, error)
+	NewMacaroon([]checkers.Caveat) (*macaroon.Macaroon, error)
 }
 
 // ExpirableStorageBakeryService extends BakeryService
@@ -305,5 +307,5 @@ type ExpirableStorageBakeryService interface {
 
 	// ExpireStorageAt returns a new ExpirableStorageBakeryService with
 	// a store that will expire items added to it at the specified time.
-	ExpireStorageAt(time.Time) (ExpirableStorageBakeryService, error)
+	ExpireStorageAt(time.Duration) (ExpirableStorageBakeryService, error)
 }

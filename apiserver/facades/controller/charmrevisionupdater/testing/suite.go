@@ -11,8 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v2"
-	"gopkg.in/juju/charmrepo.v2/csclient"
+	"gopkg.in/juju/charmrepo.v3"
+	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmstore.v5"
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"

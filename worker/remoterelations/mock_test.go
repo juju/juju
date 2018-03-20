@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/api"
@@ -158,7 +158,7 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := macaroon.New(nil, []byte("test"), "")
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (m *mockRemoteRelationsFacade) RegisterRemoteRelations(relations ...params.
 		return nil, err
 	}
 	result := make([]params.RegisterRemoteRelationResult, len(relations))
-	mac, err := macaroon.New(nil, "apimac", "")
+	mac, err := macaroon.New(nil, []byte("apimac"), "")
 	if err != nil {
 		return nil, err
 	}

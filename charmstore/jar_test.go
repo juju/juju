@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2-unstable"
 )
 
 var _ = gc.Suite(&MacaroonJarSuite{})
@@ -29,7 +29,7 @@ func (MacaroonJarSuite) TestActivate(c *gc.C) {
 	ch := charm.MustParseURL("cs:mysql")
 	err = jar.Activate(ch)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := macaroon.New([]byte("key"), "id", "loc")
+	m, err := macaroon.New([]byte("key"), []byte("id"), "loc")
 	c.Assert(err, jc.ErrorIsNil)
 	ms := macaroon.Slice{m}
 	httpbakery.SetCookie(jar, u, ms)
@@ -45,7 +45,7 @@ func (MacaroonJarSuite) TestDeactivate(c *gc.C) {
 	ch := charm.MustParseURL("cs:mysql")
 	err = jar.Activate(ch)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := macaroon.New([]byte("key"), "id", "loc")
+	m, err := macaroon.New([]byte("key"), []byte("id"), "loc")
 	c.Assert(err, jc.ErrorIsNil)
 	ms := macaroon.Slice{m}
 	err = jar.Deactivate()

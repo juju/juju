@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 

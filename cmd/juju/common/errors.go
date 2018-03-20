@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 )
 
 func PermissionsMessage(writer io.Writer, command string) {

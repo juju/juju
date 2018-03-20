@@ -19,7 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -759,7 +759,7 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 	status := s.makeStatus(coremigration.ABORT)
 
 	// Set up macaroon based auth to the target.
-	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location")
 	c.Assert(err, jc.ErrorIsNil)
 	macs := []macaroon.Slice{{mac}}
 	status.TargetInfo.Password = ""

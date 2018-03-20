@@ -21,7 +21,7 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -70,7 +70,7 @@ func (s *ClientSuite) TestWatchCallError(c *gc.C) {
 }
 
 func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
-	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location")
 	c.Assert(err, jc.ErrorIsNil)
 	macs := []macaroon.Slice{{mac}}
 	macsJSON, err := json.Marshal(macs)

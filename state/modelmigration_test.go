@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
@@ -42,7 +42,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 
 	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
 
-	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Plausible migration arguments to test with.

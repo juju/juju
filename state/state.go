@@ -24,7 +24,7 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"

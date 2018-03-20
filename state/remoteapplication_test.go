@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -93,7 +93,7 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 		"db-admin": "private",
 		"logging":  "public",
 	}
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := macaroon.New(nil, []byte("test"), "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.application, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
@@ -327,7 +327,7 @@ func (s *remoteApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestMacaroon(c *gc.C) {
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := macaroon.New(nil, []byte("test"), "")
 	c.Assert(err, jc.ErrorIsNil)
 	appMac, err := s.application.Macaroon()
 	c.Assert(err, jc.ErrorIsNil)

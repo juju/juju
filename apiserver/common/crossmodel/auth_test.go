@@ -4,6 +4,7 @@
 package crossmodel_test
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"time"
@@ -13,9 +14,9 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -209,7 +210,7 @@ func (s *authSuite) TestCreateConsumeOfferMacaroon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cav := mac.Caveats()
 	c.Assert(cav, gc.HasLen, 4)
-	c.Assert(strings.HasPrefix(cav[0].Id, "time-before"), jc.IsTrue)
+	c.Assert(bytes.HasPrefix(cav[0].Id, []byte("time-before")), jc.IsTrue)
 	c.Assert(cav[1].Id, gc.Equals, "declared source-model-uuid "+coretesting.ModelTag.Id())
 	c.Assert(cav[2].Id, gc.Equals, "declared offer-uuid mysql-uuid")
 	c.Assert(cav[3].Id, gc.Equals, "declared username mary")
@@ -223,7 +224,7 @@ func (s *authSuite) TestCreateRemoteRelationMacaroon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cav := mac.Caveats()
 	c.Assert(cav, gc.HasLen, 5)
-	c.Assert(strings.HasPrefix(cav[0].Id, "time-before"), jc.IsTrue)
+	c.Assert(bytes.HasPrefix(cav[0].Id, []byte("time-before")), jc.IsTrue)
 	c.Assert(cav[1].Id, gc.Equals, "declared source-model-uuid "+coretesting.ModelTag.Id())
 	c.Assert(cav[2].Id, gc.Equals, "declared offer-uuid mysql-uuid")
 	c.Assert(cav[3].Id, gc.Equals, "declared username mary")
@@ -233,11 +234,12 @@ func (s *authSuite) TestCreateRemoteRelationMacaroon(c *gc.C) {
 func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := s.bakery.NewMacaroon("", nil, []checkers.Caveat{
+	mac, err := s.bakery.NewMacaroon([]checkers.Caveat{
 		checkers.DeclaredCaveat("username", "mary"),
 		checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
 		checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
 	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	attr, err := authContext.Authenticator(
 		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
@@ -256,11 +258,12 @@ func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
 func (s *authSuite) TestCheckOfferMacaroonsWrongOffer(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := s.bakery.NewMacaroon("", nil, []checkers.Caveat{
+	mac, err := s.bakery.NewMacaroon([]checkers.Caveat{
 		checkers.DeclaredCaveat("username", "mary"),
 		checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
 		checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
 	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.Authenticator(
 		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
@@ -276,10 +279,11 @@ func (s *authSuite) TestCheckOfferMacaroonsWrongOffer(c *gc.C) {
 func (s *authSuite) TestCheckOfferMacaroonsNoUser(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := s.bakery.NewMacaroon("", nil, []checkers.Caveat{
+	mac, err := s.bakery.NewMacaroon([]checkers.Caveat{
 		checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
 		checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
 	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.Authenticator(
 		coretesting.ModelTag.Id(), "mysql-uuid").CheckOfferMacaroons(
@@ -338,11 +342,12 @@ func (s *authSuite) TestCheckRelationMacaroons(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
-	mac, err := s.bakery.NewMacaroon("", nil, []checkers.Caveat{
+	mac, err := s.bakery.NewMacaroon([]checkers.Caveat{
 		checkers.DeclaredCaveat("username", "mary"),
 		checkers.DeclaredCaveat("relation-key", relationTag.Id()),
 		checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
 	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator(
 		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
@@ -355,11 +360,12 @@ func (s *authSuite) TestCheckRelationMacaroons(c *gc.C) {
 func (s *authSuite) TestCheckRelationMacaroonsWrongRelation(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := s.bakery.NewMacaroon("", nil, []checkers.Caveat{
+	mac, err := s.bakery.NewMacaroon([]checkers.Caveat{
 		checkers.DeclaredCaveat("username", "mary"),
 		checkers.DeclaredCaveat("relation-key", names.NewRelationTag("mediawiki:db mysql:server").Id()),
 		checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
 	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator(
 		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(
@@ -376,10 +382,11 @@ func (s *authSuite) TestCheckRelationMacaroonsNoUser(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
-	mac, err := s.bakery.NewMacaroon("", nil, []checkers.Caveat{
+	mac, err := s.bakery.NewMacaroon([]checkers.Caveat{
 		checkers.DeclaredCaveat("relation-key", relationTag.Id()),
 		checkers.DeclaredCaveat("source-model-uuid", coretesting.ModelTag.Id()),
 	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator(
 		coretesting.ModelTag.Id(), "mysql-uuid").CheckRelationMacaroons(

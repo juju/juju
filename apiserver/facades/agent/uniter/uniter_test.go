@@ -4130,7 +4130,6 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	c.Check(result.Results["db"], jc.DeepEquals, expectedResult)
 }
 
-
 func (s *uniterSuite) TestGetCloudSpecDeniesAccessWhenNotTrusted(c *gc.C) {
 	result, err := s.uniter.CloudSpec()
 	c.Assert(err, jc.ErrorIsNil)

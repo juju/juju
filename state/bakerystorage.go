@@ -4,7 +4,10 @@
 package state
 
 import (
-	"github.com/juju/utils/clock"
+	"time"
+
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/mgostorage"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/bakerystorage"
@@ -19,6 +22,10 @@ func (st *State) NewBakeryStorage() (bakerystorage.ExpirableStorage, error) {
 		GetCollection: func() (mongo.Collection, func()) {
 			return st.db().GetCollection(bakeryStorageItemsC)
 		},
-		Clock: clock.WallClock,
+		GetStorage: func(rootKeys *mgostorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.Storage {
+			return rootKeys.NewStorage(coll.Writeable().Underlying(), mgostorage.Policy{
+				ExpiryDuration: expireAfter,
+			})
+		},
 	})
 }

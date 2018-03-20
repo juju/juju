@@ -5,7 +5,7 @@ package params
 
 import (
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 )
 
 // ExternalControllerInfoResults contains the results of querying

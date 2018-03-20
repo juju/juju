@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
@@ -88,7 +88,7 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *gc.C) worker.Wo
 	s.waitForWorkerStubCalls(c, expected)
 	s.stub.ResetCalls()
 
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := macaroon.New(nil, []byte("test"), "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"db2"}
 	expected = []jujutesting.StubCall{
@@ -195,9 +195,9 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := macaroon.New(nil, []byte("test"), "")
 	c.Assert(err, jc.ErrorIsNil)
-	apiMac, err := macaroon.New(nil, "apimac", "")
+	apiMac, err := macaroon.New(nil, []byte("apimac"), "")
 	c.Assert(err, jc.ErrorIsNil)
 	relTag := names.NewRelationTag("db2:db django:db")
 	expected := []jujutesting.StubCall{
@@ -283,7 +283,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRevoked(c *gc.C) {
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := macaroon.New(nil, []byte("test"), "")
 	c.Assert(err, jc.ErrorIsNil)
 	relTag := names.NewRelationTag("db2:db django:db")
 	expected := []jujutesting.StubCall{
@@ -337,7 +337,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 	// goes to Dying; they're only stopped when the relation is
 	// finally removed.
 	c.Assert(unitsWatcher.killed(), jc.IsFalse)
-	mac, err := macaroon.New(nil, "apimac", "")
+	mac, err := macaroon.New(nil, []byte("apimac"), "")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
@@ -387,7 +387,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
 		Departed: []string{"unit/2"},
 	}
 
-	mac, err := macaroon.New(nil, "apimac", "")
+	mac, err := macaroon.New(nil, []byte("apimac"), "")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"RelationUnitSettings", []interface{}{
@@ -421,7 +421,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
 		Departed: []string{"unit/2"},
 	}
 
-	mac, err := macaroon.New(nil, "apimac", "")
+	mac, err := macaroon.New(nil, []byte("apimac"), "")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"RelationUnitSettings", []interface{}{
@@ -481,7 +481,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
 	}
 
 	// The error causes relation change publication to fail.
-	apiMac, err := macaroon.New(nil, "apimac", "")
+	apiMac, err := macaroon.New(nil, []byte("apimac"), "")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"PublishRelationChange", []interface{}{
@@ -510,7 +510,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 	relTag := names.NewRelationTag("db2:db django:db")
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := macaroon.New(nil, []byte("test"), "")
 	c.Assert(err, jc.ErrorIsNil)
 	expected = []jujutesting.StubCall{
 		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
@@ -600,9 +600,9 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *gc.C) {
 	s.relationsFacade.relations["db2:db django:db"].SetSuspended(false)
 	relWatcher.changes <- []string{"db2:db django:db"}
 
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := macaroon.New(nil, []byte("test"), "")
 	c.Assert(err, jc.ErrorIsNil)
-	apiMac, err := macaroon.New(nil, "apimac", "")
+	apiMac, err := macaroon.New(nil, []byte("apimac"), "")
 	relTag := names.NewRelationTag("db2:db django:db")
 	// When resuming, it's similar to setting things up for a new relation
 	// except that the call to create te life/status listener is missing.

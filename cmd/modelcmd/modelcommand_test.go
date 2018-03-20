@@ -15,7 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
@@ -243,7 +243,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.apiOpen = func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
-		mac, err := macaroon.New(nil, "test", "")
+		mac, err := macaroon.New(nil, []byte("test"), "")
 		c.Assert(err, jc.ErrorIsNil)
 		info.Macaroons = []macaroon.Slice{{mac}}
 		return api.Open(info, dialOpts)

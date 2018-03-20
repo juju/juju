@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/common"

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 )
 
 type RemoteEntitiesSuite struct {
@@ -60,7 +60,7 @@ func (s *RemoteEntitiesSuite) TestMacaroon(c *gc.C) {
 	s.assertExportLocalEntity(c, entity)
 
 	re := s.State.RemoteEntities()
-	mac, err := macaroon.New(nil, "id", "loc")
+	mac, err := macaroon.New(nil, []byte("id"), "loc")
 	c.Assert(err, jc.ErrorIsNil)
 	err = re.SaveMacaroon(entity, mac)
 	c.Assert(err, jc.ErrorIsNil)
