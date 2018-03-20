@@ -93,15 +93,11 @@ func (s *StorageClientSuite) TestVolumeDeleteNotFound(c *gc.C) {
 func (s *StorageClientSuite) TestVolumeList(c *gc.C) {
 	client := lxdclient.NewStorageClient(s.raw, true)
 	s.raw.volumes = []api.StorageVolume{{
+		Name: "foo",
 		Type: "custom",
-		StorageVolumePut: api.StorageVolumePut{
-			Name: "foo",
-		},
 	}, {
+		Name: "bar",
 		Type: "not-custom",
-		StorageVolumePut: api.StorageVolumePut{
-			Name: "bar",
-		},
 	}}
 	list, err := client.VolumeList("pool")
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,9 +132,7 @@ func (s *StorageClientSuite) TestVolumeError(c *gc.C) {
 func (s *StorageClientSuite) TestVolumeUpdate(c *gc.C) {
 	client := lxdclient.NewStorageClient(s.raw, true)
 	volume := api.StorageVolume{
-		StorageVolumePut: api.StorageVolumePut{
-			Name: "volume",
-		},
+		Name: "volume",
 	}
 	err := client.VolumeUpdate("pool", "volume", volume)
 	c.Assert(err, jc.ErrorIsNil)
@@ -228,9 +222,7 @@ func (c *mockRawStorageClient) StoragePoolVolumeTypeDelete(pool string, volume s
 func (c *mockRawStorageClient) StoragePoolVolumeTypeGet(pool, volume, volumeType string) (api.StorageVolume, error) {
 	c.MethodCall(c, "StoragePoolVolumeTypeGet", pool, volume, volumeType)
 	return api.StorageVolume{
-		StorageVolumePut: api.StorageVolumePut{
-			Name: volume,
-		},
+		Name: volume,
 	}, c.NextErr()
 }
 

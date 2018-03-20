@@ -9,12 +9,12 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/lxc/lxd/shared/api"
 	"github.com/lxc/lxd/client"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
-	"github.com/lxc/lxd/shared/api"
 )
 
 type lxdInstance struct {

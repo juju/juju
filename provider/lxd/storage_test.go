@@ -188,16 +188,16 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 	s.Stub.SetErrors(nil, nil, nil, errors.New("boom"))
 	s.Client.Volumes = map[string][]api.StorageVolume{
 		"foo": []api.StorageVolume{{
+			Name: "filesystem-0",
 			StorageVolumePut: api.StorageVolumePut{
-				Name: "filesystem-0",
 				Config: map[string]string{
 					"foo": "bar",
 					"user.juju-model-uuid": "baz",
 				},
 			},
 		}, {
+			Name: "filesystem-1",
 			StorageVolumePut: api.StorageVolumePut{
-				Name: "filesystem-1",
 				Config: map[string]string{
 					"user.juju-controller-uuid": "qux",
 					"user.juju-model-uuid":      "quux",
@@ -219,16 +219,16 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 	c.Assert(results[2], gc.ErrorMatches, `removing tags from volume "filesystem-1" in pool "foo": boom`)
 
 	update0 := api.StorageVolume{
+		Name: "filesystem-0",
 		StorageVolumePut: api.StorageVolumePut{
-			Name: "filesystem-0",
 			Config: map[string]string{
 				"foo": "bar",
 			},
 		},
 	}
 	update1 := api.StorageVolume{
+		Name: "filesystem-1",
 		StorageVolumePut: api.StorageVolumePut{
-			Name:   "filesystem-1",
 			Config: map[string]string{},
 		},
 	}
@@ -385,8 +385,8 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 
 	s.Client.Volumes = map[string][]api.StorageVolume{
 		"foo": []api.StorageVolume{{
+			Name: "bar",
 			StorageVolumePut: api.StorageVolumePut{
-				Name: "bar",
 				Config: map[string]string{
 					"size": "10GB",
 				},
@@ -404,8 +404,8 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	})
 
 	update := api.StorageVolume{
+		Name: "bar",
 		StorageVolumePut: api.StorageVolumePut{
-			Name: "bar",
 			Config: map[string]string{
 				"size":     "10GB",
 				"user.baz": "qux",

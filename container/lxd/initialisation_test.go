@@ -17,10 +17,10 @@ import (
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
+	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
-	"github.com/lxc/lxd/shared/api"
 )
 
 type InitialiserSuite struct {

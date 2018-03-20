@@ -55,17 +55,17 @@ func NewContainerInitialiser(series string) container.Initialiser {
 func (ci *containerInitialiser) Initialise() error {
 	err := ensureDependencies(ci.series)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	err = configureLXDBridge()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	proxies := proxy.DetectProxies()
 	err = ConfigureLXDProxies(proxies)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// Well... this will need to change soon once we are passed 17.04 as who
@@ -215,22 +215,22 @@ func createDefaultBridgeInDefaultProfile(client networkClient) error {
 		}
 		err := client.CreateNetwork(networksPost)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 
 		n, _, err = client.GetNetwork(network.DefaultLXDBridge)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	} else {
 		if err := checkBridgeConfig(client, network.DefaultLXDBridge); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 
 	profile, etag, err := client.GetProfile("default")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	config := profile.Writable()
 	_, ok := config.Devices["eth0"]
@@ -252,7 +252,7 @@ func createDefaultBridgeInDefaultProfile(client networkClient) error {
 
 	err = client.UpdateProfile("default", config, etag)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	return nil
@@ -361,11 +361,11 @@ func ensureDependencies(series string) error {
 
 	pacman, err := getPackageManager(series)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	pacconfer, err := getPackagingConfigurer(series)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	for _, pack := range requiredPackages {
@@ -380,11 +380,11 @@ func ensureDependencies(series string) error {
 		}
 
 		if err := pacman.Install(pkg); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 
-	return err
+	return errors.Trace(err)
 }
 
 // randomizedOctetRange is a variable for testing purposes.
