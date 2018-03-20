@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -24,6 +25,11 @@ type ModelUserSuite struct {
 }
 
 var _ = gc.Suite(&ModelUserSuite{})
+
+func (s *ModelUserSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CAAS)
+	s.ConnSuite.SetUpTest(c)
+}
 
 func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 	now := state.NowToTheSecond(s.State)
@@ -412,7 +418,7 @@ func (s *ModelUserSuite) TestModelUUIDsForUserModelOwner(c *gc.C) {
 
 func (s *ModelUserSuite) TestModelUUIDsForUserOfNewModel(c *gc.C) {
 	userTag := names.NewUserTag("external@remote")
-	model := s.newModelWithUser(c, userTag)
+	model := s.newModelWithUser(c, userTag, state.ModelTypeIAAS)
 
 	models, err := s.State.ModelUUIDsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -422,9 +428,9 @@ func (s *ModelUserSuite) TestModelUUIDsForUserOfNewModel(c *gc.C) {
 func (s *ModelUserSuite) TestModelUUIDsForUserMultiple(c *gc.C) {
 	userTag := names.NewUserTag("external@remote")
 	expected := []string{
-		s.newModelWithUser(c, userTag).UUID(),
-		s.newModelWithUser(c, userTag).UUID(),
-		s.newModelWithUser(c, userTag).UUID(),
+		s.newModelWithUser(c, userTag, state.ModelTypeIAAS).UUID(),
+		s.newModelWithUser(c, userTag, state.ModelTypeIAAS).UUID(),
+		s.newModelWithUser(c, userTag, state.ModelTypeIAAS).UUID(),
 		s.newModelWithOwner(c, userTag).UUID(),
 		s.newModelWithOwner(c, userTag).UUID(),
 	}
@@ -436,15 +442,21 @@ func (s *ModelUserSuite) TestModelUUIDsForUserMultiple(c *gc.C) {
 
 func (s *ModelUserSuite) TestModelBasicInfoForUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-	model := s.newModelWithUser(c, user.UserTag())
+	model := s.newModelWithUser(c, user.UserTag(), state.ModelTypeIAAS)
+	model2 := s.newModelWithUser(c, user.UserTag(), state.ModelTypeCAAS)
 
 	models, err := s.State.ModelBasicInfoForUser(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models, jc.DeepEquals, []state.ModelAccessInfo{
+	c.Assert(models, jc.SameContents, []state.ModelAccessInfo{
 		{
 			Name:  model.Name(),
 			Type:  model.Type(),
 			UUID:  model.UUID(),
+			Owner: "test-admin",
+		}, {
+			Name:  model2.Name(),
+			Type:  model2.Type(),
+			UUID:  model2.UUID(),
 			Owner: "test-admin",
 		},
 	})
@@ -512,17 +524,22 @@ func (s *ModelUserSuite) newModelWithOwner(c *gc.C, owner names.UserTag) *state.
 	return model
 }
 
-func (s *ModelUserSuite) newModelWithUser(c *gc.C, user names.UserTag) *state.Model {
-	st := s.Factory.MakeModel(c, nil)
+func (s *ModelUserSuite) newModelWithUser(c *gc.C, user names.UserTag, modelType state.ModelType) *state.Model {
+	params := &factory.ModelParams{Type: modelType}
+	if modelType == state.ModelTypeCAAS {
+		params.CloudRegion = "<none>"
+		params.StorageProviderRegistry = factory.NilStorageProviderRegistry{}
+	}
+	st := s.Factory.MakeModel(c, params)
 	defer st.Close()
-	newEnv, err := st.Model()
+	newModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = newEnv.AddUser(
+	_, err = newModel.AddUser(
 		state.UserAccessSpec{
-			User: user, CreatedBy: newEnv.Owner(),
+			User: user, CreatedBy: newModel.Owner(),
 			Access: permission.ReadAccess,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	return newEnv
+	return newModel
 }

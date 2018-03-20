@@ -95,6 +95,11 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 	return providerInstance
 }
 
+// Destroy is part of the Broker interface.
+func (k *kubernetesClient) Destroy() error {
+	return k.deleteNamespace()
+}
+
 // EnsureNamespace ensures this broker's namespace is created.
 func (k *kubernetesClient) EnsureNamespace() error {
 	ns := &v1.Namespace{ObjectMeta: v1.ObjectMeta{Name: k.namespace}}
@@ -106,8 +111,10 @@ func (k *kubernetesClient) EnsureNamespace() error {
 	return errors.Trace(err)
 }
 
-// DeleteNamespace deletes this broker's namespace.
-func (k *kubernetesClient) DeleteNamespace() error {
+func (k *kubernetesClient) deleteNamespace() error {
+	// deleteNamespace is used as a means to implement Destroy().
+	// All model resources are provisioned in the namespace;
+	// deleting the namespace will also delete those resources.
 	orphanDependents := false
 	namespaces := k.CoreV1().Namespaces()
 	err := namespaces.Delete(k.namespace, &v1.DeleteOptions{
@@ -152,39 +159,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	logger.Debugf("deleting %s operator", appName)
 	podName := operatorPodName(appName)
-	if err := k.deletePod(podName); err != nil {
-		return errors.Trace(err)
-	}
-
-	// TODO(caas) - this is a stop gap until we implement a CAAS model manager worker
-	// If there are no more resources left running, we can delete the namespace.
-	// When an application is deleted, the operator is the last to go so we use that
-	// as an opportunity to see if there's anything left running.
-	deployments := k.ExtensionsV1beta1().Deployments(k.namespace)
-	deploymentsList, err := deployments.List(v1.ListOptions{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(deploymentsList.Items) > 0 {
-		return nil
-	}
-
-	pods := k.CoreV1().Pods(k.namespace)
-	podsList, err := pods.List(v1.ListOptions{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	allTerminating := len(podsList.Items) == 0
-	for _, pod := range podsList.Items {
-		allTerminating = allTerminating && pod.DeletionTimestamp != nil
-		if !allTerminating {
-			break
-		}
-	}
-	if allTerminating {
-		err = k.DeleteNamespace()
-	}
-	return err
+	return k.deletePod(podName)
 }
 
 // Service returns the service for the specified application.

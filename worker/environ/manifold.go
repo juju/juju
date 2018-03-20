@@ -55,10 +55,13 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 	if !ok {
 		return errors.Errorf("expected *environ.Tracker, got %T", in)
 	}
-	outEnviron, ok := out.(*environs.Environ)
-	if !ok {
-		return errors.Errorf("expected *environs.Environ, got %T", out)
+	switch result := out.(type) {
+	case *environs.Environ:
+		*result = inTracker.Environ()
+	case *environs.CloudDestroyer:
+		*result = inTracker.Environ()
+	default:
+		return errors.Errorf("expected *environs.Environ or *environs.CloudDestroyer, got %T", out)
 	}
-	*outEnviron = inTracker.Environ()
 	return nil
 }

@@ -7,10 +7,9 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/undertaker"
@@ -61,12 +60,16 @@ func (mock *mockFacade) RemoveModel() error {
 	return mock.stub.NextErr()
 }
 
-type mockEnviron struct {
-	environs.Environ
+type cloudDestroyer interface {
+	Destroy() error
+}
+
+type mockDestroyer struct {
+	cloudDestroyer
 	stub *testing.Stub
 }
 
-func (mock *mockEnviron) Destroy() error {
+func (mock *mockDestroyer) Destroy() error {
 	mock.stub.AddCall("Destroy")
 	return mock.stub.NextErr()
 }
@@ -96,7 +99,7 @@ func (fix fixture) cleanup(c *gc.C, w worker.Worker) {
 
 func (fix fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
 	stub := &testing.Stub{}
-	environ := &mockEnviron{
+	environOrBroker := &mockDestroyer{
 		stub: stub,
 	}
 	facade := &mockFacade{
@@ -105,8 +108,8 @@ func (fix fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
 	}
 	stub.SetErrors(fix.errors...)
 	w, err := undertaker.NewUndertaker(undertaker.Config{
-		Facade:  facade,
-		Environ: environ,
+		Facade:    facade,
+		Destroyer: environOrBroker,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer fix.cleanup(c, w)

@@ -223,15 +223,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// that it happens sometimes, even when we try to avoid
 		// it.
 
-		// The undertaker is currently the only ifNotAlive worker.
-		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
-			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
-
-			NewFacade: undertaker.NewFacade,
-			NewWorker: undertaker.NewWorker,
-		}))),
-
 		charmRevisionUpdaterName: ifNotMigrating(charmrevisionmanifold.Manifold(charmrevisionmanifold.ManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
@@ -327,6 +318,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// that it happens sometimes, even when we try to avoid
 		// it.
 
+		// The undertaker is currently the only ifNotAlive worker.
+		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
+			APICallerName:      apiCallerName,
+			CloudDestroyerName: environTrackerName,
+
+			NewFacade: undertaker.NewFacade,
+			NewWorker: undertaker.NewWorker,
+		}))),
+
 		// All the rest depend on ifNotMigrating.
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:          agentName,
@@ -395,6 +395,16 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	modelTag := agentConfig.Model()
 	manifolds := dependency.Manifolds{
+
+		// The undertaker is currently the only ifNotAlive worker.
+		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
+			APICallerName:      apiCallerName,
+			CloudDestroyerName: caasBrokerTrackerName,
+
+			NewFacade: undertaker.NewFacade,
+			NewWorker: undertaker.NewWorker,
+		}))),
+
 		caasBrokerTrackerName: ifResponsible(caasbroker.Manifold(caasbroker.ManifoldConfig{
 			APICallerName:          apiCallerName,
 			NewContainerBrokerFunc: config.NewContainerBrokerFunc,

@@ -43,7 +43,7 @@ func (c *Client) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	return result, errors.Trace(err)
 }
 
-// ProcessDyingModel checks if a dying model has any machines or services.
+// ProcessDyingModel checks if a dying model has any machines or applications.
 // If there are none, the model's life is changed from dying to dead.
 func (c *Client) ProcessDyingModel() error {
 	return c.entityFacadeCall("ProcessDyingModel", nil)
@@ -82,7 +82,7 @@ func (c *Client) entityFacadeCall(name string, results interface{}) error {
 }
 
 // WatchModelResources starts a watcher for changes to the model's
-// machines and services.
+// machines and applications.
 func (c *Client) WatchModelResources() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	err := c.entityFacadeCall("WatchModelResources", &results)
