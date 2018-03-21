@@ -28,7 +28,7 @@ type resolvedCommand struct {
 func (c *resolvedCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resolved",
-		Args:    "<unit>",
+		Args:    "[<unit>]",
 		Purpose: "Marks unit errors resolved and re-executes failed hooks.",
 		Aliases: []string{"resolve"},
 	}
@@ -36,7 +36,7 @@ func (c *resolvedCommand) Info() *cmd.Info {
 
 func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.all, "all", false, "Marks all units errors as resolved")
+	f.BoolVar(&c.all, "all", false, "Marks all units in error as resolved")
 	f.BoolVar(&c.NoRetry, "no-retry", false, "Do not re-execute failed hooks on the unit")
 }
 
@@ -47,7 +47,7 @@ func (c *resolvedCommand) Init(args []string) error {
 			return errors.Errorf("invalid unit name %q", c.UnitName)
 		}
 		args = args[1:]
-	} else {
+	} else if c.all == false {
 		return errors.Errorf("no unit specified")
 	}
 	return cmd.CheckEmpty(args)
