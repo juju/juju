@@ -1206,7 +1206,6 @@ func (s *ApplicationSuite) TestApplicationUnitResolved(c *gc.C) {
 		All:      false,
 	}
 
-	s.backend.SetErrors(nil)
 	err := s.api.Resolved(p)
 	c.Assert(err, gc.IsNil)
 }
