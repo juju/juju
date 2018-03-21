@@ -225,23 +225,22 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 	requiredEvents++
 
+	var seenAddressesChange bool
+	addressesw, err := w.unit.WatchAddresses()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	addressesChanges := addressesw.Changes()
+	if err := w.catacomb.Add(addressesw); err != nil {
+		return errors.Trace(err)
+	}
+	requiredEvents++
+
 	var (
-		seenAddressesChange bool
-		addressesChanges    watcher.NotifyChannel
-		seenStorageChange   bool
-		storageChanges      watcher.StringsChannel
+		seenStorageChange bool
+		storageChanges    watcher.StringsChannel
 	)
 	if w.modelType == model.IAAS {
-		addressesw, err := w.unit.WatchAddresses()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		addressesChanges = addressesw.Changes()
-		if err := w.catacomb.Add(addressesw); err != nil {
-			return errors.Trace(err)
-		}
-		requiredEvents++
-
 		storagew, err := w.unit.WatchStorage()
 		if err != nil {
 			return errors.Trace(err)

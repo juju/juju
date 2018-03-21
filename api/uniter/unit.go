@@ -581,9 +581,12 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 }
 
 // WatchAddresses returns a watcher for observing changes to the
-// unit's addresses. The unit must be assigned to a machine before
-// this method is called, and the returned watcher will be valid only
-// while the unit's assigned machine is not changed.
+// unit's addresses.
+// For IAAS models, the unit must be assigned to a machine before
+// this method is called, and the returned watcher will be valid
+// only while the unit's assigned machine is not changed.
+// For CAAS models, the watcher observes changes to the address
+// of the pod associated with the unit.
 func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{

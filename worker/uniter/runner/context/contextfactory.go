@@ -306,19 +306,19 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	}
 	ctx.proxySettings = modelConfig.ProxySettings()
 
+	statusCode, statusInfo, err := f.unit.MeterStatus()
+	if err != nil {
+		return errors.Annotate(err, "could not retrieve meter status for unit")
+	}
+	ctx.meterStatus = &meterStatus{
+		code: statusCode,
+		info: statusInfo,
+	}
+
 	if f.modelType == model.IAAS {
 		ctx.machinePorts, err = f.state.AllMachinePorts(f.machineTag)
 		if err != nil {
 			return errors.Trace(err)
-		}
-
-		statusCode, statusInfo, err := f.unit.MeterStatus()
-		if err != nil {
-			return errors.Annotate(err, "could not retrieve meter status for unit")
-		}
-		ctx.meterStatus = &meterStatus{
-			code: statusCode,
-			info: statusInfo,
 		}
 
 		// Calling these last, because there's a potential race: they're not guaranteed
