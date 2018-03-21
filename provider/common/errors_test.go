@@ -38,6 +38,8 @@ func (s *ErrorsSuite) TestNewInvalidCredential(c *gc.C) {
 	err2 := errors.Annotate(err1, "bar")
 	err := common.CredentialNotValid(err2)
 
+	// This is to confirm that IsCredentialNotValid is correct.
+	c.Assert(err2, gc.Not(jc.Satisfies), common.IsCredentialNotValid)
 	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
 	c.Assert(err, gc.ErrorMatches, "bar: foo")
 
