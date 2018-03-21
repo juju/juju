@@ -30,7 +30,7 @@ type applicationSuite struct {
 var _ = gc.Suite(&applicationSuite{})
 
 func newClient(f basetesting.APICallerFunc) *application.Client {
-	return application.NewClient(basetesting.BestVersionCaller{f, 5})
+	return application.NewClient(basetesting.BestVersionCaller{f, 6})
 }
 
 func newClientV4(f basetesting.APICallerFunc) *application.Client {
