@@ -5,16 +5,11 @@ package lxd
 
 import (
 	"fmt"
-	"os"
-	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/arch"
-	jujuos "github.com/juju/utils/os"
-	jujuseries "github.com/juju/utils/series"
 	lxd "github.com/lxc/lxd/client"
 	lxdshared "github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
@@ -27,6 +22,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools/lxdtools"
 )
 
 var (
@@ -57,10 +53,10 @@ var _ container.Manager = (*containerManager)(nil)
 /* The "releases" stream for images. This consists of blessed releases by the
  * Canonical team.
  */
-var CloudImagesRemote = RemoteServer{
+var CloudImagesRemote = lxdtools.RemoteServer{
 	Name:     "cloud-images.ubuntu.com",
 	Host:     "https://cloud-images.ubuntu.com/releases",
-	Protocol: SimplestreamsProtocol,
+	Protocol: lxdtools.SimplestreamsProtocol,
 }
 
 /* The "daily" stream. This consists of images that are built from the daily
@@ -68,33 +64,19 @@ var CloudImagesRemote = RemoteServer{
  * theory "should" be good, since they're build from packages from the released
  * archive.
  */
-var CloudImagesDailyRemote = RemoteServer{
+var CloudImagesDailyRemote = lxdtools.RemoteServer{
 	Name:     "cloud-images.ubuntu.com",
 	Host:     "https://cloud-images.ubuntu.com/daily",
-	Protocol: SimplestreamsProtocol,
+	Protocol: lxdtools.SimplestreamsProtocol,
 }
 
 var generateCertificate = func() ([]byte, []byte, error) { return lxdshared.GenerateMemCert(true) }
-var DefaultImageSources = []RemoteServer{CloudImagesRemote, CloudImagesDailyRemote}
-
-type Protocol string
-
-const (
-	LXDProtocol           Protocol = "lxd"
-	SimplestreamsProtocol Protocol = "simplestreams"
-)
-
-type RemoteServer struct {
-	Name     string
-	Host     string
-	Protocol Protocol
-	lxd.ConnectionArgs
-}
+var DefaultImageSources = []lxdtools.RemoteServer{CloudImagesRemote, CloudImagesDailyRemote}
 
 var ConnectLocal = connectLocal
 
 func connectLocal() (lxd.ContainerServer, error) {
-	client, err := lxd.ConnectLXDUnix(lxdSocketPath(), &lxd.ConnectionArgs{})
+	client, err := lxd.ConnectLXDUnix(lxdtools.LxdSocketPath(), &lxd.ConnectionArgs{})
 
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -133,63 +115,6 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 // Namespace implements container.Manager.
 func (manager *containerManager) Namespace() instance.Namespace {
 	return manager.namespace
-}
-
-// getImageWithServer returns an ImageServer and Image that has the image
-// for series and architecture that we're looking for. If the server
-// is remote the image will be cached by LXD, we don't need to cache
-// it.
-func (manager *containerManager) getImageWithServer(
-	series, arch string,
-	sources []RemoteServer) (lxd.ImageServer, *api.Image, string, error) {
-	// First we check if we have the image locally.
-	lastErr := fmt.Errorf("Image not found")
-	imageName := seriesLocalAlias(series, arch)
-	var target string
-	entry, _, err := manager.server.GetImageAlias(imageName)
-	if entry != nil {
-		// We already have an image with the given alias,
-		// so just use that.
-		target = entry.Target
-		image, _, err := manager.server.GetImage(target)
-		if err != nil {
-			logger.Debugf("Found image locally - %q %q", image, target)
-			return manager.server.(lxd.ImageServer), image, target, nil
-		}
-	}
-
-	// We don't have an image locally with the juju-specific alias,
-	// so look in each of the provided remote sources for any of
-	// the expected aliases. We don't need to copy this image as
-	// it will be cached by LXD.
-	aliases, err := seriesRemoteAliases(series, arch)
-	if err != nil {
-		return nil, nil, "", errors.Trace(err)
-	}
-	for _, remote := range sources {
-		source, err := manager.connectToSource(remote)
-		if err != nil {
-			logger.Infof("failed to connect to %q: %s", remote.Host, err)
-			lastErr = err
-			continue
-		}
-		for _, alias := range aliases {
-			if result, _, err := source.GetImageAlias(alias); err == nil && result.Target != "" {
-				target = result.Target
-				break
-			}
-		}
-		if target != "" {
-			image, _, err := source.GetImage(target)
-			if err == nil {
-				logger.Debugf("Found image remotely - %q %q %q", source, image, target)
-				return source, image, target, nil
-			} else {
-				lastErr = err
-			}
-		}
-	}
-	return nil, nil, "", lastErr
 }
 
 // DestroyContainer implements container.Manager.
@@ -267,65 +192,6 @@ func (manager *containerManager) IsInitialized() bool {
 	return err == nil
 }
 
-func lxdSocketPath() string {
-	// LXD socket is different depending on installation method
-	// We prefer upstream's preference of snap installed LXD
-	debianSocket := filepath.FromSlash("/var/lib/lxd")
-	snapSocket := filepath.FromSlash("/var/snap/lxd/common/lxd")
-	path := os.Getenv("LXD_DIR")
-	if path != "" {
-		logger.Debugf("Using environment LXD_DIR as socket path: %q", path)
-	} else {
-		if _, err := os.Stat(snapSocket); err == nil {
-			logger.Debugf("Using LXD snap socket: %q", snapSocket)
-			path = snapSocket
-		} else {
-			logger.Debugf("LXD snap socket not found, falling back to debian socket: %q", debianSocket)
-			path = debianSocket
-		}
-	}
-	return filepath.Join(path, "unix.socket")
-}
-
-// seriesLocalAlias returns the alias to assign to images for the
-// specified series. The alias is juju-specific, to support the
-// user supplying a customised image (e.g. CentOS with cloud-init).
-func seriesLocalAlias(series, arch string) string {
-	return fmt.Sprintf("juju/%s/%s", series, arch)
-}
-
-// seriesRemoteAliases returns the aliases to look for in remotes.
-func seriesRemoteAliases(series, arch string) ([]string, error) {
-	seriesOS, err := jujuseries.GetOSFromSeries(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	switch seriesOS {
-	case jujuos.Ubuntu:
-		return []string{path.Join(series, arch)}, nil
-	case jujuos.CentOS:
-		if series == "centos7" && arch == jujuarch.AMD64 {
-			return []string{"centos/7/amd64"}, nil
-		}
-	case jujuos.OpenSUSE:
-		if series == "opensuseleap" && arch == jujuarch.AMD64 {
-			return []string{"opensuse/42.2/amd64"}, nil
-		}
-	}
-	return nil, errors.NotSupportedf("series %q", series)
-}
-
-// connectToSource connects to remote ImageServer using specified protocol.
-func (manager *containerManager) connectToSource(remote RemoteServer) (lxd.ImageServer, error) {
-	switch remote.Protocol {
-	case LXDProtocol:
-		return lxd.ConnectPublicLXD(remote.Host, &remote.ConnectionArgs)
-	case SimplestreamsProtocol:
-		return lxd.ConnectSimpleStreams(remote.Host, &remote.ConnectionArgs)
-	}
-	return nil, fmt.Errorf("Wrong protocol %s", remote.Protocol)
-}
-
 // startInstance starts previously created instance.
 func (manager *containerManager) startInstance(name string) error {
 	req := api.ContainerStatePut{
@@ -381,7 +247,8 @@ func (manager *containerManager) createInstance(
 		}
 	}
 
-	imageServer, image, imageName, err := manager.getImageWithServer(
+	imageServer, image, imageName, err := lxdtools.GetImageWithServer(
+		manager.server,
 		series,
 		jujuarch.HostArch(),
 		DefaultImageSources,
@@ -403,13 +270,13 @@ func (manager *containerManager) createInstance(
 	}
 
 	metadata := map[string]string{
-		UserDataKey:      string(userData),
-		NetworkConfigKey: containerinit.CloudInitNetworkConfigDisabled,
+		lxdtools.UserDataKey:      string(userData),
+		lxdtools.NetworkConfigKey: containerinit.CloudInitNetworkConfigDisabled,
 		// An extra piece of info to let people figure out where this
 		// thing came from.
-		JujuModelKey: manager.modelUUID,
+		lxdtools.JujuModelKey: manager.modelUUID,
 		// Make sure these come back up on host reboot.
-		AutoStartKey: "true",
+		lxdtools.AutoStartKey: "true",
 	}
 
 	nics, err := networkDevices(networkConfig)
