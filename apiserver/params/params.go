@@ -452,7 +452,12 @@ type PrivateAddressResults struct {
 type Resolved struct {
 	UnitName string `json:"unit-name"`
 	Retry    bool   `json:"retry"`
-	All      bool   `json:"all"`
+}
+
+//
+type UnitsResolved struct {
+	Resolved []Resolved `json:"resolved,omitempty"`
+	All      bool       `json:"all,omitempty"`
 }
 
 // ResolvedResults holds results of the Resolved call.

@@ -1682,9 +1682,3 @@ func (api *APIv6) Resolved(p params.Resolved) error {
 	}
 	return unit.Resolve(p.Retry)
 }
-
-// Resolved implements the server side of Application.ResolvedAll.
-func (api *APIv6) ResolvedAll(p params.Resolved) error {
-	// TODO: Find all units in error state, resolve their state
-	return nil
-}
