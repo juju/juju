@@ -2449,6 +2449,48 @@ func (s *uniterSuite) TestWatchUnitAddresses(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *uniterSuite) TestWatchCAASUnitAddresses(c *gc.C) {
+	_, cm, _, _ := s.setupCAASModel(c)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+		{Tag: "machine-0"},
+		{Tag: "application-wordpress"},
+	}}
+
+	uniterAPI, err := uniter.NewUniterAPI(
+		cm.State(),
+		s.resources,
+		s.authorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.WatchUnitAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
+}
+
 func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
 	result, err := s.uniter.GetMeterStatus(args)
@@ -4129,7 +4171,6 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results["db"], jc.DeepEquals, expectedResult)
 }
-
 
 func (s *uniterSuite) TestGetCloudSpecDeniesAccessWhenNotTrusted(c *gc.C) {
 	result, err := s.uniter.CloudSpec()

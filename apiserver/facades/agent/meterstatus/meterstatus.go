@@ -7,6 +7,7 @@ package meterstatus
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -34,13 +35,39 @@ func NewMeterStatusAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*MeterStatusAPI, error) {
-	if !authorizer.AuthUnitAgent() {
+	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, common.ErrPerm
 	}
 	return &MeterStatusAPI{
 		state: st,
 		accessUnit: func() (common.AuthFunc, error) {
-			return authorizer.AuthOwner, nil
+			switch tag := authorizer.GetAuthTag().(type) {
+			case names.ApplicationTag:
+				// If called by an application agent, any of the units
+				// belonging to that application can be accessed.
+				app, err := st.Application(tag.Name)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				allUnits, err := app.AllUnits()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				return func(tag names.Tag) bool {
+					for _, u := range allUnits {
+						if u.Tag() == tag {
+							return true
+						}
+					}
+					return false
+				}, nil
+			case names.UnitTag:
+				return func(tag names.Tag) bool {
+					return authorizer.AuthOwner(tag)
+				}, nil
+			default:
+				return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
+			}
 		},
 		resources: resources,
 	}, nil
