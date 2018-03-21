@@ -88,15 +88,10 @@ var resolvedTests = []struct {
 		args: []string{"multi-series/4", "roflcopter"},
 		err:  `unrecognized args: \["roflcopter"\]`,
 	}, {
-		args: []string{"--all"},
-		mode: state.ResolvedRetryHooks,
+		args: []string{"multi-series/5", "--all"},
+		err:  "specify unit or --all option, not both",
+		unit: "multi-series/5",
 	},
-	//{
-	//	args: []string{"multi-series/5", "--all"},
-	//	err:  `cannot set resolved mode for unit "multi-series/5": already resolved`,
-	//	unit: "multi-series/5",
-	//	mode: state.ResolvedRetryHooks,
-	//},
 }
 
 func (s *ResolvedSuite) TestResolved(c *gc.C) {

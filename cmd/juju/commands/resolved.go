@@ -28,7 +28,7 @@ type resolvedCommand struct {
 func (c *resolvedCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "resolved",
-		Args:    "[<unit>]",
+		Args:    "<unit>",
 		Purpose: "Marks unit errors resolved and re-executes failed hooks.",
 		Aliases: []string{"resolve"},
 	}
@@ -41,6 +41,9 @@ func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *resolvedCommand) Init(args []string) error {
+	if len(args) > 0 && c.all == true {
+		return errors.Errorf("specify unit or --all option, not both")
+	}
 	if len(args) > 0 {
 		c.UnitName = args[0]
 		if !names.IsValidUnit(c.UnitName) {
@@ -59,9 +62,5 @@ func (c *resolvedCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	if c.all == false {
-		return block.ProcessBlockedError(client.Resolved(c.UnitName, c.NoRetry), block.BlockChange)
-	} else {
-		return block.ProcessBlockedError(client.ResolvedAll(c.UnitName, c.NoRetry, c.all), block.BlockChange)
-	}
+	return block.ProcessBlockedError(client.Resolved(c.UnitName, c.NoRetry), block.BlockChange)
 }
