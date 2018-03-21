@@ -1200,12 +1200,40 @@ func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestApplicationUnitResolved(c *gc.C) {
-	p := params.Resolved{
-		UnitName: "postgresql/0",
-		Retry:    false,
-		All:      false,
+	entities := []params.Entity{params.Entity{Tag: "postgresql/0"}}
+	p := params.UnitsResolved{
+		All:   false,
+		Retry: false,
+		Tags: params.Entities{
+			Entities: entities,
+		},
 	}
+	expectedResults := params.ErrorResults{
+		Results: []params.ErrorResult{{nil}},
+	}
+	s.testResolved(c, p, expectedResults, nil)
+}
 
-	err := s.api.Resolved(p)
-	c.Assert(err, gc.IsNil)
+func (s *ApplicationSuite) TestApplicationUnitResolvedAll(c *gc.C) {
+	entities := []params.Entity{params.Entity{Tag: "postgresql/0"}}
+	p := params.UnitsResolved{
+		All:   true,
+		Retry: false,
+		Tags: params.Entities{
+			Entities: entities,
+		},
+	}
+	expectedResults := params.ErrorResults{}
+	expectedErr := errors.Errorf("All flag not implemented yet")
+	s.testResolved(c, p, expectedResults, expectedErr)
+}
+
+func (s *ApplicationSuite) testResolved(c *gc.C, p params.UnitsResolved, expectedResults params.ErrorResults, expectedErr error) {
+	result, err := s.api.Resolved(p)
+	if expectedErr == nil {
+		c.Assert(err, gc.IsNil)
+	} else {
+		c.Assert(err.Error(), gc.Equals, expectedErr.Error())
+	}
+	c.Assert(result, gc.DeepEquals, expectedResults)
 }

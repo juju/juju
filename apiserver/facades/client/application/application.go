@@ -1668,17 +1668,36 @@ func (api *APIv6) unsetApplicationConfig(arg params.ApplicationUnset) error {
 }
 
 // Resolved implements the server side of Application.Resolved.
-func (api *APIv6) Resolved(p params.Resolved) error {
+// TODO we will either do the specified unit or "all".
+func (api *APIv6) Resolved(p params.UnitsResolved) (params.ErrorResults, error) {
+
+	if p.All == true {
+		return params.ErrorResults{}, errors.Errorf("All flag not implemented yet")
+	}
 	if err := api.checkCanWrite(); err != nil {
-		return err
+		return params.ErrorResults{}, err
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(p.Tags.Entities)),
 	}
 
-	unit, err := api.backend.Unit(p.UnitName)
+	err := api.resolveUnit(p.Tags.Entities[0].Tag, p.Retry)
+	if err != nil {
+		result.Results[0].Error = &params.Error{
+			Message: err.Error(),
+		}
+	}
+	return result, nil
+}
+
+func (api *APIv6) resolveUnit(unitName string, retry bool) error {
+	unit, err := api.backend.Unit(unitName)
 	if err != nil {
 		return err
 	}
-	return unit.Resolve(p.Retry)
+	err = unit.Resolve(retry)
+	return err
 }
