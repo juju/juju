@@ -135,7 +135,11 @@ func (manager *containerManager) Namespace() instance.Namespace {
 	return manager.namespace
 }
 
-func (manager *containerManager) GetImageWithServer(
+// getImageWithServer returns an ImageServer and Image that has the image
+// for series and architecture that we're looking for. If the server
+// is remote the image will be cached by LXD, we don't need to cache
+// it.
+func (manager *containerManager) getImageWithServer(
 	series, arch string,
 	sources []RemoteServer) (lxd.ImageServer, *api.Image, string, error) {
 	// First we check if we have the image locally.
@@ -188,6 +192,7 @@ func (manager *containerManager) GetImageWithServer(
 	return nil, nil, "", lastErr
 }
 
+// DestroyContainer implements container.Manager.
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	if err := manager.stopInstance(string(id)); err != nil {
 		return errors.Trace(err)
@@ -195,6 +200,7 @@ func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	return errors.Trace(manager.removeInstance(string(id)))
 }
 
+// CreateContainer implements container.Manager.
 func (manager *containerManager) CreateContainer(
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
@@ -224,6 +230,7 @@ func (manager *containerManager) CreateContainer(
 	return &lxdInstance{name, manager.server}, &instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}, nil
 }
 
+// ListContainers implements container.Manager.
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
 	result = []instance.Instance{}
 	if manager.server == nil {
@@ -247,6 +254,7 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 	return result, nil
 }
 
+// IsInitialized implements container.Manager.
 func (manager *containerManager) IsInitialized() bool {
 	if manager.server != nil {
 		return true
@@ -373,7 +381,7 @@ func (manager *containerManager) createInstance(
 		}
 	}
 
-	imageServer, image, imageName, err := manager.GetImageWithServer(
+	imageServer, image, imageName, err := manager.getImageWithServer(
 		series,
 		jujuarch.HostArch(),
 		DefaultImageSources,
