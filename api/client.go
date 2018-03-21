@@ -106,26 +106,24 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 
 // Resolved clears errors on a single unit.
 func (c *Client) Resolved(units string, retry bool) (params.ErrorResults, error) {
-	results := params.ErrorResults{}
-	results.Results = make([]params.ErrorResult, 1)
-	//
-	//p := params.UnitsResolved{}
-	//p.Resolved = make([]params.Resolved, 1)
-	////for i, unit := range units {
-	//p.Resolved[0] = params.Resolved{
-	//	UnitName: units,
-	//	Retry:    retry,
-	//}
-	////}
-	//
-	//err := c.facade.FacadeCall("Resolved", p, &results)
-
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, 1),
+	}
 	p := params.Resolved{
 		UnitName: units,
 		Retry:    retry,
 	}
-	return results, c.facade.FacadeCall("Resolved", p, nil)
-	//return results, err
+	//entities := []params.Entity{params.Entity{Tag: units}}
+	//p := params.UnitsResolved{
+	//	All:   false,
+	//	Retry: retry,
+	//	Tags: params.Entities{
+	//		Entities: entities,
+	//	},
+	//}
+
+	err := c.facade.FacadeCall("Resolved", p, &result)
+	return result, err
 }
 
 // RetryProvisioning updates the provisioning status of a machine allowing the
