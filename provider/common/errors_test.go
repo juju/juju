@@ -33,7 +33,7 @@ github.com/juju/juju/provider/common/errors_test.go:.*: bar
 github.com/juju/juju/provider/common/errors_test.go:.*: bar: foo`[1:])
 }
 
-func (s *ErrorsSuite) TestNewInvalidCredential(c *gc.C) {
+func (s *ErrorsSuite) TestInvalidCredentialWrapped(c *gc.C) {
 	err1 := errors.New("foo")
 	err2 := errors.Annotate(err1, "bar")
 	err := common.CredentialNotValid(err2)
@@ -48,4 +48,17 @@ func (s *ErrorsSuite) TestNewInvalidCredential(c *gc.C) {
 github.com/juju/juju/provider/common/errors_test.go:.*: foo
 github.com/juju/juju/provider/common/errors_test.go:.*: bar
 github.com/juju/juju/provider/common/errors_test.go:.*: bar: foo`[1:])
+}
+
+func (s *ErrorsSuite) TestInvalidCredentialNew(c *gc.C) {
+	err := common.NewCredentialNotValid("Your account is blocked.")
+	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	c.Assert(err, gc.ErrorMatches, "credential not valid: Your account is blocked.")
+}
+
+func (s *ErrorsSuite) TestInvalidCredentialf(c *gc.C) {
+	err1 := errors.New("foo")
+	err := common.CredentialNotValidf(err1, "bar")
+	c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	c.Assert(err, gc.ErrorMatches, "bar: foo")
 }

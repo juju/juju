@@ -44,6 +44,23 @@ func CredentialNotValid(err error) error {
 	return wrapped
 }
 
+// NewCredentialNotValid returns an error with given message and satisfies
+// IsCredentialNotValid().
+func NewCredentialNotValid(message string) error {
+	err := errors.New("credential not valid: " + message)
+	wrapped := errors.Wrap(err, &credentialNotValid{err})
+	wrapped.(*errors.Err).SetLocation(1)
+	return wrapped
+}
+
+// CredentialNotValidf returns a wrapped error with given message and satisfies
+// IsCredentialNotValid().
+func CredentialNotValidf(err error, message string) error {
+	wrapped := errors.Wrapf(err, &credentialNotValid{err}, message)
+	wrapped.(*errors.Err).SetLocation(1)
+	return wrapped
+}
+
 // IsCredentialNotValid reports whether err was created with CredentialNotValid().
 func IsCredentialNotValid(err error) bool {
 	err = errors.Cause(err)
