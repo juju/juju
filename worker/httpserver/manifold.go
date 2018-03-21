@@ -5,6 +5,8 @@ package httpserver
 
 import (
 	"crypto/tls"
+	"net"
+	"net/http"
 	"reflect"
 	"sync"
 
@@ -32,7 +34,7 @@ type ManifoldConfig struct {
 	PrometheusRegisterer prometheus.Registerer
 
 	NewStateAuthenticator NewStateAuthenticatorFunc
-	NewTLSConfig          func(*state.State, func() *tls.Certificate) (*tls.Config, error)
+	NewTLSConfig          func(*state.State, func() *tls.Certificate) (*tls.Config, http.Handler, error)
 	NewWorker             func(Config) (worker.Worker, error)
 }
 
@@ -82,7 +84,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // start is a method on ManifoldConfig because it's more readable than a closure.
-func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker, err error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -110,19 +112,41 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	defer func() {
+		if err != nil {
+			stTracker.Done()
+		}
+	}()
 
 	systemState := statePool.SystemState()
-	tlsConfig, err := config.NewTLSConfig(systemState, getCertificate)
+	tlsConfig, autocertHandler, err := config.NewTLSConfig(systemState, getCertificate)
 	if err != nil {
-		stTracker.Done()
 		return nil, errors.Trace(err)
+	}
+
+	var autocertListener net.Listener
+	if autocertHandler != nil {
+		autocertListener, err = net.Listen("tcp", ":80")
+		if err != nil {
+			// This manifold must be in a test - get a random port instead.
+			logger.Errorf("couldn't listen for autocert challenges on port 80: %s", err)
+			autocertListener, err = net.Listen("tcp", ":0")
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			logger.Debugf("listening for autocert challenges at %s instead", autocertListener.Addr())
+		}
+		defer func() {
+			if err != nil {
+				autocertListener.Close()
+			}
+		}()
 	}
 
 	mux := apiserverhttp.NewMux()
 	abort := make(chan struct{})
 	authenticator, err := config.NewStateAuthenticator(statePool, mux, clock, abort)
 	if err != nil {
-		stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 
@@ -130,10 +154,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		AgentConfig:          agent.CurrentConfig(),
 		PrometheusRegisterer: config.PrometheusRegisterer,
 		TLSConfig:            tlsConfig,
+		AutocertHandler:      autocertHandler,
+		AutocertListener:     autocertListener,
 		Mux:                  mux,
 	})
 	if err != nil {
-		stTracker.Done()
 		close(abort)
 		return nil, errors.Trace(err)
 	}

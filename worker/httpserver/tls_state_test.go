@@ -6,6 +6,7 @@ package httpserver_test
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 
@@ -43,7 +44,7 @@ type TLSStateSuite struct {
 var _ = gc.Suite(&TLSStateSuite{})
 
 func (s *TLSStateSuite) TestNewTLSConfig(c *gc.C) {
-	tlsConfig, err := httpserver.NewTLSConfig(s.State, s.getCertificate)
+	tlsConfig, handler, err := httpserver.NewTLSConfig(s.State, s.getCertificate)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{
@@ -51,6 +52,8 @@ func (s *TLSStateSuite) TestNewTLSConfig(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cert, gc.Equals, s.cert)
+
+	c.Assert(handler, gc.Equals, nil)
 }
 
 type TLSStateAutocertSuite struct {
@@ -79,26 +82,29 @@ func (s *TLSStateAutocertSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *TLSStateAutocertSuite) TestAutocertExceptions(c *gc.C) {
-	tlsConfig, err := httpserver.NewTLSConfig(s.State, s.getCertificate)
+	tlsConfig, handler, err := httpserver.NewTLSConfig(s.State, s.getCertificate)
 	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "127.0.0.1")
 	s.testGetCertificate(c, tlsConfig, "juju-apiserver")
 	s.testGetCertificate(c, tlsConfig, "testing1.invalid")
 	c.Assert(s.autocertQueried, jc.IsFalse)
+	s.testHandler(c, handler)
 }
 
 func (s *TLSStateAutocertSuite) TestAutocert(c *gc.C) {
-	tlsConfig, err := httpserver.NewTLSConfig(s.State, s.getCertificate)
+	tlsConfig, handler, err := httpserver.NewTLSConfig(s.State, s.getCertificate)
 	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "public.invalid")
 	c.Assert(s.autocertQueried, jc.IsTrue)
+	s.testHandler(c, handler)
 }
 
 func (s *TLSStateAutocertSuite) TestAutocertHostPolicy(c *gc.C) {
-	tlsConfig, err := httpserver.NewTLSConfig(s.State, s.getCertificate)
+	tlsConfig, handler, err := httpserver.NewTLSConfig(s.State, s.getCertificate)
 	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "always.invalid")
 	c.Assert(s.autocertQueried, jc.IsFalse)
+	s.testHandler(c, handler)
 }
 
 func (s *TLSStateAutocertSuite) testGetCertificate(c *gc.C, tlsConfig *tls.Config, serverName string) {
@@ -108,4 +114,16 @@ func (s *TLSStateAutocertSuite) testGetCertificate(c *gc.C, tlsConfig *tls.Confi
 	// a functioning autocert test server. We do check that we attempt to
 	// query the autocert server, but that's as far as we test here.
 	c.Assert(cert, gc.Equals, s.cert, gc.Commentf("server name %q", serverName))
+}
+
+func (s *TLSStateAutocertSuite) testHandler(c *gc.C, handler http.Handler) {
+	// Just check enough to see that it's the autocert handler.
+	request := httptest.NewRequest("GET", "http://public.invalid/.well-known/acme-challenge/", nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	response := recorder.Result()
+	c.Assert(response.StatusCode, gc.Equals, http.StatusNotFound)
+	content, err := ioutil.ReadAll(response.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(content), gc.Equals, "acme/autocert: certificate cache miss\n")
 }

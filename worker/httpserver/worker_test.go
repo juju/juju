@@ -5,8 +5,10 @@ package httpserver_test
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -79,6 +81,11 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *httpserver.Config) { cfg.PrometheusRegisterer = nil },
 		"nil PrometheusRegisterer not valid",
+	}, {
+		func(cfg *httpserver.Config) {
+			cfg.AutocertHandler = http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
+		},
+		"AutocertListener must not be nil if AutocertHandler is not nil",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
@@ -97,39 +104,6 @@ func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*httpserver.Co
 	c.Check(w, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, expect)
 }
-
-/*
-func (s *WorkerValidationSuite) TestValidateRateLimitConfig(c *gc.C) {
-	s.testValidateRateLimitConfig(c, agent.AgentLoginRateLimit, "foo", "parsing AGENT_LOGIN_RATE_LIMIT: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentLoginMinPause, "foo", "parsing AGENT_LOGIN_MIN_PAUSE: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentLoginMaxPause, "foo", "parsing AGENT_LOGIN_MAX_PAUSE: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentLoginRetryPause, "foo", "parsing AGENT_LOGIN_RETRY_PAUSE: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentConnMinPause, "foo", "parsing AGENT_CONN_MIN_PAUSE: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentConnMaxPause, "foo", "parsing AGENT_CONN_MAX_PAUSE: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentConnLookbackWindow, "foo", "parsing AGENT_CONN_LOOKBACK_WINDOW: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentConnLowerThreshold, "foo", "parsing AGENT_CONN_LOWER_THRESHOLD: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentConnUpperThreshold, "foo", "parsing AGENT_CONN_UPPER_THRESHOLD: .*")
-}
-
-func (s *WorkerValidationSuite) testValidateRateLimitConfig(c *gc.C, key, value, expect string) {
-	s.agentConfig.values = map[string]string{key: value}
-	_, err := httpserver.NewWorker(s.config)
-	c.Check(err, gc.ErrorMatches, "getting rate limit config: "+expect)
-}
-
-func (s *WorkerValidationSuite) TestValidateLogSinkConfig(c *gc.C) {
-	s.testValidateLogSinkConfig(c, agent.LogSinkDBLoggerBufferSize, "foo", "parsing LOGSINK_DBLOGGER_BUFFER_SIZE: .*")
-	s.testValidateLogSinkConfig(c, agent.LogSinkDBLoggerFlushInterval, "foo", "parsing LOGSINK_DBLOGGER_FLUSH_INTERVAL: .*")
-	s.testValidateLogSinkConfig(c, agent.LogSinkRateLimitBurst, "foo", "parsing LOGSINK_RATELIMIT_BURST: .*")
-	s.testValidateLogSinkConfig(c, agent.LogSinkRateLimitRefill, "foo", "parsing LOGSINK_RATELIMIT_REFILL: .*")
-}
-
-func (s *WorkerValidationSuite) testValidateLogSinkConfig(c *gc.C, key, value, expect string) {
-	s.agentConfig.values = map[string]string{key: value}
-	_, err := httpserver.NewWorker(s.config)
-	c.Check(err, gc.ErrorMatches, "getting log sink config: "+expect)
-}
-*/
 
 type WorkerSuite struct {
 	workerFixture
@@ -233,4 +207,48 @@ func (s *WorkerSuite) TestMinTLSVersion(c *gc.C) {
 	conn, err := tls.Dial("tcp", parsed.Host, tlsConfig)
 	c.Assert(err, gc.ErrorMatches, ".*protocol version not supported")
 	c.Assert(conn, gc.IsNil)
+}
+
+type WorkerAutocertSuite struct {
+	workerFixture
+	stub   testing.Stub
+	worker *httpserver.Worker
+	url    string
+}
+
+var _ = gc.Suite(&WorkerAutocertSuite{})
+
+func (s *WorkerAutocertSuite) SetUpTest(c *gc.C) {
+	s.workerFixture.SetUpTest(c)
+	s.config.AutocertHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.stub.AddCall("AutocertHandler")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("yay\n"))
+	})
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { listener.Close() })
+	s.config.AutocertListener = listener
+	s.url = fmt.Sprintf("http://%s/whatever/", listener.Addr())
+	worker, err := httpserver.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		workertest.DirtyKill(c, worker)
+	})
+	s.worker = worker
+}
+
+func (s *WorkerAutocertSuite) TestAutocertHandler(c *gc.C) {
+	client := &http.Client{}
+	response, err := client.Get(s.url)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	content, err := ioutil.ReadAll(response.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(content), gc.Equals, "yay\n")
+
+	workertest.CleanKill(c, s.worker)
+
+	_, err = client.Get(s.url)
+	c.Assert(err, gc.ErrorMatches, ".*connection refused$")
 }
