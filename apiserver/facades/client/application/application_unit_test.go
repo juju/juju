@@ -1198,3 +1198,15 @@ func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	app.CheckCallNames(c, "ApplicationConfig", "SetExposed")
 }
+
+func (s *ApplicationSuite) TestApplicationUnitResolved(c *gc.C) {
+	p := params.Resolved{
+		UnitName: "postgresql/0",
+		Retry:    false,
+		All:      false,
+	}
+
+	s.backend.SetErrors(nil)
+	err := s.api.Resolved(p)
+	c.Assert(err, gc.IsNil)
+}

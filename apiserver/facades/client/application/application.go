@@ -1666,3 +1666,19 @@ func (api *APIv6) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	}
 	return nil
 }
+
+// Resolved implements the server side of Application.Resolved.
+func (api *APIv6) Resolved(p params.Resolved) error {
+	if err := api.checkCanWrite(); err != nil {
+		return err
+	}
+	if err := api.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+
+	unit, err := api.backend.Unit(p.UnitName)
+	if err != nil {
+		return err
+	}
+	return unit.Resolve(p.Retry)
+}
