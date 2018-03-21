@@ -1674,21 +1674,17 @@ func (api *APIv6) Resolved(p params.UnitsResolved) (params.ErrorResults, error) 
 	if p.All == true {
 		return params.ErrorResults{}, errors.Errorf("All flag not implemented yet")
 	}
+	var result params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
-		return params.ErrorResults{}, err
+		return result, errors.Trace(err)
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(p.Tags.Entities)),
-	}
-
-	err := api.resolveUnit(p.Tags.Entities[0].Tag, p.Retry)
-	if err != nil {
-		result.Results[0].Error = &params.Error{
-			Message: err.Error(),
-		}
+	result.Results = make([]params.ErrorResult, len(p.Tags.Entities))
+	for i, entity := range p.Tags.Entities {
+		err := api.resolveUnit(entity.Tag, p.Retry)
+		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
