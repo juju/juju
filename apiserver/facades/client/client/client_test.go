@@ -587,11 +587,8 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, noretry bool, expectedReso
 	err = u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	// Code under test:
-	result, err := s.APIState.Client().Resolved("wordpress/0", noretry)
+	err = s.APIState.Client().Resolved("wordpress/0", noretry)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
-	})
 	// Freshen the unit's state.
 	err = u.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -625,11 +622,8 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 }
 
 func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
-	result, err := s.APIState.Client().Resolved("wordpress/0", false)
+	err := s.APIState.Client().Resolved("wordpress/0", false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
-	})
 	// Freshen the unit's state.
 	err = u.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -640,11 +634,8 @@ func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
 }
 
 func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, msg string) {
-	result, err := s.APIState.Client().Resolved("wordpress/0", false)
+	err := s.APIState.Client().Resolved("wordpress/0", false)
 	s.AssertBlocked(c, err, msg)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
-	})
 }
 
 func (s *clientSuite) TestBlockDestroyUnitResolved(c *gc.C) {
