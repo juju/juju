@@ -113,16 +113,6 @@ func (c *Client) Resolved(unit string, retry bool) error {
 	return c.facade.FacadeCall("Resolved", p, nil)
 }
 
-// Resolved clears errors on all units.
-func (c *Client) ResolvedAll(unit string, retry, all bool) error {
-	p := params.Resolved{
-		UnitName: unit,
-		Retry:    retry,
-		All:      all,
-	}
-	return c.facade.FacadeCall("Resolved", p, nil)
-}
-
 // RetryProvisioning updates the provisioning status of a machine allowing the
 // provisioner to retry.
 func (c *Client) RetryProvisioning(machines ...names.MachineTag) ([]params.ErrorResult, error) {
