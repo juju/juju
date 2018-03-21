@@ -456,8 +456,9 @@ type Resolved struct {
 
 //
 type UnitsResolved struct {
-	Resolved []Resolved `json:"resolved,omitempty"`
-	All      bool       `json:"all,omitempty"`
+	Tags  Entities `json:"tags,omitempty"`
+	Retry bool     `json:"retry,omitempty"`
+	All   bool     `json:"all,omitempty"`
 }
 
 // ResolvedResults holds results of the Resolved call.
