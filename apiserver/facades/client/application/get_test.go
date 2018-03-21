@@ -262,6 +262,15 @@ var getTests = []struct {
 				"type":        "int",
 			},
 		},
+		ApplicationConfig: map[string]interface{}{
+			"trust": map[string]interface{}{
+				"value":       false,
+				"default":     false,
+				"description": "Does this application have access to trusted credentials",
+				"source":      "default",
+				"type":        "bool",
+			},
+		},
 		Series: "quantal",
 	},
 }, {
@@ -311,6 +320,15 @@ var getTests = []struct {
 				"value": float64(0),
 			},
 		},
+		ApplicationConfig: map[string]interface{}{
+			"trust": map[string]interface{}{
+				"value":       false,
+				"default":     false,
+				"description": "Does this application have access to trusted credentials",
+				"source":      "default",
+				"type":        "bool",
+			},
+		},
 		Series: "quantal",
 	},
 }, {
@@ -319,6 +337,15 @@ var getTests = []struct {
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
 		Series:      "quantal",
+		ApplicationConfig: map[string]interface{}{
+			"trust": map[string]interface{}{
+				"value":       false,
+				"default":     false,
+				"description": "Does this application have access to trusted credentials",
+				"source":      "default",
+				"type":        "bool",
+			},
+		},
 	},
 }}
 
