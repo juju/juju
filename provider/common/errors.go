@@ -25,3 +25,45 @@ type zoneIndependentError struct {
 func (zoneIndependentError) AvailabilityZoneIndependent() bool {
 	return true
 }
+
+// credentialNotValid represents an error when a provider credential is not valid.
+// Realistically, this is not a transient error. Without a valid credential we
+// cannot do much on the provider. This is fatal.
+type credentialNotValid struct {
+	error
+}
+
+// CredentialNotValid returns an error which wraps err and satisfies
+// IsCredentialNotValid().
+func CredentialNotValid(err error) error {
+	if err == nil {
+		return nil
+	}
+	wrapped := errors.Wrap(err, &credentialNotValid{err})
+	wrapped.(*errors.Err).SetLocation(1)
+	return wrapped
+}
+
+// NewCredentialNotValid returns an error with given message and satisfies
+// IsCredentialNotValid().
+func NewCredentialNotValid(message string) error {
+	err := errors.New("credential not valid: " + message)
+	wrapped := errors.Wrap(err, &credentialNotValid{err})
+	wrapped.(*errors.Err).SetLocation(1)
+	return wrapped
+}
+
+// CredentialNotValidf returns a wrapped error with given message and satisfies
+// IsCredentialNotValid().
+func CredentialNotValidf(err error, message string) error {
+	wrapped := errors.Wrapf(err, &credentialNotValid{err}, message)
+	wrapped.(*errors.Err).SetLocation(1)
+	return wrapped
+}
+
+// IsCredentialNotValid reports whether err was created with CredentialNotValid().
+func IsCredentialNotValid(err error) bool {
+	err = errors.Cause(err)
+	_, ok := err.(*credentialNotValid)
+	return ok
+}
