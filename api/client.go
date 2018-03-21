@@ -104,8 +104,17 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 	return history, nil
 }
 
-// Resolved clears errors on a unit.
-func (c *Client) Resolved(unit string, retry, all bool) error {
+// Resolved clears errors on a single unit.
+func (c *Client) Resolved(unit string, retry bool) error {
+	p := params.Resolved{
+		UnitName: unit,
+		Retry:    retry,
+	}
+	return c.facade.FacadeCall("Resolved", p, nil)
+}
+
+// Resolved clears errors on all units.
+func (c *Client) ResolvedAll(unit string, retry, all bool) error {
 	p := params.Resolved{
 		UnitName: unit,
 		Retry:    retry,

@@ -59,5 +59,9 @@ func (c *resolvedCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.Resolved(c.UnitName, c.NoRetry, c.all), block.BlockChange)
+	if c.all == false {
+		return block.ProcessBlockedError(client.Resolved(c.UnitName, c.NoRetry), block.BlockChange)
+	} else {
+		return block.ProcessBlockedError(client.ResolvedAll(c.UnitName, c.NoRetry, c.all), block.BlockChange)
+	}
 }
