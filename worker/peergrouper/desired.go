@@ -47,7 +47,6 @@ type peerGroupChanges struct {
 	toKeepNonVoting             []string
 	toKeepCreateNonVotingMember []string
 	machineVoting               map[string]bool
-	addrs                       map[string]string
 	members                     map[string]*replicaset.Member
 }
 
@@ -158,7 +157,6 @@ func desiredPeerGroup(info *peerGroupInfo) (map[string]*replicaset.Member, map[s
 	peerChanges := peerGroupChanges{
 		isChanged:     false,
 		machineVoting: map[string]bool{},
-		addrs:         map[string]string{},
 		members:       map[string]*replicaset.Member{},
 	}
 
@@ -178,12 +176,6 @@ func desiredPeerGroup(info *peerGroupInfo) (map[string]*replicaset.Member, map[s
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Determine the addresses to be used for replica-set communication.
-	err = peerChanges.getMongoAddresses(info)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
 	peerChanges.members = info.initNewReplicaSet()
 	peerChanges.possiblePeerGroupChanges(info)
 	peerChanges.reviewPeerGroupChanges(info)
@@ -194,7 +186,9 @@ func desiredPeerGroup(info *peerGroupInfo) (map[string]*replicaset.Member, map[s
 	peerChanges.getMachinesVoting()
 	peerChanges.adjustVotes()
 
-	peerChanges.updateAddresses()
+	if err := peerChanges.updateAddresses(info); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	if !peerChanges.isChanged {
 		return nil, peerChanges.machineVoting, nil
@@ -214,21 +208,6 @@ func (p *peerGroupChanges) checkExtraMembers(extra []replicaset.Member) error {
 	}
 	if len(extra) > 0 {
 		p.isChanged = true
-	}
-	return nil
-}
-
-// getMongoAddresses gets an address suitable for Mongo peer group
-// communication for each tracked machine.
-// An error will be returned if more that one address is found for a machine
-// and there is no HA space is configured.
-func (p *peerGroupChanges) getMongoAddresses(info *peerGroupInfo) error {
-	p.addrs = make(map[string]string, len(info.machines))
-	for id, m := range info.machines {
-		var err error
-		if p.addrs[id], err = m.SelectMongoAddress(info.mongoPort, info.haSpace); err != nil {
-			return errors.Trace(err)
-		}
 	}
 	return nil
 }
@@ -411,29 +390,95 @@ func (p *peerGroupChanges) createNonVotingMember(
 }
 
 func (p *peerGroupChanges) getMachinesVoting() {
-	//p.machineVoting = make(map[string]bool)
 	for id, m := range p.members {
 		p.machineVoting[id] = isVotingMember(m)
 	}
 }
 
-// updateAddresses updates the member addresses in the new replica-set with
-// those determined by getMongoAddresses, where they differ.
-// The return indicates whether any changes were made.
-func (p *peerGroupChanges) updateAddresses() {
-	// Make sure all members' machine addresses are up to date.
-	for id, addr := range p.addrs {
-		if addr == "" {
-			continue
-		}
-		m := p.members[id]
-		if m == nil {
-			logger.Debugf("nil member for address id, and address %q %q", id, addr)
-			continue
-		}
-		if addr != p.members[id].Address {
-			p.members[id].Address = addr
-			p.isChanged = true
+// updateAddresses updates the member addresses in the new replica-set, using
+// the HA space if one is configured.
+func (p *peerGroupChanges) updateAddresses(info *peerGroupInfo) error {
+	update := p.updateAddressFromSpace
+	if info.haSpace == "" {
+		update = p.updateAddressFromInternal
+	}
+
+	for id := range p.members {
+		if err := update(id, info); err != nil {
+			return errors.Annotate(err, "updating member address")
 		}
 	}
+	return nil
+}
+
+// updateAddressUsingSpace sets the member address based on the configured
+// HA space. If no addresses are available for the machine and space,
+// then an error is returned.
+func (p *peerGroupChanges) updateAddressFromSpace(id string, info *peerGroupInfo) error {
+	m := info.machines[id]
+	addr, err := m.SelectMongoAddressFromSpace(info.mongoPort, info.haSpace)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if addr != p.members[id].Address {
+		p.members[id].Address = addr
+		p.isChanged = true
+	}
+	return nil
+}
+
+// updateAddressFromInternal attempts to update the member with a cloud-local
+// address from the machine.
+// If there is a single cloud local address available, it is used.
+// If there are multiple addresses, then a check is made to ensure that:
+//   - the member was previously in the replica-set and;
+//   - the previous address used for replication is still available.
+// If the check is satisfied, then a warning is logged and no change is made.
+// Otherwise an error is returned to indicate that a HA space must be
+// configured in order to proceed.
+func (p *peerGroupChanges) updateAddressFromInternal(id string, info *peerGroupInfo) error {
+	member := p.members[id]
+	hostPorts := info.machines[id].GetPotentialMongoHostPorts(info.mongoPort)
+	addrs := network.SelectInternalHostPorts(hostPorts, false)
+
+	// This should not happen because SelectInternalHostPorts will choose a
+	// public address when there are no cloud-local addresses.
+	// Zero addresses would mean the machine would not be accessible at all.
+	// We ignore this outcome and leave the address alone.
+	if len(addrs) == 0 {
+		return nil
+	}
+
+	if len(addrs) == 1 {
+		addr := addrs[0]
+		logger.Debugf("machine %q selected address %q by scope from %v", id, addr, hostPorts)
+
+		if member.Address != addr {
+			member.Address = addr
+			p.isChanged = true
+		}
+		return nil
+	}
+
+	msg := fmt.Sprintf("machine %q has more than one non-local address and juju-ha-space is not set", id)
+
+	// If this would-be member is new, we enforce the policy of having a
+	// configured HA space when there are multiple cloud-local addresses.
+	if _, ok := info.recognised[id]; !ok {
+		return errors.New(msg)
+	}
+
+	// If the prior address is still available, we allow preservation of the
+	// status quo rather than throwing out with an error.
+	// TODO (manadart 2018-03-21) Should we also check the voting status?
+	for _, addr := range addrs {
+		if member.Address == addr {
+			logger.Warningf(msg + "\npreserving member with unchanged address")
+			return nil
+		}
+	}
+
+	// The member address needs to change. We enforce the HA space requirement.
+	return errors.New(msg)
 }
