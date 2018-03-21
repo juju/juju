@@ -100,6 +100,9 @@ type ContextUnit interface {
 
 	// SetPodSpec updates the yaml spec used to create a pod.
 	SetPodSpec(specYaml string) error
+
+	// CloudSpec returns the unit's cloud specification
+	CloudSpec() (*params.CloudSpec, error)
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.

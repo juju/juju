@@ -219,6 +219,9 @@ type HookContext struct {
 
 	//  slaLevel contains the current SLA level.
 	slaLevel string
+
+	// The cloud specification
+	cloudSpec *params.CloudSpec
 }
 
 // Component implements hooks.Context.
@@ -510,6 +513,16 @@ func (ctx *HookContext) SetPodSpec(specYaml string) error {
 	}
 	entityName = ctx.unit.ApplicationName()
 	return ctx.state.SetPodSpec(entityName, specYaml)
+}
+
+// CloudSpec return the cloud specification for the running unit's model
+func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
+	var err error
+	ctx.cloudSpec, err = ctx.state.CloudSpec()
+	if err != nil {
+		return nil, err
+	}
+	return ctx.cloudSpec, nil
 }
 
 // ActionName returns the name of the action.
