@@ -687,6 +687,7 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 		// if err := pacman.AddRepository("ppa:~racb/experimental"); err != nil {
 		// 	return errors.Trace(err)
 		// }
+		// https://bugs.launchpad.net/juju/+bug/1758074
 		if _, _, err := manager.RunCommandWithRetry("apt-add-repository --yes ppa:~racb/experimental", nil); err != nil {
 			return errors.Trace(err)
 		}
