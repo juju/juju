@@ -104,22 +104,13 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 	return history, nil
 }
 
-// Resolved clears errors on a single unit.
-func (c *Client) Resolved(units string, retry bool) error {
-	entities := []params.Entity{params.Entity{Tag: units}}
-	p := params.UnitsResolved{
-		All:   false,
-		Retry: retry,
-		Tags: params.Entities{
-			Entities: entities,
-		},
+// Resolved clears errors on a unit.
+func (c *Client) Resolved(unit string, retry bool) error {
+	p := params.Resolved{
+		UnitName: unit,
+		Retry:    retry,
 	}
-	var results params.ErrorResults
-	err := c.facade.FacadeCall("Resolved", p, &results)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return results.OneError()
+	return c.facade.FacadeCall("Resolved", p, nil)
 }
 
 // RetryProvisioning updates the provisioning status of a machine allowing the
