@@ -241,7 +241,7 @@ func getVPCByID(apiClient vpcAPIClient, vpcID string) (*ec2.VPC, error) {
 	if isVPCNotFoundError(err) {
 		return nil, vpcNotUsablef(err, "")
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "unexpected AWS response getting VPC %q", vpcID)
+		return nil, errors.Annotatef(maybeConvertCredentialError(err), "unexpected AWS response getting VPC %q", vpcID)
 	}
 
 	if numResults := len(response.VPCs); numResults == 0 {
@@ -276,7 +276,7 @@ func getVPCSubnets(apiClient vpcAPIClient, vpc *ec2.VPC) ([]ec2.Subnet, error) {
 	filter.Add("vpc-id", vpc.Id)
 	response, err := apiClient.Subnets(nil, filter)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unexpected AWS response getting subnets of VPC %q", vpc.Id)
+		return nil, errors.Annotatef(maybeConvertCredentialError(err), "unexpected AWS response getting subnets of VPC %q", vpc.Id)
 	}
 
 	if len(response.Subnets) == 0 {
@@ -309,7 +309,7 @@ func getVPCInternetGateway(apiClient vpcAPIClient, vpc *ec2.VPC) (*ec2.InternetG
 	filter.Add("attachment.vpc-id", vpc.Id)
 	response, err := apiClient.InternetGateways(nil, filter)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unexpected AWS response getting Internet Gateway of VPC %q", vpc.Id)
+		return nil, errors.Annotatef(maybeConvertCredentialError(err), "unexpected AWS response getting Internet Gateway of VPC %q", vpc.Id)
 	}
 
 	if numResults := len(response.InternetGateways); numResults == 0 {
@@ -336,7 +336,7 @@ func getVPCRouteTables(apiClient vpcAPIClient, vpc *ec2.VPC) ([]ec2.RouteTable, 
 	filter.Add("vpc-id", vpc.Id)
 	response, err := apiClient.RouteTables(nil, filter)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unexpected AWS response getting route tables of VPC %q", vpc.Id)
+		return nil, errors.Annotatef(maybeConvertCredentialError(err), "unexpected AWS response getting route tables of VPC %q", vpc.Id)
 	}
 
 	if len(response.Tables) == 0 {
@@ -426,7 +426,7 @@ func checkVPCRouteTableRoutes(vpc *ec2.VPC, routeTable *ec2.RouteTable, gateway 
 func findDefaultVPCID(apiClient vpcAPIClient) (string, error) {
 	response, err := apiClient.AccountAttributes("default-vpc")
 	if err != nil {
-		return "", errors.Annotate(err, "unexpected AWS response getting default-vpc account attribute")
+		return "", errors.Annotate(maybeConvertCredentialError(err), "unexpected AWS response getting default-vpc account attribute")
 	}
 
 	if len(response.Attributes) == 0 ||
@@ -457,7 +457,7 @@ func getVPCSubnetIDsForAvailabilityZone(
 	vpc := &ec2.VPC{Id: vpcID}
 	subnets, err := getVPCSubnets(apiClient, vpc)
 	if err != nil && !isVPCNotUsableError(err) {
-		return nil, errors.Annotatef(err, "cannot get VPC %q subnets", vpcID)
+		return nil, errors.Annotatef(maybeConvertCredentialError(err), "cannot get VPC %q subnets", vpcID)
 	} else if isVPCNotUsableError(err) {
 		// We're reusing getVPCSubnets(), but not while validating a VPC
 		// pre-bootstrap, so we should change vpcNotUsableError to a simple
@@ -534,7 +534,7 @@ func validateBootstrapVPC(apiClient vpcAPIClient, region, vpcID string, forceVPC
 		ctx.Infof(vpcNotRecommendedButForcedWarning)
 	case err != nil:
 		// Anything else unexpected while validating the VPC.
-		return errors.Annotate(err, cannotValidateVPCErrorPrefix)
+		return errors.Annotate(maybeConvertCredentialError(err), cannotValidateVPCErrorPrefix)
 	}
 
 	ctx.Infof("Using VPC %q in region %q", vpcID, region)
@@ -561,7 +561,7 @@ func validateModelVPC(apiClient vpcAPIClient, modelName, vpcID string) error {
 		)
 	case err != nil:
 		// Anything else unexpected while validating the VPC.
-		return errors.Annotate(err, cannotValidateVPCErrorPrefix)
+		return errors.Annotate(maybeConvertCredentialError(err), cannotValidateVPCErrorPrefix)
 	}
 	logger.Infof("Using VPC %q for model %q", vpcID, modelName)
 
