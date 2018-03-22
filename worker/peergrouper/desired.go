@@ -219,7 +219,6 @@ func (p *peerGroupChanges) checkExtraMembers(extra []replicaset.Member) error {
 // toKeep holds machines with no desired change to their voting status
 // (this includes machines that are not yet represented in the peer group).
 func (p *peerGroupChanges) possiblePeerGroupChanges(info *peerGroupInfo) {
-
 	machineIds := make([]string, 0, len(info.machines))
 	for id := range info.machines {
 		machineIds = append(machineIds, id)
@@ -411,7 +410,7 @@ func (p *peerGroupChanges) updateAddresses(info *peerGroupInfo) error {
 	return nil
 }
 
-// updateAddressUsingSpace sets the member address based on the configured
+// updateAddressFromSpace sets the member address based on the configured
 // HA space. If no addresses are available for the machine and space,
 // then an error is returned.
 func (p *peerGroupChanges) updateAddressFromSpace(id string, info *peerGroupInfo) error {
@@ -471,10 +470,9 @@ func (p *peerGroupChanges) updateAddressFromInternal(id string, info *peerGroupI
 
 	// If the prior address is still available, we allow preservation of the
 	// status quo rather than throwing out with an error.
-	// TODO (manadart 2018-03-21) Should we also check the voting status?
 	for _, addr := range addrs {
 		if member.Address == addr {
-			logger.Warningf(msg + "\npreserving member with unchanged address")
+			logger.Warningf("%s\npreserving member with unchanged address %q", msg, addr)
 			return nil
 		}
 	}
