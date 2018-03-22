@@ -462,7 +462,7 @@ func (p *peerGroupChanges) updateAddressFromInternal(id string, info *peerGroupI
 
 	msg := fmt.Sprintf(
 		"machine %q has more than one usable address and juju-ha-space is not set"+
-			"\n run \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication", id)
+			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication", id)
 
 	// If this would-be member is new, we enforce the policy of having a
 	// configured HA space when there are multiple cloud-local addresses.
