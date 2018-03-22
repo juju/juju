@@ -1204,7 +1204,7 @@ func (s *ApplicationSuite) TestApplicationUnitResolved(c *gc.C) {
 	p := params.UnitsResolved{
 		All:   false,
 		Retry: false,
-		Tags: params.Entities{
+		Tags: &params.Entities{
 			Entities: entities,
 		},
 	}
@@ -1230,7 +1230,7 @@ func (s *ApplicationSuite) TestApplicationUnitResolvedAll(c *gc.C) {
 	p := params.UnitsResolved{
 		All:   true,
 		Retry: false,
-		Tags: params.Entities{
+		Tags: &params.Entities{
 			Entities: entities,
 		},
 	}
