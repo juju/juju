@@ -37,6 +37,9 @@ var (
 	// mongod.
 	JujuMongod24Path = "/usr/lib/juju/bin/mongod"
 
+	// JujuMongod34Path is actually just the system path
+	JujuMongod34Path = "/usr/bin/mongod"
+
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
 )
@@ -193,6 +196,12 @@ var (
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
+	// Mongo34wt represents 'mongodb-server-core' at version 3.4.x with WiredTiger
+	Mongo34wt = Version{Major: 3,
+		Minor:			4,
+		Patch:			"",
+		StorageEngine: WiredTiger,
+	}
 	// MongoUpgrade represents a sepacial case where an upgrade is in
 	// progress.
 	MongoUpgrade = Version{Major: 0,
@@ -207,6 +216,16 @@ var (
 // and fall back to the original mongo 2.4.
 func InstalledVersion() Version {
 	mgoVersion := Mongo24
+	// We change this for order of precedence. The issue is that Mongo34 is
+	// just /usr/bin/mongo which may not actually be 3.4 on Trusty/Xenial.
+	// We still prefer if /usr/lib/juju/bin/mong2.4 is available, or if
+	// /usr/lib/juju/mongo3.2/bin/mongod is available.
+	if binariesAvailable(Mongo34wt, os.Stat) {
+		mgoVersion = Mongo34wt
+	}
+	if binariesAvailable(Mongo24, os.Stat) {
+		mgoVersion = Mongo24
+	}
 	if binariesAvailable(Mongo32wt, os.Stat) {
 		mgoVersion = Mongo32wt
 	}
@@ -221,6 +240,9 @@ func binariesAvailable(v Version, statFunc func(string) (os.FileInfo, error)) bo
 	case Mongo24:
 		// 2.4 has a fixed path.
 		path = JujuMongod24Path
+	case Mongo34wt:
+		// 3.4 switched back to using the system mongod
+		path = JujuMongod34Path
 	default:
 		path = JujuMongodPath(v)
 	}
@@ -650,6 +672,28 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 			return err
 		}
 	}
+	// XXX: UGLY HACK FOR TESTING
+	if operatingsystem == "bionic" {
+		if err := pacman.InstallPrerequisite(); err != nil {
+			return errors.Trace(err)
+		}
+		// AddRepository appears to have a bug. It seems to be quoting the
+		// archive, which leads to it trying to install something named *with*
+		// the quotes, rather than the actual archive.
+		// It uses string.Fields() and then passes in args[1:] but that breaks
+		// for quoted args because string.Fields() doesn't care about quotes.
+		// and wouldn't work anyway, because "foo bar" ends up getting passed as
+		// []string{`"foo`, `bar"`}
+		// if err := pacman.AddRepository("ppa:~racb/experimental"); err != nil {
+		// 	return errors.Trace(err)
+		// }
+		if _, _, err := manager.RunCommandWithRetry("apt-add-repository --yes ppa:~racb/experimental", nil); err != nil {
+			return errors.Trace(err)
+		}
+		if err := pacman.Update(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 
 	mongoPkgs, fallbackPkgs := packagesForSeries(operatingsystem)
 
@@ -714,9 +758,11 @@ func packagesForSeries(series string) ([]string, []string) {
 		return []string{"mongodb-server"}, []string{}
 	case "trusty":
 		return []string{"juju-mongodb"}, []string{}
-	default:
-		// xenial and onwards
+	case "xenial", "artful":
 		return []string{JujuMongoPackage, JujuMongoToolsPackage}, []string{}
+	default:
+		// Bionic and newer
+		return []string{"mongodb-server-core", "mongdb-clients"}, []string{}
 	}
 }
 
