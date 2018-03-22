@@ -91,5 +91,5 @@ func (s *machineTrackerSuite) TestGetPotentialMongoHostPortsReturnsAllAddresses(
 
 	addrs := network.HostPortsToStrings(m.GetPotentialMongoHostPorts(666))
 	sort.Strings(addrs)
-	c.Check(addrs, gc.DeepEquals, []string{"10.0.0.1:666", "192.168.5.5:666", "185.159.16.82:666"})
+	c.Check(addrs, gc.DeepEquals, []string{"10.0.0.1:666", "185.159.16.82:666", "192.168.5.5:666"})
 }
