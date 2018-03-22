@@ -87,26 +87,22 @@ var resolvedTests = []struct {
 	}, {
 		args: []string{"multi-series/4", "roflcopter"},
 		err:  `unrecognized args: \["roflcopter"\]`,
-	}, {
-		args: []string{"multi-series/5", "--all"},
-		err:  "specify unit or --all option, not both",
-		unit: "multi-series/5",
 	},
 }
 
 func (s *ResolvedSuite) TestResolved(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, "-n", "6", ch, "multi-series")
+	err := runDeploy(c, "-n", "5", ch, "multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// lp:1558657
 	now := time.Now()
-	for _, name := range []string{"multi-series/2", "multi-series/3", "multi-series/4", "multi-series/5"} {
+	for _, name := range []string{"multi-series/2", "multi-series/3", "multi-series/4"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
 		sInfo := status.StatusInfo{
 			Status:  status.Error,
-			Message: "lol broken",
+			Message: "lol borken",
 			Since:   &now,
 		}
 		err = u.SetAgentStatus(sInfo)

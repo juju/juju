@@ -22,7 +22,6 @@ type resolvedCommand struct {
 	modelcmd.ModelCommandBase
 	UnitName string
 	NoRetry  bool
-	all      bool
 }
 
 func (c *resolvedCommand) Info() *cmd.Info {
@@ -36,21 +35,17 @@ func (c *resolvedCommand) Info() *cmd.Info {
 
 func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.all, "all", false, "Marks all units in error as resolved")
 	f.BoolVar(&c.NoRetry, "no-retry", false, "Do not re-execute failed hooks on the unit")
 }
 
 func (c *resolvedCommand) Init(args []string) error {
-	if len(args) > 0 && c.all == true {
-		return errors.Errorf("specify unit or --all option, not both")
-	}
 	if len(args) > 0 {
 		c.UnitName = args[0]
 		if !names.IsValidUnit(c.UnitName) {
 			return errors.Errorf("invalid unit name %q", c.UnitName)
 		}
 		args = args[1:]
-	} else if c.all == false {
+	} else {
 		return errors.Errorf("no unit specified")
 	}
 	return cmd.CheckEmpty(args)
