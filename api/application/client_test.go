@@ -1113,7 +1113,7 @@ func (s *applicationSuite) TestApplicationUnitResolved(c *gc.C) {
 	units := []string{"mysql/0"}
 	retry := false
 	all := false
-	err := client.Resolved(units, retry, all)
+	err := client.ResolveApplicationUnits(units, retry, all)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -1128,7 +1128,7 @@ func (s *applicationSuite) TestApplicationUnitResolvedUnitsAll(c *gc.C) {
 	units := []string{"mysql/0"}
 	retry := false
 	all := true
-	err := client.Resolved(units, retry, all)
+	err := client.ResolveApplicationUnits(units, retry, all)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, "provide units or '--all' but not both")
 	c.Assert(called, jc.IsFalse)
@@ -1159,7 +1159,7 @@ func (s *applicationSuite) TestApplicationUnitResolvedMultipleUnits(c *gc.C) {
 	units := []string{"mysql/0", "wordpress/1"}
 	retry := false
 	all := false
-	err := client.Resolved(units, retry, all)
+	err := client.ResolveApplicationUnits(units, retry, all)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -1183,7 +1183,7 @@ func (s *applicationSuite) TestApplicationUnitResolvedAll(c *gc.C) {
 	units := []string{}
 	retry := false
 	all := true
-	err := client.Resolved(units, retry, all)
+	err := client.ResolveApplicationUnits(units, retry, all)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
