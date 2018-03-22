@@ -1041,3 +1041,149 @@ func (s *applicationSuite) TestUnsetApplicationConfigAPIv5(c *gc.C) {
 	err := client.UnsetApplicationConfig("foo", []string{})
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
+
+//func (s *applicationSuite) TestApplicationUnitResolved(c *gc.C) {
+//	//expectedResults := new(params.ErrorResults)
+//	client := application.NewClient(basetesting.BestVersionCaller{
+//		APICallerFunc: basetesting.APICallerFunc(
+//			func(objType string, version int, id, request string, a, response interface{}) error {
+//				c.Assert(request, gc.Equals, "Resolved")
+//				args, ok := a.(params.UnitsResolved)
+//				c.Assert(ok, jc.IsTrue)
+//				c.Assert(args, jc.DeepEquals, params.UnitsResolved{
+//					All:   false,
+//					Retry: false,
+//					Tags: params.Entities{
+//						Entities: []params.Entity{
+//							{Tag: "mysql/0"},
+//						},
+//					},
+//				})
+//				//result := response.(*params.ErrorResults)
+//				//result.Results = make([]params.ErrorResult, 1)
+//				//return nil
+//				//result := response.(*params.ErrorResults)
+//				//result = params.ErrorResults{expectedResults}
+//				//return nil
+//
+//				//result, _ := response.(*params.ErrorResults)
+//				//c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{nil})
+//				result := response.(*params.ErrorResults)
+//				result.Results = make([]params.ErrorResult, 1)
+//				return nil
+//				//*result.(*params.ErrorResults) = params.ErrorResults{
+//				//	Results: []params.ErrorResult{{}, {}},
+//				//}
+//				//result.Results = make([]params.ErrorResult, 1)
+//
+//				return nil
+//			},
+//		),
+//		BestVersion: 6,
+//	})
+//
+//	units := []string{"mysql/0"}
+//	retry := false
+//	all := false
+//	err := client.Resolved(units, retry, all)
+//	c.Assert(err, jc.ErrorIsNil)
+//}
+
+func (s *applicationSuite) TestApplicationUnitResolved(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		c.Check(request, gc.Equals, "Resolved")
+		args, ok := a.(params.UnitsResolved)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(args, jc.DeepEquals, params.UnitsResolved{
+			All:   false,
+			Retry: false,
+			Tags: &params.Entities{
+				Entities: []params.Entity{
+					{Tag: "mysql/0"},
+				},
+			},
+		})
+
+		result := response.(*params.ErrorResults)
+		result.Results = make([]params.ErrorResult, 1)
+		return nil
+	})
+	units := []string{"mysql/0"}
+	retry := false
+	all := false
+	err := client.Resolved(units, retry, all)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestApplicationUnitResolvedUnitsAll(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		c.Check(request, gc.Equals, "Resolved")
+		return nil
+	})
+	units := []string{"mysql/0"}
+	retry := false
+	all := true
+	err := client.Resolved(units, retry, all)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "provide units or '--all' but not both")
+	c.Assert(called, jc.IsFalse)
+}
+
+func (s *applicationSuite) TestApplicationUnitResolvedMultipleUnits(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		c.Check(request, gc.Equals, "Resolved")
+		args, ok := a.(params.UnitsResolved)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(args, jc.DeepEquals, params.UnitsResolved{
+			All:   false,
+			Retry: false,
+			Tags: &params.Entities{
+				Entities: []params.Entity{
+					{Tag: "mysql/0"},
+					{Tag: "wordpress/1"},
+				},
+			},
+		})
+
+		result := response.(*params.ErrorResults)
+		result.Results = make([]params.ErrorResult, 1)
+		return nil
+	})
+	units := []string{"mysql/0", "wordpress/1"}
+	retry := false
+	all := false
+	err := client.Resolved(units, retry, all)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestApplicationUnitResolvedAll(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		c.Check(request, gc.Equals, "Resolved")
+		args, ok := a.(params.UnitsResolved)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(args, jc.DeepEquals, params.UnitsResolved{
+			All:   true,
+			Retry: false,
+		})
+
+		result := response.(*params.ErrorResults)
+		result.Results = make([]params.ErrorResult, 1)
+		return nil
+	})
+	units := []string{}
+	retry := false
+	all := true
+	err := client.Resolved(units, retry, all)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}

@@ -772,3 +772,31 @@ func (c *Client) UnsetApplicationConfig(application string, options []string) er
 	}
 	return results.OneError()
 }
+
+// Resolved clears errors on the provided unit or units. Optionally
+// the flag all will clear errors on all units in error state.
+func (c *Client) Resolved(units []string, retry, all bool) error {
+	// convert unit name to a tag
+	if len(units) > 0 && all == true {
+		return errors.New("provide units or '--all' but not both")
+	}
+	args := params.UnitsResolved{}
+	args.All = false
+	args.Retry = retry
+	if all == true {
+		args.All = all
+	} else {
+		entities := make([]params.Entity, len(units))
+		for i, unit := range units {
+			entities[i].Tag = unit
+		}
+		args.Tags = &params.Entities{Entities: entities}
+	}
+
+	results := new(params.ErrorResults)
+	err := c.facade.FacadeCall("Resolved", args, results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(results.OneError())
+}
