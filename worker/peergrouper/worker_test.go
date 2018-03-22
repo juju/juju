@@ -701,7 +701,8 @@ func (s *workerSuite) doTestReturnsErrorForNewPeersAndNoHASpaceAndMachinesWithMu
 	st := haSpaceTestCommonSetup(c, ipVersion, "0v")
 	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}).Wait()
 	errMsg := `computing desired peer group: updating member address: ` +
-		`machine "1[12]" has more than one non-local address and juju-ha-space is not set`
+		`machine "1[12]" has more than one usable address and juju-ha-space is not set` +
+		"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication"
 	c.Check(err, gc.ErrorMatches, errMsg)
 }
 
