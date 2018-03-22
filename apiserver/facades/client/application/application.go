@@ -1683,17 +1683,16 @@ func (api *APIv6) Resolved(p params.UnitsResolved) (params.ErrorResults, error) 
 	}
 	result.Results = make([]params.ErrorResult, len(p.Tags.Entities))
 	for i, entity := range p.Tags.Entities {
-		err := api.resolveUnit(entity.Tag, p.Retry)
-		result.Results[i].Error = common.ServerError(err)
+		unit, err := api.backend.Unit(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = unit.Resolve(p.Retry)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
 	}
 	return result, nil
-}
-
-func (api *APIv6) resolveUnit(unitName string, retry bool) error {
-	unit, err := api.backend.Unit(unitName)
-	if err != nil {
-		return err
-	}
-	err = unit.Resolve(retry)
-	return err
 }

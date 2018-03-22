@@ -1211,7 +1211,18 @@ func (s *ApplicationSuite) TestApplicationUnitResolved(c *gc.C) {
 	expectedResults := params.ErrorResults{
 		Results: []params.ErrorResult{{nil}},
 	}
-	s.testResolved(c, p, expectedResults, nil)
+	result, err := s.api.Resolved(p)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, expectedResults)
+
+	s.blockChecker.CheckCallNames(c, "ChangeAllowed")
+	s.backend.CheckCallNames(c, "Unit")
+	s.backend.CheckCall(c, 0, "Unit", "postgresql/0")
+
+	unit := s.backend.applications["postgresql"].units[0]
+	unit.CheckCallNames(c, "Resolve")
+	unit.CheckCall(c, 0, "Resolve", false)
 }
 
 func (s *ApplicationSuite) TestApplicationUnitResolvedAll(c *gc.C) {
@@ -1225,15 +1236,13 @@ func (s *ApplicationSuite) TestApplicationUnitResolvedAll(c *gc.C) {
 	}
 	expectedResults := params.ErrorResults{}
 	expectedErr := errors.Errorf("All flag not implemented yet")
-	s.testResolved(c, p, expectedResults, expectedErr)
-}
-
-func (s *ApplicationSuite) testResolved(c *gc.C, p params.UnitsResolved, expectedResults params.ErrorResults, expectedErr error) {
 	result, err := s.api.Resolved(p)
-	if expectedErr == nil {
-		c.Assert(err, gc.IsNil)
-	} else {
-		c.Assert(err.Error(), gc.Equals, expectedErr.Error())
-	}
+
+	c.Assert(err.Error(), gc.Equals, expectedErr.Error())
 	c.Assert(result, gc.DeepEquals, expectedResults)
+
+	s.blockChecker.CheckNoCalls(c)
+	s.backend.CheckNoCalls(c)
+	unit := s.backend.applications["postgresql"].units[0]
+	unit.CheckNoCalls(c)
 }
