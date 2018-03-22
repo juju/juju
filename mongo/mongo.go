@@ -37,8 +37,8 @@ var (
 	// mongod.
 	JujuMongod24Path = "/usr/lib/juju/bin/mongod"
 
-	// JujuMongod34Path is actually just the system path
-	JujuMongod34Path = "/usr/bin/mongod"
+	// Mongod34Path is actually just the system path
+	Mongod34Path = "/usr/bin/mongod"
 
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
@@ -242,7 +242,7 @@ func binariesAvailable(v Version, statFunc func(string) (os.FileInfo, error)) bo
 		path = JujuMongod24Path
 	case Mongo34wt:
 		// 3.4 switched back to using the system mongod
-		path = JujuMongod34Path
+		path = Mongod34Path
 	default:
 		path = JujuMongodPath(v)
 	}
@@ -355,6 +355,17 @@ func mongoPath(version Version, stat func(string) (os.FileInfo, error), lookPath
 		path, err := lookPath("mongod")
 		if err != nil {
 			logger.Infof("could not find %v or mongod in $PATH", JujuMongod24Path)
+			return "", err
+		}
+		return path, nil
+	case Mongo34wt:
+		if _, err := stat(Mongod34Path); err == nil {
+			return Mongod34Path, nil
+		}
+
+		path, err := lookPath("mongod")
+		if err != nil {
+			logger.Infof("could not find %v or mongod in $PATH", Mongod34Path)
 			return "", err
 		}
 		return path, nil
