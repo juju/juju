@@ -303,7 +303,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newDefaultRunCommand())
 	r.Register(newSCPCommand(nil))
 	r.Register(newSSHCommand(nil, nil))
-	r.Register(newResolvedCommand())
+	r.Register(application.NewResolvedCommand())
 	r.Register(newDebugLogCommand())
 	r.Register(newDebugHooksCommand(nil))
 
