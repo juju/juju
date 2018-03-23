@@ -20,14 +20,17 @@ import (
 
 type mockState struct {
 	testing.Stub
-	app   mockApplication
-	unit  mockUnit
-	model mockModel
+	entities map[string]state.Entity
+	app      mockApplication
+	unit     mockUnit
+	model    mockModel
 }
 
 func newMockState() *mockState {
 	unitsChanges := make(chan []string, 1)
-	return &mockState{
+	appChanges := make(chan struct{}, 1)
+	st := &mockState{
+		entities: make(map[string]state.Entity),
 		app: mockApplication{
 			life: state.Alive,
 			charm: mockCharm{
@@ -35,12 +38,17 @@ func newMockState() *mockState {
 				sha256: "fake-sha256",
 			},
 			unitsChanges: unitsChanges,
+			appChanges:   appChanges,
 			unitsWatcher: statetesting.NewMockStringsWatcher(unitsChanges),
+			watcher:      statetesting.NewMockNotifyWatcher(appChanges),
 		},
 		unit: mockUnit{
 			life: state.Dying,
 		},
 	}
+	st.entities[st.app.Tag().String()] = &st.app
+	st.entities[st.unit.Tag().String()] = &st.unit
+	return st
 }
 
 func (st *mockState) Application(id string) (caasoperator.Application, error) {
@@ -64,14 +72,11 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	if err := st.NextErr(); err != nil {
 		return nil, err
 	}
-	switch tag.(type) {
-	case names.ApplicationTag:
-		return &st.app, nil
-	case names.UnitTag:
-		return &st.unit, nil
-	default:
+	entity, ok := st.entities[tag.String()]
+	if !ok {
 		return nil, errors.NotFoundf("%s", names.ReadableString(tag))
 	}
+	return entity, nil
 }
 
 type mockModel struct {
@@ -100,15 +105,17 @@ type mockApplication struct {
 	forceUpgrade bool
 	unitsChanges chan []string
 	unitsWatcher *statetesting.MockStringsWatcher
+	appChanges   chan struct{}
+	watcher      *statetesting.MockNotifyWatcher
 }
 
 func (*mockApplication) Tag() names.Tag {
-	panic("should not be called")
+	return names.NewApplicationTag("gitlab")
 }
 
-func (a *mockApplication) Life() state.Life {
-	a.MethodCall(a, "Life")
-	return a.life
+func (app *mockApplication) Life() state.Life {
+	app.MethodCall(app, "Life")
+	return app.life
 }
 
 func (app *mockApplication) SetStatus(info status.StatusInfo) error {
@@ -124,9 +131,19 @@ func (app *mockApplication) Charm() (caasoperator.Charm, bool, error) {
 	return &app.charm, app.forceUpgrade, nil
 }
 
-func (a *mockApplication) WatchUnits() state.StringsWatcher {
-	a.MethodCall(a, "WatchUnits")
-	return a.unitsWatcher
+func (app *mockApplication) CharmModifiedVersion() int {
+	app.MethodCall(app, "CharmModifiedVersion")
+	return 666
+}
+
+func (app *mockApplication) WatchUnits() state.StringsWatcher {
+	app.MethodCall(app, "WatchUnits")
+	return app.unitsWatcher
+}
+
+func (app *mockApplication) Watch() state.NotifyWatcher {
+	app.MethodCall(app, "Watch")
+	return app.watcher
 }
 
 type mockUnit struct {
@@ -135,7 +152,7 @@ type mockUnit struct {
 }
 
 func (*mockUnit) Tag() names.Tag {
-	panic("should not be called")
+	return names.NewUnitTag("gitlab/0")
 }
 
 func (u *mockUnit) Life() state.Life {

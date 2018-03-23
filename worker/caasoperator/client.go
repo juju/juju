@@ -17,7 +17,7 @@ import (
 type Client interface {
 	CharmGetter
 	UnitGetter
-	LifeGetter
+	ApplicationWatcher
 	PodSpecSetter
 	StatusSetter
 	ModelName() (string, error)
@@ -27,7 +27,7 @@ type Client interface {
 // the URL and SHA256 hash of the charm currently
 // assigned to the application.
 type CharmGetter interface {
-	Charm(application string) (_ *charm.URL, sha256 string, _ error)
+	Charm(application string) (_ *charm.URL, force bool, sha256 string, vers int, _ error)
 }
 
 // UnitGetter provides an interface for watching for
@@ -36,12 +36,13 @@ type CharmGetter interface {
 // their details.
 type UnitGetter interface {
 	WatchUnits(string) (watcher.StringsWatcher, error)
+	Life(string) (life.Value, error)
 }
 
-// LifeGetter provides an interface for getting the
-// lifecycle state value for an application or unit.
-type LifeGetter interface {
-	Life(string) (life.Value, error)
+// ApplicationWatcher provides an interface for watching
+// application changes.
+type ApplicationWatcher interface {
+	Watch(string) (watcher.NotifyWatcher, error)
 }
 
 // PodSpecSetter provides an interface for

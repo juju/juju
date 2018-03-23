@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
@@ -77,30 +78,30 @@ func (c *Client) SetStatus(
 
 // Charm returns information about the charm currently assigned
 // to the application.
-func (c *Client) Charm(application string) (_ *charm.URL, sha256 string, _ error) {
+func (c *Client) Charm(application string) (_ *charm.URL, force bool, sha256 string, vers int, _ error) {
 	tag, err := c.appTag(application)
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return nil, false, "", 0, errors.Trace(err)
 	}
 	var results params.ApplicationCharmResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	if err := c.facade.FacadeCall("Charm", args, &results); err != nil {
-		return nil, "", errors.Trace(err)
+		return nil, false, "", 0, errors.Trace(err)
 	}
 	if n := len(results.Results); n != 1 {
-		return nil, "", errors.Errorf("expected 1 result, got %d", n)
+		return nil, false, "", 0, errors.Errorf("expected 1 result, got %d", n)
 	}
 	if err := results.Results[0].Error; err != nil {
-		return nil, "", errors.Trace(err)
+		return nil, false, "", 0, errors.Trace(err)
 	}
 	result := results.Results[0].Result
 	curl, err := charm.ParseURL(result.URL)
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return nil, false, "", 0, errors.Trace(err)
 	}
-	return curl, result.SHA256, nil
+	return curl, result.ForceUpgrade, result.SHA256, result.CharmModifiedVersion, nil
 }
 
 // SetPodSpec sets the pod spec of the specified application.
@@ -127,6 +128,15 @@ func applicationTag(application string) (names.ApplicationTag, error) {
 		return names.ApplicationTag{}, errors.NotValidf("application name %q", application)
 	}
 	return names.NewApplicationTag(application), nil
+}
+
+// Watch returns a watcher for observing changes to an application.
+func (c *Client) Watch(application string) (watcher.NotifyWatcher, error) {
+	tag, err := c.appTag(application)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return common.Watch(c.facade, "Watch", tag)
 }
 
 func entities(tags ...names.Tag) params.Entities {
