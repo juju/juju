@@ -206,6 +206,10 @@ func (s *uniterResolver) nextOpHookError(
 }
 
 func charmModified(local resolver.LocalState, remote remotestate.Snapshot) bool {
+	// CAAS models may not yet have read the charm url from state.
+	if remote.CharmURL == nil {
+		return false
+	}
 	if *local.CharmURL != *remote.CharmURL {
 		logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)
 		return true

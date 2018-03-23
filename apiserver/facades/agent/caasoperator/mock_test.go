@@ -113,37 +113,37 @@ func (*mockApplication) Tag() names.Tag {
 	return names.NewApplicationTag("gitlab")
 }
 
-func (app *mockApplication) Life() state.Life {
-	app.MethodCall(app, "Life")
-	return app.life
+func (a *mockApplication) Life() state.Life {
+	a.MethodCall(a, "Life")
+	return a.life
 }
 
-func (app *mockApplication) SetStatus(info status.StatusInfo) error {
-	app.MethodCall(app, "SetStatus", info)
-	return app.NextErr()
+func (a *mockApplication) SetStatus(info status.StatusInfo) error {
+	a.MethodCall(a, "SetStatus", info)
+	return a.NextErr()
 }
 
-func (app *mockApplication) Charm() (caasoperator.Charm, bool, error) {
-	app.MethodCall(app, "Charm")
-	if err := app.NextErr(); err != nil {
+func (a *mockApplication) Charm() (caasoperator.Charm, bool, error) {
+	a.MethodCall(a, "Charm")
+	if err := a.NextErr(); err != nil {
 		return nil, false, err
 	}
-	return &app.charm, app.forceUpgrade, nil
+	return &a.charm, a.forceUpgrade, nil
 }
 
-func (app *mockApplication) CharmModifiedVersion() int {
-	app.MethodCall(app, "CharmModifiedVersion")
+func (a *mockApplication) CharmModifiedVersion() int {
+	a.MethodCall(a, "CharmModifiedVersion")
 	return 666
 }
 
-func (app *mockApplication) WatchUnits() state.StringsWatcher {
-	app.MethodCall(app, "WatchUnits")
-	return app.unitsWatcher
+func (a *mockApplication) WatchUnits() state.StringsWatcher {
+	a.MethodCall(a, "WatchUnits")
+	return a.unitsWatcher
 }
 
-func (app *mockApplication) Watch() state.NotifyWatcher {
-	app.MethodCall(app, "Watch")
-	return app.watcher
+func (a *mockApplication) Watch() state.NotifyWatcher {
+	a.MethodCall(a, "Watch")
+	return a.watcher
 }
 
 type mockUnit struct {

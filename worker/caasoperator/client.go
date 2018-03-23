@@ -39,8 +39,8 @@ type UnitGetter interface {
 	Life(string) (life.Value, error)
 }
 
-// ApplicationWatcher provides an interface for watching
-// application changes.
+// ApplicationWatcher provides an interface watching
+// for application changes.
 type ApplicationWatcher interface {
 	Watch(string) (watcher.NotifyWatcher, error)
 }

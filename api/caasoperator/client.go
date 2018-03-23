@@ -77,8 +77,8 @@ func (c *Client) SetStatus(
 }
 
 // Charm returns information about the charm currently assigned
-// to the application.
-func (c *Client) Charm(application string) (_ *charm.URL, force bool, sha256 string, vers int, _ error) {
+// to the application, including url, force upgrade and sha etc.
+func (c *Client) Charm(application string) (_ *charm.URL, forceUpgrade bool, sha256 string, vers int, _ error) {
 	tag, err := c.appTag(application)
 	if err != nil {
 		return nil, false, "", 0, errors.Trace(err)
