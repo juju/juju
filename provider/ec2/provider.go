@@ -178,7 +178,7 @@ These keys are obtained via the "Security Credentials"
 page in the AWS console.
 `
 
-const unauthorised = `
+const unauthorized = `
 Please subscribe to the requested Amazon service. 
 You are currently not authorized to use it.
 New Amazon accounts might take some time to be activated while 
@@ -217,13 +217,13 @@ var maybeConvertCredentialError = func(err error) error {
 		case "CustomerKeyHasBeenRevoked":
 			return common.CredentialNotValidf(err, "\nYour Amazon keys have been revoked.")
 		case "PendingVerification":
-			return common.CredentialNotValidf(err, "\nYou account is pending verification by Amazon.")
+			return common.CredentialNotValidf(err, "\nYour account is pending verification by Amazon.")
 		case "SignatureDoesNotMatch":
 			return common.CredentialNotValidf(err, badKeys)
 		case "OptInRequired":
-			return errors.Annotate(err, unauthorised)
+			return errors.Annotate(err, unauthorized)
 		case "UnauthorizedOperation":
-			return errors.Annotate(err, unauthorised)
+			return errors.Annotate(err, unauthorized)
 		default:
 			// This error is unrelated to access keys, account or credentials...
 			return err
