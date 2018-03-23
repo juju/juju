@@ -195,16 +195,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 	requiredEvents++
 
-	var seenApplicationChange bool
-	applicationw, err := w.application.Watch()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := w.catacomb.Add(applicationw); err != nil {
-		return errors.Trace(err)
-	}
-	requiredEvents++
-
 	var seenConfigChange bool
 	configw, err := w.unit.WatchConfigSettings()
 	if err != nil {
@@ -239,7 +229,11 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	var (
 		seenStorageChange bool
 		storageChanges    watcher.StringsChannel
+
+		seenApplicationChange bool
+		applicationChanges    watcher.NotifyChannel
 	)
+
 	if w.modelType == model.IAAS {
 		storagew, err := w.unit.WatchStorage()
 		if err != nil {
@@ -249,6 +243,16 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		if err := w.catacomb.Add(storagew); err != nil {
 			return errors.Trace(err)
 		}
+		requiredEvents++
+
+		applicationw, err := w.application.Watch()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := w.catacomb.Add(applicationw); err != nil {
+			return errors.Trace(err)
+		}
+		applicationChanges = applicationw.Changes()
 		requiredEvents++
 	}
 
@@ -346,7 +350,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenUnitChange)
 
-		case _, ok := <-applicationw.Changes():
+		case _, ok := <-applicationChanges:
 			logger.Debugf("got application change")
 			if !ok {
 				return errors.New("application watcher closed")

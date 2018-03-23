@@ -221,19 +221,19 @@ func (u *Unit) WatchRelations() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// Service returns the service.
+// Application returns the unit's application.
 func (u *Unit) Application() (*Application, error) {
-	service := &Application{
+	application := &Application{
 		st:  u.st,
 		tag: u.ApplicationTag(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
-	err := service.Refresh()
+	err := application.Refresh()
 	if err != nil {
 		return nil, err
 	}
-	return service, nil
+	return application, nil
 }
 
 // ConfigSettings returns the complete set of service charm config settings

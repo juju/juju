@@ -21,6 +21,7 @@ type Facade struct {
 	resources facade.Resources
 	state     CAASOperatorState
 	*common.LifeGetter
+	*common.AgentEntityWatcher
 
 	model Model
 }
@@ -45,17 +46,17 @@ func NewFacade(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	canRead := common.AuthAny(
+		common.AuthFuncForTagKind(names.ApplicationTagKind),
+		common.AuthFuncForTagKind(names.UnitTagKind),
+	)
 	return &Facade{
-		LifeGetter: common.NewLifeGetter(
-			st, common.AuthAny(
-				common.AuthFuncForTagKind(names.ApplicationTagKind),
-				common.AuthFuncForTagKind(names.UnitTagKind),
-			),
-		),
-		auth:      authorizer,
-		resources: resources,
-		state:     st,
-		model:     model,
+		LifeGetter:         common.NewLifeGetter(st, canRead),
+		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, canRead),
+		auth:               authorizer,
+		resources:          resources,
+		state:              st,
+		model:              model,
 	}, nil
 }
 
@@ -125,9 +126,10 @@ func (f *Facade) Charm(args params.Entities) (params.ApplicationCharmResults, er
 			continue
 		}
 		results.Results[i].Result = &params.ApplicationCharm{
-			URL:          charm.URL().String(),
-			ForceUpgrade: force,
-			SHA256:       charm.BundleSha256(),
+			URL:                  charm.URL().String(),
+			ForceUpgrade:         force,
+			SHA256:               charm.BundleSha256(),
+			CharmModifiedVersion: application.CharmModifiedVersion(),
 		}
 	}
 	return results, nil

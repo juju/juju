@@ -28,6 +28,9 @@ type ApplicationCharm struct {
 
 	// SHA256 holds the SHA256 hash of the charm archive.
 	SHA256 string `json:"sha256"`
+
+	// CharmModifiedVersion increases when the charm changes in some way.
+	CharmModifiedVersion int `json:"charm-modified-version"`
 }
 
 // CharmsList stores parameters for a charms.List call

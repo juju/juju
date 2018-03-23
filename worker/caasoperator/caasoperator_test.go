@@ -39,6 +39,7 @@ type WorkerSuite struct {
 	clock                 *testing.Clock
 	config                caasoperator.Config
 	unitsChanges          chan []string
+	appChanges            chan struct{}
 	client                fakeClient
 	charmDownloader       fakeDownloader
 	charmSHA256           string
@@ -72,7 +73,9 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.clock = testing.NewClock(time.Time{})
 	s.client = fakeClient{}
 	s.unitsChanges = make(chan []string)
+	s.appChanges = make(chan struct{})
 	s.client.unitsWatcher = watchertest.NewMockStringsWatcher(s.unitsChanges)
+	s.client.watcher = watchertest.NewMockNotifyWatcher(s.appChanges)
 	s.charmDownloader.ResetCalls()
 	s.uniterParams = &uniter.UniterParams{}
 	s.leadershipTrackerFunc = func(unitTag names.UnitTag) leadership.Tracker {
@@ -89,7 +92,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		DataDir:               c.MkDir(),
 		Downloader:            &s.charmDownloader,
 		StatusSetter:          &s.client,
-		LifeGetter:            &s.client,
+		ApplicationWatcher:    &s.client,
 		UnitGetter:            &s.client,
 		UniterParams:          s.uniterParams,
 		LeadershipTrackerFunc: s.leadershipTrackerFunc,
@@ -110,8 +113,8 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	}, `application name "" not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
-		config.LifeGetter = nil
-	}, `missing LifeGetter not valid`)
+		config.ApplicationWatcher = nil
+	}, `missing ApplicationWatcher not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.UnitGetter = nil
@@ -184,10 +187,11 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.unitsChanges <- []string{"gitlab/0"}
-	s.client.CheckCallNames(c, "Charm", "SetStatus", "WatchUnits", "SetStatus", "Life")
+	s.client.CheckCallNames(c, "Charm", "SetStatus", "WatchUnits", "SetStatus", "Watch", "Life")
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
 	s.client.CheckCall(c, 2, "WatchUnits", "gitlab")
-	s.client.CheckCall(c, 4, "Life", "gitlab/0")
+	s.client.CheckCall(c, 4, "Watch", "gitlab")
+	s.client.CheckCall(c, 5, "Life", "gitlab/0")
 
 	s.charmDownloader.CheckCallNames(c, "Download")
 	downloadArgs := s.charmDownloader.Calls()[0].Args

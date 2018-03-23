@@ -26,8 +26,9 @@ var (
 	gitlabCharmURL = charm.MustParseURL("cs:gitlab-1")
 	gitlabSettings = charm.Settings{"k": 123}
 
-	fakeCharmContent = []byte("abc")
-	fakeCharmSHA256  = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+	fakeCharmContent    = []byte("abc")
+	fakeCharmSHA256     = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+	fakeModifiedVersion = 666
 )
 
 type fakeAgent struct {
@@ -65,6 +66,7 @@ type fakeClient struct {
 	testing.Stub
 	caasoperator.Client
 	unitsWatcher *watchertest.MockStringsWatcher
+	watcher      *watchertest.MockNotifyWatcher
 }
 
 func (c *fakeClient) SetStatus(application string, status status.Status, message string, data map[string]interface{}) error {
@@ -72,12 +74,12 @@ func (c *fakeClient) SetStatus(application string, status status.Status, message
 	return c.NextErr()
 }
 
-func (c *fakeClient) Charm(application string) (*charm.URL, string, error) {
+func (c *fakeClient) Charm(application string) (*charm.URL, bool, string, int, error) {
 	c.MethodCall(c, "Charm", application)
 	if err := c.NextErr(); err != nil {
-		return nil, "", err
+		return nil, false, "", 0, err
 	}
-	return gitlabCharmURL, fakeCharmSHA256, nil
+	return gitlabCharmURL, true, fakeCharmSHA256, fakeModifiedVersion, nil
 }
 
 func (c *fakeClient) SetPodSpec(entityName, spec string) error {
@@ -103,6 +105,14 @@ func (c *fakeClient) WatchUnits(application string) (watcher.StringsWatcher, err
 		return nil, err
 	}
 	return c.unitsWatcher, nil
+}
+
+func (c *fakeClient) Watch(application string) (watcher.NotifyWatcher, error) {
+	c.MethodCall(c, "Watch", application)
+	if err := c.NextErr(); err != nil {
+		return nil, err
+	}
+	return c.watcher, nil
 }
 
 func (c *fakeClient) Life(entity string) (life.Value, error) {
