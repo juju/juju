@@ -108,6 +108,46 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	c.Assert(metric.Labels, gc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
+func (s *MetricSuite) TestAddMetricOrderedLabels(c *gc.C) {
+	now := state.NowToTheSecond(s.State)
+	modelUUID := s.State.ModelUUID()
+	m := []state.Metric{{
+		Key: "pings", Value: "6", Time: now,
+	}, {
+		Key: "pings", Value: "1", Time: now, Labels: map[string]string{"quux": "baz"},
+	}, {
+		Key: "pings", Value: "2", Time: now, Labels: map[string]string{"abc": "123"},
+	}, {
+		Key: "pings", Value: "3", Time: now, Labels: map[string]string{"foo": "bar"},
+	}}
+	metricBatch, err := s.State.AddMetrics(
+		state.BatchParam{
+			UUID:     utils.MustNewUUID().String(),
+			Created:  now,
+			CharmURL: s.meteredCharm.URL().String(),
+			Metrics:  m,
+			Unit:     s.unit.UnitTag(),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metricBatch.Unit(), gc.Equals, "metered/0")
+	c.Assert(metricBatch.ModelUUID(), gc.Equals, modelUUID)
+	c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered-1")
+	c.Assert(metricBatch.Sent(), jc.IsFalse)
+	c.Assert(metricBatch.Created(), gc.Equals, now)
+	uniqueMetrics := metricBatch.UniqueMetrics()
+	c.Assert(uniqueMetrics, gc.HasLen, 4)
+	c.Assert(uniqueMetrics, gc.DeepEquals, []state.Metric{{
+		Key: "pings", Value: "6", Time: now,
+	}, {
+		Key: "pings", Value: "2", Time: now, Labels: map[string]string{"abc": "123"},
+	}, {
+		Key: "pings", Value: "3", Time: now, Labels: map[string]string{"foo": "bar"},
+	}, {
+		Key: "pings", Value: "1", Time: now, Labels: map[string]string{"quux": "baz"},
+	}})
+}
+
 func (s *MetricSuite) TestAddModelMetricMetric(c *gc.C) {
 	now := state.NowToTheSecond(s.State)
 	modelUUID := s.State.ModelUUID()

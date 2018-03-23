@@ -32,8 +32,9 @@ type EntityMetrics struct {
 
 // MetricResult contains a single metric.
 type MetricResult struct {
-	Time  time.Time `json:"time"`
-	Key   string    `json:"key"`
-	Value string    `json:"value"`
-	Unit  string    `json:"unit"`
+	Time   time.Time         `json:"time"`
+	Key    string            `json:"key"`
+	Value  string            `json:"value"`
+	Unit   string            `json:"unit"`
+	Labels map[string]string `json:"labels"`
 }
