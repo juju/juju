@@ -477,10 +477,6 @@ func ForceDestroyMachineOps(m *Machine) ([]txn.Op, error) {
 	return m.forceDestroyOps()
 }
 
-func IsManagerMachineError(err error) bool {
-	return errors.Cause(err) == managerMachineError
-}
-
 func MakeActionIdConverter(st *State) func(string) (string, error) {
 	return func(id string) (string, error) {
 		id, err := st.strictLocalID(id)

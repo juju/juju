@@ -286,12 +286,14 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 }
 
 func (s *MachineSuite) TestLifeJobManageModel(c *gc.C) {
-	// A JobManageModel machine must never advance lifecycle.
 	m := s.machine0
 	err := m.Destroy()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
+	err = m.EnsureDead()
+	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
+	// Since this is the only controller machine, we cannot even force destroy it
 	err = m.ForceDestroy()
-	c.Assert(err, gc.ErrorMatches, "machine is required by the model")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
 	err = m.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
 }
@@ -389,7 +391,7 @@ func (s *MachineSuite) TestDestroyOpsForManagerFails(c *gc.C) {
 
 	// ... and assert that we cannot get the destroy ops for it.
 	ops, err := state.ForceDestroyMachineOps(m)
-	c.Assert(err, jc.Satisfies, state.IsManagerMachineError)
+	c.Assert(err, gc.ErrorMatches, `machine 0 is the only controller machine`)
 	c.Assert(ops, gc.IsNil)
 }
 

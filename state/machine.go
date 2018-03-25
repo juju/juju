@@ -512,18 +512,45 @@ func (m *Machine) ForceDestroy() error {
 	return nil
 }
 
-var managerMachineError = errors.New("machine is required by the model")
-
 func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
+	var ops []txn.Op
 	if m.IsManager() {
-		return nil, errors.Trace(managerMachineError)
+		// We only allow a Manager to be torn down if there are other managers to replace it.
+		controllerInfo, err := m.st.ControllerInfo()
+		if err != nil {
+			return nil, errors.Annotate(err, "failed to lookup controller info")
+		}
+		if len(controllerInfo.MachineIds) == 1 {
+			return nil, errors.Errorf("machine %s is the only controller machine", m.Id())
+		}
+		// Flag the machine to be torn down, but don't go from Dead back to Dying.
+		// This should cause the peergrouper to wake up, and ultimately remove JobManageModel from the machine.
+		// Until then EnsureDead during teardown should fail.
+		ops = []txn.Op{{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: bson.D{{"life", bson.M{"$in": []Life{Alive, Dying}}}},
+			Update: bson.D{
+				{"novote", true},
+				{"life", Dying},
+			},
+		}, {
+			C:  controllersC,
+			Id: modelGlobalKey,
+			// We assert that there are at least 2 machines in the list of controllers
+			Assert: bson.D{{"machineids.1", bson.M{"$exists": 1}}},
+		}}
+	} else {
+		// Make sure the machine doesn't become a manager while we're destroying it
+		ops = append(ops, txn.Op{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
+		})
 	}
 
-	return []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-	}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}, nil
+	ops = append(ops, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id))
+	return ops, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -701,9 +728,11 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			// (NOTE: When we enable multiple JobManageModel machines,
 			// this restriction will be lifted, but we will assert that the
 			// machine is not voting)
+			// TODO(jam) 2018-03-25: There is likely a clearer error we could give
 			return nil, fmt.Errorf("machine %s is required by the model", m.doc.Id)
 		}
 		if m.doc.HasVote {
+			// TODO(jam) 2018-03-25: There is likely a clearer error we could give
 			return nil, fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
 		}
 		// If there are no alive units left on the machine, or all the services are dying,
