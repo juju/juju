@@ -26,6 +26,19 @@ func hasJob(jobs []MachineJob, job MachineJob) bool {
 
 var errControllerNotAllowed = errors.New("controller jobs specified but not allowed")
 
+func (st *State) getVotingMachineCount(info *ControllerInfo) (int, error) {
+	machinesCollection, closer := st.db().GetCollection(machinesC)
+	defer closer()
+
+	hasJobManageModel := bson.M{"$in": []MachineJob{JobManageModel}}
+	return machinesCollection.Find(
+		bson.M{
+			"_id": bson.M{"$in": info.MachineIds},
+			"jobs": hasJobManageModel,
+			"novote": false,
+		},
+	).Count()
+}
 // maintainControllersOps returns a set of operations that will maintain
 // the controller information when the given machine documents
 // are added to the machines collection. If currentInfo is nil,
@@ -94,29 +107,20 @@ func (st *State) EnableHA(
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		currentInfo, err := st.ControllerInfo()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		desiredControllerCount := numControllers
+		votingCount, err := st.getVotingMachineCount(currentInfo)
+		if err != nil {
+			return nil ,errors.Trace(err)
+		}
 		if desiredControllerCount == 0 {
-			votingCount := 0
-			for _, mid := range currentInfo.MachineIds {
-				m, err := st.Machine(mid)
-				if err != nil {
-					if errors.IsNotFound(err) {
-						continue
-					}
-					return nil, errors.Trace(err)
-				}
-				if m.WantsVote() {
-					votingCount++
-				}
-			}
 			desiredControllerCount = votingCount
 			if desiredControllerCount <= 1 {
 				desiredControllerCount = 3
 			}
 		}
-		if len(currentInfo.MachineIds) > desiredControllerCount {
+		if votingCount > desiredControllerCount {
 			return nil, errors.New("cannot reduce controller count")
 		}
 

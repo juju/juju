@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -123,7 +122,7 @@ func (s *EnableHASuite) assertControllerInfo(c *gc.C, machineIds []string, votin
 	c.Assert(info.ModelTag, gc.Equals, s.modelTag)
 	c.Assert(info.MachineIds, jc.SameContents, machineIds)
 
-	votingSet := set.NewStrings(votingMachineIds...)
+	foundVoting := make([]string, 0)
 	for i, id := range machineIds {
 		m, err := s.State.Machine(id)
 		c.Assert(err, jc.ErrorIsNil)
@@ -132,8 +131,11 @@ func (s *EnableHASuite) assertControllerInfo(c *gc.C, machineIds []string, votin
 		} else {
 			c.Check(m.Placement(), gc.Equals, placement[i])
 		}
-		c.Check(m.WantsVote(), gc.Equals, votingSet.Contains(id))
+		if m.WantsVote() {
+			foundVoting = append(foundVoting, m.Id())
+		}
 	}
+	c.Check(foundVoting, gc.DeepEquals, votingMachineIds)
 }
 
 func (s *EnableHASuite) TestEnableHASamePlacementAsNewCount(c *gc.C) {
