@@ -4,11 +4,12 @@
 package peergrouper
 
 import (
+	"sort"
+
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
-	"sort"
 )
 
 type machineTrackerSuite struct {
