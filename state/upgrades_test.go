@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	charm "gopkg.in/juju/charm.v6"
 	"gopkg.in/mgo.v2"
@@ -349,7 +350,8 @@ func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*State) error, 
 				delete(doc, "version")
 				docs[i] = doc
 			}
-			c.Assert(docs, jc.DeepEquals, expect.expected)
+			c.Assert(docs, jc.DeepEquals, expect.expected,
+				gc.Commentf("differences: %s", pretty.Diff(docs, expect.expected)))
 		}
 	}
 }
@@ -2302,4 +2304,26 @@ func (s *upgradesSuite) TestCreateMissingApplicationConfig(c *gc.C) {
 
 	s.assertUpgradedData(c, CreateMissingApplicationConfig,
 		expectUpgradedData{settingsColl, expected})
+}
+
+func (s *upgradesSuite) TestRemoveVotingMachineIds(c *gc.C) {
+	// Setup the database with a 2.3 controller info which had 'votingmachineids'
+	controllerColl, controllerCloser := s.state.db().GetRawCollection(controllersC)
+	defer controllerCloser()
+	err := controllerColl.UpdateId(modelGlobalKey, bson.M{"$set": bson.M{"votingmachineids": []string{"0"}}})
+	c.Assert(err, jc.ErrorIsNil)
+	// The only document we should touch is the modelGlobalKey
+	var expectedDocs []bson.M
+	err = controllerColl.Find(nil).Sort("_id").All(&expectedDocs)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, doc := range expectedDocs {
+		delete(doc, "txn-queue")
+		delete(doc, "txn-revno")
+		delete(doc, "version")
+		if doc["_id"] != modelGlobalKey {
+			continue
+		}
+		delete(doc, "votingmachineids")
+	}
+	s.assertUpgradedData(c, RemoveVotingMachineIds, expectUpgradedData{coll: controllerColl, expected: expectedDocs})
 }

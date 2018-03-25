@@ -33,12 +33,13 @@ func (st *State) getVotingMachineCount(info *ControllerInfo) (int, error) {
 	hasJobManageModel := bson.M{"$in": []MachineJob{JobManageModel}}
 	return machinesCollection.Find(
 		bson.M{
-			"_id": bson.M{"$in": info.MachineIds},
-			"jobs": hasJobManageModel,
+			"_id":    bson.M{"$in": info.MachineIds},
+			"jobs":   hasJobManageModel,
 			"novote": false,
 		},
 	).Count()
 }
+
 // maintainControllersOps returns a set of operations that will maintain
 // the controller information when the given machine documents
 // are added to the machines collection. If currentInfo is nil,
@@ -112,7 +113,7 @@ func (st *State) EnableHA(
 		desiredControllerCount := numControllers
 		votingCount, err := st.getVotingMachineCount(currentInfo)
 		if err != nil {
-			return nil ,errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		if desiredControllerCount == 0 {
 			desiredControllerCount = votingCount

@@ -2578,9 +2578,9 @@ func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
 	info, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
-		CloudName:        "dummy",
-		ModelTag:         s.modelTag,
-		MachineIds:       []string{"0"},
+		CloudName:  "dummy",
+		ModelTag:   s.modelTag,
+		MachineIds: []string{"0"},
 	})
 
 	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
@@ -2596,9 +2596,9 @@ func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
 	info, err = s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
-		CloudName:        "dummy",
-		ModelTag:         s.modelTag,
-		MachineIds:       []string{"0", "1", "2"},
+		CloudName:  "dummy",
+		ModelTag:   s.modelTag,
+		MachineIds: []string{"0", "1", "2"},
 	})
 }
 

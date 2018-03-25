@@ -38,6 +38,7 @@ type StateBackend interface {
 	DeleteCloudImageMetadata() error
 	CopyMongoSpaceToHASpaceConfig() error
 	CreateMissingApplicationConfig() error
+	RemoveVotingMachineIds() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -146,6 +147,10 @@ func (s stateBackend) CopyMongoSpaceToHASpaceConfig() error {
 
 func (s stateBackend) CreateMissingApplicationConfig() error {
 	return state.CreateMissingApplicationConfig(s.st)
+}
+
+func (s stateBackend) RemoveVotingMachineIds() error {
+	return state.RemoveVotingMachineIds(s.st)
 }
 
 type modelShim struct {
