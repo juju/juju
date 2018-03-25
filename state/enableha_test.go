@@ -1,4 +1,4 @@
-// Copyright 2017 Canonical Ltd.
+// Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -121,7 +122,8 @@ func (s *EnableHASuite) assertControllerInfo(c *gc.C, machineIds []string, votin
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.ModelTag, gc.Equals, s.modelTag)
 	c.Assert(info.MachineIds, jc.SameContents, machineIds)
-	c.Assert(info.VotingMachineIds, jc.SameContents, votingMachineIds)
+
+	votingSet := set.NewStrings(votingMachineIds...)
 	for i, id := range machineIds {
 		m, err := s.State.Machine(id)
 		c.Assert(err, jc.ErrorIsNil)
@@ -130,6 +132,7 @@ func (s *EnableHASuite) assertControllerInfo(c *gc.C, machineIds []string, votin
 		} else {
 			c.Check(m.Placement(), gc.Equals, placement[i])
 		}
+		c.Check(m.WantsVote(), gc.Equals, votingSet.Contains(id))
 	}
 }
 
@@ -172,7 +175,7 @@ func (s *EnableHASuite) TestEnableHADemotesUnavailableMachines(c *gc.C) {
 	c.Assert(changes.Maintained, gc.HasLen, 2)
 
 	// New controller machine "3" is created; "0" still exists in MachineIds,
-	// but no longer in VotingMachineIds.
+	// but no longer WantsVote.
 	s.assertControllerInfo(c, []string{"0", "1", "2", "3"}, []string{"1", "2", "3"}, nil)
 	m0, err := s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -220,7 +223,7 @@ func (s *EnableHASuite) TestEnableHAPromotesAvailableMachines(c *gc.C) {
 	c.Assert(changes.Maintained, gc.HasLen, 2)
 
 	// New controller machine "3" is created; "0" still exists in MachineIds,
-	// but no longer in VotingMachineIds.
+	// but no longer in WantsVote.
 	s.assertControllerInfo(c, []string{"0", "1", "2", "3"}, []string{"1", "2", "3"}, nil)
 	m0, err := s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -299,7 +302,7 @@ func (s *EnableHASuite) TestEnableHAMaintainsVoteList(c *gc.C) {
 	c.Assert(changes.Added, gc.HasLen, 1)
 
 	// New controller machine "5" is created; "0" still exists in MachineIds,
-	// but no longer in VotingMachineIds.
+	// but no longer in WantsVote.
 	s.assertControllerInfo(c,
 		[]string{"0", "1", "2", "3", "4", "5"},
 		[]string{"1", "2", "3", "4", "5"}, nil)
@@ -328,7 +331,7 @@ func (s *EnableHASuite) TestEnableHADefaultsTo3(c *gc.C) {
 	c.Assert(changes.Added, gc.HasLen, 1)
 
 	// New controller machine "3" is created; "0" still exists in MachineIds,
-	// but no longer in VotingMachineIds.
+	// but no longer in WantsVote.
 	s.assertControllerInfo(c,
 		[]string{"0", "1", "2", "3"},
 		[]string{"1", "2", "3"}, nil)

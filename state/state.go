@@ -2064,7 +2064,6 @@ type controllersDoc struct {
 	CloudName        string `bson:"cloud"`
 	ModelUUID        string `bson:"model-uuid"`
 	MachineIds       []string
-	VotingMachineIds []string
 	MongoSpaceName   string `bson:"mongo-space-name"`
 	MongoSpaceState  string `bson:"mongo-space-state"`
 }
@@ -2080,15 +2079,9 @@ type ControllerInfo struct {
 	// model is the model that is created when bootstrapping.
 	ModelTag names.ModelTag
 
-	// MachineIds holds the ids of all machines configured
-	// to run a controller. It includes all the machine
-	// ids in VotingMachineIds.
+	// MachineIds holds the ids of all machines configured to run a controller.
+	// Check the individual machine docs to know if a given machine wants to vote and/or has the vote.
 	MachineIds []string
-
-	// VotingMachineIds holds the ids of all machines
-	// configured to run a controller and to have a vote
-	// in peer election.
-	VotingMachineIds []string
 
 	// MongoSpaceName is the space that contains all Mongo servers.
 	MongoSpaceName string
@@ -2137,7 +2130,6 @@ func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 		CloudName:        doc.CloudName,
 		ModelTag:         names.NewModelTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,
-		VotingMachineIds: doc.VotingMachineIds,
 		MongoSpaceName:   doc.MongoSpaceName,
 		MongoSpaceState:  MongoSpaceStates(doc.MongoSpaceState),
 	}, nil
