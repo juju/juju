@@ -83,40 +83,37 @@ func (m *machineTracker) Addresses() []network.Address {
 	return out
 }
 
-// SelectMongoAddress returns the best address on the machine for
-// MongoDB peer use, using the input space if non-empty.
-// If no space is provided, and there is more than one non-machine-local
-// address on the machine, then an error is returned.
-// We require an HA space configuration to be set in this case.
-func (m *machineTracker) SelectMongoAddress(port int, space network.SpaceName) (string, error) {
+// SelectMongoAddress returns the best address on the machine for MongoDB peer
+// use, using the input space. An error is return if the empty space is
+// supplied, or if no addresses are found.
+func (m *machineTracker) SelectMongoAddressFromSpace(port int, space network.SpaceName) (string, error) {
+	if space == "" {
+		return "", fmt.Errorf("empty space supplied as an argument for selecting Mongo address for machine %q", m.id)
+	}
+
 	m.mu.Lock()
 	hostPorts := network.AddressesWithPort(m.addresses, port)
 	m.mu.Unlock()
 
-	if space != "" {
-		addrs, ok := network.SelectHostPortsBySpaceNames(hostPorts, space)
-		if ok {
-			addr := addrs[0].NetAddr()
-			logger.Debugf("machine %q selected address %q by space %q from %v", m.id, addr, space, hostPorts)
-			return addr, nil
-		}
-		// If we end up here, then there are no addresses available in the
-		// specified space. This should not happen, because the configured
-		// space is used as a constraint when first enabling HA.
-		logger.Debugf("Failed to select hostPort by space - trying by scope from %+v", hostPorts)
+	addrs, ok := network.SelectHostPortsBySpaceNames(hostPorts, space)
+	if ok {
+		addr := addrs[0].NetAddr()
+		logger.Debugf("machine %q selected address %q by space %q from %v", m.id, addr, space, hostPorts)
+		return addr, nil
 	}
 
-	// Fall back to selecting an address that is *NOT* ScopeLocalMachine.
-	addrs := network.SelectInternalHostPorts(hostPorts, false)
-	if len(addrs) == 0 {
-		return "", nil
-	} else if len(addrs) > 1 {
-		return "", fmt.Errorf("machine %q has more than one non-local address and juju-ha-space is not set", m.id)
-	}
+	// If we end up here, then there are no addresses available in the
+	// specified space. This should not happen, because the configured
+	// space is used as a constraint when first enabling HA.
+	return "", fmt.Errorf("no addresses found for machine %q in space %q", m.id, space)
+}
 
-	addr := addrs[0]
-	logger.Debugf("machine %q selected address %q by scope from %v", m.id, addr, hostPorts)
-	return addr, nil
+// GetPotentialMongoHostPorts simply returns all the available addresses
+// with the Mongo port appended.
+func (m *machineTracker) GetPotentialMongoHostPorts(port int) []network.HostPort {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return network.AddressesWithPort(m.addresses, port)
 }
 
 func (m *machineTracker) String() string {

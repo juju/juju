@@ -546,7 +546,7 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	}
 }
 
-func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion) *fakeState {
+func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, members string) *fakeState {
 	st := NewFakeState()
 	InitState(c, st, 3, ipVersion)
 
@@ -582,13 +582,13 @@ func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion) *fakeState {
 		machine.setAddresses(addrs...)
 	}
 
-	st.session.Set(mkMembers("0v 1v 2v", ipVersion))
+	st.session.Set(mkMembers(members, ipVersion))
 	return st
 }
 
 func (s *workerSuite) TestUsesConfiguredHASpace(c *gc.C) {
 	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st := haSpaceTestCommonSetup(c, ipVersion)
+		st := haSpaceTestCommonSetup(c, ipVersion, "0v 1v 2v")
 		st.setHASpace("one")
 		s.runUntilPublish(c, st, "")
 		assertMemberAddresses(c, st, ipVersion.formatHost, 1)
@@ -635,7 +635,7 @@ func (s *workerSuite) TestDetectsAndUsesHASpaceChangeIPv6(c *gc.C) {
 }
 
 func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *gc.C, ipVersion TestIPVersion) {
-	st := haSpaceTestCommonSetup(c, ipVersion)
+	st := haSpaceTestCommonSetup(c, ipVersion, "0v 1v 2v")
 	st.setHASpace("one")
 
 	// Set up a hub and channel on which to receive notifications.
@@ -687,13 +687,37 @@ func assertMemberAddresses(c *gc.C, st *fakeState, addrTemplate string, addrDesi
 	c.Check(obtained, gc.DeepEquals, expected)
 }
 
-func (s *workerSuite) TestReturnsErrorWhenNoHASpaceAndMachinesWithMultiLocalAddr(c *gc.C) {
-	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st := haSpaceTestCommonSetup(c, ipVersion)
-		err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}).Wait()
-		errMsg := `computing desired peer group: machine "1[012]" has more than one non-local address and juju-ha-space is not set`
-		c.Check(err, gc.ErrorMatches, errMsg)
-	})
+func (s *workerSuite) TestReturnsErrorForNewPeersAndNoHASpaceAndMachinesWithMultiAddrIPv4(c *gc.C) {
+	s.doTestReturnsErrorForNewPeersAndNoHASpaceAndMachinesWithMultiAddr(c, testIPv4)
+}
+
+func (s *workerSuite) TestReturnsErrorForNewPeersAndNoHASpaceAndMachinesWithMultiAddrIPv6(c *gc.C) {
+	s.doTestReturnsErrorForNewPeersAndNoHASpaceAndMachinesWithMultiAddr(c, testIPv6)
+}
+
+func (s *workerSuite) doTestReturnsErrorForNewPeersAndNoHASpaceAndMachinesWithMultiAddr(
+	c *gc.C, ipVersion TestIPVersion,
+) {
+	st := haSpaceTestCommonSetup(c, ipVersion, "0v")
+	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}).Wait()
+	errMsg := `computing desired peer group: updating member address: ` +
+		`machine "1[12]" has more than one usable address and juju-ha-space is not set` +
+		"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication"
+	c.Check(err, gc.ErrorMatches, errMsg)
+}
+
+func (s *workerSuite) TestSamePeersAndNoHASpaceAndMachinesWithMultiAddrIPv4(c *gc.C) {
+	s.doTestReturnsErrorForNewPeersAndNoHASpaceAndMachinesWithMultiAddr(c, testIPv4)
+}
+
+func (s *workerSuite) TestSamePeersAndNoHASpaceAndMachinesWithMultiAddrIPv6(c *gc.C) {
+	s.doTestReturnsErrorForNewPeersAndNoHASpaceAndMachinesWithMultiAddr(c, testIPv6)
+}
+
+func (s *workerSuite) doTestSamePeersAndNoHASpaceAndMachinesWithMultiAddr(c *gc.C, ipVersion TestIPVersion) {
+	st := haSpaceTestCommonSetup(c, ipVersion, "0v 1v 2v")
+	s.runUntilPublish(c, st, "")
+	assertMemberAddresses(c, st, ipVersion.formatHost, 1)
 }
 
 func (s *workerSuite) TestWorkerRetriesOnSetAPIHostPortsErrorIPv4(c *gc.C) {
