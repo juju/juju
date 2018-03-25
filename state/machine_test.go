@@ -55,6 +55,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine0, err = s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine0.SetHasVote(true), jc.ErrorIsNil)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -288,14 +289,14 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 func (s *MachineSuite) TestLifeJobManageModel(c *gc.C) {
 	m := s.machine0
 	err := m.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
 	err = m.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
 	// Since this is the only controller machine, we cannot even force destroy it
 	err = m.ForceDestroy()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
 	err = m.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
 }
 
 func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
@@ -577,10 +578,10 @@ func (s *MachineSuite) TestCannotDestroyMachineWithVote(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine "+s.machine.Id()+" is a voting replica set member")
+	c.Assert(err, gc.ErrorMatches, "machine "+s.machine.Id()+" is still a voting controller member")
 
 	err = m.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine "+s.machine.Id()+" is a voting replica set member")
+	c.Assert(err, gc.ErrorMatches, "machine "+s.machine.Id()+" is still a voting controller member")
 }
 
 func (s *MachineSuite) TestRemoveAbort(c *gc.C) {

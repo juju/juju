@@ -298,7 +298,7 @@ func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 	err = manager.ForceDestroy()
-	c.Assert(err, gc.ErrorMatches, "machine is required by the model")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
 	s.assertDoesNotNeedCleanup(c)
 	assertLife(c, manager, state.Alive)
 }

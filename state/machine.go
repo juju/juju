@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
+	"github.com/kr/pretty"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -507,7 +508,7 @@ func (m *Machine) ForceDestroy() error {
 		return errors.Trace(err)
 	}
 	if err := m.st.db().RunTransaction(ops); err != txn.ErrAborted {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to run transaction: %s", pretty.Sprint(ops))
 	}
 	return nil
 }
@@ -526,20 +527,23 @@ func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 		// Flag the machine to be torn down, but don't go from Dead back to Dying.
 		// This should cause the peergrouper to wake up, and ultimately remove JobManageModel from the machine.
 		// Until then EnsureDead during teardown should fail.
-		ops = []txn.Op{{
+		ops = append(ops, []txn.Op{{
 			C:      machinesC,
 			Id:     m.doc.DocID,
 			Assert: bson.D{{"life", bson.M{"$in": []Life{Alive, Dying}}}},
 			Update: bson.D{
-				{"novote", true},
-				{"life", Dying},
+				{"$set", bson.D{
+					{"novote", true},
+					{"life", Dying},
+				}},
 			},
 		}, {
 			C:  controllersC,
 			Id: modelGlobalKey,
 			// We assert that there are at least 2 machines in the list of controllers
 			Assert: bson.D{{"machineids.1", bson.M{"$exists": 1}}},
-		}}
+		}}...)
+
 	} else {
 		// Make sure the machine doesn't become a manager while we're destroying it
 		ops = append(ops, txn.Op{
@@ -692,7 +696,6 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		advanceAsserts := bson.D{
-			{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}},
 			{"hasvote", bson.D{{"$ne", true}}},
 		}
 		// Grab a fresh copy of the machine data.
@@ -724,16 +727,9 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
-		if hasJob(m.doc.Jobs, JobManageModel) {
-			// (NOTE: When we enable multiple JobManageModel machines,
-			// this restriction will be lifted, but we will assert that the
-			// machine is not voting)
-			// TODO(jam) 2018-03-25: There is likely a clearer error we could give
-			return nil, fmt.Errorf("machine %s is required by the model", m.doc.Id)
-		}
 		if m.doc.HasVote {
 			// TODO(jam) 2018-03-25: There is likely a clearer error we could give
-			return nil, fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
+			return nil, fmt.Errorf("machine %s is still a voting controller member", m.doc.Id)
 		}
 		// If there are no alive units left on the machine, or all the services are dying,
 		// then the machine may be soon destroyed by a cleanup worker.
