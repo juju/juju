@@ -60,6 +60,12 @@ func (s *removeSuite) TestRemoveForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *removeSuite) TestRemoveNameOnly(c *gc.C) {
+	s.mockAPI.expectedURLs = []string{"fred/test.db2"}
+	_, err := s.runRemove(c, "db2")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *removeSuite) TestOldAPI(c *gc.C) {
 	s.mockAPI.version = 1
 	_, err := s.runRemove(c, "fred/model.db2", "mary/model.db2", "-y")
@@ -89,7 +95,7 @@ func (s mockRemoveAPI) DestroyOffers(force bool, offerURLs ...string) error {
 		return errors.New("mismatched force arg")
 	}
 	if strings.Join(s.expectedURLs, ",") != strings.Join(offerURLs, ",") {
-		return errors.New("mismatched URLs")
+		return errors.Errorf("mismatched URLs: %v != %v", s.expectedURLs, offerURLs)
 	}
 	return nil
 }

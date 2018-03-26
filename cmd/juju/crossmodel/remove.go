@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/jujuclient"
 )
 
 // NewRemoveOfferCommand returns a command used to remove a specified offer.
@@ -39,13 +40,19 @@ type removeCommand struct {
 
 const destroyOfferDoc = `
 Remove one or more application offers.
+
 If the --force flag is specified, any existing relations to the
 offer will also be removed.
+
+Offers to remove are normally specified by their URL.
+It's also possible to specify just the offer name, in which case
+the offer is considered to reside in the current model.
 
 Examples:
 
     juju remove-offer prod.model/hosted-mysql
     juju remove-offer prod.model/hosted-mysql --force
+    juju remove-offer hosted-mysql
 
 See also:
     find-offers
@@ -73,18 +80,6 @@ func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *removeCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("no offers specified")
-	}
-	for _, urlStr := range args {
-		url, err := crossmodel.ParseOfferURL(urlStr)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if c.offerSource == "" {
-			c.offerSource = url.Source
-		}
-		if c.offerSource != url.Source {
-			return errors.New("all offer URLs must use the same controller")
-		}
 	}
 	c.offers = args
 	return nil
@@ -114,11 +109,48 @@ Continue [y/N]? `[1:]
 
 // Run implements Command.Run.
 func (c *removeCommand) Run(ctx *cmd.Context) error {
-	if c.offerSource == "" {
-		controllerName, err := c.ControllerName()
+	// Allow for the offers to be specified by name rather than a full URL.
+	// In that case, we need to assume the offer resides in the current model.
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	store := c.ClientStore()
+	currentModel, err := store.CurrentModel(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for i, urlStr := range c.offers {
+		url, err := crossmodel.ParseOfferURL(urlStr)
 		if err != nil {
-			return errors.Trace(err)
+			// We may have just been given an offer name.
+			// Try again with the current model as the host model.
+			modelName := currentModel
+			userName := ""
+			if jujuclient.IsQualifiedModelName(currentModel) {
+				baseName, userTag, err := jujuclient.SplitModelName(currentModel)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				modelName = baseName
+				userName = userTag.Name()
+			}
+			derivedUrl := crossmodel.MakeURL(userName, modelName, urlStr, c.offerSource)
+			url, err = crossmodel.ParseOfferURL(derivedUrl)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			c.offers[i] = derivedUrl
 		}
+		if c.offerSource == "" {
+			c.offerSource = url.Source
+		}
+		if c.offerSource != url.Source {
+			return errors.New("all offer URLs must use the same controller")
+		}
+	}
+
+	if c.offerSource == "" {
 		c.offerSource = controllerName
 	}
 
