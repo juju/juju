@@ -31,6 +31,11 @@ func (s *removeSuite) runRemove(c *gc.C, args ...string) (*cmd.Context, error) {
 	return cmdtesting.RunCommand(c, crossmodel.NewRemoveCommandForTest(s.store, s.mockAPI), args...)
 }
 
+func (s *removeSuite) TestNonExistentController(c *gc.C) {
+	_, err := s.runRemove(c, "", "-c", "bad")
+	c.Assert(err, gc.ErrorMatches, `controller bad not found`)
+}
+
 func (s *removeSuite) TestRemoveURLError(c *gc.C) {
 	_, err := s.runRemove(c, "fred/model.foo/db2")
 	c.Assert(err, gc.ErrorMatches, "application offer URL has invalid form.*")
@@ -68,8 +73,15 @@ func (s *removeSuite) TestRemoveNameOnly(c *gc.C) {
 
 func (s *removeSuite) TestOldAPI(c *gc.C) {
 	s.mockAPI.version = 1
-	_, err := s.runRemove(c, "fred/model.db2", "mary/model.db2", "-y")
+	_, err := s.runRemove(c, "fred/model.db2", "mary/model.db2", "-y", "--force")
 	c.Assert(err, gc.ErrorMatches, "on this juju controller, remove-offer --force not supported")
+}
+
+func (s *removeSuite) TestOldAPINoForce(c *gc.C) {
+	s.mockAPI.expectedURLs = []string{"fred/model.db2", "mary/model.db2"}
+	s.mockAPI.version = 1
+	_, err := s.runRemove(c, "fred/model.db2", "mary/model.db2")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type mockRemoveAPI struct {

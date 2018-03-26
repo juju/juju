@@ -48,29 +48,28 @@ func createOffersAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
 	authContext *commoncrossmodel.AuthContext,
-) (*OffersAPIV2, error) {
+) (*OffersAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 
 	dataDir := resources.Get("dataDir").(common.StringResource)
-	api := &OffersAPIV2{
-		OffersAPI: &OffersAPI{
-			dataDir:      dataDir.String(),
-			authContext:  authContext,
-			APIAddresser: common.NewAPIAddresser(backend.GetAddressAndCertGetter(), resources),
-			BaseAPI: BaseAPI{
-				Authorizer:           authorizer,
-				GetApplicationOffers: getApplicationOffers,
-				ControllerModel:      backend,
-				StatePool:            statePool,
-				getEnviron:           getEnviron,
-			}}}
+	api := &OffersAPI{
+		dataDir:      dataDir.String(),
+		authContext:  authContext,
+		APIAddresser: common.NewAPIAddresser(backend.GetAddressAndCertGetter(), resources),
+		BaseAPI: BaseAPI{
+			Authorizer:           authorizer,
+			GetApplicationOffers: getApplicationOffers,
+			ControllerModel:      backend,
+			StatePool:            statePool,
+			getEnviron:           getEnviron,
+		}}
 	return api, nil
 }
 
 // NewOffersAPIV2 returns a new application offers OffersAPIV2 facade.
-func NewOffersAPIV2(ctx facade.Context) (*OffersAPIV2, error) {
+func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 	environFromModel := func(modelUUID string) (environs.Environ, error) {
 		st, releaser, err := ctx.StatePool().Get(modelUUID)
 		if err != nil {
@@ -101,9 +100,13 @@ func NewOffersAPIV2(ctx facade.Context) (*OffersAPIV2, error) {
 	)
 }
 
-// NewOffersAPI returns a new application offers OffersAPI facade.
-func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
-	return NewOffersAPI(ctx)
+// NewOffersAPIV2 returns a new application offers OffersAPIV2 facade.
+func NewOffersAPIV2(ctx facade.Context) (*OffersAPIV2, error) {
+	apiV1, err := NewOffersAPI(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &OffersAPIV2{OffersAPI: apiV1}, nil
 }
 
 // Offer makes application endpoints available for consumption at a specified URL.

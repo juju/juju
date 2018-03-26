@@ -71,6 +71,7 @@ func (c *removeCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ControllerCommandBase.SetFlags(f)
 	f.BoolVar(&c.force, "force", false, "remove the offer as well as any relations to the offer")
 	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
@@ -168,7 +169,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	if api.BestAPIVersion() < 2 {
+	if c.force && api.BestAPIVersion() < 2 {
 		return errors.NotSupportedf("on this juju controller, remove-offer --force")
 	}
 

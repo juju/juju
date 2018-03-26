@@ -50,10 +50,11 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api, err = applicationoffers.CreateOffersAPI(
+	apiV1, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	s.api = &applicationoffers.OffersAPIV2{OffersAPI: apiV1}
 }
 
 func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
@@ -1048,10 +1049,11 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api, err = applicationoffers.CreateOffersAPI(
+	apiV1, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	s.api = &applicationoffers.OffersAPIV2{OffersAPI: apiV1}
 }
 
 func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *gc.C) {
@@ -1269,7 +1271,19 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 	})
 }
 
-func (s *consumeSuite) TestDestroyOffersNoForce(c *gc.C) {
+func (s *consumeSuite) TestDestroyOffersNoForceV1(c *gc.C) {
+	s.assertDestroyOffersNoForce(c, s.api.OffersAPI)
+}
+
+func (s *consumeSuite) TestDestroyOffersNoForceV2(c *gc.C) {
+	s.assertDestroyOffersNoForce(c, s.api)
+}
+
+type destroyOffers interface {
+	DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error)
+}
+
+func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
