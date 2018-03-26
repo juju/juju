@@ -4,6 +4,7 @@
 package highavailability
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -155,6 +157,10 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	}
 	spec.Constraints.Spaces = cfg.AsSpaceConstraints(spec.Constraints.Spaces)
 
+	if err = validatePlacementForSpaces(st, spec.Constraints.Spaces, spec.Placement); err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
+
 	// Might be nicer to pass the spec itself to this method.
 	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, spec.Series, spec.Placement, api.machineID)
 	if err != nil {
@@ -220,6 +226,51 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 				"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication",
 			strings.Join(badIds, ", "),
 		)
+	}
+	return nil
+}
+
+// validatePlacementForSpaces checks whether there are both space constraints
+// and machine placement directives.
+// If there are, checks are made to ensure that the machines specified have at
+// least one address in all of the spaces.
+func validatePlacementForSpaces(st *state.State, spaces *[]string, placement []string) error {
+	if spaces == nil || len(*spaces) == 0 || len(placement) == 0 {
+		return nil
+	}
+
+	for _, v := range placement {
+		p, err := instance.ParsePlacement(v)
+		if err != nil {
+			return errors.Annotate(err, "parsing placement")
+		}
+		if p.Directive == "" {
+			continue
+		}
+
+		m, err := st.Machine(p.Directive)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// Don't throw out of here when the machine does not exist.
+				// Validate others if required and leave it handled downstream.
+				continue
+			}
+			return errors.Annotate(err, "retrieving machine")
+		}
+
+		for _, space := range *spaces {
+			spaceName := network.SpaceName(space)
+			inSpace := false
+			for _, addr := range m.Addresses() {
+				if addr.SpaceName == spaceName {
+					inSpace = true
+					break
+				}
+			}
+			if !inSpace {
+				return fmt.Errorf("machine %q has no addresses in space %q", p.Directive, space)
+			}
+		}
 	}
 	return nil
 }

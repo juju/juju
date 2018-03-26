@@ -381,6 +381,40 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
+	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
+	controllerSettings.Set(controller.JujuHASpace, "ha-space")
+	controllerSettings.Write()
+
+	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	s.setAgentPresence(c, "1")
+	m1.SetProviderAddresses(network.NewAddressOnSpace("ha-space", "192.168.6.6"))
+
+	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	s.setAgentPresence(c, "2")
+	m2.SetProviderAddresses(network.NewAddressOnSpace("ha-space", "192.168.6.7"))
+
+	placement := []string{"1", "2"}
+	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, placement)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) {
+	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
+	controllerSettings.Set(controller.JujuHASpace, "ha-space")
+	controllerSettings.Write()
+
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	s.setAgentPresence(c, "1")
+
+	placement := []string{"1", "2"}
+	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, placement)
+	c.Assert(err, gc.ErrorMatches, `machine "1" has no addresses in space "ha-space"`)
+}
+
 func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 	// A value of 0 says either "if I'm not HA, make me HA" or "preserve my
 	// current HA settings".
