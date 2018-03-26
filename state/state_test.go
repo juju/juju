@@ -1389,7 +1389,6 @@ func (s *StateSuite) TestAddMachineCanOnlyAddControllerForMachine0(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.ModelTag, gc.Equals, s.modelTag)
 	c.Assert(info.MachineIds, gc.DeepEquals, []string{"0"})
-	c.Assert(info.VotingMachineIds, gc.DeepEquals, []string{"0"})
 
 	const errCannotAdd = "cannot add a new machine: controller jobs specified but not allowed"
 	m, err = s.State.AddOneMachine(template)
@@ -2579,10 +2578,9 @@ func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
 	info, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
-		CloudName:        "dummy",
-		ModelTag:         s.modelTag,
-		MachineIds:       []string{"0"},
-		VotingMachineIds: []string{"0"},
+		CloudName:  "dummy",
+		ModelTag:   s.modelTag,
+		MachineIds: []string{"0"},
 	})
 
 	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
@@ -2598,10 +2596,9 @@ func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
 	info, err = s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
-		CloudName:        "dummy",
-		ModelTag:         s.modelTag,
-		MachineIds:       []string{"0", "1", "2"},
-		VotingMachineIds: []string{"0", "1", "2"},
+		CloudName:  "dummy",
+		ModelTag:   s.modelTag,
+		MachineIds: []string{"0", "1", "2"},
 	})
 }
 
@@ -3923,7 +3920,6 @@ func (s *StateSuite) TestControllerInfo(c *gc.C) {
 	c.Assert(ids.CloudName, gc.Equals, "dummy")
 	c.Assert(ids.ModelTag, gc.Equals, s.modelTag)
 	c.Assert(ids.MachineIds, gc.HasLen, 0)
-	c.Assert(ids.VotingMachineIds, gc.HasLen, 0)
 
 	// TODO(rog) more testing here when we can actually add
 	// controllers.

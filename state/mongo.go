@@ -57,7 +57,7 @@ func (st *State) SetUpgradeMongoMode(v mongo.Version) (UpgradeMongoParams, error
 	}
 	result := UpgradeMongoParams{}
 	machines := []*Machine{}
-	for _, mID := range currentInfo.VotingMachineIds {
+	for _, mID := range currentInfo.MachineIds {
 		m, err := st.Machine(mID)
 		if err != nil {
 			return UpgradeMongoParams{}, errors.Annotate(err, "cannot change all the replicas")

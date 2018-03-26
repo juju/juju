@@ -1474,3 +1474,16 @@ func CreateMissingApplicationConfig(st *State) error {
 	}
 	return nil
 }
+
+// RemoveVotingMachineIds ensures that the 'votingmachineids' field on controller info has been removed
+func RemoveVotingMachineIds(st *State) error {
+	controllerColl, controllerCloser := st.db().GetRawCollection(controllersC)
+	defer controllerCloser()
+	// The votingmachineids field is just a denormalization of Machine.WantsVote() so we can just
+	// remove it as being redundant
+	err := controllerColl.UpdateId(modelGlobalKey, bson.M{"$unset": bson.M{"votingmachineids": 1}})
+	if err != nil {
+		return errors.Annotate(err, "removing votingmachineids")
+	}
+	return nil
+}

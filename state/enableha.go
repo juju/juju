@@ -1,4 +1,4 @@
-// Copyright 2017 Canonical Ltd.
+// Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state
@@ -26,21 +26,32 @@ func hasJob(jobs []MachineJob, job MachineJob) bool {
 
 var errControllerNotAllowed = errors.New("controller jobs specified but not allowed")
 
+func (st *State) getVotingMachineCount(info *ControllerInfo) (int, error) {
+	machinesCollection, closer := st.db().GetCollection(machinesC)
+	defer closer()
+
+	hasJobManageModel := bson.M{"$in": []MachineJob{JobManageModel}}
+	return machinesCollection.Find(
+		bson.M{
+			"_id":    bson.M{"$in": info.MachineIds},
+			"jobs":   hasJobManageModel,
+			"novote": false,
+		},
+	).Count()
+}
+
 // maintainControllersOps returns a set of operations that will maintain
 // the controller information when the given machine documents
 // are added to the machines collection. If currentInfo is nil,
 // there can be only one machine document and it must have
 // id 0 (this is a special case to allow adding the bootstrap machine)
 func (st *State) maintainControllersOps(mdocs []*machineDoc, currentInfo *ControllerInfo) ([]txn.Op, error) {
-	var newIds, newVotingIds []string
+	var newIds []string
 	for _, doc := range mdocs {
 		if !hasJob(doc.Jobs, JobManageModel) {
 			continue
 		}
 		newIds = append(newIds, doc.Id)
-		if !doc.NoVote {
-			newVotingIds = append(newVotingIds, doc.Id)
-		}
 	}
 	if len(newIds) == 0 {
 		return nil, nil
@@ -55,24 +66,20 @@ func (st *State) maintainControllersOps(mdocs []*machineDoc, currentInfo *Contro
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot get controller info")
 		}
-		if len(currentInfo.MachineIds) > 0 || len(currentInfo.VotingMachineIds) > 0 {
+		if len(currentInfo.MachineIds) > 0 {
 			return nil, errors.New("controllers already exist")
 		}
 	}
 	ops := []txn.Op{{
 		C:  controllersC,
 		Id: modelGlobalKey,
-		Assert: bson.D{{
-			"$and", []bson.D{
-				{{"machineids", bson.D{{"$size", len(currentInfo.MachineIds)}}}},
-				{{"votingmachineids", bson.D{{"$size", len(currentInfo.VotingMachineIds)}}}},
-			},
-		}},
+		Assert: bson.D{
+			{"machineids", bson.D{{"$size", len(currentInfo.MachineIds)}}},
+		},
 		Update: bson.D{
 			{"$addToSet",
 				bson.D{
 					{"machineids", bson.D{{"$each", newIds}}},
-					{"votingmachineids", bson.D{{"$each", newVotingIds}}},
 				},
 			},
 		},
@@ -101,16 +108,20 @@ func (st *State) EnableHA(
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		currentInfo, err := st.ControllerInfo()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		desiredControllerCount := numControllers
+		votingCount, err := st.getVotingMachineCount(currentInfo)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		if desiredControllerCount == 0 {
-			desiredControllerCount = len(currentInfo.VotingMachineIds)
+			desiredControllerCount = votingCount
 			if desiredControllerCount <= 1 {
 				desiredControllerCount = 3
 			}
 		}
-		if len(currentInfo.VotingMachineIds) > desiredControllerCount {
+		if votingCount > desiredControllerCount {
 			return nil, errors.New("cannot reduce controller count")
 		}
 
@@ -359,7 +370,6 @@ func convertControllerOps(m *Machine) []txn.Op {
 		Id: modelGlobalKey,
 		Update: bson.D{
 			{"$addToSet", bson.D{
-				{"votingmachineids", m.doc.Id},
 				{"machineids", m.doc.Id},
 			}},
 		},
@@ -372,10 +382,6 @@ func promoteControllerOps(m *Machine) []txn.Op {
 		Id:     m.doc.DocID,
 		Assert: bson.D{{"novote", true}},
 		Update: bson.D{{"$set", bson.D{{"novote", false}}}},
-	}, {
-		C:      controllersC,
-		Id:     modelGlobalKey,
-		Update: bson.D{{"$addToSet", bson.D{{"votingmachineids", m.doc.Id}}}},
 	}}
 }
 
@@ -385,10 +391,6 @@ func demoteControllerOps(m *Machine) []txn.Op {
 		Id:     m.doc.DocID,
 		Assert: bson.D{{"novote", false}},
 		Update: bson.D{{"$set", bson.D{{"novote", true}}}},
-	}, {
-		C:      controllersC,
-		Id:     modelGlobalKey,
-		Update: bson.D{{"$pull", bson.D{{"votingmachineids", m.doc.Id}}}},
 	}}
 }
 

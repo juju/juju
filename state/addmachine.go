@@ -749,4 +749,3 @@ func addMachineStorageAttachmentsOps(
 		Update: update,
 	}}, nil
 }
-
