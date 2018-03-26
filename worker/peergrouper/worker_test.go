@@ -645,9 +645,9 @@ func (s *workerSuite) TestMongoNoSpaces(c *gc.C) {
 		}
 
 		w := startWorkerSupportingSpaces(c, st, ipVersion)
-		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
+		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceInvalid)
 
-		// Only space one has all three servers in it
+		// No space was set.
 		c.Assert(st.getMongoSpaceName(), gc.Equals, "")
 	})
 }
