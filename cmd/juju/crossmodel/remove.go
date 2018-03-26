@@ -124,24 +124,11 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	for i, urlStr := range c.offers {
 		url, err := crossmodel.ParseOfferURL(urlStr)
 		if err != nil {
-			// We may have just been given an offer name.
-			// Try again with the current model as the host model.
-			modelName := currentModel
-			userName := ""
-			if jujuclient.IsQualifiedModelName(currentModel) {
-				baseName, userTag, err := jujuclient.SplitModelName(currentModel)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				modelName = baseName
-				userName = userTag.Name()
-			}
-			derivedUrl := crossmodel.MakeURL(userName, modelName, urlStr, c.offerSource)
-			url, err = crossmodel.ParseOfferURL(derivedUrl)
+			url, err = makeURLFromCurrentModel(urlStr, c.offerSource, currentModel)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			c.offers[i] = derivedUrl
+			c.offers[i] = url.String()
 		}
 		if c.offerSource == "" {
 			c.offerSource = url.Source
@@ -175,4 +162,21 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 
 	err = api.DestroyOffers(c.force, c.offers...)
 	return block.ProcessBlockedError(err, block.BlockRemove)
+}
+
+func makeURLFromCurrentModel(urlStr, offerSource, currentModel string) (*crossmodel.OfferURL, error) {
+	// We may have just been given an offer name.
+	// Try again with the current model as the host model.
+	modelName := currentModel
+	userName := ""
+	if jujuclient.IsQualifiedModelName(currentModel) {
+		baseName, userTag, err := jujuclient.SplitModelName(currentModel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		modelName = baseName
+		userName = userTag.Name()
+	}
+	derivedUrl := crossmodel.MakeURL(userName, modelName, urlStr, offerSource)
+	return crossmodel.ParseOfferURL(derivedUrl)
 }

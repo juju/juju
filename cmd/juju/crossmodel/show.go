@@ -90,16 +90,24 @@ func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *showCommand) Run(ctx *cmd.Context) (err error) {
-	url, err := crossmodel.ParseOfferURL(c.url)
+	controllerName, err := c.ControllerName()
 	if err != nil {
 		return err
 	}
-	controllerName := url.Source
-	if controllerName == "" {
-		controllerName, err = c.ControllerName()
+	url, err := crossmodel.ParseOfferURL(c.url)
+	if err != nil {
+		store := c.ClientStore()
+		currentModel, err := store.CurrentModel(controllerName)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
+		url, err = makeURLFromCurrentModel(c.url, controllerName, currentModel)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if url.Source != "" {
+		controllerName = url.Source
 	}
 	accountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
