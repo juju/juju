@@ -7,4 +7,5 @@ var (
 	GetImageType      = getImageType
 	ShapeSpecs        = shapeSpecs
 	SetImageCache     = setImageCache
+	NewInstance       = newInstance
 )
