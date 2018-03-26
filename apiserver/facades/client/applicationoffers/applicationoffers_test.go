@@ -28,7 +28,7 @@ import (
 
 type applicationOffersSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPI
+	api *applicationoffers.OffersAPIV2
 }
 
 var _ = gc.Suite(&applicationOffersSuite{})
@@ -50,10 +50,11 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api, err = applicationoffers.CreateOffersAPI(
+	apiV1, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	s.api = &applicationoffers.OffersAPIV2{OffersAPI: apiV1}
 }
 
 func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
@@ -1027,7 +1028,7 @@ func (s *applicationOffersSuite) TestFindMissingModelInMultipleFilters(c *gc.C) 
 
 type consumeSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPI
+	api *applicationoffers.OffersAPIV2
 }
 
 var _ = gc.Suite(&consumeSuite{})
@@ -1048,10 +1049,11 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api, err = applicationoffers.CreateOffersAPI(
+	apiV1, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	s.api = &applicationoffers.OffersAPIV2{OffersAPI: apiV1}
 }
 
 func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *gc.C) {
@@ -1269,13 +1271,68 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 	})
 }
 
-func (s *consumeSuite) TestDestroyOffers(c *gc.C) {
+func (s *consumeSuite) TestDestroyOffersNoForceV1(c *gc.C) {
+	s.assertDestroyOffersNoForce(c, s.api.OffersAPI)
+}
+
+func (s *consumeSuite) TestDestroyOffersNoForceV2(c *gc.C) {
+	s.assertDestroyOffersNoForce(c, s.api)
+}
+
+type destroyOffers interface {
+	DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error)
+}
+
+func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
+	st.(*mockState).connections = []applicationoffers.OfferConnection{
+		&mockOfferConnection{
+			username:    "fred",
+			modelUUID:   testing.ModelTag.Id(),
+			relationKey: "hosted-db2:db wordpress:db",
+			relationId:  1,
+		},
+	}
 
 	s.authorizer.Tag = names.NewUserTag("admin")
 	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
+		OfferURLs: []string{
+			"fred/prod.hosted-mysql"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{
+			Error: &params.Error{Message: `offer has 1 relations`},
+		},
+	})
+
+	urls := []string{"fred/prod.hosted-db2"}
+	filter := params.OfferURLs{urls}
+	found, err := s.api.ApplicationOffers(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred/prod.hosted-db2" not found`)
+}
+
+func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
+	s.setupOffer()
+	st := s.mockStatePool.st[testing.ModelTag.Id()]
+	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
+	st.(*mockState).connections = []applicationoffers.OfferConnection{
+		&mockOfferConnection{
+			username:    "fred",
+			modelUUID:   testing.ModelTag.Id(),
+			relationKey: "hosted-db2:db wordpress:db",
+			relationId:  1,
+		},
+	}
+
+	s.authorizer.Tag = names.NewUserTag("admin")
+	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
+		Force: true,
 		OfferURLs: []string{
 			"fred/prod.hosted-mysql", "fred/prod.unknown", "garbage/badmodel.someoffer", "badmodel.someoffer"},
 	})

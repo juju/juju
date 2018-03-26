@@ -286,11 +286,17 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 }
 
 // DestroyOffers removes the specified application offers.
-func (c *Client) DestroyOffers(offerURLs ...string) error {
+func (c *Client) DestroyOffers(force bool, offerURLs ...string) error {
 	if len(offerURLs) == 0 {
 		return nil
 	}
+	if force {
+		if bestVer := c.BestAPIVersion(); bestVer < 2 {
+			return errors.NotImplementedf("DestroyOffers() with force (need v2+, have v%d)", bestVer)
+		}
+	}
 	args := params.DestroyApplicationOffers{
+		Force:     force,
 		OfferURLs: make([]string, len(offerURLs)),
 	}
 	for i, url := range offerURLs {

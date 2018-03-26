@@ -1378,7 +1378,7 @@ func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
 	assertOffersRef(c, s.State, "mysql", 2)
 
 	// Once the offer is removed, refcount is decremented.
-	err = ao.Remove("hosted-mysql")
+	err = ao.Remove("hosted-mysql", false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertOffersRef(c, s.State, "mysql", 1)
 
@@ -1388,7 +1388,7 @@ func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
 	assertOffersRef(c, s.State, "mysql", 1)
 
 	// Remove the last offer and the app can be destroyed.
-	err = ao.Remove("mysql-offer")
+	err = ao.Remove("mysql-offer", false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoOffersRef(c, s.State, "mysql")
 

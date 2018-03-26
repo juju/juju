@@ -497,7 +497,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 
 	// Deleting the offer results in an empty change set.
 	offers := state.NewApplicationOffers(s.State)
-	err = offers.Remove("hosted-mysql")
+	err = offers.Remove("hosted-mysql", false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
