@@ -163,6 +163,36 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	return controllersChanges(changes), nil
 }
 
+// getBootstrapConstraints attempts to return the constraints for the initial
+// bootstrapped controller.
+func getBootstrapConstraints(st *state.State, machineIds []string) (constraints.Value, error) {
+	// Sort the controller IDs from low to high and take the first.
+	// This will typically give the initial bootstrap machine.
+	var controllerIds []int
+	for _, id := range machineIds {
+		idNum, err := strconv.Atoi(id)
+		if err != nil {
+			logger.Warningf("ignoring non numeric controller id %v", id)
+			continue
+		}
+		controllerIds = append(controllerIds, idNum)
+	}
+	if len(controllerIds) == 0 {
+		return constraints.Value{}, errors.Errorf("internal error; failed to find any controllers")
+	}
+	sort.Ints(controllerIds)
+	controllerId := controllerIds[0]
+
+	// Load the controller machine and get its constraints.
+	controller, err := st.Machine(strconv.Itoa(controllerId))
+	if err != nil {
+		return constraints.Value{}, errors.Annotatef(err, "reading controller id %v", controllerId)
+	}
+
+	cons, err := controller.Constraints()
+	return cons, errors.Annotatef(err, "reading constraints for controller id %v", controllerId)
+}
+
 // validateCurrentControllers checks for a scenario where there is no HA space
 // in controller configuration and more than one machine-local address on any
 // of the controller machines. An error is returned if it is detected.
@@ -192,36 +222,6 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 		)
 	}
 	return nil
-}
-
-// getBootstrapConstraints attempts to return the constraints for the initial
-// bootstrapped controller.
-func getBootstrapConstraints(st *state.State, machineIds []string) (constraints.Value, error) {
-	// Sort the controller IDs from low to high and take the first.
-	// This will typically give the initial bootstrap machine.
-	var controllerIds []int
-	for _, id := range machineIds {
-		idNum, err := strconv.Atoi(id)
-		if err != nil {
-			logger.Warningf("ignoring non numeric controller id %v", id)
-			continue
-		}
-		controllerIds = append(controllerIds, idNum)
-	}
-	if len(controllerIds) == 0 {
-		return constraints.Value{}, errors.Errorf("internal error; failed to find any controllers")
-	}
-	sort.Ints(controllerIds)
-	controllerId := controllerIds[0]
-
-	// Load the controller machine and get its constraints.
-	controller, err := st.Machine(strconv.Itoa(controllerId))
-	if err != nil {
-		return constraints.Value{}, errors.Annotatef(err, "reading controller id %v", controllerId)
-	}
-
-	cons, err := controller.Constraints()
-	return cons, errors.Annotatef(err, "reading constraints for controller id %v", controllerId)
 }
 
 // controllersChanges generates a new params instance from the state instance.
