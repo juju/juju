@@ -659,6 +659,7 @@ func (s *crossmodelMockSuite) TestDestroyOffers(c *gc.C) {
 			c.Assert(request, gc.Equals, "DestroyOffers")
 			args, ok := a.(params.DestroyApplicationOffers)
 			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Force, jc.IsTrue)
 			c.Assert(args.OfferURLs, jc.DeepEquals, []string{"me/prod.app"})
 			if results, ok := result.(*params.ErrorResults); ok {
 				results.Results = []params.ErrorResult{{
@@ -668,7 +669,7 @@ func (s *crossmodelMockSuite) TestDestroyOffers(c *gc.C) {
 			return nil
 		})
 	client := applicationoffers.NewClient(apiCaller)
-	err := client.DestroyOffers("me/prod.app")
+	err := client.DestroyOffers(true, "me/prod.app")
 	c.Assert(err, gc.ErrorMatches, "fail")
 	c.Assert(called, jc.IsTrue)
 }

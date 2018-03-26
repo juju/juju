@@ -4,10 +4,15 @@
 package crossmodel
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/applicationoffers"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
@@ -27,14 +32,20 @@ type removeCommand struct {
 	newAPIFunc  func(string) (RemoveAPI, error)
 	offers      []string
 	offerSource string
+
+	assumeYes bool
+	force     bool
 }
 
 const destroyOfferDoc = `
 Remove one or more application offers.
+If the --force flag is specified, any existing relations to the
+offer will also be removed.
 
 Examples:
 
     juju remove-offer prod.model/hosted-mysql
+    juju remove-offer prod.model/hosted-mysql --force
 
 See also:
     find-offers
@@ -49,6 +60,13 @@ func (c *removeCommand) Info() *cmd.Info {
 		Purpose: "Removes one or more offers specified by their URL.",
 		Doc:     destroyOfferDoc,
 	}
+}
+
+// SetFlags implements Command.SetFlags.
+func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.force, "force", false, "remove the offer as well as any relations to the offer")
+	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
+	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 
 // Init implements Command.Init.
@@ -75,7 +93,8 @@ func (c *removeCommand) Init(args []string) error {
 // RemoveAPI defines the API methods that the remove offer command uses.
 type RemoveAPI interface {
 	Close() error
-	DestroyOffers(offerURLs ...string) error
+	DestroyOffers(force bool, offerURLs ...string) error
+	BestAPIVersion() int
 }
 
 // NewApplicationOffersAPI returns an application offers api.
@@ -87,6 +106,12 @@ func (c *removeCommand) NewApplicationOffersAPI(controllerName string) (*applica
 	return applicationoffers.NewClient(root), nil
 }
 
+var removeOfferMsg = `
+WARNING! This command will remove offers: %v
+This includes all relations to those offers.
+
+Continue [y/N]? `[1:]
+
 // Run implements Command.Run.
 func (c *removeCommand) Run(ctx *cmd.Context) error {
 	if c.offerSource == "" {
@@ -96,12 +121,25 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		}
 		c.offerSource = controllerName
 	}
+
+	if !c.assumeYes && c.force {
+		fmt.Fprintf(ctx.Stdout, removeOfferMsg, strings.Join(c.offers, ", "))
+
+		if err := jujucmd.UserConfirmYes(ctx); err != nil {
+			return errors.Annotate(err, "offer removal")
+		}
+	}
+
 	api, err := c.newAPIFunc(c.offerSource)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer api.Close()
 
-	err = api.DestroyOffers(c.offers...)
+	if api.BestAPIVersion() < 2 {
+		return errors.NotSupportedf("on this juju controller, remove-offer --force")
+	}
+
+	err = api.DestroyOffers(c.force, c.offers...)
 	return block.ProcessBlockedError(err, block.BlockRemove)
 }

@@ -28,7 +28,7 @@ import (
 
 type applicationOffersSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPI
+	api *applicationoffers.OffersAPIV2
 }
 
 var _ = gc.Suite(&applicationOffersSuite{})
@@ -1027,7 +1027,7 @@ func (s *applicationOffersSuite) TestFindMissingModelInMultipleFilters(c *gc.C) 
 
 type consumeSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPI
+	api *applicationoffers.OffersAPIV2
 }
 
 var _ = gc.Suite(&consumeSuite{})
@@ -1269,13 +1269,56 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 	})
 }
 
-func (s *consumeSuite) TestDestroyOffers(c *gc.C) {
+func (s *consumeSuite) TestDestroyOffersNoForce(c *gc.C) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
+	st.(*mockState).connections = []applicationoffers.OfferConnection{
+		&mockOfferConnection{
+			username:    "fred",
+			modelUUID:   testing.ModelTag.Id(),
+			relationKey: "hosted-db2:db wordpress:db",
+			relationId:  1,
+		},
+	}
 
 	s.authorizer.Tag = names.NewUserTag("admin")
 	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
+		OfferURLs: []string{
+			"fred/prod.hosted-mysql"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, jc.DeepEquals, []params.ErrorResult{
+		{
+			Error: &params.Error{Message: `offer has 1 relations`},
+		},
+	})
+
+	urls := []string{"fred/prod.hosted-db2"}
+	filter := params.OfferURLs{urls}
+	found, err := s.api.ApplicationOffers(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred/prod.hosted-db2" not found`)
+}
+
+func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
+	s.setupOffer()
+	st := s.mockStatePool.st[testing.ModelTag.Id()]
+	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
+	st.(*mockState).connections = []applicationoffers.OfferConnection{
+		&mockOfferConnection{
+			username:    "fred",
+			modelUUID:   testing.ModelTag.Id(),
+			relationKey: "hosted-db2:db wordpress:db",
+			relationId:  1,
+		},
+	}
+
+	s.authorizer.Tag = names.NewUserTag("admin")
+	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
+		Force: true,
 		OfferURLs: []string{
 			"fred/prod.hosted-mysql", "fred/prod.unknown", "garbage/badmodel.someoffer", "badmodel.someoffer"},
 	})
