@@ -120,29 +120,22 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 		return params.ControllersChanges{}, err
 	}
 
-	if spec.Series == "" {
-		// We should always have at least one voting machine
-		// If we *really* wanted we could just pick whatever series is
-		// in the majority, but really, if we always copy the value of
-		// the first one, then they'll stay in sync.
-		if len(cInfo.VotingMachineIds) == 0 {
-			// Better than a panic()?
-			return params.ControllersChanges{}, errors.Errorf("internal error, failed to find any voting machines")
-		}
-		templateMachine, err := st.Machine(cInfo.VotingMachineIds[0])
-		if err != nil {
-			return params.ControllersChanges{}, err
-		}
-		spec.Series = templateMachine.Series()
-	}
-
 	// If there were no supplied constraints, use the original bootstrap
 	// constraints.
-	if constraints.IsEmpty(&spec.Constraints) {
-		var err error
-		spec.Constraints, err = getBootstrapConstraints(st, cInfo.MachineIds)
+	if constraints.IsEmpty(&spec.Constraints) || spec.Series == "" {
+		referenceMachine, err := getReferenceController(st, cInfo.MachineIds)
 		if err != nil {
 			return params.ControllersChanges{}, errors.Trace(err)
+		}
+		if constraints.IsEmpty(&spec.Constraints) {
+			cons, err := referenceMachine.Constraints()
+			if err != nil {
+				return params.ControllersChanges{}, errors.Trace(err)
+			}
+			spec.Constraints = cons
+		}
+		if spec.Series == "" {
+			spec.Series = referenceMachine.Series()
 		}
 	}
 
@@ -169,9 +162,8 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	return controllersChanges(changes), nil
 }
 
-// getBootstrapConstraints attempts to return the constraints for the initial
-// bootstrapped controller.
-func getBootstrapConstraints(st *state.State, machineIds []string) (constraints.Value, error) {
+// getReferenceController looks up the ideal controller to use as a reference for Constraints and Series
+func getReferenceController(st *state.State, machineIds []string) (*state.Machine, error) {
 	// Sort the controller IDs from low to high and take the first.
 	// This will typically give the initial bootstrap machine.
 	var controllerIds []int
@@ -184,7 +176,7 @@ func getBootstrapConstraints(st *state.State, machineIds []string) (constraints.
 		controllerIds = append(controllerIds, idNum)
 	}
 	if len(controllerIds) == 0 {
-		return constraints.Value{}, errors.Errorf("internal error; failed to find any controllers")
+		return nil, errors.Errorf("internal error; failed to find any controllers")
 	}
 	sort.Ints(controllerIds)
 	controllerId := controllerIds[0]
@@ -192,11 +184,9 @@ func getBootstrapConstraints(st *state.State, machineIds []string) (constraints.
 	// Load the controller machine and get its constraints.
 	controller, err := st.Machine(strconv.Itoa(controllerId))
 	if err != nil {
-		return constraints.Value{}, errors.Annotatef(err, "reading controller id %v", controllerId)
+		return nil, errors.Annotatef(err, "reading controller id %v", controllerId)
 	}
-
-	cons, err := controller.Constraints()
-	return cons, errors.Annotatef(err, "reading constraints for controller id %v", controllerId)
+	return controller, nil
 }
 
 // validateCurrentControllers checks for a scenario where there is no HA space
