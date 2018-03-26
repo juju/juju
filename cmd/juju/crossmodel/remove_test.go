@@ -4,6 +4,7 @@
 package crossmodel_test
 
 import (
+	"bytes"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -63,6 +64,30 @@ func (s *removeSuite) TestRemoveForce(c *gc.C) {
 	s.mockAPI.expectedForce = true
 	_, err := s.runRemove(c, "fred/model.db2", "mary/model.db2", "-y", "--force")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *removeSuite) TestRemoveForceMessage(c *gc.C) {
+	var stdin, stdout, stderr bytes.Buffer
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, jc.ErrorIsNil)
+	ctx.Stdout = &stdout
+	ctx.Stderr = &stderr
+	ctx.Stdin = &stdin
+	stdin.WriteString("y")
+
+	com := crossmodel.NewRemoveCommandForTest(s.store, s.mockAPI)
+	err = cmdtesting.InitCommand(com, []string{"fred/model.db2", "--force"})
+	c.Assert(err, jc.ErrorIsNil)
+	com.Run(ctx)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+
+	expected := `
+WARNING! This command will remove offers: fred/model.db2
+This includes all relations to those offers.
+
+Continue [y/N]? `[1:]
+
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
 }
 
 func (s *removeSuite) TestRemoveNameOnly(c *gc.C) {
