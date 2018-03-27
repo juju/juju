@@ -430,7 +430,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s* EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
+func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
 	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
 		return true, nil
 	})
@@ -450,7 +450,7 @@ func (s* EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
 	c.Check(m0.WantsVote(), jc.IsFalse)
 }
 
-func (s* EnableHASuite) TestForceDestroyRaceLastController(c *gc.C) {
+func (s *EnableHASuite) TestForceDestroyRaceLastController(c *gc.C) {
 	c.Skip("not able to race yet")
 	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
 		return true, nil

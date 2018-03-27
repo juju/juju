@@ -2060,12 +2060,12 @@ func (st *State) SetAdminMongoPassword(password string) error {
 }
 
 type controllersDoc struct {
-	Id              string `bson:"_id"`
-	CloudName       string `bson:"cloud"`
-	ModelUUID       string `bson:"model-uuid"`
-	MachineIds      []string
-	MongoSpaceName  string `bson:"mongo-space-name"`
-	MongoSpaceState string `bson:"mongo-space-state"`
+	Id              string   `bson:"_id"`
+	CloudName       string   `bson:"cloud"`
+	ModelUUID       string   `bson:"model-uuid"`
+	MachineIds      []string `bson:"machineids"`
+	MongoSpaceName  string   `bson:"mongo-space-name"`
+	MongoSpaceState string   `bson:"mongo-space-state"`
 }
 
 // ControllerInfo holds information about currently

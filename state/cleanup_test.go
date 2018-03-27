@@ -293,8 +293,9 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": settings not found`)
 }
 
-func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
+func (s *CleanupSuite) TestForceDestroyControllerMachineErrors(c *gc.C) {
 	manager, err := s.State.AddMachine("quantal", state.JobManageModel)
+	manager.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 	err = manager.ForceDestroy()
