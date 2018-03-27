@@ -67,7 +67,7 @@ func (u *Unit) Refresh() error {
 		return errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -111,7 +111,7 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 		return params.StatusResult{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return params.StatusResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {

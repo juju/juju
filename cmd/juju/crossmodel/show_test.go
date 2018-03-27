@@ -47,10 +47,18 @@ func (s *showSuite) TestShowURLError(c *gc.C) {
 	s.assertShowError(c, []string{"fred/model.foo/db2"}, "application offer URL has invalid form.*")
 }
 
+func (s *showSuite) TestShowNameOnly(c *gc.C) {
+	s.assertShowYaml(c, "db2")
+}
+
 func (s *showSuite) TestShowYaml(c *gc.C) {
+	s.assertShowYaml(c, "fred/model.db2")
+}
+
+func (s *showSuite) assertShowYaml(c *gc.C, arg string) {
 	s.assertShow(
 		c,
-		[]string{"fred/model.db2", "--format", "yaml"},
+		[]string{arg, "--format", "yaml"},
 		`
 test-master:fred/model.db2:
   description: IBM DB2 Express Server Edition is an entry level database system

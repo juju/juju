@@ -59,7 +59,7 @@ func (m *stubApplicationOffers) UpdateOffer(offer jujucrossmodel.AddApplicationO
 	panic("not implemented")
 }
 
-func (m *stubApplicationOffers) Remove(url string) error {
+func (m *stubApplicationOffers) Remove(url string, force bool) error {
 	m.AddCall(removeOfferCall)
 	panic("not implemented")
 }
@@ -305,7 +305,10 @@ func (m *mockApplicationOffers) ListOffers(filters ...jujucrossmodel.Application
 	return result, nil
 }
 
-func (m *mockApplicationOffers) Remove(name string) error {
+func (m *mockApplicationOffers) Remove(name string, force bool) error {
+	if len(m.st.connections) > 0 && !force {
+		return errors.Errorf("offer has %d relations", len(m.st.connections))
+	}
 	_, ok := m.st.applicationOffers[name]
 	if !ok {
 		return errors.NotFoundf("application offer %q", name)
