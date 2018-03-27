@@ -58,6 +58,10 @@ const (
 	// CertificateAuthType is an authentication type using certificates.
 	CertificateAuthType AuthType = "certificate"
 
+	// HTTPSigAuthType is an authentication type that uses HTTP signatures:
+	// https://tools.ietf.org/html/draft-cavage-http-signatures-06
+	HTTPSigAuthType AuthType = "httpsig"
+
 	// EmptyAuthType is the authentication type used for providers
 	// that require no credentials, e.g. "lxd", and "manual".
 	EmptyAuthType AuthType = "empty"

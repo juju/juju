@@ -80,6 +80,7 @@ github.com/mattn/go-isatty	git	66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8	2016-08-
 github.com/mattn/go-runewidth	git	d96d1bd051f2bd9e7e43d602782b37b93b1b5666	2015-11-18T07:21:59Z
 github.com/matttproud/golang_protobuf_extensions	git	c12348ce28de40eed0136aa2b644d0ee0650e56c	2016-04-24T11:30:07Z
 github.com/nu7hatch/gouuid	git	179d4d0c4d8d407a32af483c2354df1d2c91e6c3	2013-12-21T20:05:32Z
+github.com/oracle/oci-go-sdk	git	36126af3da60f6d2053487efed8801aa794f7605	2018-03-02T19:49:46Z
 github.com/pkg/errors	git	839d9e913e063e28dfd0e6c7b7512793e0a48be9	2016-10-02T05:25:12Z
 github.com/prometheus/client_golang	git	575f371f7862609249a1be4c9145f429fe065e32	2016-11-24T15:57:32Z
 github.com/prometheus/client_model	git	fa8ad6fec33561be4280a8f0514318c79d7f6cb6	2015-02-12T10:17:44Z

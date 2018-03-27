@@ -1,0 +1,48 @@
+This is the diff for https://github.com/juju/utils/pull/297. Can't build juju against master of utils for the moment
+
+diff --git a/github.com/juju/utils/series/supportedseries.go b/github.com/juju/utils/series/supportedseries.go
+index 70c17b8..fef97de 100644
+--- a/github.com/juju/utils/series/supportedseries.go
++++ b/github.com/juju/utils/series/supportedseries.go
+@@ -5,6 +5,7 @@ package series
+ 
+ import (
+ 	"sort"
++	"strings"
+ 	"sync"
+ 
+ 	"github.com/juju/errors"
+@@ -293,6 +294,33 @@ func VersionSeries(version string) (string, error) {
+ 	return "", errors.Trace(unknownVersionSeriesError(version))
+ }
+ 
++// WindowsVersionSeries returns the series (eg: win2012r2) for the specified version
++// (eg: Windows Server 2012 R2 Standard)
++func WindowsVersionSeries(version string) (string, error) {
++	if version == "" {
++		return "", errors.Trace(unknownVersionSeriesError(""))
++	}
++	for _, val := range windowsVersionMatchOrder {
++		if strings.HasPrefix(version, val) {
++			return windowsVersions[val], nil
++		}
++	}
++	return "", errors.Trace(unknownVersionSeriesError(""))
++}
++
++// CentOSVersionSeries validates that the supplied series (eg: centos7)
++// is supported.
++func CentOSVersionSeries(version string) (string, error) {
++	if version == "" {
++		return "", errors.Trace(unknownVersionSeriesError(""))
++	}
++	if series, ok := centosSeries[version]; ok {
++		return series, nil
++	}
++	return "", errors.Trace(unknownVersionSeriesError(""))
++
++}
++
+ // SupportedLts are the current supported LTS series in ascending order.
+ func SupportedLts() []string {
+ 	seriesVersionsMutex.Lock()
