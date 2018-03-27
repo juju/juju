@@ -46,6 +46,7 @@ type ModelManagerBackend interface {
 	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
 	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.RegionSpec) error
 	Unit(name string) (*state.Unit, error)
+	Name() string
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)
 	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
@@ -164,6 +165,11 @@ func (st modelManagerStateShim) GetModel(modelUUID string) (Model, func() bool, 
 // Model implements ModelManagerBackend.
 func (st modelManagerStateShim) Model() (Model, error) {
 	return modelShim{st.model}, nil
+}
+
+// Name implements ModelManagerBackend.
+func (st modelManagerStateShim) Name() string {
+	return st.model.Name()
 }
 
 var _ Model = (*modelShim)(nil)

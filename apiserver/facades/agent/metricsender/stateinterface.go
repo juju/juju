@@ -21,6 +21,7 @@ type ModelBackend interface {
 	CountOfSentMetrics() (int, error)
 	CleanupOldMetrics() error
 
+	Name() string
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)

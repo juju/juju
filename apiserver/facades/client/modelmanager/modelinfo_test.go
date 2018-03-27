@@ -576,6 +576,11 @@ func (st *mockState) ModelUUID() string {
 	return st.model.UUID()
 }
 
+func (st *mockState) Name() string {
+	st.MethodCall(st, "Name")
+	return "test-model"
+}
+
 func (st *mockState) ControllerModelUUID() string {
 	st.MethodCall(st, "ControllerModelUUID")
 	return st.controllerModel.tag.Id()
