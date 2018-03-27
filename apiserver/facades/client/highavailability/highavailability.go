@@ -232,6 +232,14 @@ func validatePlacementForSpaces(st *state.State, spaces *[]string, placement []s
 	for _, v := range placement {
 		p, err := instance.ParsePlacement(v)
 		if err != nil {
+			if err == instance.ErrPlacementScopeMissing {
+				// Where an unscoped placement is not parsed as a machine ID,
+				// such as for a MaaS node name, just allow it through.
+				// TODO (manadart 2018-03-27): Possible work at the provider
+				// level to accommodate placement and space constraints during
+				// instance pre-check may be entertained in the future.
+				continue
+			}
 			return errors.Annotate(err, "parsing placement")
 		}
 		if p.Directive == "" {
