@@ -29,6 +29,11 @@ func (c Credential) CloudCredentialTag() (names.CloudCredentialTag, error) {
 	return c.cloudCredentialDoc.cloudCredentialTag()
 }
 
+// IsValid indicates whether the credential is valid.
+func (c Credential) IsValid() bool {
+	return !c.cloudCredentialDoc.Invalid
+}
+
 // cloudCredentialDoc records information about a user's cloud credentials.
 type cloudCredentialDoc struct {
 	DocID      string            `bson:"_id"`
@@ -38,6 +43,22 @@ type cloudCredentialDoc struct {
 	Revoked    bool              `bson:"revoked"`
 	AuthType   string            `bson:"auth-type"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
+
+	// Invalid stores flag that indicates if a credential is invalid.
+	// Note that the credential is valid:
+	//  * if the flag is explicitly set to 'false'; or
+	//  * if the flag is not set at all, as will be the case for
+	//    new inserts or credentials created with previous Juju versions. In
+	//    this case, we'd still read it as 'false' and the credential validity
+	//    will be interpreted correctly.
+	// This flag will need to be explicitly set to 'true' for a credential
+	// to be considered invalid.
+	Invalid bool `bson:"invalid"`
+
+	// InvalidReason contains the reason why the credential was marked as invalid.
+	// This can range from cloud messages such as an expired credential to
+	// commercial reasons set via CLI or api calls.
+	InvalidReason string `bson:"invalid-reason,omitempty"`
 }
 
 // CloudCredential returns the cloud credential for the given tag.
@@ -57,7 +78,6 @@ func (st *State) CloudCredential(tag names.CloudCredentialTag) (Credential, erro
 		)
 	}
 	return Credential{doc}, nil
-
 }
 
 // CloudCredentials returns the user's cloud credentials for a given cloud,
@@ -169,6 +189,8 @@ func updateCloudCredentialOp(tag names.CloudCredentialTag, cred cloud.Credential
 			{"auth-type", string(cred.AuthType())},
 			{"attributes", cred.Attributes()},
 			{"revoked", cred.Revoked},
+			{"invalid", cred.Invalid},
+			{"invalid-reason", cred.InvalidReason},
 		}}},
 	}
 }

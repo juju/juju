@@ -65,6 +65,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainCredentials(c *gc.C) {
 		"cloud":      "cloud-aws",
 		"name":       "default",
 		"revoked":    false,
+		"invalid":    false,
 		"auth-type":  "userpass",
 		"attributes": bson.M{"user": "fred"},
 	}, {
@@ -73,6 +74,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainCredentials(c *gc.C) {
 		"cloud":      "cloud-aws",
 		"name":       "default",
 		"revoked":    false,
+		"invalid":    false,
 		"auth-type":  "userpass",
 		"attributes": bson.M{"user": "fred"},
 	}}
@@ -554,12 +556,14 @@ func (s *upgradesSuite) TestUpdateLegacyLXDCloud(c *gc.C) {
 	}}
 
 	expectedCloudCreds := []bson.M{{
-		"_id":       "localhost#admin#streetcred",
-		"owner":     "admin",
-		"cloud":     "localhost",
-		"name":      "streetcred",
-		"revoked":   false,
-		"auth-type": "certificate",
+		"_id":            "localhost#admin#streetcred",
+		"owner":          "admin",
+		"cloud":          "localhost",
+		"name":           "streetcred",
+		"revoked":        false,
+		"invalid":        false,
+		"invalid-reason": "",
+		"auth-type":      "certificate",
 		"attributes": bson.M{
 			"foo": "bar",
 			"baz": "qux",
