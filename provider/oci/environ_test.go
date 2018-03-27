@@ -430,31 +430,6 @@ func (e *environSuite) TestControllerInstancesOneController(c *gc.C) {
 	c.Check(len(ids), gc.Equals, 1)
 }
 
-func (e *environSuite) setupListInstancesExpectations(instanceId string, state ociCore.InstanceLifecycleStateEnum, times int) {
-	listInstancesRequest, listInstancesResponse := makeListInstancesRequestResponse(
-		[]ociCore.Instance{
-			{
-				AvailabilityDomain: makeStringPointer("fakeZone1"),
-				CompartmentId:      &e.testCompartment,
-				Id:                 &instanceId,
-				LifecycleState:     state,
-				Region:             makeStringPointer("us-phoenix-1"),
-				Shape:              makeStringPointer("VM.Standard1.1"),
-				DisplayName:        makeStringPointer("fakeName"),
-				FreeformTags:       e.tags,
-			},
-		},
-	)
-	expect := e.compute.EXPECT().ListInstances(
-		context.Background(), listInstancesRequest).Return(
-		listInstancesResponse, nil)
-	if times == 0 {
-		expect.AnyTimes()
-	} else {
-		expect.Times(times)
-	}
-}
-
 type instanceTermination struct {
 	instanceId string
 	err        error
@@ -1092,6 +1067,66 @@ func (e *environSuite) setupDeleteVcnExpectations(vcnId string) {
 	e.netw.EXPECT().GetVcn(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
 }
 
+func (e *environSuite) setupDeleteVolumesExpectations() {
+	size := 50
+	volumes := []ociCore.Volume{
+		{
+			Id:                 makeStringPointer("fakeVolumeID1"),
+			AvailabilityDomain: makeStringPointer("fakeZone1"),
+			CompartmentId:      &e.testCompartment,
+			DisplayName:        makeStringPointer("fakeVolume1"),
+			LifecycleState:     ociCore.VolumeLifecycleStateAvailable,
+			SizeInGBs:          &size,
+			FreeformTags: map[string]string{
+				tags.JujuController: e.controllerUUID,
+			},
+		},
+		{
+			Id:                 makeStringPointer("fakeVolumeID2"),
+			AvailabilityDomain: makeStringPointer("fakeZone1"),
+			CompartmentId:      &e.testCompartment,
+			DisplayName:        makeStringPointer("fakeVolume2"),
+			LifecycleState:     ociCore.VolumeLifecycleStateAvailable,
+			SizeInGBs:          &size,
+			FreeformTags: map[string]string{
+				tags.JujuController: e.controllerUUID,
+			},
+		},
+	}
+
+	copyVolumes := volumes
+	copyVolumes[0].LifecycleState = ociCore.VolumeLifecycleStateTerminated
+	copyVolumes[1].LifecycleState = ociCore.VolumeLifecycleStateTerminated
+
+	listRequest := ociCore.ListVolumesRequest{
+		CompartmentId: &e.testCompartment,
+	}
+
+	listResponse := ociCore.ListVolumesResponse{
+		Items: volumes,
+	}
+
+	requestVolume1 := ociCore.GetVolumeRequest{
+		VolumeId: makeStringPointer("fakeVolumeID1"),
+	}
+
+	requestVolume2 := ociCore.GetVolumeRequest{
+		VolumeId: makeStringPointer("fakeVolumeID2"),
+	}
+
+	responseVolume1 := ociCore.GetVolumeResponse{
+		Volume: copyVolumes[0],
+	}
+
+	responseVolume2 := ociCore.GetVolumeResponse{
+		Volume: copyVolumes[1],
+	}
+
+	e.storage.EXPECT().ListVolumes(context.Background(), listRequest).Return(listResponse, nil).AnyTimes()
+	e.storage.EXPECT().GetVolume(context.Background(), requestVolume1).Return(responseVolume1, nil).AnyTimes()
+	e.storage.EXPECT().GetVolume(context.Background(), requestVolume2).Return(responseVolume2, nil).AnyTimes()
+}
+
 func (e *environSuite) TestDestroyController(c *gc.C) {
 	ctrl := e.patchEnv(c)
 	defer ctrl.Finish()
@@ -1120,6 +1155,7 @@ func (e *environSuite) TestDestroyController(c *gc.C) {
 	e.setupDeleteSecurityListExpectations("fakeSecList", 0)
 	e.setupDeleteInternetGatewayExpectations(vcnId, "fakeGwId", machineTags)
 	e.setupDeleteVcnExpectations(vcnId)
+	e.setupDeleteVolumesExpectations()
 
 	err := e.env.DestroyController(nil, e.controllerUUID)
 	c.Assert(err, gc.IsNil)

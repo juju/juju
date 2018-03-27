@@ -2,7 +2,6 @@ package oci_test
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -116,8 +115,13 @@ func (s *credentialsSuite) TestPassphraseHiddenAttributes(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
-	_, err := s.provider.DetectCredentials()
-	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
+	result := cloud.CloudCredential{
+		AuthCredentials: make(map[string]cloud.Credential),
+	}
+	creds, err := s.provider.DetectCredentials()
+	c.Assert(err, gc.IsNil)
+	c.Assert(creds, gc.NotNil)
+	c.Assert(*creds, jc.DeepEquals, result)
 }
 
 func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
