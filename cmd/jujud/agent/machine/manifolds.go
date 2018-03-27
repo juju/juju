@@ -61,6 +61,11 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
+	"github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/raftclusterer"
+	"github.com/juju/juju/worker/raft/raftflag"
+	"github.com/juju/juju/worker/raft/rafttest"
+	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/restorewatcher"
 	"github.com/juju/juju/worker/resumer"
@@ -703,6 +708,36 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName: stateName,
 			NewWorker: auditconfigupdater.New,
 		})),
+
+		raftTransportName: ifController(rafttransport.Manifold(rafttransport.ManifoldConfig{
+			AgentName:         agentName,
+			AuthenticatorName: httpServerName,
+			HubName:           centralHubName,
+			MuxName:           httpServerName,
+			DialConn:          rafttransport.DialConn,
+			NewWorker:         rafttransport.NewWorker,
+			Path:              "/raft",
+		})),
+
+		// TODO(babbageclunk): not sure what gates should be around this.
+		raftName: raft.Manifold(raft.ManifoldConfig{
+			AgentName:     agentName,
+			TransportName: raftTransportName,
+			FSM:           &rafttest.FSM{},
+			Logger:        loggo.GetLogger("juju.worker.raft"),
+			NewWorker:     raft.NewWorker,
+		}),
+
+		raftClustererName: raftclusterer.Manifold(raftclusterer.ManifoldConfig{
+			RaftName:       raftName,
+			CentralHubName: centralHubName,
+			NewWorker:      raftclusterer.NewWorker,
+		}),
+
+		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{
+			RaftName:  raftName,
+			NewWorker: raftflag.NewWorker,
+		}),
 	}
 }
 
@@ -797,4 +832,9 @@ const (
 
 	httpServerName = "http-server"
 	apiServerName  = "api-server"
+
+	raftTransportName = "raft-transport"
+	raftName          = "raft"
+	raftClustererName = "raft-clusterer"
+	raftFlagName      = "raft-flag"
 )

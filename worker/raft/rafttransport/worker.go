@@ -17,6 +17,7 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -109,7 +110,7 @@ func (config Config) Validate() error {
 // NewWorker returns a new apiserver-based raft transport worker,
 // with the given configuration. The worker itself implements
 // raft.Transport.
-func NewWorker(config Config) (*Worker, error) {
+func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -247,7 +248,10 @@ func (w *Worker) loop() error {
 		Authenticator: w.config.Authenticator,
 		Authorizer:    httpcontext.AuthorizerFunc(controllerAuthorizer),
 	}
-	// TODO(axw) implied controller model
+	h = &httpcontext.ImpliedModelHandler{
+		Handler:   h,
+		ModelUUID: w.config.APIInfo.ModelTag.Id(),
+	}
 
 	w.config.Mux.AddHandler("GET", w.config.Path, h)
 	defer w.config.Mux.RemoveHandler("GET", w.config.Path)

@@ -127,7 +127,7 @@ func Bootstrap(config Config) error {
 	// During bootstrap, we do not require an FSM.
 	config.FSM = bootstrapFSM{}
 
-	w, err := NewWorker(config)
+	w, err := newWorker(config)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -150,7 +150,11 @@ func Bootstrap(config Config) error {
 }
 
 // NewWorker returns a new raft worker, with the given configuration.
-func NewWorker(config Config) (*Worker, error) {
+func NewWorker(config Config) (worker.Worker, error) {
+	return newWorker(config)
+}
+
+func newWorker(config Config) (*Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
