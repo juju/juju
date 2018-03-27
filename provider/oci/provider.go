@@ -27,7 +27,7 @@ import (
 	providerCommon "github.com/juju/juju/provider/oci/common"
 )
 
-var logger = loggo.GetLogger("juju.provider.oracle")
+var logger = loggo.GetLogger("juju.provider.oci")
 
 // EnvironProvider type implements environs.EnvironProvider interface
 type EnvironProvider struct{}
@@ -134,6 +134,10 @@ var credentialSchema = map[cloud.AuthType]cloud.CredentialSchema{
 }
 
 func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
+	if cfg == nil {
+		return nil, errors.New("cannot set config on uninitialized env")
+	}
+
 	valid, err := p.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
@@ -260,8 +264,9 @@ func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, er
 		Storage:    storage,
 		Firewall:   networking,
 		Identity:   identity,
-		p:          e,
+		ociConfig:  provider,
 		clock:      clock.WallClock,
+		p:          e,
 	}
 
 	if err := env.SetConfig(params.Config); err != nil {

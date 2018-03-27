@@ -1,6 +1,13 @@
 package oci_test
 
 import (
+	"fmt"
+	"time"
+
+	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/utils/arch"
+	"github.com/juju/version"
+
 	gomock "github.com/golang/mock/gomock"
 	ocitesting "github.com/juju/juju/provider/oci/testing"
 	jujutesting "github.com/juju/juju/testing"
@@ -8,11 +15,118 @@ import (
 	gc "gopkg.in/check.v1"
 
 	ociCore "github.com/oracle/oci-go-sdk/core"
+	ociIdentity "github.com/oracle/oci-go-sdk/identity"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/oci"
+	"github.com/juju/juju/tools"
 )
+
+var clk = gitjujutesting.NewClock(time.Time{})
+var advancingClock = gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+
+func makeToolsList(series string) tools.List {
+	var toolsVersion version.Binary
+	toolsVersion.Number = version.MustParse("2.4.0")
+	toolsVersion.Arch = arch.AMD64
+	toolsVersion.Series = series
+	return tools.List{{
+		Version: toolsVersion,
+		URL:     fmt.Sprintf("http://example.com/tools/juju-%s.tgz", toolsVersion),
+		SHA256:  "1234567890abcdef",
+		Size:    1024,
+	}}
+}
+
+func makeListSecurityListsRequestResponse(seclistDetails []ociCore.SecurityList) (ociCore.ListSecurityListsRequest, ociCore.ListSecurityListsResponse) {
+	if len(seclistDetails) == 0 {
+		return ociCore.ListSecurityListsRequest{}, ociCore.ListSecurityListsResponse{}
+	}
+
+	compartment := seclistDetails[0].CompartmentId
+	vcnId := seclistDetails[0].VcnId
+	request := ociCore.ListSecurityListsRequest{
+		CompartmentId: compartment,
+		VcnId:         vcnId,
+	}
+	response := ociCore.ListSecurityListsResponse{
+		Items: seclistDetails,
+	}
+
+	return request, response
+}
+
+func makeListInternetGatewaysRequestResponse(gwDetails []ociCore.InternetGateway) (ociCore.ListInternetGatewaysRequest, ociCore.ListInternetGatewaysResponse) {
+	if len(gwDetails) == 0 {
+		return ociCore.ListInternetGatewaysRequest{}, ociCore.ListInternetGatewaysResponse{}
+	}
+
+	compartment := gwDetails[0].CompartmentId
+	vcnId := gwDetails[0].VcnId
+	request := ociCore.ListInternetGatewaysRequest{
+		CompartmentId: compartment,
+		VcnId:         vcnId,
+	}
+	response := ociCore.ListInternetGatewaysResponse{
+		Items: gwDetails,
+	}
+	return request, response
+}
+
+func makeListRouteTableRequestResponse(routeDetails []ociCore.RouteTable) (ociCore.ListRouteTablesRequest, ociCore.ListRouteTablesResponse) {
+	if len(routeDetails) == 0 {
+		return ociCore.ListRouteTablesRequest{}, ociCore.ListRouteTablesResponse{}
+	}
+
+	compartment := routeDetails[0].CompartmentId
+	vcnId := routeDetails[0].VcnId
+
+	request := ociCore.ListRouteTablesRequest{
+		CompartmentId: compartment,
+		VcnId:         vcnId,
+	}
+	response := ociCore.ListRouteTablesResponse{
+		Items: routeDetails,
+	}
+	return request, response
+}
+
+func makeListInstancesRequestResponse(instances []ociCore.Instance) (ociCore.ListInstancesRequest, ociCore.ListInstancesResponse) {
+
+	if len(instances) == 0 {
+		return ociCore.ListInstancesRequest{}, ociCore.ListInstancesResponse{}
+	}
+
+	compartment := instances[0].CompartmentId
+
+	request := ociCore.ListInstancesRequest{
+		CompartmentId: compartment,
+	}
+
+	response := ociCore.ListInstancesResponse{
+		Items: instances,
+	}
+
+	return request, response
+}
+
+func makeListAvailabilityDomainsRequestResponse(azDetails []ociIdentity.AvailabilityDomain) (ociIdentity.ListAvailabilityDomainsRequest, ociIdentity.ListAvailabilityDomainsResponse) {
+	if len(azDetails) == 0 {
+		return ociIdentity.ListAvailabilityDomainsRequest{}, ociIdentity.ListAvailabilityDomainsResponse{}
+	}
+
+	compartment := azDetails[0].CompartmentId
+	request := ociIdentity.ListAvailabilityDomainsRequest{
+		CompartmentId: compartment,
+	}
+
+	response := ociIdentity.ListAvailabilityDomainsResponse{
+		Items: azDetails,
+	}
+	return request, response
+}
 
 func makeGetVnicRequestResponse(vnicDetails []ociCore.GetVnicResponse) ([]ociCore.GetVnicRequest, []ociCore.GetVnicResponse) {
 	requests := make([]ociCore.GetVnicRequest, len(vnicDetails))
@@ -44,7 +158,7 @@ func makeListVcnRequestResponse(vcnDetails []ociCore.Vcn) (ociCore.ListVcnsReque
 	return request, response
 }
 
-func makeListsubnetsRequestResponse(subnetDetails []ociCore.Subnet) (ociCore.ListSubnetsRequest, ociCore.ListSubnetsResponse) {
+func makeListSubnetsRequestResponse(subnetDetails []ociCore.Subnet) (ociCore.ListSubnetsRequest, ociCore.ListSubnetsResponse) {
 	if len(subnetDetails) == 0 {
 		return ociCore.ListSubnetsRequest{}, ociCore.ListSubnetsResponse{}
 	}
@@ -105,8 +219,44 @@ func makeListVnicAttachmentsRequestResponse(vnicAttachDetails []ociCore.VnicAtta
 	return request, response
 }
 
+func makeShapesRequestResponse(compartment, id string, shapeNames []string) (ociCore.ListShapesRequest, ociCore.ListShapesResponse) {
+	shapesRequest := ociCore.ListShapesRequest{
+		CompartmentId: &compartment,
+		ImageId:       &id,
+	}
+
+	ociShapes := []ociCore.Shape{}
+	for _, val := range shapeNames {
+		shape := ociCore.Shape{
+			Shape: makeStringPointer(val),
+		}
+		ociShapes = append(ociShapes, shape)
+	}
+
+	shapesResponse := ociCore.ListShapesResponse{
+		Items: ociShapes,
+	}
+
+	return shapesRequest, shapesResponse
+}
+
+func makeListImageRequestResponse(imgDetails []ociCore.Image) (ociCore.ListImagesRequest, ociCore.ListImagesResponse) {
+	if len(imgDetails) == 0 {
+		return ociCore.ListImagesRequest{}, ociCore.ListImagesResponse{}
+	}
+
+	compartment := imgDetails[0].CompartmentId
+	request := ociCore.ListImagesRequest{
+		CompartmentId: compartment,
+	}
+	response := ociCore.ListImagesResponse{
+		Items: imgDetails,
+	}
+	return request, response
+}
+
 type commonSuite struct {
-	jujutesting.BaseSuite
+	gitjujutesting.IsolationSuite
 
 	testInstanceID  string
 	testCompartment string
@@ -118,19 +268,20 @@ type commonSuite struct {
 	fw      *ocitesting.MockOCIFirewallClient
 	storage *ocitesting.MockOCIStorageClient
 
-	env      *oci.Environ
-	provider environs.EnvironProvider
-	spec     environs.CloudSpec
-	// instance    instance.Instance
+	env         *oci.Environ
+	provider    environs.EnvironProvider
+	spec        environs.CloudSpec
+	config      *config.Config
 	ociInstance *ociCore.Instance
 	tags        map[string]string
+	ctrlTags    map[string]string
 }
 
 func (s *commonSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	oci.SetImageCache(&oci.ImageCache{})
 
-	s.controllerUUID = "7c6ab91e-80ab-4ce1-ad80-fe8b57bea5c3"
+	s.controllerUUID = jujutesting.ControllerTag.Id()
 	s.testInstanceID = "ocid1.instance.oc1.phx.abyhqljt4bl4i76iforb7wczlc4qmmmrmzvngeyzi2n45bxsee7a11rukjla"
 	s.testCompartment = "ocid1.compartment.oc1..aaaaaaaaakr75vvb5yx4nkm7ag7ekvluap7afa2y4zprswuprcnehqecwqga"
 
@@ -145,17 +296,25 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 
+	s.config = config
 	s.env = env.(*oci.Environ)
+	s.env.SetClock(&advancingClock)
 
 	s.ociInstance = newFakeOCIInstance(s.testInstanceID, s.testCompartment, ociCore.InstanceLifecycleStateRunning)
 	s.tags = map[string]string{
 		tags.JujuController: s.controllerUUID,
 		tags.JujuModel:      config.UUID(),
 	}
+	s.ctrlTags = map[string]string{
+		tags.JujuController:   s.controllerUUID,
+		tags.JujuModel:        s.config.UUID(),
+		tags.JujuIsController: "true",
+	}
 	s.ociInstance.FreeformTags = s.tags
 }
 
-func (s *commonSuite) patchEnv(ctrl *gomock.Controller) {
+func (s *commonSuite) patchEnv(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 	s.compute = ocitesting.NewMockOCIComputeClient(ctrl)
 	s.ident = ocitesting.NewMockOCIIdentityClient(ctrl)
 	s.netw = ocitesting.NewMockOCINetworkingClient(ctrl)
@@ -167,4 +326,6 @@ func (s *commonSuite) patchEnv(ctrl *gomock.Controller) {
 	s.env.Firewall = s.fw
 	s.env.Storage = s.storage
 	s.env.Identity = s.ident
+
+	return ctrl
 }

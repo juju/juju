@@ -44,6 +44,8 @@ type vnicWithIndex struct {
 }
 
 var _ instance.Instance = (*ociInstance)(nil)
+var maxPollIterations = 30
+var pollTime time.Duration = 10 * time.Second
 
 var statusMap map[ociCore.InstanceLifecycleStateEnum]status.Status = map[ociCore.InstanceLifecycleStateEnum]status.Status{
 	ociCore.InstanceLifecycleStateProvisioning:  status.Provisioning,
@@ -171,13 +173,14 @@ func (o *ociInstance) isTerminating() bool {
 
 func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error {
 	iteration := 0
+	startTime := time.Now()
 	for {
 		addresses, err := o.Addresses(ctx)
 		if err != nil {
 			return err
 		}
-		if iteration >= 30 {
-			logger.Warningf("Instance still in running state after %v checks. breaking loop", iteration)
+		if iteration >= maxPollIterations {
+			logger.Debugf("could not find a public IP after %s. breaking loop", time.Since(startTime))
 			break
 		}
 
@@ -187,7 +190,7 @@ func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error 
 				return nil
 			}
 		}
-		<-o.env.clock.After(1 * time.Second)
+		<-o.env.clock.After(pollTime)
 		iteration++
 		continue
 	}
@@ -224,11 +227,10 @@ func (o *ociInstance) deleteInstance() error {
 		if o.isTerminating() {
 			break
 		}
-		if iteration >= 30 && o.raw.LifecycleState == ociCore.InstanceLifecycleStateRunning {
-			logger.Warningf("Instance still in running state after %v checks. breaking loop", iteration)
-			break
+		if iteration >= maxPollIterations && o.raw.LifecycleState == ociCore.InstanceLifecycleStateRunning {
+			return errors.Errorf("Instance still in running state after %v checks", iteration)
 		}
-		<-o.env.clock.After(1 * time.Second)
+		<-o.env.clock.After(pollTime)
 		iteration++
 		continue
 	}
@@ -265,7 +267,7 @@ func (o *ociInstance) waitForMachineStatus(state ociCore.InstanceLifecycleStateE
 				"Timed out waiting for instance to transition from %v to %v",
 				o.raw.LifecycleState, state,
 			)
-		case <-o.env.clock.After(10 * time.Second):
+		case <-o.env.clock.After(pollTime):
 			err := o.refresh()
 			if err != nil {
 				return err
