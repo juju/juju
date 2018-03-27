@@ -847,8 +847,14 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if err := m.authCheck(model.Owner()); err != nil {
-			return errors.Trace(err)
+		if !m.isAdmin {
+			hasAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, model.ModelTag())
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !hasAdmin {
+				return errors.Trace(common.ErrPerm)
+			}
 		}
 
 		return errors.Trace(common.DestroyModel(st, destroyStorage))
@@ -909,13 +915,12 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		return params.ModelInfo{}, errors.Trace(err)
 	}
 
-	owner := model.Owner()
 	info := params.ModelInfo{
 		Name:           model.Name(),
 		Type:           string(model.Type()),
 		UUID:           model.UUID(),
 		ControllerUUID: model.ControllerUUID(),
-		OwnerTag:       owner.String(),
+		OwnerTag:       model.Owner().String(),
 		Life:           params.Life(model.Life().String()),
 		CloudTag:       names.NewCloudTag(model.Cloud()).String(),
 		CloudRegion:    model.CloudRegion(),
@@ -966,7 +971,15 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		info.Status = entityStatus
 	}
 
-	authorizedOwner := m.authCheck(owner) == nil
+	// If the user is a controller superuser, they are considered a model
+	// admin.
+	modelAdmin := m.isAdmin
+	if !m.isAdmin {
+		modelAdmin, err = m.authorizer.HasPermission(permission.AdminAccess, model.ModelTag())
+		if err != nil {
+			modelAdmin = false
+		}
+	}
 
 	users, err := model.Users()
 	if shouldErr(err) {
@@ -974,9 +987,9 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	}
 	if err == nil {
 		for _, user := range users {
-			if !authorizedOwner && m.authCheck(user.UserTag) != nil {
-				// The authenticated user is neither the owner
-				// nor administrator, nor the model user, so
+			if !modelAdmin && m.authCheck(user.UserTag) != nil {
+				// The authenticated user is neither the a controller
+				// superuser, a model administrator, nor the model user, so
 				// has no business knowing about the model user.
 				continue
 			}
@@ -995,7 +1008,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		}
 	}
 
-	canSeeMachines := authorizedOwner
+	canSeeMachines := modelAdmin
 	if !canSeeMachines {
 		if canSeeMachines, err = m.hasWriteAccess(tag); err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
