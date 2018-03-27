@@ -37,7 +37,7 @@ func (sa *StorageAccessor) UnitStorageAttachments(unitTag names.UnitTag) ([]para
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -61,7 +61,7 @@ func (sa *StorageAccessor) DestroyUnitStorageAttachments(unitTag names.UnitTag) 
 		return errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -111,7 +111,7 @@ func (sa *StorageAccessor) StorageAttachment(storageTag names.StorageTag, unitTa
 		return params.StorageAttachment{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return params.StorageAttachment{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -133,7 +133,7 @@ func (sa *StorageAccessor) StorageAttachmentLife(ids []params.StorageAttachmentI
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(ids) {
-		panic(errors.Errorf("expected %d results, got %d", len(ids), len(results.Results)))
+		return nil, errors.Errorf("expected %d results, got %d", len(ids), len(results.Results))
 	}
 	return results.Results, nil
 }

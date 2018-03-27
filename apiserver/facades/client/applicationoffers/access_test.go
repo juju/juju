@@ -21,7 +21,7 @@ import (
 
 type offerAccessSuite struct {
 	baseSuite
-	api *applicationoffers.OffersAPI
+	api *applicationoffers.OffersAPIV2
 }
 
 var _ = gc.Suite(&offerAccessSuite{})
@@ -38,11 +38,12 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api, err = applicationoffers.CreateOffersAPI(
+	apiV1, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, nil, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	s.api = &applicationoffers.OffersAPIV2{OffersAPI: apiV1}
 }
 
 func (s *offerAccessSuite) modifyAccess(

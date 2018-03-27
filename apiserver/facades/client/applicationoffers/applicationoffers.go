@@ -33,6 +33,11 @@ type OffersAPI struct {
 	authContext *commoncrossmodel.AuthContext
 }
 
+// OffersAPIV2 implements the cross model interface V2.
+type OffersAPIV2 struct {
+	*OffersAPI
+}
+
 // createAPI returns a new application offers OffersAPI facade.
 func createOffersAPI(
 	getApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers,
@@ -64,7 +69,7 @@ func createOffersAPI(
 	return api, nil
 }
 
-// NewOffersAPI returns a new application offers OffersAPI facade.
+// NewOffersAPIV2 returns a new application offers OffersAPIV2 facade.
 func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 	environFromModel := func(modelUUID string) (environs.Environ, error) {
 		st, err := ctx.StatePool().Get(modelUUID)
@@ -100,6 +105,15 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		ctx.Resources(),
 		authContext.(*commoncrossmodel.AuthContext),
 	)
+}
+
+// NewOffersAPIV2 returns a new application offers OffersAPIV2 facade.
+func NewOffersAPIV2(ctx facade.Context) (*OffersAPIV2, error) {
+	apiV1, err := NewOffersAPI(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &OffersAPIV2{OffersAPI: apiV1}, nil
 }
 
 // Offer makes application endpoints available for consumption at a specified URL.
@@ -521,14 +535,23 @@ func (api *OffersAPI) oneRemoteApplicationInfo(urlStr string) (*params.RemoteApp
 
 // DestroyOffers removes the offers specified by the given URLs.
 func (api *OffersAPI) DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error) {
-	result := make([]params.ErrorResult, len(args.OfferURLs))
+	return destroyOffers(api, args.OfferURLs, false)
+}
 
-	models, err := api.getModelsFromOffers(args.OfferURLs...)
+// DestroyOffers removes the offers specified by the given URLs, forcing if necessary.
+func (api *OffersAPIV2) DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error) {
+	return destroyOffers(api.OffersAPI, args.OfferURLs, args.Force)
+}
+
+func destroyOffers(api *OffersAPI, offerURLs []string, force bool) (params.ErrorResults, error) {
+	result := make([]params.ErrorResult, len(offerURLs))
+
+	models, err := api.getModelsFromOffers(offerURLs...)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	for i, one := range args.OfferURLs {
+	for i, one := range offerURLs {
 		url, err := jujucrossmodel.ParseOfferURL(one)
 		if err != nil {
 			result[i].Error = common.ServerError(err)
@@ -549,7 +572,7 @@ func (api *OffersAPI) DestroyOffers(args params.DestroyApplicationOffers) (param
 			result[i].Error = common.ServerError(err)
 			continue
 		}
-		err = api.GetApplicationOffers(backend).Remove(url.ApplicationName)
+		err = api.GetApplicationOffers(backend).Remove(url.ApplicationName, force)
 		result[i].Error = common.ServerError(err)
 	}
 	return params.ErrorResults{Results: result}, nil
