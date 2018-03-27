@@ -832,7 +832,6 @@ func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
 	destroyStorage := true
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"UUID", nil},
-		{"Owner", nil},
 		{"Destroy", []interface{}{state.DestroyModelParams{
 			DestroyStorage: &destroyStorage,
 		}}},
