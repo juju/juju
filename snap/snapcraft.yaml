@@ -7,7 +7,7 @@ grade: devel
 
 apps:
   juju:
-    command: bin/juju
+    command: wrappers/juju
 
 parts:
   wrappers:
