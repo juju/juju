@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -19,6 +21,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -560,6 +563,23 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Update application config and see if it is reported
+	field := "applicationConfigField"
+	s.wordpressApplication.UpdateApplicationConfig(application.ConfigAttributes{
+		field: true,
+	},
+		[]string{},
+		environschema.Fields{field: {
+			Description: "Does this application have access to trusted credentials",
+			Type:        environschema.Tbool,
+			Group:       environschema.JujuGroup,
+		}},
+		schema.Defaults{
+			field: false,
+		},
+	)
 	wc.AssertOneChange()
 
 	// Non-change is not reported.
