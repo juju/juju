@@ -427,7 +427,7 @@ func (w *pgWorker) getMongoSpace(addrs [][]network.Address) (network.SpaceName, 
 		// use it to look up the IP address of each Mongo server to be used
 		// to set up the peer group.
 		spaceStats := generateSpaceStats(addrs)
-		if spaceStats.LargestSpaceContainsAll == false {
+		if !spaceStats.LargestSpaceContainsAll {
 			err := w.st.SetMongoSpaceState(state.MongoSpaceInvalid)
 			if err != nil {
 				return unset, errors.Annotate(err, "cannot set Mongo space state")
@@ -561,12 +561,6 @@ func setHasVote(ms []*machineTracker, hasVote bool) error {
 	return nil
 }
 
-// allSpaceStats holds a SpaceStats for both API and Mongo machines
-type allSpaceStats struct {
-	APIMachines   spaceStats
-	MongoMachines spaceStats
-}
-
 // SpaceStats holds information useful when choosing which space to pick an
 // address from.
 type spaceStats struct {
@@ -578,24 +572,29 @@ type spaceStats struct {
 
 // generateSpaceStats takes a list of machine addresses and returns information
 // about what spaces are referenced by those machines.
+// Addresses in the empty space ("") are disregarded.
 func generateSpaceStats(addresses [][]network.Address) spaceStats {
 	var stats spaceStats
 	stats.SpaceRefCount = make(map[network.SpaceName]int)
 
 	for i := range addresses {
 		for _, addr := range addresses[i] {
-			v := stats.SpaceRefCount[addr.SpaceName]
+			space := addr.SpaceName
+			if space == "" {
+				continue
+			}
+
+			v := stats.SpaceRefCount[space]
 			v++
-			stats.SpaceRefCount[addr.SpaceName] = v
+			stats.SpaceRefCount[space] = v
 
 			if v > stats.LargestSpaceSize {
-				stats.LargestSpace = addr.SpaceName
+				stats.LargestSpace = space
 				stats.LargestSpaceSize = v
 			}
 		}
 	}
 
 	stats.LargestSpaceContainsAll = stats.LargestSpaceSize == len(addresses)
-
 	return stats
 }
