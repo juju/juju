@@ -89,8 +89,6 @@ func (o *ociInstance) Id() instance.Id {
 
 // Status implements instance.Instance
 func (o *ociInstance) Status(ctx envcontext.ProviderCallContext) instance.InstanceStatus {
-	// This should not happen, unless someone bypassed newInstance()
-	// and created the ociInstance{} object manually.
 	if err := o.refresh(); err != nil {
 		return instance.InstanceStatus{}
 	}

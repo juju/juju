@@ -6,6 +6,7 @@ package oci
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"strings"
 
 	"github.com/juju/errors"
@@ -65,10 +66,15 @@ var configSchema = environschema.Fields{
 		Description: "The OCID of the compartment in which juju has access to create resources.",
 		Type:        environschema.Tstring,
 	},
+	"address-space": {
+		Description: "The CIDR block to use when creating default subnets. The subnet must have at least a /16 size.",
+		Type:        environschema.Tstring,
+	},
 }
 
 var configDefaults = schema.Defaults{
 	"compartment-id": "",
+	"address-space":  DefaultAddressSpace,
 }
 
 var configFields = func() schema.Fields {
@@ -141,6 +147,14 @@ func (c *environConfig) compartmentID() *string {
 		return nil
 	}
 	return &compartmentID
+}
+
+func (c *environConfig) addressSpace() *string {
+	addressSpace := c.attrs["address-space"].(string)
+	if addressSpace == "" {
+		addressSpace = DefaultAddressSpace
+	}
+	return &addressSpace
 }
 
 // Schema implements environs.ProviderSchema
@@ -259,6 +273,16 @@ func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, er
 	cfg := env.ecfg()
 	if cfg.compartmentID() == nil {
 		return nil, errors.New("compartment-id may not be empty")
+	}
+
+	addressSpace := cfg.addressSpace()
+	if _, ipNET, err := net.ParseCIDR(*addressSpace); err == nil {
+		size, _ := ipNET.Mask.Size()
+		if size > 16 {
+			return nil, errors.Errorf("configured subnet (%q) is not large enough. Please use a prefix length in the range /8 to /16. Current prefix length is /%d", addressSpace, size)
+		}
+	} else {
+		return nil, errors.Trace(err)
 	}
 
 	return env, nil
