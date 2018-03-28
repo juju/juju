@@ -115,7 +115,7 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 	credentials := map[names.CloudCredentialTag]Credential{
 		tag: convertCloudCredentialToState(tag, credential),
 	}
-	annotationMsg := "updating cloud credential"
+	annotationMsg := "updating cloud credentials"
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		cloudName := tag.Cloud().Id()
 		cloud, err := st.Cloud(cloudName)
