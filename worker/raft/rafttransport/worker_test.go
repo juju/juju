@@ -20,6 +20,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
 	coretesting "github.com/juju/juju/testing"
@@ -32,7 +34,7 @@ var controllerTag = names.NewMachineTag("123")
 type workerFixture struct {
 	testing.IsolationSuite
 	config   rafttransport.Config
-	authInfo apiserverhttp.AuthInfo
+	authInfo httpcontext.AuthInfo
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -45,15 +47,14 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 			Password: "valid-password",
 			Addrs:    []string{"testing.invalid:1234"},
 		},
-		DialConn: rafttransport.DialConn,
-		Hub:      centralhub.New(tag),
-		Mux: apiserverhttp.NewMux(
-			apiserverhttp.WithAuth(s.auth),
-		),
-		Path:      "/raft/path",
-		Tag:       tag,
-		Timeout:   coretesting.LongWait,
-		TLSConfig: &tls.Config{},
+		DialConn:      rafttransport.DialConn,
+		Hub:           centralhub.New(tag),
+		Mux:           apiserverhttp.NewMux(),
+		Authenticator: &mockAuthenticator{auth: s.auth},
+		Path:          "/raft/path",
+		Tag:           tag,
+		Timeout:       coretesting.LongWait,
+		TLSConfig:     &tls.Config{},
 	}
 
 	logger := loggo.GetLogger("juju.worker.raft")
@@ -64,17 +65,17 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *workerFixture) auth(req *http.Request) (apiserverhttp.AuthInfo, error) {
+func (s *workerFixture) auth(req *http.Request) (httpcontext.AuthInfo, error) {
 	user, pass, ok := req.BasicAuth()
 	if !ok || pass != "valid-password" {
-		return apiserverhttp.AuthInfo{}, errors.Unauthorizedf("request")
+		return httpcontext.AuthInfo{}, errors.Unauthorizedf("request")
 	}
 	tag, err := names.ParseTag(user)
 	if err != nil {
-		return apiserverhttp.AuthInfo{}, errors.Trace(err)
+		return httpcontext.AuthInfo{}, errors.Trace(err)
 	}
-	return apiserverhttp.AuthInfo{
-		Tag:        tag,
+	return httpcontext.AuthInfo{
+		Entity:     &mockEntity{tag: tag},
 		Controller: tag == controllerTag,
 	}, nil
 }
@@ -261,4 +262,28 @@ func (s *WorkerSuite) TestRoundTrip(c *gc.C) {
 	resp, err := s.requestVote(s.worker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Granted, jc.IsTrue)
+}
+
+type mockEntity struct {
+	tag names.Tag
+}
+
+func (e *mockEntity) Tag() names.Tag {
+	return e.tag
+}
+
+type mockAuthenticator struct {
+	auth func(*http.Request) (httpcontext.AuthInfo, error)
+}
+
+func (a *mockAuthenticator) Authenticate(req *http.Request) (httpcontext.AuthInfo, error) {
+	return a.auth(req)
+}
+
+func (a *mockAuthenticator) AuthenticateLoginRequest(
+	serverHost string,
+	modelUUID string,
+	req params.LoginRequest,
+) (httpcontext.AuthInfo, error) {
+	return httpcontext.AuthInfo{}, errors.New("blah")
 }

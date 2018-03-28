@@ -43,6 +43,11 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	}
 	defer st.Release()
 
+	if !st.IsController() {
+		h.sendError(resp, errors.New("requested model is not the controller model"))
+		return
+	}
+
 	m, err := st.Model()
 	if err != nil {
 		h.sendError(resp, err)

@@ -14,7 +14,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/presence"
@@ -203,6 +202,9 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 		userLogin:           true,
 	}
 
+	// TODO(axw) move this to the stateauthenticator implementation?
+	// Or better yet, provide a wrapper type that adds the rate-limiting.
+	//
 	// Maybe rate limit non-user auth attempts.
 	if req.AuthTag != "" {
 		tag, err := names.ParseTag(req.AuthTag)
@@ -232,6 +234,7 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 
 	switch result.tag.(type) {
 	case nil:
+		// Macaroon logins are always for users.
 	case names.UserTag:
 		if result.tag.Id() == api.AnonymousUsername && len(req.Macaroons) == 0 {
 			result.anonymousLogin = true
@@ -244,45 +247,47 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 	// Only attempt to login with credentials if we are not doing an anonymous login.
 	var (
 		lastConnection *time.Time
-		entity         state.Entity
-		err            error
-		startPinger    = true
+		// Anonymous logins are for other controllers (for cross-model
+		// relations) - we don't need to start pingers because we
+		// don't maintain presence information for them.
+		startPinger = !result.anonymousLogin
 	)
 	if !result.anonymousLogin {
-		entity, lastConnection, err = a.checkCreds(req, result.tag, result.userLogin)
+		authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(
+			a.root.serverHost,
+			a.root.model.UUID(),
+			req,
+		)
 		if err != nil {
-			// If above login fails, we may still be a login to a controller
-			// machine in the controller model.
-			entity, err = a.handleAuthError(req, result.tag, err)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+			return nil, a.handleAuthError(err)
+		}
+		result.controllerMachineLogin = authInfo.Controller
+		if authInfo.Controller && !a.root.state.IsController() {
 			// We only need to run a pinger for controller machine
 			// agents when logging into the controller model.
 			startPinger = false
 		}
+		a.root.entity = authInfo.Entity
+		// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
+		a.apiObserver.Login(
+			authInfo.Entity.Tag(),
+			a.root.model.ModelTag(),
+			authInfo.Controller,
+			req.UserData,
+		)
 	}
 	a.loggedIn = true
 
-	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
-	if entity != nil {
-		if machine, ok := entity.(*state.Machine); ok && machine.IsManager() {
-			result.controllerMachineLogin = true
-			// TODO(axw) we shouldn't have to run pingers for
-			// other controller machines; all controllers should
-			// be connecting to at least their own API server
-			// instance, but that isn't currently guaranteed.
-			//
-			// When we move the API server to the dependency
-			// engine, each controller agent should run its own
-			// presence pinger in the dependency engine also.
-		}
-		a.root.entity = entity
-		a.apiObserver.Login(entity.Tag(), a.root.model.ModelTag(), result.controllerMachineLogin, req.UserData)
-	}
-
 	if startPinger {
-		if err := startPingerIfAgent(a.srv.pingClock, a.root, entity); err != nil {
+		// TODO(axw) we shouldn't have to run pingers for
+		// other controller machines; all controllers should
+		// be connecting to at least their own API server
+		// instance, but that isn't currently guaranteed.
+		//
+		// When we move the API server to the dependency
+		// engine, each controller agent should run its own
+		// presence pinger in the dependency engine also.
+		if err := startPingerIfAgent(a.srv.pingClock, a.root, a.root.entity); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -292,13 +297,9 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 	return result, nil
 }
 
-func (a *admin) handleAuthError(
-	req params.LoginRequest,
-	authTag names.Tag,
-	err error,
-) (state.Entity, error) {
+func (a *admin) handleAuthError(err error) error {
 	if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
-		return nil, err
+		return err
 	}
 	if a.maintenanceInProgress() {
 		// An upgrade, restore or similar operation is in
@@ -306,27 +307,9 @@ func (a *admin) handleAuthError(
 		// is complete due to incomplete or updating data. Mask
 		// transitory and potentially confusing errors from failed
 		// logins with a more helpful one.
-		return nil, MaintenanceNoLoginError
+		return MaintenanceNoLoginError
 	}
-	// Here we have a special case.  The machine agents that manage
-	// models in the controller model need to be able to
-	// open API connections to other models.  In those cases, we
-	// need to look in the controller database to check the creds
-	// against the machine if and only if the entity tag is a machine tag,
-	// and the machine exists in the controller model, and the
-	// machine has the manage state job.  If all those parts are valid, we
-	// can then check the credentials against the controller model
-	// machine.
-	machineTag, ok := authTag.(names.MachineTag)
-	if !ok {
-		return nil, errors.Trace(err)
-	}
-	if errors.Cause(err) != common.ErrBadCreds {
-		return nil, err
-	}
-	// If we are here, we may be logging into a controller machine
-	// in the controller model.
-	return a.checkControllerMachineCreds(req, machineTag)
+	return err
 }
 
 func (a *admin) fillLoginDetails(result *authResult, lastConnection *time.Time) error {
@@ -444,18 +427,6 @@ func filterFacades(registry *facade.Registry, allowFacadeAllMustMatch ...facadeF
 	return out
 }
 
-func (a *admin) checkCreds(req params.LoginRequest, authTag names.Tag, userLogin bool) (state.Entity, *time.Time, error) {
-	return doCheckCreds(a.root.state, req, authTag, userLogin, a.authenticator())
-}
-
-func (a *admin) checkControllerMachineCreds(req params.LoginRequest, authTag names.MachineTag) (state.Entity, error) {
-	return checkControllerMachineCreds(a.srv.statePool.SystemState(), req, authTag, a.authenticator())
-}
-
-func (a *admin) authenticator() authentication.EntityAuthenticator {
-	return a.srv.loginAuthCtxt.authenticator(a.root.serverHost)
-}
-
 func (a *admin) maintenanceInProgress() bool {
 	if !a.srv.upgradeComplete() {
 		return true
@@ -465,253 +436,6 @@ func (a *admin) maintenanceInProgress() bool {
 		return true
 	}
 	return false
-}
-
-var doCheckCreds = checkCreds
-
-// checkCreds validates the entities credentials in the current model.
-// If the entity is a user, and userLogin==true, a model user must exist
-// for the model. In the case of a user logging in to the controller,
-// but not a model, there is no env user needed.  While we have the env
-// user, if we do have it, update the last login time.
-//
-// Note that when logging in with userLogin==true, the returned entity
-// will be modelUserEntity, not *state.User (external users don't have
-// user entries) or *state.ModelUser (we don't want to lose the local
-// user information associated with that).
-func checkCreds(
-	st *state.State,
-	req params.LoginRequest,
-	authTag names.Tag,
-	userLogin bool,
-	authenticator authentication.EntityAuthenticator,
-) (state.Entity, *time.Time, error) {
-	var entityFinder authentication.EntityFinder = st
-	if userLogin {
-		// When looking up model users, use a custom
-		// entity finder that looks up both the local user (if the user
-		// tag is in the local domain) and the model user.
-		entityFinder = modelUserEntityFinder{st}
-	}
-	entity, err := authenticator.Authenticate(entityFinder, authTag, req)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	// For user logins, update the last login time.
-	var lastLogin *time.Time
-	if entity, ok := entity.(loginEntity); ok {
-		userLastLogin, err := entity.LastLogin()
-		if err != nil && !state.IsNeverLoggedInError(err) {
-			return nil, nil, errors.Trace(err)
-		}
-		entity.UpdateLastLogin()
-		lastLogin = &userLastLogin
-	}
-	return entity, lastLogin, nil
-}
-
-// checkControllerMachineCreds checks the special case of a controller
-// machine creating an API connection for a different model so it can
-// run workers that act on behalf of a hosted model.
-func checkControllerMachineCreds(
-	controllerSt *state.State,
-	req params.LoginRequest,
-	authTag names.MachineTag,
-	authenticator authentication.EntityAuthenticator,
-) (state.Entity, error) {
-	entity, _, err := doCheckCreds(
-		controllerSt,
-		req,
-		authTag,
-		false,
-		authenticator,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if machine, ok := entity.(*state.Machine); !ok {
-		return nil, errors.Errorf("entity should be a machine, but is %T", entity)
-	} else if !machine.IsManager() {
-		// The machine exists in the controller model, but it doesn't
-		// manage models, so reject it.
-		return nil, errors.Trace(common.ErrPerm)
-	}
-	return entity, nil
-}
-
-// loginEntity defines the interface needed to log in as a user.
-// Notable implementations are *state.User and *modelUserEntity.
-type loginEntity interface {
-	state.Entity
-	state.Authenticator
-	LastLogin() (time.Time, error)
-	UpdateLastLogin() error
-}
-
-// modelUserEntityFinder implements EntityFinder by returning a
-// loginEntity value for users, ensuring that the user exists in the
-// state's current model as well as retrieving more global
-// authentication details such as the password.
-type modelUserEntityFinder struct {
-	st *state.State
-}
-
-// FindEntity implements authentication.EntityFinder.FindEntity.
-func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
-	utag, ok := tag.(names.UserTag)
-	if !ok {
-		return f.st.FindEntity(tag)
-	}
-
-	model, err := f.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelUser, err := f.st.UserAccess(utag, model.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-	// No model user found, so see if the user has been granted
-	// access to the controller.
-	if permission.IsEmptyUserAccess(modelUser) {
-		controllerUser, err := state.ControllerAccess(f.st, utag)
-		if err != nil && !errors.IsNotFound(err) {
-			return nil, errors.Trace(err)
-		}
-		// TODO(perrito666) remove the following section about everyone group
-		// when groups are implemented, this accounts only for the lack of a local
-		// ControllerUser when logging in from an external user that has not been granted
-		// permissions on the controller but there are permissions for the special
-		// everyone group.
-		if permission.IsEmptyUserAccess(controllerUser) && !utag.IsLocal() {
-			everyoneTag := names.NewUserTag(common.EveryoneTagName)
-			controllerUser, err = f.st.UserAccess(everyoneTag, f.st.ControllerTag())
-			if err != nil && !errors.IsNotFound(err) {
-				return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
-			}
-		}
-		if permission.IsEmptyUserAccess(controllerUser) {
-			return nil, errors.NotFoundf("model or controller user")
-		}
-	}
-
-	u := &modelUserEntity{
-		st:        f.st,
-		modelUser: modelUser,
-		tag:       utag,
-	}
-	if utag.IsLocal() {
-		user, err := f.st.User(utag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		u.user = user
-	}
-	return u, nil
-}
-
-var _ loginEntity = &modelUserEntity{}
-
-// modelUserEntity encapsulates an model user
-// and, if the user is local, the local state user
-// as well. This enables us to implement FindEntity
-// in such a way that the authentication mechanisms
-// can work without knowing these details.
-type modelUserEntity struct {
-	st *state.State
-
-	modelUser permission.UserAccess
-	user      *state.User
-	tag       names.Tag
-}
-
-// Refresh implements state.Authenticator.Refresh.
-func (u *modelUserEntity) Refresh() error {
-	if u.user == nil {
-		return nil
-	}
-	return u.user.Refresh()
-}
-
-// SetPassword implements state.Authenticator.SetPassword
-// by setting the password on the local user.
-func (u *modelUserEntity) SetPassword(pass string) error {
-	if u.user == nil {
-		return errors.New("cannot set password on external user")
-	}
-	return u.user.SetPassword(pass)
-}
-
-// PasswordValid implements state.Authenticator.PasswordValid.
-func (u *modelUserEntity) PasswordValid(pass string) bool {
-	if u.user == nil {
-		return false
-	}
-	return u.user.PasswordValid(pass)
-}
-
-// Tag implements state.Entity.Tag.
-func (u *modelUserEntity) Tag() names.Tag {
-	return u.tag
-}
-
-// LastLogin implements loginEntity.LastLogin.
-func (u *modelUserEntity) LastLogin() (time.Time, error) {
-	// The last connection for the model takes precedence over
-	// the local user last login time.
-	var err error
-	var t time.Time
-
-	model, err := u.st.Model()
-	if err != nil {
-		return t, errors.Trace(err)
-	}
-
-	if !permission.IsEmptyUserAccess(u.modelUser) {
-		t, err = model.LastModelConnection(u.modelUser.UserTag)
-	} else {
-		err = state.NeverConnectedError("controller user")
-	}
-	if state.IsNeverConnectedError(err) || permission.IsEmptyUserAccess(u.modelUser) {
-		if u.user != nil {
-			// There's a global user, so use that login time instead.
-			return u.user.LastLogin()
-		}
-		// Since we're implementing LastLogin, we need
-		// to implement LastLogin error semantics too.
-		err = state.NeverLoggedInError(err.Error())
-	}
-	return t, errors.Trace(err)
-}
-
-// UpdateLastLogin implements loginEntity.UpdateLastLogin.
-func (u *modelUserEntity) UpdateLastLogin() error {
-	var err error
-
-	if !permission.IsEmptyUserAccess(u.modelUser) {
-		if u.modelUser.Object.Kind() != names.ModelTagKind {
-			return errors.NotValidf("%s as model user", u.modelUser.Object.Kind())
-		}
-
-		model, err := u.st.Model()
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		err = model.UpdateLastModelConnection(u.modelUser.UserTag)
-	}
-
-	if u.user != nil {
-		err1 := u.user.UpdateLastLogin()
-		if err == nil {
-			return err1
-		}
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 // presenceShim exists to represent a statepresence.Agent in a form

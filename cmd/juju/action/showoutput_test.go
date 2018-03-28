@@ -124,10 +124,10 @@ timing:
 		expectedErr: "an apiserver error",
 	}, {
 		should:            "only return once status is no longer running or pending",
-		withAPIDelay:      2 * time.Second,
-		withClientWait:    "6s",
+		withAPIDelay:      1 * time.Second,
+		withClientWait:    "30s",
 		withClientQueryID: validActionId,
-		withAPITimeout:    4 * time.Second,
+		withAPITimeout:    3 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status: "running",

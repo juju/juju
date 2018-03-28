@@ -18,9 +18,8 @@ type auditConfigSuite struct {
 var _ = gc.Suite(&auditConfigSuite{})
 
 func (s *auditConfigSuite) TestUsesGetAuditConfig(c *gc.C) {
-	config := s.sampleConfig(c)
 	var calls int
-	config.GetAuditConfig = func() auditlog.Config {
+	s.config.GetAuditConfig = func() auditlog.Config {
 		calls++
 		return auditlog.Config{
 			Enabled:        true,
@@ -28,7 +27,7 @@ func (s *auditConfigSuite) TestUsesGetAuditConfig(c *gc.C) {
 		}
 	}
 
-	srv := s.newServer(c, config)
+	srv := s.newServer(c, s.config)
 
 	auditConfig := srv.GetAuditConfig()
 	c.Assert(auditConfig, gc.DeepEquals, auditlog.Config{
@@ -39,10 +38,9 @@ func (s *auditConfigSuite) TestUsesGetAuditConfig(c *gc.C) {
 }
 
 func (s *auditConfigSuite) TestNewServerValidatesConfig(c *gc.C) {
-	config := s.sampleConfig(c)
-	config.GetAuditConfig = nil
+	s.config.GetAuditConfig = nil
 
-	srv, err := apiserver.NewServer(s.StatePool, config)
+	srv, err := apiserver.NewServer(s.config)
 	c.Assert(err, gc.ErrorMatches, "missing GetAuditConfig not valid")
 	c.Assert(srv, gc.IsNil)
 }

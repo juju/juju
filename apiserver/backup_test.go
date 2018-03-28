@@ -18,38 +18,32 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/apiserver"
 	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/params"
+	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
 )
 
 type backupsCommonSuite struct {
-	authHTTPSuite
-	fake *backupstesting.FakeBackups
+	apiserverBaseSuite
+	backupURL string
+	fake      *backupstesting.FakeBackups
 }
 
 func (s *backupsCommonSuite) SetUpTest(c *gc.C) {
-	s.authHTTPSuite.SetUpTest(c)
+	s.apiserverBaseSuite.SetUpTest(c)
 
+	s.backupURL = s.server.URL + fmt.Sprintf("/model/%s/backups", s.State.ModelUUID())
 	s.fake = &backupstesting.FakeBackups{}
 	s.PatchValue(apiserver.NewBackups,
 		func(st *state.State, m *state.Model) (backups.Backups, io.Closer) {
 			return s.fake, ioutil.NopCloser(nil)
 		},
 	)
-}
-
-func (s *backupsCommonSuite) backupURL(c *gc.C) string {
-	environ, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	uri := s.baseURL(c)
-	uri.Path = fmt.Sprintf("/model/%s/backups", environ.UUID())
-	return uri.String()
 }
 
 func (s *backupsCommonSuite) assertErrorResponse(c *gc.C, resp *http.Response, statusCode int, msg string) *params.Error {
@@ -73,17 +67,22 @@ type backupsSuite struct {
 var _ = gc.Suite(&backupsSuite{})
 
 func (s *backupsSuite) TestRequiresAuth(c *gc.C) {
-	resp := s.sendRequest(c, httpRequestParams{method: "GET", url: s.backupURL(c)})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no credentials provided")
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.backupURL})
+	defer resp.Body.Close()
+
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusUnauthorized)
+	body, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(body), gc.Equals, "authentication failed: no credentials provided\n")
 }
 
 func (s *backupsSuite) checkInvalidMethod(c *gc.C, method, url string) {
-	resp := s.authRequest(c, httpRequestParams{method: method, url: url})
+	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: method, URL: url})
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "`+method+`"`)
 }
 
 func (s *backupsSuite) TestInvalidHTTPMethods(c *gc.C) {
-	url := s.backupURL(c)
+	url := s.backupURL
 	for _, method := range []string{"POST", "DELETE", "OPTIONS"} {
 		c.Log("testing HTTP method: " + method)
 		s.checkInvalidMethod(c, method, url)
@@ -101,98 +100,18 @@ func (s *backupsSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp := s.sendRequest(c, httpRequestParams{
-		tag:      machine.Tag().String(),
-		password: password,
-		method:   "GET",
-		url:      s.backupURL(c),
-		nonce:    "fake_nonce",
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Tag:      machine.Tag().String(),
+		Password: password,
+		Method:   "GET",
+		URL:      s.backupURL,
+		Nonce:    "fake_nonce",
 	})
 	s.assertErrorResponse(c, resp, http.StatusInternalServerError, "tag kind machine not valid")
 
 	// Now try a user login.
-	resp = s.authRequest(c, httpRequestParams{method: "POST", url: s.backupURL(c)})
+	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.backupURL})
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "POST"`)
-}
-
-type backupsWithMacaroonsSuite struct {
-	backupsCommonSuite
-}
-
-var _ = gc.Suite(&backupsWithMacaroonsSuite{})
-
-func (s *backupsWithMacaroonsSuite) SetUpTest(c *gc.C) {
-	s.macaroonAuthEnabled = true
-	s.backupsCommonSuite.SetUpTest(c)
-}
-
-func (s *backupsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredError(c *gc.C) {
-	resp := s.sendRequest(c, httpRequestParams{
-		method:   "GET",
-		jsonBody: &params.BackupsDownloadArgs{"bad-id"},
-		url:      s.backupURL(c),
-	})
-
-	errResp := s.assertErrorResponse(c, resp, http.StatusUnauthorized, "verification failed: no macaroons")
-	c.Assert(errResp.Code, gc.Equals, params.CodeDischargeRequired)
-	c.Assert(errResp.Info, gc.NotNil)
-	c.Assert(errResp.Info.Macaroon, gc.NotNil)
-}
-
-func (s *backupsWithMacaroonsSuite) TestCanGetWithDischargedMacaroon(c *gc.C) {
-	checkCount := 0
-	s.DischargerLogin = func() string {
-		checkCount++
-		return s.userTag.Id()
-	}
-	s.fake.Error = errors.New("failed!")
-	resp := s.sendRequest(c, httpRequestParams{
-		do:       s.doer(),
-		method:   "GET",
-		jsonBody: &params.BackupsDownloadArgs{"bad-id"},
-		url:      s.backupURL(c),
-	})
-	s.assertErrorResponse(c, resp, http.StatusInternalServerError, "failed!")
-	c.Assert(checkCount, gc.Equals, 1)
-}
-
-// doer returns a Do function that can make a bakery request
-// appropriate for a backups endpoint.
-func (s *backupsWithMacaroonsSuite) doer() func(*http.Request) (*http.Response, error) {
-	return bakeryDo(nil, backupsBakeryGetError)
-}
-
-// backupsBakeryGetError implements a getError function
-// appropriate for passing to httpbakery.Client.DoWithBodyAndCustomError
-// for the backups endpoint.
-func backupsBakeryGetError(resp *http.Response) error {
-	if resp.StatusCode != http.StatusUnauthorized {
-		return nil
-	}
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return errors.Annotatef(err, "cannot read body")
-	}
-	var errResp params.Error
-	if err := json.Unmarshal(data, &errResp); err != nil {
-		return errors.Annotatef(err, "cannot unmarshal body")
-	}
-	if errResp.Code != params.CodeDischargeRequired {
-		return &errResp
-	}
-	if errResp.Info == nil {
-		return errors.Annotatef(err, "no error info found in discharge-required response error")
-	}
-	// It's a discharge-required error, so make an appropriate httpbakery
-	// error from it.
-	return &httpbakery.Error{
-		Message: errResp.Message,
-		Code:    httpbakery.ErrDischargeRequired,
-		Info: &httpbakery.ErrorInfo{
-			Macaroon:     errResp.Info.Macaroon,
-			MacaroonPath: errResp.Info.MacaroonPath,
-		},
-	}
 }
 
 type backupsDownloadSuite struct {
@@ -212,11 +131,11 @@ func (s *backupsDownloadSuite) sendValidGet(c *gc.C) (resp *http.Response, archi
 	s.fake.Meta = meta
 	s.fake.Archive = ioutil.NopCloser(archive)
 
-	return s.authRequest(c, httpRequestParams{
-		method:      "GET",
-		url:         s.backupURL(c),
-		contentType: params.ContentTypeJSON,
-		jsonBody: params.BackupsDownloadArgs{
+	return s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Method:      "GET",
+		URL:         s.backupURL,
+		ContentType: params.ContentTypeJSON,
+		JSONBody: params.BackupsDownloadArgs{
 			ID: meta.ID(),
 		},
 	}), archiveBytes
@@ -292,7 +211,7 @@ func (s *backupsUploadSuite) sendValid(c *gc.C, id string) *http.Response {
 
 	// Send the request.
 	ctype := writer.FormDataContentType()
-	return s.authRequest(c, httpRequestParams{method: "PUT", url: s.backupURL(c), contentType: ctype, body: &parts})
+	return s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.backupURL, ContentType: ctype, Body: &parts})
 }
 
 func (s *backupsUploadSuite) TestCalls(c *gc.C) {

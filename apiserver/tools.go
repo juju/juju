@@ -19,6 +19,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
@@ -249,12 +250,6 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 		return nil, errors.BadRequestf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
 	}
 
-	// Get the server root, so we know how to form the URL in the Tools returned.
-	serverRoot, err := h.getServerRoot(r, query, st)
-	if err != nil {
-		return nil, errors.NewBadRequest(err, "cannot to determine server root")
-	}
-
 	// We'll clone the tools for each additional series specified.
 	var cloneSeries []string
 	if seriesParam := query.Get("series"); seriesParam != "" {
@@ -271,19 +266,13 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 			toolsVersions = append(toolsVersions, v)
 		}
 	}
+	serverRoot := h.getServerRoot(r, query, st)
 	return h.handleUpload(r.Body, toolsVersions, serverRoot, st)
 }
 
-func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) (string, error) {
-	uuid := query.Get(":modeluuid")
-	if uuid == "" {
-		env, err := st.Model()
-		if err != nil {
-			return "", err
-		}
-		uuid = env.UUID()
-	}
-	return fmt.Sprintf("https://%s/model/%s", r.Host, uuid), nil
+func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) string {
+	modelUUID := httpcontext.RequestModelUUID(r)
+	return fmt.Sprintf("https://%s/model/%s", r.Host, modelUUID)
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.

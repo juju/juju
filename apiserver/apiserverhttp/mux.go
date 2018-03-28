@@ -4,19 +4,11 @@
 package apiserverhttp
 
 import (
-	"context"
 	"net/http"
 	"sync"
 
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
-)
-
-type authKey struct{}
-
-var (
-	errNoAuthFunc = errors.New("no authentication handler found")
 )
 
 // Mux is a pattern-based HTTP muxer, based on top of
@@ -32,8 +24,6 @@ type Mux struct {
 	pmu sync.Mutex
 	p   *pat.PatternServeMux
 
-	auth authFunc
-
 	// mu protects added; added records the handlers
 	// added by AddHandler, so we can recreate the
 	// mux as necessary. The handlers are recorded
@@ -41,9 +31,11 @@ type Mux struct {
 	// is done by pat.
 	mu    sync.Mutex
 	added map[string][]patternHandler
-}
 
-type authFunc func(*http.Request) (AuthInfo, error)
+	// Clients who are using the mux can add themselves to prevent the
+	// httpserver from stopping until they're done.
+	clients sync.WaitGroup
+}
 
 type patternHandler struct {
 	pat string
@@ -64,15 +56,6 @@ func NewMux(opts ...muxOption) *Mux {
 
 type muxOption func(*Mux)
 
-// WithAuth returns a Mux constructor option function,
-// which, when applied to a Mux, will configure the Mux
-// to use the given function for authentication.
-func WithAuth(f func(req *http.Request) (AuthInfo, error)) muxOption {
-	return func(m *Mux) {
-		m.auth = f
-	}
-}
-
 // ServeHTTP is part of the http.Handler interface.
 //
 // ServeHTTP routes the request to a handler registered with
@@ -81,27 +64,7 @@ func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m.pmu.Lock()
 	p := m.p
 	m.pmu.Unlock()
-	if m.auth != nil {
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, authKey{}, m.auth)
-		r = r.WithContext(ctx)
-	}
 	p.ServeHTTP(w, r)
-}
-
-// Authenticate checks the request for Juju entity credentials, and
-// returns the tag of the authenticated entity, or an error if the
-// authentication failed.
-//
-// The request must be one being handled by an http.Handler
-// registered with this mux's AddHandler.
-func (m *Mux) Authenticate(req *http.Request) (AuthInfo, error) {
-	ctx := req.Context()
-	if v := ctx.Value(authKey{}); v != nil {
-		f := v.(authFunc)
-		return f(req)
-	}
-	return AuthInfo{}, errNoAuthFunc
 }
 
 // AddHandler adds an http.Handler for the given method and pattern.
@@ -145,6 +108,24 @@ func (m *Mux) RemoveHandler(meth, pat string) {
 	}
 }
 
+// AddClient tells the mux there's another client that should keep it
+// alive.
+func (m *Mux) AddClient() {
+	m.clients.Add(1)
+}
+
+// ClientDone indicates that a client has finished and no longer needs
+// the mux.
+func (m *Mux) ClientDone() {
+	m.clients.Done()
+}
+
+// Wait will block until all of the clients have indicated that
+// they're done.
+func (m *Mux) Wait() {
+	m.clients.Wait()
+}
+
 func (m *Mux) recreate() {
 	p := pat.New()
 	for meth, phs := range m.added {
@@ -155,16 +136,4 @@ func (m *Mux) recreate() {
 	m.pmu.Lock()
 	m.p = p
 	m.pmu.Unlock()
-}
-
-// Auth is returned by Mux.Authenticate to identify the
-// authenticated entity.
-type AuthInfo struct {
-	// Tag holds the tag of the authenticated entity.
-	Tag names.Tag
-
-	// Controller holds a boolean value indicating
-	// whether or not the authenticated entity is a
-	// controller agent.
-	Controller bool
 }
