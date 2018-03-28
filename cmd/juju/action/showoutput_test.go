@@ -127,7 +127,8 @@ timing:
 		withAPIDelay:      2 * time.Second,
 		withClientWait:    "6s",
 		withClientQueryID: validActionId,
-		withAPITimeout:    4 * time.Second,
+		// Wait just slightly less than the 2s tick time, to make sure it times out first
+		withAPITimeout:    3900 * time.Millisecond,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status: "running",
