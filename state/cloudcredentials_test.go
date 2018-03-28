@@ -51,7 +51,7 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialNew(c *gc.C) {
 	c.Assert(out, jc.DeepEquals, expected)
 }
 
-func (s *CloudCredentialsSuite) TesCreateInvalidCredential(c *gc.C) {
+func (s *CloudCredentialsSuite) TestCreateInvalidCredential(c *gc.C) {
 	err := s.State.AddCloud(cloud.Cloud{
 		Name:      "stratus",
 		Type:      "low",
@@ -68,19 +68,7 @@ func (s *CloudCredentialsSuite) TesCreateInvalidCredential(c *gc.C) {
 	cred.InvalidReason = "because am testing you"
 	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
 	err = s.State.UpdateCloudCredential(tag, cred)
-	c.Assert(err, jc.ErrorIsNil)
-
-	out, err := s.State.CloudCredential(tag)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expected := statetesting.CloudCredential(cloud.AccessKeyAuthType,
-		map[string]string{"bar": "bar val", "foo": "foo val"},
-	)
-	expected.DocID = "stratus#bob#foobar"
-	expected.Owner = "bob"
-	expected.Cloud = "stratus"
-	expected.Name = "foobar"
-	c.Assert(out, jc.DeepEquals, expected)
+	c.Assert(err, gc.ErrorMatches, "creating cloud credential: adding invalid credential not valid")
 }
 
 func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {

@@ -115,6 +115,7 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 	credentials := map[names.CloudCredentialTag]Credential{
 		tag: convertCloudCredentialToState(tag, credential),
 	}
+	annotationMsg := "updating cloud credential"
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		cloudName := tag.Cloud().Id()
 		cloud, err := st.Cloud(cloudName)
@@ -132,12 +133,16 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		if err == nil {
 			ops = append(ops, updateCloudCredentialOp(tag, credential))
 		} else {
+			annotationMsg = "creating cloud credential"
+			if credential.Invalid || credential.InvalidReason != "" {
+				return nil, errors.NotValidf("adding invalid credential")
+			}
 			ops = append(ops, createCloudCredentialOp(tag, credential))
 		}
 		return ops, nil
 	}
 	if err := st.db().Run(buildTxn); err != nil {
-		return errors.Annotate(err, "updating cloud credentials")
+		return errors.Annotate(err, annotationMsg)
 	}
 	return nil
 }
