@@ -33,8 +33,7 @@ type NetworkDevice struct {
 	// Network is the name of the network the device should be connected to.
 	// If empty it will be connected to the default "VM Network" network.
 	Network string
-	// MAC is the hardware address of the network device. It has to be
-	// in the form of
+	// MAC is the hardware address of the network device.
 	MAC string
 }
 
@@ -488,7 +487,7 @@ func (c *Client) addNetworkDevice(
 // requirements for MAC address: 00:50:56:XX:YY:ZZ where XX is between 00 and 3f.
 // https://pubs.vmware.com/vsphere-4-esx-vcenter/index.jsp?topic=/com.vmware.vsphere.server_configclassic.doc_41/esx_server_config/advanced_networking/c_setting_up_mac_addresses.html
 func GenerateMAC() (string, error) {
-	c, err := rand.Int(rand.Reader, big.NewInt(4194303))
+	c, err := rand.Int(rand.Reader, big.NewInt(0x3fffff))
 	if err != nil {
 		return "", err
 	}

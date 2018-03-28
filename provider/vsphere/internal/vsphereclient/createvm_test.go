@@ -397,20 +397,12 @@ func (s *clientSuite) TestVerifyMAC(c *gc.C) {
 		{"00:50:56:3f:ff:ff", true},
 		{"00:50:56:12:34:56", true},
 		{"00:50:56:2A:eB:Cd", true},
+		{"00:50:56:2a:xy:cd", false},
+		{"00:50:560:2a:xy:cd", false},
 	}
 	for i, test := range testData {
 		c.Logf("test #%d: MAC=%s expected %s", i, test.Mac, test.Result)
 		c.Check(VerifyMAC(test.Mac), gc.Equals, test.Result)
-	}
-}
-
-// GenerateMAC is random so we verify a few times if the MACs returned are
-// are correct.
-func (s *clientSuite) TestGenerateMAC(c *gc.C) {
-	for i := 0; i < 100; i++ {
-		mac, err := GenerateMAC()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(VerifyMAC(mac), jc.IsTrue, gc.Commentf("GenerateMAC() created an invalid MAC address: %v", mac))
 	}
 }
 
