@@ -14,6 +14,7 @@ import (
 	lxdshared "github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -271,7 +272,7 @@ func (manager *containerManager) createInstance(
 
 	metadata := map[string]string{
 		lxdtools.UserDataKey:      string(userData),
-		lxdtools.NetworkConfigKey: containerinit.CloudInitNetworkConfigDisabled,
+		lxdtools.NetworkConfigKey: cloudinit.CloudInitNetworkConfigDisabled,
 		// An extra piece of info to let people figure out where this
 		// thing came from.
 		lxdtools.JujuModelKey: manager.modelUUID,
