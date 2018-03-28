@@ -38,6 +38,11 @@ func (f *mockOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, er
 	return f.op, f.NextErr()
 }
 
+func (f *mockOpFactory) NewNoOpUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+	f.MethodCall(f, "NewNoOpUpgrade", charmURL)
+	return f.op, f.NextErr()
+}
+
 func (f *mockOpFactory) NewRevertUpgrade(charmURL *charm.URL) (operation.Operation, error) {
 	f.MethodCall(f, "NewRevertUpgrade", charmURL)
 	return f.op, f.NextErr()

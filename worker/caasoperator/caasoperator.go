@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -206,7 +206,8 @@ func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
 }
 
 func (op *caasOperator) loop() (err error) {
-	if err := op.init(); err != nil {
+	charmURL, charmModifiedVersion, err := op.ensureCharm()
+	if err != nil {
 		if err == jworker.ErrTerminateAgent {
 			return err
 		}
@@ -215,9 +216,14 @@ func (op *caasOperator) loop() (err error) {
 			op.config.Application,
 		)
 	}
+	// Take note of the current charm version attributes.
+	localState := LocalState{
+		CharmURL:             charmURL,
+		CharmModifiedVersion: charmModifiedVersion,
+	}
 
 	var (
-		watcher   *remotestate.RemoteStateWatcher
+		watcher   remotestate.Watcher
 		watcherMu sync.Mutex
 	)
 
@@ -226,7 +232,7 @@ func (op *caasOperator) loop() (err error) {
 		defer watcherMu.Unlock()
 
 		if watcher != nil {
-			// watcher added to catacomb, will kill uniter if there's an error.
+			// watcher added to catacomb, will kill operator if there's an error.
 			worker.Stop(watcher)
 		}
 		var err error
@@ -255,17 +261,48 @@ func (op *caasOperator) loop() (err error) {
 		return errors.Trace(err)
 	}
 
-	aliveUnits := make(set.Strings)
+	// Keep a record of the alive units an a channel used to notify
+	// their uniter workers when the charm version has changed.
+	aliveUnits := make(map[string]chan struct{})
 
 	if err = restartWatcher(); err != nil {
 		err = errors.Annotate(err, "(re)starting watcher")
 		return errors.Trace(err)
 	}
 
+	// We should not do anything until there has been a change
+	// to the remote state. The watcher will trigger at least
+	// once initially.
+	select {
+	case <-op.catacomb.Dying():
+		return op.catacomb.ErrDying()
+	case <-watcher.RemoteStateChanged():
+	}
+
 	for {
 		select {
 		case <-op.catacomb.Dying():
 			return op.catacomb.ErrDying()
+		case <-watcher.RemoteStateChanged():
+			snap := watcher.Snapshot()
+			if charmModified(localState, snap) {
+				// Charm changed so download and install the ne version.
+				charmURL, charmModifiedVersion, err := op.ensureCharm()
+				if err != nil {
+					return errors.Annotatef(err, "error downloading updated charm %v", charmURL.String())
+				}
+				localState.CharmURL = charmURL
+				localState.CharmModifiedVersion = charmModifiedVersion
+				// Notify all uniters of the change so they run the upgrade-charm hook.
+				for unitId, changedChan := range aliveUnits {
+					logger.Debugf("trigger upgrade charm for caas unit %v", unitId)
+					select {
+					case <-op.catacomb.Dying():
+						return op.catacomb.ErrDying()
+					case changedChan <- struct{}{}:
+					}
+				}
+			}
 		case units, ok := <-jujuUnitsWatcher.Changes():
 			if !ok {
 				return errors.New("watcher closed channel")
@@ -276,12 +313,12 @@ func (op *caasOperator) loop() (err error) {
 					return errors.Trace(err)
 				}
 				if errors.IsNotFound(err) || unitLife == life.Dead {
-					aliveUnits.Remove(unitId)
+					delete(aliveUnits, unitId)
 					if err := op.runner.StopWorker(unitId); err != nil {
 						return err
 					}
 				} else {
-					aliveUnits.Add(unitId)
+					aliveUnits[unitId] = make(chan struct{})
 				}
 				// Start a worker to manage any new units.
 				if _, err := op.runner.Worker(unitId, op.catacomb.Dying()); err == nil || unitLife == life.Dead {
@@ -300,6 +337,7 @@ func (op *caasOperator) loop() (err error) {
 				params.UnitTag = unitTag
 				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
 				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
+				params.ApplicationChannel = aliveUnits[unitId]
 				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
 					return errors.Trace(err)
 				}
@@ -308,33 +346,43 @@ func (op *caasOperator) loop() (err error) {
 	}
 }
 
-func (op *caasOperator) init() (err error) {
-	if err := op.ensureCharm(); err != nil {
-		return errors.Trace(err)
+func charmModified(local LocalState, remote remotestate.Snapshot) bool {
+	// CAAS models may not yet have read the charm url from state.
+	if remote.CharmURL == nil {
+		return false
 	}
-	return nil
+	if *local.CharmURL != *remote.CharmURL {
+		logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)
+		return true
+	}
+
+	if local.CharmModifiedVersion != remote.CharmModifiedVersion {
+		logger.Debugf("upgrade from CharmModifiedVersion %v to %v", local.CharmModifiedVersion, remote.CharmModifiedVersion)
+		return true
+	}
+	return false
 }
 
-func (op *caasOperator) ensureCharm() error {
+func (op *caasOperator) ensureCharm() (*charm.URL, int, error) {
 	charmDir := op.paths.GetCharmDir()
 	if _, err := os.Stat(charmDir); !os.IsNotExist(err) {
-		return errors.Trace(err)
+		return nil, 0, errors.Trace(err)
 	}
-	curl, _, sha256, _, err := op.config.CharmGetter.Charm(op.config.Application)
+	curl, _, sha256, vers, err := op.config.CharmGetter.Charm(op.config.Application)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, 0, errors.Trace(err)
 	}
 	if op.setStatus(status.Maintenance, "downloading charm (%s)", curl); err != nil {
-		return errors.Trace(err)
+		return nil, 0, errors.Trace(err)
 	}
 	if err := downloadCharm(
 		op.config.Downloader,
 		curl, sha256, charmDir,
 		op.catacomb.Dying(),
 	); err != nil {
-		return errors.Trace(err)
+		return nil, 0, errors.Trace(err)
 	}
-	return nil
+	return curl, vers, nil
 }
 
 func (op *caasOperator) setStatus(status status.Status, message string, args ...interface{}) error {

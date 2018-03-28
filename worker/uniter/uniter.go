@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/fortress"
@@ -99,6 +100,10 @@ type Uniter struct {
 	// the update-status hook
 	updateStatusAt remotestate.UpdateStatusTimerFunc
 
+	// applicationChannel, if set, is used to signal a change in the
+	// application's charm. It is passed to the remote state watcher.
+	applicationChannel watcher.NotifyChannel
+
 	// hookRetryStrategy represents configuration for hook retries
 	hookRetryStrategy params.RetryStrategy
 
@@ -121,6 +126,7 @@ type UniterParams struct {
 	NewOperationExecutor NewExecutorFunc
 	TranslateResolverErr func(error) error
 	Clock                clock.Clock
+	ApplicationChannel   watcher.NotifyChannel
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
 	// that write to files, and have the tests watch the output to know that hooks have finished.
@@ -166,6 +172,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 		observer:             uniterParams.Observer,
 		clock:                uniterParams.Clock,
 		downloader:           uniterParams.Downloader,
+		applicationChannel:   uniterParams.ApplicationChannel,
 	}
 	startFunc := func() (worker.Worker, error) {
 		if err := catacomb.Invoke(catacomb.Plan{
@@ -212,11 +219,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			return errors.Trace(err)
 		}
 		charmURL = curl
-		svc, err := u.unit.Application()
+		app, err := u.unit.Application()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		charmModifiedVersion, err = svc.CharmModifiedVersion()
+		charmModifiedVersion, err = app.CharmModifiedVersion()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -269,6 +276,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				UpdateStatusChannel: u.updateStatusAt,
 				CommandChannel:      u.commandChannel,
 				RetryHookChannel:    retryHookChan,
+				ApplicationChannel:  u.applicationChannel,
 				ModelType:           u.modelType,
 			})
 		if err != nil {

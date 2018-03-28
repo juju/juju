@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/uniter"
@@ -40,6 +41,7 @@ type WorkerSuite struct {
 	config                caasoperator.Config
 	unitsChanges          chan []string
 	appChanges            chan struct{}
+	appWatched            chan struct{}
 	client                fakeClient
 	charmDownloader       fakeDownloader
 	charmSHA256           string
@@ -71,7 +73,8 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.clock = testing.NewClock(time.Time{})
-	s.client = fakeClient{}
+	s.appWatched = make(chan struct{}, 1)
+	s.client = fakeClient{applicationWatched: s.appWatched}
 	s.unitsChanges = make(chan []string)
 	s.appChanges = make(chan struct{})
 	s.client.unitsWatcher = watchertest.NewMockStringsWatcher(s.unitsChanges)
@@ -186,12 +189,26 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	s.unitsChanges <- []string{"gitlab/0"}
-	s.client.CheckCallNames(c, "Charm", "SetStatus", "WatchUnits", "SetStatus", "Watch", "Life")
+	select {
+	case s.appChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending application change")
+	}
+	select {
+	case s.unitsChanges <- []string{"gitlab/0"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending unit change")
+	}
+	select {
+	case <-s.appWatched:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for application to be watched")
+	}
+
+	c.Assert(len(s.client.Calls()), jc.GreaterThan, 4)
 	s.client.CheckCall(c, 0, "Charm", "gitlab")
 	s.client.CheckCall(c, 2, "WatchUnits", "gitlab")
 	s.client.CheckCall(c, 4, "Watch", "gitlab")
-	s.client.CheckCall(c, 5, "Life", "gitlab/0")
 
 	s.charmDownloader.CheckCallNames(c, "Download")
 	downloadArgs := s.charmDownloader.Calls()[0].Args
@@ -234,6 +251,59 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for uniter to start")
+}
+
+func (s *WorkerSuite) TestUpgradeCharm(c *gc.C) {
+	var (
+		uniterStarted      int32
+		applicationChannel watcher.NotifyChannel
+	)
+	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
+		c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
+		atomic.AddInt32(&uniterStarted, 1)
+		applicationChannel = params.ApplicationChannel
+		return nil
+	}
+
+	w, err := caasoperator.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case s.appChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending application change")
+	}
+	select {
+	case s.unitsChanges <- []string{"gitlab/0"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending unit change")
+	}
+
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		if atomic.LoadInt32(&uniterStarted) > 0 {
+			return
+		}
+	}
+	c.Fatalf("timeout while waiting for uniter to start")
+
+	select {
+	case <-applicationChannel:
+		c.Fatal("unexpected application change")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	select {
+	case s.appChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending application change")
+	}
+
+	select {
+	case <-applicationChannel:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for application change")
+	}
 }
 
 func (s *WorkerSuite) TestWorkerSetsStatus(c *gc.C) {
