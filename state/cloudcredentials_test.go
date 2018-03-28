@@ -68,7 +68,7 @@ func (s *CloudCredentialsSuite) TestCreateInvalidCredential(c *gc.C) {
 	cred.InvalidReason = "because am testing you"
 	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
 	err = s.State.UpdateCloudCredential(tag, cred)
-	c.Assert(err, gc.ErrorMatches, "creating cloud credential: adding invalid credential not valid")
+	c.Assert(err, gc.ErrorMatches, "creating cloud credential: adding invalid credential not supported")
 }
 
 func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {

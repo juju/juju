@@ -135,7 +135,7 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		} else {
 			annotationMsg = "creating cloud credential"
 			if credential.Invalid || credential.InvalidReason != "" {
-				return nil, errors.NotValidf("adding invalid credential")
+				return nil, errors.NotSupportedf("adding invalid credential")
 			}
 			ops = append(ops, createCloudCredentialOp(tag, credential))
 		}
