@@ -234,7 +234,7 @@ func assertStopped(c *gc.C, w worker.Worker) {
 
 func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	FakePeriod(2)
-	keys := make([]string, 500)
+	keys := make([]string, 50)
 	for i := 0; i < len(keys); i++ {
 		keys[i] = fmt.Sprintf("being-%04d", i)
 	}
@@ -242,8 +242,7 @@ func (s *prunerSuite) TestDeepStressStaysSane(c *gc.C) {
 	// key. We then keep creating new pingers for each one, and rotate them
 	// into old, and stop them when they rotate out. So we potentially have
 	// 3 active pingers for each key. We should never see any key go
-	// inactive, because there is always at least 1 active pinger for each
-	// one
+	// inactive, because we ping when we start a Pinger.
 	oldPingers := make([]*Pinger, len(keys))
 	newPingers := make([]*Pinger, len(keys))
 	ch := make(chan Change)
