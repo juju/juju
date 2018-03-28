@@ -103,15 +103,15 @@ func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 func (s *environSuite) TestDestroy(c *gc.C) {
 	s.Client.Volumes = map[string][]api.StorageVolume{
 		"juju": []api.StorageVolume{{
+			Name: "not-ours",
 			StorageVolumePut: api.StorageVolumePut{
-				Name: "not-ours",
 				Config: map[string]string{
 					"user.juju-model-uuid": "other",
 				},
 			},
 		}, {
+			Name: "ours",
 			StorageVolumePut: api.StorageVolumePut{
-				Name: "ours",
 				Config: map[string]string{
 					"user.juju-model-uuid": s.Config.UUID(),
 				},
@@ -140,15 +140,15 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 
 	s.Client.Volumes = map[string][]api.StorageVolume{
 		"juju": []api.StorageVolume{{
+			Name: "not-ours",
 			StorageVolumePut: api.StorageVolumePut{
-				Name: "not-ours",
 				Config: map[string]string{
 					"user.juju-controller-uuid": "other",
 				},
 			},
 		}, {
+			Name: "ours",
 			StorageVolumePut: api.StorageVolumePut{
-				Name: "ours",
 				Config: map[string]string{
 					"user.juju-controller-uuid": s.Config.UUID(),
 				},

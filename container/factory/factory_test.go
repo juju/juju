@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
-	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
 )
@@ -40,11 +39,6 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		containerType: instance.ContainerType("other"),
 		valid:         false,
 	}} {
-		/* LXD isn't available in go 1.2 */
-		if test.containerType == instance.LXD && !lxd.HasLXDSupport() {
-			continue
-		}
-
 		conf := container.ManagerConfig{container.ConfigModelUUID: testing.ModelTag.Id()}
 		manager, err := factory.NewContainerManager(test.containerType, conf)
 		if test.valid {
