@@ -38,6 +38,7 @@ Currently available charm hook tools are:
     application-version-set  specify which version of the application is deployed
     close-port               ensure a port or range is always closed
     config-get               print application configuration
+    credential-get           access cloud credentials
     goal-state               print the status of the charm's peers and related units
     is-leader                print application leadership status
     juju-log                 write a message to the juju log
@@ -77,6 +78,7 @@ var expectedCommands = []string{
 	"application-version-set",
 	"close-port",
 	"config-get",
+	"credential-get",
 	"goal-state",
 	"is-leader",
 	"juju-log",

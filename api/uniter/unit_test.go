@@ -733,7 +733,11 @@ func (s *unitSuite) TestAddMetrics(c *gc.C) {
 			return nil
 		},
 	)
-	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
+	metrics := []params.Metric{{
+		Key: "A", Value: "23", Time: time.Now(),
+	}, {
+		Key: "B", Value: "27.0", Time: time.Now(), Labels: map[string]string{"foo": "bar"},
+	}}
 	err := s.apiUnit.AddMetrics(metrics)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -746,7 +750,11 @@ func (s *unitSuite) TestAddMetricsError(c *gc.C) {
 			return fmt.Errorf("test error")
 		},
 	)
-	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
+	metrics := []params.Metric{{
+		Key: "A", Value: "23", Time: time.Now(),
+	}, {
+		Key: "B", Value: "27.0", Time: time.Now(), Labels: map[string]string{"foo": "bar"},
+	}}
 	err := s.apiUnit.AddMetrics(metrics)
 	c.Assert(err, gc.ErrorMatches, "unable to add metric: test error")
 }
@@ -763,7 +771,11 @@ func (s *unitSuite) TestAddMetricsResultError(c *gc.C) {
 			return nil
 		},
 	)
-	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
+	metrics := []params.Metric{{
+		Key: "A", Value: "23", Time: time.Now(),
+	}, {
+		Key: "B", Value: "27.0", Time: time.Now(), Labels: map[string]string{"foo": "bar"},
+	}}
 	err := s.apiUnit.AddMetrics(metrics)
 	c.Assert(err, gc.ErrorMatches, "error adding metrics")
 }
@@ -890,7 +902,11 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *unitMetricBatchesSuite) TestSendMetricBatchPatch(c *gc.C) {
-	metrics := []params.Metric{{"pings", "5", time.Now().UTC()}}
+	metrics := []params.Metric{{
+		Key: "pings", Value: "5", Time: time.Now().UTC(),
+	}, {
+		Key: "pongs", Value: "6", Time: time.Now().UTC(), Labels: map[string]string{"foo": "bar"},
+	}}
 	uuid := utils.MustNewUUID().String()
 	batch := params.MetricBatch{
 		UUID:     uuid,
@@ -925,7 +941,11 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchFail(c *gc.C) {
 			result.Results[0].Error = common.ServerError(common.ErrPerm)
 			return nil
 		})
-	metrics := []params.Metric{{"pings", "5", time.Now().UTC()}}
+	metrics := []params.Metric{{
+		Key: "pings", Value: "5", Time: time.Now().UTC(),
+	}, {
+		Key: "pongs", Value: "6", Time: time.Now().UTC(), Labels: map[string]string{"foo": "bar"},
+	}}
 	uuid := utils.MustNewUUID().String()
 	batch := params.MetricBatch{
 		UUID:     uuid,
@@ -944,7 +964,11 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchFail(c *gc.C) {
 func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	now := time.Now().Round(time.Second).UTC()
-	metrics := []params.Metric{{"pings", "5", now}}
+	metrics := []params.Metric{{
+		Key: "pings", Value: "5", Time: now,
+	}, {
+		Key: "pongs", Value: "6", Time: time.Now().UTC(), Labels: map[string]string{"foo": "bar"},
+	}}
 	batch := params.MetricBatch{
 		UUID:     uuid,
 		CharmURL: s.charm.URL().String(),
@@ -963,8 +987,11 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
 	c.Assert(batches[0].UUID(), gc.Equals, uuid)
 	c.Assert(batches[0].Sent(), jc.IsFalse)
 	c.Assert(batches[0].CharmURL(), gc.Equals, s.charm.URL().String())
-	c.Assert(batches[0].Metrics(), gc.HasLen, 1)
-	c.Assert(batches[0].Metrics()[0].Key, gc.Equals, "pings")
+	c.Assert(batches[0].Metrics(), gc.HasLen, 2)
 	c.Assert(batches[0].Metrics()[0].Key, gc.Equals, "pings")
 	c.Assert(batches[0].Metrics()[0].Value, gc.Equals, "5")
+	c.Assert(batches[0].Metrics()[0].Labels, gc.HasLen, 0)
+	c.Assert(batches[0].Metrics()[1].Key, gc.Equals, "pongs")
+	c.Assert(batches[0].Metrics()[1].Value, gc.Equals, "6")
+	c.Assert(batches[0].Metrics()[1].Labels, gc.DeepEquals, map[string]string{"foo": "bar"})
 }

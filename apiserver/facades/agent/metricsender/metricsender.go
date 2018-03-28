@@ -85,6 +85,7 @@ func SendMetrics(st ModelBackend, sender MetricSender, clock clock.Clock, batchS
 		if err != nil {
 			return errors.Trace(err)
 		}
+		modelName := st.Name()
 		lenM := len(metrics)
 		if lenM == 0 {
 			if sent == 0 {
@@ -103,7 +104,7 @@ func SendMetrics(st ModelBackend, sender MetricSender, clock clock.Clock, batchS
 				heldBatches = append(heldBatches, m.UUID())
 				heldBatchUnits[m.Unit()] = true
 			} else {
-				wireData = append(wireData, ToWire(m))
+				wireData = append(wireData, ToWire(m, modelName))
 			}
 		}
 		response, err := sender.Send(wireData)
@@ -180,18 +181,20 @@ func DefaultMetricSender() MetricSender {
 
 // ToWire converts the state.MetricBatch into a type
 // that can be sent over the wire to the collector.
-func ToWire(mb *state.MetricBatch) *wireformat.MetricBatch {
+func ToWire(mb *state.MetricBatch, modelName string) *wireformat.MetricBatch {
 	metrics := make([]wireformat.Metric, len(mb.Metrics()))
 	for i, m := range mb.Metrics() {
 		metrics[i] = wireformat.Metric{
-			Key:   m.Key,
-			Value: m.Value,
-			Time:  m.Time.UTC(),
+			Key:    m.Key,
+			Value:  m.Value,
+			Time:   m.Time.UTC(),
+			Labels: m.Labels,
 		}
 	}
 	return &wireformat.MetricBatch{
 		UUID:           mb.UUID(),
 		ModelUUID:      mb.ModelUUID(),
+		ModelName:      modelName,
 		UnitName:       mb.Unit(),
 		CharmUrl:       mb.CharmURL(),
 		Created:        mb.Created().UTC(),

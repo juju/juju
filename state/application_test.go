@@ -92,6 +92,32 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
+func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
+	s.SetFeatureFlags(feature.CAAS)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+
+	// Add a compatible charm and force it.
+	sch := state.AddCustomCharm(c, st, "wordpress", "metadata.yaml", metaBase, "quantal", 2)
+
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+	}
+	err := app.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	ch, force, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
+	c.Assert(force, jc.IsTrue)
+}
+
 func (s *ApplicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Settings) charm.Settings {
 	result := ch.Config().DefaultSettings()
 	for name, value := range inSettings {
@@ -1390,7 +1416,7 @@ func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
 	assertOffersRef(c, s.State, "mysql", 2)
 
 	// Once the offer is removed, refcount is decremented.
-	err = ao.Remove("hosted-mysql")
+	err = ao.Remove("hosted-mysql", false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertOffersRef(c, s.State, "mysql", 1)
 
@@ -1400,7 +1426,7 @@ func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
 	assertOffersRef(c, s.State, "mysql", 1)
 
 	// Remove the last offer and the app can be destroyed.
-	err = ao.Remove("mysql-offer")
+	err = ao.Remove("mysql-offer", false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoOffersRef(c, s.State, "mysql")
 

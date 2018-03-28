@@ -649,26 +649,51 @@ func (s *crossmodelMockSuite) TestGetConsumeDetailsBadURL(c *gc.C) {
 
 func (s *crossmodelMockSuite) TestDestroyOffers(c *gc.C) {
 	var called bool
-	apiCaller := basetesting.APICallerFunc(
-		func(objType string,
-			version int,
-			id, request string,
-			a, result interface{},
-		) error {
-			called = true
-			c.Assert(request, gc.Equals, "DestroyOffers")
-			args, ok := a.(params.DestroyApplicationOffers)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.OfferURLs, jc.DeepEquals, []string{"me/prod.app"})
-			if results, ok := result.(*params.ErrorResults); ok {
-				results.Results = []params.ErrorResult{{
-					Error: &params.Error{Message: "fail"},
-				}}
-			}
-			return nil
-		})
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				called = true
+				c.Assert(request, gc.Equals, "DestroyOffers")
+				args, ok := a.(params.DestroyApplicationOffers)
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(args.Force, jc.IsTrue)
+				c.Assert(args.OfferURLs, jc.DeepEquals, []string{"me/prod.app"})
+				if results, ok := result.(*params.ErrorResults); ok {
+					results.Results = []params.ErrorResult{{
+						Error: &params.Error{Message: "fail"},
+					}}
+				}
+				return nil
+			},
+		),
+		BestVersion: 2,
+	}
 	client := applicationoffers.NewClient(apiCaller)
-	err := client.DestroyOffers("me/prod.app")
+	err := client.DestroyOffers(true, "me/prod.app")
 	c.Assert(err, gc.ErrorMatches, "fail")
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *crossmodelMockSuite) TestDestroyOffersForce(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Fail()
+				return nil
+			},
+		),
+		BestVersion: 1,
+	}
+	client := applicationoffers.NewClient(apiCaller)
+	err := client.DestroyOffers(true, "offer-url")
+
+	c.Assert(err, gc.ErrorMatches, "DestroyOffers\\(\\).* not implemented")
 }

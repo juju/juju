@@ -120,13 +120,18 @@ func (s *metricsRecorderSuite) TestInit(c *gc.C) {
 	w, err := spool.NewJSONMetricRecorder(
 		spool.MetricRecorderConfig{
 			SpoolDir: s.paths.GetMetricsSpoolDir(),
-			Metrics:  map[string]corecharm.Metric{"pings": corecharm.Metric{}},
+			Metrics: map[string]corecharm.Metric{
+				"pings": corecharm.Metric{},
+				"pongs": corecharm.Metric{},
+			},
 			CharmURL: "local:precise/wordpress",
 			UnitTag:  s.unitTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
-	err = w.AddMetric("pings", "5", time.Now())
+	err = w.AddMetric("pings", "5", time.Now(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = w.AddMetric("pongs", "10", time.Now(), map[string]string{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = w.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,9 +144,13 @@ func (s *metricsRecorderSuite) TestInit(c *gc.C) {
 	batch := batches[0]
 	c.Assert(batch.CharmURL, gc.Equals, "local:precise/wordpress")
 	c.Assert(batch.UUID, gc.Not(gc.Equals), "")
-	c.Assert(batch.Metrics, gc.HasLen, 1)
+	c.Assert(batch.Metrics, gc.HasLen, 2)
 	c.Assert(batch.Metrics[0].Key, gc.Equals, "pings")
 	c.Assert(batch.Metrics[0].Value, gc.Equals, "5")
+	c.Assert(batch.Metrics[0].Labels, gc.HasLen, 0)
+	c.Assert(batch.Metrics[1].Key, gc.Equals, "pongs")
+	c.Assert(batch.Metrics[1].Value, gc.Equals, "10")
+	c.Assert(batch.Metrics[1].Labels, gc.DeepEquals, map[string]string{"foo": "bar"})
 	c.Assert(batch.UnitTag, gc.Equals, s.unitTag)
 
 	err = r.Close()
@@ -194,7 +203,7 @@ func (s *metricsRecorderSuite) TestMetricValidation(c *gc.C) {
 		c.Assert(w, gc.NotNil)
 
 		c.Logf("running test: %s", test.about)
-		err = w.AddMetric(test.key, test.value, time.Now())
+		err = w.AddMetric(test.key, test.value, time.Now(), nil)
 		if test.expectedError != "" {
 			c.Assert(err, gc.ErrorMatches, test.expectedError)
 			err = w.Close()
@@ -236,7 +245,7 @@ func (s *metricsReaderSuite) SetUpTest(c *gc.C) {
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.w.AddMetric("pings", "5", time.Now())
+	err = s.w.AddMetric("pings", "5", time.Now(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.w.Close()
 	c.Assert(err, jc.ErrorIsNil)

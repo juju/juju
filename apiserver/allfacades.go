@@ -137,8 +137,10 @@ func AllFacades() *facade.Registry {
 	reg("Application", 3, application.NewFacadeV4)
 	reg("Application", 4, application.NewFacadeV4)
 	reg("Application", 5, application.NewFacadeV5) // adds AttachStorage & UpdateApplicationSeries & SetRelationStatus
+	reg("Application", 6, application.NewFacadeV6)
 
 	reg("ApplicationOffers", 1, applicationoffers.NewOffersAPI)
+	reg("ApplicationOffers", 2, applicationoffers.NewOffersAPIV2)
 	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
 	reg("Backups", 1, backups.NewFacade)
 	reg("Block", 2, block.NewAPI)
@@ -152,7 +154,6 @@ func AllFacades() *facade.Registry {
 	if featureflag.Enabled(feature.CAAS) {
 		// CAAS related facades.
 		// Move these to the correct place above once the feature flag disappears.
-		reg("Application", 6, application.NewFacadeV6)
 		reg("CAASFirewaller", 1, caasfirewaller.NewStateFacade)
 		reg("CAASOperator", 1, caasoperator.NewStateFacade)
 		reg("CAASAgent", 1, caasagent.NewStateFacade)

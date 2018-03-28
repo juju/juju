@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -23,6 +24,7 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/status"
 	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/caasoperator/remotestate"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/uniter"
 )
@@ -77,11 +79,11 @@ type Config struct {
 	// application status.
 	StatusSetter StatusSetter
 
-	// LifeGetter is an interface for getting the Life of an entity.
-	LifeGetter LifeGetter
-
 	// UnitGetter is an interface for getting a unit.
 	UnitGetter UnitGetter
+
+	// CharmApplication is an interface for getting info about an application's charm.
+	ApplicationWatcher ApplicationWatcher
 
 	// LeadershipTrackerFunc is a function for getting a leadership tracker.
 	LeadershipTrackerFunc func(unitTag names.UnitTag) leadership.Tracker
@@ -103,8 +105,8 @@ func (config Config) Validate() error {
 	if config.CharmGetter == nil {
 		return errors.NotValidf("missing CharmGetter")
 	}
-	if config.LifeGetter == nil {
-		return errors.NotValidf("missing LifeGetter")
+	if config.ApplicationWatcher == nil {
+		return errors.NotValidf("missing ApplicationWatcher")
 	}
 	if config.UnitGetter == nil {
 		return errors.NotValidf("missing UnitGetter")
@@ -214,6 +216,35 @@ func (op *caasOperator) loop() (err error) {
 		)
 	}
 
+	var (
+		watcher   *remotestate.RemoteStateWatcher
+		watcherMu sync.Mutex
+	)
+
+	restartWatcher := func() error {
+		watcherMu.Lock()
+		defer watcherMu.Unlock()
+
+		if watcher != nil {
+			// watcher added to catacomb, will kill uniter if there's an error.
+			worker.Stop(watcher)
+		}
+		var err error
+		watcher, err = remotestate.NewWatcher(
+			remotestate.WatcherConfig{
+				CharmGetter:        op.config.CharmGetter,
+				Application:        op.config.Application,
+				ApplicationWatcher: op.config.ApplicationWatcher,
+			})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := op.catacomb.Add(watcher); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+
 	jujuUnitsWatcher, err := op.config.UnitGetter.WatchUnits(op.config.Application)
 	if err != nil {
 		return errors.Trace(err)
@@ -226,6 +257,11 @@ func (op *caasOperator) loop() (err error) {
 
 	aliveUnits := make(set.Strings)
 
+	if err = restartWatcher(); err != nil {
+		err = errors.Annotate(err, "(re)starting watcher")
+		return errors.Trace(err)
+	}
+
 	for {
 		select {
 		case <-op.catacomb.Dying():
@@ -235,7 +271,7 @@ func (op *caasOperator) loop() (err error) {
 				return errors.New("watcher closed channel")
 			}
 			for _, unitId := range units {
-				unitLife, err := op.config.LifeGetter.Life(unitId)
+				unitLife, err := op.config.UnitGetter.Life(unitId)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
@@ -284,7 +320,7 @@ func (op *caasOperator) ensureCharm() error {
 	if _, err := os.Stat(charmDir); !os.IsNotExist(err) {
 		return errors.Trace(err)
 	}
-	curl, sha256, err := op.config.CharmGetter.Charm(op.config.Application)
+	curl, _, sha256, _, err := op.config.CharmGetter.Charm(op.config.Application)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -139,7 +139,7 @@ type ApplicationOffers interface {
 	ListOffers(filter ...ApplicationOfferFilter) ([]ApplicationOffer, error)
 
 	// Remove removes the application offer at the specified URL.
-	Remove(offerName string) error
+	Remove(offerName string, force bool) error
 
 	// AllApplicationOffers returns all application offers in the model.
 	AllApplicationOffers() (offers []*ApplicationOffer, _ error)

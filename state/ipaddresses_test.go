@@ -306,9 +306,15 @@ func (s *ipAddressesStateSuite) TestMachineAllNetworkAddresses(c *gc.C) {
 	for i := range addedAddresses {
 		expected[i] = addedAddresses[i].NetworkAddress()
 	}
+	sort.Slice(expected, func(i, j int) bool {
+		return expected[i].Value < expected[j].Value
+	})
 
 	networkAddresses, err := s.machine.AllNetworkAddresses()
 	c.Assert(err, jc.ErrorIsNil)
+	sort.Slice(networkAddresses, func(i, j int) bool {
+		return networkAddresses[i].Value < networkAddresses[j].Value
+	})
 	c.Assert(networkAddresses, jc.DeepEquals, expected)
 }
 

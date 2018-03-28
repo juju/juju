@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -2140,4 +2141,66 @@ func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
 		Scope: network.ScopeMachineLocal,
 		Type:  network.IPv4Address,
 	}})
+}
+
+func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
+	unit, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := unit.WatchContainerAddresses()
+	defer w.Stop()
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	// Change the container port: not reported.
+	var updateUnits state.UpdateUnitsOperation
+	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
+		Ports: &[]string{"443"},
+	})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Set container addresses: reported.
+	addr := "10.0.0.1"
+	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
+		Address: &addr,
+	})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Set different machine addresses: reported.
+	addr = "10.0.0.2"
+	updateUnits.Updates = []*state.UpdateUnitOperation{unit.UpdateOperation(state.UnitUpdateProperties{
+		Address: &addr,
+	})}
+	err = s.application.UpdateUnits(&updateUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Make it Dying: not reported.
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Make it Dead: not reported.
+	err = unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Remove it: watcher eventually closed and Err
+	// returns an IsNotFound error.
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State.StartSync()
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("watcher not closed")
+	}
+	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
 }

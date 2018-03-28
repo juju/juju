@@ -1750,15 +1750,20 @@ func (u *UniterAPI) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	machineId, err := unit.AssignedMachineId()
-	if err != nil {
-		return "", err
+	var watch state.NotifyWatcher
+	if unit.ShouldBeAssigned() {
+		machineId, err := unit.AssignedMachineId()
+		if err != nil {
+			return "", err
+		}
+		machine, err := u.st.Machine(machineId)
+		if err != nil {
+			return "", err
+		}
+		watch = machine.WatchAddresses()
+	} else {
+		watch = unit.WatchContainerAddresses()
 	}
-	machine, err := u.st.Machine(machineId)
-	if err != nil {
-		return "", err
-	}
-	watch := machine.WatchAddresses()
 	// Consume the initial event. Technically, API
 	// calls to Watch 'transmit' the initial event
 	// in the Watch response. But NotifyWatchers
@@ -1914,9 +1919,10 @@ func (u *UniterAPI) AddMetricBatches(args params.MetricBatchParams) (params.Erro
 		metrics := make([]state.Metric, len(batch.Batch.Metrics))
 		for j, metric := range batch.Batch.Metrics {
 			metrics[j] = state.Metric{
-				Key:   metric.Key,
-				Value: metric.Value,
-				Time:  metric.Time,
+				Key:    metric.Key,
+				Value:  metric.Value,
+				Time:   metric.Time,
+				Labels: metric.Labels,
 			}
 		}
 		_, err = u.st.AddMetrics(state.BatchParam{

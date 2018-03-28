@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -405,8 +406,33 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 		}
 	}
 
-	connection, err := websocketDial(dialer, target.String(), requestHeader)
+	connection, resp, err := websocketDial(dialer, target.String(), requestHeader)
 	if err != nil {
+		// TODO(http): move this into websocketDial
+		if err == websocket.ErrBadHandshake {
+			// If ErrBadHandshake is returned, a non-nil response
+			// is returned so the client can react to auth errors
+			// (for example).
+			defer resp.Body.Close()
+			body, readErr := ioutil.ReadAll(resp.Body)
+			if readErr != nil {
+				return nil, err
+			}
+			if resp.Header.Get("Content-Type") == "application/json" {
+				var result params.ErrorResult
+				jsonErr := json.Unmarshal(body, &result)
+				if jsonErr != nil {
+					return nil, errors.Annotate(jsonErr, "reading error response")
+				}
+				return nil, result.Error
+			}
+
+			err = errors.Errorf(
+				"%s (%s)",
+				strings.TrimSpace(string(body)),
+				http.StatusText(resp.StatusCode),
+			)
+		}
 		return nil, err
 	}
 	if err := readInitialStreamError(connection); err != nil {
@@ -630,8 +656,22 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 		WriteBufferSize: websocketFrameSize,
 	}
 	// Note: no extra headers.
-	c, _, err := dialer.Dial(urlStr, nil)
+	c, resp, err := dialer.Dial(urlStr, nil)
 	if err != nil {
+		if err == websocket.ErrBadHandshake {
+			// If ErrBadHandshake is returned, a non-nil response
+			// is returned so the client can react to auth errors
+			// (for example).
+			defer resp.Body.Close()
+			body, readErr := ioutil.ReadAll(resp.Body)
+			if readErr == nil {
+				err = errors.Errorf(
+					"%s (%s)",
+					strings.TrimSpace(string(body)),
+					http.StatusText(resp.StatusCode),
+				)
+			}
+		}
 		return nil, err
 	}
 	return jsoncodec.NewWebsocketConn(c), nil

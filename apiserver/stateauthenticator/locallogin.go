@@ -1,13 +1,14 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2016-2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package stateauthenticator
 
 import (
 	"net/http"
 
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
+	"github.com/juju/loggo"
 	"github.com/julienschmidt/httprouter"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
@@ -15,25 +16,50 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	macaroon "gopkg.in/macaroon.v2-unstable"
 
+	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
 var (
-	errorMapper httprequest.ErrorMapper = httpbakery.ErrorToResponse
-	handleJSON                          = errorMapper.HandleJSON
+	logger = loggo.GetLogger("juju.apiserver.stateauthenticator")
 )
-
-func makeHandler(h httprouter.Handle) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		h(w, req, nil)
-	})
-}
 
 type localLoginHandlers struct {
 	authCtxt *authContext
-	state    *state.State
+	finder   state.EntityFinder
+}
+
+// AddHandlers adds the local login handlers to the given mux.
+func (h *localLoginHandlers) AddHandlers(mux *apiserverhttp.Mux) {
+	var errorMapper httprequest.ErrorMapper = httpbakery.ErrorToResponse
+	var handleJSON = errorMapper.HandleJSON
+	makeHandler := func(h httprouter.Handle) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			h(w, req, nil)
+		})
+	}
+	dischargeMux := http.NewServeMux()
+	httpbakery.AddDischargeHandler(
+		dischargeMux,
+		localUserIdentityLocationPath,
+		h.authCtxt.localUserThirdPartyBakeryService,
+		h.checkThirdPartyCaveat,
+	)
+	dischargeMux.Handle(
+		localUserIdentityLocationPath+"/login",
+		makeHandler(handleJSON(h.serveLogin)),
+	)
+	dischargeMux.Handle(
+		localUserIdentityLocationPath+"/wait",
+		makeHandler(handleJSON(h.serveWait)),
+	)
+	mux.AddHandler("POST", localUserIdentityLocationPath+"/discharge", dischargeMux)
+	mux.AddHandler("GET", localUserIdentityLocationPath+"/publickey", dischargeMux)
+	mux.AddHandler("GET", localUserIdentityLocationPath+"/wait", dischargeMux)
+	mux.AddHandler("GET", localUserIdentityLocationPath+"/login", dischargeMux)
+	mux.AddHandler("POST", localUserIdentityLocationPath+"/login", dischargeMux)
 }
 
 func (h *localLoginHandlers) serveLogin(p httprequest.Params) (interface{}, error) {
@@ -66,7 +92,7 @@ func (h *localLoginHandlers) serveLoginPost(p httprequest.Params) (interface{}, 
 	}
 
 	authenticator := h.authCtxt.authenticator(p.Request.Host)
-	if _, err := authenticator.Authenticate(h.state, userTag, params.LoginRequest{
+	if _, err := authenticator.Authenticate(h.finder, userTag, params.LoginRequest{
 		Credentials: password,
 	}); err != nil {
 		// Mark the interaction as done (but failed),

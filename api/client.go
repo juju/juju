@@ -554,12 +554,14 @@ func (c *Client) AgentVersion() (version.Number, error) {
 
 // websocketDial is called instead of dialer.Dial so we can override it in
 // tests.
-var websocketDial = func(dialer *websocket.Dialer, urlStr string, requestHeader http.Header) (base.Stream, error) {
-	c, _, err := dialer.Dial(urlStr, requestHeader)
+var websocketDial = func(dialer *websocket.Dialer, urlStr string, requestHeader http.Header) (base.Stream, *http.Response, error) {
+	c, resp, err := dialer.Dial(urlStr, requestHeader)
 	if err != nil {
-		return nil, errors.Trace(err)
+		// In websocket handshake errors the response is returned to
+		// enable reading error details.
+		return nil, resp, err
 	}
-	return c, nil
+	return c, nil, nil
 }
 
 // WatchDebugLog returns a channel of structured Log Messages. Only log entries

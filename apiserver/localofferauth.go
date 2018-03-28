@@ -10,6 +10,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 
+	"github.com/juju/juju/apiserver/bakeryutil"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/state"
 )
@@ -27,7 +28,7 @@ func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error)
 	// local offer access authentication. This service does not persist keys;
 	// its macaroons should be very short-lived.
 	st := pool.SystemState()
-	localOfferThirdPartyBakeryService, _, err := newBakeryService(st, nil, nil)
+	localOfferThirdPartyBakeryService, _, err := bakeryutil.NewBakeryService(st, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -38,14 +39,14 @@ func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	locator := bakeryServicePublicKeyLocator{localOfferThirdPartyBakeryService}
-	localUserBakeryService, localUserBakeryServiceKey, err := newBakeryService(
+	locator := bakeryutil.BakeryServicePublicKeyLocator{localOfferThirdPartyBakeryService}
+	localUserBakeryService, localUserBakeryServiceKey, err := bakeryutil.NewBakeryService(
 		st, store, locator,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	localOfferBakeryService := &expirableStorageBakeryService{
+	localOfferBakeryService := &bakeryutil.ExpirableStorageBakeryService{
 		localUserBakeryService, localUserBakeryServiceKey, store, locator,
 	}
 	authCtx, err := crossmodel.NewAuthContext(crossmodel.GetStatePool(pool), localOfferThirdPartyBakeryService, localOfferBakeryService)

@@ -138,25 +138,22 @@ func signalAll(st *mockState, l *mockLeadershipTracker) {
 	st.unit.unitWatcher.changes <- struct{}{}
 	st.unit.configSettingsWatcher.changes <- struct{}{}
 	st.unit.actionWatcher.changes <- []string{}
-	st.unit.application.applicationWatcher.changes <- struct{}{}
 	st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	st.unit.relationsWatcher.changes <- []string{}
+	st.unit.addressesWatcher.changes <- struct{}{}
 	st.updateStatusIntervalWatcher.changes <- struct{}{}
 	l.claimTicket.ch <- struct{}{}
 	if st.modelType == model.IAAS {
-		st.unit.addressesWatcher.changes <- struct{}{}
 		st.unit.storageWatcher.changes <- []string{}
+		st.unit.application.applicationWatcher.changes <- struct{}{}
 	}
 }
 
-func (s *WatcherSuite) TestSnapshot(c *gc.C) {
+func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 	signalAll(s.st, s.leadership)
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	expectedVersion := 2 // config settings and addresses
-	if s.modelType == model.CAAS {
-		expectedVersion = 1 // config settings
-	}
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Life:                  s.st.unit.life,
@@ -164,6 +161,27 @@ func (s *WatcherSuite) TestSnapshot(c *gc.C) {
 		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
 		CharmModifiedVersion:  s.st.unit.application.charmModifiedVersion,
 		CharmURL:              s.st.unit.application.curl,
+		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
+		ResolvedMode:          s.st.unit.resolved,
+		ConfigVersion:         expectedVersion,
+		LeaderSettingsVersion: 1,
+		Leader:                true,
+		Series:                "",
+	})
+}
+
+func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
+	signalAll(s.st, s.leadership)
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	expectedVersion := 2 // config settings and addresses
+	snap := s.watcher.Snapshot()
+	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
+		Life:                  s.st.unit.life,
+		Relations:             map[int]remotestate.RelationSnapshot{},
+		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
+		CharmModifiedVersion:  0,
+		CharmURL:              nil,
 		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
 		ResolvedMode:          s.st.unit.resolved,
 		ConfigVersion:         expectedVersion,
@@ -198,26 +216,24 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ResolvedMode, gc.Equals, params.ResolvedRetryHooks)
 
+	s.st.unit.addressesWatcher.changes <- struct{}{}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, initial.ConfigVersion+1)
+
 	if s.modelType == model.IAAS {
-		s.st.unit.addressesWatcher.changes <- struct{}{}
-		assertOneChange()
-		c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, initial.ConfigVersion+1)
 		s.st.unit.storageWatcher.changes <- []string{}
 		assertOneChange()
+
+		s.st.unit.application.forceUpgrade = true
+		s.st.unit.application.applicationWatcher.changes <- struct{}{}
+		assertOneChange()
+		c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
 	}
 
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
 	assertOneChange()
 	expectVersion := initial.ConfigVersion + 2
-	if s.modelType == model.CAAS {
-		expectVersion = initial.ConfigVersion + 1
-	}
 	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, expectVersion)
-
-	s.st.unit.application.forceUpgrade = true
-	s.st.unit.application.applicationWatcher.changes <- struct{}{}
-	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
 
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	assertOneChange()

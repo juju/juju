@@ -27,5 +27,12 @@ func stateStepsFor24() []Step {
 				return context.State().CreateMissingApplicationConfig()
 			},
 		},
+		&upgradeStep{
+			description: "remove votingmachineids",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().CreateMissingApplicationConfig()
+			},
+		},
 	}
 }

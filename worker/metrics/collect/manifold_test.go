@@ -135,8 +135,9 @@ type errorRecorder struct {
 	*spool.JSONMetricRecorder
 }
 
-func (e *errorRecorder) AddMetric(key, value string, created time.Time) (err error) {
-	return e.JSONMetricRecorder.AddMetric(key, "bad", created)
+func (e *errorRecorder) AddMetric(
+	key, value string, created time.Time, labels map[string]string) (err error) {
+	return e.JSONMetricRecorder.AddMetric(key, "bad", created, labels)
 }
 
 func (s *ManifoldSuite) TestRecordMetricsError(c *gc.C) {
@@ -317,7 +318,8 @@ type dummyRecorder struct {
 	batches []spool.MetricBatch
 }
 
-func (r *dummyRecorder) AddMetric(key, value string, created time.Time) error {
+func (r *dummyRecorder) AddMetric(
+	key, value string, created time.Time, labels map[string]string) error {
 	if r.err != "" {
 		return errors.New(r.err)
 	}
@@ -327,9 +329,10 @@ func (r *dummyRecorder) AddMetric(key, value string, created time.Time) error {
 		UUID:     utils.MustNewUUID().String(),
 		Created:  then,
 		Metrics: []jujuc.Metric{{
-			Key:   key,
-			Value: value,
-			Time:  then,
+			Key:    key,
+			Value:  value,
+			Time:   then,
+			Labels: labels,
 		}},
 		UnitTag: r.unitTag,
 	})

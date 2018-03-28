@@ -175,8 +175,8 @@ func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
 	t1 := t0.Add(time.Second)
-	metricA := state.Metric{"pings", "5", t0}
-	metricB := state.Metric{"pings", "10.5", t1}
+	metricA := state.Metric{Key: "pings", Value: "5", Time: t0}
+	metricB := state.Metric{Key: "pings", Value: "10.5", Time: t1}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA, metricB}})
 	args := params.Entities{Entities: []params.Entity{
@@ -199,6 +199,41 @@ func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 	})
 }
 
+func (s *metricsDebugSuite) TestGetMetricsLabelOrdering(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
+	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	t0 := time.Now().Round(time.Second)
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{{
+		Key: "pings", Value: "6", Time: t0,
+	}, {
+		Key: "pings", Value: "2", Time: t0, Labels: map[string]string{"quux": "baz"},
+	}, {
+		Key: "pings", Value: "3", Time: t0, Labels: map[string]string{"foo": "bar"},
+	}, {
+		Key: "pings", Value: "1", Time: t0, Labels: map[string]string{"abc": "123"},
+	}}})
+	args := params.Entities{Entities: []params.Entity{
+		{"unit-metered/0"},
+	}}
+	result, err := s.metricsdebug.GetMetrics(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Metrics, gc.HasLen, 4)
+	c.Assert(result.Results[0], jc.DeepEquals, params.EntityMetrics{
+		Metrics: []params.MetricResult{{
+			Unit: "metered/0", Key: "pings", Value: "6", Time: t0,
+		}, {
+			Unit: "metered/0", Key: "pings", Value: "1", Time: t0, Labels: map[string]string{"abc": "123"},
+		}, {
+			Unit: "metered/0", Key: "pings", Value: "3", Time: t0, Labels: map[string]string{"foo": "bar"},
+		}, {
+			Unit: "metered/0", Key: "pings", Value: "2", Time: t0, Labels: map[string]string{"quux": "baz"},
+		}},
+		Error: nil,
+	})
+}
+
 func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
 	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
@@ -206,9 +241,9 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
 	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
 	t1 := t0.Add(time.Second)
-	metricA := state.Metric{"pings", "5", t1}
-	metricB := state.Metric{"pings", "10.5", t0}
-	metricC := state.Metric{"juju-units", "8", t1}
+	metricA := state.Metric{Key: "pings", Value: "5", Time: t1}
+	metricB := state.Metric{Key: "pings", Value: "10.5", Time: t0}
+	metricC := state.Metric{Key: "juju-units", Value: "8", Time: t1}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB, metricC}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB, metricC}})
 	args := params.Entities{}
@@ -216,12 +251,7 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 4)
-	c.Assert(result.Results[0].Metrics, jc.SameContents, []params.MetricResult{{
-		Key:   "pings",
-		Value: "5",
-		Time:  t1,
-		Unit:  "metered/0",
-	}, {
+	c.Assert(result.Results[0].Metrics, gc.DeepEquals, []params.MetricResult{{
 		Key:   "juju-units",
 		Value: "8",
 		Time:  t1,
@@ -229,11 +259,16 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
 	}, {
 		Key:   "pings",
 		Value: "5",
+		Time:  t1,
+		Unit:  "metered/0",
+	}, {
+		Key:   "juju-units",
+		Value: "8",
 		Time:  t1,
 		Unit:  "metered/1",
 	}, {
-		Key:   "juju-units",
-		Value: "8",
+		Key:   "pings",
+		Value: "5",
 		Time:  t1,
 		Unit:  "metered/1",
 	}},
@@ -247,9 +282,9 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWhenNotAllMetricsInEac
 	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
 	t1 := t0.Add(time.Second)
-	metricA := state.Metric{"pings", "5", t1}
-	metricB := state.Metric{"pings", "10.5", t0}
-	metricC := state.Metric{"juju-units", "8", t1}
+	metricA := state.Metric{Key: "pings", Value: "5", Time: t1}
+	metricB := state.Metric{Key: "pings", Value: "10.5", Time: t0}
+	metricC := state.Metric{Key: "juju-units", Value: "8", Time: t1}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB, metricC}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB}})
 	args := params.Entities{}
@@ -257,14 +292,14 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWhenNotAllMetricsInEac
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 3)
-	c.Assert(result.Results[0].Metrics, jc.SameContents, []params.MetricResult{{
-		Key:   "pings",
-		Value: "5",
+	c.Assert(result.Results[0].Metrics, gc.DeepEquals, []params.MetricResult{{
+		Key:   "juju-units",
+		Value: "8",
 		Time:  t1,
 		Unit:  "metered/0",
 	}, {
-		Key:   "juju-units",
-		Value: "8",
+		Key:   "pings",
+		Value: "5",
 		Time:  t1,
 		Unit:  "metered/0",
 	}, {
@@ -283,9 +318,9 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWithMultipleBatchesPer
 	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
 	t1 := t0.Add(time.Second)
-	metricA := state.Metric{"pings", "5", t1}
-	metricB := state.Metric{"pings", "10.5", t0}
-	metricC := state.Metric{"juju-units", "8", t1}
+	metricA := state.Metric{Key: "pings", Value: "5", Time: t1}
+	metricB := state.Metric{Key: "pings", Value: "10.5", Time: t0}
+	metricC := state.Metric{Key: "juju-units", Value: "8", Time: t1}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricC}})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB}})
@@ -294,14 +329,14 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWithMultipleBatchesPer
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 3)
-	c.Assert(result.Results[0].Metrics, jc.SameContents, []params.MetricResult{{
-		Key:   "pings",
-		Value: "5",
+	c.Assert(result.Results[0].Metrics, jc.DeepEquals, []params.MetricResult{{
+		Key:   "juju-units",
+		Value: "8",
 		Time:  t1,
 		Unit:  "metered/0",
 	}, {
-		Key:   "juju-units",
-		Value: "8",
+		Key:   "pings",
+		Value: "5",
 		Time:  t1,
 		Unit:  "metered/0",
 	}, {

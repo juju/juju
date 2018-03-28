@@ -32,6 +32,7 @@ type ManifoldSuite struct {
 	manifold dependency.Manifold
 	context  dependency.Context
 	agent    *mockAgent
+	auth     *mockAuthenticator
 	hub      *pubsub.StructuredHub
 	mux      *apiserverhttp.Mux
 	worker   worker.Worker
@@ -53,6 +54,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+	s.auth = &mockAuthenticator{}
 	s.hub = centralhub.New(tag)
 	s.mux = &apiserverhttp.Mux{}
 	s.stub.ResetCalls()
@@ -62,18 +64,20 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.manifold = rafttransport.Manifold(rafttransport.ManifoldConfig{
-		AgentName: "agent",
-		HubName:   "hub",
-		MuxName:   "mux",
-		DialConn:  s.dialConn,
-		NewWorker: s.newWorker,
-		Path:      "raft/path",
+		AgentName:         "agent",
+		AuthenticatorName: "auth",
+		HubName:           "hub",
+		MuxName:           "mux",
+		DialConn:          s.dialConn,
+		NewWorker:         s.newWorker,
+		Path:              "raft/path",
 	})
 }
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
 		"agent": s.agent,
+		"auth":  s.auth,
 		"hub":   s.hub,
 		"mux":   s.mux,
 	}
@@ -96,7 +100,7 @@ func (s *ManifoldSuite) dialConn(ctx context.Context, addr string, tlsConfig *tl
 	return nil, s.stub.NextErr()
 }
 
-var expectedInputs = []string{"agent", "hub", "mux"}
+var expectedInputs = []string{"agent", "auth", "hub", "mux"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -134,10 +138,11 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 			Addrs:  []string{"testing.invalid:1234"},
 			CACert: coretesting.CACert,
 		},
-		Hub:  s.hub,
-		Mux:  s.mux,
-		Path: "raft/path",
-		Tag:  s.agent.conf.tag,
+		Hub:           s.hub,
+		Mux:           s.mux,
+		Authenticator: s.auth,
+		Path:          "raft/path",
+		Tag:           s.agent.conf.tag,
 	})
 }
 

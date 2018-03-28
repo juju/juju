@@ -703,9 +703,10 @@ type ProvisioningInfoResults struct {
 
 // Metric holds a single metric.
 type Metric struct {
-	Key   string    `json:"key"`
-	Value string    `json:"value"`
-	Time  time.Time `json:"time"`
+	Key    string            `json:"key"`
+	Value  string            `json:"value"`
+	Time   time.Time         `json:"time"`
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // MetricsParam contains the metrics for a single unit.

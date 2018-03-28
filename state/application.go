@@ -706,63 +706,7 @@ func (a *Application) changeCharmOps(
 		Assert: bson.D{{"unitcount", len(units)}},
 	})
 
-	// Check storage to ensure no referenced storage is removed, or changed
-	// in an incompatible way. We do this before computing the new storage
-	// constraints, as incompatible charm changes will otherwise yield
-	// confusing error messages that would suggest the user has supplied
-	// invalid constraints.
-	im, err := a.st.IAASModel()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	oldCharm, _, err := a.Charm()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	oldMeta := oldCharm.Meta()
-	checkStorageOps, err := a.checkStorageUpgrade(ch.Meta(), oldMeta, units)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Create or replace storage constraints. We take the existing storage
-	// constraints, remove any keys that are no longer referenced by the
-	// charm, and update the constraints that the user has specified.
-	var storageConstraintsOp txn.Op
-	oldStorageConstraints, err := a.StorageConstraints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	newStorageConstraints := oldStorageConstraints
-	for name, cons := range updatedStorageConstraints {
-		newStorageConstraints[name] = cons
-	}
-	for name := range newStorageConstraints {
-		if _, ok := ch.Meta().Storage[name]; !ok {
-			delete(newStorageConstraints, name)
-		}
-	}
-	if err := addDefaultStorageConstraints(im, newStorageConstraints, ch.Meta()); err != nil {
-		return nil, errors.Annotate(err, "adding default storage constraints")
-	}
-	if err := validateStorageConstraints(im, newStorageConstraints, ch.Meta()); err != nil {
-		return nil, errors.Annotate(err, "validating storage constraints")
-	}
-	newStorageConstraintsKey := applicationStorageConstraintsKey(a.doc.Name, ch.URL())
-	if _, err := readStorageConstraints(im.mb, newStorageConstraintsKey); errors.IsNotFound(err) {
-		storageConstraintsOp = createStorageConstraintsOp(
-			newStorageConstraintsKey, newStorageConstraints,
-		)
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	} else {
-		storageConstraintsOp = replaceStorageConstraintsOp(
-			newStorageConstraintsKey, newStorageConstraints,
-		)
-	}
-
-	// Upgrade charm storage.
-	upgradeStorageOps, err := a.upgradeStorageOps(ch.Meta(), oldMeta, units, newStorageConstraints)
+	checkStorageOps, upgradeStorageOps, storageConstraintsOps, err := a.newCharmStorageOps(ch, units, updatedStorageConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -794,8 +738,6 @@ func (a *Application) changeCharmOps(
 	ops = append(ops, []txn.Op{
 		// Create or replace new settings.
 		settingsOp,
-		// Create storage constraints.
-		storageConstraintsOp,
 		// Update the charm URL and force flag (if relevant).
 		{
 			C:  applicationsC,
@@ -807,6 +749,7 @@ func (a *Application) changeCharmOps(
 			}}},
 		},
 	}...)
+	ops = append(ops, storageConstraintsOps...)
 	ops = append(ops, checkStorageOps...)
 	ops = append(ops, upgradeStorageOps...)
 
@@ -867,6 +810,87 @@ func (a *Application) changeCharmOps(
 
 	// And finally, decrement the old charm and settings.
 	return append(ops, decOps...), nil
+}
+
+func (a *Application) newCharmStorageOps(
+	ch *Charm,
+	units []*Unit,
+	updatedStorageConstraints map[string]StorageConstraints,
+) ([]txn.Op, []txn.Op, []txn.Op, error) {
+
+	fail := func(err error) ([]txn.Op, []txn.Op, []txn.Op, error) {
+		return nil, nil, nil, errors.Trace(err)
+	}
+
+	model, err := a.st.Model()
+	if err != nil {
+		return fail(err)
+	}
+	if model.Type() != ModelTypeIAAS {
+		// Only IAAS models have storage.
+		return fail(nil)
+	}
+	// Check storage to ensure no referenced storage is removed, or changed
+	// in an incompatible way. We do this before computing the new storage
+	// constraints, as incompatible charm changes will otherwise yield
+	// confusing error messages that would suggest the user has supplied
+	// invalid constraints.
+	im, err := a.st.IAASModel()
+	if err != nil {
+		return fail(err)
+	}
+	oldCharm, _, err := a.Charm()
+	if err != nil {
+		return fail(err)
+	}
+	oldMeta := oldCharm.Meta()
+	checkStorageOps, err := a.checkStorageUpgrade(ch.Meta(), oldMeta, units)
+	if err != nil {
+		return fail(err)
+	}
+
+	// Create or replace storage constraints. We take the existing storage
+	// constraints, remove any keys that are no longer referenced by the
+	// charm, and update the constraints that the user has specified.
+	var storageConstraintsOp txn.Op
+	oldStorageConstraints, err := a.StorageConstraints()
+	if err != nil {
+		return fail(err)
+	}
+	newStorageConstraints := oldStorageConstraints
+	for name, cons := range updatedStorageConstraints {
+		newStorageConstraints[name] = cons
+	}
+	for name := range newStorageConstraints {
+		if _, ok := ch.Meta().Storage[name]; !ok {
+			delete(newStorageConstraints, name)
+		}
+	}
+	if err := addDefaultStorageConstraints(im, newStorageConstraints, ch.Meta()); err != nil {
+		return fail(errors.Annotate(err, "adding default storage constraints"))
+	}
+	if err := validateStorageConstraints(im, newStorageConstraints, ch.Meta()); err != nil {
+		return fail(errors.Annotate(err, "validating storage constraints"))
+	}
+	newStorageConstraintsKey := applicationStorageConstraintsKey(a.doc.Name, ch.URL())
+	if _, err := readStorageConstraints(im.mb, newStorageConstraintsKey); errors.IsNotFound(err) {
+		storageConstraintsOp = createStorageConstraintsOp(
+			newStorageConstraintsKey, newStorageConstraints,
+		)
+	} else if err != nil {
+		return fail(err)
+	} else {
+		storageConstraintsOp = replaceStorageConstraintsOp(
+			newStorageConstraintsKey, newStorageConstraints,
+		)
+	}
+
+	// Upgrade charm storage.
+	upgradeStorageOps, err := a.upgradeStorageOps(ch.Meta(), oldMeta, units, newStorageConstraints)
+	if err != nil {
+		return fail(err)
+	}
+	return checkStorageOps, upgradeStorageOps, []txn.Op{storageConstraintsOp}, nil
 }
 
 func (a *Application) upgradeStorageOps(

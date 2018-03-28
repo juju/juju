@@ -12,7 +12,6 @@ import (
 	coreapiserver "github.com/juju/juju/apiserver"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiserver"
@@ -79,16 +78,12 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		return
 	}
 	args := s.stub.Calls()[0].Args
-	c.Assert(args, gc.HasLen, 2)
-	c.Assert(args[0], gc.FitsTypeOf, &state.StatePool{})
-	c.Assert(args[1], gc.FitsTypeOf, coreapiserver.ServerConfig{})
-	config := args[1].(coreapiserver.ServerConfig)
+	c.Assert(args, gc.HasLen, 1)
+	c.Assert(args[0], gc.FitsTypeOf, coreapiserver.ServerConfig{})
+	config := args[0].(coreapiserver.ServerConfig)
 
 	c.Assert(config.RegisterIntrospectionHandlers, gc.NotNil)
 	config.RegisterIntrospectionHandlers = nil
-
-	c.Assert(config.GetCertificate, gc.NotNil)
-	config.GetCertificate = nil
 
 	c.Assert(config.UpgradeComplete, gc.NotNil)
 	config.UpgradeComplete = nil
@@ -108,14 +103,15 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
 
 	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
-		ListenAddr:           ":0",
+		StatePool:            s.StatePool,
+		Authenticator:        s.authenticator,
+		Mux:                  s.mux,
 		Clock:                s.clock,
 		Tag:                  s.agentConfig.Tag(),
 		DataDir:              s.agentConfig.DataDir(),
 		LogDir:               s.agentConfig.LogDir(),
 		Hub:                  &s.hub,
-		AutocertURL:          "",
-		AutocertDNSName:      "",
+		PublicDNSName:        "",
 		AllowModelAccess:     false,
 		RateLimitConfig:      rateLimitConfig,
 		LogSinkConfig:        &logSinkConfig,

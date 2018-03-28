@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -64,6 +65,9 @@ type ModelCommand interface {
 	// ModelName returns the name of the model.
 	ModelName() (string, error)
 
+	// ModelType returns the type of the model.
+	ModelType() (model.ModelType, error)
+
 	// ControllerName returns the name of the controller that contains
 	// the model returned by ModelName().
 	ControllerName() (string, error)
@@ -83,12 +87,13 @@ type ModelCommandBase struct {
 	// about controllers, models, etc.
 	store jujuclient.ClientStore
 
-	// _modelName and _controllerName hold the current
-	// model and controller names. They are only valid
+	// _modelName, _modelType, and _controllerName hold the current
+	// model and controller names and model type. They are only valid
 	// after initModel is called, and should in general
 	// not be accessed directly, but through ModelName and
 	// ControllerName respectively.
 	_modelName      string
+	_modelType      model.ModelType
 	_controllerName string
 
 	allowDefaultModel bool
@@ -170,6 +175,23 @@ func (c *ModelCommandBase) ModelName() (string, error) {
 	return c._modelName, nil
 }
 
+// ModelType implements the ModelCommand interface.
+func (c *ModelCommandBase) ModelType() (model.ModelType, error) {
+	c.assertRunStarted()
+	if c._modelType != "" {
+		return c._modelType, nil
+	}
+	if err := c.initModel(); err != nil {
+		return "", errors.Trace(err)
+	}
+	details, err := c.modelDetails(c._controllerName, c._modelName)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	c._modelType = details.ModelType
+	return c._modelType, nil
+}
+
 // ControllerName implements the ModelCommand interface.
 func (c *ModelCommandBase) ControllerName() (string, error) {
 	c.assertRunStarted()
@@ -212,27 +234,35 @@ func (c *ModelCommandBase) ModelDetails() (string, *jujuclient.ModelDetails, err
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
+	details, err := c.modelDetails(controllerName, modelName)
+	return modelName, details, err
+}
+
+func (c *ModelCommandBase) modelDetails(controllerName, modelName string) (*jujuclient.ModelDetails, error) {
 	if modelName == "" {
-		return "", nil, errors.Trace(ErrNoModelSpecified)
+		return nil, errors.Trace(ErrNoModelSpecified)
 	}
 	details, err := c.store.ModelByName(controllerName, modelName)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return "", nil, errors.Trace(err)
+			logger.Criticalf(err.Error())
+			return nil, errors.Trace(err)
 		}
 		// The model isn't known locally, so query the models
 		// available in the controller, and cache them locally.
 		if err := c.RefreshModels(c.store, controllerName); err != nil {
-			return "", nil, errors.Annotate(err, "refreshing models")
+			return nil, errors.Annotate(err, "refreshing models")
 		}
 		details, err = c.store.ModelByName(controllerName, modelName)
 	}
-	return modelName, details, err
+	return details, errors.Trace(err)
 }
 
 // NewAPIRoot returns a new connection to the API server for the environment
 // directed to the model specified on the command line.
 func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
+	// We need to call ModelDetails() here and not just ModelName() to force
+	// a refresh of the internal model details if those are not yet stored locally.
 	modelName, _, err := c.ModelDetails()
 	if err != nil {
 		return nil, errors.Trace(err)

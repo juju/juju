@@ -8,6 +8,7 @@ package metricsdebug
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -119,7 +120,22 @@ type byUnit []params.MetricResult
 func (t byUnit) Len() int      { return len(t) }
 func (t byUnit) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
 func (t byUnit) Less(i, j int) bool {
+	if t[i].Unit == t[j].Unit {
+		if t[i].Key == t[j].Key {
+			return labelsKey(t[i].Labels) < labelsKey(t[j].Labels)
+		}
+		return t[i].Key < t[j].Key
+	}
 	return t[i].Unit < t[j].Unit
+}
+
+func labelsKey(m map[string]string) string {
+	var result []string
+	for k, v := range m {
+		result = append(result, fmt.Sprintf("%s=%s", k, v))
+	}
+	sort.Strings(result)
+	return strings.Join(result, ",")
 }
 
 func (api *MetricsDebugAPI) filterLastValuePerKeyPerUnit(batches []state.MetricBatch) []params.MetricResult {
@@ -127,17 +143,18 @@ func (api *MetricsDebugAPI) filterLastValuePerKeyPerUnit(batches []state.MetricB
 	for _, mb := range batches {
 		for _, m := range mb.UniqueMetrics() {
 			metrics = append(metrics, params.MetricResult{
-				Key:   m.Key,
-				Value: m.Value,
-				Time:  m.Time,
-				Unit:  mb.Unit(),
+				Key:    m.Key,
+				Value:  m.Value,
+				Time:   m.Time,
+				Unit:   mb.Unit(),
+				Labels: m.Labels,
 			})
 		}
 	}
 	uniq := map[string]params.MetricResult{}
 	for _, m := range metrics {
-		// we want unique keys per unit
-		uniq[fmt.Sprintf("%s-%s", m.Key, m.Unit)] = m
+		// we want unique keys per unit per metric per label combination
+		uniq[fmt.Sprintf("%s-%s-%s", m.Key, m.Unit, labelsKey(m.Labels))] = m
 	}
 	results := make([]params.MetricResult, len(uniq))
 	i := 0

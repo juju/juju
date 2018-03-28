@@ -41,6 +41,10 @@ func (c *RestrictedContext) SetPodSpec(specYaml string) error {
 	return ErrRestrictedContext
 }
 
+func (c *RestrictedContext) CloudSpec() (*params.CloudSpec, error) {
+	return nil, ErrRestrictedContext
+}
+
 // SetUnitStatus implements hooks.Context.
 func (*RestrictedContext) SetUnitStatus(StatusInfo) error { return ErrRestrictedContext }
 
@@ -99,6 +103,11 @@ func (*RestrictedContext) WriteLeaderSettings(map[string]string) error { return 
 
 // AddMetric implements hooks.Context.
 func (*RestrictedContext) AddMetric(string, string, time.Time) error { return ErrRestrictedContext }
+
+// AddMetricLabels implements hooks.Context.
+func (*RestrictedContext) AddMetricLabels(string, string, time.Time, map[string]string) error {
+	return ErrRestrictedContext
+}
 
 // StorageTags implements hooks.Context.
 func (*RestrictedContext) StorageTags() ([]names.StorageTag, error) { return nil, ErrRestrictedContext }

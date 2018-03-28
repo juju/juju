@@ -67,7 +67,7 @@ func (u *Unit) Refresh() error {
 		return errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -111,7 +111,7 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 		return params.StatusResult{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return params.StatusResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -221,19 +221,19 @@ func (u *Unit) WatchRelations() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// Service returns the service.
+// Application returns the unit's application.
 func (u *Unit) Application() (*Application, error) {
-	service := &Application{
+	application := &Application{
 		st:  u.st,
 		tag: u.ApplicationTag(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
-	err := service.Refresh()
+	err := application.Refresh()
 	if err != nil {
 		return nil, err
 	}
-	return service, nil
+	return application, nil
 }
 
 // ConfigSettings returns the complete set of service charm config settings
@@ -581,9 +581,12 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 }
 
 // WatchAddresses returns a watcher for observing changes to the
-// unit's addresses. The unit must be assigned to a machine before
-// this method is called, and the returned watcher will be valid only
-// while the unit's assigned machine is not changed.
+// unit's addresses.
+// For IAAS models, the unit must be assigned to a machine before
+// this method is called, and the returned watcher will be valid
+// only while the unit's assigned machine is not changed.
+// For CAAS models, the watcher observes changes to the address
+// of the pod associated with the unit.
 func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{

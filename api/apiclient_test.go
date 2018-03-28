@@ -24,22 +24,16 @@ import (
 	proxyutils "github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/controller"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/state"
 	jtesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
@@ -186,10 +180,10 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	// c.Assert(info.ModelTag, gc.Not(gc.Equals), "")
 
 	// We start by ensuring we have an invalid tag, and Open should fail.
-	info.ModelTag = names.NewModelTag("bad-tag")
+	info.ModelTag = names.NewModelTag("0b501e7e-cafe-f00d-ba1d-b1a570c0e199")
 	_, err := api.Open(info, api.DialOpts{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `unknown model: "bad-tag"`,
+		Message: `unknown model: "0b501e7e-cafe-f00d-ba1d-b1a570c0e199"`,
 		Code:    "model not found",
 	})
 	c.Check(params.ErrCode(err), gc.Equals, params.CodeModelNotFound)
@@ -451,7 +445,8 @@ func (s *apiclientSuite) TestFailImmediatelyOnCertErrorAndNumericHostname(c *gc.
 			Addrs:  []string{"0.1.2.3:1234"},
 			CACert: jtesting.CACert,
 		},
-		// go 1.9+ says "is not authorized to sign for this name"
+		// go 1.9 says "is not authorized to sign for this name"
+		// go 1.10 says "is not authorized to sign for this domain"
 		expectOpenError: `unable to connect to API: x509: a root or intermediate certificate is not authorized to sign.*`,
 		expectDials: []dialAttempt{{
 			// The first dial attempt should use the private CA cert.
@@ -563,37 +558,6 @@ func (s *apiclientSuite) TestOpenWithNoCACert(c *gc.C) {
 	if time.Since(t0) > 5*time.Second {
 		c.Errorf("looks like API is retrying on connection when there is an X509 error")
 	}
-}
-
-func (s *apiclientSuite) TestPublicDNSName(c *gc.C) {
-	// Start an API server with a (non-working) autocert hostname,
-	// so we can check that the PublicDNSName in the result goes
-	// all the way through the layers.
-	machineTag := names.NewMachineTag("0")
-	srv, err := apiserver.NewServer(s.StatePool, apiserver.ServerConfig{
-		ListenAddr:                      "localhost:0",
-		Clock:                           clock.WallClock,
-		GetCertificate:                  func() *tls.Certificate { return jtesting.ServerTLSCert },
-		GetAuditConfig:                  func() auditlog.Config { return auditlog.Config{} },
-		Tag:                             machineTag,
-		Hub:                             centralhub.New(machineTag),
-		DataDir:                         c.MkDir(),
-		LogDir:                          c.MkDir(),
-		AutocertDNSName:                 "somewhere.example.com",
-		DisableAutocertChallengeHandler: true,
-		NewObserver:                     func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL:                     "https://0.1.2.3/no-autocert-here",
-		RateLimitConfig:                 apiserver.DefaultRateLimitConfig(),
-		UpgradeComplete:                 func() bool { return true },
-		RestoreStatus:                   func() state.RestoreStatus { return state.RestoreNotActive },
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(srv)
-	apiInfo := s.APIInfo(c)
-	apiInfo.Addrs = []string{srv.Addr().String()}
-	conn, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
-	c.Assert(conn.PublicDNSName(), gc.Equals, "somewhere.example.com")
 }
 
 func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
@@ -1131,6 +1095,30 @@ func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
 	c.Assert(call.Args, gc.HasLen, 2)
 	request := call.Args[1].(*params.LoginRequest)
 	c.Assert(request.CLIArgs, gc.Equals, `this is "the test" command`)
+}
+
+type clientDNSNameSuite struct {
+	jjtesting.JujuConnSuite
+}
+
+var _ = gc.Suite(&clientDNSNameSuite{})
+
+func (s *clientDNSNameSuite) SetUpTest(c *gc.C) {
+	// Start an API server with a (non-working) autocert hostname,
+	// so we can check that the PublicDNSName in the result goes
+	// all the way through the layers.
+	if s.ControllerConfigAttrs == nil {
+		s.ControllerConfigAttrs = make(map[string]interface{})
+	}
+	s.ControllerConfigAttrs[controller.AutocertDNSNameKey] = "somewhere.example.com"
+	s.JujuConnSuite.SetUpTest(c)
+}
+
+func (s *clientDNSNameSuite) TestPublicDNSName(c *gc.C) {
+	apiInfo := s.APIInfo(c)
+	conn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(conn.PublicDNSName(), gc.Equals, "somewhere.example.com")
 }
 
 type fakeClock struct {

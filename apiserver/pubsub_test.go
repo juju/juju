@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -17,29 +18,26 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
 type pubsubSuite struct {
-	statetesting.StateSuite
+	apiserverBaseSuite
 	machineTag names.Tag
 	password   string
 	nonce      string
 	hub        *pubsub.StructuredHub
-	server     *apiserver.Server
 	pubsubURL  string
 }
 
 var _ = gc.Suite(&pubsubSuite{})
 
 func (s *pubsubSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
+	s.apiserverBaseSuite.SetUpTest(c)
 	s.nonce = "nonce"
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: s.nonce,
@@ -47,28 +45,26 @@ func (s *pubsubSuite) SetUpTest(c *gc.C) {
 	})
 	s.machineTag = m.Tag()
 	s.password = password
-	s.hub = pubsub.NewStructuredHub(nil)
-	_, s.server = newServerWithHub(c, s.StatePool, s.hub)
-	s.AddCleanup(func(*gc.C) { s.server.Stop() })
+	s.hub = s.config.Hub
 
-	// A net.TCPAddr cannot be directly stringified into a valid hostname.
+	address := s.server.Listener.Addr().String()
 	path := fmt.Sprintf("/model/%s/pubsub", s.State.ModelUUID())
 	pubsubURL := &url.URL{
 		Scheme: "wss",
-		Host:   s.server.Addr().String(),
+		Host:   address,
 		Path:   path,
 	}
 	s.pubsubURL = pubsubURL.String()
 }
 
 func (s *pubsubSuite) TestNoAuth(c *gc.C) {
-	s.checkAuthFails(c, nil, "no credentials provided")
+	s.checkAuthFails(c, nil, http.StatusUnauthorized, "authentication failed: no credentials provided")
 }
 
 func (s *pubsubSuite) TestRejectsUserLogins(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "sekrit"})
 	header := utils.BasicAuthHeader(user.Tag().String(), "sekrit")
-	s.checkAuthFails(c, header, "permission denied")
+	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: user username-.* is not a controller")
 }
 
 func (s *pubsubSuite) TestRejectsNonServerMachineLogins(c *gc.C) {
@@ -78,26 +74,31 @@ func (s *pubsubSuite) TestRejectsNonServerMachineLogins(c *gc.C) {
 	})
 	header := utils.BasicAuthHeader(m.Tag().String(), password)
 	header.Add(params.MachineNonceHeader, "a-nonce")
-	s.checkAuthFails(c, header, "permission denied")
+	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: machine .* is not a controller")
 }
 
 func (s *pubsubSuite) TestRejectsBadPassword(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), "wrong")
 	header.Add(params.MachineNonceHeader, s.nonce)
-	s.checkAuthFails(c, header, "invalid entity name or password")
+	s.checkAuthFails(c, header, http.StatusUnauthorized, "authentication failed: invalid entity name or password")
 }
 
 func (s *pubsubSuite) TestRejectsIncorrectNonce(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), s.password)
 	header.Add(params.MachineNonceHeader, "wrong")
-	s.checkAuthFails(c, header, "machine 0 not provisioned")
+	s.checkAuthFails(c, header, http.StatusUnauthorized, "authentication failed: machine 0 not provisioned")
 }
 
-func (s *pubsubSuite) checkAuthFails(c *gc.C, header http.Header, message string) {
-	conn := s.dialWebsocketInternal(c, header)
-	defer conn.Close()
-	websockettest.AssertJSONError(c, conn, message)
-	websockettest.AssertWebsocketClosed(c, conn)
+func (s *pubsubSuite) checkAuthFails(c *gc.C, header http.Header, code int, message string) {
+	conn, resp, err := s.dialWebsocketInternal(c, header)
+	c.Assert(err, gc.Equals, websocket.ErrBadHandshake)
+	c.Assert(conn, gc.IsNil)
+	c.Assert(resp, gc.NotNil)
+	defer resp.Body.Close()
+	c.Check(resp.StatusCode, gc.Equals, code)
+	out, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(out), gc.Matches, message+"\n")
 }
 
 func (s *pubsubSuite) TestMessage(c *gc.C) {
@@ -159,10 +160,12 @@ func (s *pubsubSuite) TestMessage(c *gc.C) {
 }
 
 func (s *pubsubSuite) dialWebsocket(c *gc.C) *websocket.Conn {
-	return s.dialWebsocketInternal(c, s.makeAuthHeader())
+	conn, _, err := s.dialWebsocketInternal(c, s.makeAuthHeader())
+	c.Assert(err, jc.ErrorIsNil)
+	return conn
 }
 
-func (s *pubsubSuite) dialWebsocketInternal(c *gc.C, header http.Header) *websocket.Conn {
+func (s *pubsubSuite) dialWebsocketInternal(c *gc.C, header http.Header) (*websocket.Conn, *http.Response, error) {
 	return dialWebsocketFromURL(c, s.pubsubURL, header)
 }
 

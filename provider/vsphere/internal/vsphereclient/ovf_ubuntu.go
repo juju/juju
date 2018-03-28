@@ -152,17 +152,6 @@ const UbuntuOVF = `<?xml version="1.0" encoding="UTF-8"?>
         <rasd:ResourceSubType>vmware.floppy.remotedevice</rasd:ResourceSubType>
         <rasd:ResourceType>14</rasd:ResourceType>
       </Item>
-      <Item>
-        <rasd:AddressOnParent>7</rasd:AddressOnParent>
-        <rasd:AutomaticAllocation>true</rasd:AutomaticAllocation>
-        <rasd:Connection>VM Network</rasd:Connection>
-        <rasd:Description>VmxNet3 ethernet adapter on &quot;VM Network&quot;</rasd:Description>
-        <rasd:ElementName>Ethernet 1</rasd:ElementName>
-        <rasd:InstanceID>11</rasd:InstanceID>
-        <rasd:ResourceSubType>VmxNet3</rasd:ResourceSubType>
-        <rasd:ResourceType>10</rasd:ResourceType>
-        <vmw:Config ovf:required="false" vmw:key="wakeOnLanEnabled" vmw:value="true"/>
-      </Item>
       <vmw:Config ovf:required="false" vmw:key="cpuHotAddEnabled" vmw:value="false"/>
       <vmw:Config ovf:required="false" vmw:key="cpuHotRemoveEnabled" vmw:value="false"/>
       <vmw:Config ovf:required="false" vmw:key="firmware" vmw:value="bios"/>

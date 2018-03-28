@@ -47,11 +47,15 @@ func (s *senderSuite) SetUpTest(c *gc.C) {
 
 	declaredMetrics := map[string]corecharm.Metric{
 		"pings": corecharm.Metric{Description: "test pings", Type: corecharm.MetricTypeAbsolute},
+		"pongs": corecharm.Metric{Description: "test pongs", Type: corecharm.MetricTypeGauge},
 	}
 	recorder, err := s.metricfactory.Recorder(declaredMetrics, "local:trusty/testcharm", "testcharm/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = recorder.AddMetric("pings", "50", time.Now())
+	err = recorder.AddMetric("pings", "50", time.Now(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = recorder.AddMetric("pongs", "51", time.Now(), map[string]string{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = recorder.Close()
@@ -78,11 +82,15 @@ func (s *senderSuite) TestHandler(c *gc.C) {
 
 	declaredMetrics := map[string]corecharm.Metric{
 		"pings": corecharm.Metric{Description: "test pings", Type: corecharm.MetricTypeAbsolute},
+		"pongs": corecharm.Metric{Description: "test pongs", Type: corecharm.MetricTypeGauge},
 	}
 	recorder, err := metricFactory.Recorder(declaredMetrics, "local:trusty/testcharm", "testcharm/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = recorder.AddMetric("pings", "50", time.Now())
+	err = recorder.AddMetric("pings", "50", time.Now(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = recorder.AddMetric("pongs", "51", time.Now(), map[string]string{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = recorder.Close()
@@ -99,9 +107,13 @@ func (s *senderSuite) TestHandler(c *gc.C) {
 	c.Assert(apiSender.batches, gc.HasLen, 1)
 	c.Assert(apiSender.batches[0].Tag, gc.Equals, "testcharm/0")
 	c.Assert(apiSender.batches[0].Batch.CharmURL, gc.Equals, "local:trusty/testcharm")
-	c.Assert(apiSender.batches[0].Batch.Metrics, gc.HasLen, 1)
+	c.Assert(apiSender.batches[0].Batch.Metrics, gc.HasLen, 2)
 	c.Assert(apiSender.batches[0].Batch.Metrics[0].Key, gc.Equals, "pings")
 	c.Assert(apiSender.batches[0].Batch.Metrics[0].Value, gc.Equals, "50")
+	c.Assert(apiSender.batches[0].Batch.Metrics[0].Labels, gc.HasLen, 0)
+	c.Assert(apiSender.batches[0].Batch.Metrics[1].Key, gc.Equals, "pongs")
+	c.Assert(apiSender.batches[0].Batch.Metrics[1].Value, gc.Equals, "51")
+	c.Assert(apiSender.batches[0].Batch.Metrics[1].Labels, gc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
 func (s *senderSuite) TestMetricSendingSuccess(c *gc.C) {

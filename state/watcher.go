@@ -3165,3 +3165,78 @@ func (m *CAASModel) WatchPodSpec(appTag names.ApplicationTag) (NotifyWatcher, er
 	}}
 	return newDocWatcher(m.st, docKeys), nil
 }
+
+// containerAddressesWatcher notifies about changes to a unit's pod address(es).
+type containerAddressesWatcher struct {
+	commonWatcher
+	unit *Unit
+	out  chan struct{}
+}
+
+var _ Watcher = (*containerAddressesWatcher)(nil)
+
+// WatchContainerAddresses returns a new NotifyWatcher watching the unit's pod address(es).
+func (u *Unit) WatchContainerAddresses() NotifyWatcher {
+	return newContainerAddressesWatcher(u)
+}
+
+func newContainerAddressesWatcher(u *Unit) NotifyWatcher {
+	w := &containerAddressesWatcher{
+		commonWatcher: newCommonWatcher(u.st),
+		out:           make(chan struct{}),
+		unit:          u,
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for w.
+func (w *containerAddressesWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *containerAddressesWatcher) loop() error {
+	id := w.backend.docID(w.unit.globalKey())
+	continers, closer := w.db.GetCollection(cloudContainersC)
+	revno, err := getTxnRevno(continers, id)
+	closer()
+	if err != nil {
+		return err
+	}
+	containerCh := make(chan watcher.Change)
+	w.watcher.Watch(cloudContainersC, id, revno, containerCh)
+	defer w.watcher.Unwatch(cloudContainersC, id, containerCh)
+
+	var address string
+	container, err := w.unit.cloudContainer()
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	} else if err == nil {
+		address = container.Address
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-containerCh:
+			container, err := w.unit.cloudContainer()
+			if err != nil {
+				return err
+			}
+			newAddress := container.Address
+			if newAddress != address {
+				address = newAddress
+				out = w.out
+			}
+		case out <- struct{}{}:
+			out = nil
+		}
+	}
+}

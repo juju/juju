@@ -12,15 +12,17 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig holds the information necessary to run an apiserver-based
 // raft transport worker in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName string
-	HubName   string
-	MuxName   string
+	AgentName         string
+	AuthenticatorName string
+	HubName           string
+	MuxName           string
 
 	DialConn  DialConnFunc
 	NewWorker func(Config) (worker.Worker, error)
@@ -33,6 +35,9 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
+	}
+	if config.AuthenticatorName == "" {
+		return errors.NotValidf("empty AuthenticatorName")
 	}
 	if config.HubName == "" {
 		return errors.NotValidf("empty HubName")
@@ -58,6 +63,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
+			config.AuthenticatorName,
 			config.HubName,
 			config.MuxName,
 		},
@@ -74,6 +80,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var agent agent.Agent
 	if err := context.Get(config.AgentName, &agent); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var authenticator httpcontext.Authenticator
+	if err := context.Get(config.AuthenticatorName, &authenticator); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -97,13 +108,14 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	return config.NewWorker(Config{
-		APIInfo:   apiInfo,
-		DialConn:  config.DialConn,
-		Hub:       hub,
-		Mux:       mux,
-		Path:      config.Path,
-		Tag:       agent.CurrentConfig().Tag(),
-		TLSConfig: api.NewTLSConfig(certPool),
+		APIInfo:       apiInfo,
+		Authenticator: authenticator,
+		DialConn:      config.DialConn,
+		Hub:           hub,
+		Mux:           mux,
+		Path:          config.Path,
+		Tag:           agent.CurrentConfig().Tag(),
+		TLSConfig:     api.NewTLSConfig(certPool),
 	})
 }
 

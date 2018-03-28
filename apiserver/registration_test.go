@@ -23,23 +23,19 @@ import (
 )
 
 type registrationSuite struct {
-	authHTTPSuite
-	bob *state.User
+	apiserverBaseSuite
+	bob             *state.User
+	registrationURL string
 }
 
 var _ = gc.Suite(&registrationSuite{})
 
 func (s *registrationSuite) SetUpTest(c *gc.C) {
-	s.authHTTPSuite.SetUpTest(c)
-	bob, err := s.BackingState.AddUserWithSecretKey("bob", "", "admin")
+	s.apiserverBaseSuite.SetUpTest(c)
+	bob, err := s.State.AddUserWithSecretKey("bob", "", "admin")
 	c.Assert(err, jc.ErrorIsNil)
 	s.bob = bob
-}
-
-func (s *registrationSuite) registrationURL(c *gc.C) string {
-	url := s.baseURL(c)
-	url.Path = "/register"
-	return url.String()
+	s.registrationURL = s.server.URL + "/register"
 }
 
 func (s *registrationSuite) TestRegister(c *gc.C) {
@@ -54,7 +50,7 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 	)
 	resp := httptesting.Do(c, httptesting.DoRequestParams{
 		Do:     utils.GetNonValidatingHTTPClient().Do,
-		URL:    s.registrationURL(c),
+		URL:    s.registrationURL,
 		Method: "POST",
 		JSONBody: &params.SecretKeyLoginRequest{
 			User:              "user-bob",
@@ -85,7 +81,7 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 	err = json.Unmarshal(plaintext, &responsePayload)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(responsePayload.CACert, gc.Equals, coretesting.CACert)
-	model, err := s.BackingState.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(responsePayload.ControllerUUID, gc.Equals, model.ControllerUUID())
 }
@@ -93,7 +89,7 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 func (s *registrationSuite) TestRegisterInvalidMethod(c *gc.C) {
 	httptesting.AssertJSONCall(c, httptesting.JSONCallParams{
 		Do:           utils.GetNonValidatingHTTPClient().Do,
-		URL:          s.registrationURL(c),
+		URL:          s.registrationURL,
 		Method:       "GET",
 		ExpectStatus: http.StatusMethodNotAllowed,
 		ExpectBody: &params.ErrorResult{
@@ -167,7 +163,7 @@ func (s *registrationSuite) TestRegisterInvalidRequestPayload(c *gc.C) {
 func (s *registrationSuite) testInvalidRequest(c *gc.C, requestBody, errorMessage, errorCode string, statusCode int) {
 	httptesting.AssertJSONCall(c, httptesting.JSONCallParams{
 		Do:           utils.GetNonValidatingHTTPClient().Do,
-		URL:          s.registrationURL(c),
+		URL:          s.registrationURL,
 		Method:       "POST",
 		Body:         strings.NewReader(requestBody),
 		ExpectStatus: statusCode,

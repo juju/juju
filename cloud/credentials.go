@@ -38,6 +38,13 @@ type Credential struct {
 
 	// Label is optionally set to describe the credentials to a user.
 	Label string
+
+	// Invalid is true if the credential is invalid.
+	Invalid bool
+
+	// InvalidReason contains the reason why a credential was flagged as invalid.
+	// It is expected that this string will be empty when a credential is valid.
+	InvalidReason string
 }
 
 // AuthType returns the authentication type.

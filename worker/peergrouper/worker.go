@@ -6,6 +6,8 @@ package peergrouper
 import (
 	"fmt"
 	"net"
+	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -30,9 +32,9 @@ type State interface {
 	ControllerConfig() (controller.Config, error)
 	ControllerInfo() (*state.ControllerInfo, error)
 	Machine(id string) (Machine, error)
-	Space(id string) (Space, error)
 	WatchControllerInfo() state.NotifyWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
+	WatchControllerConfig() state.NotifyWatcher
 }
 
 type Space interface {
@@ -101,6 +103,10 @@ type pgWorker struct {
 	// machineTrackers holds the workers which track the machines we
 	// are currently watching (all the controller machines).
 	machineTrackers map[string]*machineTracker
+
+	// serverDetails holds the last server information broadcast via pub/sub.
+	// It is used to detect changes since the last publish.
+	serverDetails apiserver.Details
 }
 
 // Config holds the configuration for a peergrouper worker.
@@ -183,6 +189,11 @@ func (w *pgWorker) loop() error {
 		return errors.Trace(err)
 	}
 
+	configChanges, err := w.watchForConfigChanges()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var updateChan <-chan time.Time
 	retryInterval := initialRetryInterval
 
@@ -205,6 +216,19 @@ func (w *pgWorker) loop() error {
 		case <-w.machineChanges:
 			// One of the controller machines changed.
 			logger.Tracef("<-w.machineChanges")
+		case <-configChanges:
+			// Controller config has changed.
+			logger.Tracef("<-w.configChanges")
+
+			// If a config change wakes up the loop before the topology has
+			// been represented in the worker's machine trackers, ignore it;
+			// errors will occur when trying to determine peer group changes.
+			// Continuing is OK because subsequent invocations of the loop will
+			// pick up the most recent config from state anyway.
+			if len(w.machineTrackers) == 0 {
+				logger.Tracef("no controller information, ignoring config change")
+				continue
+			}
 		case <-updateChan:
 			// Scheduled update.
 			logger.Tracef("<-updateChan")
@@ -218,7 +242,7 @@ func (w *pgWorker) loop() error {
 
 		var failed bool
 		if err := w.config.APIHostPortsSetter.SetAPIHostPorts(apiHostPorts); err != nil {
-			logger.Errorf("cannot publish API server addresses: %v", err)
+			logger.Errorf("cannot write API server addresses: %v", err)
 			failed = true
 		}
 
@@ -252,9 +276,9 @@ func scaleRetry(value time.Duration) time.Duration {
 	return value
 }
 
-// watchForControllerChanges starts two watchers pertaining to changes
-// to the controllers, returning a channel which will receive events
-// if either watcher fires.
+// watchForControllerChanges starts two watchers for changes to controller
+// info and status.
+// It returns a channel which will receive events if any of the watchers fires.
 func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
 	controllerInfoWatcher := w.config.State.WatchControllerInfo()
 	if err := w.catacomb.Add(controllerInfoWatcher); err != nil {
@@ -280,6 +304,21 @@ func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
 		}
 	}()
 	return out, nil
+}
+
+// watchForConfigChanges starts a watcher for changes to controller config.
+// It returns a channel which will receive events if the watcher fires.
+// This is separate from watchForControllerChanges because of the worker loop
+// logic. If controller machines have not changed, then further processing
+// does not occur, whereas we want to re-publish API addresses and check
+// for replica-set changes if either the management or HA space configs have
+// changed.
+func (w *pgWorker) watchForConfigChanges() (<-chan struct{}, error) {
+	controllerConfigWatcher := w.config.State.WatchControllerConfig()
+	if err := w.catacomb.Add(controllerConfigWatcher); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return controllerConfigWatcher.Changes(), nil
 }
 
 // updateControllerMachines updates the peergrouper's current list of
@@ -369,6 +408,9 @@ func (w *pgWorker) apiServerHostPorts() map[string][]network.HostPort {
 	return servers
 }
 
+// publishAPIServerDetails publishes the details corresponding to the latest
+// known controller/replica-set topology if it has changed from the last known
+// state.
 func (w *pgWorker) publishAPIServerDetails(
 	servers map[string][]network.HostPort,
 	members map[string]*replicaset.Member,
@@ -392,9 +434,14 @@ func (w *pgWorker) publishAPIServerDetails(
 		for _, hp := range network.FilterUnusableHostPorts(hostPorts) {
 			server.Addresses = append(server.Addresses, hp.String())
 		}
+		sort.Strings(server.Addresses)
 		details.Servers[server.ID] = server
 	}
-	w.config.Hub.Publish(apiserver.DetailsTopic, details)
+
+	if !reflect.DeepEqual(w.serverDetails, details) {
+		w.config.Hub.Publish(apiserver.DetailsTopic, details)
+		w.serverDetails = details
+	}
 }
 
 // replicaSetError holds an error returned as a result

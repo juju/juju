@@ -23,6 +23,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"Cloud",
 	"LeadershipService",
 	"LifeFlag",
+	"MeterStatus",
 	"MigrationFlag",
 	"MigrationMaster",
 	"MigrationMinion",
@@ -38,6 +39,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"Singular",
 	"StatusHistory",
 	"StringsWatcher",
+	"Undertaker",
 	"Uniter",
 )
 

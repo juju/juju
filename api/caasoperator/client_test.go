@@ -75,9 +75,10 @@ func (s *operatorSuite) TestCharm(c *gc.C) {
 		*(result.(*params.ApplicationCharmResults)) = params.ApplicationCharmResults{
 			Results: []params.ApplicationCharmResult{{
 				Result: &params.ApplicationCharm{
-					URL:          "cs:foo/bar-1",
-					ForceUpgrade: true,
-					SHA256:       "fake-sha256",
+					URL:                  "cs:foo/bar-1",
+					ForceUpgrade:         true,
+					SHA256:               "fake-sha256",
+					CharmModifiedVersion: 666,
 				},
 			}},
 		}
@@ -85,11 +86,13 @@ func (s *operatorSuite) TestCharm(c *gc.C) {
 	})
 
 	client := caasoperator.NewClient(apiCaller)
-	curl, sha256, err := client.Charm("gitlab")
+	curl, force, sha256, vers, err := client.Charm("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.NotNil)
 	c.Assert(curl.String(), gc.Equals, "cs:foo/bar-1")
 	c.Assert(sha256, gc.Equals, "fake-sha256")
+	c.Assert(force, jc.IsTrue)
+	c.Assert(vers, gc.Equals, 666)
 }
 
 func (s *operatorSuite) TestCharmError(c *gc.C) {
@@ -100,7 +103,7 @@ func (s *operatorSuite) TestCharmError(c *gc.C) {
 		return nil
 	})
 	client := caasoperator.NewClient(apiCaller)
-	_, _, err := client.Charm("gitlab")
+	_, _, _, _, err := client.Charm("gitlab")
 	c.Assert(err, gc.ErrorMatches, "bletch")
 }
 
@@ -108,7 +111,7 @@ func (s *operatorSuite) TestCharmInvalidApplicationName(c *gc.C) {
 	client := caasoperator.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
-	_, _, err := client.Charm("")
+	_, _, _, _, err := client.Charm("")
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 

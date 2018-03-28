@@ -4,29 +4,23 @@
 package controller_test
 
 import (
-	"crypto/tls"
 	"fmt"
 	"time"
 
-	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
@@ -214,26 +208,7 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 }
 
 func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
-	srv, err := apiserver.NewServer(s.StatePool, apiserver.ServerConfig{
-		ListenAddr:      "localhost:0",
-		Clock:           clock.WallClock,
-		GetCertificate:  func() *tls.Certificate { return testing.ServerTLSCert },
-		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
-		Tag:             names.NewMachineTag("0"),
-		Hub:             pubsub.NewStructuredHub(nil),
-		DataDir:         c.MkDir(),
-		LogDir:          c.MkDir(),
-		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL:     "https://0.1.2.3/no-autocert-here",
-		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-		UpgradeComplete: func() bool { return true },
-		RestoreStatus:   func() state.RestoreStatus { return state.RestoreNotActive },
-	})
-	c.Assert(err, gc.IsNil)
-
-	// Connect to the API server we've just started.
 	apiInfo := s.APIInfo(c)
-	apiInfo.Addrs = []string{srv.Addr().String()}
 	apiInfo.ModelTag = names.ModelTag{}
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	sysManager := controller.NewClient(apiState)
@@ -267,7 +242,9 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	// even when there's an outstanding Next call.
 	srvStopped := make(chan struct{})
 	go func() {
-		srv.Stop()
+		// Resetting the dummy environment will call Stop on the
+		// embedded API server.
+		dummy.Reset(c)
 		close(srvStopped)
 	}()
 

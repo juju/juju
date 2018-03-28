@@ -128,8 +128,9 @@ func (st *State) checkValidControllerConfig(updateAttrs map[string]interface{}, 
 		}
 
 		if k == jujucontroller.JujuHASpace || k == jujucontroller.JujuManagementSpace {
-			if err := st.checkSpaceIsAvailableToAllControllers(updateAttrs[k].(string)); err != nil {
-				return errors.Annotatef(err, "invalid config value for %q", k)
+			cVal := updateAttrs[k].(string)
+			if err := st.checkSpaceIsAvailableToAllControllers(cVal); err != nil {
+				return errors.Annotatef(err, "invalid config %q=%q", k, cVal)
 			}
 		}
 	}
@@ -166,14 +167,13 @@ func (st *State) checkSpaceIsAvailableToAllControllers(configSpace string) error
 		if err != nil {
 			return errors.Annotate(err, "cannot get machine")
 		}
-		if _, ok := network.SelectAddressesBySpaceNames(m.MachineAddresses(), spaceName); !ok {
+		if _, ok := network.SelectAddressesBySpaceNames(m.Addresses(), spaceName); !ok {
 			missing = append(missing, id)
 		}
 	}
 
 	if len(missing) > 0 {
-		mStr := strings.Trim(fmt.Sprintf("%q", missing), "[]")
-		return errors.Errorf("machines with no addresses in space %q: %s", configSpace, mStr)
+		return errors.Errorf("machines with no addresses in this space: %s", strings.Join(missing, ", "))
 	}
 	return nil
 }

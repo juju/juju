@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"crypto/tls"
 	"net/http"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	coreapiserver "github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
@@ -24,10 +24,11 @@ import (
 type workerFixture struct {
 	testing.IsolationSuite
 	agentConfig          mockAgentConfig
+	authenticator        *mockAuthenticator
 	clock                *testing.Clock
 	hub                  pubsub.StructuredHub
+	mux                  *apiserverhttp.Mux
 	prometheusRegisterer stubPrometheusRegisterer
-	certWatcher          stubCertWatcher
 	config               apiserver.Config
 	stub                 testing.Stub
 }
@@ -42,27 +43,29 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 			APIPort: 0, // listen on any port
 		},
 	}
+	s.authenticator = &mockAuthenticator{}
 	s.clock = testing.NewClock(time.Time{})
+	s.mux = apiserverhttp.NewMux()
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
-	s.certWatcher = stubCertWatcher{}
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{
 		AgentConfig:                       &s.agentConfig,
+		Authenticator:                     s.authenticator,
 		Clock:                             s.clock,
 		Hub:                               &s.hub,
+		Mux:                               s.mux,
 		StatePool:                         &state.StatePool{},
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		UpgradeComplete:                   func() bool { return true },
 		RestoreStatus:                     func() state.RestoreStatus { return "" },
-		GetCertificate:                    func() *tls.Certificate { return nil },
 		NewServer:                         s.newServer,
 	}
 }
 
-func (s *workerFixture) newServer(statePool *state.StatePool, config coreapiserver.ServerConfig) (worker.Worker, error) {
-	s.stub.MethodCall(s, "NewServer", statePool, config)
+func (s *workerFixture) newServer(config coreapiserver.ServerConfig) (worker.Worker, error) {
+	s.stub.MethodCall(s, "NewServer", config)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -86,11 +89,17 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *apiserver.Config) { cfg.AgentConfig = nil },
 		"nil AgentConfig not valid",
 	}, {
+		func(cfg *apiserver.Config) { cfg.Authenticator = nil },
+		"nil Authenticator not valid",
+	}, {
 		func(cfg *apiserver.Config) { cfg.Clock = nil },
 		"nil Clock not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.Hub = nil },
 		"nil Hub not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.Mux = nil },
+		"nil Mux not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.StatePool = nil },
 		"nil StatePool not valid",
@@ -106,9 +115,6 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.RestoreStatus = nil },
 		"nil RestoreStatus not valid",
-	}, {
-		func(cfg *apiserver.Config) { cfg.GetCertificate = nil },
-		"nil GetCertificate not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.NewServer = nil },
 		"nil NewServer not valid",
@@ -129,12 +135,6 @@ func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*apiserver.Con
 	}
 	c.Check(w, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, expect)
-}
-
-func (s *WorkerValidationSuite) TestMissingStateServingInfo(c *gc.C) {
-	s.agentConfig.info = nil
-	_, err := apiserver.NewWorker(s.config)
-	c.Assert(err, gc.ErrorMatches, "missing state serving info")
 }
 
 func (s *WorkerValidationSuite) TestValidateRateLimitConfig(c *gc.C) {

@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"net"
@@ -12,37 +11,30 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/apiserver/testserver"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/worker/workertest"
 )
 
 var fastDialOpts = api.DialOpts{}
@@ -56,22 +48,21 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	_, srv := newServer(c, s.StatePool)
+	info, srv, httpServer := testserver.NewServer(c, s.StatePool)
 	defer assertStop(c, srv)
+	httpServer.StartTLS()
+	defer httpServer.Close()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
 	// Note we can't use openAs because we're not connecting to
-	apiInfo := &api.Info{
-		Tag:      machine.Tag(),
-		Password: password,
-		Nonce:    "fake_nonce",
-		Addrs:    []string{srv.Addr().String()},
-		CACert:   coretesting.CACert,
-		ModelTag: s.IAASModel.ModelTag(),
-	}
-	st, err := api.Open(apiInfo, fastDialOpts)
+	info.Tag = machine.Tag()
+	info.Password = password
+	info.Nonce = "fake_nonce"
+	info.ModelTag = s.IAASModel.ModelTag()
+
+	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -96,45 +87,38 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	err := s.State.SetAPIHostPorts(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Don't listen on "localhost:0" because that will only listen on either
-	// IPv4 or IPv6 but we want to listen on both.
-	cfg := defaultServerConfig(c)
-	cfg.ListenAddr = ":0"
-
 	// Start our own instance of the server listening on
 	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
-	srv, err := apiserver.NewServer(s.StatePool, cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	info, srv, httpServer := testserver.NewServer(c, s.StatePool)
 	defer assertStop(c, srv)
-
-	port := srv.Addr().(*net.TCPAddr).Port
-	portString := fmt.Sprintf("%d", port)
+	httpServer.StartTLS()
+	defer httpServer.Close()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
+	port := info.Ports()[0]
+	portString := fmt.Sprintf("%d", port)
+
 	// Now connect twice - using IPv4 and IPv6 endpoints.
-	apiInfo := &api.Info{
-		Tag:      machine.Tag(),
-		Password: password,
-		Nonce:    "fake_nonce",
-		Addrs:    []string{net.JoinHostPort("127.0.0.1", portString)},
-		CACert:   coretesting.CACert,
-		ModelTag: s.IAASModel.ModelTag(),
-	}
-	ipv4State, err := api.Open(apiInfo, fastDialOpts)
+	info.Tag = machine.Tag()
+	info.Password = password
+	info.Nonce = "fake_nonce"
+	info.ModelTag = s.IAASModel.ModelTag()
+
+	ipv4State, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ipv4State.Close()
-	c.Assert(ipv4State.Addr(), gc.Equals, net.JoinHostPort("127.0.0.1", portString))
+	c.Assert(ipv4State.Addr(), gc.Equals, net.JoinHostPort("localhost", portString))
 	c.Assert(ipv4State.APIHostPorts(), jc.DeepEquals, [][]network.HostPort{
-		network.NewHostPorts(port, "127.0.0.1"),
+		network.NewHostPorts(port, "localhost"),
 	})
 
 	_, err = apimachiner.NewState(ipv4State).Machine(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiInfo.Addrs = []string{net.JoinHostPort("::1", portString)}
-	ipv6State, err := api.Open(apiInfo, fastDialOpts)
+	info.Addrs = []string{net.JoinHostPort("::1", portString)}
+	ipv6State, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ipv6State.Close()
 	c.Assert(ipv6State.Addr(), gc.Equals, net.JoinHostPort("::1", portString))
@@ -223,8 +207,9 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	// Creating the server should succeed because it doesn't
 	// access the state (note that newServer does not log in,
 	// which *would* access the state).
-	_, srv := newServer(c, s.StatePool)
+	_, srv, httpServer := testserver.NewServer(c, s.StatePool)
 	srv.Stop()
+	httpServer.Close()
 }
 
 func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
@@ -273,7 +258,7 @@ func (s *serverSuite) assertAlive(c *gc.C, entity presence.Agent, expectAlive bo
 	c.Assert(alive, gc.Equals, expectAlive)
 }
 
-func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Conn, error) {
+func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 	// TODO(rogpeppe) merge this with the very similar dialWebsocketFromURL function.
 	url := fmt.Sprintf("wss://%s%s", addr, path)
 	header := make(http.Header)
@@ -283,11 +268,6 @@ func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Co
 	tlsConfig := utils.SecureTLSConfig()
 	tlsConfig.RootCAs = caCerts
 	tlsConfig.ServerName = "anything"
-	if tlsVersion > 0 {
-		// This is for testing only. Please don't muck with the maxtlsversion in
-		// production.
-		tlsConfig.MaxVersion = tlsVersion
-	}
 
 	dialer := &websocket.Dialer{
 		TLSClientConfig: tlsConfig,
@@ -296,152 +276,40 @@ func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Co
 	return conn, err
 }
 
-func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
-	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	_, srv := newServer(c, s.StatePool)
-	defer assertStop(c, srv)
-
-	// Specify an unsupported TLS version
-	conn, err := dialWebsocket(c, srv.Addr().String(), "/", tls.VersionSSL30)
-	c.Assert(err, gc.ErrorMatches, ".*protocol version not supported")
-	c.Assert(conn, gc.IsNil)
-}
-
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
 	// for the correct location, but other paths should fail.
-	_, srv := newServer(c, s.StatePool)
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
+	info, srv, httpServer := testserver.NewServer(c, s.StatePool)
 	defer assertStop(c, srv)
+	httpServer.StartTLS()
+	defer httpServer.Close()
 
-	addr := srv.Addr().String()
+	// We have to use 'localhost' because that is what the TLS cert says.
+	addr := fmt.Sprintf("localhost:%d", info.Ports()[0])
 
 	// '/api' should be fine
-	conn, err := dialWebsocket(c, addr, "/api", 0)
+	conn, err := dialWebsocket(c, addr, "/api")
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 
 	// '/`' should be fine
-	conn, err = dialWebsocket(c, addr, "/", 0)
+	conn, err = dialWebsocket(c, addr, "/")
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 
 	// '/model/MODELUUID/api' should be fine
-	conn, err = dialWebsocket(c, addr, "/model/dead-beef-123456/api", 0)
+	conn, err = dialWebsocket(c, addr, "/model/deadbeef-1234-5678-0123-0123456789ab/api")
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 
 	// '/randompath' is not ok
-	conn, err = dialWebsocket(c, addr, "/randompath", 0)
+	conn, err = dialWebsocket(c, addr, "/randompath")
 	// Unfortunately gorilla/websocket just returns bad handshake, it doesn't
 	// give us any information (whether this was a 404 Not Found, Internal
 	// Server Error, 200 OK, etc.)
 	c.Assert(err, gc.ErrorMatches, `websocket: bad handshake`)
 	c.Assert(conn, gc.IsNil)
-}
-
-func (s *serverSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
-	_, srv := newServer(c, s.StatePool)
-	defer assertStop(c, srv)
-	// By default, when there is no identity location, no
-	// bakery service or macaroon is created.
-	_, err := apiserver.ServerMacaroon(srv)
-	c.Assert(err, gc.ErrorMatches, "macaroon authentication is not configured")
-	_, err = apiserver.ServerBakeryService(srv)
-	c.Assert(err, gc.ErrorMatches, "macaroon authentication is not configured")
-}
-
-type macaroonServerSuite struct {
-	jujutesting.JujuConnSuite
-	discharger *bakerytest.Discharger
-}
-
-var _ = gc.Suite(&macaroonServerSuite{})
-
-func (s *macaroonServerSuite) SetUpTest(c *gc.C) {
-	s.discharger = bakerytest.NewDischarger(nil, noCheck)
-	s.ControllerConfigAttrs = map[string]interface{}{
-		controller.IdentityURL: s.discharger.Location(),
-	}
-	s.JujuConnSuite.SetUpTest(c)
-}
-
-func (s *macaroonServerSuite) TearDownTest(c *gc.C) {
-	s.discharger.Close()
-	s.JujuConnSuite.TearDownTest(c)
-}
-
-func (s *macaroonServerSuite) TestServerBakery(c *gc.C) {
-	_, srv := newServer(c, s.StatePool)
-	defer assertStop(c, srv)
-	m, err := apiserver.ServerMacaroon(srv)
-	c.Assert(err, gc.IsNil)
-	bsvc, err := apiserver.ServerBakeryService(srv)
-	c.Assert(err, gc.IsNil)
-
-	// Check that we can add a third party caveat addressed to the
-	// discharger, which indirectly ensures that the discharger's public
-	// key has been added to the bakery service's locator.
-	m = m.Clone()
-	err = bsvc.AddCaveat(m, checkers.Caveat{
-		Location:  s.discharger.Location(),
-		Condition: "true",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that we can discharge the macaroon and check it with
-	// the service.
-	client := httpbakery.NewClient()
-	ms, err := client.DischargeAll(m)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = bsvc.(*bakery.Service).Check(ms, checkers.New())
-	c.Assert(err, gc.IsNil)
-}
-
-type macaroonServerWrongPublicKeySuite struct {
-	jujutesting.JujuConnSuite
-	discharger *bakerytest.Discharger
-}
-
-var _ = gc.Suite(&macaroonServerWrongPublicKeySuite{})
-
-func (s *macaroonServerWrongPublicKeySuite) SetUpTest(c *gc.C) {
-	s.discharger = bakerytest.NewDischarger(nil, noCheck)
-	wrongKey, err := bakery.GenerateKey()
-	c.Assert(err, gc.IsNil)
-	s.ControllerConfigAttrs = map[string]interface{}{
-		controller.IdentityURL:       s.discharger.Location(),
-		controller.IdentityPublicKey: wrongKey.Public.String(),
-	}
-	s.JujuConnSuite.SetUpTest(c)
-}
-
-func (s *macaroonServerWrongPublicKeySuite) TearDownTest(c *gc.C) {
-	s.discharger.Close()
-	s.JujuConnSuite.TearDownTest(c)
-}
-
-func (s *macaroonServerWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {
-	_, srv := newServer(c, s.StatePool)
-	defer assertStop(c, srv)
-	m, err := apiserver.ServerMacaroon(srv)
-	c.Assert(err, gc.IsNil)
-	m = m.Clone()
-	bsvc, err := apiserver.ServerBakeryService(srv)
-	c.Assert(err, gc.IsNil)
-	err = bsvc.AddCaveat(m, checkers.Caveat{
-		Location:  s.discharger.Location(),
-		Condition: "true",
-	})
-	c.Assert(err, gc.IsNil)
-	client := httpbakery.NewClient()
-
-	_, err = client.DischargeAll(m)
-	c.Assert(err, gc.ErrorMatches, `cannot get discharge from ".*": third party refused discharge: cannot discharge: discharger cannot decode caveat id: public key mismatch`)
-}
-
-func noCheck(_ *http.Request, _, _ string) ([]checkers.Caveat, error) {
-	return nil, nil
 }
 
 type fakeResource struct {
@@ -528,29 +396,14 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 }
 
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
-	coretesting.SkipFlaky(c, "lp:1702215")
-	cfg := defaultServerConfig(c)
-	_, server := newServerWithConfig(c, s.StatePool, cfg)
+	cfg := testserver.DefaultServerConfig(c)
+	info, server, httpServer := testserver.NewServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, server)
-
-	w := s.State.WatchModels()
-	defer workertest.CleanKill(c, w)
-	// Initial change.
-	assertChange(c, w)
+	httpServer.StartTLS()
+	defer httpServer.Close()
 
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
-
-	s.State.StartSync()
-	// This ensures that the model exists for more than one of the
-	// time slices that the watcher uses for coalescing
-	// events. Without it the model appears and disappears quickly
-	// enough that it never generates a change from WatchModels.
-	// Many Bothans died to bring us this information.
-	assertChange(c, w)
-
-	model, err := otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the model's in the pool but not referenced.
 	st, err := s.StatePool.Get(otherState.ModelUUID())
@@ -559,25 +412,17 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 
 	// Make a request for the model API to check it releases
 	// state back into the pool once the connection is closed.
-	conn, err := dialWebsocket(c, server.Addr().String(), fmt.Sprintf("/model/%s/api", st.ModelUUID()), 0)
+	addr := fmt.Sprintf("localhost:%d", info.Ports()[0])
+	conn, err := dialWebsocket(c, addr, fmt.Sprintf("/model/%s/api", st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 
-	// When the model goes away the API server should ensure st gets closed.
-	err = model.Destroy(state.DestroyModelParams{})
+	// Don't make an assertion about whether the remove call returns
+	// true - that's dependent on whether the server has reacted to
+	// the connection being closed yet, so it's racy.
+	_, err = s.StatePool.Remove(otherState.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.State.StartSync()
 	assertStateBecomesClosed(c, st.State)
-}
-
-func assertChange(c *gc.C, w state.StringsWatcher) {
-	select {
-	case <-w.Changes():
-		return
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("no changes on watcher")
-	}
 }
 
 func assertStateBecomesClosed(c *gc.C, st *state.State) {
@@ -608,61 +453,43 @@ func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 	c.Assert(resource.stopped, jc.IsTrue)
 }
 
-// defaultServerConfig returns the default configuration for starting a test server.
-func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
-	fakeOrigin := names.NewMachineTag("0")
-	hub := centralhub.New(fakeOrigin)
-	return apiserver.ServerConfig{
-		ListenAddr:      "localhost:0",
-		Clock:           clock.WallClock,
-		GetCertificate:  func() *tls.Certificate { return coretesting.ServerTLSCert },
-		Tag:             names.NewMachineTag("0"),
-		LogDir:          c.MkDir(),
-		Hub:             hub,
-		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL:     "https://0.1.2.3/no-autocert-here",
-		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{Enabled: false} },
-		UpgradeComplete: func() bool { return true },
-		RestoreStatus: func() state.RestoreStatus {
-			return state.RestoreNotActive
-		},
-	}
-}
-
-// newServer returns a new running API server using the given state.
-// The pool may be nil, in which case a pool using the given state
-// will be used.
-//
-// It returns information suitable for connecting to the state
-// without any authentication information or model tag, and the server
-// that's been started.
-func newServer(c *gc.C, statePool *state.StatePool) (*api.Info, *apiserver.Server) {
-	return newServerWithConfig(c, statePool, defaultServerConfig(c))
-}
-
-func newServerWithHub(c *gc.C, statePool *state.StatePool, hub *pubsub.StructuredHub) (*api.Info, *apiserver.Server) {
-	cfg := defaultServerConfig(c)
-	cfg.Hub = hub
-	return newServerWithConfig(c, statePool, cfg)
-}
-
-// newServerWithConfig is like newServer except that the entire
-// server configuration may be specified (see defaultServerConfig
-// for a suitable starting point).
-func newServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server) {
-	srv, err := apiserver.NewServer(statePool, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	return &api.Info{
-		Addrs:  []string{srv.Addr().String()},
-		CACert: coretesting.CACert,
-	}, srv
-}
-
 type stopper interface {
 	Stop() error
 }
 
 func assertStop(c *gc.C, stopper stopper) {
 	c.Assert(stopper.Stop(), gc.IsNil)
+}
+
+type mockAuthenticator struct {
+}
+
+func (a *mockAuthenticator) Authenticate(req *http.Request) (httpcontext.AuthInfo, error) {
+	return httpcontext.AuthInfo{}, nil
+}
+
+func (a *mockAuthenticator) AuthenticateLoginRequest(
+	serverHost string,
+	modelUUID string,
+	req params.LoginRequest,
+) (httpcontext.AuthInfo, error) {
+	tag, err := names.ParseTag(req.AuthTag)
+	if err != nil {
+		return httpcontext.AuthInfo{}, errors.Trace(err)
+	}
+	return httpcontext.AuthInfo{
+		Entity: &mockEntity{tag: tag},
+	}, nil
+}
+
+func (a *mockAuthenticator) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
+	return nil, nil
+}
+
+type mockEntity struct {
+	tag names.Tag
+}
+
+func (e *mockEntity) Tag() names.Tag {
+	return e.tag
 }

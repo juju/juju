@@ -219,6 +219,9 @@ type HookContext struct {
 
 	//  slaLevel contains the current SLA level.
 	slaLevel string
+
+	// The cloud specification
+	cloudSpec *params.CloudSpec
 }
 
 // Component implements hooks.Context.
@@ -512,6 +515,16 @@ func (ctx *HookContext) SetPodSpec(specYaml string) error {
 	return ctx.state.SetPodSpec(entityName, specYaml)
 }
 
+// CloudSpec return the cloud specification for the running unit's model
+func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
+	var err error
+	ctx.cloudSpec, err = ctx.state.CloudSpec()
+	if err != nil {
+		return nil, err
+	}
+	return ctx.cloudSpec, nil
+}
+
 // ActionName returns the name of the action.
 func (ctx *HookContext) ActionName() (string, error) {
 	if ctx.actionData == nil {
@@ -587,6 +600,11 @@ func (ctx *HookContext) RelationIds() ([]int, error) {
 
 // AddMetric adds metrics to the hook context.
 func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
+	return errors.New("metrics not allowed in this context")
+}
+
+// AddMetricLabels adds metrics with labels to the hook context.
+func (ctx *HookContext) AddMetricLabels(key, value string, created time.Time, labels map[string]string) error {
 	return errors.New("metrics not allowed in this context")
 }
 

@@ -65,6 +65,7 @@ var baseCommands = map[string]creator{
 	"application-version-set" + cmdSuffix: NewApplicationVersionSetCommand,
 	"pod-spec-set" + cmdSuffix:            NewPodSpecSetCommand,
 	"goal-state" + cmdSuffix:              NewGoalStateCommand,
+	"credential-get" + cmdSuffix:          NewCredentialGetCommand,
 }
 
 var storageCommands = map[string]creator{

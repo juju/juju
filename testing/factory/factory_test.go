@@ -478,7 +478,7 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 		Unit:    unit,
 		Time:    &now,
 		Sent:    true,
-		Metrics: []state.Metric{{"pings", "1", now}},
+		Metrics: []state.Metric{{Key: "pings", Value: "1", Time: now}},
 	})
 	c.Assert(metric, gc.NotNil)
 

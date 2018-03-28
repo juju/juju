@@ -216,11 +216,11 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	})
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"UUID", nil},
-		{"Owner", nil},
 		{"Name", nil},
 		{"Type", nil},
 		{"UUID", nil},
 		{"ControllerUUID", nil},
+		{"Owner", nil},
 		{"Life", nil},
 		{"Cloud", nil},
 		{"CloudRegion", nil},
@@ -241,13 +241,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"LastModelConnection", []interface{}{names.NewLocalUserTag("mary")}},
 		{"Type", nil},
 	})
-}
-
-func (s *modelInfoSuite) TestModelInfoOwner(c *gc.C) {
-	s.setAPIUser(c, names.NewUserTag("bob@local"))
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
-	c.Assert(info.Users, gc.HasLen, 4)
-	c.Assert(info.Machines, gc.HasLen, 2)
 }
 
 func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
@@ -574,6 +567,11 @@ type fakeModelDescription struct {
 func (st *mockState) ModelUUID() string {
 	st.MethodCall(st, "ModelUUID")
 	return st.model.UUID()
+}
+
+func (st *mockState) Name() string {
+	st.MethodCall(st, "Name")
+	return "test-model"
 }
 
 func (st *mockState) ControllerModelUUID() string {

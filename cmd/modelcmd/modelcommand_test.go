@@ -125,6 +125,25 @@ func (s *ModelCommandSuite) TestModelName(c *gc.C) {
 	}
 }
 
+func (s *ModelCommandSuite) TestModelType(c *gc.C) {
+	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	s.store.CurrentControllerName = "foo"
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "bar", Password: "hunter2",
+	}
+	err := s.store.UpdateModel("foo", "adminfoo/currentfoo",
+		jujuclient.ModelDetails{ModelUUID: "uuidfoo1", ModelType: model.CAAS})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.store.SetCurrentModel("foo", "adminfoo/currentfoo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	cmd, err := runTestCommand(c, s.store)
+	c.Assert(err, jc.ErrorIsNil)
+	modelType, err := cmd.ModelType()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelType, gc.Equals, model.CAAS)
+}
+
 func (s *ModelCommandSuite) TestBootstrapContext(c *gc.C) {
 	ctx := modelcmd.BootstrapContext(&cmd.Context{})
 	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsTrue)
@@ -186,8 +205,14 @@ func (s *ModelCommandSuite) assertRunHasModel(c *gc.C, expectControllerName, exp
 	c.Assert(modelName, gc.Equals, expectModelName)
 }
 
+func noOpRefresh(_ jujuclient.ClientStore, _ string) error {
+	return nil
+}
+
 func runTestCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (modelcmd.ModelCommand, error) {
-	cmd := modelcmd.Wrap(new(testCommand))
+	modelCmd := new(testCommand)
+	modelcmd.SetModelRefresh(noOpRefresh, modelCmd)
+	cmd := modelcmd.Wrap(modelCmd)
 	cmd.SetClientStore(store)
 	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return cmd, errors.Trace(err)

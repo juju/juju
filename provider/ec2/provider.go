@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/provider/common"
 )
 
 var logger = loggo.GetLogger("juju.provider.ec2")
@@ -52,7 +53,7 @@ func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error
 	var err error
 	e.ec2, err = awsClient(e.cloud)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(maybeConvertCredentialError(err))
 	}
 
 	if err := e.SetConfig(args.Config); err != nil {
@@ -168,15 +169,20 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	}, nil
 }
 
-const badAccessKey = `
-Please ensure the Access Key ID you have specified is correct.
-You can obtain the Access Key ID via the "Security Credentials"
-page in the AWS console.`
+const badKeys = `
+The provided credentials could not be validated and 
+may not be authorized to carry out the request.
+Ensure that your account is authorized to use the Amazon EC2 service and 
+that you are using the correct access keys. 
+These keys are obtained via the "Security Credentials"
+page in the AWS console.
+`
 
-const badSecretKey = `
-Please ensure the Secret Access Key you have specified is correct.
-You can obtain the Secret Access Key via the "Security Credentials"
-page in the AWS console.`
+const unauthorized = `
+Please subscribe to the requested Amazon service. 
+You are currently not authorized to use it.
+New Amazon accounts might take some time to be activated while 
+your details are being verified.`
 
 // verifyCredentials issues a cheap, non-modifying/idempotent request to EC2 to
 // verify the configured credentials. If verification fails, a user-friendly
@@ -184,19 +190,44 @@ page in the AWS console.`
 // level.
 var verifyCredentials = func(e *environ) error {
 	_, err := e.ec2.AccountAttributes()
-	if err != nil {
-		logger.Debugf("ec2 request failed: %v", err)
-		if err, ok := err.(*ec2.Error); ok {
-			switch err.Code {
-			case "AuthFailure":
-				return errors.New("authentication failed.\n" + badAccessKey)
-			case "SignatureDoesNotMatch":
-				return errors.New("authentication failed.\n" + badSecretKey)
-			default:
-				return err
-			}
-		}
-		return err
+	return maybeConvertCredentialError(err)
+}
+
+// maybeConvertCredentialError examines the error received from the provider.
+// Authentication related errors are wrapped in common.CredentialNotValid.
+// Authorisation related errors are annotated with an additional
+// user-friendly explanation.
+// All other errors are returned un-wrapped and not annotated.
+var maybeConvertCredentialError = func(err error) error {
+	if err == nil {
+		return nil
 	}
-	return nil
+
+	if err, ok := err.(*ec2.Error); ok {
+		// EC2 error codes are from https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.
+		switch err.Code {
+		case "AuthFailure":
+			return common.CredentialNotValidf(err, badKeys)
+		case "InvalidClientTokenId":
+			return common.CredentialNotValidf(err, badKeys)
+		case "MissingAuthenticationToken":
+			return common.CredentialNotValidf(err, badKeys)
+		case "Blocked":
+			return common.CredentialNotValidf(err, "\nYour Amazon account is currently blocked.")
+		case "CustomerKeyHasBeenRevoked":
+			return common.CredentialNotValidf(err, "\nYour Amazon keys have been revoked.")
+		case "PendingVerification":
+			return common.CredentialNotValidf(err, "\nYour account is pending verification by Amazon.")
+		case "SignatureDoesNotMatch":
+			return common.CredentialNotValidf(err, badKeys)
+		case "OptInRequired":
+			return errors.Annotate(err, unauthorized)
+		case "UnauthorizedOperation":
+			return errors.Annotate(err, unauthorized)
+		default:
+			// This error is unrelated to access keys, account or credentials...
+			return err
+		}
+	}
+	return err
 }

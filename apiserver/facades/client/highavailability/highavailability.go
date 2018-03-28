@@ -4,6 +4,7 @@
 package highavailability
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -118,29 +120,22 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 		return params.ControllersChanges{}, err
 	}
 
-	if spec.Series == "" {
-		// We should always have at least one voting machine
-		// If we *really* wanted we could just pick whatever series is
-		// in the majority, but really, if we always copy the value of
-		// the first one, then they'll stay in sync.
-		if len(cInfo.VotingMachineIds) == 0 {
-			// Better than a panic()?
-			return params.ControllersChanges{}, errors.Errorf("internal error, failed to find any voting machines")
-		}
-		templateMachine, err := st.Machine(cInfo.VotingMachineIds[0])
-		if err != nil {
-			return params.ControllersChanges{}, err
-		}
-		spec.Series = templateMachine.Series()
-	}
-
 	// If there were no supplied constraints, use the original bootstrap
 	// constraints.
-	if constraints.IsEmpty(&spec.Constraints) {
-		var err error
-		spec.Constraints, err = getBootstrapConstraints(st, cInfo.MachineIds)
+	if constraints.IsEmpty(&spec.Constraints) || spec.Series == "" {
+		referenceMachine, err := getReferenceController(st, cInfo.MachineIds)
 		if err != nil {
 			return params.ControllersChanges{}, errors.Trace(err)
+		}
+		if constraints.IsEmpty(&spec.Constraints) {
+			cons, err := referenceMachine.Constraints()
+			if err != nil {
+				return params.ControllersChanges{}, errors.Trace(err)
+			}
+			spec.Constraints = cons
+		}
+		if spec.Series == "" {
+			spec.Series = referenceMachine.Series()
 		}
 	}
 
@@ -155,12 +150,43 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	}
 	spec.Constraints.Spaces = cfg.AsSpaceConstraints(spec.Constraints.Spaces)
 
+	if err = validatePlacementForSpaces(st, spec.Constraints.Spaces, spec.Placement); err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
+
 	// Might be nicer to pass the spec itself to this method.
 	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, spec.Series, spec.Placement, api.machineID)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}
 	return controllersChanges(changes), nil
+}
+
+// getReferenceController looks up the ideal controller to use as a reference for Constraints and Series
+func getReferenceController(st *state.State, machineIds []string) (*state.Machine, error) {
+	// Sort the controller IDs from low to high and take the first.
+	// This will typically give the initial bootstrap machine.
+	var controllerIds []int
+	for _, id := range machineIds {
+		idNum, err := strconv.Atoi(id)
+		if err != nil {
+			logger.Warningf("ignoring non numeric controller id %v", id)
+			continue
+		}
+		controllerIds = append(controllerIds, idNum)
+	}
+	if len(controllerIds) == 0 {
+		return nil, errors.Errorf("internal error; failed to find any controllers")
+	}
+	sort.Ints(controllerIds)
+	controllerId := controllerIds[0]
+
+	// Load the controller machine and get its constraints.
+	controller, err := st.Machine(strconv.Itoa(controllerId))
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading controller id %v", controllerId)
+	}
+	return controller, nil
 }
 
 // validateCurrentControllers checks for a scenario where there is no HA space
@@ -186,41 +212,65 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 	}
 	if len(badIds) > 0 {
 		return errors.Errorf(
-			"juju-ha-space is not set and a unique cloud-local address was not found for machines: %s",
+			"juju-ha-space is not set and a unique usable address was not found for machines: %s"+
+				"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication",
 			strings.Join(badIds, ", "),
 		)
 	}
 	return nil
 }
 
-// getBootstrapConstraints attempts to return the constraints for the initial
-// bootstrapped controller.
-func getBootstrapConstraints(st *state.State, machineIds []string) (constraints.Value, error) {
-	// Sort the controller IDs from low to high and take the first.
-	// This will typically give the initial bootstrap machine.
-	var controllerIds []int
-	for _, id := range machineIds {
-		idNum, err := strconv.Atoi(id)
+// validatePlacementForSpaces checks whether there are both space constraints
+// and machine placement directives.
+// If there are, checks are made to ensure that the machines specified have at
+// least one address in all of the spaces.
+func validatePlacementForSpaces(st *state.State, spaces *[]string, placement []string) error {
+	if spaces == nil || len(*spaces) == 0 || len(placement) == 0 {
+		return nil
+	}
+
+	for _, v := range placement {
+		p, err := instance.ParsePlacement(v)
 		if err != nil {
-			logger.Warningf("ignoring non numeric controller id %v", id)
+			if err == instance.ErrPlacementScopeMissing {
+				// Where an unscoped placement is not parsed as a machine ID,
+				// such as for a MaaS node name, just allow it through.
+				// TODO (manadart 2018-03-27): Possible work at the provider
+				// level to accommodate placement and space constraints during
+				// instance pre-check may be entertained in the future.
+				continue
+			}
+			return errors.Annotate(err, "parsing placement")
+		}
+		if p.Directive == "" {
 			continue
 		}
-		controllerIds = append(controllerIds, idNum)
-	}
-	if len(controllerIds) == 0 {
-		return constraints.Value{}, errors.Errorf("internal error; failed to find any controllers")
-	}
-	sort.Ints(controllerIds)
-	controllerId := controllerIds[0]
 
-	// Load the controller machine and get its constraints.
-	controller, err := st.Machine(strconv.Itoa(controllerId))
-	if err != nil {
-		return constraints.Value{}, errors.Annotatef(err, "reading controller id %v", controllerId)
-	}
+		m, err := st.Machine(p.Directive)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// Don't throw out of here when the machine does not exist.
+				// Validate others if required and leave it handled downstream.
+				continue
+			}
+			return errors.Annotate(err, "retrieving machine")
+		}
 
-	cons, err := controller.Constraints()
-	return cons, errors.Annotatef(err, "reading constraints for controller id %v", controllerId)
+		for _, space := range *spaces {
+			spaceName := network.SpaceName(space)
+			inSpace := false
+			for _, addr := range m.Addresses() {
+				if addr.SpaceName == spaceName {
+					inSpace = true
+					break
+				}
+			}
+			if !inSpace {
+				return fmt.Errorf("machine %q has no addresses in space %q", p.Directive, space)
+			}
+		}
+	}
+	return nil
 }
 
 // controllersChanges generates a new params instance from the state instance.

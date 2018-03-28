@@ -43,6 +43,7 @@ var _ metricsender.MetricSender = (*metricsender.NopSender)(nil)
 
 func (s *MetricSenderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
 	// Application with metrics credentials set.
 	credApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm, Name: "cred"})
@@ -57,18 +58,22 @@ func (s *MetricSenderSuite) SetUpTest(c *gc.C) {
 func (s *MetricSenderSuite) TestToWire(c *gc.C) {
 	now := time.Now().Round(time.Second)
 	metric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
-	result := metricsender.ToWire(metric)
+	result := metricsender.ToWire(metric, s.Model.Name())
 	m := metric.Metrics()[0]
 	metrics := []wireformat.Metric{
 		{
 			Key:   m.Key,
 			Value: m.Value,
 			Time:  m.Time.UTC(),
+			Labels: map[string]string{
+				"foo": "bar",
+			},
 		},
 	}
 	expected := &wireformat.MetricBatch{
 		UUID:           metric.UUID(),
 		ModelUUID:      metric.ModelUUID(),
+		ModelName:      "controller",
 		UnitName:       metric.Unit(),
 		CharmUrl:       metric.CharmURL(),
 		Created:        metric.Created().UTC(),
@@ -77,6 +82,39 @@ func (s *MetricSenderSuite) TestToWire(c *gc.C) {
 		SLACredentials: metric.SLACredentials(),
 	}
 	c.Assert(result, gc.DeepEquals, expected)
+}
+
+func (s *MetricSenderSuite) TestSendMetricsFromNewModel(c *gc.C) {
+	var sender testing.MockSender
+	now := time.Now()
+	clock := jujutesting.NewClock(time.Now())
+
+	state := s.Factory.MakeModel(c, &factory.ModelParams{Name: "test-model"})
+	defer state.Close()
+	f := factory.NewFactory(state)
+	model, err := state.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	modelName := model.Name()
+	c.Assert(modelName, gc.Equals, "test-model")
+
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	// Application with metrics credentials set.
+	credApp := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm, Name: "cred"})
+	err = credApp.SetMetricCredentials([]byte("something here"))
+	c.Assert(err, jc.ErrorIsNil)
+	meteredApp := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	meteredUnit := f.MakeUnit(c, &factory.UnitParams{Application: meteredApp, SetCharmURL: true})
+	credUnit := f.MakeUnit(c, &factory.UnitParams{Application: credApp, SetCharmURL: true})
+
+	f.MakeMetric(c, &factory.MetricParams{Unit: credUnit, Time: &now})
+	f.MakeMetric(c, &factory.MetricParams{Unit: meteredUnit, Time: &now})
+	f.MakeMetric(c, &factory.MetricParams{Unit: credUnit, Sent: true, Time: &now})
+	err = metricsender.SendMetrics(TestSenderBackend{state, model}, &sender, clock, 10, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sender.Data, gc.HasLen, 1)
+	c.Assert(sender.Data[0], gc.HasLen, 2)
+	c.Assert(sender.Data[0][0].ModelName, gc.Equals, "test-model")
+	c.Assert(sender.Data[0][1].ModelName, gc.Equals, "test-model")
 }
 
 // TestSendMetrics creates 2 unsent metrics and a sent metric

@@ -5,7 +5,9 @@ package state
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -48,17 +50,48 @@ type metricBatchDoc struct {
 
 // Metric represents a single Metric.
 type Metric struct {
-	Key   string    `bson:"key"`
-	Value string    `bson:"value"`
-	Time  time.Time `bson:"time"`
+	Key    string            `bson:"key"`
+	Value  string            `bson:"value"`
+	Time   time.Time         `bson:"time"`
+	Labels map[string]string `bson:"labels,omitempty"`
 }
 
 type byTime []Metric
 
-func (t byTime) Len() int      { return len(t) }
+// Len implements sort.Interface.
+func (t byTime) Len() int { return len(t) }
+
+// Swap implements sort.Interface.
 func (t byTime) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
+
+// Less implements sort.Interface.
 func (t byTime) Less(i, j int) bool {
 	return t[i].Time.Before(t[j].Time)
+}
+
+type byKey []Metric
+
+// Len implements sort.Interface.
+func (t byKey) Len() int { return len(t) }
+
+// Swap implements sort.Interface.
+func (t byKey) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
+
+// Less implements sort.Interface.
+func (t byKey) Less(i, j int) bool {
+	if t[i].Key == t[j].Key {
+		return labelsKey(t[i].Labels) < labelsKey(t[j].Labels)
+	}
+	return t[i].Key < t[j].Key
+}
+
+func labelsKey(m map[string]string) string {
+	var result []string
+	for k, v := range m {
+		result = append(result, fmt.Sprintf("%s=%s", k, v))
+	}
+	sort.Strings(result)
+	return strings.Join(result, ",")
 }
 
 // validate checks that the MetricBatch contains valid metrics.
@@ -420,7 +453,7 @@ func (m *MetricBatch) UniqueMetrics() []Metric {
 	sort.Sort(byTime(metrics))
 	uniq := map[string]Metric{}
 	for _, m := range metrics {
-		uniq[m.Key] = m
+		uniq[fmt.Sprintf("%s-%s", m.Key, labelsKey(m.Labels))] = m
 	}
 	results := make([]Metric, len(uniq))
 	i := 0
@@ -428,6 +461,7 @@ func (m *MetricBatch) UniqueMetrics() []Metric {
 		results[i] = m
 		i++
 	}
+	sort.Sort(byKey(results))
 	return results
 }
 
