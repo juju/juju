@@ -289,12 +289,12 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 func (s *MachineSuite) TestLifeJobManageModel(c *gc.C) {
 	m := s.machine0
 	err := m.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is part of the controller")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
 	err = m.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
 	// Since this is the only controller machine, we cannot even force destroy it
 	err = m.ForceDestroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is a controller and cannot be fast destroyed")
 	err = m.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
 }

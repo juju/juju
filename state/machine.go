@@ -497,20 +497,12 @@ func (m *Machine) PasswordValid(password string) bool {
 // If the machine has assigned units, Destroy will return
 // a HasAssignedUnitsError.
 func (m *Machine) Destroy() error {
-	if m.IsManager() {
-		// XXX: jam 2018-03-27 this is a remnant from the past, do we still want this?
-		// Potentially we could point the user towards "juju remove-machine --force" in this case
-		return fmt.Errorf("machine %s is part of the controller", m.doc.Id)
-	}
 	return m.advanceLifecycle(Dying)
 }
 
 // ForceDestroy queues the machine for complete removal, including the
 // destruction of all units and containers on the machine.
 func (m *Machine) ForceDestroy() error {
-	if m.IsManager() {
-		return m.advanceLifecycle(Dying)
-	}
 	ops, err := m.forceDestroyOps()
 	if err != nil {
 		return errors.Trace(err)
@@ -523,11 +515,8 @@ func (m *Machine) ForceDestroy() error {
 
 func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 	if m.IsManager() {
-		// We don't support 'force destroy' to fast path the machine to dead, because we must tear it down cleanly for
-		// things like Peergrouper, etc.
-		// However, we don't want to say "cannot force-destroy" because that would conflict with the fact that users
-		// have to supply remove-machine --force.
-		// forceDestroyOps should just never be called from Juju code. if the machine is a manager.
+		// TODO: ForceDestroy on a controller should do the DB side of the work to remove this object. This includes
+		// removing it from Controller.machineids, etc.
 		return nil, errors.Errorf("machine %s is a controller and cannot be fast destroyed", m.Id())
 	}
 	// Make sure the machine doesn't become a manager while we're destroying it

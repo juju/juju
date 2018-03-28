@@ -430,27 +430,27 @@ func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
+func (s *EnableHASuite) TestDestroyFromHA(c *gc.C) {
 	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
 		return true, nil
 	})
 
 	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m0.ForceDestroy()
+	err = m0.Destroy()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
 	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
-	err = m0.ForceDestroy()
+	err = m0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
 	c.Check(m0.Life(), gc.Equals, state.Dying)
 	c.Check(m0.WantsVote(), jc.IsFalse)
 }
 
-func (s *EnableHASuite) TestForceDestroyRaceLastController(c *gc.C) {
+func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
 	c.Skip("not able to race yet")
 	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
 		return true, nil
@@ -463,11 +463,11 @@ func (s *EnableHASuite) TestForceDestroyRaceLastController(c *gc.C) {
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
 
 	// TODO(jam) 2018-03-25: We don't directly mutate the DB, we need to expose a function that can actually cause a
-	// race, so that we know we have the right assertions in the ForceDestroy txns.
+	// race, so that we know we have the right assertions in the Destroy txns.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		// Somehow remove a different controller machine while we're waiting for machine 0 to be removed
 	}).Check()
-	err = m0.ForceDestroy()
+	err = m0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
 	c.Check(m0.Life(), gc.Equals, state.Dying)
