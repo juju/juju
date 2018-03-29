@@ -44,6 +44,7 @@ type Space interface {
 type Machine interface {
 	Id() string
 	Status() (status.StatusInfo, error)
+	SetStatus(status.StatusInfo) error
 	Refresh() error
 	Watch() state.NotifyWatcher
 	WantsVote() bool

@@ -84,8 +84,8 @@ func (m *machineTracker) Addresses() []network.Address {
 }
 
 // SelectMongoAddress returns the best address on the machine for MongoDB peer
-// use, using the input space. An error is return if the empty space is
-// supplied, or if no addresses are found.
+// use, using the input space.
+// An error is return if the empty space is supplied.
 func (m *machineTracker) SelectMongoAddressFromSpace(port int, space network.SpaceName) (string, error) {
 	if space == "" {
 		return "", fmt.Errorf("empty space supplied as an argument for selecting Mongo address for machine %q", m.id)
@@ -105,7 +105,7 @@ func (m *machineTracker) SelectMongoAddressFromSpace(port int, space network.Spa
 	// If we end up here, then there are no addresses available in the
 	// specified space. This should not happen, because the configured
 	// space is used as a constraint when first enabling HA.
-	return "", fmt.Errorf("no addresses found for machine %q in space %q", m.id, space)
+	return "", nil
 }
 
 // GetPotentialMongoHostPorts simply returns all the available addresses
