@@ -565,29 +565,40 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	// Update application config and see if it is reported
-	field := "applicationConfigField"
-	s.wordpressApplication.UpdateApplicationConfig(application.ConfigAttributes{
-		field: true,
-	},
-		[]string{},
-		environschema.Fields{field: {
-			Description: "Does this application have access to trusted credentials",
-			Type:        environschema.Tbool,
-			Group:       environschema.JujuGroup,
-		}},
-		schema.Defaults{
-			field: false,
-		},
-	)
-	wc.AssertOneChange()
-
 	// Non-change is not reported.
 	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+func (s *unitSuite) TestWatchTrustConfigSettings(c *gc.C) {
+	watcher, err := s.apiUnit.WatchTrustConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+
+	notifyWatcher := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
+	defer notifyWatcher.AssertStops()
+
+	// Initial event.
+	notifyWatcher.AssertOneChange()
+
+	// Update application config and see if it is reported
+	trustFieldKey := "trust"
+	s.wordpressApplication.UpdateApplicationConfig(application.ConfigAttributes{
+		trustFieldKey: true,
+	},
+		[]string{},
+		environschema.Fields{trustFieldKey: {
+			Description: "Does this application have access to trusted credentials",
+			Type:        environschema.Tbool,
+			Group:       environschema.JujuGroup,
+		}},
+		schema.Defaults{
+			trustFieldKey: false,
+		},
+	)
+	notifyWatcher.AssertOneChange()
 }
 
 func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
