@@ -2179,7 +2179,7 @@ func (s *upgradesSuite) TestCopyMongoSpaceToHASpaceConfigWhenValid(c *gc.C) {
 	err = MoveMongoSpaceToHASpaceConfig(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "mongo-space")
+	c.Check(getHASpaceConfig(s.state, c), gc.Equals, sn)
 }
 
 func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenNotValid(c *gc.C) {
