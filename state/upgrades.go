@@ -1405,30 +1405,36 @@ func DeleteCloudImageMetadata(st *State) error {
 // CopyMongoSpaceToHASpaceConfig copies the Mongo space name from
 // ControllerInfo to the HA space name in ControllerConfig.
 // This only happens if the Mongo space state is valid, it is not empty,
-// and if the is no value already set for the HA space name.
-func CopyMongoSpaceToHASpaceConfig(st *State) error {
-	info, err := st.ControllerInfo()
+// and if there is no value already set for the HA space name.
+// The old keys are then deleted from ControllerInfo.
+func MoveMongoSpaceToHASpaceConfig(st *State) error {
+	controllerColl, controllerCloser := st.db().GetRawCollection(controllersC)
+	defer controllerCloser()
+	var doc controllersDoc
+	err := controllerColl.FindId(bson.D{{"_id", modelGlobalKey}}).One(&doc)
 	if err != nil {
-		return errors.Annotate(err, "cannot get controller info")
+		return errors.Annotate(err, "retrieving controller info doc")
 	}
 
-	ms := info.MongoSpaceName
-	if info.MongoSpaceState != MongoSpaceValid || ms == "" {
-		return nil
+	if doc.MongoSpaceState == "valid" && doc.MongoSpaceName != "" {
+		settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
+		if err != nil {
+			return errors.Annotate(err, "cannot get controller config")
+		}
+
+		if _, ok := settings.Get(controller.JujuHASpace); !ok {
+			settings.Set(controller.JujuHASpace, doc.MongoSpaceName)
+			if _, err = settings.Write(); err != nil {
+				return errors.Annotate(err, "writing controller info")
+			}
+		}
 	}
 
-	settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
-	if err != nil {
-		return errors.Annotate(err, "cannot get controller config")
-	}
-
-	if _, ok := settings.Get(controller.JujuHASpace); ok {
-		return nil
-	}
-
-	settings.Set(controller.JujuHASpace, ms)
-	_, err = settings.Write()
-	return errors.Annotate(err, "writing controller info")
+	err = controllerColl.UpdateId(modelGlobalKey, bson.M{"$unset": bson.M{
+		"mongo-space-name":  1,
+		"mongo-space-state": 1,
+	}})
+	return errors.Annotate(err, "removing mongo-space-state and mongo-space-name")
 }
 
 // CreateMissingApplicationConfig ensures that all models have an application config in the db.

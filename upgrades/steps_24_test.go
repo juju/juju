@@ -27,7 +27,7 @@ func (s *steps24Suite) TestMoveOldAuditLog(c *gc.C) {
 }
 
 func (s *steps24Suite) TestCopyMongoSpaceToHASpaceConfig(c *gc.C) {
-	step := findStateStep(c, v24, "copy controller info Mongo space to controller config HA space if valid")
+	step := findStateStep(c, v24, "move controller info Mongo space to controller config HA space if valid")
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }

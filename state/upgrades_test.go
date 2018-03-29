@@ -16,14 +16,13 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
-	charm "gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testcharms"
@@ -2168,12 +2167,16 @@ func (s *upgradesSuite) TestDeleteCloudImageMetadata(c *gc.C) {
 func (s *upgradesSuite) TestCopyMongoSpaceToHASpaceConfigWhenValid(c *gc.C) {
 	c.Assert(getHASpaceConfig(s.state, c), gc.Equals, "")
 
-	sn := network.SpaceName("mongo-space")
-	ms, err := s.state.SetOrGetMongoSpaceName(sn)
+	sn := "mongo-space"
+	controllerColl, controllerCloser := s.state.db().GetRawCollection(controllersC)
+	defer controllerCloser()
+	err := controllerColl.UpdateId(modelGlobalKey, bson.M{"$set": bson.M{
+		"mongo-space-name":  sn,
+		"mongo-space-state": "valid",
+	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms, gc.Equals, sn)
 
-	err = CopyMongoSpaceToHASpaceConfig(s.state)
+	err = MoveMongoSpaceToHASpaceConfig(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "mongo-space")
@@ -2182,32 +2185,16 @@ func (s *upgradesSuite) TestCopyMongoSpaceToHASpaceConfigWhenValid(c *gc.C) {
 func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenNotValid(c *gc.C) {
 	c.Assert(getHASpaceConfig(s.state, c), gc.Equals, "")
 
-	sn := network.SpaceName("mongo-space")
-	ms, err := s.state.SetOrGetMongoSpaceName(sn)
+	sn := "mongo-space"
+	controllerColl, controllerCloser := s.state.db().GetRawCollection(controllersC)
+	defer controllerCloser()
+	err := controllerColl.UpdateId(modelGlobalKey, bson.M{"$set": bson.M{
+		"mongo-space-name":  sn,
+		"mongo-space-state": "invalid",
+	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms, gc.Equals, sn)
-	err = s.state.setMongoSpaceState(MongoSpaceInvalid)
-	c.Assert(err, jc.ErrorIsNil)
 
-	err = CopyMongoSpaceToHASpaceConfig(s.state)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "")
-}
-
-func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenEmpty(c *gc.C) {
-	c.Assert(getHASpaceConfig(s.state, c), gc.Equals, "")
-
-	sn := network.SpaceName("")
-	ms, err := s.state.SetOrGetMongoSpaceName(sn)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms, gc.Equals, sn)
-
-	info, err := s.state.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.MongoSpaceState, gc.Equals, MongoSpaceValid)
-
-	err = CopyMongoSpaceToHASpaceConfig(s.state)
+	err = MoveMongoSpaceToHASpaceConfig(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "")
@@ -2220,25 +2207,24 @@ func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenAlreadySet(c *gc.
 	_, err = settings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	sn := network.SpaceName("new-value")
-	ms, err := s.state.SetOrGetMongoSpaceName(sn)
+	controllerColl, controllerCloser := s.state.db().GetRawCollection(controllersC)
+	defer controllerCloser()
+	err = controllerColl.UpdateId(modelGlobalKey, bson.M{"$set": bson.M{
+		"mongo-space-name":  "should-not-be-copied",
+		"mongo-space-state": "valid",
+	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms, gc.Equals, sn)
 
-	info, err := s.state.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.MongoSpaceState, gc.Equals, MongoSpaceValid)
-
-	err = CopyMongoSpaceToHASpaceConfig(s.state)
+	err = MoveMongoSpaceToHASpaceConfig(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "already-set")
 }
 
 func getHASpaceConfig(st *State, c *gc.C) string {
-	config, err := st.ControllerConfig()
+	cfg, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	return config.JujuHASpace()
+	return cfg.JujuHASpace()
 }
 
 func (s *upgradesSuite) TestCreateMissingApplicationConfig(c *gc.C) {
