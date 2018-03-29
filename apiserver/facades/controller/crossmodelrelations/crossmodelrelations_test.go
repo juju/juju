@@ -226,10 +226,10 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	cav := result.Result.Macaroon.Caveats()
 	c.Check(cav, gc.HasLen, 5)
 	c.Check(bytes.HasPrefix(cav[0].Id, []byte("time-before ")), jc.IsTrue)
-	c.Check(cav[1].Id, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Check(cav[2].Id, gc.Equals, "declared offer-uuid offer-uuid")
-	c.Check(cav[3].Id, gc.Equals, "declared username mary")
-	c.Check(cav[4].Id, gc.Equals, "declared relation-key offeredapp:local remote-apptoken:remote")
+	c.Check(cav[1].Id, jc.DeepEquals, []byte("declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d"))
+	c.Check(cav[2].Id, jc.DeepEquals, []byte("declared offer-uuid offer-uuid"))
+	c.Check(cav[3].Id, jc.DeepEquals, []byte("declared username mary"))
+	c.Check(cav[4].Id, jc.DeepEquals, []byte("declared relation-key offeredapp:local remote-apptoken:remote"))
 
 	expectedRemoteApp := s.st.remoteApplications["remote-apptoken"]
 	expectedRemoteApp.Stub = testing.Stub{} // don't care about api calls

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -123,6 +123,8 @@ func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface
 	}
 	w.Header().Set("Content-Type", params.ContentTypeJSON)
 	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
+	// this shows that the body has gone over 1024 is size.
+	logger.Criticalf("Body is: %s (%d)", string(body), len(body))
 	w.WriteHeader(statusCode)
 	if _, err := w.Write(body); err != nil {
 		return errors.Annotate(err, "cannot write response")

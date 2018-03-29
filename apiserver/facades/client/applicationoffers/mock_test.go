@@ -530,11 +530,12 @@ type mockBakeryService struct {
 
 func (s *mockBakeryService) NewMacaroon(caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", caveats)
+	s.caveats["id"] = caveats
 	return macaroon.New(nil, []byte("id"), "")
 }
 
-func (s *mockBakeryService) ExpireStorageAt(when time.Duration) (authentication.ExpirableStorageBakeryService, error) {
-	s.MethodCall(s, "ExpireStorageAt", when)
+func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authentication.ExpirableStorageBakeryService, error) {
+	s.MethodCall(s, "ExpireStorageAfter", when)
 	return s, nil
 }
 

@@ -206,7 +206,7 @@ func (a *AuthContext) CreateConsumeOfferMacaroon(offer *params.ApplicationOfferD
 		return nil, errors.Trace(err)
 	}
 	expiryTime := a.clock.Now().Add(localOfferPermissionExpiryTime)
-	bakery, err := a.localOfferBakeryService.ExpireStorageAt(a.clock.Now().Sub(expiryTime))
+	bakery, err := a.localOfferBakeryService.ExpireStorageAfter(time.Until(expiryTime))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -224,7 +224,7 @@ func (a *AuthContext) CreateConsumeOfferMacaroon(offer *params.ApplicationOfferD
 // CreateRemoteRelationMacaroon creates a macaroon that authorises access to the specified relation.
 func (a *AuthContext) CreateRemoteRelationMacaroon(sourceModelUUID, offerUUID string, username string, rel names.Tag) (*macaroon.Macaroon, error) {
 	expiryTime := a.clock.Now().Add(localOfferPermissionExpiryTime)
-	bakery, err := a.localOfferBakeryService.ExpireStorageAt(a.clock.Now().Sub(expiryTime))
+	bakery, err := a.localOfferBakeryService.ExpireStorageAfter(time.Until(expiryTime))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -310,7 +310,7 @@ func (a *authenticator) checkMacaroons(mac macaroon.Slice, requiredValues map[st
 		return nil, errors.Trace(err)
 	}
 	expiryTime := a.ctxt.clock.Now().Add(localOfferPermissionExpiryTime)
-	bakery, err := a.bakery.ExpireStorageAt(a.ctxt.clock.Now().Sub(expiryTime))
+	bakery, err := a.bakery.ExpireStorageAfter(time.Until(expiryTime))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

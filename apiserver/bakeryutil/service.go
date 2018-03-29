@@ -6,7 +6,7 @@ package bakeryutil
 import (
 	"time"
 
-	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/authentication"
@@ -51,7 +51,7 @@ func NewBakeryService(
 }
 
 // ExpirableStorageBakeryService wraps bakery.Service,
-// adding the ExpireStorageAt method.
+// adding the ExpireStorageAfter method.
 type ExpirableStorageBakeryService struct {
 	*bakery.Service
 	Key     *bakery.KeyPair
@@ -59,9 +59,9 @@ type ExpirableStorageBakeryService struct {
 	Locator bakery.PublicKeyLocator
 }
 
-// ExpireStorageAt implements authentication.ExpirableStorageBakeryService.
-func (s *ExpirableStorageBakeryService) ExpireStorageAt(t time.Time) (authentication.ExpirableStorageBakeryService, error) {
-	store := s.Store.ExpireAt(t)
+// ExpireStorageAfter implements authentication.ExpirableStorageBakeryService.
+func (s *ExpirableStorageBakeryService) ExpireStorageAfter(t time.Duration) (authentication.ExpirableStorageBakeryService, error) {
+	store := s.Store.ExpireAfter(t)
 	service, err := bakery.NewService(bakery.NewServiceParams{
 		Location: s.Location(),
 		Store:    store,

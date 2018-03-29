@@ -21,7 +21,7 @@ type mockBakeryService struct {
 	*bakery.Service
 }
 
-func (m *mockBakeryService) ExpireStorageAt(time.Duration) (authentication.ExpirableStorageBakeryService, error) {
+func (m *mockBakeryService) ExpireStorageAfter(time.Duration) (authentication.ExpirableStorageBakeryService, error) {
 	return m, nil
 }
 

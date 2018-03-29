@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
@@ -166,13 +167,17 @@ func (s *MigrateSuite) TestSuccessMacaroons(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
+	// Extract macaroons so we can compare them separately
+	// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
+	macs := s.api.specSeen.TargetMacaroons
+	s.api.specSeen.TargetMacaroons = nil
+	apitesting.MacaroonsEqual(c, macs, s.targetControllerAPI.macaroons)
 	c.Check(s.api.specSeen, jc.DeepEquals, &controller.MigrationSpec{
 		ModelUUID:            modelUUID,
 		TargetControllerUUID: targetControllerUUID,
 		TargetAddrs:          []string{"1.2.3.4:5"},
 		TargetCACert:         "cert",
 		TargetUser:           "targetuser",
-		TargetMacaroons:      s.targetControllerAPI.macaroons,
 	})
 }
 

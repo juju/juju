@@ -20,10 +20,12 @@ import (
 type StorageSuite struct {
 	testing.BaseSuite
 	gitjujutesting.Stub
-	collection      mockCollection
-	memStorage      bakery.Storage
-	closeCollection func()
-	config          Config
+	collection            mockCollection
+	legacyCollection      mockCollection
+	memStorage            bakery.Storage
+	closeCollection       func()
+	closeLegacyCollection func()
+	config                Config
 }
 
 var _ = gc.Suite(&StorageSuite{})
@@ -32,7 +34,12 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
 	s.collection = mockCollection{Stub: &s.Stub}
+	s.legacyCollection = mockCollection{Stub: &s.Stub}
 	s.closeCollection = func() {
+		s.AddCall("Close")
+		s.PopNoErr()
+	}
+	s.closeLegacyCollection = func() {
 		s.AddCall("Close")
 		s.PopNoErr()
 	}
@@ -42,6 +49,11 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 			s.AddCall("GetCollection")
 			s.PopNoErr()
 			return &s.collection, s.closeCollection
+		},
+		GetLegacyCollection: func() (mongo.Collection, func()) {
+			s.AddCall("GetLegacyCollection")
+			s.PopNoErr()
+			return &s.legacyCollection, s.closeLegacyCollection
 		},
 		GetStorage: func(rootKeys *mgostorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.Storage {
 			s.AddCall("GetStorage", coll, expireAfter)
@@ -95,7 +107,9 @@ func (s *StorageSuite) TestGet(c *gc.C) {
 func (s *StorageSuite) TestGetNotFound(c *gc.C) {
 	store, err := New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Log("1.")
 	_, err = store.Get([]byte("foo"))
+	c.Log("2.")
 	c.Assert(err, gc.Equals, bakery.ErrNotFound)
 }
 
@@ -109,7 +123,7 @@ func (s *StorageSuite) TestGetLegacyFallback(c *gc.C) {
 	s.CheckCalls(c, []gitjujutesting.StubCall{
 		{"GetCollection", nil},
 		{"GetStorage", []interface{}{&s.collection, time.Duration(0)}},
-		{"GetCollection", nil},
+		{"GetLegacyCollection", nil},
 		{"FindId", []interface{}{"oldkey"}},
 		{"One", []interface{}{&storageDoc{
 			// Set by mock, not in input. Unimportant anyway.

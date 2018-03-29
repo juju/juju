@@ -687,11 +687,13 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		pattern: "/gui-version",
 		handler: guiVersionHandler,
 	}, {
-		pattern: localOfferAccessLocationPath + "/discharge",
-		handler: appOfferDischargeMux,
+		pattern:         localOfferAccessLocationPath + "/discharge",
+		handler:         appOfferDischargeMux,
+		unauthenticated: true,
 	}, {
-		pattern: localOfferAccessLocationPath + "/publickey",
-		handler: appOfferDischargeMux,
+		pattern:         localOfferAccessLocationPath + "/publickey",
+		handler:         appOfferDischargeMux,
+		unauthenticated: true,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {

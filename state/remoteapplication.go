@@ -640,9 +640,11 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	var macJSON string
 	if args.Macaroon != nil {
 		b, err := json.Marshal(args.Macaroon)
+		logger.Criticalf("Tried, got error: %s", err)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		logger.Criticalf("It worked: %s", string(b))
 		macJSON = string(b)
 	}
 	applicationID := st.docID(args.Name)

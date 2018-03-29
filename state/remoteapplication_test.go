@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon.v2-unstable"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -331,7 +332,7 @@ func (s *remoteApplicationSuite) TestMacaroon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	appMac, err := s.application.Macaroon()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appMac, gc.DeepEquals, mac)
+	apitesting.MacaroonEquals(c, appMac, mac)
 }
 
 func (s *remoteApplicationSuite) TestApplicationRefresh(c *gc.C) {

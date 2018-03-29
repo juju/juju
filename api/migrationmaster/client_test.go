@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/migrationmaster"
+	macapitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/resource"
@@ -103,6 +104,11 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	status, err := client.MigrationStatus()
 	c.Assert(err, jc.ErrorIsNil)
+	// Extract macaroons so we can compare them separately
+	// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
+	statusMacs := status.TargetInfo.Macaroons
+	status.TargetInfo.Macaroons = nil
+	macapitesting.MacaroonEquals(c, statusMacs[0][0], mac)
 	c.Assert(status, gc.DeepEquals, migration.MigrationStatus{
 		MigrationId:      "id",
 		ModelUUID:        modelUUID,
@@ -114,7 +120,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("admin"),
 			Password:      "secret",
-			Macaroons:     macs,
+			// Macaroons:     macs,
 		},
 	})
 }

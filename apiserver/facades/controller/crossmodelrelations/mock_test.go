@@ -531,7 +531,7 @@ func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]stri
 	return declared, nil
 }
 
-func (s *mockBakeryService) ExpireStorageAt(when time.Duration) (authentication.ExpirableStorageBakeryService, error) {
-	s.MethodCall(s, "ExpireStorageAt", when)
+func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authentication.ExpirableStorageBakeryService, error) {
+	s.MethodCall(s, "ExpireStorageAfter", when)
 	return s, nil
 }

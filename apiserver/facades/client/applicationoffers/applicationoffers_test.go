@@ -1128,7 +1128,7 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 		Addrs:         []string{"192.168.1.1:17070"},
 		CACert:        testing.CACert,
 	})
-	c.Assert(results.Results[0].Macaroon.Id(), gc.Equals, "")
+	c.Assert(results.Results[0].Macaroon.Id(), jc.DeepEquals, []byte("id"))
 	cav := s.bakery.caveats[string(results.Results[0].Macaroon.Id())]
 	c.Check(cav, gc.HasLen, 4)
 	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), jc.IsTrue)

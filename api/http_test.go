@@ -17,6 +17,7 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -249,7 +250,7 @@ func (s *httpSuite) TestAuthHTTPRequest(c *gc.C) {
 	req = s.authHTTPRequest(c, apiInfo)
 	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
 	macaroons := httpbakery.RequestMacaroons(req)
-	c.Assert(macaroons, jc.DeepEquals, apiInfo.Macaroons)
+	apitesting.MacaroonsEqual(c, macaroons, apiInfo.Macaroons)
 }
 
 func (s *httpSuite) authHTTPRequest(c *gc.C, info *api.Info) *http.Request {

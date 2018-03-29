@@ -1352,6 +1352,8 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 }
 
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
+	mac, err := macaroon.New(nil, nil, "")
+	c.Assert(err, gc.IsNil)
 	dbApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
@@ -1418,7 +1420,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 			"logging":  "public",
 		},
 		// Macaroon not exported.
-		Macaroon: &macaroon.Macaroon{},
+		Macaroon: mac,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))

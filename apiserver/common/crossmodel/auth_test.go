@@ -211,9 +211,9 @@ func (s *authSuite) TestCreateConsumeOfferMacaroon(c *gc.C) {
 	cav := mac.Caveats()
 	c.Assert(cav, gc.HasLen, 4)
 	c.Assert(bytes.HasPrefix(cav[0].Id, []byte("time-before")), jc.IsTrue)
-	c.Assert(cav[1].Id, gc.Equals, "declared source-model-uuid "+coretesting.ModelTag.Id())
-	c.Assert(cav[2].Id, gc.Equals, "declared offer-uuid mysql-uuid")
-	c.Assert(cav[3].Id, gc.Equals, "declared username mary")
+	c.Assert(cav[1].Id, jc.DeepEquals, []byte("declared source-model-uuid "+coretesting.ModelTag.Id()))
+	c.Assert(cav[2].Id, jc.DeepEquals, []byte("declared offer-uuid mysql-uuid"))
+	c.Assert(cav[3].Id, jc.DeepEquals, []byte("declared username mary"))
 }
 
 func (s *authSuite) TestCreateRemoteRelationMacaroon(c *gc.C) {
@@ -225,10 +225,10 @@ func (s *authSuite) TestCreateRemoteRelationMacaroon(c *gc.C) {
 	cav := mac.Caveats()
 	c.Assert(cav, gc.HasLen, 5)
 	c.Assert(bytes.HasPrefix(cav[0].Id, []byte("time-before")), jc.IsTrue)
-	c.Assert(cav[1].Id, gc.Equals, "declared source-model-uuid "+coretesting.ModelTag.Id())
-	c.Assert(cav[2].Id, gc.Equals, "declared offer-uuid mysql-uuid")
-	c.Assert(cav[3].Id, gc.Equals, "declared username mary")
-	c.Assert(cav[4].Id, gc.Equals, "declared relation-key mediawiki:db mysql:server")
+	c.Assert(cav[1].Id, jc.DeepEquals, []byte("declared source-model-uuid "+coretesting.ModelTag.Id()))
+	c.Assert(cav[2].Id, jc.DeepEquals, []byte("declared offer-uuid mysql-uuid"))
+	c.Assert(cav[3].Id, jc.DeepEquals, []byte("declared username mary"))
+	c.Assert(cav[4].Id, jc.DeepEquals, []byte("declared relation-key mediawiki:db mysql:server"))
 }
 
 func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {

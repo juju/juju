@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -78,6 +79,12 @@ func (s *MigrationSuite) TestCreate(c *gc.C) {
 
 	info, err := mig.TargetInfo()
 	c.Assert(err, jc.ErrorIsNil)
+	// Extract macaroons so we can compare them separately
+	// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
+	infoMacs := info.Macaroons
+	info.Macaroons = nil
+	apitesting.MacaroonsEqual(c, infoMacs, s.stdSpec.TargetInfo.Macaroons)
+	s.stdSpec.TargetInfo.Macaroons = nil
 	c.Check(*info, jc.DeepEquals, s.stdSpec.TargetInfo)
 
 	assertPhase(c, mig, migration.QUIESCE)

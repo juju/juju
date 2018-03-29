@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/api/crossmodelrelations"
 	apifirewaller "github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/remoterelations"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
@@ -790,14 +791,20 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 				ApplicationToken: appToken,
 				Networks:         []string{"10.0.0.4/32"},
 				IngressRequired:  *ingressRequired,
-				Macaroons:        macaroon.Slice{mac},
 			}},
 		}
 		expected.Changes[0].IngressRequired = *ingressRequired
 		if !*ingressRequired {
 			expected.Changes[0].Networks = []string{}
 		}
+		// Extract macaroons so we can compare them separately
+		// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
+		expectedMacs := arg.(params.IngressNetworksChanges).Changes[0].Macaroons
+		arg.(params.IngressNetworksChanges).Changes[0].Macaroons = nil
+		c.Assert(len(expectedMacs), gc.Equals, 1)
+		apitesting.MacaroonEquals(c, expectedMacs[0], mac)
 		c.Check(arg, gc.DeepEquals, expected)
+		arg.(params.IngressNetworksChanges).Changes[0].Macaroons = expectedMacs
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
 			Results: []params.ErrorResult{{}},
@@ -945,10 +952,15 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 			c.Check(request, gc.Equals, "WatchEgressAddressesForRelations")
 			expected := params.RemoteEntityArgs{
 				Args: []params.RemoteEntityArg{{
-					Token:     relToken,
-					Macaroons: macaroon.Slice{mac},
+					Token: relToken,
 				}},
 			}
+			// Extract macaroons so we can compare them separately
+			// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
+			rArgs := arg.(params.RemoteEntityArgs)
+			newMacs := rArgs.Args[0].Macaroons
+			rArgs.Args[0].Macaroons = nil
+			apitesting.MacaroonEquals(c, newMacs[0], mac)
 			c.Check(arg, gc.DeepEquals, expected)
 			c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
 			*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{

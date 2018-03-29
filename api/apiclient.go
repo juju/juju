@@ -421,6 +421,7 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 			if resp.Header.Get("Content-Type") == "application/json" {
 				var result params.ErrorResult
 				jsonErr := json.Unmarshal(body, &result)
+				// Here we find that the body is truncated.
 				if jsonErr != nil {
 					return nil, errors.Annotate(jsonErr, "reading error response")
 				}

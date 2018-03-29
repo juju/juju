@@ -173,7 +173,7 @@ func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	service.CheckCallNames(c, "NewMacaroon")
-	service.CheckCall(c, 0, "NewMacaroon", "", []byte(nil), []checkers.Caveat{
+	service.CheckCall(c, 0, "NewMacaroon", []checkers.Caveat{
 		{Condition: "is-authenticated-user bobbrown"},
 		{Condition: "time-before 0001-01-01T00:02:00Z"},
 	})
@@ -196,11 +196,11 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 	)
 	c.Assert(err, gc.FitsTypeOf, &common.DischargeRequiredError{})
 
-	service.CheckCallNames(c, "CheckAny", "ExpireStorageAt", "NewMacaroon")
+	service.CheckCallNames(c, "CheckAny", "ExpireStorageAfter", "NewMacaroon")
 	calls := service.Calls()
-	c.Assert(calls[1].Args, jc.DeepEquals, []interface{}{clock.Now().Add(24 * time.Hour)})
+	c.Assert(calls[1].Args, jc.DeepEquals, []interface{}{time.Until(clock.Now().Add(24 * time.Hour))})
 	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{
-		"", []byte(nil), []checkers.Caveat{
+		[]checkers.Caveat{
 			checkers.NeedDeclaredCaveat(
 				checkers.Caveat{
 					Location:  "https://testing.invalid:1234/auth",
@@ -232,8 +232,8 @@ func (s *mockBakeryService) NewMacaroon(caveats []checkers.Caveat) (*macaroon.Ma
 	return &macaroon.Macaroon{}, s.NextErr()
 }
 
-func (s *mockBakeryService) ExpireStorageAt(t time.Duration) (authentication.ExpirableStorageBakeryService, error) {
-	s.MethodCall(s, "ExpireStorageAt", t)
+func (s *mockBakeryService) ExpireStorageAfter(t time.Duration) (authentication.ExpirableStorageBakeryService, error) {
+	s.MethodCall(s, "ExpireStorageAfter", t)
 	return s, s.NextErr()
 }
 

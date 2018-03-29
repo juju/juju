@@ -8,9 +8,9 @@ import (
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/mgostorage"
 	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/mgo.v2"
 
@@ -22,6 +22,7 @@ import (
 // of the mongo-based bakery storage with the macaroon bakery service.
 type BakeryStorageSuite struct {
 	gitjujutesting.MgoSuite
+	gitjujutesting.LoggingSuite
 
 	store   bakerystorage.ExpirableStorage
 	service *bakery.Service
@@ -31,10 +32,15 @@ type BakeryStorageSuite struct {
 
 func (s *BakeryStorageSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
+	s.LoggingSuite.SetUpSuite(c)
 	s.db = s.Session.DB("bakerydb")
 	s.coll = s.db.C("bakedgoods")
 	s.ensureIndexes(c)
 	s.initService(c, false)
+}
+
+func (s *BakeryStorageSuite) TearDownSuite(c *gc.C) {
+	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *BakeryStorageSuite) initService(c *gc.C, enableExpiry bool) {
@@ -42,11 +48,18 @@ func (s *BakeryStorageSuite) initService(c *gc.C, enableExpiry bool) {
 		GetCollection: func() (mongo.Collection, func()) {
 			return mongo.CollectionFromName(s.db, s.coll.Name)
 		},
-		Clock: clock.WallClock,
+		GetLegacyCollection: func() (mongo.Collection, func()) {
+			return mongo.CollectionFromName(s.db, s.coll.Name)
+		},
+		GetStorage: func(rootKeys *mgostorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.Storage {
+			return rootKeys.NewStorage(coll.Writeable().Underlying(), mgostorage.Policy{
+				ExpiryDuration: expireAfter,
+			})
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if enableExpiry {
-		store = store.ExpireAfter(time.Since(time.Now()))
+		store = store.ExpireAfter(10 * time.Second)
 	}
 	s.store = store
 

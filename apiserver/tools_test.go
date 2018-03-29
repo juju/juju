@@ -22,7 +22,6 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/apiserver/params"
 	apitesting "github.com/juju/juju/apiserver/testing"

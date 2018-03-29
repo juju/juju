@@ -66,7 +66,7 @@ func (s *storage) Get(id []byte) ([]byte, error) {
 }
 
 func (s *storage) legacyGet(location []byte) ([]byte, error) {
-	coll, closer := s.config.GetCollection()
+	coll, closer := s.config.GetLegacyCollection()
 	defer closer()
 
 	var i storageDoc

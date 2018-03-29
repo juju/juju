@@ -487,13 +487,15 @@ func allCollections() collectionSchema {
 // it in allCollections, above; and please keep this list sorted for easy
 // inspection.
 const (
-	actionNotificationsC     = "actionnotifications"
-	actionresultsC           = "actionresults"
-	actionsC                 = "actions"
-	annotationsC             = "annotations"
-	autocertCacheC           = "autocertCache"
-	assignUnitC              = "assignUnits"
-	bakeryStorageItemsC      = "bakeryStorageItems"
+	actionNotificationsC = "actionnotifications"
+	actionresultsC       = "actionresults"
+	actionsC             = "actions"
+	annotationsC         = "annotations"
+	autocertCacheC       = "autocertCache"
+	assignUnitC          = "assignUnits"
+	bakeryStorageItemsC  = "bakeryStorageItems"
+	// bakeryV2StorageItemsC    = "bakeryV2StorageItems"
+	bakeryV2StorageItemsC    = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"
 	charmsC                  = "charms"

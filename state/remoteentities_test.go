@@ -10,6 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
+
+	apitesting "github.com/juju/juju/api/testing"
 )
 
 type RemoteEntitiesSuite struct {
@@ -68,7 +70,7 @@ func (s *RemoteEntitiesSuite) TestMacaroon(c *gc.C) {
 	re = s.State.RemoteEntities()
 	expected, err := re.GetMacaroon(entity)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mac, jc.DeepEquals, expected)
+	apitesting.MacaroonEquals(c, mac, expected)
 }
 
 func (s *RemoteEntitiesSuite) TestRemoveRemoteEntity(c *gc.C) {
