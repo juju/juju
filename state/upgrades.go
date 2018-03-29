@@ -1411,7 +1411,7 @@ func MoveMongoSpaceToHASpaceConfig(st *State) error {
 	controllerColl, controllerCloser := st.db().GetRawCollection(controllersC)
 	defer controllerCloser()
 	var doc controllersDoc
-	err := controllerColl.FindId(bson.D{{"_id", modelGlobalKey}}).One(&doc)
+	err := controllerColl.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
 	if err != nil {
 		return errors.Annotate(err, "retrieving controller info doc")
 	}

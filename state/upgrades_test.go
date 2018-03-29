@@ -2221,6 +2221,25 @@ func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenAlreadySet(c *gc.
 	c.Check(getHASpaceConfig(s.state, c), gc.Equals, "already-set")
 }
 
+func (s *upgradesSuite) TestMoveMongoSpaceToHASpaceConfigDeletesOldKeys(c *gc.C) {
+	controllerColl, controllerCloser := s.state.db().GetRawCollection(controllersC)
+	defer controllerCloser()
+	err := controllerColl.UpdateId(modelGlobalKey, bson.M{"$set": bson.M{
+		"mongo-space-name":  "whatever",
+		"mongo-space-state": "valid",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = MoveMongoSpaceToHASpaceConfig(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var doc controllersDoc
+	err = controllerColl.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(doc.MongoSpaceName, gc.Equals, "")
+	c.Check(doc.MongoSpaceState, gc.Equals, "")
+}
+
 func getHASpaceConfig(st *State, c *gc.C) string {
 	cfg, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
