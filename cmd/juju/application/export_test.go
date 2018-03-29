@@ -39,6 +39,12 @@ func NewUpgradeCharmCommandForTest(
 	return modelcmd.Wrap(cmd)
 }
 
+// NewResolvedCommandForTest returns a ResolvedCommand with the api provided as specified.
+func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, clientAPI clientAPI) modelcmd.ModelCommand {
+	cmd := &resolvedCommand{applicationResolveAPI: applicationResolveAPI, clientAPI: clientAPI}
+	return modelcmd.Wrap(cmd)
+}
+
 // NewAddUnitCommandForTest returns an AddUnitCommand with the api provided as specified.
 func NewAddUnitCommandForTest(api serviceAddUnitAPI) cmd.Command {
 	return modelcmd.Wrap(&addUnitCommand{

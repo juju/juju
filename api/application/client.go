@@ -10,6 +10,7 @@ package application
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -771,4 +772,36 @@ func (c *Client) UnsetApplicationConfig(application string, options []string) er
 		return errors.Trace(err)
 	}
 	return results.OneError()
+}
+
+// ResolveUnitErrors clears errors on one or more units.
+// Either specify one or more units, or all.
+func (c *Client) ResolveUnitErrors(units []string, all, retry bool) error {
+	if len(units) > 0 && all {
+		return errors.NotSupportedf("specifying units with all=true")
+	}
+	if len(units) != set.NewStrings(units...).Size() {
+		return errors.New("duplicate unit specified")
+	}
+	args := params.UnitsResolved{
+		All:   all,
+		Retry: retry,
+	}
+	if !all {
+		entities := make([]params.Entity, len(units))
+		for i, unit := range units {
+			if !names.IsValidUnit(unit) {
+				return errors.NotValidf("unit name %q", unit)
+			}
+			entities[i].Tag = names.NewUnitTag(unit).String()
+		}
+		args.Tags = params.Entities{Entities: entities}
+	}
+
+	results := new(params.ErrorResults)
+	err := c.facade.FacadeCall("ResolveUnitErrors", args, results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(results.Combine())
 }

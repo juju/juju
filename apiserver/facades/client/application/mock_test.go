@@ -45,24 +45,6 @@ type mockNoNetworkEnviron struct {
 	environs.Environ
 }
 
-type mockModel struct {
-	uuid  string
-	name  string
-	owner string
-}
-
-func (m *mockModel) ModelTag() names.ModelTag {
-	return names.NewModelTag(m.uuid)
-}
-
-func (m *mockModel) Name() string {
-	return m.name
-}
-
-func (m *mockModel) Owner() names.UserTag {
-	return names.NewUserTag(m.owner)
-}
-
 type mockCharm struct {
 	jtesting.Stub
 
@@ -92,7 +74,7 @@ type mockApplication struct {
 	name        string
 	subordinate bool
 	series      string
-	units       []mockUnit
+	units       []*mockUnit
 	addedUnit   mockUnit
 	config      coreapplication.ConfigAttributes
 }
@@ -124,7 +106,7 @@ func (a *mockApplication) AllUnits() ([]application.Unit, error) {
 	}
 	units := make([]application.Unit, len(a.units))
 	for i := range a.units {
-		units[i] = &a.units[i]
+		units[i] = a.units[i]
 	}
 	return units, nil
 }
@@ -333,7 +315,7 @@ func (m *mockBackend) Unit(name string) (application.Unit, error) {
 	if unitApp != nil {
 		for _, u := range unitApp.units {
 			if u.tag.Id() == name {
-				return &u, nil
+				return u, nil
 			}
 		}
 	}
@@ -618,6 +600,11 @@ func (u *mockUnit) AssignWithPolicy(policy state.AssignmentPolicy) error {
 
 func (u *mockUnit) AssignWithPlacement(placement *instance.Placement) error {
 	u.MethodCall(u, "AssignWithPlacement", placement)
+	return u.NextErr()
+}
+
+func (u *mockUnit) Resolve(retryHooks bool) error {
+	u.MethodCall(u, "Resolve", retryHooks)
 	return u.NextErr()
 }
 

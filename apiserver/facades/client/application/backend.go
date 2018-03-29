@@ -125,6 +125,7 @@ type Unit interface {
 	DestroyOperation() *state.DestroyUnitOperation
 	IsPrincipal() bool
 	Life() state.Life
+	Resolve(retryHooks bool) error
 
 	AssignWithPolicy(state.AssignmentPolicy) error
 	AssignWithPlacement(*instance.Placement) error
