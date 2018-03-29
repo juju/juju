@@ -1198,3 +1198,51 @@ func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	app.CheckCallNames(c, "ApplicationConfig", "SetExposed")
 }
+
+func (s *ApplicationSuite) TestApplicationUnitResolved(c *gc.C) {
+	entities := []params.Entity{params.Entity{Tag: "postgresql/0"}}
+	p := params.UnitsResolved{
+		All:   false,
+		Retry: false,
+		Tags: &params.Entities{
+			Entities: entities,
+		},
+	}
+	expectedResults := params.ErrorResults{
+		Results: []params.ErrorResult{{nil}},
+	}
+	result, err := s.api.Resolved(p)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, expectedResults)
+
+	s.blockChecker.CheckCallNames(c, "ChangeAllowed")
+	s.backend.CheckCallNames(c, "Unit")
+	s.backend.CheckCall(c, 0, "Unit", "postgresql/0")
+
+	unit := s.backend.applications["postgresql"].units[0]
+	unit.CheckCallNames(c, "Resolve")
+	unit.CheckCall(c, 0, "Resolve", false)
+}
+
+func (s *ApplicationSuite) TestApplicationUnitResolvedAll(c *gc.C) {
+	entities := []params.Entity{params.Entity{Tag: "postgresql/0"}}
+	p := params.UnitsResolved{
+		All:   true,
+		Retry: false,
+		Tags: &params.Entities{
+			Entities: entities,
+		},
+	}
+	expectedResults := params.ErrorResults{}
+	expectedErr := errors.Errorf("All flag not implemented yet")
+	result, err := s.api.Resolved(p)
+
+	c.Assert(err.Error(), gc.Equals, expectedErr.Error())
+	c.Assert(result, gc.DeepEquals, expectedResults)
+
+	s.blockChecker.CheckNoCalls(c)
+	s.backend.CheckNoCalls(c)
+	unit := s.backend.applications["postgresql"].units[0]
+	unit.CheckNoCalls(c)
+}

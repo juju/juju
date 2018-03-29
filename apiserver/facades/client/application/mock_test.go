@@ -621,6 +621,11 @@ func (u *mockUnit) AssignWithPlacement(placement *instance.Placement) error {
 	return u.NextErr()
 }
 
+func (u *mockUnit) Resolve(retryHooks bool) error {
+	u.MethodCall(u, "Resolve", retryHooks)
+	return u.NextErr()
+}
+
 type mockStorageAttachment struct {
 	state.StorageAttachment
 	jtesting.Stub

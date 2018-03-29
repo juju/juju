@@ -1,44 +1,43 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package commands
+package application
 
 import (
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/application"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
-type ResolvedSuite struct {
-	jujutesting.RepoSuite
-	testing.CmdBlockHelper
+type ResolvedCommandSuite struct {
+	testing.IsolationSuite
+	mockAPI *mockResolvedAPI
 }
 
-func (s *ResolvedSuite) SetUpTest(c *gc.C) {
-	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
-	c.Assert(s.CmdBlockHelper, gc.NotNil)
-	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+func (s *ResolvedCommandSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.mockAPI = &mockResolvedAPI{Stub: &testing.Stub{}, version: 6}
+	s.mockAPI.resolvedCommandFunc = func(unit string, retry bool) error {
+		return s.mockAPI.NextErr()
+	}
+	s.mockAPI.resolvedApplicationUnitsFunc = func(units []string, retry, all bool) error {
+		return s.mockAPI.NextErr()
+	}
 }
 
-var _ = gc.Suite(&ResolvedSuite{})
+var _ = gc.Suite(&ResolvedCommandSuite{})
 
-func runResolved(c *gc.C, args []string) error {
-	_, err := cmdtesting.RunCommand(c, newResolvedCommand(), args...)
-	return err
-}
-
-func runDeploy(c *gc.C, args ...string) error {
-	_, err := cmdtesting.RunCommand(c, application.NewDeployCommand(), args...)
+func (s *ResolvedCommandSuite) runResolved(c *gc.C, args ...string) error {
+	_, err := cmdtesting.RunCommand(c, NewResolvedCommandForTest(s.mockAPI), args...)
 	return err
 }
 
@@ -87,22 +86,23 @@ var resolvedTests = []struct {
 	}, {
 		args: []string{"multi-series/4", "roflcopter"},
 		err:  `unrecognized args: \["roflcopter"\]`,
+	}, {
+		args: []string{"multi-series/5", "--all"},
+		err:  "specify unit or --all option, not both",
+		unit: "multi-series/5",
 	},
 }
 
-func (s *ResolvedSuite) TestResolved(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
-	err := runDeploy(c, "-n", "5", ch, "multi-series")
-	c.Assert(err, jc.ErrorIsNil)
+func (s *ResolvedCommandSuite) TestResolved(c *gc.C) {
 
 	// lp:1558657
 	now := time.Now()
-	for _, name := range []string{"multi-series/2", "multi-series/3", "multi-series/4"} {
+	for _, name := range []string{"multi-series/2", "multi-series/3", "multi-series/4", "multi-series/5"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
 		sInfo := status.StatusInfo{
 			Status:  status.Error,
-			Message: "lol borken",
+			Message: "lol broken",
 			Since:   &now,
 		}
 		err = u.SetAgentStatus(sInfo)
@@ -125,7 +125,7 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 	}
 }
 
-func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
+func (s *ResolvedCommandSuite) TestBlockResolved(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, "-n", "6", ch, "multi-series")
 	c.Assert(err, jc.ErrorIsNil)
@@ -148,4 +148,33 @@ func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockResolved")
 	err = runResolved(c, []string{"multi-series/2"})
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockResolved.*")
+}
+
+type mockResolvedAPI struct {
+	*testing.Stub
+	version int
+
+	resolvedCommandFunc          func(string, bool) error
+	resolvedApplicationUnitsFunc func([]string, bool, bool) error
+}
+
+func (s mockResolvedAPI) Close() error {
+	s.MethodCall(s, "Close")
+	return s.NextErr()
+}
+
+func (s mockResolvedAPI) BestAPIVersion() int {
+	return s.version
+}
+
+// These methods are on API V6.
+func (s mockResolvedAPI) Resolved(unit string, retry bool) error {
+	s.MethodCall(s, "Resolved", unit, retry)
+	return s.resolvedCommandFunc(unit, retry)
+}
+
+// This method is supported in API < V6
+func (s mockResolvedAPI) ResolveApplicationUnits(units []string, retry bool, all bool) error {
+	s.MethodCall(s, "ResolveApplicationUnits", units, retry, all)
+	return s.resolvedApplicationUnitsFunc(units, retry, all)
 }

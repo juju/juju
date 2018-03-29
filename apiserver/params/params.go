@@ -454,6 +454,13 @@ type Resolved struct {
 	Retry    bool   `json:"retry"`
 }
 
+//
+type UnitsResolved struct {
+	Tags  *Entities `json:"tags,omitempty"`
+	Retry bool      `json:"retry,omitempty"`
+	All   bool      `json:"all,omitempty"`
+}
+
 // ResolvedResults holds results of the Resolved call.
 type ResolvedResults struct {
 	Application string                 `json:"application"`
