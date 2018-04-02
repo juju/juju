@@ -5,6 +5,7 @@ package agent
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -36,6 +37,7 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
@@ -607,8 +609,24 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 		Arch:   arch.HostArch(),
 		Series: series.MustHostSeries(),
 	}
+
+	files := []*coretesting.TarFile{
+		coretesting.NewTarFile("jujud", agenttools.GetDirPerm(), "jujuc executable"),
+	}
+	data, checksum := coretesting.TarGz(files...)
+	testTools := &tools.Tools{
+		URL:     "http://foo/bar1",
+		Version: vers,
+		Size:    int64(len(data)),
+		SHA256:  checksum,
+	}
+
 	vers.Minor++
+
 	m, _, _ := s.primeAgentVersion(c, vers, job)
+	err := agenttools.UnpackTools(s.DataDir(), testTools, bytes.NewReader(data))
+	c.Assert(err, jc.ErrorIsNil)
+
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
@@ -759,6 +777,26 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	for _, link := range jujudSymlinks {
 		_, err := os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf(link))
+	}
+
+	s.waitStopped(c, state.JobManageModel, a, done)
+}
+
+func (s *MachineSuite) TestEnsureMachineAgentDir(c *gc.C) {
+	stm, _, _ := s.primeAgent(c, state.JobManageModel)
+	s.PatchValue(&series.MustHostSeries, func() string { return "quantal" })
+	a := s.newAgent(c, stm)
+	defer a.Stop()
+	_, done := s.waitForOpenState(c, a)
+
+	for _, host := range []string{"quantal", series.MustHostSeries()} {
+		dir := agenttools.SharedToolsDir(s.DataDir(), version.Binary{
+			Number: jujuversion.Current,
+			Arch:   arch.HostArch(),
+			Series: host,
+		})
+		_, err := os.Stat(dir)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	s.waitStopped(c, state.JobManageModel, a, done)

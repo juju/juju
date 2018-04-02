@@ -13,9 +13,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/fs"
+	utilsseries "github.com/juju/utils/series"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
 
@@ -27,6 +30,18 @@ const (
 	guiArchiveFile = "downloaded-gui.txt"
 	toolsFile      = "downloaded-tools.txt"
 )
+
+// GetDirPerm returns local var dirPerm based on OS for testing.
+//
+// File permissions on windows yield different results then on Linux
+// For example an os.FileMode of 0100 on a directory on Windows,
+// will yield -r-xr-xr-x. os.FileMode of 0755 will yield -rwxrwxrwx
+func GetDirPerm() os.FileMode {
+	if runtime.GOOS == "windows" {
+		return os.FileMode(0777)
+	}
+	return os.FileMode(dirPerm)
+}
 
 // SharedToolsDir returns the directory that is used to
 // store binaries for the given version of the juju tools
@@ -116,12 +131,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 			return errors.Annotatef(err, "tar extract %q failed", name)
 		}
 	}
-	toolsMetadataData, err := json.Marshal(tools)
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(path.Join(dir, toolsFile), []byte(toolsMetadataData), 0644)
-	if err != nil {
+	if err = writeToolsMetadataData(dir, tools); err != nil {
 		return err
 	}
 
@@ -142,6 +152,14 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 		}
 	}
 	return err
+}
+
+func writeToolsMetadataData(dir string, tools *coretools.Tools) error {
+	toolsMetadataData, err := json.Marshal(tools)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path.Join(dir, toolsFile), []byte(toolsMetadataData), 0644)
 }
 
 func removeAll(dir string) {
@@ -200,10 +218,11 @@ func ReadGUIArchive(dataDir string) (*coretools.GUIArchive, error) {
 // under dataDir so it points to the previously unpacked
 // version vers. It returns the new tools read.
 func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*coretools.Tools, error) {
-	tools, err := ReadTools(dataDir, vers)
+	tools, err := maybeReadTools(dataDir, vers)
 	if err != nil {
 		return nil, err
 	}
+
 	// build absolute path to toolsDir. Windows implementation of symlink
 	// will check for the existance of the source file and error if it does
 	// not exists. This is a limitation of junction points (symlinks) on NTFS
@@ -215,4 +234,60 @@ func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*c
 		return nil, fmt.Errorf("cannot replace tools directory: %s", err)
 	}
 	return tools, nil
+}
+
+// For testing
+var hostSeries = utilsseries.HostSeries
+
+// maybeReadTools will return tools based on the dataDir and current juju version.
+// If no agent is found based on the current host series, search for agent binaries
+// for different series and the same version/arch.
+//
+// TODO: (hml) 2018-02-22
+// Added for lp:bug1749201 - once agent binaries without the series in the name are
+// available, ReadTools() can move back to ChangeAgentTools()
+func maybeReadTools(dataDir string, currentVers version.Binary) (tools *coretools.Tools, err error) {
+	defer func() {
+		err = errors.Annotate(err, "cannot read agent binaries of current or other series")
+	}()
+
+	tools, err = ReadTools(dataDir, currentVers)
+	if err == nil {
+		return tools, nil
+	}
+	logger.Tracef("%s not found (%s)", SharedToolsDir(dataDir, currentVers), err)
+
+	hostSeries, err := hostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	hostOS, err := utilsseries.GetOSFromSeries(hostSeries)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	potentialSeries := utilsseries.OSSupportedSeries(hostOS)
+	potentialVers := currentVers
+	for _, series := range potentialSeries {
+		potentialVers.Series = series
+		tools, err := ReadTools(dataDir, potentialVers)
+		if err != nil {
+			logger.Tracef("%s not found (%s)", SharedToolsDir(dataDir, potentialVers), err)
+			continue
+		}
+		logger.Tracef("%s found", SharedToolsDir(dataDir, potentialVers))
+		if err = fs.Copy(SharedToolsDir(dataDir, potentialVers), SharedToolsDir(dataDir, currentVers)); err != nil {
+			return nil, errors.Trace(err)
+		}
+		// Only changing the version in the copied downloaded-tools.txt, not the
+		// URL (which also contains the version string).
+		tools.Version = currentVers
+		if err = writeToolsMetadataData(SharedToolsDir(dataDir, currentVers), tools); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return ReadTools(dataDir, currentVers)
+	}
+	if err == nil {
+		err = errors.NotFoundf("tools for %s", currentVers)
+	}
+	return nil, errors.Trace(err)
 }

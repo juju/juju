@@ -7,6 +7,7 @@
 package featuretests
 
 import (
+	"bytes"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
@@ -195,6 +197,25 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 		return true, nil
 	}
 	s.PatchValue(&upgradesteps.IsMachineMaster, fakeIsMachineMaster)
+
+	vers := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.MustHostSeries(),
+	}
+
+	files := []*coretesting.TarFile{
+		coretesting.NewTarFile("jujud", agenttools.GetDirPerm(), "jujuc executable"),
+	}
+	data, checksum := coretesting.TarGz(files...)
+	testTools := &tools.Tools{
+		URL:     "http://foo/bar1",
+		Version: vers,
+		Size:    int64(len(data)),
+		SHA256:  checksum,
+	}
+	err = agenttools.UnpackTools(s.DataDir(), testTools, bytes.NewReader(data))
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Start the agent
 	agent := s.newAgent(c, machineA)
