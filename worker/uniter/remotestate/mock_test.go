@@ -195,17 +195,18 @@ func (st *mockState) WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, err
 }
 
 type mockUnit struct {
-	tag                   names.UnitTag
-	life                  params.Life
-	resolved              params.ResolvedMode
-	series                string
-	application           mockApplication
-	unitWatcher           *mockNotifyWatcher
-	addressesWatcher      *mockNotifyWatcher
-	configSettingsWatcher *mockNotifyWatcher
-	storageWatcher        *mockStringsWatcher
-	actionWatcher         *mockStringsWatcher
-	relationsWatcher      *mockStringsWatcher
+	tag                              names.UnitTag
+	life                             params.Life
+	resolved                         params.ResolvedMode
+	series                           string
+	application                      mockApplication
+	unitWatcher                      *mockNotifyWatcher
+	addressesWatcher                 *mockNotifyWatcher
+	configSettingsWatcher            *mockNotifyWatcher
+	applicationConfigSettingsWatcher *mockNotifyWatcher
+	storageWatcher                   *mockStringsWatcher
+	actionWatcher                    *mockStringsWatcher
+	relationsWatcher                 *mockStringsWatcher
 }
 
 func (u *mockUnit) Life() params.Life {
@@ -242,6 +243,10 @@ func (u *mockUnit) WatchAddresses() (watcher.NotifyWatcher, error) {
 
 func (u *mockUnit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 	return u.configSettingsWatcher, nil
+}
+
+func (u *mockUnit) WatchTrustConfigSettings() (watcher.NotifyWatcher, error) {
+	return u.applicationConfigSettingsWatcher, nil
 }
 
 func (u *mockUnit) WatchStorage() (watcher.StringsWatcher, error) {
