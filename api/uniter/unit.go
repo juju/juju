@@ -569,7 +569,7 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 // configuration settings watchers which are created with WatchConfigSettings
 // and do not monitor for application configuration settings such as "trust".
 func (u *Unit) WatchTrustConfigSettings() (watcher.NotifyWatcher, error) {
-	return getSettingsWatcher(u, "WatchApplicationConfigSettings")
+	return getSettingsWatcher(u, "WatchTrustConfigSettings")
 }
 
 func getSettingsWatcher(u *Unit, facadeName string) (watcher.NotifyWatcher, error) {

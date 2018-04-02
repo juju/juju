@@ -939,7 +939,7 @@ func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatc
 	return result, nil
 }
 
-func (u *UniterAPI) WatchApplicationConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UniterAPI) WatchTrustConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
 	watcherFn := func(u *state.Unit) (state.NotifyWatcher, error) {
 		return u.WatchApplicationConfigSettings()
 	}
