@@ -55,12 +55,13 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 				applicationWatcher:    newMockNotifyWatcher(),
 				leaderSettingsWatcher: newMockNotifyWatcher(),
 			},
-			unitWatcher:           newMockNotifyWatcher(),
-			addressesWatcher:      newMockNotifyWatcher(),
-			configSettingsWatcher: newMockNotifyWatcher(),
-			storageWatcher:        newMockStringsWatcher(),
-			actionWatcher:         newMockStringsWatcher(),
-			relationsWatcher:      newMockStringsWatcher(),
+			unitWatcher:                      newMockNotifyWatcher(),
+			addressesWatcher:                 newMockNotifyWatcher(),
+			configSettingsWatcher:            newMockNotifyWatcher(),
+			applicationConfigSettingsWatcher: newMockNotifyWatcher(),
+			storageWatcher:                   newMockStringsWatcher(),
+			actionWatcher:                    newMockStringsWatcher(),
+			relationsWatcher:                 newMockStringsWatcher(),
 		},
 		relations:                   make(map[names.RelationTag]*mockRelation),
 		storageAttachment:           make(map[params.StorageAttachmentId]params.StorageAttachment),
@@ -121,9 +122,9 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	// we've seen all of the top-level notifications.
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
-
 	s.st.unit.addressesWatcher.changes <- struct{}{}
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
+	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.st.unit.actionWatcher.changes <- []string{}
 	s.st.unit.application.applicationWatcher.changes <- struct{}{}
@@ -137,6 +138,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 func signalAll(st *mockState, l *mockLeadershipTracker) {
 	st.unit.unitWatcher.changes <- struct{}{}
 	st.unit.configSettingsWatcher.changes <- struct{}{}
+	st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
 	st.unit.actionWatcher.changes <- []string{}
 	st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	st.unit.relationsWatcher.changes <- []string{}
@@ -153,7 +155,9 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 	signalAll(s.st, s.leadership)
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	expectedVersion := 2 // config settings and addresses
+	// Note that the configuration change is updated on both application and
+	// charm config which increments it twice.
+	expectedVersion := 3
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Life:                  s.st.unit.life,
@@ -174,7 +178,9 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 	signalAll(s.st, s.leadership)
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
-	expectedVersion := 2 // config settings and addresses
+	// Note that the configuration change is updated on both application and
+	// charm config which increments it twice.
+	expectedVersion := 3
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Life:                  s.st.unit.life,

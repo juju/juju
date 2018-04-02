@@ -196,11 +196,22 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenConfigChange bool
-	configw, err := w.unit.WatchConfigSettings()
+	charmConfigw, err := w.unit.WatchConfigSettings()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := w.catacomb.Add(configw); err != nil {
+
+	if err := w.catacomb.Add(charmConfigw); err != nil {
+		return errors.Trace(err)
+	}
+	requiredEvents++
+
+	var seenTrustConfigChange bool
+	trustConfigw, err := w.unit.WatchTrustConfigSettings()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(trustConfigw); err != nil {
 		return errors.Trace(err)
 	}
 	requiredEvents++
@@ -334,6 +345,17 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	resetUpdateStatusTimer := func() {
 		updateStatusTimer = w.updateStatusChannel(updateStatusInterval).After()
 	}
+	configChanged := func(changeOccured bool, event *bool) error {
+		logger.Debugf("got config change: ok=%t", changeOccured)
+		if !changeOccured {
+			return errors.New("config watcher closed")
+		}
+		if err := w.configChanged(); err != nil {
+			return errors.Trace(err)
+		}
+		observedEvent(event)
+		return nil
+	}
 
 	for {
 		select {
@@ -360,16 +382,16 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenApplicationChange)
 
-		case _, ok := <-configw.Changes():
-			logger.Debugf("got config change: ok=%t", ok)
-			if !ok {
-				return errors.New("config watcher closed")
+		case _, ok := <-charmConfigw.Changes():
+			err = configChanged(ok, &seenConfigChange)
+			if err != nil {
+				return err
 			}
-			if err := w.configChanged(); err != nil {
-				return errors.Trace(err)
+		case _, ok := <-trustConfigw.Changes():
+			err = configChanged(ok, &seenTrustConfigChange)
+			if err != nil {
+				return err
 			}
-			observedEvent(&seenConfigChange)
-
 		case _, ok := <-addressesChanges:
 			logger.Debugf("got address change: ok=%t", ok)
 			if !ok {

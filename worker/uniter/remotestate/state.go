@@ -41,6 +41,7 @@ type Unit interface {
 	Watch() (watcher.NotifyWatcher, error)
 	WatchAddresses() (watcher.NotifyWatcher, error)
 	WatchConfigSettings() (watcher.NotifyWatcher, error)
+	WatchTrustConfigSettings() (watcher.NotifyWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)
 	// WatchRelation returns a watcher that fires when relations
