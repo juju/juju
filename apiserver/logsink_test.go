@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -194,7 +193,7 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestNewServerValidatesLogSinkConfig(c *gc.C) {
-	cfg := testserver.DefaultServerConfig(c)
+	cfg := s.config
 	// Make a fake-ish state pool.
 	cfg.StatePool = &state.StatePool{}
 	cfg.Mux = apiserverhttp.NewMux()

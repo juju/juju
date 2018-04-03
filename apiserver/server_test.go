@@ -48,15 +48,14 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	info, srv, httpServer := testserver.NewServer(c, s.StatePool)
+	srv := testserver.NewServer(c, s.StatePool)
 	defer assertStop(c, srv)
-	httpServer.StartTLS()
-	defer httpServer.Close()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
 	// Note we can't use openAs because we're not connecting to
+	info := srv.Info
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
@@ -89,14 +88,13 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	// Start our own instance of the server listening on
 	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
-	info, srv, httpServer := testserver.NewServer(c, s.StatePool)
+	srv := testserver.NewServer(c, s.StatePool)
 	defer assertStop(c, srv)
-	httpServer.StartTLS()
-	defer httpServer.Close()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
+	info := srv.Info
 	port := info.Ports()[0]
 	portString := fmt.Sprintf("%d", port)
 
@@ -207,9 +205,8 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	// Creating the server should succeed because it doesn't
 	// access the state (note that newServer does not log in,
 	// which *would* access the state).
-	_, srv, httpServer := testserver.NewServer(c, s.StatePool)
+	srv := testserver.NewServer(c, s.StatePool)
 	srv.Stop()
-	httpServer.Close()
 }
 
 func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
@@ -280,13 +277,11 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
 	// for the correct location, but other paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	info, srv, httpServer := testserver.NewServer(c, s.StatePool)
+	srv := testserver.NewServer(c, s.StatePool)
 	defer assertStop(c, srv)
-	httpServer.StartTLS()
-	defer httpServer.Close()
 
 	// We have to use 'localhost' because that is what the TLS cert says.
-	addr := fmt.Sprintf("localhost:%d", info.Ports()[0])
+	addr := fmt.Sprintf("localhost:%d", srv.Info.Ports()[0])
 
 	// '/api' should be fine
 	conn, err := dialWebsocket(c, addr, "/api")
@@ -397,10 +392,8 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	cfg := testserver.DefaultServerConfig(c)
-	info, server, httpServer := testserver.NewServerWithConfig(c, s.StatePool, cfg)
+	server := testserver.NewServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, server)
-	httpServer.StartTLS()
-	defer httpServer.Close()
 
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
@@ -412,7 +405,7 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 
 	// Make a request for the model API to check it releases
 	// state back into the pool once the connection is closed.
-	addr := fmt.Sprintf("localhost:%d", info.Ports()[0])
+	addr := fmt.Sprintf("localhost:%d", server.Info.Ports()[0])
 	conn, err := dialWebsocket(c, addr, fmt.Sprintf("/model/%s/api", st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
