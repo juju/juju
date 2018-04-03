@@ -1422,14 +1422,20 @@ func MoveMongoSpaceToHASpaceConfig(st *State) error {
 		return errors.Annotate(err, "retrieving controller info doc")
 	}
 
-	if doc.MongoSpaceState == "valid" && doc.MongoSpaceName != "" {
+	mongoSpace := doc.MongoSpaceName
+	if doc.MongoSpaceState == "valid" && mongoSpace != "" {
 		settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
 		if err != nil {
 			return errors.Annotate(err, "cannot get controller config")
 		}
 
-		if _, ok := settings.Get(controller.JujuHASpace); !ok {
-			settings.Set(controller.JujuHASpace, doc.MongoSpaceName)
+		// In the unlikely event that there is already a juju-ha-space
+		// configuration setting, we skip the
+		if haSpace, ok := settings.Get(controller.JujuHASpace); ok {
+			upgradesLogger.Debugf("not copying mongo-space-name %q to juju-ha-space - already set to %q",
+				mongoSpace, haSpace)
+		} else {
+			settings.Set(controller.JujuHASpace, mongoSpace)
 			if _, err = settings.Write(); err != nil {
 				return errors.Annotate(err, "writing controller info")
 			}
