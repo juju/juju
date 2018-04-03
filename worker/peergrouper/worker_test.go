@@ -729,7 +729,7 @@ func (s *workerSuite) doTestErrorAndStatusForHASpaceWithNoAddresses(
 
 	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}).Wait()
 	errMsg := `computing desired peer group: updating member addresses: ` +
-		`no usable Mongo addresses found in space "nope" for machines: 1[012], 1[012], 1[012]`
+		`no usable Mongo addresses found in configured juju-ha-space "nope" for machines: 1[012], 1[012], 1[012]`
 	c.Check(err, gc.ErrorMatches, errMsg)
 
 	for _, id := range []string{"10", "11", "12"} {

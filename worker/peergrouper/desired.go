@@ -494,14 +494,15 @@ func (p *peerGroupChanges) updateAddressesFromSpace(info *peerGroupInfo) error {
 		m := info.machines[id]
 		addr, err := m.SelectMongoAddressFromSpace(info.mongoPort, space)
 		if err != nil {
-			return errors.Trace(err)
-		}
-		if addr == "" {
-			noAddresses = append(noAddresses, id)
-			if err := m.stm.SetStatus(getStatusInfo(fmt.Sprintf("no addresses in space %q", space))); err != nil {
-				return errors.Trace(err)
+			if errors.IsNotFound(err) {
+				noAddresses = append(noAddresses, id)
+				msg := fmt.Sprintf("no addresses in configured juju-ha-space %q", space)
+				if err := m.stm.SetStatus(getStatusInfo(msg)); err != nil {
+					return errors.Trace(err)
+				}
+				continue
 			}
-			continue
+			return errors.Trace(err)
 		}
 		if addr != p.members[id].Address {
 			p.members[id].Address = addr
@@ -511,7 +512,7 @@ func (p *peerGroupChanges) updateAddressesFromSpace(info *peerGroupInfo) error {
 
 	if len(noAddresses) > 0 {
 		ids := strings.Join(noAddresses, ", ")
-		return fmt.Errorf("no usable Mongo addresses found in space %q for machines: %s", space, ids)
+		return fmt.Errorf("no usable Mongo addresses found in configured juju-ha-space %q for machines: %s", space, ids)
 	}
 	return nil
 }

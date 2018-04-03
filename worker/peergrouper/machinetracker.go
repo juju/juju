@@ -105,7 +105,7 @@ func (m *machineTracker) SelectMongoAddressFromSpace(port int, space network.Spa
 	// If we end up here, then there are no addresses available in the
 	// specified space. This should not happen, because the configured
 	// space is used as a constraint when first enabling HA.
-	return "", nil
+	return "", errors.NotFoundf("addresses for machine %q in space %q", m.id, space)
 }
 
 // GetPotentialMongoHostPorts simply returns all the available addresses
