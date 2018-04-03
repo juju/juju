@@ -368,11 +368,12 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	controllerInfo, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(controllerInfo.MachineIds, gc.DeepEquals, append([]string{machine.Id()}, changes.Added...))
-	s.assertCleanupCount(c, 1)
+	// ForceDestroy sets up a cleanupForceDestroyedMachine, which calls EnsureDead which sets up a cleanupDyingMachine
+	// so it takes 2 cleanup runs to run clear
+	s.assertCleanupCount(c, 2)
 	// After we've run the cleanup for the controller machine, the machine should be dead, and it should not be
 	// present in the other documents.
-	err = machine.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	assertLife(c, machine, state.Dead)
 	controllerInfo, err = s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(controllerInfo.MachineIds)
