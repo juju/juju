@@ -517,10 +517,17 @@ func (p *peerGroupChanges) updateAddressesFromSpace(info *peerGroupInfo) error {
 	return nil
 }
 
+// getStatusInfo creates and returns a StatusInfo instance for use as a machine
+// status. The *machine* status is not ideal for conveying this information,
+// which is a really a characteristic of its role as a controller application.
+// For this reason we leave the status as "Started" and supplement with an
+// appropriate message.
+// This is subject to change if/when controller status is represented in its
+// own right.
 func getStatusInfo(msg string) status.StatusInfo {
 	now := time.Now()
 	return status.StatusInfo{
-		Status:  status.Blocked,
+		Status:  status.Started,
 		Message: msg,
 		Since:   &now,
 	}
