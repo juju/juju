@@ -496,6 +496,14 @@ func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time
 	return model.updateLastModelConnection(e.UserTag, when)
 }
 
+func RemoveController(c *gc.C, m *Machine) {
+	c.Check(m.WantsVote(), jc.IsFalse)
+	c.Check(m.HasVote(), jc.IsFalse)
+	ops := removeControllerOps(m)
+	err := m.st.database.RunRawTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func RemoveEndpointBindingsForService(c *gc.C, app *Application) {
 	globalKey := app.globalKey()
 	removeOp := removeEndpointBindingsOp(globalKey)

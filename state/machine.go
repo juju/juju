@@ -515,18 +515,52 @@ func (m *Machine) ForceDestroy() error {
 
 func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 	if m.IsManager() {
-		// TODO: ForceDestroy on a controller should do the DB side of the work to remove this object. This includes
-		// removing it from Controller.machineids, etc.
-		return nil, errors.Errorf("machine %s is a controller and cannot be fast destroyed", m.Id())
+		controllerInfo, err := m.st.ControllerInfo()
+		if err != nil {
+			return nil, errors.Annotatef(err, "reading controller info")
+		}
+		if len(controllerInfo.MachineIds) <= 1 {
+			return nil, errors.Errorf("machine %s is the only controller machine", m.Id())
+		}
+		// We set the machine to Dying if it isn't already dead.
+		var machineOp txn.Op
+		if m.Life() < Dead {
+			// Make sure we don't want the vote, and we are queued to be Dying
+			machineOp = txn.Op{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Assert: bson.D{{"life", bson.D{{"$in", []Life{Alive, Dying}}}}},
+				Update: bson.D{{"$set", bson.D{{"novote", true}, {"life", Dying}}}},
+			}
+		} else {
+			machineOp = txn.Op{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Update: bson.D{{"$set", bson.D{{"novote", true}}}},
+			}
+		}
+		controllerOp := txn.Op{
+			C:      controllersC,
+			Id:     modelGlobalKey,
+			Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
+		}
+		// Note that ForceDestroy does *not* cleanup the replicaset, so it might cause problems.
+		// However, we're letting the user handle times when the machine agent isn't running, etc.
+		// We may need to update the peergrouper for this.
+		return []txn.Op{
+			machineOp,
+			controllerOp,
+			newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id),
+		}, nil
+	} else {
+		// Make sure the machine doesn't become a manager while we're destroying it
+		return []txn.Op{{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
+		}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id),
+		}, nil
 	}
-	// Make sure the machine doesn't become a manager while we're destroying it
-	return []txn.Op{{
-
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-	}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id),
-	}, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.

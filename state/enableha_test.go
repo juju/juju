@@ -450,6 +450,30 @@ func (s *EnableHASuite) TestDestroyFromHA(c *gc.C) {
 	c.Check(m0.WantsVote(), jc.IsFalse)
 }
 
+func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
+	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m0.SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
+	// ForceDestroy must be blocked if there is only 1 machine.
+	err = m0.ForceDestroy()
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 2)
+	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
+	err = m0.ForceDestroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m0.Refresh(), jc.ErrorIsNil)
+	// Could this actually get all the way to Dead?
+	c.Check(m0.Life(), gc.Equals, state.Dying)
+	c.Check(m0.WantsVote(), jc.IsFalse)
+}
+
 func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
 	c.Skip("not able to race yet")
 	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {

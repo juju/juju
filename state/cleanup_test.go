@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"bytes"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -12,6 +13,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -333,6 +335,50 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	// ...but that the machine remains, and is Dead, ready for removal by the
 	// provisioner.
 	assertLife(c, machine, state.Dead)
+}
+
+func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
+	changes, err := s.State.EnableHA(3, constraints.Value{},"quantal", nil, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changes.Added, gc.HasLen, 2)
+	c.Check(changes.Removed, gc.HasLen, 0)
+	c.Check(changes.Maintained, gc.HasLen, 1)
+	c.Check(changes.Promoted, gc.HasLen, 0)
+	c.Check(changes.Demoted, gc.HasLen, 0)
+	c.Check(changes.Converted, gc.HasLen, 0)
+	for _, mid := range changes.Added {
+		m, err := s.State.Machine(mid)
+		c.Assert(err, jc.ErrorIsNil)
+		m.SetHasVote(true)
+	}
+	s.assertDoesNotNeedCleanup(c)
+	err = machine.ForceDestroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// The machine should no longer want the vote, should be forced to not have the vote, and forced to not be a
+	// controller member anymore
+	c.Assert(machine.Refresh(), jc.ErrorIsNil)
+	c.Check(machine.Life(), gc.Equals, state.Dying)
+	c.Check(machine.WantsVote(), jc.IsFalse)
+	c.Check(machine.HasVote(), jc.IsTrue)
+	c.Check(machine.Jobs(), jc.DeepEquals, []state.MachineJob{state.JobManageModel})
+	controllerInfo, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(controllerInfo.MachineIds, gc.DeepEquals, append([]string{machine.Id()}, changes.Added...))
+	s.assertCleanupCount(c, 1)
+	// After we've run the cleanup for the controller machine, the machine should be dead, and it should not be
+	// present in the other documents.
+	err = machine.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	controllerInfo, err = s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Strings(controllerInfo.MachineIds)
+	sort.Strings(changes.Added)
+	// Only the machines that were added should still be part of the controller
+	c.Check(controllerInfo.MachineIds, gc.DeepEquals, changes.Added)
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c *gc.C) {
