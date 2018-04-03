@@ -36,7 +36,7 @@ type StateBackend interface {
 	MoveOldAuditLog() error
 	AddRelationStatus() error
 	DeleteCloudImageMetadata() error
-	CopyMongoSpaceToHASpaceConfig() error
+	MoveMongoSpaceToHASpaceConfig() error
 	CreateMissingApplicationConfig() error
 	RemoveVotingMachineIds() error
 }
@@ -141,8 +141,8 @@ func (s stateBackend) AddRelationStatus() error {
 	return state.AddRelationStatus(s.st)
 }
 
-func (s stateBackend) CopyMongoSpaceToHASpaceConfig() error {
-	return state.CopyMongoSpaceToHASpaceConfig(s.st)
+func (s stateBackend) MoveMongoSpaceToHASpaceConfig() error {
+	return state.MoveMongoSpaceToHASpaceConfig(s.st)
 }
 
 func (s stateBackend) CreateMissingApplicationConfig() error {

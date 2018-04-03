@@ -1405,30 +1405,49 @@ func DeleteCloudImageMetadata(st *State) error {
 // CopyMongoSpaceToHASpaceConfig copies the Mongo space name from
 // ControllerInfo to the HA space name in ControllerConfig.
 // This only happens if the Mongo space state is valid, it is not empty,
-// and if the is no value already set for the HA space name.
-func CopyMongoSpaceToHASpaceConfig(st *State) error {
-	info, err := st.ControllerInfo()
+// and if there is no value already set for the HA space name.
+// The old keys are then deleted from ControllerInfo.
+func MoveMongoSpaceToHASpaceConfig(st *State) error {
+	// Holds Mongo space fields removed from controllersDoc.
+	type controllersUpgradeDoc struct {
+		MongoSpaceName  string `bson:"mongo-space-name"`
+		MongoSpaceState string `bson:"mongo-space-state"`
+	}
+	var doc controllersUpgradeDoc
+
+	controllerColl, controllerCloser := st.db().GetRawCollection(controllersC)
+	defer controllerCloser()
+	err := controllerColl.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
 	if err != nil {
-		return errors.Annotate(err, "cannot get controller info")
+		return errors.Annotate(err, "retrieving controller info doc")
 	}
 
-	ms := info.MongoSpaceName
-	if info.MongoSpaceState != MongoSpaceValid || ms == "" {
-		return nil
+	mongoSpace := doc.MongoSpaceName
+	if doc.MongoSpaceState == "valid" && mongoSpace != "" {
+		settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
+		if err != nil {
+			return errors.Annotate(err, "cannot get controller config")
+		}
+
+		// In the unlikely event that there is already a juju-ha-space
+		// configuration setting, we do not copy over it with the old Mongo
+		// space name.
+		if haSpace, ok := settings.Get(controller.JujuHASpace); ok {
+			upgradesLogger.Debugf("not copying mongo-space-name %q to juju-ha-space - already set to %q",
+				mongoSpace, haSpace)
+		} else {
+			settings.Set(controller.JujuHASpace, mongoSpace)
+			if _, err = settings.Write(); err != nil {
+				return errors.Annotate(err, "writing controller info")
+			}
+		}
 	}
 
-	settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
-	if err != nil {
-		return errors.Annotate(err, "cannot get controller config")
-	}
-
-	if _, ok := settings.Get(controller.JujuHASpace); ok {
-		return nil
-	}
-
-	settings.Set(controller.JujuHASpace, ms)
-	_, err = settings.Write()
-	return errors.Annotate(err, "writing controller info")
+	err = controllerColl.UpdateId(modelGlobalKey, bson.M{"$unset": bson.M{
+		"mongo-space-name":  1,
+		"mongo-space-state": 1,
+	}})
+	return errors.Annotate(err, "removing mongo-space-state and mongo-space-name")
 }
 
 // CreateMissingApplicationConfig ensures that all models have an application config in the db.

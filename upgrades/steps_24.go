@@ -14,10 +14,10 @@ func stateStepsFor24() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "copy controller info Mongo space to controller config HA space if valid",
+			description: "move controller info Mongo space to controller config HA space if valid",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return context.State().CopyMongoSpaceToHASpaceConfig()
+				return context.State().MoveMongoSpaceToHASpaceConfig()
 			},
 		},
 		&upgradeStep{
@@ -31,7 +31,7 @@ func stateStepsFor24() []Step {
 			description: "remove votingmachineids",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return context.State().CreateMissingApplicationConfig()
+				return context.State().RemoveVotingMachineIds()
 			},
 		},
 	}
