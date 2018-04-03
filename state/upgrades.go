@@ -1430,7 +1430,8 @@ func MoveMongoSpaceToHASpaceConfig(st *State) error {
 		}
 
 		// In the unlikely event that there is already a juju-ha-space
-		// configuration setting, we skip the
+		// configuration setting, we do not copy over it with the old Mongo
+		// space name.
 		if haSpace, ok := settings.Get(controller.JujuHASpace); ok {
 			upgradesLogger.Debugf("not copying mongo-space-name %q to juju-ha-space - already set to %q",
 				mongoSpace, haSpace)
