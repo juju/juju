@@ -91,8 +91,8 @@ func NewService(name string, conf common.Conf, dataDir string) (*Service, error)
 	return service, nil
 }
 
-// dbusAPI exposes all the systemd API methods needed by juju.
-type dbusAPI interface {
+// DBusAPI exposes all the systemd API methods needed by juju.
+type DBusAPI interface {
 	Close()
 	ListUnits() ([]dbus.UnitStatus, error)
 	StartUnit(string, string, chan<- string) (int, error)
@@ -105,7 +105,7 @@ type dbusAPI interface {
 	Reload() error
 }
 
-var newConn = func() (dbusAPI, error) {
+var newConn = func() (DBusAPI, error) {
 	return dbus.New()
 }
 
@@ -232,7 +232,7 @@ func (s *Service) readConf() (common.Conf, error) {
 	return conf, nil
 }
 
-func (s Service) newConn() (dbusAPI, error) {
+func (s Service) newConn() (DBusAPI, error) {
 	conn, err := newConn()
 	if err != nil {
 		logger.Errorf("failed to connect to dbus for application %q: %v", s.Service.Name, err)
