@@ -1408,9 +1408,15 @@ func DeleteCloudImageMetadata(st *State) error {
 // and if there is no value already set for the HA space name.
 // The old keys are then deleted from ControllerInfo.
 func MoveMongoSpaceToHASpaceConfig(st *State) error {
+	// Holds Mongo space fields removed from controllersDoc.
+	type controllersUpgradeDoc struct {
+		MongoSpaceName  string `bson:"mongo-space-name"`
+		MongoSpaceState string `bson:"mongo-space-state"`
+	}
+	var doc controllersUpgradeDoc
+
 	controllerColl, controllerCloser := st.db().GetRawCollection(controllersC)
 	defer controllerCloser()
-	var doc controllersDoc
 	err := controllerColl.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
 	if err != nil {
 		return errors.Annotate(err, "retrieving controller info doc")

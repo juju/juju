@@ -2064,12 +2064,6 @@ type controllersDoc struct {
 	CloudName  string `bson:"cloud"`
 	ModelUUID  string `bson:"model-uuid"`
 	MachineIds []string
-
-	// These are replaced by juju-ha-space in controller config.
-	// Deprecated.
-	MongoSpaceName string `bson:"mongo-space-name"`
-	// Deprecated.
-	MongoSpaceState string `bson:"mongo-space-state"`
 }
 
 // ControllerInfo holds information about currently

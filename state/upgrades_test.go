@@ -2233,7 +2233,12 @@ func (s *upgradesSuite) TestMoveMongoSpaceToHASpaceConfigDeletesOldKeys(c *gc.C)
 	err = MoveMongoSpaceToHASpaceConfig(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var doc controllersDoc
+	// Holds Mongo space fields removed from controllersDoc.
+	type controllersUpgradeDoc struct {
+		MongoSpaceName  string `bson:"mongo-space-name"`
+		MongoSpaceState string `bson:"mongo-space-state"`
+	}
+	var doc controllersUpgradeDoc
 	err = controllerColl.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(doc.MongoSpaceName, gc.Equals, "")
