@@ -123,4 +123,4 @@ script=$(echo $mongo_script | tr -d ' ' | tr -d '[:blank:]' | tr -d '[:space:]')
 
 agent=$(cd /var/lib/juju/agents; echo machine-*)
 pw=$(sudo grep statepassword /var/lib/juju/agents/${agent}/agent.conf | cut '-d ' -sf2)
-/usr/lib/juju/mongo3.2/bin/mongo --ssl -u ${agent} -p $pw --authenticationDatabase admin --sslAllowInvalidHostnames --sslAllowInvalidCertificates localhost:37017/juju --eval $script
+/usr/lib/juju/mongo3.2/bin/mongo --ssl -u ${agent} -p $pw --authenticationDatabase admin --sslAllowInvalidHostnames --sslAllowInvalidCertificates localhost:37017/juju --eval "$script"
