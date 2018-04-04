@@ -392,7 +392,7 @@ func (s *MachineSuite) TestDestroyOpsForManagerFails(c *gc.C) {
 
 	// ... and assert that we cannot get the destroy ops for it.
 	ops, err := state.ForceDestroyMachineOps(m)
-	c.Assert(err, gc.ErrorMatches, `machine 0 is a controller and cannot be fast destroyed`)
+	c.Assert(err, gc.ErrorMatches, `machine 0 is the only controller machine`)
 	c.Assert(ops, gc.IsNil)
 }
 
