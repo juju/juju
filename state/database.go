@@ -9,8 +9,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/featureflag"
+	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
@@ -18,6 +20,8 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 )
+
+var txnLogger = loggo.GetLogger("juju.state.txn")
 
 type SessionCloser func()
 
@@ -329,10 +333,17 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 		var observer func([]txn.Op, error)
 		if db.runTransactionObserver != nil {
 			observer = func(ops []txn.Op, err error) {
+				txnLogger.Tracef("ran transaction %# v\nerr: %v",
+					pretty.Formatter(ops), err)
 				db.runTransactionObserver(
 					db.raw.Name, db.modelUUID,
 					ops, err,
 				)
+			}
+		} else {
+			observer = func(ops []txn.Op, err error) {
+				txnLogger.Tracef("ran transaction %# v\nerr: %v",
+					pretty.Formatter(ops), err)
 			}
 		}
 		params := jujutxn.RunnerParams{
