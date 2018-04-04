@@ -29,6 +29,7 @@ import (
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
 type State interface {
+	RemoveControllerMachine(m Machine) error
 	ControllerConfig() (controller.Config, error)
 	ControllerInfo() (*state.ControllerInfo, error)
 	Machine(id string) (Machine, error)
@@ -43,6 +44,7 @@ type Space interface {
 
 type Machine interface {
 	Id() string
+	Life() state.Life
 	Status() (status.StatusInfo, error)
 	Refresh() error
 	Watch() state.NotifyWatcher
@@ -345,10 +347,6 @@ func (w *pgWorker) updateControllerMachines() (bool, error) {
 
 	// Start machines with no watcher
 	for _, id := range info.MachineIds {
-		if _, ok := w.machineTrackers[id]; ok {
-			continue
-		}
-		logger.Debugf("found new machine %q", id)
 		stm, err := w.config.State.Machine(id)
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -361,6 +359,10 @@ func (w *pgWorker) updateControllerMachines() (bool, error) {
 			}
 			return false, fmt.Errorf("cannot get machine %q: %v", id, err)
 		}
+		if _, ok := w.machineTrackers[id]; ok {
+			continue
+		}
+		logger.Debugf("found new machine %q", id)
 
 		// Don't add the machine unless it is "Started"
 		machineStatus, err := stm.Status()
@@ -535,12 +537,29 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 			delete(members, id)
 		}
 	}
+	for _, removedTracker := range removed {
+		if removedTracker.stm.Life() != state.Alive {
+			logger.Debugf("removing dying controller machine %s", removedTracker.Id())
+			if err := w.config.State.RemoveControllerMachine(removedTracker.stm); err != nil {
+				logger.Errorf("failed to remove dying machine as a controller after removing its vote: %v", err)
+			}
+		} else {
+			logger.Debugf("vote removed from %v but machine is %s", removedTracker.Id(), state.Alive)
+		}
+	}
 	return members, nil
 }
 
 func prettyReplicaSetMembers(members map[string]*replicaset.Member) string {
 	var result []string
-	for _, m := range members {
+	// Its easier to read if we sort by Id.
+	keys := make([]string, 0, len(members))
+	for key := range members {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		m := members[key]
 		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, Vote: %v", m.Id, m.Tags, isVotingMember(m)))
 	}
 	return strings.Join(result, "\n")

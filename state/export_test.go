@@ -496,11 +496,21 @@ func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time
 	return model.updateLastModelConnection(e.UserTag, when)
 }
 
+func (m *Machine) SetWantsVote(wantsVote bool) error {
+	err := m.st.runRawTransaction([]txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Update: bson.M{"$set": bson.M{"novote": !wantsVote}},
+	}})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	m.doc.NoVote = !wantsVote
+	return nil
+}
+
 func RemoveController(c *gc.C, m *Machine) {
-	c.Check(m.WantsVote(), jc.IsFalse)
-	c.Check(m.HasVote(), jc.IsFalse)
-	ops := removeControllerOps(m)
-	err := m.st.database.RunRawTransaction(ops)
+	err := m.st.RemoveControllerMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

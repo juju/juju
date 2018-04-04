@@ -195,6 +195,7 @@ func (st *fakeState) addMachine(id string, wantsVote bool) *fakeMachine {
 		doc: machineDoc{
 			id:        id,
 			wantsVote: wantsVote,
+			life:      state.Alive,
 		},
 	}
 	st.machines[id] = m
@@ -252,6 +253,23 @@ func (st *fakeState) ControllerConfig() (controller.Config, error) {
 	return deepCopy(st.controllerConfig.Get()).(controller.Config), nil
 }
 
+func (st *fakeState) RemoveControllerMachine(m Machine) error {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	controllerInfo := st.controllers.Get().(*state.ControllerInfo)
+	machineIds := controllerInfo.MachineIds
+	var newMachineIds []string
+	machineId := m.Id()
+	for _, id := range machineIds {
+		if id == machineId {
+			continue
+		}
+		newMachineIds = append(newMachineIds, id)
+	}
+	st.setControllers(newMachineIds...)
+	return nil
+}
+
 func (st *fakeState) setHASpace(spaceName string) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
@@ -275,6 +293,7 @@ type machineDoc struct {
 	hasVote    bool
 	instanceId instance.Id
 	addresses  []network.Address
+	life       state.Life
 }
 
 func (m *fakeMachine) Refresh() error {
@@ -297,6 +316,12 @@ func (m *fakeMachine) Id() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.doc.id
+}
+
+func (m *fakeMachine) Life() state.Life {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.doc.life
 }
 
 func (m *fakeMachine) Watch() state.NotifyWatcher {
@@ -360,6 +385,13 @@ func (m *fakeMachine) SetHasVote(hasVote bool) error {
 
 func (m *fakeMachine) setWantsVote(wantsVote bool) {
 	m.mutate(func(doc *machineDoc) {
+		doc.wantsVote = wantsVote
+	})
+}
+
+func (m *fakeMachine) advanceLifecycle(life state.Life, wantsVote bool) {
+	m.mutate(func(doc *machineDoc) {
+		doc.life = life
 		doc.wantsVote = wantsVote
 	})
 }

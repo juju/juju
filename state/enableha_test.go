@@ -497,3 +497,30 @@ func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
 	c.Check(m0.Life(), gc.Equals, state.Dying)
 	c.Check(m0.WantsVote(), jc.IsFalse)
 }
+
+func (s *EnableHASuite) TestRemoveControllerMachineOneMachine(c *gc.C) {
+	m0, err := s.State.AddMachine("quantal", state.JobManageModel)
+	m0.SetHasVote(true)
+	err = s.State.RemoveControllerMachine(m0)
+	c.Assert(err, gc.ErrorMatches, "machine \\d+ cannot be removed as a controller as it still wants to vote")
+	m0.SetWantsVote(false)
+	err = s.State.RemoveControllerMachine(m0)
+	c.Assert(err, gc.ErrorMatches, "machine \\d+ cannot be removed as a controller as it still has a vote")
+}
+
+func (s *EnableHASuite) TestRemoveControllerMachine(c *gc.C) {
+	m0, err := s.State.AddMachine("quantal", state.JobManageModel)
+	m0.SetHasVote(true)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 2)
+	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
+	c.Assert(m0.Destroy(), jc.ErrorIsNil)
+	m0.SetHasVote(false)
+	m0.Refresh()
+	err = s.State.RemoveControllerMachine(m0)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertControllerInfo(c, []string{"1", "2"}, []string{"1", "2"}, nil)
+	m0.Refresh()
+	c.Assert(m0.Jobs(), jc.DeepEquals, []state.MachineJob{})
+}
