@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -153,7 +152,7 @@ func (r *multiModelRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 		}
 		outOps = append(outOps, outOp)
 	}
-	logger.Tracef("rewrote transaction: %s", pretty.Sprint(outOps))
+	logger.Tracef("rewrote transaction: %#v", outOps)
 	return outOps, nil
 }
 
