@@ -247,7 +247,6 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 }
 
 func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",

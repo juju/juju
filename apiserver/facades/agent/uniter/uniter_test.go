@@ -3055,7 +3055,6 @@ containers:
 `[1:]
 
 func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASModel, *state.Application, *state.Unit) {
-	s.SetFeatureFlags(feature.CAAS)
 	err := s.State.AddCloud(cloud.Cloud{
 		Name:      "caascloud",
 		Type:      "kubernetes",

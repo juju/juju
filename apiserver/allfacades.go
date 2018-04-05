@@ -151,15 +151,14 @@ func AllFacades() *facade.Registry {
 	reg("Client", 1, client.NewFacade)
 	reg("Cloud", 1, cloud.NewFacade)
 	reg("Cloud", 2, cloud.NewFacadeV2) // adds CredentialContents
-	if featureflag.Enabled(feature.CAAS) {
-		// CAAS related facades.
-		// Move these to the correct place above once the feature flag disappears.
-		reg("CAASFirewaller", 1, caasfirewaller.NewStateFacade)
-		reg("CAASOperator", 1, caasoperator.NewStateFacade)
-		reg("CAASAgent", 1, caasagent.NewStateFacade)
-		reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
-		reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
-	}
+
+	// CAAS related facades.
+	// Move these to the correct place above once the feature flag disappears.
+	reg("CAASFirewaller", 1, caasfirewaller.NewStateFacade)
+	reg("CAASOperator", 1, caasoperator.NewStateFacade)
+	reg("CAASAgent", 1, caasagent.NewStateFacade)
+	reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
+	reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
 
 	reg("Controller", 3, controller.NewControllerAPIv3)
 	reg("Controller", 4, controller.NewControllerAPIv4)

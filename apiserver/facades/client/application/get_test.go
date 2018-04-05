@@ -126,7 +126,6 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmoketest(c *gc.C) {
 }
 
 func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",

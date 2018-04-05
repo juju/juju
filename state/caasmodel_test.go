@@ -21,7 +21,6 @@ type CAASFixture struct {
 
 func (s *CAASFixture) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.CAAS)
 }
 
 // createTestModelConfig returns a new model config and its UUID for testing.

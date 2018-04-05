@@ -220,7 +220,6 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 }
 
 func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
 	otherModelOwner := s.Factory.MakeModelUser(c, nil)
 	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",

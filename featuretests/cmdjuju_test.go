@@ -34,7 +34,6 @@ func uint64p(val uint64) *uint64 {
 }
 
 func (s *cmdJujuSuite) SetUpSuite(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CAAS)
 	s.JujuConnSuite.SetUpSuite(c)
 }
 

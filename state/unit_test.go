@@ -1948,7 +1948,6 @@ type CAASUnitSuite struct {
 var _ = gc.Suite(&CAASUnitSuite{})
 
 func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CAAS)
 	s.ConnSuite.SetUpTest(c)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",

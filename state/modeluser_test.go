@@ -27,7 +27,6 @@ type ModelUserSuite struct {
 var _ = gc.Suite(&ModelUserSuite{})
 
 func (s *ModelUserSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CAAS)
 	s.ConnSuite.SetUpTest(c)
 }
 

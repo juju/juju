@@ -281,7 +281,7 @@ func (m ModelArgs) Validate() error {
 	if m.Type == modelTypeNone {
 		return errors.NotValidf("empty Type")
 	}
-	if m.Type == ModelTypeCAAS && !featureflag.Enabled(feature.CAAS) {
+	if m.Type == ModelTypeCAAS {
 		return errors.NotSupportedf("model type")
 	}
 	if m.Config == nil {

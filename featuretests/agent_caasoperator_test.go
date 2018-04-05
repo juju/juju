@@ -37,7 +37,6 @@ type CAASOperatorSuite struct {
 }
 
 func (s *CAASOperatorSuite) SetUpSuite(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CAAS)
 	s.AgentSuite.SetUpSuite(c)
 }
 
