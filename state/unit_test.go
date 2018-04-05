@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -1948,7 +1947,6 @@ type CAASUnitSuite struct {
 var _ = gc.Suite(&CAASUnitSuite{})
 
 func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CAAS)
 	s.ConnSuite.SetUpTest(c)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",

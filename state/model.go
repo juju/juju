@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -19,7 +18,6 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
@@ -280,9 +278,6 @@ type ModelArgs struct {
 func (m ModelArgs) Validate() error {
 	if m.Type == modelTypeNone {
 		return errors.NotValidf("empty Type")
-	}
-	if m.Type == ModelTypeCAAS && !featureflag.Enabled(feature.CAAS) {
-		return errors.NotSupportedf("model type")
 	}
 	if m.Config == nil {
 		return errors.NotValidf("nil Config")

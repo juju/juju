@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -27,7 +26,6 @@ type ModelUserSuite struct {
 var _ = gc.Suite(&ModelUserSuite{})
 
 func (s *ModelUserSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CAAS)
 	s.ConnSuite.SetUpTest(c)
 }
 
