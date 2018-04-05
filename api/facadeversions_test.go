@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 

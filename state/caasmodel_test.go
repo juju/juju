@@ -9,7 +9,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"

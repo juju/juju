@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
