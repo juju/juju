@@ -93,15 +93,15 @@ func (m *MockShimExec) EXPECT() *MockShimExecMockRecorder {
 	return m.recorder
 }
 
-// RunCommand mocks base method
-func (m *MockShimExec) RunCommand(arg0 exec.RunParams) (*exec.ExecResponse, error) {
-	ret := m.ctrl.Call(m, "RunCommand", arg0)
+// RunCommands mocks base method
+func (m *MockShimExec) RunCommands(arg0 exec.RunParams) (*exec.ExecResponse, error) {
+	ret := m.ctrl.Call(m, "RunCommands", arg0)
 	ret0, _ := ret[0].(*exec.ExecResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// RunCommand indicates an expected call of RunCommand
-func (mr *MockShimExecMockRecorder) RunCommand(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunCommand", reflect.TypeOf((*MockShimExec)(nil).RunCommand), arg0)
+// RunCommands indicates an expected call of RunCommands
+func (mr *MockShimExecMockRecorder) RunCommands(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunCommands", reflect.TypeOf((*MockShimExec)(nil).RunCommands), arg0)
 }

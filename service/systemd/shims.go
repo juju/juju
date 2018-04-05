@@ -13,5 +13,5 @@ type ShimFileOps interface {
 }
 
 type ShimExec interface {
-	RunCommand(args exec.RunParams) (*exec.ExecResponse, error)
+	RunCommands(args exec.RunParams) (*exec.ExecResponse, error)
 }
