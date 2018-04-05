@@ -94,19 +94,6 @@ func (s *CAASModelSuite) TestCAASModelsCantHaveCloudRegion(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "CAAS model with CloudRegion not supported")
 }
 
-func (s *CAASModelSuite) TestNewModelCAASNeedsFeature(c *gc.C) {
-	s.SetFeatureFlags( /* no feature flags */ )
-	cfg, _ := s.createTestModelConfig(c)
-	owner := names.NewUserTag("test@remote")
-	_, _, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     owner,
-	})
-	c.Assert(err, gc.ErrorMatches, "model type not supported")
-}
-
 func (s *CAASModelSuite) TestNewModelCAASWithStorageRegistry(c *gc.C) {
 	cfg, _ := s.createTestModelConfig(c)
 	owner := names.NewUserTag("test@remote")
