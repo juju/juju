@@ -709,7 +709,8 @@ func (s *workerSuite) doTestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWith
 	for _, id := range []string{"11", "12"} {
 		sInfo, err := st.machine(id).Status()
 		c.Assert(err, gc.IsNil)
-		c.Check(sInfo.Status, gc.Equals, status.Blocked)
+		c.Check(sInfo.Status, gc.Equals, status.Started)
+		c.Check(sInfo.Message, gc.Not(gc.Equals), "")
 	}
 }
 
@@ -735,7 +736,8 @@ func (s *workerSuite) doTestErrorAndStatusForHASpaceWithNoAddresses(
 	for _, id := range []string{"10", "11", "12"} {
 		sInfo, err := st.machine(id).Status()
 		c.Assert(err, gc.IsNil)
-		c.Check(sInfo.Status, gc.Equals, status.Blocked)
+		c.Check(sInfo.Status, gc.Equals, status.Started)
+		c.Check(sInfo.Message, gc.Not(gc.Equals), "")
 	}
 }
 
