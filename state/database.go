@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2"
@@ -330,25 +331,25 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			raw = raw.With(session)
 			closer = session.Close
 		}
-		var observer func([]txn.Op, error)
+		observer := func(t jujutxn.ObservedTransaction) {
+			txnLogger.Tracef("ran transaction in %.3fs %# v\nerr: %v",
+				t.Duration.Seconds(), pretty.Formatter(t.Ops), t.Error)
+		}
 		if db.runTransactionObserver != nil {
-			observer = func(ops []txn.Op, err error) {
-				txnLogger.Tracef("ran transaction %# v\nerr: %v",
-					pretty.Formatter(ops), err)
+			observer = func(t jujutxn.ObservedTransaction) {
+				txnLogger.Tracef("ran transaction in %.3fs %# v\nerr: %v",
+					t.Duration.Seconds(), pretty.Formatter(t.Ops), t.Error)
 				db.runTransactionObserver(
 					db.raw.Name, db.modelUUID,
-					ops, err,
+					t.Ops, t.Error,
 				)
-			}
-		} else {
-			observer = func(ops []txn.Op, err error) {
-				txnLogger.Tracef("ran transaction %# v\nerr: %v",
-					pretty.Formatter(ops), err)
 			}
 		}
 		params := jujutxn.RunnerParams{
 			Database:               raw,
 			RunTransactionObserver: observer,
+			// TODO: jam 2018-04-05 thread the stateClock into this code.
+			Clock: clock.WallClock,
 		}
 		runner = jujutxn.NewRunner(params)
 	}

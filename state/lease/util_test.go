@@ -17,6 +17,7 @@ import (
 // can be configured to Advance automatically whenever Now is called. Attempts
 // to call Alarm will panic: they're not useful to a clock.Client itself, but
 // are extremely helpful when driving one.
+// This differs from github.com/juju/testing.Clock in that it has a Reset() function.
 type Clock struct {
 	clock.Clock
 	now time.Time
@@ -65,6 +66,7 @@ func NewMongo(database *mgo.Database) *Mongo {
 		database: database,
 		runner: jujutxn.NewRunner(jujutxn.RunnerParams{
 			Database: database,
+			Clock: NewClock(time.Now()),
 		}),
 	}
 }

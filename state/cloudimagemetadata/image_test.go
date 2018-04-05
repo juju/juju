@@ -650,6 +650,7 @@ func NewTestMongo(database *mgo.Database) *TestMongo {
 		database: database,
 		runner: txn.NewRunner(txn.RunnerParams{
 			Database: database,
+			Clock: testing.NewClock(time.Now()),
 		}),
 	}
 }

@@ -109,7 +109,10 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 
 func newRunnerForHooks(st *State) jujutxn.Runner {
 	db := st.database.(*database)
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db.raw})
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database: db.raw,
+		Clock:    st.stateClock,
+	})
 	db.runner = runner
 	return runner
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/filestorage"
 	"github.com/juju/version"
 	"gopkg.in/juju/blobstore.v2"
@@ -206,7 +207,10 @@ func newStorageDBWrapper(db *mgo.Database, metaColl, modelUUID string) *storageD
 	db = db.With(session)
 
 	coll := db.C(metaColl)
-	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
+	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database: db,
+		Clock: clock.WallClock,
+	})
 	dbWrap := storageDBWrapper{
 		session:   session,
 		db:        db,
@@ -285,7 +289,10 @@ func (b *storageDBWrapper) Copy() *storageDBWrapper {
 
 	coll := b.metaColl.With(session)
 	db := coll.Database
-	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
+	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database: db,
+		Clock: clock.WallClock,
+	})
 	dbWrap := storageDBWrapper{
 		session:   session,
 		db:        db,
