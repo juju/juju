@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -20,6 +21,7 @@ type facadeVersionSuite struct {
 var _ = gc.Suite(&facadeVersionSuite{})
 
 func (s *facadeVersionSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.ImageMetadata)
 	s.BaseSuite.SetUpTest(c)
 }
 
