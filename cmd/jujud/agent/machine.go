@@ -94,11 +94,12 @@ import (
 )
 
 var (
-	logger         = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun        = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
-	jujuDumpLogs   = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
-	jujuIntrospect = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
-	jujudSymlinks  = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
+	logger           = loggo.GetLogger("juju.cmd.jujud")
+	jujuRun          = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
+	jujuDumpLogs     = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
+	jujuIntrospect   = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
+	jujuUpdateSeries = paths.MustSucceed(paths.JujuUpdateSeries(series.MustHostSeries()))
+	jujudSymlinks    = []string{jujuRun, jujuDumpLogs, jujuIntrospect, jujuUpdateSeries}
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions. In every case, they should
