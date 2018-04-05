@@ -121,9 +121,6 @@ func (w *Worker) loop() error {
 	}
 	go server.Serve(listener)
 	defer func() {
-		// TODO(axw) we need to provide mux clients a means
-		// of registering for graceful shutdown, and wait
-		// for them also.
 		logger.Infof("shutting down HTTP server")
 		// Shutting down the server will also close listener.
 		err := server.Shutdown(context.Background())
