@@ -20,7 +20,6 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/constraints"
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
