@@ -330,6 +330,8 @@ func (m *fakeMachine) Status() (status.StatusInfo, error) {
 }
 
 func (m *fakeMachine) SetStatus(sInfo status.StatusInfo) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.doc.statusInfo = sInfo
 	return nil
 }

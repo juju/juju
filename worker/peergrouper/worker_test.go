@@ -587,13 +587,35 @@ func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, members string) *f
 	return st
 }
 
-func (s *workerSuite) TestUsesConfiguredHASpace(c *gc.C) {
-	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st := haSpaceTestCommonSetup(c, ipVersion, "0v 1v 2v")
-		st.setHASpace("one")
-		s.runUntilPublish(c, st, "")
-		assertMemberAddresses(c, st, ipVersion.formatHost, 1)
+func (s *workerSuite) TestUsesConfiguredHASpaceIPv4(c *gc.C) {
+	s.doTestUsesConfiguredHASpace(c, testIPv4)
+}
+
+func (s *workerSuite) TestUsesConfiguredHASpaceIPv6(c *gc.C) {
+	s.doTestUsesConfiguredHASpace(c, testIPv6)
+}
+
+func (s *workerSuite) doTestUsesConfiguredHASpace(c *gc.C, ipVersion TestIPVersion) {
+	st := haSpaceTestCommonSetup(c, ipVersion, "0v 1v 2v")
+
+	// Set one of the statuses to ensure it is cleared upon determination
+	// of a new peer group.
+	now := time.Now()
+	err := st.machine("11").SetStatus(status.StatusInfo{
+		Status:  status.Started,
+		Message: "You said that would be bad, Egon",
+		Since:   &now,
 	})
+	c.Assert(err, gc.IsNil)
+
+	st.setHASpace("one")
+	s.runUntilPublish(c, st, "")
+	assertMemberAddresses(c, st, ipVersion.formatHost, 1)
+
+	sInfo, err := st.machine("11").Status()
+	c.Assert(err, gc.IsNil)
+	c.Check(sInfo.Status, gc.Equals, status.Started)
+	c.Check(sInfo.Message, gc.Equals, "")
 }
 
 // runUntilPublish runs a worker until addresses are published over the pub/sub
