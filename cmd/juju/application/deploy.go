@@ -14,7 +14,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/charmrepo.v2/csclient"
@@ -37,7 +36,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
