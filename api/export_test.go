@@ -19,11 +19,12 @@ import (
 )
 
 var (
-	CertDir             = &certDir
-	WebsocketDial       = &websocketDial
-	SlideAddressToFront = slideAddressToFront
-	BestVersion         = bestVersion
-	FacadeVersions      = &facadeVersions
+	CertDir                 = &certDir
+	WebsocketDial           = &websocketDial
+	WebsocketDialWithErrors = websocketDialWithErrors
+	SlideAddressToFront     = slideAddressToFront
+	BestVersion             = bestVersion
+	FacadeVersions          = &facadeVersions
 )
 
 func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {

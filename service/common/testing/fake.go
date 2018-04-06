@@ -4,6 +4,9 @@
 package testing
 
 import (
+	"io/ioutil"
+	"os"
+	"path"
 	"strings"
 	"sync"
 
@@ -133,6 +136,8 @@ func (f *FakeServiceData) SetStatus(name, status string) error {
 type FakeService struct {
 	*FakeServiceData
 	common.Service
+
+	DataDir string
 }
 
 // NewFakeService returns a new FakeService.
@@ -150,7 +155,6 @@ func NewFakeService(name string, conf common.Conf) *FakeService {
 func (ss *FakeService) Name() string {
 	ss.AddCall("Name")
 
-	ss.NextErr()
 	return ss.Service.Name
 }
 
@@ -177,7 +181,7 @@ func (ss *FakeService) running() bool {
 
 // Start implements Service.
 func (ss *FakeService) Start() error {
-	ss.AddCall("Start")
+	ss.AddCall("Start", ss.Service.Name)
 	// TODO(ericsnow) Check managed?
 	if !ss.running() {
 		ss.mu.Lock()
@@ -264,4 +268,24 @@ func (ss *FakeService) StartCommands() ([]string, error) {
 	ss.AddCall("StartCommands")
 
 	return nil, ss.NextErr()
+}
+
+// WriteService implements UpgradableService.
+func (ss *FakeService) WriteService() error {
+	ss.AddCall("WriteService")
+	retErr := ss.NextErr()
+	if retErr != nil {
+		return retErr
+	}
+	dirName := path.Join(ss.DataDir, "init", ss.Service.Name)
+	if err := os.MkdirAll(dirName, os.ModeDir|os.ModePerm); err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(path.Join(dirName, "exec_start.sh"), []byte{}, 0644); err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(path.Join(dirName, ss.Service.Name+".service"), []byte{}, 0644); err != nil {
+		return err
+	}
+	return nil
 }

@@ -1616,8 +1616,15 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settingsKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
-	return newEntityWatcher(u.st, settingsC, u.st.docID(settingsKey)), nil
+	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
+	return newEntityWatcher(u.st, settingsC, u.st.docID(charmConfigKey)), nil
+}
+
+// WatchApplicationConfigSettings is the same as WatchConfigSettings but
+// notifies on changes to application configuration not charm configuration.
+func (u *Unit) WatchApplicationConfigSettings() (NotifyWatcher, error) {
+	applicationConfigKey := applicationConfigKey(u.ApplicationName())
+	return newEntityWatcher(u.st, settingsC, u.st.docID(applicationConfigKey)), nil
 }
 
 // WatchMeterStatus returns a watcher observing changes that affect the meter status

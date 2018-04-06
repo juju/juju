@@ -9,7 +9,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"
@@ -21,7 +20,6 @@ type CAASFixture struct {
 
 func (s *CAASFixture) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.CAAS)
 }
 
 // createTestModelConfig returns a new model config and its UUID for testing.
@@ -94,19 +92,6 @@ func (s *CAASModelSuite) TestCAASModelsCantHaveCloudRegion(c *gc.C) {
 		Owner:       names.NewUserTag("test@remote"),
 	})
 	c.Assert(err, gc.ErrorMatches, "CAAS model with CloudRegion not supported")
-}
-
-func (s *CAASModelSuite) TestNewModelCAASNeedsFeature(c *gc.C) {
-	s.SetFeatureFlags( /* no feature flags */ )
-	cfg, _ := s.createTestModelConfig(c)
-	owner := names.NewUserTag("test@remote")
-	_, _, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     owner,
-	})
-	c.Assert(err, gc.ErrorMatches, "model type not supported")
 }
 
 func (s *CAASModelSuite) TestNewModelCAASWithStorageRegistry(c *gc.C) {

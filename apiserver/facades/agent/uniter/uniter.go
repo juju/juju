@@ -928,6 +928,30 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 // to each unit's application configuration settings. See also
 // state/watcher.go:Unit.WatchConfigSettings().
 func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
+	watcherFn := func(u *state.Unit) (state.NotifyWatcher, error) {
+		return u.WatchConfigSettings()
+	}
+	result, err := u.WatchSettings(args, watcherFn)
+	if err != nil {
+		return params.NotifyWatchResults{}, errors.Trace(err)
+	}
+
+	return result, nil
+}
+
+func (u *UniterAPI) WatchTrustConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
+	watcherFn := func(u *state.Unit) (state.NotifyWatcher, error) {
+		return u.WatchApplicationConfigSettings()
+	}
+	result, err := u.WatchSettings(args, watcherFn)
+	if err != nil {
+		return params.NotifyWatchResults{}, errors.Trace(err)
+	}
+
+	return result, nil
+}
+
+func (u *UniterAPI) WatchSettings(args params.Entities, configWatcherFn func(u *state.Unit) (state.NotifyWatcher, error)) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -944,7 +968,7 @@ func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatc
 		err = common.ErrPerm
 		watcherId := ""
 		if canAccess(tag) {
-			watcherId, err = u.watchOneUnitConfigSettings(tag)
+			watcherId, err = u.watchOneUnitConfigSettings(tag, configWatcherFn)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
 		result.Results[i].Error = common.ServerError(err)
@@ -1726,23 +1750,23 @@ func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
 	return nil
 }
 
-func (u *UniterAPI) watchOneUnitConfigSettings(tag names.UnitTag) (string, error) {
+func (u *UniterAPI) watchOneUnitConfigSettings(tag names.UnitTag, configWatcherFn func(u *state.Unit) (state.NotifyWatcher, error)) (string, error) {
 	unit, err := u.getUnit(tag)
 	if err != nil {
 		return "", err
 	}
-	watch, err := unit.WatchConfigSettings()
+	configWatcher, err := configWatcherFn(unit)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	// Consume the initial event. Technically, API
 	// calls to Watch 'transmit' the initial event
 	// in the Watch response. But NotifyWatchers
 	// have no state to transmit.
-	if _, ok := <-watch.Changes(); ok {
-		return u.resources.Register(watch), nil
+	if _, ok := <-configWatcher.Changes(); ok {
+		return u.resources.Register(configWatcher), nil
 	}
-	return "", watcher.EnsureErr(watch)
+	return "", watcher.EnsureErr(configWatcher)
 }
 
 func (u *UniterAPI) watchOneUnitAddresses(tag names.UnitTag) (string, error) {

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apipubsub "github.com/juju/juju/api/pubsub"
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/state"
@@ -133,7 +132,6 @@ type PubSubIntegrationSuite struct {
 	password   string
 	nonce      string
 	hub        *pubsub.StructuredHub
-	server     *apiserver.Server
 	info       *api.Info
 }
 
@@ -155,13 +153,10 @@ func (s *PubSubIntegrationSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { statePool.Close() })
 	config := testserver.DefaultServerConfig(c)
 	config.Hub = s.hub
-	info, server, httpServer := testserver.NewServerWithConfig(c, statePool, config)
-	httpServer.StartTLS()
-	s.AddCleanup(func(*gc.C) { httpServer.Close() })
-	s.server = server
-	s.AddCleanup(func(*gc.C) { s.server.Stop() })
+	server := testserver.NewServerWithConfig(c, statePool, config)
+	s.AddCleanup(func(c *gc.C) { c.Assert(server.Stop(), jc.ErrorIsNil) })
 
-	s.info = info
+	s.info = server.Info
 	s.info.ModelTag = s.IAASModel.ModelTag()
 	s.info.Tag = s.machineTag
 	s.info.Password = s.password

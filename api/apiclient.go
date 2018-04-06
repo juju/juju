@@ -406,34 +406,8 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 		}
 	}
 
-	connection, resp, err := websocketDial(dialer, target.String(), requestHeader)
+	connection, err := websocketDial(dialer, target.String(), requestHeader)
 	if err != nil {
-		// TODO(http): move this into websocketDial
-		if err == websocket.ErrBadHandshake {
-			// If ErrBadHandshake is returned, a non-nil response
-			// is returned so the client can react to auth errors
-			// (for example).
-			defer resp.Body.Close()
-			body, readErr := ioutil.ReadAll(resp.Body)
-			if readErr != nil {
-				return nil, err
-			}
-			if resp.Header.Get("Content-Type") == "application/json" {
-				var result params.ErrorResult
-				jsonErr := json.Unmarshal(body, &result)
-				// Here we find that the body is truncated.
-				if jsonErr != nil {
-					return nil, errors.Annotate(jsonErr, "reading error response")
-				}
-				return nil, result.Error
-			}
-
-			err = errors.Errorf(
-				"%s (%s)",
-				strings.TrimSpace(string(body)),
-				http.StatusText(resp.StatusCode),
-			)
-		}
 		return nil, err
 	}
 	if err := readInitialStreamError(connection); err != nil {
