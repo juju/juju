@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"strings"
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -58,10 +57,7 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.managedStorage = blobstore.NewManagedStorage(catalogue, rs)
 	s.metadataCollection, closer = mongo.CollectionFromName(catalogue, "binarymetadata")
 	s.AddCleanup(func(*gc.C) { closer() })
-	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{
-		Database: catalogue,
-		Clock:    gitjujutesting.NewClock(time.Now()),
-	})
+	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: catalogue})
 	s.storage = binarystorage.New("my-uuid", s.managedStorage, s.metadataCollection, s.txnRunner)
 }
 

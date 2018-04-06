@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/blobstore.v2"
 	"gopkg.in/mgo.v2"
@@ -74,12 +73,7 @@ func (s *imageStorage) txnRunner(session *mgo.Session) jujutxn.Runner {
 
 // Override for testing.
 var txnRunner = func(db *mgo.Database) jujutxn.Runner {
-	return jujutxn.NewRunner(jujutxn.RunnerParams{
-		Database: db,
-		// TODO: jam 2018-04-05 thread through a Clock to allow testing to
-		// override
-		Clock: clock.WallClock,
-	})
+	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
 }
 
 // AddImage is defined on the Storage interface.

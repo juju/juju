@@ -242,6 +242,9 @@ type database struct {
 	// runTransactionObserver is passed on to txn.TransactionRunner, to be
 	// invoked after calls to Run and RunTransaction.
 	runTransactionObserver RunTransactionObserverFunc
+
+	// clock is used to time how long transactions take to run
+	clock clock.Clock
 }
 
 // RunTransactionObserverFunc is the type of a function to be called
@@ -256,6 +259,7 @@ func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 		modelUUID:  modelUUID,
 		runner:     db.runner,
 		ownSession: true,
+		clock:      db.clock,
 	}, session.Close
 }
 
@@ -348,8 +352,7 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 		params := jujutxn.RunnerParams{
 			Database:               raw,
 			RunTransactionObserver: observer,
-			// TODO: jam 2018-04-05 thread the stateClock into this code.
-			Clock: clock.WallClock,
+			Clock: db.clock,
 		}
 		runner = jujutxn.NewRunner(params)
 	}

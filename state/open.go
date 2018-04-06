@@ -262,6 +262,7 @@ func newState(
 		schema:                 allCollections(),
 		modelUUID:              modelTag.Id(),
 		runTransactionObserver: runTransactionObserver,
+		clock: clock,
 	}
 
 	// Create State.

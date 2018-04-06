@@ -50,10 +50,7 @@ func (s *ImageSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.storage = imagestorage.NewStorage(s.session, "my-uuid")
 	s.metadataCollection = imagestorage.MetadataCollection(s.storage)
-	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{
-		Database: s.metadataCollection.Database,
-		Clock: gitjujutesting.NewClock(time.Now()),
-	})
+	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: s.metadataCollection.Database})
 	s.patchTransactionRunner()
 }
 

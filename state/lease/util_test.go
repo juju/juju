@@ -66,7 +66,6 @@ func NewMongo(database *mgo.Database) *Mongo {
 		database: database,
 		runner: jujutxn.NewRunner(jujutxn.RunnerParams{
 			Database: database,
-			Clock: NewClock(time.Now()),
 		}),
 	}
 }

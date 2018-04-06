@@ -2320,6 +2320,7 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 		return errors.Trace(err)
 	}
 	st.stateClock = clock
+	st.database.clock = clock
 	err = st.start(st.controllerTag, nil)
 	if err != nil {
 		return errors.Trace(err)
