@@ -99,13 +99,13 @@ func (s *initSystemSuite) patch(c *gc.C) *gomock.Controller {
 }
 
 func (s *initSystemSuite) newService(c *gc.C) *systemd.Service {
-	// If we have a mock for the DBusAPI, use it in the factory method passed
-	// into the call to NewService. Otherwise use the default.
-	fac := systemd.NewDBusAPI
-	if s.dBus != nil {
+	var fac systemd.DBusAPIFactory
+	if s.dBus == nil {
 		fac = func() (systemd.DBusAPI, error) {
-			return s.dBus, nil
+			return nil, errors.New("Prior call to initSystemSuite.patch required before attempting DBusAPI connection")
 		}
+	} else {
+		fac = func() (systemd.DBusAPI, error) { return s.dBus, nil }
 	}
 
 	svc, err := systemd.NewService(s.name, s.conf, s.dataDir, fac)

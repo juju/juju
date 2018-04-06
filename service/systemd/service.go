@@ -56,7 +56,7 @@ func ListCommand() string {
 }
 
 // Type alias for a DBusAPI factory method.
-type DBusFac = func() (DBusAPI, error)
+type DBusAPIFactory = func() (DBusAPI, error)
 
 // Service provides visibility into and control over a systemd service.
 type Service struct {
@@ -67,11 +67,11 @@ type Service struct {
 	DirName  string
 	Script   []byte
 
-	newDBus DBusFac
+	newDBus DBusAPIFactory
 }
 
 // NewService returns a new value that implements Service for systemd.
-func NewService(name string, conf common.Conf, dataDir string, newDBus DBusFac) (*Service, error) {
+func NewService(name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory) (*Service, error) {
 	confName := name + ".service"
 	var volName string
 	if conf.ExecStart != "" {
