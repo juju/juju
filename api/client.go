@@ -573,6 +573,11 @@ func websocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeade
 			// If ErrBadHandshake is returned, a non-nil response
 			// is returned so the client can react to auth errors
 			// (for example).
+			//
+			// The problem here is that there is a response, but the response
+			// body is truncated to 1024 bytes for debugging information, not
+			// for a true response. While this may work for small bodies, it
+			// isn't guaranteed to work for all messages.
 			defer resp.Body.Close()
 			body, readErr := ioutil.ReadAll(resp.Body)
 			if readErr != nil {
