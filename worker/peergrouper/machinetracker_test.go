@@ -45,7 +45,7 @@ func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceReturnsCorrectAddre
 	c.Check(addr, gc.Equals, "192.168.5.5:666")
 }
 
-func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceErrorWhenNoAddressFound(c *gc.C) {
+func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceEmptyWhenNoAddressFound(c *gc.C) {
 	m := &machineTracker{
 		id: "3",
 		addresses: []network.Address{
@@ -56,9 +56,9 @@ func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceErrorWhenNoAddressF
 		},
 	}
 
-	_, err := m.SelectMongoAddressFromSpace(666, "bad-space")
-	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, `no addresses found for machine "3" in space "bad-space"`)
+	addrs, err := m.SelectMongoAddressFromSpace(666, "bad-space")
+	c.Check(addrs, gc.Equals, "")
+	c.Check(err, gc.ErrorMatches, `addresses for machine "3" in space "bad-space" not found`)
 }
 
 func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceErrorForEmptySpace(c *gc.C) {
@@ -67,7 +67,6 @@ func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceErrorForEmptySpace(
 	}
 
 	_, err := m.SelectMongoAddressFromSpace(666, "")
-	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, `empty space supplied as an argument for selecting Mongo address for machine "3"`)
 }
 

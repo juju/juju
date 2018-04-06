@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 // jujuMachineKey is the key for the tag where we save a member's machine id.
@@ -397,88 +399,136 @@ func (p *peerGroupChanges) getMachinesVoting() {
 // updateAddresses updates the member addresses in the new replica-set, using
 // the HA space if one is configured.
 func (p *peerGroupChanges) updateAddresses(info *peerGroupInfo) error {
-	update := p.updateAddressFromSpace
+	var err error
 	if info.haSpace == "" {
-		update = p.updateAddressFromInternal
+		err = p.updateAddressesFromInternal(info)
+	} else {
+		err = p.updateAddressesFromSpace(info)
 	}
-
-	for id := range p.members {
-		if err := update(id, info); err != nil {
-			return errors.Annotate(err, "updating member address")
-		}
-	}
-	return nil
+	return errors.Annotate(err, "updating member addresses")
 }
 
-// updateAddressFromSpace sets the member address based on the configured
-// HA space. If no addresses are available for the machine and space,
-// then an error is returned.
-func (p *peerGroupChanges) updateAddressFromSpace(id string, info *peerGroupInfo) error {
-	m := info.machines[id]
-	addr, err := m.SelectMongoAddressFromSpace(info.mongoPort, info.haSpace)
-	if err != nil {
-		return errors.Trace(err)
-	}
+const multiAddressMessage = "multiple usable addresses found" +
+	"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication"
 
-	if addr != p.members[id].Address {
-		p.members[id].Address = addr
-		p.isChanged = true
-	}
-	return nil
-}
-
-// updateAddressFromInternal attempts to update the member with a cloud-local
-// address from the machine.
+// updateAddressesFromInternal attempts to update each member with a
+// cloud-local address from the machine.
 // If there is a single cloud local address available, it is used.
 // If there are multiple addresses, then a check is made to ensure that:
 //   - the member was previously in the replica-set and;
 //   - the previous address used for replication is still available.
 // If the check is satisfied, then a warning is logged and no change is made.
 // Otherwise an error is returned to indicate that a HA space must be
-// configured in order to proceed.
-func (p *peerGroupChanges) updateAddressFromInternal(id string, info *peerGroupInfo) error {
-	member := p.members[id]
-	hostPorts := info.machines[id].GetPotentialMongoHostPorts(info.mongoPort)
-	addrs := network.SelectInternalHostPorts(hostPorts, false)
+// configured in order to proceed. Such machines have their status set to
+// indicate that they require intervention.
+func (p *peerGroupChanges) updateAddressesFromInternal(info *peerGroupInfo) error {
+	var multipleAddresses []string
 
-	// This should not happen because SelectInternalHostPorts will choose a
-	// public address when there are no cloud-local addresses.
-	// Zero addresses would mean the machine would not be accessible at all.
-	// We ignore this outcome and leave the address alone.
-	if len(addrs) == 0 {
-		return nil
+	for id := range p.members {
+		m := info.machines[id]
+		hostPorts := m.GetPotentialMongoHostPorts(info.mongoPort)
+		addrs := network.SelectInternalHostPorts(hostPorts, false)
+
+		// This should not happen because SelectInternalHostPorts will choose a
+		// public address when there are no cloud-local addresses.
+		// Zero addresses would mean the machine is completely inaccessible.
+		// We ignore this outcome and leave the address alone.
+		if len(addrs) == 0 {
+			continue
+		}
+
+		// Unique address; we can use this for Mongo peer communication.
+		member := p.members[id]
+		if len(addrs) == 1 {
+			addr := addrs[0]
+			logger.Debugf("machine %q selected address %q by scope from %v", id, addr, hostPorts)
+
+			if member.Address != addr {
+				member.Address = addr
+				p.isChanged = true
+			}
+			continue
+		}
+
+		// Multiple potential Mongo addresses.
+		// Checks are required in order to use it as a peer.
+		unchanged := false
+		if _, ok := info.recognised[id]; ok {
+			for _, addr := range addrs {
+				if member.Address == addr {
+					logger.Warningf("%s\npreserving member with unchanged address %q", multiAddressMessage, addr)
+					unchanged = true
+					break
+				}
+			}
+		}
+
+		// If this member was not previously in the replica-set, or if its
+		// address has changed, we enforce the policy of requiring a
+		// configured HA space when there are multiple cloud-local addresses.
+		if !unchanged {
+			multipleAddresses = append(multipleAddresses, id)
+			if err := m.stm.SetStatus(getStatusInfo(multiAddressMessage)); err != nil {
+				return errors.Trace(err)
+			}
+		}
 	}
 
-	if len(addrs) == 1 {
-		addr := addrs[0]
-		logger.Debugf("machine %q selected address %q by scope from %v", id, addr, hostPorts)
+	if len(multipleAddresses) > 0 {
+		ids := strings.Join(multipleAddresses, ", ")
+		return fmt.Errorf("juju-ha-space is not set and these machines have more than one usable address: %s"+
+			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication", ids)
+	}
+	return nil
+}
 
-		if member.Address != addr {
-			member.Address = addr
+// updateAddressesFromSpace updates the member addresses based on the
+// configured HA space.
+// If no addresses are available for any of the machines, then such machines
+// have their status set and are included in the detail of the returned error.
+func (p *peerGroupChanges) updateAddressesFromSpace(info *peerGroupInfo) error {
+	space := info.haSpace
+	var noAddresses []string
+
+	for id := range p.members {
+		m := info.machines[id]
+		addr, err := m.SelectMongoAddressFromSpace(info.mongoPort, space)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				noAddresses = append(noAddresses, id)
+				msg := fmt.Sprintf("no addresses in configured juju-ha-space %q", space)
+				if err := m.stm.SetStatus(getStatusInfo(msg)); err != nil {
+					return errors.Trace(err)
+				}
+				continue
+			}
+			return errors.Trace(err)
+		}
+		if addr != p.members[id].Address {
+			p.members[id].Address = addr
 			p.isChanged = true
 		}
-		return nil
 	}
 
-	msg := fmt.Sprintf(
-		"machine %q has more than one usable address and juju-ha-space is not set"+
-			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication", id)
-
-	// If this would-be member is new, we enforce the policy of having a
-	// configured HA space when there are multiple cloud-local addresses.
-	if _, ok := info.recognised[id]; !ok {
-		return errors.New(msg)
+	if len(noAddresses) > 0 {
+		ids := strings.Join(noAddresses, ", ")
+		return fmt.Errorf("no usable Mongo addresses found in configured juju-ha-space %q for machines: %s", space, ids)
 	}
+	return nil
+}
 
-	// If the prior address is still available, we allow preservation of the
-	// status quo rather than throwing out with an error.
-	for _, addr := range addrs {
-		if member.Address == addr {
-			logger.Warningf("%s\npreserving member with unchanged address %q", msg, addr)
-			return nil
-		}
+// getStatusInfo creates and returns a StatusInfo instance for use as a machine
+// status. The *machine* status is not ideal for conveying this information,
+// which is a really a characteristic of its role as a controller application.
+// For this reason we leave the status as "Started" and supplement with an
+// appropriate message.
+// This is subject to change if/when controller status is represented in its
+// own right.
+func getStatusInfo(msg string) status.StatusInfo {
+	now := time.Now()
+	return status.StatusInfo{
+		Status:  status.Started,
+		Message: msg,
+		Since:   &now,
 	}
-
-	// The member address needs to change. We enforce the HA space requirement.
-	return errors.New(msg)
 }
