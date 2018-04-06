@@ -6,36 +6,15 @@
 package lxd_test
 
 import (
-	"fmt"
-
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/provider/lxd/lxdnames"
-	"github.com/juju/juju/tools/lxdclient"
 )
-
-// This is a quick hack to make wily pass with it's default, but unsupported,
-// version of LXD. Wily is supported until 2016-7-??. AFAIU LXD will not be
-// backported to wily... so we have this:|
-// TODO(redir): Remove after wiley or in yakkety.
-func skipIfWily(c *gc.C) {
-	if series.MustHostSeries() == "wily" {
-		cfg, _ := lxdclient.Config{}.WithDefaults()
-		_, err := lxdclient.Connect(cfg, false)
-		// We try to create a client here. On wily this should fail, because
-		// the default 0.20 lxd version should make juju/tools/lxdclient return
-		// an error.
-		if err != nil {
-			c.Skip(fmt.Sprintf("Skipping LXD tests because %s", err))
-		}
-	}
-}
 
 var (
 	_ = gc.Suite(&providerSuite{})
@@ -191,9 +170,6 @@ func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
 	if !s.IsRunningLocally(c) {
 		c.Skip("LXD not running locally")
 	}
-
-	// TODO(redir): Remove after wily or in yakkety.
-	skipIfWily(c)
 
 	s.BaseSuite.SetUpTest(c)
 
