@@ -5,11 +5,11 @@ package state
 
 import (
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-	jujutxn "github.com/juju/txn"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/status"
@@ -625,6 +625,8 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	}
 	if machine.IsManager() {
 		if machine.HasVote() {
+			// we remove the vote from the machine so that it can be torn down cleanly. Note that this isn't reflected
+			// in the actual replicaset, so users using --force should be careful.
 			hasVoteTxn := func(attempt int) ([]txn.Op, error) {
 				if attempt != 0 {
 					if err := machine.Refresh(); err != nil {
@@ -635,8 +637,8 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 					}
 				}
 				return []txn.Op{{
-					C: machinesC,
-					Id: machine.doc.Id,
+					C:      machinesC,
+					Id:     machine.doc.Id,
 					Update: bson.D{{"$set", bson.D{{"hasvote", false}}}},
 				}}, nil
 			}
