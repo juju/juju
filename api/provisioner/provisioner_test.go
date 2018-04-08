@@ -1,11 +1,6 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(anastasia) 2014-10-08 #1378716
-// Re-enable tests for PPC64/ARM64 when the fixed gccgo has been backported to trusty and the CI machines have been updated.
-
-// +build !gccgo
-
 package provisioner_test
 
 import (
@@ -217,7 +212,7 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 	// Now try to EnsureDead machine 0 - should fail.
 	apiMachine = s.assertGetOneMachine(c, s.machine.MachineTag())
 	err = apiMachine.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is still a controller member")
 }
 
 func (s *provisionerSuite) TestMarkForRemoval(c *gc.C) {

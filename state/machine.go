@@ -732,7 +732,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 				return nil, fmt.Errorf("machine %s is still a voting controller member", m.doc.Id)
 			}
 			if m.IsManager() {
-				return nil, errors.Errorf("machine %s is still a controller memember", m.Id())
+				return nil, errors.Errorf("machine %s is still a controller member", m.Id())
 			}
 			asserts = append(asserts, bson.D{
 				{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}},
