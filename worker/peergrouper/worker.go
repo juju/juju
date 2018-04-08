@@ -16,6 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/clock"
+	"github.com/kr/pretty"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/controller"
@@ -260,11 +261,13 @@ func (w *pgWorker) loop() error {
 		w.publishAPIServerDetails(servers, members)
 
 		if failed {
+			logger.Tracef("failed, waking up after: %v", retryInterval)
 			updateChan = w.config.Clock.After(retryInterval)
 			retryInterval = scaleRetry(retryInterval)
 		} else {
 			// Update the replica set members occasionally to keep them up to
 			// date with the current replica-set member statuses.
+			logger.Tracef("succeeded, waking up after: %v", pollInterval)
 			updateChan = w.config.Clock.After(pollInterval)
 			retryInterval = initialRetryInterval
 		}
@@ -593,6 +596,7 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 		return nil, err
 	}
 
+	logger.Tracef("read peer group info: %# v\n%# v", pretty.Formatter(sts), pretty.Formatter(members))
 	return newPeerGroupInfo(w.machineTrackers, sts.Members, members, w.config.MongoPort, haSpace)
 }
 
