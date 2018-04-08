@@ -143,7 +143,7 @@ func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.Applica
 }
 
 // Remove deletes the application offer for offerName immediately.
-func (s *applicationOffers) Remove(offerName string) (err error) {
+func (s *applicationOffers) Remove(offerName string, force bool) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot delete application offer %q", offerName)
 
 	offer, err := s.ApplicationOffer(offerName)
@@ -170,13 +170,13 @@ func (s *applicationOffers) Remove(offerName string) (err error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if len(conns) > 0 {
+		if len(conns) > 0 && !force {
 			return nil, errors.Errorf("offer has %d relation%s", len(conns), plural(len(conns)))
 		}
-		// Because we don't refcount offer connections, we instead
-		// assert here that the relation count doesn't change, and
-		// that the specific relations that make up that count aren't
-		// removed.
+		// Because we don't refcount offer connections, we instead either
+		// assert here that the relation count doesn't change, and that the
+		// specific relations that make up that count aren't removed, or we
+		// remove the relations, depending on whether force=true.
 		rels, err := app.Relations()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -194,14 +194,35 @@ func (s *applicationOffers) Remove(offerName string) (err error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if crossModel {
+			if crossModel && !force {
 				return nil, jujutxn.ErrTransientFailure
 			}
-			ops = append(ops, txn.Op{
-				C:      relationsC,
-				Id:     rel.doc.DocID,
-				Assert: txn.DocExists,
-			})
+			if force {
+				// We only force delete cross model relations (connections).
+				if !crossModel {
+					continue
+				}
+				if attempt > 0 {
+					if err := rel.Refresh(); errors.IsNotFound(err) {
+						continue
+					} else if err != nil {
+						return nil, err
+					}
+				}
+				relOps, _, err := rel.destroyOps("")
+				if err == errAlreadyDying {
+					continue
+				} else if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, relOps...)
+			} else {
+				ops = append(ops, txn.Op{
+					C:      relationsC,
+					Id:     rel.doc.DocID,
+					Assert: txn.DocExists,
+				})
+			}
 		}
 		decRefOp, err := decApplicationOffersRefOp(s.st, offer.ApplicationName)
 		if err != nil {

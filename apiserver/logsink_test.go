@@ -21,33 +21,28 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
 
 type logsinkSuite struct {
-	authHTTPSuite
+	apiserverBaseSuite
 	machineTag names.Tag
 	password   string
 	nonce      string
 	logs       loggo.TestWriter
+	url        string
 }
 
 var _ = gc.Suite(&logsinkSuite{})
 
-func (s *logsinkSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
-	server := s.makeURL(c, scheme, "/model/"+s.State.ModelUUID()+"/logsink", nil)
-	query := server.Query()
-	query.Set("jujuclientversion", version.Current.String())
-	server.RawQuery = query.Encode()
-	return server
-}
-
 func (s *logsinkSuite) SetUpTest(c *gc.C) {
-	s.authHTTPSuite.SetUpTest(c)
+	s.apiserverBaseSuite.SetUpTest(c)
 	s.nonce = "nonce"
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: s.nonce,
@@ -55,48 +50,37 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 	s.machineTag = m.Tag()
 	s.password = password
 
+	url := s.URL(
+		"/model/"+s.State.ModelUUID()+"/logsink",
+		url.Values{"jujuclientversion": {version.Current.String()}},
+	)
+	url.Scheme = "wss"
+	s.url = url.String()
+
 	s.logs.Clear()
 	writer := loggo.NewMinimumLevelWriter(&s.logs, loggo.INFO)
 	c.Assert(loggo.RegisterWriter("logsink-tests", writer), jc.ErrorIsNil)
 }
 
-func (s *logsinkSuite) TestRejectsBadModelUUID(c *gc.C) {
-	ws := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
-	websockettest.AssertJSONError(c, ws, `initialising agent logsink session: unknown model: "does-not-exist"`)
-	websockettest.AssertWebsocketClosed(c, ws)
-}
-
 func (s *logsinkSuite) TestNoAuth(c *gc.C) {
-	s.checkAuthFails(c, nil, "initialising agent logsink session: no credentials provided")
+	s.checkAuthFails(c, nil, http.StatusUnauthorized, "authentication failed: no credentials provided")
 }
 
 func (s *logsinkSuite) TestRejectsUserLogins(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "sekrit"})
 	header := utils.BasicAuthHeader(user.Tag().String(), "sekrit")
-	s.checkAuthFailsWithEntityError(c, header, "initialising agent logsink session: tag kind user not valid")
+	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: tag kind user not valid")
 }
 
-func (s *logsinkSuite) TestRejectsBadPassword(c *gc.C) {
-	header := utils.BasicAuthHeader(s.machineTag.String(), "wrong")
-	header.Add(params.MachineNonceHeader, s.nonce)
-	s.checkAuthFailsWithEntityError(c, header, "initialising agent logsink session: invalid entity name or password")
-}
+func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, code int, message string) {
+	_, resp, err := dialWebsocketFromURL(c, s.url, header)
+	c.Assert(err, gc.Equals, websocket.ErrBadHandshake)
+	defer resp.Body.Close()
 
-func (s *logsinkSuite) TestRejectsIncorrectNonce(c *gc.C) {
-	header := utils.BasicAuthHeader(s.machineTag.String(), s.password)
-	header.Add(params.MachineNonceHeader, "wrong")
-	s.checkAuthFails(c, header, "initialising agent logsink session: machine 0 not provisioned")
-}
-
-func (s *logsinkSuite) checkAuthFailsWithEntityError(c *gc.C, header http.Header, msg string) {
-	s.checkAuthFails(c, header, msg)
-}
-
-func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, message string) {
-	conn := s.dialWebsocketInternal(c, header)
-	defer conn.Close()
-	websockettest.AssertJSONError(c, conn, message)
-	websockettest.AssertWebsocketClosed(c, conn)
+	c.Assert(resp.StatusCode, gc.Equals, code)
+	body, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(body), gc.Equals, message+"\n")
 }
 
 func (s *logsinkSuite) TestLogging(c *gc.C) {
@@ -176,7 +160,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	}
 
 	// Check that the logsink log file was populated as expected
-	logPath := filepath.Join(s.LogDir, "logsink.log")
+	logPath := filepath.Join(s.config.LogDir, "logsink.log")
 	logContents, err := ioutil.ReadFile(logPath)
 	c.Assert(err, jc.ErrorIsNil)
 	line0 := modelUUID + ": machine-0 2015-06-01 23:02:01 INFO some.where foo.go:42 all is well\n"
@@ -209,47 +193,41 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestNewServerValidatesLogSinkConfig(c *gc.C) {
-	cfg := defaultServerConfig(c)
+	cfg := s.config
+	// Make a fake-ish state pool.
+	cfg.StatePool = &state.StatePool{}
+	cfg.Mux = apiserverhttp.NewMux()
+	cfg.Authenticator = &mockAuthenticator{}
+
 	cfg.LogSinkConfig = &apiserver.LogSinkConfig{}
 
-	_, err := apiserver.NewServer(s.StatePool, cfg)
+	_, err := apiserver.NewServer(cfg)
 	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerBufferSize 0 <= 0 or > 1000 not valid")
 
 	cfg.LogSinkConfig.DBLoggerBufferSize = 1001
-	_, err = apiserver.NewServer(s.StatePool, cfg)
+	_, err = apiserver.NewServer(cfg)
 	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerBufferSize 1001 <= 0 or > 1000 not valid")
 
 	cfg.LogSinkConfig.DBLoggerBufferSize = 1
-	_, err = apiserver.NewServer(s.StatePool, cfg)
+	_, err = apiserver.NewServer(cfg)
 	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerFlushInterval 0s <= 0 or > 10 seconds not valid")
 
 	cfg.LogSinkConfig.DBLoggerFlushInterval = 30 * time.Second
-	_, err = apiserver.NewServer(s.StatePool, cfg)
+	_, err = apiserver.NewServer(cfg)
 	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: DBLoggerFlushInterval 30s <= 0 or > 10 seconds not valid")
 
 	cfg.LogSinkConfig.DBLoggerFlushInterval = 10 * time.Second
-	_, err = apiserver.NewServer(s.StatePool, cfg)
+	_, err = apiserver.NewServer(cfg)
 	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: RateLimitBurst 0 <= 0 not valid")
 
 	cfg.LogSinkConfig.RateLimitBurst = 1000
-	_, err = apiserver.NewServer(s.StatePool, cfg)
+	_, err = apiserver.NewServer(cfg)
 	c.Assert(err, gc.ErrorMatches, "validating logsink configuration: RateLimitRefill 0s <= 0 not valid")
 }
 
 func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
-	return s.dialWebsocketInternal(c, s.makeAuthHeader())
-}
-
-func (s *logsinkSuite) dialWebsocketInternal(c *gc.C, header http.Header) *websocket.Conn {
-	server := s.logsinkURL(c, "wss").String()
-	return dialWebsocketFromURL(c, server, header)
-}
-
-func (s *logsinkSuite) openWebsocketCustomPath(c *gc.C, path string) *websocket.Conn {
-	server := s.logsinkURL(c, "wss")
-	server.Path = path
-	conn := dialWebsocketFromURL(c, server.String(), s.makeAuthHeader())
-	s.AddCleanup(func(_ *gc.C) { conn.Close() })
+	conn, _, err := dialWebsocketFromURL(c, s.url, s.makeAuthHeader())
+	c.Assert(err, jc.ErrorIsNil)
 	return conn
 }
 

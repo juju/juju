@@ -67,7 +67,7 @@ func (u *Unit) Refresh() error {
 		return errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -111,7 +111,7 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 		return params.StatusResult{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return params.StatusResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -221,19 +221,19 @@ func (u *Unit) WatchRelations() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// Service returns the service.
+// Application returns the unit's application.
 func (u *Unit) Application() (*Application, error) {
-	service := &Application{
+	application := &Application{
 		st:  u.st,
 		tag: u.ApplicationTag(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
-	err := service.Refresh()
+	err := application.Refresh()
 	if err != nil {
 		return nil, err
 	}
-	return service, nil
+	return application, nil
 }
 
 // ConfigSettings returns the complete set of service charm config settings
@@ -561,11 +561,23 @@ func (u *Unit) ClearResolved() error {
 // set before this method is called, and the returned watcher will be
 // valid only while the unit's charm URL is not changed.
 func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
+	return getSettingsWatcher(u, "WatchConfigSettings")
+}
+
+// WatchTrustConfigSettings will return a watcher to monitor at least the trust
+// application configuration settings. This is in contrast to Charm
+// configuration settings watchers which are created with WatchConfigSettings
+// and do not monitor for application configuration settings such as "trust".
+func (u *Unit) WatchTrustConfigSettings() (watcher.NotifyWatcher, error) {
+	return getSettingsWatcher(u, "WatchTrustConfigSettings")
+}
+
+func getSettingsWatcher(u *Unit, facadeName string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("WatchConfigSettings", args, &results)
+	err := u.st.facade.FacadeCall(facadeName, args, &results)
 	if err != nil {
 		return nil, err
 	}

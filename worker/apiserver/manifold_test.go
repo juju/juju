@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"crypto/tls"
 	"net/http"
 	"time"
 
@@ -18,9 +17,12 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -34,10 +36,11 @@ type ManifoldSuite struct {
 	manifold             dependency.Manifold
 	context              dependency.Context
 	agent                *mockAgent
+	authenticator        *mockAuthenticator
 	clock                *testing.Clock
+	mux                  *apiserverhttp.Mux
 	state                stubStateTracker
 	prometheusRegisterer stubPrometheusRegisterer
-	certWatcher          stubCertWatcher
 	hub                  pubsub.StructuredHub
 	upgradeGate          stubGateWaiter
 	auditConfig          stubAuditConfig
@@ -51,10 +54,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{}
+	s.authenticator = &mockAuthenticator{}
 	s.clock = testing.NewClock(time.Time{})
+	s.mux = apiserverhttp.NewMux()
 	s.state = stubStateTracker{}
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
-	s.certWatcher = stubCertWatcher{}
 	s.upgradeGate = stubGateWaiter{}
 	s.auditConfig = stubAuditConfig{}
 	s.stub.ResetCalls()
@@ -62,8 +66,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.context = s.newContext(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
 		AgentName:                         "agent",
-		CertWatcherName:                   "cert-watcher",
+		AuthenticatorName:                 "authenticator",
 		ClockName:                         "clock",
+		MuxName:                           "mux",
 		RestoreStatusName:                 "restore-status",
 		StateName:                         "state",
 		UpgradeGateName:                   "upgrade",
@@ -78,8 +83,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
 		"agent":               s.agent,
-		"cert-watcher":        s.certWatcher.get,
+		"authenticator":       s.authenticator,
 		"clock":               s.clock,
+		"mux":                 s.mux,
 		"restore-status":      s.RestoreStatus,
 		"state":               &s.state,
 		"upgrade":             &s.upgradeGate,
@@ -105,7 +111,7 @@ func (s *ManifoldSuite) newWorker(config apiserver.Config) (worker.Worker, error
 }
 
 var expectedInputs = []string{
-	"agent", "cert-watcher", "clock", "restore-status", "state", "upgrade", "auditconfig-updater",
+	"agent", "authenticator", "clock", "mux", "restore-status", "state", "upgrade", "auditconfig-updater",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -138,10 +144,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args[0], gc.FitsTypeOf, apiserver.Config{})
 	config := args[0].(apiserver.Config)
 
-	c.Assert(config.GetCertificate, gc.NotNil)
-	c.Assert(config.GetCertificate(), gc.Equals, &s.certWatcher.cert)
-	config.GetCertificate = nil
-
 	c.Assert(config.GetAuditConfig, gc.NotNil)
 	c.Assert(config.GetAuditConfig(), gc.DeepEquals, s.auditConfig.config)
 	config.GetAuditConfig = nil
@@ -165,7 +167,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 
 	c.Assert(config, jc.DeepEquals, apiserver.Config{
 		AgentConfig:          &s.agent.conf,
+		Authenticator:        s.authenticator,
 		Clock:                s.clock,
+		Mux:                  s.mux,
 		StatePool:            &s.state.pool,
 		PrometheusRegisterer: &s.prometheusRegisterer,
 		Hub:                  &s.hub,
@@ -187,6 +191,29 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
+}
+
+func (s *ManifoldSuite) TestAddsAndRemovesMuxClients(c *gc.C) {
+	waitFinished := make(chan struct{})
+	w := s.startWorkerClean(c)
+	go func() {
+		defer close(waitFinished)
+		s.mux.Wait()
+	}()
+
+	select {
+	case <-waitFinished:
+		c.Fatalf("didn't add clients to the mux")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	workertest.CleanKill(c, w)
+
+	select {
+	case <-waitFinished:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("didn't tell the mux we were finished")
+	}
 }
 
 type mockAgent struct {
@@ -262,16 +289,6 @@ func (s *stubPrometheusRegisterer) Unregister(c prometheus.Collector) bool {
 	return false
 }
 
-type stubCertWatcher struct {
-	testing.Stub
-	cert tls.Certificate
-}
-
-func (w *stubCertWatcher) get() *tls.Certificate {
-	w.MethodCall(w, "get")
-	return &w.cert
-}
-
 type stubGateWaiter struct {
 	testing.Stub
 	gate.Waiter
@@ -290,4 +307,8 @@ type stubAuditConfig struct {
 func (c *stubAuditConfig) get() auditlog.Config {
 	c.MethodCall(c, "get")
 	return c.config
+}
+
+type mockAuthenticator struct {
+	httpcontext.LocalMacaroonAuthenticator
 }

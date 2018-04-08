@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
+	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -80,8 +81,8 @@ func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 	s.calledCmds = []string{}
 	s.PatchValue(&manager.RunCommandWithRetry, getMockRunCommandWithRetry(&s.calledCmds))
 	s.PatchValue(&configureLXDBridge, func() error { return nil })
-	s.PatchValue(&getLXDConfigSetter, func() (configSetter, error) {
-		return &mockConfigSetter{}, nil
+	s.PatchValue(&getLXDServerUpdater, func() (serverUpdater, error) {
+		return &mockServerUpdater{}, nil
 	})
 	nonRandomizedOctetRange := func() []int {
 		// chosen by fair dice roll
@@ -169,21 +170,29 @@ error: You have existing containers or images. lxd init requires an empty LXD.`,
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type mockConfigSetter struct {
-	keys   []string
-	values []string
+type mockServerUpdater struct {
+	config map[string]interface{}
 }
 
-func (m *mockConfigSetter) SetServerConfig(key, value string) error {
-	m.keys = append(m.keys, key)
-	m.values = append(m.values, value)
+func (m *mockServerUpdater) GetServer() (server *api.Server, ETag string, err error) {
+	if m.config == nil {
+		m.config = make(map[string]interface{})
+	}
+	server = &api.Server{
+		ServerPut: api.ServerPut{
+			Config: m.config,
+		},
+	}
+	return server, "etag", nil
+}
+func (m *mockServerUpdater) UpdateServer(server api.ServerPut, ETag string) (err error) {
+	m.config = server.Config
 	return nil
 }
-
 func (s *InitialiserSuite) TestConfigureProxies(c *gc.C) {
 	// This test is safe on windows because it mocks out all lxd moving parts.
-	setter := &mockConfigSetter{}
-	s.PatchValue(&getLXDConfigSetter, func() (configSetter, error) {
+	setter := &mockServerUpdater{}
+	s.PatchValue(&getLXDServerUpdater, func() (serverUpdater, error) {
 		return setter, nil
 	})
 
@@ -195,11 +204,10 @@ func (s *InitialiserSuite) TestConfigureProxies(c *gc.C) {
 	err := ConfigureLXDProxies(proxies)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(setter.keys, jc.DeepEquals, []string{
-		"core.proxy_http", "core.proxy_https", "core.proxy_ignore_hosts",
-	})
-	c.Check(setter.values, jc.DeepEquals, []string{
-		"http://test.local/http/proxy", "http://test.local/https/proxy", "test.local,localhost",
+	c.Check(setter.config, jc.DeepEquals, map[string]interface{}{
+		"core.proxy_http":         "http://test.local/http/proxy",
+		"core.proxy_https":        "http://test.local/https/proxy",
+		"core.proxy_ignore_hosts": "test.local,localhost",
 	})
 }
 
@@ -208,8 +216,8 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 		c.Skip("no lxd on windows")
 	}
 
-	setter := &mockConfigSetter{}
-	s.PatchValue(&getLXDConfigSetter, func() (configSetter, error) {
+	setter := &mockServerUpdater{}
+	s.PatchValue(&getLXDServerUpdater, func() (serverUpdater, error) {
 		return setter, nil
 	})
 
@@ -221,11 +229,10 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(setter.keys, jc.DeepEquals, []string{
-		"core.proxy_http", "core.proxy_https", "core.proxy_ignore_hosts",
-	})
-	c.Check(setter.values, jc.DeepEquals, []string{
-		"http://test.local/http/proxy", "http://test.local/https/proxy", "test.local,localhost",
+	c.Check(setter.config, jc.DeepEquals, map[string]interface{}{
+		"core.proxy_http":         "http://test.local/http/proxy",
+		"core.proxy_https":        "http://test.local/https/proxy",
+		"core.proxy_ignore_hosts": "test.local,localhost",
 	})
 }
 

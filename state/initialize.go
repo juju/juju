@@ -123,6 +123,8 @@ func convertCloudCredentialToState(tag names.CloudCredentialTag, cloudCredential
 	credential.Owner = tag.Owner().Id()
 	credential.Cloud = tag.Cloud().Id()
 	credential.DocID = cloudCredentialDocID(tag)
+	credential.Invalid = cloudCredential.Invalid
+	credential.InvalidReason = cloudCredential.InvalidReason
 	return credential
 }
 

@@ -308,7 +308,6 @@ func (s *desiredPeerGroupSuite) TestDesiredPeerGroupIPv6(c *gc.C) {
 }
 
 func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIPVersion) {
-
 	for ti, test := range desiredPeerGroupTests(ipVersion) {
 		c.Logf("\ntest %d: %s", ti, test.about)
 		trackerMap := make(map[string]*machineTracker)
@@ -396,63 +395,6 @@ func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsFalseWhenEmpty(c *gc
 	err := peerChanges.checkExtraMembers([]replicaset.Member{})
 	c.Check(peerChanges.isChanged, jc.IsFalse)
 	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *desiredPeerGroupSuite) TestGetMongoAddressesReturnsCorrectAddressForEachMachine(c *gc.C) {
-	spaceName := network.SpaceName("ha-space")
-
-	m1 := &machineTracker{
-		addresses: []network.Address{
-			{
-				Value:     "192.168.5.5",
-				Scope:     network.ScopeCloudLocal,
-				SpaceName: spaceName,
-			},
-			{
-				Value: "localhost",
-				Scope: network.ScopeMachineLocal,
-			},
-		},
-	}
-	m2 := &machineTracker{
-		addresses: []network.Address{
-			{
-				Value: "192.168.5.6",
-				Scope: network.ScopeCloudLocal,
-			},
-			{
-				Value: "localhost",
-				Scope: network.ScopeMachineLocal,
-			},
-		},
-	}
-	m3 := &machineTracker{
-		addresses: []network.Address{
-			{
-				Value: "localhost",
-				Scope: network.ScopeMachineLocal,
-			},
-		},
-	}
-	info := &peerGroupInfo{
-		machines: map[string]*machineTracker{
-			"1": m1,
-			"2": m2,
-			"3": m3,
-		},
-		haSpace:   spaceName,
-		mongoPort: 666,
-	}
-
-	peerChanges := peerGroupChanges{
-		addrs: map[string]string{},
-	}
-	err := peerChanges.getMongoAddresses(info)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(peerChanges.addrs), gc.Equals, 3)
-	c.Check(peerChanges.addrs["1"], gc.Equals, "192.168.5.5:666")
-	c.Check(peerChanges.addrs["2"], gc.Equals, "192.168.5.6:666")
-	c.Check(peerChanges.addrs["3"], gc.Equals, "")
 }
 
 func countVotes(members []replicaset.Member) int {

@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -19,6 +21,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -568,6 +571,34 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+func (s *unitSuite) TestWatchTrustConfigSettings(c *gc.C) {
+	watcher, err := s.apiUnit.WatchTrustConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+
+	notifyWatcher := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
+	defer notifyWatcher.AssertStops()
+
+	// Initial event.
+	notifyWatcher.AssertOneChange()
+
+	// Update application config and see if it is reported
+	trustFieldKey := "trust"
+	s.wordpressApplication.UpdateApplicationConfig(application.ConfigAttributes{
+		trustFieldKey: true,
+	},
+		[]string{},
+		environschema.Fields{trustFieldKey: {
+			Description: "Does this application have access to trusted credentials",
+			Type:        environschema.Tbool,
+			Group:       environschema.JujuGroup,
+		}},
+		schema.Defaults{
+			trustFieldKey: false,
+		},
+	)
+	notifyWatcher.AssertOneChange()
 }
 
 func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {

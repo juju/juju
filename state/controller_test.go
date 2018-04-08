@@ -153,7 +153,7 @@ func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses
 		controller.JujuManagementSpace: "mgmt-space",
 	}, nil)
 	c.Assert(err, gc.ErrorMatches,
-		`invalid config value for "juju-mgmt-space": machines with no addresses in space "mgmt-space": "0"`)
+		`invalid config "juju-mgmt-space"="mgmt-space": machines with no addresses in this space: 0`)
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c *gc.C) {

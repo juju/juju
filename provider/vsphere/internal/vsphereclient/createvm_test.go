@@ -24,7 +24,7 @@ import (
 
 func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 	var statusUpdates []string
-	statusUpdatesCh := make(chan string, 3)
+	statusUpdatesCh := make(chan string, 4)
 	dequeueStatusUpdates := func() {
 		for {
 			select {
@@ -62,6 +62,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		"uploading juju-vmdks/ctrl/xenial/04d3415158bcc24a91334eda408cf102fcf45c56a805135493e00156cd7b6391.vmdk.tmp: 100.00% (0B/s)",
 		"creating import spec",
 		`creating VM "vm-0"`,
+		"VM cloned",
 		"powering on",
 	})
 
@@ -122,7 +123,9 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 			types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
 			baseCisp(),
 		}},
-
+		retrievePropertiesStubCall("network-0", "network-1"),
+		retrievePropertiesStubCall("onetwork-0"),
+		retrievePropertiesStubCall("dvportgroup-0"),
 		testing.StubCall{"ImportVApp", []interface{}{&types.VirtualMachineImportSpec{
 			ConfigSpec: types.VirtualMachineConfigSpec{
 				Name: "vm-name.tmp",
@@ -241,59 +244,38 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNoneAccessible(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "could not find an accessible datastore")
 }
 
-func (s *clientSuite) TestCreateVirtualMachineNetworkSpecified(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefault(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
-	args.PrimaryNetwork = "yoink"
+	args.NetworkDevices = []NetworkDevice{
+		NetworkDevice{MAC: "00:50:56:11:22:33"},
+		NetworkDevice{Network: "arpa"},
+	}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cisp := baseCisp()
-	cisp.NetworkMapping = []types.OvfNetworkMapping{{
-		Name: "VM Network",
-		Network: types.ManagedObjectReference{
-			Type:  "DistributedVirtualPortgroup",
-			Value: "dvportgroup-0",
-		},
-	}}
-
-	// When either PrimaryNetwork or ExternalNetwork is specified,
-	// calls to query the networks are added (one per network
-	// type). This bumps the position of CreateImportSpec from
-	// 22 to 25.
-	s.roundTripper.CheckCall(
-		c, 25, "CreateImportSpec", UbuntuOVF,
-		types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
-		cisp,
-	)
-}
-
-func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *gc.C) {
-	args := baseCreateVirtualMachineParams(c)
-	args.PrimaryNetwork = "fourtytwo"
-
-	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `creating import spec: network "fourtytwo" not found`)
-}
-
-func (s *clientSuite) TestCreateVirtualMachineExternalNetworkSpecified(c *gc.C) {
-	args := baseCreateVirtualMachineParams(c)
-	args.ExternalNetwork = "arpa"
-
-	client := s.newFakeClient(&s.roundTripper, "dc0")
-	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var networkDevice types.VirtualVmxnet3
+	var networkDevice1, networkDevice2 types.VirtualVmxnet3
 	wakeOnLan := true
-	networkDevice.WakeOnLanEnabled = &wakeOnLan
-	networkDevice.Connectable = &types.VirtualDeviceConnectInfo{
+	networkDevice1.WakeOnLanEnabled = &wakeOnLan
+	networkDevice1.Connectable = &types.VirtualDeviceConnectInfo{
 		StartConnected:    true,
 		AllowGuestControl: true,
 	}
-	networkDevice.Backing = &types.VirtualEthernetCardNetworkBackingInfo{
+	networkDevice1.AddressType = "Manual"
+	networkDevice1.MacAddress = "00:50:56:11:22:33"
+	networkDevice1.Backing = &types.VirtualEthernetCardNetworkBackingInfo{
+		VirtualDeviceDeviceBackingInfo: types.VirtualDeviceDeviceBackingInfo{
+			DeviceName: "VM Network",
+		},
+	}
+
+	networkDevice2.WakeOnLanEnabled = &wakeOnLan
+	networkDevice2.Connectable = &types.VirtualDeviceConnectInfo{
+		StartConnected:    true,
+		AllowGuestControl: true,
+	}
+	networkDevice2.Backing = &types.VirtualEthernetCardNetworkBackingInfo{
 		VirtualDeviceDeviceBackingInfo: types.VirtualDeviceDeviceBackingInfo{
 			DeviceName: "arpa",
 		},
@@ -308,16 +290,22 @@ func (s *clientSuite) TestCreateVirtualMachineExternalNetworkSpecified(c *gc.C) 
 			DeviceChange: []types.BaseVirtualDeviceConfigSpec{
 				&types.VirtualDeviceConfigSpec{
 					Operation: "add",
-					Device:    &networkDevice,
+					Device:    &networkDevice1,
+				},
+				&types.VirtualDeviceConfigSpec{
+					Operation: "add",
+					Device:    &networkDevice2,
 				},
 			},
 		},
 	})
 }
 
-func (s *clientSuite) TestCreateVirtualMachineExternalNetworkSpecifiedDVPortgroup(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
-	args.ExternalNetwork = "yoink"
+	args.NetworkDevices = []NetworkDevice{
+		NetworkDevice{Network: "yoink"},
+	}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
@@ -359,13 +347,26 @@ func (s *clientSuite) TestCreateVirtualMachineExternalNetworkSpecifiedDVPortgrou
 	})
 }
 
-func (s *clientSuite) TestCreateVirtualMachineExternalNetworkNotFound(c *gc.C) {
+func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *gc.C) {
 	args := baseCreateVirtualMachineParams(c)
-	args.ExternalNetwork = "fourtytwo"
+	args.NetworkDevices = []NetworkDevice{
+		NetworkDevice{Network: "fourtytwo"},
+	}
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `creating import spec: network "fourtytwo" not found`)
+}
+
+func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	args.NetworkDevices = []NetworkDevice{
+		NetworkDevice{MAC: "00:11:22:33:44:55"},
+	}
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, gc.ErrorMatches, `creating import spec: adding network device 0 - network VM Network: Invalid MAC address: "00:11:22:33:44:55"`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
@@ -382,6 +383,27 @@ func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
 		"disk.vmdk",
 		int64(rootDisk) * 1024, // in KiB
 	})
+}
+
+func (s *clientSuite) TestVerifyMAC(c *gc.C) {
+	var testData = []struct {
+		Mac    string
+		Result bool
+	}{
+		{"foo:bar:baz", false},
+		{"00:22:55:11:34:11", false},
+		{"00:50:56:123:11:11", false},
+		{"00:50:56:40:12:23", false},
+		{"00:50:56:3f:ff:ff", true},
+		{"00:50:56:12:34:56", true},
+		{"00:50:56:2A:eB:Cd", true},
+		{"00:50:56:2a:xy:cd", false},
+		{"00:50:560:2a:xy:cd", false},
+	}
+	for i, test := range testData {
+		c.Logf("test #%d: MAC=%s expected %s", i, test.Mac, test.Result)
+		c.Check(VerifyMAC(test.Mac), gc.Equals, test.Result)
+	}
 }
 
 func baseCreateVirtualMachineParams(c *gc.C) CreateVirtualMachineParams {

@@ -5,6 +5,7 @@ package api_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -28,6 +30,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	servercommon "github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujunames "github.com/juju/juju/juju/names"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -372,7 +375,7 @@ func (s *clientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, error) {
+	s.PatchValue(api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return nil, fmt.Errorf("bad connection")
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
@@ -381,7 +384,7 @@ func (s *clientSuite) TestConnectStreamErrorBadConnection(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorNoData(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, error) {
+	s.PatchValue(api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return fakeStreamReader{&bytes.Buffer{}}, nil
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
@@ -390,7 +393,7 @@ func (s *clientSuite) TestConnectStreamErrorNoData(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorBadData(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, error) {
+	s.PatchValue(api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		return fakeStreamReader{strings.NewReader("junk\n")}, nil
 	})
 	reader, err := s.APIState.ConnectStream("/", nil)
@@ -399,7 +402,7 @@ func (s *clientSuite) TestConnectStreamErrorBadData(c *gc.C) {
 }
 
 func (s *clientSuite) TestConnectStreamErrorReadError(c *gc.C) {
-	s.PatchValue(api.WebsocketDial, func(_ *websocket.Dialer, _ string, _ http.Header) (base.Stream, error) {
+	s.PatchValue(api.WebsocketDial, func(_ api.WebsocketDialer, _ string, _ http.Header) (base.Stream, error) {
 		err := fmt.Errorf("bad read")
 		return fakeStreamReader{&badReader{err}}, nil
 	})
@@ -501,11 +504,11 @@ func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
 
-	// Passing in a bad model UUID should fail with a known error
-	info.ModelTag = names.NewModelTag("dead-beef-123456")
+	// Passing in an unknown model UUID should fail with a known error
+	info.ModelTag = names.NewModelTag("1eaf1e55-70ad-face-b007-70ad57001999")
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `unknown model: "dead-beef-123456"`,
+		Message: `unknown model: "1eaf1e55-70ad-face-b007-70ad57001999"`,
 		Code:    "model not found",
 	})
 	c.Check(err, jc.Satisfies, params.IsCodeModelNotFound)
@@ -554,6 +557,51 @@ func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	c.Assert(err, gc.Equals, someErr) // Confirms that the correct facade was called
 }
 
+func (s *clientSuite) TestWebsocketDialWithErrorsJSON(c *gc.C) {
+	errorResult := params.ErrorResult{
+		Error: servercommon.ServerError(errors.New("kablooie")),
+	}
+	data, err := json.Marshal(errorResult)
+	c.Assert(err, jc.ErrorIsNil)
+	cw := closeWatcher{Reader: bytes.NewReader(data)}
+	d := fakeDialer{
+		resp: &http.Response{
+			Header: http.Header{
+				"Content-Type": []string{"application/json"},
+			},
+			Body: &cw,
+		},
+	}
+	d.SetErrors(websocket.ErrBadHandshake)
+	stream, err := api.WebsocketDialWithErrors(&d, "something", nil)
+	c.Assert(stream, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "kablooie")
+	c.Assert(cw.closed, gc.Equals, true)
+}
+
+func (s *clientSuite) TestWebsocketDialWithErrorsNoJSON(c *gc.C) {
+	cw := closeWatcher{Reader: strings.NewReader("wowee zowee")}
+	d := fakeDialer{
+		resp: &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       &cw,
+		},
+	}
+	d.SetErrors(websocket.ErrBadHandshake)
+	stream, err := api.WebsocketDialWithErrors(&d, "something", nil)
+	c.Assert(stream, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `wowee zowee \(Not Found\)`)
+	c.Assert(cw.closed, gc.Equals, true)
+}
+
+func (s *clientSuite) TestWebsocketDialWithErrorsOtherError(c *gc.C) {
+	var d fakeDialer
+	d.SetErrors(errors.New("jammy pac"))
+	stream, err := api.WebsocketDialWithErrors(&d, "something", nil)
+	c.Assert(stream, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "jammy pac")
+}
+
 // badReader raises err when Read is called.
 type badReader struct {
 	err error
@@ -568,7 +616,7 @@ type urlCatcher struct {
 	headers  http.Header
 }
 
-func (u *urlCatcher) recordLocation(d *websocket.Dialer, urlStr string, header http.Header) (base.Stream, error) {
+func (u *urlCatcher) recordLocation(d api.WebsocketDialer, urlStr string, header http.Header) (base.Stream, error) {
 	u.location = urlStr
 	u.headers = header
 	pr, pw := io.Pipe()
@@ -603,4 +651,26 @@ func (s fakeStreamReader) ReadJSON(v interface{}) error {
 
 func (s fakeStreamReader) WriteJSON(v interface{}) error {
 	return errors.NotImplementedf("WriteJSON")
+}
+
+type fakeDialer struct {
+	testing.Stub
+
+	conn *websocket.Conn
+	resp *http.Response
+}
+
+func (d *fakeDialer) Dial(url string, header http.Header) (*websocket.Conn, *http.Response, error) {
+	d.AddCall("Dial", url, header)
+	return d.conn, d.resp, d.NextErr()
+}
+
+type closeWatcher struct {
+	io.Reader
+	closed bool
+}
+
+func (c *closeWatcher) Close() error {
+	c.closed = true
+	return nil
 }

@@ -144,17 +144,17 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.UniterParams.NewOperationExecutor = nil
 
 	c.Assert(config, jc.DeepEquals, caasoperator.Config{
-		ModelUUID:     coretesting.ModelTag.Id(),
-		ModelName:     "gitlab-model",
-		Application:   "gitlab",
-		DataDir:       s.dataDir,
-		CharmGetter:   &s.client,
-		Clock:         s.clock,
-		PodSpecSetter: &s.client,
-		Downloader:    &s.charmDownloader,
-		StatusSetter:  &s.client,
-		UnitGetter:    &s.client,
-		LifeGetter:    &s.client,
+		ModelUUID:          coretesting.ModelTag.Id(),
+		ModelName:          "gitlab-model",
+		Application:        "gitlab",
+		DataDir:            s.dataDir,
+		CharmGetter:        &s.client,
+		Clock:              s.clock,
+		PodSpecSetter:      &s.client,
+		Downloader:         &s.charmDownloader,
+		StatusSetter:       &s.client,
+		UnitGetter:         &s.client,
+		ApplicationWatcher: &s.client,
 		UniterParams: &uniter.UniterParams{
 			DataDir:         s.dataDir,
 			MachineLockName: "machine-lock",

@@ -201,7 +201,8 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 
 	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches,
-		"juju-ha-space is not set and a unique cloud-local address was not found for machines: 0")
+		"juju-ha-space is not set and a unique usable address was not found for machines: 0"+
+			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication")
 }
 
 func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
@@ -226,7 +227,8 @@ func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 
 	_, err = s.enableHA(c, 5, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches,
-		"juju-ha-space is not set and a unique cloud-local address was not found for machines: 2")
+		"juju-ha-space is not set and a unique usable address was not found for machines: 2"+
+			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication")
 }
 
 func (s *clientSuite) TestEnableHAConstraints(c *gc.C) {
@@ -377,6 +379,40 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 		c.Check(cons, gc.DeepEquals, expectedCons[i])
 		c.Check(m.Placement(), gc.Equals, expectedPlacement[i])
 	}
+}
+
+func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
+	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
+	controllerSettings.Set(controller.JujuHASpace, "ha-space")
+	controllerSettings.Write()
+
+	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	s.setAgentPresence(c, "1")
+	m1.SetProviderAddresses(network.NewAddressOnSpace("ha-space", "192.168.6.6"))
+
+	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	s.setAgentPresence(c, "2")
+	m2.SetProviderAddresses(network.NewAddressOnSpace("ha-space", "192.168.6.7"))
+
+	placement := []string{"1", "2"}
+	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, placement)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) {
+	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
+	controllerSettings.Set(controller.JujuHASpace, "ha-space")
+	controllerSettings.Write()
+
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	s.setAgentPresence(c, "1")
+
+	placement := []string{"1", "2"}
+	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, placement)
+	c.Assert(err, gc.ErrorMatches, `machine "1" has no addresses in space "ha-space"`)
 }
 
 func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {

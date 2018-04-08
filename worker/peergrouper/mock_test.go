@@ -193,9 +193,10 @@ func (st *fakeState) addMachine(id string, wantsVote bool) *fakeMachine {
 		errors:  &st.errors,
 		checker: st,
 		doc: machineDoc{
-			id:        id,
-			wantsVote: wantsVote,
-			life:      state.Alive,
+			id:         id,
+			wantsVote:  wantsVote,
+			statusInfo: status.StatusInfo{Status: status.Started},
+			life:       state.Alive,
 		},
 	}
 	st.machines[id] = m
@@ -293,6 +294,7 @@ type machineDoc struct {
 	hasVote    bool
 	instanceId instance.Id
 	addresses  []network.Address
+	statusInfo status.StatusInfo
 	life       state.Life
 }
 
@@ -349,9 +351,14 @@ func (m *fakeMachine) Addresses() []network.Address {
 }
 
 func (m *fakeMachine) Status() (status.StatusInfo, error) {
-	return status.StatusInfo{
-		Status: status.Started,
-	}, nil
+	return m.doc.statusInfo, nil
+}
+
+func (m *fakeMachine) SetStatus(sInfo status.StatusInfo) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.doc.statusInfo = sInfo
+	return nil
 }
 
 // mutate atomically changes the machineDoc of

@@ -12,6 +12,8 @@ import (
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/network"
 )
 
 //PackageHelper is the interface for configuring specific parameter of the package manager
@@ -253,4 +255,10 @@ func (cfg *centOSCloudConfig) addRequiredPackages() {
 //However on centOS even when rendering the YAML we use a helper function
 //addPackageProxyCmds. Research if calling the same is fine.
 func (cfg *centOSCloudConfig) updateProxySettings(proxySettings proxy.Settings) {
+}
+
+// AddNetworkConfig is defined on the NetworkingConfig interface.
+// TODO(wpk) This has to be implemented for CentOS on VSphere to work properly!
+func (cfg *centOSCloudConfig) AddNetworkConfig(interfaces []network.InterfaceInfo) error {
+	return nil
 }

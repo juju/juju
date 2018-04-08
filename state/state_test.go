@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -1536,7 +1535,6 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
@@ -4402,64 +4400,6 @@ func (s *StateSuite) TestUnitsForInvalidId(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"invalid-id" is not a valid machine id`)
 }
 
-func (s *StateSuite) TestSetOrGetMongoSpaceNameSets(c *gc.C) {
-	info, err := s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.MongoSpaceName, gc.Equals, "")
-	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceUnknown)
-
-	spaceName := network.SpaceName("foo")
-
-	name, err := s.State.SetOrGetMongoSpaceName(spaceName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, spaceName)
-
-	info, err = s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.MongoSpaceName, gc.Equals, string(spaceName))
-	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceValid)
-}
-
-func (s *StateSuite) TestSetOrGetMongoSpaceNameDoesNotReplaceValidSpace(c *gc.C) {
-	spaceName := network.SpaceName("foo")
-	name, err := s.State.SetOrGetMongoSpaceName(spaceName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, spaceName)
-
-	name, err = s.State.SetOrGetMongoSpaceName(network.SpaceName("bar"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, spaceName)
-
-	info, err := s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.MongoSpaceName, gc.Equals, string(spaceName))
-	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceValid)
-}
-
-func (s *StateSuite) TestSetMongoSpaceStateSetsValidStates(c *gc.C) {
-	mongoStates := []state.MongoSpaceStates{
-		state.MongoSpaceUnknown,
-		state.MongoSpaceValid,
-		state.MongoSpaceInvalid,
-		state.MongoSpaceUnsupported,
-	}
-	for _, st := range mongoStates {
-		err := s.State.SetMongoSpaceState(st)
-		c.Assert(err, jc.ErrorIsNil)
-		info, err := s.State.ControllerInfo()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(info.MongoSpaceState, gc.Equals, st)
-	}
-}
-
-func (s *StateSuite) TestSetMongoSpaceStateErrorOnInvalidStates(c *gc.C) {
-	err := s.State.SetMongoSpaceState(state.MongoSpaceStates("bad"))
-	c.Assert(err, gc.ErrorMatches, "mongoSpaceState: bad not valid")
-	info, err := s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceUnknown)
-}
-
 func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 	type args struct {
 		dbName    string
@@ -4497,7 +4437,7 @@ func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
 
 	calls := getCalls()
 	// There may be some leadership txns in the call list.
-	// We onlt care about the constraints call.
+	// We only care about the constraints call.
 	found := false
 	for _, call := range calls {
 		if call.ops[0].C != "constraints" {

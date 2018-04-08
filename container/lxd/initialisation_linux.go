@@ -22,10 +22,10 @@ import (
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/tools/lxdclient"
+	"github.com/juju/juju/network"
 )
 
 const lxdBridgeFile = "/etc/default/lxd-bridge"
@@ -55,17 +55,17 @@ func NewContainerInitialiser(series string) container.Initialiser {
 func (ci *containerInitialiser) Initialise() error {
 	err := ensureDependencies(ci.series)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	err = configureLXDBridge()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	proxies := proxy.DetectProxies()
 	err = ConfigureLXDProxies(proxies)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// Well... this will need to change soon once we are passed 17.04 as who
@@ -109,33 +109,34 @@ func getPackagingConfigurer(series string) (config.PackagingConfigurer, error) {
 // ConfigureLXDProxies will try to set the lxc config core.proxy_http and core.proxy_https
 // configuration values based on the current environment.
 func ConfigureLXDProxies(proxies proxy.Settings) error {
-	setter, err := getLXDConfigSetter()
+	setter, err := getLXDServerUpdater()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return errors.Trace(configureLXDProxies(setter, proxies))
 }
 
-var getLXDConfigSetter = getConfigSetterConnect
+var getLXDServerUpdater = getServerUpdaterConnect
 
-func getConfigSetterConnect() (configSetter, error) {
+func getServerUpdaterConnect() (serverUpdater, error) {
 	return ConnectLocal()
 }
 
-type configSetter interface {
-	SetServerConfig(key, value string) error
+type serverUpdater interface {
+	GetServer() (server *api.Server, ETag string, err error)
+	UpdateServer(server api.ServerPut, ETag string) (err error)
 }
 
-func configureLXDProxies(setter configSetter, proxies proxy.Settings) error {
-	err := setter.SetServerConfig("core.proxy_http", proxies.Http)
+func configureLXDProxies(setter serverUpdater, proxies proxy.Settings) error {
+	server, etag, err := setter.GetServer()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = setter.SetServerConfig("core.proxy_https", proxies.Https)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = setter.SetServerConfig("core.proxy_ignore_hosts", proxies.NoProxy)
+	serverPut := server.Writable()
+	serverPut.Config["core.proxy_http"] = proxies.Http
+	serverPut.Config["core.proxy_https"] = proxies.Https
+	serverPut.Config["core.proxy_ignore_hosts"] = proxies.NoProxy
+	err = setter.UpdateServer(serverPut, etag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -156,22 +157,105 @@ var df = func(path string) (uint64, error) {
 }
 
 var configureLXDBridge = func() error {
-	client, err := ConnectLocal()
+	server, err := ConnectLocal()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	status, err := client.ServerStatus()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// If LXD itself supports managing networks (added in LXD 2.3) we can allow
 	// it to do all of the network configuration.
-	if shared.StringInSlice("network", status.APIExtensions) {
-		return lxdclient.CreateDefaultBridgeInDefaultProfile(client)
+	if server.HasExtension("network") {
+		return createDefaultBridgeInDefaultProfile(server)
 	}
 	return configureLXDBridgeForOlderLXD()
+}
+
+type networkClient interface {
+	GetNetwork(name string) (network *api.Network, ETag string, err error)
+	CreateNetwork(network api.NetworksPost) (err error)
+	UpdateProfile(name string, profile api.ProfilePut, ETag string) (err error)
+	GetProfile(name string) (profile *api.Profile, ETag string, err error)
+}
+
+func checkBridgeConfig(client networkClient, bridge string) error {
+	n, _, err := client.GetNetwork(bridge)
+	if err != nil {
+		return errors.Annotatef(err, "LXD %s network config", bridge)
+	}
+	ipv6AddressConfig := n.Config["ipv6.address"]
+	if n.Managed && ipv6AddressConfig != "none" && ipv6AddressConfig != "" {
+		return errors.Errorf(`juju doesn't support ipv6. Please disable LXD's IPV6:
+
+	$ lxc network set %s ipv6.address none
+
+and rebootstrap`, bridge)
+	}
+
+	return nil
+}
+
+// CreateDefaultBridgeInDefaultProfile creates a default bridge if it doesn't
+// exist and (if necessary) inserts it into the default profile.
+func createDefaultBridgeInDefaultProfile(client networkClient) error {
+	/* create the default bridge if it doesn't exist */
+	n, _, err := client.GetNetwork(network.DefaultLXDBridge)
+	if err != nil {
+		networksPost := api.NetworksPost{
+			Name: network.DefaultLXDBridge,
+			NetworkPut: api.NetworkPut{
+				Config: map[string]string{
+					"ipv6.address": "none",
+					"ipv6.nat":     "false",
+				},
+			},
+		}
+		err := client.CreateNetwork(networksPost)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		n, _, err = client.GetNetwork(network.DefaultLXDBridge)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		if err := checkBridgeConfig(client, network.DefaultLXDBridge); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	profile, etag, err := client.GetProfile("default")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	config := profile.Writable()
+	_, ok := config.Devices["eth0"]
+	if ok {
+		/* don't configure an eth0 if it already exists */
+		return nil
+	}
+
+	nicType := "macvlan"
+	if n.Type == "bridge" {
+		nicType = "bridged"
+	}
+
+	config.Devices["eth0"] = map[string]string{
+		"type":    "nic",
+		"nictype": nicType,
+		"parent":  network.DefaultLXDBridge,
+	}
+
+	err = client.UpdateProfile("default", config, etag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 // configureLXDBridgeForOlderLXD is used for LXD agents that don't support the
@@ -277,11 +361,11 @@ func ensureDependencies(series string) error {
 
 	pacman, err := getPackageManager(series)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	pacconfer, err := getPackagingConfigurer(series)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	for _, pack := range requiredPackages {
@@ -296,11 +380,11 @@ func ensureDependencies(series string) error {
 		}
 
 		if err := pacman.Install(pkg); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 
-	return err
+	return errors.Trace(err)
 }
 
 // randomizedOctetRange is a variable for testing purposes.

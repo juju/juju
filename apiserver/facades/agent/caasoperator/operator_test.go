@@ -107,9 +107,10 @@ func (s *CAASOperatorSuite) TestCharm(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ApplicationCharmResults{
 		Results: []params.ApplicationCharmResult{{
 			Result: &params.ApplicationCharm{
-				URL:          "cs:gitlab-1",
-				ForceUpgrade: false,
-				SHA256:       "fake-sha256",
+				URL:                  "cs:gitlab-1",
+				ForceUpgrade:         false,
+				SHA256:               "fake-sha256",
+				CharmModifiedVersion: 666,
 			},
 		}, {
 			Error: &params.Error{
@@ -123,7 +124,7 @@ func (s *CAASOperatorSuite) TestCharm(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "Charm")
+	s.st.app.CheckCallNames(c, "Charm", "CharmModifiedVersion")
 }
 
 func (s *CAASOperatorSuite) TestWatchUnits(c *gc.C) {
@@ -237,4 +238,31 @@ func (s *CAASOperatorSuite) TestModelName(c *gc.C) {
 	result, err := s.facade.ModelName()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Result, gc.Equals, "some-model")
+}
+
+func (s *CAASOperatorSuite) TestWatch(c *gc.C) {
+	s.st.app.appChanges <- struct{}{}
+
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "application-gitlab"},
+		{Tag: "application-mysql"},
+		{Tag: "unit-mysql-0"},
+	}}
+	result, err := s.facade.Watch(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.NotFoundError("application mysql")},
+			{Error: apiservertesting.NotFoundError("unit mysql/0")},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(result.Results[0].NotifyWatcherId, gc.Equals, "1")
+	resource := s.resources.Get("1")
+	c.Assert(resource, gc.Equals, s.st.app.watcher)
 }

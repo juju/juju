@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type MuxSuite struct {
@@ -154,4 +155,36 @@ func (s *MuxSuite) TestConcurrentRemoveHandler(c *gc.C) {
 	}
 	c.Assert(ok, gc.Not(gc.Equals), 0)
 	c.Assert(notfound, gc.Not(gc.Equals), 0)
+}
+
+func (s *MuxSuite) TestWait(c *gc.C) {
+	// Check that mux.Wait() blocks until clients are all finished
+	// with it.
+	s.mux.AddClient()
+	s.mux.AddClient()
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		s.mux.Wait()
+	}()
+
+	select {
+	case <-finished:
+		c.Fatalf("should wait when there are clients")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	s.mux.ClientDone()
+	select {
+	case <-finished:
+		c.Fatalf("should wait when there is still a client")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	s.mux.ClientDone()
+	select {
+	case <-finished:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("should finish once clients are done")
+	}
 }

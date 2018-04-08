@@ -3,11 +3,9 @@
 
 package leadership_test
 
-/*
-Test that the service is translating incoming parameters to the
-manager layer correctly, and also translates the results back into
-network parameters.
-*/
+// Test that the service is translating incoming parameters to the
+// manager layer correctly, and also translates the results back into
+// network parameters.
 
 import (
 	"context"

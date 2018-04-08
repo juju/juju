@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -16,6 +17,7 @@ import (
 
 // ResolverConfig defines configuration for the uniter resolver.
 type ResolverConfig struct {
+	ModelType           model.ModelType
 	ClearResolved       func() error
 	ReportHookError     func(hook.Info) error
 	ShouldRetryHooks    bool
@@ -204,6 +206,10 @@ func (s *uniterResolver) nextOpHookError(
 }
 
 func charmModified(local resolver.LocalState, remote remotestate.Snapshot) bool {
+	// CAAS models may not yet have read the charm url from state.
+	if remote.CharmURL == nil {
+		return false
+	}
 	if *local.CharmURL != *remote.CharmURL {
 		logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)
 		return true
@@ -256,8 +262,15 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.Install})
 	}
 
+	// Only IAAS models will react to a charm modified change.
+	// For CAAS models, the operator will unpack the new charm and
+	// inform the uniter workers to run the upgrade hook.
 	if charmModified(localState, remoteState) {
-		return opFactory.NewUpgrade(remoteState.CharmURL)
+		if s.config.ModelType == model.IAAS {
+			return opFactory.NewUpgrade(remoteState.CharmURL)
+		} else {
+			return opFactory.NewRunHook(hook.Info{Kind: hooks.UpgradeCharm})
+		}
 	}
 
 	if localState.ConfigVersion != remoteState.ConfigVersion ||

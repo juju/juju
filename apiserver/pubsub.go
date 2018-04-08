@@ -11,11 +11,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/state"
 )
 
 // Hub defines the publish method that the handler uses to publish
@@ -36,40 +34,11 @@ type pubsubHandler struct {
 	hub  Hub
 }
 
-func (h *pubsubHandler) authenticate(req *http.Request) error {
-	// We authenticate against the controller state instance that is held
-	// by Server.
-	st, entity, err := h.ctxt.stateForRequestAuthenticated(req)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// We don't actually use the state for anything except authentication.
-	defer st.Release()
-
-	switch machine := entity.(type) {
-	case *state.Machine:
-		// Only machines have machine tags.
-		for _, job := range machine.Jobs() {
-			if job == state.JobManageModel {
-				return nil
-			}
-		}
-	default:
-		logger.Errorf("attempt to log in as a machine agent by %v", entity.Tag())
-	}
-	return errors.Trace(common.ErrPerm)
-}
-
 // ServeHTTP implements the http.Handler interface.
 func (h *pubsubHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(socket *websocket.Conn) {
 		logger.Debugf("start of *pubsubHandler.ServeHTTP")
 		defer socket.Close()
-
-		if err := h.authenticate(req); err != nil {
-			h.sendError(socket, req, err)
-			return
-		}
 
 		// If we get to here, no more errors to report, so we report a nil
 		// error.  This way the first line of the socket is always a json

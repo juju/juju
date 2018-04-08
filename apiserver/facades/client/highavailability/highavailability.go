@@ -4,6 +4,7 @@
 package highavailability
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -148,42 +150,16 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	}
 	spec.Constraints.Spaces = cfg.AsSpaceConstraints(spec.Constraints.Spaces)
 
+	if err = validatePlacementForSpaces(st, spec.Constraints.Spaces, spec.Placement); err != nil {
+		return params.ControllersChanges{}, errors.Trace(err)
+	}
+
 	// Might be nicer to pass the spec itself to this method.
 	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, spec.Series, spec.Placement, api.machineID)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}
 	return controllersChanges(changes), nil
-}
-
-// validateCurrentControllers checks for a scenario where there is no HA space
-// in controller configuration and more than one machine-local address on any
-// of the controller machines. An error is returned if it is detected.
-// When HA space is set, there are other code paths that ensure controllers
-// have at least one address in the space.
-func validateCurrentControllers(st *state.State, cfg controller.Config, machineIds []string) error {
-	if cfg.JujuHASpace() != "" {
-		return nil
-	}
-
-	var badIds []string
-	for _, id := range machineIds {
-		controller, err := st.Machine(id)
-		if err != nil {
-			return errors.Annotatef(err, "reading controller id %v", id)
-		}
-		internal := network.SelectInternalAddresses(controller.Addresses(), false)
-		if len(internal) != 1 {
-			badIds = append(badIds, id)
-		}
-	}
-	if len(badIds) > 0 {
-		return errors.Errorf(
-			"juju-ha-space is not set and a unique cloud-local address was not found for machines: %s",
-			strings.Join(badIds, ", "),
-		)
-	}
-	return nil
 }
 
 // getReferenceController looks up the ideal controller to use as a reference for Constraints and Series
@@ -211,6 +187,90 @@ func getReferenceController(st *state.State, machineIds []string) (*state.Machin
 		return nil, errors.Annotatef(err, "reading controller id %v", controllerId)
 	}
 	return controller, nil
+}
+
+// validateCurrentControllers checks for a scenario where there is no HA space
+// in controller configuration and more than one machine-local address on any
+// of the controller machines. An error is returned if it is detected.
+// When HA space is set, there are other code paths that ensure controllers
+// have at least one address in the space.
+func validateCurrentControllers(st *state.State, cfg controller.Config, machineIds []string) error {
+	if cfg.JujuHASpace() != "" {
+		return nil
+	}
+
+	var badIds []string
+	for _, id := range machineIds {
+		controller, err := st.Machine(id)
+		if err != nil {
+			return errors.Annotatef(err, "reading controller id %v", id)
+		}
+		internal := network.SelectInternalAddresses(controller.Addresses(), false)
+		if len(internal) != 1 {
+			badIds = append(badIds, id)
+		}
+	}
+	if len(badIds) > 0 {
+		return errors.Errorf(
+			"juju-ha-space is not set and a unique usable address was not found for machines: %s"+
+				"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication",
+			strings.Join(badIds, ", "),
+		)
+	}
+	return nil
+}
+
+// validatePlacementForSpaces checks whether there are both space constraints
+// and machine placement directives.
+// If there are, checks are made to ensure that the machines specified have at
+// least one address in all of the spaces.
+func validatePlacementForSpaces(st *state.State, spaces *[]string, placement []string) error {
+	if spaces == nil || len(*spaces) == 0 || len(placement) == 0 {
+		return nil
+	}
+
+	for _, v := range placement {
+		p, err := instance.ParsePlacement(v)
+		if err != nil {
+			if err == instance.ErrPlacementScopeMissing {
+				// Where an unscoped placement is not parsed as a machine ID,
+				// such as for a MaaS node name, just allow it through.
+				// TODO (manadart 2018-03-27): Possible work at the provider
+				// level to accommodate placement and space constraints during
+				// instance pre-check may be entertained in the future.
+				continue
+			}
+			return errors.Annotate(err, "parsing placement")
+		}
+		if p.Directive == "" {
+			continue
+		}
+
+		m, err := st.Machine(p.Directive)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// Don't throw out of here when the machine does not exist.
+				// Validate others if required and leave it handled downstream.
+				continue
+			}
+			return errors.Annotate(err, "retrieving machine")
+		}
+
+		for _, space := range *spaces {
+			spaceName := network.SpaceName(space)
+			inSpace := false
+			for _, addr := range m.Addresses() {
+				if addr.SpaceName == spaceName {
+					inSpace = true
+					break
+				}
+			}
+			if !inSpace {
+				return fmt.Errorf("machine %q has no addresses in space %q", p.Directive, space)
+			}
+		}
+	}
+	return nil
 }
 
 // controllersChanges generates a new params instance from the state instance.

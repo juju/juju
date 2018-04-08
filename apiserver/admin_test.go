@@ -28,8 +28,10 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/controller"
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
 	servertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/constraints"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
@@ -56,10 +58,20 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 }
 
+func (s *baseLoginSuite) newServer(c *gc.C) (*api.Info, *apiserver.Server) {
+	return s.newServerWithConfig(c, testserver.DefaultServerConfig(c))
+}
+
+func (s *baseLoginSuite) newServerWithConfig(c *gc.C, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server) {
+	server := testserver.NewServerWithConfig(c, s.StatePool, cfg)
+	s.AddCleanup(func(c *gc.C) { assertStop(c, server) })
+	return server.Info, server.APIServer
+}
+
 func (s *baseLoginSuite) newMachineAndServer(c *gc.C) (*api.Info, *apiserver.Server) {
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
@@ -123,7 +135,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	// Start our own server so we can control when the first login
 	// happens. Otherwise in JujuConnSuite.SetUpTest api.Open is
 	// called with user-admin permissions automatically.
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 	info.ModelTag = s.IAASModel.ModelTag()
 
@@ -178,7 +190,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 	info.ModelTag = s.IAASModel.ModelTag()
 
@@ -260,7 +272,7 @@ func (s *loginSuite) TestLoginAddressesForAgents(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
 	// Login with a user tag to simulate a client connection.
@@ -323,11 +335,22 @@ func startNLogins(c *gc.C, n int, info *api.Info) (chan error, *sync.WaitGroup) 
 	return errResults, &doneWG
 }
 
+func (s *loginSuite) setupDelayServer(c *gc.C) (*api.Info, *apiserver.Server, chan struct{}) {
+	machine, password := s.Factory.MakeMachineReturningPassword(
+		c, &factory.MachineParams{Nonce: "fake_nonce"})
+	cfg := testserver.DefaultServerConfig(c)
+	delayChan := make(chan struct{}, 10)
+	cfg.Authenticator = &mockDelayAuthenticator{delay: delayChan}
+	info, srv := s.newServerWithConfig(c, cfg)
+	info.Tag = machine.Tag()
+	info.Password = password
+	info.Nonce = "fake_nonce"
+	return info, srv, delayChan
+}
+
 func (s *loginSuite) TestDelayLogins(c *gc.C) {
-	info, srv := s.newMachineAndServer(c)
+	info, srv, delayChan := s.setupDelayServer(c)
 	defer assertStop(c, srv)
-	delayChan, cleanup := apiserver.DelayLogins()
-	defer cleanup()
 
 	// numConcurrentLogins is how many logins will fire off simultaneously.
 	// It doesn't really matter, as long as it is less than LoginRateLimit
@@ -382,10 +405,8 @@ func (s *loginSuite) TestDelayLogins(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
-	info, srv := s.newMachineAndServer(c)
+	info, srv, delayChan := s.setupDelayServer(c)
 	defer assertStop(c, srv)
-	delayChan, cleanup := apiserver.DelayLogins()
-	defer cleanup()
 
 	// Start enough concurrent Login requests so that we max out our
 	// LoginRateLimit. Do one extra so we know we are in overload
@@ -435,10 +456,8 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 }
 
 func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
-	info, srv := s.newMachineAndServer(c)
+	info, srv, delayChan := s.setupDelayServer(c)
 	defer assertStop(c, srv)
-	delayChan, cleanup := apiserver.DelayLogins()
-	defer cleanup()
 
 	// Start enough concurrent Login requests so that we max out our
 	// LoginRateLimit. Do one extra so we know we are in overload
@@ -483,15 +502,13 @@ func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
 }
 
 func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv, delayChan := s.setupDelayServer(c)
 	defer assertStop(c, srv)
 
 	info.Tag = s.AdminUserTag(c)
 	info.Password = "dummy-secret"
 	info.ModelTag = s.IAASModel.ModelTag()
 
-	delayChan, cleanup := apiserver.DelayLogins()
-	defer cleanup()
 	// We can login more than LoginRateLimit users
 	nLogins := apiserver.LoginRateLimit * 2
 	errResults, wg := startNLogins(c, nLogins, info)
@@ -513,7 +530,7 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 }
 
 func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 	info.ModelTag = s.IAASModel.ModelTag()
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
@@ -527,7 +544,7 @@ func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
-	cfg := defaultServerConfig(c)
+	cfg := testserver.DefaultServerConfig(c)
 	cfg.UpgradeComplete = func() bool {
 		// upgrade is in progress
 		return false
@@ -543,7 +560,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginWhileRestorePending(c *gc.C) {
-	cfg := defaultServerConfig(c)
+	cfg := testserver.DefaultServerConfig(c)
 	cfg.RestoreStatus = func() state.RestoreStatus {
 		return state.RestorePending
 	}
@@ -558,7 +575,7 @@ func (s *loginSuite) TestLoginWhileRestorePending(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginWhileRestoreInProgress(c *gc.C) {
-	cfg := defaultServerConfig(c)
+	cfg := testserver.DefaultServerConfig(c)
 	cfg.RestoreStatus = func() state.RestoreStatus {
 		return state.RestoreInProgress
 	}
@@ -573,7 +590,7 @@ func (s *loginSuite) TestLoginWhileRestoreInProgress(c *gc.C) {
 }
 
 func (s *loginSuite) testLoginDuringMaintenance(c *gc.C, cfg apiserver.ServerConfig, check func(api.Connection)) {
-	info, srv := newServerWithConfig(c, s.StatePool, cfg)
+	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
 	info.ModelTag = s.IAASModel.ModelTag()
 
@@ -585,12 +602,12 @@ func (s *loginSuite) testLoginDuringMaintenance(c *gc.C, cfg apiserver.ServerCon
 }
 
 func (s *loginSuite) TestMachineLoginDuringMaintenance(c *gc.C) {
-	cfg := defaultServerConfig(c)
+	cfg := testserver.DefaultServerConfig(c)
 	cfg.UpgradeComplete = func() bool {
 		// upgrade is in progress
 		return false
 	}
-	info, srv := newServerWithConfig(c, s.StatePool, cfg)
+	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
 
 	machine, password := s.addMachine(c, state.JobHostUnits)
@@ -603,12 +620,12 @@ func (s *loginSuite) TestMachineLoginDuringMaintenance(c *gc.C) {
 }
 
 func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
-	cfg := defaultServerConfig(c)
+	cfg := testserver.DefaultServerConfig(c)
 	cfg.UpgradeComplete = func() bool {
 		// upgrade is in progress
 		return false
 	}
-	info, srv := newServerWithConfig(c, s.StatePool, cfg)
+	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
 
 	machine, password := s.addMachine(c, state.JobManageModel)
@@ -622,7 +639,7 @@ func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
 }
 
 func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
 	info.ModelTag = s.IAASModel.ModelTag()
@@ -648,7 +665,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
 	// Zero the model tag so that we log into the controller
@@ -671,7 +688,7 @@ func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestControllerModel(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
 	info.ModelTag = s.IAASModel.ModelTag()
@@ -685,7 +702,7 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
 	info.ModelTag = s.IAASModel.ModelTag()
@@ -697,7 +714,7 @@ func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
 }
 
 func (s *loginSuite) TestNonExistentModel(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
 	uuid, err := utils.NewUUID()
@@ -714,22 +731,16 @@ func (s *loginSuite) TestNonExistentModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestInvalidModel(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 	info.ModelTag = names.NewModelTag("rubbish")
-
-	st := s.openAPIWithoutLogin(c, info)
-
-	adminUser := s.AdminUserTag(c)
-	err := st.Login(adminUser, "dummy-secret", "", nil)
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `unknown model: "rubbish"`,
-		Code:    "model not found",
-	})
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.ErrorMatches, `unable to connect to API: invalid model UUID "rubbish" \(Bad Request\)`)
+	c.Assert(st, gc.IsNil)
 }
 
 func (s *loginSuite) TestOtherModel(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
 	modelOwner := s.Factory.MakeUser(c, nil)
@@ -752,7 +763,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	// Machine credentials are checked against model specific
 	// machines, so this makes sure that the credential checking is
 	// using the correct state connection.
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
 	modelOwner := s.Factory.MakeUser(c, nil)
@@ -779,7 +790,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
 	modelOwner := s.Factory.MakeUser(c, nil)
@@ -808,7 +819,7 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -827,7 +838,7 @@ func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
 	managerMachine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -855,7 +866,7 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
 	machine, password := s.Factory.MakeMachineReturningPassword(c, nil)
@@ -869,7 +880,7 @@ func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
 	st := s.openAPIWithoutLogin(c, info)
 
 	err = st.Login(machine.Tag(), password, "nonce", nil)
-	assertPermissionDenied(c, err)
+	assertInvalidEntityPassword(c, err)
 }
 
 func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (*state.User, params.LoginResult) {
@@ -891,7 +902,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (*state.User, param
 }
 
 func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 	info.ModelTag = s.IAASModel.ModelTag()
 
@@ -902,7 +913,7 @@ func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginResultLocalUserEveryoneCreateOnlyNonLocal(c *gc.C) {
-	info, srv := newServer(c, s.StatePool)
+	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 	info.ModelTag = s.IAASModel.ModelTag()
 
@@ -980,7 +991,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 
 func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 	log := &servertesting.FakeAuditLog{}
-	cfg := defaultServerConfig(c)
+	cfg := testserver.DefaultServerConfig(c)
 	cfg.GetAuditConfig = func() auditlog.Config {
 		return auditlog.Config{
 			Enabled: true,
@@ -988,7 +999,7 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 		}
 	}
 	cfg.Clock = jt.NewClock(cfg.Clock.Now())
-	info, srv := newServerWithConfig(c, s.StatePool, cfg)
+	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
 	info.ModelTag = s.IAASModel.Tag().(names.ModelTag)
 
@@ -1052,14 +1063,14 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 	log := &servertesting.FakeAuditLog{}
 	log.SetErrors(errors.Errorf("bad news bears"))
-	cfg := defaultServerConfig(c)
+	cfg := testserver.DefaultServerConfig(c)
 	cfg.GetAuditConfig = func() auditlog.Config {
 		return auditlog.Config{
 			Enabled: true,
 			Target:  log,
 		}
 	}
-	info, srv := newServerWithConfig(c, s.StatePool, cfg)
+	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
 
 	info.ModelTag = s.IAASModel.Tag().(names.ModelTag)
@@ -1093,7 +1104,7 @@ func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 
 func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 	log := &servertesting.FakeAuditLog{}
-	cfg := defaultServerConfig(c)
+	cfg := testserver.DefaultServerConfig(c)
 	cfg.GetAuditConfig = func() auditlog.Config {
 		return auditlog.Config{
 			Enabled:        true,
@@ -1101,7 +1112,7 @@ func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 			Target:         log,
 		}
 	}
-	info, srv := newServerWithConfig(c, s.StatePool, cfg)
+	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
 	info.ModelTag = s.IAASModel.Tag().(names.ModelTag)
 
@@ -1168,7 +1179,7 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return "test@somewhere"
 	}
-	info, srv := newServer(c, s.StatePool)
+	srv := testserver.NewServer(c, s.StatePool)
 	defer assertStop(c, srv)
 	workingTransport := http.DefaultTransport
 	failingTransport := errorTransport{
@@ -1177,19 +1188,19 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
 		err:      errors.New("some error"),
 	}
 	s.PatchValue(&http.DefaultTransport, failingTransport)
-	_, err := s.login(c, info)
-	c.Assert(err, gc.ErrorMatches, `.*: some error`)
+	_, err := s.login(c, srv.Info)
+	c.Assert(err, gc.ErrorMatches, `.*: some error .*`)
 
 	http.DefaultTransport = workingTransport
 
 	// The error doesn't stick around.
-	_, err = s.login(c, info)
+	_, err = s.login(c, srv.Info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Once we've succeeded, we shouldn't try again.
 	http.DefaultTransport = failingTransport
 
-	_, err = s.login(c, info)
+	_, err = s.login(c, srv.Info)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1329,12 +1340,12 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccessAndAllo
 }
 
 func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.C, allowModelAccess bool) {
-	cfg := defaultServerConfig(c)
+	cfg := testserver.DefaultServerConfig(c)
 	cfg.AllowModelAccess = allowModelAccess
 
-	info, srv := newServerWithConfig(c, s.StatePool, cfg)
+	srv := testserver.NewServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
-	info.ModelTag = s.IAASModel.ModelTag()
+	srv.Info.ModelTag = s.IAASModel.ModelTag()
 
 	// If we have a remote user which has explict model access, but neither
 	// controller access nor 'everyone' access, the user will have access
@@ -1349,7 +1360,7 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 		return remoteUser
 	}
 
-	_, err := s.login(c, info)
+	_, err := s.login(c, srv.Info)
 	if allowModelAccess {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -1567,4 +1578,26 @@ func (t errorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, t.err
 	}
 	return t.fallback.RoundTrip(req)
+}
+
+type mockDelayAuthenticator struct {
+	httpcontext.LocalMacaroonAuthenticator
+	delay chan struct{}
+}
+
+func (a *mockDelayAuthenticator) AuthenticateLoginRequest(
+	serverHost string,
+	modelUUID string,
+	req params.LoginRequest,
+) (httpcontext.AuthInfo, error) {
+	select {
+	case <-time.After(coretesting.LongWait):
+		panic("timed out delaying login")
+	case <-a.delay:
+	}
+	tag, err := names.ParseTag(req.AuthTag)
+	if err != nil {
+		return httpcontext.AuthInfo{}, errors.Trace(err)
+	}
+	return httpcontext.AuthInfo{Entity: &mockEntity{tag: tag}}, nil
 }

@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -89,6 +88,31 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 	url, force = s.mysql.CharmURL()
 	c.Assert(url, gc.DeepEquals, sch.URL())
+	c.Assert(force, jc.IsTrue)
+}
+
+func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+
+	// Add a compatible charm and force it.
+	sch := state.AddCustomCharm(c, st, "wordpress", "metadata.yaml", metaBase, "quantal", 2)
+
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: true,
+	}
+	err := app.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	ch, force, err := app.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
 }
 
@@ -1390,7 +1414,7 @@ func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
 	assertOffersRef(c, s.State, "mysql", 2)
 
 	// Once the offer is removed, refcount is decremented.
-	err = ao.Remove("hosted-mysql")
+	err = ao.Remove("hosted-mysql", false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertOffersRef(c, s.State, "mysql", 1)
 
@@ -1400,7 +1424,7 @@ func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
 	assertOffersRef(c, s.State, "mysql", 1)
 
 	// Remove the last offer and the app can be destroyed.
-	err = ao.Remove("mysql-offer")
+	err = ao.Remove("mysql-offer", false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoOffersRef(c, s.State, "mysql")
 
@@ -1856,7 +1880,6 @@ func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
@@ -3329,7 +3352,6 @@ type CAASApplicationSuite struct {
 var _ = gc.Suite(&CAASApplicationSuite{})
 
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CAAS)
 	s.ConnSuite.SetUpTest(c)
 	s.caasSt = s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",

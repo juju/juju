@@ -1,11 +1,14 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2016-2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver_test
+package httpserver_test
 
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"runtime"
 	"time"
 
@@ -13,28 +16,66 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cert"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/httpserver"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type certSuite struct {
-	apiserverBaseSuite
+	workerFixture
+
+	cert *tls.Certificate
 }
 
 var _ = gc.Suite(&certSuite{})
 
-func (s *certSuite) TestUpdateCert(c *gc.C) {
-	tlsCert := coretesting.ServerTLSCert
-	config := s.sampleConfig(c)
-	config.GetCertificate = func() *tls.Certificate {
-		return tlsCert
-	}
-	srv := s.newServer(c, config)
+func (s *certSuite) SetUpTest(c *gc.C) {
+	s.workerFixture.SetUpTest(c)
+	tlsConfig, _ := httpserver.InternalNewTLSConfig(
+		"",
+		"https://0.1.2.3/no-autocert-here",
+		nil,
+		func() *tls.Certificate { return s.cert },
+	)
+	// Copy the root CAs across.
+	tlsConfig.RootCAs = s.config.TLSConfig.RootCAs
+	s.config.TLSConfig = tlsConfig
+	s.config.TLSConfig.ServerName = "juju-apiserver"
+	s.config.Mux.AddHandler("GET", "/hey", http.HandlerFunc(s.handler))
+	s.cert = coretesting.ServerTLSCert
+}
 
+func (s *certSuite) handler(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("yay"))
+}
+
+func (s *certSuite) request(url string) (*http.Response, error) {
+	// Create the client each time to ensure that we get the
+	// certificate again.
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: s.config.TLSConfig,
+		},
+	}
+	return client.Get(url)
+}
+
+func (s *certSuite) TestUpdateCert(c *gc.C) {
+	worker, err := httpserver.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker)
+
+	url := worker.URL() + "/hey"
 	// Sanity check that the server works initially.
-	conn := s.OpenAPIAsAdmin(c, srv)
-	c.Assert(pingConn(conn), jc.ErrorIsNil)
+	resp, err := s.request(url)
+	c.Assert(err, jc.ErrorIsNil)
+	defer resp.Body.Close()
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	content, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(content), gc.Equals, "yay")
 
 	// Create a new certificate that's a year out of date, so we can
 	// tell that the server is using it because the connection will fail.
@@ -51,17 +92,15 @@ func (s *certSuite) TestUpdateCert(c *gc.C) {
 	badTLSCert.Leaf = x509Cert
 
 	// Check that we can't connect to the server because of the bad certificate.
-	tlsCert = &badTLSCert
-	apiInfo := s.APIInfo(srv)
-	apiInfo.Tag = s.Owner
-	apiInfo.Password = ownerPassword
-	_, err = api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, `unable to connect to API: .*: certificate has expired or is not yet valid`)
+	s.cert = &badTLSCert
+	_, err = s.request(url)
+	c.Assert(err, gc.ErrorMatches, `.*: certificate has expired or is not yet valid`)
 
 	// Replace the working certificate and check that we can connect again.
-	tlsCert = coretesting.ServerTLSCert
-	conn = s.OpenAPIAsAdmin(c, srv)
-	c.Assert(pingConn(conn), jc.ErrorIsNil)
+	s.cert = coretesting.ServerTLSCert
+	resp, err = s.request(url)
+	c.Assert(err, jc.ErrorIsNil)
+	resp.Body.Close()
 }
 
 func (s *certSuite) TestAutocertFailure(c *gc.C) {
@@ -70,14 +109,25 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 	// to connect to a DNS name - the AutocertURL configured
 	// by the testing suite is invalid so it should fail.
 
-	config := s.sampleConfig(c)
-	config.AutocertDNSName = "somewhere.example"
-	config.DisableAutocertChallengeHandler = true
+	// Dropping the handler returned here disables the challenge
+	// listener.
+	tlsConfig, _ := httpserver.InternalNewTLSConfig(
+		"somewhere.example",
+		"https://0.1.2.3/no-autocert-here",
+		nil,
+		func() *tls.Certificate { return s.cert },
+	)
+	s.config.TLSConfig = tlsConfig
 
-	srv := s.newServer(c, config)
-	apiInfo := s.APIInfo(srv)
+	worker, err := httpserver.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker)
+
+	parsed, err := url.Parse(worker.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
 	entries := gatherLog(func() {
-		_, err := tls.Dial("tcp", apiInfo.Addrs[0], &tls.Config{
+		_, err := tls.Dial("tcp", parsed.Host, &tls.Config{
 			ServerName: "somewhere.example",
 		})
 		expectedErr := `x509: certificate is valid for \*, not somewhere.example`
@@ -98,15 +148,23 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 }
 
 func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
-	config := s.sampleConfig(c)
-	config.AutocertDNSName = "somewhere.example"
-	config.DisableAutocertChallengeHandler = true
+	tlsConfig, _ := httpserver.InternalNewTLSConfig(
+		"somewhere.example",
+		"https://0.1.2.3/no-autocert-here",
+		nil,
+		func() *tls.Certificate { return s.cert },
+	)
+	s.config.TLSConfig = tlsConfig
 
-	srv := s.newServer(c, config)
-	apiInfo := s.APIInfo(srv)
+	worker, err := httpserver.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker)
+
+	parsed, err := url.Parse(worker.URL())
+	c.Assert(err, jc.ErrorIsNil)
 
 	entries := gatherLog(func() {
-		_, err := tls.Dial("tcp", apiInfo.Addrs[0], &tls.Config{
+		_, err := tls.Dial("tcp", parsed.Host, &tls.Config{
 			ServerName: "somewhere.else",
 		})
 		expectedErr := `x509: certificate is valid for \*, not somewhere.else`
@@ -127,14 +185,15 @@ func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 }
 
 func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
-	config := s.sampleConfig(c)
-	config.DisableAutocertChallengeHandler = true
-	c.Assert(config.AutocertDNSName, gc.Equals, "") // sanity check
-	srv := s.newServer(c, config)
-	apiInfo := s.APIInfo(srv)
+	worker, err := httpserver.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, worker)
+
+	parsed, err := url.Parse(worker.URL())
+	c.Assert(err, jc.ErrorIsNil)
 
 	entries := gatherLog(func() {
-		_, err := tls.Dial("tcp", apiInfo.Addrs[0], &tls.Config{
+		_, err := tls.Dial("tcp", parsed.Host, &tls.Config{
 			ServerName: "somewhere.example",
 		})
 		expectedErr := `x509: certificate is valid for \*, not somewhere.example`

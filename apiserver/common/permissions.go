@@ -87,9 +87,10 @@ func GetPermission(accessGetter userAccessFunc, userTag names.UserTag, target na
 	return userAccess, nil
 }
 
-// HasModelAdmin reports whether or not a user has admin access to the specified model.
-// A user has model access if they are the model owner, if they are a controller superuser,
-// or if they have been explicitly granted admin access to the model.
+// HasModelAdmin reports whether or not a user has admin access to the
+// specified model. A user has model access if they are a controller
+// superuser, or if they have been explicitly granted admin access to the
+// model.
 func HasModelAdmin(
 	authorizer facade.Authorizer,
 	user names.UserTag,
@@ -99,10 +100,6 @@ func HasModelAdmin(
 	// superusers have admin for all models.
 	if isSuperUser, err := authorizer.HasPermission(permission.SuperuserAccess, controllerTag); err != nil || isSuperUser {
 		return isSuperUser, err
-	}
-	// model owners have admin.
-	if user.Id() == model.Owner().Id() {
-		return true, nil
 	}
 	return authorizer.HasPermission(permission.AdminAccess, model.ModelTag())
 }

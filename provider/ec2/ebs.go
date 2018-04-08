@@ -331,10 +331,15 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 	instances := make(instanceCache)
 	if instanceIds.Size() > 1 {
 		if err := instances.update(v.env.ec2, instanceIds.Values()...); err != nil {
+			err := maybeConvertCredentialError(err)
 			logger.Debugf("querying running instances: %v", err)
 			// We ignore the error, because we don't want an invalid
 			// InstanceId reference from one VolumeParams to prevent
 			// the creation of another volume.
+			// Except if it is a credential error...
+			if common.IsCredentialNotValid(err) {
+				return nil, errors.Trace(err)
+			}
 		}
 	}
 
@@ -360,7 +365,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 			return
 		}
 		if _, err := v.env.ec2.DeleteVolume(volumeId); err != nil {
-			logger.Errorf("error cleaning up volume %v: %v", volumeId, err)
+			logger.Errorf("error cleaning up volume %v: %v", volumeId, maybeConvertCredentialError(err))
 		}
 	}()
 
@@ -372,19 +377,19 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 	// Create.
 	instId := string(p.Attachment.InstanceId)
 	if err := instances.update(v.env.ec2, instId); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Trace(maybeConvertCredentialError(err))
 	}
 	inst, err := instances.get(instId)
 	if err != nil {
 		// Can't create the volume without the instance,
 		// because we need to know what its AZ is.
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Trace(maybeConvertCredentialError(err))
 	}
 	vol, _ := parseVolumeOptions(p.Size, p.Attributes)
 	vol.AvailZone = inst.AvailZone
 	resp, err := v.env.ec2.CreateVolume(vol)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Trace(maybeConvertCredentialError(err))
 	}
 	volumeId = resp.Id
 
@@ -419,7 +424,7 @@ func (v *ebsVolumeSource) ListVolumes() ([]string, error) {
 func listVolumes(client *ec2.EC2, filter *ec2.Filter, includeRootDisks bool) ([]string, error) {
 	resp, err := client.Volumes(nil, filter)
 	if err != nil {
-		return nil, err
+		return nil, maybeConvertCredentialError(err)
 	}
 	volumeIds := make([]string, 0, len(resp.Volumes))
 	for _, vol := range resp.Volumes {
@@ -450,7 +455,7 @@ func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVo
 	// be rare.
 	resp, err := v.env.ec2.Volumes(volIds, nil)
 	if err != nil {
-		return nil, err
+		return nil, maybeConvertCredentialError(err)
 	}
 	byId := make(map[string]ec2.Volume)
 	for _, vol := range resp.Volumes {
@@ -517,6 +522,8 @@ func destroyVolume(client *ec2.EC2, volumeId string) (err error) {
 				// be destroyed.
 				logger.Tracef("Ignoring error destroying volume %q: %v", volumeId, err)
 				err = nil
+			} else {
+				err = maybeConvertCredentialError(err)
 			}
 		}
 	}()
@@ -611,7 +618,7 @@ func destroyVolume(client *ec2.EC2, volumeId string) (err error) {
 		return nil
 	}
 	_, err = client.DeleteVolume(volumeId)
-	return errors.Annotatef(err, "destroying %q", volumeId)
+	return errors.Annotatef(maybeConvertCredentialError(err), "destroying %q", volumeId)
 }
 
 func releaseVolume(client *ec2.EC2, volumeId string) error {
@@ -635,7 +642,7 @@ func releaseVolume(client *ec2.EC2, volumeId string) error {
 		if err == errWaitVolumeTimeout {
 			return errors.Errorf("timed out waiting for volume %v to become available", volumeId)
 		}
-		return errors.Annotatef(err, "cannot release volume %q", volumeId)
+		return errors.Annotatef(maybeConvertCredentialError(err), "cannot release volume %q", volumeId)
 	}
 	// Releasing the volume just means dropping the
 	// tags that associate it with the model and
@@ -697,10 +704,15 @@ func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 	}
 	instances := make(instanceCache)
 	if err := instances.update(v.env.ec2, instIds.Values()...); err != nil {
+		err := maybeConvertCredentialError(err)
 		logger.Debugf("querying running instances: %v", err)
 		// We ignore the error, because we don't want an invalid
 		// InstanceId reference from one VolumeParams to prevent
 		// the creation of another volume.
+		// Except if it is a credential error...
+		if common.IsCredentialNotValid(err) {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	results := make([]storage.AttachVolumesResult, len(attachParams))
@@ -708,7 +720,7 @@ func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 		instId := string(params.InstanceId)
 		inst, err := instances.get(instId)
 		if err != nil {
-			results[i].Error = err
+			results[i].Error = maybeConvertCredentialError(err)
 			continue
 		}
 
@@ -724,7 +736,7 @@ func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 		nextDeviceName := blockDeviceNamer(numbers)
 		_, deviceName, err := v.attachOneVolume(nextDeviceName, params.VolumeId, instId)
 		if err != nil {
-			results[i].Error = err
+			results[i].Error = maybeConvertCredentialError(err)
 			continue
 		}
 
@@ -766,7 +778,7 @@ func (v *ebsVolumeSource) attachOneVolume(
 	// Wait for the volume to move out of "creating".
 	volume, err := v.waitVolumeCreated(volumeId)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", errors.Trace(maybeConvertCredentialError(err))
 	}
 
 	// Possible statuses:
@@ -819,7 +831,7 @@ func (v *ebsVolumeSource) attachOneVolume(
 			}
 		}
 		if err != nil {
-			return "", "", errors.Annotate(err, "attaching volume")
+			return "", "", errors.Annotate(maybeConvertCredentialError(err), "attaching volume")
 		}
 		return requestDeviceName, actualDeviceName, nil
 	}
@@ -841,7 +853,7 @@ func (v *ebsVolumeSource) waitVolumeCreated(volumeId string) (*ec2.Volume, error
 			volumeId, lastStatus,
 		)
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(maybeConvertCredentialError(err))
 	}
 	return volume, nil
 }
@@ -873,7 +885,7 @@ func waitVolume(
 func describeVolume(client *ec2.EC2, volumeId string) (*ec2.Volume, error) {
 	resp, err := client.Volumes([]string{volumeId}, nil)
 	if err != nil {
-		return nil, errors.Annotate(err, "querying volume")
+		return nil, errors.Annotate(maybeConvertCredentialError(err), "querying volume")
 	}
 	if len(resp.Volumes) == 0 {
 		return nil, errors.NotFoundf("%v", volumeId)
@@ -895,7 +907,7 @@ func (c instanceCache) update(ec2client *ec2.EC2, ids ...string) error {
 	filter.Add("instance-state-name", "running")
 	resp, err := ec2client.Instances(ids, filter)
 	if err != nil {
-		return errors.Annotate(err, "querying instance details")
+		return errors.Annotate(maybeConvertCredentialError(err), "querying instance details")
 	}
 	for j := range resp.Reservations {
 		r := &resp.Reservations[j]
@@ -939,7 +951,7 @@ func detachVolumes(client *ec2.EC2, attachParams []storage.VolumeAttachmentParam
 		}
 		if err != nil {
 			results[i] = errors.Annotatef(
-				err, "detaching %s from %s",
+				maybeConvertCredentialError(err), "detaching %s from %s",
 				names.ReadableString(params.Volume),
 				names.ReadableString(params.Machine),
 			)
@@ -953,7 +965,7 @@ func (v *ebsVolumeSource) ImportVolume(volumeId string, tags map[string]string) 
 	resp, err := v.env.ec2.Volumes([]string{volumeId}, nil)
 	if err != nil {
 		// TODO(axw) check for "not found" response, massage error message?
-		return storage.VolumeInfo{}, err
+		return storage.VolumeInfo{}, maybeConvertCredentialError(err)
 	}
 	if len(resp.Volumes) != 1 {
 		return storage.VolumeInfo{}, errors.Errorf("expected 1 volume result, got %d", len(resp.Volumes))

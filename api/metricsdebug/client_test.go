@@ -40,9 +40,10 @@ func (s *metricsdebugSuiteMock) TestGetMetrics(c *gc.C) {
 			result := response.(*params.MetricResults)
 			result.Results = []params.EntityMetrics{{
 				Metrics: []params.MetricResult{{
-					Key:   "pings",
-					Value: "5",
-					Time:  now,
+					Key:    "pings",
+					Value:  "5",
+					Time:   now,
+					Labels: map[string]string{"foo": "bar"},
 				}},
 				Error: nil,
 			}}
@@ -57,6 +58,8 @@ func (s *metricsdebugSuiteMock) TestGetMetrics(c *gc.C) {
 	c.Assert(metrics[0].Key, gc.Equals, "pings")
 	c.Assert(metrics[0].Value, gc.Equals, "5")
 	c.Assert(metrics[0].Time, gc.Equals, now)
+	c.Assert(metrics[0].Labels, gc.HasLen, 1)
+	c.Assert(metrics[0].Labels, gc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
 func (s *metricsdebugSuiteMock) TestGetMetricsFails(c *gc.C) {

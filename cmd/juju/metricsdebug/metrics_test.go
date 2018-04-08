@@ -70,18 +70,32 @@ func (s *metricsSuite) TestSort(c *gc.C) {
 		Key:   "a-s",
 		Value: "15.0",
 		Time:  time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
+	}, {
+		Unit:   "unit-metered-0",
+		Key:    "a-s",
+		Value:  "5.0",
+		Labels: map[string]string{"quux": "baz"},
+		Time:   time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
+	}, {
+		Unit:   "unit-metered-0",
+		Key:    "a-s",
+		Value:  "10.0",
+		Labels: map[string]string{"foo": "bar"},
+		Time:   time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
 	}}
 	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered/0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.client.CheckCall(c, 0, "GetMetrics", []string{"unit-metered-0"})
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `UNIT          	           TIMESTAMP	METRIC	VALUE
-unit-metered-0	2016-08-22T12:02:04Z	   a-s	 15.0
-unit-metered-0	2016-08-22T12:02:04Z	   b-s	 10.0
-unit-metered-0	2016-08-22T12:02:04Z	   c-s	  5.0
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `UNIT          	           TIMESTAMP	METRIC	VALUE	  LABELS
+unit-metered-0	2016-08-22T12:02:04Z	   a-s	 15.0	        
+unit-metered-0	2016-08-22T12:02:04Z	   a-s	 10.0	 foo=bar
+unit-metered-0	2016-08-22T12:02:04Z	   a-s	  5.0	quux=baz
+unit-metered-0	2016-08-22T12:02:04Z	   b-s	 10.0	        
+unit-metered-0	2016-08-22T12:02:04Z	   c-s	  5.0	        
 `)
 }
 
-func (s *metricsSuite) TestDefaultTabulatFormat(c *gc.C) {
+func (s *metricsSuite) TestDefaultTabularFormat(c *gc.C) {
 	s.client.metrics = []params.MetricResult{{
 		Unit:  "unit-metered-0",
 		Key:   "pongs",
@@ -96,9 +110,9 @@ func (s *metricsSuite) TestDefaultTabulatFormat(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered/0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.client.CheckCall(c, 0, "GetMetrics", []string{"unit-metered-0"})
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `UNIT          	           TIMESTAMP	METRIC	VALUE
-unit-metered-0	2016-08-22T12:02:03Z	 pings	  5.0
-unit-metered-0	2016-08-22T12:02:04Z	 pongs	 15.0
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `UNIT          	           TIMESTAMP	METRIC	VALUE	LABELS
+unit-metered-0	2016-08-22T12:02:03Z	 pings	  5.0	      
+unit-metered-0	2016-08-22T12:02:04Z	 pongs	 15.0	      
 `)
 }
 
@@ -113,11 +127,17 @@ func (s *metricsSuite) TestJSONFormat(c *gc.C) {
 		Key:   "pongs",
 		Value: "15.0",
 		Time:  time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
+	}, {
+		Unit:   "unit-metered-0",
+		Key:    "pongs",
+		Value:  "10.0",
+		Time:   time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
+		Labels: map[string]string{"foo": "bar"},
 	}}
 	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	s.client.CheckCall(c, 0, "GetMetrics", []string{"application-metered"})
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `[{"unit":"unit-metered-0","timestamp":"2016-08-22T12:02:03Z","metric":"pings","value":"5.0"},{"unit":"unit-metered-0","timestamp":"2016-08-22T12:02:04Z","metric":"pongs","value":"15.0"}]
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `[{"unit":"unit-metered-0","timestamp":"2016-08-22T12:02:03Z","metric":"pings","value":"5.0"},{"unit":"unit-metered-0","timestamp":"2016-08-22T12:02:04Z","metric":"pongs","value":"15.0"},{"unit":"unit-metered-0","timestamp":"2016-08-22T12:02:04Z","metric":"pongs","value":"10.0","labels":{"foo":"bar"}}]
 `)
 }
 
@@ -132,6 +152,12 @@ func (s *metricsSuite) TestYAMLFormat(c *gc.C) {
 		Key:   "pongs",
 		Value: "15.0",
 		Time:  time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
+	}, {
+		Unit:   "unit-metered-0",
+		Key:    "pongs",
+		Value:  "10.0",
+		Time:   time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
+		Labels: map[string]string{"foo": "bar"},
 	}}
 	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
@@ -144,6 +170,12 @@ func (s *metricsSuite) TestYAMLFormat(c *gc.C) {
   timestamp: 2016-08-22T12:02:04Z
   metric: pongs
   value: "15.0"
+- unit: unit-metered-0
+  timestamp: 2016-08-22T12:02:04Z
+  metric: pongs
+  value: "10.0"
+  labels:
+    foo: bar
 `)
 }
 

@@ -4,9 +4,7 @@
 package apiserver
 
 import (
-	"crypto/tls"
 	"net/http"
-	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,6 +15,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
 )
@@ -28,19 +28,20 @@ type Config struct {
 	AgentConfig                       agent.Config
 	Clock                             clock.Clock
 	Hub                               *pubsub.StructuredHub
+	Mux                               *apiserverhttp.Mux
+	Authenticator                     httpcontext.LocalMacaroonAuthenticator
 	StatePool                         *state.StatePool
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	RestoreStatus                     func() state.RestoreStatus
 	UpgradeComplete                   func() bool
-	GetCertificate                    func() *tls.Certificate
 	GetAuditConfig                    func() auditlog.Config
 	NewServer                         NewServerFunc
 }
 
 // NewServerFunc is the type of function that will be used
 // by the worker to create a new API server.
-type NewServerFunc func(*state.StatePool, apiserver.ServerConfig) (worker.Worker, error)
+type NewServerFunc func(apiserver.ServerConfig) (worker.Worker, error)
 
 // Validate validates the API server configuration.
 func (config Config) Validate() error {
@@ -56,6 +57,12 @@ func (config Config) Validate() error {
 	if config.StatePool == nil {
 		return errors.NotValidf("nil StatePool")
 	}
+	if config.Mux == nil {
+		return errors.NotValidf("nil Mux")
+	}
+	if config.Authenticator == nil {
+		return errors.NotValidf("nil Authenticator")
+	}
 	if config.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
 	}
@@ -68,9 +75,6 @@ func (config Config) Validate() error {
 	if config.UpgradeComplete == nil {
 		return errors.NotValidf("nil UpgradeComplete")
 	}
-	if config.GetCertificate == nil {
-		return errors.NotValidf("nil GetCertificate")
-	}
 	if config.NewServer == nil {
 		return errors.NotValidf("nil NewServer")
 	}
@@ -81,11 +85,6 @@ func (config Config) Validate() error {
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	servingInfo, ok := config.AgentConfig.StateServingInfo()
-	if !ok {
-		return nil, errors.New("missing state serving info")
 	}
 
 	rateLimitConfig, err := getRateLimitConfig(config.AgentConfig)
@@ -114,17 +113,17 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	serverConfig := apiserver.ServerConfig{
-		ListenAddr:                    ":" + strconv.Itoa(servingInfo.APIPort),
+		StatePool:                     config.StatePool,
 		Clock:                         config.Clock,
 		Tag:                           config.AgentConfig.Tag(),
 		DataDir:                       config.AgentConfig.DataDir(),
 		LogDir:                        config.AgentConfig.LogDir(),
 		Hub:                           config.Hub,
-		GetCertificate:                config.GetCertificate,
+		Mux:                           config.Mux,
+		Authenticator:                 config.Authenticator,
 		RestoreStatus:                 config.RestoreStatus,
 		UpgradeComplete:               config.UpgradeComplete,
-		AutocertURL:                   controllerConfig.AutocertURL(),
-		AutocertDNSName:               controllerConfig.AutocertDNSName(),
+		PublicDNSName:                 controllerConfig.AutocertDNSName(),
 		AllowModelAccess:              controllerConfig.AllowModelAccess(),
 		NewObserver:                   observerFactory,
 		RegisterIntrospectionHandlers: config.RegisterIntrospectionHTTPHandlers,
@@ -133,14 +132,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 		PrometheusRegisterer:          config.PrometheusRegisterer,
 		GetAuditConfig:                config.GetAuditConfig,
 	}
-
-	server, err := config.NewServer(config.StatePool, serverConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return server, nil
+	return config.NewServer(serverConfig)
 }
 
-func newServerShim(statePool *state.StatePool, config apiserver.ServerConfig) (worker.Worker, error) {
-	return apiserver.NewServer(statePool, config)
+func newServerShim(config apiserver.ServerConfig) (worker.Worker, error) {
+	return apiserver.NewServer(config)
 }

@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"log"
 	"net"
+	"net/http"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/raft/raftutil"
 )
@@ -37,6 +39,10 @@ type Config struct {
 	// APIInfo contains the information, excluding addresses,
 	// required to connect to an API server.
 	APIInfo *api.Info
+
+	// Authenticator is the HTTP request authenticator to use for
+	// the raft endpoint.
+	Authenticator httpcontext.Authenticator
 
 	// DialConn is the function to use for dialing connections to
 	// other API servers.
@@ -75,6 +81,9 @@ type DialConnFunc func(ctx context.Context, addr string, tlsConfig *tls.Config) 
 func (config Config) Validate() error {
 	if config.APIInfo == nil {
 		return errors.NotValidf("nil APIInfo")
+	}
+	if config.Authenticator == nil {
+		return errors.NotValidf("nil Authenticator")
 	}
 	if config.DialConn == nil {
 		return errors.NotValidf("nil DialConn")
@@ -232,11 +241,15 @@ func (w *Worker) errDialWorkerStopped() error {
 }
 
 func (w *Worker) loop() error {
-	h := NewHandler(w.connections, w.catacomb.Dying())
-	w.config.Mux.AddHandler("GET", w.config.Path, &ControllerHandler{
-		Mux:     w.config.Mux,
-		Handler: h,
-	})
+	var h http.Handler = NewHandler(w.connections, w.catacomb.Dying())
+	h = &httpcontext.BasicAuthHandler{
+		Handler:       h,
+		Authenticator: w.config.Authenticator,
+		Authorizer:    httpcontext.AuthorizerFunc(controllerAuthorizer),
+	}
+	// TODO(axw) implied controller model
+
+	w.config.Mux.AddHandler("GET", w.config.Path, h)
 	defer w.config.Mux.RemoveHandler("GET", w.config.Path)
 
 	for {
@@ -288,4 +301,11 @@ func DialConn(ctx context.Context, addr string, tlsConfig *tls.Config) (net.Conn
 	dialer.Cancel = canceled
 
 	return tls.DialWithDialer(dialer, "tcp", addr, tlsConfig)
+}
+
+func controllerAuthorizer(authInfo httpcontext.AuthInfo) error {
+	if authInfo.Controller {
+		return nil
+	}
+	return errors.New("controller agents only")
 }

@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-
-	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/apiserverhttp"
 )
 
 // Handler is an http.Handler suitable for serving an endpoint that
@@ -79,32 +76,4 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case <-r.Context().Done():
 		conn.Close()
 	}
-}
-
-// ControllerHandler wraps an apiserverhttp.Mux, into which it will be
-// installed, and another http.Handler. This handler will ensure that the
-// request is authenticated as a controller agent, and only then will
-// delegate to the wrapped handler.
-type ControllerHandler struct {
-	Mux     *apiserverhttp.Mux
-	Handler http.Handler
-}
-
-// ServeHTTP is part of the http.Handler interface.
-func (h *ControllerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	auth, err := h.Mux.Authenticate(r)
-	if err != nil {
-		code := http.StatusInternalServerError
-		if errors.IsUnauthorized(err) {
-			w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-			code = http.StatusUnauthorized
-		}
-		http.Error(w, err.Error(), code)
-		return
-	}
-	if !auth.Controller {
-		http.Error(w, "controller agents only", http.StatusForbidden)
-		return
-	}
-	h.Handler.ServeHTTP(w, r)
 }

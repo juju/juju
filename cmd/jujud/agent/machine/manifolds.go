@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/globalclockupdater"
 	"github.com/juju/juju/worker/hostkeyreporter"
+	"github.com/juju/juju/worker/httpserver"
 	"github.com/juju/juju/worker/identityfilewriter"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
@@ -644,13 +645,25 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		))),
 
+		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
+			AgentName:             agentName,
+			CertWatcherName:       certificateWatcherName,
+			ClockName:             clockName,
+			StateName:             stateName,
+			PrometheusRegisterer:  config.PrometheusRegisterer,
+			NewTLSConfig:          httpserver.NewTLSConfig,
+			NewStateAuthenticator: httpserver.NewStateAuthenticator,
+			NewWorker:             httpserver.NewWorkerShim,
+		}),
+
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:                         agentName,
+			AuthenticatorName:                 httpServerName,
 			ClockName:                         clockName,
 			StateName:                         stateName,
+			MuxName:                           httpServerName,
 			UpgradeGateName:                   upgradeStepsGateName,
 			RestoreStatusName:                 restoreWatcherName,
-			CertWatcherName:                   certificateWatcherName,
 			AuditConfigUpdaterName:            auditConfigUpdaterName,
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
@@ -775,11 +788,13 @@ const (
 	isControllerFlagName          = "is-controller-flag"
 	logPrunerName                 = "log-pruner"
 	txnPrunerName                 = "transaction-pruner"
-	apiServerName                 = "api-server"
 	certificateWatcherName        = "certificate-watcher"
 	modelWorkerManagerName        = "model-worker-manager"
 	peergrouperName               = "peer-grouper"
 	restoreWatcherName            = "restore-watcher"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
+
+	httpServerName = "http-server"
+	apiServerName  = "api-server"
 )

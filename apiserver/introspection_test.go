@@ -9,41 +9,37 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 
+	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
 type introspectionSuite struct {
-	authHTTPSuite
+	apiserverBaseSuite
 	bob *state.User
+	url string
 }
 
 var _ = gc.Suite(&introspectionSuite{})
 
 func (s *introspectionSuite) SetUpTest(c *gc.C) {
-	s.authHTTPSuite.SetUpTest(c)
-	bob, err := s.BackingState.AddUser("bob", "", "hunter2", "admin")
+	s.apiserverBaseSuite.SetUpTest(c)
+	bob, err := s.State.AddUser("bob", "", "hunter2", "admin")
 	c.Assert(err, jc.ErrorIsNil)
 	s.bob = bob
-}
-
-func (s *introspectionSuite) url(c *gc.C) string {
-	url := s.baseURL(c)
-	url.Path = "/introspection/navel"
-	return url.String()
+	s.url = s.server.URL + "/introspection/navel"
 }
 
 func (s *introspectionSuite) TestAccess(c *gc.C) {
-	s.testAccess(c, "user-admin", "dummy-secret")
-	model, err := s.BackingState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+	s.testAccess(c, s.Owner.String(), ownerPassword)
 
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = model.AddUser(
 		state.UserAccessSpec{
-			User:      names.NewUserTag("bob"),
-			CreatedBy: names.NewUserTag("admin"),
+			User:      s.bob.UserTag(),
+			CreatedBy: s.Owner,
 			Access:    permission.ReadAccess,
 		},
 	)
@@ -52,11 +48,11 @@ func (s *introspectionSuite) TestAccess(c *gc.C) {
 }
 
 func (s *introspectionSuite) testAccess(c *gc.C, tag, password string) {
-	resp := s.sendRequest(c, httpRequestParams{
-		method:   "GET",
-		url:      s.url(c),
-		tag:      tag,
-		password: password,
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Method:   "GET",
+		URL:      s.url,
+		Tag:      tag,
+		Password: password,
 	})
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
@@ -66,11 +62,11 @@ func (s *introspectionSuite) testAccess(c *gc.C, tag, password string) {
 }
 
 func (s *introspectionSuite) TestAccessDenied(c *gc.C) {
-	resp := s.sendRequest(c, httpRequestParams{
-		method:   "GET",
-		url:      s.url(c),
-		tag:      "user-bob",
-		password: "hunter2",
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Method:   "GET",
+		URL:      s.url,
+		Tag:      "user-bob",
+		Password: "hunter2",
 	})
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusForbidden)

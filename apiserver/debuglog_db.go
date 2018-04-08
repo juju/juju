@@ -8,12 +8,17 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
-func newDebugLogDBHandler(ctxt httpContext) http.Handler {
-	return newDebugLogHandler(ctxt, handleDebugLogDBRequest)
+func newDebugLogDBHandler(
+	ctxt httpContext,
+	authenticator httpcontext.Authenticator,
+	authorizer httpcontext.Authorizer,
+) http.Handler {
+	return newDebugLogHandler(ctxt, authenticator, authorizer, handleDebugLogDBRequest)
 }
 
 func handleDebugLogDBRequest(

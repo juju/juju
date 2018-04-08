@@ -61,7 +61,7 @@ func makeWatcherAPICaller(caller base.APICaller, facadeName, watcherId string) w
 func (w *commonWatcher) init() {
 	w.in = make(chan interface{})
 	if w.newResult == nil {
-		panic("newResult must me set")
+		panic("newResult must be set")
 	}
 	if w.call == nil {
 		panic("call must be set")

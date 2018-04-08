@@ -307,6 +307,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 
 		cfg := ResolverConfig{
+			ModelType:           u.modelType,
 			ClearResolved:       clearResolved,
 			ReportHookError:     u.reportHookError,
 			ShouldRetryHooks:    u.hookRetryStrategy.ShouldRetry,
@@ -602,11 +603,11 @@ func (u *Uniter) Wait() error {
 
 func (u *Uniter) getApplicationCharmURL() (*corecharm.URL, error) {
 	// TODO(fwereade): pretty sure there's no reason to make 2 API calls here.
-	service, err := u.st.Application(u.unit.ApplicationTag())
+	app, err := u.st.Application(u.unit.ApplicationTag())
 	if err != nil {
 		return nil, err
 	}
-	charmURL, _, err := service.CharmURL()
+	charmURL, _, err := app.CharmURL()
 	return charmURL, err
 }
 

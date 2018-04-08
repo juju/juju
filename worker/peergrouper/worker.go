@@ -46,6 +46,7 @@ type Machine interface {
 	Id() string
 	Life() state.Life
 	Status() (status.StatusInfo, error)
+	SetStatus(status.StatusInfo) error
 	Refresh() error
 	Watch() state.NotifyWatcher
 	WantsVote() bool
@@ -533,8 +534,15 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 		return nil, errors.Annotate(err, "removing non-voters")
 	}
 
-	// Return the members from the calculated peer-group that are voters.
+	// Reset machine status for members of the changed peer-group.
+	// Any previous peer-group determination errors result in status
+	// warning messages.
+	// Remove members from the return that are not voters.
 	for id := range members {
+		if err := w.machineTrackers[id].stm.SetStatus(getStatusInfo("")); err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		if !voting[id] {
 			delete(members, id)
 		}

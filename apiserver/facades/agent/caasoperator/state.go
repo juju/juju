@@ -32,6 +32,7 @@ type Model interface {
 // required by the CAAS operator facade.
 type Application interface {
 	Charm() (Charm, bool, error)
+	CharmModifiedVersion() int
 	SetStatus(status.StatusInfo) error
 	WatchUnits() state.StringsWatcher
 }

@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/state"
@@ -27,8 +27,10 @@ import (
 // variants. The supplied handle func allows for varied handling of
 // requests.
 type debugLogHandler struct {
-	ctxt   httpContext
-	handle debugLogHandlerFunc
+	ctxt          httpContext
+	authenticator httpcontext.Authenticator
+	authorizer    httpcontext.Authorizer
+	handle        debugLogHandlerFunc
 }
 
 type debugLogHandlerFunc func(
@@ -40,16 +42,28 @@ type debugLogHandlerFunc func(
 
 func newDebugLogHandler(
 	ctxt httpContext,
+	authenticator httpcontext.Authenticator,
+	authorizer httpcontext.Authorizer,
 	handle debugLogHandlerFunc,
 ) *debugLogHandler {
 	return &debugLogHandler{
-		ctxt:   ctxt,
-		handle: handle,
+		ctxt:          ctxt,
+		authenticator: authenticator,
+		authorizer:    authorizer,
+		handle:        handle,
 	}
 }
 
 // ServeHTTP will serve up connections as a websocket for the
 // debug-log API.
+//
+// The authentication and authorization have to be done after the http request
+// has been upgraded to a websocket as we may be sending back a discharge
+// required error. This error contains the macaroon that needs to be
+// discharged by the user. In order for this error to be deserialized
+// correctly any auth failure will come back in the initial error that is
+// returned over the websocket. This is consumed by the ConnectStream function
+// on the apiclient.
 //
 // Args for the HTTP request are as follows:
 //   includeEntity -> []string - lists entity tags to include in the response
@@ -72,8 +86,20 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(conn *websocket.Conn) {
 		socket := &debugLogSocketImpl{conn}
 		defer conn.Close()
+		// Authentication and authorization has to be done after the http
+		// connection has been upgraded to a websocket.
 
-		st, _, err := h.ctxt.stateForRequestAuthenticatedTag(req, names.MachineTagKind, names.UserTagKind)
+		authInfo, err := h.authenticator.Authenticate(req)
+		if err != nil {
+			socket.sendError(errors.Annotate(err, "authentication failed"))
+			return
+		}
+		if err := h.authorizer.Authorize(authInfo); err != nil {
+			socket.sendError(errors.Annotate(err, "authorization failed"))
+			return
+		}
+
+		st, err := h.ctxt.stateForRequestUnauthenticated(req)
 		if err != nil {
 			socket.sendError(err)
 			return
