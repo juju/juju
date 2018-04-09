@@ -22,7 +22,7 @@ func (e *Environ) SuperSubnets() ([]string, error) {
 }
 
 func (e *Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("NetworkInterfaces")
 }
 
 func (e *Environ) SupportsSpaces() (bool, error) {
@@ -34,15 +34,15 @@ func (e *Environ) SupportsSpaceDiscovery() (bool, error) {
 }
 
 func (e *Environ) Spaces() ([]network.SpaceInfo, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("Spaces")
 }
 
 func (e *Environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("ProviderSpaceInfo")
 }
 
 func (e *Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
+	return false, errors.NotImplementedf("AreSpacesRoutable")
 }
 
 func (e *Environ) SupportsContainerAddresses() (bool, error) {
@@ -54,13 +54,13 @@ func (e *Environ) AllocateContainerAddresses(
 	containerTag names.MachineTag,
 	preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 
-	return nil, nil
+	return nil, errors.NotImplementedf("AllocateContainerAddresses")
 }
 
 func (e *Environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
-	return nil
+	return errors.NotImplementedf("ReleaseContainerAddresses")
 }
 
 func (e *Environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
-	return addresses, nil
+	return addresses, errors.NotImplementedf("SSHAddresses")
 }

@@ -40,7 +40,7 @@ func (o *EnvironProvider) ConfigDefaults() schema.Defaults {
 
 // Version implements environs.EnvironProvider.
 func (e EnvironProvider) Version() int {
-	return 0
+	return 1
 }
 
 // CloudSchema implements environs.EnvironProvider.
@@ -55,12 +55,12 @@ func (e *EnvironProvider) Ping(endpoint string) error {
 
 // PrepareConfig implements environs.EnvironProvider.
 func (e EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("Ping")
 }
 
 // Open implements environs.EnvironProvider.
 func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("Open")
 }
 
 // CredentialSchemas implements environs.ProviderCredentials.
@@ -70,7 +70,7 @@ func (e EnvironProvider) CredentialSchemas() map[cloud.AuthType]cloud.Credential
 
 // DetectCredentials implements environs.ProviderCredentials.
 func (e EnvironProvider) DetectCredentials() (*cloud.CloudCredential, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("DetectCredentials")
 }
 
 // FinalizeCredential implements environs.ProviderCredentials.
@@ -78,10 +78,10 @@ func (e EnvironProvider) FinalizeCredential(
 	ctx environs.FinalizeCredentialContext,
 	params environs.FinalizeCredentialParams) (*cloud.Credential, error) {
 
-	return nil, nil
+	return nil, errors.NotImplementedf("FinalizeCredential")
 }
 
 // Validate implements config.Validator.
 func (e EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("Validate")
 }

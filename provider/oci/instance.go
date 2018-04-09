@@ -4,6 +4,8 @@
 package oci
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -25,20 +27,20 @@ func (o *ociInstance) Status() instance.InstanceStatus {
 
 // Addresses implements instance.Instance
 func (o *ociInstance) Addresses() ([]network.Address, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("Addresses")
 }
 
 // OpenPorts implements instance.InstanceFirewaller
 func (o *ociInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
-	return nil
+	return errors.NotImplementedf("OpenPorts")
 }
 
 // ClosePorts implements instance.InstanceFirewaller
 func (o *ociInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
-	return nil
+	return errors.NotImplementedf("ClosePorts")
 }
 
 // IngressRules implements instance.InstanceFirewaller
 func (o *ociInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("IngressRules")
 }

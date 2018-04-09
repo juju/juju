@@ -27,27 +27,27 @@ var _ environs.NetworkingEnviron = (*Environ)(nil)
 
 // AvailabilityZones is defined in the common.ZonedEnviron interface
 func (e *Environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("AvailabilityZones")
 }
 
 // InstanceAvailabilityzoneNames implements common.ZonedEnviron.
 func (e *Environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("InstanceAvailabilityZoneNames")
 }
 
 // DeriveAvailabilityZones implements common.ZonedEnviron.
 func (e *Environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("DeriveAvailabilityZones")
 }
 
 // Instances implements environs.Environ.
 func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("Instances")
 }
 
 // PrepareForBootstrap implements environs.Environ.
 func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
-	return nil
+	return errors.NotImplementedf("PrepareForBootstrap")
 }
 
 // Bootstrap implements environs.Environ.
@@ -57,27 +57,27 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boots
 
 // Create implements environs.Environ.
 func (e *Environ) Create(params environs.CreateParams) error {
-	return nil
+	return errors.NotImplementedf("Create")
 }
 
 // AdoptResources implements environs.Environ.
 func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
-	return nil
+	return errors.NotImplementedf("AdoptResources")
 }
 
 // ConstraintsValidator implements environs.Environ.
 func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 
 // SetConfig implements environs.Environ.
 func (e *Environ) SetConfig(cfg *config.Config) error {
-	return nil
+	return errors.NotImplementedf("SetConfig")
 }
 
 // ControllerInstances implements environs.Environ.
 func (e *Environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("ControllerInstances")
 }
 
 // Destroy implements environs.Environ.
@@ -87,7 +87,7 @@ func (e *Environ) Destroy() error {
 
 // DestroyController implements environs.Environ.
 func (e *Environ) DestroyController(controllerUUID string) error {
-	return nil
+	return errors.NotImplementedf("DestroyController")
 }
 
 // Provider implements environs.Environ.
@@ -97,7 +97,7 @@ func (e *Environ) Provider() environs.EnvironProvider {
 
 // StorageProviderTypes implements storage.ProviderRegistry.
 func (e *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
-	return []storage.ProviderType{}, nil
+	return []storage.ProviderType{}, errors.NotImplementedf("StorageProviderTypes")
 }
 
 // StorageProvider implements storage.ProviderRegistry.
@@ -107,22 +107,22 @@ func (e *Environ) StorageProvider(t storage.ProviderType) (storage.Provider, err
 
 // StartInstance implements environs.InstanceBroker.
 func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("StartInstance")
 }
 
 // StopInstances implements environs.InstanceBroker.
 func (e *Environ) StopInstances(ids ...instance.Id) error {
-	return nil
+	return errors.NotImplementedf("StopInstances")
 }
 
 // AllInstances implements environs.InstanceBroker.
 func (e *Environ) AllInstances() ([]instance.Instance, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("AllInstances")
 }
 
 // MaintainInstance implements environs.InstanceBroker.
 func (e *Environ) MaintainInstance(args environs.StartInstanceParams) error {
-	return nil
+	return errors.NotImplementedf("MaintainInstance")
 }
 
 // Config implements environs.ConfigGetter.
@@ -132,10 +132,10 @@ func (e *Environ) Config() *config.Config {
 
 // PrecheckInstance implements environs.InstancePrechecker.
 func (e *Environ) PrecheckInstance(environs.PrecheckInstanceParams) error {
-	return nil
+	return errors.NotImplementedf("PrecheckInstance")
 }
 
 // InstanceTypes implements environs.InstancePrechecker.
 func (e *Environ) InstanceTypes(constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	return instances.InstanceTypesWithCostMetadata{}, nil
+	return instances.InstanceTypesWithCostMetadata{}, errors.NotImplementedf("InstanceTypes")
 }

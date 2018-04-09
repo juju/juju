@@ -14,7 +14,7 @@ type storageProvider struct{}
 var _ storage.Provider = (*storageProvider)(nil)
 
 func (s *storageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
-	return nil, nil
+	return nil, errors.NotImplementedf("VolumeSource")
 }
 
 func (s *storageProvider) FilesystemSource(cfg *storage.Config) (storage.FilesystemSource, error) {
@@ -43,5 +43,5 @@ func (s *storageProvider) DefaultPools() []*storage.Config {
 }
 
 func (s *storageProvider) ValidateConfig(cfg *storage.Config) error {
-	return nil
+	return errors.NotImplementedf("ValidateConfig")
 }
