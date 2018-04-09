@@ -70,6 +70,14 @@ type Factory interface {
 	// NewUpgrade creates an upgrade operation for the supplied charm.
 	NewUpgrade(charmURL *corecharm.URL) (Operation, error)
 
+	// NewNoOpUpgrade creates a noop upgrade operation for the supplied charm.
+	// The purpose is to go through the machinations so that in the commit phase,
+	// the uniter records the current charm url and modified version in local state
+	// so it knows the upgraded charm has been unpacked and it can run the upgrade-charm hook.
+	// For a caas uniter, the operator is the thing that does the charm upgrade,
+	// so we just plug in a no op into the uniter state machine.
+	NewNoOpUpgrade(charmURL *corecharm.URL) (Operation, error)
+
 	// NewRevertUpgrade creates an operation to clear the unit's resolved flag,
 	// and execute an upgrade to the supplied charm that is careful to excise
 	// remnants of a previously failed upgrade to a different charm.

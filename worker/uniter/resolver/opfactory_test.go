@@ -133,6 +133,7 @@ func (s *ResolverOpFactorySuite) TestUpgrade(c *gc.C) {
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewUpgrade)
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewRevertUpgrade)
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewResolvedUpgrade)
+	s.testUpgrade(c, resolver.ResolverOpFactory.NewNoOpUpgrade)
 }
 
 func (s *ResolverOpFactorySuite) testUpgrade(

@@ -62,6 +62,11 @@ func (f *factory) NewUpgrade(charmURL *corecharm.URL) (Operation, error) {
 	return f.newDeploy(Upgrade, charmURL, false, false)
 }
 
+// NewNoOpUpgrade is part of the Factory interface.
+func (f *factory) NewNoOpUpgrade(charmURL *corecharm.URL) (Operation, error) {
+	return &skipOperation{&noOpUpgrade{charmURL: charmURL}}, nil
+}
+
 // NewRevertUpgrade is part of the Factory interface.
 func (f *factory) NewRevertUpgrade(charmURL *corecharm.URL) (Operation, error) {
 	return f.newDeploy(Upgrade, charmURL, true, false)

@@ -37,7 +37,8 @@ type RemoteStateWatcher struct {
 	leadershipTracker         leadership.Tracker
 	updateStatusChannel       UpdateStatusTimerFunc
 	commandChannel            <-chan string
-	retryHookChannel          <-chan struct{}
+	retryHookChannel          watcher.NotifyChannel
+	applicationChannel        watcher.NotifyChannel
 
 	catacomb catacomb.Catacomb
 
@@ -53,14 +54,25 @@ type WatcherConfig struct {
 	LeadershipTracker   leadership.Tracker
 	UpdateStatusChannel UpdateStatusTimerFunc
 	CommandChannel      <-chan string
-	RetryHookChannel    <-chan struct{}
+	RetryHookChannel    watcher.NotifyChannel
+	ApplicationChannel  watcher.NotifyChannel
 	UnitTag             names.UnitTag
 	ModelType           model.ModelType
+}
+
+func (w WatcherConfig) validate() error {
+	if w.ModelType == model.CAAS && w.ApplicationChannel == nil {
+		return errors.NotValidf("watcher config for CAAS model with nil application channel")
+	}
+	return nil
 }
 
 // NewWatcher returns a RemoteStateWatcher that handles state changes pertaining to the
 // supplied unit.
 func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
+	if err := config.validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	w := &RemoteStateWatcher{
 		st:                        config.State,
 		relations:                 make(map[names.RelationTag]*relationUnitsWatcher),
@@ -71,6 +83,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		updateStatusChannel:       config.UpdateStatusChannel,
 		commandChannel:            config.CommandChannel,
 		retryHookChannel:          config.RetryHookChannel,
+		applicationChannel:        config.ApplicationChannel,
 		modelType:                 config.ModelType,
 		// Note: it is important that the out channel be buffered!
 		// The remote state watcher will perform a non-blocking send
@@ -241,11 +254,23 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		seenStorageChange bool
 		storageChanges    watcher.StringsChannel
 
-		seenApplicationChange bool
-		applicationChanges    watcher.NotifyChannel
+		seenApplicationChange *bool
 	)
 
 	if w.modelType == model.IAAS {
+		// This is in IAAS model so we need to watch state for application
+		// charm changes instead of being informed by the operator.
+		applicationw, err := w.application.Watch()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := w.catacomb.Add(applicationw); err != nil {
+			return errors.Trace(err)
+		}
+		w.applicationChannel = applicationw.Changes()
+		seenApplicationChange = new(bool)
+		requiredEvents++
+
 		storagew, err := w.unit.WatchStorage()
 		if err != nil {
 			return errors.Trace(err)
@@ -254,16 +279,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		if err := w.catacomb.Add(storagew); err != nil {
 			return errors.Trace(err)
 		}
-		requiredEvents++
-
-		applicationw, err := w.application.Watch()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := w.catacomb.Add(applicationw); err != nil {
-			return errors.Trace(err)
-		}
-		applicationChanges = applicationw.Changes()
 		requiredEvents++
 	}
 
@@ -304,7 +319,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 	var eventsObserved int
 	observedEvent := func(flag *bool) {
-		if !*flag {
+		if flag != nil && !*flag {
 			*flag = true
 			eventsObserved++
 		}
@@ -372,7 +387,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenUnitChange)
 
-		case _, ok := <-applicationChanges:
+		case _, ok := <-w.applicationChannel:
 			logger.Debugf("got application change")
 			if !ok {
 				return errors.New("application watcher closed")
@@ -380,7 +395,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err := w.applicationChanged(); err != nil {
 				return errors.Trace(err)
 			}
-			observedEvent(&seenApplicationChange)
+			observedEvent(seenApplicationChange)
 
 		case _, ok := <-charmConfigw.Changes():
 			err = configChanged(ok, &seenConfigChange)
