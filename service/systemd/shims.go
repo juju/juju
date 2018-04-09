@@ -6,7 +6,8 @@ import (
 	"github.com/juju/utils/exec"
 )
 
-// Interfaces exposing call surfaces
+// Interfaces for call surfaces of command-line and file-system side-effects.
+// These are "patched" over the existing methods by the test suite.
 // To regenerate the mock for these interfaces,
 // run "go generate" from the package directory.
 //go:generate mockgen -package systemd -destination shims_mock.go github.com/juju/juju/service/systemd ShimFileOps,ShimExec
