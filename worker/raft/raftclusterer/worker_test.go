@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/pubsub"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -76,12 +77,22 @@ func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*raftclusterer
 type WorkerSuite struct {
 	workerFixture
 	worker worker.Worker
+	stub   testing.Stub
 }
 
 var _ = gc.Suite(&WorkerSuite{})
 
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.workerFixture.SetUpTest(c)
+
+	s.stub.ResetCalls()
+	s.hub.Subscribe(
+		apiserver.DetailsRequestTopic,
+		func(topic string, req apiserver.DetailsRequest, err error) {
+			s.stub.AddCall("DetailsRequest", req, err)
+		},
+	)
+
 	worker, err := raftclusterer.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
@@ -243,6 +254,10 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 	c.Assert(future.Error(), jc.ErrorIsNil)
 }
 
+func (s *WorkerSuite) TestRequestsDetails(c *gc.C) {
+	s.stub.CheckCall(c, 0, "DetailsRequest", apiserver.DetailsRequest{Requester: "raft-clusterer"}, nil)
+}
+
 func (s *WorkerSuite) publishDetails(c *gc.C, details apiserver.Details) {
 	received, err := s.hub.Publish(apiserver.DetailsTopic, details)
 	c.Assert(err, jc.ErrorIsNil)
@@ -253,7 +268,7 @@ func (s *WorkerSuite) publishDetails(c *gc.C, details apiserver.Details) {
 	}
 }
 
-// Connect  all of the provided transport bidirectionally.
+// Connect the provided transport bidirectionally.
 func connectTransports(transports ...raft.LoopbackTransport) {
 	for _, t1 := range transports {
 		for _, t2 := range transports {

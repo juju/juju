@@ -84,9 +84,10 @@ var (
 	pollInterval = 1 * time.Minute
 )
 
-// Hub defines the only method of the apiserver centralhub that
-// the peer grouper uses.
+// Hub defines the methods of the apiserver centralhub that the peer
+// grouper uses.
 type Hub interface {
+	Subscribe(topic string, handler interface{}) (func(), error)
 	Publish(topic string, data interface{}) (<-chan struct{}, error)
 }
 
@@ -107,6 +108,9 @@ type pgWorker struct {
 	// machineTrackers holds the workers which track the machines we
 	// are currently watching (all the controller machines).
 	machineTrackers map[string]*machineTracker
+
+	// detailsRequests is used to feed details requests from the hub into the main loop.
+	detailsRequests chan string
 
 	// serverDetails holds the last server information broadcast via pub/sub.
 	// It is used to detect changes since the last publish.
@@ -166,6 +170,7 @@ func New(config Config) (worker.Worker, error) {
 		config:          config,
 		machineChanges:  make(chan struct{}),
 		machineTrackers: make(map[string]*machineTracker),
+		detailsRequests: make(chan string),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -197,6 +202,12 @@ func (w *pgWorker) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	unsubscribe, err := w.config.Hub.Subscribe(apiserver.DetailsRequestTopic, w.apiserverDetailsRequested)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer unsubscribe()
 
 	var updateChan <-chan time.Time
 	retryInterval := initialRetryInterval
@@ -233,6 +244,12 @@ func (w *pgWorker) loop() error {
 				logger.Tracef("no controller information, ignoring config change")
 				continue
 			}
+		case requester := <-w.detailsRequests:
+			// A client requested the details be resent (probably
+			// because they just subscribed).
+			logger.Tracef("<-w.detailsRequests (from %q)", requester)
+			w.config.Hub.Publish(apiserver.DetailsTopic, w.serverDetails)
+			continue
 		case <-updateChan:
 			// Scheduled update.
 			logger.Tracef("<-updateChan")
@@ -392,6 +409,18 @@ func (w *pgWorker) updateControllerMachines() (bool, error) {
 
 	}
 	return changed, nil
+}
+
+func (w *pgWorker) apiserverDetailsRequested(topic string, request apiserver.DetailsRequest, err error) {
+	if err != nil {
+		// This shouldn't happen (barring programmer error ;) - treat it as fatal.
+		w.catacomb.Kill(errors.Annotate(err, "apiserver details request callback failed"))
+		return
+	}
+	select {
+	case w.detailsRequests <- request.Requester:
+	case <-w.catacomb.Dying():
+	}
 }
 
 func inStrings(t string, ss []string) bool {

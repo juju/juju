@@ -36,6 +36,17 @@ type Details struct {
 	LocalOnly bool                 `yaml:"local-only"`
 }
 
+// DetailsRequestTopic is the topic that details requests are
+// published on. In response to those requests, the current details
+// will be published on the DetailsTopic.
+const DetailsRequestTopic = "apiserver.details-request"
+
+// DetailsRequest indicates the worker who is asking for the details
+// to be sent.
+type DetailsRequest struct {
+	Requester string `yaml:"requester"`
+}
+
 // ConnectTopic is the topic name for the published message
 // whenever an agent conntects to the API server.
 const ConnectTopic = "apiserver.agent-connect"
