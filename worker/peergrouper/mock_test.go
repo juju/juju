@@ -332,9 +332,6 @@ func (m *fakeMachine) Status() (status.StatusInfo, error) {
 }
 
 func (m *fakeMachine) SetStatus(sInfo status.StatusInfo) error {
-	if err := m.errors.errorFor("Machine.SetStatus", m.doc.id, sInfo); err != nil {
-		return err
-	}
 	m.mutate(func(doc *machineDoc) {
 		doc.statusInfo = sInfo
 	})
