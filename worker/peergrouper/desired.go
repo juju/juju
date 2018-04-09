@@ -24,8 +24,8 @@ const jujuMachineKey = "juju-machine-id"
 type peerGroupInfo struct {
 	// Maps below are keyed on machine ID.
 
-	// Trackers for known controller machines sourced from the peergrouper
-	// worker.
+	// machines holds the machineTrackers for known controller machines sourced from the peergrouper
+	// worker. Indexed by machine.Id()
 	machines map[string]*machineTracker
 
 	// Replica-set members sourced from the Mongo session that are recognised by

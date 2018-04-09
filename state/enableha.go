@@ -409,3 +409,19 @@ func removeControllerOps(m *Machine) []txn.Op {
 		Update: bson.D{{"$pull", bson.D{{"machineids", m.doc.Id}}}},
 	}}
 }
+
+// RemoveControllerMachine will remove Machine from being part of the set of Controllers for this
+func (st *State) RemoveControllerMachine(m *Machine) error {
+	if m.WantsVote() {
+		return errors.Errorf("machine %s cannot be removed as a controller as it still wants to vote", m.Id())
+	}
+	if m.HasVote() {
+		return errors.Errorf("machine %s cannot be removed as a controller as it still has a vote", m.Id())
+	}
+	// TODO: Ensure that there are other controllers
+	// Note: we treat removing a machine that is not there as 'convergence' rather than illegal.
+	if err := st.runRawTransaction(removeControllerOps(m)); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}

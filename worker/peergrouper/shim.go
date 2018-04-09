@@ -26,6 +26,10 @@ func (s StateShim) Space(name string) (Space, error) {
 	return s.State.Space(name)
 }
 
+func (s StateShim) RemoveControllerMachine(m Machine) error {
+	return s.State.RemoveControllerMachine(m.(*state.Machine))
+}
+
 // MongoSessionShim wraps a *mgo.Session to conform to the
 // MongoSession interface.
 type MongoSessionShim struct {

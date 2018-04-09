@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
+	"strconv"
 	"time"
 
 	"github.com/juju/loggo"
@@ -20,11 +22,10 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/workertest"
-	"sort"
-	"strconv"
 )
 
 type TestIPVersion struct {
@@ -826,6 +827,42 @@ func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersi
 		c.Errorf("unexpected publish event")
 	case <-time.After(coretesting.ShortWait):
 	}
+}
+
+func (s *workerSuite) TestDyingMachinesAreRemoved(c *gc.C) {
+	st := NewFakeState()
+	InitState(c, st, 3, testIPv4)
+	st.machine("10").SetHasVote(true)
+	st.session.setStatus(mkStatuses("0p", testIPv4))
+
+	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
+	defer workertest.CleanKill(c, w)
+
+	memberWatcher := st.session.members.Watch()
+	mustNext(c, memberWatcher, "init")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v", testIPv4))
+	st.session.setStatus(mkStatuses("0p 1 2", testIPv4))
+	mustNext(c, memberWatcher, "initial members")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", testIPv4))
+	// Changes to the replicaset status are discovered via polling mongo, so advance the clock so we'll check again
+	// we might be racing with a configChanged which can *just* miss the setStatus here.
+	// by waiting 2x, we are sure it has seen the change.
+	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
+	s.clock.Advance(2 * pollInterval)
+	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.ShortWait, 1), jc.ErrorIsNil)
+	mustNext(c, memberWatcher, "status ok")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", testIPv4))
+	// Now we have gotten to a prepared replicaset.
+
+	// When we advance the lifecycle (aka machine.Destroy()), we should notice that the machine no longer wants a vote
+	// machine.Destroy() advances to both Dying and SetWantsVote(false)
+	st.machine("11").advanceLifecycle(state.Dying, false)
+	// we should notice that we want to remove the vote first
+	mustNext(c, memberWatcher, "removing vote")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", testIPv4))
+	// And once we don't have the vote, and we see the machine is Dying we should remove it
+	mustNext(c, memberWatcher, "remove dying machine")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v 2", testIPv4))
 }
 
 // mustNext waits for w's value to be set and returns it.
