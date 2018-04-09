@@ -21,6 +21,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -56,9 +57,10 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
-	s.JujuConnSuite.ConfigAttrs = map[string]interface{}{
-		"image-stream": "daily",
+	if s.JujuConnSuite.ConfigAttrs == nil {
+		s.JujuConnSuite.ConfigAttrs = make(map[string]interface{})
 	}
+	s.JujuConnSuite.ConfigAttrs["image-stream"] = "daily"
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Reset previous machines (if any) and create 3 machines
@@ -1342,10 +1344,34 @@ func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType)
 	return results.ManagerConfig
 }
 
-func (s *withoutControllerSuite) TestContainerManagerConfig(c *gc.C) {
+func (s *withoutControllerSuite) TestContainerManagerConfigDefaults(c *gc.C) {
 	cfg := s.getManagerConfig(c, instance.KVM)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigModelUUID: coretesting.ModelTag.Id(),
+		container.ConfigModelUUID:      coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey: "released",
+	})
+}
+
+type withImageMetadataSuite struct {
+	provisionerSuite
+}
+
+var _ = gc.Suite(&withImageMetadataSuite{})
+
+func (s *withImageMetadataSuite) SetUpTest(c *gc.C) {
+	s.ConfigAttrs = map[string]interface{}{
+		config.ContainerImageStreamKey:      "daily",
+		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
+	}
+	s.setUpTest(c, false)
+}
+
+func (s *withImageMetadataSuite) TestContainerManagerConfigImageMetadata(c *gc.C) {
+	cfg := s.getManagerConfig(c, instance.LXD)
+	c.Assert(cfg, jc.DeepEquals, map[string]string{
+		container.ConfigModelUUID:           coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey:      "daily",
+		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
 	})
 }
 
