@@ -351,13 +351,15 @@ func (m *fakeMachine) Addresses() []network.Address {
 }
 
 func (m *fakeMachine) Status() (status.StatusInfo, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.doc.statusInfo, nil
 }
 
 func (m *fakeMachine) SetStatus(sInfo status.StatusInfo) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.doc.statusInfo = sInfo
+	m.mutate(func(doc *machineDoc) {
+		doc.statusInfo = sInfo
+	})
 	return nil
 }
 

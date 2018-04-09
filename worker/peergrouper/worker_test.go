@@ -609,9 +609,9 @@ func (s *workerSuite) doTestUsesConfiguredHASpace(c *gc.C, ipVersion TestIPVersi
 	})
 	c.Assert(err, gc.IsNil)
 
-	st.setHASpace("one")
+	st.setHASpace("two")
 	s.runUntilPublish(c, st, "")
-	assertMemberAddresses(c, st, ipVersion.formatHost, 1)
+	assertMemberAddresses(c, st, ipVersion.formatHost, 2)
 
 	sInfo, err := st.machine("11").Status()
 	c.Assert(err, gc.IsNil)
