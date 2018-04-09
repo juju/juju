@@ -178,7 +178,7 @@ func newAPIRoot(st *state.State, pool *state.StatePool, facades *facade.Registry
 }
 
 // restrictAPIRoot calls restrictAPIRootDuringMaintenance, and
-// then restricts the result further to the contoller or model
+// then restricts the result further to the controller or model
 // facades, depending on the type of login.
 func restrictAPIRoot(
 	srv *Server,

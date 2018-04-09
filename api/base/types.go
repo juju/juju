@@ -142,3 +142,13 @@ type SLASummary struct {
 	Level string
 	Owner string
 }
+
+// StoredCredential contains information about the cloud credential stored on the controller
+// and used by models.
+type StoredCredential struct {
+	// CloudCredential is a cloud credential that identifies cloud credential on the controller.
+	CloudCredential string
+
+	// Valid is a flag that indicates whether the credential is valid.
+	Valid bool
+}

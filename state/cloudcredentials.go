@@ -318,7 +318,7 @@ func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
 	return credentials, nil
 }
 
-// CredentialOwnerModelAccess storescloud credntial model information for the credential owner
+// CredentialOwnerModelAccess stores cloud credential model information for the credential owner
 // or an error retrieving it.
 type CredentialOwnerModelAccess struct {
 	ModelName   string

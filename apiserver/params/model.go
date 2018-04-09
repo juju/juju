@@ -381,3 +381,34 @@ type DestroyModelParams struct {
 	// params.CodeHasPersistentStorage will be returned.
 	DestroyStorage *bool `json:"destroy-storage,omitempty"`
 }
+
+// ModelCredential stores information about cloud credential that a model uses:
+// what credential is being used, is it valid for this model, etc.
+type ModelCredential struct {
+	// Model is a tag for the model.
+	Model string `json:"model-tag"`
+
+	// Exists indicates whether credential was set on the model.
+	// It is valid for model not to have a credential if it is on the
+	// cloud that does not require auth.
+	Exists bool `json:"exists,omitempty"`
+
+	// CloudCredential is the tag for the cloud credential that the model uses.
+	CloudCredential string `json:"credential-tag"`
+
+	// Valid stores whether this credential is valid, for example, not expired,
+	// and whether this credential works for this model, i.e. all model
+	// machines can be accessed with this credential.
+	Valid bool `json:"valid,omitempty"`
+}
+
+// ModelCredentialResult holds the result of a ModelCredential call.
+type ModelCredentialResult struct {
+	Result *ModelCredential `json:"result,omitempty"`
+	Error  *Error           `json:"error,omitempty"`
+}
+
+// ModelCredentialResults holds the result of a bulk ModelCredential API call.
+type ModelCredentialResults struct {
+	Results []ModelCredentialResult `json:"results"`
+}

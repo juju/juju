@@ -81,6 +81,10 @@ func (st *State) IsMaster() (bool, error) {
 
 // WatchCredential returns a watcher which reports when the specified
 // credential has changed.
+// TODO (anastasiamac 2018-04-06) I think that this is wrong and it does not
+// look to be used and should be removed:
+// * why are we ignoring the tag argument?;
+// * what is actually being called since there is no equivalent apiserver.*.WatchCredential?...
 func (c *State) WatchCredential(tag names.CloudCredentialTag) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 	err := c.facade.FacadeCall("WatchCredential", nil, &result)
