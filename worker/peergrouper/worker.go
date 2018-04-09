@@ -467,12 +467,12 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "creating peer group info")
 	}
-	members, voting, err := desiredPeerGroup(info)
+	membersChanged, members, voting, err := desiredPeerGroup(info)
 	if err != nil {
 		return nil, errors.Annotate(err, "computing desired peer group")
 	}
 	if logger.IsDebugEnabled() {
-		if members != nil {
+		if membersChanged {
 			logger.Debugf("desired peer group members: \n%s", prettyReplicaSetMembers(members))
 		} else {
 			var output []string
@@ -518,7 +518,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	if err := setHasVote(added, true); err != nil {
 		return nil, errors.Annotate(err, "adding new voters")
 	}
-	if members != nil {
+	if membersChanged {
 		ms := make([]replicaset.Member, 0, len(members))
 		for _, m := range members {
 			ms = append(ms, *m)

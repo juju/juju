@@ -153,7 +153,7 @@ func (info *peerGroupInfo) initNewReplicaSet() map[string]*replicaset.Member {
 //      and any of these are set as voters.
 //   2) There is no HA space configured and any machines have multiple
 //      cloud-local addresses.
-func desiredPeerGroup(info *peerGroupInfo) (map[string]*replicaset.Member, map[string]bool, error) {
+func desiredPeerGroup(info *peerGroupInfo) (bool, map[string]*replicaset.Member, map[string]bool, error) {
 	logger.Debugf(info.getLogMessage())
 
 	peerChanges := peerGroupChanges{
@@ -175,7 +175,7 @@ func desiredPeerGroup(info *peerGroupInfo) (map[string]*replicaset.Member, map[s
 	// 4) Do nothing.
 	err := peerChanges.checkExtraMembers(info.extra)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return false, nil, nil, errors.Trace(err)
 	}
 
 	peerChanges.members = info.initNewReplicaSet()
@@ -189,13 +189,10 @@ func desiredPeerGroup(info *peerGroupInfo) (map[string]*replicaset.Member, map[s
 	peerChanges.adjustVotes()
 
 	if err := peerChanges.updateAddresses(info); err != nil {
-		return nil, nil, errors.Trace(err)
+		return false, nil, nil, errors.Trace(err)
 	}
 
-	if !peerChanges.isChanged {
-		return nil, peerChanges.machineVoting, nil
-	}
-	return peerChanges.members, peerChanges.machineVoting, nil
+	return peerChanges.isChanged, peerChanges.members, peerChanges.machineVoting, nil
 }
 
 // checkExtraMembers checks to see if any of the input members, identified as
