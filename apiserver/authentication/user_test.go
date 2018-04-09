@@ -198,7 +198,7 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 
 	service.CheckCallNames(c, "CheckAny", "ExpireStorageAfter", "NewMacaroon")
 	calls := service.Calls()
-	c.Assert(calls[1].Args, jc.DeepEquals, []interface{}{time.Until(clock.Now().Add(24 * time.Hour))})
+	c.Assert(calls[1].Args, jc.DeepEquals, []interface{}{24 * time.Hour})
 	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{
 		[]checkers.Caveat{
 			checkers.NeedDeclaredCaveat(

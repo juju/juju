@@ -165,7 +165,7 @@ func (u *UserAuthenticator) authenticateMacaroons(
 		// The root keys for these macaroons are stored in MongoDB.
 		// Expire the documents after after a set amount of time.
 		expiryTime := u.Clock.Now().Add(localLoginExpiryTime)
-		service, err := u.Service.ExpireStorageAfter(time.Until(expiryTime))
+		service, err := u.Service.ExpireStorageAfter(localLoginExpiryTime)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

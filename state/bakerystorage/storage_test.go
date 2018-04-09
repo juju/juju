@@ -4,6 +4,7 @@
 package bakerystorage
 
 import (
+	"encoding/json"
 	"time" // Only used for time types.
 
 	gitjujutesting "github.com/juju/testing"
@@ -20,12 +21,10 @@ import (
 type StorageSuite struct {
 	testing.BaseSuite
 	gitjujutesting.Stub
-	collection            mockCollection
-	legacyCollection      mockCollection
-	memStorage            bakery.Storage
-	closeCollection       func()
-	closeLegacyCollection func()
-	config                Config
+	collection      mockCollection
+	memStorage      bakery.Storage
+	closeCollection func()
+	config          Config
 }
 
 var _ = gc.Suite(&StorageSuite{})
@@ -34,12 +33,7 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
 	s.collection = mockCollection{Stub: &s.Stub}
-	s.legacyCollection = mockCollection{Stub: &s.Stub}
 	s.closeCollection = func() {
-		s.AddCall("Close")
-		s.PopNoErr()
-	}
-	s.closeLegacyCollection = func() {
 		s.AddCall("Close")
 		s.PopNoErr()
 	}
@@ -49,11 +43,6 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 			s.AddCall("GetCollection")
 			s.PopNoErr()
 			return &s.collection, s.closeCollection
-		},
-		GetLegacyCollection: func() (mongo.Collection, func()) {
-			s.AddCall("GetLegacyCollection")
-			s.PopNoErr()
-			return &s.legacyCollection, s.closeLegacyCollection
 		},
 		GetStorage: func(rootKeys *mgostorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.Storage {
 			s.AddCall("GetStorage", coll, expireAfter)
@@ -78,7 +67,6 @@ func (s *StorageSuite) TestValidateConfigGetStorage(c *gc.C) {
 func (s *StorageSuite) TestExpireAfter(c *gc.C) {
 	store, err := New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ExpireAfter(store), gc.Equals, time.Duration(0))
 
 	store = store.ExpireAfter(24 * time.Hour)
 	c.Assert(ExpireAfter(store), gc.Equals, 24*time.Hour)
@@ -117,18 +105,22 @@ func (s *StorageSuite) TestGetLegacyFallback(c *gc.C) {
 	store, err := New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
+	var rk legacyRootKey
+	err = json.Unmarshal([]byte("{\"RootKey\":\"ibbhlQv5+yf7UMNI77W4hxQeQjRdMxs0\"}"), &rk)
+	c.Assert(err, jc.ErrorIsNil)
+
 	item, err := store.Get([]byte("oldkey"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(item, jc.DeepEquals, []byte("item-value"))
+	c.Assert(item, jc.DeepEquals, rk.RootKey)
 	s.CheckCalls(c, []gitjujutesting.StubCall{
 		{"GetCollection", nil},
 		{"GetStorage", []interface{}{&s.collection, time.Duration(0)}},
-		{"GetLegacyCollection", nil},
+		{"GetCollection", nil},
 		{"FindId", []interface{}{"oldkey"}},
 		{"One", []interface{}{&storageDoc{
 			// Set by mock, not in input. Unimportant anyway.
 			Location: "oldkey",
-			Item:     "item-value",
+			Item:     "{\"RootKey\":\"ibbhlQv5+yf7UMNI77W4hxQeQjRdMxs0\"}",
 		}}},
 		{"Close", nil},
 		{"Close", nil},
@@ -167,7 +159,7 @@ func (q *mockQuery) One(result interface{}) error {
 	}
 	*result.(*storageDoc) = storageDoc{
 		Location: q.id.(string),
-		Item:     "item-value",
+		Item:     "{\"RootKey\":\"ibbhlQv5+yf7UMNI77W4hxQeQjRdMxs0\"}",
 	}
 	return q.NextErr()
 }

@@ -24,12 +24,6 @@ type Config struct {
 	// will close any associated resources.
 	GetCollection func() (collection mongo.Collection, closer func())
 
-	// GetLegacyCollection returns a mongo.Collection and a function that
-	// will close any associated resources.
-	// Used due to the transition from v1 to v2 bakeries and keeping the
-	// storage separate.
-	GetLegacyCollection func() (collection mongo.Collection, closer func())
-
 	// GetStorage returns a bakery.Storage and a function that will close
 	// any associated resources.
 	GetStorage func(rootKeys *mgostorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) (storage bakery.Storage)
@@ -39,9 +33,6 @@ type Config struct {
 func (c Config) Validate() error {
 	if c.GetCollection == nil {
 		return errors.NotValidf("nil GetCollection")
-	}
-	if c.GetLegacyCollection == nil {
-		return errors.NotValidf("nil GetLegacyCollection")
 	}
 	if c.GetStorage == nil {
 		return errors.NotValidf("nil GetStorage")
@@ -67,8 +58,7 @@ func New(config Config) (ExpirableStorage, error) {
 		return nil, errors.Annotate(err, "validating config")
 	}
 	return &storage{
-		config:      config,
-		rootKeys:    mgostorage.NewRootKeys(5),
-		expireAfter: 10 * time.Minute,
+		config:   config,
+		rootKeys: mgostorage.NewRootKeys(5),
 	}, nil
 }

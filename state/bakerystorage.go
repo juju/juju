@@ -20,10 +20,7 @@ import (
 func (st *State) NewBakeryStorage() (bakerystorage.ExpirableStorage, error) {
 	return bakerystorage.New(bakerystorage.Config{
 		GetCollection: func() (mongo.Collection, func()) {
-			return st.db().GetCollection(bakeryV2StorageItemsC)
-		},
-		GetLegacyCollection: func() (mongo.Collection, func()) {
-			return st.db().GetCollection(bakeryV2StorageItemsC)
+			return st.db().GetCollection(bakeryStorageItemsC)
 		},
 		GetStorage: func(rootKeys *mgostorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.Storage {
 			return rootKeys.NewStorage(coll.Writeable().Underlying(), mgostorage.Policy{

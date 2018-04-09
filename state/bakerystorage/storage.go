@@ -4,6 +4,7 @@
 package bakerystorage
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/juju/errors"
@@ -37,6 +38,10 @@ type storageDoc struct {
 	ExpireAt time.Time `bson:"expire-at,omitempty"`
 }
 
+type legacyRootKey struct {
+	RootKey []byte
+}
+
 // ExpireAfter implements ExpirableStorage.ExpireAfter.
 func (s *storage) ExpireAfter(expireAfter time.Duration) ExpirableStorage {
 	newStorage := *s
@@ -65,8 +70,10 @@ func (s *storage) Get(id []byte) ([]byte, error) {
 	return i, nil
 }
 
+// legacyGet is attempted as the id we're looking for was created in a previous
+// version of Juju while using v1 versions of the macaroon-bakery.
 func (s *storage) legacyGet(location []byte) ([]byte, error) {
-	coll, closer := s.config.GetLegacyCollection()
+	coll, closer := s.config.GetCollection()
 	defer closer()
 
 	var i storageDoc
@@ -77,5 +84,10 @@ func (s *storage) legacyGet(location []byte) ([]byte, error) {
 		}
 		return nil, errors.Annotatef(err, "cannot get item for location %q", location)
 	}
-	return []byte(i.Item), nil
+	var rootKey legacyRootKey
+	err = json.Unmarshal([]byte(i.Item), &rootKey)
+	if err != nil {
+		return nil, errors.Annotate(err, "was unable to unmarshal found rootkey")
+	}
+	return rootKey.RootKey, nil
 }

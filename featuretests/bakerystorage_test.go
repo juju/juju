@@ -32,11 +32,18 @@ type BakeryStorageSuite struct {
 
 func (s *BakeryStorageSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
-	s.LoggingSuite.SetUpSuite(c)
 	s.db = s.Session.DB("bakerydb")
 	s.coll = s.db.C("bakedgoods")
 	s.ensureIndexes(c)
 	s.initService(c, false)
+}
+
+func (s *BakeryStorageSuite) TearDownTest(c *gc.C) {
+	s.MgoSuite.TearDownTest(c)
+}
+
+func (s *BakeryStorageSuite) SetUpSuite(c *gc.C) {
+	s.LoggingSuite.SetUpSuite(c)
 }
 
 func (s *BakeryStorageSuite) TearDownSuite(c *gc.C) {
@@ -46,9 +53,6 @@ func (s *BakeryStorageSuite) TearDownSuite(c *gc.C) {
 func (s *BakeryStorageSuite) initService(c *gc.C, enableExpiry bool) {
 	store, err := bakerystorage.New(bakerystorage.Config{
 		GetCollection: func() (mongo.Collection, func()) {
-			return mongo.CollectionFromName(s.db, s.coll.Name)
-		},
-		GetLegacyCollection: func() (mongo.Collection, func()) {
 			return mongo.CollectionFromName(s.db, s.coll.Name)
 		},
 		GetStorage: func(rootKeys *mgostorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.Storage {
@@ -80,6 +84,12 @@ func (s *BakeryStorageSuite) ensureIndexes(c *gc.C) {
 
 func (s *BakeryStorageSuite) TestCheckNewMacaroon(c *gc.C) {
 	mac, err := s.service.NewMacaroon(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.service.CheckAny([]macaroon.Slice{{mac}}, nil, nil)
+	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
+
+	store := s.store.ExpireAfter(10 * time.Second)
+	mac, err = s.service.WithStore(store).NewMacaroon(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.service.CheckAny([]macaroon.Slice{{mac}}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
