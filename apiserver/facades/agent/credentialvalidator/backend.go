@@ -10,69 +10,50 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// Backend exposes information about any current model migrations.
+// Backend defines behavior that credential validator needs.
 type Backend interface {
-	ModelUUID() string
-	ModelCredential() (*ModelCredential, error)
 	ModelUsesCredential(tag names.CloudCredentialTag) (bool, error)
+	ModelCredential() (*ModelCredential, error)
 	WatchCredential(names.CloudCredentialTag) state.NotifyWatcher
 }
 
-type stateShim struct {
-	*state.State
+func NewBackend(st StateAccessor) Backend {
+	return &backend{st}
 }
 
-// NewStateBackend creates new backend to be used by credential validator Facade.
-func NewStateBackend(st *state.State) Backend {
-	return &stateShim{st}
+type backend struct {
+	StateAccessor
 }
 
-// ModelUsesCredential determines if the model for this backend
-// uses given credential.
-func (s *stateShim) ModelUsesCredential(tag names.CloudCredentialTag) (bool, error) {
-	m, err := s.Model()
+func (b *backend) ModelUsesCredential(tag names.CloudCredentialTag) (bool, error) {
+	m, err := b.Model()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	currentModelName := m.Name()
-	models, err := s.CredentialModelsAndOwnerAccess(tag)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	for _, credentialModel := range models {
-		if credentialModel.ModelName == currentModelName {
-			return true, nil
-			break
-		}
-	}
-	return false, nil
+	modelCredentialTag, exists := m.CloudCredential()
+	return exists && tag == modelCredentialTag, nil
 }
 
-// ModelCredential implements Backend interface.
-func (s *stateShim) ModelCredential() (*ModelCredential, error) {
-	model, err := s.Model()
+func (b *backend) ModelCredential() (*ModelCredential, error) {
+	m, err := b.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	result := &ModelCredential{Model: model.ModelTag()}
-	tag, exists := model.CloudCredential()
-	result.Exists = exists
+	modelCredentialTag, exists := m.CloudCredential()
+	result := &ModelCredential{Model: m.ModelTag(), Exists: exists}
 	if !exists {
-		// Model is on the cloud with "empty" auth and, hence,
-		// model credential is not set.
 		return result, nil
 	}
 
-	result.Credential = tag
-	c, err := s.CloudCredential(tag)
+	result.Credential = modelCredentialTag
+	credential, err := b.CloudCredential(modelCredentialTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result.Valid = c.IsValid()
-
+	result.Valid = credential.IsValid()
 	return result, nil
+
 }
 
 // ModelCredential stores model's cloud credential information.

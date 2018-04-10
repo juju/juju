@@ -401,14 +401,3 @@ type ModelCredential struct {
 	// machines can be accessed with this credential.
 	Valid bool `json:"valid,omitempty"`
 }
-
-// ModelCredentialResult holds the result of a ModelCredential call.
-type ModelCredentialResult struct {
-	Result *ModelCredential `json:"result,omitempty"`
-	Error  *Error           `json:"error,omitempty"`
-}
-
-// ModelCredentialResults holds the result of a bulk ModelCredential API call.
-type ModelCredentialResults struct {
-	Results []ModelCredentialResult `json:"results"`
-}
