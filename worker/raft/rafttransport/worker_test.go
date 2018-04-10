@@ -142,6 +142,7 @@ type WorkerSuite struct {
 	stub   testing.Stub
 	server *httptest.Server
 	worker *rafttransport.Worker
+	reqs   chan apiserver.DetailsRequest
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -156,6 +157,14 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	})
 	clientTransport := s.server.Client().Transport.(*http.Transport)
 	s.config.TLSConfig = clientTransport.TLSClientConfig
+
+	s.reqs = make(chan apiserver.DetailsRequest, 10)
+	s.config.Hub.Subscribe(apiserver.DetailsRequestTopic,
+		func(_ string, req apiserver.DetailsRequest, err error) {
+			c.Check(err, jc.ErrorIsNil)
+			s.reqs <- req
+		},
+	)
 	s.worker = s.newWorker(c, s.config)
 	s.config.Hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
@@ -175,7 +184,7 @@ func (s *WorkerSuite) newWorker(c *gc.C, config rafttransport.Config) *rafttrans
 	s.AddCleanup(func(c *gc.C) {
 		workertest.DirtyKill(c, worker)
 	})
-	return worker
+	return worker.(*rafttransport.Worker)
 }
 
 func (s *WorkerSuite) requestVote(t raft.Transport) (raft.RequestVoteResponse, error) {
@@ -262,6 +271,19 @@ func (s *WorkerSuite) TestRoundTrip(c *gc.C) {
 	resp, err := s.requestVote(s.worker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Granted, jc.IsTrue)
+}
+
+func (s *WorkerSuite) TestRequestsDetails(c *gc.C) {
+	// The worker gets started in SetUpTest.
+	select {
+	case req := <-s.reqs:
+		c.Assert(req, gc.Equals, apiserver.DetailsRequest{
+			Requester: "raft-transport-stream-layer",
+			LocalOnly: true,
+		})
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for details request")
+	}
 }
 
 type mockEntity struct {

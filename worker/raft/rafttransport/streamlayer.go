@@ -41,6 +41,18 @@ func newStreamLayer(
 		l.tomb.Done()
 		return l
 	}
+
+	// Ask for the current details to be sent.
+	req := apiserver.DetailsRequest{
+		Requester: "raft-transport-stream-layer",
+		LocalOnly: true,
+	}
+	if _, err := hub.Publish(apiserver.DetailsRequestTopic, req); err != nil {
+		l.tomb.Kill(err)
+		l.tomb.Done()
+		return l
+	}
+
 	go func() {
 		defer unsubscribe()
 		defer l.tomb.Done()
