@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/raft-boltdb"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -31,12 +32,24 @@ const (
 	// will be replaced once the raftclusterer worker
 	// observes an address for the server.
 	bootstrapAddress raft.ServerAddress = "localhost"
+
+	// LoopTimeout is the max time we will wait until the raft object
+	// is constructed and the main loop is started. This is to avoid
+	// hard-to-debug problems where the transport hung and so this
+	// worker wasn't really started even though it seemed like it
+	// was. If it crashes instead the logging will give a path to the
+	// problem.
+	LoopTimeout = 1 * time.Minute
 )
 
 var (
 	// ErrWorkerStopped is returned by Worker.Raft if the
 	// worker has been explicitly stopped.
 	ErrWorkerStopped = errors.New("raft worker stopped")
+
+	// ErrStartTimeout is returned by NewWorker if the worker loop
+	// didn't start within LoopTimeout.
+	ErrStartTimeout = errors.New("timed out waiting for worker loop")
 )
 
 // Config is the configuration required for running a raft worker.
@@ -67,6 +80,10 @@ type Config struct {
 	// or more network addresses, i.e. by looking up the API
 	// connection information in the state database.
 	Transport raft.Transport
+
+	// Clock is used for timeouts in the worker (although not inside
+	// raft).
+	Clock clock.Clock
 
 	// ElectionTimeout, if non-zero, will override the default
 	// raft election timeout.
@@ -101,6 +118,9 @@ func (config Config) Validate() error {
 	}
 	if config.Transport == nil {
 		return errors.NotValidf("nil Transport")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -173,6 +193,13 @@ func newWorker(config Config) (*Worker, error) {
 		},
 	}); err != nil {
 		return nil, errors.Trace(err)
+	}
+	// Wait for the loop to be started.
+	select {
+	case <-config.Clock.After(LoopTimeout):
+		w.catacomb.Kill(ErrStartTimeout)
+		return nil, ErrStartTimeout
+	case <-w.raftCh:
 	}
 	return w, nil
 }

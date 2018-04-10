@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -38,6 +39,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		StorageDir: c.MkDir(),
 		Tag:        names.NewMachineTag("123"),
 		Transport:  transport,
+		Clock:      testing.NewClock(time.Time{}),
 	}
 }
 
@@ -67,6 +69,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *raft.Config) { cfg.Transport = nil },
 		"nil Transport not valid",
+	}, {
+		func(cfg *raft.Config) { cfg.Clock = nil },
+		"nil Clock not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
@@ -128,7 +133,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) {
 		workertest.DirtyKill(c, worker)
 	})
-	s.worker = worker
+	s.worker = worker.(*raft.Worker)
 }
 
 func (s *WorkerSuite) waitLeader(c *gc.C) *coreraft.Raft {
@@ -220,4 +225,72 @@ func (s *WorkerSuite) TestShutdownRaftKillsWorker(c *gc.C) {
 
 	err := workertest.CheckKilled(c, s.worker)
 	c.Assert(err, gc.ErrorMatches, "raft shutdown")
+}
+
+type WorkerTimeoutSuite struct {
+	workerFixture
+}
+
+var _ = gc.Suite(&WorkerTimeoutSuite{})
+
+func (s *WorkerTimeoutSuite) SetUpTest(c *gc.C) {
+	s.workerFixture.SetUpTest(c)
+
+	// Speed up the tests.
+	s.config.HeartbeatTimeout = 100 * time.Millisecond
+	s.config.ElectionTimeout = s.config.HeartbeatTimeout
+	s.config.LeaderLeaseTimeout = s.config.HeartbeatTimeout
+
+	// Bootstrap before starting the worker.
+	transport := s.config.Transport
+	fsm := s.config.FSM
+	s.config.Transport = nil
+	s.config.FSM = nil
+	err := raft.Bootstrap(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.config.Transport = transport
+	s.config.FSM = fsm
+}
+
+func (s *WorkerTimeoutSuite) TestNewWorkerTimesOut(c *gc.C) {
+	// If for some reason it takes a long time to create the Raft
+	// object we don't want to just hang - that can make it really
+	// hard to work out what's going on. Instead we should timeout if
+	// the raft loop doesn't get started.
+	testClock := testing.NewClock(time.Time{})
+	s.config.Clock = testClock
+	_, underlying := coreraft.NewInmemTransport("something")
+	s.config.Transport = &hangingTransport{
+		Transport: underlying,
+		clock:     testClock,
+	}
+	errChan := make(chan error)
+	go func() {
+		w, err := raft.NewWorker(s.config)
+		c.Check(w, gc.IsNil)
+		errChan <- err
+	}()
+
+	// We wait for the transport and the worker to be waiting for the
+	// clock, then we move it past the timeout.
+	err := testClock.WaitAdvance(2*raft.LoopTimeout, coretesting.LongWait, 2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, gc.ErrorMatches, "timed out waiting for worker loop")
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for worker error")
+	}
+}
+
+type hangingTransport struct {
+	coreraft.Transport
+	clock clock.Clock
+}
+
+func (t *hangingTransport) LocalAddr() coreraft.ServerAddress {
+	<-t.clock.After(5 * raft.LoopTimeout)
+	return t.Transport.LocalAddr()
 }

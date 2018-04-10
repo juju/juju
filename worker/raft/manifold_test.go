@@ -5,6 +5,7 @@ package raft_test
 
 import (
 	"path/filepath"
+	"time"
 
 	coreraft "github.com/hashicorp/raft"
 	"github.com/juju/errors"
@@ -28,6 +29,7 @@ type ManifoldSuite struct {
 	context   dependency.Context
 	agent     *mockAgent
 	transport *coreraft.InmemTransport
+	clock     *testing.Clock
 	fsm       *rafttest.FSM
 	logger    loggo.Logger
 	worker    *mockRaftWorker
@@ -60,8 +62,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		s.transport.Close()
 	})
 
+	s.clock = testing.NewClock(time.Time{})
+
 	s.context = s.newContext(nil)
 	s.manifold = raft.Manifold(raft.ManifoldConfig{
+		ClockName:     "clock",
 		AgentName:     "agent",
 		TransportName: "transport",
 		FSM:           s.fsm,
@@ -74,6 +79,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	resources := map[string]interface{}{
 		"agent":     s.agent,
 		"transport": s.transport,
+		"clock":     s.clock,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -90,7 +96,7 @@ func (s *ManifoldSuite) newWorker(config raft.Config) (worker.Worker, error) {
 }
 
 var expectedInputs = []string{
-	"agent", "transport",
+	"clock", "agent", "transport",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -122,6 +128,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		StorageDir: filepath.Join(s.agent.conf.dataDir, "raft"),
 		Tag:        s.agent.conf.tag,
 		Transport:  s.transport,
+		Clock:      s.clock,
 	})
 }
 
