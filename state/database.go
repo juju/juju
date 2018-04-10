@@ -9,8 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
+	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
@@ -18,6 +21,8 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 )
+
+var txnLogger = loggo.GetLogger("juju.state.txn")
 
 type SessionCloser func()
 
@@ -237,6 +242,9 @@ type database struct {
 	// runTransactionObserver is passed on to txn.TransactionRunner, to be
 	// invoked after calls to Run and RunTransaction.
 	runTransactionObserver RunTransactionObserverFunc
+
+	// clock is used to time how long transactions take to run
+	clock clock.Clock
 }
 
 // RunTransactionObserverFunc is the type of a function to be called
@@ -251,6 +259,7 @@ func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 		modelUUID:  modelUUID,
 		runner:     db.runner,
 		ownSession: true,
+		clock:      db.clock,
 	}, session.Close
 }
 
@@ -326,18 +335,24 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			raw = raw.With(session)
 			closer = session.Close
 		}
-		var observer func([]txn.Op, error)
+		observer := func(t jujutxn.ObservedTransaction) {
+			txnLogger.Tracef("ran transaction in %.3fs %# v\nerr: %v",
+				t.Duration.Seconds(), pretty.Formatter(t.Ops), t.Error)
+		}
 		if db.runTransactionObserver != nil {
-			observer = func(ops []txn.Op, err error) {
+			observer = func(t jujutxn.ObservedTransaction) {
+				txnLogger.Tracef("ran transaction in %.3fs %# v\nerr: %v",
+					t.Duration.Seconds(), pretty.Formatter(t.Ops), t.Error)
 				db.runTransactionObserver(
 					db.raw.Name, db.modelUUID,
-					ops, err,
+					t.Ops, t.Error,
 				)
 			}
 		}
 		params := jujutxn.RunnerParams{
 			Database:               raw,
 			RunTransactionObserver: observer,
+			Clock: db.clock,
 		}
 		runner = jujutxn.NewRunner(params)
 	}

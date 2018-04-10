@@ -44,7 +44,7 @@ func (st *State) WatchBlockDevices(m names.MachineTag) (watcher.NotifyWatcher, e
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -65,7 +65,7 @@ func (st *State) WatchMachine(m names.MachineTag) (watcher.NotifyWatcher, error)
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -97,7 +97,7 @@ func (st *State) watchStorageEntities(method string) (watcher.StringsWatcher, er
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -132,7 +132,7 @@ func (st *State) watchAttachments(
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -156,7 +156,7 @@ func (st *State) Volumes(tags []names.VolumeTag) ([]params.VolumeResult, error) 
 		return nil, err
 	}
 	if len(results.Results) != len(tags) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -175,7 +175,7 @@ func (st *State) Filesystems(tags []names.FilesystemTag) ([]params.FilesystemRes
 		return nil, err
 	}
 	if len(results.Results) != len(tags) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -189,7 +189,7 @@ func (st *State) VolumeAttachments(ids []params.MachineStorageId) ([]params.Volu
 		return nil, err
 	}
 	if len(results.Results) != len(ids) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -204,7 +204,7 @@ func (st *State) VolumeBlockDevices(ids []params.MachineStorageId) ([]params.Blo
 		return nil, err
 	}
 	if len(results.Results) != len(ids) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -218,7 +218,7 @@ func (st *State) FilesystemAttachments(ids []params.MachineStorageId) ([]params.
 		return nil, err
 	}
 	if len(results.Results) != len(ids) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -238,7 +238,7 @@ func (st *State) VolumeParams(tags []names.VolumeTag) ([]params.VolumeParamsResu
 		return nil, err
 	}
 	if len(results.Results) != len(tags) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -258,7 +258,7 @@ func (st *State) RemoveVolumeParams(tags []names.VolumeTag) ([]params.RemoveVolu
 		return nil, err
 	}
 	if len(results.Results) != len(tags) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -278,7 +278,7 @@ func (st *State) FilesystemParams(tags []names.FilesystemTag) ([]params.Filesyst
 		return nil, err
 	}
 	if len(results.Results) != len(tags) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -298,7 +298,7 @@ func (st *State) RemoveFilesystemParams(tags []names.FilesystemTag) ([]params.Re
 		return nil, err
 	}
 	if len(results.Results) != len(tags) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -313,7 +313,7 @@ func (st *State) VolumeAttachmentParams(ids []params.MachineStorageId) ([]params
 		return nil, err
 	}
 	if len(results.Results) != len(ids) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -328,7 +328,7 @@ func (st *State) FilesystemAttachmentParams(ids []params.MachineStorageId) ([]pa
 		return nil, err
 	}
 	if len(results.Results) != len(ids) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(ids), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -342,7 +342,7 @@ func (st *State) SetVolumeInfo(volumes []params.Volume) ([]params.ErrorResult, e
 		return nil, err
 	}
 	if len(results.Results) != len(volumes) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(volumes), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(volumes), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -356,7 +356,7 @@ func (st *State) SetFilesystemInfo(filesystems []params.Filesystem) ([]params.Er
 		return nil, err
 	}
 	if len(results.Results) != len(filesystems) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(filesystems), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(filesystems), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -370,7 +370,7 @@ func (st *State) SetVolumeAttachmentInfo(volumeAttachments []params.VolumeAttach
 		return nil, err
 	}
 	if len(results.Results) != len(volumeAttachments) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(volumeAttachments), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(volumeAttachments), len(results.Results))
 	}
 	return results.Results, nil
 }
@@ -384,7 +384,7 @@ func (st *State) SetFilesystemAttachmentInfo(filesystemAttachments []params.File
 		return nil, err
 	}
 	if len(results.Results) != len(filesystemAttachments) {
-		panic(errors.Errorf("expected %d result(s), got %d", len(filesystemAttachments), len(results.Results)))
+		return nil, errors.Errorf("expected %d result(s), got %d", len(filesystemAttachments), len(results.Results))
 	}
 	return results.Results, nil
 }

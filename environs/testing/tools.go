@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
+	supportedversion "github.com/juju/juju/juju/version"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -286,7 +287,7 @@ func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 
 // UploadFakeTools puts fake tools into the supplied storage with a binary
 // version matching jujuversion.Current; if jujuversion.Current's series is different
-// to series.LatestLts(), matching fake tools will be uploaded for that
+// to  juju/juju/version.SupportedLts(), matching fake tools will be uploaded for that
 // series.  This is useful for tests that are kinda casual about specifying
 // their environment.
 func UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, stream string) {
@@ -311,7 +312,7 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)
-	defaultSeries := series.LatestLts()
+	defaultSeries := supportedversion.SupportedLts()
 	if series.MustHostSeries() != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)

@@ -1179,10 +1179,13 @@ func (environ *maasEnviron) waitForNodeDeployment2(id instance.Id, timeout time.
 		Total: timeout,
 	}
 
+	retryCount := 1
 	for a := longAttempt.Start(); a.Next(); {
 		machine, err := environ.getInstance(id)
 		if err != nil {
-			return errors.Trace(err)
+			logger.Warningf("failed to get instance from provider attempt %d", retryCount)
+			retryCount++
+			continue
 		}
 		stat := machine.Status()
 		if stat.Status == status.Running {

@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type firewallSuite struct{
+type firewallSuite struct {
 	gitjujutesting.IsolationSuite
 }
 

@@ -645,38 +645,10 @@ func (s *workerSuite) TestMongoNoSpaces(c *gc.C) {
 		}
 
 		w := startWorkerSupportingSpaces(c, st, ipVersion)
-		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
+		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceInvalid)
 
-		// Only space one has all three servers in it
+		// No space was set.
 		c.Assert(st.getMongoSpaceName(), gc.Equals, "")
-	})
-}
-
-func (s *workerSuite) TestMongoSpaceNotOverwritten(c *gc.C) {
-	DoTestForIPv4AndIPv6(c, s, func(ipVersion TestIPVersion) {
-		st, machines, hostPorts := mongoSpaceTestCommonSetup(c, ipVersion, false)
-
-		for i, machine := range machines {
-			// machine 10 gets a host port in space one
-			// machine 11 gets host ports in spaces one and two
-			// machine 12 gets host ports in spaces one, two and three
-			st.machine(machine).setMongoHostPorts(hostPorts[0 : i+1])
-		}
-
-		w := startWorkerSupportingSpaces(c, st, ipVersion)
-		runWorkerUntilMongoStateIs(c, st, w, state.MongoSpaceValid)
-
-		// Only space one has all three servers in it
-		c.Assert(st.getMongoSpaceName(), gc.Equals, "one")
-
-		// Set st.mongoSpaceName to something different
-
-		st.SetMongoSpaceState(state.MongoSpaceUnknown)
-		st.SetOrGetMongoSpaceName("testing")
-
-		// Only space one has all three servers in it
-		c.Assert(st.getMongoSpaceName(), gc.Equals, "testing")
-		c.Assert(st.getMongoSpaceState(), gc.Equals, state.MongoSpaceValid)
 	})
 }
 

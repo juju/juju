@@ -685,6 +685,25 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
 
+func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentRetry(c *gc.C) {
+	machine := newFakeMachine("Inaccessable machine", arch.HostArch(), "")
+	controller := newFakeController()
+	controller.allocateMachine = machine
+	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{
+		Storage: map[string][]gomaasapi.BlockDevice{},
+	}
+	controller.machines = []gomaasapi.Machine{}
+	suite.injectController(controller)
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron(c, nil)
+	bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      jujutesting.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
+	c.Check(c.GetTestLog(), jc.Contains, "WARNING juju.provider.maas failed to get instance from provider attempt")
+}
+
 func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 	machine := newFakeMachine("Bruce Sterling", arch.HostArch(), "Deployed")
 	controller := newFakeController()

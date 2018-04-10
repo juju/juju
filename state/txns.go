@@ -152,7 +152,6 @@ func (r *multiModelRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 		}
 		outOps = append(outOps, outOp)
 	}
-	logger.Tracef("rewrote transaction: %#v", outOps)
 	return outOps, nil
 }
 

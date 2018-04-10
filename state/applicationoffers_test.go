@@ -68,7 +68,7 @@ func (s *applicationOffersSuite) TestEndpoints(c *gc.C) {
 func (s *applicationOffersSuite) TestRemove(c *gc.C) {
 	offer := s.createDefaultOffer(c)
 	sd := state.NewApplicationOffers(s.State)
-	err := sd.Remove(offer.OfferName)
+	err := sd.Remove(offer.OfferName, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = sd.ApplicationOffer(offer.OfferName)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -466,7 +466,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferRemovedAfterInitial(c
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := sd.Remove("hosted-mysql")
+		err := sd.Remove("hosted-mysql", false)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err = sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
@@ -506,8 +506,19 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnections(c *gc.C) {
 	offer := s.createDefaultOffer(c)
 	s.addOfferConnection(c, offer.OfferUUID)
 	ao := state.NewApplicationOffers(s.State)
-	err := ao.Remove("hosted-mysql")
+	err := ao.Remove("hosted-mysql", false)
 	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
+}
+
+func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
+	offer := s.createDefaultOffer(c)
+	s.addOfferConnection(c, offer.OfferUUID)
+	ao := state.NewApplicationOffers(s.State)
+	err := ao.Remove("hosted-mysql", true)
+	c.Assert(err, jc.ErrorIsNil)
+	conn, err := s.State.OfferConnections(offer.OfferUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn, gc.HasLen, 0)
 }
 
 func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *gc.C) {
@@ -530,7 +541,7 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsRace(c *gc.C) {
 	}
 	defer state.SetBeforeHooks(c, s.State, addOfferConnection).Check()
 
-	err = ao.Remove(offer.OfferName)
+	err = ao.Remove(offer.OfferName, false)
 	c.Assert(err, gc.ErrorMatches, `cannot delete application offer "hosted-mysql": offer has 1 relation`)
 }
 
@@ -562,7 +573,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	wc.AssertOneChange()
 	wc.AssertNoChange()
 
-	err = ao.Remove(offer.OfferName)
+	err = ao.Remove(offer.OfferName, false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
