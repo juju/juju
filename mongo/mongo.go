@@ -37,8 +37,8 @@ var (
 	// mongod.
 	JujuMongod24Path = "/usr/lib/juju/bin/mongod"
 
-	// Mongod34Path is actually just the system path
-	Mongod34Path = "/usr/bin/mongod"
+	// Mongod36Path is actually just the system path
+	Mongod36Path = "/usr/bin/mongod"
 
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
@@ -196,9 +196,9 @@ var (
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
-	// Mongo34wt represents 'mongodb-server-core' at version 3.4.x with WiredTiger
-	Mongo34wt = Version{Major: 3,
-		Minor:			4,
+	// Mongo64wt represents 'mongodb-server-core' at version 3.6.x with WiredTiger
+	Mongo36wt = Version{Major: 3,
+		Minor:			6,
 		Patch:			"",
 		StorageEngine: WiredTiger,
 	}
@@ -216,12 +216,12 @@ var (
 // and fall back to the original mongo 2.4.
 func InstalledVersion() Version {
 	mgoVersion := Mongo24
-	// We change this for order of precedence. The issue is that Mongo34 is
+	// We change this for order of precedence. The issue is that Mongo36 is
 	// just /usr/bin/mongo which may not actually be 3.4 on Trusty/Xenial.
 	// We still prefer if /usr/lib/juju/bin/mong2.4 is available, or if
 	// /usr/lib/juju/mongo3.2/bin/mongod is available.
-	if binariesAvailable(Mongo34wt, os.Stat) {
-		mgoVersion = Mongo34wt
+	if binariesAvailable(Mongo36wt, os.Stat) {
+		mgoVersion = Mongo36wt
 	}
 	if binariesAvailable(Mongo24, os.Stat) {
 		mgoVersion = Mongo24
@@ -240,9 +240,9 @@ func binariesAvailable(v Version, statFunc func(string) (os.FileInfo, error)) bo
 	case Mongo24:
 		// 2.4 has a fixed path.
 		path = JujuMongod24Path
-	case Mongo34wt:
-		// 3.4 switched back to using the system mongod
-		path = Mongod34Path
+	case Mongo36wt:
+		// 3.6 switched back to using the system mongod
+		path = Mongod36Path
 	default:
 		path = JujuMongodPath(v)
 	}
@@ -358,14 +358,14 @@ func mongoPath(version Version, stat func(string) (os.FileInfo, error), lookPath
 			return "", err
 		}
 		return path, nil
-	case Mongo34wt:
-		if _, err := stat(Mongod34Path); err == nil {
-			return Mongod34Path, nil
+	case Mongo36wt:
+		if _, err := stat(Mongod36Path); err == nil {
+			return Mongod36Path, nil
 		}
 
 		path, err := lookPath("mongod")
 		if err != nil {
-			logger.Infof("could not find %v or mongod in $PATH", Mongod34Path)
+			logger.Infof("could not find %v or mongod in $PATH", Mongod36Path)
 			return "", err
 		}
 		return path, nil
