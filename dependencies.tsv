@@ -12,9 +12,9 @@ github.com/dgrijalva/jwt-go	git	01aeca54ebda6e0fbfafd0a524d234159c05ec20	2016-07
 github.com/dustin/go-humanize	git	145fabdb1ab757076a70a886d092a3af27f66f4c	2014-12-28T07:11:48Z
 github.com/ghodss/yaml	git	73d445a93680fa1a78ae23a5839bad48f32ba1ee	2015-09-09T03:16:57Z
 github.com/godbus/dbus	git	32c6cc29c14570de4cf6d7e7737d68fb2d01ad15	2016-05-06T22:25:50Z
+github.com/golang/mock	git	69521b3833175dfcfb1cc1fdb0c9be92e66faa81	2018-04-03T23:54:22Z
 github.com/gogo/protobuf	git	c0656edd0d9eab7c66d1eb0c568f9039345796f7	2017-03-30T07:10:51Z
 github.com/golang/glog	git	23def4e6c14b4da8ac2ed8007337bc5eb5007998	2016-01-26T23:53:08Z
-github.com/golang/mock	git	58cd061d09382b6011f84c1291ebe50ef2e25bab	2018-02-11T07:27:22Z
 github.com/golang/protobuf	git	4bd1920723d7b7c925de087aa32e2187708897f7	2016-11-09T07:27:36Z
 github.com/google/go-querystring	git	9235644dd9e52eeae6fa48efd539fdc351a0af53	2016-04-01T23:30:42Z
 github.com/google/gofuzz	git	24818f796faf91cd76ec7bddd72458fbced7a6c1	2017-06-12T17:47:53Z
