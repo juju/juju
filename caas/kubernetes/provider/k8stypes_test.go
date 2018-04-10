@@ -6,8 +6,8 @@ package provider_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/util/intstr"
+	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -88,19 +88,19 @@ foo: bar
 			},
 			ProviderContainer: &provider.K8sContainerSpec{
 				ImagePullPolicy: "Always",
-				LivenessProbe: &v1.Probe{
+				LivenessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
-					Handler: v1.Handler{
-						HTTPGet: &v1.HTTPGetAction{
+					Handler: core.Handler{
+						HTTPGet: &core.HTTPGetAction{
 							Path: "/ping",
 							Port: intstr.IntOrString{IntVal: 8080},
 						},
 					},
 				},
-				ReadinessProbe: &v1.Probe{
+				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
-					Handler: v1.Handler{
-						HTTPGet: &v1.HTTPGetAction{
+					Handler: core.Handler{
+						HTTPGet: &core.HTTPGetAction{
 							Path: "/pingReady",
 							Port: intstr.IntOrString{StrVal: "www", Type: 1},
 						},

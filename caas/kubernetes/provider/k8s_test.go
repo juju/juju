@@ -8,7 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"k8s.io/client-go/pkg/api/v1"
+	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -29,14 +29,14 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 			Ports: []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
 			Image: "juju/image",
 			ProviderContainer: &provider.K8sContainerSpec{
-				ImagePullPolicy: v1.PullAlways,
-				ReadinessProbe: &v1.Probe{
+				ImagePullPolicy: core.PullAlways,
+				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
-					Handler:             v1.Handler{HTTPGet: &v1.HTTPGetAction{Path: "/ready"}},
+					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 				},
-				LivenessProbe: &v1.Probe{
+				LivenessProbe: &core.Probe{
 					SuccessThreshold: 20,
-					Handler:          v1.Handler{HTTPGet: &v1.HTTPGetAction{Path: "/liveready"}},
+					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 				},
 			},
 		}, {
@@ -47,25 +47,25 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 	}
 	spec, err := provider.MakeUnitSpec(&podSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.PodSpec(spec), jc.DeepEquals, v1.PodSpec{
-		Containers: []v1.Container{
+	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
+		Containers: []core.Container{
 			{
 				Name:            "test",
 				Image:           "juju/image",
-				Ports:           []v1.ContainerPort{{ContainerPort: int32(80), Protocol: v1.ProtocolTCP}},
-				ImagePullPolicy: v1.PullAlways,
-				ReadinessProbe: &v1.Probe{
+				Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+				ImagePullPolicy: core.PullAlways,
+				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
-					Handler:             v1.Handler{HTTPGet: &v1.HTTPGetAction{Path: "/ready"}},
+					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
 				},
-				LivenessProbe: &v1.Probe{
+				LivenessProbe: &core.Probe{
 					SuccessThreshold: 20,
-					Handler:          v1.Handler{HTTPGet: &v1.HTTPGetAction{Path: "/liveready"}},
+					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
 				},
 			}, {
 				Name:  "test2",
 				Image: "juju/image2",
-				Ports: []v1.ContainerPort{{ContainerPort: int32(8080), Protocol: v1.ProtocolTCP}},
+				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
 			},
 		},
 	})
@@ -87,19 +87,19 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 		}}}
 	spec, err := provider.MakeUnitSpec(&podSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(provider.PodSpec(spec), jc.DeepEquals, v1.PodSpec{
-		Containers: []v1.Container{
+	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
+		Containers: []core.Container{
 			{
 				Name:  "test",
 				Image: "juju/image",
-				Ports: []v1.ContainerPort{{ContainerPort: int32(80), Protocol: v1.ProtocolTCP}},
-				Env: []v1.EnvVar{
+				Ports: []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+				Env: []core.EnvVar{
 					{Name: "foo", Value: "bar"},
 				},
 			}, {
 				Name:  "test2",
 				Image: "juju/image2",
-				Ports: []v1.ContainerPort{{ContainerPort: int32(8080), Protocol: v1.ProtocolTCP}},
+				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
 			},
 		},
 	})

@@ -147,4 +147,5 @@ func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
 	}
 	s.caasClient.CheckCallNames(c, "DeleteOperator")
 	c.Assert(s.caasClient.Calls()[0].Args[0], gc.Equals, "myapp")
+	c.Assert(s.caasClient.Calls()[0].Args[1], gc.Equals, "/var/lib/juju")
 }
