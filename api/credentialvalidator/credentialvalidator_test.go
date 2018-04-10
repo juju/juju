@@ -85,22 +85,6 @@ func (s *CredentialValidatorSuite) TestModelCredentialCallError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "foo")
 }
 
-func (s *CredentialValidatorSuite) TestWatchCredential(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "CredentialValidator")
-		c.Check(request, gc.Equals, "WatchCredential")
-		c.Check(arg, jc.DeepEquals, credentialTag.String())
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
-		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{NotifyWatcherId: "notify-watcher-id"}
-		return nil
-	})
-
-	client := credentialvalidator.NewFacade(apiCaller)
-	found, err := client.WatchCredential(credentialID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.NotNil)
-}
-
 func (s *CredentialValidatorSuite) TestWatchCredentialError(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{Error: &params.Error{Message: "foo"}}
