@@ -4,8 +4,9 @@
 package application
 
 import (
-	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6"
+
+	"github.com/juju/juju/juju/version"
 )
 
 const (
@@ -91,7 +92,7 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 		return "", err
 	}
 
-	latestLTS := series.LatestLts()
+	latestLTS := version.SupportedLts()
 	logger.Infof(msgLatestLTSSeries, latestLTS)
 	return latestLTS, nil
 }
