@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type modelInfoSuite struct {
@@ -167,7 +167,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		CloudTag:           "cloud-some-cloud",
 		CloudRegion:        "some-region",
 		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
-		DefaultSeries:      series.LatestLts(),
+		DefaultSeries:      version.SupportedLts(),
 		Life:               params.Dying,
 		Status: params.EntityStatus{
 			Status: status.Destroying,

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/logfwd/syslog"
 	"github.com/juju/juju/network"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -272,7 +273,7 @@ func PreferredSeries(cfg HasDefaultSeries) string {
 	if series, ok := cfg.DefaultSeries(); ok {
 		return series
 	}
-	return series.LatestLts()
+	return jujuversion.SupportedLts()
 }
 
 // Config holds an immutable environment configuration.
@@ -381,7 +382,7 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	"default-series":             series.LatestLts(),
+	"default-series":             jujuversion.SupportedLts(),
 	ProvisionerHarvestModeKey:    HarvestDestroyed.String(),
 	ResourceTagsKey:              "",
 	"logging-config":             "",
