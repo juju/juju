@@ -2254,6 +2254,9 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 		return errors.Trace(err)
 	}
 	st.stateClock = clock
+	if db, ok := st.database.(*database); ok {
+		db.clock = clock
+	}
 	err = st.start(st.controllerTag, nil)
 	if err != nil {
 		return errors.Trace(err)

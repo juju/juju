@@ -14,7 +14,6 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -28,6 +27,7 @@ import (
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -431,7 +431,7 @@ func (s *kvmProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 	defer workertest.CleanKill(c, p)
 
 	// Check that an instance is not provisioned when the machine is created.
-	_, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
+	_, err := s.State.AddMachine(supportedversion.SupportedLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectNoEvents(c)
@@ -448,7 +448,7 @@ func (s *kvmProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 
 func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	template := state.MachineTemplate{
-		Series: series.LatestLts(),
+		Series: supportedversion.SupportedLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, "0", instance.KVM)
