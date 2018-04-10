@@ -7,7 +7,6 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
+	jujuversion "github.com/juju/juju/juju/version"
 )
 
 // FakeAuthKeys holds the authorized key used for testing
@@ -68,7 +68,7 @@ func FakeConfig() Attrs {
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"default-series":            series.LatestLts(),
+		"default-series":            jujuversion.SupportedLts(),
 	}
 }
 
