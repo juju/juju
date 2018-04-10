@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
+	"time"
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
@@ -37,6 +38,7 @@ type ManifoldSuite struct {
 	mux      *apiserverhttp.Mux
 	worker   worker.Worker
 	stub     testing.Stub
+	clock    *testing.Clock
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -61,9 +63,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.worker = &mockTransportWorker{
 		Transport: &raft.InmemTransport{},
 	}
+	s.clock = testing.NewClock(time.Time{})
 
 	s.context = s.newContext(nil)
 	s.manifold = rafttransport.Manifold(rafttransport.ManifoldConfig{
+		ClockName:         "clock",
 		AgentName:         "agent",
 		AuthenticatorName: "auth",
 		HubName:           "hub",
@@ -76,6 +80,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
+		"clock": s.clock,
 		"agent": s.agent,
 		"auth":  s.auth,
 		"hub":   s.hub,
@@ -100,7 +105,7 @@ func (s *ManifoldSuite) dialConn(ctx context.Context, addr string, tlsConfig *tl
 	return nil, s.stub.NextErr()
 }
 
-var expectedInputs = []string{"agent", "auth", "hub", "mux"}
+var expectedInputs = []string{"clock", "agent", "auth", "hub", "mux"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -143,6 +148,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Authenticator: s.auth,
 		Path:          "raft/path",
 		Tag:           s.agent.conf.tag,
+		Clock:         s.clock,
 	})
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -71,6 +72,11 @@ type Config struct {
 	// TLSConfig is the TLS configuration to use for making
 	// connections to API servers.
 	TLSConfig *tls.Config
+
+	// Clock is used for timing out the Addr getter - if the
+	// peergrouper isn't publishing good API addresses in a timely
+	// fashion it's better to fail and log than to hang indefinitely.
+	Clock clock.Clock
 }
 
 // DialConnFunc is type of function used by the transport for
@@ -130,14 +136,18 @@ func NewWorker(config Config) (worker.Worker, error) {
 	const logPrefix = "[transport] "
 	logWriter := &raftutil.LoggoWriter{logger, loggo.DEBUG}
 	logLogger := log.New(logWriter, logPrefix, 0)
+	stream, err := newStreamLayer(config.Tag, config.Hub, w.connections, config.Clock, &Dialer{
+		APIInfo: config.APIInfo,
+		DialRaw: w.dialRaw,
+		Path:    config.Path,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	transport := raft.NewNetworkTransportWithConfig(&raft.NetworkTransportConfig{
 		Logger:  logLogger,
 		MaxPool: maxPoolSize,
-		Stream: newStreamLayer(config.Tag, config.Hub, w.connections, &Dialer{
-			APIInfo: config.APIInfo,
-			DialRaw: w.dialRaw,
-			Path:    config.Path,
-		}),
+		Stream:  stream,
 		Timeout: config.Timeout,
 	})
 	w.Transport = transport
@@ -148,6 +158,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			defer transport.Close()
 			return w.loop()
 		},
+		Init: []worker.Worker{stream},
 	}); err != nil {
 		transport.Close()
 		return nil, errors.Trace(err)

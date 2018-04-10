@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
@@ -19,6 +20,7 @@ import (
 // ManifoldConfig holds the information necessary to run an apiserver-based
 // raft transport worker in a dependency.Engine.
 type ManifoldConfig struct {
+	ClockName         string
 	AgentName         string
 	AuthenticatorName string
 	HubName           string
@@ -62,6 +64,7 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			config.ClockName,
 			config.AgentName,
 			config.AuthenticatorName,
 			config.HubName,
@@ -75,6 +78,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // start is a method on ManifoldConfig because it's more readable than a closure.
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var clk clock.Clock
+	if err := context.Get(config.ClockName, &clk); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -116,6 +124,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Path:          config.Path,
 		Tag:           agent.CurrentConfig().Tag(),
 		TLSConfig:     api.NewTLSConfig(certPool),
+		Clock:         clk,
 	})
 }
 

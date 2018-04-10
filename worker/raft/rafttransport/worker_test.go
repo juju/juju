@@ -35,12 +35,14 @@ type workerFixture struct {
 	testing.IsolationSuite
 	config   rafttransport.Config
 	authInfo httpcontext.AuthInfo
+	clock    *testing.Clock
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	tag := names.NewMachineTag("123")
+	s.clock = testing.NewClock(time.Time{})
 	s.config = rafttransport.Config{
 		APIInfo: &api.Info{
 			Tag:      tag,
@@ -55,6 +57,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Tag:           tag,
 		Timeout:       coretesting.LongWait,
 		TLSConfig:     &tls.Config{},
+		Clock:         s.clock,
 	}
 
 	logger := loggo.GetLogger("juju.worker.raft")
@@ -139,7 +142,6 @@ func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*rafttransport
 
 type WorkerSuite struct {
 	workerFixture
-	stub   testing.Stub
 	server *httptest.Server
 	worker *rafttransport.Worker
 	reqs   chan apiserver.DetailsRequest
@@ -150,7 +152,6 @@ var _ = gc.Suite(&WorkerSuite{})
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.workerFixture.SetUpTest(c)
 
-	s.stub.ResetCalls()
 	s.server = httptest.NewTLSServer(s.config.Mux)
 	s.AddCleanup(func(c *gc.C) {
 		s.server.Close()
@@ -283,6 +284,49 @@ func (s *WorkerSuite) TestRequestsDetails(c *gc.C) {
 		})
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for details request")
+	}
+}
+
+type WorkerTimeoutSuite struct {
+	workerFixture
+	server *httptest.Server
+}
+
+var _ = gc.Suite(&WorkerTimeoutSuite{})
+
+func (s *WorkerTimeoutSuite) SetUpTest(c *gc.C) {
+	s.workerFixture.SetUpTest(c)
+
+	s.server = httptest.NewTLSServer(s.config.Mux)
+	s.AddCleanup(func(c *gc.C) {
+		s.server.Close()
+	})
+	clientTransport := s.server.Client().Transport.(*http.Transport)
+	s.config.TLSConfig = clientTransport.TLSClientConfig
+}
+
+func (s *WorkerTimeoutSuite) TestLocalAddrTimeout(c *gc.C) {
+	// To prevent workers that use raft-transport from hanging, we need to make LocalAddr time out.
+	w, err := rafttransport.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		workertest.DirtyKill(c, w)
+	})
+	worker := w.(*rafttransport.Worker)
+
+	resChan := make(chan raft.ServerAddress)
+	go func() {
+		resChan <- worker.LocalAddr()
+	}()
+
+	// We never publish an apiserver address.
+	s.clock.WaitAdvance(2*rafttransport.AddrTimeout, coretesting.LongWait, 1)
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for address timeout")
+	case res := <-resChan:
+		c.Assert(res, gc.Equals, raft.ServerAddress("address.invalid:0"))
 	}
 }
 

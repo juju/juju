@@ -710,6 +710,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		raftTransportName: ifController(rafttransport.Manifold(rafttransport.ManifoldConfig{
+			ClockName:         clockName,
 			AgentName:         agentName,
 			AuthenticatorName: httpServerName,
 			HubName:           centralHubName,

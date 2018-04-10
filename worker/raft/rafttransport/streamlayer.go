@@ -10,18 +10,32 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
+const (
+	// AddrTimeout is how long we'll wait for a good address to be
+	// sent before timing out in the Addr call - this is better than
+	// hanging indefinitely.
+	AddrTimeout = 1 * time.Minute
+)
+
+var (
+	// ErrAddressTimeout is used as the death reason when this transport dies because no good API address has been sent.
+	ErrAddressTimeout = errors.New("timed out waiting for API address")
+)
+
 func newStreamLayer(
 	tag names.Tag,
 	hub *pubsub.StructuredHub,
 	connections <-chan net.Conn,
+	clk clock.Clock,
 	dialer *Dialer,
-) *streamLayer {
+) (*streamLayer, error) {
 	l := &streamLayer{
 		tag:         tag,
 		hub:         hub,
@@ -30,6 +44,7 @@ func newStreamLayer(
 
 		addr:        make(chan net.Addr),
 		addrChanges: make(chan string),
+		clock:       clk,
 	}
 	// Watch for apiserver details changes, sending them
 	// down the "addrChanges" channel. The worker loop
@@ -37,9 +52,7 @@ func newStreamLayer(
 	// the "Addr()" method.
 	unsubscribe, err := hub.Subscribe(apiserver.DetailsTopic, l.apiserverDetailsChanged)
 	if err != nil {
-		l.tomb.Kill(err)
-		l.tomb.Done()
-		return l
+		return nil, errors.Trace(err)
 	}
 
 	// Ask for the current details to be sent.
@@ -48,9 +61,7 @@ func newStreamLayer(
 		LocalOnly: true,
 	}
 	if _, err := hub.Publish(apiserver.DetailsRequestTopic, req); err != nil {
-		l.tomb.Kill(err)
-		l.tomb.Done()
-		return l
+		return nil, errors.Trace(err)
 	}
 
 	go func() {
@@ -58,7 +69,7 @@ func newStreamLayer(
 		defer l.tomb.Done()
 		l.tomb.Kill(l.loop())
 	}()
-	return l
+	return l, nil
 }
 
 // streamLayer represents the connection between raft nodes.
@@ -72,6 +83,17 @@ type streamLayer struct {
 	dialer      *Dialer
 	addr        chan net.Addr
 	addrChanges chan string
+	clock       clock.Clock
+}
+
+// Kill implements worker.Worker.
+func (l *streamLayer) Kill() {
+	l.tomb.Kill(nil)
+}
+
+// Wait implements worker.Worker.
+func (l *streamLayer) Wait() error {
+	return l.tomb.Wait()
 }
 
 // Accept waits for the next connection.
@@ -90,11 +112,18 @@ func (l *streamLayer) Close() error {
 	return l.tomb.Wait()
 }
 
+var invalidAddr = tcpAddr("address.invalid:0")
+
 // Addr returns the local address for the layer.
 func (l *streamLayer) Addr() net.Addr {
 	select {
 	case <-l.tomb.Dying():
-		return tcpAddr("address.invalid:0")
+		return invalidAddr
+	case <-l.clock.After(AddrTimeout):
+		logger.Errorf("streamLayer.Addr timed out waiting for API address")
+		// Stop this (and parent) worker.
+		l.tomb.Kill(ErrAddressTimeout)
+		return invalidAddr
 	case addr := <-l.addr:
 		return addr
 	}
