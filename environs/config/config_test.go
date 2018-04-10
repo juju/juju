@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
+	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 func Test(t *stdtesting.T) {

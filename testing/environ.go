@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
-	jujuversion "github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/juju/version"
 )
 
 // FakeAuthKeys holds the authorized key used for testing

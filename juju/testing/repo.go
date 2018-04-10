@@ -12,9 +12,9 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
-	"github.com/juju/juju/version"
 )
 
 type RepoSuite struct {

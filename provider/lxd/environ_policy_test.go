@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/version"
 )
 
 type environPolSuite struct {

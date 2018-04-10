@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
+	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -209,7 +210,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := sync.Upload(t.toolsStorage, "released", nil, jujuversion.SupportedLts())
+		_, err := sync.Upload(t.toolsStorage, "released", nil, supportedversion.SupportedLts())
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	args := t.bootstrapParams()
@@ -659,7 +660,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	expectedVersion := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: jujuversion.SupportedLts(),
+		Series: supportedversion.SupportedLts(),
 	}
 
 	mtools0 := waitAgentTools(c, mw0, expectedVersion)

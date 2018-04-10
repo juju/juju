@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&specSuite{})
@@ -171,7 +171,7 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 
 	instanceConstraint := &instances.InstanceConstraint{
 		Region:      "test",
-		Series:      jujuversion.SupportedLts(),
+		Series:      version.SupportedLts(),
 		Constraints: constraints.MustParse("instance-type=t2.medium"),
 	}
 
@@ -193,16 +193,16 @@ var findInstanceSpecErrorTests = []struct {
 	err    string
 }{
 	{
-		series: jujuversion.SupportedLts(),
+		series: version.SupportedLts(),
 		arches: []string{"arm"},
-		err:    fmt.Sprintf(`no "%s" images in test with arches \[arm\]`, jujuversion.SupportedLts()),
+		err:    fmt.Sprintf(`no "%s" images in test with arches \[arm\]`, version.SupportedLts()),
 	}, {
 		series: "raring",
 		arches: []string{"amd64", "i386"},
 		cons:   "mem=4G",
 		err:    `no "raring" images in test matching instance types \[.*\]`,
 	}, {
-		series: jujuversion.SupportedLts(),
+		series: version.SupportedLts(),
 		arches: []string{"amd64"},
 		cons:   "instance-type=m1.small mem=4G",
 		err:    `no instance types in test matching constraints "instance-type=m1.small mem=4096M"`,

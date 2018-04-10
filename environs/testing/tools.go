@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
+	supportedversion "github.com/juju/juju/juju/version"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -311,7 +312,7 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)
-	defaultSeries := jujuversion.SupportedLts()
+	defaultSeries := supportedversion.SupportedLts()
 	if series.MustHostSeries() != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)

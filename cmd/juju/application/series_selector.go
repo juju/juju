@@ -6,7 +6,7 @@ package application
 import (
 	"gopkg.in/juju/charm.v6"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/juju/version"
 )
 
 const (

@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/version"
 )
 
 type environPolSuite struct {

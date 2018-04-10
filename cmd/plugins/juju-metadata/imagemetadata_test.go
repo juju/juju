@@ -18,10 +18,10 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type ImageMetadataSuite struct {

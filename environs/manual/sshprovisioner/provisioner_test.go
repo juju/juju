@@ -24,7 +24,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/juju/version"
 )
 
 type provisionerSuite struct {

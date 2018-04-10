@@ -25,9 +25,9 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
+	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/logfwd/syslog"
 	"github.com/juju/juju/network"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")

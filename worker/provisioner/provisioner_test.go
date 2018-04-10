@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/dummy"
@@ -471,7 +472,7 @@ func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
 
 func (s *CommonProvisionerSuite) addMachineWithConstraints(cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      jujuversion.SupportedLts(),
+		Series:      supportedversion.SupportedLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	})
@@ -481,7 +482,7 @@ func (s *CommonProvisionerSuite) addMachines(number int) ([]*state.Machine, erro
 	templates := make([]state.MachineTemplate, number)
 	for i, _ := range templates {
 		templates[i] = state.MachineTemplate{
-			Series:      jujuversion.SupportedLts(),
+			Series:      supportedversion.SupportedLts(),
 			Jobs:        []state.MachineJob{state.JobHostUnits},
 			Constraints: s.defaultConstraints,
 		}
@@ -490,7 +491,7 @@ func (s *CommonProvisionerSuite) addMachines(number int) ([]*state.Machine, erro
 }
 
 func (s *CommonProvisionerSuite) enableHA(c *gc.C, n int) []*state.Machine {
-	changes, err := s.BackingState.EnableHA(n, s.defaultConstraints, jujuversion.SupportedLts(), nil, "")
+	changes, err := s.BackingState.EnableHA(n, s.defaultConstraints, supportedversion.SupportedLts(), nil, "")
 	c.Assert(err, jc.ErrorIsNil)
 	added := make([]*state.Machine, len(changes.Added))
 	for i, mid := range changes.Added {
@@ -799,7 +800,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXD(c *gc.C) {
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
-		Series: jujuversion.SupportedLts(),
+		Series: supportedversion.SupportedLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXD)
@@ -827,7 +828,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForKVM(c *gc.C) {
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
-		Series: jujuversion.SupportedLts(),
+		Series: supportedversion.SupportedLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.KVM)
@@ -1106,7 +1107,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C)
 
 func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.MachineVolumeParams, cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      jujuversion.SupportedLts(),
+		Series:      supportedversion.SupportedLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 		Volumes:     volumes,

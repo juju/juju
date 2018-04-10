@@ -27,6 +27,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
+	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -63,7 +64,7 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.MustHostSeries, func() string { return jujuversion.SupportedLts() })
+	s.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLts() })
 }
 
 func (s *baseProviderSuite) TearDownTest(c *gc.C) {

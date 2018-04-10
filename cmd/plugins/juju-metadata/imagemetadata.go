@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/juju/version"
 )
 
 type imageMetadataCommandBase struct {
