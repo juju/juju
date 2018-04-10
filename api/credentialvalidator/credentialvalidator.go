@@ -28,7 +28,7 @@ func NewFacade(caller base.APICaller) *Facade {
 	return &Facade{base.NewFacadeCaller(caller, "CredentialValidator")}
 }
 
-// ModelCredential get cloud credential that a given model uses, including
+// ModelCredential gets the cloud credential that a given model uses, including
 // useful data such as "is this credential valid"...
 // Some clouds do not require a credential and support the "empty" authentication
 // type. Models on these clouds will have no credentials set, and thus, will return
