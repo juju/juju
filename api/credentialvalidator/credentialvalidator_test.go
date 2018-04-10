@@ -5,25 +5,25 @@ package credentialvalidator_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/base/testing"
+	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/credentialvalidator"
 	"github.com/juju/juju/apiserver/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&CredentialValidatorSuite{})
 
 type CredentialValidatorSuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 }
 
 func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CredentialValidator")
 		c.Check(request, gc.Equals, "ModelCredential")
 		c.Check(arg, gc.IsNil)
@@ -45,7 +45,7 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestModelCredentialIsNotNeeded(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ModelCredential)) = params.ModelCredential{
 			Model:  modelTag.String(),
 			Exists: false,
@@ -60,7 +60,7 @@ func (s *CredentialValidatorSuite) TestModelCredentialIsNotNeeded(c *gc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestModelCredentialInvalidCredentialTag(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ModelCredential)) = params.ModelCredential{
 			Model:           modelTag.String(),
 			Exists:          true,
@@ -76,7 +76,7 @@ func (s *CredentialValidatorSuite) TestModelCredentialInvalidCredentialTag(c *gc
 }
 
 func (s *CredentialValidatorSuite) TestModelCredentialCallError(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("foo")
 	})
 
@@ -86,7 +86,7 @@ func (s *CredentialValidatorSuite) TestModelCredentialCallError(c *gc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestWatchCredential(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CredentialValidator")
 		c.Check(request, gc.Equals, "WatchCredential")
 		c.Check(arg, jc.DeepEquals, credentialTag.String())
@@ -102,7 +102,7 @@ func (s *CredentialValidatorSuite) TestWatchCredential(c *gc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestWatchCredentialError(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{Error: &params.Error{Message: "foo"}}
 		return nil
 	})
@@ -113,7 +113,7 @@ func (s *CredentialValidatorSuite) TestWatchCredentialError(c *gc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestWatchCredentialCallError(c *gc.C) {
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return errors.New("foo")
 	})
 
