@@ -101,7 +101,10 @@ func newSubscriber(config WorkerConfig) (*subscriber, error) {
 	sub.unsubServerDetails = unsub
 
 	// Ask for the current server details now that we're subscribed.
-	detailsRequest := apiserver.DetailsRequest{Requester: "pubsub-forwarder"}
+	detailsRequest := apiserver.DetailsRequest{
+		Requester: "pubsub-forwarder",
+		LocalOnly: true,
+	}
 	if _, err := config.Hub.Publish(apiserver.DetailsRequestTopic, detailsRequest); err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -45,6 +45,7 @@ const DetailsRequestTopic = "apiserver.details-request"
 // to be sent.
 type DetailsRequest struct {
 	Requester string `yaml:"requester"`
+	LocalOnly bool   `yaml:"local-only"`
 }
 
 // ConnectTopic is the topic name for the published message

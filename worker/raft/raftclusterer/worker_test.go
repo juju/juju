@@ -8,7 +8,6 @@ import (
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/pubsub"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -77,7 +76,7 @@ func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*raftclusterer
 type WorkerSuite struct {
 	workerFixture
 	worker worker.Worker
-	stub   testing.Stub
+	reqs   chan apiserver.DetailsRequest
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -85,11 +84,12 @@ var _ = gc.Suite(&WorkerSuite{})
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.workerFixture.SetUpTest(c)
 
-	s.stub.ResetCalls()
+	s.reqs = make(chan apiserver.DetailsRequest, 10)
 	s.hub.Subscribe(
 		apiserver.DetailsRequestTopic,
 		func(topic string, req apiserver.DetailsRequest, err error) {
-			s.stub.AddCall("DetailsRequest", req, err)
+			c.Check(err, jc.ErrorIsNil)
+			s.reqs <- req
 		},
 	)
 
@@ -255,7 +255,16 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestRequestsDetails(c *gc.C) {
-	s.stub.CheckCall(c, 0, "DetailsRequest", apiserver.DetailsRequest{Requester: "raft-clusterer"}, nil)
+	// The worker is started in SetUpTest.
+	select {
+	case req := <-s.reqs:
+		c.Assert(req, gc.Equals, apiserver.DetailsRequest{
+			Requester: "raft-clusterer",
+			LocalOnly: true,
+		})
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for details request")
+	}
 }
 
 func (s *WorkerSuite) publishDetails(c *gc.C, details apiserver.Details) {

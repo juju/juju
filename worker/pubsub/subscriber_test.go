@@ -330,7 +330,7 @@ func (s *SubscriberSuite) TestRequestsDetailsOnceSubscribed(c *gc.C) {
 	subscribed := make(chan apiserver.DetailsRequest)
 	s.config.Hub.Subscribe(apiserver.DetailsRequestTopic,
 		func(_ string, req apiserver.DetailsRequest, err error) {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil)
 			subscribed <- req
 		},
 	)
@@ -339,7 +339,7 @@ func (s *SubscriberSuite) TestRequestsDetailsOnceSubscribed(c *gc.C) {
 
 	select {
 	case req := <-subscribed:
-		c.Assert(req, gc.Equals, apiserver.DetailsRequest{Requester: "pubsub-forwarder"})
+		c.Assert(req, gc.Equals, apiserver.DetailsRequest{Requester: "pubsub-forwarder", LocalOnly: true})
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for details request")
 	}

@@ -58,7 +58,10 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "subscribing to apiserver details")
 	}
 	// Now that we're subscribed, request the current API server details.
-	req := apiserver.DetailsRequest{Requester: "raft-clusterer"}
+	req := apiserver.DetailsRequest{
+		Requester: "raft-clusterer",
+		LocalOnly: true,
+	}
 	if _, err := config.Hub.Publish(apiserver.DetailsRequestTopic, req); err != nil {
 		return nil, errors.Annotate(err, "requesting current apiserver details")
 	}
