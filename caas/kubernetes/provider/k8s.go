@@ -230,7 +230,7 @@ func (k *kubernetesClient) getAvailableVolume(label string) (string, string, err
 		scName = pv.Spec.StorageClassName
 		return pvName, scName, nil
 	}
-	return "", "", errors.NotFoundf("persistent volume for v", label)
+	return "", "", errors.NotFoundf("persistent volume for %v", label)
 }
 
 // maybeGetOperatorVolume attempts to create a persistent volume to use with an operator.
@@ -280,7 +280,7 @@ func (k *kubernetesClient) maybeGetOperatorVolume(appName, operatorVolumeSize st
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		logger.Debugf("no existing volumes, using storage class: +v", sc.Name)
+		logger.Debugf("no existing volumes, using storage class: %+v", sc.Name)
 		scName = sc.Name
 	}
 
