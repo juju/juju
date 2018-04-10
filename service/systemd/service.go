@@ -100,7 +100,7 @@ func NewService(name string, conf common.Conf, dataDir string, newDBus DBusAPIFa
 // DBusAPI exposes all the systemd API methods needed by juju.
 // To regenerate the mock for this interface,
 // run "go generate" from the package directory.
-//go:generate mockgen -package systemd_test -destination dbusapi_test.go github.com/juju/juju/service/systemd DBusAPI
+//go:generate mockgen -package systemd_test -destination dbusapi_mock_test.go github.com/juju/juju/service/systemd DBusAPI
 type DBusAPI interface {
 	Close()
 	ListUnits() ([]dbus.UnitStatus, error)
