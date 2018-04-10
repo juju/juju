@@ -78,7 +78,7 @@ func (c *Facade) ModelCredential(modelUUID string) (base.StoredCredential, bool,
 	}, true, nil
 }
 
-// WatchCredential provides notify watcher that is responsive to changes
+// WatchCredential provides a notify watcher that is responsive to changes
 // to a given cloud credential.
 func (c *Facade) WatchCredential(credentialID string) (watcher.NotifyWatcher, error) {
 	// Construct credential tag from given id.
