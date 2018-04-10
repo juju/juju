@@ -269,7 +269,7 @@ func (s *uniterResolver) nextOp(
 		if s.config.ModelType == model.IAAS {
 			return opFactory.NewUpgrade(remoteState.CharmURL)
 		} else {
-			return opFactory.NewRunHook(hook.Info{Kind: hooks.UpgradeCharm})
+			return opFactory.NewNoOpUpgrade(remoteState.CharmURL)
 		}
 	}
 

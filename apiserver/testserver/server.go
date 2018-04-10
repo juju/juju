@@ -53,14 +53,14 @@ func DefaultServerConfig(c *gc.C) apiserver.ServerConfig {
 // It returns information suitable for connecting to the state
 // without any authentication information or model tag, and the server
 // that's been started.
-func NewServer(c *gc.C, statePool *state.StatePool) (*api.Info, *apiserver.Server, *httptest.Server) {
+func NewServer(c *gc.C, statePool *state.StatePool) *Server {
 	return NewServerWithConfig(c, statePool, DefaultServerConfig(c))
 }
 
 // NewServerWithConfig is like NewServer except that the entire
 // server configuration may be specified (see DefaultServerConfig
 // for a suitable starting point).
-func NewServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server, *httptest.Server) {
+func NewServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.ServerConfig) *Server {
 	// Note that we can't listen on localhost here because TestAPIServerCanListenOnBothIPv4AndIPv6 assumes
 	// that we listen on IPv6 too, and listening on localhost does not do that.
 	listener, err := net.Listen("tcp", ":0")
@@ -90,8 +90,28 @@ func NewServerWithConfig(c *gc.C, statePool *state.StatePool, cfg apiserver.Serv
 
 	srv, err := apiserver.NewServer(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	return &api.Info{
-		Addrs:  []string{fmt.Sprintf("localhost:%d", listener.Addr().(*net.TCPAddr).Port)},
-		CACert: coretesting.CACert,
-	}, srv, httpServer
+	httpServer.StartTLS()
+
+	return &Server{
+		APIServer:  srv,
+		HTTPServer: httpServer,
+		Info: &api.Info{
+			Addrs:  []string{fmt.Sprintf("localhost:%d", listener.Addr().(*net.TCPAddr).Port)},
+			CACert: coretesting.CACert,
+		},
+	}
+}
+
+// Server wraps both the HTTP and API servers needed to test API
+// interactions and simplifies managing their lifecycles.
+type Server struct {
+	APIServer  *apiserver.Server
+	HTTPServer *httptest.Server
+	Info       *api.Info
+}
+
+// Stop stops both the API and HTTP servers.
+func (s *Server) Stop() error {
+	s.HTTPServer.Close()
+	return s.APIServer.Stop()
 }

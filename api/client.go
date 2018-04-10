@@ -4,6 +4,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -554,14 +555,52 @@ func (c *Client) AgentVersion() (version.Number, error) {
 
 // websocketDial is called instead of dialer.Dial so we can override it in
 // tests.
-var websocketDial = func(dialer *websocket.Dialer, urlStr string, requestHeader http.Header) (base.Stream, *http.Response, error) {
+var websocketDial = websocketDialWithErrors
+
+// WebsocketDialer is something that can make a websocket connection. Enables
+// testing the error unpacking in websocketDialWithErrors.
+type WebsocketDialer interface {
+	Dial(string, http.Header) (*websocket.Conn, *http.Response, error)
+}
+
+// websocketDialWithErrors dials the websocket and extracts any error
+// from the response if there's a handshake error setting up the
+// socket. Any other errors are returned normally.
+func websocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeader http.Header) (base.Stream, error) {
 	c, resp, err := dialer.Dial(urlStr, requestHeader)
 	if err != nil {
-		// In websocket handshake errors the response is returned to
-		// enable reading error details.
-		return nil, resp, err
+		if err == websocket.ErrBadHandshake {
+			// If ErrBadHandshake is returned, a non-nil response
+			// is returned so the client can react to auth errors
+			// (for example).
+			//
+			// The problem here is that there is a response, but the response
+			// body is truncated to 1024 bytes for debugging information, not
+			// for a true response. While this may work for small bodies, it
+			// isn't guaranteed to work for all messages.
+			defer resp.Body.Close()
+			body, readErr := ioutil.ReadAll(resp.Body)
+			if readErr != nil {
+				return nil, err
+			}
+			if resp.Header.Get("Content-Type") == "application/json" {
+				var result params.ErrorResult
+				jsonErr := json.Unmarshal(body, &result)
+				if jsonErr != nil {
+					return nil, errors.Annotate(jsonErr, "reading error response")
+				}
+				return nil, result.Error
+			}
+
+			err = errors.Errorf(
+				"%s (%s)",
+				strings.TrimSpace(string(body)),
+				http.StatusText(resp.StatusCode),
+			)
+		}
+		return nil, err
 	}
-	return c, nil, nil
+	return c, nil
 }
 
 // WatchDebugLog returns a channel of structured Log Messages. Only log entries

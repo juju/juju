@@ -56,6 +56,14 @@ func (s *resolverOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation
 	return s.wrapUpgradeOp(op, charmURL), nil
 }
 
+func (s *resolverOpFactory) NewNoOpUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+	op, err := s.Factory.NewNoOpUpgrade(charmURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.wrapUpgradeOp(op, charmURL), nil
+}
+
 func (s *resolverOpFactory) NewRevertUpgrade(charmURL *charm.URL) (operation.Operation, error) {
 	op, err := s.Factory.NewRevertUpgrade(charmURL)
 	if err != nil {

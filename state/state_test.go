@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -1536,7 +1535,6 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",

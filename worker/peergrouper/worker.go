@@ -16,6 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/clock"
+	"github.com/kr/pretty"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/controller"
@@ -29,6 +30,7 @@ import (
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
 type State interface {
+	RemoveControllerMachine(m Machine) error
 	ControllerConfig() (controller.Config, error)
 	ControllerInfo() (*state.ControllerInfo, error)
 	Machine(id string) (Machine, error)
@@ -43,7 +45,9 @@ type Space interface {
 
 type Machine interface {
 	Id() string
+	Life() state.Life
 	Status() (status.StatusInfo, error)
+	SetStatus(status.StatusInfo) error
 	Refresh() error
 	Watch() state.NotifyWatcher
 	WantsVote() bool
@@ -257,11 +261,13 @@ func (w *pgWorker) loop() error {
 		w.publishAPIServerDetails(servers, members)
 
 		if failed {
+			logger.Tracef("failed, waking up after: %v", retryInterval)
 			updateChan = w.config.Clock.After(retryInterval)
 			retryInterval = scaleRetry(retryInterval)
 		} else {
 			// Update the replica set members occasionally to keep them up to
 			// date with the current replica-set member statuses.
+			logger.Tracef("succeeded, waking up after: %v", pollInterval)
 			updateChan = w.config.Clock.After(pollInterval)
 			retryInterval = initialRetryInterval
 		}
@@ -345,10 +351,6 @@ func (w *pgWorker) updateControllerMachines() (bool, error) {
 
 	// Start machines with no watcher
 	for _, id := range info.MachineIds {
-		if _, ok := w.machineTrackers[id]; ok {
-			continue
-		}
-		logger.Debugf("found new machine %q", id)
 		stm, err := w.config.State.Machine(id)
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -361,13 +363,19 @@ func (w *pgWorker) updateControllerMachines() (bool, error) {
 			}
 			return false, fmt.Errorf("cannot get machine %q: %v", id, err)
 		}
+		if _, ok := w.machineTrackers[id]; ok {
+			continue
+		}
+		logger.Debugf("found new machine %q", id)
 
 		// Don't add the machine unless it is "Started"
 		machineStatus, err := stm.Status()
 		if err != nil {
 			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
 		}
-		if machineStatus.Status == status.Started {
+		// A machine in status Error or Stopped might still be properly running the controller. We still want to treat
+		// it as an active machine, even if we're trying to tear it down.
+		if machineStatus.Status != status.Pending {
 			logger.Debugf("machine %q has started, adding it to peergrouper list", id)
 			tracker, err := newMachineTracker(stm, w.machineChanges)
 			if err != nil {
@@ -529,10 +537,27 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 		return nil, errors.Annotate(err, "removing non-voters")
 	}
 
-	// Return the members from the calculated peer-group that are voters.
+	// Reset machine status for members of the changed peer-group.
+	// Any previous peer-group determination errors result in status
+	// warning messages.
+	// Remove members from the return that are not voters.
 	for id := range members {
+		if err := w.machineTrackers[id].stm.SetStatus(getStatusInfo("")); err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		if !voting[id] {
 			delete(members, id)
+		}
+	}
+	for _, removedTracker := range removed {
+		if removedTracker.stm.Life() != state.Alive {
+			logger.Debugf("removing dying controller machine %s", removedTracker.Id())
+			if err := w.config.State.RemoveControllerMachine(removedTracker.stm); err != nil {
+				logger.Errorf("failed to remove dying machine as a controller after removing its vote: %v", err)
+			}
+		} else {
+			logger.Debugf("vote removed from %v but machine is %s", removedTracker.Id(), state.Alive)
 		}
 	}
 	return members, nil
@@ -540,7 +565,14 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 
 func prettyReplicaSetMembers(members map[string]*replicaset.Member) string {
 	var result []string
-	for _, m := range members {
+	// Its easier to read if we sort by Id.
+	keys := make([]string, 0, len(members))
+	for key := range members {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		m := members[key]
 		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, Vote: %v", m.Id, m.Tags, isVotingMember(m)))
 	}
 	return strings.Join(result, "\n")
@@ -564,6 +596,7 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 		return nil, err
 	}
 
+	logger.Tracef("read peer group info: %# v\n%# v", pretty.Formatter(sts), pretty.Formatter(members))
 	return newPeerGroupInfo(w.machineTrackers, sts.Members, members, w.config.MongoPort, haSpace)
 }
 

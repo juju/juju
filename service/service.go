@@ -93,6 +93,13 @@ type RestartableService interface {
 	Restart() error
 }
 
+type UpgradableService interface {
+	// WriteService write the service conf data, if the service is
+	// running add links to allow for manual and automatic start
+	// of the service.
+	WriteService() error
+}
+
 // TODO(ericsnow) bug #1426458
 // Eliminate the need to pass an empty conf for most service methods
 // and several helper functions.

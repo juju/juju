@@ -449,8 +449,9 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	httpCtxt := httpContext{srv: srv}
 	mainAPIHandler := http.HandlerFunc(srv.apiHandler)
 	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
-	debugLogHandler := newDebugLogDBHandler(httpCtxt)
-	debugLogAuthorizer := tagKindAuthorizer{names.MachineTagKind, names.UserTagKind}
+	debugLogHandler := newDebugLogDBHandler(
+		httpCtxt, srv.authenticator,
+		tagKindAuthorizer{names.MachineTagKind, names.UserTagKind})
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
@@ -571,10 +572,12 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		handler: logStreamHandler,
 		tracked: true,
 	}, {
-		pattern:    modelRoutePrefix + "/log",
-		handler:    debugLogHandler,
-		tracked:    true,
-		authorizer: debugLogAuthorizer,
+		pattern: modelRoutePrefix + "/log",
+		handler: debugLogHandler,
+		tracked: true,
+		// The authentication is handled within the debugLogHandler in order
+		// for discharge required errors to be handled correctly.
+		unauthenticated: true,
 	}, {
 		pattern:    modelRoutePrefix + "/logsink",
 		handler:    logSinkHandler,
@@ -660,10 +663,12 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		handler:         modelToolsDownloadHandler,
 		unauthenticated: true,
 	}, {
-		pattern:    "/log",
-		handler:    debugLogHandler,
-		tracked:    true,
-		authorizer: debugLogAuthorizer,
+		pattern: "/log",
+		handler: debugLogHandler,
+		tracked: true,
+		// The authentication is handled within the debugLogHandler in order
+		// for discharge required errors to be handled correctly.
+		unauthenticated: true,
 	}, {
 		// GET /charms has no authorizer
 		pattern: "/charms",

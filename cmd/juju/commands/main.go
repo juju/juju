@@ -303,7 +303,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newDefaultRunCommand())
 	r.Register(newSCPCommand(nil))
 	r.Register(newSSHCommand(nil, nil))
-	r.Register(newResolvedCommand())
+	r.Register(application.NewResolvedCommand())
 	r.Register(newDebugLogCommand())
 	r.Register(newDebugHooksCommand(nil))
 
@@ -460,12 +460,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewShowCredentialCommand())
 
 	// CAAS commands
-	if featureflag.Enabled(feature.CAAS) {
-		r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))
+	r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))
 
-		// Manage Application Credential Access
-		r.Register(application.NewTrustCommand())
-	}
+	// Manage Application Credential Access
+	r.Register(application.NewTrustCommand())
 
 	// Juju GUI commands.
 	r.Register(gui.NewGUICommand())

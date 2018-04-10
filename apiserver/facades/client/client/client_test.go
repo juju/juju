@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
+	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
@@ -1021,7 +1021,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, series.LatestLts(), apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, supportedversion.SupportedLts(), apiParams[i].Constraints.String())
 	}
 }
 
@@ -1037,7 +1037,7 @@ func (s *clientSuite) assertAddMachines(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, series.LatestLts(), apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, supportedversion.SupportedLts(), apiParams[i].Constraints.String())
 	}
 }
 
@@ -1113,7 +1113,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-		s.checkMachine(c, machineResult.Machine, series.LatestLts(), apiParams[i].Constraints.String())
+		s.checkMachine(c, machineResult.Machine, supportedversion.SupportedLts(), apiParams[i].Constraints.String())
 	}
 }
 
@@ -1203,7 +1203,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 			c.Assert(machineResult.Error, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
 		} else {
 			c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
-			s.checkMachine(c, machineResult.Machine, series.LatestLts(), apiParams[i].Constraints.String())
+			s.checkMachine(c, machineResult.Machine, supportedversion.SupportedLts(), apiParams[i].Constraints.String())
 			instanceId := fmt.Sprintf("1234-%d", i)
 			s.checkInstance(c, machineResult.Machine, instanceId, "foo", hc, addrs)
 		}
@@ -1546,7 +1546,7 @@ func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 
 func (s *clientSuite) assertDestroyMachineSuccess(c *gc.C, u *state.Unit, m0, m1, m2 *state.Machine) {
 	err := s.APIState.Client().DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the model; machine 1 has unit "wordpress/0" assigned`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is the only controller machine; machine 1 has unit "wordpress/0" assigned`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Dying)
@@ -1554,7 +1554,7 @@ func (s *clientSuite) assertDestroyMachineSuccess(c *gc.C, u *state.Unit, m0, m1
 	err = u.UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().DestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the model`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is the only controller machine`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Dying)
 	assertLife(c, m2, state.Dying)
@@ -1598,7 +1598,7 @@ func (s *clientSuite) TestBlockChangesDestroyMachines(c *gc.C) {
 	s.assertBlockedErrorAndLiveliness(c, err, "TestBlockChangesDestroyMachines", m0, m1, m2, u)
 }
 
-func (s *clientSuite) TestBlockDestoryDestroyMachines(c *gc.C) {
+func (s *clientSuite) TestBlockDestroyDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 	s.BlockDestroyModel(c, "TestBlockDestoryDestroyMachines")
 	s.assertDestroyMachineSuccess(c, u, m0, m1, m2)
@@ -1616,7 +1616,7 @@ func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
 
 	err := s.APIState.Client().ForceDestroyMachines("0", "1", "2")
-	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine is required by the model`)
+	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is the only controller machine`)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, m2, state.Alive)

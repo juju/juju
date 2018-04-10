@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -93,7 +92,6 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
@@ -1882,7 +1880,6 @@ func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
-	s.SetFeatureFlags(feature.CAAS)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
@@ -3355,7 +3352,6 @@ type CAASApplicationSuite struct {
 var _ = gc.Suite(&CAASApplicationSuite{})
 
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CAAS)
 	s.ConnSuite.SetUpTest(c)
 	s.caasSt = s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",

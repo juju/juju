@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"io/ioutil"
 	"net/http"
 	"net/url"
 
@@ -45,38 +44,23 @@ func (s *debugLogDBSuite) TestWithHTTP(c *gc.C) {
 	})
 }
 
-func (s *debugLogDBSuite) TestWithHTTPS(c *gc.C) {
-	uri := s.logURL("https", nil).String()
-	response := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
-	defer response.Body.Close()
-	c.Assert(response.StatusCode, gc.Equals, http.StatusUnauthorized)
-	out, err := ioutil.ReadAll(response.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, "authentication failed: no credentials provided\n")
-}
-
 func (s *debugLogDBSuite) TestNoAuth(c *gc.C) {
-	conn, resp, err := s.dialWebsocketInternal(c, nil, nil)
-	c.Assert(err, gc.Equals, websocket.ErrBadHandshake)
-	c.Assert(conn, gc.IsNil)
-	defer resp.Body.Close()
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusUnauthorized)
-	out, err := ioutil.ReadAll(resp.Body)
+	conn, _, err := s.dialWebsocketInternal(c, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, "authentication failed: no credentials provided\n")
+
+	websockettest.AssertJSONError(c, conn, "authentication failed: no credentials provided")
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 func (s *debugLogDBSuite) TestUnitLoginsRejected(c *gc.C) {
 	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
 	header := utils.BasicAuthHeader(u.Tag().String(), password)
-	conn, resp, err := s.dialWebsocketInternal(c, nil, header)
-	c.Assert(err, gc.Equals, websocket.ErrBadHandshake)
-	c.Assert(conn, gc.IsNil)
-	defer resp.Body.Close()
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusForbidden)
-	out, err := ioutil.ReadAll(resp.Body)
+
+	conn, _, err := s.dialWebsocketInternal(c, nil, header)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, "authorization failed: tag kind unit not valid\n")
+
+	websockettest.AssertJSONError(c, conn, "authorization failed: tag kind unit not valid")
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 var noResultsPlease = url.Values{"maxLines": {"0"}, "noTail": {"true"}}

@@ -463,32 +463,7 @@ func (s *Service) install() error {
 		}
 	}
 
-	filename, err := s.writeConf()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	conn, err := s.newConn()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer conn.Close()
-
-	runtime, force := false, true
-	_, err = conn.LinkUnitFiles([]string{filename}, runtime, force)
-	if err != nil {
-		return s.errorf(err, "dbus link request failed")
-	}
-
-	if err := conn.Reload(); err != nil {
-		return s.errorf(err, "dbus post-link daemon reload request failed")
-	}
-
-	_, _, err = conn.EnableUnitFiles([]string{filename}, runtime, force)
-	if err != nil {
-		return s.errorf(err, "dbus enable request failed")
-	}
-	return nil
+	return s.WriteService()
 }
 
 func (s *Service) writeConf() (string, error) {
@@ -570,4 +545,40 @@ func (s *Service) StartCommands() ([]string, error) {
 		cmds.start(name),
 	}
 	return cmdList, nil
+}
+
+// WriteService implements UpgradableService.WriteService
+func (s *Service) WriteService() error {
+	filename, err := s.writeConf()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if running, err := IsRunning(); err != nil {
+		return errors.Trace(err)
+	} else if !running {
+		return nil
+	}
+
+	conn, err := s.newConn()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer conn.Close()
+
+	runtime, force := false, true
+	if _, err = conn.LinkUnitFiles([]string{filename}, runtime, force); err != nil {
+		return s.errorf(err, "dbus link request failed")
+	}
+
+	err = conn.Reload()
+	if err != nil {
+		return s.errorf(err, "dbus post-link daemon reload request failed")
+	}
+
+	if _, _, err = conn.EnableUnitFiles([]string{filename}, runtime, force); err != nil {
+		return s.errorf(err, "dbus enable request failed")
+
+	}
+	return nil
 }

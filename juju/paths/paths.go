@@ -23,6 +23,7 @@ const (
 	uniterStateDir
 	jujuDumpLogs
 	jujuIntrospect
+	jujuUpdateSeries
 	instanceCloudInitDir
 	cloudInitCfgDir
 )
@@ -36,6 +37,7 @@ var nixVals = map[osVarType]string{
 	jujuRun:              "/usr/bin/juju-run",
 	jujuDumpLogs:         "/usr/bin/juju-dumplogs",
 	jujuIntrospect:       "/usr/bin/juju-introspect",
+	jujuUpdateSeries:     "/usr/bin/juju-updateseries",
 	certDir:              "/etc/juju/certs.d",
 	metricsSpoolDir:      "/var/lib/juju/metricspool",
 	uniterStateDir:       "/var/lib/juju/uniter/state",
@@ -44,17 +46,18 @@ var nixVals = map[osVarType]string{
 }
 
 var winVals = map[osVarType]string{
-	tmpDir:          "C:/Juju/tmp",
-	logDir:          "C:/Juju/log",
-	dataDir:         "C:/Juju/lib/juju",
-	storageDir:      "C:/Juju/lib/juju/storage",
-	confDir:         "C:/Juju/etc",
-	jujuRun:         "C:/Juju/bin/juju-run.exe",
-	jujuDumpLogs:    "C:/Juju/bin/juju-dumplogs.exe",
-	jujuIntrospect:  "C:/Juju/bin/juju-introspect.exe",
-	certDir:         "C:/Juju/certs",
-	metricsSpoolDir: "C:/Juju/lib/juju/metricspool",
-	uniterStateDir:  "C:/Juju/lib/juju/uniter/state",
+	tmpDir:           "C:/Juju/tmp",
+	logDir:           "C:/Juju/log",
+	dataDir:          "C:/Juju/lib/juju",
+	storageDir:       "C:/Juju/lib/juju/storage",
+	confDir:          "C:/Juju/etc",
+	jujuRun:          "C:/Juju/bin/juju-run.exe",
+	jujuDumpLogs:     "C:/Juju/bin/juju-dumplogs.exe",
+	jujuIntrospect:   "C:/Juju/bin/juju-introspect.exe",
+	jujuUpdateSeries: "C:/Juju/bin/juju-updateseries.exe",
+	certDir:          "C:/Juju/certs",
+	metricsSpoolDir:  "C:/Juju/lib/juju/metricspool",
+	uniterStateDir:   "C:/Juju/lib/juju/uniter/state",
 }
 
 // osVal will lookup the value of the key valname
@@ -145,6 +148,12 @@ func MachineCloudInitDir(series string) (string, error) {
 // cloud config directory for a particular series.
 func CloudInitCfgDir(series string) (string, error) {
 	return osVal(series, cloudInitCfgDir)
+}
+
+// JujuUpdateSeries returns the absolute path to the juju-updateseries
+// binary for a particular series.
+func JujuUpdateSeries(series string) (string, error) {
+	return osVal(series, jujuUpdateSeries)
 }
 
 func MustSucceed(s string, e error) string {

@@ -308,7 +308,6 @@ func (s *desiredPeerGroupSuite) TestDesiredPeerGroupIPv6(c *gc.C) {
 }
 
 func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIPVersion) {
-
 	for ti, test := range desiredPeerGroupTests(ipVersion) {
 		c.Logf("\ntest %d: %s", ti, test.about)
 		trackerMap := make(map[string]*machineTracker)

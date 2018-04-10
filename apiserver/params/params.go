@@ -461,6 +461,13 @@ type ResolvedResults struct {
 	Settings    map[string]interface{} `json:"settings"`
 }
 
+// UnitsResolved holds parameters for the ResolveUnitErrors call.
+type UnitsResolved struct {
+	Tags  Entities `json:"tags,omitempty"`
+	Retry bool     `json:"retry,omitempty"`
+	All   bool     `json:"all,omitempty"`
+}
+
 // AddApplicationUnitsResults holds the names of the units added by the
 // AddUnits call.
 type AddApplicationUnitsResults struct {

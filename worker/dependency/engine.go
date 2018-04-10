@@ -344,8 +344,8 @@ func (engine *Engine) requestStart(name string, delay time.Duration) {
 
 // context returns a context backed by a snapshot of current
 // worker state, restricted to those workers declared in inputs. It must only
-// be called from the loop goroutine; see inside for a detailed dicsussion of
-// why we took this appproach.
+// be called from the loop goroutine; see inside for a detailed discussion of
+// why we took this approach.
 func (engine *Engine) context(name string, inputs []string, abort <-chan struct{}) *context {
 	// We snapshot the resources available at invocation time, rather than adding an
 	// additional communicate-resource-request channel. The latter approach is not

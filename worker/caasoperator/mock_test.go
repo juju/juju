@@ -65,8 +65,9 @@ type fakeAPICaller struct {
 type fakeClient struct {
 	testing.Stub
 	caasoperator.Client
-	unitsWatcher *watchertest.MockStringsWatcher
-	watcher      *watchertest.MockNotifyWatcher
+	unitsWatcher       *watchertest.MockStringsWatcher
+	watcher            *watchertest.MockNotifyWatcher
+	applicationWatched chan struct{}
 }
 
 func (c *fakeClient) SetStatus(application string, status status.Status, message string, data map[string]interface{}) error {
@@ -112,6 +113,7 @@ func (c *fakeClient) Watch(application string) (watcher.NotifyWatcher, error) {
 	if err := c.NextErr(); err != nil {
 		return nil, err
 	}
+	c.applicationWatched <- struct{}{}
 	return c.watcher, nil
 }
 

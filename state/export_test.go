@@ -109,7 +109,10 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 
 func newRunnerForHooks(st *State) jujutxn.Runner {
 	db := st.database.(*database)
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db.raw})
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database: db.raw,
+		Clock:    st.stateClock,
+	})
 	db.runner = runner
 	return runner
 }
@@ -477,10 +480,6 @@ func ForceDestroyMachineOps(m *Machine) ([]txn.Op, error) {
 	return m.forceDestroyOps()
 }
 
-func IsManagerMachineError(err error) bool {
-	return errors.Cause(err) == managerMachineError
-}
-
 func MakeActionIdConverter(st *State) func(string) (string, error) {
 	return func(id string) (string, error) {
 		id, err := st.strictLocalID(id)
@@ -498,6 +497,24 @@ func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time
 	}
 
 	return model.updateLastModelConnection(e.UserTag, when)
+}
+
+func (m *Machine) SetWantsVote(wantsVote bool) error {
+	err := m.st.runRawTransaction([]txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Update: bson.M{"$set": bson.M{"novote": !wantsVote}},
+	}})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	m.doc.NoVote = !wantsVote
+	return nil
+}
+
+func RemoveController(c *gc.C, m *Machine) {
+	err := m.st.RemoveControllerMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func RemoveEndpointBindingsForService(c *gc.C, app *Application) {

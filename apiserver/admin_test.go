@@ -63,10 +63,9 @@ func (s *baseLoginSuite) newServer(c *gc.C) (*api.Info, *apiserver.Server) {
 }
 
 func (s *baseLoginSuite) newServerWithConfig(c *gc.C, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server) {
-	info, srv, httpServer := testserver.NewServerWithConfig(c, s.StatePool, cfg)
-	httpServer.StartTLS()
-	s.AddCleanup(func(*gc.C) { httpServer.Close() })
-	return info, srv
+	server := testserver.NewServerWithConfig(c, s.StatePool, cfg)
+	s.AddCleanup(func(c *gc.C) { assertStop(c, server) })
+	return server.Info, server.APIServer
 }
 
 func (s *baseLoginSuite) newMachineAndServer(c *gc.C) (*api.Info, *apiserver.Server) {
@@ -1180,10 +1179,8 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return "test@somewhere"
 	}
-	info, srv, httpServer := testserver.NewServer(c, s.StatePool)
+	srv := testserver.NewServer(c, s.StatePool)
 	defer assertStop(c, srv)
-	httpServer.StartTLS()
-	defer httpServer.Close()
 	workingTransport := http.DefaultTransport
 	failingTransport := errorTransport{
 		fallback: workingTransport,
@@ -1191,19 +1188,19 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
 		err:      errors.New("some error"),
 	}
 	s.PatchValue(&http.DefaultTransport, failingTransport)
-	_, err := s.login(c, info)
+	_, err := s.login(c, srv.Info)
 	c.Assert(err, gc.ErrorMatches, `.*: some error .*`)
 
 	http.DefaultTransport = workingTransport
 
 	// The error doesn't stick around.
-	_, err = s.login(c, info)
+	_, err = s.login(c, srv.Info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Once we've succeeded, we shouldn't try again.
 	http.DefaultTransport = failingTransport
 
-	_, err = s.login(c, info)
+	_, err = s.login(c, srv.Info)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1346,11 +1343,9 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 	cfg := testserver.DefaultServerConfig(c)
 	cfg.AllowModelAccess = allowModelAccess
 
-	info, srv, httpServer := testserver.NewServerWithConfig(c, s.StatePool, cfg)
+	srv := testserver.NewServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
-	httpServer.StartTLS()
-	defer httpServer.Close()
-	info.ModelTag = s.IAASModel.ModelTag()
+	srv.Info.ModelTag = s.IAASModel.ModelTag()
 
 	// If we have a remote user which has explict model access, but neither
 	// controller access nor 'everyone' access, the user will have access
@@ -1365,7 +1360,7 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 		return remoteUser
 	}
 
-	_, err := s.login(c, info)
+	_, err := s.login(c, srv.Info)
 	if allowModelAccess {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {

@@ -55,6 +55,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine0, err = s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine0.SetHasVote(true), jc.ErrorIsNil)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -286,14 +287,16 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 }
 
 func (s *MachineSuite) TestLifeJobManageModel(c *gc.C) {
-	// A JobManageModel machine must never advance lifecycle.
 	m := s.machine0
 	err := m.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
-	err = m.ForceDestroy()
-	c.Assert(err, gc.ErrorMatches, "machine is required by the model")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
 	err = m.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
+	// Since this is the only controller machine, we cannot even force destroy it
+	err = m.ForceDestroy()
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
+	err = m.EnsureDead()
+	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
 }
 
 func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
@@ -389,7 +392,7 @@ func (s *MachineSuite) TestDestroyOpsForManagerFails(c *gc.C) {
 
 	// ... and assert that we cannot get the destroy ops for it.
 	ops, err := state.ForceDestroyMachineOps(m)
-	c.Assert(err, jc.Satisfies, state.IsManagerMachineError)
+	c.Assert(err, gc.ErrorMatches, `machine 0 is the only controller machine`)
 	c.Assert(ops, gc.IsNil)
 }
 
@@ -563,22 +566,6 @@ func (s *MachineSuite) TestHasVote(c *gc.C) {
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.HasVote(), jc.IsFalse)
-}
-
-func (s *MachineSuite) TestCannotDestroyMachineWithVote(c *gc.C) {
-	err := s.machine.SetHasVote(true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make another machine value so that
-	// it won't have the cached HasVote value.
-	m, err := s.State.Machine(s.machine.Id())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine "+s.machine.Id()+" is a voting replica set member")
-
-	err = m.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine "+s.machine.Id()+" is a voting replica set member")
 }
 
 func (s *MachineSuite) TestRemoveAbort(c *gc.C) {

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/agent" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
+	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
 	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
@@ -151,21 +152,21 @@ func AllFacades() *facade.Registry {
 	reg("Client", 1, client.NewFacade)
 	reg("Cloud", 1, cloud.NewFacade)
 	reg("Cloud", 2, cloud.NewFacadeV2) // adds CredentialContents
-	if featureflag.Enabled(feature.CAAS) {
-		// CAAS related facades.
-		// Move these to the correct place above once the feature flag disappears.
-		reg("CAASFirewaller", 1, caasfirewaller.NewStateFacade)
-		reg("CAASOperator", 1, caasoperator.NewStateFacade)
-		reg("CAASAgent", 1, caasagent.NewStateFacade)
-		reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
-		reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
-	}
+
+	// CAAS related facades.
+	// Move these to the correct place above once the feature flag disappears.
+	reg("CAASFirewaller", 1, caasfirewaller.NewStateFacade)
+	reg("CAASOperator", 1, caasoperator.NewStateFacade)
+	reg("CAASAgent", 1, caasagent.NewStateFacade)
+	reg("CAASOperatorProvisioner", 1, caasoperatorprovisioner.NewStateCAASOperatorProvisionerAPI)
+	reg("CAASUnitProvisioner", 1, caasunitprovisioner.NewStateFacade)
 
 	reg("Controller", 3, controller.NewControllerAPIv3)
 	reg("Controller", 4, controller.NewControllerAPIv4)
 	reg("Controller", 5, controller.NewControllerAPIv5)
 	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
 	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
+	reg("CredentialValidator", 1, credentialvalidator.NewCredentialValidatorAPI)
 	reg("ExternalControllerUpdater", 1, externalcontrollerupdater.NewStateAPI)
 
 	reg("Deployer", 1, deployer.NewDeployerAPI)

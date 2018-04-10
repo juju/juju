@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -604,7 +605,7 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	if errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// In an ideal world, we'd call machine.Destroy() here, and thus prevent
 	// new dependencies being added while we clean up the ones we know about.
@@ -612,23 +613,51 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	// destruction while dependencies exist; so we just have to deal with that
 	// possibility below.
 	if err := st.cleanupContainers(machine); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	for _, unitName := range machine.doc.Principals {
 		if err := st.obliterateUnit(unitName); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	if err := cleanupDyingMachineResources(machine); err != nil {
-		return err
+		return errors.Trace(err)
 	}
+	if machine.IsManager() {
+		if machine.HasVote() {
+			// we remove the vote from the machine so that it can be torn down cleanly. Note that this isn't reflected
+			// in the actual replicaset, so users using --force should be careful.
+			hasVoteTxn := func(attempt int) ([]txn.Op, error) {
+				if attempt != 0 {
+					if err := machine.Refresh(); err != nil {
+						return nil, errors.Trace(err)
+					}
+					if !machine.HasVote() {
+						return nil, jujutxn.ErrNoOperations
+					}
+				}
+				return []txn.Op{{
+					C:      machinesC,
+					Id:     machine.doc.Id,
+					Update: bson.D{{"$set", bson.D{{"hasvote", false}}}},
+				}}, nil
+			}
+			if err := st.db().Run(hasVoteTxn); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		if err := st.db().RunRawTransaction(removeControllerOps(machine)); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	// We need to refresh the machine at this point, because the local copy
 	// of the document will not reflect changes caused by the unit cleanups
 	// above, and may thus fail immediately.
 	if err := machine.Refresh(); errors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// TODO(fwereade): 2013-11-11 bug 1250104
 	// If this fails, it's *probably* due to a race in which new dependencies
@@ -637,13 +666,16 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	// force-destroying the machine again; that's better than adding layer
 	// upon layer of complication here.
 	if err := machine.EnsureDead(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	removePortsOps, err := machine.removePortsOps()
 	if len(removePortsOps) == 0 || err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return st.db().RunTransaction(removePortsOps)
+	if err := st.db().RunTransaction(removePortsOps); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 
 	// Note that we do *not* remove the machine entirely: we leave it for the
 	// provisioner to clean up, so that we don't end up with an unreferenced

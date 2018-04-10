@@ -23,7 +23,6 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v2"
@@ -47,6 +46,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -200,7 +200,7 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c 
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
 	err := runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", version.SupportedLts()))
 	s.AssertService(c, "dummy", curl, 1, 0)
 }
 
@@ -423,7 +423,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 func (s *DeploySuite) TestPlacement(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
 	// Add a machine that will be ignored due to placement directive.
-	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.SupportedLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = runDeploy(c, ch, "-n", "1", "--to", "valid", "--series", "quantal")
@@ -487,9 +487,9 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.SupportedLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", series.LatestLts())
+	err = runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", version.SupportedLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id())
 }
@@ -497,12 +497,12 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
 	template := state.MachineTemplate{
-		Series: series.LatestLts(),
+		Series: version.SupportedLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", series.LatestLts())
+	err = runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", version.SupportedLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, container.Id())
 	machines, err := s.State.AllMachines()
@@ -512,9 +512,9 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.SupportedLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", "lxd:"+machine.Id(), ch, "portlandia", "--series", series.LatestLts())
+	err = runDeploy(c, "--to", "lxd:"+machine.Id(), ch, "portlandia", "--series", version.SupportedLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxd/0")
 
@@ -540,7 +540,7 @@ func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
-	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.SupportedLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
 	err = runDeploy(c, "--to", machine.Id(), ch, "--series", "quantal")

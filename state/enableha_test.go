@@ -429,3 +429,98 @@ func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
 	_, err = s.State.Machine("0")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
+
+func (s *EnableHASuite) TestDestroyFromHA(c *gc.C) {
+	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m0.Destroy()
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 2)
+	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
+	err = m0.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m0.Refresh(), jc.ErrorIsNil)
+	c.Check(m0.Life(), gc.Equals, state.Dying)
+	c.Check(m0.WantsVote(), jc.IsFalse)
+}
+
+func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
+	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m0.SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
+	// ForceDestroy must be blocked if there is only 1 machine.
+	err = m0.ForceDestroy()
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 2)
+	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
+	err = m0.ForceDestroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m0.Refresh(), jc.ErrorIsNil)
+	// Could this actually get all the way to Dead?
+	c.Check(m0.Life(), gc.Equals, state.Dying)
+	c.Check(m0.WantsVote(), jc.IsFalse)
+}
+
+func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
+	c.Skip("not able to race yet")
+	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
+		return true, nil
+	})
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 2)
+	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
+
+	// TODO(jam) 2018-03-25: We don't directly mutate the DB, we need to expose a function that can actually cause a
+	// race, so that we know we have the right assertions in the Destroy txns.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		// Somehow remove a different controller machine while we're waiting for machine 0 to be removed
+	}).Check()
+	err = m0.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m0.Refresh(), jc.ErrorIsNil)
+	c.Check(m0.Life(), gc.Equals, state.Dying)
+	c.Check(m0.WantsVote(), jc.IsFalse)
+}
+
+func (s *EnableHASuite) TestRemoveControllerMachineOneMachine(c *gc.C) {
+	m0, err := s.State.AddMachine("quantal", state.JobManageModel)
+	m0.SetHasVote(true)
+	err = s.State.RemoveControllerMachine(m0)
+	c.Assert(err, gc.ErrorMatches, "machine \\d+ cannot be removed as a controller as it still wants to vote")
+	m0.SetWantsVote(false)
+	err = s.State.RemoveControllerMachine(m0)
+	c.Assert(err, gc.ErrorMatches, "machine \\d+ cannot be removed as a controller as it still has a vote")
+}
+
+func (s *EnableHASuite) TestRemoveControllerMachine(c *gc.C) {
+	m0, err := s.State.AddMachine("quantal", state.JobManageModel)
+	m0.SetHasVote(true)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 2)
+	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
+	c.Assert(m0.Destroy(), jc.ErrorIsNil)
+	m0.SetHasVote(false)
+	m0.Refresh()
+	err = s.State.RemoveControllerMachine(m0)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertControllerInfo(c, []string{"1", "2"}, []string{"1", "2"}, nil)
+	m0.Refresh()
+	c.Assert(m0.Jobs(), jc.DeepEquals, []state.MachineJob{})
+}

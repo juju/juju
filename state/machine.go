@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
+	"github.com/kr/pretty"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -507,23 +508,59 @@ func (m *Machine) ForceDestroy() error {
 		return errors.Trace(err)
 	}
 	if err := m.st.db().RunTransaction(ops); err != txn.ErrAborted {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to run transaction: %s", pretty.Sprint(ops))
 	}
 	return nil
 }
 
-var managerMachineError = errors.New("machine is required by the model")
-
 func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 	if m.IsManager() {
-		return nil, errors.Trace(managerMachineError)
+		controllerInfo, err := m.st.ControllerInfo()
+		if err != nil {
+			return nil, errors.Annotatef(err, "reading controller info")
+		}
+		if len(controllerInfo.MachineIds) <= 1 {
+			return nil, errors.Errorf("machine %s is the only controller machine", m.Id())
+		}
+		// We set the machine to Dying if it isn't already dead.
+		var machineOp txn.Op
+		if m.Life() < Dead {
+			// Make sure we don't want the vote, and we are queued to be Dying
+			machineOp = txn.Op{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Assert: bson.D{{"life", bson.D{{"$in", []Life{Alive, Dying}}}}},
+				Update: bson.D{{"$set", bson.D{{"novote", true}, {"life", Dying}}}},
+			}
+		} else {
+			machineOp = txn.Op{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Update: bson.D{{"$set", bson.D{{"novote", true}}}},
+			}
+		}
+		controllerOp := txn.Op{
+			C:      controllersC,
+			Id:     modelGlobalKey,
+			Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
+		}
+		// Note that ForceDestroy does *not* cleanup the replicaset, so it might cause problems.
+		// However, we're letting the user handle times when the machine agent isn't running, etc.
+		// We may need to update the peergrouper for this.
+		return []txn.Op{
+			machineOp,
+			controllerOp,
+			newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id),
+		}, nil
+	} else {
+		// Make sure the machine doesn't become a manager while we're destroying it
+		return []txn.Op{{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
+		}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id),
+		}, nil
 	}
-
-	return []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-	}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -664,10 +701,8 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		advanceAsserts := bson.D{
-			{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}},
-			{"hasvote", bson.D{{"$ne", true}}},
-		}
+		ops := []txn.Op{op}
+		var asserts bson.D
 		// Grab a fresh copy of the machine data.
 		// We don't write to original, because the expectation is that state-
 		// changing methods only set the requested change on the receiver; a case
@@ -686,32 +721,54 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			if m.doc.Life != Alive {
 				return nil, jujutxn.ErrNoOperations
 			}
-			advanceAsserts = append(advanceAsserts, isAliveDoc...)
+			// Manager nodes are allowed to go to dying even when they have the vote, as that is used as the signal
+			// that they should lose their vote
+			asserts = append(asserts, isAliveDoc...)
 		case Dead:
 			if m.doc.Life == Dead {
 				return nil, jujutxn.ErrNoOperations
 			}
-			advanceAsserts = append(advanceAsserts, notDeadDoc...)
+			if m.doc.HasVote {
+				return nil, fmt.Errorf("machine %s is still a voting controller member", m.doc.Id)
+			}
+			if m.IsManager() {
+				return nil, errors.Errorf("machine %s is still a controller member", m.Id())
+			}
+			asserts = append(asserts, bson.D{
+				{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}},
+				{"hasvote", bson.M{"$ne": true}},
+			}...)
+			asserts = append(asserts, notDeadDoc...)
 		default:
 			panic(fmt.Errorf("cannot advance lifecycle to %v", life))
 		}
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
-		if hasJob(m.doc.Jobs, JobManageModel) {
-			// (NOTE: When we enable multiple JobManageModel machines,
-			// this restriction will be lifted, but we will assert that the
-			// machine is not voting)
-			return nil, fmt.Errorf("machine %s is required by the model", m.doc.Id)
-		}
-		if m.doc.HasVote {
-			return nil, fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
-		}
 		// If there are no alive units left on the machine, or all the services are dying,
 		// then the machine may be soon destroyed by a cleanup worker.
 		// In that case, we don't want to return any error about not being able to
 		// destroy a machine with units as it will be a lie.
 		if life == Dying {
 			canDie := true
+			if hasJob(m.doc.Jobs, JobManageModel) || m.doc.HasVote {
+				// If we're responsible for managing the model, make sure we ask to drop our vote
+				ops[0].Update = bson.D{
+					{"$set", bson.D{{"life", life}, {"novote", true}}},
+				}
+				controllerInfo, err := m.st.ControllerInfo()
+				if err != nil {
+					return nil, errors.Annotatef(err, "reading controller info")
+				}
+				if len(controllerInfo.MachineIds) <= 1 {
+					return nil, errors.Errorf("machine %s is the only controller machine", m.Id())
+				}
+				controllerOp := txn.Op{
+					C:      controllersC,
+					Id:     modelGlobalKey,
+					Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
+				}
+				ops = append(ops, controllerOp)
+			}
 			var principalUnitnames []string
 			for _, principalUnit := range m.doc.Principals {
 				principalUnitnames = append(principalUnitnames, principalUnit)
@@ -734,6 +791,15 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 					return nil, errors.Annotatef(err, "reading machine %s containers", m)
 				}
 				canDie = len(containers) == 0
+				containerCheck := txn.Op{
+					C:  containerRefsC,
+					Id: m.doc.DocID,
+					Assert: bson.D{{"$or", []bson.D{
+						{{"children", bson.D{{"$size", 0}}}},
+						{{"children", bson.D{{"$exists", false}}}},
+					}}},
+				}
+				ops = append(ops, containerCheck)
 			}
 			if canDie {
 				checkUnits := bson.DocElem{
@@ -743,16 +809,9 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 						{{"principals", bson.D{{"$exists", false}}}},
 					},
 				}
-				op.Assert = append(advanceAsserts, checkUnits)
-				containerCheck := txn.Op{
-					C:  containerRefsC,
-					Id: m.doc.DocID,
-					Assert: bson.D{{"$or", []bson.D{
-						{{"children", bson.D{{"$size", 0}}}},
-						{{"children", bson.D{{"$exists", false}}}},
-					}}},
-				}
-				return []txn.Op{op, containerCheck, cleanupOp}, nil
+				ops[0].Assert = append(asserts, checkUnits)
+				ops = append(ops, cleanupOp)
+				return ops, nil
 			}
 		}
 
@@ -762,21 +821,25 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 				UnitNames: m.doc.Principals,
 			}
 		}
-		advanceAsserts = append(advanceAsserts, noUnits)
+		asserts = append(asserts, noUnits)
 
 		if life == Dead {
+			if hasJob(m.doc.Jobs, JobManageModel) {
+				return nil, errors.Errorf("machine %s is still resposible for being a controller", m.Id())
+			}
 			// A machine may not become Dead until it has no more
 			// attachments to detachable storage.
 			storageAsserts, err := m.assertNoPersistentStorage()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			advanceAsserts = append(advanceAsserts, storageAsserts...)
+			asserts = append(asserts, storageAsserts...)
 		}
 
 		// Add the additional asserts needed for this transaction.
-		op.Assert = advanceAsserts
-		return []txn.Op{op, cleanupOp}, nil
+		ops[0].Assert = asserts
+		ops = append(ops, cleanupOp)
+		return ops, nil
 	}
 	if err = m.st.db().Run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)

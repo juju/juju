@@ -14,7 +14,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/charmrepo.v2/csclient"
@@ -37,7 +36,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -545,9 +543,7 @@ func charmOnlyFlags() []string {
 		"series", "to", "resource", "attach-storage",
 	}
 
-	if featureflag.Enabled(feature.CAAS) {
-		charmOnlyFlags = append(charmOnlyFlags, "trust")
-	}
+	charmOnlyFlags = append(charmOnlyFlags, "trust")
 
 	return charmOnlyFlags
 }
@@ -562,9 +558,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
 	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
 
-	if featureflag.Enabled(feature.CAAS) {
-		f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
-	}
+	f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
 
 	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")

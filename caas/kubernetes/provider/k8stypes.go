@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
-	"k8s.io/client-go/pkg/api/v1"
-	k8syaml "k8s.io/client-go/pkg/util/yaml"
+	core "k8s.io/api/core/v1"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/juju/juju/caas"
 )
@@ -28,9 +28,9 @@ type k8sContainers struct {
 // K8sContainerSpec is a subset of v1.Container which defines
 // attributes we expose for charms to set.
 type K8sContainerSpec struct {
-	LivenessProbe   *v1.Probe     `json:"livenessProbe,omitempty"`
-	ReadinessProbe  *v1.Probe     `json:"readinessProbe,omitempty"`
-	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	LivenessProbe   *core.Probe     `json:"livenessProbe,omitempty"`
+	ReadinessProbe  *core.Probe     `json:"readinessProbe,omitempty"`
+	ImagePullPolicy core.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // Validate is defined on ProviderContainer.

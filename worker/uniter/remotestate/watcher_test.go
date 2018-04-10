@@ -27,6 +27,8 @@ type WatcherSuite struct {
 	leadership *mockLeadershipTracker
 	watcher    *remotestate.RemoteStateWatcher
 	clock      *testing.Clock
+
+	applicationWatcher *mockNotifyWatcher
 }
 
 type WatcherSuiteIAAS struct {
@@ -52,7 +54,6 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 				life:                  params.Alive,
 				curl:                  charm.MustParseURL("cs:trusty/mysql"),
 				charmModifiedVersion:  5,
-				applicationWatcher:    newMockNotifyWatcher(),
 				leaderSettingsWatcher: newMockNotifyWatcher(),
 			},
 			unitWatcher:                      newMockNotifyWatcher(),
@@ -78,16 +79,41 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.clock = testing.NewClock(time.Now())
+}
+
+func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
+	s.WatcherSuite.SetUpTest(c)
 	statusTicker := func(wait time.Duration) remotestate.Waiter {
 		return dummyWaiter{s.clock.After(wait)}
 	}
 
+	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
+	s.applicationWatcher = s.st.unit.application.applicationWatcher
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
 		State:               s.st,
 		ModelType:           s.modelType,
 		LeadershipTracker:   s.leadership,
 		UnitTag:             s.st.unit.tag,
 		UpdateStatusChannel: statusTicker,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.watcher = w
+}
+
+func (s *WatcherSuiteCAAS) SetUpTest(c *gc.C) {
+	s.WatcherSuite.SetUpTest(c)
+	statusTicker := func(wait time.Duration) remotestate.Waiter {
+		return dummyWaiter{s.clock.After(wait)}
+	}
+
+	s.applicationWatcher = newMockNotifyWatcher()
+	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
+		State:               s.st,
+		ModelType:           s.modelType,
+		LeadershipTracker:   s.leadership,
+		UnitTag:             s.st.unit.tag,
+		UpdateStatusChannel: statusTicker,
+		ApplicationChannel:  s.applicationWatcher.Changes(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.watcher = w
@@ -127,7 +153,9 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.st.unit.actionWatcher.changes <- []string{}
-	s.st.unit.application.applicationWatcher.changes <- struct{}{}
+	if s.st.unit.application.applicationWatcher != nil {
+		s.st.unit.application.applicationWatcher.changes <- struct{}{}
+	}
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	s.st.unit.relationsWatcher.changes <- []string{}
 	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
@@ -135,24 +163,24 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 }
 
-func signalAll(st *mockState, l *mockLeadershipTracker) {
-	st.unit.unitWatcher.changes <- struct{}{}
-	st.unit.configSettingsWatcher.changes <- struct{}{}
-	st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
-	st.unit.actionWatcher.changes <- []string{}
-	st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
-	st.unit.relationsWatcher.changes <- []string{}
-	st.unit.addressesWatcher.changes <- struct{}{}
-	st.updateStatusIntervalWatcher.changes <- struct{}{}
-	l.claimTicket.ch <- struct{}{}
-	if st.modelType == model.IAAS {
-		st.unit.storageWatcher.changes <- []string{}
-		st.unit.application.applicationWatcher.changes <- struct{}{}
+func (s *WatcherSuite) signalAll() {
+	s.st.unit.unitWatcher.changes <- struct{}{}
+	s.st.unit.configSettingsWatcher.changes <- struct{}{}
+	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
+	s.st.unit.actionWatcher.changes <- []string{}
+	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
+	s.st.unit.relationsWatcher.changes <- []string{}
+	s.st.unit.addressesWatcher.changes <- struct{}{}
+	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
+	s.leadership.claimTicket.ch <- struct{}{}
+	if s.st.modelType == model.IAAS {
+		s.applicationWatcher.changes <- struct{}{}
+		s.st.unit.storageWatcher.changes <- []string{}
 	}
 }
 
 func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	// Note that the configuration change is updated on both application and
@@ -175,7 +203,7 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 }
 
 func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	// Note that the configuration change is updated on both application and
@@ -203,7 +231,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 		assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	}
 
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertOneChange()
 	initial := s.watcher.Snapshot()
 
@@ -226,14 +254,14 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, initial.ConfigVersion+1)
 
+	s.st.unit.application.forceUpgrade = true
+	s.applicationWatcher.changes <- struct{}{}
+	assertOneChange()
+	c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
+
 	if s.modelType == model.IAAS {
 		s.st.unit.storageWatcher.changes <- []string{}
 		assertOneChange()
-
-		s.st.unit.application.forceUpgrade = true
-		s.st.unit.application.applicationWatcher.changes <- struct{}{}
-		assertOneChange()
-		c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
 	}
 
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
@@ -253,7 +281,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestActionsReceived(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	s.st.unit.actionWatcher.changes <- []string{"an-action"}
@@ -263,7 +291,7 @@ func (s *WatcherSuite) TestActionsReceived(c *gc.C) {
 
 func (s *WatcherSuite) TestClearResolvedMode(c *gc.C) {
 	s.st.unit.resolved = params.ResolvedRetryHooks
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	snap := s.watcher.Snapshot()
@@ -276,7 +304,7 @@ func (s *WatcherSuite) TestClearResolvedMode(c *gc.C) {
 
 func (s *WatcherSuite) TestLeadershipChanged(c *gc.C) {
 	s.leadership.claimTicket.result = false
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Leader, jc.IsFalse)
 
@@ -291,7 +319,7 @@ func (s *WatcherSuite) TestLeadershipChanged(c *gc.C) {
 
 func (s *WatcherSuite) TestLeadershipMinionUnchanged(c *gc.C) {
 	s.leadership.claimTicket.result = false
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	// Initially minion, so triggering minion should have no effect.
@@ -300,7 +328,7 @@ func (s *WatcherSuite) TestLeadershipMinionUnchanged(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestLeadershipLeaderUnchanged(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	// Initially leader, so triggering leader should have no effect.
@@ -309,7 +337,7 @@ func (s *WatcherSuite) TestLeadershipLeaderUnchanged(c *gc.C) {
 }
 
 func (s *WatcherSuiteIAAS) TestStorageChanged(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	storageTag0 := names.NewStorageTag("blob/0")
@@ -385,7 +413,7 @@ func (s *WatcherSuiteIAAS) TestStorageChanged(c *gc.C) {
 }
 
 func (s *WatcherSuiteIAAS) TestStorageUnattachedChanged(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	storageTag0 := names.NewStorageTag("blob/0")
@@ -431,7 +459,7 @@ func (s *WatcherSuiteIAAS) TestStorageUnattachedChanged(c *gc.C) {
 }
 
 func (s *WatcherSuiteIAAS) TestStorageAttachmentRemoved(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	storageTag0 := names.NewStorageTag("blob/0")
@@ -472,7 +500,7 @@ func (s *WatcherSuiteIAAS) TestStorageAttachmentRemoved(c *gc.C) {
 }
 
 func (s *WatcherSuiteIAAS) TestStorageChangedNotFoundInitially(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	// blob/0 is initially in state, but is removed between the
@@ -484,7 +512,7 @@ func (s *WatcherSuiteIAAS) TestStorageChangedNotFoundInitially(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	relationTag := names.NewRelationTag("mysql:peer")
@@ -530,7 +558,7 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestRelationsSuspended(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	relationTag := names.NewRelationTag("mysql:db wordpress:db")
@@ -553,7 +581,7 @@ func (s *WatcherSuite) TestRelationsSuspended(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	relationTag := names.NewRelationTag("mysql:peer")
@@ -590,7 +618,7 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestRelationUnitsDontLeakReferences(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	relationTag := names.NewRelationTag("mysql:peer")
@@ -615,7 +643,7 @@ func (s *WatcherSuite) TestRelationUnitsDontLeakReferences(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestUpdateStatusTicker(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	initial := s.watcher.Snapshot()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -638,7 +666,7 @@ func (s *WatcherSuite) TestUpdateStatusTicker(c *gc.C) {
 }
 
 func (s *WatcherSuite) TestUpdateStatusIntervalChanges(c *gc.C) {
-	signalAll(s.st, s.leadership)
+	s.signalAll()
 	initial := s.watcher.Snapshot()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -678,4 +706,11 @@ func (s *WatcherSuite) waitAlarmsStable(c *gc.C) {
 			c.Fatalf("never stopped setting alarms")
 		}
 	}
+}
+
+func (s *WatcherSuiteCAAS) TestWatcherConfig(c *gc.C) {
+	_, err := remotestate.NewWatcher(remotestate.WatcherConfig{
+		ModelType: model.CAAS,
+	})
+	c.Assert(err, gc.ErrorMatches, "watcher config for CAAS model with nil application channel not valid")
 }
