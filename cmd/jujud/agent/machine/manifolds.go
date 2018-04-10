@@ -730,16 +730,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     raft.NewWorker,
 		}),
 
-		raftClustererName: raftclusterer.Manifold(raftclusterer.ManifoldConfig{
-			RaftName:       raftName,
-			CentralHubName: centralHubName,
-			NewWorker:      raftclusterer.NewWorker,
-		}),
-
 		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{
 			RaftName:  raftName,
 			NewWorker: raftflag.NewWorker,
 		}),
+
+		// The raft clusterer can only run on the raft leader, since
+		// it makes configuration updates based on changes in API
+		// server details.
+		raftClustererName: ifRaftLeader(raftclusterer.Manifold(raftclusterer.ManifoldConfig{
+			RaftName:       raftName,
+			CentralHubName: centralHubName,
+			NewWorker:      raftclusterer.NewWorker,
+		})),
 	}
 }
 
@@ -775,6 +778,12 @@ var ifPrimaryController = engine.Housing{
 var ifController = engine.Housing{
 	Flags: []string{
 		isControllerFlagName,
+	},
+}.Decorate
+
+var ifRaftLeader = engine.Housing{
+	Flags: []string{
+		raftFlagName,
 	},
 }.Decorate
 
