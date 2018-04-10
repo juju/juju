@@ -12,11 +12,9 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/watcher"
 )
 
 // State provides access to an agent's view of the state.
@@ -77,20 +75,6 @@ func (st *State) IsMaster() (bool, error) {
 	var results params.IsMasterResult
 	err := st.facade.FacadeCall("IsMaster", nil, &results)
 	return results.Master, err
-}
-
-// WatchCredential returns a watcher which reports when the specified
-// credential has changed.
-func (c *State) WatchCredential(tag names.CloudCredentialTag) (watcher.NotifyWatcher, error) {
-	var result params.NotifyWatchResult
-	err := c.facade.FacadeCall("WatchCredential", nil, &result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result), nil
 }
 
 type Entity struct {

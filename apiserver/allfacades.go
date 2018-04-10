@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/agent" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
+	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
 	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
@@ -165,6 +166,7 @@ func AllFacades() *facade.Registry {
 	reg("Controller", 5, controller.NewControllerAPIv5)
 	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
 	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
+	reg("CredentialValidator", 1, credentialvalidator.NewCredentialValidatorAPI)
 	reg("ExternalControllerUpdater", 1, externalcontrollerupdater.NewStateAPI)
 
 	reg("Deployer", 1, deployer.NewDeployerAPI)
