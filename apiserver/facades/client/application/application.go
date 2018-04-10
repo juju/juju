@@ -1666,3 +1666,36 @@ func (api *APIv6) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	}
 	return nil
 }
+
+// ResolveUnitErrors marks errors on the specified units as resolved.
+func (api *APIv6) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResults, error) {
+	// TODO(wallyworld)
+	if p.All {
+		return params.ErrorResults{}, errors.NotImplementedf("resolve --all")
+	}
+
+	var result params.ErrorResults
+	if err := api.checkCanWrite(); err != nil {
+		return result, errors.Trace(err)
+	}
+	if err := api.check.ChangeAllowed(); err != nil {
+		return result, errors.Trace(err)
+	}
+
+	result.Results = make([]params.ErrorResult, len(p.Tags.Entities))
+	for i, entity := range p.Tags.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		unit, err := api.backend.Unit(tag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = unit.Resolve(p.Retry)
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}

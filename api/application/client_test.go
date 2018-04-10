@@ -1041,3 +1041,83 @@ func (s *applicationSuite) TestUnsetApplicationConfigAPIv5(c *gc.C) {
 	err := client.UnsetApplicationConfig("foo", []string{})
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
+
+func (s *applicationSuite) TestResolveUnitErrors(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		c.Check(request, gc.Equals, "ResolveUnitErrors")
+		args, ok := a.(params.UnitsResolved)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(args, jc.DeepEquals, params.UnitsResolved{
+			Retry: true,
+			Tags: params.Entities{
+				Entities: []params.Entity{
+					{Tag: "unit-mysql-0"},
+					{Tag: "unit-mysql-1"},
+				},
+			},
+		})
+
+		result := response.(*params.ErrorResults)
+		result.Results = make([]params.ErrorResult, 1)
+		return nil
+	})
+	units := []string{"mysql/0", "mysql/1"}
+	err := client.ResolveUnitErrors(units, false, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *applicationSuite) TestResolveUnitErrorsUnitsAll(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Fail()
+		return nil
+	})
+	units := []string{"mysql/0"}
+	err := client.ResolveUnitErrors(units, true, false)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "specifying units with all=true not supported")
+}
+
+func (s *applicationSuite) TestResolveUnitDuplicate(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Fail()
+		return nil
+	})
+	units := []string{"mysql/0", "mysql/1", "mysql/0"}
+	err := client.ResolveUnitErrors(units, false, false)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "duplicate unit specified")
+}
+
+func (s *applicationSuite) TestResolveUnitErrorsInvalidUnit(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		c.Fail()
+		return nil
+	})
+	units := []string{"mysql"}
+	err := client.ResolveUnitErrors(units, false, false)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, `unit name "mysql" not valid`)
+}
+
+func (s *applicationSuite) TestResolveUnitErrorsAll(c *gc.C) {
+	var called bool
+	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
+		called = true
+		c.Check(request, gc.Equals, "ResolveUnitErrors")
+		args, ok := a.(params.UnitsResolved)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(args, jc.DeepEquals, params.UnitsResolved{
+			All: true,
+		})
+
+		result := response.(*params.ErrorResults)
+		result.Results = make([]params.ErrorResult, 1)
+		return nil
+	})
+	err := client.ResolveUnitErrors(nil, true, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}

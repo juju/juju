@@ -89,7 +89,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 						},
 					},
 				},
-				units: []mockUnit{
+				units: []*mockUnit{
 					{tag: names.NewUnitTag("postgresql/0")},
 					{tag: names.NewUnitTag("postgresql/1")},
 				},
@@ -109,7 +109,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 						},
 					},
 				},
-				units: []mockUnit{
+				units: []*mockUnit{
 					{tag: names.NewUnitTag("postgresql-subordinate/0")},
 					{tag: names.NewUnitTag("postgresql-subordinate/1")},
 				},
@@ -1174,6 +1174,72 @@ func (s *ApplicationSuite) TestUnsetApplicationConfigPermissionDenied(c *gc.C) {
 			ApplicationName: "postgresql",
 			Options:         []string{"option"},
 		}}})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	s.application.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestResolveUnitErrors(c *gc.C) {
+	entities := []params.Entity{{Tag: "unit-postgresql-0"}, {Tag: "unit-postgresql-1"}}
+	p := params.UnitsResolved{
+		Retry: true,
+		Tags: params.Entities{
+			Entities: entities,
+		},
+	}
+	result, err := s.api.ResolveUnitErrors(p)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
+
+	for i := 0; i < 2; i++ {
+		unit := s.backend.applications["postgresql"].units[i]
+		unit.CheckCallNames(c, "Resolve")
+		unit.CheckCall(c, 0, "Resolve", true)
+	}
+}
+
+func (s *ApplicationSuite) TestResolveUnitErrorsAll(c *gc.C) {
+	p := params.UnitsResolved{
+		All: true,
+	}
+	_, err := s.api.ResolveUnitErrors(p)
+	c.Assert(err, gc.ErrorMatches, "resolve --all not implemented")
+
+	s.blockChecker.CheckNoCalls(c)
+	s.backend.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestBlockResolveUnitErrors(c *gc.C) {
+	s.blockChecker.SetErrors(errors.New("blocked"))
+	_, err := s.api.ResolveUnitErrors(params.UnitsResolved{})
+	c.Assert(err, gc.ErrorMatches, "blocked")
+	s.blockChecker.CheckCallNames(c, "ChangeAllowed")
+	s.relation.CheckNoCalls(c)
+}
+
+func (s *ApplicationSuite) TestResolveUnitErrorsPermissionDenied(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("fred")
+	apiv5, err := application.NewAPIV5(
+		&s.backend,
+		s.authorizer,
+		&s.blockChecker,
+		func(application.Charm) *state.Charm {
+			return &state.Charm{}
+		},
+		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
+			return nil, nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	api := &application.APIv6{apiv5}
+
+	entities := []params.Entity{{Tag: "unit-postgresql-0"}}
+	p := params.UnitsResolved{
+		Retry: true,
+		Tags: params.Entities{
+			Entities: entities,
+		},
+	}
+	_, err = api.ResolveUnitErrors(p)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	s.application.CheckNoCalls(c)
 }
