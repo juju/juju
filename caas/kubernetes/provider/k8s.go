@@ -211,75 +211,102 @@ func operatorVolumeClaim(appName string) string {
 	return fmt.Sprintf("%v-operator-volume-claim", appName)
 }
 
+func (k *kubernetesClient) getAvailableVolume(label string) (string, string, error) {
+	var pvName, scName string
+	pvs, err := k.CoreV1().PersistentVolumes().List(v1.ListOptions{
+		LabelSelector: operatorVolumeSelector(label),
+	})
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+
+	for _, pv := range pvs.Items {
+		if pv.Status.Phase != core.VolumeAvailable {
+			logger.Debugf("ignoring volume %v for %v, status is %v", pv.Name, label, pv.Status.Phase)
+			continue
+		}
+		logger.Debugf("using existing volume: %v", pv.Name)
+		pvName = pv.Name
+		scName = pv.Spec.StorageClassName
+		return pvName, scName, nil
+	}
+	return "", "", errors.NotFoundf("persistent volume for v", label)
+}
+
 // maybeGetOperatorVolume attempts to create a persistent volume to use with an operator.
 func (k *kubernetesClient) maybeGetOperatorVolume(appName, operatorVolumeSize string) (*core.Volume, error) {
+	pvcName := operatorVolumeClaim(appName)
+	makeVolumeSpec := func() *core.Volume {
+		return &core.Volume{
+			Name: fmt.Sprintf("%s-operator-volume", appName),
+			VolumeSource: core.VolumeSource{
+				PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvcName,
+				},
+			},
+		}
+	}
+
 	// We create a volume using a persistent volume claim.
 	// First, attempt to get any previously created claim for this app.
 	pvClaims := k.CoreV1().PersistentVolumeClaims(k.namespace)
-	pvcName := operatorVolumeClaim(appName)
 	_, err := pvClaims.Get(pvcName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	if err != nil {
-		// We need to create a new claim.
-		logger.Debugf("creating new persistent volume claim for %v", appName)
+	if err == nil {
+		return makeVolumeSpec(), nil
+	}
 
-		// First, see if the user has set up a labelled persistent volume for this app.
-		pvs, err := k.CoreV1().PersistentVolumes().List(v1.ListOptions{
-			LabelSelector: operatorVolumeSelector(appName),
-		})
-		if err != nil {
+	// We need to create a new claim.
+	logger.Debugf("creating new persistent volume claim for %v", appName)
+
+	// First, see if the user has set up a labelled persistent volume for this app or model.
+	var pvName, scName string
+	for _, label := range []string{appName, k.namespace} {
+		pvName, scName, err = k.getAvailableVolume(label)
+		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
-
-		var pvName, scName string
-		if len(pvs.Items) > 0 {
-			logger.Debugf("using existing volume: %v", pvs.Items[0].Name)
-			pvName = pvs.Items[0].Name
-			scName = pvs.Items[0].Spec.StorageClassName
-		} else {
-			// No existing persistent volumes have been set up, so attempt to create
-			// a new one using a storage class.
-			sc, err := k.maybeGetOperatorStorageClass()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			logger.Debugf("no existing volumes, using storage class: +v", sc.Name)
-			scName = sc.Name
-		}
-
-		_, err = pvClaims.Create(&core.PersistentVolumeClaim{
-			ObjectMeta: v1.ObjectMeta{
-				Name:   pvcName,
-				Labels: map[string]string{labelApplication: appName}},
-			Spec: core.PersistentVolumeClaimSpec{
-				VolumeName:       pvName,
-				StorageClassName: &scName,
-				Resources: core.ResourceRequirements{
-					Requests: core.ResourceList{
-						core.ResourceStorage: resource.MustParse(operatorVolumeSize),
-					},
-				},
-				AccessModes: []core.PersistentVolumeAccessMode{core.ReadWriteMany},
-			},
-		})
-		if err != nil {
-			return nil, errors.Trace(err)
+		if err == nil {
+			break
 		}
 	}
-	return &core.Volume{
-		Name: fmt.Sprintf("%s-operator-volume", appName),
-		VolumeSource: core.VolumeSource{
-			PersistentVolumeClaim: &core.PersistentVolumeClaimVolumeSource{
-				ClaimName: pvcName,
+
+	if scName == "" {
+		// No existing persistent volumes have been set up, so attempt to create
+		// a new one using a storage class.
+		sc, err := k.maybeGetOperatorStorageClass()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		logger.Debugf("no existing volumes, using storage class: +v", sc.Name)
+		scName = sc.Name
+	}
+
+	_, err = pvClaims.Create(&core.PersistentVolumeClaim{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   pvcName,
+			Labels: map[string]string{labelApplication: appName}},
+		Spec: core.PersistentVolumeClaimSpec{
+			VolumeName:       pvName,
+			StorageClassName: &scName,
+			Resources: core.ResourceRequirements{
+				Requests: core.ResourceList{
+					core.ResourceStorage: resource.MustParse(operatorVolumeSize),
+				},
 			},
+			AccessModes: []core.PersistentVolumeAccessMode{core.ReadWriteMany},
 		},
-	}, nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return makeVolumeSpec(), nil
 }
 
 // DeleteOperator deletes the specified operator.
-func (k *kubernetesClient) DeleteOperator(appName, agentPath string) (err error) {
+func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	logger.Debugf("deleting %s operator", appName)
 
 	// First delete any persistent volume claim.

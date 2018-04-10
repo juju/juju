@@ -100,7 +100,7 @@ func (p *provisioner) loop() error {
 				appLife, err := p.provisionerFacade.Life(app)
 				if errors.IsNotFound(err) || appLife == life.Dead {
 					logger.Debugf("deleting operator for %q", app)
-					if err := p.broker.DeleteOperator(app, p.agentConfig.DataDir()); err != nil {
+					if err := p.broker.DeleteOperator(app); err != nil {
 						return errors.Annotatef(err, "failed to stop operator for %q", app)
 					}
 					continue

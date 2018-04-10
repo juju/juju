@@ -105,8 +105,8 @@ func (m *mockBroker) EnsureOperator(appName, agentPath string, config *caas.Oper
 	return m.NextErr()
 }
 
-func (m *mockBroker) DeleteOperator(appName, agentDir string) error {
-	m.MethodCall(m, "DeleteOperator", appName, agentDir)
+func (m *mockBroker) DeleteOperator(appName string) error {
+	m.MethodCall(m, "DeleteOperator", appName)
 	return m.NextErr()
 }
 

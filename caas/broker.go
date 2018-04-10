@@ -67,7 +67,7 @@ type Broker interface {
 	EnsureOperator(appName, agentPath string, config *OperatorConfig) error
 
 	// DeleteOperator deletes the specified operator.
-	DeleteOperator(appName, agentPath string) error
+	DeleteOperator(appName string) error
 
 	// EnsureService creates or updates a service for pods with the given spec.
 	EnsureService(appName string, spec *PodSpec, numUnits int, config application.ConfigAttributes) error
