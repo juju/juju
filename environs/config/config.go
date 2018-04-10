@@ -15,7 +15,6 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charmrepo.v2"
