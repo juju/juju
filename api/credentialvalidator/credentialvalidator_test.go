@@ -49,7 +49,7 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
 	found, exists, err := client.ModelCredential(modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exists, jc.IsTrue)
-	c.Assert(found, gc.Equals, base.StoredCredential{CloudCredential: "cloud/user/credential", Valid: true})
+	c.Assert(found, gc.DeepEquals, base.StoredCredential{CloudCredential: "cloud/user/credential", Valid: true})
 }
 
 func (s *CredentialValidatorSuite) TestModelCredentialIsNotNeeded(c *gc.C) {
