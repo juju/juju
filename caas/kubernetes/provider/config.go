@@ -6,11 +6,11 @@ package provider
 import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
-	"k8s.io/client-go/pkg/api/v1"
+	core "k8s.io/api/core/v1"
 )
 
 const (
-	defaultServiceType           = string(v1.ServiceTypeClusterIP)
+	defaultServiceType           = string(core.ServiceTypeClusterIP)
 	defaultIngressClass          = "nginx"
 	defaultIngressSSLRedirect    = false
 	defaultIngressSSLPassthrough = false

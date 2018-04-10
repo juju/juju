@@ -4,7 +4,7 @@
 package provider
 
 import (
-	"k8s.io/client-go/pkg/api/v1"
+	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/caas"
 )
@@ -15,7 +15,7 @@ var (
 	OperatorPod     = operatorPod
 )
 
-func PodSpec(u *unitSpec) v1.PodSpec {
+func PodSpec(u *unitSpec) core.PodSpec {
 	return u.Pod
 }
 
