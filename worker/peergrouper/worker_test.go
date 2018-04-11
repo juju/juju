@@ -548,7 +548,10 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	}
 
 	// And check that they can be republished on request.
-	_, err = hub.Publish(apiserver.DetailsRequestTopic, apiserver.DetailsRequest{"dad"})
+	_, err = hub.Publish(apiserver.DetailsRequestTopic, apiserver.DetailsRequest{
+		Requester: "dad",
+		LocalOnly: true,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case obtained := <-event:

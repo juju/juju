@@ -74,6 +74,10 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"peer-grouper",
 		"proxy-config-updater",
 		"pubsub-forwarder",
+		"raft",
+		"raft-clusterer",
+		"raft-flag",
+		"raft-transport",
 		"reboot-executor",
 		"restore-watcher",
 		"serving-info-setter",
@@ -140,6 +144,10 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"upgrade-steps-gate",
 		"upgrade-steps-runner",
 		"upgrader",
+		"raft",
+		"raft-clusterer",
+		"raft-flag",
+		"raft-transport",
 	)
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
@@ -157,13 +165,24 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
 	})
+	controllerWorkers := set.NewStrings(
+		"certificate-watcher",
+		"audit-config-updater",
+		"is-primary-controller-flag",
+		"raft-transport",
+	)
+	primaryControllerWorkers := set.NewStrings(
+		"external-controller-updater",
+		"log-pruner",
+		"transaction-pruner",
+	)
 	for name, manifold := range manifolds {
 		c.Logf(name)
-		switch name {
-		case "certificate-watcher", "audit-config-updater", "is-primary-controller-flag":
+		switch {
+		case controllerWorkers.Contains(name):
 			checkContains(c, manifold.Inputs, "is-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
-		case "external-controller-updater", "log-pruner", "transaction-pruner":
+		case primaryControllerWorkers.Contains(name):
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkContains(c, manifold.Inputs, "is-primary-controller-flag")
 		default:
