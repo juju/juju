@@ -314,6 +314,10 @@ func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces []network.InterfaceInf
 }
 
 // Note: we sleep to mitigate against LP #1337873 and LP #1269921.
+// Note2: wait with anything that's hard to revert for as long as possible,
+// we've seen weird failure modes and IMHO it's impossible to avoid them all,
+// but we could do as much as we can to 1. avoid them 2. make the machine boot
+// if we mess up
 func populateNetworkInterfaces(networkFile string) string {
 	s := `
 if [ ! -f /sbin/ifup ]; then
@@ -323,20 +327,20 @@ if [ ! -f /sbin/ifup ]; then
     exit 0
 fi
 if [ -f /usr/bin/python ]; then
-    python %[1]s.py --interfaces-file %[1]s.tmp
+    python %[1]s.py --interfaces-file %[1]s --output-file %[1]s.out
 else
-    python3 %[1]s.py --interfaces-file %[1]s.tmp
+    python3 %[1]s.py --interfaces-file %[1]s --output-file %[1]s.out
 fi
 ifdown -a
 sleep 1.5
-mv %[1]s.tmp %[1]s
+mv %[1]s.out %[1]s
 ifup -a
 `
 	return fmt.Sprintf(s, networkFile)
 }
 
 const NetworkInterfacesScript = `from __future__ import print_function, unicode_literals
-import subprocess, re, argparse, os, time
+import subprocess, re, argparse, os, time, shutil
 from string import Formatter
 
 INTERFACES_FILE="/etc/network/interfaces"
@@ -371,12 +375,12 @@ def ip_parse(ip_output):
     print("Found the following devices: %s" % str(devices))
     return devices
 
-def replace_ethernets(interfaces_file, devices, fail_on_missing):
+def replace_ethernets(interfaces_file, output_file, devices, fail_on_missing):
     """check if the contents of interfaces_file contain template
     keys corresponding to hwaddresses and replace them with
     the proper device name"""
-    with open(interfaces_file + ".templ", "r") as intf_file:
-        interfaces = intf_file.read()
+    with open(interfaces_file + ".templ", "r") as templ_file:
+        interfaces = templ_file.read()
 
     formatter = Formatter()
     hwaddrs = [v[1] for v in formatter.parse(interfaces) if v[1]]
@@ -397,20 +401,20 @@ def replace_ethernets(interfaces_file, devices, fail_on_missing):
     print("Used the values in: %s\nto fix the interfaces file:\n%s\ninto\n%s" %
            (str(device_replacements), str(interfaces), str(formatted)))
 
-    with open(interfaces_file + ".tmp", "w") as intf_file:
-        intf_file.write(formatted)
+    with open(output_file, "w") as intf_out_file:
+        intf_out_file.write(formatted)
 
     if not os.path.exists(interfaces_file + ".bak"):
         try:
-            os.rename(interfaces_file, interfaces_file + ".bak")
+            shutil.copyfile(interfaces_file, interfaces_file + ".bak")
         except OSError: #silently ignore if the file is missing
             pass
-    os.rename(interfaces_file + ".tmp", interfaces_file)
     return True
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--interfaces-file", dest="intf_file", default=INTERFACES_FILE)
+    parser.add_argument("--output-file", dest="out_file", default=INTERFACES_FILE+".out")
     parser.add_argument("--command", default=COMMAND)
     parser.add_argument("--retries", default=RETRIES)
     parser.add_argument("--wait", default=WAIT)
@@ -418,7 +422,7 @@ def main():
     retries = int(args.retries)
     for tries in range(retries):
         ip_output = ip_parse(subprocess.check_output(args.command.split()).splitlines())
-        if replace_ethernets(args.intf_file, ip_output, (tries != retries - 1)):
+        if replace_ethernets(args.intf_file, args.out_file, ip_output, (tries != retries - 1)):
              break
         else:
              time.sleep(float(args.wait))

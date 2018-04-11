@@ -39,19 +39,20 @@ type NetworkUbuntuSuite struct {
 
 	fakeInterfaces []network.InterfaceInfo
 
-	expectedSampleConfigHeader   string
-	expectedSampleConfigTemplate string
-	expectedSampleConfigWriting  string
-	expectedSampleUserData       string
-	expectedFallbackConfig       string
-	expectedBaseConfig           string
-	expectedFullNetplanYaml      string
-	expectedBaseNetplanYaml      string
-	expectedFullNetplan          string
-	expectedBaseNetplan          string
-	expectedFallbackUserData     string
-	tempFolder                   string
-	pythonVersions               []string
+	expectedSampleConfigHeader      string
+	expectedSampleConfigTemplate    string
+	expectedSampleConfigWriting     string
+	expectedSampleUserData          string
+	expectedFallbackConfig          string
+	expectedBaseConfig              string
+	expectedFullNetplanYaml         string
+	expectedBaseNetplanYaml         string
+	expectedFullNetplan             string
+	expectedBaseNetplan             string
+	expectedFallbackUserData        string
+	tempFolder                      string
+	pythonVersions                  []string
+	originalSystemNetworkInterfaces string
 }
 
 var _ = gc.Suite(&NetworkUbuntuSuite{})
@@ -210,13 +211,13 @@ iface {ethaa_bb_cc_dd_ee_f5} inet6 static
       exit 0
   fi
   if [ -f /usr/bin/python ]; then
-      python %[2]s --interfaces-file %[1]s.tmp
+      python %[2]s --interfaces-file %[1]s --output-file %[1]s.out
   else
-      python3 %[2]s --interfaces-file %[1]s.tmp
+      python3 %[2]s --interfaces-file %[1]s --output-file %[1]s.out
   fi
   ifdown -a
   sleep 1.5
-  mv %[1]s.tmp %[1]s
+  mv %[1]s.out %[1]s
   ifup -a
 `[1:]
 	s.expectedFullNetplanYaml = `
@@ -387,6 +388,21 @@ runcmd:
   fi
 `[1:]
 
+	s.originalSystemNetworkInterfaces = `
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# Source interfaces
+# Please check /etc/network/interfaces.d before changing this file
+# as interfaces may have been defined in /etc/network/interfaces.d
+# See LP: #1262951
+source /etc/network/interfaces.d/*.cfg
+`[1:]
+
 	s.PatchValue(cloudinit.NetworkInterfacesFile, s.systemNetworkInterfacesFile)
 	s.PatchValue(cloudinit.SystemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
 	s.PatchValue(cloudinit.JujuNetplanFile, s.jujuNetplanFile)
@@ -553,23 +569,36 @@ func (s *NetworkUbuntuSuite) runENIScriptWithAllPythons(c *gc.C, ipCommand, inpu
 
 func (s *NetworkUbuntuSuite) runENIScript(c *gc.C, pythonBinary, ipCommand, input, expectedOutput string, wait, retries int) {
 	dataFile := filepath.Join(s.tempFolder, "interfaces")
+	dataOutFile := filepath.Join(s.tempFolder, "interfaces.out")
+	dataBakFile := filepath.Join(s.tempFolder, "interfaces.bak")
 	templFile := filepath.Join(s.tempFolder, "interfaces.templ")
 	scriptFile := filepath.Join(s.tempFolder, "script.py")
 
-	err := ioutil.WriteFile(templFile, []byte(input), 0644)
+	err := ioutil.WriteFile(dataFile, []byte(s.originalSystemNetworkInterfaces), 0644)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write interfaces file"))
+
+	err = ioutil.WriteFile(templFile, []byte(input), 0644)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write interfaces.templ file"))
 
 	err = ioutil.WriteFile(scriptFile, []byte(cloudinit.NetworkInterfacesScript), 0755)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Can't write script file"))
 
-	script := fmt.Sprintf("%q %q --interfaces-file %q --command %q --wait %d --retries %d", pythonBinary, scriptFile, dataFile, ipCommand, wait, retries)
+	script := fmt.Sprintf("%q %q --interfaces-file %q --output-file %q --command %q --wait %d --retries %d",
+		pythonBinary, scriptFile, dataFile, dataOutFile, ipCommand, wait, retries)
 	result, err := exec.RunCommands(exec.RunParams{Commands: script})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("script failed unexpectedly - %s", result))
 	c.Logf("%s\n%s\n", string(result.Stdout), string(result.Stderr))
-	data, err := ioutil.ReadFile(dataFile)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't open parsed interfaces file"))
-	output := string(data)
-	c.Assert(output, gc.Equals, expectedOutput)
+
+	for file, expected := range map[string]string{
+		dataBakFile: s.originalSystemNetworkInterfaces,
+		dataOutFile: expectedOutput,
+		dataFile:    s.originalSystemNetworkInterfaces,
+	} {
+		data, err := ioutil.ReadFile(file)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("can't open %q file: %s", file, err))
+		output := string(data)
+		c.Assert(output, gc.Equals, expected)
+	}
 }
 
 func (s *NetworkUbuntuSuite) createMockCommand(c *gc.C, outputs []string) string {
