@@ -37,8 +37,8 @@ var (
 	// mongod.
 	JujuMongod24Path = "/usr/lib/juju/bin/mongod"
 
-	// Mongod36Path is actually just the system path
-	Mongod36Path = "/usr/bin/mongod"
+	// MongodSystemPath is actually just the system path
+	MongodSystemPath = "/usr/bin/mongod"
 
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
@@ -196,10 +196,16 @@ var (
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
-	// Mongo64wt represents 'mongodb-server-core' at version 3.6.x with WiredTiger
+	// Mongo34wt represents 'mongodb-server-core' at version 3.4.x with WiredTiger
+	Mongo34wt = Version{Major: 3,
+		Minor:         4,
+		Patch:         "",
+		StorageEngine: WiredTiger,
+	}
+	// Mongo36wt represents 'mongodb-server-core' at version 3.6.x with WiredTiger
 	Mongo36wt = Version{Major: 3,
-		Minor:			6,
-		Patch:			"",
+		Minor:         6,
+		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
 	// MongoUpgrade represents a sepacial case where an upgrade is in
@@ -242,7 +248,7 @@ func binariesAvailable(v Version, statFunc func(string) (os.FileInfo, error)) bo
 		path = JujuMongod24Path
 	case Mongo36wt:
 		// 3.6 switched back to using the system mongod
-		path = Mongod36Path
+		path = MongodSystemPath
 	default:
 		path = JujuMongodPath(v)
 	}
@@ -359,13 +365,13 @@ func mongoPath(version Version, stat func(string) (os.FileInfo, error), lookPath
 		}
 		return path, nil
 	case Mongo36wt:
-		if _, err := stat(Mongod36Path); err == nil {
-			return Mongod36Path, nil
+		if _, err := stat(MongodSystemPath); err == nil {
+			return MongodSystemPath, nil
 		}
 
 		path, err := lookPath("mongod")
 		if err != nil {
-			logger.Infof("could not find %v or mongod in $PATH", Mongod36Path)
+			logger.Infof("could not find %v or mongod in $PATH", MongodSystemPath)
 			return "", err
 		}
 		return path, nil
