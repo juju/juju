@@ -43,8 +43,7 @@ func (c *resolvedCommand) Info() *cmd.Info {
 func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.NoRetry, "no-retry", false, "Do not re-execute failed hooks on the unit")
-	// TODO(wallyworld) - uncomment once server side supports it
-	// f.BoolVar(&c.All, "all", false, "Marks all units in error as resolved")
+	f.BoolVar(&c.All, "all", false, "Marks all units in error as resolved")
 }
 
 func (c *resolvedCommand) Init(args []string) error {

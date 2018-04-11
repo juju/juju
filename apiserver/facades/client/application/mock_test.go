@@ -322,6 +322,12 @@ func (m *mockBackend) Unit(name string) (application.Unit, error) {
 	return nil, errors.NotFoundf("unit %q", name)
 }
 
+func (m *mockBackend) UnitsInError() ([]application.Unit, error) {
+	return []application.Unit{
+		m.applications["postgresql"].units[0],
+	}, nil
+}
+
 func (m *mockBackend) InferEndpoints(endpoints ...string) ([]state.Endpoint, error) {
 	m.MethodCall(m, "InferEndpoints", endpoints)
 	if err := m.NextErr(); err != nil {

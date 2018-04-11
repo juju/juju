@@ -42,6 +42,7 @@ type Backend interface {
 	ModelTag() names.ModelTag
 	ModelType() state.ModelType
 	Unit(string) (Unit, error)
+	UnitsInError() ([]Unit, error)
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
 	ControllerTag() names.ControllerTag
 	Resources() (Resources, error)
@@ -304,6 +305,18 @@ func (s stateShim) Unit(name string) (Unit, error) {
 		return nil, err
 	}
 	return stateUnitShim{u, s.State}, nil
+}
+
+func (s stateShim) UnitsInError() ([]Unit, error) {
+	units, err := s.State.UnitsInError()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Unit, len(units))
+	for i, u := range units {
+		result[i] = stateUnitShim{u, s.State}
+	}
+	return result, nil
 }
 
 func (s stateShim) Resources() (Resources, error) {

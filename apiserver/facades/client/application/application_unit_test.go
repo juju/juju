@@ -1199,13 +1199,15 @@ func (s *ApplicationSuite) TestResolveUnitErrors(c *gc.C) {
 
 func (s *ApplicationSuite) TestResolveUnitErrorsAll(c *gc.C) {
 	p := params.UnitsResolved{
-		All: true,
+		All:   true,
+		Retry: true,
 	}
 	_, err := s.api.ResolveUnitErrors(p)
-	c.Assert(err, gc.ErrorMatches, "resolve --all not implemented")
+	c.Assert(err, jc.ErrorIsNil)
 
-	s.blockChecker.CheckNoCalls(c)
-	s.backend.CheckNoCalls(c)
+	unit := s.backend.applications["postgresql"].units[0]
+	unit.CheckCallNames(c, "Resolve")
+	unit.CheckCall(c, 0, "Resolve", true)
 }
 
 func (s *ApplicationSuite) TestBlockResolveUnitErrors(c *gc.C) {
