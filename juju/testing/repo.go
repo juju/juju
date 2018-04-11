@@ -26,7 +26,7 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.CharmsPath = c.MkDir()
 	// Change the environ's config to ensure we're using the one in state.
-	updateAttrs := map[string]interface{}{"default-series": version.SupportedLts()}
+	updateAttrs := map[string]interface{}{"default-series": version.SupportedLTS()}
 	err := s.Model.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
