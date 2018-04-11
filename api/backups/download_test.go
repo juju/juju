@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
@@ -32,7 +33,7 @@ func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
 	backupsState := backups.NewBackups(store)
 
 	r := strings.NewReader("<compressed archive data>")
-	meta, err := backups.NewMetadataState(db, "0", "xenial")
+	meta, err := backups.NewMetadataState(db, "0", version.SupportedLts())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meta.CACert, gc.Equals, testing.CACert)
 	c.Assert(meta.CAPrivateKey, gc.Equals, testing.CAKey)

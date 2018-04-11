@@ -4,6 +4,7 @@
 package application
 
 import (
+	"github.com/juju/juju/juju/version"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
@@ -63,7 +64,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			force: true,
 			conf:  defaultSeries{},
 		},
-		expectedSeries: "xenial",
+		expectedSeries: version.SupportedLts(),
 	}, {
 		// Now charms with supported series.
 
@@ -150,8 +151,8 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 		expectedSeries: "precise",
 	}}
 
-	// Use xenial for LTS for all calls.
-	previous := series.SetLatestLtsForTesting("xenial")
+	// Use juju/juju/juju/version.SupportedLts() for LTS for all calls.
+	previous := series.SetLatestLtsForTesting(version.SupportedLts())
 	defer series.SetLatestLtsForTesting(previous)
 
 	for i, test := range deploySeriesTests {

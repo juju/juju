@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -411,7 +412,7 @@ func createModelSummary() *params.ModelSummary {
 		UUID:               "uuid",
 		ControllerUUID:     "controllerUUID",
 		ProviderType:       "aws",
-		DefaultSeries:      "xenial",
+		DefaultSeries:      version.SupportedLts(),
 		CloudTag:           "cloud-aws",
 		CloudRegion:        "us-east-1",
 		CloudCredentialTag: "cloudcred-foo_bob_one",
