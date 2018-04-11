@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -659,7 +660,8 @@ func (s *provisionerSuite) getManagerConfig(c *gc.C, typ instance.ContainerType)
 func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 	cfg := s.getManagerConfig(c, instance.KVM)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigModelUUID: coretesting.ModelTag.Id(),
+		container.ConfigModelUUID:      coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey: "released",
 	})
 }
 
@@ -668,7 +670,8 @@ func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 	// will just return the basic type-independent configuration.
 	cfg := s.getManagerConfig(c, "invalid")
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
-		container.ConfigModelUUID: coretesting.ModelTag.Id(),
+		container.ConfigModelUUID:      coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey: "released",
 	})
 }
 
