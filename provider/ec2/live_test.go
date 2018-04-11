@@ -80,7 +80,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LiveTests.SetUpSuite(c)
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLts() })
+	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLTS() })
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {

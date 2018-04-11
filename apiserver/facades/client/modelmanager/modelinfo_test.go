@@ -167,7 +167,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		CloudTag:           "cloud-some-cloud",
 		CloudRegion:        "some-region",
 		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
-		DefaultSeries:      version.SupportedLts(),
+		DefaultSeries:      version.SupportedLTS(),
 		Life:               params.Dying,
 		Status: params.EntityStatus{
 			Status: status.Destroying,

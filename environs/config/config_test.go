@@ -55,7 +55,7 @@ var sampleConfig = testing.Attrs{
 	"unknown":                    "my-unknown",
 	"ssl-hostname-verification":  true,
 	"development":                false,
-	"default-series":             jujuversion.SupportedLts(),
+	"default-series":             jujuversion.SupportedLTS(),
 	"disable-network-management": false,
 	"ignore-machine-addresses":   false,
 	"automatically-retry-hooks":  true,
@@ -628,7 +628,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	if seriesAttr != "" {
 		c.Assert(defaultSeries, gc.Equals, seriesAttr)
 	} else {
-		c.Assert(defaultSeries, gc.Equals, jujuversion.SupportedLts())
+		c.Assert(defaultSeries, gc.Equals, jujuversion.SupportedLTS())
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
@@ -760,7 +760,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"firewall-mode":              config.FwInstance,
 		"unknown":                    "my-unknown",
 		"ssl-hostname-verification":  true,
-		"default-series":             jujuversion.SupportedLts(),
+		"default-series":             jujuversion.SupportedLTS(),
 		"disable-network-management": false,
 		"ignore-machine-addresses":   false,
 		"automatically-retry-hooks":  true,

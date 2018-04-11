@@ -272,7 +272,7 @@ func PreferredSeries(cfg HasDefaultSeries) string {
 	if series, ok := cfg.DefaultSeries(); ok {
 		return series
 	}
-	return jujuversion.SupportedLts()
+	return jujuversion.SupportedLTS()
 }
 
 // Config holds an immutable environment configuration.
@@ -381,7 +381,7 @@ var defaultConfigValues = map[string]interface{}{
 	NetBondReconfigureDelayKey: 17,
 	ContainerNetworkingMethod:  "",
 
-	"default-series":             jujuversion.SupportedLts(),
+	"default-series":             jujuversion.SupportedLTS(),
 	ProvisionerHarvestModeKey:    HarvestDestroyed.String(),
 	ResourceTagsKey:              "",
 	"logging-config":             "",
