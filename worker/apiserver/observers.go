@@ -6,6 +6,7 @@ package apiserver
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -20,6 +21,7 @@ func newObserverFn(
 	controllerConfig controller.Config,
 	clock clock.Clock,
 	prometheusRegisterer prometheus.Registerer,
+	hub *pubsub.StructuredHub,
 ) (observer.ObserverFactory, error) {
 
 	var observerFactories []observer.ObserverFactory
@@ -30,6 +32,7 @@ func newObserverFn(
 		ctx := observer.RequestObserverContext{
 			Clock:  clock,
 			Logger: logger,
+			Hub:    hub,
 		}
 		return observer.NewRequestObserver(ctx)
 	})

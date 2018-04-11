@@ -3,6 +3,8 @@
 
 package apiserver
 
+import "github.com/juju/juju/pubsub/common"
+
 // DetailsTopic is the topic name for the published message when the details
 // of the api servers change. This message is normally published by the
 // peergrouper when the set of API servers changes.
@@ -33,3 +35,26 @@ type Details struct {
 	Servers   map[string]APIServer `yaml:"servers"`
 	LocalOnly bool                 `yaml:"local-only"`
 }
+
+// ConnectTopic is the topic name for the published message
+// whenever an agent conntects to the API server.
+const ConnectTopic = "apiserver.agent-connect"
+
+// DisconnectTopic is the topic name for the published message
+// whenever an agent disconntects to the API server.
+const DisconnectTopic = "apiserver.agent-disconnect"
+
+// APIConnection holds all the salient pieces of information that are
+// available when an agent connects to the API server.
+type APIConnection struct {
+	AgentTag        string `yaml:"agent-tag"`
+	ControllerAgent bool   `yaml:"controller-agent,omitempty"`
+	ModelUUID       string `yaml:"model-uuid"`
+	ConnectionID    uint64 `yaml:"connection-id"`
+	Origin          string `yaml:"origin"`
+	UserData        string `yaml:"user-data,omitempty"`
+}
+
+// OriginTarget represents the data for the connect and disconnect
+// topics.
+type OriginTarget common.OriginTarget

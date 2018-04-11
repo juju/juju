@@ -107,6 +107,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		controllerConfig,
 		config.Clock,
 		config.PrometheusRegisterer,
+		config.Hub,
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create RPC observer factory")
