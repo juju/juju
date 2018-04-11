@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxd"
 	containertesting "github.com/juju/juju/container/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
@@ -31,7 +32,7 @@ func Test(t *stdtesting.T) {
 	/*
 		_, err := lxd.ConnectLocal("")
 		if err != nil {
-			t.Skip("LXD is not avalilable %s", err)
+			t.Skip("LXD is not available %s", err)
 		}
 	*/
 	gc.TestingT(t)
@@ -41,14 +42,15 @@ type LxdSuite struct{}
 
 var _ = gc.Suite(&LxdSuite{})
 
-func (t *LxdSuite) makeManager(c *gc.C, name string) container.Manager {
-	config := container.ManagerConfig{
+func (t *LxdSuite) baseConfig() container.ManagerConfig {
+	return container.ManagerConfig{
 		container.ConfigModelUUID: testing.ModelTag.Id(),
 	}
+}
 
-	manager, err := lxd.NewContainerManager(config)
+func (t *LxdSuite) makeManager(c *gc.C, conf container.ManagerConfig) container.Manager {
+	manager, err := lxd.NewContainerManager(conf)
 	c.Assert(err, jc.ErrorIsNil)
-
 	return manager
 }
 
@@ -72,7 +74,7 @@ func (t *LxdSuite) TestNotAllContainersAreDeleted(c *gc.C) {
 	storageConfig := &container.StorageConfig{}
 	networkConfig := container.BridgeNetworkConfig("nic42", 4321, nil)
 
-	manager := t.makeManager(c, "manager")
+	manager := t.makeManager(c, t.baseConfig())
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	_, _, err = manager.CreateContainer(
 		instanceConfig,
@@ -200,4 +202,40 @@ func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (t *LxdSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
+	mgr := t.makeManager(c, t.baseConfig())
+
+	sources, err := lxd.GetImageSources(mgr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sources, gc.DeepEquals, lxdclient.DefaultImageSources)
+}
+
+func (t *LxdSuite) TestGetImageSourcesDefaultNonStandardStreamDefaultConfig(c *gc.C) {
+	cfg := t.baseConfig()
+	cfg[config.ContainerImageStreamKey] = "nope"
+	mgr := t.makeManager(c, cfg)
+
+	sources, err := lxd.GetImageSources(mgr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sources, gc.DeepEquals, lxdclient.DefaultImageSources)
+}
+
+func (t *LxdSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc.C) {
+	cfg := t.baseConfig()
+	cfg[config.ContainerImageMetadataURLKey] = "http://special.container.sauce"
+	mgr := t.makeManager(c, cfg)
+
+	sources, err := lxd.GetImageSources(mgr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSources := append([]lxdclient.Remote{{
+		Name:          "special.container.sauce",
+		Host:          "https://special.container.sauce",
+		Protocol:      lxdclient.SimplestreamsProtocol,
+		Cert:          nil,
+		ServerPEMCert: "",
+	}}, lxdclient.DefaultImageSources...)
+	c.Check(sources, gc.DeepEquals, expectedSources)
 }

@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,6 +18,8 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -40,6 +43,9 @@ type containerManager struct {
 	client *lxdclient.Client
 	// a host machine's availability zone
 	availabilityZone string
+
+	imageMetadataURL string
+	imageStream      string
 }
 
 // containerManager implements container.Manager.
@@ -82,11 +88,16 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		logger.Infof("Availability zone will be empty for this container manager")
 	}
 
+	imageMetaDataURL := conf.PopValue(config.ContainerImageMetadataURLKey)
+	imageStream := conf.PopValue(config.ContainerImageStreamKey)
+
 	conf.WarnAboutUnused()
 	return &containerManager{
 		modelUUID:        modelUUID,
 		namespace:        namespace,
 		availabilityZone: availabilityZone,
+		imageMetadataURL: imageMetaDataURL,
+		imageStream:      imageStream,
 	}, nil
 }
 
@@ -124,10 +135,15 @@ func (manager *containerManager) CreateContainer(
 
 	hc = &instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}
 
+	imageSources, err := manager.getImageSources()
+	if err != nil {
+		err = errors.Trace(err)
+		return
+	}
 	imageName, err := manager.client.EnsureImageExists(
 		series,
 		hostArch,
-		lxdclient.DefaultImageSources,
+		imageSources,
 		func(progress string) {
 			callback(status.Provisioning, progress, nil)
 		},
@@ -194,6 +210,41 @@ func (manager *containerManager) CreateContainer(
 	callback(status.Running, "Container started", nil)
 	inst = &lxdInstance{name, manager.client}
 	return
+}
+
+// getImageSources returns a list of LXD remote image sources based on the
+// configuration that was passed into the container manager.
+func (manager *containerManager) getImageSources() ([]lxdclient.Remote, error) {
+	imURL := manager.imageMetadataURL
+
+	// Unless the configuration explicitly requests the daily stream,
+	// an empty image metadata URL results in a search of the default sources.
+	if imURL == "" && manager.imageStream != "daily" {
+		logger.Debugf("checking default image metadata sources")
+		return lxdclient.DefaultImageSources, nil
+	}
+	// Otherwise only check the daily stream.
+	if imURL == "" {
+		return lxdclient.DefaultImageSources[1:], nil
+	}
+
+	imURL, err := imagemetadata.ImageMetadataURL(imURL, manager.imageStream)
+	if err != nil {
+		return nil, errors.Annotatef(err, "generating image metadata source")
+	}
+	// LXD requires HTTPS.
+	imURL = strings.Replace(imURL, "http:", "https:", 1)
+
+	remotes := []lxdclient.Remote{{
+		Name:          strings.Replace(imURL, "https://", "", 1),
+		Host:          imURL,
+		Protocol:      lxdclient.SimplestreamsProtocol,
+		Cert:          nil,
+		ServerPEMCert: "",
+	}}
+
+	// Add the default sources for safety if a custom source is configured.
+	return append(remotes, lxdclient.DefaultImageSources...), nil
 }
 
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
