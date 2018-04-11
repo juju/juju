@@ -361,10 +361,9 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
-		// TODO(redir): BBB: When we no longer support upstart based systems this can change to series.LatestLts()
-		BootstrapSeries: "xenial",
-		AdminSecret:     testing.AdminSecret,
-		CAPrivateKey:    coretesting.CAKey,
+		BootstrapSeries:  supportedversion.SupportedLts(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -221,7 +222,7 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestMarkForRemoval(c *gc.C) {
-	machine, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	machine, err := s.State.AddMachine(supportedversion.SupportedLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiMachine := s.assertGetOneMachine(c, machine.MachineTag())
@@ -358,7 +359,7 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
 	// Create a fresh machine, since machine 0 is already provisioned.
 	template := state.MachineTemplate{
-		Series: "xenial",
+		Series: supportedversion.SupportedLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	notProvisionedMachine, err := s.State.AddOneMachine(template)
