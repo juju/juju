@@ -209,17 +209,27 @@ func (t *LxdSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, lxdclient.DefaultImageSources)
+	c.Check(sources, gc.DeepEquals, []lxdclient.Remote{lxdclient.CloudImagesRemote, lxdclient.CloudImagesDailyRemote})
 }
 
-func (t *LxdSuite) TestGetImageSourcesDefaultNonStandardStreamDefaultConfig(c *gc.C) {
+func (t *LxdSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
 	cfg := t.baseConfig()
 	cfg[config.ContainerImageStreamKey] = "nope"
 	mgr := t.makeManager(c, cfg)
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, lxdclient.DefaultImageSources)
+	c.Check(sources, gc.DeepEquals, []lxdclient.Remote{lxdclient.CloudImagesRemote, lxdclient.CloudImagesDailyRemote})
+}
+
+func (t *LxdSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
+	cfg := t.baseConfig()
+	cfg[config.ContainerImageStreamKey] = "daily"
+	mgr := t.makeManager(c, cfg)
+
+	sources, err := lxd.GetImageSources(mgr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sources, gc.DeepEquals, []lxdclient.Remote{lxdclient.CloudImagesDailyRemote})
 }
 
 func (t *LxdSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc.C) {
@@ -230,12 +240,38 @@ func (t *LxdSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedSources := append([]lxdclient.Remote{{
-		Name:          "special.container.sauce",
-		Host:          "https://special.container.sauce",
-		Protocol:      lxdclient.SimplestreamsProtocol,
-		Cert:          nil,
-		ServerPEMCert: "",
-	}}, lxdclient.DefaultImageSources...)
+	expectedSources := []lxdclient.Remote{
+		{
+			Name:          "special.container.sauce",
+			Host:          "https://special.container.sauce",
+			Protocol:      lxdclient.SimplestreamsProtocol,
+			Cert:          nil,
+			ServerPEMCert: "",
+		},
+		lxdclient.CloudImagesRemote,
+		lxdclient.CloudImagesDailyRemote,
+	}
+	c.Check(sources, gc.DeepEquals, expectedSources)
+}
+
+func (t *LxdSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
+	cfg := t.baseConfig()
+	cfg[config.ContainerImageMetadataURLKey] = "http://special.container.sauce"
+	cfg[config.ContainerImageStreamKey] = "daily"
+	mgr := t.makeManager(c, cfg)
+
+	sources, err := lxd.GetImageSources(mgr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSources := []lxdclient.Remote{
+		{
+			Name:          "special.container.sauce",
+			Host:          "https://special.container.sauce",
+			Protocol:      lxdclient.SimplestreamsProtocol,
+			Cert:          nil,
+			ServerPEMCert: "",
+		},
+		lxdclient.CloudImagesDailyRemote,
+	}
 	c.Check(sources, gc.DeepEquals, expectedSources)
 }

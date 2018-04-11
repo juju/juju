@@ -221,11 +221,11 @@ func (manager *containerManager) getImageSources() ([]lxdclient.Remote, error) {
 	// an empty image metadata URL results in a search of the default sources.
 	if imURL == "" && manager.imageStream != "daily" {
 		logger.Debugf("checking default image metadata sources")
-		return lxdclient.DefaultImageSources, nil
+		return []lxdclient.Remote{lxdclient.CloudImagesRemote, lxdclient.CloudImagesDailyRemote}, nil
 	}
 	// Otherwise only check the daily stream.
 	if imURL == "" {
-		return lxdclient.DefaultImageSources[1:], nil
+		return []lxdclient.Remote{lxdclient.CloudImagesDailyRemote}, nil
 	}
 
 	imURL, err := imagemetadata.ImageMetadataURL(imURL, manager.imageStream)
@@ -234,17 +234,20 @@ func (manager *containerManager) getImageSources() ([]lxdclient.Remote, error) {
 	}
 	// LXD requires HTTPS.
 	imURL = strings.Replace(imURL, "http:", "https:", 1)
-
-	remotes := []lxdclient.Remote{{
+	remote := lxdclient.Remote{
 		Name:          strings.Replace(imURL, "https://", "", 1),
 		Host:          imURL,
 		Protocol:      lxdclient.SimplestreamsProtocol,
 		Cert:          nil,
 		ServerPEMCert: "",
-	}}
+	}
 
-	// Add the default sources for safety if a custom source is configured.
-	return append(remotes, lxdclient.DefaultImageSources...), nil
+	// If the daily stream was configured with custom image metadata URL,
+	// only use the Ubuntu daily as a fallback.
+	if manager.imageStream == "daily" {
+		return []lxdclient.Remote{remote, lxdclient.CloudImagesDailyRemote}, nil
+	}
+	return []lxdclient.Remote{remote, lxdclient.CloudImagesRemote, lxdclient.CloudImagesDailyRemote}, nil
 }
 
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
