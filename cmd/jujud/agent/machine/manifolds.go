@@ -64,7 +64,6 @@ import (
 	"github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
-	"github.com/juju/juju/worker/raft/rafttest"
 	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/restorewatcher"
@@ -725,7 +724,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:     clockName,
 			AgentName:     agentName,
 			TransportName: raftTransportName,
-			FSM:           &rafttest.FSM{},
+			FSM:           &raft.SimpleFSM{},
 			Logger:        loggo.GetLogger("juju.worker.raft"),
 			NewWorker:     raft.NewWorker,
 		}),

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/raft"
-	"github.com/juju/juju/worker/raft/rafttest"
 )
 
 type ManifoldSuite struct {
@@ -30,7 +29,7 @@ type ManifoldSuite struct {
 	agent     *mockAgent
 	transport *coreraft.InmemTransport
 	clock     *testing.Clock
-	fsm       *rafttest.FSM
+	fsm       *raft.SimpleFSM
 	logger    loggo.Logger
 	worker    *mockRaftWorker
 	stub      testing.Stub
@@ -47,7 +46,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			dataDir: filepath.Join("data", "dir"),
 		},
 	}
-	s.fsm = &rafttest.FSM{}
+	s.fsm = &raft.SimpleFSM{}
 	s.logger = loggo.GetLogger("juju.worker.raft_test")
 	s.worker = &mockRaftWorker{
 		r: &coreraft.Raft{},

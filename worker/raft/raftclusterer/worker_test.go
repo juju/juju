@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
 	coretesting "github.com/juju/juju/testing"
+	jujuraft "github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/rafttest"
 	"github.com/juju/juju/worker/workertest"
@@ -28,7 +29,7 @@ type workerFixture struct {
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
-	s.FSM = &rafttest.FSM{}
+	s.FSM = &jujuraft.SimpleFSM{}
 	s.RaftFixture.SetUpTest(c)
 	s.hub = centralhub.New(names.NewMachineTag("0"))
 	s.config = raftclusterer.Config{
@@ -109,9 +110,9 @@ func (s *WorkerSuite) TestAddRemoveServers(c *gc.C) {
 	// Create 4 servers: machine-0, machine-1, machine-2,
 	// and machine-3, where all servers can connect
 	// bidirectionally.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &rafttest.FSM{})
-	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &rafttest.FSM{})
-	_, _, transport3, _, _ := s.NewRaft(c, "machine-3", &rafttest.FSM{})
+	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
+	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
+	_, _, transport3, _, _ := s.NewRaft(c, "machine-3", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1, transport2, transport3)
 
 	machine0Address := string(s.Transport.LocalAddr())
@@ -208,8 +209,8 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 	// We add machine-1 and machine-2, and change machine-0's
 	// address. Changing machine-0's address should not affect
 	// its leadership.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &rafttest.FSM{})
-	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &rafttest.FSM{})
+	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
+	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1, transport2)
 	machine1Address := string(transport1.LocalAddr())
 	machine2Address := string(transport2.LocalAddr())

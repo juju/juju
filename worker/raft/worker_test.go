@@ -16,19 +16,18 @@ import (
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/raft"
-	"github.com/juju/juju/worker/raft/rafttest"
 	"github.com/juju/juju/worker/workertest"
 )
 
 type workerFixture struct {
 	testing.IsolationSuite
-	fsm    *rafttest.FSM
+	fsm    *raft.SimpleFSM
 	config raft.Config
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.fsm = &rafttest.FSM{}
+	s.fsm = &raft.SimpleFSM{}
 	_, transport := coreraft.NewInmemTransport("machine-123")
 	s.AddCleanup(func(c *gc.C) {
 		c.Assert(transport.Close(), jc.ErrorIsNil)

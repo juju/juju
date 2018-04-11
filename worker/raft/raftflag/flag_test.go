@@ -4,13 +4,14 @@
 package raftflag_test
 
 import (
-	"github.com/hashicorp/raft"
+	coreraft "github.com/hashicorp/raft"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/raft/raftflag"
 	"github.com/juju/juju/worker/raft/rafttest"
 	"github.com/juju/juju/worker/workertest"
@@ -22,7 +23,7 @@ type workerFixture struct {
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
-	s.FSM = &rafttest.FSM{}
+	s.FSM = &raft.SimpleFSM{}
 	s.RaftFixture.SetUpTest(c)
 	s.config = raftflag.Config{
 		Raft: s.Raft,
@@ -91,9 +92,9 @@ func (s *WorkerSuite) TestCheckLeader(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestErrRefresh(c *gc.C) {
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &rafttest.FSM{})
-	raft2, _, transport2, _, _ := s.NewRaft(c, "machine-2", &rafttest.FSM{})
-	transports := []raft.LoopbackTransport{s.Transport, transport1, transport2}
+	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &raft.SimpleFSM{})
+	raft2, _, transport2, _, _ := s.NewRaft(c, "machine-2", &raft.SimpleFSM{})
+	transports := []coreraft.LoopbackTransport{s.Transport, transport1, transport2}
 	for _, t1 := range transports {
 		for _, t2 := range transports {
 			//if t1 == t2 {
@@ -102,13 +103,13 @@ func (s *WorkerSuite) TestErrRefresh(c *gc.C) {
 			t1.Connect(t2.LocalAddr(), t2)
 		}
 	}
-	var f raft.Future = s.Raft.AddVoter("machine-1", transport1.LocalAddr(), 0, 0)
+	var f coreraft.Future = s.Raft.AddVoter("machine-1", transport1.LocalAddr(), 0, 0)
 	c.Assert(f.Error(), jc.ErrorIsNil)
 	f = s.Raft.AddVoter("machine-2", transport2.LocalAddr(), 0, 0)
 	c.Assert(f.Error(), jc.ErrorIsNil)
 
 	// Start a new raftflag worker for the second raft.
-	newFlagWorker := func(r *raft.Raft) (worker.Worker, bool) {
+	newFlagWorker := func(r *coreraft.Raft) (worker.Worker, bool) {
 		config := s.config
 		config.Raft = r
 		worker, err := raftflag.NewWorker(config)
@@ -134,17 +135,17 @@ func (s *WorkerSuite) TestErrRefresh(c *gc.C) {
 	c.Assert(err, gc.Equals, raftflag.ErrRefresh)
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if raft1.State() == raft.Leader || raft2.State() == raft.Leader {
+		if raft1.State() == coreraft.Leader || raft2.State() == coreraft.Leader {
 			break
 		}
 	}
 	var leaderWorker, followerWorker worker.Worker
 	switch {
-	case raft1.State() == raft.Leader:
-		c.Assert(raft2.State(), gc.Equals, raft.Follower)
+	case raft1.State() == coreraft.Leader:
+		c.Assert(raft2.State(), gc.Equals, coreraft.Follower)
 		leaderWorker, followerWorker = worker1, worker2
-	case raft2.State() == raft.Leader:
-		c.Assert(raft1.State(), gc.Equals, raft.Follower)
+	case raft2.State() == coreraft.Leader:
+		c.Assert(raft1.State(), gc.Equals, coreraft.Follower)
 		leaderWorker, followerWorker = worker2, worker1
 	}
 	err = workertest.CheckKilled(c, leaderWorker)
