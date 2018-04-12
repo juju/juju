@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package rafttest
+package raft
 
 import (
 	"encoding/gob"
@@ -11,15 +11,15 @@ import (
 	"github.com/hashicorp/raft"
 )
 
-// FSM is an implementation of raft.FSM, which simply appends
+// SimpleFSM is an implementation of raft.FSM, which simply appends
 // the log data to a slice.
-type FSM struct {
+type SimpleFSM struct {
 	mu   sync.Mutex
 	logs [][]byte
 }
 
 // Logs returns the accumulated log data.
-func (fsm *FSM) Logs() [][]byte {
+func (fsm *SimpleFSM) Logs() [][]byte {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
 	copied := make([][]byte, len(fsm.logs))
@@ -28,7 +28,7 @@ func (fsm *FSM) Logs() [][]byte {
 }
 
 // Apply is part of the raft.FSM interface.
-func (fsm *FSM) Apply(log *raft.Log) interface{} {
+func (fsm *SimpleFSM) Apply(log *raft.Log) interface{} {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
 	fsm.logs = append(fsm.logs, log.Data)
@@ -36,16 +36,16 @@ func (fsm *FSM) Apply(log *raft.Log) interface{} {
 }
 
 // Snapshot is part of the raft.FSM interface.
-func (fsm *FSM) Snapshot() (raft.FSMSnapshot, error) {
+func (fsm *SimpleFSM) Snapshot() (raft.FSMSnapshot, error) {
 	fsm.mu.Lock()
 	defer fsm.mu.Unlock()
 	copied := make([][]byte, len(fsm.logs))
 	copy(copied, fsm.logs)
-	return &Snapshot{copied, len(copied)}, nil
+	return &SimpleSnapshot{copied, len(copied)}, nil
 }
 
 // Restore is part of the raft.FSM interface.
-func (fsm *FSM) Restore(rc io.ReadCloser) error {
+func (fsm *SimpleFSM) Restore(rc io.ReadCloser) error {
 	defer rc.Close()
 	var logs [][]byte
 	if err := gob.NewDecoder(rc).Decode(&logs); err != nil {
@@ -57,15 +57,15 @@ func (fsm *FSM) Restore(rc io.ReadCloser) error {
 	return nil
 }
 
-// Snapshot is an implementation of raft.FSMSnapshot, returned
-// by the FSM.Snapshot in this package.
-type Snapshot struct {
+// SimpleSnapshot is an implementation of raft.FSMSnapshot, returned
+// by the SimpleFSM.Snapshot in this package.
+type SimpleSnapshot struct {
 	logs [][]byte
 	n    int
 }
 
 // Persist is part of the raft.FSMSnapshot interface.
-func (snap *Snapshot) Persist(sink raft.SnapshotSink) error {
+func (snap *SimpleSnapshot) Persist(sink raft.SnapshotSink) error {
 	if err := gob.NewEncoder(sink).Encode(snap.logs[:snap.n]); err != nil {
 		sink.Cancel()
 		return err
@@ -75,4 +75,4 @@ func (snap *Snapshot) Persist(sink raft.SnapshotSink) error {
 }
 
 // Release is part of the raft.FSMSnapshot interface.
-func (*Snapshot) Release() {}
+func (*SimpleSnapshot) Release() {}

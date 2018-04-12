@@ -258,6 +258,7 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 func initRaft(agentConfig agent.Config) error {
 	raftDir := filepath.Join(agentConfig.DataDir(), "raft")
 	return raft.Bootstrap(raft.Config{
+		Clock:      clock.WallClock,
 		StorageDir: raftDir,
 		Logger:     logger,
 		Tag:        agentConfig.Tag(),

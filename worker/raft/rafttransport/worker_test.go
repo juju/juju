@@ -35,12 +35,14 @@ type workerFixture struct {
 	testing.IsolationSuite
 	config   rafttransport.Config
 	authInfo httpcontext.AuthInfo
+	clock    *testing.Clock
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	tag := names.NewMachineTag("123")
+	s.clock = testing.NewClock(time.Time{})
 	s.config = rafttransport.Config{
 		APIInfo: &api.Info{
 			Tag:      tag,
@@ -55,6 +57,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Tag:           tag,
 		Timeout:       coretesting.LongWait,
 		TLSConfig:     &tls.Config{},
+		Clock:         s.clock,
 	}
 
 	logger := loggo.GetLogger("juju.worker.raft")
@@ -139,9 +142,9 @@ func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*rafttransport
 
 type WorkerSuite struct {
 	workerFixture
-	stub   testing.Stub
 	server *httptest.Server
 	worker *rafttransport.Worker
+	reqs   chan apiserver.DetailsRequest
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -149,13 +152,20 @@ var _ = gc.Suite(&WorkerSuite{})
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.workerFixture.SetUpTest(c)
 
-	s.stub.ResetCalls()
 	s.server = httptest.NewTLSServer(s.config.Mux)
 	s.AddCleanup(func(c *gc.C) {
 		s.server.Close()
 	})
 	clientTransport := s.server.Client().Transport.(*http.Transport)
 	s.config.TLSConfig = clientTransport.TLSClientConfig
+
+	s.reqs = make(chan apiserver.DetailsRequest, 10)
+	s.config.Hub.Subscribe(apiserver.DetailsRequestTopic,
+		func(_ string, req apiserver.DetailsRequest, err error) {
+			c.Check(err, jc.ErrorIsNil)
+			s.reqs <- req
+		},
+	)
 	s.worker = s.newWorker(c, s.config)
 	s.config.Hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
@@ -175,7 +185,7 @@ func (s *WorkerSuite) newWorker(c *gc.C, config rafttransport.Config) *rafttrans
 	s.AddCleanup(func(c *gc.C) {
 		workertest.DirtyKill(c, worker)
 	})
-	return worker
+	return worker.(*rafttransport.Worker)
 }
 
 func (s *WorkerSuite) requestVote(t raft.Transport) (raft.RequestVoteResponse, error) {
@@ -262,6 +272,62 @@ func (s *WorkerSuite) TestRoundTrip(c *gc.C) {
 	resp, err := s.requestVote(s.worker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Granted, jc.IsTrue)
+}
+
+func (s *WorkerSuite) TestRequestsDetails(c *gc.C) {
+	// The worker gets started in SetUpTest.
+	select {
+	case req := <-s.reqs:
+		c.Assert(req, gc.Equals, apiserver.DetailsRequest{
+			Requester: "raft-transport-stream-layer",
+			LocalOnly: true,
+		})
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for details request")
+	}
+}
+
+type WorkerTimeoutSuite struct {
+	workerFixture
+	server *httptest.Server
+}
+
+var _ = gc.Suite(&WorkerTimeoutSuite{})
+
+func (s *WorkerTimeoutSuite) SetUpTest(c *gc.C) {
+	s.workerFixture.SetUpTest(c)
+
+	s.server = httptest.NewTLSServer(s.config.Mux)
+	s.AddCleanup(func(c *gc.C) {
+		s.server.Close()
+	})
+	clientTransport := s.server.Client().Transport.(*http.Transport)
+	s.config.TLSConfig = clientTransport.TLSClientConfig
+}
+
+func (s *WorkerTimeoutSuite) TestLocalAddrTimeout(c *gc.C) {
+	// To prevent workers that use raft-transport from hanging, we need to make LocalAddr time out.
+	w, err := rafttransport.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		workertest.DirtyKill(c, w)
+	})
+	worker := w.(*rafttransport.Worker)
+
+	resChan := make(chan raft.ServerAddress)
+	go func() {
+		resChan <- worker.LocalAddr()
+	}()
+
+	// We never publish an apiserver address.
+	s.clock.WaitAdvance(2*rafttransport.AddrTimeout, coretesting.LongWait, 1)
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for address timeout")
+	case res := <-resChan:
+		c.Assert(res, gc.Equals, raft.ServerAddress("address.invalid:0"))
+	}
 }
 
 type mockEntity struct {

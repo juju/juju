@@ -61,6 +61,10 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
+	"github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/raftclusterer"
+	"github.com/juju/juju/worker/raft/raftflag"
+	"github.com/juju/juju/worker/raft/rafttransport"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/restorewatcher"
 	"github.com/juju/juju/worker/resumer"
@@ -703,6 +707,40 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName: stateName,
 			NewWorker: auditconfigupdater.New,
 		})),
+
+		raftTransportName: ifController(rafttransport.Manifold(rafttransport.ManifoldConfig{
+			ClockName:         clockName,
+			AgentName:         agentName,
+			AuthenticatorName: httpServerName,
+			HubName:           centralHubName,
+			MuxName:           httpServerName,
+			DialConn:          rafttransport.DialConn,
+			NewWorker:         rafttransport.NewWorker,
+			Path:              "/raft",
+		})),
+
+		raftName: raft.Manifold(raft.ManifoldConfig{
+			ClockName:     clockName,
+			AgentName:     agentName,
+			TransportName: raftTransportName,
+			FSM:           &raft.SimpleFSM{},
+			Logger:        loggo.GetLogger("juju.worker.raft"),
+			NewWorker:     raft.NewWorker,
+		}),
+
+		raftFlagName: raftflag.Manifold(raftflag.ManifoldConfig{
+			RaftName:  raftName,
+			NewWorker: raftflag.NewWorker,
+		}),
+
+		// The raft clusterer can only run on the raft leader, since
+		// it makes configuration updates based on changes in API
+		// server details.
+		raftClustererName: ifRaftLeader(raftclusterer.Manifold(raftclusterer.ManifoldConfig{
+			RaftName:       raftName,
+			CentralHubName: centralHubName,
+			NewWorker:      raftclusterer.NewWorker,
+		})),
 	}
 }
 
@@ -738,6 +776,12 @@ var ifPrimaryController = engine.Housing{
 var ifController = engine.Housing{
 	Flags: []string{
 		isControllerFlagName,
+	},
+}.Decorate
+
+var ifRaftLeader = engine.Housing{
+	Flags: []string{
+		raftFlagName,
 	},
 }.Decorate
 
@@ -797,4 +841,9 @@ const (
 
 	httpServerName = "http-server"
 	apiServerName  = "api-server"
+
+	raftTransportName = "raft-transport"
+	raftName          = "raft"
+	raftClustererName = "raft-clusterer"
+	raftFlagName      = "raft-flag"
 )

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
 	coretesting "github.com/juju/juju/testing"
+	jujuraft "github.com/juju/juju/worker/raft"
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/rafttest"
 	"github.com/juju/juju/worker/workertest"
@@ -28,7 +29,7 @@ type workerFixture struct {
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
-	s.FSM = &rafttest.FSM{}
+	s.FSM = &jujuraft.SimpleFSM{}
 	s.RaftFixture.SetUpTest(c)
 	s.hub = centralhub.New(names.NewMachineTag("0"))
 	s.config = raftclusterer.Config{
@@ -76,12 +77,23 @@ func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*raftclusterer
 type WorkerSuite struct {
 	workerFixture
 	worker worker.Worker
+	reqs   chan apiserver.DetailsRequest
 }
 
 var _ = gc.Suite(&WorkerSuite{})
 
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.workerFixture.SetUpTest(c)
+
+	s.reqs = make(chan apiserver.DetailsRequest, 10)
+	s.hub.Subscribe(
+		apiserver.DetailsRequestTopic,
+		func(topic string, req apiserver.DetailsRequest, err error) {
+			c.Check(err, jc.ErrorIsNil)
+			s.reqs <- req
+		},
+	)
+
 	worker, err := raftclusterer.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
@@ -98,9 +110,9 @@ func (s *WorkerSuite) TestAddRemoveServers(c *gc.C) {
 	// Create 4 servers: machine-0, machine-1, machine-2,
 	// and machine-3, where all servers can connect
 	// bidirectionally.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &rafttest.FSM{})
-	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &rafttest.FSM{})
-	_, _, transport3, _, _ := s.NewRaft(c, "machine-3", &rafttest.FSM{})
+	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
+	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
+	_, _, transport3, _, _ := s.NewRaft(c, "machine-3", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1, transport2, transport3)
 
 	machine0Address := string(s.Transport.LocalAddr())
@@ -197,8 +209,8 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 	// We add machine-1 and machine-2, and change machine-0's
 	// address. Changing machine-0's address should not affect
 	// its leadership.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &rafttest.FSM{})
-	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &rafttest.FSM{})
+	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
+	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1, transport2)
 	machine1Address := string(transport1.LocalAddr())
 	machine2Address := string(transport2.LocalAddr())
@@ -243,6 +255,19 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 	c.Assert(future.Error(), jc.ErrorIsNil)
 }
 
+func (s *WorkerSuite) TestRequestsDetails(c *gc.C) {
+	// The worker is started in SetUpTest.
+	select {
+	case req := <-s.reqs:
+		c.Assert(req, gc.Equals, apiserver.DetailsRequest{
+			Requester: "raft-clusterer",
+			LocalOnly: true,
+		})
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for details request")
+	}
+}
+
 func (s *WorkerSuite) publishDetails(c *gc.C, details apiserver.Details) {
 	received, err := s.hub.Publish(apiserver.DetailsTopic, details)
 	c.Assert(err, jc.ErrorIsNil)
@@ -253,7 +278,7 @@ func (s *WorkerSuite) publishDetails(c *gc.C, details apiserver.Details) {
 	}
 }
 
-// Connect  all of the provided transport bidirectionally.
+// Connect the provided transport bidirectionally.
 func connectTransports(transports ...raft.LoopbackTransport) {
 	for _, t1 := range transports {
 		for _, t2 := range transports {

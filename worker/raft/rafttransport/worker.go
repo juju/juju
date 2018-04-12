@@ -16,7 +16,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -70,6 +72,11 @@ type Config struct {
 	// TLSConfig is the TLS configuration to use for making
 	// connections to API servers.
 	TLSConfig *tls.Config
+
+	// Clock is used for timing out the Addr getter - if the
+	// peergrouper isn't publishing good API addresses in a timely
+	// fashion it's better to fail and log than to hang indefinitely.
+	Clock clock.Clock
 }
 
 // DialConnFunc is type of function used by the transport for
@@ -109,7 +116,7 @@ func (config Config) Validate() error {
 // NewWorker returns a new apiserver-based raft transport worker,
 // with the given configuration. The worker itself implements
 // raft.Transport.
-func NewWorker(config Config) (*Worker, error) {
+func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -129,14 +136,18 @@ func NewWorker(config Config) (*Worker, error) {
 	const logPrefix = "[transport] "
 	logWriter := &raftutil.LoggoWriter{logger, loggo.DEBUG}
 	logLogger := log.New(logWriter, logPrefix, 0)
+	stream, err := newStreamLayer(config.Tag, config.Hub, w.connections, config.Clock, &Dialer{
+		APIInfo: config.APIInfo,
+		DialRaw: w.dialRaw,
+		Path:    config.Path,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	transport := raft.NewNetworkTransportWithConfig(&raft.NetworkTransportConfig{
 		Logger:  logLogger,
 		MaxPool: maxPoolSize,
-		Stream: newStreamLayer(config.Tag, config.Hub, w.connections, &Dialer{
-			APIInfo: config.APIInfo,
-			DialRaw: w.dialRaw,
-			Path:    config.Path,
-		}),
+		Stream:  stream,
 		Timeout: config.Timeout,
 	})
 	w.Transport = transport
@@ -147,6 +158,7 @@ func NewWorker(config Config) (*Worker, error) {
 			defer transport.Close()
 			return w.loop()
 		},
+		Init: []worker.Worker{stream},
 	}); err != nil {
 		transport.Close()
 		return nil, errors.Trace(err)
@@ -247,7 +259,10 @@ func (w *Worker) loop() error {
 		Authenticator: w.config.Authenticator,
 		Authorizer:    httpcontext.AuthorizerFunc(controllerAuthorizer),
 	}
-	// TODO(axw) implied controller model
+	h = &httpcontext.ImpliedModelHandler{
+		Handler:   h,
+		ModelUUID: w.config.APIInfo.ModelTag.Id(),
+	}
 
 	w.config.Mux.AddHandler("GET", w.config.Path, h)
 	defer w.config.Mux.RemoveHandler("GET", w.config.Path)

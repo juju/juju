@@ -546,6 +546,19 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for event")
 	}
+
+	// And check that they can be republished on request.
+	_, err = hub.Publish(apiserver.DetailsRequestTopic, apiserver.DetailsRequest{
+		Requester: "dad",
+		LocalOnly: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case obtained := <-event:
+		c.Assert(obtained, jc.DeepEquals, expected)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for event")
+	}
 }
 
 func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, members string) *fakeState {
@@ -903,6 +916,10 @@ type nopHub struct{}
 
 func (nopHub) Publish(topic string, data interface{}) (<-chan struct{}, error) {
 	return nil, nil
+}
+
+func (nopHub) Subscribe(topic string, handler interface{}) (func(), error) {
+	return func() {}, nil
 }
 
 func (s *workerSuite) newWorker(
