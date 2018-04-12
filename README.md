@@ -30,6 +30,9 @@ snap package is then as easy as
 
     snap install go --classic
 
+Note: Check the version of Ubuntu you are using. If it is 16.04 LTS, the snap installation gets 1.6 golang version.
+      But juju build needs "context" package which is available only from 1.7 golang version.
+
 You can read about the "classic" confinement policy [here](https://insights.ubuntu.com/2017/01/09/how-to-snap-introducing-classic-confinement/)
 
 If you want to use `apt`, then you can add the [juju-golang PPA](https://launchpad.net/~juju/+archive/ubuntu/golang) and then run the following
@@ -122,6 +125,8 @@ Before you can build Juju, see
 [Dependency management](CONTRIBUTING.md#dependency-management) section of
 `CONTRIBUTING` to ensure you have build dependencies setup.
 
+As mentioned in Go Installation step, juju requires "context" package which is available from 1.7 golang. Upgrade your golang version to 1.7 or later. If you have trouble installing in 16.04 try longsleep/golang-backports as described in below link:
+https://github.com/golang/go/wiki/Ubuntu
 
 Building juju
 =============
