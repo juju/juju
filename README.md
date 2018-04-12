@@ -19,11 +19,11 @@ concurrent language. This document describes how to build `juju` from source.
 If you are looking for binary releases of `juju`, they are available in the snap store
 
     snap install juju --classic
-    
+
 Installing Go
 --------------
 
-`Juju's` source code currently depends on Go 1.9. One of the easiest ways
+`Juju's` source code currently depends on Go 1.10. One of the easiest ways
 to install golang is from a snap. You may need to first install
 the [snap client](https://snapcraft.io/docs/core/install). Installing the golang
 snap package is then as easy as
@@ -34,7 +34,7 @@ You can read about the "classic" confinement policy [here](https://insights.ubun
 
 If you want to use `apt`, then you can add the [juju-golang PPA](https://launchpad.net/~juju/+archive/ubuntu/golang) and then run the following
 
-    sudo apt install golang-1.9
+    sudo apt install golang-1.10
 
 Alternatively, you can always follow the official [binary installation instructions](https://golang.org/doc/install#install)
 
@@ -83,7 +83,7 @@ install `juju` and its dependencies. To checkout without installing, use the
 
 At this point you will have the git local repository of the `juju` source at
 `$GOPATH/src/github.com/juju/juju`. The source for any dependent packages will
-also be available inside `$GOPATH`. You can use `git pull --rebase`, or the 
+also be available inside `$GOPATH`. You can use `git pull --rebase`, or the
 less convenient `go get -u github.com/juju/juju/...` to update the source
 from time to time.
 If you want to know more about contributing to `juju`, please read the
@@ -99,7 +99,7 @@ It is advisable, when installing `juju` from source, to look at the [Makefile](.
 
 ### *Dependencies*
 
-Juju needs some dependencies in order to be installed and the preferred way to 
+Juju needs some dependencies in order to be installed and the preferred way to
 collect the necessary packages is to use the provided `Makefile`.
 The target `godeps` will download the go packages listed in `dependencies.tsv`. The following bash code will install the dependencies.
 
