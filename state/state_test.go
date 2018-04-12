@@ -3751,7 +3751,7 @@ func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
 
 	// Set other model version to > server version
 	err = otherSt.SetModelAgentVersion(higher.Number, false)
-	expected := fmt.Sprintf("hosted models cannot be upgraded to a later version than the controller: %s > %s: upgrade 'controller' model first",
+	expected := fmt.Sprintf("model (%s) cannot be upgraded to a later version than the controller (%s): upgrade 'controller' model first",
 		higher.Number,
 		jujuversion.Current,
 	)
