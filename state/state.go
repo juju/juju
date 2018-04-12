@@ -690,7 +690,7 @@ func IsUpgradeInProgressError(err error) bool {
 // cannot be higher than the controller version.
 func (st *State) SetModelAgentVersion(newVersion version.Number, ignoreAgentVersions bool) (err error) {
 	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsController() {
-		return errors.Errorf("model (%s) cannot be upgraded to a later version than the controller (%s): upgrade 'controller' model first",
+		return errors.Errorf("model cannot be upgraded to %s while the controller is %s: upgrade 'controller' model first",
 			newVersion.String(),
 			jujuversion.Current,
 		)
