@@ -17,7 +17,8 @@ var logger = loggo.GetLogger("juju.api.credentialvalidator")
 // CredentialValidator defines the methods on credentialvalidator API endpoint.
 type CredentialValidator interface {
 	ModelCredential() (params.ModelCredential, error)
-	WatchCredential(string) (params.NotifyWatchResult, error)
+	WatchCredential(params.Entity) (params.NotifyWatchResult, error)
+	//WatchCredential(string) (params.NotifyWatchResult, error)
 }
 
 type CredentialValidatorAPI struct {
@@ -48,16 +49,15 @@ func internalNewCredentialValidatorAPI(backend Backend, resources facade.Resourc
 // changes to the given cloud credentials.
 // The order of returned watchers is important and corresponds directly to the
 // order of supplied cloud credentials collection.
-func (api *CredentialValidatorAPI) WatchCredential(tag string) (params.NotifyWatchResult, error) {
+func (api *CredentialValidatorAPI) WatchCredential(tag params.Entity) (params.NotifyWatchResult, error) {
 	fail := func(failure error) (params.NotifyWatchResult, error) {
 		return params.NotifyWatchResult{}, common.ServerError(failure)
 	}
 
-	credentialTag, err := names.ParseCloudCredentialTag(tag)
+	credentialTag, err := names.ParseCloudCredentialTag(tag.Tag)
 	if err != nil {
 		return fail(err)
 	}
-
 	// Is credential used by the model that has created this backend?
 	isUsed, err := api.backend.ModelUsesCredential(credentialTag)
 	if err != nil {
