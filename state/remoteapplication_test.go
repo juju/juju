@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon.v2-unstable"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/environs"

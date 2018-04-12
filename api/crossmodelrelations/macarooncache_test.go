@@ -12,6 +12,7 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/crossmodelrelations"
+	apitesting "github.com/juju/juju/api/testing"
 	coretesting "github.com/juju/juju/testing"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 )
