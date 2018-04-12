@@ -1040,9 +1040,9 @@ func (s *UnitSuite) TestUnitWaitAgentPresence(c *gc.C) {
 }
 
 func (s *UnitSuite) TestResolve(c *gc.C) {
-	err := s.unit.Resolve(false)
+	err := s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
-	err = s.unit.Resolve(true)
+	err = s.unit.Resolve(false)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
 	now := coretesting.NonZeroTime()
@@ -1053,17 +1053,17 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	}
 	err = s.unit.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Resolve(false)
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(true)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.Resolve(false)
 	c.Assert(err, gc.ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
 	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedRetryHooks)
 
 	err = s.unit.ClearResolved()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Resolve(true)
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
 	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedNoHooks)
 }
